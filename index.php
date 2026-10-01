@@ -9,19 +9,19 @@ $config = is_readable($cfgPath) ? require $cfgPath : ['app_name' => 'OnTrack Voi
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07090d">
   <title><?= htmlspecialchars((string)($config['app_name'] ?? 'OnTrack Voice Demo')) ?></title>
-  <link rel="stylesheet" href="assets/app.css?v=037">
+  <link rel="stylesheet" href="assets/app.css?v=038">
 </head>
 <body>
 <div class="shell">
   <header>
-    <div><span class="dot"></span><b>OnTrack Voice Demo</b><small>Gemini 3.8 Interactions + VoiceTut Direct</small></div>
+    <div><span class="dot"></span><b>OnTrack Voice Demo</b><small>Gemini 3.8 + VoiceTut Multi-Space</small></div>
     <div id="engineBadge" class="badge">فحص المحركات…</div>
   </header>
   <main>
     <section class="hero">
       <div class="orb" id="orb"><div class="ring r1"></div><div class="ring r2"></div><span id="orbText">جاهز</span></div>
       <h1>مكالمة صوتية تجريبية</h1>
-      <p>العقل Gemini 3.8 بالـInteractions API، والصوت VoiceTut المصري بيتنادى مباشرة من المتصفح.</p>
+      <p>العقل Gemini 3.8 بمسارين تلقائيين، والصوت VoiceTut المصري بيلف على أكتر من Space لو واحد مش متاح.</p>
 
       <div class="controls">
         <label>الصوت المصري
@@ -54,7 +54,7 @@ $config = is_readable($cfgPath) ? require $cfgPath : ['app_name' => 'OnTrack Voi
         <button id="stopBtn" class="danger" disabled>إنهاء</button>
       </div>
 
-      <div class="hint">لو VoiceTut متاح هتشوف اسمه والصوت المختار تحت. الـDevice fallback مش هيشتغل إلا لو الـSpace نفسه رفض الطلب أو خلصت حصة ZeroGPU.</div>
+      <div class="hint">VoiceTut بيجرب أكتر من Space تلقائيًا. لو كلهم مش متاحين يروح لـEdge، وصوت الجهاز آخر حل فقط.</div>
     </section>
 
     <section class="conversation" id="conversation"></section>
@@ -67,6 +67,6 @@ $config = is_readable($cfgPath) ? require $cfgPath : ['app_name' => 'OnTrack Voi
     </section>
   </main>
 </div>
-<script type="module" src="assets/app.js?v=037"></script>
+<script type="module" src="assets/app.js?v=038"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 {
-  "version": "0.3.7",
+  "version": "0.3.8",
   "channel": "demo",
-  "stack": "PHP + Gemini 3.8 Interactions + VoiceTut Browser Gradio Client",
+  "stack": "Gemini 3.8 dual-route + VoiceTut multi-space + Edge fallback",
   "updated": "2026-10-01"
 }

@@ -7,6 +7,13 @@ const stopBtn = $('#stopBtn');
 const orb = $('#orb');
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+const VOICETUT_SPACES = [
+  'mohammedaly22/VoiceTut-TTS',
+  'a7mid/VoiceTut-TTS',
+  'danibrahim/VoiceTut-TTS',
+  'ahmedffffff/VoiceTut-TTS'
+];
+
 let rec = null;
 let active = false;
 let speaking = false;
@@ -14,8 +21,10 @@ let busy = false;
 let restartTimer = null;
 let currentAudio = null;
 let previousInteractionId = null;
-let voiceTutClientPromise = null;
-let voiceTutEndpoint = null;
+let chatHistory = [];
+let lastTranscript = '';
+let lastTranscriptAt = 0;
+const clients = new Map();
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -40,7 +49,7 @@ async function status() {
     const j = await r.json();
     $('#engineBadge').textContent = j.gemini_configured ? 'Gemini 3.8 + VoiceTut' : 'Gemini غير مضبوط';
     $('#aiState').textContent = j.gemini_configured ? j.gemini_model : 'غير مضبوط';
-    $('#ttsState').textContent = 'VoiceTut مباشر';
+    $('#ttsState').textContent = 'VoiceTut متعدد المصادر';
   } catch (e) {
     $('#engineBadge').textContent = 'تعذر فحص المحركات';
   }
@@ -71,34 +80,40 @@ function browserSpeak(text) {
   });
 }
 
-async function getVoiceTutClient() {
-  if (!voiceTutClientPromise) {
-    voiceTutClientPromise = Client.connect('mohammedaly22/VoiceTut-TTS', {
-      events: ['status', 'data']
-    });
+function withTimeout(promise, ms, label) {
+  let timer;
+  return Promise.race([
+    promise.finally(() => clearTimeout(timer)),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(label + ' timeout')), ms);
+    })
+  ]);
+}
+
+async function connectSpace(space) {
+  if (!clients.has(space)) {
+    clients.set(space, withTimeout(Client.connect(space), 18000, space + ' connect'));
   }
-  const client = await voiceTutClientPromise;
-  if (!voiceTutEndpoint) {
-    try {
-      const api = await client.view_api();
-      const named = api?.named_endpoints || {};
-      const names = Object.keys(named);
-      voiceTutEndpoint =
-        names.find(n => n.includes('run_b_oneshot')) ||
-        names.find(n => /oneshot/i.test(n)) ||
-        '/run_b_oneshot';
-    } catch (e) {
-      voiceTutEndpoint = '/run_b_oneshot';
-    }
+  return clients.get(space);
+}
+
+async function resolveEndpoint(client) {
+  try {
+    const api = await withTimeout(client.view_api(), 10000, 'view_api');
+    const names = Object.keys(api?.named_endpoints || {});
+    return names.find(n => /run_b_oneshot/i.test(n))
+        || names.find(n => /oneshot/i.test(n))
+        || names.find(n => /run_b/i.test(n))
+        || '/run_b_oneshot';
+  } catch (e) {
+    return '/run_b_oneshot';
   }
-  return client;
 }
 
 function findAudioUrl(node) {
   if (!node) return null;
   if (typeof node === 'string') {
-    if (/^https?:\/\//i.test(node)) return node;
-    return null;
+    return /^https?:\/\//i.test(node) ? node : null;
   }
   if (Array.isArray(node)) {
     for (const child of node) {
@@ -109,7 +124,6 @@ function findAudioUrl(node) {
   }
   if (typeof node === 'object') {
     if (typeof node.url === 'string' && /^https?:\/\//i.test(node.url)) return node.url;
-    if (typeof node.path === 'string' && /^https?:\/\//i.test(node.path)) return node.path;
     for (const child of Object.values(node)) {
       const found = findAudioUrl(child);
       if (found) return found;
@@ -129,25 +143,77 @@ async function playUrl(url) {
 }
 
 async function voiceTutSpeak(text) {
-  const client = await getVoiceTutClient();
   const speaker = $('#speaker').value;
-  $('#ttsState').textContent = 'VoiceTut: في الطابور…';
+  const errors = [];
 
-  const result = await client.predict(voiceTutEndpoint, [
-    speaker,
-    text,
-    'العربية (Egyptian)',
-    48,
-    2.5,
-    0.95,
-    true
-  ]);
+  for (const space of VOICETUT_SPACES) {
+    try {
+      $('#ttsState').textContent = 'VoiceTut: ' + space.split('/')[0] + '…';
+      const client = await connectSpace(space);
+      const endpoint = await resolveEndpoint(client);
 
-  const url = findAudioUrl(result?.data);
-  if (!url) throw new Error('VoiceTut returned no playable audio URL');
+      const result = await withTimeout(
+        client.predict(endpoint, [
+          speaker,
+          text,
+          'العربية (Egyptian)',
+          48,
+          2.5,
+          0.95,
+          true
+        ]),
+        50000,
+        space + ' predict'
+      );
 
-  $('#ttsState').textContent = 'VoiceTut: ' + speaker;
-  await playUrl(url);
+      const url = findAudioUrl(result?.data);
+      if (!url) throw new Error('no audio url');
+
+      $('#ttsState').textContent = 'VoiceTut: ' + speaker;
+      await playUrl(url);
+      return;
+    } catch (e) {
+      errors.push(space + ': ' + (e?.message || e));
+      clients.delete(space);
+    }
+  }
+
+  throw new Error(errors.join(' | '));
+}
+
+async function edgeFallback(text) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+  try {
+    const r = await fetch('api/tts.php', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        text,
+        speaker: $('#speaker').value,
+        rate: '-4%'
+      })
+    });
+
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.detail || j.error || 'edge fallback failed');
+    }
+
+    $('#ttsState').textContent = r.headers.get('X-TTS-Engine') || 'Edge Egyptian fallback';
+    const blob = await r.blob();
+    if (!blob.size) throw new Error('empty Edge audio');
+
+    const url = URL.createObjectURL(blob);
+    try {
+      await playUrl(url);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function speak(text) {
@@ -158,14 +224,27 @@ async function speak(text) {
   try {
     await voiceTutSpeak(text);
   } catch (e) {
-    console.warn('VoiceTut failed:', e);
-    $('#ttsState').textContent = 'VoiceTut غير متاح — Device fallback';
-    await browserSpeak(text);
+    console.warn('All VoiceTut spaces failed:', e);
+    try {
+      $('#ttsState').textContent = 'VoiceTut غير متاح — Edge…';
+      await edgeFallback(text);
+    } catch (e2) {
+      console.warn('Edge fallback failed:', e2);
+      $('#ttsState').textContent = 'Device fallback';
+      await browserSpeak(text);
+    }
   } finally {
     speaking = false;
     busy = false;
-    if (active) setTimeout(startRec, 450);
+    if (active) setTimeout(startRec, 500);
   }
+}
+
+function shortError(j) {
+  if (j?.status === 429 || j?.detail?.code === 429 || j?.interactions_http === 429) return '429: حصة Gemini';
+  if (j?.status) return 'HTTP ' + j.status;
+  if (j?.interactions_http) return 'HTTP ' + j.interactions_http;
+  return j?.error || 'Gemini error';
 }
 
 async function think(text) {
@@ -179,25 +258,31 @@ async function think(text) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         text,
-        previous_interaction_id: previousInteractionId
+        previous_interaction_id: previousInteractionId,
+        history: chatHistory.slice(-10)
       })
     });
 
     const j = await r.json();
-    if (!r.ok || !j.ok) throw new Error(j.detail || j.error || 'brain_failed');
+    if (!r.ok || !j.ok) {
+      $('#aiState').textContent = shortError(j);
+      console.error('Gemini API detail:', j);
+      throw Object.assign(new Error(shortError(j)), {api: j});
+    }
 
     if (j.interaction_id) previousInteractionId = j.interaction_id;
-    $('#aiState').textContent = j.model || 'Gemini 3.8';
+    $('#aiState').textContent = (j.model || 'Gemini 3.8') + ' · ' + (j.route || '');
     msg('bot', j.answer);
+
+    chatHistory.push({role:'user', text});
+    chatHistory.push({role:'assistant', text:j.answer});
+    chatHistory = chatHistory.slice(-12);
+
     await speak(j.answer);
   } catch (e) {
-    console.error(e);
-    $('#aiState').textContent = 'Gemini error';
-    busy = true;
-    const detail = String(e?.message || 'unknown error');
+    if (!e?.api) $('#aiState').textContent = e?.message || 'Gemini error';
     const t = 'حصل خطأ وأنا بكلم جوجل. جرّب تاني.';
     msg('bot', t);
-    console.warn('Gemini detail:', detail);
     await speak(t);
   }
 }
@@ -218,12 +303,17 @@ function buildRec() {
   r.onresult = e => {
     if (busy || speaking) return;
     const t = e.results[0][0].transcript.trim();
-    if (t) {
-      busy = true;
-      safeStopRec();
-      msg('user', t);
-      think(t);
-    }
+    if (!t) return;
+
+    const now = Date.now();
+    if (t === lastTranscript && now - lastTranscriptAt < 5000) return;
+    lastTranscript = t;
+    lastTranscriptAt = now;
+
+    busy = true;
+    safeStopRec();
+    msg('user', t);
+    think(t);
   };
 
   r.onerror = e => {
@@ -272,6 +362,9 @@ callBtn.onclick = async () => {
   active = true;
   busy = true;
   previousInteractionId = null;
+  chatHistory = [];
+  lastTranscript = '';
+  lastTranscriptAt = 0;
   callBtn.disabled = true;
   stopBtn.disabled = false;
   $('#sttState').textContent = 'ar-EG';
@@ -297,5 +390,6 @@ window.addEventListener('load', () => {
   status();
   if (!SR) $('#sttState').textContent = 'غير مدعوم';
   else $('#sttState').textContent = 'جاهز';
-  getVoiceTutClient().catch(e => console.warn('VoiceTut preload:', e));
+
+  connectSpace(VOICETUT_SPACES[0]).catch(() => {});
 });
