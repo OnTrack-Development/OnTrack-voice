@@ -1,0 +1,58 @@
+{
+  "company": {
+    "name": "OnTrack Development",
+    "website": "https://ontrackegy.com/",
+    "client_portal": "https://services.ontrackegy.com/",
+    "whatsapp_saas": "https://whatsapp.ontrackegy.com/",
+    "summary_ar": "أون تراك ديفيلوبمنت شركة بتقدم استضافة مواقع وخوادم ونسخ احتياطي ودعم وصيانة واستضافة Manager.io وتراخيص وإضافات وخدمات واتساب للأعمال."
+  },
+  "services": [
+    {
+      "id": 6,
+      "name": "Starter Plan",
+      "category": "Web Hosting",
+      "monthly_usd": 5.99,
+      "yearly_usd": 50,
+      "yearly_egp": 2550,
+      "features": ["Unlimited Space subject to FUP", "Unlimited Email Accounts", "Unlimited Databases", "1x 4200MHz CPU", "1GB DDR4 ECC RAM", "Unlimited Bandwidth"],
+      "order_url": "https://services.ontrackegy.com/cart.php?a=add&pid=6",
+      "best_for": "موقع شركة أو موقع تعريفي وبريد أعمال على استضافة مشتركة"
+    },
+    {
+      "id": 75,
+      "name": "Reseller 15 users",
+      "category": "Reseller Hosting",
+      "monthly_usd": 14,
+      "yearly_usd": 120,
+      "monthly_egp": 714,
+      "yearly_egp": 6120,
+      "features": ["100GB NVMe", "15 hosting accounts", "Unlimited Bandwidth", "Private DNS", "Free domain"],
+      "order_url": "https://services.ontrackegy.com/cart.php?a=add&pid=75",
+      "best_for": "أكثر من موقع أو حسابات استضافة منفصلة تحت WHM"
+    },
+    {
+      "id": 74,
+      "name": "Support & Website Maintenance",
+      "category": "Support",
+      "features": ["Website support", "Maintenance", "Troubleshooting"],
+      "best_for": "العملاء اللي محتاجين متابعة وصيانة للموقع"
+    },
+    {"name":"VPS Hosting","category":"Servers","best_for":"مشروعات تحتاج موارد وتحكم أكبر من الاستضافة المشتركة"},
+    {"name":"Dedicated Servers","category":"Servers","best_for":"أحمال كبيرة أو احتياج لسيرفر كامل"},
+    {"name":"External Backup","category":"Backup","best_for":"نسخ احتياطي خارجي مستقل"},
+    {"name":"Manager.io Hosting","category":"Business Apps","best_for":"تشغيل Manager.io على سيرفر متاح أونلاين"},
+    {"name":"Licenses & Add-ons","category":"Licenses","best_for":"تراخيص وإضافات متعلقة بالاستضافة والخوادم"},
+    {"name":"Radio Hosting","category":"Streaming","best_for":"بث إذاعي أونلاين"},
+    {"name":"WhatsApp Automation","category":"Automation","best_for":"أتمتة واتساب للأعمال والإشعارات"}
+  ],
+  "demo_invoices": [
+    {"invoice":"DEMO-1001","client":"Abu Nakhla Feed","status":"Unpaid","issue_date":"2026-09-20","due_date":"2026-10-05","items":[{"description":"Starter Plan - 1 Year","amount_egp":2550},{"description":".com Domain - 1 Year","amount_egp":765}],"total_egp":3315},
+    {"invoice":"DEMO-1002","client":"Delta Trade Demo","status":"Paid","issue_date":"2026-09-01","due_date":"2026-09-08","items":[{"description":"Reseller 15 users - 1 Year","amount_egp":6120}],"total_egp":6120},
+    {"invoice":"DEMO-1003","client":"Nile Office Demo","status":"Unpaid","issue_date":"2026-09-28","due_date":"2026-10-10","items":[{"description":"Support & Website Maintenance","amount_egp":3000}],"total_egp":3000}
+  ],
+  "policies": [
+    "بيانات الفواتير الموجودة هنا Demo فقط وليست بيانات عملاء حقيقية.",
+    "لا تطلب كلمة مرور أو بيانات دخول داخل المحادثة التجريبية.",
+    "لو السؤال يحتاج بيانات حقيقية من WHMCS، وضح أن النسخة الحالية Demo وغير متصلة بالنظام الفعلي."
+  ]
+}

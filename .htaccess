@@ -1,8 +1,9 @@
 Options -Indexes
-<FilesMatch "^(config\.php|demo_config\.php|knowledge\.json|README_AR\.md|version\.json)$">
+<FilesMatch "^(config\.php|demo_config\.php|demo_config\.local\.php|knowledge\.json|README_AR\.md|version\.json)$">
   Require all denied
 </FilesMatch>
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "no-referrer"
 </IfModule>

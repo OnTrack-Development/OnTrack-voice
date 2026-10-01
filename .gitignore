@@ -1,3 +1,4 @@
 .devbridge/
 logs/*.log
 *.zip
+api/demo_config.local.php
