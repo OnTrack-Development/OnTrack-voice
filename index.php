@@ -9,12 +9,12 @@ $config = is_readable($cfgPath) ? require $cfgPath : ['app_name' => 'OnTrack Voi
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07090d">
   <title><?= htmlspecialchars((string)($config['app_name'] ?? 'OnTrack Voice Demo')) ?></title>
-  <link rel="stylesheet" href="assets/app.css?v=032">
+  <link rel="stylesheet" href="assets/app.css?v=034">
 </head>
 <body>
 <div class="shell">
   <header>
-    <div><span class="dot"></span><b>OnTrack Voice Demo</b><small>Gemini + Free Neural Voice</small></div>
+    <div><span class="dot"></span><b>OnTrack Voice Demo</b><small>Gemini 3.8 Brain + Gemini 3.8 TTS</small></div>
     <div id="engineBadge" class="badge">فحص المحركات…</div>
   </header>
 
@@ -22,18 +22,18 @@ $config = is_readable($cfgPath) ? require $cfgPath : ['app_name' => 'OnTrack Voi
     <section class="hero">
       <div class="orb" id="orb"><div class="ring r1"></div><div class="ring r2"></div><span id="orbText">جاهز</span></div>
       <h1>مكالمة صوتية تجريبية</h1>
-      <p>Gemini هو العقل، والصوت المصري Neural مجاني بدون مفتاح صوت.</p>
+      <p>Gemini 3.8 للعقل، وGemini 3.8 TTS للصوت المصري الطبيعي.</p>
 
       <div class="controls">
         <label>الصوت
           <select id="gender">
-            <option value="male">راجل مصري — Shakir</option>
-            <option value="female">ست مصرية — Salma</option>
+            <option value="male">راجل مصري — Charon</option>
+            <option value="female">ست مصرية — Sulafat</option>
           </select>
         </label>
         <label>سرعة الصوت
           <select id="rate">
-            <option value="-8%">هادئ</option>
+            <option value="-8%">أهدى</option>
             <option value="+0%" selected>طبيعي</option>
             <option value="+8%">أسرع</option>
           </select>
@@ -41,6 +41,7 @@ $config = is_readable($cfgPath) ? require $cfgPath : ['app_name' => 'OnTrack Voi
         <button id="callBtn" class="primary">ابدأ المكالمة</button>
         <button id="stopBtn" class="danger" disabled>إنهاء</button>
       </div>
+
       <div class="hint">جرّب: «رشحلي استضافة لشركة أبو نخلة» — «قولي تفاصيل DEMO-1001» — «إيه الفرق بين Starter والـReseller؟»</div>
     </section>
 
@@ -54,6 +55,6 @@ $config = is_readable($cfgPath) ? require $cfgPath : ['app_name' => 'OnTrack Voi
     </section>
   </main>
 </div>
-<script type="module" src="assets/app.js?v=032"></script>
+<script type="module" src="assets/app.js?v=034"></script>
 </body>
 </html>

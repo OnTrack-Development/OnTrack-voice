@@ -35,7 +35,7 @@ async function status() {
     const j = await r.json();
     $('#engineBadge').textContent = j.gemini_configured ? 'Gemini + Free Edge TTS' : 'Gemini غير مضبوط';
     $('#aiState').textContent = j.gemini_configured ? j.gemini_model : 'غير مضبوط';
-    $('#ttsState').textContent = 'Edge Neural — بدون Key';
+    $('#ttsState').textContent = j.tts_engine || 'Gemini 3.8 TTS';
   } catch (e) {
     $('#engineBadge').textContent = 'تعذر فحص المحركات';
   }
@@ -66,7 +66,7 @@ function browserSpeak(text) {
   });
 }
 
-async function serverEdgeSpeak(text) {
+async function serverNaturalSpeak(text) {
   const r = await fetch('api/tts.php', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -98,10 +98,10 @@ async function speak(text) {
   state('برد عليك…', 'speaking');
   safeStopRec();
   try {
-    $('#ttsState').textContent = 'Edge Neural';
-    await serverEdgeSpeak(text);
+    $('#ttsState').textContent = 'Gemini 3.8 TTS';
+    await serverNaturalSpeak(text);
   } catch (e) {
-    console.warn('Edge TTS fallback:', e);
+    console.warn('Gemini 3.8 TTS fallback:', e);
     $('#ttsState').textContent = 'Browser fallback';
     await browserSpeak(text);
   } finally {

@@ -1,6 +1,6 @@
 {
-  "version": "0.3.2",
+  "version": "0.3.4",
   "channel": "demo",
-  "stack": "PHP + Gemini + Edge TTS",
+  "stack": "PHP + Gemini 3.8 Flash + Gemini 3.8 Flash TTS",
   "updated": "2026-10-01"
 }
