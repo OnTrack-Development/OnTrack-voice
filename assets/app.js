@@ -1,3 +1,5 @@
+import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+
 const $ = s => document.querySelector(s);
 const convo = $('#conversation');
 const callBtn = $('#callBtn');
@@ -8,9 +10,12 @@ const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null;
 let active = false;
 let speaking = false;
+let busy = false;
 let restartTimer = null;
 let currentAudio = null;
-let chatHistory = [];
+let previousInteractionId = null;
+let voiceTutClientPromise = null;
+let voiceTutEndpoint = null;
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -33,9 +38,9 @@ async function status() {
   try {
     const r = await fetch('api/status.php', {cache: 'no-store'});
     const j = await r.json();
-    $('#engineBadge').textContent = j.gemini_configured ? 'Gemini + Free Edge TTS' : 'Gemini غير مضبوط';
+    $('#engineBadge').textContent = j.gemini_configured ? 'Gemini 3.8 + VoiceTut' : 'Gemini غير مضبوط';
     $('#aiState').textContent = j.gemini_configured ? j.gemini_model : 'غير مضبوط';
-    $('#ttsState').textContent = j.tts_engine || 'No-key TTS';
+    $('#ttsState').textContent = 'VoiceTut مباشر';
   } catch (e) {
     $('#engineBadge').textContent = 'تعذر فحص المحركات';
   }
@@ -52,114 +57,147 @@ function stopAudio() {
 function browserSpeak(text) {
   return new Promise(resolve => {
     if (!('speechSynthesis' in window)) return resolve();
-
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'ar-EG';
-
     const voices = speechSynthesis.getVoices();
-    const gender = $('#gender')?.value || 'male';
-
-    const egyptian = voices.filter(v => /ar[-_]EG/i.test(v.lang));
-    const arabic = voices.filter(v => /^ar([-_]|$)/i.test(v.lang));
-
-    const maleHints = /male|man|shakir|hossam|omar|ahmed|mohamed/i;
-    const femaleHints = /female|woman|salma|hanan|yasmin|omnia|asmaa/i;
-
-    let preferred = null;
-    if (gender === 'female') {
-      preferred = egyptian.find(v => femaleHints.test(v.name)) || egyptian[0] ||
-                  arabic.find(v => femaleHints.test(v.name)) || arabic[0];
-    } else {
-      preferred = egyptian.find(v => maleHints.test(v.name)) || egyptian[0] ||
-                  arabic.find(v => maleHints.test(v.name)) || arabic[0];
-    }
-
-    if (preferred) u.voice = preferred;
-
-    const selectedRate = $('#rate')?.value || '-4%';
-    const rateMap = {'-8%':0.90,'-4%':0.95,'+0%':1.0,'+6%':1.06};
-    u.rate = rateMap[selectedRate] || 0.95;
-    u.pitch = gender === 'male' ? 0.96 : 1.02;
-    u.volume = 1;
-
+    const arEg = voices.find(v => /ar[-_]EG/i.test(v.lang));
+    const ar = arEg || voices.find(v => /^ar/i.test(v.lang));
+    if (ar) u.voice = ar;
+    u.rate = 0.96;
     u.onend = resolve;
     u.onerror = resolve;
-
     speechSynthesis.cancel();
     speechSynthesis.speak(u);
   });
 }
 
-async function serverEdgeSpeak(text) {
-  const r = await fetch('api/tts.php', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      text,
-      speaker: $('#speaker').value,
-      rate: $('#rate').value
-    })
-  });
-  if (!r.ok) {
-    let detail = 'tts_failed';
-    try { const j = await r.json(); detail = j.detail || j.error || detail; } catch (e) {}
-    throw new Error(detail);
+async function getVoiceTutClient() {
+  if (!voiceTutClientPromise) {
+    voiceTutClientPromise = Client.connect('mohammedaly22/VoiceTut-TTS', {
+      events: ['status', 'data']
+    });
   }
-  const engine = r.headers.get('X-TTS-Engine') || 'VoiceTut';
-  $('#ttsState').textContent = engine;
-  const blob = await r.blob();
-  if (!blob.size) throw new Error('empty_audio');
-  const url = URL.createObjectURL(blob);
+  const client = await voiceTutClientPromise;
+  if (!voiceTutEndpoint) {
+    try {
+      const api = await client.view_api();
+      const named = api?.named_endpoints || {};
+      const names = Object.keys(named);
+      voiceTutEndpoint =
+        names.find(n => n.includes('run_b_oneshot')) ||
+        names.find(n => /oneshot/i.test(n)) ||
+        '/run_b_oneshot';
+    } catch (e) {
+      voiceTutEndpoint = '/run_b_oneshot';
+    }
+  }
+  return client;
+}
+
+function findAudioUrl(node) {
+  if (!node) return null;
+  if (typeof node === 'string') {
+    if (/^https?:\/\//i.test(node)) return node;
+    return null;
+  }
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findAudioUrl(child);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof node === 'object') {
+    if (typeof node.url === 'string' && /^https?:\/\//i.test(node.url)) return node.url;
+    if (typeof node.path === 'string' && /^https?:\/\//i.test(node.path)) return node.path;
+    for (const child of Object.values(node)) {
+      const found = findAudioUrl(child);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+async function playUrl(url) {
   await new Promise((resolve, reject) => {
     const a = new Audio(url);
     currentAudio = a;
-    a.onended = () => { URL.revokeObjectURL(url); currentAudio = null; resolve(); };
-    a.onerror = () => { URL.revokeObjectURL(url); currentAudio = null; reject(new Error('audio_playback_failed')); };
-    a.play().catch(err => { URL.revokeObjectURL(url); currentAudio = null; reject(err); });
+    a.onended = () => { currentAudio = null; resolve(); };
+    a.onerror = () => { currentAudio = null; reject(new Error('audio_playback_failed')); };
+    a.play().catch(err => { currentAudio = null; reject(err); });
   });
+}
+
+async function voiceTutSpeak(text) {
+  const client = await getVoiceTutClient();
+  const speaker = $('#speaker').value;
+  $('#ttsState').textContent = 'VoiceTut: في الطابور…';
+
+  const result = await client.predict(voiceTutEndpoint, [
+    speaker,
+    text,
+    'العربية (Egyptian)',
+    48,
+    2.5,
+    0.95,
+    true
+  ]);
+
+  const url = findAudioUrl(result?.data);
+  if (!url) throw new Error('VoiceTut returned no playable audio URL');
+
+  $('#ttsState').textContent = 'VoiceTut: ' + speaker;
+  await playUrl(url);
 }
 
 async function speak(text) {
   speaking = true;
   state('برد عليك…', 'speaking');
   safeStopRec();
+
   try {
-    $('#ttsState').textContent = 'VoiceTut…';
-    await serverEdgeSpeak(text);
+    await voiceTutSpeak(text);
   } catch (e) {
-    console.warn('VoiceTut/Edge server TTS failed:', e);
-    $('#ttsState').textContent = 'Device fallback';
+    console.warn('VoiceTut failed:', e);
+    $('#ttsState').textContent = 'VoiceTut غير متاح — Device fallback';
     await browserSpeak(text);
   } finally {
     speaking = false;
-    if (active) setTimeout(startRec, 350);
+    busy = false;
+    if (active) setTimeout(startRec, 450);
   }
 }
 
 async function think(text) {
+  busy = true;
   state('بفكر…');
-  $('#aiState').textContent = 'Gemini بيفكر…';
+  $('#aiState').textContent = 'Gemini 3.8 بيفكر…';
+
   try {
-    const historyForApi = chatHistory.slice(-10);
     const r = await fetch('api/brain.php', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({text, history: historyForApi})
+      body: JSON.stringify({
+        text,
+        previous_interaction_id: previousInteractionId
+      })
     });
+
     const j = await r.json();
     if (!r.ok || !j.ok) throw new Error(j.detail || j.error || 'brain_failed');
 
-    $('#aiState').textContent = j.model || 'Gemini';
+    if (j.interaction_id) previousInteractionId = j.interaction_id;
+    $('#aiState').textContent = j.model || 'Gemini 3.8';
     msg('bot', j.answer);
-    chatHistory.push({role: 'user', text});
-    chatHistory.push({role: 'assistant', text: j.answer});
-    chatHistory = chatHistory.slice(-12);
     await speak(j.answer);
   } catch (e) {
     console.error(e);
     $('#aiState').textContent = 'Gemini error';
-    const t = 'حصل خطأ وأنا بكلم جوجل. جرّب تاني، ولو استمر افتح صفحة الفحص.';
+    busy = true;
+    const detail = String(e?.message || 'unknown error');
+    const t = 'حصل خطأ وأنا بكلم جوجل. جرّب تاني.';
     msg('bot', t);
+    console.warn('Gemini detail:', detail);
     await speak(t);
   }
 }
@@ -171,34 +209,47 @@ function buildRec() {
   r.interimResults = false;
   r.continuous = false;
   r.maxAlternatives = 1;
+
   r.onstart = () => {
     $('#micState').textContent = 'بيسمعك';
     state('سامعك…', 'listening');
   };
+
   r.onresult = e => {
+    if (busy || speaking) return;
     const t = e.results[0][0].transcript.trim();
     if (t) {
+      busy = true;
+      safeStopRec();
       msg('user', t);
       think(t);
     }
   };
+
   r.onerror = e => {
+    if (e.error === 'aborted') {
+      $('#sttState').textContent = 'جاهز';
+      return;
+    }
     $('#sttState').textContent = e.error;
-    if (active && !speaking && e.error !== 'not-allowed' && e.error !== 'service-not-allowed') restart();
+    if (active && !speaking && !busy && e.error !== 'not-allowed' && e.error !== 'service-not-allowed') restart();
   };
+
   r.onend = () => {
-    if (active && !speaking) restart();
+    if (active && !speaking && !busy) restart();
   };
+
   return r;
 }
 
 function restart() {
+  if (!active || speaking || busy) return;
   clearTimeout(restartTimer);
   restartTimer = setTimeout(startRec, 650);
 }
 
 function startRec() {
-  if (!active || speaking) return;
+  if (!active || speaking || busy) return;
   if (!rec) rec = buildRec();
   if (!rec) return;
   try { rec.start(); } catch (e) { restart(); }
@@ -217,11 +268,14 @@ callBtn.onclick = async () => {
     alert('المتصفح ده لا يدعم Speech Recognition. استخدم Chrome أو Edge حديث عبر HTTPS.');
     return;
   }
+
   active = true;
-  chatHistory = [];
+  busy = true;
+  previousInteractionId = null;
   callBtn.disabled = true;
   stopBtn.disabled = false;
   $('#sttState').textContent = 'ar-EG';
+
   const hello = 'أهلاً بيك في أون تراك. أنا الديمو الصوتي، اتفضل اسألني عن الخدمات أو فواتير الديمو.';
   msg('bot', hello);
   await speak(hello);
@@ -230,6 +284,8 @@ callBtn.onclick = async () => {
 stopBtn.onclick = () => {
   active = false;
   speaking = false;
+  busy = false;
+  previousInteractionId = null;
   safeStopRec();
   stopAudio();
   callBtn.disabled = false;
@@ -241,4 +297,5 @@ window.addEventListener('load', () => {
   status();
   if (!SR) $('#sttState').textContent = 'غير مدعوم';
   else $('#sttState').textContent = 'جاهز';
+  getVoiceTutClient().catch(e => console.warn('VoiceTut preload:', e));
 });

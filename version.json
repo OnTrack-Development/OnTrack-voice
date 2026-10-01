@@ -1,6 +1,6 @@
 {
-  "version": "0.3.6",
+  "version": "0.3.7",
   "channel": "demo",
-  "stack": "PHP + Gemini 3.8 Flash + VoiceTut-TTS HF Space",
+  "stack": "PHP + Gemini 3.8 Interactions + VoiceTut Browser Gradio Client",
   "updated": "2026-10-01"
 }
