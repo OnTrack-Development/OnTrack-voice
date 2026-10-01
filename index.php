@@ -9,30 +9,44 @@ $config = is_readable($cfgPath) ? require $cfgPath : ['app_name' => 'OnTrack Voi
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07090d">
   <title><?= htmlspecialchars((string)($config['app_name'] ?? 'OnTrack Voice Demo')) ?></title>
-  <link rel="stylesheet" href="assets/app.css?v=035">
+  <link rel="stylesheet" href="assets/app.css?v=036">
 </head>
 <body>
 <div class="shell">
   <header>
-    <div><span class="dot"></span><b>OnTrack Voice Demo</b><small>Gemini 3.8 Brain + Free No-Key Voice</small></div>
+    <div><span class="dot"></span><b>OnTrack Voice Demo</b><small>Gemini 3.8 + VoiceTut Egyptian TTS</small></div>
     <div id="engineBadge" class="badge">فحص المحركات…</div>
   </header>
   <main>
     <section class="hero">
       <div class="orb" id="orb"><div class="ring r1"></div><div class="ring r2"></div><span id="orbText">جاهز</span></div>
       <h1>مكالمة صوتية تجريبية</h1>
-      <p>العقل Gemini 3.8، والصوت من غير Voice API Key أو رصيد صوت.</p>
+      <p>العقل Gemini 3.8، والصوت VoiceTut متدرّب مخصوص على المصري.</p>
+
       <div class="controls">
-        <label>محرك الصوت
-          <select id="voiceEngine">
-            <option value="device" selected>صوت الجهاز — جرّبه الأول</option>
-            <option value="edge">Edge مصري — Shakir/Salma</option>
-          </select>
-        </label>
-        <label>الصوت
-          <select id="gender">
-            <option value="male">راجل</option>
-            <option value="female">ست</option>
+        <label>الصوت المصري
+          <select id="speaker">
+            <optgroup label="رجالة">
+              <option value="Abdullah" selected>Abdullah</option>
+              <option value="Mohamed">Mohamed</option>
+              <option value="Sayed">Sayed</option>
+              <option value="Hossam">Hossam</option>
+              <option value="Omar">Omar</option>
+              <option value="Ahmed">Ahmed</option>
+              <option value="Abdelrahman">Abdelrahman</option>
+              <option value="Kamal">Kamal</option>
+              <option value="Zaki">Zaki</option>
+              <option value="Aly">Aly</option>
+              <option value="Essam">Essam</option>
+            </optgroup>
+            <optgroup label="ستات">
+              <option value="Esraa">Esraa</option>
+              <option value="Asmaa">Asmaa</option>
+              <option value="Hanan">Hanan</option>
+              <option value="Sarah">Sarah</option>
+              <option value="Yasmin">Yasmin</option>
+              <option value="Omnia">Omnia</option>
+            </optgroup>
           </select>
         </label>
         <label>السرعة
@@ -46,9 +60,12 @@ $config = is_readable($cfgPath) ? require $cfgPath : ['app_name' => 'OnTrack Voi
         <button id="callBtn" class="primary">ابدأ المكالمة</button>
         <button id="stopBtn" class="danger" disabled>إنهاء</button>
       </div>
-      <div class="hint">صوت الجهاز مفيهوش API أصلًا. لو مش عاجبك بدّل لـ Edge وقارن الاتنين.</div>
+
+      <div class="hint">VoiceTut هو الأساسي. لو الـSpace المجاني نايم أو مزدحم، النظام يحوّل تلقائيًا لـEdge ثم صوت الجهاز.</div>
     </section>
+
     <section class="conversation" id="conversation"></section>
+
     <section class="debug">
       <span>الميكروفون: <b id="micState">متوقف</b></span>
       <span>العقل: <b id="aiState">—</b></span>
@@ -57,6 +74,6 @@ $config = is_readable($cfgPath) ? require $cfgPath : ['app_name' => 'OnTrack Voi
     </section>
   </main>
 </div>
-<script type="module" src="assets/app.js?v=035"></script>
+<script type="module" src="assets/app.js?v=036"></script>
 </body>
 </html>

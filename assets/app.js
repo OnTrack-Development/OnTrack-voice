@@ -96,7 +96,7 @@ async function serverEdgeSpeak(text) {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
       text,
-      gender: $('#gender').value,
+      speaker: $('#speaker').value,
       rate: $('#rate').value
     })
   });
@@ -105,6 +105,8 @@ async function serverEdgeSpeak(text) {
     try { const j = await r.json(); detail = j.detail || j.error || detail; } catch (e) {}
     throw new Error(detail);
   }
+  const engine = r.headers.get('X-TTS-Engine') || 'VoiceTut';
+  $('#ttsState').textContent = engine;
   const blob = await r.blob();
   if (!blob.size) throw new Error('empty_audio');
   const url = URL.createObjectURL(blob);
@@ -121,28 +123,13 @@ async function speak(text) {
   speaking = true;
   state('برد عليك…', 'speaking');
   safeStopRec();
-  const engine = $('#voiceEngine')?.value || 'device';
   try {
-    if (engine === 'device') {
-      $('#ttsState').textContent = 'Device TTS';
-      await browserSpeak(text);
-    } else {
-      $('#ttsState').textContent = 'Edge Egyptian';
-      await serverEdgeSpeak(text);
-    }
+    $('#ttsState').textContent = 'VoiceTut…';
+    await serverEdgeSpeak(text);
   } catch (e) {
-    console.warn('Primary TTS failed:', e);
-    try {
-      if (engine === 'device') {
-        $('#ttsState').textContent = 'Edge fallback';
-        await serverEdgeSpeak(text);
-      } else {
-        $('#ttsState').textContent = 'Device fallback';
-        await browserSpeak(text);
-      }
-    } catch (e2) {
-      console.error('Both TTS engines failed:', e2);
-    }
+    console.warn('VoiceTut/Edge server TTS failed:', e);
+    $('#ttsState').textContent = 'Device fallback';
+    await browserSpeak(text);
   } finally {
     speaking = false;
     if (active) setTimeout(startRec, 350);

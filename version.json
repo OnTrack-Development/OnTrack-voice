@@ -1,6 +1,6 @@
 {
-  "version": "0.3.5",
+  "version": "0.3.6",
   "channel": "demo",
-  "stack": "PHP + Gemini 3.8 Flash + No-Key TTS",
+  "stack": "PHP + Gemini 3.8 Flash + VoiceTut-TTS HF Space",
   "updated": "2026-10-01"
 }

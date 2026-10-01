@@ -5,12 +5,12 @@ json_out([
     'gemini_configured' => !empty($config['gemini_api_key']),
     'gemini_model' => $config['gemini_model'],
     'gemini_thinking_level' => $config['gemini_thinking_level'] ?? 'low',
-    'tts_engine' => 'No-key TTS: Device + Edge Read Aloud',
+    'tts_engine' => 'VoiceTut-TTS via free Hugging Face Space',
+    'tts_fallback' => 'Edge Egyptian',
     'voice_api_key_required' => false,
-    'voices' => [
-        'male' => $config['male_voice'],
-        'female' => $config['female_voice'],
+    'voicetut_speakers' => [
+        'male' => ['Abdelrahman','Abdullah','Kamal','Hossam','Mohamed','Omar','Sayed','Zaki','Aly','Essam','Ahmed'],
+        'female' => ['Asmaa','Esraa','Hanan','Sarah','Yasmin','Omnia']
     ],
-    'dialect' => 'Egyptian Arabic',
     'company' => $config['company_name'],
 ]);
