@@ -35,7 +35,7 @@ async function status() {
     const j = await r.json();
     $('#engineBadge').textContent = j.gemini_configured ? 'Gemini + Free Edge TTS' : 'Gemini غير مضبوط';
     $('#aiState').textContent = j.gemini_configured ? j.gemini_model : 'غير مضبوط';
-    $('#ttsState').textContent = j.tts_engine || 'Gemini 3.8 TTS';
+    $('#ttsState').textContent = j.tts_engine || 'No-key TTS';
   } catch (e) {
     $('#engineBadge').textContent = 'تعذر فحص المحركات';
   }
@@ -52,21 +52,45 @@ function stopAudio() {
 function browserSpeak(text) {
   return new Promise(resolve => {
     if (!('speechSynthesis' in window)) return resolve();
+
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'ar-EG';
+
     const voices = speechSynthesis.getVoices();
-    const arEg = voices.find(v => /ar[-_]EG/i.test(v.lang));
-    const ar = arEg || voices.find(v => /^ar/i.test(v.lang));
-    if (ar) u.voice = ar;
-    u.rate = 0.98;
+    const gender = $('#gender')?.value || 'male';
+
+    const egyptian = voices.filter(v => /ar[-_]EG/i.test(v.lang));
+    const arabic = voices.filter(v => /^ar([-_]|$)/i.test(v.lang));
+
+    const maleHints = /male|man|shakir|hossam|omar|ahmed|mohamed/i;
+    const femaleHints = /female|woman|salma|hanan|yasmin|omnia|asmaa/i;
+
+    let preferred = null;
+    if (gender === 'female') {
+      preferred = egyptian.find(v => femaleHints.test(v.name)) || egyptian[0] ||
+                  arabic.find(v => femaleHints.test(v.name)) || arabic[0];
+    } else {
+      preferred = egyptian.find(v => maleHints.test(v.name)) || egyptian[0] ||
+                  arabic.find(v => maleHints.test(v.name)) || arabic[0];
+    }
+
+    if (preferred) u.voice = preferred;
+
+    const selectedRate = $('#rate')?.value || '-4%';
+    const rateMap = {'-8%':0.90,'-4%':0.95,'+0%':1.0,'+6%':1.06};
+    u.rate = rateMap[selectedRate] || 0.95;
+    u.pitch = gender === 'male' ? 0.96 : 1.02;
+    u.volume = 1;
+
     u.onend = resolve;
     u.onerror = resolve;
+
     speechSynthesis.cancel();
     speechSynthesis.speak(u);
   });
 }
 
-async function serverNaturalSpeak(text) {
+async function serverEdgeSpeak(text) {
   const r = await fetch('api/tts.php', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -97,13 +121,28 @@ async function speak(text) {
   speaking = true;
   state('برد عليك…', 'speaking');
   safeStopRec();
+  const engine = $('#voiceEngine')?.value || 'device';
   try {
-    $('#ttsState').textContent = 'Gemini 3.8 TTS';
-    await serverNaturalSpeak(text);
+    if (engine === 'device') {
+      $('#ttsState').textContent = 'Device TTS';
+      await browserSpeak(text);
+    } else {
+      $('#ttsState').textContent = 'Edge Egyptian';
+      await serverEdgeSpeak(text);
+    }
   } catch (e) {
-    console.warn('Gemini 3.8 TTS fallback:', e);
-    $('#ttsState').textContent = 'Browser fallback';
-    await browserSpeak(text);
+    console.warn('Primary TTS failed:', e);
+    try {
+      if (engine === 'device') {
+        $('#ttsState').textContent = 'Edge fallback';
+        await serverEdgeSpeak(text);
+      } else {
+        $('#ttsState').textContent = 'Device fallback';
+        await browserSpeak(text);
+      }
+    } catch (e2) {
+      console.error('Both TTS engines failed:', e2);
+    }
   } finally {
     speaking = false;
     if (active) setTimeout(startRec, 350);
