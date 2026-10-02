@@ -416,14 +416,13 @@ async function startMicrophone() {
   processor.connect(muteGain);
   muteGain.connect(inputCtx.destination);
 
-  setStatus(micState, 'بيسمعك');
+  syncMicStatus();
   setStatus(liveState, 'متصل ومستعد');
   setSessionState('live', 'LIVE');
   state('سامعك…', 'listening');
 
   muteBtn.disabled = false;
   if (popupMuteBtn) popupMuteBtn.disabled = false;
-  $('.idea').forEach(b => b.disabled = false);
 }
 
 async function stopMicrophone() {
@@ -520,10 +519,15 @@ async function handleLiveMessage(message) {
         await startMicrophone();
       } catch (err) {
         console.error('Microphone error:', err);
-        setStatus(micState, 'مرفوض');
-        setStatus(liveState, 'اسمح بالميكروفون وجرب تاني');
+        const permissionDenied = err?.name === 'NotAllowedError' || err?.name === 'SecurityError';
+
+        setStatus(micState, permissionDenied ? 'الإذن مرفوض' : 'خطأ');
+        setStatus(
+          liveState,
+          permissionDenied ? 'اسمح بالميكروفون وجرب تاني' : 'تعذر تجهيز الميكروفون'
+        );
         setSessionState('error', 'MIC ERROR');
-        state('محتاج إذن الميكروفون');
+        state(permissionDenied ? 'محتاج إذن الميكروفون' : 'خطأ في الميكروفون');
       }
       return;
     }
@@ -533,6 +537,18 @@ async function handleLiveMessage(message) {
       state(muted ? 'الميكروفون مكتوم' : 'سامعك…', muted ? '' : 'listening');
     }
   }
+}
+
+function syncMicStatus() {
+  const track = micStream?.getAudioTracks?.()[0];
+  const isLive = !!track && track.readyState === 'live';
+
+  if (!isLive) {
+    setStatus(micState, active ? 'غير متاح' : 'متوقف');
+    return;
+  }
+
+  setStatus(micState, muted || !track.enabled ? 'مكتوم' : 'شغال');
 }
 
 function setMuted(next) {
@@ -550,7 +566,7 @@ function setMuted(next) {
   if (popupMuteText) popupMuteText.textContent = muted ? 'فتح الميكروفون' : 'كتم';
   if (popupMuteIcon) popupMuteIcon.textContent = muted ? '○' : '◉';
 
-  setStatus(micState, muted ? 'مكتوم' : (active ? 'بيسمعك' : 'متوقف'));
+  syncMicStatus();
 
   if (active) {
     state(muted ? 'الميكروفون مكتوم' : 'سامعك…', muted ? '' : 'listening');
@@ -577,7 +593,6 @@ async function startCall() {
   if (popupStopBtn) popupStopBtn.disabled = false;
   if (popupMuteBtn) popupMuteBtn.disabled = true;
   voiceSelect.disabled = true;
-  $$('.idea').forEach(b => b.disabled = true);
 
   const selectedVoice = voiceSelect.value;
   localStorage.setItem(VOICE_KEY, selectedVoice);
@@ -693,7 +708,6 @@ async function stopCall(userInitiated=true) {
   if (popupStopBtn) popupStopBtn.disabled = true;
   if (popupMuteBtn) popupMuteBtn.disabled = true;
   voiceSelect.disabled = false;
-  $$('.idea').forEach(b => b.disabled = true);
 
   setSessionState('ready', 'READY');
   closeChatPopup(false);
@@ -719,27 +733,6 @@ voiceSelect.addEventListener('change', () => {
   setStatus(voiceState, voiceSelect.value);
 });
 
-$$('.idea').forEach(btn => {
-  btn.disabled = true;
-  btn.addEventListener('click', () => {
-    if (!active || !liveSession || !liveReady) {
-      toastState('ابدأ المكالمة الأول');
-      return;
-    }
-
-    const prompt = btn.dataset.prompt || btn.textContent.trim();
-    if (!prompt) return;
-
-    closeTranscriptTurn();
-    lastUserIntent = prompt;
-
-    const bubble = makeBubble('user');
-    bubble.querySelector('span').textContent = prompt;
-    bubble.scrollIntoView({behavior:'smooth', block:'end'});
-
-    liveSession.sendRealtimeInput({ text: prompt });
-  });
-});
 
 clearTranscript.addEventListener('click', resetTranscript);
 
