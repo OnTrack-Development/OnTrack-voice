@@ -10,7 +10,7 @@ $config = require __DIR__ . '/api/demo_config.php';
   <meta name="description" content="OnTrack Live — مكالمة صوتية ذكية مباشرة">
   <title>OnTrack Live</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link rel="stylesheet" href="assets/app.css?v=054">
+  <link rel="stylesheet" href="assets/app.css?v=055">
 </head>
 <body>
 <div class="ambient ambient-a"></div>
@@ -28,10 +28,6 @@ $config = require __DIR__ . '/api/demo_config.php';
       </span>
     </a>
 
-    <div class="connection-pill">
-      <span class="status-dot" id="statusDot"></span>
-      <span id="engineBadge">جاهز للمكالمة</span>
-    </div>
   </header>
 
   <main class="call-screen">
@@ -51,7 +47,9 @@ $config = require __DIR__ . '/api/demo_config.php';
           <div class="wave wave-3"></div>
 
           <div class="core-center">
-            <div class="core-icon">AI</div>
+            <div class="core-icon core-logo">
+              <img src="https://ontrackegy.com/wp-content/uploads/2026/05/image.svg" alt="OnTrack">
+            </div>
             <strong id="orbText">جاهز</strong>
             <small id="callTimer">00:00</small>
           </div>
@@ -149,7 +147,9 @@ $config = require __DIR__ . '/api/demo_config.php';
   <div class="chat-popup-card">
     <div class="chat-popup-head">
       <div class="chat-person">
-        <span class="chat-avatar">AI</span>
+        <span class="chat-avatar chat-avatar-logo">
+          <img src="https://ontrackegy.com/wp-content/uploads/2026/05/image.svg" alt="OnTrack">
+        </span>
         <div>
           <strong>OnTrack AI</strong>
           <small><span class="chat-live-dot"></span> المكالمة جارية</small>
@@ -166,9 +166,24 @@ $config = require __DIR__ . '/api/demo_config.php';
         <span>المحادثة هتظهر هنا أثناء المكالمة.</span>
       </div>
     </div>
+
+    <div class="chat-call-controls">
+      <button id="popupMuteBtn" class="popup-call-btn popup-mute" type="button" disabled>
+        <span id="popupMuteIcon">◉</span>
+        <span id="popupMuteText">كتم</span>
+      </button>
+
+      <button id="popupStopBtn" class="popup-call-btn popup-end" type="button" disabled>
+        <span>■</span>
+        <span>إنهاء المكالمة</span>
+      </button>
+    </div>
   </div>
 </section>
 
-<script type="module" src="assets/app.js?v=054"></script>
+<span id="statusDot" class="sr-only"></span>
+<span id="engineBadge" class="sr-only">جاهز للمكالمة</span>
+
+<script type="module" src="assets/app.js?v=055"></script>
 </body>
 </html>
