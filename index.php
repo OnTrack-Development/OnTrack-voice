@@ -8,7 +8,7 @@ $config = require __DIR__ . '/api/demo_config.php';
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07090d">
   <title>OnTrack Gemini 3.8 Live</title>
-  <link rel="stylesheet" href="assets/app.css?v=043">
+  <link rel="stylesheet" href="assets/app.css?v=044">
 </head>
 <body>
 <div class="shell">
@@ -30,7 +30,7 @@ $config = require __DIR__ . '/api/demo_config.php';
 
       <div class="controls">
         <label>الصوت
-          <select id="voice">
+          <select id="voice" disabled>
             <option value="Puck" selected>Puck — Upbeat</option>
             <option value="Charon">Charon — Informative</option>
             <option value="Achird">Achird — Friendly</option>
@@ -38,13 +38,14 @@ $config = require __DIR__ . '/api/demo_config.php';
             <option value="Gacrux">Gacrux — Mature</option>
             <option value="Algieba">Algieba — Smooth</option>
           </select>
+          <small id="voiceMode">Default Live voice</small>
         </label>
 
         <button id="callBtn" class="primary">ابدأ المكالمة</button>
         <button id="stopBtn" class="danger" disabled>إنهاء</button>
       </div>
 
-      <div class="note">غيّر الصوت قبل بدء المكالمة. Gemini يحدد العربية تلقائياً، والـLive Setup مربوط داخل الـEphemeral Token نفسه: الموديل والصوت وقاعدة المعرفة واللهجة.</div>
+      <div class="note">النسخة دي ماشية على WebSocket setup الرسمي حرفيًا: model + responseModalities + systemInstruction. اختيار الصوت متوقف مؤقتًا لحد ما نثبت الاتصال نفسه.</div>
     </section>
 
     <section class="conversation" id="transcript"></section>
@@ -57,6 +58,6 @@ $config = require __DIR__ . '/api/demo_config.php';
   </main>
 </div>
 
-<script type="module" src="assets/app.js?v=043"></script>
+<script type="module" src="assets/app.js?v=044"></script>
 </body>
 </html>
