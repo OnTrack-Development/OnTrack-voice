@@ -39,9 +39,47 @@ let currentUserText = '';
 let currentAiText = '';
 let currentUserBubble = null;
 let currentAiBubble = null;
+let lastUserIntent = '';
+let lastServiceContext = null;
 const playingSources = new Set();
 
 const VOICE_KEY = 'ontrack_live_voice_v1';
+
+const LINK_CATALOG = {
+  site: {
+    label: 'فتح موقع أون تراك',
+    url: 'https://ontrackegy.com/',
+    primary: false
+  },
+  portal: {
+    label: 'فتح بوابة العملاء',
+    url: 'https://services.ontrackegy.com/',
+    primary: false
+  },
+  whatsapp: {
+    label: 'فتح WhatsApp Automation',
+    url: 'https://whatsapp.ontrackegy.com/',
+    primary: false
+  },
+  starter: {
+    label: 'اطلب Starter Plan',
+    url: 'https://services.ontrackegy.com/cart.php?a=add&pid=6',
+    primary: true,
+    aliases: ['starter plan', 'starter', 'shared hosting', 'استضافة مشتركة']
+  },
+  reseller: {
+    label: 'اطلب Reseller 15 users',
+    url: 'https://services.ontrackegy.com/cart.php?a=add&pid=75',
+    primary: true,
+    aliases: ['reseller 15 users', 'reseller 15', 'reseller', 'ريسلر']
+  },
+  support: {
+    label: 'اطلب الدعم والصيانة',
+    url: 'https://services.ontrackegy.com/cart.php?a=add&pid=74',
+    primary: true,
+    aliases: ['support & website maintenance', 'support and website maintenance', 'دعم وصيانة', 'صيانة الموقع', 'صيانة مواقع']
+  }
+};
 
 function state(text, cls='') {
   $('#orbText').textContent = text;
@@ -202,11 +240,86 @@ function mergeText(current, next) {
   return (current + ' ' + next).replace(/\s+/g, ' ').trim();
 }
 
+function normalizeText(text) {
+  return String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function serviceFromText(text) {
+  const normalized = normalizeText(text);
+
+  for (const id of ['starter', 'reseller', 'support']) {
+    const item = LINK_CATALOG[id];
+    if (item.aliases?.some(alias => normalized.includes(alias))) {
+      return id;
+    }
+  }
+
+  return null;
+}
+
+function buildContextLinks(userText, aiText) {
+  const user = normalizeText(userText);
+  const ai = normalizeText(aiText);
+  const combined = `${user} ${ai}`;
+  const ids = new Set();
+
+  const service = serviceFromText(combined);
+  if (service) {
+    ids.add(service);
+    lastServiceContext = service;
+  }
+
+  if (/(موقع أون تراك|موقعكم|لينك الموقع|رابط الموقع|ontrack website)/i.test(combined)) {
+    ids.add('site');
+  }
+
+  if (/(بوابة العملاء|بوابه العملاء|client portal|دخول العميل|حساب العميل)/i.test(combined)) {
+    ids.add('portal');
+  }
+
+  if (/(whatsapp automation|منصة واتساب|منصه واتساب|خدمة واتساب|خدمه واتساب)/i.test(combined)) {
+    ids.add('whatsapp');
+  }
+
+  const explicitLinkRequest = /(رابط|لينك|link|order|اطلب|طلب|شراء|اشتري)/i.test(user);
+  if (explicitLinkRequest && ids.size === 0 && lastServiceContext) {
+    ids.add(lastServiceContext);
+  }
+
+  return [...ids].map(id => ({id, ...LINK_CATALOG[id]})).filter(x => x.url);
+}
+
+function attachContextLinks(bubble, userText, aiText) {
+  if (!bubble) return;
+
+  const links = buildContextLinks(userText, aiText);
+  if (!links.length) return;
+
+  const old = bubble.querySelector('.message-links');
+  if (old) old.remove();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'message-links';
+
+  links.forEach(link => {
+    const a = document.createElement('a');
+    a.className = 'message-link' + (link.primary ? ' primary' : '');
+    a.href = link.url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.innerHTML = `<span>${link.label}</span><span class="arrow">↗</span>`;
+    wrap.appendChild(a);
+  });
+
+  bubble.appendChild(wrap);
+}
+
 function updateTranscript(role, text) {
   if (!text) return;
 
   if (role === 'user') {
     currentUserText = mergeText(currentUserText, text);
+    lastUserIntent = currentUserText;
     if (!currentUserBubble) currentUserBubble = makeBubble('user');
     currentUserBubble.querySelector('span').textContent = currentUserText;
     currentUserBubble.scrollIntoView({behavior:'smooth', block:'end'});
@@ -214,6 +327,9 @@ function updateTranscript(role, text) {
   }
 
   currentAiText = mergeText(currentAiText, text);
+  const service = serviceFromText(currentAiText);
+  if (service) lastServiceContext = service;
+
   if (!currentAiBubble) currentAiBubble = makeBubble('bot');
   currentAiBubble.querySelector('span').textContent = currentAiText;
   currentAiBubble.scrollIntoView({behavior:'smooth', block:'end'});
@@ -224,6 +340,8 @@ function closeTranscriptTurn() {
   currentAiText = '';
   currentUserBubble = null;
   currentAiBubble = null;
+  lastUserIntent = '';
+  lastServiceContext = null;
 }
 
 function resetTranscript() {
@@ -369,6 +487,7 @@ async function handleLiveMessage(message) {
   }
 
   if (content?.turnComplete) {
+    attachContextLinks(currentAiBubble, lastUserIntent, currentAiText);
     closeTranscriptTurn();
 
     if (greetingPending) {
@@ -575,6 +694,7 @@ $$('.idea').forEach(btn => {
     const prompt = btn.dataset.prompt || btn.textContent.trim();
     if (!prompt) return;
 
+    lastUserIntent = prompt;
     const bubble = makeBubble('user');
     bubble.querySelector('span').textContent = prompt;
     closeTranscriptTurn();
