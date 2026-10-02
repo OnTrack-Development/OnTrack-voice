@@ -20,6 +20,7 @@ const engineBadge = $('#engineBadge');
 const statusDot = $('#statusDot');
 const sessionBadge = $('#sessionBadge');
 const callTimer = $('#callTimer');
+const chatPopup = $('#chatPopup');
 
 let liveSession = null;
 let micStream = null;
@@ -100,6 +101,17 @@ function setSessionState(mode, label) {
 
 function toastState(text) {
   setStatus(engineBadge, text);
+}
+
+function openChatPopup(reset=true) {
+  if (reset) resetTranscript();
+  chatPopup.classList.add('is-open');
+  chatPopup.setAttribute('aria-hidden', 'false');
+}
+
+function closeChatPopup() {
+  chatPopup.classList.remove('is-open');
+  chatPopup.setAttribute('aria-hidden', 'true');
 }
 
 function formatTime(seconds) {
@@ -544,6 +556,7 @@ async function startCall() {
   liveReady = false;
   greetingPending = true;
   setMuted(false);
+  openChatPopup(true);
 
   callBtn.disabled = true;
   stopBtn.disabled = false;
@@ -666,6 +679,7 @@ async function stopCall(userInitiated=true) {
   $$('.idea').forEach(b => b.disabled = true);
 
   setSessionState('ready', 'READY');
+  closeChatPopup();
 
   if (userInitiated && wasActive) {
     setStatus(liveState, 'جاهز لمكالمة جديدة');
@@ -721,6 +735,7 @@ window.addEventListener('beforeunload', () => {
 
   setStatus(voiceState, voiceSelect.value);
   setSessionState('ready', 'READY');
+  closeChatPopup();
 
   fetch('api/status.php', {cache:'no-store'})
     .then(r => r.json())
