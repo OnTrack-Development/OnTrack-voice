@@ -1,19 +1,19 @@
 {
-  "version": "0.5.7",
+  "version": "0.5.8",
   "channel": "client-preview",
   "model": "gemini-3.8-live",
   "mode": "single-screen-call-mode",
   "sdk": "@google/genai 2.25.0",
   "auth": "ephemeral-token",
   "features": [
-    "no page scroll",
-    "100dvh viewport lock",
-    "responsive compression on short screens",
-    "chat-only internal scrolling",
-    "company logo in voice core",
+    "compact chat popup",
+    "chat minimize button",
+    "floating reopen chat button",
     "popup mute and hangup controls",
+    "no page scroll",
+    "company logo in voice core",
     "live transcription",
-    "contextual clickable links"
+    "contextual clickable links inside chat"
   ],
   "updated": "2026-10-02"
 }
