@@ -21,6 +21,10 @@ const statusDot = $('#statusDot');
 const sessionBadge = $('#sessionBadge');
 const callTimer = $('#callTimer');
 const chatPopup = $('#chatPopup');
+const popupMuteBtn = $('#popupMuteBtn');
+const popupMuteIcon = $('#popupMuteIcon');
+const popupMuteText = $('#popupMuteText');
+const popupStopBtn = $('#popupStopBtn');
 
 let liveSession = null;
 let micStream = null;
@@ -414,7 +418,8 @@ async function startMicrophone() {
   state('سامعك…', 'listening');
 
   muteBtn.disabled = false;
-  $$('.idea').forEach(b => b.disabled = false);
+  if (popupMuteBtn) popupMuteBtn.disabled = false;
+  $('.idea').forEach(b => b.disabled = false);
 }
 
 async function stopMicrophone() {
@@ -537,6 +542,10 @@ function setMuted(next) {
 
   muteText.textContent = muted ? 'فتح الميكروفون' : 'كتم الميكروفون';
   muteIcon.textContent = muted ? '○' : '◉';
+
+  if (popupMuteText) popupMuteText.textContent = muted ? 'فتح الميكروفون' : 'كتم';
+  if (popupMuteIcon) popupMuteIcon.textContent = muted ? '○' : '◉';
+
   setStatus(micState, muted ? 'مكتوم' : (active ? 'بيسمعك' : 'متوقف'));
 
   if (active) {
@@ -561,6 +570,8 @@ async function startCall() {
   callBtn.disabled = true;
   stopBtn.disabled = false;
   muteBtn.disabled = true;
+  if (popupStopBtn) popupStopBtn.disabled = false;
+  if (popupMuteBtn) popupMuteBtn.disabled = true;
   voiceSelect.disabled = true;
   $$('.idea').forEach(b => b.disabled = true);
 
@@ -675,6 +686,8 @@ async function stopCall(userInitiated=true) {
   callBtn.disabled = false;
   stopBtn.disabled = true;
   muteBtn.disabled = true;
+  if (popupStopBtn) popupStopBtn.disabled = true;
+  if (popupMuteBtn) popupMuteBtn.disabled = true;
   voiceSelect.disabled = false;
   $$('.idea').forEach(b => b.disabled = true);
 
@@ -691,6 +704,9 @@ async function stopCall(userInitiated=true) {
 callBtn.addEventListener('click', startCall);
 stopBtn.addEventListener('click', () => stopCall(true));
 muteBtn.addEventListener('click', () => setMuted(!muted));
+
+popupStopBtn?.addEventListener('click', () => stopCall(true));
+popupMuteBtn?.addEventListener('click', () => setMuted(!muted));
 
 voiceSelect.addEventListener('change', () => {
   localStorage.setItem(VOICE_KEY, voiceSelect.value);
