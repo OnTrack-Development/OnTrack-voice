@@ -1,15 +1,26 @@
 import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/genai@2.25.0/+esm";
 
 const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
 
 const callBtn = $('#callBtn');
 const stopBtn = $('#stopBtn');
+const muteBtn = $('#muteBtn');
+const muteText = $('#muteText');
+const muteIcon = $('#muteIcon');
 const micState = $('#micState');
 const liveState = $('#liveState');
 const modelState = $('#modelState');
-const transcript = $('#transcript');
-const orb = $('#orb');
+const voiceState = $('#voiceState');
 const voiceSelect = $('#voice');
+const transcript = $('#transcript');
+const emptyTranscript = $('#emptyTranscript');
+const clearTranscript = $('#clearTranscript');
+const orb = $('#orb');
+const engineBadge = $('#engineBadge');
+const statusDot = $('#statusDot');
+const sessionBadge = $('#sessionBadge');
+const callTimer = $('#callTimer');
 
 let liveSession = null;
 let micStream = null;
@@ -19,17 +30,62 @@ let inputSource = null;
 let processor = null;
 let muteGain = null;
 let active = false;
+let muted = false;
 let greetingPending = false;
+let liveReady = false;
 let nextPlayTime = 0;
+let callStartedAt = null;
+let timerId = null;
+let currentUserText = '';
+let currentAiText = '';
+let currentUserBubble = null;
+let currentAiBubble = null;
 const playingSources = new Set();
+
+const VOICE_KEY = 'ontrack_live_voice_v1';
 
 function state(text, cls='') {
   $('#orbText').textContent = text;
-  orb.className = 'orb ' + cls;
+  orb.className = 'voice-core ' + cls;
 }
 
 function setStatus(el, text) {
   if (el) el.textContent = text;
+}
+
+function setSessionState(mode, label) {
+  sessionBadge.textContent = label;
+  sessionBadge.classList.toggle('live', mode === 'live');
+  statusDot.classList.toggle('live', mode === 'live');
+  statusDot.classList.toggle('error', mode === 'error');
+  document.body.classList.toggle('in-call', mode === 'live');
+}
+
+function toastState(text) {
+  setStatus(engineBadge, text);
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function startTimer() {
+  callStartedAt = Date.now();
+  callTimer.textContent = '00:00';
+  clearInterval(timerId);
+  timerId = setInterval(() => {
+    if (!callStartedAt) return;
+    callTimer.textContent = formatTime((Date.now() - callStartedAt) / 1000);
+  }, 500);
+}
+
+function stopTimer() {
+  clearInterval(timerId);
+  timerId = null;
+  callStartedAt = null;
+  callTimer.textContent = '00:00';
 }
 
 function arrayBufferToBase64(buffer) {
@@ -60,9 +116,7 @@ function resampleTo16k(input, inputRate) {
       count++;
     }
 
-    output[i] = count
-      ? sum / count
-      : (input[Math.min(start, input.length - 1)] || 0);
+    output[i] = count ? sum / count : (input[Math.min(start, input.length - 1)] || 0);
   }
 
   return output;
@@ -100,19 +154,13 @@ function stopPlayback() {
   for (const src of playingSources) {
     try { src.stop(); } catch (_) {}
   }
-
   playingSources.clear();
   nextPlayTime = outputCtx ? outputCtx.currentTime : 0;
 }
 
 async function enqueueAudio(base64, sampleRate=24000) {
-  if (!outputCtx) {
-    outputCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-
-  if (outputCtx.state === 'suspended') {
-    await outputCtx.resume();
-  }
+  if (!outputCtx) outputCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (outputCtx.state === 'suspended') await outputCtx.resume();
 
   const pcm = base64ToFloat32PCM16(base64);
   if (!pcm.length) return;
@@ -126,12 +174,70 @@ async function enqueueAudio(base64, sampleRate=24000) {
 
   const now = outputCtx.currentTime;
   const startAt = Math.max(now + 0.02, nextPlayTime);
-
   src.start(startAt);
   nextPlayTime = startAt + buffer.duration;
 
   playingSources.add(src);
   src.onended = () => playingSources.delete(src);
+}
+
+function ensureTranscriptStarted() {
+  if (emptyTranscript?.isConnected) emptyTranscript.remove();
+}
+
+function makeBubble(role) {
+  ensureTranscriptStarted();
+  const el = document.createElement('div');
+  el.className = 'msg ' + role;
+  el.innerHTML = `<small>${role === 'user' ? 'أنت' : 'OnTrack AI'}</small><span></span>`;
+  transcript.appendChild(el);
+  return el;
+}
+
+function mergeText(current, next) {
+  next = String(next || '').trim();
+  if (!next) return current;
+  if (!current) return next;
+  if (next.startsWith(current)) return next;
+  if (current.endsWith(next)) return current;
+  return (current + ' ' + next).replace(/\s+/g, ' ').trim();
+}
+
+function updateTranscript(role, text) {
+  if (!text) return;
+
+  if (role === 'user') {
+    currentUserText = mergeText(currentUserText, text);
+    if (!currentUserBubble) currentUserBubble = makeBubble('user');
+    currentUserBubble.querySelector('span').textContent = currentUserText;
+    currentUserBubble.scrollIntoView({behavior:'smooth', block:'end'});
+    return;
+  }
+
+  currentAiText = mergeText(currentAiText, text);
+  if (!currentAiBubble) currentAiBubble = makeBubble('bot');
+  currentAiBubble.querySelector('span').textContent = currentAiText;
+  currentAiBubble.scrollIntoView({behavior:'smooth', block:'end'});
+}
+
+function closeTranscriptTurn() {
+  currentUserText = '';
+  currentAiText = '';
+  currentUserBubble = null;
+  currentAiBubble = null;
+}
+
+function resetTranscript() {
+  transcript.innerHTML = `
+    <div class="empty-state" id="emptyTranscript">
+      <div class="empty-icon">⌁</div>
+      <strong>المحادثة هتظهر هنا</strong>
+      <span>ابدأ المكالمة واتكلم طبيعي، والنص هيتسجل أثناء الجلسة.</span>
+    </div>`;
+  currentUserText = '';
+  currentAiText = '';
+  currentUserBubble = null;
+  currentAiBubble = null;
 }
 
 async function startMicrophone() {
@@ -155,7 +261,7 @@ async function startMicrophone() {
   muteGain.gain.value = 0;
 
   processor.onaudioprocess = ev => {
-    if (!active || !liveSession) return;
+    if (!active || !liveSession || muted) return;
 
     const input = ev.inputBuffer.getChannelData(0);
     const pcm16k = resampleTo16k(input, inputCtx.sampleRate);
@@ -173,9 +279,13 @@ async function startMicrophone() {
   processor.connect(muteGain);
   muteGain.connect(inputCtx.destination);
 
-  setStatus(micState, 'شغال');
-  setStatus(liveState, 'Live جاهز');
+  setStatus(micState, 'بيسمعك');
+  setStatus(liveState, 'متصل ومستعد');
+  setSessionState('live', 'LIVE');
   state('سامعك…', 'listening');
+
+  muteBtn.disabled = false;
+  $$('.idea').forEach(b => b.disabled = false);
 }
 
 async function stopMicrophone() {
@@ -219,20 +329,27 @@ async function getEphemeralSession() {
   const j = await r.json();
 
   if (!r.ok || !j.ok) {
-    throw new Error(j.detail || j.error || 'تعذر استخراج Ephemeral Token');
+    throw new Error(j.detail || j.error || 'تعذر تجهيز المكالمة');
   }
 
   return j;
 }
 
 async function handleLiveMessage(message) {
-  console.debug('Gemini SDK ←', message);
-
   const content = message.serverContent;
+
+  if (content?.inputTranscription?.text) {
+    updateTranscript('user', content.inputTranscription.text);
+  }
+
+  if (content?.outputTranscription?.text) {
+    updateTranscript('bot', content.outputTranscription.text);
+  }
 
   if (content?.interrupted) {
     stopPlayback();
     setStatus(liveState, 'سامع المقاطعة');
+    state('سامعك…', 'listening');
   }
 
   const parts = content?.modelTurn?.parts || [];
@@ -248,32 +365,52 @@ async function handleLiveMessage(message) {
     const rate = match ? Number(match[1]) : 24000;
 
     await enqueueAudio(inline.data, rate);
-    setStatus(liveState, 'Gemini بيتكلم');
+    setStatus(liveState, 'أون تراك بيرد');
     state('بيرد عليك…', 'speaking');
   }
 
   if (content?.turnComplete) {
+    closeTranscriptTurn();
+
     if (greetingPending) {
       greetingPending = false;
-      setStatus(liveState, 'الصوت شغال — بفتح الميكروفون');
+      setStatus(liveState, 'الصوت جاهز');
       state('بفتح الميكروفون…');
 
       try {
         await startMicrophone();
       } catch (err) {
         console.error('Microphone error:', err);
-        setStatus(micState, 'فشل');
-        setStatus(liveState, 'Live شغال — الميكروفون فشل');
-        state('الميكروفون فشل');
+        setStatus(micState, 'مرفوض');
+        setStatus(liveState, 'اسمح بالميكروفون وجرب تاني');
+        setSessionState('error', 'MIC ERROR');
+        state('محتاج إذن الميكروفون');
       }
-
       return;
     }
 
     if (active) {
-      setStatus(liveState, 'Live جاهز');
-      state('سامعك…', 'listening');
+      setStatus(liveState, 'متصل ومستعد');
+      state(muted ? 'الميكروفون مكتوم' : 'سامعك…', muted ? '' : 'listening');
     }
+  }
+}
+
+function setMuted(next) {
+  muted = !!next;
+
+  if (micStream) {
+    micStream.getAudioTracks().forEach(track => {
+      track.enabled = !muted;
+    });
+  }
+
+  muteText.textContent = muted ? 'فتح الميكروفون' : 'كتم الميكروفون';
+  muteIcon.textContent = muted ? '○' : '◉';
+  setStatus(micState, muted ? 'مكتوم' : (active ? 'بيسمعك' : 'متوقف'));
+
+  if (active) {
+    state(muted ? 'الميكروفون مكتوم' : 'سامعك…', muted ? '' : 'listening');
   }
 }
 
@@ -281,85 +418,101 @@ async function startCall() {
   if (active) return;
 
   if (!navigator.mediaDevices?.getUserMedia) {
-    alert('المتصفح لا يدعم الميكروفون المطلوب للمكالمة.');
+    toastState('المتصفح لا يدعم الميكروفون');
     return;
   }
 
   active = true;
+  liveReady = false;
   greetingPending = true;
+  setMuted(false);
 
   callBtn.disabled = true;
   stopBtn.disabled = false;
+  muteBtn.disabled = true;
   voiceSelect.disabled = true;
+  $$('.idea').forEach(b => b.disabled = true);
 
-  transcript.innerHTML = '';
+  const selectedVoice = voiceSelect.value;
+  localStorage.setItem(VOICE_KEY, selectedVoice);
+  setStatus(voiceState, selectedVoice);
 
-  state('بجهز Gemini SDK…');
-  setStatus(micState, 'منتظر Live');
-  setStatus(liveState, 'بيطلع Ephemeral Token');
+  startTimer();
+  setSessionState('live', 'CONNECTING');
+  state('بجهز المكالمة…');
+  setStatus(micState, 'منتظر الاتصال');
+  setStatus(liveState, 'بيجهز جلسة آمنة');
+  toastState('جاري بدء المكالمة');
 
   try {
-    if (!outputCtx) {
-      outputCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-
+    if (!outputCtx) outputCtx = new (window.AudioContext || window.webkitAudioContext)();
     await outputCtx.resume();
     nextPlayTime = outputCtx.currentTime;
 
     const info = await getEphemeralSession();
     setStatus(modelState, info.model);
 
-    const ai = new GoogleGenAI({
-      apiKey: info.token
-    });
+    const ai = new GoogleGenAI({ apiKey: info.token });
 
-    setStatus(liveState, 'Google SDK بيفتح Live…');
+    setStatus(liveState, 'بيتصل بـ Gemini Live');
 
     liveSession = await ai.live.connect({
       model: info.model,
       config: {
         responseModalities: [Modality.AUDIO],
-        systemInstruction: info.system_instruction
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: selectedVoice
+            }
+          }
+        },
+        systemInstruction: info.system_instruction,
+        inputAudioTranscription: {},
+        outputAudioTranscription: {}
       },
       callbacks: {
         onopen: () => {
-          console.debug('Gemini SDK Live opened');
-          setStatus(liveState, 'SDK Live متصل');
+          liveReady = true;
+          setStatus(liveState, 'تم الاتصال');
+          toastState('المكالمة متصلة');
         },
         onmessage: message => {
-          handleLiveMessage(message).catch(err => {
-            console.error('Message handler error:', err);
-          });
+          handleLiveMessage(message).catch(err => console.error('Live message error:', err));
         },
         onerror: error => {
-          console.error('Gemini SDK Live error:', error);
-          setStatus(liveState, 'SDK error: ' + (error?.message || 'unknown'));
-          state('خطأ Live');
+          console.error('Gemini Live error:', error);
+          setStatus(liveState, 'حصل خطأ في الاتصال');
+          setSessionState('error', 'ERROR');
+          toastState('حصل خطأ — جرب تاني');
+          state('خطأ في الاتصال');
         },
         onclose: event => {
-          console.debug('Gemini SDK Live close:', event);
           const reason = event?.reason ? ': ' + event.reason : '';
-          setStatus(liveState, 'اتقفل' + reason);
+          console.debug('Gemini Live closed', event);
+          setStatus(liveState, 'انتهى الاتصال' + reason);
 
           if (active) {
-            state('الاتصال اتقفل');
+            state('انتهت الجلسة');
             stopCall(false);
           }
         }
       }
     });
 
-    setStatus(liveState, 'Live اتفتح — اختبار الصوت');
-    state('Gemini بيبدأ…');
+    setStatus(liveState, 'بيجهز الصوت');
+    state('أون تراك بيبدأ…');
 
     liveSession.sendRealtimeInput({
-      text: 'ابدأ بتحية مصرية قصيرة جداً فقط، وبعدها توقف واسمعني.'
+      text: 'ابدأ المكالمة بتحية مصرية قصيرة واحترافية باسم أون تراك، وبعدها توقف واسمع العميل.'
     });
 
   } catch (err) {
     console.error('Start Live failed:', err);
-    setStatus(liveState, err?.message || 'فشل Live');
-    state('فشل الاتصال');
+    setStatus(liveState, 'تعذر بدء المكالمة');
+    setSessionState('error', 'FAILED');
+    toastState('تعذر بدء المكالمة');
+    state('جرب مرة تانية');
     await stopCall(false);
   }
 }
@@ -368,7 +521,14 @@ async function stopCall(userInitiated=true) {
   const wasActive = active;
 
   active = false;
+  liveReady = false;
   greetingPending = false;
+
+  try {
+    if (liveSession) {
+      liveSession.sendRealtimeInput({ audioStreamEnd: true });
+    }
+  } catch (_) {}
 
   await stopMicrophone();
   stopPlayback();
@@ -378,35 +538,77 @@ async function stopCall(userInitiated=true) {
     liveSession = null;
   }
 
+  stopTimer();
+  setMuted(false);
+
   callBtn.disabled = false;
   stopBtn.disabled = true;
-  voiceSelect.disabled = true;
+  muteBtn.disabled = true;
+  voiceSelect.disabled = false;
+  $$('.idea').forEach(b => b.disabled = true);
+
+  setSessionState('ready', 'READY');
 
   if (userInitiated && wasActive) {
-    setStatus(liveState, 'متوقف');
-    state('انتهت المكالمة');
+    setStatus(liveState, 'جاهز لمكالمة جديدة');
+    toastState('جاهز للتجربة');
+    state('جاهز');
   }
 }
 
 callBtn.addEventListener('click', startCall);
 stopBtn.addEventListener('click', () => stopCall(true));
+muteBtn.addEventListener('click', () => setMuted(!muted));
+
+voiceSelect.addEventListener('change', () => {
+  localStorage.setItem(VOICE_KEY, voiceSelect.value);
+  setStatus(voiceState, voiceSelect.value);
+});
+
+$$('.idea').forEach(btn => {
+  btn.disabled = true;
+  btn.addEventListener('click', () => {
+    if (!active || !liveSession || !liveReady) {
+      toastState('ابدأ المكالمة الأول');
+      return;
+    }
+
+    const prompt = btn.dataset.prompt || btn.textContent.trim();
+    if (!prompt) return;
+
+    const bubble = makeBubble('user');
+    bubble.querySelector('span').textContent = prompt;
+    closeTranscriptTurn();
+
+    liveSession.sendRealtimeInput({ text: prompt });
+  });
+});
+
+clearTranscript.addEventListener('click', resetTranscript);
 
 window.addEventListener('beforeunload', () => {
   active = false;
-
   try { liveSession?.close(); } catch (_) {}
   micStream?.getTracks().forEach(t => t.stop());
 });
 
-fetch('api/status.php', {cache:'no-store'})
-  .then(r => r.json())
-  .then(j => {
-    setStatus(modelState, j.model || 'gemini-3.8-live');
+(function init() {
+  const savedVoice = localStorage.getItem(VOICE_KEY);
+  if (savedVoice && [...voiceSelect.options].some(o => o.value === savedVoice)) {
+    voiceSelect.value = savedVoice;
+  }
 
-    $('#engineBadge').textContent = j.gemini_configured
-      ? 'Gemini 3.8 Live SDK جاهز'
-      : 'مفتاح Gemini غير مضبوط';
-  })
-  .catch(() => {
-    $('#engineBadge').textContent = 'تعذر فحص Live';
-  });
+  setStatus(voiceState, voiceSelect.value);
+  setSessionState('ready', 'READY');
+
+  fetch('api/status.php', {cache:'no-store'})
+    .then(r => r.json())
+    .then(j => {
+      setStatus(modelState, j.model || 'gemini-3.8-live');
+      engineBadge.textContent = j.gemini_configured ? 'جاهز للتجربة' : 'الإعداد غير مكتمل';
+    })
+    .catch(() => {
+      engineBadge.textContent = 'تعذر فحص الخدمة';
+      setSessionState('error', 'OFFLINE');
+    });
+})();
