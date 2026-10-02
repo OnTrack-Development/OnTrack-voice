@@ -1,19 +1,15 @@
 {
-  "version": "0.5.8",
+  "version": "0.5.9",
   "channel": "client-preview",
   "model": "gemini-3.8-live",
   "mode": "single-screen-call-mode",
   "sdk": "@google/genai 2.25.0",
   "auth": "ephemeral-token",
-  "features": [
-    "compact chat popup",
-    "chat minimize button",
-    "floating reopen chat button",
-    "popup mute and hangup controls",
-    "no page scroll",
-    "company logo in voice core",
-    "live transcription",
-    "contextual clickable links inside chat"
+  "fixes": [
+    "removed stale quick-prompt handlers that caused false microphone errors",
+    "microphone status now reflects the actual live MediaStream track",
+    "permission denied is shown only for real browser permission errors",
+    "asset cache bust"
   ],
   "updated": "2026-10-02"
 }
