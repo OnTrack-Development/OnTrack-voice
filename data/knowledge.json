@@ -1,10 +1,23 @@
 {
   "company": {
     "name": "OnTrack Development",
+    "brand_ar": "أون تراك",
     "website": "https://ontrackegy.com/",
     "client_portal": "https://services.ontrackegy.com/",
     "whatsapp_saas": "https://whatsapp.ontrackegy.com/",
-    "summary_ar": "أون تراك ديفيلوبمنت شركة بتقدم استضافة مواقع وخوادم ونسخ احتياطي ودعم وصيانة واستضافة Manager.io وتراخيص وإضافات وخدمات واتساب للأعمال."
+    "summary_ar": "أون تراك ديفيلوبمنت بتقدم استضافة مواقع وخوادم ونسخ احتياطي ودعم وصيانة واستضافة Manager.io وتراخيص وإضافات وحلول واتساب للأعمال.",
+    "demo_notice": "كل العملاء والفواتير في النسخة الحالية بيانات تجريبية للعرض فقط."
+  },
+  "conversation_style": {
+    "language": "Arabic Egyptian",
+    "tone": "طبيعي، مختصر، واثق، مهني، من غير فصحى متكلفة",
+    "rules": [
+      "ابدأ الرد مباشرة من غير مقدمات طويلة.",
+      "اسأل سؤال واحد فقط لو محتاج معلومة ناقصة.",
+      "لو العميل سأل عن سعر أو مواصفة استخدم البيانات الموجودة فقط.",
+      "لو السؤال خارج قاعدة المعرفة وضح إنك محتاج موظف من أون تراك يكمل التفاصيل.",
+      "انطق OnTrack بالعربي: أون تراك."
+    ]
   },
   "services": [
     {
@@ -14,9 +27,16 @@
       "monthly_usd": 5.99,
       "yearly_usd": 50,
       "yearly_egp": 2550,
-      "features": ["Unlimited Space subject to FUP", "Unlimited Email Accounts", "Unlimited Databases", "1x 4200MHz CPU", "1GB DDR4 ECC RAM", "Unlimited Bandwidth"],
-      "order_url": "https://services.ontrackegy.com/cart.php?a=add&pid=6",
-      "best_for": "موقع شركة أو موقع تعريفي وبريد أعمال على استضافة مشتركة"
+      "features": [
+        "Unlimited Space subject to FUP",
+        "Unlimited Email Accounts",
+        "Unlimited Databases",
+        "1x 4200MHz CPU",
+        "1GB DDR4 ECC RAM",
+        "Unlimited Bandwidth"
+      ],
+      "best_for": "شركة صغيرة أو موقع تعريفي أو موقع أعمال مع بريد إلكتروني",
+      "order_url": "https://services.ontrackegy.com/cart.php?a=add&pid=6"
     },
     {
       "id": 75,
@@ -26,33 +46,202 @@
       "yearly_usd": 120,
       "monthly_egp": 714,
       "yearly_egp": 6120,
-      "features": ["100GB NVMe", "15 hosting accounts", "Unlimited Bandwidth", "Private DNS", "Free domain"],
-      "order_url": "https://services.ontrackegy.com/cart.php?a=add&pid=75",
-      "best_for": "أكثر من موقع أو حسابات استضافة منفصلة تحت WHM"
+      "features": [
+        "100GB NVMe",
+        "15 hosting accounts",
+        "Unlimited Bandwidth",
+        "Private DNS",
+        "Free domain",
+        "WHM access"
+      ],
+      "best_for": "شركة أو مطور عنده أكتر من موقع وعايز كل موقع في حساب مستقل",
+      "order_url": "https://services.ontrackegy.com/cart.php?a=add&pid=75"
     },
     {
       "id": 74,
       "name": "Support & Website Maintenance",
       "category": "Support",
-      "features": ["Website support", "Maintenance", "Troubleshooting"],
-      "best_for": "العملاء اللي محتاجين متابعة وصيانة للموقع"
+      "features": [
+        "Website support",
+        "Maintenance",
+        "Troubleshooting"
+      ],
+      "best_for": "العملاء اللي محتاجين متابعة وصيانة للموقع بدل إدارة المشاكل بنفسهم"
     },
-    {"name":"VPS Hosting","category":"Servers","best_for":"مشروعات تحتاج موارد وتحكم أكبر من الاستضافة المشتركة"},
-    {"name":"Dedicated Servers","category":"Servers","best_for":"أحمال كبيرة أو احتياج لسيرفر كامل"},
-    {"name":"External Backup","category":"Backup","best_for":"نسخ احتياطي خارجي مستقل"},
-    {"name":"Manager.io Hosting","category":"Business Apps","best_for":"تشغيل Manager.io على سيرفر متاح أونلاين"},
-    {"name":"Licenses & Add-ons","category":"Licenses","best_for":"تراخيص وإضافات متعلقة بالاستضافة والخوادم"},
-    {"name":"Radio Hosting","category":"Streaming","best_for":"بث إذاعي أونلاين"},
-    {"name":"WhatsApp Automation","category":"Automation","best_for":"أتمتة واتساب للأعمال والإشعارات"}
+    {
+      "name": "VPS Hosting",
+      "category": "Servers",
+      "best_for": "مشروعات تحتاج موارد وتحكم أكبر من الاستضافة المشتركة"
+    },
+    {
+      "name": "Dedicated Servers",
+      "category": "Servers",
+      "best_for": "أحمال كبيرة أو احتياج لسيرفر كامل بموارد مخصصة"
+    },
+    {
+      "name": "External Backup",
+      "category": "Backup",
+      "best_for": "نسخ احتياطي خارجي مستقل عن السيرفر الأساسي"
+    },
+    {
+      "name": "Manager.io Hosting",
+      "category": "Business Apps",
+      "best_for": "تشغيل Manager.io أونلاين لفريق العمل"
+    },
+    {
+      "name": "Licenses & Add-ons",
+      "category": "Licenses",
+      "best_for": "تراخيص وإضافات متعلقة بالاستضافة والخوادم"
+    },
+    {
+      "name": "Radio Hosting",
+      "category": "Streaming",
+      "best_for": "بث إذاعي أونلاين"
+    },
+    {
+      "name": "WhatsApp Automation",
+      "category": "Automation",
+      "best_for": "إشعارات وأتمتة واتساب للأعمال"
+    }
+  ],
+  "demo_clients": [
+    {
+      "client_id": "D-1001",
+      "name": "Abu Nakhla Feed",
+      "industry": "Animal Feed",
+      "services": ["Starter Plan", "Business Email"],
+      "note": "عميل Demo لاختبار سيناريو شركة صغيرة تحتاج موقع وبريد."
+    },
+    {
+      "client_id": "D-1002",
+      "name": "Delta Trade Demo",
+      "industry": "Trading",
+      "services": ["Reseller 15 users"],
+      "note": "عميل Demo عنده أكتر من موقع."
+    },
+    {
+      "client_id": "D-1003",
+      "name": "Nile Office Demo",
+      "industry": "Business Services",
+      "services": ["Support & Website Maintenance"],
+      "note": "عميل Demo لخدمة الدعم والصيانة."
+    },
+    {
+      "client_id": "D-1004",
+      "name": "Cairo Studio Demo",
+      "industry": "Media",
+      "services": ["External Backup", "Web Hosting"],
+      "note": "عميل Demo لاختبار النسخ الاحتياطي."
+    }
   ],
   "demo_invoices": [
-    {"invoice":"DEMO-1001","client":"Abu Nakhla Feed","status":"Unpaid","issue_date":"2026-09-20","due_date":"2026-10-05","items":[{"description":"Starter Plan - 1 Year","amount_egp":2550},{"description":".com Domain - 1 Year","amount_egp":765}],"total_egp":3315},
-    {"invoice":"DEMO-1002","client":"Delta Trade Demo","status":"Paid","issue_date":"2026-09-01","due_date":"2026-09-08","items":[{"description":"Reseller 15 users - 1 Year","amount_egp":6120}],"total_egp":6120},
-    {"invoice":"DEMO-1003","client":"Nile Office Demo","status":"Unpaid","issue_date":"2026-09-28","due_date":"2026-10-10","items":[{"description":"Support & Website Maintenance","amount_egp":3000}],"total_egp":3000}
+    {
+      "invoice": "DEMO-1001",
+      "client": "Abu Nakhla Feed",
+      "status": "Unpaid",
+      "issue_date": "2026-09-20",
+      "due_date": "2026-10-05",
+      "items": [
+        {"description": "Starter Plan - 1 Year", "amount_egp": 2550},
+        {"description": ".com Domain - 1 Year", "amount_egp": 765}
+      ],
+      "total_egp": 3315
+    },
+    {
+      "invoice": "DEMO-1002",
+      "client": "Delta Trade Demo",
+      "status": "Paid",
+      "issue_date": "2026-09-01",
+      "due_date": "2026-09-08",
+      "items": [
+        {"description": "Reseller 15 users - 1 Year", "amount_egp": 6120}
+      ],
+      "total_egp": 6120
+    },
+    {
+      "invoice": "DEMO-1003",
+      "client": "Nile Office Demo",
+      "status": "Unpaid",
+      "issue_date": "2026-09-28",
+      "due_date": "2026-10-10",
+      "items": [
+        {"description": "Support & Website Maintenance", "amount_egp": 3000}
+      ],
+      "total_egp": 3000
+    },
+    {
+      "invoice": "DEMO-1004",
+      "client": "Cairo Studio Demo",
+      "status": "Paid",
+      "issue_date": "2026-08-15",
+      "due_date": "2026-08-22",
+      "items": [
+        {"description": "External Backup - Demo Package", "amount_egp": 1850}
+      ],
+      "total_egp": 1850
+    },
+    {
+      "invoice": "DEMO-1005",
+      "client": "Abu Nakhla Feed",
+      "status": "Draft",
+      "issue_date": "2026-10-01",
+      "due_date": "2026-10-15",
+      "items": [
+        {"description": "Support & Website Maintenance - Demo Quote", "amount_egp": 3000}
+      ],
+      "total_egp": 3000
+    }
   ],
-  "policies": [
-    "بيانات الفواتير الموجودة هنا Demo فقط وليست بيانات عملاء حقيقية.",
-    "لا تطلب كلمة مرور أو بيانات دخول داخل المحادثة التجريبية.",
-    "لو السؤال يحتاج بيانات حقيقية من WHMCS، وضح أن النسخة الحالية Demo وغير متصلة بالنظام الفعلي."
+  "sales_scenarios": [
+    {
+      "need": "موقع شركة واحد مع بريد أعمال",
+      "recommendation": "Starter Plan",
+      "reason": "استضافة مشتركة مناسبة كبداية ومش محتاج Reseller لموقع واحد."
+    },
+    {
+      "need": "أكتر من موقع وكل موقع في حساب مستقل",
+      "recommendation": "Reseller 15 users",
+      "reason": "يوفر WHM و15 حساب استضافة منفصل وPrivate DNS."
+    },
+    {
+      "need": "تحكم وموارد أعلى من Shared Hosting",
+      "recommendation": "VPS Hosting",
+      "reason": "أنسب لما المشروع يحتاج موارد مخصصة وتحكم أكبر."
+    },
+    {
+      "need": "نسخة احتياطية بعيدة عن السيرفر الأساسي",
+      "recommendation": "External Backup",
+      "reason": "فصل النسخة الاحتياطية عن نفس بيئة الاستضافة."
+    }
+  ],
+  "faq": [
+    {
+      "question": "هل Starter مناسب لشركة صغيرة؟",
+      "answer": "أيوه، لو عندك موقع شركة واحد وبريد أعمال فده الاختيار الافتراضي المناسب في الديمو."
+    },
+    {
+      "question": "إمتى أحتاج Reseller؟",
+      "answer": "لما يكون عندك أكتر من موقع أو محتاج كل موقع في حساب مستقل تحت WHM."
+    },
+    {
+      "question": "هل البيانات دي حقيقية؟",
+      "answer": "لا، بيانات العملاء والفواتير هنا Demo فقط."
+    },
+    {
+      "question": "هل تقدر تدخل على الموقع أو الحساب؟",
+      "answer": "النسخة دي للإرشاد والرد الصوتي فقط ومش بتدخل على حسابات أو مواقع العملاء."
+    }
+  ],
+  "security_rules": [
+    "ممنوع طلب أو حفظ كلمات المرور أو بيانات الدخول.",
+    "ممنوع طلب بيانات بطاقات أو بيانات بنكية.",
+    "لو العميل أرسل بيانات حساسة، اطلب منه عدم تكرارها ووضح إن النسخة التجريبية لا تحتاجها.",
+    "لا تدّعي إن بيانات Demo بيانات حقيقية."
+  ],
+  "demo_behaviors": [
+    "لو المستخدم قال عندي فواتير، اسأله عن رقم الفاتورة أو اسم العميل التجريبي.",
+    "لو ذكر DEMO-1001، اذكر إنها غير مدفوعة وإجماليها 3315 جنيه وتاريخ الاستحقاق 5 أكتوبر 2026.",
+    "لو سأل عن Abu Nakhla Feed، وضح إنه عميل Demo عنده Starter Plan وبريد أعمال.",
+    "لو سأل عن ترشيح لموقع شركة واحد وبريد، رشح Starter Plan."
   ]
 }
