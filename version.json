@@ -1,11 +1,12 @@
 {
-  "version": "0.4.3",
+  "version": "0.4.4",
   "channel": "demo",
   "model": "gemini-3.8-live",
-  "mode": "ephemeral-token-bound-live-setup",
+  "mode": "official-websocket-setup",
   "legacy_voice_stack": false,
+  "ephemeral_token": "unconstrained",
+  "setup": ["model", "responseModalities", "systemInstruction"],
   "input_audio": "pcm16-16000",
   "output_audio": "pcm16-24000",
-  "token_setup": "bidiGenerateContentSetup",
   "updated": "2026-10-02"
 }
