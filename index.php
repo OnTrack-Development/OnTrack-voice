@@ -7,17 +7,17 @@ $config = require __DIR__ . '/api/demo_config.php';
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#08090c">
-  <meta name="description" content="OnTrack Live — مساعد صوتي ذكي لخدمة العملاء والمبيعات">
-  <title>OnTrack Live — Voice AI</title>
+  <meta name="description" content="OnTrack Live — مكالمة صوتية ذكية مباشرة">
+  <title>OnTrack Live</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link rel="stylesheet" href="assets/app.css?v=052">
+  <link rel="stylesheet" href="assets/app.css?v=053">
 </head>
 <body>
 <div class="ambient ambient-a"></div>
 <div class="ambient ambient-b"></div>
 
-<div class="app-shell">
-  <header class="topbar">
+<div class="call-app">
+  <header class="call-topbar">
     <a class="brand" href="https://ontrackegy.com/" target="_blank" rel="noopener">
       <span class="brand-mark">
         <img src="https://ontrackegy.com/wp-content/uploads/2026/05/image.svg" alt="OnTrack">
@@ -28,21 +28,19 @@ $config = require __DIR__ . '/api/demo_config.php';
       </span>
     </a>
 
-    <div class="top-status">
+    <div class="connection-pill">
       <span class="status-dot" id="statusDot"></span>
-      <span id="engineBadge">جاهز للتجربة</span>
+      <span id="engineBadge">جاهز للمكالمة</span>
     </div>
   </header>
 
-  <main class="main-grid">
-    <section class="call-stage">
-      <div class="stage-head">
-        <div>
-          <span class="eyebrow">CLIENT PREVIEW</span>
-          <h1>اتكلم مع أون تراك طبيعي.</h1>
-          <p>مكالمة صوتية مباشرة مع Gemini Live، متصلة بقاعدة معرفة تجريبية لخدمات واستضافة أون تراك.</p>
-        </div>
-        <div class="live-pill"><span></span> LIVE AI</div>
+  <main class="call-screen">
+    <section class="call-panel">
+      <div class="call-kicker">CLIENT VOICE PREVIEW</div>
+
+      <div class="call-title">
+        <h1>اتكلم مع أون تراك.</h1>
+        <p>مكالمة صوتية مباشرة مع مساعد ذكي يعرف خدمات أون تراك وبيانات الديمو.</p>
       </div>
 
       <div class="voice-core-wrap">
@@ -51,22 +49,37 @@ $config = require __DIR__ . '/api/demo_config.php';
           <div class="wave wave-1"></div>
           <div class="wave wave-2"></div>
           <div class="wave wave-3"></div>
+
           <div class="core-center">
-            <div class="core-icon" id="coreIcon">AI</div>
+            <div class="core-icon">AI</div>
             <strong id="orbText">جاهز</strong>
             <small id="callTimer">00:00</small>
           </div>
         </div>
       </div>
 
-      <div class="voice-picker">
-        <div class="field-label">
-          <span>اختار شخصية الصوت</span>
-          <small>تقدر تغيّر الصوت قبل كل مكالمة</small>
-        </div>
+      <div class="call-info-line">
+        <span class="call-info-item">
+          <small>الحالة</small>
+          <strong id="liveState">جاهز</strong>
+        </span>
+        <span class="call-info-separator"></span>
+        <span class="call-info-item">
+          <small>الميكروفون</small>
+          <strong id="micState">متوقف</strong>
+        </span>
+        <span class="call-info-separator"></span>
+        <span class="call-info-item">
+          <small>الصوت</small>
+          <strong id="voiceState">Charon</strong>
+        </span>
+      </div>
+
+      <div class="voice-select-row">
+        <label for="voice">شخصية الصوت</label>
         <div class="select-wrap">
           <select id="voice" aria-label="اختيار صوت Gemini">
-            <optgroup label="مقترحة للمكالمات">
+            <optgroup label="مقترحة">
               <option value="Charon" selected>Charon — واضح ومعلوماتي</option>
               <option value="Achird">Achird — ودود</option>
               <option value="Algieba">Algieba — ناعم</option>
@@ -76,7 +89,7 @@ $config = require __DIR__ . '/api/demo_config.php';
               <option value="Kore">Kore — حازم</option>
               <option value="Puck">Puck — حيوي</option>
             </optgroup>
-            <optgroup label="كل الأصوات">
+            <optgroup label="أصوات إضافية">
               <option value="Zephyr">Zephyr — مشرق</option>
               <option value="Fenrir">Fenrir — متحمس</option>
               <option value="Leda">Leda — شبابي</option>
@@ -106,140 +119,56 @@ $config = require __DIR__ . '/api/demo_config.php';
       </div>
 
       <div class="call-actions">
-        <button id="callBtn" class="btn btn-primary">
-          <span class="btn-icon">●</span>
+        <button id="callBtn" class="call-btn call-btn-start">
+          <span class="call-btn-icon">●</span>
           <span>ابدأ المكالمة</span>
         </button>
-        <button id="muteBtn" class="btn btn-secondary" disabled>
+
+        <button id="muteBtn" class="call-btn call-btn-mute" disabled>
           <span id="muteIcon">◉</span>
-          <span id="muteText">كتم الميكروفون</span>
+          <span id="muteText">كتم</span>
         </button>
-        <button id="stopBtn" class="btn btn-danger" disabled>
+
+        <button id="stopBtn" class="call-btn call-btn-end" disabled>
           <span>■</span>
           <span>إنهاء</span>
         </button>
       </div>
 
-      <div class="privacy-line">
-        <span>🔒</span>
-        <p>تجربة آمنة ببيانات Demo فقط. لا ترسل كلمات مرور أو بيانات بنكية أثناء التجربة.</p>
-      </div>
-    </section>
-
-    <aside class="side-panel">
-      <section class="panel-card status-card">
-        <div class="panel-title">
-          <div>
-            <span class="eyebrow">SESSION</span>
-            <h2>حالة المكالمة</h2>
-          </div>
-          <span class="mini-badge" id="sessionBadge">READY</span>
-        </div>
-
-        <div class="status-list">
-          <div class="status-row">
-            <span class="status-icon">◉</span>
-            <div><small>Gemini Live</small><strong id="liveState">جاهز</strong></div>
-          </div>
-          <div class="status-row">
-            <span class="status-icon">⌁</span>
-            <div><small>الميكروفون</small><strong id="micState">متوقف</strong></div>
-          </div>
-          <div class="status-row">
-            <span class="status-icon">◆</span>
-            <div><small>الموديل</small><strong id="modelState">gemini-3.8-live</strong></div>
-          </div>
-          <div class="status-row">
-            <span class="status-icon">♪</span>
-            <div><small>الصوت</small><strong id="voiceState">Charon</strong></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel-card ideas-card">
-        <div class="panel-title">
-          <div>
-            <span class="eyebrow">TRY IT</span>
-            <h2>جرّب تسأله</h2>
-          </div>
-        </div>
-        <div class="idea-list">
-          <button class="idea" data-prompt="رشحلي استضافة مناسبة لشركة صغيرة وموقع شركة وبريد أعمال">رشحلي استضافة لشركة صغيرة</button>
-          <button class="idea" data-prompt="قولي تفاصيل الفاتورة DEMO-1001 وحالتها وإجماليها">قولي تفاصيل DEMO-1001</button>
-          <button class="idea" data-prompt="إيه الفرق بين Starter Plan و Reseller 15 users؟">قارن Starter و Reseller</button>
-          <button class="idea" data-prompt="أنا عاوز موقع وبريد لشركة أبو نخلة، ترشحلي إيه؟">رشحلي لأبو نخلة</button>
-        </div>
-        <small class="idea-note">ابدأ المكالمة الأول، وبعدها تقدر تضغط أي مثال أو تسأل بصوتك.</small>
-      </section>
-
-      <section class="panel-card quick-links-card">
-        <div class="panel-title">
-          <div>
-            <span class="eyebrow">QUICK LINKS</span>
-            <h2>روابط سريعة</h2>
-          </div>
-        </div>
-        <div class="quick-links">
-          <a href="https://ontrackegy.com/" target="_blank" rel="noopener noreferrer">
-            <span>↗</span>
-            <div><strong>موقع أون تراك</strong><small>ontrackegy.com</small></div>
-          </a>
-          <a href="https://services.ontrackegy.com/" target="_blank" rel="noopener noreferrer">
-            <span>↗</span>
-            <div><strong>بوابة العملاء</strong><small>الخدمات والفواتير</small></div>
-          </a>
-          <a href="https://whatsapp.ontrackegy.com/" target="_blank" rel="noopener noreferrer">
-            <span>↗</span>
-            <div><strong>WhatsApp Automation</strong><small>منصة أون تراك للواتساب</small></div>
-          </a>
-        </div>
-      </section>
-    </aside>
-
-    <section class="conversation-card">
-      <div class="conversation-head">
-        <div>
-          <span class="eyebrow">LIVE TRANSCRIPT</span>
-          <h2>المحادثة</h2>
-        </div>
-        <button id="clearTranscript" class="ghost-btn">مسح</button>
+      <div class="call-note">
+        تجربة ببيانات Demo فقط — متبعتش كلمات مرور أو بيانات بنكية.
       </div>
 
-      <div class="conversation" id="transcript">
-        <div class="empty-state" id="emptyTranscript">
-          <div class="empty-icon">⌁</div>
-          <strong>المحادثة هتظهر هنا</strong>
-          <span>ابدأ المكالمة واتكلم طبيعي، والنص هيتسجل أثناء الجلسة.</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="capabilities">
-      <article>
-        <span>01</span>
-        <div><strong>خدمات وأسعار</strong><small>Shared, Reseller, VPS, Dedicated والمزيد</small></div>
-      </article>
-      <article>
-        <span>02</span>
-        <div><strong>فواتير تجريبية</strong><small>بحث وحالة وإجماليات من بيانات Demo</small></div>
-      </article>
-      <article>
-        <span>03</span>
-        <div><strong>مبيعات ذكية</strong><small>ترشيح خدمة حسب احتياج العميل</small></div>
-      </article>
-      <article>
-        <span>04</span>
-        <div><strong>محادثة طبيعية</strong><small>صوت لصوت مع إمكانية المقاطعة</small></div>
-      </article>
+      <div class="sr-only" id="modelState">gemini-3.8-live</div>
+      <div class="sr-only" id="sessionBadge">READY</div>
     </section>
   </main>
-
-  <footer>
-    <span>OnTrack Development</span>
-    <span>Client Voice AI Preview • Demo data only</span>
-  </footer>
 </div>
 
-<script type="module" src="assets/app.js?v=052"></script>
+<section class="chat-popup" id="chatPopup" aria-hidden="true">
+  <div class="chat-popup-card">
+    <div class="chat-popup-head">
+      <div class="chat-person">
+        <span class="chat-avatar">AI</span>
+        <div>
+          <strong>OnTrack AI</strong>
+          <small><span class="chat-live-dot"></span> المكالمة جارية</small>
+        </div>
+      </div>
+
+      <button id="clearTranscript" class="chat-clear" type="button" aria-label="مسح المحادثة">مسح</button>
+    </div>
+
+    <div class="conversation" id="transcript">
+      <div class="empty-state" id="emptyTranscript">
+        <div class="typing-bars"><i></i><i></i><i></i></div>
+        <strong>ابدأ تتكلم</strong>
+        <span>المحادثة هتظهر هنا أثناء المكالمة.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script type="module" src="assets/app.js?v=053"></script>
 </body>
 </html>
