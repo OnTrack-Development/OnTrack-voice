@@ -1,14 +1,14 @@
 {
-  "version": "0.5.5",
+  "version": "0.5.6",
   "channel": "client-preview",
   "model": "gemini-3.8-live",
   "mode": "single-screen-call-mode",
   "sdk": "@google/genai 2.25.0",
   "auth": "ephemeral-token",
   "features": [
-    "single-screen call UI",
+    "header removed completely",
+    "full-screen call layout",
     "company logo in voice core",
-    "simplified header",
     "chat popup tied to call lifecycle",
     "popup mute control",
     "popup hangup control",
