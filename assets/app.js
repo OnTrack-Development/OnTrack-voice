@@ -1,395 +1,417 @@
-import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
-
 const $ = s => document.querySelector(s);
-const convo = $('#conversation');
+
 const callBtn = $('#callBtn');
 const stopBtn = $('#stopBtn');
+const micState = $('#micState');
+const liveState = $('#liveState');
+const modelState = $('#modelState');
+const transcript = $('#transcript');
 const orb = $('#orb');
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const voiceSelect = $('#voice');
 
-const VOICETUT_SPACES = [
-  'mohammedaly22/VoiceTut-TTS',
-  'a7mid/VoiceTut-TTS',
-  'danibrahim/VoiceTut-TTS',
-  'ahmedffffff/VoiceTut-TTS'
-];
-
-let rec = null;
+let ws = null;
+let micStream = null;
+let inputCtx = null;
+let outputCtx = null;
+let inputSource = null;
+let processor = null;
+let muteGain = null;
 let active = false;
-let speaking = false;
-let busy = false;
-let restartTimer = null;
-let currentAudio = null;
-let previousInteractionId = null;
-let chatHistory = [];
-let lastTranscript = '';
-let lastTranscriptAt = 0;
-const clients = new Map();
+let setupReady = false;
+let nextPlayTime = 0;
+let playingSources = new Set();
+let currentUserText = '';
+let currentModelText = '';
+let userBubble = null;
+let modelBubble = null;
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-function msg(role, text) {
-  const d = document.createElement('div');
-  d.className = 'msg ' + role;
-  d.innerHTML = `<small>${role === 'user' ? 'أنت' : 'OnTrack AI'}</small>${escapeHtml(text)}`;
-  convo.appendChild(d);
-  d.scrollIntoView({behavior: 'smooth', block: 'end'});
-}
-
-function state(text, cls = '') {
+function state(text, cls='') {
   $('#orbText').textContent = text;
   orb.className = 'orb ' + cls;
 }
 
-async function status() {
-  try {
-    const r = await fetch('api/status.php', {cache: 'no-store'});
-    const j = await r.json();
-    $('#engineBadge').textContent = j.gemini_configured ? 'Gemini 3.8 + VoiceTut' : 'Gemini غير مضبوط';
-    $('#aiState').textContent = j.gemini_configured ? j.gemini_model : 'غير مضبوط';
-    $('#ttsState').textContent = 'VoiceTut متعدد المصادر';
-  } catch (e) {
-    $('#engineBadge').textContent = 'تعذر فحص المحركات';
+function setStatus(el, text) {
+  if (el) el.textContent = text;
+}
+
+function addBubble(role, text='') {
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = `<small>${role === 'user' ? 'أنت' : 'Gemini 3.8 Live'}</small><span></span>`;
+  div.querySelector('span').textContent = text;
+  transcript.appendChild(div);
+  div.scrollIntoView({behavior:'smooth', block:'end'});
+  return div;
+}
+
+function updateBubble(bubble, text) {
+  if (!bubble) return;
+  bubble.querySelector('span').textContent = text;
+  bubble.scrollIntoView({behavior:'smooth', block:'end'});
+}
+
+function mergeTranscript(current, incoming) {
+  incoming = String(incoming || '').trim();
+  if (!incoming) return current;
+  if (!current) return incoming;
+  if (incoming.startsWith(current)) return incoming;
+  if (current.endsWith(incoming)) return current;
+  return (current + ' ' + incoming).replace(/\s+/g, ' ').trim();
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunk, bytes.length)));
   }
+  return btoa(binary);
 }
 
-function stopAudio() {
-  if (currentAudio) {
-    try { currentAudio.pause(); } catch (e) {}
-    currentAudio = null;
+function floatToPCM16(float32) {
+  const buffer = new ArrayBuffer(float32.length * 2);
+  const view = new DataView(buffer);
+  for (let i = 0; i < float32.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32[i]));
+    view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
   }
-  try { speechSynthesis.cancel(); } catch (e) {}
+  return buffer;
 }
 
-function browserSpeak(text) {
-  return new Promise(resolve => {
-    if (!('speechSynthesis' in window)) return resolve();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'ar-EG';
-    const voices = speechSynthesis.getVoices();
-    const arEg = voices.find(v => /ar[-_]EG/i.test(v.lang));
-    const ar = arEg || voices.find(v => /^ar/i.test(v.lang));
-    if (ar) u.voice = ar;
-    u.rate = 0.96;
-    u.onend = resolve;
-    u.onerror = resolve;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
-  });
-}
-
-function withTimeout(promise, ms, label) {
-  let timer;
-  return Promise.race([
-    promise.finally(() => clearTimeout(timer)),
-    new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(label + ' timeout')), ms);
-    })
-  ]);
-}
-
-async function connectSpace(space) {
-  if (!clients.has(space)) {
-    clients.set(space, withTimeout(Client.connect(space), 18000, space + ' connect'));
+function base64ToFloat32PCM16(base64) {
+  const binary = atob(base64);
+  const len = Math.floor(binary.length / 2);
+  const out = new Float32Array(len);
+  for (let i = 0; i < len; i++) {
+    const lo = binary.charCodeAt(i * 2);
+    const hi = binary.charCodeAt(i * 2 + 1);
+    let value = (hi << 8) | lo;
+    if (value & 0x8000) value -= 0x10000;
+    out[i] = value / 32768;
   }
-  return clients.get(space);
+  return out;
 }
 
-async function resolveEndpoint(client) {
-  try {
-    const api = await withTimeout(client.view_api(), 10000, 'view_api');
-    const names = Object.keys(api?.named_endpoints || {});
-    return names.find(n => /run_b_oneshot/i.test(n))
-        || names.find(n => /oneshot/i.test(n))
-        || names.find(n => /run_b/i.test(n))
-        || '/run_b_oneshot';
-  } catch (e) {
-    return '/run_b_oneshot';
+function stopPlayback() {
+  for (const src of playingSources) {
+    try { src.stop(); } catch (_) {}
   }
+  playingSources.clear();
+  nextPlayTime = outputCtx ? outputCtx.currentTime : 0;
 }
 
-function findAudioUrl(node) {
-  if (!node) return null;
-  if (typeof node === 'string') {
-    return /^https?:\/\//i.test(node) ? node : null;
+async function enqueueAudio(base64, sampleRate=24000) {
+  if (!outputCtx) {
+    outputCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-  if (Array.isArray(node)) {
-    for (const child of node) {
-      const found = findAudioUrl(child);
-      if (found) return found;
-    }
-    return null;
-  }
-  if (typeof node === 'object') {
-    if (typeof node.url === 'string' && /^https?:\/\//i.test(node.url)) return node.url;
-    for (const child of Object.values(node)) {
-      const found = findAudioUrl(child);
-      if (found) return found;
-    }
-  }
-  return null;
+  if (outputCtx.state === 'suspended') await outputCtx.resume();
+
+  const pcm = base64ToFloat32PCM16(base64);
+  if (!pcm.length) return;
+
+  const buffer = outputCtx.createBuffer(1, pcm.length, sampleRate);
+  buffer.getChannelData(0).set(pcm);
+
+  const src = outputCtx.createBufferSource();
+  src.buffer = buffer;
+  src.connect(outputCtx.destination);
+
+  const now = outputCtx.currentTime;
+  const startAt = Math.max(now + 0.02, nextPlayTime);
+  src.start(startAt);
+  nextPlayTime = startAt + buffer.duration;
+
+  playingSources.add(src);
+  src.onended = () => playingSources.delete(src);
 }
 
-async function playUrl(url) {
-  await new Promise((resolve, reject) => {
-    const a = new Audio(url);
-    currentAudio = a;
-    a.onended = () => { currentAudio = null; resolve(); };
-    a.onerror = () => { currentAudio = null; reject(new Error('audio_playback_failed')); };
-    a.play().catch(err => { currentAudio = null; reject(err); });
-  });
-}
-
-async function voiceTutSpeak(text) {
-  const speaker = $('#speaker').value;
-  const errors = [];
-
-  for (const space of VOICETUT_SPACES) {
-    try {
-      $('#ttsState').textContent = 'VoiceTut: ' + space.split('/')[0] + '…';
-      const client = await connectSpace(space);
-      const endpoint = await resolveEndpoint(client);
-
-      const result = await withTimeout(
-        client.predict(endpoint, [
-          speaker,
-          text,
-          'العربية (Egyptian)',
-          48,
-          2.5,
-          0.95,
-          true
-        ]),
-        50000,
-        space + ' predict'
-      );
-
-      const url = findAudioUrl(result?.data);
-      if (!url) throw new Error('no audio url');
-
-      $('#ttsState').textContent = 'VoiceTut: ' + speaker;
-      await playUrl(url);
-      return;
-    } catch (e) {
-      errors.push(space + ': ' + (e?.message || e));
-      clients.delete(space);
-    }
-  }
-
-  throw new Error(errors.join(' | '));
-}
-
-async function edgeFallback(text) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30000);
-  try {
-    const r = await fetch('api/tts.php', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        text,
-        speaker: $('#speaker').value,
-        rate: '-4%'
-      })
-    });
-
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      throw new Error(j.detail || j.error || 'edge fallback failed');
-    }
-
-    $('#ttsState').textContent = r.headers.get('X-TTS-Engine') || 'Edge Egyptian fallback';
-    const blob = await r.blob();
-    if (!blob.size) throw new Error('empty Edge audio');
-
-    const url = URL.createObjectURL(blob);
-    try {
-      await playUrl(url);
-    } finally {
-      URL.revokeObjectURL(url);
-    }
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function speak(text) {
-  speaking = true;
-  state('برد عليك…', 'speaking');
-  safeStopRec();
-
-  try {
-    await voiceTutSpeak(text);
-  } catch (e) {
-    console.warn('All VoiceTut spaces failed:', e);
-    try {
-      $('#ttsState').textContent = 'VoiceTut غير متاح — Edge…';
-      await edgeFallback(text);
-    } catch (e2) {
-      console.warn('Edge fallback failed:', e2);
-      $('#ttsState').textContent = 'Device fallback';
-      await browserSpeak(text);
-    }
-  } finally {
-    speaking = false;
-    busy = false;
-    if (active) setTimeout(startRec, 500);
-  }
-}
-
-function shortError(j) {
-  if (j?.status === 429 || j?.detail?.code === 429 || j?.interactions_http === 429) return '429: حصة Gemini';
-  if (j?.status) return 'HTTP ' + j.status;
-  if (j?.interactions_http) return 'HTTP ' + j.interactions_http;
-  return j?.error || 'Gemini error';
-}
-
-async function think(text) {
-  busy = true;
-  state('بفكر…');
-  $('#aiState').textContent = 'Gemini 3.8 بيفكر…';
-
-  try {
-    const r = await fetch('api/brain.php', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        text,
-        previous_interaction_id: previousInteractionId,
-        history: chatHistory.slice(-10)
-      })
-    });
-
-    const j = await r.json();
-    if (!r.ok || !j.ok) {
-      $('#aiState').textContent = shortError(j);
-      console.error('Gemini API detail:', j);
-      throw Object.assign(new Error(shortError(j)), {api: j});
-    }
-
-    if (j.interaction_id) previousInteractionId = j.interaction_id;
-    $('#aiState').textContent = (j.model || 'Gemini 3.8') + ' · ' + (j.route || '');
-    msg('bot', j.answer);
-
-    chatHistory.push({role:'user', text});
-    chatHistory.push({role:'assistant', text:j.answer});
-    chatHistory = chatHistory.slice(-12);
-
-    await speak(j.answer);
-  } catch (e) {
-    if (!e?.api) $('#aiState').textContent = e?.message || 'Gemini error';
-    const t = 'حصل خطأ وأنا بكلم جوجل. جرّب تاني.';
-    msg('bot', t);
-    await speak(t);
-  }
-}
-
-function buildRec() {
-  if (!SR) return null;
-  const r = new SR();
-  r.lang = 'ar-EG';
-  r.interimResults = false;
-  r.continuous = false;
-  r.maxAlternatives = 1;
-
-  r.onstart = () => {
-    $('#micState').textContent = 'بيسمعك';
+function finalizeTurn() {
+  currentUserText = '';
+  currentModelText = '';
+  userBubble = null;
+  modelBubble = null;
+  if (active) {
     state('سامعك…', 'listening');
-  };
-
-  r.onresult = e => {
-    if (busy || speaking) return;
-    const t = e.results[0][0].transcript.trim();
-    if (!t) return;
-
-    const now = Date.now();
-    if (t === lastTranscript && now - lastTranscriptAt < 5000) return;
-    lastTranscript = t;
-    lastTranscriptAt = now;
-
-    busy = true;
-    safeStopRec();
-    msg('user', t);
-    think(t);
-  };
-
-  r.onerror = e => {
-    if (e.error === 'aborted') {
-      $('#sttState').textContent = 'جاهز';
-      return;
-    }
-    $('#sttState').textContent = e.error;
-    if (active && !speaking && !busy && e.error !== 'not-allowed' && e.error !== 'service-not-allowed') restart();
-  };
-
-  r.onend = () => {
-    if (active && !speaking && !busy) restart();
-  };
-
-  return r;
-}
-
-function restart() {
-  if (!active || speaking || busy) return;
-  clearTimeout(restartTimer);
-  restartTimer = setTimeout(startRec, 650);
-}
-
-function startRec() {
-  if (!active || speaking || busy) return;
-  if (!rec) rec = buildRec();
-  if (!rec) return;
-  try { rec.start(); } catch (e) { restart(); }
-}
-
-function safeStopRec() {
-  clearTimeout(restartTimer);
-  if (rec) {
-    try { rec.abort(); } catch (e) {}
+    setStatus(liveState, 'مباشر');
   }
-  $('#micState').textContent = 'متوقف';
 }
 
-callBtn.onclick = async () => {
-  if (!SR) {
-    alert('المتصفح ده لا يدعم Speech Recognition. استخدم Chrome أو Edge حديث عبر HTTPS.');
+function handleServerMessage(msg) {
+  if (msg.setupComplete) {
+    setupReady = true;
+    setStatus(liveState, 'متصل');
+    state('سامعك…', 'listening');
     return;
   }
 
-  active = true;
-  busy = true;
-  previousInteractionId = null;
-  chatHistory = [];
-  lastTranscript = '';
-  lastTranscriptAt = 0;
+  const sc = msg.serverContent;
+  if (!sc) return;
+
+  if (sc.interrupted) {
+    stopPlayback();
+    setStatus(liveState, 'اتقاطعت — سامعك');
+  }
+
+  if (sc.inputTranscription?.text) {
+    currentUserText = mergeTranscript(currentUserText, sc.inputTranscription.text);
+    if (!userBubble) userBubble = addBubble('user');
+    updateBubble(userBubble, currentUserText);
+  }
+
+  if (sc.outputTranscription?.text) {
+    currentModelText = mergeTranscript(currentModelText, sc.outputTranscription.text);
+    if (!modelBubble) modelBubble = addBubble('bot');
+    updateBubble(modelBubble, currentModelText);
+  }
+
+  const parts = sc.modelTurn?.parts || [];
+  for (const part of parts) {
+    const inline = part.inlineData || part.inline_data;
+    if (!inline?.data) continue;
+    const mime = inline.mimeType || inline.mime_type || 'audio/pcm;rate=24000';
+    if (!mime.startsWith('audio/pcm')) continue;
+    const m = /rate=(\d+)/i.exec(mime);
+    const rate = m ? Number(m[1]) : 24000;
+    enqueueAudio(inline.data, rate).catch(console.error);
+    state('بيرد عليك…', 'speaking');
+    setStatus(liveState, 'Gemini بيتكلم');
+  }
+
+  if (sc.turnComplete) {
+    finalizeTurn();
+  }
+}
+
+async function startMicrophone() {
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      channelCount: 1,
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    }
+  });
+
+  inputCtx = new (window.AudioContext || window.webkitAudioContext)();
+  await inputCtx.resume();
+
+  inputSource = inputCtx.createMediaStreamSource(micStream);
+  processor = inputCtx.createScriptProcessor(4096, 1, 1);
+  muteGain = inputCtx.createGain();
+  muteGain.gain.value = 0;
+
+  processor.onaudioprocess = ev => {
+    if (!active || !setupReady || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+    const input = ev.inputBuffer.getChannelData(0);
+    const pcm = floatToPCM16(input);
+    const data = arrayBufferToBase64(pcm);
+    const rate = Math.round(inputCtx.sampleRate);
+
+    try {
+      ws.send(JSON.stringify({
+        realtimeInput: {
+          audio: {
+            data,
+            mimeType: `audio/pcm;rate=${rate}`
+          }
+        }
+      }));
+    } catch (e) {
+      console.warn('audio send failed', e);
+    }
+  };
+
+  inputSource.connect(processor);
+  processor.connect(muteGain);
+  muteGain.connect(inputCtx.destination);
+
+  setStatus(micState, 'شغال');
+}
+
+async function stopMicrophone() {
+  if (processor) {
+    try { processor.disconnect(); } catch (_) {}
+    processor.onaudioprocess = null;
+    processor = null;
+  }
+  if (inputSource) {
+    try { inputSource.disconnect(); } catch (_) {}
+    inputSource = null;
+  }
+  if (muteGain) {
+    try { muteGain.disconnect(); } catch (_) {}
+    muteGain = null;
+  }
+  if (micStream) {
+    micStream.getTracks().forEach(t => t.stop());
+    micStream = null;
+  }
+  if (inputCtx) {
+    try { await inputCtx.close(); } catch (_) {}
+    inputCtx = null;
+  }
+  setStatus(micState, 'متوقف');
+}
+
+async function createLiveSession() {
+  const r = await fetch('api/live_session.php', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: '{}',
+    cache: 'no-store'
+  });
+  const j = await r.json();
+  if (!r.ok || !j.ok) {
+    throw new Error(j.detail || j.error || 'تعذر إنشاء Live session');
+  }
+  return j;
+}
+
+async function startCall() {
+  if (active) return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    alert('المتصفح لا يدعم الميكروفون المطلوب للمكالمة.');
+    return;
+  }
+
   callBtn.disabled = true;
   stopBtn.disabled = false;
-  $('#sttState').textContent = 'ar-EG';
+  voiceSelect.disabled = true;
+  transcript.innerHTML = '';
+  active = true;
+  setupReady = false;
+  currentUserText = '';
+  currentModelText = '';
+  userBubble = null;
+  modelBubble = null;
 
-  const hello = 'أهلاً بيك في أون تراك. أنا الديمو الصوتي، اتفضل اسألني عن الخدمات أو فواتير الديمو.';
-  msg('bot', hello);
-  await speak(hello);
-};
+  try {
+    state('بجهز المكالمة…');
+    setStatus(liveState, 'بيجهز Session');
 
-stopBtn.onclick = () => {
+    if (!outputCtx) outputCtx = new (window.AudioContext || window.webkitAudioContext)();
+    await outputCtx.resume();
+    nextPlayTime = outputCtx.currentTime;
+
+    const session = await createLiveSession();
+    setStatus(modelState, session.model);
+
+    const url =
+      'wss://generativelanguage.googleapis.com/ws/' +
+      'google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained' +
+      '?access_token=' + encodeURIComponent(session.token);
+
+    ws = new WebSocket(url);
+
+    ws.onopen = async () => {
+      setStatus(liveState, 'WebSocket متصل');
+
+      ws.send(JSON.stringify({
+        setup: {
+          model: 'models/gemini-3.8-live',
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: voiceSelect.value
+                }
+              }
+            }
+          },
+          systemInstruction: {
+            parts: [{text: session.system_instruction}]
+          },
+          inputAudioTranscription: {
+            languageCodes: ['ar-EG'],
+            customVocabulary: ['OnTrack', 'أون تراك', 'WHMCS', 'Starter', 'Reseller', 'Abu Nakhla']
+          },
+          outputAudioTranscription: {}
+        }
+      }));
+
+      try {
+        await startMicrophone();
+      } catch (e) {
+        setStatus(micState, 'مرفوض');
+        throw e;
+      }
+    };
+
+    ws.onmessage = ev => {
+      try {
+        const msg = JSON.parse(ev.data);
+        handleServerMessage(msg);
+      } catch (e) {
+        console.error('Live message parse error', e);
+      }
+    };
+
+    ws.onerror = ev => {
+      console.error('Live WebSocket error', ev);
+      setStatus(liveState, 'WebSocket error');
+    };
+
+    ws.onclose = ev => {
+      if (!active) return;
+      setStatus(liveState, `اتقفل ${ev.code}${ev.reason ? ': ' + ev.reason : ''}`);
+      state('الاتصال اتقفل');
+      stopCall(false);
+    };
+
+  } catch (e) {
+    console.error(e);
+    setStatus(liveState, e.message || 'خطأ');
+    state('فشل الاتصال');
+    await stopCall(false);
+  }
+}
+
+async function stopCall(userInitiated=true) {
+  const wasActive = active;
   active = false;
-  speaking = false;
-  busy = false;
-  previousInteractionId = null;
-  safeStopRec();
-  stopAudio();
+  setupReady = false;
+
+  await stopMicrophone();
+  stopPlayback();
+
+  if (ws) {
+    try {
+      if (ws.readyState === WebSocket.OPEN && userInitiated) {
+        ws.send(JSON.stringify({realtimeInput: {audioStreamEnd: true}}));
+      }
+      ws.close(1000, 'user ended call');
+    } catch (_) {}
+    ws = null;
+  }
+
   callBtn.disabled = false;
   stopBtn.disabled = true;
-  state('انتهت المكالمة');
-};
+  voiceSelect.disabled = false;
 
-window.addEventListener('load', () => {
-  status();
-  if (!SR) $('#sttState').textContent = 'غير مدعوم';
-  else $('#sttState').textContent = 'جاهز';
+  if (userInitiated && wasActive) {
+    state('انتهت المكالمة');
+    setStatus(liveState, 'متوقف');
+  }
+}
 
-  connectSpace(VOICETUT_SPACES[0]).catch(() => {});
+callBtn.addEventListener('click', startCall);
+stopBtn.addEventListener('click', () => stopCall(true));
+
+window.addEventListener('beforeunload', () => {
+  active = false;
+  try { ws?.close(); } catch (_) {}
+  micStream?.getTracks().forEach(t => t.stop());
 });
+
+fetch('api/status.php', {cache:'no-store'})
+  .then(r => r.json())
+  .then(j => {
+    setStatus(modelState, j.model || 'gemini-3.8-live');
+    $('#engineBadge').textContent = j.gemini_configured ? 'Gemini 3.8 Live جاهز' : 'مفتاح Gemini غير مضبوط';
+  })
+  .catch(() => {
+    $('#engineBadge').textContent = 'تعذر فحص Live';
+  });

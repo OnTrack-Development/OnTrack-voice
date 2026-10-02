@@ -1,6 +1,8 @@
 {
-  "version": "0.3.8",
+  "version": "0.4.0",
   "channel": "demo",
-  "stack": "Gemini 3.8 dual-route + VoiceTut multi-space + Edge fallback",
-  "updated": "2026-10-01"
+  "model": "gemini-3.8-live",
+  "mode": "native-audio-live",
+  "legacy_voice_stack": false,
+  "updated": "2026-10-02"
 }
