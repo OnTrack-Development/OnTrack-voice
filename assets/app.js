@@ -69,6 +69,26 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
+function resampleTo16k(input, inputRate) {
+  const outputRate = 16000;
+  if (inputRate === outputRate) return input.slice();
+  const ratio = inputRate / outputRate;
+  const outLength = Math.max(1, Math.floor(input.length / ratio));
+  const output = new Float32Array(outLength);
+  for (let i = 0; i < outLength; i++) {
+    const start = Math.floor(i * ratio);
+    const end = Math.min(input.length, Math.floor((i + 1) * ratio));
+    let sum = 0;
+    let count = 0;
+    for (let j = start; j < end; j++) {
+      sum += input[j];
+      count++;
+    }
+    output[i] = count ? sum / count : (input[Math.min(start, input.length - 1)] || 0);
+  }
+  return output;
+}
+
 function floatToPCM16(float32) {
   const buffer = new ArrayBuffer(float32.length * 2);
   const view = new DataView(buffer);
@@ -205,16 +225,16 @@ async function startMicrophone() {
     if (!active || !setupReady || !ws || ws.readyState !== WebSocket.OPEN) return;
 
     const input = ev.inputBuffer.getChannelData(0);
-    const pcm = floatToPCM16(input);
+    const input16k = resampleTo16k(input, inputCtx.sampleRate);
+    const pcm = floatToPCM16(input16k);
     const data = arrayBufferToBase64(pcm);
-    const rate = Math.round(inputCtx.sampleRate);
 
     try {
       ws.send(JSON.stringify({
         realtimeInput: {
           audio: {
             data,
-            mimeType: `audio/pcm;rate=${rate}`
+            mimeType: 'audio/pcm;rate=16000'
           }
         }
       }));
@@ -324,10 +344,7 @@ async function startCall() {
           systemInstruction: {
             parts: [{text: session.system_instruction}]
           },
-          inputAudioTranscription: {
-            languageCodes: ['ar-EG'],
-            customVocabulary: ['OnTrack', 'أون تراك', 'WHMCS', 'Starter', 'Reseller', 'Abu Nakhla']
-          },
+          inputAudioTranscription: {},
           outputAudioTranscription: {}
         }
       }));
