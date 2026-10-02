@@ -694,10 +694,12 @@ $$('.idea').forEach(btn => {
     const prompt = btn.dataset.prompt || btn.textContent.trim();
     if (!prompt) return;
 
+    closeTranscriptTurn();
     lastUserIntent = prompt;
+
     const bubble = makeBubble('user');
     bubble.querySelector('span').textContent = prompt;
-    closeTranscriptTurn();
+    bubble.scrollIntoView({behavior:'smooth', block:'end'});
 
     liveSession.sendRealtimeInput({ text: prompt });
   });
