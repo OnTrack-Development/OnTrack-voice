@@ -1,5 +1,5 @@
 {
-  "version": "0.5.1",
+  "version": "0.5.2",
   "channel": "client-preview",
   "model": "gemini-3.8-live",
   "mode": "official-google-genai-js-sdk",
@@ -15,7 +15,9 @@
     "quick demo prompts",
     "expanded demo knowledge base",
     "client-safe error states",
-    "voice-safe URL sanitization"
+    "voice-safe URL sanitization",
+    "clickable contextual links",
+    "clickable quick links"
   ],
   "updated": "2026-10-02"
 }
