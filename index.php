@@ -8,7 +8,7 @@ $config = require __DIR__ . '/api/demo_config.php';
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07090d">
   <title>OnTrack Gemini 3.8 Live</title>
-  <link rel="stylesheet" href="assets/app.css?v=040">
+  <link rel="stylesheet" href="assets/app.css?v=041">
 </head>
 <body>
 <div class="shell">
@@ -57,6 +57,6 @@ $config = require __DIR__ . '/api/demo_config.php';
   </main>
 </div>
 
-<script type="module" src="assets/app.js?v=040"></script>
+<script type="module" src="assets/app.js?v=041"></script>
 </body>
 </html>
