@@ -19,6 +19,7 @@ let muteGain = null;
 let active = false;
 let setupReady = false;
 let setupTimer = null;
+let greetingPending = false;
 let nextPlayTime = 0;
 const playingSources = new Set();
 
@@ -227,15 +228,15 @@ function handleServerMessage(msg) {
       setupTimer = null;
     }
 
-    setStatus(liveState, 'Live جاهز');
-    state('بفتح الميكروفون…');
+    setStatus(liveState, 'Setup تم — اختبار الصوت');
+    state('Gemini بيبدأ…');
+    greetingPending = true;
 
-    startMicrophone().catch(err => {
-      console.error('Microphone error:', err);
-      setStatus(micState, 'فشل');
-      setStatus(liveState, 'Live جاهز — الميكروفون فشل');
-      state('الميكروفون فشل');
-    });
+    ws.send(JSON.stringify({
+      realtimeInput: {
+        text: 'ابدأ المكالمة الآن بتحية مصرية قصيرة جداً، وبعدها توقف واسمعني.'
+      }
+    }));
 
     return;
   }
@@ -263,6 +264,21 @@ function handleServerMessage(msg) {
   }
 
   if (msg.serverContent?.turnComplete) {
+    if (greetingPending) {
+      greetingPending = false;
+      state('بفتح الميكروفون…');
+      setStatus(liveState, 'الصوت شغال — بفتح الميكروفون');
+
+      startMicrophone().catch(err => {
+        console.error('Microphone error:', err);
+        setStatus(micState, 'فشل');
+        setStatus(liveState, 'الصوت شغال — الميكروفون فشل');
+        state('الميكروفون فشل');
+      });
+
+      return;
+    }
+
     state('سامعك…', 'listening');
     setStatus(liveState, 'Live جاهز');
   }
@@ -375,6 +391,7 @@ async function stopCall(userInitiated=true) {
   const wasActive = active;
   active = false;
   setupReady = false;
+  greetingPending = false;
 
   if (setupTimer) {
     clearTimeout(setupTimer);
