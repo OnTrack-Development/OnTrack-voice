@@ -474,3 +474,80 @@ body{
   .wave-2{inset:-12px}
   .wave-3{inset:-24px}
 }
+
+
+/* v0.5.8 — compact chat popup with minimize/reopen */
+.chat-popup-card{
+  width:min(410px,calc(100vw - 36px));
+  height:min(430px,52dvh);
+  max-height:430px;
+  left:18px;
+  bottom:18px;
+}
+.chat-head-actions{
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+.chat-close{
+  width:32px;
+  height:32px;
+  display:grid;
+  place-items:center;
+  border-radius:10px;
+  background:#171a22;
+  color:#d7dae1;
+  border:1px solid var(--line);
+  cursor:pointer;
+}
+.chat-close:hover{background:#20242d}
+.chat-reopen{
+  position:fixed;
+  left:18px;
+  bottom:18px;
+  z-index:55;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:44px;
+  padding:0 14px;
+  border-radius:999px;
+  background:rgba(17,19,25,.96);
+  color:#fff;
+  border:1px solid var(--line-strong);
+  box-shadow:0 14px 40px rgba(0,0,0,.35);
+  backdrop-filter:blur(16px);
+  cursor:pointer;
+}
+.chat-reopen[hidden]{display:none !important}
+.chat-reopen-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:var(--ok);
+  box-shadow:0 0 10px rgba(71,210,145,.6);
+}
+
+@media(max-width:760px){
+  .chat-popup-card{
+    top:auto;
+    left:8px;
+    right:8px;
+    bottom:8px;
+    width:auto;
+    height:min(420px,48dvh);
+    max-height:48dvh;
+    border-radius:20px;
+  }
+  .chat-reopen{
+    left:10px;
+    bottom:10px;
+  }
+}
+
+@media(max-height:650px){
+  .chat-popup-card{
+    height:min(360px,46dvh);
+    max-height:46dvh;
+  }
+}
