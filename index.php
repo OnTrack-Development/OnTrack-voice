@@ -10,7 +10,7 @@ $config = require __DIR__ . '/api/demo_config.php';
   <meta name="description" content="OnTrack Live — مكالمة صوتية ذكية مباشرة">
   <title>OnTrack Live</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link rel="stylesheet" href="assets/app.css?v=057">
+  <link rel="stylesheet" href="assets/app.css?v=058">
 </head>
 <body>
 <div class="ambient ambient-a"></div>
@@ -143,7 +143,10 @@ $config = require __DIR__ . '/api/demo_config.php';
         </div>
       </div>
 
-      <button id="clearTranscript" class="chat-clear" type="button" aria-label="مسح المحادثة">مسح</button>
+      <div class="chat-head-actions">
+        <button id="clearTranscript" class="chat-clear" type="button" aria-label="مسح المحادثة">مسح</button>
+        <button id="chatCloseBtn" class="chat-close" type="button" aria-label="إغلاق نافذة المحادثة">✕</button>
+      </div>
     </div>
 
     <div class="conversation" id="transcript">
@@ -168,9 +171,14 @@ $config = require __DIR__ . '/api/demo_config.php';
   </div>
 </section>
 
+<button id="chatReopenBtn" class="chat-reopen" type="button" hidden>
+  <span class="chat-reopen-dot"></span>
+  <span>فتح المحادثة</span>
+</button>
+
 <span id="statusDot" class="sr-only"></span>
 <span id="engineBadge" class="sr-only">جاهز للمكالمة</span>
 
-<script type="module" src="assets/app.js?v=057"></script>
+<script type="module" src="assets/app.js?v=058"></script>
 </body>
 </html>
