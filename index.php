@@ -10,7 +10,7 @@ $config = require __DIR__ . '/api/demo_config.php';
   <meta name="description" content="OnTrack Live — مكالمة صوتية ذكية مباشرة">
   <title>OnTrack Live</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link rel="stylesheet" href="assets/app.css?v=056">
+  <link rel="stylesheet" href="assets/app.css?v=057">
 </head>
 <body>
 <div class="ambient ambient-a"></div>
@@ -171,6 +171,6 @@ $config = require __DIR__ . '/api/demo_config.php';
 <span id="statusDot" class="sr-only"></span>
 <span id="engineBadge" class="sr-only">جاهز للمكالمة</span>
 
-<script type="module" src="assets/app.js?v=056"></script>
+<script type="module" src="assets/app.js?v=057"></script>
 </body>
 </html>
