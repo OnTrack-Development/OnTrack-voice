@@ -14,7 +14,6 @@ const modelState = $('#modelState');
 const voiceState = $('#voiceState');
 const voiceSelect = $('#voice');
 const transcript = $('#transcript');
-const emptyTranscript = $('#emptyTranscript');
 const clearTranscript = $('#clearTranscript');
 const orb = $('#orb');
 const engineBadge = $('#engineBadge');
@@ -182,7 +181,7 @@ async function enqueueAudio(base64, sampleRate=24000) {
 }
 
 function ensureTranscriptStarted() {
-  if (emptyTranscript?.isConnected) emptyTranscript.remove();
+  $('#emptyTranscript')?.remove();
 }
 
 function makeBubble(role) {
