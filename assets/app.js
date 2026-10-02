@@ -25,6 +25,8 @@ const popupMuteBtn = $('#popupMuteBtn');
 const popupMuteIcon = $('#popupMuteIcon');
 const popupMuteText = $('#popupMuteText');
 const popupStopBtn = $('#popupStopBtn');
+const chatCloseBtn = $('#chatCloseBtn');
+const chatReopenBtn = $('#chatReopenBtn');
 
 let liveSession = null;
 let micStream = null;
@@ -111,11 +113,13 @@ function openChatPopup(reset=true) {
   if (reset) resetTranscript();
   chatPopup.classList.add('is-open');
   chatPopup.setAttribute('aria-hidden', 'false');
+  if (chatReopenBtn) chatReopenBtn.hidden = true;
 }
 
-function closeChatPopup() {
+function closeChatPopup(showReopen = active) {
   chatPopup.classList.remove('is-open');
   chatPopup.setAttribute('aria-hidden', 'true');
+  if (chatReopenBtn) chatReopenBtn.hidden = !showReopen;
 }
 
 function formatTime(seconds) {
@@ -692,7 +696,7 @@ async function stopCall(userInitiated=true) {
   $$('.idea').forEach(b => b.disabled = true);
 
   setSessionState('ready', 'READY');
-  closeChatPopup();
+  closeChatPopup(false);
 
   if (userInitiated && wasActive) {
     setStatus(liveState, 'جاهز لمكالمة جديدة');
@@ -707,6 +711,8 @@ muteBtn.addEventListener('click', () => setMuted(!muted));
 
 popupStopBtn?.addEventListener('click', () => stopCall(true));
 popupMuteBtn?.addEventListener('click', () => setMuted(!muted));
+chatCloseBtn?.addEventListener('click', () => closeChatPopup(true));
+chatReopenBtn?.addEventListener('click', () => openChatPopup(false));
 
 voiceSelect.addEventListener('change', () => {
   localStorage.setItem(VOICE_KEY, voiceSelect.value);
@@ -751,7 +757,7 @@ window.addEventListener('beforeunload', () => {
 
   setStatus(voiceState, voiceSelect.value);
   setSessionState('ready', 'READY');
-  closeChatPopup();
+  closeChatPopup(false);
 
   fetch('api/status.php', {cache:'no-store'})
     .then(r => r.json())
