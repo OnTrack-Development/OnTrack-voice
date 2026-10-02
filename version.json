@@ -1,11 +1,19 @@
 {
-  "version": "0.4.4",
+  "version": "0.4.5",
   "channel": "demo",
   "model": "gemini-3.8-live",
-  "mode": "official-websocket-setup",
+  "mode": "minimal-constrained-websocket",
   "legacy_voice_stack": false,
   "ephemeral_token": "unconstrained",
-  "setup": ["model", "responseModalities", "systemInstruction"],
+  "setup": {
+    "model": true,
+    "generationConfig": {
+      "responseModalities": ["AUDIO"]
+    },
+    "systemInstruction": false,
+    "speechConfig": false,
+    "transcription": false
+  },
   "input_audio": "pcm16-16000",
   "output_audio": "pcm16-24000",
   "updated": "2026-10-02"
