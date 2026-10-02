@@ -1,11 +1,11 @@
 {
-  "version": "0.4.2",
+  "version": "0.4.3",
   "channel": "demo",
   "model": "gemini-3.8-live",
-  "mode": "minimal-native-audio-live",
+  "mode": "ephemeral-token-bound-live-setup",
   "legacy_voice_stack": false,
   "input_audio": "pcm16-16000",
   "output_audio": "pcm16-24000",
-  "setup": "model + generationConfig only",
+  "token_setup": "bidiGenerateContentSetup",
   "updated": "2026-10-02"
 }
