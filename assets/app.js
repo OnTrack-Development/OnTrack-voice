@@ -204,7 +204,7 @@ async function createLiveSession() {
   const r = await fetch('api/live_session.php', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({voice: voiceSelect.value}),
+    body: '{}',
     cache: 'no-store'
   });
 
@@ -297,6 +297,7 @@ async function startCall() {
   callBtn.disabled = true;
   stopBtn.disabled = false;
   voiceSelect.disabled = true;
+  setStatus($('#voiceMode'), 'Default Live voice');
   transcript.innerHTML = '';
 
   state('بجهز Live…');
@@ -319,14 +320,15 @@ async function startCall() {
     ws = new WebSocket(url);
 
     ws.onopen = () => {
-      setStatus(liveState, 'WebSocket متصل — Token Setup');
+      setStatus(liveState, 'WebSocket متصل — Official Setup');
 
-      // The effective model/audio/voice/system setup is already bound to
-      // the ephemeral token by PHP. Google ignores this connection setup
-      // when bidiGenerateContentSetup is embedded in the token.
       ws.send(JSON.stringify({
         setup: {
-          model: 'models/gemini-3.8-live'
+          model: 'models/gemini-3.8-live',
+          responseModalities: ['AUDIO'],
+          systemInstruction: {
+            parts: [{text: session.system_instruction}]
+          }
         }
       }));
 
