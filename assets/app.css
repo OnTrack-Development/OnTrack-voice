@@ -196,9 +196,14 @@ a{color:inherit}
   z-index:50;
   pointer-events:none;
   opacity:0;
+  visibility:hidden;
+  transition:opacity .22s ease,visibility 0s linear .22s
+}
+.chat-popup.is-open{
+  opacity:1;
+  visibility:visible;
   transition:opacity .22s ease
 }
-.chat-popup.is-open{opacity:1}
 .chat-popup-card{
   position:absolute;
   left:26px;
@@ -215,9 +220,12 @@ a{color:inherit}
   transform:translateY(18px) scale(.985);
   transition:transform .24s ease;
   overflow:hidden;
+  pointer-events:none
+}
+.chat-popup.is-open .chat-popup-card{
+  transform:none;
   pointer-events:auto
 }
-.chat-popup.is-open .chat-popup-card{transform:none}
 .chat-popup-head{
   min-height:72px;
   display:flex;align-items:center;justify-content:space-between;gap:12px;
