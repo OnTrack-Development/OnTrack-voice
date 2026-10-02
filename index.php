@@ -8,7 +8,7 @@ $config = require __DIR__ . '/api/demo_config.php';
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07090d">
   <title>OnTrack Gemini 3.8 Live</title>
-  <link rel="stylesheet" href="assets/app.css?v=044">
+  <link rel="stylesheet" href="assets/app.css?v=045">
 </head>
 <body>
 <div class="shell">
@@ -45,7 +45,7 @@ $config = require __DIR__ . '/api/demo_config.php';
         <button id="stopBtn" class="danger" disabled>إنهاء</button>
       </div>
 
-      <div class="note">النسخة دي ماشية على WebSocket setup الرسمي حرفيًا: model + responseModalities + systemInstruction. اختيار الصوت متوقف مؤقتًا لحد ما نثبت الاتصال نفسه.</div>
+      <div class="note">اختبار اتصال خام: model + generationConfig.responseModalities فقط. شيلنا مؤقتًا الصوت المخصص وقاعدة المعرفة وأي إعداد إضافي لحد ما setupComplete يوصل.</div>
     </section>
 
     <section class="conversation" id="transcript"></section>
@@ -58,6 +58,6 @@ $config = require __DIR__ . '/api/demo_config.php';
   </main>
 </div>
 
-<script type="module" src="assets/app.js?v=044"></script>
+<script type="module" src="assets/app.js?v=045"></script>
 </body>
 </html>
