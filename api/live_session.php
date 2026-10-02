@@ -19,14 +19,7 @@ $newSessionExpireTime = $now->modify('+2 minutes')->format('Y-m-d\TH:i:s\Z');
 $tokenBody = [
     'uses' => 1,
     'expireTime' => $expireTime,
-    'newSessionExpireTime' => $newSessionExpireTime,
-    'liveConnectConstraints' => [
-        'model' => 'models/' . $model,
-        'config' => [
-            'sessionResumption' => new stdClass(),
-            'responseModalities' => ['AUDIO'],
-        ],
-    ],
+    'newSessionExpireTime' => $newSessionExpireTime
 ];
 
 $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/auth_tokens');
@@ -39,7 +32,7 @@ curl_setopt_array($ch, [
     CURLOPT_HTTPHEADER => [
         'Content-Type: application/json',
         'x-goog-api-key: ' . $config['gemini_api_key'],
-        'User-Agent: OnTrackVoiceLive/0.4.0',
+        'User-Agent: OnTrackVoiceLive/0.4.1',
     ],
 ]);
 
