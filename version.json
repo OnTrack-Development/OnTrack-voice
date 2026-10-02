@@ -1,20 +1,20 @@
 {
-  "version": "0.4.5",
-  "channel": "demo",
+  "version": "0.5.0",
+  "channel": "client-preview",
   "model": "gemini-3.8-live",
-  "mode": "minimal-constrained-websocket",
-  "legacy_voice_stack": false,
-  "ephemeral_token": "unconstrained",
-  "setup": {
-    "model": true,
-    "generationConfig": {
-      "responseModalities": ["AUDIO"]
-    },
-    "systemInstruction": false,
-    "speechConfig": false,
-    "transcription": false
-  },
-  "input_audio": "pcm16-16000",
-  "output_audio": "pcm16-24000",
+  "mode": "official-google-genai-js-sdk",
+  "sdk": "@google/genai 2.25.0",
+  "auth": "ephemeral-token",
+  "features": [
+    "client-ready UI",
+    "30 selectable Gemini voices",
+    "voice preference persistence",
+    "live input/output transcription",
+    "mute control",
+    "call timer",
+    "quick demo prompts",
+    "expanded demo knowledge base",
+    "client-safe error states"
+  ],
   "updated": "2026-10-02"
 }
