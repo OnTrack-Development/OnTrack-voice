@@ -10,7 +10,7 @@ $config = require __DIR__ . '/api/demo_config.php';
   <meta name="description" content="OnTrack Live — مساعد صوتي ذكي لخدمة العملاء والمبيعات">
   <title>OnTrack Live — Voice AI</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link rel="stylesheet" href="assets/app.css?v=050">
+  <link rel="stylesheet" href="assets/app.css?v=052">
 </head>
 <body>
 <div class="ambient ambient-a"></div>
@@ -171,6 +171,29 @@ $config = require __DIR__ . '/api/demo_config.php';
         </div>
         <small class="idea-note">ابدأ المكالمة الأول، وبعدها تقدر تضغط أي مثال أو تسأل بصوتك.</small>
       </section>
+
+      <section class="panel-card quick-links-card">
+        <div class="panel-title">
+          <div>
+            <span class="eyebrow">QUICK LINKS</span>
+            <h2>روابط سريعة</h2>
+          </div>
+        </div>
+        <div class="quick-links">
+          <a href="https://ontrackegy.com/" target="_blank" rel="noopener noreferrer">
+            <span>↗</span>
+            <div><strong>موقع أون تراك</strong><small>ontrackegy.com</small></div>
+          </a>
+          <a href="https://services.ontrackegy.com/" target="_blank" rel="noopener noreferrer">
+            <span>↗</span>
+            <div><strong>بوابة العملاء</strong><small>الخدمات والفواتير</small></div>
+          </a>
+          <a href="https://whatsapp.ontrackegy.com/" target="_blank" rel="noopener noreferrer">
+            <span>↗</span>
+            <div><strong>WhatsApp Automation</strong><small>منصة أون تراك للواتساب</small></div>
+          </a>
+        </div>
+      </section>
     </aside>
 
     <section class="conversation-card">
@@ -217,6 +240,6 @@ $config = require __DIR__ . '/api/demo_config.php';
   </footer>
 </div>
 
-<script type="module" src="assets/app.js?v=050"></script>
+<script type="module" src="assets/app.js?v=052"></script>
 </body>
 </html>
