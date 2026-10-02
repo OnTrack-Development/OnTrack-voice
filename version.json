@@ -1,23 +1,21 @@
 {
-  "version": "0.5.2",
+  "version": "0.5.3",
   "channel": "client-preview",
   "model": "gemini-3.8-live",
-  "mode": "official-google-genai-js-sdk",
+  "mode": "single-screen-call-mode",
   "sdk": "@google/genai 2.25.0",
   "auth": "ephemeral-token",
   "features": [
-    "client-ready UI",
+    "single-screen call UI",
+    "chat popup tied to call lifecycle",
     "30 selectable Gemini voices",
     "voice preference persistence",
     "live input/output transcription",
+    "contextual clickable links inside chat only",
     "mute control",
     "call timer",
-    "quick demo prompts",
-    "expanded demo knowledge base",
-    "client-safe error states",
     "voice-safe URL sanitization",
-    "clickable contextual links",
-    "clickable quick links"
+    "expanded demo knowledge base"
   ],
   "updated": "2026-10-02"
 }
