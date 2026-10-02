@@ -340,8 +340,6 @@ function closeTranscriptTurn() {
   currentAiText = '';
   currentUserBubble = null;
   currentAiBubble = null;
-  lastUserIntent = '';
-  lastServiceContext = null;
 }
 
 function resetTranscript() {
@@ -355,6 +353,8 @@ function resetTranscript() {
   currentAiText = '';
   currentUserBubble = null;
   currentAiBubble = null;
+  lastUserIntent = '';
+  lastServiceContext = null;
 }
 
 async function startMicrophone() {
