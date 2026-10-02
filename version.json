@@ -1,13 +1,11 @@
 {
-  "version": "0.4.1",
+  "version": "0.4.2",
   "channel": "demo",
   "model": "gemini-3.8-live",
-  "mode": "native-audio-live",
+  "mode": "minimal-native-audio-live",
   "legacy_voice_stack": false,
-  "fixes": [
-    "unconstrained_ephemeral_token",
-    "pcm16_16khz_input",
-    "minimal_transcription_setup"
-  ],
+  "input_audio": "pcm16-16000",
+  "output_audio": "pcm16-24000",
+  "setup": "model + generationConfig only",
   "updated": "2026-10-02"
 }
