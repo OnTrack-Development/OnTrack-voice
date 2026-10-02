@@ -5,7 +5,7 @@ json_out([
     'ok' => true,
     'gemini_configured' => !empty($config['gemini_api_key']),
     'model' => 'gemini-3.8-live',
-    'version' => '0.5.3',
+    'version' => '0.5.5',
     'mode' => 'client_preview',
     'sdk' => '@google/genai 2.25.0',
     'auth' => 'ephemeral_token',
@@ -17,5 +17,8 @@ json_out([
     'clickable_links' => true,
     'single_screen_call_mode' => true,
     'chat_popup' => true,
+    'popup_call_controls' => true,
+    'company_logo_core' => true,
+    'simplified_header' => true,
     'legacy_stt_tts_used' => false,
 ]);
