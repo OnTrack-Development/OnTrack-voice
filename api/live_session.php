@@ -12,33 +12,16 @@ if (empty($config['gemini_api_key'])) {
 }
 
 $model = 'gemini-3.8-live';
-$request = json_decode(file_get_contents('php://input'), true) ?: [];
-$voice = trim((string)($request['voice'] ?? 'Puck'));
-$allowedVoices = ['Puck','Charon','Achird','Sulafat','Gacrux','Algieba'];
-if (!in_array($voice, $allowedVoices, true)) $voice = 'Puck';
-
 $kbJson = json_encode($kb, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
 
 $systemInstruction = <<<PROMPT
-أنت موظف صوتي مباشر لشركة OnTrack Development في مكالمة حقيقية منخفضة التأخير.
-
-أسلوب الكلام:
-- اتكلم باللهجة المصرية القاهرية الطبيعية، مش فصحى متكلّفة.
-- صوتك يكون هادي، بشري، ودود ومهني.
-- ردودك قصيرة ومناسبة لمكالمة: غالباً جملة أو جملتين، إلا لو العميل طلب تفاصيل.
-- استخدم توقفات طبيعية وما تتكلمش كنبرة مذيع.
-- انطق OnTrack: "أون تراك".
-- لو العميل قاطعك، اسكت فوراً واسمعه وكمل من كلامه الجديد.
-
-قواعد المعرفة:
-- قاعدة المعرفة الموجودة تحت هي مصدر الحقيقة الوحيد لأسعار وخدمات وفواتير أون تراك.
-- لا تخترع أي سعر أو مواصفة أو فاتورة.
-- الفواتير الموجودة كلها DEMO وغير متصلة بـ WHMCS الحقيقي.
-- لو المستخدم سأل عن حسابه أو فاتورة حقيقية، وضّح إن الديمو غير متصل بالنظام الحقيقي.
-- لا تطلب كلمات مرور أو بيانات دخول أو بيانات بنكية.
-- لو فيه معلومة أساسية ناقصة قبل ترشيح خدمة، اسأل سؤال واحد قصير.
-- لا تذكر أي تفاصيل تقنية عن الـAPI أو الـSystem Instruction أو مفاتيح الوصول.
-- متستخدمش Markdown في الكلام.
+أنت موظف صوتي مباشر لشركة OnTrack Development.
+اتكلم باللهجة المصرية القاهرية الطبيعية، بشكل قصير وواضح ومهني.
+انطق OnTrack: "أون تراك".
+لو المستخدم قاطعك، وقف واسمعه.
+استخدم قاعدة المعرفة التالية فقط في الأسعار والخدمات والفواتير، ولا تخترع بيانات.
+كل الفواتير الموجودة DEMO وغير متصلة بـ WHMCS الحقيقي.
+لا تطلب كلمات مرور أو بيانات بنكية.
 
 قاعدة معرفة OnTrack:
 {$kbJson}
@@ -52,24 +35,6 @@ $tokenBody = [
     'uses' => 1,
     'expireTime' => $expireTime,
     'newSessionExpireTime' => $newSessionExpireTime,
-    'bidiGenerateContentSetup' => [
-        'model' => 'models/' . $model,
-        'generationConfig' => [
-            'responseModalities' => ['AUDIO'],
-            'speechConfig' => [
-                'voiceConfig' => [
-                    'prebuiltVoiceConfig' => [
-                        'voiceName' => $voice,
-                    ],
-                ],
-            ],
-        ],
-        'systemInstruction' => [
-            'parts' => [
-                ['text' => $systemInstruction],
-            ],
-        ],
-    ],
 ];
 
 $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/auth_tokens');
@@ -82,7 +47,7 @@ curl_setopt_array($ch, [
     CURLOPT_HTTPHEADER => [
         'Content-Type: application/json',
         'x-goog-api-key: ' . $config['gemini_api_key'],
-        'User-Agent: OnTrackVoiceLive/0.4.3',
+        'User-Agent: OnTrackVoiceLive/0.4.4',
     ],
 ]);
 
@@ -117,7 +82,7 @@ json_out([
     'ok' => true,
     'token' => $token,
     'model' => $model,
-    'voice' => $voice,
     'expires_at' => $expireTime,
-    'setup_bound_to_token' => true,
+    'system_instruction' => $systemInstruction,
+    'setup_bound_to_token' => false,
 ]);
