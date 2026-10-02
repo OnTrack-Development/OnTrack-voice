@@ -1,13 +1,20 @@
 {
-  "version": "0.5.4",
+  "version": "0.5.5",
   "channel": "client-preview",
   "model": "gemini-3.8-live",
   "mode": "single-screen-call-mode",
   "sdk": "@google/genai 2.25.0",
   "auth": "ephemeral-token",
-  "fixes": [
-    "hidden chat popup no longer intercepts pointer events",
-    "asset cache bust"
+  "features": [
+    "single-screen call UI",
+    "company logo in voice core",
+    "simplified header",
+    "chat popup tied to call lifecycle",
+    "popup mute control",
+    "popup hangup control",
+    "30 selectable Gemini voices",
+    "live transcription",
+    "contextual clickable links inside chat"
   ],
   "updated": "2026-10-02"
 }
