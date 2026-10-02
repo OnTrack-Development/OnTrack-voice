@@ -427,7 +427,7 @@ fetch('api/status.php', {cache:'no-store'})
   .then(r => r.json())
   .then(j => {
     setStatus(modelState, j.model || 'gemini-3.8-live');
-    $('#engineBadge').textContent = j.gemini_configured ? 'Gemini 3.8 Live جاهز' : 'مفتاح Gemini غير مضبوط';
+    $('#engineBadge').textContent = j.gemini_configured ? 'Gemini 3.8 Live مهيأ' : 'مفتاح Gemini غير مضبوط';
   })
   .catch(() => {
     $('#engineBadge').textContent = 'تعذر فحص Live';
