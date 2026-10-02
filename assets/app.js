@@ -18,12 +18,9 @@ let processor = null;
 let muteGain = null;
 let active = false;
 let setupReady = false;
+let setupTimer = null;
 let nextPlayTime = 0;
-let playingSources = new Set();
-let currentUserText = '';
-let currentModelText = '';
-let userBubble = null;
-let modelBubble = null;
+const playingSources = new Set();
 
 function state(text, cls='') {
   $('#orbText').textContent = text;
@@ -32,31 +29,6 @@ function state(text, cls='') {
 
 function setStatus(el, text) {
   if (el) el.textContent = text;
-}
-
-function addBubble(role, text='') {
-  const div = document.createElement('div');
-  div.className = 'msg ' + role;
-  div.innerHTML = `<small>${role === 'user' ? 'أنت' : 'Gemini 3.8 Live'}</small><span></span>`;
-  div.querySelector('span').textContent = text;
-  transcript.appendChild(div);
-  div.scrollIntoView({behavior:'smooth', block:'end'});
-  return div;
-}
-
-function updateBubble(bubble, text) {
-  if (!bubble) return;
-  bubble.querySelector('span').textContent = text;
-  bubble.scrollIntoView({behavior:'smooth', block:'end'});
-}
-
-function mergeTranscript(current, incoming) {
-  incoming = String(incoming || '').trim();
-  if (!incoming) return current;
-  if (!current) return incoming;
-  if (incoming.startsWith(current)) return incoming;
-  if (current.endsWith(incoming)) return current;
-  return (current + ' ' + incoming).replace(/\s+/g, ' ').trim();
 }
 
 function arrayBufferToBase64(buffer) {
@@ -72,9 +44,11 @@ function arrayBufferToBase64(buffer) {
 function resampleTo16k(input, inputRate) {
   const outputRate = 16000;
   if (inputRate === outputRate) return input.slice();
+
   const ratio = inputRate / outputRate;
   const outLength = Math.max(1, Math.floor(input.length / ratio));
   const output = new Float32Array(outLength);
+
   for (let i = 0; i < outLength; i++) {
     const start = Math.floor(i * ratio);
     const end = Math.min(input.length, Math.floor((i + 1) * ratio));
@@ -86,16 +60,19 @@ function resampleTo16k(input, inputRate) {
     }
     output[i] = count ? sum / count : (input[Math.min(start, input.length - 1)] || 0);
   }
+
   return output;
 }
 
 function floatToPCM16(float32) {
   const buffer = new ArrayBuffer(float32.length * 2);
   const view = new DataView(buffer);
+
   for (let i = 0; i < float32.length; i++) {
     const s = Math.max(-1, Math.min(1, float32[i]));
     view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
   }
+
   return buffer;
 }
 
@@ -103,6 +80,7 @@ function base64ToFloat32PCM16(base64) {
   const binary = atob(base64);
   const len = Math.floor(binary.length / 2);
   const out = new Float32Array(len);
+
   for (let i = 0; i < len; i++) {
     const lo = binary.charCodeAt(i * 2);
     const hi = binary.charCodeAt(i * 2 + 1);
@@ -110,6 +88,7 @@ function base64ToFloat32PCM16(base64) {
     if (value & 0x8000) value -= 0x10000;
     out[i] = value / 32768;
   }
+
   return out;
 }
 
@@ -122,9 +101,7 @@ function stopPlayback() {
 }
 
 async function enqueueAudio(base64, sampleRate=24000) {
-  if (!outputCtx) {
-    outputCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
+  if (!outputCtx) outputCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (outputCtx.state === 'suspended') await outputCtx.resume();
 
   const pcm = base64ToFloat32PCM16(base64);
@@ -146,64 +123,9 @@ async function enqueueAudio(base64, sampleRate=24000) {
   src.onended = () => playingSources.delete(src);
 }
 
-function finalizeTurn() {
-  currentUserText = '';
-  currentModelText = '';
-  userBubble = null;
-  modelBubble = null;
-  if (active) {
-    state('سامعك…', 'listening');
-    setStatus(liveState, 'مباشر');
-  }
-}
-
-function handleServerMessage(msg) {
-  if (msg.setupComplete) {
-    setupReady = true;
-    setStatus(liveState, 'متصل');
-    state('سامعك…', 'listening');
-    return;
-  }
-
-  const sc = msg.serverContent;
-  if (!sc) return;
-
-  if (sc.interrupted) {
-    stopPlayback();
-    setStatus(liveState, 'اتقاطعت — سامعك');
-  }
-
-  if (sc.inputTranscription?.text) {
-    currentUserText = mergeTranscript(currentUserText, sc.inputTranscription.text);
-    if (!userBubble) userBubble = addBubble('user');
-    updateBubble(userBubble, currentUserText);
-  }
-
-  if (sc.outputTranscription?.text) {
-    currentModelText = mergeTranscript(currentModelText, sc.outputTranscription.text);
-    if (!modelBubble) modelBubble = addBubble('bot');
-    updateBubble(modelBubble, currentModelText);
-  }
-
-  const parts = sc.modelTurn?.parts || [];
-  for (const part of parts) {
-    const inline = part.inlineData || part.inline_data;
-    if (!inline?.data) continue;
-    const mime = inline.mimeType || inline.mime_type || 'audio/pcm;rate=24000';
-    if (!mime.startsWith('audio/pcm')) continue;
-    const m = /rate=(\d+)/i.exec(mime);
-    const rate = m ? Number(m[1]) : 24000;
-    enqueueAudio(inline.data, rate).catch(console.error);
-    state('بيرد عليك…', 'speaking');
-    setStatus(liveState, 'Gemini بيتكلم');
-  }
-
-  if (sc.turnComplete) {
-    finalizeTurn();
-  }
-}
-
 async function startMicrophone() {
+  if (micStream) return;
+
   micStream = await navigator.mediaDevices.getUserMedia({
     audio: {
       channelCount: 1,
@@ -225,22 +147,18 @@ async function startMicrophone() {
     if (!active || !setupReady || !ws || ws.readyState !== WebSocket.OPEN) return;
 
     const input = ev.inputBuffer.getChannelData(0);
-    const input16k = resampleTo16k(input, inputCtx.sampleRate);
-    const pcm = floatToPCM16(input16k);
+    const pcm16k = resampleTo16k(input, inputCtx.sampleRate);
+    const pcm = floatToPCM16(pcm16k);
     const data = arrayBufferToBase64(pcm);
 
-    try {
-      ws.send(JSON.stringify({
-        realtimeInput: {
-          audio: {
-            data,
-            mimeType: 'audio/pcm;rate=16000'
-          }
+    ws.send(JSON.stringify({
+      realtimeInput: {
+        audio: {
+          data,
+          mimeType: 'audio/pcm;rate=16000'
         }
-      }));
-    } catch (e) {
-      console.warn('audio send failed', e);
-    }
+      }
+    }));
   };
 
   inputSource.connect(processor);
@@ -248,30 +166,36 @@ async function startMicrophone() {
   muteGain.connect(inputCtx.destination);
 
   setStatus(micState, 'شغال');
+  state('سامعك…', 'listening');
 }
 
 async function stopMicrophone() {
   if (processor) {
-    try { processor.disconnect(); } catch (_) {}
     processor.onaudioprocess = null;
+    try { processor.disconnect(); } catch (_) {}
     processor = null;
   }
+
   if (inputSource) {
     try { inputSource.disconnect(); } catch (_) {}
     inputSource = null;
   }
+
   if (muteGain) {
     try { muteGain.disconnect(); } catch (_) {}
     muteGain = null;
   }
+
   if (micStream) {
     micStream.getTracks().forEach(t => t.stop());
     micStream = null;
   }
+
   if (inputCtx) {
     try { await inputCtx.close(); } catch (_) {}
     inputCtx = null;
   }
+
   setStatus(micState, 'متوقف');
 }
 
@@ -282,35 +206,88 @@ async function createLiveSession() {
     body: '{}',
     cache: 'no-store'
   });
+
   const j = await r.json();
+
   if (!r.ok || !j.ok) {
     throw new Error(j.detail || j.error || 'تعذر إنشاء Live session');
   }
+
   return j;
+}
+
+function handleServerMessage(msg) {
+  console.debug('Gemini Live ←', msg);
+
+  if (msg.setupComplete) {
+    setupReady = true;
+
+    if (setupTimer) {
+      clearTimeout(setupTimer);
+      setupTimer = null;
+    }
+
+    setStatus(liveState, 'Live جاهز');
+    state('بفتح الميكروفون…');
+
+    startMicrophone().catch(err => {
+      console.error('Microphone error:', err);
+      setStatus(micState, 'فشل');
+      setStatus(liveState, 'Live جاهز — الميكروفون فشل');
+      state('الميكروفون فشل');
+    });
+
+    return;
+  }
+
+  if (msg.serverContent?.interrupted) {
+    stopPlayback();
+    setStatus(liveState, 'سامع المقاطعة');
+  }
+
+  const parts = msg.serverContent?.modelTurn?.parts || [];
+
+  for (const part of parts) {
+    const inline = part.inlineData || part.inline_data;
+    if (!inline?.data) continue;
+
+    const mime = inline.mimeType || inline.mime_type || 'audio/pcm;rate=24000';
+    if (!mime.startsWith('audio/pcm')) continue;
+
+    const match = /rate=(\d+)/i.exec(mime);
+    const rate = match ? Number(match[1]) : 24000;
+
+    enqueueAudio(inline.data, rate).catch(err => console.error('Audio playback:', err));
+    state('بيرد عليك…', 'speaking');
+    setStatus(liveState, 'Gemini بيتكلم');
+  }
+
+  if (msg.serverContent?.turnComplete) {
+    state('سامعك…', 'listening');
+    setStatus(liveState, 'Live جاهز');
+  }
 }
 
 async function startCall() {
   if (active) return;
+
   if (!navigator.mediaDevices?.getUserMedia) {
     alert('المتصفح لا يدعم الميكروفون المطلوب للمكالمة.');
     return;
   }
 
+  active = true;
+  setupReady = false;
   callBtn.disabled = true;
   stopBtn.disabled = false;
   voiceSelect.disabled = true;
   transcript.innerHTML = '';
-  active = true;
-  setupReady = false;
-  currentUserText = '';
-  currentModelText = '';
-  userBubble = null;
-  modelBubble = null;
+
+  state('بجهز Live…');
+  setStatus(micState, 'منتظر Setup');
+  setStatus(liveState, 'بيطلع Session');
 
   try {
-    state('بجهز المكالمة…');
-    setStatus(liveState, 'بيجهز Session');
-
     if (!outputCtx) outputCtx = new (window.AudioContext || window.webkitAudioContext)();
     await outputCtx.resume();
     nextPlayTime = outputCtx.currentTime;
@@ -325,8 +302,8 @@ async function startCall() {
 
     ws = new WebSocket(url);
 
-    ws.onopen = async () => {
-      setStatus(liveState, 'WebSocket متصل');
+    ws.onopen = () => {
+      setStatus(liveState, 'WebSocket متصل — Setup');
 
       ws.send(JSON.stringify({
         setup: {
@@ -340,47 +317,55 @@ async function startCall() {
                 }
               }
             }
-          },
-          systemInstruction: {
-            parts: [{text: session.system_instruction}]
-          },
-          inputAudioTranscription: {},
-          outputAudioTranscription: {}
+          }
         }
       }));
 
-      try {
-        await startMicrophone();
-      } catch (e) {
-        setStatus(micState, 'مرفوض');
-        throw e;
-      }
+      setupTimer = setTimeout(() => {
+        if (!setupReady && active) {
+          setStatus(liveState, 'Setup timeout — Google مردّش');
+          state('فشل Setup');
+          try { ws.close(4000, 'setup timeout'); } catch (_) {}
+        }
+      }, 12000);
     };
 
     ws.onmessage = ev => {
       try {
-        const msg = JSON.parse(ev.data);
-        handleServerMessage(msg);
-      } catch (e) {
-        console.error('Live message parse error', e);
+        if (typeof ev.data !== 'string') {
+          console.warn('Unexpected binary Live message');
+          return;
+        }
+        handleServerMessage(JSON.parse(ev.data));
+      } catch (err) {
+        console.error('Live message parse error:', err, ev.data);
+        setStatus(liveState, 'رسالة غير مفهومة من Google');
       }
     };
 
     ws.onerror = ev => {
-      console.error('Live WebSocket error', ev);
+      console.error('Live WebSocket error:', ev);
       setStatus(liveState, 'WebSocket error');
     };
 
     ws.onclose = ev => {
-      if (!active) return;
-      setStatus(liveState, `اتقفل ${ev.code}${ev.reason ? ': ' + ev.reason : ''}`);
-      state('الاتصال اتقفل');
-      stopCall(false);
+      if (setupTimer) {
+        clearTimeout(setupTimer);
+        setupTimer = null;
+      }
+
+      const reason = ev.reason ? ': ' + ev.reason : '';
+      setStatus(liveState, 'اتقفل ' + ev.code + reason);
+
+      if (active) {
+        state('الاتصال اتقفل');
+        stopCall(false);
+      }
     };
 
-  } catch (e) {
-    console.error(e);
-    setStatus(liveState, e.message || 'خطأ');
+  } catch (err) {
+    console.error(err);
+    setStatus(liveState, err.message || 'خطأ');
     state('فشل الاتصال');
     await stopCall(false);
   }
@@ -391,16 +376,26 @@ async function stopCall(userInitiated=true) {
   active = false;
   setupReady = false;
 
+  if (setupTimer) {
+    clearTimeout(setupTimer);
+    setupTimer = null;
+  }
+
   await stopMicrophone();
   stopPlayback();
 
   if (ws) {
     try {
       if (ws.readyState === WebSocket.OPEN && userInitiated) {
-        ws.send(JSON.stringify({realtimeInput: {audioStreamEnd: true}}));
+        ws.send(JSON.stringify({
+          realtimeInput: {
+            audioStreamEnd: true
+          }
+        }));
       }
-      ws.close(1000, 'user ended call');
     } catch (_) {}
+
+    try { ws.close(1000, 'user ended call'); } catch (_) {}
     ws = null;
   }
 
@@ -427,7 +422,9 @@ fetch('api/status.php', {cache:'no-store'})
   .then(r => r.json())
   .then(j => {
     setStatus(modelState, j.model || 'gemini-3.8-live');
-    $('#engineBadge').textContent = j.gemini_configured ? 'Gemini 3.8 Live مهيأ' : 'مفتاح Gemini غير مضبوط';
+    $('#engineBadge').textContent = j.gemini_configured
+      ? 'Gemini 3.8 Live مهيأ'
+      : 'مفتاح Gemini غير مضبوط';
   })
   .catch(() => {
     $('#engineBadge').textContent = 'تعذر فحص Live';
