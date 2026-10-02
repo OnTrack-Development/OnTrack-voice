@@ -228,13 +228,13 @@ function handleServerMessage(msg) {
       setupTimer = null;
     }
 
-    setStatus(liveState, 'Setup تم — اختبار الصوت');
+    setStatus(liveState, 'setupComplete وصل — اختبار الصوت');
     state('Gemini بيبدأ…');
     greetingPending = true;
 
     ws.send(JSON.stringify({
       realtimeInput: {
-        text: 'ابدأ المكالمة الآن بتحية مصرية قصيرة جداً، وبعدها توقف واسمعني.'
+        text: 'Say only: أهلاً، اختبار Gemini Live شغال.'
       }
     }));
 
@@ -320,14 +320,13 @@ async function startCall() {
     ws = new WebSocket(url);
 
     ws.onopen = () => {
-      setStatus(liveState, 'WebSocket متصل — Official Setup');
+      setStatus(liveState, 'WebSocket متصل — generationConfig Setup');
 
       ws.send(JSON.stringify({
         setup: {
           model: 'models/gemini-3.8-live',
-          responseModalities: ['AUDIO'],
-          systemInstruction: {
-            parts: [{text: session.system_instruction}]
+          generationConfig: {
+            responseModalities: ['AUDIO']
           }
         }
       }));
