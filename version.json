@@ -1,11 +1,13 @@
 {
-  "version": "0.6.2",
+  "version": "0.6.3",
   "channel": "client-preview",
   "model": "gemini-3.8-live",
   "mode": "outbound-mission-and-client-preview",
   "sdk": "@google/genai 2.25.0",
   "auth": "ephemeral-token",
   "fixes": [
+    "replace the multi-field outbound mission form with one multiline brief for identity, customer, offer, prices and speaking instructions",
+    "accept brief missions while retaining validated structured API requests for older clients",
     "keep outbound dialogue available after short replies, off-topic speech or farewells; resume when customer speaks again",
     "keep Egyptian Arabic responses even when customer transcription switches language",
     "honor mission-defined opening length and talkative speaking style instead of forcing short sales turns",

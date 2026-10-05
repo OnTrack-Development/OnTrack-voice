@@ -37,4 +37,15 @@ check(str_contains($prompt, 'استأنف الحوار ورد على المعن�
 check(str_contains($prompt, 'احترم ذلك برد موجز واحد ثم ابق صامتاً'), 'explicit stop requests remain respected');
 check(str_contains($prompt, 'حافظ على المصرية حتى لو كلام العميل ظهر بالفرنسية'), 'do not switch language or end for foreign transcription');
 check(!str_contains($prompt, 'واختتم فوراً'), 'remove conflicting immediate farewell rule');
+$brief = "اسمك كريم، شركة تجريبية، العميل أحمد\nالسعر 320 جنيه وأقل سعر 300 جنيه سري\nاتكلم بالمصري وخليك رغاي";
+$single = normalize_outbound_mission(['brief' => "  {$brief}  ", 'agent_name' => 'اسم مخالف']);
+check($single === ['brief' => $brief], 'brief mode preserves multiline text and excludes hidden fields');
+check(parse_live_request(json_encode(['mode' => 'outbound', 'mission' => ['brief' => $brief]], JSON_UNESCAPED_UNICODE))['mission'] === $single, 'single brief request');
+$singlePrompt = build_outbound_instruction($single);
+check(str_contains($singlePrompt, 'المهمة مكتوبة بالكامل في brief كنص واحد') && str_contains($singlePrompt, 'لا تتوقع حقولاً منفصلة'), 'one text source instruction');
+check(str_contains($singlePrompt, 'كريم') && str_contains($singlePrompt, 'لا تعرض ولا تقبل أي مبلغ أقل منه'), 'brief identity and price rules');
+check(str_contains($singlePrompt, 'لا تبادر بإنهاء الحوار'), 'brief retains conversation continuity');
+foreach ([['brief' => []], ['brief' => ' '], ['brief' => str_repeat('أ', 8001)], ['brief' => "a\x00b"]] as $bad) {
+    rejects(fn() => normalize_outbound_mission($bad), 'invalid single brief');
+}
 echo "Mission validation and prompt tests passed\n";

@@ -75,19 +75,21 @@ await page.goto(base);
 await page.locator('#callBtn').click();
 assert.equal(await page.locator('#missionDialog').evaluate(el => el.open), true);
 await page.locator('#exampleMissionBtn').click();
-await page.locator('[name=agent_name]').fill('كريم');
-await page.locator('[name=customer_name]').fill('عميل <img src=x onerror=alert(1)>');
-await page.locator('[name=minimum_price]').fill('4600000');
+assert.equal(await page.locator('#missionForm textarea').count(), 1);
+assert.equal(await page.locator('#missionForm input').count(), 0);
+assert.match(await page.locator('[name=brief]').inputValue(), /اسمك عمر/);
+await page.locator('[name=brief]').fill('   ');
 await page.locator('#missionForm button[type=submit]').click();
 assert.equal(await page.locator('#missionDialog').evaluate(el => el.open), true);
-assert.match(await page.locator('#missionError').textContent(), /أقل سعر/);
-await page.locator('[name=minimum_price]').fill('4300000');
+assert.match(await page.locator('#missionError').textContent(), /تفاصيل المهمة/);
+const brief = 'اسمك كريم، مساعد مبيعات لشركة تجريبية.\nالعميل أحمد، اعرض شقة تجريبية بـ4500000 جنيه.\nأقل سعر 4300000 جنيه سري. اتكلم بالمصري. <img src=x onerror=alert(1)>';
+await page.locator('[name=brief]').fill(brief);
 await page.locator('#missionForm button[type=submit]').click();
 assert.equal(await page.locator('#missionDialog').evaluate(el => el.open), false);
 await page.locator('#callBtn').click();
 await page.waitForFunction(() => !document.querySelector('#armCallBtn').disabled);
 assert.equal(requests[0].mode, 'outbound');
-assert.equal(requests[0].mission.agent_name, 'كريم');
+assert.deepEqual(requests[0].mission, {brief});
 assert.equal(await page.locator('#callMode').isDisabled(), true);
 await page.evaluate(() => {
   window.fireMic();
@@ -108,8 +110,8 @@ await page.waitForFunction(() => document.querySelector('#orbText').textContent.
 assert.equal(await page.evaluate(() => window.testAudio.played), 0);
 await page.evaluate(() => window.testLive.sessions[0].options.callbacks.onmessage({serverContent: {inputTranscription: {text: 'ألو مين معايا؟'}}}));
 await page.waitForFunction(() => window.testAudio.played === 1);
-assert.equal(await page.locator('.msg.bot small').textContent(), 'كريم');
-assert.match(await page.locator('.msg.user small').textContent(), /عميل <img/);
+assert.equal(await page.locator('.msg.bot small').textContent(), 'الإيجنت');
+assert.equal(await page.locator('.msg.user small').textContent(), 'العميل');
 assert.equal(await page.locator('.msg img').count(), 0);
 assert.equal(await page.locator('.message-links').count(), 0);
 await page.locator('#muteBtn').click();
@@ -144,6 +146,9 @@ assert.equal(await page.evaluate(() => window.testAudio.tracks[0].readyState), '
 await page.locator('#chatReopenBtn').click();
 assert.match(await page.locator('#chatCallState').textContent(), /متوقف/);
 await page.locator('#chatCloseBtn').click();
+await page.locator('#editMissionBtn').click();
+assert.equal(await page.locator('[name=brief]').inputValue(), brief);
+await page.locator('#closeMissionBtn').click();
 
 // Old callbacks cannot contaminate the next customer's call.
 await page.locator('#callBtn').click();
@@ -180,15 +185,19 @@ await page.waitForFunction(() => document.querySelector('#micState').textContent
 await page.locator('#popupStopBtn').click();
 await page.waitForFunction(() => !document.querySelector('#callBtn').disabled);
 
-// The preparation dialog remains scrollable while the page is fixed at small
-// laptop and phone sizes. Check that the primary controls are within the view.
+// One text box and its approval button fit within laptop and phone viewports.
 for (const viewport of [{width: 1365, height: 768}, {width: 390, height: 844}, {width: 390, height: 600}]) {
   await page.setViewportSize(viewport);
   await page.locator('#callMode').selectOption('outbound');
   const bounds = await page.locator('#callBtn').boundingBox();
   assert.ok(bounds.y >= 0 && bounds.y + bounds.height <= viewport.height);
   await page.locator('#editMissionBtn').click();
-  assert.ok(await page.locator('.mission-fields').evaluate(el => el.scrollHeight > el.clientHeight));
+  const approveBounds = await page.locator('#missionForm button[type=submit]').boundingBox();
+  assert.ok(approveBounds.y >= 0 && approveBounds.y + approveBounds.height <= viewport.height);
+  assert.equal(await page.locator('#missionForm textarea').count(), 1);
+  if (process.env.VOICE_TEST_SCREENSHOT && viewport.width === 1365) {
+    await page.screenshot({path: process.env.VOICE_TEST_SCREENSHOT});
+  }
   await page.locator('#closeMissionBtn').click();
   await page.locator('#callBtn').click();
   await page.waitForFunction(() => !document.querySelector('#armCallBtn').disabled);
@@ -199,7 +208,6 @@ for (const viewport of [{width: 1365, height: 768}, {width: 390, height: 844}, {
   await page.waitForFunction(() => !document.querySelector('#callBtn').disabled);
 }
 assert.deepEqual(pageErrors, []);
-if (process.env.VOICE_TEST_SCREENSHOT) await page.screenshot({path: process.env.VOICE_TEST_SCREENSHOT});
-console.log('Browser scenarios passed: outbound silence and speech gate, mission lock, mute, interruption, cleanup, stale callbacks, permission denial, pending cancellation, legacy demo, responsive dialog.');
+console.log('Browser scenarios passed: single brief submission and editing, outbound silence and speech gate, mission lock, mute, interruption, continuity, cleanup, stale callbacks, permission denial, pending cancellation, legacy demo, responsive dialog.');
 await context.close();
 await browser.close();

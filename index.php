@@ -10,7 +10,7 @@ $config = require __DIR__ . '/api/demo_config.php';
   <meta name="description" content="OnTrack Live — مكالمة صوتية ذكية مباشرة">
   <title>OnTrack Live</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link rel="stylesheet" href="assets/app.css?v=060">
+  <link rel="stylesheet" href="assets/app.css?v=063">
 </head>
 <body>
 <div class="ambient ambient-a"></div>
@@ -192,41 +192,13 @@ $config = require __DIR__ . '/api/demo_config.php';
 <dialog id="missionDialog" class="mission-dialog" aria-labelledby="missionHeading">
   <form id="missionForm">
     <div class="mission-dialog-head">
-      <div><h2 id="missionHeading">مهمة المكالمة</h2><p>البيانات دي هي مرجع الإيجنت الوحيد في مكالمة العميل.</p></div>
+      <div><h2 id="missionHeading">مهمة المكالمة</h2><p>الاسم والعميل والعرض وطريقة الكلام — كله في مكان واحد.</p></div>
       <button type="button" id="closeMissionBtn" class="chat-close" aria-label="إغلاق إعداد المهمة">✕</button>
     </div>
     <div class="mission-fields">
-      <fieldset><legend>الإيجنت والعميل</legend>
-        <div class="mission-grid">
-          <label>اسم الإيجنت<input name="agent_name" required maxlength="80" placeholder="مثلاً: عمر"></label>
-          <label>اسم الشركة<input name="company_name" required maxlength="120" placeholder="اسم شركتك"></label>
-          <label>دوره<input name="agent_role" required maxlength="120" placeholder="مثلاً: مسؤول مبيعات عقارات"></label>
-          <label>اسم العميل<input name="customer_name" required maxlength="120" autocomplete="off"></label>
-          <label class="wide">رقم العميل — للاتصال اليدوي فقط<input name="customer_phone" type="tel" maxlength="40" autocomplete="off" dir="ltr"></label>
-          <label class="wide">ما تعرفه عن العميل<textarea name="customer_context" maxlength="1500" rows="2" placeholder="احتياجه، ميزانيته، آخر تواصل، مصدر الاهتمام..."></textarea></label>
-        </div>
-      </fieldset>
-      <fieldset><legend>الشقة أو المنتج المعروض</legend>
-        <div class="mission-grid">
-          <label class="wide">اسم العرض<input name="offer_name" required maxlength="200" placeholder="مثلاً: شقة 150 متر في التجمع"></label>
-          <label class="wide">كل التفاصيل المؤكدة<textarea name="offer_details" required maxlength="8000" rows="5" placeholder="العنوان، المساحة، عدد الغرف، الدور، التشطيب، الخدمات، حالة الملكية، التسليم، المعاينة... اكتب المعلومات المؤكدة فقط."></textarea></label>
-          <label>السعر المطلوب<input name="asking_price" type="number" min="0.01" max="999999999999.99" step="0.01" placeholder="بدون فواصل"></label>
-          <label>العملة<input name="currency" maxlength="40" value="جنيه مصري"></label>
-          <label class="wide">شروط الدفع المعتمدة<textarea name="payment_terms" maxlength="1500" rows="2" placeholder="نقدي أو تقسيط، المقدم، المدة، الرسوم..."></textarea></label>
-        </div>
-      </fieldset>
-      <fieldset><legend>التفاوض والهدف</legend>
-        <div class="mission-grid">
-          <label class="wide">أقل سعر مسموح — سري<input name="minimum_price" type="number" min="0.01" max="999999999999.99" step="0.01" placeholder="سيبه فاضي لو الخصم محتاج موافقتك"><small>الإيجنت لا يكشف الحد للعميل. أي خصم يحتاج تحديد سعر أدنى.</small></label>
-          <label class="wide">التسهيلات المسموحة<textarea name="allowed_concessions" maxlength="1500" rows="2" placeholder="اكتب المسموح فقط؛ الفاضي يعني لا توجد تسهيلات إضافية."></textarea></label>
-          <label class="wide">طريقة التفاوض<textarea name="negotiation_style" maxlength="2500" rows="3" placeholder="استكشف الاحتياج، أبرز القيمة، لا تعرض خصماً قبل اعتراض السعر، خطوات التنازل..."></textarea></label>
-          <label class="wide">اعتراضات متوقعة وردودها<textarea name="objection_responses" maxlength="3500" rows="3" placeholder="السعر غالي → ... / الموقع بعيد → ..."></textarea></label>
-          <label class="wide">هدف المكالمة<textarea name="goal" required maxlength="1000" rows="2" placeholder="مثلاً: الاتفاق على موعد معاينة مقترح وتأكيد اهتمام العميل."></textarea></label>
-          <label class="wide">الافتتاحية — اختيارية<textarea name="opening" maxlength="1000" rows="2" placeholder="ألو، أستاذ ...؟ أنا ... مساعد مبيعات شركة ...، الوقت مناسب نتكلم دقيقة؟"></textarea></label>
-          <label class="wide">إمتى يرجع لك؟<textarea name="handoff_rules" maxlength="1500" rows="2" placeholder="طلبات خارج السعر أو الصلاحيات، معلومات قانونية ناقصة، موافقة نهائية..."></textarea></label>
-        </div>
-      </fieldset>
-      <p class="mission-help">المهمة تفضل في الصفحة الحالية فقط؛ إعادة تحميل الصفحة تمسحها. تجهيز الجلسة يرسلها لخدمة الصوت. الحجز أو إرسال الرسائل يحتاج تنفيذك.</p>
+      <label class="mission-brief-label" for="missionBrief">اكتب المهمة كلها هنا</label>
+      <textarea id="missionBrief" name="brief" required maxlength="8000" rows="12" spellcheck="false" placeholder="اسمك إيه وبتكلم مين؟ بتعرض إيه وبكام؟ تتكلم وتتفاوض إزاي؟ اكتب التفاصيل والتعليمات والافتتاحية كلها هنا بطريقتك."></textarea>
+      <p class="mission-help">تقدر تعدّل النص بعد إيقاف الإيجنت. إعادة تحميل الصفحة تمسحه.</p>
       <p id="missionError" class="call-error" role="alert" hidden></p>
     </div>
     <div class="mission-dialog-actions">
@@ -239,6 +211,6 @@ $config = require __DIR__ . '/api/demo_config.php';
 <span id="statusDot" class="sr-only"></span>
 <span id="engineBadge" class="sr-only">جاهز للمكالمة</span>
 
-<script type="module" src="assets/app.js?v=060"></script>
+<script type="module" src="assets/app.js?v=063"></script>
 </body>
 </html>

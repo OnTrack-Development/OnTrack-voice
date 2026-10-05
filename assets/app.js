@@ -1,5 +1,5 @@
 import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/genai@2.25.0/+esm";
-import { validateMission, CustomerSpeechGate, EXAMPLE_MISSION } from './outbound.mjs?v=060';
+import { validateMission, CustomerSpeechGate, EXAMPLE_MISSION } from './outbound.mjs?v=063';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -50,13 +50,13 @@ function syncMissionUI() {
   editMissionBtn.hidden = !outbound;
   $('#callTitle').textContent = outbound ? 'جهّز مكالمة العميل.' : 'اتكلم مع أون تراك.';
   $('#callDescription').textContent = outbound
-    ? 'حدد هوية الإيجنت والعرض وحدود التفاوض، ثم اتصل بالعميل من Phone Link.'
+    ? 'اكتب مهمة الإيجنت كلها في مكان واحد، ثم اتصل بالعميل من Phone Link.'
     : 'مكالمة صوتية مباشرة مع مساعد يعرف خدمات أون تراك وبيانات الديمو.';
   $('#callBtnText').textContent = outbound ? 'جهّز الإيجنت' : 'ابدأ المكالمة';
   $('#missionSummary').hidden = !outbound;
   $('#missionSummary').textContent = mission
-    ? `${mission.agent_name} · ${mission.company_name} ← ${mission.customer_name} | ${mission.offer_name}${mission.customer_phone ? ' | ' + mission.customer_phone : ''}`
-    : 'ابدأ بإعداد بيانات العميل والعرض.';
+    ? (mission.brief || `${mission.agent_name} · ${mission.company_name} ← ${mission.customer_name} | ${mission.offer_name}`).replace(/\s+/g, ' ')
+    : 'اكتب الاسم والعميل والعرض والتعليمات في خانة واحدة.';
   $('#missionSummary').title = $('#missionSummary').textContent;
   $('#callNote').textContent = outbound
     ? 'جهّز الإيجنت، رن من Phone Link، وبعد الرد فعّل السماع. إنهاء الإيجنت لا يقفل مكالمة الهاتف.'
@@ -308,8 +308,8 @@ function makeBubble(role) {
   el.className = 'msg ' + role;
   const label = document.createElement('small');
   label.textContent = role === 'user'
-    ? (sessionMode === 'outbound' ? sessionMission.customer_name : 'أنت')
-    : (sessionMode === 'outbound' ? sessionMission.agent_name : 'OnTrack AI');
+    ? (sessionMode === 'outbound' ? (sessionMission.customer_name || 'العميل') : 'أنت')
+    : (sessionMode === 'outbound' ? (sessionMission.agent_name || 'الإيجنت') : 'OnTrack AI');
   el.append(label, document.createElement('span'));
   transcript.appendChild(el);
   return el;
@@ -582,7 +582,7 @@ async function handleLiveContent(content, generation) {
 
     await enqueueAudio(inline.data, rate, generation);
     if (!active || generation !== callGeneration) return;
-    setStatus(liveState, sessionMode === 'outbound' ? `${sessionMission.agent_name} بيرد` : 'أون تراك بيرد');
+    setStatus(liveState, sessionMode === 'outbound' ? `${sessionMission.agent_name || 'الإيجنت'} بيرد` : 'أون تراك بيرد');
     state('بيرد عليك…', 'speaking');
   }
 
@@ -690,7 +690,7 @@ async function startCall() {
   outputGate = new CustomerSpeechGate(sessionMode === 'outbound');
   messageQueue = Promise.resolve();
   showError('');
-  $('#chatAgentName').textContent = sessionMission?.agent_name || 'OnTrack AI';
+  $('#chatAgentName').textContent = sessionMode === 'outbound' ? (sessionMission.agent_name || 'الإيجنت') : 'OnTrack AI';
   setStatus($('#chatCallState'), 'جاري تجهيز الجلسة');
   liveReady = false;
   greetingPending = sessionMode === 'demo';
