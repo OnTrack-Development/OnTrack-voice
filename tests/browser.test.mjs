@@ -120,6 +120,23 @@ await page.evaluate(() => window.fireMic());
 assert.equal(await page.evaluate(() => window.testLive.sessions[0].sent.filter(x => x.audio).length), 2);
 await page.evaluate(() => window.testLive.sessions[0].options.callbacks.onmessage({serverContent: {interrupted: true}}));
 await page.waitForFunction(() => window.testAudio.stopped > 0);
+
+// A spoken farewell is a model turn, not an instruction to close the session.
+await page.evaluate(() => window.testLive.sessions[0].options.callbacks.onmessage({serverContent: {
+  outputTranscription: {text: 'مع السلامة'}, turnComplete: true,
+}}));
+assert.equal(await page.evaluate(() => window.testLive.sessions[0].closed), false);
+assert.equal(await page.evaluate(() => window.testAudio.tracks[0].readyState), 'live');
+await page.evaluate(() => {
+  window.fireMic();
+  window.testLive.sessions[0].options.callbacks.onmessage({serverContent: {
+    inputTranscription: {text: 'استنى يا عم، أنا لسه بتكلم'},
+    outputTranscription: {text: 'اتفضل، سامعك'}, turnComplete: true,
+  }});
+});
+assert.equal(await page.evaluate(() => window.testLive.sessions[0].sent.filter(x => x.audio).length), 3);
+assert.match(await page.locator('.msg.bot').last().textContent(), /اتفضل، سامعك/);
+assert.equal(await page.evaluate(() => window.testLive.sessions[0].closed), false);
 await page.locator('#stopBtn').click();
 await page.waitForFunction(() => !document.querySelector('#callBtn').disabled);
 assert.equal(await page.evaluate(() => window.testLive.sessions[0].closed), true);
