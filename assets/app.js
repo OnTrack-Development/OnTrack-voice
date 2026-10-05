@@ -1,4 +1,5 @@
 import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/genai@2.25.0/+esm";
+import { validateMission, CustomerSpeechGate, EXAMPLE_MISSION } from './outbound.mjs?v=060';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -27,6 +28,64 @@ const popupMuteText = $('#popupMuteText');
 const popupStopBtn = $('#popupStopBtn');
 const chatCloseBtn = $('#chatCloseBtn');
 const chatReopenBtn = $('#chatReopenBtn');
+const callMode = $('#callMode');
+const editMissionBtn = $('#editMissionBtn');
+const missionDialog = $('#missionDialog');
+const missionForm = $('#missionForm');
+const armCallBtn = $('#armCallBtn');
+let mission = null;
+let sessionMission = null;
+let sessionMode = 'outbound';
+let outputGate = null;
+let callGeneration = 0;
+let messageQueue = Promise.resolve();
+
+function showError(message, target = $('#callError')) {
+  target.textContent = message;
+  target.hidden = !message;
+}
+
+function syncMissionUI() {
+  const outbound = callMode.value === 'outbound';
+  editMissionBtn.hidden = !outbound;
+  $('#callTitle').textContent = outbound ? 'جهّز مكالمة العميل.' : 'اتكلم مع أون تراك.';
+  $('#callDescription').textContent = outbound
+    ? 'حدد هوية الإيجنت والعرض وحدود التفاوض، ثم اتصل بالعميل من Phone Link.'
+    : 'مكالمة صوتية مباشرة مع مساعد يعرف خدمات أون تراك وبيانات الديمو.';
+  $('#callBtnText').textContent = outbound ? 'جهّز الإيجنت' : 'ابدأ المكالمة';
+  $('#missionSummary').hidden = !outbound;
+  $('#missionSummary').textContent = mission
+    ? `${mission.agent_name} · ${mission.company_name} ← ${mission.customer_name} | ${mission.offer_name}${mission.customer_phone ? ' | ' + mission.customer_phone : ''}`
+    : 'ابدأ بإعداد بيانات العميل والعرض.';
+  $('#missionSummary').title = $('#missionSummary').textContent;
+  $('#callNote').textContent = outbound
+    ? 'جهّز الإيجنت، رن من Phone Link، وبعد الرد فعّل السماع. إنهاء الإيجنت لا يقفل مكالمة الهاتف.'
+    : 'تجربة ببيانات Demo فقط — متبعتش كلمات مرور أو بيانات بنكية.';
+}
+
+function openMission() {
+  if (active) return;
+  showError('', $('#missionError'));
+  missionDialog.showModal();
+}
+
+editMissionBtn.addEventListener('click', openMission);
+$('#closeMissionBtn').addEventListener('click', () => missionDialog.close());
+$('#exampleMissionBtn').addEventListener('click', () => {
+  for (const [key, value] of Object.entries(EXAMPLE_MISSION)) missionForm.elements.namedItem(key).value = value;
+  showError('', $('#missionError'));
+});
+missionForm.addEventListener('submit', event => {
+  event.preventDefault();
+  if (active || !missionForm.reportValidity()) return;
+  try {
+    mission = Object.freeze(validateMission(Object.fromEntries([...new FormData(missionForm)].map(([key, value]) => [key, value.trim()]))));
+    missionDialog.close();
+    showError('');
+    syncMissionUI();
+  } catch (error) { showError(error.message, $('#missionError')); }
+});
+callMode.addEventListener('change', syncMissionUI);
 
 let liveSession = null;
 let micStream = null;
@@ -215,9 +274,10 @@ function stopPlayback() {
   nextPlayTime = outputCtx ? outputCtx.currentTime : 0;
 }
 
-async function enqueueAudio(base64, sampleRate=24000) {
+async function enqueueAudio(base64, sampleRate=24000, generation=callGeneration) {
   if (!outputCtx) outputCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (outputCtx.state === 'suspended') await outputCtx.resume();
+  if (!active || generation !== callGeneration) return;
 
   const pcm = base64ToFloat32PCM16(base64);
   if (!pcm.length) return;
@@ -246,7 +306,11 @@ function makeBubble(role) {
   ensureTranscriptStarted();
   const el = document.createElement('div');
   el.className = 'msg ' + role;
-  el.innerHTML = `<small>${role === 'user' ? 'أنت' : 'OnTrack AI'}</small><span></span>`;
+  const label = document.createElement('small');
+  label.textContent = role === 'user'
+    ? (sessionMode === 'outbound' ? sessionMission.customer_name : 'أنت')
+    : (sessionMode === 'outbound' ? sessionMission.agent_name : 'OnTrack AI');
+  el.append(label, document.createElement('span'));
   transcript.appendChild(el);
   return el;
 }
@@ -310,6 +374,7 @@ function buildContextLinks(userText, aiText) {
 }
 
 function attachContextLinks(bubble, userText, aiText) {
+  if (sessionMode === 'outbound') return;
   if (!bubble) return;
 
   const links = buildContextLinks(userText, aiText);
@@ -377,10 +442,10 @@ function resetTranscript() {
   lastServiceContext = null;
 }
 
-async function startMicrophone() {
+async function startMicrophone(generation = callGeneration) {
   if (micStream || !liveSession) return;
 
-  micStream = await navigator.mediaDevices.getUserMedia({
+  const stream = await navigator.mediaDevices.getUserMedia({
     audio: {
       channelCount: 1,
       echoCancellation: true,
@@ -388,9 +453,15 @@ async function startMicrophone() {
       autoGainControl: true
     }
   });
+  if (!active || generation !== callGeneration) {
+    stream.getTracks().forEach(track => track.stop());
+    return;
+  }
+  micStream = stream;
 
   inputCtx = new (window.AudioContext || window.webkitAudioContext)();
   await inputCtx.resume();
+  if (!active || generation !== callGeneration) return;
 
   inputSource = inputCtx.createMediaStreamSource(micStream);
   processor = inputCtx.createScriptProcessor(4096, 1, 1);
@@ -398,18 +469,21 @@ async function startMicrophone() {
   muteGain.gain.value = 0;
 
   processor.onaudioprocess = ev => {
-    if (!active || !liveSession || muted) return;
+    if (!active || generation !== callGeneration || !liveSession || muted || !outputGate?.armed) return;
 
     const input = ev.inputBuffer.getChannelData(0);
     const pcm16k = resampleTo16k(input, inputCtx.sampleRate);
     const pcm = floatToPCM16(pcm16k);
 
-    liveSession.sendRealtimeInput({
+    try { liveSession.sendRealtimeInput({
       audio: {
         data: arrayBufferToBase64(pcm),
         mimeType: 'audio/pcm;rate=16000'
       }
-    });
+    }); } catch (error) {
+      showError('انقطع إرسال الصوت. جهّز جلسة جديدة.');
+      stopCall(false);
+    }
   };
 
   inputSource.connect(processor);
@@ -417,9 +491,10 @@ async function startMicrophone() {
   muteGain.connect(inputCtx.destination);
 
   syncMicStatus();
-  setStatus(liveState, 'متصل ومستعد');
-  setSessionState('live', 'LIVE');
-  state('سامعك…', 'listening');
+  setStatus(liveState, sessionMode === 'outbound' ? 'جاهز — فعّل السماع بعد رد العميل' : 'متصل ومستعد');
+  setStatus($('#chatCallState'), sessionMode === 'outbound' ? 'الإيجنت جاهز — السماع غير مفعّل' : 'المكالمة جارية');
+  setSessionState('live', sessionMode === 'outbound' ? 'PREPARED' : 'LIVE');
+  state(sessionMode === 'outbound' ? 'جاهز للعميل' : 'سامعك…', sessionMode === 'outbound' ? '' : 'listening');
 
   muteBtn.disabled = false;
   if (popupMuteBtn) popupMuteBtn.disabled = false;
@@ -459,7 +534,7 @@ async function getEphemeralSession() {
   const r = await fetch('api/live_session.php', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: '{}',
+    body: JSON.stringify(sessionMode === 'outbound' ? {mode: 'outbound', mission: sessionMission} : {mode: 'demo'}),
     cache: 'no-store'
   });
 
@@ -472,11 +547,15 @@ async function getEphemeralSession() {
   return j;
 }
 
-async function handleLiveMessage(message) {
-  const content = message.serverContent;
+async function handleLiveContent(content, generation) {
+  if (!active || generation !== callGeneration) return;
 
   if (content?.inputTranscription?.text) {
     updateTranscript('user', content.inputTranscription.text);
+    if (sessionMode === 'outbound' && outputGate.heardCustomer) {
+      armCallBtn.textContent = 'السماع مفعّل — المحادثة جارية';
+      setStatus($('#chatCallState'), 'المحادثة جارية');
+    }
   }
 
   if (content?.outputTranscription?.text) {
@@ -501,8 +580,9 @@ async function handleLiveMessage(message) {
     const match = /rate=(\d+)/i.exec(mime);
     const rate = match ? Number(match[1]) : 24000;
 
-    await enqueueAudio(inline.data, rate);
-    setStatus(liveState, 'أون تراك بيرد');
+    await enqueueAudio(inline.data, rate, generation);
+    if (!active || generation !== callGeneration) return;
+    setStatus(liveState, sessionMode === 'outbound' ? `${sessionMission.agent_name} بيرد` : 'أون تراك بيرد');
     state('بيرد عليك…', 'speaking');
   }
 
@@ -516,7 +596,7 @@ async function handleLiveMessage(message) {
       state('بفتح الميكروفون…');
 
       try {
-        await startMicrophone();
+        await startMicrophone(generation);
       } catch (err) {
         console.error('Microphone error:', err);
         const permissionDenied = err?.name === 'NotAllowedError' || err?.name === 'SecurityError';
@@ -528,16 +608,37 @@ async function handleLiveMessage(message) {
         );
         setSessionState('error', 'MIC ERROR');
         state(permissionDenied ? 'محتاج إذن الميكروفون' : 'خطأ في الميكروفون');
+        showError(permissionDenied ? 'اسمح باستخدام الميكروفون وجرب تاني.' : 'تعذر تشغيل مدخل الصوت. راجع إعدادات المتصفح.');
+        await stopCall(false);
       }
       return;
     }
 
     if (active) {
-      setStatus(liveState, 'متصل ومستعد');
-      state(muted ? 'الميكروفون مكتوم' : 'سامعك…', muted ? '' : 'listening');
+      setListeningState();
     }
   }
 }
+
+function setListeningState() {
+  const waiting = sessionMode === 'outbound' && !outputGate?.heardCustomer;
+  const prepared = sessionMode === 'outbound' && !outputGate?.armed;
+  setStatus(liveState, prepared ? 'جاهز — فعّل السماع بعد رد العميل' : waiting ? 'منتظر كلام العميل' : 'متصل ومستعد');
+  state(muted ? 'السماع مكتوم' : prepared ? 'جاهز للعميل' : waiting ? 'منتظر العميل…' : 'سامعك…', muted || prepared ? '' : 'listening');
+}
+
+async function armOutbound() {
+  if (!active || sessionMode !== 'outbound' || !liveSession || !micStream || outputGate.armed) return;
+  outputGate.arm();
+  syncMicStatus();
+  armCallBtn.disabled = true;
+  armCallBtn.textContent = 'السماع مفعّل — منتظر كلام العميل';
+  startTimer();
+  setStatus($('#chatCallState'), 'السماع مفعّل');
+  setListeningState();
+  openChatPopup(false);
+}
+armCallBtn.addEventListener('click', armOutbound);
 
 function syncMicStatus() {
   const track = micStream?.getAudioTracks?.()[0];
@@ -548,7 +649,7 @@ function syncMicStatus() {
     return;
   }
 
-  setStatus(micState, muted || !track.enabled ? 'مكتوم' : 'شغال');
+  setStatus(micState, muted || !track.enabled ? 'مكتوم' : sessionMode === 'outbound' && !outputGate?.armed ? 'جاهز — لا يرسل صوتاً' : 'شغال');
 }
 
 function setMuted(next) {
@@ -569,23 +670,33 @@ function setMuted(next) {
   syncMicStatus();
 
   if (active) {
-    state(muted ? 'الميكروفون مكتوم' : 'سامعك…', muted ? '' : 'listening');
+    setListeningState();
   }
 }
 
 async function startCall() {
   if (active) return;
+  if (callMode.value === 'outbound' && !mission) { openMission(); return; }
 
   if (!navigator.mediaDevices?.getUserMedia) {
-    toastState('المتصفح لا يدعم الميكروفون');
+    showError('المتصفح لا يدعم الميكروفون. افتح الصفحة في Chrome على HTTPS.');
     return;
   }
 
   active = true;
+  const generation = ++callGeneration;
+  sessionMode = callMode.value;
+  sessionMission = sessionMode === 'outbound' ? Object.freeze({...mission}) : null;
+  outputGate = new CustomerSpeechGate(sessionMode === 'outbound');
+  messageQueue = Promise.resolve();
+  showError('');
+  $('#chatAgentName').textContent = sessionMission?.agent_name || 'OnTrack AI';
+  setStatus($('#chatCallState'), 'جاري تجهيز الجلسة');
   liveReady = false;
-  greetingPending = true;
+  greetingPending = sessionMode === 'demo';
   setMuted(false);
   openChatPopup(true);
+  if (sessionMode === 'outbound') closeChatPopup(true);
 
   callBtn.disabled = true;
   stopBtn.disabled = false;
@@ -593,12 +704,17 @@ async function startCall() {
   if (popupStopBtn) popupStopBtn.disabled = false;
   if (popupMuteBtn) popupMuteBtn.disabled = true;
   voiceSelect.disabled = true;
+  callMode.disabled = true;
+  editMissionBtn.disabled = true;
+  armCallBtn.hidden = sessionMode !== 'outbound';
+  armCallBtn.disabled = true;
+  armCallBtn.textContent = 'العميل رد — فعّل انتظار صوته';
 
   const selectedVoice = voiceSelect.value;
   localStorage.setItem(VOICE_KEY, selectedVoice);
   setStatus(voiceState, selectedVoice);
 
-  startTimer();
+  if (sessionMode === 'demo') startTimer();
   setSessionState('live', 'CONNECTING');
   state('بجهز المكالمة…');
   setStatus(micState, 'منتظر الاتصال');
@@ -608,16 +724,18 @@ async function startCall() {
   try {
     if (!outputCtx) outputCtx = new (window.AudioContext || window.webkitAudioContext)();
     await outputCtx.resume();
+    if (!active || generation !== callGeneration) return;
     nextPlayTime = outputCtx.currentTime;
 
     const info = await getEphemeralSession();
+    if (!active || generation !== callGeneration) return;
     setStatus(modelState, info.model);
 
     const ai = new GoogleGenAI({ apiKey: info.token });
 
     setStatus(liveState, 'بيتصل بـ Gemini Live');
 
-    liveSession = await ai.live.connect({
+    const connectedSession = await ai.live.connect({
       model: info.model,
       config: {
         responseModalities: [Modality.AUDIO],
@@ -634,32 +752,58 @@ async function startCall() {
       },
       callbacks: {
         onopen: () => {
+          if (!active || generation !== callGeneration) return;
           liveReady = true;
           setStatus(liveState, 'تم الاتصال');
           toastState('المكالمة متصلة');
         },
         onmessage: message => {
-          handleLiveMessage(message).catch(err => console.error('Live message error:', err));
+          messageQueue = messageQueue.then(async () => {
+            if (!active || generation !== callGeneration || !message.serverContent) return;
+            for (const content of outputGate.accept(message.serverContent)) {
+              await handleLiveContent(content, generation);
+            }
+          }).catch(async error => {
+            if (!active || generation !== callGeneration) return;
+            console.error('Live message error:', error);
+            showError('تعذر تشغيل الرد الصوتي أو التعرف على كلام العميل. راجع مدخل الصوت وجهّز جلسة جديدة.');
+            await stopCall(false);
+          });
         },
         onerror: error => {
+          if (!active || generation !== callGeneration) return;
           console.error('Gemini Live error:', error);
           setStatus(liveState, 'حصل خطأ في الاتصال');
           setSessionState('error', 'ERROR');
           toastState('حصل خطأ — جرب تاني');
           state('خطأ في الاتصال');
+          showError('حصل خطأ في الاتصال بخدمة الصوت. جهّز جلسة جديدة.');
+          stopCall(false);
         },
         onclose: event => {
+          if (!active || generation !== callGeneration) return;
           const reason = event?.reason ? ': ' + event.reason : '';
           console.debug('Gemini Live closed', event);
           setStatus(liveState, 'انتهى الاتصال' + reason);
 
           if (active) {
+            showError('انتهت جلسة الإيجنت. لو مكالمة الهاتف ما زالت شغالة، اقفلها من Phone Link أو جهّز جلسة جديدة.');
             state('انتهت الجلسة');
             stopCall(false);
           }
         }
       }
     });
+    if (!active || generation !== callGeneration) { connectedSession.close(); return; }
+    liveSession = connectedSession;
+
+    if (sessionMode === 'outbound') {
+      await startMicrophone(generation);
+      if (!active || generation !== callGeneration) return;
+      armCallBtn.disabled = false;
+      toastState('الإيجنت جاهز؛ اتصل بالعميل ثم فعّل السماع');
+      return;
+    }
 
     setStatus(liveState, 'بيجهز الصوت');
     state('أون تراك بيبدأ…');
@@ -669,11 +813,13 @@ async function startCall() {
     });
 
   } catch (err) {
+    if (!active || generation !== callGeneration) return;
     console.error('Start Live failed:', err);
     setStatus(liveState, 'تعذر بدء المكالمة');
     setSessionState('error', 'FAILED');
     toastState('تعذر بدء المكالمة');
     state('جرب مرة تانية');
+    showError(err?.name === 'NotAllowedError' ? 'اسمح باستخدام الميكروفون في المتصفح وجرب تاني.' : (err.message || 'تعذر تجهيز الجلسة. جرب تاني.'));
     await stopCall(false);
   }
 }
@@ -682,6 +828,7 @@ async function stopCall(userInitiated=true) {
   const wasActive = active;
 
   active = false;
+  callGeneration++;
   liveReady = false;
   greetingPending = false;
 
@@ -708,9 +855,15 @@ async function stopCall(userInitiated=true) {
   if (popupStopBtn) popupStopBtn.disabled = true;
   if (popupMuteBtn) popupMuteBtn.disabled = true;
   voiceSelect.disabled = false;
+  callMode.disabled = false;
+  editMissionBtn.disabled = false;
+  armCallBtn.hidden = true;
+  armCallBtn.disabled = true;
 
   setSessionState('ready', 'READY');
-  closeChatPopup(false);
+  closeChatPopup(!!transcript.querySelector('.msg'));
+  setStatus($('#chatCallState'), 'الإيجنت متوقف — نص المكالمة للمراجعة');
+  if (!userInitiated) { setStatus(liveState, 'الجلسة متوقفة — راجع التنبيه'); state('الجلسة متوقفة'); }
 
   if (userInitiated && wasActive) {
     setStatus(liveState, 'جاهز لمكالمة جديدة');
@@ -743,6 +896,7 @@ window.addEventListener('beforeunload', () => {
 });
 
 (function init() {
+  syncMissionUI();
   const savedVoice = localStorage.getItem(VOICE_KEY);
   if (savedVoice && [...voiceSelect.options].some(o => o.value === savedVoice)) {
     voiceSelect.value = savedVoice;

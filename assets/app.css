@@ -551,3 +551,46 @@ body{
     max-height:46dvh;
   }
 }
+
+/* Outbound mission setup lives in a scrolling dialog; the call desk stays fixed. */
+[hidden]{display:none!important}
+.mission-controls{display:flex;gap:8px;width:min(540px,100%);margin-top:12px}
+.mission-controls select{flex:1;min-width:0;background:#0c0e13;color:var(--text);border:1px solid var(--line-strong);border-radius:12px;padding:9px;font-size:12px}
+.mission-edit{background:#20232c;color:var(--text);border:1px solid var(--line-strong);border-radius:12px;padding:10px 14px;cursor:pointer;font-size:12px}
+.mission-edit:disabled{opacity:.4;cursor:not-allowed}
+.mission-summary{width:min(540px,100%);color:var(--soft);font-size:11px;line-height:1.6;margin-top:8px;max-height:38px;overflow:auto;text-align:center;overflow-wrap:anywhere}
+.mission-summary{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arm-call{width:min(540px,100%);margin-top:9px;padding:12px;border:1px solid rgba(71,210,145,.45);background:#14271e;color:#d7ffea;border-radius:12px;cursor:pointer;font:inherit;font-size:13px;font-weight:700}
+.arm-call:disabled{opacity:.5;cursor:default}
+.call-error{color:#ffb5b9;font-size:12px;line-height:1.7;max-width:540px;margin:8px 0 0;text-align:center}
+.mission-dialog{width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--line-strong);border-radius:22px;background:#101219;color:var(--text);box-shadow:var(--shadow)}
+.mission-dialog::backdrop{background:rgba(0,0,0,.72);backdrop-filter:blur(5px)}
+.mission-dialog form{display:flex;flex-direction:column;max-height:calc(100dvh - 26px)}
+.mission-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px 22px;border-bottom:1px solid var(--line);flex-shrink:0}
+.mission-dialog-head h2{font-size:21px;margin:0}
+.mission-dialog-head p{font-size:12px;color:var(--muted);margin:7px 0 0}
+.mission-fields{overflow:auto;overscroll-behavior:contain;padding:18px 22px;min-height:0}
+.mission-fields fieldset{border:1px solid var(--line-strong);border-radius:14px;padding:16px;margin:0 0 18px}
+.mission-fields legend{color:#ff8e95;padding:0 8px;font-size:13px;font-weight:700}
+.mission-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.mission-grid label{display:flex;flex-direction:column;gap:7px;min-width:0;font-size:12px;color:var(--soft)}
+.mission-grid .wide{grid-column:1/-1}
+.mission-grid input,.mission-grid textarea{width:100%;font:inherit;line-height:1.6;background:#090b10;border:1px solid var(--line-strong);border-radius:9px;color:var(--text);padding:10px;outline:none}
+.mission-grid textarea{resize:vertical;min-height:58px}
+.mission-grid input:focus,.mission-grid textarea:focus{border-color:var(--red)}
+.mission-grid small,.mission-help{font-size:11px;color:var(--muted);line-height:1.7}
+.mission-dialog-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:14px 22px;flex-shrink:0}
+.mission-dialog-actions .call-btn{padding:0 24px;min-height:44px}
+@media(max-width:540px){
+  .mission-grid{grid-template-columns:1fr}
+  .mission-dialog-head,.mission-fields{padding:14px}
+  .mission-dialog-actions{padding:12px}
+  .mission-controls{margin-top:8px}
+  .mission-controls select,.mission-edit{font-size:11px}
+}
+@media(max-height:700px){
+  .mission-summary{max-height:28px;margin-top:5px}
+  .mission-controls{margin-top:7px}
+  .arm-call{padding:9px;margin-top:6px}
+  .call-error{font-size:11px;line-height:1.4}
+}

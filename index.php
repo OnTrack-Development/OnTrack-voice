@@ -10,7 +10,7 @@ $config = require __DIR__ . '/api/demo_config.php';
   <meta name="description" content="OnTrack Live — مكالمة صوتية ذكية مباشرة">
   <title>OnTrack Live</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link rel="stylesheet" href="assets/app.css?v=059">
+  <link rel="stylesheet" href="assets/app.css?v=060">
 </head>
 <body>
 <div class="ambient ambient-a"></div>
@@ -19,12 +19,22 @@ $config = require __DIR__ . '/api/demo_config.php';
 <div class="call-app">
   <main class="call-screen">
     <section class="call-panel">
-      <div class="call-kicker">CLIENT VOICE PREVIEW</div>
+      <div class="call-kicker">ONTRACK LIVE · CALL DESK</div>
 
       <div class="call-title">
-        <h1>اتكلم مع أون تراك.</h1>
-        <p>مكالمة صوتية مباشرة مع مساعد ذكي يعرف خدمات أون تراك وبيانات الديمو.</p>
+        <h1 id="callTitle">جهّز مكالمة العميل.</h1>
+        <p id="callDescription">حدد هوية الإيجنت والعرض وحدود التفاوض، ثم اتصل بالعميل من Phone Link.</p>
       </div>
+
+      <div class="mission-controls">
+        <label for="callMode" class="sr-only">نوع المكالمة</label>
+        <select id="callMode">
+          <option value="outbound" selected>مكالمة عميل من التليفون</option>
+          <option value="demo">تجربة خدمات أون تراك</option>
+        </select>
+        <button type="button" id="editMissionBtn" class="mission-edit">إعداد المهمة</button>
+      </div>
+      <div id="missionSummary" class="mission-summary" aria-live="polite">ابدأ بإعداد بيانات العميل والعرض.</div>
 
       <div class="voice-core-wrap">
         <div class="voice-core" id="orb">
@@ -106,7 +116,7 @@ $config = require __DIR__ . '/api/demo_config.php';
       <div class="call-actions">
         <button id="callBtn" class="call-btn call-btn-start">
           <span class="call-btn-icon">●</span>
-          <span>ابدأ المكالمة</span>
+          <span id="callBtnText">جهّز الإيجنت</span>
         </button>
 
         <button id="muteBtn" class="call-btn call-btn-mute" disabled>
@@ -116,12 +126,15 @@ $config = require __DIR__ . '/api/demo_config.php';
 
         <button id="stopBtn" class="call-btn call-btn-end" disabled>
           <span>■</span>
-          <span>إنهاء</span>
+          <span>إيقاف الإيجنت</span>
         </button>
       </div>
 
-      <div class="call-note">
-        تجربة ببيانات Demo فقط — متبعتش كلمات مرور أو بيانات بنكية.
+      <button type="button" id="armCallBtn" class="arm-call" hidden disabled>العميل رد — فعّل انتظار صوته</button>
+      <p id="callError" class="call-error" role="alert" hidden></p>
+
+      <div class="call-note" id="callNote">
+        جهّز الإيجنت، رن من Phone Link، وبعد الرد فعّل السماع. إنهاء الإيجنت لا يقفل مكالمة الهاتف.
       </div>
 
       <div class="sr-only" id="modelState">gemini-3.8-live</div>
@@ -138,8 +151,8 @@ $config = require __DIR__ . '/api/demo_config.php';
           <img src="https://ontrackegy.com/wp-content/uploads/2026/05/image.svg" alt="OnTrack">
         </span>
         <div>
-          <strong>OnTrack AI</strong>
-          <small><span class="chat-live-dot"></span> المكالمة جارية</small>
+          <strong id="chatAgentName">الإيجنت</strong>
+          <small><span class="chat-live-dot"></span><span id="chatCallState">المكالمة جارية</span></small>
         </div>
       </div>
 
@@ -165,7 +178,7 @@ $config = require __DIR__ . '/api/demo_config.php';
 
       <button id="popupStopBtn" class="popup-call-btn popup-end" type="button" disabled>
         <span>■</span>
-        <span>إنهاء المكالمة</span>
+        <span>إيقاف الإيجنت</span>
       </button>
     </div>
   </div>
@@ -176,9 +189,56 @@ $config = require __DIR__ . '/api/demo_config.php';
   <span>فتح المحادثة</span>
 </button>
 
+<dialog id="missionDialog" class="mission-dialog" aria-labelledby="missionHeading">
+  <form id="missionForm">
+    <div class="mission-dialog-head">
+      <div><h2 id="missionHeading">مهمة المكالمة</h2><p>البيانات دي هي مرجع الإيجنت الوحيد في مكالمة العميل.</p></div>
+      <button type="button" id="closeMissionBtn" class="chat-close" aria-label="إغلاق إعداد المهمة">✕</button>
+    </div>
+    <div class="mission-fields">
+      <fieldset><legend>الإيجنت والعميل</legend>
+        <div class="mission-grid">
+          <label>اسم الإيجنت<input name="agent_name" required maxlength="80" placeholder="مثلاً: عمر"></label>
+          <label>اسم الشركة<input name="company_name" required maxlength="120" placeholder="اسم شركتك"></label>
+          <label>دوره<input name="agent_role" required maxlength="120" placeholder="مثلاً: مسؤول مبيعات عقارات"></label>
+          <label>اسم العميل<input name="customer_name" required maxlength="120" autocomplete="off"></label>
+          <label class="wide">رقم العميل — للاتصال اليدوي فقط<input name="customer_phone" type="tel" maxlength="40" autocomplete="off" dir="ltr"></label>
+          <label class="wide">ما تعرفه عن العميل<textarea name="customer_context" maxlength="1500" rows="2" placeholder="احتياجه، ميزانيته، آخر تواصل، مصدر الاهتمام..."></textarea></label>
+        </div>
+      </fieldset>
+      <fieldset><legend>الشقة أو المنتج المعروض</legend>
+        <div class="mission-grid">
+          <label class="wide">اسم العرض<input name="offer_name" required maxlength="200" placeholder="مثلاً: شقة 150 متر في التجمع"></label>
+          <label class="wide">كل التفاصيل المؤكدة<textarea name="offer_details" required maxlength="8000" rows="5" placeholder="العنوان، المساحة، عدد الغرف، الدور، التشطيب، الخدمات، حالة الملكية، التسليم، المعاينة... اكتب المعلومات المؤكدة فقط."></textarea></label>
+          <label>السعر المطلوب<input name="asking_price" type="number" min="0.01" max="999999999999.99" step="0.01" placeholder="بدون فواصل"></label>
+          <label>العملة<input name="currency" maxlength="40" value="جنيه مصري"></label>
+          <label class="wide">شروط الدفع المعتمدة<textarea name="payment_terms" maxlength="1500" rows="2" placeholder="نقدي أو تقسيط، المقدم، المدة، الرسوم..."></textarea></label>
+        </div>
+      </fieldset>
+      <fieldset><legend>التفاوض والهدف</legend>
+        <div class="mission-grid">
+          <label class="wide">أقل سعر مسموح — سري<input name="minimum_price" type="number" min="0.01" max="999999999999.99" step="0.01" placeholder="سيبه فاضي لو الخصم محتاج موافقتك"><small>الإيجنت لا يكشف الحد للعميل. أي خصم يحتاج تحديد سعر أدنى.</small></label>
+          <label class="wide">التسهيلات المسموحة<textarea name="allowed_concessions" maxlength="1500" rows="2" placeholder="اكتب المسموح فقط؛ الفاضي يعني لا توجد تسهيلات إضافية."></textarea></label>
+          <label class="wide">طريقة التفاوض<textarea name="negotiation_style" maxlength="2500" rows="3" placeholder="استكشف الاحتياج، أبرز القيمة، لا تعرض خصماً قبل اعتراض السعر، خطوات التنازل..."></textarea></label>
+          <label class="wide">اعتراضات متوقعة وردودها<textarea name="objection_responses" maxlength="3500" rows="3" placeholder="السعر غالي → ... / الموقع بعيد → ..."></textarea></label>
+          <label class="wide">هدف المكالمة<textarea name="goal" required maxlength="1000" rows="2" placeholder="مثلاً: الاتفاق على موعد معاينة مقترح وتأكيد اهتمام العميل."></textarea></label>
+          <label class="wide">الافتتاحية — اختيارية<textarea name="opening" maxlength="1000" rows="2" placeholder="ألو، أستاذ ...؟ أنا ... مساعد مبيعات شركة ...، الوقت مناسب نتكلم دقيقة؟"></textarea></label>
+          <label class="wide">إمتى يرجع لك؟<textarea name="handoff_rules" maxlength="1500" rows="2" placeholder="طلبات خارج السعر أو الصلاحيات، معلومات قانونية ناقصة، موافقة نهائية..."></textarea></label>
+        </div>
+      </fieldset>
+      <p class="mission-help">المهمة تفضل في الصفحة الحالية فقط؛ إعادة تحميل الصفحة تمسحها. تجهيز الجلسة يرسلها لخدمة الصوت. الحجز أو إرسال الرسائل يحتاج تنفيذك.</p>
+      <p id="missionError" class="call-error" role="alert" hidden></p>
+    </div>
+    <div class="mission-dialog-actions">
+      <button type="button" id="exampleMissionBtn" class="mission-edit">تحميل مثال تجريبي</button>
+      <button type="submit" class="call-btn call-btn-start">اعتمد المهمة</button>
+    </div>
+  </form>
+</dialog>
+
 <span id="statusDot" class="sr-only"></span>
 <span id="engineBadge" class="sr-only">جاهز للمكالمة</span>
 
-<script type="module" src="assets/app.js?v=059"></script>
+<script type="module" src="assets/app.js?v=060"></script>
 </body>
 </html>
