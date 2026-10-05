@@ -1,15 +1,18 @@
 {
-  "version": "0.5.9",
+  "version": "0.6.0",
   "channel": "client-preview",
   "model": "gemini-3.8-live",
-  "mode": "single-screen-call-mode",
+  "mode": "outbound-mission-and-client-preview",
   "sdk": "@google/genai 2.25.0",
   "auth": "ephemeral-token",
   "fixes": [
-    "removed stale quick-prompt handlers that caused false microphone errors",
-    "microphone status now reflects the actual live MediaStream track",
-    "permission denied is shown only for real browser permission errors",
-    "asset cache bust"
+    "configurable agent identity, customer, offer and negotiation mission",
+    "outbound mode isolated from OnTrack demo knowledge and links",
+    "prepare session silently, arm after manual Phone Link answer, wait for recognized customer speech",
+    "buffer first model audio until customer transcription arrives",
+    "validate mission before issuing token and lock it during session",
+    "guard cancelled session callbacks and microphone permission failures",
+    "preserve direct demo mode and existing Gemini Live audio pipeline"
   ],
-  "updated": "2026-10-02"
+  "updated": "2026-10-05"
 }

@@ -2,9 +2,16 @@
 declare(strict_types=1);
 
 require __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../lib/OutboundMission.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     json_out(['ok' => false, 'error' => 'POST only'], 405);
+}
+
+try {
+    $request = parse_live_request((string)file_get_contents('php://input', false, null, 0, 32769));
+} catch (JsonException | InvalidArgumentException $e) {
+    json_out(['ok' => false, 'error' => 'invalid_mission', 'detail' => $e instanceof JsonException ? 'صيغة البيانات غير صالحة' : $e->getMessage()], 400);
 }
 
 if (empty($config['gemini_api_key'])) {
@@ -102,6 +109,10 @@ $systemInstruction = <<<PROMPT
 {$kbJson}
 PROMPT;
 
+if ($request['mode'] === 'outbound') {
+    $systemInstruction = build_outbound_instruction(sanitize_voice_knowledge($request['mission']));
+}
+
 $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 $expireTime = $now->modify('+30 minutes')->format('Y-m-d\TH:i:s\Z');
 $newSessionExpireTime = $now->modify('+2 minutes')->format('Y-m-d\TH:i:s\Z');
@@ -162,4 +173,5 @@ json_out([
     'expires_at' => $expireTime,
     'system_instruction' => $systemInstruction,
     'preview' => 'client',
+    'mode' => $request['mode'],
 ]);
