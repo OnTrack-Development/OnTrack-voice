@@ -1,0 +1,16 @@
+ONTRACK VOICE TEMP DEV BRIDGE
+==============================
+
+ارفع dev_bridge.php مباشرة بجانب index.php في جذر الساب دومين.
+لا تنشئ فولدر جديد.
+
+Maintenance token:
+GF6_1W21Hc4khNPB53jz6n6UfX0ZUo94s0Diy_SDIEk
+
+بعد الرفع افتح:
+https://YOUR-SUBDOMAIN/dev_bridge.php?action=status&token=GF6_1W21Hc4khNPB53jz6n6UfX0ZUo94s0Diy_SDIEk
+
+المفروض يرجع JSON وفيه ok=true.
+بعدها ارجع للشات واكتب: تم
+
+مهم: هذا Bridge مؤقت للديمو. عند الانتهاء سننفذ action=lock ثم نحذفه نهائياً.

@@ -1,0 +1,7 @@
+.devbridge/
+logs/*.log
+*.zip
+api/demo_config.local.php
+
+# Deploy/runtime files — never committed
+/dev_bridge.php
