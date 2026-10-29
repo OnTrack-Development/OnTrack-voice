@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "laravel-status-20261029b",
+  "id": "cron-repair-20261029a",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-10-29T01:47:30Z",
-  "expires_at": "2026-10-29T02:47:30Z",
+  "created_at": "2026-10-29T01:52:26Z",
+  "expires_at": "2026-10-29T02:52:56Z",
   "cwd": "/home/appontrack",
   "argv": [
     "/bin/sh",
     "-c",
-    "> \"$HOME/logs/bootstrap-laravel.status\" && echo empty || true\nif [ -f \"$HOME/logs/bootstrap-laravel.status\" ]; then echo \"==STATUS==\"; cat \"$HOME/logs/bootstrap-laravel.status\"; fi\necho \"==LOG_TAIL==\"; tail -30 \"$HOME/logs/bootstrap-laravel.log\" 2>/dev/null || echo NO_LOG\necho \"==QUEUE==\"; ls -la \"$HOME/queue\" 2>/dev/null\necho \"==PUBLIC_SAAS==\"; ls -a /home/appontrack/public_html/saas | head -20\necho \"==ARTISAN==\"; if [ -x /home/appontrack/public_html/saas/artisan ]; then cd /home/appontrack/public_html/saas && /opt/cpanel/ea-php83/root/usr/bin/php artisan --version 2>&1 | head -3; else echo NO_ARTISAN; fi\necho \"=DONE=\""
+    "echo \"==WHICH==\"; command -v crontab; echo \"==CUR==\"; crontab -l 2>&1 | head -20; echo \"==COUNT==\"; crontab -l 2>/dev/null | wc -l\nCUR=\"$(crontab -l 2>/dev/null || true)\"\necho \"$CUR\" | grep -q 'ontrack-voice-link/worker.py' || CUR=\"$(printf '%s\\n%s\\n' \"$CUR\" '* * * * * /bin/python3 /home/appontrack/ontrack-voice-link/worker.py >/dev/null 2>&1 # ontrack-voice-link')\"\necho \"$CUR\" | grep -q 'run-queue.sh' || CUR=\"$(printf '%s\\n%s\\n' \"$CUR\" '* * * * * /bin/bash /home/appontrack/bin/run-queue.sh >/dev/null 2>&1 # ontrack-saas-build')\"\nprintf '%s\\n' \"$CUR\" | crontab - 2>&1\necho \"==AFTER==\"; crontab -l 2>&1 | head -20\necho \"==STATUS==\"; cat \"$HOME/logs/bootstrap-laravel.status\" 2>/dev/null || echo NO_STATUS\necho \"==LOGT==\"; tail -12 \"$HOME/logs/bootstrap-laravel.log\" 2>/dev/null || echo NO_LOG\necho \"==SAAS==\"; ls -a /home/appontrack/public_html/saas 2>/dev/null | head -18\necho \"==ARTISAN==\"; if [ -f /home/appontrack/public_html/saas/artisan ]; then /opt/cpanel/ea-php83/root/usr/bin/php /home/appontrack/public_html/saas/artisan --version 2>&1 | head -2; else echo NO_ARTISAN; fi\necho \"=DONE=\""
   ],
-  "timeout_seconds": 25
+  "timeout_seconds": 30
 }
