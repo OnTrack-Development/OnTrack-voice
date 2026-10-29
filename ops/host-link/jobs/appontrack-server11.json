@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "laravel-status-20261029a",
+  "id": "laravel-status-20261029b",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-10-29T01:55:00Z",
-  "expires_at": "2026-10-29T02:55:00Z",
+  "created_at": "2026-10-29T01:47:30Z",
+  "expires_at": "2026-10-29T02:47:30Z",
   "cwd": "/home/appontrack",
   "argv": [
     "/bin/sh",
     "-c",
-    "> \"$HOME/logs/bootstrap-laravel.status\" && echo empty || true\nif [ -f \"$HOME/logs/bootstrap-laravel.status\" ]; then echo \"==STATUS==\"; cat \"$HOME/logs/bootstrap-laravel.status\"; fi\necho \"==LOG_TAIL==\"; tail -25 \"$HOME/logs/bootstrap-laravel.log\" 2>/dev/null || echo NO_LOG\necho \"==QUEUE==\"; ls -la \"$HOME/queue\" 2>/dev/null\necho \"==HOME_SAAS==\"; ls /home/appontrack/saas-build 2>/dev/null | head -6\necho \"==PUBLIC_SAAS==\"; ls -a /home/appontrack/public_html/saas | head -20\necho \"==ARTISAN==\"; if [ -x /home/appontrack/public_html/saas/artisan ]; then cd /home/appontrack/public_html/saas && /opt/cpanel/ea-php83/root/usr/bin/php artisan --version 2>&1 | head -3; else echo NO_ARTISAN; fi\necho \"=DONE=\""
+    "> \"$HOME/logs/bootstrap-laravel.status\" && echo empty || true\nif [ -f \"$HOME/logs/bootstrap-laravel.status\" ]; then echo \"==STATUS==\"; cat \"$HOME/logs/bootstrap-laravel.status\"; fi\necho \"==LOG_TAIL==\"; tail -30 \"$HOME/logs/bootstrap-laravel.log\" 2>/dev/null || echo NO_LOG\necho \"==QUEUE==\"; ls -la \"$HOME/queue\" 2>/dev/null\necho \"==PUBLIC_SAAS==\"; ls -a /home/appontrack/public_html/saas | head -20\necho \"==ARTISAN==\"; if [ -x /home/appontrack/public_html/saas/artisan ]; then cd /home/appontrack/public_html/saas && /opt/cpanel/ea-php83/root/usr/bin/php artisan --version 2>&1 | head -3; else echo NO_ARTISAN; fi\necho \"=DONE=\""
   ],
   "timeout_seconds": 25
 }
