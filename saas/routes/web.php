@@ -5,6 +5,7 @@ use App\Http\Controllers\App\HomeController;
 use App\Http\Controllers\App\KnowledgeController;
 use App\Http\Controllers\App\OverviewController;
 use App\Http\Controllers\App\ProjectController;
+use App\Http\Controllers\App\SmartActionController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Control\Ai\ProviderController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -45,4 +46,8 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
 
     Route::get('/{workspace}/knowledge', [KnowledgeController::class, 'index'])->name('knowledge.index');
     Route::post('/{workspace}/knowledge', [KnowledgeController::class, 'store'])->name('knowledge.store');
+
+    Route::get('/{workspace}/smart-actions', [SmartActionController::class, 'index'])->name('smart-actions.index');
+    Route::post('/{workspace}/smart-actions', [SmartActionController::class, 'store'])->name('smart-actions.store');
+    Route::post('/{workspace}/smart-actions/{rule}/invoke', [SmartActionController::class, 'invoke'])->name('smart-actions.invoke');
 });

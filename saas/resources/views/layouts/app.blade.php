@@ -31,7 +31,9 @@
             <a class="side-link @if(request()->routeIs('app.knowledge.*')) active @endif" href="{{ route('app.knowledge.index', ['workspace' => $workspace->slug ?? '']) }}">
                 <span aria-hidden="true">▤</span> قواعد المعرفة
             </a>
-            <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">↗</span> الأزرار الذكية</span>
+            <a class="side-link @if(request()->routeIs('app.smart-actions.*')) active @endif" href="{{ route('app.smart-actions.index', ['workspace' => $workspace->slug ?? '']) }}">
+                <span aria-hidden="true">↗</span> الأزرار الذكية
+            </a>
             <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">⌁</span> التكاملات</span>
             <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">☏</span> القنوات</span>
             <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">▣</span> صندوق الوارد</span>
