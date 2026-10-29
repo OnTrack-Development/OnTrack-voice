@@ -46,6 +46,9 @@
 ### 8. WhatsApp Webhook
 `GET/POST /api/webhooks/meta/whatsapp/{publicId}` مع تحقق challenge بواسطة verify token مشفر، HMAC على الـraw body قبل تفكيك JSON، و`whatsapp_webhook_events` لمنع التكرار لكل اتصال. التوقيع الخاطئ مرفوض.
 
+### 9. Tenant Audit
+`tenant_audit_events` tenant-scoped مع actor وaction وresource و`redacted_context` وtrace id؛ يمنع خلط سجل شركة بأخرى.
+
 ## أدلة الاختبار الفعلية
 
 البيئة: Laravel 12.70.2 / PHP 8.2.12 / SQLite.
@@ -60,6 +63,7 @@ php artisan test
 - ControlProviderHubTest: 3
 - KnowledgeHubTest: 3
 - SmartActionTest: 2
+- TenantAuditTest: 2
 - ConversationCoreTest: 3
 - KnowledgeHubTest: 3
 - WhatsappConnectionTest: 3
@@ -82,7 +86,7 @@ PHP lint: all saas/app, saas/database, saas/routes, saas/tests = OK
 `docs/memory/INCIDENT_2026-10-29_CONTROL_CHANNEL_AR.md`.
 
 ## حزمة النشر
-`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-9`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
+`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-11`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
 
 ## الخطوة التالية بعد عودة العامل
 1. التحقق من `host-link-test.txt`.
