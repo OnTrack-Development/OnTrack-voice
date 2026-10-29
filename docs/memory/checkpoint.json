@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "updated_at_utc": "2026-10-29T00:28:24.687935+00:00",
+  "display_timezone": "Africa/Cairo",
+  "status": "PREPARATION_COMPLETE_AWAITING_OWNER_START",
+  "phase": "SAAS_PREPARATION",
+  "repository": "OnTrack-Development/OnTrack-voice",
+  "application_repo_path": "saas/",
+  "host_application_path": "/home/appontrack/public_html/saas",
+  "memory_location": "GITHUB_ONLY",
+  "memory_path": "docs/memory/",
+  "master_prompt_path": "docs/execution/MASTER_EXECUTION_PROMPT_AR.md",
+  "owner_correction": "Keep memory, logs and prompt on GitHub; saas folder on host contains application only.",
+  "existing_homepage_must_remain_unchanged": true,
+  "application_implementation_started": false,
+  "host_workspace": {
+    "exists": true,
+    "empty_at_preparation": true,
+    "mode_at_preparation": "0700",
+    "documentation_files_written": 0,
+    "runtime_files_compared": 29,
+    "runtime_unchanged": true,
+    "preparation_report": "ops/host-link/results/appontrack-server11/saas-prepare-1793233067549.json",
+    "inspection_report": "ops/host-link/results/appontrack-server11/saas-inspect-1793232909572.json"
+  },
+  "scope_additions": [
+    "Official social-media channel replies and Telegram, capability and permission gated"
+  ],
+  "unverified": [
+    "SIM audio capture/injection on target phone",
+    "Inbound/outbound SIM AI conversation",
+    "Laravel SaaS bootstrap",
+    "Current PHP83/84 binary versions/extensions",
+    "Composer/Node/build availability",
+    "Any live social channel connection"
+  ],
+  "next_action": {
+    "before_owner_start": "Report preparation complete and supply prompt/memory paths; do not bootstrap application.",
+    "after_owner_start": "Inspect compatible PHP/Composer/build/MySQL inside isolated saas scope, establish application baseline and implement first authorized vertical slice."
+  },
+  "open_issue_ids": [
+    "VOICE-001",
+    "VOICE-002",
+    "ENV-001",
+    "ENV-002",
+    "CHANNEL-001"
+  ],
+  "last_successful_job": "saas-prepare-1793233067549",
+  "evidence": [
+    "ops/host-link/results/appontrack-server11/saas-inspect-1793232909572.json",
+    "ops/host-link/results/appontrack-server11/saas-prepare-1793233067549.json",
+    "ops/host-link/results/appontrack-server11/verify-terminal-20261028234301727.json"
+  ]
+}

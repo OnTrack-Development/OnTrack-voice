@@ -109,6 +109,24 @@
       "requirement": "Manager identity verification and authorized voice commands",
       "status": "DEFERRED",
       "evidence": null
+    },
+    {
+      "id": "AC-19",
+      "requirement": "Empty isolated saas folder; root source hashes preserved; memory only on GitHub",
+      "status": "VERIFIED_PREPARATION",
+      "evidence": "ops/host-link/results/appontrack-server11/saas-prepare-1793233067549.json"
+    },
+    {
+      "id": "AC-20",
+      "requirement": "Official social-media and Telegram adapters with per-channel capabilities and tenant isolation",
+      "status": "PLANNED",
+      "evidence": null
+    },
+    {
+      "id": "AC-21",
+      "requirement": "Persistent GitHub action/issue/attempt/test journals and session checkpoint",
+      "status": "PREPARED_GITHUB_FILES",
+      "evidence": "docs/memory/README_AR.md"
     }
   ]
 }

@@ -1,0 +1,9 @@
+# Application source belongs here; memory and project documentation live outside.
+.env
+.env.*
+!.env.example
+/vendor/
+/node_modules/
+/public/build/
+/storage/logs/*.log
+/bootstrap/cache/*.php

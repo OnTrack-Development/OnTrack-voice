@@ -30,7 +30,8 @@
     "result_path": "ops/host-link/results/appontrack-server11/verify-terminal-20261028234301727.json",
     "source_commit": "08363de8125d454e5df3180cab86f0113c947ba6",
     "credential_location": "HOST_ONLY_CONFIG_JSON",
-    "credential_expiry": "UNKNOWN"
+    "credential_expiry": "UNKNOWN",
+    "last_workspace_job_id": "saas-prepare-1793233067549"
   },
   "phone_audio": {
     "status": "PENDING_DEVICE_AUDIO_PROOF",
@@ -48,7 +49,7 @@
     "device_remote_control_available": false
   },
   "project": {
-    "next_phase": "P1_DEVICE_AUDIO_PROOF",
+    "next_phase": "AWAITING_OWNER_START_AFTER_PREPARATION",
     "current_plan": "docs/plan/IMPLEMENTATION_PLAN_AR.md",
     "current_state": "docs/project/CURRENT_STATE_AR.md",
     "requirements": "docs/project/REQUIREMENTS_AR.md",
@@ -56,7 +57,9 @@
     "platform_specification": "reference/agent-builder-v1.3",
     "manager_voice_admin": "DEFERRED",
     "automatic_call_campaigns": "PLANNED",
-    "multi_tenant_voice": "PLANNED"
+    "multi_tenant_voice": "PLANNED",
+    "voice_next_phase": "P1_DEVICE_AUDIO_PROOF",
+    "social_channels": "PLANNED_OFFICIAL_CAPABILITY_GATED"
   },
   "constraints": {
     "one_company_owns_each_mobile_number": true,
@@ -74,5 +77,22 @@
     "bootstrap": "2026-10-28T23:42:06.555882+00:00",
     "remote_exec": "2026-10-28T23:44:02.919046+00:00"
   },
-  "warning": "Control-plane verification is not cellular audio verification. Read current live-branch queue/results before issuing a new job."
+  "warning": "Control-plane verification is not cellular audio verification. Read current live-branch queue/results before issuing a new job.",
+  "updated_at_utc": "2026-10-29T00:28:24.687935+00:00",
+  "workspace": {
+    "exists": true,
+    "empty_at_preparation": true,
+    "mode_at_preparation": "0700",
+    "documentation_files_written": 0,
+    "runtime_files_compared": 29,
+    "runtime_unchanged": true,
+    "preparation_report": "ops/host-link/results/appontrack-server11/saas-prepare-1793233067549.json",
+    "inspection_report": "ops/host-link/results/appontrack-server11/saas-inspect-1793232909572.json",
+    "application_repo_path": "saas/",
+    "host_application_path": "/home/appontrack/public_html/saas",
+    "memory_location": "GITHUB_ONLY",
+    "master_prompt_path": "docs/execution/MASTER_EXECUTION_PROMPT_AR.md",
+    "preparation_status": "PREPARATION_COMPLETE_AWAITING_OWNER_START",
+    "application_implementation_started": false
+  }
 }

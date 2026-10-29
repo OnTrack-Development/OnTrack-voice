@@ -2,7 +2,7 @@
 
 ## Read before acting
 
-1. `docs/project/CURRENT_STATE_AR.md` and `docs/project/project-state.json`.
+1. `docs/memory/CHECKPOINT.md`, `docs/memory/checkpoint.json`, then `docs/project/CURRENT_STATE_AR.md` and `docs/project/project-state.json`.
 2. `docs/discovery/DECISIONS_AR.md` and `docs/project/REQUIREMENTS_AR.md`.
 3. `docs/plan/IMPLEMENTATION_PLAN_AR.md` and `docs/architecture/ARCHITECTURE_AR.md`.
 4. `docs/operations/HOST_LINK_RUNBOOK_AR.md` before any remote command.
@@ -17,6 +17,14 @@
 - Reuse existing Gemini Live logic and Egyptian Arabic behavior. LiveKit is not required.
 - Android/Shizuku is a candidate, not a verified solution on the owner's Redmi Note 12 Pro 5G. Do not declare it compatible or commercially ready without real device evidence.
 - Manager voice administration is a recorded deferred requirement. Do not implement it during the audio proof.
+
+## Owner workspace and persistent memory directive — 2026-10-29
+
+- Existing homepage/runtime files under `/home/appontrack/public_html` stay unchanged. New application source belongs in repository `saas/`, deployed only to `/home/appontrack/public_html/saas`.
+- ALL project memory, prompts, action/issue/attempt/test logs and session checkpoints live on GitHub outside `saas/`, under `docs/memory/` and `docs/execution/`. Do not copy them to the host or the application deploy artifact.
+- Read `docs/execution/MASTER_EXECUTION_PROMPT_AR.md` and `docs/memory/MEMORY_PROTOCOL_AR.md`. Record every material action, problem, attempted solution, actual evidence, current blocker and next step.
+- This preparation session stops after preparing the empty directory and repository files, before application implementation, as explicitly requested by the owner. A later explicit owner instruction to start opens the implementation phase; update the checkpoint then. Do not treat preparation as Laravel installation authorization.
+- Include social messaging and Telegram as explicit product requirements. Use official per-channel capability/permission checks; do not claim every platform supports identical DMs/comments or that any integration is live without evidence.
 
 ## Execution
 

@@ -87,3 +87,7 @@ rm ~/ontrack-voice-link/STOP
 ## الإثبات الحالي
 
 bootstrap-probe-20261029 ثم verify-terminal-20261028234301727. الثاني أُرسل من الجلسة ونفذه Cron فعلًا وأعاد exit0 وقراءة الملف الذي كتبه. روابطه في [الأدلة](../evidence/README_AR.md).
+
+## العمل الجديد داخلsaas
+
+عند تنفيذ التطبيق لاحقًا يكونcwdهو `/home/appontrack/public_html/saas`. الميموري والبرومبت وسجلات الجلسات تبقى فيGitHubخارجdeployartifact؛ لا تكتبها علىالهوست. تقرير تجهيز المجلد وحماية ملفات الرئيسية في `docs/memory/checkpoint.json`.

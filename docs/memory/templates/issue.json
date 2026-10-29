@@ -1,0 +1,19 @@
+{
+  "id": "REPLACE_UNIQUE",
+  "title": null,
+  "category": null,
+  "severity": null,
+  "status": "OPEN",
+  "first_seen": null,
+  "expected": null,
+  "actual": null,
+  "cause_confirmed": null,
+  "attempts": [],
+  "workaround": null,
+  "fix": null,
+  "verification": [],
+  "affected_scope": [],
+  "current_blocker": null,
+  "next_action": null,
+  "history": []
+}

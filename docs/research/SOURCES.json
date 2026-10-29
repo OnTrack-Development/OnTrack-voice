@@ -103,6 +103,36 @@
       "url": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens",
       "purpose": "Fine-grained token setup",
       "review_status": "REVIEWED_DURING_IMPLEMENTATION"
+    },
+    {
+      "id": "telegram-bot-api",
+      "url": "https://core.telegram.org/bots/api",
+      "purpose": "Webhook and sendMessage, optional business connection fields",
+      "review_status": "REVIEWED_2026_10_29_PREPARATION"
+    },
+    {
+      "id": "telegram-bot-faq",
+      "url": "https://core.telegram.org/bots/faq",
+      "purpose": "Private/group visibility and privacy mode",
+      "review_status": "REVIEWED_2026_10_29_PREPARATION"
+    },
+    {
+      "id": "telegram-bot-features",
+      "url": "https://core.telegram.org/bots/features",
+      "purpose": "Official business connection rights",
+      "review_status": "REVIEWED_2026_10_29_PREPARATION"
+    },
+    {
+      "id": "meta-messenger",
+      "url": "https://developers.facebook.com/docs/messenger-platform/",
+      "purpose": "Messenger permissions/capabilities to verify before implementation",
+      "review_status": "HTTP_429_DURING_REVIEW_NO_CONTENT_RETRIEVED"
+    },
+    {
+      "id": "meta-instagram-messaging",
+      "url": "https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api/",
+      "purpose": "Instagram messaging permissions/capabilities to verify before implementation",
+      "review_status": "HTTP_429_DURING_REVIEW_NO_CONTENT_RETRIEVED"
     }
   ]
 }

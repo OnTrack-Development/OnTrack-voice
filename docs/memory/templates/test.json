@@ -1,0 +1,13 @@
+{
+  "test_id": "REPLACE_UNIQUE",
+  "timestamp_utc": null,
+  "scope": null,
+  "environment": null,
+  "command_redacted": null,
+  "result": "NOT_RUN",
+  "exit_code": null,
+  "duration_ms": null,
+  "evidence": [],
+  "proves": [],
+  "does_not_prove": []
+}

@@ -1,0 +1,13 @@
+{
+  "attempt_id": "REPLACE_UNIQUE",
+  "issue_id": null,
+  "timestamp_utc": null,
+  "hypothesis": null,
+  "action": null,
+  "expected_signal": null,
+  "actual_result": null,
+  "success": null,
+  "evidence": [],
+  "repeat_signature": null,
+  "next_action": null
+}

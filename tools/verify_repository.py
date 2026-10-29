@@ -100,6 +100,53 @@ installer = (ROOT / "ops/host-link/install.py").read_text()
 expected = re.search(r'WORKER_SHA256 = "([0-9a-f]{64})"', installer).group(1)
 check(digest(worker) == expected, "Pinned worker checksum mismatch")
 
+# Persistent memory is repository-only and must agree with actual host evidence.
+memory = ROOT / "docs/memory"
+if memory.is_dir():
+    checkpoint = json.loads((memory / "checkpoint.json").read_text())
+    check(checkpoint["memory_location"] == "GITHUB_ONLY", "Memory location must remain GitHub-only")
+    check(checkpoint["application_repo_path"] == "saas/", "Wrong SaaS repository scope")
+    check(checkpoint["host_application_path"] == "/home/appontrack/public_html/saas", "Wrong SaaS host scope")
+    check(exists(ROOT / checkpoint["master_prompt_path"]), "Master execution prompt missing")
+    preparation = json.loads((ROOT / checkpoint["host_workspace"]["preparation_report"]).read_text())
+    prepared = json.loads(preparation["stdout"])
+    check(preparation["status"] == "success" and preparation["exit_code"] == 0, "Workspace preparation did not succeed")
+    check(prepared["exists_after"] and prepared["entries"] == [], "Expected an empty prepared workspace")
+    check(prepared["documentation_files_written_on_host"] == 0, "Host documentation must not be deployed")
+    check(prepared["original_runtime_unchanged"], "Existing homepage source preservation failed")
+    check(not prepared["application_implementation_started"], "Preparation must not bootstrap the application")
+    check(len(prepared["preserved_runtime_files"]) == checkpoint["host_workspace"]["runtime_files_compared"], "Runtime comparison count mismatch")
+    issue_data = json.loads((memory / "ISSUE_REGISTER.json").read_text())
+    issue_ids = {item["id"] for item in issue_data["issues"]}
+    attempt_ids = set()
+    for logfile, key in (("ACTION_LOG.jsonl", "event_id"), ("ATTEMPT_LOG.jsonl", "attempt_id"), ("TEST_LOG.jsonl", "test_id")):
+        seen = set()
+        for number, line in enumerate((memory / "logs" / logfile).read_text().splitlines(), 1):
+            try:
+                record = json.loads(line)
+            except ValueError:
+                errors.append(logfile + ": invalid JSONL at " + str(number))
+                continue
+            check(record.get(key) and record[key] not in seen, logfile + ": missing/duplicate id")
+            seen.add(record.get(key))
+            if "issue_id" in record:
+                check(record["issue_id"] in issue_ids, "Unknown issue reference in " + logfile)
+            for ref in record.get("issue_ids", []):
+                check(ref in issue_ids, "Unknown issue reference in " + logfile)
+            for ref in record.get("output_refs", []) + record.get("evidence", []):
+                check(exists(ROOT / ref), "Missing journal evidence: " + ref)
+        if key == "attempt_id":
+            attempt_ids = seen
+    for issue in issue_data["issues"]:
+        for ref in issue.get("attempts", []):
+            check(ref in attempt_ids, "Unknown attempt reference: " + ref)
+        for ref in issue.get("verification", []):
+            check(exists(ROOT / ref), "Missing issue evidence: " + ref)
+    if checkpoint["status"] == "PREPARATION_COMPLETE_AWAITING_OWNER_START":
+        check(not checkpoint["application_implementation_started"], "Current owner instruction stops before application work")
+        app_files = [p for p in (ROOT / "saas").rglob("*") if p.is_file()]
+        check(all(p.name in (".gitkeep", ".gitignore") for p in app_files), "Unexpected application implementation or memory files during preparation")
+
 secret_patterns = [r"AIza[0-9A-Za-z_-]{25,}", r"github_pat_[A-Za-z0-9_]{20,}", r"ghp_[A-Za-z0-9]{30,}", r"omnira_sk_live_[A-Za-z0-9_-]{20,}", r"-----BEGIN (?:OPENSSH |RSA |EC )?PRIVATE KEY-----"]
 for path in ROOT.rglob("*"):
     if not path.is_file() or any(x in path.parts for x in (".git", "__pycache__")) or path.suffix in (".zip", ".png", ".pyc"):

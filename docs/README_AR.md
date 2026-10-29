@@ -1,5 +1,13 @@
 # فهرس وثائق المشروع
 
+## التنفيذ والذاكرة
+
+- [البرومبت الرئيسي الشامل](execution/MASTER_EXECUTION_PROMPT_AR.md).
+- [الميموري والسجلات والقضايا](memory/README_AR.md).
+- [نقطة الاستكمال](memory/CHECKPOINT.md).
+- [مساحةsaasوحماية الرئيسية](operations/SAAS_WORKSPACE_AR.md).
+- [السوشيال وTelegram](project/SOCIAL_CHANNELS_AR.md).
+
 ## الحالة والمتطلبات
 
 - [الحالة الحالية والاستكمال](project/CURRENT_STATE_AR.md).

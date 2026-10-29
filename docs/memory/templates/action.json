@@ -1,0 +1,20 @@
+{
+  "event_id": "REPLACE_UNIQUE",
+  "timestamp_utc": null,
+  "actor": null,
+  "session_id": null,
+  "phase": null,
+  "task_id": null,
+  "status": "TEMPLATE",
+  "summary": null,
+  "rationale": null,
+  "target": null,
+  "command_redacted": null,
+  "input_refs": [],
+  "output_refs": [],
+  "exit_code": null,
+  "duration_ms": null,
+  "files_changed": [],
+  "issue_ids": [],
+  "next_action": null
+}

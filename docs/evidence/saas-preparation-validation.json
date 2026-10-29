@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "checks": {
+    "json": 31,
+    "reference_files": 66,
+    "archives": 2,
+    "links": 81
+  },
+  "note": "Local integrity/document checks, not live telephony proof",
+  "recorded_at_utc": "2026-10-29T00:31:38.766017+00:00",
+  "command": "python3 tools/verify_repository.py",
+  "exit_code": 0
+}

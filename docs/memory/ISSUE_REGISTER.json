@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "updated_at_utc": "2026-10-29T00:28:24.687935+00:00",
+  "issues": [
+    {
+      "id": "NET-001",
+      "title": "SSH unavailable from this session network",
+      "category": "transport",
+      "severity": "medium",
+      "status": "WORKAROUND_VERIFIED",
+      "first_seen": "2026-10-29",
+      "expected": "Direct authorized SSH on TCP7195",
+      "actual": "Network is unreachable before authentication for appontrack and ai",
+      "cause_confirmed": "Local environment cannot route this SSH connection; exact network configuration not investigated",
+      "attempts": [
+        "ATT-001",
+        "ATT-002"
+      ],
+      "workaround": "Existing GitHub HTTPS pull/report worker",
+      "verification": [
+        "ops/host-link/results/appontrack-server11/verify-terminal-20261028234301727.json"
+      ],
+      "current_blocker": false,
+      "next_action": "Use existing host link; do not request another SSH key or change the server port.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-29T00:28:24.687935+00:00",
+          "status": "WORKAROUND_VERIFIED",
+          "summary": "Current state reconstructed from preserved evidence and session actions; historical attempt detail remains in ATTEMPT_LOG and discovery records.",
+          "evidence": [
+            "ops/host-link/results/appontrack-server11/verify-terminal-20261028234301727.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "VOICE-001",
+      "title": "No verified bidirectional SIM audio with AI",
+      "category": "telephony",
+      "severity": "high",
+      "status": "OPEN",
+      "first_seen": "2026-10-29",
+      "expected": "Inbound/outbound AI dialogue through tenant mobile SIM",
+      "actual": "Historical control/pairing and host shell proof exist; SIM audio remains unproven",
+      "cause_confirmed": null,
+      "attempts": [
+        "ATT-003"
+      ],
+      "verification": [],
+      "current_blocker": "Live Voice feature acceptance",
+      "next_action": "After relevant start instruction, collect target-device versions and perform documented digital echo A/B plus logs, then AI inbound/outbound proof.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-29T00:28:24.687935+00:00",
+          "status": "OPEN",
+          "summary": "Current state reconstructed from preserved evidence and session actions; historical attempt detail remains in ATTEMPT_LOG and discovery records.",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "VOICE-002",
+      "title": "Target Android/app/Shizuku/carrier versions missing",
+      "category": "external_device",
+      "severity": "medium",
+      "status": "BLOCKED_EXTERNAL",
+      "first_seen": "2026-10-29",
+      "expected": "Exact device software data for repeatable audio test",
+      "actual": "Only Redmi Note12 Pro5G device name is supplied",
+      "cause_confirmed": null,
+      "attempts": [],
+      "verification": [],
+      "current_blocker": "Reliable device-specific audio diagnosis",
+      "next_action": "Obtain actual versions/status from authorized phone access or owner output; do not infer them.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-29T00:28:24.687935+00:00",
+          "status": "BLOCKED_EXTERNAL",
+          "summary": "Current state reconstructed from preserved evidence and session actions; historical attempt detail remains in ATTEMPT_LOG and discovery records.",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "ENV-001",
+      "title": "Composer Node npm not visible in Cron PATH",
+      "category": "environment",
+      "severity": "medium",
+      "status": "OPEN",
+      "first_seen": "2026-10-29",
+      "expected": "Verified application dependency/build path",
+      "actual": "Inspection reports composer/node/npm null; PHP/Python/Git use /usr/bin in the worker child",
+      "cause_confirmed": "Not found in inspected PATH; absence from whole server is not established",
+      "attempts": [],
+      "verification": [
+        "ops/host-link/results/appontrack-server11/saas-inspect-1793232909572.json"
+      ],
+      "current_blocker": "Installation/build method needs assessment when implementation starts",
+      "next_action": "Inspect available binary/cache/build environments before choosing installation or deployment method.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-29T00:28:24.687935+00:00",
+          "status": "OPEN",
+          "summary": "Current state reconstructed from preserved evidence and session actions; historical attempt detail remains in ATTEMPT_LOG and discovery records.",
+          "evidence": [
+            "ops/host-link/results/appontrack-server11/saas-inspect-1793232909572.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ENV-002",
+      "title": "Compatible PHP runtime not verified for SaaS",
+      "category": "environment",
+      "severity": "medium",
+      "status": "OPEN",
+      "first_seen": "2026-10-29",
+      "expected": "Compatible framework PHP version and required extensions",
+      "actual": "Old CLI8.1.34 proven; four PHP83/84 candidate files exist but versions/extensions were not executed",
+      "cause_confirmed": null,
+      "attempts": [],
+      "verification": [
+        "ops/host-link/results/appontrack-server11/saas-inspect-1793232909572.json"
+      ],
+      "current_blocker": "Framework version/environment decision during implementation",
+      "next_action": "Verify explicit candidate binaries and web runtime inside new project scope; do not change old homepage runtime.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-29T00:28:24.687935+00:00",
+          "status": "OPEN",
+          "summary": "Current state reconstructed from preserved evidence and session actions; historical attempt detail remains in ATTEMPT_LOG and discovery records.",
+          "evidence": [
+            "ops/host-link/results/appontrack-server11/saas-inspect-1793232909572.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "DATA-001",
+      "title": "Uploaded archive included local secret and maintenance token",
+      "category": "repository_data",
+      "severity": "high",
+      "status": "RESOLVED_VERIFIED",
+      "first_seen": "2026-10-29",
+      "expected": "No credentials in private Git history additions",
+      "actual": "Local config excluded, known maintenance token redacted, nested backups indexed without copying",
+      "attempts": [
+        "ATT-004"
+      ],
+      "verification": [
+        "reference/manifests/voicecall-v0.6.3.json",
+        "docs/evidence/repository-verification.json"
+      ],
+      "current_blocker": false,
+      "next_action": "Preserve policy and scan new artifacts; never reimport raw secret-bearing backups.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-29T00:28:24.687935+00:00",
+          "status": "RESOLVED_VERIFIED",
+          "summary": "Current state reconstructed from preserved evidence and session actions; historical attempt detail remains in ATTEMPT_LOG and discovery records.",
+          "evidence": [
+            "reference/manifests/voicecall-v0.6.3.json",
+            "docs/evidence/repository-verification.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "DOC-001",
+      "title": "Ambiguous phrase about 35 handoff files",
+      "category": "communication",
+      "severity": "low",
+      "status": "CLOSED_CLARIFIED",
+      "first_seen": "2026-10-29",
+      "expected": "Unambiguous file inventory",
+      "actual": "Owner asked whether35meant agents; clarified it means35spec/design/reference files, not35agents",
+      "attempts": [],
+      "verification": [
+        "reference/manifests/agent-builder-v1.3.json"
+      ],
+      "current_blocker": false,
+      "next_action": "Use explicit files wording; do not invent an agent count.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-29T00:28:24.687935+00:00",
+          "status": "CLOSED_CLARIFIED",
+          "summary": "Current state reconstructed from preserved evidence and session actions; historical attempt detail remains in ATTEMPT_LOG and discovery records.",
+          "evidence": [
+            "reference/manifests/agent-builder-v1.3.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "DOC-002",
+      "title": "Memory location corrected by owner",
+      "category": "scope",
+      "severity": "medium",
+      "status": "RESOLVED_VERIFIED",
+      "first_seen": "2026-10-29",
+      "expected": "Memory/prompt/logs only on GitHub; host saas contains application only",
+      "actual": "Initial commentary was ambiguous. Only read-only inspection was issued before correction; final script created an empty directory and wrote zero docs",
+      "attempts": [
+        "ATT-005"
+      ],
+      "verification": [
+        "ops/host-link/results/appontrack-server11/saas-prepare-1793233067549.json"
+      ],
+      "current_blocker": false,
+      "next_action": "Keep all future project journals under docs/ on GitHub and exclude them from application deploy artifacts.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-29T00:28:24.687935+00:00",
+          "status": "RESOLVED_VERIFIED",
+          "summary": "Current state reconstructed from preserved evidence and session actions; historical attempt detail remains in ATTEMPT_LOG and discovery records.",
+          "evidence": [
+            "ops/host-link/results/appontrack-server11/saas-prepare-1793233067549.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CHANNEL-001",
+      "title": "Per-platform social API capabilities and permissions still need verification",
+      "category": "external_platform",
+      "severity": "medium",
+      "status": "OPEN",
+      "first_seen": "2026-10-29",
+      "expected": "Official per-channel permission/capability matrix before live claims",
+      "actual": "Telegram primary docs reviewed; Meta docs returned HTTP429 during this review; no social account connected",
+      "cause_confirmed": "External docs response429 in current retrieval; not evidence of service incompatibility",
+      "attempts": [
+        "ATT-006"
+      ],
+      "verification": [
+        "docs/project/SOCIAL_CHANNELS_AR.md"
+      ],
+      "current_blocker": "Specific Meta/other-platform activation promises, not preparation work",
+      "next_action": "Verify current official permissions/account eligibility per adapter at implementation; keep planned/live states separate.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-29T00:28:24.687935+00:00",
+          "status": "OPEN",
+          "summary": "Current state reconstructed from preserved evidence and session actions; historical attempt detail remains in ATTEMPT_LOG and discovery records.",
+          "evidence": [
+            "docs/project/SOCIAL_CHANNELS_AR.md"
+          ]
+        }
+      ]
+    }
+  ]
+}
