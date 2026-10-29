@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "runner-setup-20261029a",
+  "id": "laravel-status-20261029a",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-10-29T01:45:00Z",
-  "expires_at": "2026-10-29T02:45:00Z",
+  "created_at": "2026-10-29T01:55:00Z",
+  "expires_at": "2026-10-29T02:55:00Z",
   "cwd": "/home/appontrack",
   "argv": [
     "/bin/sh",
     "-c",
-    "set -e\nmkdir -p \"$HOME/bin\" \"$HOME/queue\" \"$HOME/queue/done\" \"$HOME/logs\"\ncat > \"$HOME/bin/run-queue.sh\" <<'RUNNER'\n#!/bin/bash\n# ontrack-saas-build runner: one queued job per minute, durable across worker timeouts\nQ=\"$HOME/queue\"\nfor f in \"$Q\"/*.sh; do\n  [ -e \"$f\" ] || exit 0\n  base=$(basename \"$f\" .sh)\n  mv \"$f\" \"$Q/running-$base.sh\"\n  /bin/bash \"$Q/running-$base.sh\" > \"$HOME/logs/$base.log\" 2>&1\n  echo \"exit=$?\" > \"$HOME/logs/$base.status\"\n  mv \"$Q/running-$base.sh\" \"$Q/done/$base.sh\"\n  exit 0\ndone\nexit 0\nRUNNER\nchmod 700 \"$HOME/bin/run-queue.sh\"\ncat > \"$HOME/queue/bootstrap-laravel.sh\" <<'BUILD'\n#!/bin/bash\nPHP=/opt/cpanel/ea-php83/root/usr/bin/php\nC=\"$HOME/bin/composer.phar\"\nset -x\nrm -rf \"$HOME/saas-build\"\n$PHP $C create-project laravel/laravel \"$HOME/saas-build\" --no-interaction --prefer-dist --no-scripts\ntest -f \"$HOME/saas-build/artisan\" || exit 20\ncp -a \"$HOME/saas-build/.\" \"$HOME/public_html/saas/\"\ncd \"$HOME/public_html/saas\"\ncp -f .env.example .env\nsed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env\nsed -i 's/^APP_ENV=.*/APP_ENV=production/' .env\nsed -i 's/^APP_DEBUG=.*/APP_DEBUG=false/' .env\n$PHP artisan key:generate --force\n$PHP artisan migrate --force\n$PHP artisan --version\necho LARAVEL_READY\nBUILD\nchmod 700 \"$HOME/queue/bootstrap-laravel.sh\"\n(crontab -l 2>/dev/null | grep -v 'ontrack-saas-build'; echo '* * * * * /bin/bash /home/appontrack/bin/run-queue.sh >/dev/null 2>&1 # ontrack-saas-build') | crontab -\ncrontab -l | tail -3\necho \"=QUEUED=\"; ls -l \"$HOME/queue\"\necho \"=DONE=\""
+    "> \"$HOME/logs/bootstrap-laravel.status\" && echo empty || true\nif [ -f \"$HOME/logs/bootstrap-laravel.status\" ]; then echo \"==STATUS==\"; cat \"$HOME/logs/bootstrap-laravel.status\"; fi\necho \"==LOG_TAIL==\"; tail -25 \"$HOME/logs/bootstrap-laravel.log\" 2>/dev/null || echo NO_LOG\necho \"==QUEUE==\"; ls -la \"$HOME/queue\" 2>/dev/null\necho \"==HOME_SAAS==\"; ls /home/appontrack/saas-build 2>/dev/null | head -6\necho \"==PUBLIC_SAAS==\"; ls -a /home/appontrack/public_html/saas | head -20\necho \"==ARTISAN==\"; if [ -x /home/appontrack/public_html/saas/artisan ]; then cd /home/appontrack/public_html/saas && /opt/cpanel/ea-php83/root/usr/bin/php artisan --version 2>&1 | head -3; else echo NO_ARTISAN; fi\necho \"=DONE=\""
   ],
   "timeout_seconds": 25
 }
