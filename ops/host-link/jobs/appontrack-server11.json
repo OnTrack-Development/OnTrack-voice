@@ -1,10 +1,32 @@
 {
   "schema": 1,
-  "id": "probe-saas-20261029010000",
+  "id": "inventory-saas-20261029010200",
   "target": "appontrack-server11",
-  "action": "probe",
-  "created_at": "2026-10-29T01:00:00Z",
-  "expires_at": "2026-10-29T02:00:00Z",
+  "action": "exec",
+  "created_at": "2026-10-29T01:02:00Z",
+  "expires_at": "2026-10-29T02:02:00Z",
   "cwd": "/home/appontrack/public_html/saas",
-  "timeout_seconds": 10
+  "argv": [
+    "/usr/bin/python3",
+    "-c",
+    "import json,os,shutil,subprocess,stat
+from pathlib import Path
+
+def run(argv):
+ try:
+  p=subprocess.run(argv,text=True,capture_output=True,timeout=8)
+  return {'exit':p.returncode,'stdout':p.stdout[:4000],'stderr':p.stderr[:1000]}
+ except Exception as e:return {'error':type(e).__name__}
+
+def which(names):return {n:shutil.which(n) for n in names}
+root=Path('/home/appontrack/public_html/saas')
+php=run(['/usr/bin/php','-v'])
+mods=run(['/usr/bin/php','-m'])
+composer=which(['composer','composer.phar','mysql','mariadb','mysqld','node','npm','git'])
+if composer.get('composer'): comp=run([composer['composer'],'--version'])
+elif composer.get('composer.phar'): comp=run(['/usr/bin/php',composer['composer.phar'],'--version'])
+else: comp={'status':'not_found'}
+print(json.dumps({'status':'success','uid':os.getuid(),'cwd':os.getcwd(),'root_exists':root.is_dir(),'root_mode':oct(stat.S_IMODE(root.stat().st_mode)) if root.exists() else None,'root_entries':sorted(p.name for p in root.iterdir()) if root.is_dir() else [],'php':php,'php_modules':mods,'tools':composer,'composer':comp,'env_file_present':(root/'.env').is_file(),'composer_json_present':(root/'composer.json').is_file(),'node_modules_present':(root/'node_modules').is_dir()},ensure_ascii=False))"
+  ],
+  "timeout_seconds": 25
 }
