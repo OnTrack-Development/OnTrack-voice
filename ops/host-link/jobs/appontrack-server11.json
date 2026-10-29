@@ -1,32 +1,15 @@
 {
   "schema": 1,
-  "id": "inventory-saas-20261029010200",
+  "id": "env-inv-20261029a",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-10-29T01:02:00Z",
-  "expires_at": "2026-10-29T02:02:00Z",
+  "created_at": "2026-10-29T01:20:00Z",
+  "expires_at": "2026-10-29T02:20:00Z",
   "cwd": "/home/appontrack/public_html/saas",
   "argv": [
-    "/usr/bin/python3",
+    "/bin/sh",
     "-c",
-    "import json,os,shutil,subprocess,stat
-from pathlib import Path
-
-def run(argv):
- try:
-  p=subprocess.run(argv,text=True,capture_output=True,timeout=8)
-  return {'exit':p.returncode,'stdout':p.stdout[:4000],'stderr':p.stderr[:1000]}
- except Exception as e:return {'error':type(e).__name__}
-
-def which(names):return {n:shutil.which(n) for n in names}
-root=Path('/home/appontrack/public_html/saas')
-php=run(['/usr/bin/php','-v'])
-mods=run(['/usr/bin/php','-m'])
-composer=which(['composer','composer.phar','mysql','mariadb','mysqld','node','npm','git'])
-if composer.get('composer'): comp=run([composer['composer'],'--version'])
-elif composer.get('composer.phar'): comp=run(['/usr/bin/php',composer['composer.phar'],'--version'])
-else: comp={'status':'not_found'}
-print(json.dumps({'status':'success','uid':os.getuid(),'cwd':os.getcwd(),'root_exists':root.is_dir(),'root_mode':oct(stat.S_IMODE(root.stat().st_mode)) if root.exists() else None,'root_entries':sorted(p.name for p in root.iterdir()) if root.is_dir() else [],'php':php,'php_modules':mods,'tools':composer,'composer':comp,'env_file_present':(root/'.env').is_file(),'composer_json_present':(root/'composer.json').is_file(),'node_modules_present':(root/'node_modules').is_dir()},ensure_ascii=False))"
+    "echo \"=ID=\"; id; echo \"=PWD=\"; pwd\necho \"=SAAS=\"; ls -la /home/appontrack/public_html/saas 2>&1 | head -12\necho \"=PHP=\"; command -v php; php -v 2>&1 | head -2\necho \"=PHPPATHS=\"; for p in /opt/cpanel/ea-php83/root/usr/bin/php /opt/cpanel/ea-php84/root/usr/bin/php /opt/alt/php83/usr/bin/php /opt/alt/php84/usr/bin/php /usr/local/bin/php; do if [ -x \"$p\" ]; then echo \"FOUND $p\"; \"$p\" -v 2>&1 | head -1; fi; done\necho \"=EXT=\"; php -m 2>/dev/null | tr \"\\n\" \" \"; echo\necho \"=COMPOSER=\"; command -v composer || echo no_composer_bin; if [ -f \"$HOME/composer.phar\" ]; then echo home_phar; fi; if [ -f /usr/local/bin/composer ]; then echo usr_local_composer; fi; composer --version 2>&1 | head -2\necho \"=DB=\"; command -v mysql || echo no_mysql_cli; mysql --version 2>&1 | head -1; if [ -f \"$HOME/.my.cnf\" ]; then echo mycnf_present; fi\necho \"=DISK=\"; df -h /home/appontrack 2>&1 | tail -1; quota -s 2>&1 | head -3\necho \"=NET=\"; curl -s -o /dev/null -w \"packagist:%{http_code} \" --max-time 8 https://repo.packagist.org/packages.json; curl -s -o /dev/null -w \"github:%{http_code}\" --max-time 8 https://api.github.com; echo\necho \"=DONE=\""
   ],
-  "timeout_seconds": 25
+  "timeout_seconds": 30
 }
