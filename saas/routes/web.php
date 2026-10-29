@@ -15,6 +15,7 @@ use App\Http\Controllers\App\PlanController;
 use App\Http\Controllers\App\SettingsController;
 use App\Http\Controllers\App\SmartActionController;
 use App\Http\Controllers\App\WhatsappConnectionController;
+use App\Http\Controllers\App\VoiceCampaignController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Control\Ai\ProviderController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -86,4 +87,7 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
 
     Route::get('/{workspace}/integrations', [IntegrationController::class, 'index'])->name('integrations.index');
     Route::post('/{workspace}/integrations', [IntegrationController::class, 'store'])->name('integrations.store');
+
+    Route::get('/{workspace}/voice', [VoiceCampaignController::class, 'index'])->name('voice.index');
+    Route::post('/{workspace}/voice', [VoiceCampaignController::class, 'store'])->name('voice.store');
 });

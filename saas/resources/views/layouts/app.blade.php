@@ -47,6 +47,9 @@
                 <span aria-hidden="true">♧</span> إدارة العملاء
             </a>
             <p class="side-section">الإدارة</p>
+            <a class="side-link @if(request()->routeIs('app.voice.*')) active @endif" href="{{ route('app.voice.index', ['workspace' => $workspace->slug ?? '']) }}">
+                <span aria-hidden="true">◉</span> Voice
+            </a>
             <a class="side-link @if(request()->routeIs('app.operations.*')) active @endif" href="{{ route('app.operations.index', ['workspace' => $workspace->slug ?? '']) }}">
                 <span aria-hidden="true">◴</span> غرفة العمليات
             </a>
