@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\App\AgentStudioController;
 use App\Http\Controllers\App\HomeController;
+use App\Http\Controllers\App\KnowledgeController;
 use App\Http\Controllers\App\OverviewController;
 use App\Http\Controllers\App\ProjectController;
 use App\Http\Controllers\Auth\LoginController;
@@ -41,4 +42,7 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
     Route::get('/{workspace}/agents/{agent}', [AgentStudioController::class, 'show'])->name('agents.show');
     Route::put('/{workspace}/agents/{agent}', [AgentStudioController::class, 'update'])->name('agents.update');
     Route::post('/{workspace}/agents/{agent}/publish', [AgentStudioController::class, 'publish'])->name('agents.publish');
+
+    Route::get('/{workspace}/knowledge', [KnowledgeController::class, 'index'])->name('knowledge.index');
+    Route::post('/{workspace}/knowledge', [KnowledgeController::class, 'store'])->name('knowledge.store');
 });

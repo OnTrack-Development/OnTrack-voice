@@ -1,82 +1,65 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Platform Provider Hub**
+**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Knowledge Hub**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 12 اختبارًا / 37 assertion، ناجحة |
-| النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — قناة host-link متوقفة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 15 اختبارًا / 49 assertion، ناجحة |
+| النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
-| AI Providers | `IMPLEMENTED_LOCAL` (نموذج البيانات والعزل والتشفير) — الاتصال الحي `PENDING_CREDENTIALS` |
+| AI Providers | `IMPLEMENTED_LOCAL` (بيانات + عزل + تشفير) — اتصال حي `PENDING_CREDENTIALS` |
+| Knowledge | `IMPLEMENTED_LOCAL` — فهرسة نصية/تقسيم قطع، بلا ادعاء بحث متجهي |
 | WhatsApp / Inbox | `PLANNED` |
 | Voice | `PLANNED` — ينتظر إثبات الجهاز |
 
-## الشرائح المنفذة محليًا
+## الشرائح المنفذة
 
 ### 1. Foundation / Auth / Tenancy
-- صفحة هبوط عربية RTL متجاوبة.
-- Light design system بتوكنز OnTrack.
-- تسجيل حساب وإنشاء tenant/workspace/owner membership داخل transaction.
-- دخول وخروج مع rate limiting.
-- Dashboard ببيانات DB وempty states.
-- Models ومigrations لـ tenants/workspaces/memberships/projects/agents.
-- عزل workspace/tenant مع رفض الوصول الأجنبي.
+هبوط RTL، توكنز تصميم، تسجيل ينشئ tenant+workspace+owner، دخول/خروج مع rate limit، Dashboard ببيانات حقيقية، 5 migrations، عزل tenant.
 
 ### 2. Projects + Agent Studio
-- CRUD أولي للمشروعات مع tenant/workspace ownership.
-- Agent Studio: إنشاء/عرض/تعديل/نشر، والنشر ممنوع بدون instructions.
-- project_id يتحقق من workspace والtenant.
-- روابط فعلية في sidebar وDashboard.
+مشروعات (list/create/store) بملكية tenant/workspace، واستوديو وكيل (إنشاء/عرض/تعديل/نشر) مع منع النشر بلا تعليمات ورفض project_id الأجنبي.
 
-### 3. Platform Provider Hub (OnTrack-only)
-- `platform_admin_grants` منفصلة تمامًا عن عضوية الـtenants.
-- `platform_ai_provider_profiles` بلا `tenant_id` إطلاقًا + بيانات اعتماد مشفرة بـ`Crypt`.
-- `platform_ai_models` بأسماء موديلات محددة حرفيًا + سجل تدقيق `platform_ai_audit_events`.
-- مسارات `/control/ai/providers` ممنوعة على أي مستخدم tenant (403 حتى لو عرف الرابط).
-- المفاتيح لا تظهر بأي حال في قوائم/استجابات الـUI.
-- الحالة الافتراضية للمزود `pending_test` ولا يُدّعى اتصال حي دون اختبار حقيقي.
+### 3. Platform Provider Hub
+`platform_admin_grants` مستقلة عن الـtenants، `platform_ai_provider_profiles` بلا `tenant_id` مع تشفير `Crypt`، موديلات بالمعرّف الحرفي، تدقيق، و403 لأي مستخدم tenant على `/control/ai/*`.
+
+### 4. Knowledge Hub
+`knowledge_sources` / `knowledge_source_versions` / `knowledge_chunks`، تقسيم النص إلى قطع بمحتوى محفوظ، حالات `processing → indexed`، رفض `project_id` الأجنبي 422، ورفض الكتابة من خارج المساحة 403.
 
 ## أدلة الاختبار الفعلية
 
-البيئة: Laravel 12.70.2 / PHP 8.2.12 / SQLite in-memory.
+البيئة: Laravel 12.70.2 / PHP 8.2.12 / SQLite.
 
 ```text
 php artisan migrate --force
-7 custom migrations ... DONE (000001..000007)
+8 custom migrations DONE (000001..000008)
 
 php artisan test
-12 passed (37 assertions)
-- AgentStudioTest: 4 passed
-- ControlProviderHubTest: 3 passed
-  · tenant user forbidden from provider hub
-  · platform admin creates provider without plaintext secret
-  · provider profile has no tenant_id column
-- TenancyIsolationTest: 3 passed
-- Laravel example tests: 2 passed
+15 passed (49 assertions)
+- AgentStudioTest: 4
+- ControlProviderHubTest: 3
+- KnowledgeHubTest: 3
+- TenancyIsolationTest: 3
+- Example tests: 2
 
-PHP lint: all saas/app, saas/database, saas/routes, saas/tests files passed.
+PHP lint: all saas/app, saas/database, saas/routes, saas/tests = OK
 ```
 
 ## ما لم يُثبت
-- لا Laravel مثبت فعليًا داخل `/home/appontrack/public_html/saas`.
-- لا migrations على قاعدة الإنتاج.
-- لا فحص متصفح أو screenshot.
-- لا اتصال AI حي (يحتاج مفاتيح تُدخل من `/control` فقط).
-- لا تكامل WhatsApp/Voice.
+- لا Laravel على `/home/appontrack/public_html/saas` حتى الآن.
+- لا migrations إنتاج، لا فحص متصفح، لا تكامل AI/WhatsApp/Voice حي.
 
-## العائق الحالي
-قناة `host-link` توقفت بعد تعديل cron في `runner-setup-20261029a`. التفاصيل وأمر الاستعادة في:
-`docs/memory/INCIDENT_2026-10-29_CONTROL_CHANNEL_AR.md`.
+## العائق
+عامل host-link لم ينفّذ أي مهمة منذ `runner-setup-20261029a`؛ آخر مهمة مرسلة `saas-file-test-20261029` بلا تقرير. التفاصيل وأمر الاستعادة: `docs/memory/INCIDENT_2026-10-29_CONTROL_CHANNEL_AR.md`.
 
-## حزمة النشر الجاهزة
-`tools/pack_deploy.py` تنتج 3–4 chunks + final. يجب إعادة تشغيلها بعد كل تغيير في `saas/`، ثم إرسال jobs بالتتابع بعد عودة القناة.
+## حزمة النشر
+`tools/pack_deploy.py` جاهزة: 5 chunks + final للحزمة الحالية. تُعاد بعد كل تغيير ثم ترسل بالتتابع بعد عودة العامل.
 
-## الخطوة التالية فور استعادة القناة
-1. فحص bootstrap Laravel على الهوست.
-2. إرسال chunks حزمة الشريحة الحالية ثم final.
-3. تشغيل `artisan migrate --force`, `route:list`, واختبار HTTP.
-4. تثبيت MySQL مستقل قبل اعتبار البيئة جاهزة للإنتاج.
+## الخطوة التالية
+1. عودة العامل → التحقق من `host-link-test.txt`.
+2. `composer create-project` أو تأكيد وجود Laravel في `saas`.
+3. إرسال chunks ثم final + `migrate --force` + `route:list`.
