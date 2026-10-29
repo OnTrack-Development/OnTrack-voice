@@ -30,6 +30,7 @@ class WhatsappConnectionController extends Controller
             'access_token'=>['required_if:method,manual_cloud_api','nullable','string','max:2000'],
             'app_id'=>['nullable','string','max:120'],
             'app_secret'=>['required_if:method,manual_cloud_api','nullable','string','max:2000'],
+            'pause_override_minutes'=>['nullable','integer','min:1','max:1440'],
         ]);
         if ($data['method'] !== 'manual_cloud_api') {
             $state='draft'; $reason=$data['method']==='coexistence' ? 'Eligibility must be verified by Meta before activation.' : 'Official Meta callback and token exchange are pending.';
@@ -37,7 +38,7 @@ class WhatsappConnectionController extends Controller
             $state='draft'; $reason='Credentials saved as draft; metadata, webhook and send/receive tests are required.';
         }
         $secrets=array_filter(['access_token'=>$data['access_token']??null,'app_id'=>$data['app_id']??null,'app_secret'=>$data['app_secret']??null]);
-        WhatsappConnection::create(['tenant_id'=>$ws->tenant_id,'workspace_id'=>$ws->id,'label'=>$data['label'],'public_id'=>Str::uuid()->toString(),'method'=>$data['method'],'phone_e164'=>$data['phone_e164']??null,'waba_id'=>$data['waba_id']??null,'phone_number_id'=>$data['phone_number_id']??null,'encrypted_credentials'=>$secrets?Crypt::encryptString(json_encode($secrets)):null,'state'=>$state,'status_reason_redacted'=>$reason]);
+        WhatsappConnection::create(['tenant_id'=>$ws->tenant_id,'workspace_id'=>$ws->id,'label'=>$data['label'],'public_id'=>Str::uuid()->toString(),'method'=>$data['method'],'phone_e164'=>$data['phone_e164']??null,'waba_id'=>$data['waba_id']??null,'phone_number_id'=>$data['phone_number_id']??null,'encrypted_credentials'=>$secrets?Crypt::encryptString(json_encode($secrets)):null,'state'=>$state,'pause_override_minutes'=>$data['pause_override_minutes']??null,'status_reason_redacted'=>$reason]);
         return back()->with('status','تم حفظ اتصال WhatsApp كمسودة. لا توجد حالة اتصال حي قبل أدلة Meta الفعلية.');
     }
 

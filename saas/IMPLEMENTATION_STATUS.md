@@ -1,13 +1,13 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة صفحات التسويق وSEO**
+**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة WhatsApp Pause Override**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 43 اختبارًا / 196 assertion، ناجحة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 45 اختبارًا / 202 assertion، ناجحة |
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
@@ -16,6 +16,7 @@
 | Smart Actions | `IMPLEMENTED_LOCAL` — قواعد مقيدة بالحالة والصلاحية وidempotency |
 | Conversation Core | `IMPLEMENTED_LOCAL` — Inbox عام، رد موظف، إيقاف AI مؤقت، وقفل بشري دائم |
 | WhatsApp Channels | `IMPLEMENTED_LOCAL` — 3 طرق onboarding وأسرار مشفرة؛ الاتصال الحي `PENDING_EXTERNAL` |
+| WhatsApp Pause Override | `IMPLEMENTED_LOCAL` — override لكل رقم 1..1440، wiring UI/schema؛ تطبيق runtime ينتظر inbound connection mapping |
 | WhatsApp Webhook | `IMPLEMENTED_LOCAL` — challenge، HMAC raw-body، dedupe؛ لا Meta live evidence |
 | Tenant Audit | `IMPLEMENTED_LOCAL` — سجل tenant-scoped مع redacted context وtrace id |
 | Plans / Usage / Settings | `IMPLEMENTED_LOCAL` — entitlement quota، ledger idempotent، وإعداد pause minutes 1..1440 |
@@ -77,13 +78,16 @@
 ### 16. Marketing / SEO
 صفحات عامة: المنصة، 7 صفحات ميزات، 7 قطاعات، الباقات (CTA «اطلب عرضًا»)، الأمان، المؤسسات، المطورون، التوثيق، تواصل، معلومات؛ مع `sitemap.xml` وبدون أرقام/شهادات مختلقة.
 
+### 17. WhatsApp Pause Override
+حقل اختياري لكل رقم بين 1 و1440 دقيقة، مع تحقق UI/API واختبارات حفظ ورفض الحدود. تطبيق المدة في final send gate ينتظر ربط المحادثة الواردة بالـconnection بعد دليل Meta live.
+
 ## أدلة الاختبار الفعلية
 
 البيئة: Laravel 12.70.2 / PHP 8.2.12 / SQLite.
 
 ```text
 php artisan migrate --force
-18 custom migrations DONE (000001..000018)
+19 custom migrations DONE (000001..000019)
 
 php artisan test
 25 passed (90 assertions)
@@ -104,6 +108,7 @@ php artisan test
 - IntegrationTest: 2
 - VoiceCampaignTest: 2
 - MarketingPagesTest: 3
+- WhatsappPauseOverrideTest: 2
 - TenancyIsolationTest: 3
 - Laravel example tests: 2
 
@@ -121,7 +126,7 @@ PHP lint: all saas/app, saas/database, saas/routes, saas/tests = OK
 `docs/memory/INCIDENT_2026-10-29_CONTROL_CHANNEL_AR.md`.
 
 ## حزمة النشر
-`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-20`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
+`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-21`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
 
 ## الخطوة التالية بعد عودة العامل
 1. التحقق من `host-link-test.txt`.
