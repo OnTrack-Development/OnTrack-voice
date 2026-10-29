@@ -44,7 +44,12 @@
             <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">♧</span> إدارة العملاء</span>
             <p class="side-section">الإدارة</p>
             <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">◴</span> غرفة العمليات</span>
-            <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">⚙</span> الإعدادات</span>
+            <a class="side-link @if(request()->routeIs('app.settings.*')) active @endif" href="{{ route('app.settings.edit', ['workspace' => $workspace->slug ?? '']) }}">
+                <span aria-hidden="true">⚙</span> الإعدادات
+            </a>
+            <a class="side-link @if(request()->routeIs('app.plan.*')) active @endif" href="{{ route('app.plan.index', ['workspace' => $workspace->slug ?? '']) }}">
+                <span aria-hidden="true">▥</span> الباقة والرصيد
+            </a>
             <div class="alert" style="margin-top:30px">هذه المرحلة تعرض شريحة التشغيل الأساسية؛ باقي الوحدات قيد البناء.</div>
         </aside>
 

@@ -1,13 +1,13 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Tenant Audit**
+**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Plans وUsage Ledger وTenant Settings**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 27 اختبارًا / 95 assertion، ناجحة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 30 اختبارًا / 109 assertion، ناجحة |
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
@@ -18,6 +18,7 @@
 | WhatsApp Channels | `IMPLEMENTED_LOCAL` — 3 طرق onboarding وأسرار مشفرة؛ الاتصال الحي `PENDING_EXTERNAL` |
 | WhatsApp Webhook | `IMPLEMENTED_LOCAL` — challenge، HMAC raw-body، dedupe؛ لا Meta live evidence |
 | Tenant Audit | `IMPLEMENTED_LOCAL` — سجل tenant-scoped مع redacted context وtrace id |
+| Plans / Usage / Settings | `IMPLEMENTED_LOCAL` — entitlement quota، ledger idempotent، وإعداد pause minutes 1..1440 |
 | Voice | `PLANNED` — ينتظر إثبات الجهاز |
 
 ## الشرائح المنفذة
@@ -49,13 +50,16 @@
 ### 9. Tenant Audit
 `tenant_audit_events` tenant-scoped مع actor وaction وresource و`redacted_context` وtrace id؛ يمنع خلط سجل شركة بأخرى.
 
+### 10. Plans وUsage Ledger وTenant Settings
+`plans` و`plan_entitlements` و`subscriptions` و`tenant_usage_ledgers` مع `UsageLedger` يمنع تجاوز الحصة ويمنع الخصم المكرر بمفتاح idempotency. صفحة الباقة تعرض الاستخدام، وإعدادات الشركة تتحقق من مدة الإيقاف بين 1 و1440 دقيقة.
+
 ## أدلة الاختبار الفعلية
 
 البيئة: Laravel 12.70.2 / PHP 8.2.12 / SQLite.
 
 ```text
 php artisan migrate --force
-13 custom migrations DONE (000001..000013)
+14 custom migrations DONE (000001..000014)
 
 php artisan test
 25 passed (90 assertions)
@@ -69,6 +73,7 @@ php artisan test
 - WhatsappConnectionTest: 3
 - WhatsappWebhookTest: 2
 - TenantAuditTest: 2
+- PlansUsageTest: 3
 - TenancyIsolationTest: 3
 - Laravel example tests: 2
 
@@ -86,7 +91,7 @@ PHP lint: all saas/app, saas/database, saas/routes, saas/tests = OK
 `docs/memory/INCIDENT_2026-10-29_CONTROL_CHANNEL_AR.md`.
 
 ## حزمة النشر
-`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-11`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
+`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-12`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
 
 ## الخطوة التالية بعد عودة العامل
 1. التحقق من `host-link-test.txt`.

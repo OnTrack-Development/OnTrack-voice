@@ -7,6 +7,8 @@ use App\Http\Controllers\App\HomeController;
 use App\Http\Controllers\App\KnowledgeController;
 use App\Http\Controllers\App\OverviewController;
 use App\Http\Controllers\App\ProjectController;
+use App\Http\Controllers\App\PlanController;
+use App\Http\Controllers\App\SettingsController;
 use App\Http\Controllers\App\SmartActionController;
 use App\Http\Controllers\App\WhatsappConnectionController;
 use App\Http\Controllers\Auth\LoginController;
@@ -65,4 +67,8 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
 
     Route::get('/{workspace}/channels/whatsapp', [WhatsappConnectionController::class, 'index'])->name('channels.whatsapp.index');
     Route::post('/{workspace}/channels/whatsapp', [WhatsappConnectionController::class, 'store'])->name('channels.whatsapp.store');
+
+    Route::get('/{workspace}/plan', [PlanController::class, 'index'])->name('plan.index');
+    Route::get('/{workspace}/settings', [SettingsController::class, 'edit'])->name('settings.edit');
+    Route::post('/{workspace}/settings', [SettingsController::class, 'update'])->name('settings.update');
 });
