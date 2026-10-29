@@ -12,7 +12,7 @@
             <h1>نظرة عامة على مساحتك</h1>
             <p>ملخص حالة مشروعك ووكلائك — بيانات فعلية من قاعدة بيانات مشروعك.</p>
         </div>
-        <a class="btn btn-primary" href="#">+ إنشاء وكيل جديد</a>
+        <a class="btn btn-primary" href="{{ route('app.agents.create', ['workspace' => $workspace->slug]) }}">+ إنشاء وكيل جديد</a>
     </div>
 
     <div class="stats" aria-label="إحصائيات">
@@ -43,13 +43,13 @@
             <section class="panel" aria-labelledby="agents-title">
                 <div class="panel-head">
                     <h2 id="agents-title">الوكلاء</h2>
-                    <a href="#">فتح الاستوديو</a>
+                    <a href="{{ route('app.agents.index', ['workspace' => $workspace->slug]) }}">فتح الاستوديو</a>
                 </div>
                 @if ($agents->isEmpty())
                     <div class="empty-state">
                         <h3>لا توجد وكلاء بعد</h3>
                         <p>ابدأ بإنشاء وكيلك الأول وربطه بمشروع داخل مساحتك.</p>
-                        <button class="btn btn-primary btn-sm" type="button">إنشاء وكيل</button>
+                        <a class="btn btn-primary btn-sm" href="{{ route('app.agents.create', ['workspace' => $workspace->slug]) }}">إنشاء وكيل</a>
                     </div>
                 @else
                     <div class="table-wrap">

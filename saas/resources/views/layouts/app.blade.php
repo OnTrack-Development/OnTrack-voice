@@ -22,7 +22,12 @@
                 <span aria-hidden="true">▦</span> نظرة عامة
             </a>
             <p class="side-section">التشغيل</p>
-            <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">◧</span> استوديو الوكلاء</span>
+            <a class="side-link @if(request()->routeIs('app.projects.*')) active @endif" href="{{ route('app.projects.index', ['workspace' => $workspace->slug ?? '']) }}">
+                <span aria-hidden="true">▦</span> المشروعات
+            </a>
+            <a class="side-link @if(request()->routeIs('app.agents.*')) active @endif" href="{{ route('app.agents.index', ['workspace' => $workspace->slug ?? '']) }}">
+                <span aria-hidden="true">◧</span> استوديو الوكلاء
+            </a>
             <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">▤</span> قواعد المعرفة</span>
             <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">↗</span> الأزرار الذكية</span>
             <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">⌁</span> التكاملات</span>

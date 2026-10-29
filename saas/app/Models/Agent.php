@@ -7,7 +7,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Agent extends Model
 {
-    protected $fillable = ['tenant_id', 'project_id', 'name', 'kind', 'status'];
+    protected $fillable = ['tenant_id', 'project_id', 'name', 'kind', 'status', 'instructions', 'persona', 'published_at'];
+
+    protected $casts = [
+        'published_at' => 'datetime',
+    ];
 
     public function tenant(): BelongsTo
     {
