@@ -34,7 +34,9 @@
             <a class="side-link @if(request()->routeIs('app.smart-actions.*')) active @endif" href="{{ route('app.smart-actions.index', ['workspace' => $workspace->slug ?? '']) }}">
                 <span aria-hidden="true">↗</span> الأزرار الذكية
             </a>
-            <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">⌁</span> التكاملات</span>
+            <a class="side-link @if(request()->routeIs('app.integrations.*')) active @endif" href="{{ route('app.integrations.index', ['workspace' => $workspace->slug ?? '']) }}">
+                <span aria-hidden="true">⌁</span> التكاملات
+            </a>
             <a class="side-link @if(request()->routeIs('app.channels.whatsapp.*')) active @endif" href="{{ route('app.channels.whatsapp.index', ['workspace' => $workspace->slug ?? '']) }}">
                 <span aria-hidden="true">☏</span> القنوات
             </a>

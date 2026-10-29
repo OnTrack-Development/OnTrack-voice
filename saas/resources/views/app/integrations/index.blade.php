@@ -1,0 +1,13 @@
+@extends('layouts.app')
+@section('title','التكاملات — OnTrack AI')
+@section('page-title',$workspace->name)
+@section('page-sub','تكاملات مشاريعك')
+@section('workspace-name',$workspace->name)
+@section('workspace-sub',$workspace->tenant->name)
+@section('content')
+<div class="app-heading"><div><h1>التكاملات</h1><p>ربط API مشروعك التجاري فقط. هذه المفاتيح منفصلة تمامًا عن مزودي AI الذين تديرهم OnTrack.</p></div></div>
+@if(session('status'))<div class="alert" role="status" style="margin-bottom:16px">{{ session('status') }}</div>@endif
+@if($errors->any())<div class="alert" role="alert" style="margin-bottom:16px">@foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach</div>@endif
+<section class="panel"><div class="panel-head"><h2>التكاملات الحالية</h2><span class="status gray">لا يُنفذ أي استدعاء تلقائيًا إلا بعد تفويض</span></div>@if($connectors->isEmpty())<div class="empty-state"><h3>لا توجد تكاملات بعد</h3><p>أضف تكامل مشروعك من النموذج؛ سيبقى Draft حتى تُفوض نقاط النهاية وتُختبَر.</p></div>@else<table class="data-table"><thead><tr><th>الاسم</th><th>النوع</th><th>الخدمة</th><th>نقاط النهاية</th><th>الحالة</th></tr></thead><tbody>@foreach($connectors as $connector)<tr><td>{{ $connector->name }}</td><td>{{ $connector->type }}</td><td dir="ltr" style="text-align:right">{{ $connector->base_url ?: '—' }}</td><td>{{ $connector->endpoints_count }}</td><td><span class="status gray">{{ $connector->status }}</span></td></tr>@endforeach</tbody></table>@endif</section>
+<section class="panel"><div class="panel-head"><h2>إضافة تكامل</h2></div><form method="POST" action="{{ route('app.integrations.store',['workspace'=>$workspace->slug]) }}" class="fields">@csrf<div class="field"><label>المشروع</label><select class="input" name="project_id" required>@foreach($projects as $project)<option value="{{ $project->id }}">{{ $project->name }}</option>@endforeach</select></div><div class="field"><label>النوع</label><select class="input" name="type"><option value="rest">REST</option><option value="laravel">Laravel</option><option value="wordpress">WordPress</option><option value="whmcs">WHMCS</option><option value="custom">Custom</option></select></div><div class="field"><label>اسم التكامل</label><input class="input" name="name" required></div><div class="field"><label>Base URL</label><input class="input" type="url" name="base_url" dir="ltr"></div><div class="field"><label>مفتاح المشروع</label><input class="input" type="password" name="api_key" dir="ltr" autocomplete="off"></div><button class="btn btn-primary">حفظ كمسودة</button></form></section>
+@endsection

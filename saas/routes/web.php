@@ -6,6 +6,7 @@ use App\Http\Controllers\App\AgentStudioController;
 use App\Http\Controllers\App\ConversationController;
 use App\Http\Controllers\App\CrmController;
 use App\Http\Controllers\App\HomeController;
+use App\Http\Controllers\App\IntegrationController;
 use App\Http\Controllers\App\KnowledgeController;
 use App\Http\Controllers\App\OperationsController;
 use App\Http\Controllers\App\OverviewController;
@@ -82,4 +83,7 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
     Route::post('/{workspace}/crm', [CrmController::class, 'store'])->name('crm.store');
 
     Route::get('/{workspace}/operations', [OperationsController::class, 'index'])->name('operations.index');
+
+    Route::get('/{workspace}/integrations', [IntegrationController::class, 'index'])->name('integrations.index');
+    Route::post('/{workspace}/integrations', [IntegrationController::class, 'store'])->name('integrations.store');
 });
