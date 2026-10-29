@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "env-inv-20261029a",
+  "id": "boot-20261029a",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-10-29T01:20:00Z",
-  "expires_at": "2026-10-29T02:20:00Z",
+  "created_at": "2026-10-29T01:35:00Z",
+  "expires_at": "2026-10-29T02:35:00Z",
   "cwd": "/home/appontrack/public_html/saas",
   "argv": [
     "/bin/sh",
     "-c",
-    "echo \"=ID=\"; id; echo \"=PWD=\"; pwd\necho \"=SAAS=\"; ls -la /home/appontrack/public_html/saas 2>&1 | head -12\necho \"=PHP=\"; command -v php; php -v 2>&1 | head -2\necho \"=PHPPATHS=\"; for p in /opt/cpanel/ea-php83/root/usr/bin/php /opt/cpanel/ea-php84/root/usr/bin/php /opt/alt/php83/usr/bin/php /opt/alt/php84/usr/bin/php /usr/local/bin/php; do if [ -x \"$p\" ]; then echo \"FOUND $p\"; \"$p\" -v 2>&1 | head -1; fi; done\necho \"=EXT=\"; php -m 2>/dev/null | tr \"\\n\" \" \"; echo\necho \"=COMPOSER=\"; command -v composer || echo no_composer_bin; if [ -f \"$HOME/composer.phar\" ]; then echo home_phar; fi; if [ -f /usr/local/bin/composer ]; then echo usr_local_composer; fi; composer --version 2>&1 | head -2\necho \"=DB=\"; command -v mysql || echo no_mysql_cli; mysql --version 2>&1 | head -1; if [ -f \"$HOME/.my.cnf\" ]; then echo mycnf_present; fi\necho \"=DISK=\"; df -h /home/appontrack 2>&1 | tail -1; quota -s 2>&1 | head -3\necho \"=NET=\"; curl -s -o /dev/null -w \"packagist:%{http_code} \" --max-time 8 https://repo.packagist.org/packages.json; curl -s -o /dev/null -w \"github:%{http_code}\" --max-time 8 https://api.github.com; echo\necho \"=DONE=\""
+    "echo \"=MYSQL_SOCKET=\"; mysql --protocol=socket -e \"select version()\" 2>&1 | head -3\necho \"=MYCNF=\"; ls -la \"$HOME/.my.cnf\" 2>&1 | head -2\necho \"=PHP83=\"; /opt/cpanel/ea-php83/root/usr/bin/php -v 2>&1 | head -1\necho \"=PHP83EXT=\"; /opt/cpanel/ea-php83/root/usr/bin/php -m 2>/dev/null | tr \"\\n\" \" \"; echo\necho \"=MK=\"; mkdir -p \"$HOME/bin\" && echo ok\necho \"=CURL=\"; curl -sS --max-time 20 -o \"$HOME/bin/composer.phar\" https://getcomposer.org/composer.phar && ls -l \"$HOME/bin/composer.phar\"\necho \"=VER=\"; /opt/cpanel/ea-php83/root/usr/bin/php \"$HOME/bin/composer.phar\" --version 2>&1 | head -3\necho \"=DONE=\""
   ],
   "timeout_seconds": 30
 }
