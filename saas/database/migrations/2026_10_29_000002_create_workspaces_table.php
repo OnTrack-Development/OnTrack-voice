@@ -12,10 +12,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
             $table->string('name', 120);
-            $table->string('slug', 64);
+            $table->string('slug', 64)->unique();
             $table->timestamps();
-
-            $table->unique(['tenant_id', 'slug']);
         });
     }
 
