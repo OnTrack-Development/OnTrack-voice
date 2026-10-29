@@ -1,0 +1,13 @@
+{
+  "job_id": "runner-setup-20261029a",
+  "target": "appontrack-server11",
+  "job_sha256": "d2a15f1a4b52918c8ba053f3fd58647c53b649250a9ecf9e6bca98289359168b",
+  "started_at": "2026-10-29T01:40:02.835797+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "=QUEUED=\ntotal 8\n-rwx------ 1 appontrack appontrack  624 Oct 29 01:40 bootstrap-laravel.sh\ndrwx------ 2 appontrack appontrack 4096 Oct 29 01:40 done\n=DONE=\n",
+  "stderr": "",
+  "finished_at": "2026-10-29T01:40:06.110257+00:00",
+  "duration_ms": 3274
+}
