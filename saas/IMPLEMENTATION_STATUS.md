@@ -1,13 +1,13 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Operations**
+**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Web Widget**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 34 اختبارًا / 119 assertion، ناجحة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 36 اختبارًا / 127 assertion، ناجحة |
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
@@ -21,6 +21,7 @@
 | Plans / Usage / Settings | `IMPLEMENTED_LOCAL` — entitlement quota، ledger idempotent، وإعداد pause minutes 1..1440 |
 | CRM | `IMPLEMENTED_LOCAL` — جهات اتصال وحالات lead معزولة بعدد صفحات والتحقق من البريد/الهاتف |
 | Operations | `IMPLEMENTED_LOCAL` — غرفة عمليات بمقاييس حقيقية من DB وعزل tenant |
+| Web Widget | `IMPLEMENTED_LOCAL` — public key، جلسة widget، رسائل معزولة، وقفل human takeover؛ لا AI live claim |
 | Voice | `PLANNED` — ينتظر إثبات الجهاز |
 
 ## الشرائح المنفذة
@@ -61,13 +62,16 @@
 ### 12. Operations (غرفة العمليات)
 لوحة بأرقام حقيقية من جداول فعلية: الوكلاء، المحادثات، القفل البشري، استهلاك الشهر، مصادر المعرفة، استدعاءات الأزرار؛ مع آخر أحداث تدقيق tenant-scoped. لا توجد أرقام مختلقة، وforeign tenant يُرفض 403.
 
+### 13. Web Widget
+مفتاح public غير سري مرتبط بـtenant/workspace/project، جلسة server-side hash، endpoints config/start/message، منع الرسائل عند human lock أو timed pause، وعدم كشف AI provider أو أسرار.
+
 ## أدلة الاختبار الفعلية
 
 البيئة: Laravel 12.70.2 / PHP 8.2.12 / SQLite.
 
 ```text
 php artisan migrate --force
-15 custom migrations DONE (000001..000015)
+16 custom migrations DONE (000001..000016)
 
 php artisan test
 25 passed (90 assertions)
@@ -84,6 +88,7 @@ php artisan test
 - PlansUsageTest: 3
 - CrmTest: 2
 - OperationsTest: 2
+- WidgetTest: 2
 - TenancyIsolationTest: 3
 - Laravel example tests: 2
 
@@ -101,7 +106,7 @@ PHP lint: all saas/app, saas/database, saas/routes, saas/tests = OK
 `docs/memory/INCIDENT_2026-10-29_CONTROL_CHANNEL_AR.md`.
 
 ## حزمة النشر
-`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-14`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
+`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-15`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
 
 ## الخطوة التالية بعد عودة العامل
 1. التحقق من `host-link-test.txt`.

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\WidgetController;
 use App\Http\Controllers\Api\WhatsappWebhookController;
 use App\Http\Controllers\App\AgentStudioController;
 use App\Http\Controllers\App\ConversationController;
@@ -32,6 +33,9 @@ Route::post('/logout', [LoginController::class, 'destroy'])->middleware('auth')-
 
 Route::get('/api/webhooks/meta/whatsapp/{publicId}', [WhatsappWebhookController::class, 'challenge']);
 Route::post('/api/webhooks/meta/whatsapp/{publicId}', [WhatsappWebhookController::class, 'receive']);
+Route::get('/api/widget/{publicKey}/config', [WidgetController::class, 'config']);
+Route::post('/api/widget/{publicKey}/start', [WidgetController::class, 'start']);
+Route::post('/api/widget/{publicKey}/message', [WidgetController::class, 'message']);
 
 Route::middleware('auth')->prefix('control/ai')->name('control.ai.')->group(function () {
     Route::get('/providers', [ProviderController::class, 'index'])->name('providers.index');
