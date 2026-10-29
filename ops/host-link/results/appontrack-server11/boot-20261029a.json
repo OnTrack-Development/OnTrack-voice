@@ -1,0 +1,13 @@
+{
+  "job_id": "boot-20261029a",
+  "target": "appontrack-server11",
+  "job_sha256": "089f51be958244e20ce11d6766c0f59abf76feea7e9c315bba211cd3eae9bc3a",
+  "started_at": "2026-10-29T01:33:03.470547+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "=MYSQL_SOCKET=\nERROR 1045 (28000): Access denied for user 'appontrack'@'localhost' (using password: NO)\n=MYCNF=\nls: cannot access '/home/appontrack/.my.cnf': No such file or directory\n=PHP83=\nPHP 8.3.35 (cli) (built: Oct 21 2026 00:00:00) (NTS)\n=PHP83EXT=\n[PHP Modules] bcmath calendar clos_ssa Core ctype curl date dom exif fileinfo filter ftp gd hash i360 iconv imap intl ionCube Loader json libxml mbstring memcached mysqli mysqlnd openssl pcntl pcre PDO pdo_mysql pdo_sqlite Phar posix random readline Reflection session SimpleXML sockets SPL sqlite3 standard timezonedb tokenizer xml xmlreader xmlwriter xsl zip zlib  [Zend Modules] the ionCube PHP Loader  \n=MK=\nok\n=CURL=\n-rw------- 1 appontrack appontrack 3781290 Oct 29 01:33 /home/appontrack/bin/composer.phar\n=VER=\nComposer version 2.11-dev+aa438b3f3941006330d5dd3af4890a382383fe0f (2.11-dev) 2026-10-28 16:12:58\nPHP version 8.3.35 (/opt/cpanel/ea-php83/root/usr/bin/php)\nRun the \"diagnose\" command to get more detailed diagnostics output.\n=DONE=\n",
+  "stderr": "",
+  "finished_at": "2026-10-29T01:33:04.621553+00:00",
+  "duration_ms": 1151
+}
