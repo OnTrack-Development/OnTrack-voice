@@ -1,13 +1,13 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Voice Campaigns**
+**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة صفحات التسويق وSEO**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 40 اختبارًا / 141 assertion، ناجحة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 43 اختبارًا / 196 assertion، ناجحة |
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
@@ -24,6 +24,7 @@
 | Web Widget | `IMPLEMENTED_LOCAL` — public key، جلسة widget، رسائل معزولة، وقفل human takeover؛ لا AI live claim |
 | Integration Hub | `IMPLEMENTED_LOCAL` — تكاملات Business API مشفرة ومعزولة، بلا تنفيذ عمياء لـURL/LLM |
 | Voice Campaigns | `IMPLEMENTED_LOCAL` (workflow only) — حملات وقوائم وحالات نتائج؛ النقل الهاتفي `PENDING_EXTERNAL` |
+| Marketing / SEO | `IMPLEMENTED_LOCAL` — صفحات عامة + قطاعات + sitemap، بدون أرقام مختلقة |
 | Voice | `PLANNED` — ينتظر إثبات الجهاز |
 
 ## الشرائح المنفذة
@@ -73,6 +74,9 @@
 ### 15. Voice Campaigns (workflow only)
 حملات tenant/workspace مع delay وtimezone وmax_attempts، وقائمة entries تفصل `telephony_outcome` عن `business_outcome`. لا يوجد ادعاء dial/SIM/AI voice حي؛ حالة النقل `PENDING_EXTERNAL`.
 
+### 16. Marketing / SEO
+صفحات عامة: المنصة، 7 صفحات ميزات، 7 قطاعات، الباقات (CTA «اطلب عرضًا»)، الأمان، المؤسسات، المطورون، التوثيق، تواصل، معلومات؛ مع `sitemap.xml` وبدون أرقام/شهادات مختلقة.
+
 ## أدلة الاختبار الفعلية
 
 البيئة: Laravel 12.70.2 / PHP 8.2.12 / SQLite.
@@ -99,6 +103,7 @@ php artisan test
 - WidgetTest: 2
 - IntegrationTest: 2
 - VoiceCampaignTest: 2
+- MarketingPagesTest: 3
 - TenancyIsolationTest: 3
 - Laravel example tests: 2
 
@@ -116,7 +121,7 @@ PHP lint: all saas/app, saas/database, saas/routes, saas/tests = OK
 `docs/memory/INCIDENT_2026-10-29_CONTROL_CHANNEL_AR.md`.
 
 ## حزمة النشر
-`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-18`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
+`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-20`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
 
 ## الخطوة التالية بعد عودة العامل
 1. التحقق من `host-link-test.txt`.

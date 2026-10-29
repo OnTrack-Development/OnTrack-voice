@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\WidgetController;
 use App\Http\Controllers\Api\WhatsappWebhookController;
+use App\Http\Controllers\Marketing\PageController;
 use App\Http\Controllers\App\AgentStudioController;
 use App\Http\Controllers\App\ConversationController;
 use App\Http\Controllers\App\CrmController;
@@ -23,6 +24,10 @@ use App\Http\Controllers\Marketing\LandingController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'index'])->name('home');
+Route::get('/sitemap.xml', [PageController::class, 'sitemap']);
+Route::get('/{page}', [PageController::class, 'show'])->where('page', 'platform|pricing|security|enterprise|about|contact|developers|docs');
+Route::get('/features/{feature}', [PageController::class, 'feature'])->where('feature', 'agent-builder|smart-buttons|knowledge|integrations|channels|inbox|operations');
+Route::get('/industries/{industry}', [PageController::class, 'industry'])->where('industry', 'ecommerce|real-estate|hospitality|education|healthcare|logistics|marketing-agencies|hosting|professional-services');
 
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisterController::class, 'show'])->name('register');
