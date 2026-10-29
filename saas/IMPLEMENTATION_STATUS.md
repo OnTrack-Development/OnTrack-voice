@@ -1,53 +1,49 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة WhatsApp Channels**
+**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة WhatsApp Webhook**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 23 اختبارًا / 82 assertion، ناجحة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 25 اختبارًا / 90 assertion، ناجحة |
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
-| AI Providers | `IMPLEMENTED_LOCAL` (بيانات + عزل + تشفير) — اتصال حي `PENDING_CREDENTIALS` |
-| Knowledge | `IMPLEMENTED_LOCAL` — فهرسة نصية/تقسيم قطع، بلا ادعاء بحث متجهي |
-| Smart Actions | `IMPLEMENTED_LOCAL` — قواعد أزرار مقيدة بالحالة والصلاحية + إثبات النداء/التكرار |
-| Conversation Core | `IMPLEMENTED_LOCAL` — inbox عام، رد موظف، إيقاف AI مؤقت، وقفل بشري دائم مع عزل tenant |
-| WhatsApp Channels | `IMPLEMENTED_LOCAL` (تكوين فقط) — 3 طرق onboarding، أسرار مشفرة، حالات صادقة؛ اتصال حي `PENDING_EXTERNAL` |
-| WhatsApp / Inbox | `PLANNED` |
+| AI Providers | `IMPLEMENTED_LOCAL` — بيانات + عزل + تشفير؛ الاتصال الحي `PENDING_CREDENTIALS` |
+| Knowledge | `IMPLEMENTED_LOCAL` — فهرسة نصية وتقسيم قطع، بلا ادعاء بحث متجهي |
+| Smart Actions | `IMPLEMENTED_LOCAL` — قواعد مقيدة بالحالة والصلاحية وidempotency |
+| Conversation Core | `IMPLEMENTED_LOCAL` — Inbox عام، رد موظف، إيقاف AI مؤقت، وقفل بشري دائم |
+| WhatsApp Channels | `IMPLEMENTED_LOCAL` — 3 طرق onboarding وأسرار مشفرة؛ الاتصال الحي `PENDING_EXTERNAL` |
+| WhatsApp Webhook | `IMPLEMENTED_LOCAL` — challenge، HMAC raw-body، dedupe؛ لا Meta live evidence |
 | Voice | `PLANNED` — ينتظر إثبات الجهاز |
 
 ## الشرائح المنفذة
 
 ### 1. Foundation / Auth / Tenancy
-هبوط RTL، توكنز تصميم، تسجيل ينشئ tenant+workspace+owner، دخول/خروج مع rate limit، Dashboard ببيانات حقيقية، 5 migrations، عزل tenant.
+هبوط RTL، توكنز تصميم، تسجيل ينشئ tenant/workspace/owner، دخول/خروج مع rate limit، Dashboard ببيانات حقيقية، وعزل tenant.
 
 ### 2. Projects + Agent Studio
-مشروعات (list/create/store) بملكية tenant/workspace، واستوديو وكيل (إنشاء/عرض/تعديل/نشر) مع منع النشر بلا تعليمات ورفض project_id الأجنبي.
+مشروعات بملكية tenant/workspace، واستوديو وكيل (إنشاء/عرض/تعديل/نشر) مع منع النشر بلا تعليمات ورفض المشروع الأجنبي.
 
 ### 3. Platform Provider Hub
-`platform_admin_grants` مستقلة عن الـtenants، `platform_ai_provider_profiles` بلا `tenant_id` مع تشفير `Crypt`، موديلات بالمعرّف الحرفي، تدقيق، و403 لأي مستخدم tenant على `/control/ai/*`.
+`platform_admin_grants` مستقلة عن الـtenants، ملفات AI بلا `tenant_id` مع تشفير `Crypt`، موديلات بالمعرّف الحرفي، تدقيق، و403 لأي مستخدم tenant على `/control/ai/*`.
 
 ### 4. Knowledge Hub
-`knowledge_sources` / `knowledge_source_versions` / `knowledge_chunks`، تقسيم النص إلى قطع بمحتوى محفوظ، حالات `processing → indexed`، رفض `project_id` الأجنبي 422، ورفض الكتابة من خارج المساحة 403.
+`knowledge_sources` و`knowledge_source_versions` و`knowledge_chunks`، تقسيم نصي وحالات `processing → indexed`، مع عزل tenant ورفض المشروع الأجنبي.
 
 ### 5. Smart Actions
-`button_rules` مقيدة بـ tenant/workspace/project مع `business_state_in` و`condition_ast` منفصلين، `button_presentations` برمز عرض موقّت، `button_invocations` بمفتاح idempotency فريد لكل tenant، ورفض أي مشروع/قاعدة أجنبية (422/404)، وإرجاع `duplicate` عند تكرار نفس المفتاح.
+`button_rules` مقيدة بـtenant/workspace/project، و`button_invocations` بمفتاح idempotency فريد لكل tenant، ورفض القواعد/المشروعات الأجنبية.
 
 ### 6. Conversation Core + Human Lock
-`conversations` و`messages` و`conversation_events` و`handoff_records` مع tenant/workspace scope. رد الموظف يضيف رسالة `staff` ويضبط `ai_pause_until_utc` افتراضيًا 15 دقيقة مع `pause_generation`، والقفل البشري الدائم منفصل ولا ينتهي تلقائيًا. لا يوجد ادعاء اتصال قناة حي.
+محادثات ورسائل وأحداث وتسليم handoff مع tenant scope. رد الموظف يضبط `ai_pause_until_utc` افتراضيًا 15 دقيقة مع `pause_generation`؛ القفل البشري الدائم منفصل ولا ينتهي تلقائيًا.
 
-### 7. WhatsApp Channels (تكوين فقط)
-`whatsapp_connections` يعرض الطرق الثلاث (Embedded Signup / Coexistence / Manual Cloud API)، ويحفظ الأسرار (`access_token`, `app_secret`) مشفرة بـ`Crypt`، ويرفض أي cross-tenant read/create، ولا يضع أي اتصال في حالة `active` دون دليل Meta الفعلي. لا توجد حقول AI provider في هذه الشاشة.
+### 7. WhatsApp Channels
+`whatsapp_connections` بثلاث طرق: Embedded Signup وCoexistence وManual Cloud API. أسرار القناة مشفرة، والحالة تبقى Draft حتى أدلة Meta الفعلية؛ لا توجد حقول AI provider في شاشة العميل.
 
-`conversations` و`messages` و`conversation_events` و`handoff_records` مع tenant/workspace scope. رد الموظف يضيف رسالة `staff` ويضبط `ai_pause_until_utc` افتراضيًا 15 دقيقة مع `pause_generation`، والقفل البشري الدائم منفصل ولا ينتهي تلقائيًا. لا يوجد ادعاء اتصال قناة حي.
-
-`button_rules` مقيدة بـ tenant/workspace/project مع `business_state_in` و`condition_ast` منفصلين، `button_presentations` برمز عرض موقّت، `button_invocations` بمفتاح idempotency فريد لكل tenant، ورفض أي مشروع/قاعدة أجنبية (422/404)، وإرجاع `duplicate` عند تكرار نفس المفتاح.
-
-
-`knowledge_sources` / `knowledge_source_versions` / `knowledge_chunks`، تقسيم النص إلى قطع بمحتوى محفوظ، حالات `processing → indexed`، رفض `project_id` الأجنبي 422، ورفض الكتابة من خارج المساحة 403.
+### 8. WhatsApp Webhook
+`GET/POST /api/webhooks/meta/whatsapp/{publicId}` مع تحقق challenge بواسطة verify token مشفر، HMAC على الـraw body قبل تفكيك JSON، و`whatsapp_webhook_events` لمنع التكرار لكل اتصال. التوقيع الخاطئ مرفوض.
 
 ## أدلة الاختبار الفعلية
 
@@ -55,33 +51,40 @@
 
 ```text
 php artisan migrate --force
-11 custom migrations DONE (000001..000011)
+12 custom migrations DONE (000001..000012)
 
 php artisan test
-15 passed (49 assertions)
+25 passed (90 assertions)
 - AgentStudioTest: 4
 - ControlProviderHubTest: 3
 - KnowledgeHubTest: 3
 - SmartActionTest: 2
 - ConversationCoreTest: 3
+- KnowledgeHubTest: 3
 - WhatsappConnectionTest: 3
+- WhatsappWebhookTest: 2
 - TenancyIsolationTest: 3
-- Example tests: 2
+- Laravel example tests: 2
 
 PHP lint: all saas/app, saas/database, saas/routes, saas/tests = OK
 ```
 
 ## ما لم يُثبت
-- لا Laravel على `/home/appontrack/public_html/saas` حتى الآن.
-- لا migrations إنتاج، لا فحص متصفح، لا تكامل AI/WhatsApp/Voice حي.
+- لا Laravel مثبت فعليًا داخل `/home/appontrack/public_html/saas`.
+- لا migrations على قاعدة الإنتاج.
+- لا فحص متصفح أو screenshot.
+- لا اتصال AI أو Meta أو Voice حي.
 
-## العائق
-عامل host-link لم ينفّذ أي مهمة منذ `runner-setup-20261029a`؛ آخر مهمة مرسلة `saas-file-test-20261029` بلا تقرير. التفاصيل وأمر الاستعادة: `docs/memory/INCIDENT_2026-10-29_CONTROL_CHANNEL_AR.md`.
+## العائق الحالي
+عامل `host-link` لم ينفّذ أي مهمة منذ `runner-setup-20261029a`. آخر مهمة اختبار ملف `saas-file-test-20261029` لم تنتج تقريرًا. التفاصيل وأمر الاستعادة في:
+`docs/memory/INCIDENT_2026-10-29_CONTROL_CHANNEL_AR.md`.
 
 ## حزمة النشر
-`tools/pack_deploy.py` جاهزة: 5 chunks + final للحزمة الحالية. تُعاد بعد كل تغيير ثم ترسل بالتتابع بعد عودة العامل.
+`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-9`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
 
-## الخطوة التالية
-1. عودة العامل → التحقق من `host-link-test.txt`.
-2. `composer create-project` أو تأكيد وجود Laravel في `saas`.
-3. إرسال chunks ثم final + `migrate --force` + `route:list`.
+## الخطوة التالية بعد عودة العامل
+1. التحقق من `host-link-test.txt`.
+2. تأكيد Laravel/Composer على الهوست.
+3. إرسال الحزمة ثم `migrate --force` و`route:list`.
+4. اختبار HTTP للصفحة الرئيسية وتسجيل الدخول.
+5. ربط MySQL مستقل والنطاق الفرعي قبل أي claim إنتاجي.
