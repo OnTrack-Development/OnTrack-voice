@@ -1,0 +1,552 @@
+{
+  "original_filename": "voicecall.zip",
+  "original_library_file_id": "libfile_d45f638efcf8819191344dc6b5437bfd",
+  "original_size_bytes": 2966529,
+  "original_sha256": "aa52fe5f0bc452ce9849650d1449bf328d3ac53ba2b4ac03c1959866c7db6432",
+  "import_directory": "reference/voicecall-v0.6.3",
+  "entries": [
+    {
+      "source_path": ".devbridge/config.json",
+      "source_size_bytes": 406,
+      "source_sha256": "a461b3ab97e2695ea6c0494a40969a51ccf2045e5f6dda3d8e886e84e498c40b",
+      "source_git_blob_sha": "be0a939a56422846cd3e9a39f02ad639cda952b8",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/index.html",
+      "source_size_bytes": 0,
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_git_blob_sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/.htaccess",
+      "source_size_bytes": 33,
+      "source_sha256": "1581faf462f67052c23dee5420cf8c329d6159b54ac433b4eed97a74f3e9ab51",
+      "source_git_blob_sha": "569316c86b2136cece972be5e6db0f247a9efa79",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_043642.zip",
+      "source_size_bytes": 37697,
+      "source_sha256": "3ec7d7b15bb71a45edfa9d33c3ce6b23e3ae6b40e61e6d7009b7cc9b846c8bd5",
+      "source_git_blob_sha": "f968f290d8fed51c508a23c86d277227b8559fce",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261001_200439.zip",
+      "source_size_bytes": 26929,
+      "source_sha256": "c275d6c65d2a9425a22e8f81a9f07ea3ebdc207de02226907e42ef831e3e4147",
+      "source_git_blob_sha": "5dc0d11d0cff1c81a6f1bab58424864ce033243c",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261005_073257.zip",
+      "source_size_bytes": 547667,
+      "source_sha256": "e3bb71b274a120c14ce13cd9922c17db85e8bb190f4bcb983d240e268c1255a2",
+      "source_git_blob_sha": "cb8e801e269a9ae19a718b12a5aa5d4705991de1",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_015838.zip",
+      "source_size_bytes": 29113,
+      "source_sha256": "13a89690ace199d3887bed68c8d79619d6e3d8b548baf9593b3f34712ef9a2c1",
+      "source_git_blob_sha": "b7019b0755eb267b7aa6a43198d22b18b9c5a81f",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_042011.zip",
+      "source_size_bytes": 36380,
+      "source_sha256": "07178c817b0e1172b92b57db94ad86434fd193082c7e18916e78179b09b99c19",
+      "source_git_blob_sha": "0162ec0d6fe883a3120b44a5955d1e58d33b5027",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_043025.zip",
+      "source_size_bytes": 37791,
+      "source_sha256": "7c6b4c286226e3c0adf711de9b1e6758e2afb75e335995fc947ebef07815b11d",
+      "source_git_blob_sha": "e41302ef3d156a7e182c1e190ccc7e983ca82f5a",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_020157.zip",
+      "source_size_bytes": 29054,
+      "source_sha256": "04c6f765c2165c1965a75fa45ad475845dc624b1824daa4a8bd54eb29230ff86",
+      "source_git_blob_sha": "2f8aed366dd947fb2ccf34b8f7ab0bfda2b4cd4e",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_043949.zip",
+      "source_size_bytes": 37740,
+      "source_sha256": "bb66590ab1013dbf349ff0dece491af0e091a59a3386c6055ef58bdc8c83a00d",
+      "source_git_blob_sha": "848f04dda52788573eec4b0a2d56e8bc4069a07e",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_022449.zip",
+      "source_size_bytes": 28525,
+      "source_sha256": "fdeb8c48c826b4e8b79c36633fcfba79c258910a5ed34c72ae11e38d5ef2d8b5",
+      "source_git_blob_sha": "476af5b2b3fbe17a34444fee6d78f30996229982",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_015310.zip",
+      "source_size_bytes": 29012,
+      "source_sha256": "537441b35d49ece0e4dca8efd046310620489625f499ef759803c1bf55b5629d",
+      "source_git_blob_sha": "6452bd8848b857b62d75b71eeb6f02b1f78b981a",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261005_075933.zip",
+      "source_size_bytes": 548373,
+      "source_sha256": "f58c92984d59c2927c50712a5f185ef181c6375e3a07adaac656e76734ed8ef5",
+      "source_git_blob_sha": "a649397b477831c857117eadc11b2150f4495520",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_045835.zip",
+      "source_size_bytes": 38830,
+      "source_sha256": "881f1d70dc412295552b82659c2d0f91866919b3914381f7333ddcb84c3b8bb2",
+      "source_git_blob_sha": "a90b71bcf25890fe7776176ab1896587ba0936a7",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_042843.zip",
+      "source_size_bytes": 38592,
+      "source_sha256": "3512ac7630015d3bf86cc48106772ff576f9bc643eaafa1a60940ae334f6de59",
+      "source_git_blob_sha": "cccc3dee82c4b4a0c9a26f5f0f394d19cc18043a",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_015840.zip",
+      "source_size_bytes": 29054,
+      "source_sha256": "be83257e2f83714d2db2c74ed98f468262018d40124ff6e50138f613a21ce72e",
+      "source_git_blob_sha": "1e613b3f26bec4bd2cab9f27455be74b83fc5f4e",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_014834.zip",
+      "source_size_bytes": 30290,
+      "source_sha256": "5f7157d1c49ad1b237b323d4926a00b3a554fa29433aeeda8dafe53e5921ca30",
+      "source_git_blob_sha": "36500ce033903d106c2ef53138dac9649a7adc16",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_043821.zip",
+      "source_size_bytes": 38164,
+      "source_sha256": "c1cea090e94db7e9b902638e4b59b086fbee9cd18ef9afd0d1785b4d632f0023",
+      "source_git_blob_sha": "4cb905d7ea6e06f02338ac0dd3bfae44eb634859",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_015841.zip",
+      "source_size_bytes": 29054,
+      "source_sha256": "04c6f765c2165c1965a75fa45ad475845dc624b1824daa4a8bd54eb29230ff86",
+      "source_git_blob_sha": "2f8aed366dd947fb2ccf34b8f7ab0bfda2b4cd4e",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261001_194235.zip",
+      "source_size_bytes": 15975,
+      "source_sha256": "db32883256182bb25d593ac5714038c75c58109ec8a5cdd46aaa0585ec977ce2",
+      "source_git_blob_sha": "b25f8dccc30c5801a5c2f8e63074333e725f8fff",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261001_195038.zip",
+      "source_size_bytes": 23739,
+      "source_sha256": "a0882ac3dc0b21c1e7a4fcaed00dd31ff0de6ffb0c4978a6992e6bbe8b2c678f",
+      "source_git_blob_sha": "2e9fbbaccd8c2be62c96d09958e2b656d0c6773d",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261005_080947.zip",
+      "source_size_bytes": 549795,
+      "source_sha256": "750a0ce639cdba6c17cbff5438ec6567c66f5d7c3ca6d9c82ef15487aad93ab0",
+      "source_git_blob_sha": "bd4dcaef1602103677999e23d452c4ff2a583c0b",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261005_070912.zip",
+      "source_size_bytes": 529067,
+      "source_sha256": "ab2868f79fdfa6db3210e1df588bb9842ab324a72cb5f01dca0ab2099b9e64c6",
+      "source_git_blob_sha": "1074169b80d3776c9c3b45533747a464ccc3cf71",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_045200.zip",
+      "source_size_bytes": 38362,
+      "source_sha256": "6d1eef62ebba13178b0713997afbb5587aa6946f9cc03041d6caac26eca8695c",
+      "source_git_blob_sha": "c58939575c3235d13966e31ee4f5cb62fd44bcec",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_020924.zip",
+      "source_size_bytes": 28750,
+      "source_sha256": "a5c2148fa133ea4172d4a08f89acf8863d2f8abacf76f12a6c4d66bf815c599e",
+      "source_git_blob_sha": "6ca396a0472330b1018174a73228bd1b6ee83221",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_020505.zip",
+      "source_size_bytes": 29387,
+      "source_sha256": "bca5508f76965967ac59e5a3c8c2d9a48aacef4e8a5defd2d2e2e2b1a85c93cb",
+      "source_git_blob_sha": "f56f39fb4a7927eadb2a900c68abc15b872dd29d",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261001_202559.zip",
+      "source_size_bytes": 27108,
+      "source_sha256": "91554d8aee2abd37c29fb1ebd39e80950443d20ebb1ca269d2af2609a7bee586",
+      "source_git_blob_sha": "e10b5d8988534512f691c3eb4ec6562e07aeae46",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261002_021518.zip",
+      "source_size_bytes": 28780,
+      "source_sha256": "8c81b28fe53b4b7650c1e9986486a8b002208a5b1ff385b114e2058b8624964e",
+      "source_git_blob_sha": "4ef040f132b63f087ffad312f857603c1a6eda5b",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/backups/backup_20261001_195636.zip",
+      "source_size_bytes": 24411,
+      "source_sha256": "7d14828375187b0025332e7c45da8cd91fcc0625ca71454e6764189ec74e5834",
+      "source_git_blob_sha": "3f927b247f4ff2d0b8d6c8c5dc164c2e683d6c46",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": ".devbridge/bridge.log",
+      "source_size_bytes": 4096,
+      "source_sha256": "9dee81ca591022f9f541d5e93b0097a663529d79f2209696eead188fb69a27c4",
+      "source_git_blob_sha": "8d3994b9cd72002427a0ee124bc56e661577c1f8",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": "tests/mission_test.php",
+      "source_size_bytes": 4480,
+      "source_sha256": "d3f2cb5bde7c12c4a0fd1b7ec423df915585a4e0b6ac88a07538873d78a8acce",
+      "source_git_blob_sha": "0f851f6d43132fa3ae5d91f02d1c16a9ea5a475a",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/tests/mission_test.php",
+      "imported_sha256": "d3f2cb5bde7c12c4a0fd1b7ec423df915585a4e0b6ac88a07538873d78a8acce"
+    },
+    {
+      "source_path": "tests/.htaccess",
+      "source_size_bytes": 19,
+      "source_sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934",
+      "source_git_blob_sha": "b66e80882967080d48181b5b53a8be18cc94d610",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/tests/.htaccess",
+      "imported_sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "source_path": "tests/browser.test.mjs",
+      "source_size_bytes": 13648,
+      "source_sha256": "5d446879e3ff50edaaae18623997ebe75e54b6847c43e47670fd47a4d7fea02f",
+      "source_git_blob_sha": "17a21ca061e5e22b0ad882561f9bf1e48ff25d85",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/tests/browser.test.mjs",
+      "imported_sha256": "5d446879e3ff50edaaae18623997ebe75e54b6847c43e47670fd47a4d7fea02f"
+    },
+    {
+      "source_path": "tests/outbound.test.mjs",
+      "source_size_bytes": 3394,
+      "source_sha256": "1b66a59cfa4e3826a3ee7d29d9ccb2d37e2ddb7bcfad82881984573d00a90c5a",
+      "source_git_blob_sha": "c9e6d29bd6b82585a1f290d32d3b8250e89e68e4",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/tests/outbound.test.mjs",
+      "imported_sha256": "1b66a59cfa4e3826a3ee7d29d9ccb2d37e2ddb7bcfad82881984573d00a90c5a"
+    },
+    {
+      "source_path": "UPLOAD_TO_ROOT.txt",
+      "source_size_bytes": 606,
+      "source_sha256": "6ea2229c9c662a758a9f0cc00ff4300c484a58379f0d2a9b2af2f5d3af123ca6",
+      "source_git_blob_sha": "7b12a4b3e2016ce592a348e67574d83832012bd2",
+      "status": "REDACTED",
+      "repository_path": "reference/voicecall-v0.6.3/UPLOAD_TO_ROOT.txt",
+      "imported_sha256": "7cf0b33a3f99c5a0ce11b31fb898df624c9520102173371e89389621d3d57e10"
+    },
+    {
+      "source_path": "logs/.gitkeep",
+      "source_size_bytes": 0,
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_git_blob_sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/logs/.gitkeep",
+      "imported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source_path": ".gitignore",
+      "source_size_bytes": 55,
+      "source_sha256": "81da05aeecd40f37660de8d4505b4f265c2e10f2a8715c4b6df7f4f1df845e6d",
+      "source_git_blob_sha": "84d65136596e5dcd427d685426d4a6d5b14faf93",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/.gitignore",
+      "imported_sha256": "81da05aeecd40f37660de8d4505b4f265c2e10f2a8715c4b6df7f4f1df845e6d"
+    },
+    {
+      "source_path": "README_AR.md",
+      "source_size_bytes": 7485,
+      "source_sha256": "884e9218802fe14b3e821c73dfc7f87ea39019d28d52693945c7d956e08b59f1",
+      "source_git_blob_sha": "20104fcd8623bf336f86e9bdc1a219b80079a225",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/README_AR.md",
+      "imported_sha256": "884e9218802fe14b3e821c73dfc7f87ea39019d28d52693945c7d956e08b59f1"
+    },
+    {
+      "source_path": "PING.txt",
+      "source_size_bytes": 41,
+      "source_sha256": "0023fa9d335a0e6193bd1ea3f72889eec6e4967ae6e29523f589a902734dadb3",
+      "source_git_blob_sha": "6bb6b057b166a22c1460bd0ed6dbfacf9b83c7ad",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/PING.txt",
+      "imported_sha256": "0023fa9d335a0e6193bd1ea3f72889eec6e4967ae6e29523f589a902734dadb3"
+    },
+    {
+      "source_path": "omnira_api_tester.php",
+      "source_size_bytes": 18799,
+      "source_sha256": "03bc1776a2c50efc8cdac140aab5a96d9d1dbd12c37fec2e380bb631552a86a0",
+      "source_git_blob_sha": "b5dfd9b4bf828fc91b82aef954b2d96ae6ebd4a7",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/omnira_api_tester.php",
+      "imported_sha256": "03bc1776a2c50efc8cdac140aab5a96d9d1dbd12c37fec2e380bb631552a86a0"
+    },
+    {
+      "source_path": ".htaccess",
+      "source_size_bytes": 357,
+      "source_sha256": "09ac0b21102d2ddd1dddf66c643a2bc4932f0f9023d0a9734dcf261530153123",
+      "source_git_blob_sha": "3c51eb8d410b41c6d1e49d9b8d242dcc2445463e",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/.htaccess",
+      "imported_sha256": "09ac0b21102d2ddd1dddf66c643a2bc4932f0f9023d0a9734dcf261530153123"
+    },
+    {
+      "source_path": "dev_bridge.php",
+      "source_size_bytes": 13241,
+      "source_sha256": "187105355de0cb48c52edf0c379d275d6a18e0a6abf7b61dd951c472ff48b5f6",
+      "source_git_blob_sha": "1421cbd1bb9c082b6c6c575477e7889028d95f1a",
+      "status": "REDACTED",
+      "repository_path": "reference/voicecall-v0.6.3/dev_bridge.php",
+      "imported_sha256": "a367d8a553b897efc772faf61a0af2f9a96aaaae281b32c26423cee96d57654e"
+    },
+    {
+      "source_path": "api/tts.php",
+      "source_size_bytes": 285,
+      "source_sha256": "7b27a99891865256b03046dcba67885fe4290592a88e3212eac3a7bc3171a128",
+      "source_git_blob_sha": "87f67f220d0c9ec0e10680bb9bc29f4c9222c807",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/api/tts.php",
+      "imported_sha256": "7b27a99891865256b03046dcba67885fe4290592a88e3212eac3a7bc3171a128"
+    },
+    {
+      "source_path": "api/demo_config.php",
+      "source_size_bytes": 435,
+      "source_sha256": "43083297dde904d6c3c22071c07d71aad19261dcd6667f05ca4d5856904d00a8",
+      "source_git_blob_sha": "94bd2cfcdb215c7760ec18c173921c3008e32d01",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/api/demo_config.php",
+      "imported_sha256": "43083297dde904d6c3c22071c07d71aad19261dcd6667f05ca4d5856904d00a8"
+    },
+    {
+      "source_path": "api/demo_config.local.php",
+      "source_size_bytes": 416,
+      "source_sha256": "ee05edbf6283dbfb8b53fbef9b05e3187000d1d1b32ed00aa97c5a15c449ca36",
+      "source_git_blob_sha": "4ea8c030e833372321e65441fd5180636e6fc033",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": "api/live_session.php",
+      "source_size_bytes": 7794,
+      "source_sha256": "b1d165cf0160ef8f5cc4431d410dea599e35fb20a232c40a402acd8e1321d294",
+      "source_git_blob_sha": "11e6149fd5891374569f409066a607b1e771d944",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/api/live_session.php",
+      "imported_sha256": "b1d165cf0160ef8f5cc4431d410dea599e35fb20a232c40a402acd8e1321d294"
+    },
+    {
+      "source_path": "api/status.php",
+      "source_size_bytes": 1157,
+      "source_sha256": "78eb2aa56e7157ef69dbfce4671a561f9a14f99023cda245bdc54c621a0cd47b",
+      "source_git_blob_sha": "03fabd7d4675e06bf8374b24c866a375719397b3",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/api/status.php",
+      "imported_sha256": "78eb2aa56e7157ef69dbfce4671a561f9a14f99023cda245bdc54c621a0cd47b"
+    },
+    {
+      "source_path": "api/setup_demo.php",
+      "source_size_bytes": 1644,
+      "source_sha256": "e4d7b428ec7e5ead549f5364b6c12909815e5f3cab8c8b08b75ef0a6c612226c",
+      "source_git_blob_sha": "7a2a265378559f40e84ee2973b01ddd60869e60a",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/api/setup_demo.php",
+      "imported_sha256": "e4d7b428ec7e5ead549f5364b6c12909815e5f3cab8c8b08b75ef0a6c612226c"
+    },
+    {
+      "source_path": "api/.demo_setup_done",
+      "source_size_bytes": 25,
+      "source_sha256": "2180f976c2f74a2d3925a417fd2b0e56d02787136f43d5de60c2fab7516def46",
+      "source_git_blob_sha": "99272e99e396d5a583abb95b4dc1346da3359a24",
+      "status": "NOT_COPIED_RUNTIME_OR_BACKUP",
+      "reason": "Local credentials, deployment state, logs or nested legacy backup; recover from the original attachment if specifically needed."
+    },
+    {
+      "source_path": "api/bootstrap.php",
+      "source_size_bytes": 1593,
+      "source_sha256": "bbd1fdce1465b25c538e356853ee2135a620ac60ac0bfb597047a8e64fa1a635",
+      "source_git_blob_sha": "394e05dc1298b56ba50c6ab029a1f4392adf26b6",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/api/bootstrap.php",
+      "imported_sha256": "bbd1fdce1465b25c538e356853ee2135a620ac60ac0bfb597047a8e64fa1a635"
+    },
+    {
+      "source_path": "api/diag.php",
+      "source_size_bytes": 4583,
+      "source_sha256": "6ec075015d24d3a0cc4cd6f62f26c4815bdaff619471ed4f4642ad65f148a1f1",
+      "source_git_blob_sha": "e9c05ab38e9de6d75e721e1a13914bb011304746",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/api/diag.php",
+      "imported_sha256": "6ec075015d24d3a0cc4cd6f62f26c4815bdaff619471ed4f4642ad65f148a1f1"
+    },
+    {
+      "source_path": "api/brain.php",
+      "source_size_bytes": 285,
+      "source_sha256": "7b27a99891865256b03046dcba67885fe4290592a88e3212eac3a7bc3171a128",
+      "source_git_blob_sha": "87f67f220d0c9ec0e10680bb9bc29f4c9222c807",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/api/brain.php",
+      "imported_sha256": "7b27a99891865256b03046dcba67885fe4290592a88e3212eac3a7bc3171a128"
+    },
+    {
+      "source_path": "config.php",
+      "source_size_bytes": 471,
+      "source_sha256": "bf1e37a78445545a94dc44a103dd409dadb8d6bdc26fba388b457c9a42fcaed1",
+      "source_git_blob_sha": "5ec998f59533400bc19da1d34c1816be5ba7652b",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/config.php",
+      "imported_sha256": "bf1e37a78445545a94dc44a103dd409dadb8d6bdc26fba388b457c9a42fcaed1"
+    },
+    {
+      "source_path": "test.php",
+      "source_size_bytes": 1390,
+      "source_sha256": "19e99bf5d95d07002d7b5bba00bdcdb70f84add919fe12d12da87914e78f2d65",
+      "source_git_blob_sha": "d9ac52554aa1cba1b098e3a0785d5f0ba2b52c43",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/test.php",
+      "imported_sha256": "19e99bf5d95d07002d7b5bba00bdcdb70f84add919fe12d12da87914e78f2d65"
+    },
+    {
+      "source_path": "data/knowledge.json",
+      "source_size_bytes": 9401,
+      "source_sha256": "c6c86c1385da012ebfdcad39ee7dadee27d872b2ac86f8a08d86481994b48c28",
+      "source_git_blob_sha": "991e3de54a90ee0d9e617f3d191ffea05662e211",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/data/knowledge.json",
+      "imported_sha256": "c6c86c1385da012ebfdcad39ee7dadee27d872b2ac86f8a08d86481994b48c28"
+    },
+    {
+      "source_path": "lib/OutboundMission.php",
+      "source_size_bytes": 14610,
+      "source_sha256": "d089eef2bc0b6e063ada8c28c0ffac9415d662b8037c161ff0bc19613e1c7299",
+      "source_git_blob_sha": "1d860a1a2e945139421555f635ef63dd1f8fed1a",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/lib/OutboundMission.php",
+      "imported_sha256": "d089eef2bc0b6e063ada8c28c0ffac9415d662b8037c161ff0bc19613e1c7299"
+    },
+    {
+      "source_path": "lib/VoiceTutSpaceClient.php",
+      "source_size_bytes": 5964,
+      "source_sha256": "917d891eb440a15177f5471d80190b78e20788f63c268df2b00994d6844d539d",
+      "source_git_blob_sha": "e9c78aa1153c8ef5734ba1dd376314408f0a7a06",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/lib/VoiceTutSpaceClient.php",
+      "imported_sha256": "917d891eb440a15177f5471d80190b78e20788f63c268df2b00994d6844d539d"
+    },
+    {
+      "source_path": "lib/EdgeTtsClient.php",
+      "source_size_bytes": 11148,
+      "source_sha256": "6fb2684cdc2ddcaa7bca15abb21d681c68dd0527f5fa2bc42ba0c7865da09a09",
+      "source_git_blob_sha": "d597fda66b35ba1099b5b548308101bca28c7724",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/lib/EdgeTtsClient.php",
+      "imported_sha256": "6fb2684cdc2ddcaa7bca15abb21d681c68dd0527f5fa2bc42ba0c7865da09a09"
+    },
+    {
+      "source_path": "index.php",
+      "source_size_bytes": 9937,
+      "source_sha256": "b26e768cc1b630c4010b8f607519703177723541bba248e2949af9513a63164c",
+      "source_git_blob_sha": "567bb11bacabe3863228e6066ba3b3608a489de8",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/index.php",
+      "imported_sha256": "b26e768cc1b630c4010b8f607519703177723541bba248e2949af9513a63164c"
+    },
+    {
+      "source_path": "version.json",
+      "source_size_bytes": 1344,
+      "source_sha256": "93b4de4196d6faebd9800e3488d95cd40d2cf727e3c49a1aea380fe2c0b49d6f",
+      "source_git_blob_sha": "ced20f3f5da6c0d4576c0b75c698b4d0bb8c2f09",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/version.json",
+      "imported_sha256": "93b4de4196d6faebd9800e3488d95cd40d2cf727e3c49a1aea380fe2c0b49d6f"
+    },
+    {
+      "source_path": "assets/outbound.mjs",
+      "source_size_bytes": 7399,
+      "source_sha256": "a9680d7812e1a3d417c0e59f4898cda73f9b191f8795710b091446eca5b92c15",
+      "source_git_blob_sha": "faaba60cc03b9a40e756b2ebb6e6a7ed8290a0ca",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/assets/outbound.mjs",
+      "imported_sha256": "a9680d7812e1a3d417c0e59f4898cda73f9b191f8795710b091446eca5b92c15"
+    },
+    {
+      "source_path": "assets/app.css",
+      "source_size_bytes": 19119,
+      "source_sha256": "1dc92deed33c7834db686df15a51659db903213e81c22462be470d6772d45f22",
+      "source_git_blob_sha": "61e426594e167680aed494b87b88e5b1d9558a97",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/assets/app.css",
+      "imported_sha256": "1dc92deed33c7834db686df15a51659db903213e81c22462be470d6772d45f22"
+    },
+    {
+      "source_path": "assets/app.js",
+      "source_size_bytes": 30999,
+      "source_sha256": "b8b764e258e4ef82076351836d0213d134803b8fc140c2fe5288bd16a153b876",
+      "source_git_blob_sha": "511d0d916071cd432397ab3b73773e28aa3962f5",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/voicecall-v0.6.3/assets/app.js",
+      "imported_sha256": "b8b764e258e4ef82076351836d0213d134803b8fc140c2fe5288bd16a153b876"
+    }
+  ]
+}

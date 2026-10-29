@@ -1,0 +1,24 @@
+{
+  "display_name": "مثال مزوّد مخصص",
+  "provider_type": "custom",
+  "protocol": "openai-chat-completions",
+  "base_url": "https://api.example-provider.invalid/v1",
+  "credential_state": "MISSING_NEVER_PLACE_KEY_IN_THIS_FILE",
+  "connection_state": "draft",
+  "models": [
+    {
+      "model_id_exact": "claude-fable-5.1[1m]",
+      "label": "تجربة باسم الموديل",
+      "test_state": "not_tested"
+    }
+  ],
+  "never_use_in_production": true,
+  "owner_scope": "platform_only",
+  "access_roles": [
+    "platform_owner",
+    "platform_ai_ops"
+  ],
+  "tenant_visible": false,
+  "only_route": "/control/ai/providers",
+  "notes_ar": "هذا المثال لمشرفي OnTrack فقط؛ المشترك لا يدير مزود AI أو موديلاته."
+}

@@ -1,0 +1,164 @@
+{
+  "repository": "OnTrack-Development/OnTrack-voice",
+  "branch": "main",
+  "commit": "92795829331d686871b30d17be0d7cb91ee50b93",
+  "tree": "3444fb08360b98b1bfc504a7dcde4cbd2e95a1a1",
+  "files": [
+    {
+      "path": ".gitignore",
+      "git_blob_sha": "3980a08df775a29c775e7e181fb2960ca5c471d0",
+      "size": 115
+    },
+    {
+      "path": ".htaccess",
+      "git_blob_sha": "3c51eb8d410b41c6d1e49d9b8d242dcc2445463e",
+      "size": 357
+    },
+    {
+      "path": "PING.txt",
+      "git_blob_sha": "6bb6b057b166a22c1460bd0ed6dbfacf9b83c7ad",
+      "size": 41
+    },
+    {
+      "path": "README_AR.md",
+      "git_blob_sha": "20104fcd8623bf336f86e9bdc1a219b80079a225",
+      "size": 7485
+    },
+    {
+      "path": "UPLOAD_TO_ROOT.txt",
+      "git_blob_sha": "7b12a4b3e2016ce592a348e67574d83832012bd2",
+      "size": 606
+    },
+    {
+      "path": "api/.demo_setup_done",
+      "git_blob_sha": "99272e99e396d5a583abb95b4dc1346da3359a24",
+      "size": 25
+    },
+    {
+      "path": "api/bootstrap.php",
+      "git_blob_sha": "394e05dc1298b56ba50c6ab029a1f4392adf26b6",
+      "size": 1593
+    },
+    {
+      "path": "api/brain.php",
+      "git_blob_sha": "87f67f220d0c9ec0e10680bb9bc29f4c9222c807",
+      "size": 285
+    },
+    {
+      "path": "api/demo_config.php",
+      "git_blob_sha": "94bd2cfcdb215c7760ec18c173921c3008e32d01",
+      "size": 435
+    },
+    {
+      "path": "api/diag.php",
+      "git_blob_sha": "e9c05ab38e9de6d75e721e1a13914bb011304746",
+      "size": 4583
+    },
+    {
+      "path": "api/live_session.php",
+      "git_blob_sha": "11e6149fd5891374569f409066a607b1e771d944",
+      "size": 7794
+    },
+    {
+      "path": "api/setup_demo.php",
+      "git_blob_sha": "7a2a265378559f40e84ee2973b01ddd60869e60a",
+      "size": 1644
+    },
+    {
+      "path": "api/status.php",
+      "git_blob_sha": "03fabd7d4675e06bf8374b24c866a375719397b3",
+      "size": 1157
+    },
+    {
+      "path": "api/tts.php",
+      "git_blob_sha": "87f67f220d0c9ec0e10680bb9bc29f4c9222c807",
+      "size": 285
+    },
+    {
+      "path": "assets/app.css",
+      "git_blob_sha": "61e426594e167680aed494b87b88e5b1d9558a97",
+      "size": 19119
+    },
+    {
+      "path": "assets/app.js",
+      "git_blob_sha": "511d0d916071cd432397ab3b73773e28aa3962f5",
+      "size": 30999
+    },
+    {
+      "path": "assets/outbound.mjs",
+      "git_blob_sha": "faaba60cc03b9a40e756b2ebb6e6a7ed8290a0ca",
+      "size": 7399
+    },
+    {
+      "path": "config.php",
+      "git_blob_sha": "5ec998f59533400bc19da1d34c1816be5ba7652b",
+      "size": 471
+    },
+    {
+      "path": "data/knowledge.json",
+      "git_blob_sha": "991e3de54a90ee0d9e617f3d191ffea05662e211",
+      "size": 9401
+    },
+    {
+      "path": "index.php",
+      "git_blob_sha": "567bb11bacabe3863228e6066ba3b3608a489de8",
+      "size": 9937
+    },
+    {
+      "path": "lib/EdgeTtsClient.php",
+      "git_blob_sha": "506efa0355529c91935ee262bfeafea9b8a80325",
+      "size": 11124
+    },
+    {
+      "path": "lib/OutboundMission.php",
+      "git_blob_sha": "1d860a1a2e945139421555f635ef63dd1f8fed1a",
+      "size": 14610
+    },
+    {
+      "path": "lib/VoiceTutSpaceClient.php",
+      "git_blob_sha": "e9c78aa1153c8ef5734ba1dd376314408f0a7a06",
+      "size": 5964
+    },
+    {
+      "path": "logs/.gitkeep",
+      "git_blob_sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "size": 0
+    },
+    {
+      "path": "omnira_api_tester.php",
+      "git_blob_sha": "b5dfd9b4bf828fc91b82aef954b2d96ae6ebd4a7",
+      "size": 18799
+    },
+    {
+      "path": "test.php",
+      "git_blob_sha": "d9ac52554aa1cba1b098e3a0785d5f0ba2b52c43",
+      "size": 1390
+    },
+    {
+      "path": "tests/.htaccess",
+      "git_blob_sha": "b66e80882967080d48181b5b53a8be18cc94d610",
+      "size": 19
+    },
+    {
+      "path": "tests/browser.test.mjs",
+      "git_blob_sha": "17a21ca061e5e22b0ad882561f9bf1e48ff25d85",
+      "size": 13648
+    },
+    {
+      "path": "tests/mission_test.php",
+      "git_blob_sha": "0f851f6d43132fa3ae5d91f02d1c16a9ea5a475a",
+      "size": 4480
+    },
+    {
+      "path": "tests/outbound.test.mjs",
+      "git_blob_sha": "c9e6d29bd6b82585a1f290d32d3b8250e89e68e4",
+      "size": 3394
+    },
+    {
+      "path": "version.json",
+      "git_blob_sha": "ced20f3f5da6c0d4576c0b75c698b4d0bb8c2f09",
+      "size": 1344
+    }
+  ],
+  "note": "Existing runtime files retained in place; this inventory is a source snapshot, not a new live deployment."
+}

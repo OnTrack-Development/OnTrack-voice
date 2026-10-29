@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "checks": {
+    "json": 22,
+    "reference_files": 66,
+    "archives": 2,
+    "links": 52
+  },
+  "note": "Local integrity/document checks, not live telephony proof"
+}

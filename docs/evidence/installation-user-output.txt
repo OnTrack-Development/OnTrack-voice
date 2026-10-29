@@ -1,0 +1,10 @@
+Source: terminal output pasted by the owner after running the checksum-pinned bootstrap.
+This record intentionally contains no entered token value.
+
+GitHub token (hidden):
+CONNECTED: initial report uploaded to GitHub; polling installed every minute.
+STOP: touch /home/appontrack/ontrack-voice-link/STOP
+Results: https://github.com/OnTrack-Development/OnTrack-voice/tree/ontrack-host-link/ops/host-link/results/appontrack-server11
+[appontrack@server11 ~]$
+
+Independently retrieved bootstrap and subsequent remote-exec JSON reports are preserved under ops/host-link/results.

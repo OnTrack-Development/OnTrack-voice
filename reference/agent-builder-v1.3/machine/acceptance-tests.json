@@ -1,0 +1,324 @@
+[
+  {
+    "id": "BR-001",
+    "area": "Onboard company",
+    "acceptance": "Signup -> tenant -> workspace -> project persisted",
+    "verification": "Feature + browser",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "SEC-001",
+    "area": "Tenant isolation",
+    "acceptance": "Tenant B cannot read or modify A resources through URLs or payload",
+    "verification": "Feature/permission",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "SEC-002",
+    "area": "Nested ownership",
+    "acceptance": "Tenant B project id cannot be linked to agent in Tenant A",
+    "verification": "Feature/permission",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "PR-001",
+    "area": "Provider connection",
+    "acceptance": "Bad key fails; Test Connection reports cause and does not mark connected",
+    "verification": "HTTP fake + live when possible",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "PR-002",
+    "area": "Exact Custom Model IDs",
+    "acceptance": "Add and persist `claude-fable-5.1[1m]`; not normalized into wrong ID",
+    "verification": "Feature/DB",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "PR-003",
+    "area": "Model generation",
+    "acceptance": "200+empty content is error; 200+valid output can enable model",
+    "verification": "HTTP fakes",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "PR-004",
+    "area": "Model role assignment",
+    "acceptance": "Writer/Reviewer independently selected and persisted",
+    "verification": "Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "KN-001",
+    "area": "Knowledge indexed",
+    "acceptance": "File source version searchable within authorized project only",
+    "verification": "Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "BTN-001",
+    "area": "Smart button state",
+    "acceptance": "Buttons change after verified backend state change not untrusted AI text",
+    "verification": "Unit+Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "BTN-002",
+    "area": "Stale click rejected",
+    "acceptance": "Button token from previous state rejected without downstream call",
+    "verification": "Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "ACT-001",
+    "area": "Idempotent tool execution",
+    "acceptance": "Same action idempotency key results in one business side effect",
+    "verification": "Feature/HTTP fake",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "ACT-002",
+    "area": "Sensitive action approval",
+    "acceptance": "Privileged action blocked until valid confirmation/approval",
+    "verification": "Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "SEC-003",
+    "area": "Connector SSRF",
+    "acceptance": "Private/loopback/linklocal/redirect/DNS rebind targets refused",
+    "verification": "Unit",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "SEC-004",
+    "area": "Webhook replay",
+    "acceptance": "Signed event replay ignored and audited",
+    "verification": "Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "CHAT-001",
+    "area": "Web Widget end-to-end",
+    "acceptance": "Published widget creates real conversation and inbox record",
+    "verification": "Browser/Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "CHAT-002",
+    "area": "Human Lock",
+    "acceptance": "Pending queued AI response not sent after handoff",
+    "verification": "Feature/Race",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "RTL-001",
+    "area": "Arabic responsive",
+    "acceptance": "No overflow 360/390/768/1280/1440; labels aligned appropriately",
+    "verification": "Browser/screenshot",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "OPS-001",
+    "area": "No false status",
+    "acceptance": "Demo never labeled Live, down provider not green",
+    "verification": "Feature/UI",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "BUILD-001",
+    "area": "Tests/build",
+    "acceptance": "php artisan test + npm run build + typecheck as configured",
+    "verification": "CLI",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "DEP-001",
+    "area": "Staging evidence",
+    "acceptance": "URL/revision/health/test receipt only if deployed to authorized staging",
+    "verification": "Staging",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "PAI-001",
+    "area": "Provider admin only",
+    "acceptance": "Tenant owner/admin/member receive 403 for all /control/ai/provider/model/routing endpoints, including direct API and guessed URL; platform staff access is policy-scoped",
+    "verification": "Feature/security",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "PAI-002",
+    "area": "Tenant UI secret boundary",
+    "acceptance": "No upstream AI provider selection, URLs, keys, model IDs, credentials or raw provider pricing present in tenant HTML, SSR payloads, APIs or public widget",
+    "verification": "Feature/contract/browser",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "PAI-003",
+    "area": "Platform model lifecycle",
+    "acceptance": "Authorized OnTrack platform admin creates custom provider; authenticates test; enters exact model ID; tests generation; configures Writer/Reviewer/Fallback policy with reloaded state",
+    "verification": "Feature/HTTP mock + real where authorized",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "PAI-004",
+    "area": "Managed onboarding",
+    "acceptance": "Customer registers and uses OnTrack AI by entitled plan without providing any upstream AI credentials",
+    "verification": "E2E/Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "BILL-001",
+    "area": "Plan quota metering",
+    "acceptance": "Request quota checked prior to paid inference; usage debited once per idempotency key; over-limit returns customer-safe response and does not call upstream",
+    "verification": "Unit/Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "PAI-005",
+    "area": "Tenant business connector isolation",
+    "acceptance": "Customer may add scoped business REST API connector but cannot use it to access/modify OnTrack upstream AI provider config or bypass usage quota",
+    "verification": "Integration/security",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-001",
+    "area": "Three WhatsApp onboarding choices",
+    "acceptance": "Tenant UI shows Embedded Signup, eligible Coexistence, Manual Meta Cloud API; mode persists",
+    "verification": "Browser/Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-002",
+    "area": "Manual Meta credentials",
+    "acceptance": "WABA ID, phone number ID, token, App ID/secret and verify token encrypted/masked; correct backend validation",
+    "verification": "Feature/DB",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-003",
+    "area": "Webhook authenticity",
+    "acceptance": "GET challenge token and POST X-Hub-Signature-256 raw body validated; invalid signature rejected",
+    "verification": "Unit/Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-004",
+    "area": "WhatsApp tenant isolation",
+    "acceptance": "Cross-tenant number hijack and credential disclosure blocked; route-owned sender",
+    "verification": "Feature/Security",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-005",
+    "area": "Meta connect readiness",
+    "acceptance": "Metadata 200 alone cannot mark live; real inbound/outbound tests have separate evidence",
+    "verification": "Integration + gated live",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-006",
+    "area": "AI provider separation",
+    "acceptance": "Tenant WhatsApp Meta credentials accepted but tenant AI Provider keys/routes/models remain forbidden",
+    "verification": "Feature/Policy",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-007",
+    "area": "Agent routing and human lock",
+    "acceptance": "Multiple tenant numbers route correctly; AI suppressed while human owns chat; no send loop",
+    "verification": "Integration/Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-008",
+    "area": "Coexistence safety",
+    "acceptance": "Unsupported/not eligible coexistence never silently deregisters or migrates customer number",
+    "verification": "Feature/Workflow",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-INBOX-001",
+    "area": "Cloud API real-time Inbox",
+    "acceptance": "Cloud-only active Meta phone has independent WhatsApp-style inbox; scoped WebSockets, chat/message statuses, unread badges; reconnect replays only missing events",
+    "verification": "Feature/Browser/WebSocket",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-INBOX-002",
+    "area": "Official media/composer",
+    "acceptance": "Emoji/stickers/photo/video/audio/documents supported only within Meta verified type/size policy; unsupported media explicitly rejected",
+    "verification": "Feature/Browser + Meta adapter mocks",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-INBOX-003",
+    "area": "Inbox notifications/limits",
+    "acceptance": "Opt-in browser notices, unread and assignment work; policy blocks freeform outside Meta session window and uses approved template where applicable",
+    "verification": "Feature/Browser",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-PAUSE-001",
+    "area": "Tenant pause setting default",
+    "acceptance": "Tenant default 15 minutes and minute validation 1..1440; owner only and per-connection override; persisted on reload",
+    "verification": "Unit/Feature/Browser",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-PAUSE-002",
+    "area": "Manual reply triggers pause",
+    "acceptance": "Human staff outgoing intent starts pause in only selected conversation before Meta send; other conversations unaffected",
+    "verification": "Feature/DB/Queue",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-PAUSE-003",
+    "area": "Sliding timer on second reply",
+    "acceptance": "Another staff reply after 5 minutes extends full configured period; no stale timer may preempt new deadline",
+    "verification": "Unit/fake clock/parallel scheduler",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-PAUSE-004",
+    "area": "Incoming customer while paused",
+    "acceptance": "Customer inbound stored and broadcast; never triggers pause itself; AI gated at final send even for stale/in-flight generation",
+    "verification": "Feature/Queue concurrency",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-PAUSE-005",
+    "area": "Automatic resume and catch-up",
+    "acceptance": "Without open browser, scheduler resumes at deadline and processes pending unanswered customer turn once, no unsolicited reply when none pending",
+    "verification": "Fake clock/Feature/integration",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-PAUSE-006",
+    "area": "Human Lock priority",
+    "acceptance": "Permanent human lock must not auto-clear at timed pause expiry; explicit owner/staff release required",
+    "verification": "Feature/Policy",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-PAUSE-007",
+    "area": "Isolation and permissions",
+    "acceptance": "Tenant B cannot view/configure A pause or interact with its conversation, staff without permission cannot change tenant default",
+    "verification": "Security Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-PAUSE-008",
+    "area": "Race/idempotency",
+    "acceptance": "Concurrent human reply and AI final send are ordered safely; duplicate outbox, webhook, scheduler jobs and out-of-order callbacks never duplicate AI reply",
+    "verification": "Concurrency/Feature",
+    "status": "NOT_RUN"
+  },
+  {
+    "id": "WA-PAUSE-009",
+    "area": "Cross-tab and reconnect",
+    "acceptance": "Server-sourced countdown visible across two browser sessions; live pause broadcasts and reconnect readback match database",
+    "verification": "Browser/Websocket",
+    "status": "NOT_RUN"
+  }
+]

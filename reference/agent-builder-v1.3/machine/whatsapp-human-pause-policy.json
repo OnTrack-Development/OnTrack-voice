@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "feature": "whatsapp_human_reply_timed_ai_pause",
+  "status": "APPROVED_SPEC_NOT_DEPLOYED",
+  "tenant_default_minutes": 15,
+  "min_minutes": 1,
+  "max_minutes": 1440,
+  "setting_location": "/app/{workspace}/channels/whatsapp/{connection}/automation",
+  "settings_scope": [
+    "tenant_default",
+    "per_whatsapp_connection_override"
+  ],
+  "triggers": [
+    "authorized_staff_manual_outgoing_intent_accepted",
+    "verified_human_outgoing_webhook_when_meta_supports_attribution"
+  ],
+  "non_triggers": [
+    "customer_inbound_message",
+    "ai_outbound_message",
+    "webhook_delivery_status",
+    "unknown_outbound_origin"
+  ],
+  "on_human_reply": {
+    "scope": "single_conversation",
+    "deadline": "server_utc_now_plus_effective_minutes",
+    "extend_on_each_staff_reply": true,
+    "persist_before_meta_send": true,
+    "broadcast_to_authorized_staff": true
+  },
+  "priority": [
+    "human_locked",
+    "disabled_or_opt_out",
+    "timed_paused",
+    "active_ai"
+  ],
+  "ai_send_gate": [
+    "tenant_owner_verified",
+    "agent_and_channel_active",
+    "not_human_locked",
+    "not_timed_paused",
+    "not_opted_out",
+    "fresh_conversation_version",
+    "valid_meta_send_window_or_approved_template",
+    "quota_ok",
+    "idempotent_outbox_reservation"
+  ],
+  "on_timeout": {
+    "worker_scheduler_required": true,
+    "cas_pause_generation": true,
+    "clear_only_if_no_human_lock": true,
+    "catch_up_unanswered_inbound_once": true,
+    "send_nothing_if_no_unanswered_inbound": true
+  },
+  "permanent_human_lock_auto_expires": false,
+  "ui_labels": {
+    "settings": "مدة إيقاف الذكاء بعد رد الموظف (بالدقائق)",
+    "active": "الذكاء نشط",
+    "paused": "الذكاء متوقف مؤقتًا",
+    "locked": "المحادثة مستلمة بواسطة موظف",
+    "resume": "استئناف الرد الآلي الآن"
+  },
+  "security": [
+    "tenant_scoped",
+    "owner_or_authorized_manager_updates",
+    "audit_all_overrides",
+    "no_secrets_in_broadcast",
+    "no_client_side_timer_authority"
+  ]
+}

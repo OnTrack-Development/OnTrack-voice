@@ -1,0 +1,65 @@
+# WhatsApp Real-time Inbox + Auto-Pause when a human replies — 27 Oct 2026
+
+**Owner-approved product specification. Implementation status: PLANNED in this handoff, NOT deployed.** Mandatory for OnTrack AI Agent Builder. This adds to the 3 official connection methods in `META_WHATSAPP_ONBOARDING_AR.md`. Scope: each tenant's WhatsApp Cloud API number; interface is inspired by WhatsApp Web interaction patterns, not an unauthorized copy of WhatsApp proprietary code/assets or browser protocol.
+
+## 1. Independent WhatsApp inbox for Cloud API numbers
+- On successful signed webhook receive/send verification and status `active`, expose **WhatsApp Inbox** as a full independent navigation tab: `/app/{workspace}/inbox/whatsapp`, plus number-specific route/filter `/app/{workspace}/inbox/whatsapp?connection_id=...`. An account may have multiple Meta numbers, each scoped to the correct tenant.
+- For Cloud API-only numbers **with no app linked**, this inbox is the primary operational chat interface. Coexistence numbers may use the same Inbox for supported API-delivered events. Do NOT claim full sync of messages sent from WhatsApp Business App unless Meta actually mirrors them for the eligible setup; webhook may not include all external manual sends.
+- Desktop interface: right-side conversations list in Arabic RTL, central thread, optionally left contact detail pane; mobile: fast switch list/thread, virtualized chat history, sticky composer, context menu, message preview, profile, status, unread badges. Familiar WhatsApp Web ergonomics but original OnTrack light/white/black/red visual design, with channel-appropriate green only as modest status color.
+- Text, UTF-8 & emoji picker, replies/quotes, supportable reactions, location/contact where allowed, photos, video, audio/voice clips, documents, and **stickers including animated only where officially supported for this API/version**. Both sending and receiving must use per-message capability checks, size/MIME validation, secure temporary media links, signed storage, AV/file checks when available. If an unsupported send type, show explicit status/fallback; never pretend it succeeded. Message statuses: queued, sending, sent, delivered, read, failed, unsupported. Display caption and media metadata safely; avoid XSS in text/markup or URL previews.
+- Browser notification permission opt-in, staff notification preferences, optional subtle sounds, per-conversation badge counts, user presence in dashboard (NOT fictional remote WhatsApp online status), search/filter/assign, real-time incoming/status updates with Laravel Reverb/broadcast WebSockets or compatible self-hosted websockets. Reconnect with cursor-based incremental sync, no missed events, no duplicate flashes; Redis queues when available, efficient pagination and indexes; no 1-second whole-inbox polling.
+- Receipt path: `Meta signed webhook -> raw-body HMAC validation -> durable event + idempotency -> queue -> conversation/message persisted in MySQL -> scoped realtime broadcast -> customer notifications`. Outbound: `staff authenticated action -> permissions + pause state -> durable outbox -> Meta Cloud API -> delivery status webhook -> broadcast`; AI uses the same outbox after final safety checks. Never send from client JS directly to Meta; encrypt Meta credentials and isolate tenants.
+- Respect Meta 24-hour customer-service window, template use outside permitted window, content type restrictions, rate limits and retention/privacy. Do not import old chats that never reached the connection via supported API. Implement UI as functional code, NOT iframe of WhatsApp Web or unofficial QR/Baileys connector.
+
+## 2. Auto-Pause human reply rule — APPROVED DEFAULT = **15 minutes**
+**Meaning:** "User replies in chat" means the company's authorized human staff member or owner sends a manual message from OnTrack's WhatsApp Inbox, NOT the external WhatsApp customer who messages the business.
+
+- Settings UI (owner/authorized manager) at `Channels > WhatsApp > Automation > AI pause after human reply` with integer **minutes**. Default **15** at creation for every tenant. Validate 1..1440 minutes; support tenant default with optional per-number override. Staff without manage-automation permission can view status/countdown but cannot change account settings.
+- A manual outgoing staff message accepted for delivery triggers `ai_pause_until = server_now_utc + configured_minutes`, **only for that one conversation**. Display countdown and badge `الرد الآلي متوقف مؤقتًا — متبقّي 14:59`, `آخر رد بشري: [staff, time]`, and `تفعيل تلقائي في [time]`. Other conversations and numbers continue normally.
+- **Sliding window:** every subsequent authorized human outgoing message in the same conversation resets the timer to `last_human_reply_at + configured_minutes`. Never shorten an existing active pause due to out-of-order events; use row locking and last processed human event watermark.
+- At expiry, re-enable auto responses **automatically** if conversation/agent/channel/subscription is active and `human_locked` is false; no user click needed. If customer sent **unanswered inbound messages after the last human reply** during pause, trigger one idempotent catch-up AI processing job for the latest coherent pending turn, after policy/identity/context checks. If nothing is pending, resume silently: do not send an unsolicited AI message merely because timer elapsed.
+- Messages received during pause are stored, broadcast and notified to staff as normal; **AI cannot send, start a response that will send, or process a stale scheduled send**. In-flight generation may finish but final send gate must check the current pause again atomically. Abort/requeue as appropriate and never count stale content as sent. Stale reply/queue task must have fresh conversation version and latest inbound turn ID before sending. Human actions must be given priority over AI.
+- A **permanent manual Human Takeover/Human Lock** is separate and higher priority than the 15-minute timeout. `human_locked` NEVER auto-clears on timer expiry; only an authorized explicit release can clear it. If a conversation is closed, bot/agent disabled, channel disconnected, account over quota, or customer opt-out active, no AI send even if timer elapsed.
+- Clear controls: status indicator; `إيقاف مؤقتًا` (authorized temporary pause, same engine), `تمديد المهلة`, `استئناف الرد الآلي الآن` (owner/authorized staff), `استلام المحادثة بالكامل` (human lock), `إنهاء الاستلام` (explicit human lock release). All manual overrides permission-checked and audited with actor, reason, old/new values.
+- **Failure handling:** set temporary suppression atomically when staff submit accepted manual outgoing intent, *before* Meta send attempt, so AI never races the human; show pending/failed outgoing status. On definitive failure, a guarded reconciliation may clear this particular trigger **only if** no later human action, pause, or lock exists; never silently resume in a race. Store durable event + outbox and process idempotently.
+- Time basis server UTC timestamps with server-generated `pause_until`; client countdown computed from server clock offset; no browser tab is required for auto-resume. Laravel scheduler every minute or delayed job + version token; recovery after worker restart. Atomic lock and `pause_generation` version ensure expired/older scheduled jobs cannot resume a newly-extended pause.
+- With WhatsApp Business App Coexistence, if supported Meta webhooks expose a clearly identified human outgoing message from the app, apply this pause as well. If not exposed or ambiguous, do NOT infer it; document the limitation and provide manual pause/takeover from OnTrack Inbox.
+
+## 3. State semantics (prevent clobbering Permanent Human Lock)
+`ai_mode` = enabled | timed_paused | human_locked | disabled (effective derived from flags + policy). Store `human_lock_at`/`human_lock_by` independently from `ai_pause_until`, don't overload one boolean. AI send permitted only when `human_lock_at IS NULL AND (ai_pause_until IS NULL OR ai_pause_until <= now()) AND conversation active ...`.
+
+Example atomic process:
+1. POST `/api/app/conversations/{id}/messages` human message, authenticated tenant staff, `channel=whatsapp`, permission and content validated.
+2. DB transaction row-lock conversation; write manual outgoing message and outbox idempotency key; set `last_human_reply_at`, compute `ai_pause_until` with account/number setting and increment `pause_generation` / `conversation_version`; record audit event. Commit. Broadcast staff manual send and pause immediately.
+3. AI output gate immediately before reserving final Meta send: transaction row-lock same conversation, verify tenant, agent, no human lock, not paused, customer-service window, quota, fresh version/turn, and unique outbox key. If paused, mark generated output `suppressed_due_to_human_reply` and do not call Meta.
+4. Scheduler selects due pauses and compares `pause_generation` and exact `pause_until`; if human lock exists, do not re-enable AI. Clear expired timed pause, broadcast, enqueue one catch-up if unanswered inbound exists. Dedupe via last handled customer turn and outbox idempotency.
+
+**Suggested schema:**
+- `tenant_automation_settings(tenant_id, whatsapp_human_reply_pause_minutes INT NOT NULL DEFAULT 15, updated_by, updated_at)`
+- `whatsapp_connections(human_reply_pause_override_minutes nullable, ...)`
+- `conversations(tenant_id, channel_connection_id, ai_pause_until_utc nullable, last_human_reply_at_utc nullable, last_human_reply_by nullable, pause_generation BIGINT DEFAULT 0, conversation_version BIGINT DEFAULT 0, human_lock_at_utc nullable, human_lock_by nullable, last_ai_replied_inbound_id nullable, ...)`
+- `message_outbox(tenant_id, conversation_id, direction, actor_type[staff|ai], idempotency_key unique-scope, meta_message_id nullable, state, ...)`
+- `conversation_events(tenant_id, conversation_id, event_type[human_replied|ai_pause_extended|ai_resume|ai_send_blocked|human_lock|human_release], source_message_id, metadata_no_secrets, ...)`
+
+Indexes/uniqueness: `(tenant_id, channel_connection_id, ai_pause_until_utc)`, `(tenant_id, conversation_id, created_at)`, strict event ID/outbox key dedupe; all jobs use tenant context and scoped authorization.
+
+## 4. UX acceptance on live page
+- Right-hand conversation sidebar: chat A displays red/amber `AI متوقف 14:59`, chat B `AI نشط`. Sending reply by staff in chat A instant updates A only. If staff replies again after 5m, A becomes 15:00 again.
+- Settings under WhatsApp connection show numeric field `مدة إيقاف الذكاء بعد رد الموظف (بالدقائق)` prefilled 15, save and reload persist, with confirmation that changes affect **future** human replies (not retroactive timers).
+- Badge countdown remains correct after refresh and open in another operator's browser. Websocket event updates both tabs. Expiry returns `AI نشط` without an open browser.
+- Current customer messages in paused chat stay visible immediately; no AI reply is delivered during the pause. If pending unanswered inbound exists at expiry, process once; else remain silent until next inbound.
+- Manual human lock must remain locked after a full hour regardless of 15-minute settings.
+- Tenant A changing configuration does not touch Tenant B and cannot read other tenants' paused conversations.
+
+## 5. Test checklist — MUST CREATE AND RUN
+- Unit: effective setting default 15; tenant override, channel override, minute bounds; time UTC and restart; sliding window.
+- Feature: human manual send creates outbox, events, last-human time, pause; cross-tenant and unauthorized settings blocked; after refresh persistence.
+- Race: stale AI job generated before human reply tries to send -> blocked at final gate; two human writes concurrently never reduce pause; parallel timer after extension cannot resume prematurely.
+- Timers: 15-minute UTC fake-clock travel; exact boundary; multiple tenants/timezones; scheduler restart and duplicate job dedupe.
+- Human takeover: `human_locked` remains until explicit release irrespective of timeout; manual resume cannot override lock unless authorized release.
+- Pause behavior: customer inbound alone does **not** trigger human-reply pause; inbound while paused stores/broadcasts; expiry processes only pending unanswered inbound once; no unsolicited send without pending inbound.
+- Meta webhook and outbox: idempotent signed inbound, manual outbound, statuses, media, 24-hour/template policy, message content safety; no fabricated live evidence.
+- Browser: settings field default 15, save reload, countdown across tabs, chat-specific state, real-time update, zero full-page polling, accessibility and responsive layouts.
+
+## 6. Handoff integration references
+Read: `docs/META_WHATSAPP_ONBOARDING_AR.md`, `docs/SMART_BUTTONS_CHANNELS_AR.md`, `docs/PLATFORM_AI_SERVICE_BOUNDARY_AR.md`. This rule applies to OnTrack WhatsApp Inbox once channel connected, not to platform AI provider key management (admin-only). All code must be built in Laravel application by Claude; preview HTML here is a design/behavior reference only.

@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "updated_on": "2026-10-29",
+  "checks": [
+    {
+      "id": "AC-01",
+      "requirement": "Host GitHub poll and report",
+      "status": "VERIFIED_LIVE_CONTROL",
+      "evidence": "ops/host-link/results/appontrack-server11/bootstrap-probe-20261029.json"
+    },
+    {
+      "id": "AC-02",
+      "requirement": "Remote exec, file write/read, cron",
+      "status": "VERIFIED_LIVE_CONTROL",
+      "evidence": "ops/host-link/results/appontrack-server11/verify-terminal-20261028234301727.json"
+    },
+    {
+      "id": "AC-03",
+      "requirement": "Phone digital capture/injection echo A/B",
+      "status": "PENDING_DEVICE_AUDIO_PROOF",
+      "evidence": null
+    },
+    {
+      "id": "AC-04",
+      "requirement": "Inbound Egyptian Arabic AI conversation on mobile SIM",
+      "status": "PENDING",
+      "evidence": null
+    },
+    {
+      "id": "AC-05",
+      "requirement": "Outbound AI conversation from same mobile SIM",
+      "status": "PENDING",
+      "evidence": null
+    },
+    {
+      "id": "AC-06",
+      "requirement": "Real answer and hangup events, accurate outgoing identity",
+      "status": "PENDING",
+      "evidence": null
+    },
+    {
+      "id": "AC-07",
+      "requirement": "Cross-tenant number, knowledge, audio and report isolation",
+      "status": "PLANNED",
+      "evidence": null
+    },
+    {
+      "id": "AC-08",
+      "requirement": "CSV XLSX XLS TXT one-number-per-line paste imports",
+      "status": "PLANNED",
+      "evidence": null
+    },
+    {
+      "id": "AC-09",
+      "requirement": "Multiple tasks and fixed knowledge/task revisions per call",
+      "status": "PLANNED",
+      "evidence": null
+    },
+    {
+      "id": "AC-10",
+      "requirement": "Sequential automatic calling, configurable post-hangup delay",
+      "status": "PLANNED",
+      "evidence": null
+    },
+    {
+      "id": "AC-11",
+      "requirement": "Work periods timezone holidays exceptions and pause/resume",
+      "status": "PLANNED",
+      "evidence": null
+    },
+    {
+      "id": "AC-12",
+      "requirement": "Durable recovery without blind repeat call",
+      "status": "PLANNED",
+      "evidence": null
+    },
+    {
+      "id": "AC-13",
+      "requirement": "Live notes and per-number final report; separate business outcomes",
+      "status": "PLANNED",
+      "evidence": null
+    },
+    {
+      "id": "AC-14",
+      "requirement": "Inbound while busy policy matches physical capacity",
+      "status": "PENDING_CAPABILITY_TEST",
+      "evidence": null
+    },
+    {
+      "id": "AC-15",
+      "requirement": "Opt-out, bounded retries and callback schedule",
+      "status": "PLANNED",
+      "evidence": null
+    },
+    {
+      "id": "AC-16",
+      "requirement": "Platform-managed AI secrets, no tenant BYOK/model exposure",
+      "status": "REQUIREMENT_NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "AC-17",
+      "requirement": "Companion login/QR and supported-device recovery",
+      "status": "CONDITIONAL_AFTER_AUDIO_PROOF",
+      "evidence": null
+    },
+    {
+      "id": "AC-18",
+      "requirement": "Manager identity verification and authorized voice commands",
+      "status": "DEFERRED",
+      "evidence": null
+    }
+  ]
+}

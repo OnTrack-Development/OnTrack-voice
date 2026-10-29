@@ -1,0 +1,118 @@
+{
+  "brand": {
+    "name": "OnTrack AI",
+    "descriptor": "منصة بناء وتشغيل الوكلاء الذكيين"
+  },
+  "nav": {
+    "features": "المميزات",
+    "industries": "القطاعات",
+    "integrations": "التكاملات",
+    "pricing": "الأسعار",
+    "developers": "للمطورين",
+    "login": "تسجيل الدخول",
+    "get_started": "أنشئ وكيلك"
+  },
+  "hero": {
+    "eyebrow": "ذكاء اصطناعي يفهم شغلك، مش بس بيرد.",
+    "title": "حوّل كل محادثة إلى تجربة أذكى.",
+    "description": "أنشئ وكلاء ذكاء اصطناعي، اربطهم بمشروعاتك وقواعد معرفتك، وحدد الإجراءات المسموح بها. كل ده من مكان واحد، ولأي نشاط تجاري.",
+    "primary": "أنشئ وكيلك",
+    "secondary": "شاهد التجربة"
+  },
+  "widgets": {
+    "demo": "عرض توضيحي",
+    "live": "متصل فعليًا",
+    "disconnected": "غير متصل",
+    "testing": "جارٍ الاختبار",
+    "model_add": "إضافة موديل",
+    "test_connection": "اختبار الاتصال",
+    "test_model": "اختبار الموديل",
+    "state_updated": "تم تحديث الحالة",
+    "handoff": "طلب موظف",
+    "verify": "التحقق من الحساب",
+    "detail": "تفاصيل الطلب",
+    "reschedule": "تعديل الموعد",
+    "managed_ai": "الذكاء مقدم من OnTrack"
+  },
+  "auth": {
+    "login": "الدخول إلى حسابك",
+    "register": "إنشاء حساب جديد",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور"
+  },
+  "dashboard": {
+    "overview": "نظرة عامة",
+    "agents": "الوكلاء",
+    "projects": "المشروعات",
+    "knowledge": "المعرفة",
+    "smart_buttons": "الأزرار الذكية",
+    "integrations": "التكاملات",
+    "inbox": "صندوق الوارد",
+    "crm": "العملاء",
+    "operations": "غرفة العمليات",
+    "analytics": "التحليلات",
+    "settings": "الإعدادات",
+    "plan": "الباقة والرصيد",
+    "capabilities": "إمكانيات الوكيل",
+    "channels": "القنوات"
+  },
+  "errors": {
+    "generic": "حدث خطأ. راجع التفاصيل وحاول مرة أخرى.",
+    "not_verified": "يلزم التحقق من الحساب قبل تنفيذ هذا الإجراء.",
+    "provider_unreachable": "تعذّر الاتصال بالمزوّد.",
+    "model_test_failed": "لم ينجح اختبار توليد الرد.",
+    "tenant_forbidden": "ليس لديك صلاحية الوصول لهذا المورد."
+  },
+  "platform_admin": {
+    "ai_providers": "مزودو الذكاء",
+    "ai_models": "موديلات المنصة",
+    "ai_routing": "توجيه الموديلات",
+    "plan_rules": "إدارة الباقات وحدود الاستهلاك",
+    "costs": "تكاليف الذكاء"
+  },
+  "whatsapp_connect": {
+    "heading": "ربط رقم واتساب",
+    "method_embedded": "الربط التلقائي عبر Meta",
+    "method_coexistence": "ربط WhatsApp Business الحالي",
+    "method_manual": "الربط اليدوي — Cloud API",
+    "manual_label": "اسم الربط",
+    "manual_phone": "رقم واتساب",
+    "waba_id": "WhatsApp Business Account ID",
+    "phone_number_id": "Phone Number ID",
+    "meta_access_token": "Meta Access Token",
+    "meta_app_id": "Meta App ID",
+    "meta_app_secret": "Meta App Secret",
+    "callback_url": "Webhook Callback URL",
+    "verify_token": "Webhook Verify Token",
+    "test_credentials": "اختبار بيانات الاتصال",
+    "verify_webhook": "اختبار Webhook",
+    "test_send": "إرسال رسالة اختبار",
+    "assign_agent": "ربط الوكيل",
+    "status_draft": "مسودة",
+    "status_connected": "متصل ومختبر",
+    "status_webhook_pending": "بانتظار تأكيد Webhook",
+    "notice": "هذه بيانات قناة واتساب الخاصة بك، وليست إعدادات مزود الذكاء الاصطناعي الخاص بـOnTrack."
+  },
+  "whatsapp_inbox": {
+    "title": "محادثات واتساب",
+    "search": "ابحث في المحادثات",
+    "pause_setting": "مدة إيقاف الذكاء بعد رد الموظف (بالدقائق)",
+    "default_pause": "15",
+    "ai_active": "الذكاء نشط",
+    "ai_timed_pause": "الرد الآلي متوقف مؤقتًا",
+    "ai_human_locked": "المحادثة مستلمة بواسطة موظف",
+    "ai_resume": "استئناف الرد الآلي الآن",
+    "ai_takeover": "استلام المحادثة",
+    "ai_release": "إنهاء الاستلام",
+    "last_staff_reply": "آخر رد من الموظف",
+    "pause_applies_only_one_chat": "المدة تطبَّق على المحادثة التي يرد عليها الموظف فقط",
+    "pause_extension": "أي رد جديد من الموظف يعيد بدء المؤقت",
+    "notifications": "تفعيل إشعارات المتصفح",
+    "send": "إرسال",
+    "attach": "إرفاق ملف",
+    "emoji": "إيموجي",
+    "stickers": "استيكرز",
+    "record": "تسجيل صوتي",
+    "demo_only": "معاينة تصميم: لا يوجد اتصال فعلي بواتساب أو بالذكاء الاصطناعي"
+  }
+}

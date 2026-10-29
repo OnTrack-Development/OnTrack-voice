@@ -1,0 +1,14 @@
+Record of tool outputs already observed in the conversation; not a new remote session.
+
+Target: 65.21.208.232 TCP 7195
+Accounts attempted from this environment: appontrack, ai
+Authentication method: dedicated Ed25519 key, BatchMode, IdentitiesOnly
+
+Observed error:
+ssh: connect to host 65.21.208.232 port 7195: Network is unreachable
+
+Failure occurred before authentication. No remote files were changed by these SSH attempts.
+The owner separately stated that another agent could connect with ai@65.21.208.232:7195.
+The supplied screenshot shows a Bash SSH invocation, not stdout proving a session from our environment.
+
+The existing GitHub pull worker is the now-verified alternative management channel.

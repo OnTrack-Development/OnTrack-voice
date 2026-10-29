@@ -1,0 +1,230 @@
+{
+  "baseline_commit": "92795829331d686871b30d17be0d7cb91ee50b93",
+  "note": "Compares uploaded source before redaction against the old main tree; root runtime retained, not overwritten from upload. Does not compare every live host file.",
+  "files": [
+    {
+      "path": ".gitignore",
+      "status": "DIFFERENT",
+      "uploaded_git_blob_sha": "84d65136596e5dcd427d685426d4a6d5b14faf93",
+      "baseline_git_blob_sha": "3980a08df775a29c775e7e181fb2960ca5c471d0",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": ".htaccess",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "3c51eb8d410b41c6d1e49d9b8d242dcc2445463e",
+      "baseline_git_blob_sha": "3c51eb8d410b41c6d1e49d9b8d242dcc2445463e",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "PING.txt",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "6bb6b057b166a22c1460bd0ed6dbfacf9b83c7ad",
+      "baseline_git_blob_sha": "6bb6b057b166a22c1460bd0ed6dbfacf9b83c7ad",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "README_AR.md",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "20104fcd8623bf336f86e9bdc1a219b80079a225",
+      "baseline_git_blob_sha": "20104fcd8623bf336f86e9bdc1a219b80079a225",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "UPLOAD_TO_ROOT.txt",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "7b12a4b3e2016ce592a348e67574d83832012bd2",
+      "baseline_git_blob_sha": "7b12a4b3e2016ce592a348e67574d83832012bd2",
+      "import_status": "REDACTED"
+    },
+    {
+      "path": "api/.demo_setup_done",
+      "status": "BASELINE_ONLY",
+      "uploaded_git_blob_sha": null,
+      "baseline_git_blob_sha": "99272e99e396d5a583abb95b4dc1346da3359a24",
+      "import_status": null
+    },
+    {
+      "path": "api/bootstrap.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "394e05dc1298b56ba50c6ab029a1f4392adf26b6",
+      "baseline_git_blob_sha": "394e05dc1298b56ba50c6ab029a1f4392adf26b6",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "api/brain.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "87f67f220d0c9ec0e10680bb9bc29f4c9222c807",
+      "baseline_git_blob_sha": "87f67f220d0c9ec0e10680bb9bc29f4c9222c807",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "api/demo_config.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "94bd2cfcdb215c7760ec18c173921c3008e32d01",
+      "baseline_git_blob_sha": "94bd2cfcdb215c7760ec18c173921c3008e32d01",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "api/diag.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "e9c05ab38e9de6d75e721e1a13914bb011304746",
+      "baseline_git_blob_sha": "e9c05ab38e9de6d75e721e1a13914bb011304746",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "api/live_session.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "11e6149fd5891374569f409066a607b1e771d944",
+      "baseline_git_blob_sha": "11e6149fd5891374569f409066a607b1e771d944",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "api/setup_demo.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "7a2a265378559f40e84ee2973b01ddd60869e60a",
+      "baseline_git_blob_sha": "7a2a265378559f40e84ee2973b01ddd60869e60a",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "api/status.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "03fabd7d4675e06bf8374b24c866a375719397b3",
+      "baseline_git_blob_sha": "03fabd7d4675e06bf8374b24c866a375719397b3",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "api/tts.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "87f67f220d0c9ec0e10680bb9bc29f4c9222c807",
+      "baseline_git_blob_sha": "87f67f220d0c9ec0e10680bb9bc29f4c9222c807",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "assets/app.css",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "61e426594e167680aed494b87b88e5b1d9558a97",
+      "baseline_git_blob_sha": "61e426594e167680aed494b87b88e5b1d9558a97",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "assets/app.js",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "511d0d916071cd432397ab3b73773e28aa3962f5",
+      "baseline_git_blob_sha": "511d0d916071cd432397ab3b73773e28aa3962f5",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "assets/outbound.mjs",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "faaba60cc03b9a40e756b2ebb6e6a7ed8290a0ca",
+      "baseline_git_blob_sha": "faaba60cc03b9a40e756b2ebb6e6a7ed8290a0ca",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "config.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "5ec998f59533400bc19da1d34c1816be5ba7652b",
+      "baseline_git_blob_sha": "5ec998f59533400bc19da1d34c1816be5ba7652b",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "data/knowledge.json",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "991e3de54a90ee0d9e617f3d191ffea05662e211",
+      "baseline_git_blob_sha": "991e3de54a90ee0d9e617f3d191ffea05662e211",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "dev_bridge.php",
+      "status": "UPLOAD_ONLY",
+      "uploaded_git_blob_sha": "1421cbd1bb9c082b6c6c575477e7889028d95f1a",
+      "baseline_git_blob_sha": null,
+      "import_status": "REDACTED"
+    },
+    {
+      "path": "index.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "567bb11bacabe3863228e6066ba3b3608a489de8",
+      "baseline_git_blob_sha": "567bb11bacabe3863228e6066ba3b3608a489de8",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "lib/EdgeTtsClient.php",
+      "status": "DIFFERENT",
+      "uploaded_git_blob_sha": "d597fda66b35ba1099b5b548308101bca28c7724",
+      "baseline_git_blob_sha": "506efa0355529c91935ee262bfeafea9b8a80325",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "lib/OutboundMission.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "1d860a1a2e945139421555f635ef63dd1f8fed1a",
+      "baseline_git_blob_sha": "1d860a1a2e945139421555f635ef63dd1f8fed1a",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "lib/VoiceTutSpaceClient.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "e9c78aa1153c8ef5734ba1dd376314408f0a7a06",
+      "baseline_git_blob_sha": "e9c78aa1153c8ef5734ba1dd376314408f0a7a06",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "logs/.gitkeep",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "baseline_git_blob_sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "omnira_api_tester.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "b5dfd9b4bf828fc91b82aef954b2d96ae6ebd4a7",
+      "baseline_git_blob_sha": "b5dfd9b4bf828fc91b82aef954b2d96ae6ebd4a7",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "test.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "d9ac52554aa1cba1b098e3a0785d5f0ba2b52c43",
+      "baseline_git_blob_sha": "d9ac52554aa1cba1b098e3a0785d5f0ba2b52c43",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "tests/.htaccess",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "b66e80882967080d48181b5b53a8be18cc94d610",
+      "baseline_git_blob_sha": "b66e80882967080d48181b5b53a8be18cc94d610",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "tests/browser.test.mjs",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "17a21ca061e5e22b0ad882561f9bf1e48ff25d85",
+      "baseline_git_blob_sha": "17a21ca061e5e22b0ad882561f9bf1e48ff25d85",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "tests/mission_test.php",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "0f851f6d43132fa3ae5d91f02d1c16a9ea5a475a",
+      "baseline_git_blob_sha": "0f851f6d43132fa3ae5d91f02d1c16a9ea5a475a",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "tests/outbound.test.mjs",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "c9e6d29bd6b82585a1f290d32d3b8250e89e68e4",
+      "baseline_git_blob_sha": "c9e6d29bd6b82585a1f290d32d3b8250e89e68e4",
+      "import_status": "IMPORTED_EXACT"
+    },
+    {
+      "path": "version.json",
+      "status": "MATCH_ORIGINAL_UPLOAD",
+      "uploaded_git_blob_sha": "ced20f3f5da6c0d4576c0b75c698b4d0bb8c2f09",
+      "baseline_git_blob_sha": "ced20f3f5da6c0d4576c0b75c698b4d0bb8c2f09",
+      "import_status": "IMPORTED_EXACT"
+    }
+  ]
+}

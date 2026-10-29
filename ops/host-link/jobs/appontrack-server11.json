@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "verify-terminal-20261028234301727",
+  "target": "appontrack-server11",
+  "action": "exec",
+  "created_at": "2026-10-28T23:43:01.727Z",
+  "expires_at": "2026-10-29T00:43:01.727Z",
+  "cwd": "/home/appontrack/public_html",
+  "argv": [
+    "/bin/python3",
+    "-c",
+    "import os,json,subprocess,hashlib,platform\nfrom pathlib import Path\nhome=Path.home(); root=home/'public_html'; control=home/'ontrack-voice-link'\nmarker=control/'connection-check.txt'\nfd=os.open(str(marker),os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW,0o600)\nwith os.fdopen(fd,'w') as f:f.write(\"ontrack-host-link-verify-terminal-20261028234301727\")\nphp=subprocess.run(['/usr/local/bin/php','-v'],capture_output=True,text=True,timeout=5)\ncron=subprocess.run(['/bin/crontab','-l'],capture_output=True,text=True,timeout=5)\nlines=[x for x in cron.stdout.splitlines() if '# ontrack-voice-link' in x]\nversion=json.loads((root/'version.json').read_text())\nfiles=['api/live_session.php','assets/app.js','lib/OutboundMission.php','api/status.php','README_AR.md']\nprint(json.dumps({'uid':os.getuid(),'hostname':platform.node(),'cwd':str(Path.cwd()),'marker_readback':marker.read_text(),'php_version':php.stdout.splitlines()[0] if php.stdout else 'unknown','cron_read_exit':cron.returncode,'host_link_cron_count':len(lines),'host_link_cron_present':any(str(control/'worker.py') in x for x in lines),'app_version':version.get('version'),'source_files':{p:hashlib.sha256((root/p).read_bytes()).hexdigest() if (root/p).is_file() else None for p in files}},ensure_ascii=False,indent=2))"
+  ],
+  "timeout_seconds": 20
+}

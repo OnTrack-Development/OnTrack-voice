@@ -1,0 +1,30 @@
+Selected output pasted by the owner before the GitHub worker existed.
+This is historical owner-supplied evidence, not a new SSH session by the assistant.
+
+whoami: appontrack
+uid=2379(appontrack) gid=2383(appontrack) groups=2383(appontrack)
+hostname: server11.hhost.host
+pwd: /home/appontrack
+uname -srm: Linux 5.14.0-687.29.1.el9_8.x86_64 x86_64
+
+Tool paths present:
+/usr/local/bin/php
+/bin/python3
+/usr/local/cpanel/3rdparty/lib/path-bin/git
+
+Versions:
+PHP 8.1.34 (cli) (built: Oct 21 2026 00:00:00) (NTS)
+Python 3.9.25
+
+Not found in the account PATH in that check:
+node npm asterisk java adb ffmpeg
+
+Home directory names observed:
+access-logs browser_test etc logs lscache mail public_ftp public_html
+searchauto_host_check.txt searchauto_worker.lock ssl tmp virtualenv www
+
+Account processes shown:
+lsphp bash ps
+
+The SSH-listener section returned no useful observation; it does not prove TCP7195 is closed.
+Later live worker reports independently confirmed account, Python, PHP, tool paths and the actual public_html source version.

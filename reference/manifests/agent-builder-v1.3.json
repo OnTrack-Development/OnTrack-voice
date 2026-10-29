@@ -1,0 +1,324 @@
+{
+  "original_filename": "OnTrack_AI_Agent_Builder_Claude_Handoff_v1.3(1).zip",
+  "original_library_file_id": "libfile_b535e0f9b3308191a0dc1a3d81a25b5c",
+  "original_size_bytes": 130994,
+  "original_sha256": "6515e18ae2e4924beb255879b35c7b4c83fb0e7e11d8e9d18892412db7556e3c",
+  "import_directory": "reference/agent-builder-v1.3",
+  "entries": [
+    {
+      "source_path": "CLAUDE.md",
+      "source_size_bytes": 9239,
+      "source_sha256": "ba771a5db7486655f7b446304cb001fa6042cc8cd096d52da2a41deba6b039be",
+      "source_git_blob_sha": "ab1add3408e494f5d8839922a02548ca1b74f5f6",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/CLAUDE.md",
+      "imported_sha256": "ba771a5db7486655f7b446304cb001fa6042cc8cd096d52da2a41deba6b039be"
+    },
+    {
+      "source_path": "PROMPT_FOR_CLAUDE_AR.md",
+      "source_size_bytes": 17602,
+      "source_sha256": "af9dbe5776b190ec698829744b4645085a0ec4dba63c8b9227012a9315f842bf",
+      "source_git_blob_sha": "c37c6848f3f48106fba80f1fde6e5f2118675859",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/PROMPT_FOR_CLAUDE_AR.md",
+      "imported_sha256": "af9dbe5776b190ec698829744b4645085a0ec4dba63c8b9227012a9315f842bf"
+    },
+    {
+      "source_path": "README_START_HERE_AR.md",
+      "source_size_bytes": 9006,
+      "source_sha256": "6d11ad1080c85de6a23100cdaf69c543701ca46bb60874b9e390fdc204bf60ab",
+      "source_git_blob_sha": "834f031dc7d03de5df2e89e9bdeef96d52efe855",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/README_START_HERE_AR.md",
+      "imported_sha256": "6d11ad1080c85de6a23100cdaf69c543701ca46bb60874b9e390fdc204bf60ab"
+    },
+    {
+      "source_path": "design/tokens.css",
+      "source_size_bytes": 1022,
+      "source_sha256": "f9ce8b2080da2be99790c367c0fdb6eed8bf818c104d1ee713a7086132cccadf",
+      "source_git_blob_sha": "4665603a8ed22fbe2b2deb7b594241c8668a3fe1",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/design/tokens.css",
+      "imported_sha256": "f9ce8b2080da2be99790c367c0fdb6eed8bf818c104d1ee713a7086132cccadf"
+    },
+    {
+      "source_path": "docs/ARABIC_COPY_AND_CONTENT_AR.md",
+      "source_size_bytes": 6383,
+      "source_sha256": "950ff4f7440aa93245a15e591c211ff307dc56bd91c28d1df23e08f75bc053e8",
+      "source_git_blob_sha": "0d55fd798f74439123953f68d0cff04c7a50c4c0",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/docs/ARABIC_COPY_AND_CONTENT_AR.md",
+      "imported_sha256": "950ff4f7440aa93245a15e591c211ff307dc56bd91c28d1df23e08f75bc053e8"
+    },
+    {
+      "source_path": "docs/ARCHITECTURE_DATABASE_AR.md",
+      "source_size_bytes": 11070,
+      "source_sha256": "83338b1cee2734177b5a2502989c39d8330d224f0df098391c6f98a7a8f14c03",
+      "source_git_blob_sha": "93efaf6fc25646fbec422735074ef4be5aed9a01",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/docs/ARCHITECTURE_DATABASE_AR.md",
+      "imported_sha256": "83338b1cee2734177b5a2502989c39d8330d224f0df098391c6f98a7a8f14c03"
+    },
+    {
+      "source_path": "docs/DELIVERY_PHASES_TESTS_AR.md",
+      "source_size_bytes": 12288,
+      "source_sha256": "675b3d7eb4a94e1e273c53f556ab663fd8e0789981c63ffbcc6748791ab9516b",
+      "source_git_blob_sha": "c65119e4f06a79451396a6303af6d4b08eaf9996",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/docs/DELIVERY_PHASES_TESTS_AR.md",
+      "imported_sha256": "675b3d7eb4a94e1e273c53f556ab663fd8e0789981c63ffbcc6748791ab9516b"
+    },
+    {
+      "source_path": "docs/DESIGN_SYSTEM_LIGHT_AR.md",
+      "source_size_bytes": 10364,
+      "source_sha256": "5bd95181ada026432abbb7c25990f65478b294ff5b096f7f9d04e9e4698ce1cf",
+      "source_git_blob_sha": "47b4091b2f4d72c950e2037ce04edb751ee39bb3",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/docs/DESIGN_SYSTEM_LIGHT_AR.md",
+      "imported_sha256": "5bd95181ada026432abbb7c25990f65478b294ff5b096f7f9d04e9e4698ce1cf"
+    },
+    {
+      "source_path": "docs/EXECUTION_AUTONOMY_NO_LOOP_AR.md",
+      "source_size_bytes": 3240,
+      "source_sha256": "9f83b336f7701d3c9c816b16f8e4a129ce36ce24ee3a860a1aabf1fdcd1f1979",
+      "source_git_blob_sha": "75ed6f50ac61185f2390c340ff0d3fd73a5d4896",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/docs/EXECUTION_AUTONOMY_NO_LOOP_AR.md",
+      "imported_sha256": "9f83b336f7701d3c9c816b16f8e4a129ce36ce24ee3a860a1aabf1fdcd1f1979"
+    },
+    {
+      "source_path": "docs/IMPLEMENTATION_STATUS_TEMPLATE.md",
+      "source_size_bytes": 1278,
+      "source_sha256": "a0ae16199279ee35c68fedc1b9c1eeb412a223e45f37e473efd9ad6cbf5e4657",
+      "source_git_blob_sha": "c91bdd411cc3285a0eef50bd63b2abec2585e9c5",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/docs/IMPLEMENTATION_STATUS_TEMPLATE.md",
+      "imported_sha256": "a0ae16199279ee35c68fedc1b9c1eeb412a223e45f37e473efd9ad6cbf5e4657"
+    },
+    {
+      "source_path": "docs/META_WHATSAPP_ONBOARDING_AR.md",
+      "source_size_bytes": 12222,
+      "source_sha256": "bc7693cafca580248ff8714893ac871995176d04514717620d46b10803f7175b",
+      "source_git_blob_sha": "bdff91b17642fabe91efc71f3836a3696e68c51b",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/docs/META_WHATSAPP_ONBOARDING_AR.md",
+      "imported_sha256": "bc7693cafca580248ff8714893ac871995176d04514717620d46b10803f7175b"
+    },
+    {
+      "source_path": "docs/PAGE_MAP_AND_USER_FLOWS_AR.md",
+      "source_size_bytes": 9769,
+      "source_sha256": "6fe379d63b500bc07a7fb558a7aec39c8093b12dffda0c465573b5111be6f01e",
+      "source_git_blob_sha": "0f28dac58bc0b214719fc2d23898e9469c147955",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/docs/PAGE_MAP_AND_USER_FLOWS_AR.md",
+      "imported_sha256": "6fe379d63b500bc07a7fb558a7aec39c8093b12dffda0c465573b5111be6f01e"
+    },
+    {
+      "source_path": "docs/PLATFORM_AI_SERVICE_BOUNDARY_AR.md",
+      "source_size_bytes": 10107,
+      "source_sha256": "e0862900a0cd8dde9ca59e5abed2e63d4bb7ff45c31a32d8640279f5cd909299",
+      "source_git_blob_sha": "b9c1d9412f2cc4adac22ad07b27e2b6ea09b82bb",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/docs/PLATFORM_AI_SERVICE_BOUNDARY_AR.md",
+      "imported_sha256": "e0862900a0cd8dde9ca59e5abed2e63d4bb7ff45c31a32d8640279f5cd909299"
+    },
+    {
+      "source_path": "docs/PRODUCT_REQUIREMENTS_AR.md",
+      "source_size_bytes": 8162,
+      "source_sha256": "1979551b28282da094ffc402279249fbf9b8926f5798a70e4d9e34fa416041a6",
+      "source_git_blob_sha": "935f256e6b992226a07ecc3a1dc507a08d9201f9",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/docs/PRODUCT_REQUIREMENTS_AR.md",
+      "imported_sha256": "1979551b28282da094ffc402279249fbf9b8926f5798a70e4d9e34fa416041a6"
+    },
+    {
+      "source_path": "docs/PROVIDERS_ACTIONS_SECURITY_AR.md",
+      "source_size_bytes": 9886,
+      "source_sha256": "37aeaf9ce3bece707dff59e639eb92fab6946b10e23b9222aa093707c3bb1b71",
+      "source_git_blob_sha": "559aba3ff2c5576db3bddda9c8965a4b7d390fcb",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/docs/PROVIDERS_ACTIONS_SECURITY_AR.md",
+      "imported_sha256": "37aeaf9ce3bece707dff59e639eb92fab6946b10e23b9222aa093707c3bb1b71"
+    },
+    {
+      "source_path": "docs/SMART_BUTTONS_CHANNELS_AR.md",
+      "source_size_bytes": 6247,
+      "source_sha256": "5f095906fda90b6f061e879a3ac169e7d732d581a7f274e32c5255126e7ca17b",
+      "source_git_blob_sha": "80e3e405cb46c5f0e3992cda620a91ac587bba47",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/docs/SMART_BUTTONS_CHANNELS_AR.md",
+      "imported_sha256": "5f095906fda90b6f061e879a3ac169e7d732d581a7f274e32c5255126e7ca17b"
+    },
+    {
+      "source_path": "docs/WHATSAPP_INBOX_REALTIME_HUMAN_PAUSE_AR.md",
+      "source_size_bytes": 13280,
+      "source_sha256": "2a924bf7824fc35223743121f854b999badc6effd7e4047546458b45361f0d41",
+      "source_git_blob_sha": "62836ae7958d970f2c519f03a8c761c226c496d2",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/docs/WHATSAPP_INBOX_REALTIME_HUMAN_PAUSE_AR.md",
+      "imported_sha256": "2a924bf7824fc35223743121f854b999badc6effd7e4047546458b45361f0d41"
+    },
+    {
+      "source_path": "machine/acceptance-tests.json",
+      "source_size_bytes": 11517,
+      "source_sha256": "72880c358020a36f37f8241160012b8e645e595faef4370ac1831fc2e0fd2ce1",
+      "source_git_blob_sha": "88cd09b0fb860e36ad369e0464a5d050fe4d1bb6",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/machine/acceptance-tests.json",
+      "imported_sha256": "72880c358020a36f37f8241160012b8e645e595faef4370ac1831fc2e0fd2ce1"
+    },
+    {
+      "source_path": "machine/ar-ui.json",
+      "source_size_bytes": 5450,
+      "source_sha256": "dd21f3fc1dccad6891dd11ba38079d0c3228bc8d09fb0a287179269b08f368dc",
+      "source_git_blob_sha": "e8ea70ace7136173da4264ad2d158ad4934e84cc",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/machine/ar-ui.json",
+      "imported_sha256": "dd21f3fc1dccad6891dd11ba38079d0c3228bc8d09fb0a287179269b08f368dc"
+    },
+    {
+      "source_path": "machine/design-tokens.json",
+      "source_size_bytes": 1383,
+      "source_sha256": "1068af5c31ed5bffe7b2d9fbd9591fc354507643beb3ff439c01b46f9c6c012d",
+      "source_git_blob_sha": "347521309aa1d11783ff9f3e85b26a0ae92d02af",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/machine/design-tokens.json",
+      "imported_sha256": "1068af5c31ed5bffe7b2d9fbd9591fc354507643beb3ff439c01b46f9c6c012d"
+    },
+    {
+      "source_path": "machine/pages.csv",
+      "source_size_bytes": 3904,
+      "source_sha256": "b525817fbc15c2cef1de991d1e612a1daac216a9c822d4fd3508d82c3e09178d",
+      "source_git_blob_sha": "e934f26503c3aaa4ebd44b4735d97ab1c0fde39c",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/machine/pages.csv",
+      "imported_sha256": "b525817fbc15c2cef1de991d1e612a1daac216a9c822d4fd3508d82c3e09178d"
+    },
+    {
+      "source_path": "machine/provider-draft.example.json",
+      "source_size_bytes": 775,
+      "source_sha256": "cba401868ab3eaf3ff1027fd3f377644c88b0c73f2ef47b4a24aa8b8c75f6bc1",
+      "source_git_blob_sha": "cea2b689c6da5d862a485b9009b6d3ca252a62c7",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/machine/provider-draft.example.json",
+      "imported_sha256": "cba401868ab3eaf3ff1027fd3f377644c88b0c73f2ef47b4a24aa8b8c75f6bc1"
+    },
+    {
+      "source_path": "machine/smart-buttons.example.json",
+      "source_size_bytes": 1230,
+      "source_sha256": "8209d4aa14423012247957bc34a11be4c39deedb2f592d0014f389bb87958b7f",
+      "source_git_blob_sha": "8582385ea45855b8d4f39c1e37b3434963d95de7",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/machine/smart-buttons.example.json",
+      "imported_sha256": "8209d4aa14423012247957bc34a11be4c39deedb2f592d0014f389bb87958b7f"
+    },
+    {
+      "source_path": "machine/whatsapp-human-pause-policy.json",
+      "source_size_bytes": 2089,
+      "source_sha256": "7cb85793ed5f1eb8faed5468057ec136527cfa06f1ad1ee2a177a0465305ed13",
+      "source_git_blob_sha": "0b3f08b3fde9e9dfeda5c27d846d1838a1f5ea23",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/machine/whatsapp-human-pause-policy.json",
+      "imported_sha256": "7cb85793ed5f1eb8faed5468057ec136527cfa06f1ad1ee2a177a0465305ed13"
+    },
+    {
+      "source_path": "package-manifest.json",
+      "source_size_bytes": 7314,
+      "source_sha256": "503cd23246cc5e96c31c3d823a1f82bf01364aa088fe513ca82afc7ab2c3cc3b",
+      "source_git_blob_sha": "36c97180ac92cab362fe6f31817f767ee7cf2be1",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/package-manifest.json",
+      "imported_sha256": "503cd23246cc5e96c31c3d823a1f82bf01364aa088fe513ca82afc7ab2c3cc3b"
+    },
+    {
+      "source_path": "preview/channels.html",
+      "source_size_bytes": 9005,
+      "source_sha256": "f641d5e228c13529df85d8e7a1c4604f5468c5a7ad254aad04b5a2c0b8bdf3f1",
+      "source_git_blob_sha": "1bc7ae172aef304b96436b4da0e68c41d6de9363",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/preview/channels.html",
+      "imported_sha256": "f641d5e228c13529df85d8e7a1c4604f5468c5a7ad254aad04b5a2c0b8bdf3f1"
+    },
+    {
+      "source_path": "preview/dashboard.html",
+      "source_size_bytes": 6340,
+      "source_sha256": "b651271733808c2a78da2b12980abfa87ecb292cb31652fc695bef9bab38bef3",
+      "source_git_blob_sha": "b7b314ff2da5b29e4e02cd89748c9c51675c901e",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/preview/dashboard.html",
+      "imported_sha256": "b651271733808c2a78da2b12980abfa87ecb292cb31652fc695bef9bab38bef3"
+    },
+    {
+      "source_path": "preview/inbox-whatsapp.html",
+      "source_size_bytes": 12830,
+      "source_sha256": "91e5f5f53a7aff7a766e26dac895af43abe65175cace97232f45debe1a058d6f",
+      "source_git_blob_sha": "c3d55eb065a712bad3f98d2eeaf585b3a80ddf70",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/preview/inbox-whatsapp.html",
+      "imported_sha256": "91e5f5f53a7aff7a766e26dac895af43abe65175cace97232f45debe1a058d6f"
+    },
+    {
+      "source_path": "preview/landing.html",
+      "source_size_bytes": 11657,
+      "source_sha256": "0621a5b6b10355bfeb11878126c193371b5d90a7890a65d182c2bab4cd517984",
+      "source_git_blob_sha": "bf9484e2aefd413f30df9408f88c546f07ebeba1",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/preview/landing.html",
+      "imported_sha256": "0621a5b6b10355bfeb11878126c193371b5d90a7890a65d182c2bab4cd517984"
+    },
+    {
+      "source_path": "preview/preview.css",
+      "source_size_bytes": 15276,
+      "source_sha256": "670e223e6e2f536989aab592b7c5114adc363e02c20765ec565b7932aecba61c",
+      "source_git_blob_sha": "9ab5e52501cb1f4a95f2d89d27257e445093c57c",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/preview/preview.css",
+      "imported_sha256": "670e223e6e2f536989aab592b7c5114adc363e02c20765ec565b7932aecba61c"
+    },
+    {
+      "source_path": "preview/preview.js",
+      "source_size_bytes": 4081,
+      "source_sha256": "098b542aac9b17fea8ee7956ac9f89e8b8688981b87490403975ec45b69c5e1c",
+      "source_git_blob_sha": "14849fa5f4c4dba1cce492195802613e84d6163c",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/preview/preview.js",
+      "imported_sha256": "098b542aac9b17fea8ee7956ac9f89e8b8688981b87490403975ec45b69c5e1c"
+    },
+    {
+      "source_path": "preview/studio.html",
+      "source_size_bytes": 9082,
+      "source_sha256": "45c091852f66a5cb1fb767c2465bf7a77ca7f843f8c9f62928402420f72ae54e",
+      "source_git_blob_sha": "16f734ae36006f698e9bc10b43dda1fb8e62bf36",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/preview/studio.html",
+      "imported_sha256": "45c091852f66a5cb1fb767c2465bf7a77ca7f843f8c9f62928402420f72ae54e"
+    },
+    {
+      "source_path": "preview/superadmin-ai.html",
+      "source_size_bytes": 5102,
+      "source_sha256": "955b14aaf120d7bcce8b60eac45598960cf798e54d170007188adc0d724593ca",
+      "source_git_blob_sha": "ca9fccece45bc955e5f55fb1d61248c1eec71fb1",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/preview/superadmin-ai.html",
+      "imported_sha256": "955b14aaf120d7bcce8b60eac45598960cf798e54d170007188adc0d724593ca"
+    },
+    {
+      "source_path": "source-references/Product_Blueprint_v0.4_AR.md",
+      "source_size_bytes": 28594,
+      "source_sha256": "998bc7242272f84bdcbe38e3613b5816c10e6a7f4b5c4cbb42c2fc4135979605",
+      "source_git_blob_sha": "3b8c3bdc8a034af5a8cc568871280ef53c09b87e",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/source-references/Product_Blueprint_v0.4_AR.md",
+      "imported_sha256": "998bc7242272f84bdcbe38e3613b5816c10e6a7f4b5c4cbb42c2fc4135979605"
+    },
+    {
+      "source_path": "source-references/TAB_Competitor_Design_Reference.md",
+      "source_size_bytes": 27311,
+      "source_sha256": "634d22817fbbdac8b1e98715eb0994103480c66b774a7eb6e156534c02869839",
+      "source_git_blob_sha": "bc7a995d1b17e97aee046f3a87e8ed1dfbeceff3",
+      "status": "IMPORTED_EXACT",
+      "repository_path": "reference/agent-builder-v1.3/source-references/TAB_Competitor_Design_Reference.md",
+      "imported_sha256": "634d22817fbbdac8b1e98715eb0994103480c66b774a7eb6e156534c02869839"
+    }
+  ]
+}

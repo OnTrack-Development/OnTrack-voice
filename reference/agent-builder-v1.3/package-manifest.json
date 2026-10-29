@@ -1,0 +1,198 @@
+{
+  "package": "OnTrack AI Agent Builder Claude Handoff",
+  "version": "v1.3",
+  "created_at": "2026-10-27",
+  "status": "Prompt + specifications + original design references; NOT an implemented Laravel project",
+  "approved": {
+    "launch": "all business sectors",
+    "first_locale": "ar-EG rtl",
+    "first_theme": "light",
+    "brand": "OnTrack Development",
+    "colors": "brand red / white / black; numbers proposed pending official brand book",
+    "english": "architecture prepared, translation later",
+    "providers": "OnTrack-managed Google Gemini + Custom (SUPER ADMIN ONLY); tenants have NO upstream provider/BYOK access",
+    "custom_models": "Exact model IDs added and tested only by OnTrack platform admins after verified connection",
+    "pricing_model": "Platform-managed AI subscription plans/entitlements/quotas; prices and payment gateway not yet decided"
+  },
+  "files": [
+    {
+      "path": "CLAUDE.md",
+      "sha256": "ba771a5db7486655f7b446304cb001fa6042cc8cd096d52da2a41deba6b039be",
+      "size_bytes": 9239
+    },
+    {
+      "path": "PROMPT_FOR_CLAUDE_AR.md",
+      "sha256": "af9dbe5776b190ec698829744b4645085a0ec4dba63c8b9227012a9315f842bf",
+      "size_bytes": 17602
+    },
+    {
+      "path": "README_START_HERE_AR.md",
+      "sha256": "6d11ad1080c85de6a23100cdaf69c543701ca46bb60874b9e390fdc204bf60ab",
+      "size_bytes": 9006
+    },
+    {
+      "path": "design/tokens.css",
+      "sha256": "f9ce8b2080da2be99790c367c0fdb6eed8bf818c104d1ee713a7086132cccadf",
+      "size_bytes": 1022
+    },
+    {
+      "path": "docs/ARABIC_COPY_AND_CONTENT_AR.md",
+      "sha256": "950ff4f7440aa93245a15e591c211ff307dc56bd91c28d1df23e08f75bc053e8",
+      "size_bytes": 6383
+    },
+    {
+      "path": "docs/ARCHITECTURE_DATABASE_AR.md",
+      "sha256": "83338b1cee2734177b5a2502989c39d8330d224f0df098391c6f98a7a8f14c03",
+      "size_bytes": 11070
+    },
+    {
+      "path": "docs/DELIVERY_PHASES_TESTS_AR.md",
+      "sha256": "675b3d7eb4a94e1e273c53f556ab663fd8e0789981c63ffbcc6748791ab9516b",
+      "size_bytes": 12288
+    },
+    {
+      "path": "docs/DESIGN_SYSTEM_LIGHT_AR.md",
+      "sha256": "5bd95181ada026432abbb7c25990f65478b294ff5b096f7f9d04e9e4698ce1cf",
+      "size_bytes": 10364
+    },
+    {
+      "path": "docs/EXECUTION_AUTONOMY_NO_LOOP_AR.md",
+      "sha256": "9f83b336f7701d3c9c816b16f8e4a129ce36ce24ee3a860a1aabf1fdcd1f1979",
+      "size_bytes": 3240
+    },
+    {
+      "path": "docs/IMPLEMENTATION_STATUS_TEMPLATE.md",
+      "sha256": "a0ae16199279ee35c68fedc1b9c1eeb412a223e45f37e473efd9ad6cbf5e4657",
+      "size_bytes": 1278
+    },
+    {
+      "path": "docs/META_WHATSAPP_ONBOARDING_AR.md",
+      "sha256": "bc7693cafca580248ff8714893ac871995176d04514717620d46b10803f7175b",
+      "size_bytes": 12222
+    },
+    {
+      "path": "docs/PAGE_MAP_AND_USER_FLOWS_AR.md",
+      "sha256": "6fe379d63b500bc07a7fb558a7aec39c8093b12dffda0c465573b5111be6f01e",
+      "size_bytes": 9769
+    },
+    {
+      "path": "docs/PLATFORM_AI_SERVICE_BOUNDARY_AR.md",
+      "sha256": "e0862900a0cd8dde9ca59e5abed2e63d4bb7ff45c31a32d8640279f5cd909299",
+      "size_bytes": 10107
+    },
+    {
+      "path": "docs/PRODUCT_REQUIREMENTS_AR.md",
+      "sha256": "1979551b28282da094ffc402279249fbf9b8926f5798a70e4d9e34fa416041a6",
+      "size_bytes": 8162
+    },
+    {
+      "path": "docs/PROVIDERS_ACTIONS_SECURITY_AR.md",
+      "sha256": "37aeaf9ce3bece707dff59e639eb92fab6946b10e23b9222aa093707c3bb1b71",
+      "size_bytes": 9886
+    },
+    {
+      "path": "docs/SMART_BUTTONS_CHANNELS_AR.md",
+      "sha256": "5f095906fda90b6f061e879a3ac169e7d732d581a7f274e32c5255126e7ca17b",
+      "size_bytes": 6247
+    },
+    {
+      "path": "docs/WHATSAPP_INBOX_REALTIME_HUMAN_PAUSE_AR.md",
+      "sha256": "2a924bf7824fc35223743121f854b999badc6effd7e4047546458b45361f0d41",
+      "size_bytes": 13280
+    },
+    {
+      "path": "machine/acceptance-tests.json",
+      "sha256": "72880c358020a36f37f8241160012b8e645e595faef4370ac1831fc2e0fd2ce1",
+      "size_bytes": 11517
+    },
+    {
+      "path": "machine/ar-ui.json",
+      "sha256": "dd21f3fc1dccad6891dd11ba38079d0c3228bc8d09fb0a287179269b08f368dc",
+      "size_bytes": 5450
+    },
+    {
+      "path": "machine/design-tokens.json",
+      "sha256": "1068af5c31ed5bffe7b2d9fbd9591fc354507643beb3ff439c01b46f9c6c012d",
+      "size_bytes": 1383
+    },
+    {
+      "path": "machine/pages.csv",
+      "sha256": "b525817fbc15c2cef1de991d1e612a1daac216a9c822d4fd3508d82c3e09178d",
+      "size_bytes": 3904
+    },
+    {
+      "path": "machine/provider-draft.example.json",
+      "sha256": "cba401868ab3eaf3ff1027fd3f377644c88b0c73f2ef47b4a24aa8b8c75f6bc1",
+      "size_bytes": 775
+    },
+    {
+      "path": "machine/smart-buttons.example.json",
+      "sha256": "8209d4aa14423012247957bc34a11be4c39deedb2f592d0014f389bb87958b7f",
+      "size_bytes": 1230
+    },
+    {
+      "path": "machine/whatsapp-human-pause-policy.json",
+      "sha256": "7cb85793ed5f1eb8faed5468057ec136527cfa06f1ad1ee2a177a0465305ed13",
+      "size_bytes": 2089
+    },
+    {
+      "path": "preview/channels.html",
+      "sha256": "f641d5e228c13529df85d8e7a1c4604f5468c5a7ad254aad04b5a2c0b8bdf3f1",
+      "size_bytes": 9005
+    },
+    {
+      "path": "preview/dashboard.html",
+      "sha256": "b651271733808c2a78da2b12980abfa87ecb292cb31652fc695bef9bab38bef3",
+      "size_bytes": 6340
+    },
+    {
+      "path": "preview/inbox-whatsapp.html",
+      "sha256": "91e5f5f53a7aff7a766e26dac895af43abe65175cace97232f45debe1a058d6f",
+      "size_bytes": 12830
+    },
+    {
+      "path": "preview/landing.html",
+      "sha256": "0621a5b6b10355bfeb11878126c193371b5d90a7890a65d182c2bab4cd517984",
+      "size_bytes": 11657
+    },
+    {
+      "path": "preview/preview.css",
+      "sha256": "670e223e6e2f536989aab592b7c5114adc363e02c20765ec565b7932aecba61c",
+      "size_bytes": 15276
+    },
+    {
+      "path": "preview/preview.js",
+      "sha256": "098b542aac9b17fea8ee7956ac9f89e8b8688981b87490403975ec45b69c5e1c",
+      "size_bytes": 4081
+    },
+    {
+      "path": "preview/studio.html",
+      "sha256": "45c091852f66a5cb1fb767c2465bf7a77ca7f843f8c9f62928402420f72ae54e",
+      "size_bytes": 9082
+    },
+    {
+      "path": "preview/superadmin-ai.html",
+      "sha256": "955b14aaf120d7bcce8b60eac45598960cf798e54d170007188adc0d724593ca",
+      "size_bytes": 5102
+    },
+    {
+      "path": "source-references/Product_Blueprint_v0.4_AR.md",
+      "sha256": "998bc7242272f84bdcbe38e3613b5816c10e6a7f4b5c4cbb42c2fc4135979605",
+      "size_bytes": 28594
+    },
+    {
+      "path": "source-references/TAB_Competitor_Design_Reference.md",
+      "sha256": "634d22817fbbdac8b1e98715eb0994103480c66b774a7eb6e156534c02869839",
+      "size_bytes": 27311
+    }
+  ],
+  "updated_at": "2026-10-27",
+  "breaking_owner_decision": "AI providers platform-only; tenant WhatsApp channel supports Embedded, Coexistence & manually entered Meta Cloud API credentials",
+  "preview_status": "Updated HTML only; v1.0 PNG screenshots removed as obsolete and could mislead about provider controls. Render updated references in Claude environment.",
+  "whatsapp_channel_modes": [
+    "embedded_signup",
+    "coexistence",
+    "manual_cloud_api"
+  ],
+  "new_approved_feature": "WhatsApp live Inbox + human staff auto-pause 15 min per conversation, adjustable by tenant owner, auto-resume without browser, separate Human Lock"
+}

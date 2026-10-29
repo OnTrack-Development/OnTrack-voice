@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "updated_on": "2026-10-29",
+  "display_timezone": "Africa/Cairo",
+  "repository": "OnTrack-Development/OnTrack-voice",
+  "visibility": "private",
+  "default_branch": "main",
+  "runtime": {
+    "status": "EXISTING_DEMO_SOURCE",
+    "version": "0.6.3",
+    "root": "/home/appontrack/public_html",
+    "php_cli": "8.1.34",
+    "python": "3.9.25",
+    "laravel_saas_implemented": false
+  },
+  "host_control": {
+    "status": "VERIFIED_LIVE_CONTROL",
+    "branch": "ontrack-host-link",
+    "target": "appontrack-server11",
+    "account": "appontrack",
+    "uid": 2379,
+    "hostname": "server11.hhost.host",
+    "ip": "65.21.208.232",
+    "ssh_port_owner_supplied": 7195,
+    "install_path": "/home/appontrack/ontrack-voice-link",
+    "queue": "ops/host-link/jobs/appontrack-server11.json",
+    "poll_seconds": 60,
+    "max_exec_seconds": 30,
+    "last_verified_job_id": "verify-terminal-20261028234301727",
+    "result_path": "ops/host-link/results/appontrack-server11/verify-terminal-20261028234301727.json",
+    "source_commit": "08363de8125d454e5df3180cab86f0113c947ba6",
+    "credential_location": "HOST_ONLY_CONFIG_JSON",
+    "credential_expiry": "UNKNOWN"
+  },
+  "phone_audio": {
+    "status": "PENDING_DEVICE_AUDIO_PROOF",
+    "device_owner_supplied": "Xiaomi Redmi Note 12 Pro 5G",
+    "android_version": null,
+    "vendor_os_version": null,
+    "app_version": null,
+    "shizuku_version": null,
+    "carrier": null,
+    "candidate": "Android + Shizuku / Voice SIP Agent",
+    "echo_test_result": null,
+    "inbound_ai_call_verified": false,
+    "outbound_ai_call_verified": false,
+    "sip_registration_verified": false,
+    "device_remote_control_available": false
+  },
+  "project": {
+    "next_phase": "P1_DEVICE_AUDIO_PROOF",
+    "current_plan": "docs/plan/IMPLEMENTATION_PLAN_AR.md",
+    "current_state": "docs/project/CURRENT_STATE_AR.md",
+    "requirements": "docs/project/REQUIREMENTS_AR.md",
+    "decisions": "docs/discovery/DECISIONS_AR.md",
+    "platform_specification": "reference/agent-builder-v1.3",
+    "manager_voice_admin": "DEFERRED",
+    "automatic_call_campaigns": "PLANNED",
+    "multi_tenant_voice": "PLANNED"
+  },
+  "constraints": {
+    "one_company_owns_each_mobile_number": true,
+    "reuse_existing_sim_and_plan": true,
+    "phone_link_rejected": true,
+    "voicemeeter_rejected": true,
+    "livekit_required": false,
+    "per_tenant_gateway_purchase_default": false,
+    "expensive_cpaas_default": false,
+    "tenant_ai_byok": false,
+    "platform_ai_managed_by": "OnTrack",
+    "root_permission_verified": false
+  },
+  "evidence_utc": {
+    "bootstrap": "2026-10-28T23:42:06.555882+00:00",
+    "remote_exec": "2026-10-28T23:44:02.919046+00:00"
+  },
+  "warning": "Control-plane verification is not cellular audio verification. Read current live-branch queue/results before issuing a new job."
+}

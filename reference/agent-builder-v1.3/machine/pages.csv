@@ -1,0 +1,57 @@
+﻿page_id,route,label_ar,area
+home,/,الرئيسية,Marketing
+platform,/platform,المنصة,Marketing
+agent-builder,/features/agent-builder,بناء الوكلاء,Marketing
+smart-buttons,/features/smart-buttons,الأزرار الذكية,Marketing
+knowledge,/features/knowledge,قواعد المعرفة,Marketing
+integrations,/features/integrations,التكاملات,Marketing
+channels,/features/channels,القنوات,Marketing
+inbox,/features/inbox,صندوق الوارد,Marketing
+operations,/features/operations,العمليات,Marketing
+developers,/developers,المطورون,Marketing
+industries,/industries,القطاعات,Marketing
+pricing,/pricing,الباقات,Marketing
+security,/security,الأمان,Marketing
+enterprise,/enterprise,المؤسسات,Marketing
+about,/about,عن المنصة,Marketing
+contact,/contact,تواصل معنا,Marketing
+docs,/docs,التوثيق,Marketing
+login,/login,تسجيل الدخول,Auth
+register,/register,إنشاء حساب,Auth
+industry-ecommerce,/industries/ecommerce,التجارة الإلكترونية,Industries
+industry-real-estate,/industries/real-estate,العقارات,Industries
+industry-hospitality,/industries/hospitality,المطاعم والفنادق,Industries
+industry-education,/industries/education,التعليم,Industries
+industry-healthcare,/industries/healthcare,الرعاية الصحية,Industries
+industry-logistics,/industries/logistics,الشحن والتوصيل,Industries
+industry-marketing-agencies,/industries/marketing-agencies,وكالات التسويق,Industries
+industry-hosting,/industries/hosting,الاستضافة,Industries
+industry-professional-services,/industries/professional-services,الخدمات المهنية,Industries
+app-overview,/app/{workspace}/overview,نظرة عامة,App
+app-projects,/app/{workspace}/projects,المشروعات,App
+app-agents,/app/{workspace}/agents,الوكلاء,App
+app-new-agent,/app/{workspace}/agents/create,إنشاء وكيل,App
+app-studio,/app/{workspace}/agents/{agent}/studio,استوديو الوكيل,App
+app-knowledge,/app/{workspace}/knowledge,قواعد المعرفة,App
+app-buttons,/app/{workspace}/smart-buttons,الأزرار الذكية,App
+app-integrations,/app/{workspace}/integrations,التكاملات,App
+app-channels,/app/{workspace}/channels,القنوات,App
+app-inbox,/app/{workspace}/inbox,صندوق الوارد,App
+app-crm,/app/{workspace}/crm,العملاء,App
+app-operations,/app/{workspace}/operations,غرفة العمليات,App
+app-analytics,/app/{workspace}/analytics,التحليلات,App
+app-usage,/app/{workspace}/usage,الاستهلاك,App
+app-team,/app/{workspace}/team,الفريق,App
+app-settings,/app/{workspace}/settings,الإعدادات,App
+app-audit,/app/{workspace}/audit,سجل التدقيق,App
+app-plan,/app/{workspace}/plan,الباقة والرصيد,App
+control-ai-providers,/control/ai/providers,مزوّدو AI — إدارة OnTrack,PlatformAdmin
+control-ai-models,/control/ai/models,الموديلات — إدارة OnTrack,PlatformAdmin
+control-ai-routing,/control/ai/routing,توجيه النماذج — إدارة OnTrack,PlatformAdmin
+control-plans,/control/plans,الباقات وحدود الاستخدام — إدارة OnTrack,PlatformAdmin
+control-ai-costs,/control/ai/costs,تكاليف المزودين — إدارة OnTrack,PlatformAdmin
+app-whatsapp,/app/{workspace}/channels/whatsapp,واتساب والأرقام,App
+app-whatsapp-connect,/app/{workspace}/channels/whatsapp/new,ربط رقم واتساب,App
+app-whatsapp-settings,/app/{workspace}/channels/whatsapp/{connection}/settings,إعدادات رقم واتساب,App
+app-whatsapp-inbox,/app/{workspace}/inbox/whatsapp,محادثات واتساب,App
+app-whatsapp-automation,/app/{workspace}/channels/whatsapp/{connection}/automation,إعدادات التوقف المؤقت للذكاء,App

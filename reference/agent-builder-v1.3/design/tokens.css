@@ -1,0 +1,14 @@
+/* OnTrack proposal tokens: read machine/design-tokens.json as design source; edit one place. */
+:root{ color-scheme:light;
+ --ot-red:#D5222C;--ot-red-hover:#B81B26;--ot-red-soft:#FFF0F1;
+ --ot-bg:#F7F8FA;--ot-surface:#FFFFFF;--ot-surface-alt:#F1F3F5;
+ --ot-ink:#12151B;--ot-text:#374151;--ot-muted:#687385;--ot-line:#E5E7EB;
+ --ot-success:#118565;--ot-warning:#B57910;--ot-danger:#C32635;--ot-info:#2563B8;
+ --ot-radius-control:11px;--ot-radius-card:18px;--ot-radius-panel:24px;
+ --ot-shadow:0 8px 30px -18px rgba(17,24,39,.18);
+ --ot-font-ar:'IBM Plex Sans Arabic','Tajawal','Noto Sans Arabic',Arial,sans-serif;
+ --ot-font-en:Inter,system-ui,sans-serif;--ot-content-max:1280px;
+}
+:focus-visible{outline:3px solid rgba(213,34,44,.30);outline-offset:3px}
+[dir=rtl] [data-is-code],[dir=rtl] code,[dir=rtl] input[type=url]{direction:ltr;unicode-bidi:plaintext}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}

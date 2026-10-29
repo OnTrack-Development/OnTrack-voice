@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "OnTrack AI Agent Builder Light v1",
+  "version": "1.0.0",
+  "notes": "Proposed OnTrack palette. Replace tokens from actual official brand assets if available. Light only until English/Dark explicitly scheduled.",
+  "colors": {
+    "brand": "#D5222C",
+    "brandHover": "#B81B26",
+    "brandSoft": "#FFF0F1",
+    "bg": "#F7F8FA",
+    "surface": "#FFFFFF",
+    "surfaceAlt": "#F1F3F5",
+    "text": "#12151B",
+    "textSecondary": "#374151",
+    "muted": "#687385",
+    "border": "#E5E7EB",
+    "success": "#118565",
+    "warning": "#B57910",
+    "danger": "#C32635",
+    "info": "#2563B8"
+  },
+  "font": {
+    "arabic": "IBM Plex Sans Arabic",
+    "arabicFallback": "Tajawal, Noto Sans Arabic, Arial, sans-serif",
+    "englishFuture": "Inter, system-ui, sans-serif",
+    "basePx": 16,
+    "lineHeightBody": 1.7
+  },
+  "radiusPx": {
+    "button": 11,
+    "input": 11,
+    "card": 18,
+    "panel": 24,
+    "pill": 999
+  },
+  "spacingPx": [
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    32,
+    40,
+    48,
+    64,
+    80,
+    96
+  ],
+  "breakpointsPx": [
+    360,
+    390,
+    768,
+    1024,
+    1280,
+    1440
+  ],
+  "animationMs": {
+    "quick": 140,
+    "standard": 210
+  },
+  "layout": {
+    "containerMaxPx": 1280,
+    "rtlSidebarPx": 264,
+    "rtlSidebarCollapsedPx": 72,
+    "navbarHeightPx": 76
+  }
+}

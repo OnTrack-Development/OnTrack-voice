@@ -1,0 +1,26 @@
+[
+  {
+    "original_filename": "image(20261028-231214).png",
+    "repository_path": "docs/evidence/screenshots/01-cpanel-key-generation.png",
+    "sha256": "d49b3eb893a0227010e93436fe2130ab4082c56d7d57f2ca775ec6bd516d2842",
+    "description": "cPanel key generation form; no private key or unmasked password shown"
+  },
+  {
+    "original_filename": "image(20261028-231221).png",
+    "repository_path": "docs/evidence/screenshots/02-cpanel-key-types.png",
+    "sha256": "781cdda4d08feb25c65be0c00d5903e72a82cc6907d5069227c4746fa57829c7",
+    "description": "cPanel RSA/DSA selector; reason for choosing public key import instead"
+  },
+  {
+    "original_filename": "image(20261028-232735).png",
+    "repository_path": "docs/evidence/screenshots/03-other-agent-ssh-command.png",
+    "sha256": "3c3e15520974d16484feda3e3eb8c9b447e48e06167ffcb5b0d9b1f96ddb5614",
+    "description": "Other agent Bash SSH command; screenshot shows invocation, not its successful output"
+  },
+  {
+    "original_filename": "image(20261028-233937).png",
+    "repository_path": "docs/evidence/screenshots/04-github-token-permissions.png",
+    "sha256": "d0851ad51f4b491df81a29c6f66e6cc91a0342495278633a1b67b37675df5718",
+    "description": "Private repository selected; Contents permission not yet added at screenshot time"
+  }
+]

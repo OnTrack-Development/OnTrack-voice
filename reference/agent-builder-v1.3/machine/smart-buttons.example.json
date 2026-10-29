@@ -1,0 +1,48 @@
+{
+  "example_only": true,
+  "tenant_id": "<resolved server-side from authenticated membership>",
+  "project_id": "<scoped project>",
+  "agent_id": "<scoped agent>",
+  "backend_business_state": {
+    "customer_verified": false,
+    "booking_status": "unknown",
+    "state_version": 1
+  },
+  "rules": [
+    {
+      "id": "verify-account",
+      "label": {
+        "ar": "التحقق من الحساب",
+        "en": "Verify account"
+      },
+      "allowed_states": [
+        "guest"
+      ],
+      "requires_identity": "none",
+      "action_key": "start_identity_verification",
+      "channel_renderers": [
+        "web",
+        "whatsapp_fallback"
+      ]
+    },
+    {
+      "id": "booking-reschedule",
+      "label": {
+        "ar": "تعديل الموعد",
+        "en": "Reschedule"
+      },
+      "allowed_states": [
+        "booking_pending"
+      ],
+      "requires_identity": "verified",
+      "action_key": "reschedule_booking",
+      "requires_confirmation": true,
+      "idempotency_required": true,
+      "channel_renderers": [
+        "web",
+        "whatsapp_interactive_if_supported"
+      ]
+    }
+  ],
+  "note": "Never trust client/LLM-provided business state; resolve by authorized server-side connectors."
+}

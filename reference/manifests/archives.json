@@ -1,0 +1,14 @@
+[
+  {
+    "path": "reference/archives/agent-builder-handoff-v1.3-original.zip",
+    "sha256": "6515e18ae2e4924beb255879b35c7b4c83fb0e7e11d8e9d18892412db7556e3c",
+    "kind": "original",
+    "source_manifest": "reference/manifests/agent-builder-v1.3.json"
+  },
+  {
+    "path": "reference/archives/voicecall-v0.6.3-sanitized.zip",
+    "sha256": "76c22d10891c5d7e4de47ec79100e6c0da53cf613449eb73faa7d4355eefdf88",
+    "kind": "sanitized",
+    "source_manifest": "reference/manifests/voicecall-v0.6.3.json"
+  }
+]
