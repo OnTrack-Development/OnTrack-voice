@@ -1,13 +1,13 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Conversation Core**
+**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة WhatsApp Channels**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 20 اختبارًا / 69 assertion، ناجحة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 23 اختبارًا / 82 assertion، ناجحة |
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
@@ -15,6 +15,7 @@
 | Knowledge | `IMPLEMENTED_LOCAL` — فهرسة نصية/تقسيم قطع، بلا ادعاء بحث متجهي |
 | Smart Actions | `IMPLEMENTED_LOCAL` — قواعد أزرار مقيدة بالحالة والصلاحية + إثبات النداء/التكرار |
 | Conversation Core | `IMPLEMENTED_LOCAL` — inbox عام، رد موظف، إيقاف AI مؤقت، وقفل بشري دائم مع عزل tenant |
+| WhatsApp Channels | `IMPLEMENTED_LOCAL` (تكوين فقط) — 3 طرق onboarding، أسرار مشفرة، حالات صادقة؛ اتصال حي `PENDING_EXTERNAL` |
 | WhatsApp / Inbox | `PLANNED` |
 | Voice | `PLANNED` — ينتظر إثبات الجهاز |
 
@@ -38,6 +39,11 @@
 ### 6. Conversation Core + Human Lock
 `conversations` و`messages` و`conversation_events` و`handoff_records` مع tenant/workspace scope. رد الموظف يضيف رسالة `staff` ويضبط `ai_pause_until_utc` افتراضيًا 15 دقيقة مع `pause_generation`، والقفل البشري الدائم منفصل ولا ينتهي تلقائيًا. لا يوجد ادعاء اتصال قناة حي.
 
+### 7. WhatsApp Channels (تكوين فقط)
+`whatsapp_connections` يعرض الطرق الثلاث (Embedded Signup / Coexistence / Manual Cloud API)، ويحفظ الأسرار (`access_token`, `app_secret`) مشفرة بـ`Crypt`، ويرفض أي cross-tenant read/create، ولا يضع أي اتصال في حالة `active` دون دليل Meta الفعلي. لا توجد حقول AI provider في هذه الشاشة.
+
+`conversations` و`messages` و`conversation_events` و`handoff_records` مع tenant/workspace scope. رد الموظف يضيف رسالة `staff` ويضبط `ai_pause_until_utc` افتراضيًا 15 دقيقة مع `pause_generation`، والقفل البشري الدائم منفصل ولا ينتهي تلقائيًا. لا يوجد ادعاء اتصال قناة حي.
+
 `button_rules` مقيدة بـ tenant/workspace/project مع `business_state_in` و`condition_ast` منفصلين، `button_presentations` برمز عرض موقّت، `button_invocations` بمفتاح idempotency فريد لكل tenant، ورفض أي مشروع/قاعدة أجنبية (422/404)، وإرجاع `duplicate` عند تكرار نفس المفتاح.
 
 
@@ -49,7 +55,7 @@
 
 ```text
 php artisan migrate --force
-10 custom migrations DONE (000001..000010)
+11 custom migrations DONE (000001..000011)
 
 php artisan test
 15 passed (49 assertions)
@@ -58,6 +64,7 @@ php artisan test
 - KnowledgeHubTest: 3
 - SmartActionTest: 2
 - ConversationCoreTest: 3
+- WhatsappConnectionTest: 3
 - TenancyIsolationTest: 3
 - Example tests: 2
 

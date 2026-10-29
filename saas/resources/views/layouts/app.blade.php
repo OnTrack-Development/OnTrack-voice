@@ -35,7 +35,9 @@
                 <span aria-hidden="true">↗</span> الأزرار الذكية
             </a>
             <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">⌁</span> التكاملات</span>
-            <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">☏</span> القنوات</span>
+            <a class="side-link @if(request()->routeIs('app.channels.whatsapp.*')) active @endif" href="{{ route('app.channels.whatsapp.index', ['workspace' => $workspace->slug ?? '']) }}">
+                <span aria-hidden="true">☏</span> القنوات
+            </a>
             <a class="side-link @if(request()->routeIs('app.inbox.*')) active @endif" href="{{ route('app.inbox.index', ['workspace' => $workspace->slug ?? '']) }}">
                 <span aria-hidden="true">▣</span> صندوق الوارد
             </a>

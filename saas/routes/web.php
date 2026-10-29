@@ -7,6 +7,7 @@ use App\Http\Controllers\App\KnowledgeController;
 use App\Http\Controllers\App\OverviewController;
 use App\Http\Controllers\App\ProjectController;
 use App\Http\Controllers\App\SmartActionController;
+use App\Http\Controllers\App\WhatsappConnectionController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Control\Ai\ProviderController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -57,4 +58,7 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
     Route::post('/{workspace}/inbox/{conversation}/reply', [ConversationController::class, 'reply'])->name('inbox.reply');
     Route::post('/{workspace}/inbox/{conversation}/lock', [ConversationController::class, 'lock'])->name('inbox.lock');
     Route::post('/{workspace}/inbox/{conversation}/release', [ConversationController::class, 'release'])->name('inbox.release');
+
+    Route::get('/{workspace}/channels/whatsapp', [WhatsappConnectionController::class, 'index'])->name('channels.whatsapp.index');
+    Route::post('/{workspace}/channels/whatsapp', [WhatsappConnectionController::class, 'store'])->name('channels.whatsapp.store');
 });
