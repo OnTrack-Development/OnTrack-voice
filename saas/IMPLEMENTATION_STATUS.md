@@ -1,13 +1,13 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة WhatsApp Webhook**
+**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Tenant Audit**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 25 اختبارًا / 90 assertion، ناجحة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 27 اختبارًا / 95 assertion، ناجحة |
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
@@ -17,6 +17,7 @@
 | Conversation Core | `IMPLEMENTED_LOCAL` — Inbox عام، رد موظف، إيقاف AI مؤقت، وقفل بشري دائم |
 | WhatsApp Channels | `IMPLEMENTED_LOCAL` — 3 طرق onboarding وأسرار مشفرة؛ الاتصال الحي `PENDING_EXTERNAL` |
 | WhatsApp Webhook | `IMPLEMENTED_LOCAL` — challenge، HMAC raw-body، dedupe؛ لا Meta live evidence |
+| Tenant Audit | `IMPLEMENTED_LOCAL` — سجل tenant-scoped مع redacted context وtrace id |
 | Voice | `PLANNED` — ينتظر إثبات الجهاز |
 
 ## الشرائح المنفذة
@@ -51,7 +52,7 @@
 
 ```text
 php artisan migrate --force
-12 custom migrations DONE (000001..000012)
+13 custom migrations DONE (000001..000013)
 
 php artisan test
 25 passed (90 assertions)
@@ -63,6 +64,7 @@ php artisan test
 - KnowledgeHubTest: 3
 - WhatsappConnectionTest: 3
 - WhatsappWebhookTest: 2
+- TenantAuditTest: 2
 - TenancyIsolationTest: 3
 - Laravel example tests: 2
 

@@ -31,7 +31,8 @@ class SmartActionController extends Controller
             'business_state_in' => ['nullable','string','max:1000'],
         ]);
         abort_unless($ws->projects()->whereKey($data['project_id'])->exists(), 422, 'المشروع لا يتبع هذه المساحة.');
-        $states = $data['business_state_in'] ? array_values(array_filter(array_map('trim', explode(',', $data['business_state_in']))) ) : [];
+        $businessStateIn = $data['business_state_in'] ?? null;
+        $states = $businessStateIn ? array_values(array_filter(array_map('trim', explode(',', $businessStateIn)))) : [];
         ButtonRule::create([
             'tenant_id' => $ws->tenant_id, 'workspace_id' => $ws->id, 'project_id' => $data['project_id'],
             'label_ar' => $data['label_ar'], 'action_key' => $data['action_key'],
