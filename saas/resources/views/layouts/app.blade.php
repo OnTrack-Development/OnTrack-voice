@@ -41,7 +41,9 @@
             <a class="side-link @if(request()->routeIs('app.inbox.*')) active @endif" href="{{ route('app.inbox.index', ['workspace' => $workspace->slug ?? '']) }}">
                 <span aria-hidden="true">▣</span> صندوق الوارد
             </a>
-            <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">♧</span> إدارة العملاء</span>
+            <a class="side-link @if(request()->routeIs('app.crm.*')) active @endif" href="{{ route('app.crm.index', ['workspace' => $workspace->slug ?? '']) }}">
+                <span aria-hidden="true">♧</span> إدارة العملاء
+            </a>
             <p class="side-section">الإدارة</p>
             <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">◴</span> غرفة العمليات</span>
             <a class="side-link @if(request()->routeIs('app.settings.*')) active @endif" href="{{ route('app.settings.edit', ['workspace' => $workspace->slug ?? '']) }}">

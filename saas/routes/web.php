@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\WhatsappWebhookController;
 use App\Http\Controllers\App\AgentStudioController;
 use App\Http\Controllers\App\ConversationController;
+use App\Http\Controllers\App\CrmController;
 use App\Http\Controllers\App\HomeController;
 use App\Http\Controllers\App\KnowledgeController;
 use App\Http\Controllers\App\OverviewController;
@@ -71,4 +72,7 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
     Route::get('/{workspace}/plan', [PlanController::class, 'index'])->name('plan.index');
     Route::get('/{workspace}/settings', [SettingsController::class, 'edit'])->name('settings.edit');
     Route::post('/{workspace}/settings', [SettingsController::class, 'update'])->name('settings.update');
+
+    Route::get('/{workspace}/crm', [CrmController::class, 'index'])->name('crm.index');
+    Route::post('/{workspace}/crm', [CrmController::class, 'store'])->name('crm.store');
 });
