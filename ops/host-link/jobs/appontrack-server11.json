@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "boot-20261029a",
+  "id": "runner-setup-20261029a",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-10-29T01:35:00Z",
-  "expires_at": "2026-10-29T02:35:00Z",
-  "cwd": "/home/appontrack/public_html/saas",
+  "created_at": "2026-10-29T01:45:00Z",
+  "expires_at": "2026-10-29T02:45:00Z",
+  "cwd": "/home/appontrack",
   "argv": [
     "/bin/sh",
     "-c",
-    "echo \"=MYSQL_SOCKET=\"; mysql --protocol=socket -e \"select version()\" 2>&1 | head -3\necho \"=MYCNF=\"; ls -la \"$HOME/.my.cnf\" 2>&1 | head -2\necho \"=PHP83=\"; /opt/cpanel/ea-php83/root/usr/bin/php -v 2>&1 | head -1\necho \"=PHP83EXT=\"; /opt/cpanel/ea-php83/root/usr/bin/php -m 2>/dev/null | tr \"\\n\" \" \"; echo\necho \"=MK=\"; mkdir -p \"$HOME/bin\" && echo ok\necho \"=CURL=\"; curl -sS --max-time 20 -o \"$HOME/bin/composer.phar\" https://getcomposer.org/composer.phar && ls -l \"$HOME/bin/composer.phar\"\necho \"=VER=\"; /opt/cpanel/ea-php83/root/usr/bin/php \"$HOME/bin/composer.phar\" --version 2>&1 | head -3\necho \"=DONE=\""
+    "set -e\nmkdir -p \"$HOME/bin\" \"$HOME/queue\" \"$HOME/queue/done\" \"$HOME/logs\"\ncat > \"$HOME/bin/run-queue.sh\" <<'RUNNER'\n#!/bin/bash\n# ontrack-saas-build runner: one queued job per minute, durable across worker timeouts\nQ=\"$HOME/queue\"\nfor f in \"$Q\"/*.sh; do\n  [ -e \"$f\" ] || exit 0\n  base=$(basename \"$f\" .sh)\n  mv \"$f\" \"$Q/running-$base.sh\"\n  /bin/bash \"$Q/running-$base.sh\" > \"$HOME/logs/$base.log\" 2>&1\n  echo \"exit=$?\" > \"$HOME/logs/$base.status\"\n  mv \"$Q/running-$base.sh\" \"$Q/done/$base.sh\"\n  exit 0\ndone\nexit 0\nRUNNER\nchmod 700 \"$HOME/bin/run-queue.sh\"\ncat > \"$HOME/queue/bootstrap-laravel.sh\" <<'BUILD'\n#!/bin/bash\nPHP=/opt/cpanel/ea-php83/root/usr/bin/php\nC=\"$HOME/bin/composer.phar\"\nset -x\nrm -rf \"$HOME/saas-build\"\n$PHP $C create-project laravel/laravel \"$HOME/saas-build\" --no-interaction --prefer-dist --no-scripts\ntest -f \"$HOME/saas-build/artisan\" || exit 20\ncp -a \"$HOME/saas-build/.\" \"$HOME/public_html/saas/\"\ncd \"$HOME/public_html/saas\"\ncp -f .env.example .env\nsed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env\nsed -i 's/^APP_ENV=.*/APP_ENV=production/' .env\nsed -i 's/^APP_DEBUG=.*/APP_DEBUG=false/' .env\n$PHP artisan key:generate --force\n$PHP artisan migrate --force\n$PHP artisan --version\necho LARAVEL_READY\nBUILD\nchmod 700 \"$HOME/queue/bootstrap-laravel.sh\"\n(crontab -l 2>/dev/null | grep -v 'ontrack-saas-build'; echo '* * * * * /bin/bash /home/appontrack/bin/run-queue.sh >/dev/null 2>&1 # ontrack-saas-build') | crontab -\ncrontab -l | tail -3\necho \"=QUEUED=\"; ls -l \"$HOME/queue\"\necho \"=DONE=\""
   ],
-  "timeout_seconds": 30
+  "timeout_seconds": 25
 }
