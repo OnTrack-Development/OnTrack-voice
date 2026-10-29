@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\App\AgentStudioController;
+use App\Http\Controllers\App\ConversationController;
 use App\Http\Controllers\App\HomeController;
 use App\Http\Controllers\App\KnowledgeController;
 use App\Http\Controllers\App\OverviewController;
@@ -50,4 +51,10 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
     Route::get('/{workspace}/smart-actions', [SmartActionController::class, 'index'])->name('smart-actions.index');
     Route::post('/{workspace}/smart-actions', [SmartActionController::class, 'store'])->name('smart-actions.store');
     Route::post('/{workspace}/smart-actions/{rule}/invoke', [SmartActionController::class, 'invoke'])->name('smart-actions.invoke');
+
+    Route::get('/{workspace}/inbox', [ConversationController::class, 'index'])->name('inbox.index');
+    Route::get('/{workspace}/inbox/{conversation}', [ConversationController::class, 'show'])->name('inbox.show');
+    Route::post('/{workspace}/inbox/{conversation}/reply', [ConversationController::class, 'reply'])->name('inbox.reply');
+    Route::post('/{workspace}/inbox/{conversation}/lock', [ConversationController::class, 'lock'])->name('inbox.lock');
+    Route::post('/{workspace}/inbox/{conversation}/release', [ConversationController::class, 'release'])->name('inbox.release');
 });

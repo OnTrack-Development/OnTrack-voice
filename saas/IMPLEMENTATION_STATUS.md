@@ -1,19 +1,20 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Smart Actions**
+**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Conversation Core**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 17 اختبارًا / 57 assertion، ناجحة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 20 اختبارًا / 69 assertion، ناجحة |
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
 | AI Providers | `IMPLEMENTED_LOCAL` (بيانات + عزل + تشفير) — اتصال حي `PENDING_CREDENTIALS` |
 | Knowledge | `IMPLEMENTED_LOCAL` — فهرسة نصية/تقسيم قطع، بلا ادعاء بحث متجهي |
 | Smart Actions | `IMPLEMENTED_LOCAL` — قواعد أزرار مقيدة بالحالة والصلاحية + إثبات النداء/التكرار |
+| Conversation Core | `IMPLEMENTED_LOCAL` — inbox عام، رد موظف، إيقاف AI مؤقت، وقفل بشري دائم مع عزل tenant |
 | WhatsApp / Inbox | `PLANNED` |
 | Voice | `PLANNED` — ينتظر إثبات الجهاز |
 
@@ -34,6 +35,11 @@
 ### 5. Smart Actions
 `button_rules` مقيدة بـ tenant/workspace/project مع `business_state_in` و`condition_ast` منفصلين، `button_presentations` برمز عرض موقّت، `button_invocations` بمفتاح idempotency فريد لكل tenant، ورفض أي مشروع/قاعدة أجنبية (422/404)، وإرجاع `duplicate` عند تكرار نفس المفتاح.
 
+### 6. Conversation Core + Human Lock
+`conversations` و`messages` و`conversation_events` و`handoff_records` مع tenant/workspace scope. رد الموظف يضيف رسالة `staff` ويضبط `ai_pause_until_utc` افتراضيًا 15 دقيقة مع `pause_generation`، والقفل البشري الدائم منفصل ولا ينتهي تلقائيًا. لا يوجد ادعاء اتصال قناة حي.
+
+`button_rules` مقيدة بـ tenant/workspace/project مع `business_state_in` و`condition_ast` منفصلين، `button_presentations` برمز عرض موقّت، `button_invocations` بمفتاح idempotency فريد لكل tenant، ورفض أي مشروع/قاعدة أجنبية (422/404)، وإرجاع `duplicate` عند تكرار نفس المفتاح.
+
 
 `knowledge_sources` / `knowledge_source_versions` / `knowledge_chunks`، تقسيم النص إلى قطع بمحتوى محفوظ، حالات `processing → indexed`، رفض `project_id` الأجنبي 422، ورفض الكتابة من خارج المساحة 403.
 
@@ -43,7 +49,7 @@
 
 ```text
 php artisan migrate --force
-9 custom migrations DONE (000001..000009)
+10 custom migrations DONE (000001..000010)
 
 php artisan test
 15 passed (49 assertions)
@@ -51,6 +57,7 @@ php artisan test
 - ControlProviderHubTest: 3
 - KnowledgeHubTest: 3
 - SmartActionTest: 2
+- ConversationCoreTest: 3
 - TenancyIsolationTest: 3
 - Example tests: 2
 
