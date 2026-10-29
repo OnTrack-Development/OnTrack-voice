@@ -1,13 +1,13 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة CRM**
+**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Operations**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 32 اختبارًا / 115 assertion، ناجحة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 34 اختبارًا / 119 assertion، ناجحة |
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
@@ -20,6 +20,7 @@
 | Tenant Audit | `IMPLEMENTED_LOCAL` — سجل tenant-scoped مع redacted context وtrace id |
 | Plans / Usage / Settings | `IMPLEMENTED_LOCAL` — entitlement quota، ledger idempotent، وإعداد pause minutes 1..1440 |
 | CRM | `IMPLEMENTED_LOCAL` — جهات اتصال وحالات lead معزولة بعدد صفحات والتحقق من البريد/الهاتف |
+| Operations | `IMPLEMENTED_LOCAL` — غرفة عمليات بمقاييس حقيقية من DB وعزل tenant |
 | Voice | `PLANNED` — ينتظر إثبات الجهاز |
 
 ## الشرائح المنفذة
@@ -57,6 +58,9 @@
 ### 11. CRM (جهات اتصال)
 `contacts` و`contact_identities` مع tenant scope، حالات `new/qualified/customer/unqualified`، التحقق من البريد والهاتف وحالات lead، ومنع إنشاء/عرض جهات تواصل foreign tenant.
 
+### 12. Operations (غرفة العمليات)
+لوحة بأرقام حقيقية من جداول فعلية: الوكلاء، المحادثات، القفل البشري، استهلاك الشهر، مصادر المعرفة، استدعاءات الأزرار؛ مع آخر أحداث تدقيق tenant-scoped. لا توجد أرقام مختلقة، وforeign tenant يُرفض 403.
+
 ## أدلة الاختبار الفعلية
 
 البيئة: Laravel 12.70.2 / PHP 8.2.12 / SQLite.
@@ -79,6 +83,7 @@ php artisan test
 - TenantAuditTest: 2
 - PlansUsageTest: 3
 - CrmTest: 2
+- OperationsTest: 2
 - TenancyIsolationTest: 3
 - Laravel example tests: 2
 
@@ -96,7 +101,7 @@ PHP lint: all saas/app, saas/database, saas/routes, saas/tests = OK
 `docs/memory/INCIDENT_2026-10-29_CONTROL_CHANNEL_AR.md`.
 
 ## حزمة النشر
-`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-13`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
+`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-14`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
 
 ## الخطوة التالية بعد عودة العامل
 1. التحقق من `host-link-test.txt`.

@@ -6,6 +6,7 @@ use App\Http\Controllers\App\ConversationController;
 use App\Http\Controllers\App\CrmController;
 use App\Http\Controllers\App\HomeController;
 use App\Http\Controllers\App\KnowledgeController;
+use App\Http\Controllers\App\OperationsController;
 use App\Http\Controllers\App\OverviewController;
 use App\Http\Controllers\App\ProjectController;
 use App\Http\Controllers\App\PlanController;
@@ -75,4 +76,6 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
 
     Route::get('/{workspace}/crm', [CrmController::class, 'index'])->name('crm.index');
     Route::post('/{workspace}/crm', [CrmController::class, 'store'])->name('crm.store');
+
+    Route::get('/{workspace}/operations', [OperationsController::class, 'index'])->name('operations.index');
 });

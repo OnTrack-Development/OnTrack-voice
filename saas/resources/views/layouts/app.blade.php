@@ -45,7 +45,9 @@
                 <span aria-hidden="true">♧</span> إدارة العملاء
             </a>
             <p class="side-section">الإدارة</p>
-            <span class="side-link" style="cursor:not-allowed;opacity:.6"><span aria-hidden="true">◴</span> غرفة العمليات</span>
+            <a class="side-link @if(request()->routeIs('app.operations.*')) active @endif" href="{{ route('app.operations.index', ['workspace' => $workspace->slug ?? '']) }}">
+                <span aria-hidden="true">◴</span> غرفة العمليات
+            </a>
             <a class="side-link @if(request()->routeIs('app.settings.*')) active @endif" href="{{ route('app.settings.edit', ['workspace' => $workspace->slug ?? '']) }}">
                 <span aria-hidden="true">⚙</span> الإعدادات
             </a>
