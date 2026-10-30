@@ -96,7 +96,7 @@ internal class CallOverlay(private val context: Context) {
             active->"● OnTrack • AI يتحدث  ▾"
             else->"● OnTrack • جاهز  ▾"
         }
-        actions?.visibility=if(expanded && active && !human) View.VISIBLE else View.GONE
+        actions?.visibility=if(expanded && active) View.VISIBLE else View.GONE
     }
     fun remove(){
         root?.let{runCatching{manager.removeView(it)}}
