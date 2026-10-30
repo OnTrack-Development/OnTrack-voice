@@ -1,13 +1,13 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد AI Send Gate وOutbox**
+**آخر تحديث: 29 أكتوبر 2026 — بعد Voice Import وAI Send Gate**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 63 اختبارًا / 255 assertion، ناجحة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 65 اختبارًا / 260 assertion، ناجحة |
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
@@ -21,6 +21,7 @@
 | Platform Admin Console | `IMPLEMENTED_LOCAL` — Dashboard/Models/Plans/Audit مع platform.admin 403 boundary |
 | Demo Mode | `IMPLEMENTED_LOCAL` — DemoSeeder وبيانات موسومة وحساب محلي تجريبي |
 | AI Send Gate / Outbox | `IMPLEMENTED_LOCAL` — idempotent final gate يمنع الإرسال أثناء pause/lock/channel unavailable |
+| Voice Import | `IMPLEMENTED_LOCAL` — paste/list input، invalid/duplicate flags، original preservation؛ telephony `PENDING_EXTERNAL` |
 | Social Registry | `IMPLEMENTED_LOCAL` — Telegram draft وcapability registry لـTelegram/Meta/Widget/WhatsApp؛ live external `PENDING_EXTERNAL` |
 | Telegram Webhook | `IMPLEMENTED_LOCAL` — secret، update dedupe، Conversation/Message tenant-scoped؛ Bot live `PENDING_EXTERNAL` |
 | Knowledge Search | `IMPLEMENTED_LOCAL` — نصي tenant-scoped على chunks، بلا ادعاء متجهي |
@@ -100,6 +101,9 @@ Telegram الرسمي له endpoint موثق بـsecret و`update_id` dedupe، �
 
 ### 21. AI Send Gate + Message Outbox
 `message_outbox` idempotent لكل tenant، و`AiSendGate` يعيد فحص المحادثة داخل transaction/row lock قبل إنشاء رسالة AI؛ يمنع `human_locked` و`ai_pause` والقناة غير المدعومة، ويمنع duplicate send.
+
+### 22. Voice Import + AI Send Gate
+Voice campaign entries تقبل paste سطر/اسم,رقم، تحفظ original، تميز invalid وتمنع duplicate داخل الحملة، مع عزل tenant. AI Outbox يفحص lock/pause/channel في final transaction قبل إنشاء رسالة.
 
 ## أدلة الاختبار الفعلية
 

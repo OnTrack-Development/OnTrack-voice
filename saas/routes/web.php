@@ -120,6 +120,8 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
     Route::post('/{workspace}/integrations', [IntegrationController::class, 'store'])->name('integrations.store');
 
     Route::get('/{workspace}/voice', [VoiceCampaignController::class, 'index'])->name('voice.index');
+    Route::get('/{workspace}/voice/{campaign}', [VoiceCampaignController::class, 'show'])->name('voice.show');
+    Route::post('/{workspace}/voice/{campaign}/import', [VoiceCampaignController::class, 'import'])->name('voice.import');
     Route::get('/{workspace}/channels/social', [SocialController::class, 'index'])->name('social.index');
     Route::post('/{workspace}/channels/social', [SocialController::class, 'store'])->name('social.store');
     Route::post('/{workspace}/channels/social/{connection}/revoke', [SocialController::class, 'revoke'])->name('social.revoke');
