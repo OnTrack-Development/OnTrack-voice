@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "mobile-ota-livecheck-20261030T223935",
+  "id": "mobile-device-heartbeat-20261030T224309",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-10-30T22:39:35Z",
-  "expires_at": "2026-10-31T22:39:35Z",
-  "cwd": "/home/appontrack/public_html/saas",
-  "timeout_seconds": 24,
+  "created_at": "2026-10-30T22:43:09Z",
+  "expires_at": "2026-10-31T22:43:09Z",
+  "cwd": "/home/appontrack",
+  "timeout_seconds": 12,
   "argv": [
     "/bin/python3",
     "-c",
-    "import urllib.request,urllib.error,json,hashlib,datetime\nbase=\"https://app.ontrackegy.com/saas/mobile/updates/\"\nout={\"utc\":datetime.datetime.now(datetime.timezone.utc).isoformat()}\ntry:\n req=urllib.request.Request(base+\"latest.json\",headers={\"User-Agent\":\"OnTrack-OTA-LiveCheck/1.0\",\"Cache-Control\":\"no-cache\"})\n with urllib.request.urlopen(req,timeout=8) as res:\n  raw=res.read(20000);out[\"manifest_http\"]=res.status;out[\"manifest_content_type\"]=res.headers.get(\"Content-Type\",\"\")\n envelope=json.loads(raw);meta=json.loads(envelope[\"payload\"]);out[\"revision\"]=meta[\"revision\"];out[\"native_min\"]=meta[\"min_native\"];out[\"native_max\"]=meta[\"max_native\"]\n name=meta[\"file\"]\n with urllib.request.urlopen(urllib.request.Request(base+name,headers={\"User-Agent\":\"OnTrack-OTA-LiveCheck/1.0\"}),timeout=8) as res:\n  content=res.read(524289);out[\"asset_http\"]=res.status\n out[\"file_hash_matches\"]=hashlib.sha256(content).hexdigest()==meta[\"sha256\"];out[\"size_matches\"]=len(content)==meta[\"size\"]\nexcept Exception as exc:\n out[\"error_type\"]=type(exc).__name__;out[\"http_code\"]=getattr(exc,\"code\",None)\nprint(json.dumps(out,ensure_ascii=False))\n"
+    "import pathlib,json,datetime\np=pathlib.Path(\"/home/appontrack/.ontrack-mobile\")\nout={\"checked_utc\":datetime.datetime.now(datetime.timezone.utc).isoformat()}\nf=p/\"device-seen.json\"\nif f.is_file():\n d=json.loads(f.read_text());seen=d.get(\"seen_at\");out[\"last_device_heartbeat_utc\"]=seen\n try:out[\"heartbeat_age_seconds\"]=round((datetime.datetime.now(datetime.timezone.utc)-datetime.datetime.fromisoformat(seen.replace(\"Z\",\"+00:00\"))).total_seconds())\n except (ValueError,TypeError):pass\nelse:out[\"last_device_heartbeat_utc\"]=None\nsettings=p/\"settings.json\"\nif settings.is_file():\n s=json.loads(settings.read_text());out[\"settings_enabled\"]=s.get(\"enabled\");out[\"auto_answer_enabled\"]=s.get(\"auto_answer\");out[\"settings_revision\"]=s.get(\"revision\")\nelse:out[\"settings_available\"]=False\nprint(json.dumps(out))\n"
   ]
 }
