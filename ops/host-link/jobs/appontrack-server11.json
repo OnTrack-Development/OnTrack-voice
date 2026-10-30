@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "saas-file-test-20261029",
+  "id": "mobile-bridge-inspect-1793389599248",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-10-29T02:51:22Z",
-  "expires_at": "2026-10-29T03:06:52Z",
-  "cwd": "/home/appontrack/public_html/saas",
+  "created_at": "2026-10-30T19:46:39.248Z",
+  "expires_at": "2026-10-30T20:46:39.248Z",
+  "cwd": "/home/appontrack/public_html",
   "argv": [
-    "/bin/sh",
+    "/bin/python3",
     "-c",
-    "printf '%s\n' 'ontrack-saas-host-link-test-20261029' > host-link-test.txt && ls -l host-link-test.txt && sha256sum host-link-test.txt"
+    "import pathlib,json,os,hashlib,subprocess,shutil\nroot=pathlib.Path('/home/appontrack/public_html')\nentries=[]\nfor p in sorted(root.rglob('*')):\n if not p.is_file() or len(p.relative_to(root).parts)>3:continue\n rel=str(p.relative_to(root))\n if any(x in rel.lower() for x in ['config','secret','.env','token','session','cache','vendor','node_modules','.git']):continue\n if p.suffix.lower() not in ['.php','.js','.mjs','.json','.html','.txt']:continue\n entries.append({'path':rel,'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()})\nprint(json.dumps({'uid':os.getuid(),'files':entries[:100],'saas_exists':(root/'saas').exists(),'runtime_tools':{x:shutil.which(x) for x in ['php','python3','node','npm','ffmpeg']},'host_worker_stop_exists':pathlib.Path('/home/appontrack/ontrack-voice-link/STOP').exists()},ensure_ascii=False))\n"
   ],
-  "timeout_seconds": 10
+  "timeout_seconds": 20
 }
