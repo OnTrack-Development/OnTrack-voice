@@ -1,0 +1,13 @@
+{
+  "job_id": "mobile-admin-backend-20261031a",
+  "target": "appontrack-server11",
+  "job_sha256": "6ed1f8fc416106ed4733a4e4240ed0f7e2c5b18ab6a7de507a09dea914cb4fdf",
+  "started_at": "2026-10-30T23:37:03.162438+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"deployed\": [\"common.php\", \"session.php\"], \"php_lint\": \"PASS\", \"backup\": true, \"secrets_read\": false}\n",
+  "stderr": "",
+  "finished_at": "2026-10-30T23:37:03.348083+00:00",
+  "duration_ms": 186
+}
