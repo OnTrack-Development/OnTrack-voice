@@ -54,6 +54,7 @@ class MobileLinkService:Service() {
                 AnsweringMachine.setEnabled(this@MobileLinkService,false)
                 CaptureDaemon.setAnswering(this@MobileLinkService)
                 // A single live reader owns AudioRecord; avoid competing file capture.
+                RecorderSwitch.set(this@MobileLinkService,false)
                 check(CaptureDaemon.setDaemonMode(this@MobileLinkService,CaptureDaemon.MODE_OFF))
                 var settings=JSONObject();var lastFetch=0L;var callSeen=false
                 while(isActive) {
