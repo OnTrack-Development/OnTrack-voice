@@ -1,3 +1,7 @@
+## Android0.1.7 — fix local WebView request interception
+
+Serve the exact current virtual HTTPS main document as200 from verified local bytes; block all other requests. Replace data-based loading, retain CSP and per-render bridge nonce. Native diagnostic/recovery buttons remain available on rendering failure. Add Android API34 emulator smoke test for actual rendering/native init before packaging. No reset of pairing or credentials.
+
 ## Android0.1.6 — signed UI OTA bootstrap
 
 Download and verify local HTML/CSS/JS UI bundles, preserve offline baseline and previous bundle, reject incompatible/tampered/replayed updates, defer activation while a known call is active. Existing signed APK identity and settings retained. Native updates still require APK installation. Host OTA publication goes through existing serialized worker. Phone401 remains open.

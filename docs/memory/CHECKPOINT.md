@@ -1,3 +1,9 @@
+## أحدث عطل — WebView منع الصفحة المحلية، إصلاحNative0.1.7
+
+صورةالمالكبعد0.1.6تظهرتحميلOTAثمWebpage not available علىdata:text/htmlمعHTTP_RESPONSE_CODE_FAILURE. الكودكانيعيد403لكلطلب،بلامساريسمحويخدمHTMLالمحلي؛هذاعيبفيالنسخةالمسلّمةولايتعلقبمفتاحالمكالمات401.0.1.7يستبدلالتحميلبصفحةHTTPSافتراضيةمحددةلكلrender،وتُخدم200منالـHTMLالموقّعفقطللـmainGET؛كلالمواردالأخرىتبقىمحجوبة. أزرارNativeللتشخيصوالاسترجاعتبقىمتاحةإنفشلWebView. نضيفاختبارinstrumentationلـAndroidWebViewAPI34قبلالتسليم؛ البناءوالهاتفغيرمثبتينبعد.
+
+تقريرmobile-ota-41131334617وصلsuccess/exit0عند21:38:30UTCوثبّتنشرrevision2؛ إذًاالعطلالحاليليسغيابملفاتOTA. الإصلاحNativeويحتاجتحديثAPK0.1.7بنفسالشهادةوبلامسحبيانات. راجع docs/mobile/OTA_WEBVIEW_LOAD_FIX_2026_10_30.json.
+
 ## أحدث تسليم — APK0.1.6 وOTA موقّعان، نشرالواجهةمنتظرالعامل
 
 run41131334617نجح(build124322733614,publish124324094537).Artifact13013975015نُزّلوتحققناZIPوAPKوبصماتoverlayوالواجهةالمضمنةوشهادةنفسالنسخالأخيرة. اختباراتKotlinلتوقيعRSAالمعدل/المفتاحالمختلفوحدودruntime/path/sizeنجحت،والحارسالنهائيلـmanifestنجح؛لاNotificationListenerأوSMSأوAccessibility. محاولاتالبناءالسابقةمحفوظة؛خطأBuildConfigأُصلحباستخدامPackageInfo. فحصJSsyntaxنجح؛فحصPlaywrightلم يُنفّذ لغيابChromiumالمحلي،ولانصفهناجحًا.

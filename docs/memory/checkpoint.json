@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T21:34:14.361704+00:00",
+  "updated_at_utc": "2026-10-30T21:45:47.888286+00:00",
   "display_timezone": "Africa/Cairo",
-  "status": "OTA_BOOTSTRAP_016_APK_VERIFIED_HOST_PUBLICATION_PENDING",
+  "status": "OTA_NATIVE_WEBVIEW_LOAD_FAILURE_017_FIX_BUILD_PENDING",
   "phase": "MOBILE_SITE_LIVE_INTEGRATION",
   "repository": "OnTrack-Development/OnTrack-voice",
   "application_repo_path": "saas/",
@@ -38,7 +38,7 @@
     "before_owner_start": "Report preparation complete and supply prompt/memory paths; do not bootstrap application.",
     "after_owner_start": "Inspect compatible PHP/Composer/build/MySQL inside isolated saas scope, establish application baseline and implement first authorized vertical slice.",
     "current_research_followup": "Read research report and perform only an authorized target-device audio proof; no device-control or successful call evidence available in research session.",
-    "current_mobile_build": "Existing worker must execute the queued deployment; do not replace or replay unknown pending effects. Verify report/raw SHA and live signed manifest/hash. Owner installs bootstrap APK as update and checks UI OTA2."
+    "current_mobile_build": "Run actual Android WebView local-document/ready/init test before packaging0.1.7; verify artifact and same signer. Old OTA2 deployed successfully, but native loader is broken; do not attempt another data reset or blame401."
   },
   "open_issue_ids": [
     "VOICE-001",
@@ -52,7 +52,8 @@
     "MOBILE-003",
     "MOBILE-004",
     "MOBILE-005",
-    "MOBILE-006"
+    "MOBILE-006",
+    "MOBILE-008"
   ],
   "last_successful_job": "mobile-link-deploy-1793390868859",
   "evidence": [
@@ -134,11 +135,11 @@
     "evidence": "docs/mobile/MOBILE_AUTH_RECHECK_2026_10_30.json"
   },
   "ota": {
-    "status": "APK_SIGNED_BUNDLE_VERIFIED_HOST_QUEUE_PENDING",
+    "status": "017_VIRTUAL_LOCAL_DOCUMENT_SOURCE_PREPARED",
     "scope": "Signed local HTML/CSS/JS call-center UI; native audio/permissions still require APK",
-    "bootstrap_version": "0.1.6-ota",
+    "bootstrap_version": "0.1.7-ota",
     "runtime": 1,
-    "revision": 2,
+    "revision": 3,
     "doc": "docs/mobile/OTA_UPDATES_AR.md",
     "device_hot_update_verified": false,
     "host_release_deployed": false,
@@ -149,6 +150,7 @@
     "artifact_id": 13013975015,
     "host_deploy_job": "mobile-ota-41131334617",
     "build_evidence": "docs/mobile/MOBILE_OTA_BUILD_0_1_6.json",
-    "publication_evidence": "docs/mobile/OTA_HOST_PUBLICATION_2026_10_30.json"
+    "publication_evidence": "docs/mobile/OTA_HOST_PUBLICATION_2026_10_30.json",
+    "emulator_webview_verified": false
   }
 }

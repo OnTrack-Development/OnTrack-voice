@@ -22,6 +22,7 @@ class MobileLinkActivity:ComponentActivity(){
     private var ready=false
     private var generation=0
     private var screenNonce=""
+    @Volatile private var localPage:LocalUiPage?=null
     private var updateBusy=false
     private var pending:MobileOta.Bundle?=null
     @SuppressLint("SetJavaScriptEnabled")
@@ -29,6 +30,13 @@ class MobileLinkActivity:ComponentActivity(){
         super.onCreate(savedInstanceState);ota=MobileOta(this)
         val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(0,30,0,0)}
         banner=TextView(this).apply{setPadding(20,10,20,10);text="جاري فحص تحديث الواجهة…"};root.addView(banner)
+        val recovery=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
+        Button(this).apply{text="التشخيص والإعداد";setOnClickListener{startActivity(Intent(this@MobileLinkActivity,ProofActivity::class.java))};recovery.addView(this,LinearLayout.LayoutParams(0,-2,1f))}
+        Button(this).apply{text="الواجهة السابقة";setOnClickListener{lifecycleScope.launch{
+            if(MobileLinkService.inCall){banner.text="انتظر نهاية المكالمة";return@launch}
+            runCatching{show(withContext(Dispatchers.IO){ota.rollback(false)})}.onFailure{banner.text="تعذر استعادة الواجهة"}
+        }};recovery.addView(this,LinearLayout.LayoutParams(0,-2,1f))}
+        root.addView(recovery)
         web=WebView(this);root.addView(web,LinearLayout.LayoutParams(-1,0,1f));setContentView(root)
         web.settings.apply{
             javaScriptEnabled=true;domStorageEnabled=false;allowFileAccess=false;allowContentAccess=false
@@ -36,8 +44,17 @@ class MobileLinkActivity:ComponentActivity(){
             javaScriptCanOpenWindowsAutomatically=false;setSupportMultipleWindows(false)
         }
         web.webViewClient=object:WebViewClient(){
-            override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest)=true
-            override fun shouldInterceptRequest(view:WebView,request:WebResourceRequest)=WebResourceResponse("text/plain","UTF-8",403,"Blocked",mapOf(),ByteArrayInputStream(ByteArray(0)))
+            override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest)=
+                localPage?.allows(request.url.toString(),request.isForMainFrame,request.method)!=true
+            override fun shouldInterceptRequest(view:WebView,request:WebResourceRequest):WebResourceResponse {
+                val page=localPage
+                if(page!=null && page.allows(request.url.toString(),request.isForMainFrame,request.method)) {
+                    return WebResourceResponse("text/html","UTF-8",200,"OK",
+                        mapOf("Content-Security-Policy" to LocalUiPage.CSP,"Cache-Control" to "no-store"),
+                        ByteArrayInputStream(page.html.toByteArray(Charsets.UTF_8)))
+                }
+                return WebResourceResponse("text/plain","UTF-8",403,"Blocked",mapOf(),ByteArrayInputStream(ByteArray(0)))
+            }
         }
         web.addJavascriptInterface(Bridge(),"OnTrack")
         lifecycleScope.launch{
@@ -53,8 +70,11 @@ class MobileLinkActivity:ComponentActivity(){
     private fun show(screen:MobileOta.Screen){
         ready=false;val current=++generation
         screenNonce=java.util.UUID.randomUUID().toString()
-        val policy="<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'\">"
-        web.loadDataWithBaseURL("https://ontrack-ui.invalid/",screen.html.replaceFirst("<head>","<head>"+policy+"<script>window.OTA_NONCE="+JSONObject.quote(screenNonce)+";</script>"),"text/html","UTF-8",null)
+        require(screen.html.contains("<head>")){"صيغة واجهة التحديث غير صالحة"}
+        val content=screen.html.replaceFirst("<head>","<head><script>window.OTA_NONCE="+JSONObject.quote(screenNonce)+";</script>")
+        val page=LocalUiPage(screenNonce,content)
+        localPage=page
+        web.loadUrl(page.url)
         lifecycleScope.launch{delay(10000);if(!ready && current==generation){
             if(screen.revision>1){show(withContext(Dispatchers.IO){ota.rollback(true)});banner.text="تعذر فتح التحديث؛ رجعنا للواجهة السابقة"}
             else banner.text="تعذر فتح الواجهة؛ استخدم إعدادات الهاتف من شاشة التشخيص"

@@ -49,12 +49,13 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 7', 'versionCode')
+                        'versionCode = 8', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.1.6-ota"', 'versionName')
+                        'versionName = "0.1.7-ota"', 'versionName')
+    text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
-    text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")', 'mobile websocket transport')
+    text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")\n    androidTestImplementation("androidx.test:runner:1.6.2")\n    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n    androidTestImplementation("androidx.test:core:1.6.1")', 'mobile websocket transport')
     path.write_text(text)
     path = root / 'shellserver/src/com/jemcik/jemrec/shell/GreetingPlayer.java'
     text = path.read_text().replace('private static AudioTrack musicTrack(', 'static AudioTrack musicTrack(').replace('private static AudioTrack screeningTrack(', 'static AudioTrack screeningTrack(')

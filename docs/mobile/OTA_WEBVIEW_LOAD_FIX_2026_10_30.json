@@ -1,0 +1,18 @@
+{
+  "recorded_at_utc": "2026-10-30T21:45:47.888286+00:00",
+  "issue_id": "MOBILE-008",
+  "owner_screenshot": "OTA downloaded banner followed by Webpage not available at data:text/html;charset=utf-8;base64, net::ERR_HTTP_RESPONSE_CODE_FAILURE",
+  "screenshot_sha256": "05b6ec38fe0d5267b8d2bebff1d3fc9e75abc44b3789e5a5c22be8269e96d93e",
+  "source_fact": "0.1.6 shouldInterceptRequest returns403 for every WebView request; it has no allow/serve path for the local main document. loadDataWithBaseURL used a synthetic data representation.",
+  "cause_assessment": "Native WebView request/load boundary is defective; the broad403 handler matches the observed HTTP_RESPONSE_CODE_FAILURE. Exact OEM WebView internal callback sequence not captured.",
+  "fix": "Use loadUrl on an exact per-render HTTPS virtual document, intercepted as200 only for current main-frame GET; all other resources stay403. Preserve signed bundle, CSP header, no external/file access, nonce bridge. Add native recovery buttons and real Android WebView instrumentation before delivery.",
+  "version": "0.1.7-ota",
+  "native_version_code": 8,
+  "ota_revision": 3,
+  "runtime": 1,
+  "phone_verified": false,
+  "emulator_verified": false,
+  "original_ota2_host_report": "ops/host-link/results/appontrack-server11/mobile-ota-41131334617.json",
+  "old_ota2_host_deployed": true,
+  "source": "https://developer.android.com/develop/ui/views/layout/webapps/load-local-content"
+}

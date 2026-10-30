@@ -550,6 +550,32 @@
           "summary": "Corrected source compiled and unit/daemon tests, APK assembly, signature and signed OTA packaging passed in run41131334617."
         }
       ]
+    },
+    {
+      "id": "MOBILE-008",
+      "title": "OTA UI shows Webpage not available / HTTP_RESPONSE_CODE_FAILURE",
+      "category": "android_webview",
+      "severity": "high",
+      "status": "INVESTIGATING",
+      "first_seen": "2026-10-30T21:45:47.888286+00:00",
+      "expected": "Render verified local UI and complete ready/init bridge",
+      "actual": "OTA downloaded banner followed by Webpage not available at data:text/html;charset=utf-8;base64, net::ERR_HTTP_RESPONSE_CODE_FAILURE",
+      "cause_confirmed": "Native interceptor unconditionally returns403; no trusted main document route exists. Exact OEM callback sequence not captured.",
+      "attempts": [
+        "ATT-20261030-WEBVIEW-VIRTUAL-DOCUMENT"
+      ],
+      "verification": [
+        "docs/mobile/OTA_WEBVIEW_LOAD_FIX_2026_10_30.json"
+      ],
+      "current_blocker": true,
+      "next_action": "Build0.1.7 and run actual API34 Android WebView instrumentation; verify same certificate and final APK, publish revision3 through existing worker. Owner updates APK without clearing data because native loader cannot be repaired by a blocked web UI.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-30T21:45:47.888286+00:00",
+          "status": "INVESTIGATING",
+          "summary": "Use loadUrl on an exact per-render HTTPS virtual document, intercepted as200 only for current main-frame GET; all other resources stay403. Preserve signed bundle, CSP header, no external/file access, nonce bridge. Add native recovery buttons and real Android WebView instrumentation before delivery."
+        }
+      ]
     }
   ]
 }
