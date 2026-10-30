@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "version": "0.1.2-audio-proof",
-  "status": "CI_RUNNING_PHONE_VERIFICATION_PENDING",
+  "status": "BUILD_PASS_SUPERSEDED_BY_DIRECT_LINK_0_1_3",
   "source_commit": "4ed0e183f766f6758ef578994ed6bf0f46b6e763",
   "workflow_run_id": 41117754860,
   "workflow_job_id": 124276289447,
@@ -28,5 +28,5 @@
     "continuous_ai_duplex": false
   },
   "signing_update_compatibility": "PENDING_DOWNLOADED_CERT_COMPARISON",
-  "next_action": "After CI and signing verification, install as update only if signer matches installed version; repeat call, collect, listen to remote phrase, export verified JSON."
+  "next_action": "Owner explicitly requested direct integration, no separate 0.1.2 device test. Retention/export fixes are included in 0.1.3."
 }

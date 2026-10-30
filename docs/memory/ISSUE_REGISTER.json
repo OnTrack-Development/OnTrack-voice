@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T19:44:21.586769+00:00",
+  "updated_at_utc": "2026-10-30T20:18:51.549390+00:00",
   "issues": [
     {
       "id": "NET-001",
@@ -419,6 +419,30 @@
           "recorded_at_utc": "2026-10-30T19:44:21.586769+00:00",
           "status": "INVESTIGATING",
           "summary": "0.1.2 source fix prepared; CI and phone verification pending."
+        }
+      ]
+    },
+    {
+      "id": "MOBILE-004",
+      "title": "Development host jobs only observed after manual worker invocation",
+      "category": "host_control",
+      "severity": "high",
+      "status": "INVESTIGATING",
+      "first_seen": "2026-10-30",
+      "expected": "Existing cron processes subsequent authorized deployment job",
+      "actual": "Inspection succeeded at20:06:36UTC after owner manually ran worker. Subsequent queued deployment has no report; public mobile API still404 on last check.",
+      "cause_confirmed": null,
+      "attempts": [],
+      "verification": [
+        "ops/host-link/results/appontrack-server11/mobile-bridge-inspect-1793389599248.json"
+      ],
+      "current_blocker": "Live mobile settings deployment",
+      "next_action": "Wait for existing worker to execute queued mobile-link-deploy-1793390868859 (manual follow loop requested; no replacement/replay). Verify matching report and live mobile endpoints, finish live-session handshake check, then deliver verified APK and connection key. No separate recording gate.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-30T20:18:51.549390+00:00",
+          "status": "INVESTIGATING",
+          "summary": "Asked owner to run existing worker in a bounded3minute follow loop. No token/config read, reinstallation or queue overwrite."
         }
       ]
     }

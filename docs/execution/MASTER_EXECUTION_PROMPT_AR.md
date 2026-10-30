@@ -224,3 +224,8 @@ TLS صحيح، SSRF/DNS/redirect/rebinding protections للـ custom URLs، CSRF
 ## ملحق حاكم — البحث الاقتصادي والقيود الجديدة
 
 لا Shizuku، لا Accessibility، لا شراء هاردوير للعميل، لا اشتراكات/عقود اتصالات جديدة. أعد استخدام الشريحة والباقة والصوت الموجود. البحث في docs/research/2026-10-30/ يضم39مصدرًا أوليًا ومواضع كود وبروتوكول إثبات وحاسبة افتراضات. لا تعتمد أرقامها كسعر بيع أو benchmark. مرشح JemRec يحتاج تحويل تحية إلى streaming متزامن واختبار VoLTE على الهاتف؛ مصدر BootReceiver ينتظر أول unlock. لا وعد تشغيل بلا تدخل بعد reboot. أي تفضيل قديم لـShizuku في مراجع محفوظة متجاوز بهذا القرار. لم يبدأ تنفيذ SaaS أو APK أثناء البحث.
+
+
+## Current integration handoff — 2026-10-30
+
+Owner explicitly requested direct phone/site AI integration without a separate recording-test gate.0.1.4 fixes our wrong slash in the Google Live RPC URL; actual setupComplete now accepted using the existing site token/model.0.1.3 must not be delivered for linking. Read docs/mobile/MOBILE_SITE_LINK_AR.md and current CHECKPOINT. Build run41122903309 and queued host deployment mobile-link-deploy-1793390868859 are separate gates. Do not overwrite the live host queue, read its credential config or request a new PAT. Settings are not deployed until matching result/HTTP checks. No live AI/SIM duplex claim yet.

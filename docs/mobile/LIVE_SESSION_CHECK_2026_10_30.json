@@ -1,0 +1,12 @@
+{
+  "recorded_at_utc": "2026-10-30T20:10:27.516032+00:00",
+  "endpoint": "https://app.ontrackegy.com/api/live_session.php",
+  "cellular_audio_tested": false,
+  "audio_sent": false,
+  "session_http": 200,
+  "session_ok": true,
+  "model": "gemini-3.8-live",
+  "ephemeral_token_received": true,
+  "error_type": "InvalidStatus",
+  "websocket_http_status": 404
+}

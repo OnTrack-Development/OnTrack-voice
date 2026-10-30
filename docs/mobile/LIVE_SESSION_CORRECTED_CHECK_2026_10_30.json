@@ -1,0 +1,9 @@
+{
+  "recorded_at_utc": "2026-10-30T20:24:42.379902+00:00",
+  "corrected_rpc_delimiter": ".",
+  "audio_sent": false,
+  "cellular_audio_tested": false,
+  "session_http": 200,
+  "websocket_open": true,
+  "setup_ack": true
+}

@@ -65,3 +65,8 @@ voicecallv0.6.3متصفح/PHP، handoffAgentBuilderv1.3مواصفات، خطةVo
 
 تحديث0.1.2 يحتفظ بالتسجيل كاملًا، ويسلّمه لمسار الحفظ المعتاد، ويضيف زر جمع التسجيل بعد نهاية المكالمة مع عدد الملفات ونتائج الحفظ. تصدير JSON يأخذ لقطة قبل فتح منتقي الملفات، ولا يتجاهل callback بسبب busy، ويقرأ الملف بعد الكتابة للتحقق من البايتات. السبب الدقيق لملف المالك الفارغ غير مثبت، ولا نفترض أنه نفس هذه الاحتمالات. بناء CI واختبار الهاتف مطلوبان. لا تمسح بيانات الإعداد العامل.
 
+
+
+## Current integration handoff — 2026-10-30
+
+Owner explicitly requested direct phone/site AI integration without a separate recording-test gate.0.1.4 fixes our wrong slash in the Google Live RPC URL; actual setupComplete now accepted using the existing site token/model.0.1.3 must not be delivered for linking. Read docs/mobile/MOBILE_SITE_LINK_AR.md and current CHECKPOINT. Build run41122903309 and queued host deployment mobile-link-deploy-1793390868859 are separate gates. Do not overwrite the live host queue, read its credential config or request a new PAT. Settings are not deployed until matching result/HTTP checks. No live AI/SIM duplex claim yet.

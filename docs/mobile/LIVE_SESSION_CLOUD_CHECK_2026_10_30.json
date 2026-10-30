@@ -1,0 +1,13 @@
+{
+  "workflow_run_id": 41121648614,
+  "workflow_job_id": 124288993098,
+  "source_commit": "2cfcf91a2edeb547b43440bd3c1b782d810ff6f8",
+  "result": "FAILED_HTTP404_BEFORE_UPGRADE",
+  "query_encoding_variants": [
+    "percent",
+    "sdk_literal"
+  ],
+  "cause_confirmed": "Incorrect slash between GenerativeService and RPC name; pinned SDK uses dot. Corrected path subsequently returned setupComplete.",
+  "audio_sent": false,
+  "cellular_audio_tested": false
+}

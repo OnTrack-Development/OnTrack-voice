@@ -1,0 +1,12 @@
+{
+  "version": "0.1.4-mobile-link",
+  "status": "BUILD_PENDING",
+  "source_commit": "f163c6bb7dc83f06ba5f65d11e9ee0aa1f31aa77",
+  "workflow_run_id": 41122903309,
+  "corrected_live_check_run_id": 41122903296,
+  "live_setup_ack_local": true,
+  "live_setup_evidence": "docs/mobile/LIVE_SESSION_CORRECTED_CHECK_2026_10_30.json",
+  "backend_deploy_job": "mobile-link-deploy-1793390868859",
+  "backend_deploy_status": "PENDING",
+  "device_ai_call_verified": false
+}
