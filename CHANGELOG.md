@@ -1,3 +1,7 @@
+## Android0.1.6 — signed UI OTA bootstrap
+
+Download and verify local HTML/CSS/JS UI bundles, preserve offline baseline and previous bundle, reject incompatible/tampered/replayed updates, defer activation while a known call is active. Existing signed APK identity and settings retained. Native updates still require APK installation. Host OTA publication goes through existing serialized worker. Phone401 remains open.
+
 ## Android0.1.5 — install permission cleanup
 
 Remove inherited notification listener, notification grants and UI; keep debugging notices visible. Final APK permission guard added. Play Protect acceptance and live handset call pending. Host deployment report now confirms success.

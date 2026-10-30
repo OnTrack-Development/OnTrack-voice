@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit
 class MobileLinkService:Service() {
     companion object {
         @Volatile var running=false
+        @Volatile var inCall=false
         @Volatile var latestStatus="الربط متوقف"
         fun base(value:String):String {
             val uri=URI(value.trim())
@@ -64,6 +65,7 @@ class MobileLinkService:Service() {
                     }
                     val state=CaptureDaemon.linkControl(this@MobileLinkService,'Q')?.substringAfter("CALL ")?.toIntOrNull()
                         ?:error("تعذر قراءة حالة الشريحة")
+                    inCall=state==2 || state==1
                     if(!settings.optBoolean("enabled")) {
                         call?.stop();call=null;notice("متصل بالموقع — الربط الصوتي مقفول من لوحة الاتصال")
                     }else{
@@ -81,7 +83,7 @@ class MobileLinkService:Service() {
                     }
                     delay(1000)
                 }
-            }catch(t:Throwable){if(t !is CancellationException)notice("تعذر الربط: "+(t.message?:t.javaClass.simpleName));running=false}
+            }catch(t:Throwable){if(t !is CancellationException)notice("تعذر الربط: "+(t.message?:t.javaClass.simpleName));running=false;inCall=false}
         }
         return START_NOT_STICKY
     }
@@ -95,5 +97,5 @@ class MobileLinkService:Service() {
             val data=JSONObject(text);check(data.optBoolean("ok")){"الموقع لم يجهز الاتصال"};return data
         }
     }
-    override fun onDestroy(){call?.stop();scope.cancel();running=false;latestStatus="الربط متوقف";super.onDestroy()}
+    override fun onDestroy(){call?.stop();scope.cancel();running=false;inCall=false;latestStatus="الربط متوقف";super.onDestroy()}
 }

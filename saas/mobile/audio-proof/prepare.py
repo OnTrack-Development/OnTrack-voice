@@ -49,9 +49,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 6', 'versionCode')
+                        'versionCode = 7', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.1.5-mobile-link"', 'versionName')
+                        'versionName = "0.1.6-ota"', 'versionName')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
     text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")', 'mobile websocket transport')
@@ -217,12 +217,12 @@ def main(root):
             for intent in list(activity.findall('intent-filter')):
                 if any(x.get(android + 'name') == 'android.intent.category.LAUNCHER' for x in intent.findall('category')):
                     activity.remove(intent)
-    activity = ET.SubElement(app, 'activity', {android + 'name': '.ProofActivity', android + 'exported': 'true'})
+    activity = ET.SubElement(app, 'activity', {android + 'name': '.MobileLinkActivity', android + 'exported': 'true'})
     intent = ET.SubElement(activity, 'intent-filter')
     ET.SubElement(intent, 'action', {android + 'name': 'android.intent.action.MAIN'})
     ET.SubElement(intent, 'category', {android + 'name': 'android.intent.category.LAUNCHER'})
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.FOREGROUND_SERVICE_DATA_SYNC'})
-    ET.SubElement(app, 'activity', {android + 'name': '.MobileLinkActivity', android + 'exported': 'false'})
+    ET.SubElement(app, 'activity', {android + 'name': '.ProofActivity', android + 'exported': 'false'})
     ET.SubElement(app, 'service', {android + 'name': '.MobileLinkService', android + 'exported': 'false', android + 'foregroundServiceType': 'dataSync'})
     # Upstream components use relative names under the new namespace; explicit
     # intents inside shell source were rewritten above. No Accessibility added.

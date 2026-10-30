@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T21:13:16.563365+00:00",
+  "updated_at_utc": "2026-10-30T21:22:08.593078+00:00",
   "display_timezone": "Africa/Cairo",
-  "status": "PHONE_LINK_ACTIVITY_RUNNING_HTTP401_INVESTIGATING",
+  "status": "OTA_BOOTSTRAP_016_SOURCE_READY_BUILD_PENDING",
   "phase": "MOBILE_SITE_LIVE_INTEGRATION",
   "repository": "OnTrack-Development/OnTrack-voice",
   "application_repo_path": "saas/",
@@ -38,7 +38,7 @@
     "before_owner_start": "Report preparation complete and supply prompt/memory paths; do not bootstrap application.",
     "after_owner_start": "Inspect compatible PHP/Composer/build/MySQL inside isolated saas scope, establish application baseline and implement first authorized vertical slice.",
     "current_research_followup": "Read research report and perform only an authorized target-device audio proof; no device-control or successful call evidence available in research session.",
-    "current_mobile_build": "Owner stops link, replaces masked saved key via exact copy/paste, restarts. If still401, add sanitized request/auth diagnostics; preserve pairing. Direct AI call pending."
+    "current_mobile_build": "Build0.1.6 and verify signing/manifest/OTA signature; existing host worker publishes immutable UI+signedmanifest via bounded job; verify HTTP. Deliver bootstrap APK then owner checks OTA UI revision2; phone401 remains open."
   },
   "open_issue_ids": [
     "VOICE-001",
@@ -132,5 +132,15 @@
     "status": "PHONE_401_SERVER_KEY_RECHECK_200",
     "cause_confirmed": false,
     "evidence": "docs/mobile/MOBILE_AUTH_RECHECK_2026_10_30.json"
+  },
+  "ota": {
+    "status": "SOURCE_READY_CI_PENDING",
+    "scope": "Signed local HTML/CSS/JS call-center UI; native audio/permissions still require APK",
+    "bootstrap_version": "0.1.6-ota",
+    "runtime": 1,
+    "revision": 2,
+    "doc": "docs/mobile/OTA_UPDATES_AR.md",
+    "device_hot_update_verified": false,
+    "host_release_deployed": false
   }
 }

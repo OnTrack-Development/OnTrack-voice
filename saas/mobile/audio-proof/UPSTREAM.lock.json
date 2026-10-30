@@ -3,6 +3,6 @@
   "commit": "f011062adfb3a2154c4d5a9cc4394032fb4345f2",
   "license": "Apache-2.0",
   "application_id": "com.ontrack.voiceproof",
-  "version": "0.1.5-mobile-link",
+  "version": "0.1.6-ota",
   "purpose": "SIM audio proof and direct site Gemini Live integration; notification listener removed"
 }

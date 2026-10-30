@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""After a verified build, publish a bounded job to the EXISTING host worker.
+No host token/credentials, queue replacement, direct SSH or process daemon.
+"""
+import base64,datetime,hashlib,json,os,subprocess,sys,tempfile,urllib.request,zlib
+from pathlib import Path
+REPO='OnTrack-Development/OnTrack-voice';BRANCH='ontrack-host-link';TARGET='appontrack-server11'
+CERT='d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'
+def canonical(d):return json.dumps(d,sort_keys=True,separators=(',',':')).encode()
+def request(path,method='GET',data=None):
+    req=urllib.request.Request('https://api.github.com/repos/'+REPO+'/'+path,method=method,data=None if data is None else json.dumps(data).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','User-Agent':'OnTrack-OTA-Publisher','X-GitHub-Api-Version':'2022-11-28'})
+    with urllib.request.urlopen(req,timeout=15) as res:return json.load(res)
+def content(path):
+    obj=request('contents/'+path+'?ref='+BRANCH);return obj,base64.b64decode(obj['content'])
+def verify(folder):
+    cert=(folder/'signing-cert.der').read_bytes();assert hashlib.sha256(cert).hexdigest()==CERT,'Unexpected OTA signer'
+    manifest=(folder/'latest.json').read_text();envelope=json.loads(manifest);meta=json.loads(envelope['payload'])
+    assert meta['file']=='ui-'+meta['sha256']+'.html'
+    html=(folder/meta['file']).read_bytes();assert hashlib.sha256(html).hexdigest()==meta['sha256'] and len(html)==meta['size']
+    with tempfile.TemporaryDirectory() as tmp:
+        t=Path(tmp);(t/'payload').write_text(envelope['payload']);(t/'signature').write_bytes(base64.b64decode(envelope['signature'],validate=True))
+        pub=subprocess.check_output(['openssl','x509','-inform','DER','-in',str(folder/'signing-cert.der'),'-pubkey','-noout']);(t/'public.pem').write_bytes(pub)
+        subprocess.run(['openssl','dgst','-sha256','-verify',str(t/'public.pem'),'-signature',str(t/'signature'),str(t/'payload')],check=True,capture_output=True)
+    return manifest,html.decode(),meta
+
+def main():
+    manifest,html,meta=verify(Path(sys.argv[1]));assert os.environ.get('GITHUB_REF')=='refs/heads/main'
+    queue_path='ops/host-link/jobs/'+TARGET+'.json';obj,raw=content(queue_path);current=json.loads(raw)
+    if current.get('id')=='mobile-ota-'+os.environ['GITHUB_RUN_ID']:
+        print(json.dumps({'status':'ALREADY_QUEUED_UNCHANGED','job_id':current['id']}));return
+    _,result=content('ops/host-link/results/'+TARGET+'/'+current['id']+'.json');report=json.loads(result)
+    assert report['job_id']==current['id'] and report['target']==TARGET and report['status'] in ['success','failed','expired','rejected'], 'Host queue busy/unknown; preserved'
+    assert report['job_sha256']==hashlib.sha256(raw).hexdigest(),'Current result does not match queued command'
+    bundle=canonical({'manifest':manifest,'html':html});packed=base64.b64encode(zlib.compress(bundle,9)).decode()
+    script=(Path('saas/mobile/ota/deploy.py')).read_text()+'\nimport sys\ndeploy(sys.argv[1],sys.argv[2])\n'
+    now=datetime.datetime.now(datetime.timezone.utc);job={'schema':1,'id':'mobile-ota-'+os.environ['GITHUB_RUN_ID'],'target':TARGET,'action':'exec','created_at':now.isoformat(),'expires_at':(now+datetime.timedelta(hours=24)).isoformat(),'cwd':'/home/appontrack/public_html/saas','timeout_seconds':25,'argv':['/bin/python3','-c',script,packed,hashlib.sha256(bundle).hexdigest()]}
+    encoded=json.dumps(job,ensure_ascii=False,indent=2).encode();assert len(encoded)<=16384,'Host job exceeds installed worker limit'
+    request('contents/'+queue_path,'PUT',{'branch':BRANCH,'sha':obj['sha'],'message':'deploy: signed mobile OTA revision'+str(meta['revision']),'content':base64.b64encode(encoded).decode()})
+    print(json.dumps({'status':'QUEUED_NOT_DEPLOYED','job_id':job['id'],'revision':meta['revision'],'bytes':len(encoded),'result_path':'ops/host-link/results/'+TARGET+'/'+job['id']+'.json'}))
+if __name__=='__main__':main()

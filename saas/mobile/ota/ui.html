@@ -1,0 +1,20 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OnTrack</title><style>
+*{box-sizing:border-box}body{margin:0;padding:24px 20px 40px;background:#10151f;color:#edf0f7;font:16px system-ui,sans-serif}header{display:flex;align-items:center;gap:12px;margin-bottom:24px}.logo{background:#be233d;border-radius:14px;padding:10px;font-weight:800}h1{font-size:23px;margin:0}p{line-height:1.7;color:#b1bdd0}.card{padding:20px;border:1px solid #2b3547;border-radius:18px;background:#192231;margin:16px 0}label{display:block;font-size:14px;margin:14px 0 8px;color:#c6d0e2}input{width:100%;padding:14px;background:#10151f;color:white;border:1px solid #46546b;border-radius:10px;font-size:16px;direction:ltr}button{width:100%;border:0;border-radius:12px;padding:15px;margin-top:12px;background:#b91f3a;color:#fff;font-size:16px;font-weight:600}button.secondary{background:#29364b}button:disabled{opacity:.45}.small{font-size:13px}#status{white-space:pre-wrap;line-height:1.7}#version{direction:ltr;text-align:right;color:#91a4be;font-size:12px}.row{display:flex;gap:10px}.row button{font-size:13px}#error{color:#ffadbc}a{color:#a7caff}details{line-height:1.7;color:#b1bdd0}summary{cursor:pointer}
+</style></head><body><header><span class="logo">OT</span><div><h1>مركز اتصال OnTrack</h1><div id="version"></div></div></header>
+<p>ربط الشريحة بالإيجنت وإدارة المكالمات من لوحة الموقع.</p>
+<div class="card"><div id="status" role="status" aria-live="polite">جاري تجهيز الربط…</div><p id="error"></p>
+<label for="base">رابط الموقع</label><input id="base" value="https://app.ontrackegy.com/" spellcheck="false" autocomplete="off">
+<label for="key">مفتاح اتصال الربط</label><input id="key" type="password" spellcheck="false" autocomplete="off" autocapitalize="none"><button class="secondary small" id="show">إظهار المفتاح / إخفاؤه</button>
+<button id="start">حفظ وتشغيل الربط</button><button class="secondary" id="stop">إيقاف الربط</button><p class="small">لتغيير المفتاح: أوقف الربط أولًا، ثم احفظ البيانات الجديدة. التعليمات والصوت والرد التلقائي من لوحة الموقع.</p></div>
+<button class="secondary" id="admin">فتح إعدادات المهمة على الموقع</button><button class="secondary" id="diagnostics">إعداد الهاتف واختبار الصوت والتشخيص</button>
+<div class="card"><strong>تحديثات الواجهة OTA</strong><p class="small">الواجهة تتحدّث عند فتح التطبيق. أثناء المكالمة يتأجل تطبيق التحديث لنهايتها؛ الإعدادات والاقتران محفوظان.</p><div class="row"><button class="secondary" id="updates">فحص التحديثات</button><button class="secondary" id="rollback">الواجهة السابقة</button></div></div>
+<details><summary>عن الاتصال والصوت</summary><p class="small">المحرك هو محرك الموقع الحالي. ملف الصوت المستورد لاختبار الحقن، وليس استنساخًا حيًا لكل رد. تغييرات محرك أندرويد والصلاحيات تحتاج إصدار APK جديد. لا تستخدم اختبار الملف بالتزامن مع الربط.</p></details>
+<script>
+const el=id=>document.getElementById(id);const send=(command,data={})=>OnTrack.postMessage(JSON.stringify({command,...data}));
+window.onTrackInit=s=>{el('base').value=s.base;el('key').value=s.key;};
+window.onTrackState=s=>{el('status').textContent=s.status;el('version').textContent=`Android ${s.native} · UI OTA ${s.revision}`;el('start').disabled=s.running;el('key').disabled=s.running;el('base').disabled=s.running;el('rollback').disabled=s.inCall;};
+el('show').onclick=()=>el('key').type=el('key').type==='password'?'text':'password';
+el('start').onclick=()=>{el('error').textContent='';const key=el('key').value.trim();if(!/^[A-Za-z0-9_-]{24,128}$/.test(key)){el('error').textContent='انسخ المفتاح فقط؛ بدون مسافات أو علامات إضافية.';return;}send('start',{base:el('base').value,key});};
+for(const [id,cmd] of [['stop','stop'],['admin','admin'],['diagnostics','diagnostics'],['updates','checkUpdates'],['rollback','rollback']])el(id).onclick=()=>send(cmd);
+send('ready');
+</script></body></html>
