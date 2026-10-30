@@ -49,9 +49,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 9', 'versionCode')
+                        'versionCode = 10', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.1.8-ota"', 'versionName')
+                        'versionName = "0.1.9-ota"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
@@ -73,6 +73,14 @@ def main(root):
                 onMain(() -> { if (telecom != null) telecom.acceptRingingCall(); return null; });
             } else if (operation == 'H') {
                 onMain(() -> { if (telecom != null) telecom.endCall(); return null; });
+            } else if (operation == 'S') {
+                // Experimental telephony speaker route. Never claim success without readback.
+                if (callAudio == null || phone.getCallState() != 2) throw new IOException("no active call audio");
+                boolean previous = callAudio.isSpeakerphoneOn();
+                onMain(() -> { callAudio.setSpeakerphoneOn(!previous); return null; });
+                boolean now = callAudio.isSpeakerphoneOn();
+                reply(client, "SPEAKER " + (now == previous ? "UNSUPPORTED" : now ? "ON" : "OFF"));
+                return;
             } else if (operation != 'Q') {
                 throw new IOException("unsupported link control");
             }
@@ -223,6 +231,8 @@ def main(root):
     ET.SubElement(intent, 'action', {android + 'name': 'android.intent.action.MAIN'})
     ET.SubElement(intent, 'category', {android + 'name': 'android.intent.category.LAUNCHER'})
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.FOREGROUND_SERVICE_DATA_SYNC'})
+    # User opt-in app overlay is unrelated to Accessibility and is never auto-granted.
+    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.SYSTEM_ALERT_WINDOW'})
     ET.SubElement(app, 'activity', {android + 'name': '.ProofActivity', android + 'exported': 'false'})
     ET.SubElement(app, 'service', {android + 'name': '.MobileLinkService', android + 'exported': 'false', android + 'foregroundServiceType': 'dataSync'})
     # Upstream components use relative names under the new namespace; explicit
