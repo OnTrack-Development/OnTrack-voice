@@ -74,7 +74,7 @@ Route::middleware(['auth', 'platform.admin'])->prefix('control')->name('control.
     });
 });
 
-Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
+Route::middleware(['auth', 'workspace.member'])->prefix('app')->name('app.')->group(function () {
     Route::get('/', [HomeController::class, 'index'])->name('home');
     Route::get('/{workspace}/overview', [OverviewController::class, 'index'])->name('overview');
 

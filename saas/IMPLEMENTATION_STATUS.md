@@ -18,6 +18,7 @@
 | WhatsApp Channels | `IMPLEMENTED_LOCAL` — 3 طرق onboarding وأسرار مشفرة؛ الاتصال الحي `PENDING_EXTERNAL` |
 | WhatsApp Pause Override | `IMPLEMENTED_LOCAL` — override لكل رقم 1..1440، wiring UI/schema؛ تطبيق runtime ينتظر inbound connection mapping |
 | Team / Memberships | `IMPLEMENTED_LOCAL` — owner/admin/member policy، token-secure invitations، accept POST، منع إزالة/خفض آخر owner |
+| Workspace Context Security | `IMPLEMENTED_LOCAL` — middleware مركزي يفرض workspace_id في العضوية قبل كل `/app/*` |
 | Platform Admin Console | `IMPLEMENTED_LOCAL` — Dashboard/Models/Plans/Audit/Routing/Costs مع platform.admin 403 boundary |
 | Demo Mode | `IMPLEMENTED_LOCAL` — DemoSeeder وبيانات موسومة وحساب محلي تجريبي |
 | AI Send Gate / Outbox | `IMPLEMENTED_LOCAL` — idempotent final gate يمنع الإرسال أثناء pause/lock/channel unavailable |
@@ -146,6 +147,7 @@ php artisan test
 - KnowledgeSearchTest: 2
 - AgentRevisionTest: 2
 - AgentRevisionLifecycleTest: 2
+- WorkspaceMembershipIsolationTest: 1
 - TenancyIsolationTest: 3
 - Laravel example tests: 2
 
