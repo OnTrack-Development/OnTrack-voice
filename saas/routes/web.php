@@ -9,6 +9,7 @@ use App\Http\Controllers\App\CrmController;
 use App\Http\Controllers\App\HomeController;
 use App\Http\Controllers\App\IntegrationController;
 use App\Http\Controllers\App\KnowledgeController;
+use App\Http\Controllers\App\KnowledgeSearchController;
 use App\Http\Controllers\App\OperationsController;
 use App\Http\Controllers\App\OverviewController;
 use App\Http\Controllers\App\ProjectController;
@@ -83,6 +84,7 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
 
     Route::get('/{workspace}/knowledge', [KnowledgeController::class, 'index'])->name('knowledge.index');
     Route::post('/{workspace}/knowledge', [KnowledgeController::class, 'store'])->name('knowledge.store');
+    Route::get('/{workspace}/knowledge/search', [KnowledgeSearchController::class, 'search'])->name('knowledge.search');
 
     Route::get('/{workspace}/smart-actions', [SmartActionController::class, 'index'])->name('smart-actions.index');
     Route::post('/{workspace}/smart-actions', [SmartActionController::class, 'store'])->name('smart-actions.store');

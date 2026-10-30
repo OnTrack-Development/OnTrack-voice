@@ -1,13 +1,13 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Team/Admin/Demo/Social**
+**آخر تحديث: 29 أكتوبر 2026 — بعد إضافة Knowledge Search وAgent Revisions**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 51 اختبارًا / 222 assertion، ناجحة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 55 اختبارًا / 231 assertion، ناجحة |
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
@@ -21,6 +21,8 @@
 | Platform Admin Console | `IMPLEMENTED_LOCAL` — Dashboard/Models/Plans/Audit مع platform.admin 403 boundary |
 | Demo Mode | `IMPLEMENTED_LOCAL` — DemoSeeder وبيانات موسومة وحساب محلي تجريبي |
 | Social Registry | `IMPLEMENTED_LOCAL` — Telegram draft وcapability registry لـTelegram/Meta/Widget/WhatsApp؛ live external `PENDING_EXTERNAL` |
+| Knowledge Search | `IMPLEMENTED_LOCAL` — نصي tenant-scoped على chunks، بلا ادعاء متجهي |
+| Agent Revisions | `IMPLEMENTED_LOCAL` — نسخ موقعة للإصدارات مرتبطة بالوكيل وعزلها |
 | WhatsApp Webhook | `IMPLEMENTED_LOCAL` — challenge، HMAC raw-body، dedupe؛ لا Meta live evidence |
 | Tenant Audit | `IMPLEMENTED_LOCAL` — سجل tenant-scoped مع redacted context وtrace id |
 | Plans / Usage / Settings | `IMPLEMENTED_LOCAL` — entitlement quota، ledger idempotent، وإعداد pause minutes 1..1440 |
@@ -88,13 +90,16 @@
 ### 18. Team / Memberships / Admin / Demo / Social
 تمت إضافة Team UI بالدعوات والأدوار وإزالة الأعضاء مع منع إزالة المالك الوحيد؛ لوحة `/control` للـplatform admin (dashboard، models، plans، audit)؛ `PlatformAdminSeeder` و`DemoSeeder` ببيانات تجريبية موسومة؛ وChannelCapabilities registry مع Telegram draft رسمي وFacebook/Instagram حالات غير مفعلة صادقة. لا توجد credentials أو live social traffic.
 
+### 19. Knowledge Search + Agent Revisions
+بحث نصي `LIKE` داخل قطع المعرفة مع عزل tenant وبدون ادعاء متجهي، و`agent_revisions` بترقيم إصدارات و`change_notes` وربط بالوكيل مع عزلها.
+
 ## أدلة الاختبار الفعلية
 
 البيئة: Laravel 12.70.2 / PHP 8.2.12 / SQLite.
 
 ```text
 php artisan migrate --force
-21 custom migrations DONE (000001..000021)
+22 custom migrations DONE (000001..000022)
 
 php artisan test
 25 passed (90 assertions)
@@ -118,6 +123,8 @@ php artisan test
 - WhatsappPauseOverrideTest: 2
 - TeamTest: 3
 - SocialChannelTest: 3
+- KnowledgeSearchTest: 2
+- AgentRevisionTest: 2
 - TenancyIsolationTest: 3
 - Laravel example tests: 2
 
@@ -135,7 +142,7 @@ PHP lint: all saas/app, saas/database, saas/routes, saas/tests = OK
 `docs/memory/INCIDENT_2026-10-29_CONTROL_CHANNEL_AR.md`.
 
 ## حزمة النشر
-`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-22`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
+`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-23`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
 
 ## الخطوة التالية بعد عودة العامل
 1. التحقق من `host-link-test.txt`.
