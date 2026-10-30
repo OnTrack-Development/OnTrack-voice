@@ -30,6 +30,7 @@ internal class CallOverlay(private val context: Context) {
     private var label:TextView?=null
     private var actions:LinearLayout?=null
     private var speaker:Button?=null
+    private var takeover:Button?=null
     private val d=context.resources.displayMetrics.density
     fun allowed():Boolean=Settings.canDrawOverlays(context)
     private fun send(action:String){
@@ -58,8 +59,8 @@ internal class CallOverlay(private val context: Context) {
             label=headline
             container.addView(headline)
             val controls=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE}
-            controls.addView(button("استلام المكالمة",MobileLinkService.ACTION_TAKEOVER))
-            controls.addView(button("السماعة الخارجية (تجريبي)",MobileLinkService.ACTION_SPEAKER))
+            takeover=button("استلام المكالمة",MobileLinkService.ACTION_TAKEOVER).also{controls.addView(it)}
+            speaker=button("السماعة الخارجية (تجريبي)",MobileLinkService.ACTION_SPEAKER).also{controls.addView(it)}
             controls.addView(button("إيقاف الإيجنت",MobileLinkService.ACTION_PAUSE))
             actions=controls
             container.addView(controls)
@@ -96,10 +97,12 @@ internal class CallOverlay(private val context: Context) {
             active->"● OnTrack • AI يتحدث  ▾"
             else->"● OnTrack • جاهز  ▾"
         }
-        actions?.visibility=if(expanded && active) View.VISIBLE else View.GONE
+        actions?.visibility=if(expanded) View.VISIBLE else View.GONE
+        takeover?.visibility=if(active && !human) View.VISIBLE else View.GONE
+        speaker?.visibility=if(active) View.VISIBLE else View.GONE
     }
     fun remove(){
         root?.let{runCatching{manager.removeView(it)}}
-        root=null;params=null;label=null;actions=null;speaker=null
+        root=null;params=null;label=null;actions=null;speaker=null;takeover=null
     }
 }
