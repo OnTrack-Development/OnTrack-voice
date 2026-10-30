@@ -1,20 +1,69 @@
-<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OnTrack</title><style>
-*{box-sizing:border-box}body{margin:0;padding:24px 20px 40px;background:#10151f;color:#edf0f7;font:16px system-ui,sans-serif}header{display:flex;align-items:center;gap:12px;margin-bottom:24px}.logo{background:#be233d;border-radius:14px;padding:10px;font-weight:800}h1{font-size:23px;margin:0}p{line-height:1.7;color:#b1bdd0}.card{padding:20px;border:1px solid #2b3547;border-radius:18px;background:#192231;margin:16px 0}label{display:block;font-size:14px;margin:14px 0 8px;color:#c6d0e2}input{width:100%;padding:14px;background:#10151f;color:white;border:1px solid #46546b;border-radius:10px;font-size:16px;direction:ltr}button{width:100%;border:0;border-radius:12px;padding:15px;margin-top:12px;background:#b91f3a;color:#fff;font-size:16px;font-weight:600}button.secondary{background:#29364b}button:disabled{opacity:.45}.small{font-size:13px}#status{white-space:pre-wrap;line-height:1.7}#version{direction:ltr;text-align:right;color:#91a4be;font-size:12px}.row{display:flex;gap:10px}.row button{font-size:13px}#error{color:#ffadbc}a{color:#a7caff}details{line-height:1.7;color:#b1bdd0}summary{cursor:pointer}
-</style></head><body><header><span class="logo">OT</span><div><h1>مركز اتصال OnTrack</h1><div id="version"></div></div></header>
-<p>ربط الشريحة بالإيجنت وإدارة المكالمات من لوحة الموقع.</p>
-<div class="card"><div id="status" role="status" aria-live="polite">جاري تجهيز الربط…</div><p id="error"></p>
-<label for="base">رابط الموقع</label><input id="base" value="https://app.ontrackegy.com/" spellcheck="false" autocomplete="off">
-<label for="key">مفتاح اتصال الربط</label><input id="key" type="password" spellcheck="false" autocomplete="off" autocapitalize="none"><button class="secondary small" id="show">إظهار المفتاح / إخفاؤه</button>
-<button id="start">حفظ وتشغيل الربط</button><button class="secondary" id="stop">إيقاف الربط</button><p class="small">لتغيير المفتاح: أوقف الربط أولًا، ثم احفظ البيانات الجديدة. التعليمات والصوت والرد التلقائي من لوحة الموقع.</p></div>
-<button class="secondary" id="admin">فتح إعدادات المهمة على الموقع</button><button class="secondary" id="diagnostics">إعداد الهاتف واختبار الصوت والتشخيص</button>
-<div class="card"><strong>تحديثات الواجهة OTA</strong><p class="small">الواجهة تتحدّث عند فتح التطبيق. أثناء المكالمة يتأجل تطبيق التحديث لنهايتها؛ الإعدادات والاقتران محفوظان.</p><div class="row"><button class="secondary" id="updates">فحص التحديثات</button><button class="secondary" id="rollback">الواجهة السابقة</button></div></div>
-<details><summary>عن الاتصال والصوت</summary><p class="small">المحرك هو محرك الموقع الحالي. ملف الصوت المستورد لاختبار الحقن، وليس استنساخًا حيًا لكل رد. تغييرات محرك أندرويد والصلاحيات تحتاج إصدار APK جديد. لا تستخدم اختبار الملف بالتزامن مع الربط.</p></details>
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OnTrack • مركز المكالمات</title>
+<style>
+:root{--bg:#0b101a;--panel:#172236;--border:#2e3b51;--muted:#aebed3;--white:#f5f7fa;--red:#e63d5a;--green:#36d1a7}
+*{box-sizing:border-box}body{background:var(--bg);color:var(--white);margin:0;padding:23px 18px 45px;font:15px system-ui,sans-serif}
+header{display:flex;align-items:center;gap:12px;margin-bottom:22px}.logo{width:49px;height:49px;background:var(--red);border-radius:16px;display:grid;place-items:center;font-weight:850;font-size:18px}h1{margin:0;font-size:22px;letter-spacing:-.4px}h2{font-size:18px;margin:0 0 6px}
+p{color:var(--muted);line-height:1.8;margin:7px 0 14px}.small{font-size:12px}#version{font-size:11px;color:#9aabc4;direction:ltr;text-align:right}
+.card{border:1px solid var(--border);background:linear-gradient(165deg,#1c2a40,var(--panel));border-radius:19px;padding:19px;margin:14px 0}
+.status{display:flex;gap:10px;align-items:center;padding:13px;border-radius:12px;background:#142338;margin:12px 0;line-height:1.5}
+.status-dot{background:#9babc4;width:11px;height:11px;border-radius:100%;flex-shrink:0}.online{background:var(--green)}.call{background:var(--red)}
+label{font-size:13px;color:#c9d5e5;margin:17px 0 8px;display:block}
+input{width:100%;background:#101724;color:white;border:1px solid #40516c;border-radius:12px;padding:14px;font:inherit;direction:ltr}
+button{font:inherit;width:100%;margin:9px 0 0;border:0;border-radius:12px;padding:13px;background:#293a53;color:white;font-weight:600}
+button.primary{background:var(--red)}button.success{background:#126c56}button:disabled{opacity:.38}button:focus-visible,input:focus-visible{outline:2px solid #81baf2;outline-offset:2px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:9px}.row button{margin-top:8px}.tip{font-size:12px;color:#a5b4cc;line-height:1.8}
+#message{color:#ffacb8;min-height:4px}.label{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.3px}
+#liveActions{display:none}#floatingHint{display:none}.top-line{display:flex;align-items:center;justify-content:space-between;gap:7px}
+.link{color:#b9d0f5;text-decoration:underline}details{color:var(--muted);line-height:1.8;font-size:13px}summary{cursor:pointer}
+</style></head><body>
+<header><div class="logo">OT</div><div><h1>OnTrack • مركز الاتصال</h1><div id="version"></div></div></header>
+<section class="card" aria-label="حالة الاتصال">
+<div class="top-line"><strong>حالة الإيجنت</strong><span class="label" id="mode">فحص الاتصال</span></div>
+<div class="status" role="status" aria-live="polite"><span class="status-dot" id="dot"></span><span id="status">جاري تجهيز المكالمات…</span></div>
+<div id="liveActions"><div class="row"><button class="primary" id="takeover">استلام المكالمة</button><button id="speaker">السماعة الخارجية</button></div><p class="tip">استلام المكالمة يفصل صوت الـAI عن المكالمة الحالية ويعيد الصوت لك. لا يقفل الخط.</p></div>
+<p id="message"></p>
+<div class="row"><button class="success" id="start">تشغيل الإيجنت</button><button id="stop">إيقاف الإيجنت</button></div>
+</section>
+<section class="card"><h2>ربط الهاتف</h2><p class="tip">إعدادات الاتصال محفوظة، ومش محتاج تعيد الاقتران عند تحديث واجهة التطبيق.</p>
+<label for="base">عنوان السيرفر</label><input id="base" value="https://app.ontrackegy.com/" autocomplete="off" spellcheck="false">
+<label for="key">مفتاح الربط</label><input id="key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false">
+<button id="show">إظهار / إخفاء المفتاح</button><p class="tip">لتغيير المفتاح، أوقف الإيجنت الأول. المفتاح لا يظهر في الإشعارات.</p></section>
+<section class="card"><h2>النافذة العائمة</h2><p>مؤشر صغير يمكن تحريكه فوق شاشة المكالمة. اضغط عليه لعرض أزرار الاستلام وإيقاف الإيجنت والسماعة، بدون Accessibility.</p>
+<button id="overlay" disabled>السماح بالظهور فوق التطبيقات</button>
+<p class="tip" id="floatingHint">لو الإذن غير متاح، استخدم أزرار إشعار OnTrack الدائم؛ تعمل من خارج التطبيق.</p></section>
+<section class="card"><h2>لوحة الإدارة</h2><p class="tip">السكريبت، ضبط الرد التلقائي بعد 5 ثوانٍ، قناة صوت العميل، والصوت والتعليمات من لوحة الموقع.</p>
+<button id="admin">فتح إعدادات الإيجنت على الموقع</button><button id="diagnostics">إعداد الهاتف والتشخيص</button></section>
+<section class="card"><h2>تحديثات OTA</h2><p class="tip">الواجهة تُحدَّث بدون تثبيت APK جديد. تغييرات الصوت والنافذة العائمة تحتاج APK داعم؛ التحديث يُؤجل لو المكالمة جارية.</p>
+<div class="row"><button id="updates">فحص التحديثات</button><button id="rollback">الواجهة السابقة</button></div></section>
+<details><summary>معلومات التحكم والخصوصية</summary><p class="small">لا نستخدم Accessibility ولا نقرأ شاشة المكالمة. النافذة العائمة تطلب إذنًا ظاهرًا من Android. مسار السماعة تجريبي وقد ترفضه بعض الأجهزة، والاتصال يظل تحت تحكم تطبيق الهاتف.</p></details>
 <script>
-const el=id=>document.getElementById(id);const send=(command,data={})=>OnTrack.postMessage(JSON.stringify({command,nonce:window.OTA_NONCE,...data}));
+const el=id=>document.getElementById(id);
+const send=(command,data={})=>OnTrack.postMessage(JSON.stringify({command,nonce:window.OTA_NONCE,...data}));
+let last={};
 window.onTrackInit=s=>{el('base').value=s.base;el('key').value=s.key;};
-window.onTrackState=s=>{el('status').textContent=s.status;el('version').textContent=`Android ${s.native} · UI OTA ${s.revision}`;el('start').disabled=s.running||s.updating;el('key').disabled=s.running||s.updating;el('base').disabled=s.running||s.updating;el('rollback').disabled=s.inCall;};
-el('show').onclick=()=>el('key').type=el('key').type==='password'?'text':'password';
-el('start').onclick=()=>{el('error').textContent='';const key=el('key').value.trim();if(!/^[A-Za-z0-9_-]{24,128}$/.test(key)){el('error').textContent='انسخ المفتاح فقط؛ بدون مسافات أو علامات إضافية.';return;}send('start',{base:el('base').value,key});};
-for(const [id,cmd] of [['stop','stop'],['admin','admin'],['diagnostics','diagnostics'],['updates','checkUpdates'],['rollback','rollback']])el(id).onclick=()=>send(cmd);
+window.onTrackState=s=>{
+ last=s;
+ const nativeMinor=Number((String(s.native).match(/^0\.1\.(\d+)/)||[])[1]||0);
+ const supported=nativeMinor>=9;
+ el('status').textContent=s.status;el('version').textContent='Android '+s.native+' · UI OTA '+s.revision;
+ el('mode').textContent=s.humanControl?'تحكم بشري':s.inCall?'المكالمة جارية':s.running?'جاهز للمكالمات':'متوقف';
+ el('dot').className='status-dot '+(s.inCall?'call':s.running?'online':'');
+ el('start').disabled=s.running||s.updating;
+ el('stop').disabled=!s.running;
+ el('base').disabled=s.running||s.updating;el('key').disabled=s.running||s.updating;
+ el('rollback').disabled=s.inCall;
+ el('liveActions').style.display=(supported&&s.inCall)?'block':'none';
+ el('takeover').disabled=s.humanControl;
+ el('overlay').disabled=!supported || s.overlayGranted;
+ el('overlay').textContent=!supported?'يتطلب تحديث التطبيق إلى 0.1.9':s.overlayGranted?'النافذة العائمة مسموحة':'تفعيل إذن النافذة العائمة';
+ el('floatingHint').style.display=supported?'block':'none';
+};
+el('show').onclick=()=>{el('key').type=el('key').type==='password'?'text':'password'};
+el('start').onclick=()=>{const key=el('key').value.trim();el('message').textContent='';
+ if(!/^[A-Za-z0-9_-]{24,128}$/.test(key)){el('message').textContent='انسخ مفتاح الاتصال فقط بدون مسافات.';return;}
+ send('start',{base:el('base').value,key});
+};
+for(const [id,action] of [['stop','stop'],['takeover','takeover'],['speaker','speaker'],['overlay','overlayPermission'],['admin','admin'],['diagnostics','diagnostics'],['updates','checkUpdates'],['rollback','rollback']])el(id).onclick=()=>send(action);
 send('ready');
 </script></body></html>
