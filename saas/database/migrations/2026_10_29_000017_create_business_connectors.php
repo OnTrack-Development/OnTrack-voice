@@ -26,7 +26,7 @@ return new class extends Migration
         Schema::create('connector_endpoints', function (Blueprint $table) {
             $table->id();
             $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('connector_profile_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('connector_profile_id')->constrained('business_connector_profiles')->cascadeOnDelete();
             $table->string('name', 120);
             $table->string('method', 16)->default('GET');
             $table->string('path', 500);

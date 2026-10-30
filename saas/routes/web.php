@@ -119,6 +119,11 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
 
     Route::get('/{workspace}/integrations', [IntegrationController::class, 'index'])->name('integrations.index');
     Route::post('/{workspace}/integrations', [IntegrationController::class, 'store'])->name('integrations.store');
+    Route::get('/{workspace}/integrations/{connector}', [IntegrationController::class, 'show'])->name('integrations.show');
+    Route::put('/{workspace}/integrations/{connector}', [IntegrationController::class, 'update'])->name('integrations.update');
+    Route::delete('/{workspace}/integrations/{connector}', [IntegrationController::class, 'destroy'])->name('integrations.destroy');
+    Route::post('/{workspace}/integrations/{connector}/endpoints', [IntegrationController::class, 'endpointStore'])->name('integrations.endpoints.store');
+    Route::delete('/{workspace}/integrations/{connector}/endpoints/{endpoint}', [IntegrationController::class, 'endpointDestroy'])->name('integrations.endpoints.destroy');
 
     Route::get('/{workspace}/voice', [VoiceCampaignController::class, 'index'])->name('voice.index');
     Route::get('/{workspace}/voice/{campaign}', [VoiceCampaignController::class, 'show'])->name('voice.show');

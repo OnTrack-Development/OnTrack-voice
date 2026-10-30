@@ -33,6 +33,7 @@
 | Operations | `IMPLEMENTED_LOCAL` — غرفة عمليات بمقاييس حقيقية من DB وعزل tenant |
 | Web Widget | `IMPLEMENTED_LOCAL` — public key، جلسة widget، رسائل معزولة، وقفل human takeover؛ لا AI live claim |
 | Integration Hub | `IMPLEMENTED_LOCAL` — تكاملات Business API مشفرة ومعزولة، بلا تنفيذ عمياء لـURL/LLM |
+| Connector Endpoint Security | `IMPLEMENTED_LOCAL` — CRUD، tenant/workspace ownership، HTTPS/public DNS policy، path traversal rejection |
 | Voice Campaigns | `IMPLEMENTED_LOCAL` (workflow only) — حملات وقوائم وحالات نتائج؛ النقل الهاتفي `PENDING_EXTERNAL` |
 | Marketing / SEO | `IMPLEMENTED_LOCAL` — صفحات عامة + قطاعات + sitemap، بدون أرقام مختلقة |
 | Voice | `PLANNED` — ينتظر إثبات الجهاز |
@@ -104,6 +105,9 @@ Telegram الرسمي له endpoint موثق بـsecret و`update_id` dedupe، �
 
 ### 22. Voice Import + AI Send Gate
 Voice campaign entries تقبل paste سطر/اسم,رقم، تحفظ original، تميز invalid وتمنع duplicate داخل الحملة، مع عزل tenant. AI Outbox يفحص lock/pause/channel في final transaction قبل إنشاء رسالة.
+
+### 23. Connector Endpoint Security
+Business connectors لا تقبل `http` أو loopback/private/metadata/userinfo، وتتحقق DNS العامة، وتمنع absolute/protocol-relative/traversal paths. CRUD endpoints محمي بالـtenant/workspace والـconnector ownership، ويبقى Draft بلا تنفيذ HTTP تلقائي.
 
 ## أدلة الاختبار الفعلية
 

@@ -18,7 +18,7 @@ class IntegrationTest extends TestCase
     public function test_owner_creates_encrypted_connector_in_own_project(): void
     {
         [$user,$workspace,$project] = $this->context('alpha');
-        $this->actingAs($user)->post('/app/'.$workspace->slug.'/integrations', ['project_id'=>$project->id,'type'=>'rest','name'=>'متجري','base_url'=>'https://shop.example/api','api_key'=>'project-secret'])->assertRedirect();
+        $this->actingAs($user)->post('/app/'.$workspace->slug.'/integrations', ['project_id'=>$project->id,'type'=>'rest','name'=>'متجري','base_url'=>'https://example.com/api','api_key'=>'project-secret'])->assertRedirect();
         $connector=BusinessConnectorProfile::firstOrFail();
         $this->assertSame('draft',$connector->status);
         $this->assertNotSame('project-secret',$connector->encrypted_credentials);
