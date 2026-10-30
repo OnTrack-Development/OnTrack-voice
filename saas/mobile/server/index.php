@@ -50,7 +50,7 @@ h1{font-size:clamp(24px,4vw,38px);margin:14px 0 8px;letter-spacing:-.5px}h2{font
 .hero{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center;padding:30px 0 18px}
 .actions{display:flex;flex-wrap:wrap;gap:10px}.btn,button{appearance:none;font:inherit;border:0;cursor:pointer;border-radius:11px;padding:12px 18px;background:#29384e;color:white;font-weight:650}
 .primary{background:var(--red)}.danger{background:#57253a}.positive{background:#126e58}.btn:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid #87bdf5;outline-offset:2px}
-.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{border:1px solid var(--line);background:linear-gradient(165deg,#1a2639,var(--panel));padding:21px;border-radius:18px;min-width:0}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.card{border:1px solid var(--line);background:linear-gradient(165deg,#1a2639,var(--panel));padding:21px;border-radius:18px;min-width:0}
 .metric{font-size:23px;font-weight:800;margin:7px 0}.muted{font-size:13px;color:var(--muted)}.content{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(275px,.85fr);gap:16px;margin:18px 0}
 label{display:block;color:#ced9e9;font-size:13px;font-weight:600;margin:18px 0 8px}
 input[type=text],input[type=password],input[type=number],textarea,select{width:100%;background:#0e1624;border:1px solid #34455c;border-radius:11px;color:var(--text);padding:13px 14px;font:inherit;outline-offset:2px}
@@ -76,6 +76,7 @@ textarea{min-height:245px;resize:vertical;line-height:1.8}select{cursor:pointer}
 <section class="cards">
 <div class="card"><div class="muted">حالة الهاتف</div><div class="metric"><span class="dot <?=$online?'':'off'?>"></span><?=$online?'متصل':'غير متصل'?></div><div class="muted">آخر اتصال: <?=e((string)($seen['seen_at']??'لم يتصل بعد'))?></div></div>
 <div class="card"><div class="muted">حالة AI Agent</div><div class="metric"><?=$s['enabled']?'مفعّل':'متوقف'?></div><div class="muted">يمكن إيقافه من هنا أو من التطبيق</div></div>
+<div class="card"><div class="muted">المكالمة اللحظية</div><div class="metric" id="liveCallState">جاري القراءة…</div><div class="muted" id="liveCallNote">بيانات بدون أرقام أو صوت، تحديث كل 5 ثوانٍ</div></div>
 <div class="card"><div class="muted">سياسة الوارد</div><div class="metric"><?=$s['auto_answer']?'رد تلقائي':'يدوي'?></div><div class="muted">بعد <?=intval($s['answer_delay_seconds']??5)?> ثوانٍ على النسخة الداعمة • Revision <?=intval($s['revision'])?></div></div>
 </section>
 <div class="content">
@@ -106,5 +107,20 @@ textarea{min-height:245px;resize:vertical;line-height:1.8}select{cursor:pointer}
 <div class="card" style="margin-top:16px"><h2>حالة التطبيق</h2><p class="note">التجربة الحالية لجهاز واحد. نظام الموظفين والصلاحيات وMulti-Tenant SaaS وAgent Builder سيُبنى في طبقة مستقلة بعد اعتماد اختبار المكالمات.</p><div class="muted">محرك المكالمات الحالي: OnTrack SIM Voice Connector</div></div></aside>
 </div>
 <?php endif?>
+<?php if($allowed):?><script>
+const phaseNames={idle:'لا توجد مكالمة',ringing:'الموبايل بيرن',ai:'الـAI بيتكلم',human:'استلام بشري',connecting:'جاري ربط المكالمة',offline:'الهاتف غير متصل'};
+async function readCallStatus(){
+ try{
+  const r=await fetch('/saas/mobile/status_feed.php',{credentials:'same-origin',cache:'no-store'});
+  if(!r.ok)throw new Error('offline');
+  const data=await r.json();
+  const state=document.getElementById('liveCallState');
+  const note=document.getElementById('liveCallNote');
+  state.textContent=phaseNames[data.phase]||'حالة غير معروفة';
+  note.textContent=data.fresh?'حالة مباشرة • إعدادات #'+data.policy_revision:'لم يصل تقرير حديث من الهاتف';
+ }catch(e){document.getElementById('liveCallState').textContent='غير متاح';}
+}
+readCallStatus();setInterval(readCallStatus,5000);
+</script><?php endif?>
 <footer class="footer">OnTrack Development · AI Voice Pilot · لا تحفظ المفاتيح أو التسجيلات في هذه الصفحة</footer>
 </main></body></html>
