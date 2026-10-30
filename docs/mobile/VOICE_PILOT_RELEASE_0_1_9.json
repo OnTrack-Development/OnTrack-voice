@@ -34,7 +34,8 @@
     "ota_revision": 5,
     "ota_worker_report": "ops/host-link/results/appontrack-server11/mobile-ota-41145709185.json",
     "ota_worker_status": "success",
-    "ota_public_http_verification": "PENDING_AT_RECORD_TIME"
+    "ota_public_http_verification": "PASS_HTTP200_REVISION5_SHA_AND_SIZE",
+    "ota_public_http_evidence": "ops/host-link/results/appontrack-server11/mobile-ota5-public-verify-20261031.json"
   },
   "caveats": [
     "Do not uninstall existing APK",
