@@ -35,6 +35,15 @@ class MobileOta(private val context: Context) {
         return Bundle(envelope,rev,file,hash,ByteArray(0))
     }
     @Synchronized fun screen(recover:Boolean=false):Screen {
+        // A UI rejected by an older native renderer must be retryable after
+        // the renderer is repaired by an APK update. Keep only a compatible,
+        // confirmed revision as the floor; preserve pairing/key preferences.
+        if(recover && state.optLong("native_version",-1)!=info.longVersionCode){
+            val confirmed=state.optString(if(state.optBoolean("pending")) "previous" else "active")
+            val floor=runCatching{manifest(confirmed).revision}.getOrDefault(1L)
+            state.put("highest",floor);state.remove("rejected")
+            state.put("native_version",info.longVersionCode);save()
+        }
         if(recover && state.optBoolean("pending")) rollback(true)
         val active=state.optString("active")
         if(active.isNotEmpty()) {

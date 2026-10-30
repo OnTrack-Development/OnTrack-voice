@@ -9,6 +9,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -34,6 +36,9 @@ class MobileUiInstrumentedTest {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val fake="instrumentation_only_key_12345678"
         context.getSharedPreferences("ontrack_link",0).edit().putString("base","https://app.ontrackegy.com/").putString("key",fake).commit()
+        // Model the failed0.1.6 OTA remembered on the owner phone.
+        val cache=File(context.filesDir,"mobile-ota").apply{mkdirs()}
+        File(cache,"state.json").writeText("{\"highest\":3,\"rejected\":3,\"pending\":false}")
         ActivityScenario.launch(MobileLinkActivity::class.java).use{scenario->
             await(scenario,"document.title==='OnTrack' && document.getElementById('key')?.value==='instrumentation_only_key_12345678'")
             scenario.onActivity{activity->assertTrue(find(activity.findViewById(android.R.id.content))!!.url!!.startsWith("https://ontrack-ui.invalid/ui/"))}
@@ -41,6 +46,9 @@ class MobileUiInstrumentedTest {
             js(scenario,"document.getElementById('key').value='bad';document.getElementById('start').disabled=false;document.getElementById('start').click();true")
             await(scenario,"document.getElementById('error').textContent.length>0")
             assertFalse(MobileLinkService.running)
+            val state=JSONObject(File(cache,"state.json").readText())
+            assertEquals(context.packageManager.getPackageInfo(context.packageName,0).longVersionCode,state.getLong("native_version"))
+            assertFalse(state.has("rejected"))
         }
     }
 }
