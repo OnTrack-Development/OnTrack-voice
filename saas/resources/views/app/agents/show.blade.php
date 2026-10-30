@@ -15,7 +15,7 @@
                 @if ($agent->published_at) · نُشر {{ $agent->published_at->format('Y-m-d H:i') }} @endif
             </p>
         </div>
-        <a class="btn btn-outline btn-sm" href="{{ route('app.agents.index', ['workspace' => $workspace->slug]) }}">كل الوكلاء</a>
+        <div style="display:flex;gap:8px"><a class="btn btn-primary btn-sm" href="{{ route('app.flow.show', ['workspace' => $workspace->slug, 'agent' => $agent->id]) }}">فتح Flow Builder</a><a class="btn btn-outline btn-sm" href="{{ route('app.agents.index', ['workspace' => $workspace->slug]) }}">كل الوكلاء</a></div>
     </div>
 
     @if (session('status'))

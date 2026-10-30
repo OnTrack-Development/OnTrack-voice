@@ -8,6 +8,7 @@ use App\Http\Controllers\App\AgentStudioController;
 use App\Http\Controllers\App\ConversationController;
 use App\Http\Controllers\App\CrmController;
 use App\Http\Controllers\App\HomeController;
+use App\Http\Controllers\App\FlowBuilderController;
 use App\Http\Controllers\App\IntegrationController;
 use App\Http\Controllers\App\KnowledgeController;
 use App\Http\Controllers\App\KnowledgeSearchController;
@@ -88,6 +89,10 @@ Route::middleware(['auth', 'workspace.member'])->prefix('app')->name('app.')->gr
     Route::get('/{workspace}/agents/{agent}', [AgentStudioController::class, 'show'])->name('agents.show');
     Route::put('/{workspace}/agents/{agent}', [AgentStudioController::class, 'update'])->name('agents.update');
     Route::post('/{workspace}/agents/{agent}/publish', [AgentStudioController::class, 'publish'])->name('agents.publish');
+    Route::get('/{workspace}/agents/{agent}/flow', [FlowBuilderController::class, 'show'])->name('flow.show');
+    Route::post('/{workspace}/agents/{agent}/flow/save', [FlowBuilderController::class, 'save'])->name('flow.save');
+    Route::post('/{workspace}/agents/{agent}/flow/validate', [FlowBuilderController::class, 'validateGraph'])->name('flow.validate');
+    Route::post('/{workspace}/agents/{agent}/flow/publish', [FlowBuilderController::class, 'publish'])->name('flow.publish');
 
     Route::get('/{workspace}/knowledge', [KnowledgeController::class, 'index'])->name('knowledge.index');
     Route::post('/{workspace}/knowledge', [KnowledgeController::class, 'store'])->name('knowledge.store');

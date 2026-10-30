@@ -36,6 +36,8 @@
 | Integration Hub | `IMPLEMENTED_LOCAL` — تكاملات Business API مشفرة ومعزولة، بلا تنفيذ عمياء لـURL/LLM |
 | Connector Endpoint Security | `IMPLEMENTED_LOCAL` — CRUD، tenant/workspace ownership، HTTPS/public DNS policy، path traversal rejection |
 | Agent Revision Lifecycle | `IMPLEMENTED_LOCAL` — snapshot versioning عند إنشاء/حفظ الوكيل، مع عزل tenant |
+| Flow Builder | `IMPLEMENTED_LOCAL` — canvas RTL بعقد وانتقالات وInspector/Palette/zoom/validation/save/publish |
+| Demo Autofill | `IMPLEMENTED_LOCAL` — زر يملأ حساب العرض المحلي دون auto-login |
 | Voice Campaigns | `IMPLEMENTED_LOCAL` (workflow only) — حملات وقوائم وحالات نتائج؛ النقل الهاتفي `PENDING_EXTERNAL` |
 | Marketing / SEO | `IMPLEMENTED_LOCAL` — صفحات عامة + قطاعات + sitemap، بدون أرقام مختلقة |
 | Voice | `PLANNED` — ينتظر إثبات الجهاز |
@@ -114,6 +116,9 @@ Business connectors لا تقبل `http` أو loopback/private/metadata/userinfo
 ### 24. Platform Routing وCosts Console
 أضيفت سياسات Writer/Reviewer/Fallback وexact model IDs مع upsert وتدقيق، وصفحة تكاليف منصة تعرض السجل الداخلي فقط ولا تخترع أرقامًا أو تكشفه للـtenant؛ direct guessed URLs تعود 403.
 
+### 25. Flow Builder + Demo Autofill
+Flow Builder مستقل داخل `/app/{workspace}/agents/{agent}/flow`: canvas RTL بعقد Start/Message/Condition/Action/Handoff/End، palette، inspector، drag/zoom/reset، Graph save عبر nodes/edges، validation يمنع Start/End الناقصين، وpublish للـrevision. صفحة login تحتوي زر تعبئة Demo محليًا دون auto-login.
+
 ## أدلة الاختبار الفعلية
 
 البيئة: Laravel 12.70.2 / PHP 8.2.12 / SQLite.
@@ -148,6 +153,8 @@ php artisan test
 - AgentRevisionTest: 2
 - AgentRevisionLifecycleTest: 2
 - WorkspaceMembershipIsolationTest: 1
+- FlowBuilderTest: 3
+- DemoLoginFillTest: 1
 - TenancyIsolationTest: 3
 - Laravel example tests: 2
 
