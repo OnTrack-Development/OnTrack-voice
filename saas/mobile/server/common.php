@@ -20,7 +20,7 @@ function mobile_require_device(): void {
 }
 function mobile_defaults(): array {
     return ['revision'=>1,'enabled'=>false,'auto_answer'=>true,'voice'=>'Aoede',
-        'input_channel'=>'right','agent_name'=>'OnTrack',
+        'input_channel'=>'mix','answer_delay_seconds'=>5,'response_style'=>'short_ar_egyptian','agent_name'=>'OnTrack',
         'instruction'=>'اتكلم بالمصري بجمل قصيرة. استمع للعميل ورد على كلامه. هذه مكالمة هاتفية؛ لا تذكر شاشة أو روابط.'];
 }
 function mobile_settings(): array {
