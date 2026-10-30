@@ -1,0 +1,16 @@
+{
+  "attempts": [
+    {
+      "recorded_at_utc": "2026-10-30T21:29:12.938895+00:00",
+      "source_commit": "24e8c3b3ad2a6f4816bd868369fe17fe452c20a5",
+      "run_id": 41130759433,
+      "job_id": 124321005850,
+      "result": "COMPILE_FAILED",
+      "error": "Unresolved reference BuildConfig at MobileLinkActivity.kt:78",
+      "cause": "Upstream Gradle does not generate BuildConfig; version should come from installed PackageInfo",
+      "fix_commit": "d1336460c4d4e20fc4aa437d91061a74a003d9ea",
+      "fix": "Use PackageInfo.versionName through MobileOta; repeat CI because compilation failed. No OTA or APK was published by failed run."
+    }
+  ],
+  "phone_hot_update_verified": false
+}

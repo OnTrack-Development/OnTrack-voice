@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T21:22:08.593078+00:00",
+  "updated_at_utc": "2026-10-30T21:34:14.361704+00:00",
   "display_timezone": "Africa/Cairo",
-  "status": "OTA_BOOTSTRAP_016_SOURCE_READY_BUILD_PENDING",
+  "status": "OTA_BOOTSTRAP_016_APK_VERIFIED_HOST_PUBLICATION_PENDING",
   "phase": "MOBILE_SITE_LIVE_INTEGRATION",
   "repository": "OnTrack-Development/OnTrack-voice",
   "application_repo_path": "saas/",
@@ -38,7 +38,7 @@
     "before_owner_start": "Report preparation complete and supply prompt/memory paths; do not bootstrap application.",
     "after_owner_start": "Inspect compatible PHP/Composer/build/MySQL inside isolated saas scope, establish application baseline and implement first authorized vertical slice.",
     "current_research_followup": "Read research report and perform only an authorized target-device audio proof; no device-control or successful call evidence available in research session.",
-    "current_mobile_build": "Build0.1.6 and verify signing/manifest/OTA signature; existing host worker publishes immutable UI+signedmanifest via bounded job; verify HTTP. Deliver bootstrap APK then owner checks OTA UI revision2; phone401 remains open."
+    "current_mobile_build": "Existing worker must execute the queued deployment; do not replace or replay unknown pending effects. Verify report/raw SHA and live signed manifest/hash. Owner installs bootstrap APK as update and checks UI OTA2."
   },
   "open_issue_ids": [
     "VOICE-001",
@@ -86,12 +86,12 @@
   ],
   "latest_owner_authorization": "Proceed directly to integrate app.ontrackegy.com and Android; do not block on separate recording test. Reevaluate failures during actual linking.",
   "mobile_build": {
-    "status": "APK_DOWNLOADED_SIGNER_PROVENANCE_AND_FINAL_MANIFEST_VERIFIED",
-    "version": "0.1.5-mobile-link",
-    "source_commit": "9f9a0f23fabf5a4ee873d27ea07748d841ea3feb",
-    "workflow_run_id": 41127903051,
-    "artifact_id": 13012375680,
-    "evidence": "docs/mobile/MOBILE_LINK_BUILD_0_1_5.json"
+    "status": "APK_AND_SIGNED_UI_DOWNLOADED_AND_VERIFIED",
+    "version": "0.1.6-ota",
+    "source_commit": "d1336460c4d4e20fc4aa437d91061a74a003d9ea",
+    "workflow_run_id": 41131334617,
+    "artifact_id": 13013975015,
+    "evidence": "docs/mobile/MOBILE_OTA_BUILD_0_1_6.json"
   },
   "device_setup": {
     "status": "AUDIO_REACHED_FAR_END_OWNER_REPORTED_PERMISSION_CAUSE_UNKNOWN",
@@ -134,13 +134,21 @@
     "evidence": "docs/mobile/MOBILE_AUTH_RECHECK_2026_10_30.json"
   },
   "ota": {
-    "status": "SOURCE_READY_CI_PENDING",
+    "status": "APK_SIGNED_BUNDLE_VERIFIED_HOST_QUEUE_PENDING",
     "scope": "Signed local HTML/CSS/JS call-center UI; native audio/permissions still require APK",
     "bootstrap_version": "0.1.6-ota",
     "runtime": 1,
     "revision": 2,
     "doc": "docs/mobile/OTA_UPDATES_AR.md",
     "device_hot_update_verified": false,
-    "host_release_deployed": false
+    "host_release_deployed": false,
+    "source_commit": "d1336460c4d4e20fc4aa437d91061a74a003d9ea",
+    "workflow_run_id": 41131334617,
+    "superseded_run_id": 41130629657,
+    "readiness_nonce_bound": true,
+    "artifact_id": 13013975015,
+    "host_deploy_job": "mobile-ota-41131334617",
+    "build_evidence": "docs/mobile/MOBILE_OTA_BUILD_0_1_6.json",
+    "publication_evidence": "docs/mobile/OTA_HOST_PUBLICATION_2026_10_30.json"
   }
 }

@@ -520,6 +520,36 @@
           "summary": "Exact provided key matches source hash; live API returns200 including OkHttp UA. Phone error still unverified after input replacement."
         }
       ]
+    },
+    {
+      "id": "MOBILE-007",
+      "title": "OTA bootstrap version display fails compilation against upstream build settings",
+      "category": "android_build",
+      "severity": "medium",
+      "status": "RESOLVED_VERIFIED",
+      "first_seen": "2026-10-30T21:29:12.938895+00:00",
+      "cause_confirmed": "Upstream Gradle does not generate BuildConfig; version should come from installed PackageInfo",
+      "attempts": [
+        "ATT-20261030-OTA-COMPILE-VERSION"
+      ],
+      "verification": [
+        "docs/mobile/OTA_BUILD_ATTEMPTS_2026_10_30.json",
+        "docs/mobile/MOBILE_OTA_BUILD_0_1_6.json"
+      ],
+      "current_blocker": false,
+      "next_action": "BuildConfig compilation fault resolved by successful final CI; host OTA deployment and handset hot update are separate pending gates.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-30T21:29:12.938895+00:00",
+          "status": "INVESTIGATING",
+          "summary": "Use PackageInfo.versionName through MobileOta; repeat CI because compilation failed. No OTA or APK was published by failed run."
+        },
+        {
+          "recorded_at_utc": "2026-10-30T21:34:14.361704+00:00",
+          "status": "RESOLVED_VERIFIED",
+          "summary": "Corrected source compiled and unit/daemon tests, APK assembly, signature and signed OTA packaging passed in run41131334617."
+        }
+      ]
     }
   ]
 }

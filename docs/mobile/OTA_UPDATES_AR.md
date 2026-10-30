@@ -34,3 +34,7 @@ https://developer.android.com/privacy-and-security/risks/insecure-webview-native
 https://developer.android.com/privacy-and-security/risks/dynamic-code-loading
 https://developer.android.com/guide/playcore/in-app-updates
 https://developer.android.com/reference/android/content/pm/PackageInstaller.SessionParams#setRequireUserAction(int)
+
+## نتيجةالبناءوالتسليم
+
+run41131334617نجح. APKوحزمةUIبشهادةالتوقيعالموجودةمتطابقانومتحققمنهما؛الدليلMOBILE_OTA_BUILD_0_1_6.json. مهمةالنشرmobile-ota-41131334617أُرسلتفعليًاولميلحقهاتقريربعد،وlatest.jsonيرجع404فيآخرفحص. لااعتمادعلىهذاكإثباتhotupdate؛الخطوةالعاملثماختبارالهاتف. فحصJSsyntaxنجح؛فحصالمتصفحالمرئيلم يُنفّذلعدمتوفرChromiumمحليًا. أولAPKجاهز،ولاادعاءبنجاحمكالمةأوإصلاح401.

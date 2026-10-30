@@ -126,24 +126,33 @@
     "next_action": "Prove digital capture and injection on target phone; preserve first-unlock and OEM limitations."
   },
   "mobile_app": {
-    "status": "APK015_VERIFIED_OWNER_INSTALL_PENDING",
+    "status": "OTA016_APK_VERIFIED_PUBLICATION_QUEUED",
     "path": "saas/mobile/audio-proof",
     "application_id": "com.ontrack.voiceproof",
     "upstream_commit": "f011062adfb3a2154c4d5a9cc4394032fb4345f2",
     "device_verified": false,
     "scope": "One-call import/capture/injection diagnostics, not campaigns or live AI",
-    "build_evidence": "docs/mobile/MOBILE_LINK_BUILD_0_1_5.json",
+    "build_evidence": "docs/mobile/MOBILE_OTA_BUILD_0_1_6.json",
     "workflow_run_id": 41122903309,
     "artifact_id": 13009691302,
-    "version": "0.1.5-mobile-link",
+    "version": "0.1.6-ota",
     "diagnostic_build_evidence": "docs/mobile/DIAGNOSTIC_BUILD_0_1_1.json",
     "phone_observation": "FAR_END_AUDIO_OWNER_REPORTED_CAPTURE_PENDING",
     "phone_apk_version_confirmed": null,
-    "pending_update": "0.1.5-mobile-link",
+    "pending_update": "0.1.6-ota",
     "backend_deployed": true,
     "same_signer_as_0_1_1": true,
     "known_0_1_3_url_issue": true,
     "live_gemini_setup_accepted": true,
     "source_commit": "f163c6bb7dc83f06ba5f65d11e9ee0aa1f31aa77"
+  },
+  "mobile_ota": {
+    "runtime": 1,
+    "revision": 2,
+    "build_verified": true,
+    "signed_ui_verified": true,
+    "host_deployed": false,
+    "phone_hot_update_verified": false,
+    "host_job": "mobile-ota-41131334617"
   }
 }

@@ -1,0 +1,17 @@
+{
+  "recorded_at_utc": "2026-10-30T21:34:14.361704+00:00",
+  "status": "QUEUED_NOT_DEPLOYED",
+  "job_id": "mobile-ota-41131334617",
+  "created_at_utc": "2026-10-30T21:32:07.823353+00:00",
+  "expires_at_utc": "2026-10-31T21:32:07.823353+00:00",
+  "github_queue_branch": "ontrack-host-link",
+  "report_path": "ops/host-link/results/appontrack-server11/mobile-ota-41131334617.json",
+  "publish_workflow_run_id": 41131334617,
+  "publish_job_id": 124324094537,
+  "job_bytes": 7067,
+  "http_manifest": 404,
+  "matching_report_found": false,
+  "revision": 2,
+  "device_hot_update_verified": false,
+  "next_action": "Existing worker must execute the queued deployment; do not replace or replay unknown pending effects. Verify report/raw SHA and live signed manifest/hash. Owner installs bootstrap APK as update and checks UI OTA2."
+}
