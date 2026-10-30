@@ -12,7 +12,7 @@
 <script>
 const el=id=>document.getElementById(id);const send=(command,data={})=>OnTrack.postMessage(JSON.stringify({command,nonce:window.OTA_NONCE,...data}));
 window.onTrackInit=s=>{el('base').value=s.base;el('key').value=s.key;};
-window.onTrackState=s=>{el('status').textContent=s.status;el('version').textContent=`Android ${s.native} · UI OTA ${s.revision}`;el('start').disabled=s.running;el('key').disabled=s.running;el('base').disabled=s.running;el('rollback').disabled=s.inCall;};
+window.onTrackState=s=>{el('status').textContent=s.status;el('version').textContent=`Android ${s.native} · UI OTA ${s.revision}`;el('start').disabled=s.running||s.updating;el('key').disabled=s.running||s.updating;el('base').disabled=s.running||s.updating;el('rollback').disabled=s.inCall;};
 el('show').onclick=()=>el('key').type=el('key').type==='password'?'text':'password';
 el('start').onclick=()=>{el('error').textContent='';const key=el('key').value.trim();if(!/^[A-Za-z0-9_-]{24,128}$/.test(key)){el('error').textContent='انسخ المفتاح فقط؛ بدون مسافات أو علامات إضافية.';return;}send('start',{base:el('base').value,key});};
 for(const [id,cmd] of [['stop','stop'],['admin','admin'],['diagnostics','diagnostics'],['updates','checkUpdates'],['rollback','rollback']])el(id).onclick=()=>send(cmd);

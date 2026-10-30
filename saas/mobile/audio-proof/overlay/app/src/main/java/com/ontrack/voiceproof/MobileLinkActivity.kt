@@ -75,7 +75,7 @@ class MobileLinkActivity:ComponentActivity(){
     private fun sendState(){
         if(!ready)return
         val state=JSONObject().put("status",MobileLinkService.latestStatus).put("running",MobileLinkService.running)
-            .put("inCall",MobileLinkService.inCall).put("revision",ota.revision).put("native",BuildConfig.VERSION_NAME)
+            .put("inCall",MobileLinkService.inCall).put("revision",ota.revision).put("native",ota.nativeVersion).put("updating",updateBusy)
         web.evaluateJavascript("window.onTrackState && window.onTrackState($state)",null)
     }
     inner class Bridge{

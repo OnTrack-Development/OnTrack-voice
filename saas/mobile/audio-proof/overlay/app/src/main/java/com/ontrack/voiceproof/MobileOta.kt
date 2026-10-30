@@ -20,6 +20,7 @@ class MobileOta(private val context: Context) {
     private val client=OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
         .connectTimeout(5,TimeUnit.SECONDS).readTimeout(8,TimeUnit.SECONDS).callTimeout(15,TimeUnit.SECONDS).build()
     private val info=context.packageManager.getPackageInfo(context.packageName,PackageManager.GET_SIGNING_CERTIFICATES)
+    val nativeVersion:String get()=info.versionName.orEmpty()
     private val publicKey=CertificateFactory.getInstance("X.509").generateCertificate(
         ByteArrayInputStream(info.signingInfo!!.apkContentsSigners.single().toByteArray())).publicKey
     private var state=runCatching{JSONObject(stateFile.openRead().use{it.readBytes().toString(Charsets.UTF_8)})}.getOrElse{JSONObject()}
