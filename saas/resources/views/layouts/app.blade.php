@@ -37,6 +37,9 @@
             <a class="side-link @if(request()->routeIs('app.integrations.*')) active @endif" href="{{ route('app.integrations.index', ['workspace' => $workspace->slug ?? '']) }}">
                 <span aria-hidden="true">⌁</span> التكاملات
             </a>
+            <a class="side-link @if(request()->routeIs('app.social.*')) active @endif" href="{{ route('app.social.index', ['workspace' => $workspace->slug ?? '']) }}">
+                <span aria-hidden="true">✦</span> السوشيال وTelegram
+            </a>
             <a class="side-link @if(request()->routeIs('app.channels.whatsapp.*')) active @endif" href="{{ route('app.channels.whatsapp.index', ['workspace' => $workspace->slug ?? '']) }}">
                 <span aria-hidden="true">☏</span> القنوات
             </a>
@@ -45,6 +48,9 @@
             </a>
             <a class="side-link @if(request()->routeIs('app.crm.*')) active @endif" href="{{ route('app.crm.index', ['workspace' => $workspace->slug ?? '']) }}">
                 <span aria-hidden="true">♧</span> إدارة العملاء
+            </a>
+            <a class="side-link @if(request()->routeIs('app.team.*')) active @endif" href="{{ route('app.team.index', ['workspace' => $workspace->slug ?? '']) }}">
+                <span aria-hidden="true">♤</span> الفريق والعضويات
             </a>
             <p class="side-section">الإدارة</p>
             <a class="side-link @if(request()->routeIs('app.voice.*')) active @endif" href="{{ route('app.voice.index', ['workspace' => $workspace->slug ?? '']) }}">
@@ -72,6 +78,7 @@
                     </div>
                 </div>
                 <div class="profile">
+                    @if(auth()->user()->email === 'demo@ontrack.local')<span class="demo-chip">وضع تجريبي</span>@endif
                     <span class="subtitle">{{ auth()->user()->name }}</span>
                     <span class="avatar">{{ mb_substr(auth()->user()->name, 0, 1) }}</span>
                     <form method="POST" action="{{ route('logout') }}" style="margin:0">

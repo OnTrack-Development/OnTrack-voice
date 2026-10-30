@@ -14,11 +14,17 @@ use App\Http\Controllers\App\OverviewController;
 use App\Http\Controllers\App\ProjectController;
 use App\Http\Controllers\App\PlanController;
 use App\Http\Controllers\App\SettingsController;
+use App\Http\Controllers\App\SocialController;
 use App\Http\Controllers\App\SmartActionController;
 use App\Http\Controllers\App\WhatsappConnectionController;
 use App\Http\Controllers\App\VoiceCampaignController;
+use App\Http\Controllers\App\TeamController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Control\Ai\ProviderController;
+use App\Http\Controllers\Control\Ai\ModelController;
+use App\Http\Controllers\Control\Ai\AuditController;
+use App\Http\Controllers\Control\DashboardController;
+use App\Http\Controllers\Control\PlansController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Marketing\LandingController;
 use Illuminate\Support\Facades\Route;
@@ -44,10 +50,20 @@ Route::get('/api/widget/{publicKey}/config', [WidgetController::class, 'config']
 Route::post('/api/widget/{publicKey}/start', [WidgetController::class, 'start']);
 Route::post('/api/widget/{publicKey}/message', [WidgetController::class, 'message']);
 
-Route::middleware('auth')->prefix('control/ai')->name('control.ai.')->group(function () {
-    Route::get('/providers', [ProviderController::class, 'index'])->name('providers.index');
-    Route::post('/providers', [ProviderController::class, 'store'])->name('providers.store');
-    Route::delete('/providers/{profile}', [ProviderController::class, 'destroy'])->name('providers.destroy');
+Route::middleware(['auth', 'platform.admin'])->prefix('control')->name('control.')->group(function () {
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+    Route::get('/plans', [PlansController::class, 'index'])->name('plans.index');
+    Route::post('/plans', [PlansController::class, 'store'])->name('plans.store');
+
+    Route::prefix('ai')->name('ai.')->group(function () {
+        Route::get('/providers', [ProviderController::class, 'index'])->name('providers.index');
+        Route::post('/providers', [ProviderController::class, 'store'])->name('providers.store');
+        Route::delete('/providers/{profile}', [ProviderController::class, 'destroy'])->name('providers.destroy');
+        Route::get('/models', [ModelController::class, 'index'])->name('models.index');
+        Route::post('/models', [ModelController::class, 'store'])->name('models.store');
+        Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
+    });
 });
 
 Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
@@ -88,11 +104,20 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
     Route::get('/{workspace}/crm', [CrmController::class, 'index'])->name('crm.index');
     Route::post('/{workspace}/crm', [CrmController::class, 'store'])->name('crm.store');
 
+    Route::get('/{workspace}/team', [TeamController::class, 'index'])->name('team.index');
+    Route::post('/{workspace}/team/invite', [TeamController::class, 'invite'])->name('team.invite');
+    Route::post('/{workspace}/team/{membership}/role', [TeamController::class, 'updateRole'])->name('team.updateRole');
+    Route::post('/{workspace}/team/{membership}/remove', [TeamController::class, 'remove'])->name('team.remove');
+    Route::get('/invitations/{invitation}/accept', [TeamController::class, 'accept'])->name('team.accept');
+
     Route::get('/{workspace}/operations', [OperationsController::class, 'index'])->name('operations.index');
 
     Route::get('/{workspace}/integrations', [IntegrationController::class, 'index'])->name('integrations.index');
     Route::post('/{workspace}/integrations', [IntegrationController::class, 'store'])->name('integrations.store');
 
     Route::get('/{workspace}/voice', [VoiceCampaignController::class, 'index'])->name('voice.index');
+    Route::get('/{workspace}/channels/social', [SocialController::class, 'index'])->name('social.index');
+    Route::post('/{workspace}/channels/social', [SocialController::class, 'store'])->name('social.store');
+    Route::post('/{workspace}/channels/social/{connection}/revoke', [SocialController::class, 'revoke'])->name('social.revoke');
     Route::post('/{workspace}/voice', [VoiceCampaignController::class, 'store'])->name('voice.store');
 });
