@@ -10,7 +10,7 @@ class MarketingPagesTest extends TestCase
     {
         $pages = [
             '/', '/platform', '/features/agent-builder', '/features/smart-buttons',
-            '/features/knowledge', '/features/integrations', '/features/channels',
+            '/features/knowledge', '/features/integrations', '/features/channels', '/features/telegram',
             '/features/inbox', '/features/operations', '/pricing', '/security',
             '/enterprise', '/about', '/contact', '/developers', '/docs',
             '/industries/ecommerce', '/industries/real-estate', '/industries/hospitality',

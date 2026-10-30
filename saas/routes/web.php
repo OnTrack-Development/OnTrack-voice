@@ -34,7 +34,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [LandingController::class, 'index'])->name('home');
 Route::get('/sitemap.xml', [PageController::class, 'sitemap']);
 Route::get('/{page}', [PageController::class, 'show'])->where('page', 'platform|pricing|security|enterprise|about|contact|developers|docs');
-Route::get('/features/{feature}', [PageController::class, 'feature'])->where('feature', 'agent-builder|smart-buttons|knowledge|integrations|channels|inbox|operations');
+Route::get('/features/{feature}', [PageController::class, 'feature'])->where('feature', 'agent-builder|smart-buttons|knowledge|integrations|channels|telegram|inbox|operations');
 Route::get('/industries/{industry}', [PageController::class, 'industry'])->where('industry', 'ecommerce|real-estate|hospitality|education|healthcare|logistics|marketing-agencies|hosting|professional-services');
 
 Route::middleware('guest')->group(function () {
