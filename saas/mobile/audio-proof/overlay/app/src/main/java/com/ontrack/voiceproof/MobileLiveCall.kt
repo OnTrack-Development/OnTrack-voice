@@ -39,7 +39,16 @@ internal class MobileLiveCall(
                 val setup=JSONObject().put("model","models/"+session.getString("model").removePrefix("models/"))
                     .put("generationConfig",JSONObject().put("responseModalities",org.json.JSONArray(listOf("AUDIO")))
                         .put("speechConfig",JSONObject().put("voiceConfig",JSONObject().put("prebuiltVoiceConfig",JSONObject().put("voiceName",settings.optString("voice","Aoede"))))))
-                    .put("systemInstruction",JSONObject().put("parts",org.json.JSONArray().put(JSONObject().put("text",session.getString("system_instruction")))))
+                    .put("systemInstruction",JSONObject().put("parts",org.json.JSONArray().put(JSONObject().put("text",(session.getString("system_instruction") + "\\n\\n" +
+                        "قواعد إلزامية للمكالمة الحية: تحدث بالعربية المصرية فقط، ولا تحول إلى أي لغة أخرى مهما كان نص العميل. " +
+                        "التزم بجملة أو جملتين قصيرتين في كل رد، بحد أقصى 20 كلمة تقريبًا، ثم اسكت لتسمع العميل. " +
+                        "اعرض معلومة عقارية واحدة مفيدة أو اسأل سؤالًا واحدًا في كل دور، ولا تقرأ السكريبت دفعة واحدة. " +
+                        "لا تكرر الترحيب أو الأسعار أو وصف العقار أو ما سبق قوله إلا إذا طلب العميل ذلك. " +
+                        "عند مقاطعة العميل توقف فورًا، واستمع إليه حتى ينتهي؛ إذا كان سؤاله مرتبطًا بالموضوع أجب عنه باختصار، " +
+                        "ثم أكمل من النقطة التي كنت وصلت لها لا من أول السيناريو. إذا كان السؤال خارج الموضوع أجب بمهنية " +
+                        "دون اختراع معلومات، ثم اعرض العودة للموضوع مرة واحدة فقط. " +
+                        "تذكر ما عرفته عن الميزانية والاحتياجات والاعتراضات أثناء الجلسة؛ لا تعاود الأسئلة التي أجاب عنها. " +
+                        "ابدأ ردك بالمعلومة المطلوبة مباشرة، وقلل الحشو وانتظر المتصل.")))))
                     .put("inputAudioTranscription",JSONObject()).put("outputAudioTranscription",JSONObject())
                 webSocket.send(JSONObject().put("setup",setup).toString())
             }
@@ -52,6 +61,7 @@ internal class MobileLiveCall(
                     if(content.optBoolean("interrupted")) {
                         generation++;while(playback.tryReceive().isSuccess) {}
                         synchronized(writeLock){output?.writeInt(-1);output?.flush()}
+                        return // Never enqueue stale audio from the interrupted server turn.
                     }
                     val parts=content.optJSONObject("modelTurn")?.optJSONArray("parts")?:return
                     for(i in 0 until parts.length()) {
@@ -60,7 +70,7 @@ internal class MobileLiveCall(
                         if(!mime.startsWith("audio/pcm")) continue
                         val rate=Regex("rate=(\\d+)").find(mime)?.groupValues?.get(1)?.toInt()?:24000
                         val bytes=LinkPcm.output(Base64.decode(inline.getString("data"),Base64.DEFAULT),rate)
-                        for(at in bytes.indices step 4800) check(playback.trySend(generation to bytes.copyOfRange(at,minOf(at+4800,bytes.size))).isSuccess){"playback queue full"}
+                        for(at in bytes.indices step 2400) check(playback.trySend(generation to bytes.copyOfRange(at,minOf(at+2400,bytes.size))).isSuccess){"playback queue full"}
                     }
                 }.onFailure{fail(it.message?:"invalid live response")}
             }
