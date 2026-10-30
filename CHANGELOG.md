@@ -1,5 +1,11 @@
 # سجل تغييرات المشروع
 
+## 2026-10-30 — First owner-reported far-end audio
+
+- Owner heard a beep and reports audio reaching the other call participant on Redmi Note12 Pro5G.
+- Recorded partial device observation; exact APK/route/direction, speech content/digital isolation, remote capture and live AI remain pending.
+- Preserve working phone setup. No new APK, host changes or claimed permission repair.
+
 ## 2026-10-30 — Android audio-proof APK 0.1.0
 
 - Implemented Arabic one-call proof screen, local WAV/MP3/M4A import, inbound/outbound test controls and authenticated cancellation over pinned embedded-ADB upstream.

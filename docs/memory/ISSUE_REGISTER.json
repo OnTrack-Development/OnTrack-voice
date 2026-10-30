@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T16:28:41.996Z",
+  "updated_at_utc": "2026-10-30T19:34:29.600Z",
   "issues": [
     {
       "id": "NET-001",
@@ -38,17 +38,19 @@
       "title": "No verified bidirectional SIM audio with AI",
       "category": "telephony",
       "severity": "high",
-      "status": "OPEN",
+      "status": "INVESTIGATING",
       "first_seen": "2026-10-29",
       "expected": "Inbound/outbound AI dialogue through tenant mobile SIM",
-      "actual": "Software-only research found embedded ADB/shell injection mechanisms, not a target-device proof. Shizuku, Accessibility, customer hardware and new carrier contracts are excluded.",
+      "actual": "Owner now reports sound reaching the far end during the test. Remote speech capture and continuous bidirectional AI remain unverified.",
       "cause_confirmed": null,
       "attempts": [
         "ATT-003"
       ],
-      "verification": [],
-      "current_blocker": "Live Voice feature acceptance",
-      "next_action": "Install the built APK, run gated inbound/outbound proof, review far-end hearing and captured remote speech separately.",
+      "verification": [
+        "docs/mobile/DEVICE_OBSERVATION_2026_10_30.json"
+      ],
+      "current_blocker": "Remote speech capture / digital-path isolation / continuous SIM AI proof",
+      "next_action": "On the working configuration, confirm the far end heard the imported speech file after the beep, then have the far end speak a distinctive sentence and review the app recording. Preserve setup; no reset/re-pair. Export sanitized proof JSON. Exact APK version, direction, route and acoustic isolation remain unknown.",
       "history": [
         {
           "recorded_at_utc": "2026-10-29T00:28:24.687935+00:00",
@@ -79,6 +81,14 @@
           "summary": "APK built and signature/provenance verified in CI. This resolves build delivery only; no target-device audio evidence.",
           "evidence": [
             "docs/mobile/BUILD_STATUS.json"
+          ]
+        },
+        {
+          "recorded_at_utc": "2026-10-30T19:34:29.600Z",
+          "status": "INVESTIGATING",
+          "summary": "Owner reports beep and audio heard at far end. First partial real-call observation; capture, exact speech content/digital-path isolation, APK version and permission root cause not yet evidenced.",
+          "evidence": [
+            "docs/mobile/DEVICE_OBSERVATION_2026_10_30.json"
           ]
         }
       ]
@@ -307,18 +317,20 @@
       "status": "INVESTIGATING",
       "first_seen": "2026-10-30",
       "expected": "Complete local ADB connection and protected-settings grant before starting audio proof",
-      "actual": "Latest owner screenshots show JemRec Currently connected in Android Paired devices, both debugging switches enabled, and fresh18:12:24 protected-settings grant refusal.",
-      "cause_confirmed": "Permission refusal was reported by app; actual Developer options switch state and current connection cause are not independently verified.",
-      "hypothesis": "Pairing/connectivity is no longer the blocker. Raw Android pm-grant exception and target user/profile need inspection; generic vendor advice hides the actual cause.",
+      "actual": "Previous fresh permission refusal remains recorded; subsequent owner reports audio reaching far end. Permission outcome and exact APK used unknown.",
+      "cause_confirmed": null,
+      "hypothesis": "Test progressed to audible far-end output; do not infer the prior protected-grant cause/fix. Resume diagnosis only if it blocks the next test.",
       "attempts": [
         "ATT-20261030-XIAOMI-SETUP",
         "ATT-20261030-XIAOMI-SECURITY-ON",
         "ATT-20261030-EMPTY-PAIRED-LIST",
         "ATT-20261030-DIAG-APK-0-1-1"
       ],
-      "verification": [],
-      "current_blocker": "Target phone setup; no SIM audio test yet",
-      "next_action": "Install diagnostic0.1.1 (different debug signer requires removing old test app), complete pairing, then collect/save raw permission report via the new diagnostic button. Do not repeat toggles or claim audio proof.",
+      "verification": [
+        "docs/mobile/DEVICE_OBSERVATION_2026_10_30.json"
+      ],
+      "current_blocker": false,
+      "next_action": "On the working configuration, confirm the far end heard the imported speech file after the beep, then have the far end speak a distinctive sentence and review the app recording. Preserve setup; no reset/re-pair. Export sanitized proof JSON. Exact APK version, direction, route and acoustic isolation remain unknown.",
       "history": [
         {
           "recorded_at_utc": "2026-10-30T16:00:07.193Z",
@@ -346,6 +358,14 @@
           "summary": "Diagnostic0.1.1 built and verified. Actual Android grant output is now retained/exportable; phone-side cause/fix remains unverified.",
           "evidence": [
             "docs/mobile/DIAGNOSTIC_BUILD_0_1_1.json"
+          ]
+        },
+        {
+          "recorded_at_utc": "2026-10-30T19:34:29.600Z",
+          "status": "INVESTIGATING",
+          "summary": "Owner reports beep and audio heard at far end. First partial real-call observation; capture, exact speech content/digital-path isolation, APK version and permission root cause not yet evidenced.",
+          "evidence": [
+            "docs/mobile/DEVICE_OBSERVATION_2026_10_30.json"
           ]
         }
       ]

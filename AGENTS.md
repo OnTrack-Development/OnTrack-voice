@@ -66,3 +66,8 @@ Owner requested extensive software-only SIM audio/cost research. Research and pe
 ## بدء تنفيذ تطبيق الاختبار — 30 أكتوبر 2026
 
 المالك قال: «هات التطبيق ... الريبو ... الصلاحيات ... اتعامل». هذا أمر بدء لتطبيق إثبات صوت Android وAPK، ولا يُطلب تأكيد مكرر. المصدر في saas/mobile/audio-proof/؛ بناء معزول عن هوست PHP. نعيد استخدام JemRec عند commit مثبت مع overlay خاص بـOnTrack، ونحتفظ بالرخصة والإشعارات. لا Laravel أو AI/campaign integration ضمن أول APK. تظل PENDING_DEVICE_AUDIO_PROOF حتى اختبار الهاتف الحقيقي.
+
+
+## Latest handset observation — 2026-10-30
+
+Owner reports a beep and audio reaching the far end (docs/mobile/DEVICE_OBSERVATION_2026_10_30.json). This supersedes earlier statements that no phone audio test started. Preserve working setup; no repeated reset/re-pair. Exact APK, imported speech confirmation, digital-path isolation and remote speech capture remain pending. Do not claim full AI duplex or a known permission fix.
