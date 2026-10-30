@@ -62,3 +62,7 @@ The Android app receives authorized campaign/task/conversation-script/settings b
 ## Research checkpoint — 2026-10-30
 
 Owner requested extensive software-only SIM audio/cost research. Research and persistent documentation are authorized; no application bootstrap, handset changes or real campaign was performed. Source review is not a device pass. Existing cloned voice is retained; compare optional STT/LLM/TTS adapters only as needed for cost, not as an imposed replacement. Preserve PENDING_DEVICE_AUDIO_PROOF until actual inbound/outbound duplex and recovery evidence.
+
+## بدء تنفيذ تطبيق الاختبار — 30 أكتوبر 2026
+
+المالك قال: «هات التطبيق ... الريبو ... الصلاحيات ... اتعامل». هذا أمر بدء لتطبيق إثبات صوت Android وAPK، ولا يُطلب تأكيد مكرر. المصدر في saas/mobile/audio-proof/؛ بناء معزول عن هوست PHP. نعيد استخدام JemRec عند commit مثبت مع overlay خاص بـOnTrack، ونحتفظ بالرخصة والإشعارات. لا Laravel أو AI/campaign integration ضمن أول APK. تظل PENDING_DEVICE_AUDIO_PROOF حتى اختبار الهاتف الحقيقي.

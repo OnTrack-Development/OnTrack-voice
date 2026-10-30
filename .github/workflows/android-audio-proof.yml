@@ -1,0 +1,65 @@
+name: Android SIM Audio Proof
+on:
+  push:
+    branches: [main]
+    paths: ['saas/mobile/audio-proof/**', '.github/workflows/android-audio-proof.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-proof-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: jemcik/JemRec
+          ref: f011062adfb3a2154c4d5a9cc4394032fb4345f2
+          path: .build/jemrec
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+      - name: Install pinned Android build platforms
+        run: |
+          sdkmanager --install "platforms;android-37.0" || sdkmanager --install "platforms;android-37"
+          sdkmanager --install "platforms;android-36" || sdkmanager --install "platforms;android-36.0"
+          sdkmanager --install "build-tools;36.0.0"
+          test -f "$ANDROID_HOME/platforms/android-36/android.jar"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Apply OnTrack source overlay
+        run: python3 saas/mobile/audio-proof/prepare.py .build/jemrec
+      - name: Test audio import and daemon state logic
+        working-directory: .build/jemrec
+        run: ./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.PcmWavTest' :daemon-tests:test
+      - name: Build installable debug APK
+        working-directory: .build/jemrec
+        run: ./gradlew --no-daemon :app:assembleDebug
+      - name: Package provenance and verify signature
+        run: |
+          mkdir -p .build/artifact
+          cp .build/jemrec/app/build/outputs/apk/debug/app-debug.apk .build/artifact/OnTrack-SIM-Audio-Test-0.1.0.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs .build/artifact/*.apk > .build/artifact/signature.txt
+          sha256sum .build/artifact/*.apk > .build/artifact/SHA256SUMS.txt
+          cp .build/jemrec/ontrack-build-source.json .build/artifact/
+          cp .build/jemrec/LICENSE .build/jemrec/NOTICE.md .build/artifact/
+      - uses: actions/upload-artifact@v5
+        with:
+          name: OnTrack-SIM-Audio-Test-0.1.0
+          path: .build/artifact/
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: android-proof-failure-reports
+          path: |
+            .build/jemrec/app/build/reports/
+            .build/jemrec/shellserver/tests/build/reports/
+          if-no-files-found: ignore
