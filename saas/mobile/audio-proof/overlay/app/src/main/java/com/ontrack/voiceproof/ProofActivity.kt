@@ -83,7 +83,7 @@ class ProofActivity : ComponentActivity() {
             column.addView(this)
         }
         text("OnTrack • اختبار صوت الشريحة", 23f)
-        text("نسخة 0.1.3 — ربط الموبايل بالموقع مع الاحتفاظ باختبار الملف.")
+        text("نسخة 0.1.4 — ربط الموبايل بالموقع مع الاحتفاظ باختبار الملف.")
         status = text("ابدأ بالإعداد لمرة واحدة، ثم ارجع للشاشة دي.", 18f)
         fun button(label: String, tracked: Boolean = true, action: () -> Unit) = Button(this).apply {
             text = label; isAllCaps = false; setOnClickListener { action() }; column.addView(this)
@@ -232,7 +232,7 @@ class ProofActivity : ComponentActivity() {
     }
 
     private fun report(): String = JSONObject().apply {
-        put("app", "OnTrack SIM Audio Proof"); put("version", "0.1.3-mobile-link")
+        put("app", "OnTrack SIM Audio Proof"); put("version", "0.1.4-mobile-link")
         put("upstream_commit", "f011062adfb3a2154c4d5a9cc4394032fb4345f2")
         put("generated_at_ms", System.currentTimeMillis())
         put("manufacturer", Build.MANUFACTURER); put("model", Build.MODEL)

@@ -53,14 +53,14 @@ jobs:
       - name: Package provenance and verify signature
         run: |
           mkdir -p .build/artifact
-          cp .build/jemrec/app/build/outputs/apk/debug/app-debug.apk .build/artifact/OnTrack-SIM-Audio-Test-0.1.3.apk
+          cp .build/jemrec/app/build/outputs/apk/debug/app-debug.apk .build/artifact/OnTrack-SIM-Audio-Test-0.1.4.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs .build/artifact/*.apk > .build/artifact/signature.txt
           sha256sum .build/artifact/*.apk > .build/artifact/SHA256SUMS.txt
           cp .build/jemrec/ontrack-build-source.json .build/artifact/
           cp .build/jemrec/LICENSE .build/jemrec/NOTICE.md .build/artifact/
       - uses: actions/upload-artifact@v5
         with:
-          name: OnTrack-SIM-Audio-Test-0.1.3
+          name: OnTrack-SIM-Audio-Test-0.1.4
           path: .build/artifact/
           if-no-files-found: error
           retention-days: 30

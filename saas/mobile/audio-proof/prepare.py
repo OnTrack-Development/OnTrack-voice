@@ -49,9 +49,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 4', 'versionCode')
+                        'versionCode = 5', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.1.3-mobile-link"', 'versionName')
+                        'versionName = "0.1.4-mobile-link"', 'versionName')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
     text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")', 'mobile websocket transport')

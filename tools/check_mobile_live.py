@@ -29,8 +29,8 @@ def send(stream, payload, opcode=1):
     stream.sendall(header+mask+bytes(v ^ mask[i%4] for i,v in enumerate(payload)))
 
 
-def attempt(encoded=True):
-    result = {'query_encoding':'percent' if encoded else 'sdk_literal','audio_sent':False}
+def attempt(encoded=True, version="v1alpha", method="BidiGenerateContentConstrained"):
+    result = {'query_encoding':'percent' if encoded else 'sdk_literal','api_version':version,'method':method,'audio_sent':False}
     request=urllib.request.Request('https://app.ontrackegy.com/api/live_session.php',data=b'{"mode":"demo"}',headers={'Content-Type':'application/json'})
     with urllib.request.urlopen(request,timeout=15) as response:
         result['session_http']=response.status
@@ -42,7 +42,7 @@ def attempt(encoded=True):
         return result
     value=urllib.parse.quote(token,safe='') if encoded else token
     host='generativelanguage.googleapis.com'
-    path='/ws/google.ai.generativelanguage.v1alpha.GenerativeService/BidiGenerateContentConstrained?access_token='+value
+    path='/ws/google.ai.generativelanguage.'+version+'.GenerativeService.'+method+'?access_token='+value
     with socket.create_connection((host,443),timeout=10) as tcp:
         with ssl.create_default_context().wrap_socket(tcp,server_hostname=host) as stream:
             stream.settimeout(15)
@@ -91,7 +91,7 @@ def attempt(encoded=True):
 
 if __name__=='__main__':
     results=[]
-    for encoded in [True,False]:
+    for encoded in [True]:
         try:result=attempt(encoded)
         except Exception as error:result={'error_type':type(error).__name__,'audio_sent':False}
         results.append(result)
