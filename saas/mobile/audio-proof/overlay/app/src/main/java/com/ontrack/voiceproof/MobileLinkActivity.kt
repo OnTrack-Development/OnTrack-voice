@@ -3,6 +3,7 @@ package com.ontrack.voiceproof
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import android.os.Bundle
 import android.webkit.*
 import android.widget.*
@@ -95,7 +96,8 @@ class MobileLinkActivity:ComponentActivity(){
     private fun sendState(){
         if(!ready)return
         val state=JSONObject().put("status",MobileLinkService.latestStatus).put("running",MobileLinkService.running)
-            .put("inCall",MobileLinkService.inCall).put("revision",ota.revision).put("native",ota.nativeVersion).put("updating",updateBusy)
+            .put("inCall",MobileLinkService.inCall).put("humanControl",MobileLinkService.humanControl)
+            .put("overlayGranted",Settings.canDrawOverlays(this)).put("revision",ota.revision).put("native",ota.nativeVersion).put("updating",updateBusy)
         web.evaluateJavascript("window.onTrackState && window.onTrackState($state)",null)
     }
     inner class Bridge{
@@ -119,6 +121,13 @@ class MobileLinkActivity:ComponentActivity(){
                         ContextCompat.startForegroundService(this@MobileLinkActivity,Intent(this@MobileLinkActivity,MobileLinkService::class.java))
                     }
                     "stop"->stopService(Intent(this@MobileLinkActivity,MobileLinkService::class.java))
+                    "takeover"->startService(Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_TAKEOVER))
+                    "speaker"->startService(Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_SPEAKER))
+                    "overlayPermission"->{
+                        if(!Settings.canDrawOverlays(this@MobileLinkActivity)){
+                            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:$packageName")))
+                        }else banner.text="إذن النافذة العائمة مفعل"
+                    }
                     "checkUpdates"->checkUpdates()
                     "rollback"->{check(!MobileLinkService.inCall){"انتظر نهاية المكالمة"};show(withContext(Dispatchers.IO){ota.rollback(false)});banner.text="تم الرجوع للواجهة السابقة"}
                     "diagnostics"->startActivity(Intent(this@MobileLinkActivity,ProofActivity::class.java))
