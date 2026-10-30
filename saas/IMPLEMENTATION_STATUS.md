@@ -34,6 +34,7 @@
 | Web Widget | `IMPLEMENTED_LOCAL` — public key، جلسة widget، رسائل معزولة، وقفل human takeover؛ لا AI live claim |
 | Integration Hub | `IMPLEMENTED_LOCAL` — تكاملات Business API مشفرة ومعزولة، بلا تنفيذ عمياء لـURL/LLM |
 | Connector Endpoint Security | `IMPLEMENTED_LOCAL` — CRUD، tenant/workspace ownership، HTTPS/public DNS policy، path traversal rejection |
+| Agent Revision Lifecycle | `IMPLEMENTED_LOCAL` — snapshot versioning عند إنشاء/حفظ الوكيل، مع عزل tenant |
 | Voice Campaigns | `IMPLEMENTED_LOCAL` (workflow only) — حملات وقوائم وحالات نتائج؛ النقل الهاتفي `PENDING_EXTERNAL` |
 | Marketing / SEO | `IMPLEMENTED_LOCAL` — صفحات عامة + قطاعات + sitemap، بدون أرقام مختلقة |
 | Voice | `PLANNED` — ينتظر إثبات الجهاز |
@@ -141,6 +142,7 @@ php artisan test
 - SocialChannelTest: 3
 - KnowledgeSearchTest: 2
 - AgentRevisionTest: 2
+- AgentRevisionLifecycleTest: 2
 - TenancyIsolationTest: 3
 - Laravel example tests: 2
 

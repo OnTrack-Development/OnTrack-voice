@@ -4,6 +4,7 @@ namespace App\Http\Controllers\App;
 
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
+use App\Models\AgentRevision;
 use App\Models\Project;
 use App\Models\TenantMembership;
 use App\Models\Workspace;
@@ -52,6 +53,8 @@ class AgentStudioController extends Controller
             'status' => 'draft',
         ]);
 
+        $this->snapshotRevision($agent, $request->user()->id);
+
         return redirect()->route('app.agents.show', ['workspace' => $ws->slug, 'agent' => $agent->id])
             ->with('status', 'تم إنشاء الوكيل كمسودة.');
     }
@@ -65,6 +68,7 @@ class AgentStudioController extends Controller
             'workspace' => $ws,
             'agent' => $agent,
             'projects' => Project::where('workspace_id', $ws->id)->orderBy('name')->get(),
+            'revisions' => AgentRevision::where('tenant_id', $ws->tenant_id)->where('agent_id', $agent->id)->latest('version')->get(),
         ]);
     }
 
@@ -83,8 +87,10 @@ class AgentStudioController extends Controller
             'persona' => $data['persona'] ?? null,
         ]);
 
+        $this->snapshotRevision($agent, $request->user()->id);
+
         return redirect()->route('app.agents.show', ['workspace' => $ws->slug, 'agent' => $agent->id])
-            ->with('status', 'تم حفظ تعديلات الوكيل.');
+            ->with('status', 'تم حفظ تعديلات الوكيل وأُنشئ إصدار جديد.');
     }
 
     public function publish(Request $request, string $workspace, Agent $agent)
@@ -99,6 +105,22 @@ class AgentStudioController extends Controller
         $agent->update(['status' => 'published', 'published_at' => now()]);
 
         return back()->with('status', 'تم نشر الوكيل.');
+    }
+
+    private function snapshotRevision(Agent $agent, int $userId): void
+    {
+        $next = AgentRevision::where('tenant_id', $agent->tenant_id)->where('agent_id', $agent->id)->max('version') + 1;
+        AgentRevision::create([
+            'tenant_id' => $agent->tenant_id,
+            'agent_id' => $agent->id,
+            'version' => $next,
+            'name' => $agent->name,
+            'kind' => $agent->kind,
+            'instructions' => $agent->instructions,
+            'persona' => $agent->persona,
+            'created_by' => $userId,
+            'change_notes' => 'حفظ/نشر تحديث على الوكيل',
+        ]);
     }
 
     private function validated(Request $request, Workspace $ws): array

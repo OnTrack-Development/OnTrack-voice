@@ -71,4 +71,9 @@
             <button class="btn btn-primary" type="submit">حفظ التعديلات</button>
         </form>
     </section>
+
+<section class="panel">
+    <div class="panel-head"><h2>سجل الإصدارات</h2><span class="status gray">{{ $revisions->count() }} إصدار</span></div>
+    @if($revisions->isEmpty())<div class="empty-state"><p>لا توجد إصدارات محفوظة بعد.</p></div>@else<table class="data-table"><thead><tr><th>الإصدار</th><th>الملاحظات</th><th>التاريخ</th></tr></thead><tbody>@foreach($revisions as $revision)<tr><td>v{{ $revision->version }}</td><td>{{ $revision->change_notes ?: '—' }}</td><td>{{ $revision->created_at->format('Y-m-d H:i') }}</td></tr>@endforeach</tbody></table>@endif
+</section>
 @endsection
