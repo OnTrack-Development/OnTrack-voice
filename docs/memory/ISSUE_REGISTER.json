@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T15:12:10.897455+00:00",
+  "updated_at_utc": "2026-10-30T15:48:24.175Z",
   "issues": [
     {
       "id": "NET-001",
@@ -48,7 +48,7 @@
       ],
       "verification": [],
       "current_blocker": "Live Voice feature acceptance",
-      "next_action": "Target-device digital capture/injection proof using existing voice file and current constraints; no PBX or AI-spend prerequisite.",
+      "next_action": "Install the built APK, run gated inbound/outbound proof, review far-end hearing and captured remote speech separately.",
       "history": [
         {
           "recorded_at_utc": "2026-10-29T00:28:24.687935+00:00",
@@ -71,6 +71,14 @@
           "evidence": [
             "docs/research/2026-10-30/SOFTWARE_SIM_VOICE_RESEARCH_AR.md",
             "docs/research/2026-10-30/AUDIO_PROOF_PLAN_AR.md"
+          ]
+        },
+        {
+          "recorded_at_utc": "2026-10-30T15:48:24.175Z",
+          "status": "OPEN",
+          "summary": "APK built and signature/provenance verified in CI. This resolves build delivery only; no target-device audio evidence.",
+          "evidence": [
+            "docs/mobile/BUILD_STATUS.json"
           ]
         }
       ]

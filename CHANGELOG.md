@@ -1,5 +1,11 @@
 # سجل تغييرات المشروع
 
+## 2026-10-30 — Android audio-proof APK 0.1.0
+
+- Implemented Arabic one-call proof screen, local WAV/MP3/M4A import, inbound/outbound test controls and authenticated cancellation over pinned embedded-ADB upstream.
+- GitHub Actions run41082229515 passed import/daemon tests, debug APK assembly and signature verification. Downloaded artifact SHA/provenance/manifest matched.
+- APK is available as private build artifact; target handset installation/audio and continuous AI/campaign integration remain pending. Host PHP untouched.
+
 ## 2026-10-30 — Software-only SIM research
 
 - Recorded explicit exclusions: Shizuku, Accessibility, customer hardware purchases and new carrier contracts/subscriptions.

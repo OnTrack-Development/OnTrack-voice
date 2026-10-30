@@ -55,7 +55,7 @@
     "unattended_reboot_verified": false
   },
   "project": {
-    "next_phase": "BUILD_ANDROID_AUDIO_PROOF",
+    "next_phase": "DEVICE_AUDIO_PROOF_WITH_BUILT_APK",
     "current_plan": "docs/plan/IMPLEMENTATION_PLAN_AR.md",
     "current_state": "docs/project/CURRENT_STATE_AR.md",
     "requirements": "docs/project/REQUIREMENTS_AR.md",
@@ -90,7 +90,7 @@
     "remote_exec": "2026-10-28T23:44:02.919046+00:00"
   },
   "warning": "Control-plane verification is not cellular audio verification. Read current live-branch queue/results before issuing a new job.",
-  "updated_at_utc": "2026-10-30T15:34:41.714Z",
+  "updated_at_utc": "2026-10-30T15:48:24.175Z",
   "workspace": {
     "exists": true,
     "empty_at_preparation": true,
@@ -118,11 +118,14 @@
     "next_action": "Prove digital capture and injection on target phone; preserve first-unlock and OEM limitations."
   },
   "mobile_app": {
-    "status": "IMPLEMENTING_TEST_APK",
+    "status": "APK_BUILT_AND_VERIFIED_DEVICE_PENDING",
     "path": "saas/mobile/audio-proof",
     "application_id": "com.ontrack.voiceproof",
     "upstream_commit": "f011062adfb3a2154c4d5a9cc4394032fb4345f2",
     "device_verified": false,
-    "scope": "One-call import/capture/injection diagnostics, not campaigns or live AI"
+    "scope": "One-call import/capture/injection diagnostics, not campaigns or live AI",
+    "build_evidence": "docs/mobile/BUILD_STATUS.json",
+    "workflow_run_id": 41082229515,
+    "artifact_id": 12989349803
   }
 }

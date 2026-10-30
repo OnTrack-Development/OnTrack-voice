@@ -1,4 +1,4 @@
-# نقطة الاستكمال — تجهيز SaaS مكتمل قبل التنفيذ
+# نقطة الاستكمال — تطبيق اختبار الصوت جاهز
 
 ## أحدث قرار بحثي — 30 أكتوبر 2026
 
@@ -62,3 +62,15 @@ Shizuku وAccessibility وأي شراء هاردوير للعميل وأي عق�
 ## بدء تنفيذ تطبيق الاختبار — 30 أكتوبر 2026
 
 المالك قال: «هات التطبيق ... الريبو ... الصلاحيات ... اتعامل». هذا أمر بدء لتطبيق إثبات صوت Android وAPK، ولا يُطلب تأكيد مكرر. المصدر في saas/mobile/audio-proof/؛ بناء معزول عن هوست PHP. نعيد استخدام JemRec عند commit مثبت مع overlay خاص بـOnTrack، ونحتفظ بالرخصة والإشعارات. لا Laravel أو AI/campaign integration ضمن أول APK. تظل PENDING_DEVICE_AUDIO_PROOF حتى اختبار الهاتف الحقيقي.
+
+
+## النتيجة الحالية — APK جاهز للاختبار على الهاتف
+
+بُني OnTrack SIM Audio Test v0.1.0 على GitHub بالفعل، ونجحت اختبارات استيراد الصوت ومنطق المساعد بما فيها إلغاء الاختبار، وتجميع APK وفحص التوقيع. نُزلت الحزمة وطابقت SHA-256 ومصدر overlay وmanifest. **لم يحدث تثبيت أو اختبار مكالمة على شاومي بعد**؛ الحالة PENDING_DEVICE_AUDIO_PROOF.
+
+- المصدر: saas/mobile/audio-proof/، commit 9b3120ec1d73ddb8f9d2f835624f3a93fbc54e2c.
+- الدليل: docs/mobile/BUILD_STATUS.json، ودليل الاستخدام docs/mobile/AUDIO_PROOF_APP_AR.md.
+- البناء: https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/41082229515
+- APK داخل artifact OnTrack-SIM-Audio-Test-0.1.0. النسخة debug تجريبية، لا AI/campaign/server binding.
+- الخطوة التالية: تثبيت النسخة، إعداد الاقتران المحلي مرة واحدة، استيراد ملف الصوت، ثم وارد وصادر تجريبيان وتصدير النتيجة. أول unlock بعد reboot ما زال قيدًا.
+- لم يتغير الهوست أو موقع PHP أو قناته الحية. لا شراء أجهزة أو خدمات ولا Shizuku/Accessibility.
