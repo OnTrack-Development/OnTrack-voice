@@ -1,0 +1,48 @@
+{
+  "date_utc": "2026-10-30T23:48:02Z",
+  "version": "0.1.9-ota",
+  "version_code": 10,
+  "package_id": "com.ontrack.voiceproof",
+  "workflow_run_id": 41145709185,
+  "workflow_status": "completed_success",
+  "artifact_id": 13020867281,
+  "artifact_name": "OnTrack-SIM-Audio-Test-0.1.9",
+  "apk_sha256": "7bef6a3cc9f4db41096598e0b66d34681ca8e33b601ad2fb9e1ebaf9ae7463e5",
+  "apk_certificate_sha256": "d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f",
+  "test_results": {
+    "kotlin_unit_and_daemon": "PASS",
+    "android_emulator_webview": "PASS",
+    "apk_signing_and_manifest": "PASS",
+    "ota_signature": "PASS",
+    "android_handset_live_handoff": "NOT_TESTED",
+    "xiaomi_speaker_routing": "NOT_TESTED",
+    "real_call_conversation_quality": "NOT_TESTED"
+  },
+  "feature_summary": [
+    "Egyptian Arabic concise turn policy server+native",
+    "server admin control panel and live phase",
+    "5s configurable auto-answer after first observed ring",
+    "human takeover within same call and AI stop",
+    "opt-in movable TYPE_APPLICATION_OVERLAY with notification fallback",
+    "experimental call speaker route",
+    "UI OTA 5"
+  ],
+  "deployment": {
+    "admin_backend": "success",
+    "admin_http_200": true,
+    "status_feed_unauthenticated_401": true,
+    "ota_revision": 5,
+    "ota_worker_report": "ops/host-link/results/appontrack-server11/mobile-ota-41145709185.json",
+    "ota_worker_status": "success",
+    "ota_public_http_verification": "PENDING_AT_RECORD_TIME"
+  },
+  "caveats": [
+    "Do not uninstall existing APK",
+    "Overlay needs user approval",
+    "No Accessibility permissions",
+    "Speaker toggle deprecated and real handset unverified",
+    "Human handoff microphone return requires real call test",
+    "Do not claim full SaaS RBAC"
+  ],
+  "test_plan": "docs/mobile/VOICE_PILOT_0_1_9_CALL_CONTROL_AR.md"
+}
