@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "issue_id": "MOBILE-009",
+  "event": "Owner screenshot shows Android package conflict installing 0.1.7 and separate Play Protect unfamiliar-developer warning",
+  "observed_at": "2026-10-31 Africa/Cairo",
+  "package_id": "com.ontrack.voiceproof",
+  "original_016": {
+    "versionCode": 7,
+    "versionName": "0.1.6-ota",
+    "build_run": 41131334617,
+    "artifact_id": 13013975015,
+    "certificate_sha256": "d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f"
+  },
+  "broken_017": {
+    "versionCode": 8,
+    "versionName": "0.1.7-ota",
+    "build_run": 41134782898,
+    "artifact_id": 13016911025,
+    "apk_certificate_sha256": "02641b0c87846f973b5e46d3bc0fcb56bae564aaec41fd9a6efbf9876a36eb18",
+    "ota_certificate_sha256": "d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f"
+  },
+  "assessment": "APK cert mismatch directly accounts for Android package conflict on update. Both build jobs restored same signing cache; final distributable was not signed with cached keystore explicitly after emulator instrumentation. Play Protect warning is separate and cannot be bypassed; actual internal classification unknown.",
+  "fix_commits": [
+    "6fffac8359043407529acf66ae497fe79a85bc34",
+    "cae7b33ac166f6bb76764150e9301882b9f8560d",
+    "9cecce7eff720a1e6537cecdc437f1cc24220487",
+    "72bc957a07b49a9c361d7185fdd5567c30904e21"
+  ],
+  "fixed_target": {
+    "version": "0.1.8-ota",
+    "versionCode": 9,
+    "ota_revision": 4,
+    "workflow_run": 41138363168,
+    "required_apk_cert_sha256": "d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f",
+    "status": "BUILD_PENDING_AT_RECORD_TIME"
+  },
+  "acceptance": [
+    "CI APK cert sha256 exactly matches 0.1.6",
+    "AndroidManifest package and versionCode9",
+    "APK and OTA bundle cert match original",
+    "Owner installs over existing app without uninstall/data loss"
+  ],
+  "warnings": [
+    "Do not uninstall previous package or clear settings",
+    "Do not turn off Play Protect",
+    "No claim of phone install or AI/SIM duplex until actually verified"
+  ]
+}
