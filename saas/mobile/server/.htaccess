@@ -1,0 +1,4 @@
+Options -Indexes
+<Files "auth.sha256">
+  Require all denied
+</Files>

@@ -49,9 +49,46 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 3', 'versionCode')
+                        'versionCode = 4', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.1.2-audio-proof"', 'versionName')
+                        'versionName = "0.1.3-mobile-link"', 'versionName')
+    path.write_text(text)
+    path = root / 'app/build.gradle.kts'
+    text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")', 'mobile websocket transport')
+    path.write_text(text)
+    path = root / 'shellserver/src/com/jemcik/jemrec/shell/GreetingPlayer.java'
+    text = path.read_text().replace('private static AudioTrack musicTrack(', 'static AudioTrack musicTrack(').replace('private static AudioTrack screeningTrack(', 'static AudioTrack screeningTrack(')
+    path.write_text(text)
+    path = root / 'shellserver/src/com/jemcik/jemrec/shell/Main.java'
+    text = replace_once(path.read_text(), '        if (command == COMMAND_RECORD) {', '''        if (command == 'B') {
+            if (!callActive || activeRecording != null) throw new IOException("call not active or another capture owns audio");
+            CallReport report = new CallReport("OnTrack live bridge", System::currentTimeMillis);
+            LivePcm.run(client, phoneCapture(report), callAudio);
+            return;
+        }
+        if (command == 'J') {
+            int operation = client.getInputStream().read();
+            if (operation == 'A') {
+                onMain(() -> { if (telecom != null) telecom.acceptRingingCall(); return null; });
+            } else if (operation == 'H') {
+                onMain(() -> { if (telecom != null) telecom.endCall(); return null; });
+            } else if (operation != 'Q') {
+                throw new IOException("unsupported link control");
+            }
+            int state = phone.getCallState();
+            reply(client, "CALL " + state);
+            return;
+        }
+        if (command == COMMAND_RECORD) {''', 'authenticated live bridge/control')
+    path.write_text(text)
+    path = root / 'app/src/main/java/com/jemcik/jemrec/capture/CaptureDaemon.kt'
+    text = replace_once(path.read_text(), '    suspend fun connect(context: Context, timeoutMs: Int = 3_000): Socket', '''    suspend fun livePcm(context: Context, screening: Boolean): Socket = withContext(Dispatchers.IO) {
+        open(context, 'B'.code.toByte(), byteArrayOf(if (screening) 'S'.code.toByte() else 'M'.code.toByte()), readMs = 15_000)
+    }
+    suspend fun linkControl(context: Context, operation: Char): String? =
+        ask(context, 'J'.code.toByte(), byteArrayOf(operation.code.toByte()))
+
+    suspend fun connect(context: Context, timeoutMs: Int = 3_000): Socket''', 'native live bridge API')
     path.write_text(text)
     # Upstream discards diagnostic-call recordings deliberately. Our proof
     # needs the entire captured stream, including remote speech, for review.
@@ -155,6 +192,9 @@ def main(root):
     intent = ET.SubElement(activity, 'intent-filter')
     ET.SubElement(intent, 'action', {android + 'name': 'android.intent.action.MAIN'})
     ET.SubElement(intent, 'category', {android + 'name': 'android.intent.category.LAUNCHER'})
+    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.FOREGROUND_SERVICE_DATA_SYNC'})
+    ET.SubElement(app, 'activity', {android + 'name': '.MobileLinkActivity', android + 'exported': 'false'})
+    ET.SubElement(app, 'service', {android + 'name': '.MobileLinkService', android + 'exported': 'false', android + 'foregroundServiceType': 'dataSync'})
     # Upstream components use relative names under the new namespace; explicit
     # intents inside shell source were rewritten above. No Accessibility added.
     manifest.write(path, encoding='utf-8', xml_declaration=True)

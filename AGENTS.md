@@ -71,3 +71,13 @@ Owner requested extensive software-only SIM audio/cost research. Research and pe
 ## Latest handset observation — 2026-10-30
 
 Owner reports a beep and audio reaching the far end (docs/mobile/DEVICE_OBSERVATION_2026_10_30.json). This supersedes earlier statements that no phone audio test started. Preserve working setup; no repeated reset/re-pair. Exact APK, imported speech confirmation, digital-path isolation and remote speech capture remain pending. Do not claim full AI duplex or a known permission fix.
+
+
+## أحدث توجيه — الربط المباشر بالموقع
+
+المالك طلب الانتقال فورًا لربط تطبيق الهاتف بالسكربت الموجود على app.ontrackegy.com، وإضافة إعدادات الاتصال، وإعادة التقييم عند ظهور عطل بدل إطالة اختبارات منفصلة. هذا يفتح تنفيذ الربط الآن؛ التسجيل ليس بوابة تمنع العمل، ولا يعني أن duplex قد ثبت.
+
+HTTP مباشر أكد OnTrack Live وassets/app.js?v=063 وGemini Live/current ephemeral-token builder. لا يظهر Fish في JS الحالي؛ لا ندّعي أن ملف الصوت المستورد صار صوت كل رد. كود0.1.3 يضيف إعدادات ربط محمية بمفتاح تجريبي، API داخل saas/mobile، foreground service، عميل Gemini WebSocket بالتوكن المؤقت، وجسر PCM محلي authenticated shell. الإصدار0.1.2 نجح بناؤه في run41117754860؛ لا نطلب اختباره منفردًا قبل الربط.
+
+قناة الهوست: أُرسلت مهمة قراءة فقط mobile-bridge-inspect-1793389599248 إلى الفرع الحي؛ لم يصل تقريرها بعد. لا نستنتج أن صلاحية الدخول متاحة حاليًا لمجرد HTTP200، ولا نقرأ config.json أو نعيد تثبيت العامل. النشر الحي غير منفذ حتى يصل مسار التحكم؛ جهز المصدر أولًا.
+

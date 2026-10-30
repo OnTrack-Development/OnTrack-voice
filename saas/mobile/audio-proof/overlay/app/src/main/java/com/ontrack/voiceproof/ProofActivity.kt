@@ -83,12 +83,13 @@ class ProofActivity : ComponentActivity() {
             column.addView(this)
         }
         text("OnTrack • اختبار صوت الشريحة", 23f)
-        text("نسخة اختبار 0.1.2 — الاحتفاظ بتسجيل المكالمة وحفظ تقرير بحجم متحقق منه.")
+        text("نسخة 0.1.3 — ربط الموبايل بالموقع مع الاحتفاظ باختبار الملف.")
         status = text("ابدأ بالإعداد لمرة واحدة، ثم ارجع للشاشة دي.", 18f)
         fun button(label: String, tracked: Boolean = true, action: () -> Unit) = Button(this).apply {
             text = label; isAllCaps = false; setOnClickListener { action() }; column.addView(this)
             if (tracked) controls.add(this)
         }
+        button("ربط الموبايل بالموقع والإيجنت") { startActivity(Intent(this, MobileLinkActivity::class.java)) }
         button("١ • إعداد الاتصال لمرة واحدة") { startActivity(Intent(this, MainActivity::class.java)) }
         button("فحص سبب رفض الصلاحية وحفظ التفاصيل") { work("جاري قراءة رد Android ومنح الصلاحية لمستخدم الهاتف الحالي…") {
             OnTrackSetupDiagnostics.collect(this)
@@ -198,6 +199,7 @@ class ProofActivity : ComponentActivity() {
     private fun arm(incoming: Boolean, destination: String = "") {
         val selected = findViewById<RadioButton>(route.checkedRadioButtonId).tag as String
         work("جاري تجهيز مكالمة الاختبار…") {
+            check(!MobileLinkService.running) { "أوقف ربط الموقع قبل اختبار الملف" }
             check(CaptureDaemon.isSetUp(this)) { "كمّل الإعداد لمرة واحدة أولًا" }
             check(Greeting.present(this)) { "اختار ملف الصوت الأول" }
             check(CaptureDaemon.revive(this, request = CaptureDaemon.Request.USER)) { "مساعد الصوت غير متصل" }
@@ -230,7 +232,7 @@ class ProofActivity : ComponentActivity() {
     }
 
     private fun report(): String = JSONObject().apply {
-        put("app", "OnTrack SIM Audio Proof"); put("version", "0.1.2-audio-proof")
+        put("app", "OnTrack SIM Audio Proof"); put("version", "0.1.3-mobile-link")
         put("upstream_commit", "f011062adfb3a2154c4d5a9cc4394032fb4345f2")
         put("generated_at_ms", System.currentTimeMillis())
         put("manufacturer", Build.MANUFACTURER); put("model", Build.MODEL)

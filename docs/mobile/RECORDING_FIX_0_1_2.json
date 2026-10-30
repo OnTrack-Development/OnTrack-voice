@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "version": "0.1.2-audio-proof",
+  "status": "CI_RUNNING_PHONE_VERIFICATION_PENDING",
+  "source_commit": "4ed0e183f766f6758ef578994ed6bf0f46b6e763",
+  "workflow_run_id": 41117754860,
+  "workflow_job_id": 124276289447,
+  "issues": [
+    "MOBILE-002",
+    "MOBILE-003"
+  ],
+  "confirmed_source_cause": "Pinned upstream Main.stopRecording deliberately deletes recordings when outcome.test; original overlay retained this behavior.",
+  "empty_export_cause_confirmed": false,
+  "changes": [
+    "Retain full diagnostic recording and use normal completed-file handoff; no message/silence trimming for test call",
+    "Explicit pending-recording collection and saved list button; aggregate outcomes without recording names or numbers in report",
+    "Snapshot JSON before document picker; callback cannot silently skip due to busy; byte-for-byte readback after writing",
+    "Preserve far-end hearing confirmation when refreshing technical result"
+  ],
+  "local_verification": [
+    "Overlay applies cleanly to pinned source",
+    "Patched stopRecording contains no deletion and keeps rec.stop -> activeRecording clear -> completed-file wake ordering",
+    "Repository JSON/logs/links integrity PASS"
+  ],
+  "phone_verification": {
+    "full_imported_file_heard_clearly": "OWNER_CONFIRMED_PRIOR_APK_VERSION_UNKNOWN",
+    "recording_contents_reviewed": false,
+    "continuous_ai_duplex": false
+  },
+  "signing_update_compatibility": "PENDING_DOWNLOADED_CERT_COMPARISON",
+  "next_action": "After CI and signing verification, install as update only if signer matches installed version; repeat call, collect, listen to remote phrase, export verified JSON."
+}
