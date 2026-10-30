@@ -1,0 +1,24 @@
+{
+  "verified_at_utc": "2026-10-30T22:40:03Z",
+  "source": "ops/host-link/results/appontrack-server11/mobile-ota-livecheck-20261030T223935.json",
+  "host_publish_report": "ops/host-link/results/appontrack-server11/mobile-ota-41138363168.json",
+  "publish_utc": "2026-10-30T22:39:02Z",
+  "ota_revision": 4,
+  "native_range": {
+    "min": 7,
+    "max": 9
+  },
+  "site_https": {
+    "manifest_http": 200,
+    "html_http": 200,
+    "file_hash_matches": true,
+    "file_size_matches": true
+  },
+  "owner_screenshot": "Android 0.1.7-ota, UI OTA1, update fetch failed at approx 00:38 local before publish",
+  "finding": "OTA4 was published after screenshot and public HTTPS link tested working from hosting at 00:40 local. Startup/update button should now fetch without new APK.",
+  "remaining": {
+    "device_ota4_activation_verified": false,
+    "live_sim_ai_full_duplex_verified": false
+  },
+  "note": "Do not reset mobile pairing or clear data. Service shows running so Start button disabled by design."
+}
