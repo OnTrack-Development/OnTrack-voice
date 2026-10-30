@@ -25,6 +25,8 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Control\Ai\ProviderController;
 use App\Http\Controllers\Control\Ai\ModelController;
 use App\Http\Controllers\Control\Ai\AuditController;
+use App\Http\Controllers\Control\Ai\RoutingController;
+use App\Http\Controllers\Control\Ai\CostsController;
 use App\Http\Controllers\Control\DashboardController;
 use App\Http\Controllers\Control\PlansController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -66,6 +68,9 @@ Route::middleware(['auth', 'platform.admin'])->prefix('control')->name('control.
         Route::get('/models', [ModelController::class, 'index'])->name('models.index');
         Route::post('/models', [ModelController::class, 'store'])->name('models.store');
         Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
+        Route::get('/routing', [RoutingController::class, 'index'])->name('routing.index');
+        Route::post('/routing', [RoutingController::class, 'store'])->name('routing.store');
+        Route::get('/costs', [CostsController::class, 'index'])->name('costs.index');
     });
 });
 

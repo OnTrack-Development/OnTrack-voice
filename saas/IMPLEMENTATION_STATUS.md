@@ -11,14 +11,14 @@
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
-| AI Providers | `IMPLEMENTED_LOCAL` — بيانات + عزل + تشفير؛ الاتصال الحي `PENDING_CREDENTIALS` |
+| AI Providers | `IMPLEMENTED_LOCAL` — بيانات + عزل + تشفير؛ routing/costs console؛ الاتصال الحي `PENDING_CREDENTIALS` |
 | Knowledge | `IMPLEMENTED_LOCAL` — فهرسة نصية وتقسيم قطع، بلا ادعاء بحث متجهي |
 | Smart Actions | `IMPLEMENTED_LOCAL` — قواعد مقيدة بالحالة والصلاحية وidempotency |
 | Conversation Core | `IMPLEMENTED_LOCAL` — Inbox عام، رد موظف، إيقاف AI مؤقت، وقفل بشري دائم |
 | WhatsApp Channels | `IMPLEMENTED_LOCAL` — 3 طرق onboarding وأسرار مشفرة؛ الاتصال الحي `PENDING_EXTERNAL` |
 | WhatsApp Pause Override | `IMPLEMENTED_LOCAL` — override لكل رقم 1..1440، wiring UI/schema؛ تطبيق runtime ينتظر inbound connection mapping |
 | Team / Memberships | `IMPLEMENTED_LOCAL` — owner/admin/member policy، token-secure invitations، accept POST، منع إزالة/خفض آخر owner |
-| Platform Admin Console | `IMPLEMENTED_LOCAL` — Dashboard/Models/Plans/Audit مع platform.admin 403 boundary |
+| Platform Admin Console | `IMPLEMENTED_LOCAL` — Dashboard/Models/Plans/Audit/Routing/Costs مع platform.admin 403 boundary |
 | Demo Mode | `IMPLEMENTED_LOCAL` — DemoSeeder وبيانات موسومة وحساب محلي تجريبي |
 | AI Send Gate / Outbox | `IMPLEMENTED_LOCAL` — idempotent final gate يمنع الإرسال أثناء pause/lock/channel unavailable |
 | Voice Import | `IMPLEMENTED_LOCAL` — paste/list input، invalid/duplicate flags، original preservation؛ telephony `PENDING_EXTERNAL` |
@@ -109,6 +109,9 @@ Voice campaign entries تقبل paste سطر/اسم,رقم، تحفظ original،
 
 ### 23. Connector Endpoint Security
 Business connectors لا تقبل `http` أو loopback/private/metadata/userinfo، وتتحقق DNS العامة، وتمنع absolute/protocol-relative/traversal paths. CRUD endpoints محمي بالـtenant/workspace والـconnector ownership، ويبقى Draft بلا تنفيذ HTTP تلقائي.
+
+### 24. Platform Routing وCosts Console
+أضيفت سياسات Writer/Reviewer/Fallback وexact model IDs مع upsert وتدقيق، وصفحة تكاليف منصة تعرض السجل الداخلي فقط ولا تخترع أرقامًا أو تكشفه للـtenant؛ direct guessed URLs تعود 403.
 
 ## أدلة الاختبار الفعلية
 
