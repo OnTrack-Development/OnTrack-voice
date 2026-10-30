@@ -1,5 +1,12 @@
 # سجل تغييرات المشروع
 
+## 2026-10-30 — Software-only SIM research
+
+- Recorded explicit exclusions: Shizuku, Accessibility, customer hardware purchases and new carrier contracts/subscriptions.
+- Added39primary-source register, pinned code review, Arabic research/proof plan and reproducible cost assumptions under docs/research/2026-10-30/.
+- Embedded ADB/shell is a research candidate only; target-device duplex/outbound and unattended first-unlock recovery remain unverified.
+- Updated current prompt, requirements, decisions, memory and acceptance gates; no application/host/phone changes or calls.
+
 ## 2026-10-30 — تطبيق الموبايل يدير دورة المكالمات دون Accessibility
 
 - تسجيل قرار المالك باستقبال حزمة الحملة من الداشبورد وإدارة الاتصال والإنهاء والفاصل والرقم التالي في التطبيق.

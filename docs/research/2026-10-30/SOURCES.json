@@ -1,0 +1,326 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-10-30",
+  "scope": "Primary-source research and code review; no physical-device execution",
+  "sources": [
+    {
+      "id": "A01",
+      "title": "Android default dialer",
+      "url": "https://developer.android.com/develop/connectivity/telecom/dialer-app",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Official call-control roles, not SIM audio permission."
+    },
+    {
+      "id": "A02",
+      "title": "Android audio sources",
+      "url": "https://developer.android.com/reference/android/media/MediaRecorder.AudioSource",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "VOICE_CALL requires protected CAPTURE_AUDIO_OUTPUT."
+    },
+    {
+      "id": "A03",
+      "title": "Android audio input sharing",
+      "url": "https://developer.android.com/media/platform/sharing-audio-input",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Voice-call capture restrictions; ordinary microphone does not prove telephony PCM."
+    },
+    {
+      "id": "A04",
+      "title": "AOSP IMS",
+      "url": "https://source.android.com/docs/core/connect/ims",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Trusted IMS implementation is configured by carrier/device; not an ordinary third-party SIM-to-SIP API."
+    },
+    {
+      "id": "J01",
+      "title": "JemRec README",
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/README.md",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Embedded ADB setup; answering machine reported on Honor 2G and S23 Wi-Fi Calling; not target-device VoLTE proof."
+    },
+    {
+      "id": "J02",
+      "title": "JemRec GreetingPlayer",
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/shellserver/src/com/jemcik/jemrec/shell/GreetingPlayer.java",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Telephony preferred-device stream and call-screening injection alternative; file greeting is not implemented AI streaming."
+    },
+    {
+      "id": "J03",
+      "title": "JemRec AnswerMachine",
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/shellserver/src/com/jemcik/jemrec/shell/AnswerMachine.java",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Answer/greeting/message/end state machine; outbound AI campaigns not proven."
+    },
+    {
+      "id": "J04",
+      "title": "JemRec BootReceiver",
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/app/src/main/java/com/jemcik/jemrec/capture/BootReceiver.kt",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Waits for first unlock; schedules recovery after BOOT_COMPLETED."
+    },
+    {
+      "id": "J05",
+      "title": "JemRec ADB transport",
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/app/src/main/java/com/jemcik/jemrec/adb/AdbTransport.kt",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Local ADB pairing and retained identity, not normal app permissions."
+    },
+    {
+      "id": "J06",
+      "title": "JemRec recovery",
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/app/src/main/java/com/jemcik/jemrec/capture/CaptureDaemon.kt",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Revive locking, debug-switch management and readiness handling; OEM-dependent."
+    },
+    {
+      "id": "J07",
+      "title": "JemRec manifest",
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/app/src/main/AndroidManifest.xml",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "No AccessibilityService/BIND_ACCESSIBILITY_SERVICE declaration found in reviewed manifest."
+    },
+    {
+      "id": "J08",
+      "title": "JemRec notices",
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/NOTICE.md",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Apache-2.0 notices and dependency licensing choice; keep attributions."
+    },
+    {
+      "id": "G01",
+      "title": "Callvault",
+      "url": "https://github.com/Ph1nt0m-oss/Callvault",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Embedded ADB capture project; injection not verified by this review."
+    },
+    {
+      "id": "G02",
+      "title": "scrcpy",
+      "url": "https://github.com/Genymobile/scrcpy/releases",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Voice-call audio capture sources are not evidence of SIM uplink injection."
+    },
+    {
+      "id": "G03",
+      "title": "Shizuku SIP gateway",
+      "url": "https://github.com/sparkcyf/android-voice-sip-agent",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Real capture/injection code; excluded by owner's Shizuku rejection."
+    },
+    {
+      "id": "G04",
+      "title": "Root GSM2SIP",
+      "url": "https://github.com/pulpoff/gsm2sip",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Root/HAL-specific digital route on supported phones; not Redmi Note12 Pro5G proof."
+    },
+    {
+      "id": "G05",
+      "title": "GSM2SIP device matrix",
+      "url": "https://github.com/OriginStackHQ/GSM2SIP",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Positive and negative device audio-policy evidence; repository-wide license not established by metadata."
+    },
+    {
+      "id": "G06",
+      "title": "Root Android SIP gateway",
+      "url": "https://github.com/s-xander/Android-sip-gateway",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Root/Qualcomm-specific system assumptions."
+    },
+    {
+      "id": "G07",
+      "title": "Magick GSM2SIP",
+      "url": "https://github.com/sapieonic/magick-gsm2sip",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Separates non-root signaling from root audio path."
+    },
+    {
+      "id": "G08",
+      "title": "Zerkat",
+      "url": "https://github.com/boussairi80/Zerkat-sip-gsm-gateway",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Commercial/root supported-device route, not assumed free generic gateway."
+    },
+    {
+      "id": "G09",
+      "title": "P2P gateway source",
+      "url": "https://github.com/neyro-droid/P2P-PHONE-Call-Gateway/blob/bb82907f6cb9fc5a1afa5a30f2fd2c923bff8821/gsvrk2/remote-phone/android/app/src/main/java/com/remotephone/service/PhoneGatewayService.kt#L297",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "No-root branch states microphone-only acoustic bridge; reviewed playback uses USAGE_MEDIA."
+    },
+    {
+      "id": "G10",
+      "title": "Xiaomi audio interception investigation",
+      "url": "https://github.com/AtinyFurina/xiaomi-relay-call-protocol/blob/main/docs/05-call-audio-interception.md",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Author reports exposed interception APIs without usable initialized audio route on another Xiaomi; do not generalize to target phone."
+    },
+    {
+      "id": "C01",
+      "title": "GSMCalls gateway",
+      "url": "https://gsmcalls.net/solutions/android-sip-gateway",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Vendor describes separate audio connection via bridge/PC; excluded hardware requirement."
+    },
+    {
+      "id": "C02",
+      "title": "VMGate FAQ",
+      "url": "https://www.startelinternational.com/vmgate-cloud-faq",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "USB dongle required for voice/GSM audio; free tier does not remove hardware."
+    },
+    {
+      "id": "C03",
+      "title": "Asterisk Mobile requirements",
+      "url": "https://docs.asterisk.org/Configuration/Channel-Drivers/Mobile-Channel/Mobile-Channel-Requirements/",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Bluetooth/HFP computer intermediary is outside no-extra-hardware requirement."
+    },
+    {
+      "id": "C04",
+      "title": "Oh My Phone Use",
+      "url": "https://github.com/getGate/oh-my-phone-use",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "External ESP32/Mac audio/control route, excluded."
+    },
+    {
+      "id": "P01",
+      "title": "ElevenAgents prices",
+      "url": "https://elevenlabs.io/pricing/agents",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Observed $0.08 additional minute/$0.16 burst; LLM and carrier charges separate."
+    },
+    {
+      "id": "P02",
+      "title": "Groq speech to text",
+      "url": "https://console.groq.com/docs/speech-to-text",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Whisper turbo $0.04/hour and 10-second minimum billing per request."
+    },
+    {
+      "id": "P03",
+      "title": "Fish TTS API pricing",
+      "url": "https://beta.fish.audio/text-to-speech-api/",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Observed $15/million UTF-8 bytes; do not count Arabic characters as bytes."
+    },
+    {
+      "id": "P04",
+      "title": "Groq rate limits",
+      "url": "https://console.groq.com/docs/rate-limits",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Tier/account-specific limits; not unlimited free production."
+    },
+    {
+      "id": "M01",
+      "title": "faster-whisper",
+      "url": "https://github.com/SYSTRAN/faster-whisper",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "MIT code; CPU/GPU inference is not zero infrastructure cost or measured Egyptian Arabic latency."
+    },
+    {
+      "id": "M02",
+      "title": "whisper.cpp Android",
+      "url": "https://github.com/ggml-org/whisper.cpp/blob/master/examples/whisper.android/README.md",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "On-device STT implementation candidate, not modem permission solution."
+    },
+    {
+      "id": "M03",
+      "title": "Qwen3-ASR",
+      "url": "https://github.com/QwenLM/Qwen3-ASR",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Apache-2.0 project and Arabic listed; inspect selected model artifact separately."
+    },
+    {
+      "id": "M04",
+      "title": "Chatterbox Multilingual",
+      "url": "https://github.com/resemble-ai/chatterbox/blob/master/README.md",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "MIT project; Arabic in Multilingual variant. No target-phone realtime benchmark performed."
+    },
+    {
+      "id": "M05",
+      "title": "Fish Speech license",
+      "url": "https://github.com/fishaudio/fish-speech/blob/main/LICENSE",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Community license and weight-specific exceptions; not blanket Apache/free-commercial assumption."
+    },
+    {
+      "id": "M06",
+      "title": "XTTS-v2",
+      "url": "https://huggingface.co/coqui/XTTS-v2",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Arabic model with CPML; not selected as unrestricted commercial model."
+    },
+    {
+      "id": "M07",
+      "title": "F5-TTS",
+      "url": "https://github.com/SWivid/F5-TTS",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Official pretrained weights CC-BY-NC; code license alone insufficient."
+    },
+    {
+      "id": "M08",
+      "title": "Qwen3-TTS",
+      "url": "https://github.com/QwenLM/Qwen3-TTS",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "Arabic not established in reviewed base supported-language list; forks do not prove upstream support."
+    },
+    {
+      "id": "M09",
+      "title": "Silero VAD",
+      "url": "https://github.com/snakers4/silero-vad",
+      "kind": "PRIMARY",
+      "reviewed_on": "2026-10-30",
+      "finding": "MIT VAD component; not speech recognition, echo cancellation or SIM bridge."
+    }
+  ],
+  "limitations": [
+    "Prices and mutable references may change.",
+    "No target handset/carrier test.",
+    "Search breadth does not establish exhaustive coverage of all existing repositories.",
+    "Embedded ADB removes the external Shizuku dependency but retains shell-privilege and OEM dependencies."
+  ]
+}
+

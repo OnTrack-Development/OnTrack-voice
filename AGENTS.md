@@ -15,7 +15,7 @@
 - Uploaded Agent Builder v1.3 is a specification/design handoff. Its previews and machine acceptance definitions are not working backend functionality.
 - The owner's SIM, mobile number and plan must be used economically; one independent company/tenant owns each service number. Phone Link/Voicemeeter are rejected. Per-tenant hardware purchase and expensive per-minute CPaaS are rejected as the default acquisition model.
 - Reuse existing Gemini Live logic and Egyptian Arabic behavior. LiveKit is not required.
-- Android/Shizuku is a candidate, not a verified solution on the owner's Redmi Note 12 Pro 5G. Do not declare it compatible or commercially ready without real device evidence.
+- Shizuku, AccessibilityService, customer hardware purchases and new carrier contracts/subscriptions are explicitly excluded. Reuse the existing SIM/plan and working voice. The new research candidate is embedded local ADB with a shell audio helper, not an ordinary-permission APK. It is unverified on Redmi Note12 Pro5G; do not hide the shell-privilege/OEM/first-unlock limitations. Read docs/research/2026-10-30/SOFTWARE_SIM_VOICE_RESEARCH_AR.md and its audio proof plan before proposing phone integration.
 - Manager voice administration is a recorded deferred requirement. Do not implement it during the audio proof.
 
 ## Owner workspace and persistent memory directive — 2026-10-29
@@ -58,3 +58,7 @@ Use Arabic Egyptian for user updates, keep them direct and concise, and do not r
 ## Owner clarification — 2026-10-30
 
 The Android app receives authorized campaign/task/conversation-script/settings batches from the dashboard and owns the local dial/end/delay/next-number loop. The server retains policy/ownership/lease/stop/sync authority. Do not require AccessibilityService or automate dialer UI taps. Read docs/architecture/MOBILE_EXECUTOR_CONTRACT_AR.md. Default-dialer control does not grant cellular audio capture/injection; preserve the pending device-audio gate and do not promise ordinary APK full AI/SIM audio. This update records requirements only, not implementation start.
+
+## Research checkpoint — 2026-10-30
+
+Owner requested extensive software-only SIM audio/cost research. Research and persistent documentation are authorized; no application bootstrap, handset changes or real campaign was performed. Source review is not a device pass. Existing cloned voice is retained; compare optional STT/LLM/TTS adapters only as needed for cost, not as an imposed replacement. Preserve PENDING_DEVICE_AUDIO_PROOF until actual inbound/outbound duplex and recovery evidence.

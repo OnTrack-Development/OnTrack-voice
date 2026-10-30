@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T14:38:47.408Z",
+  "updated_at_utc": "2026-10-30T15:12:10.897455+00:00",
   "issues": [
     {
       "id": "NET-001",
@@ -41,14 +41,14 @@
       "status": "OPEN",
       "first_seen": "2026-10-29",
       "expected": "Inbound/outbound AI dialogue through tenant mobile SIM",
-      "actual": "App-owned task/dial/end/delay loop without Accessibility is the latest requirement; no target-device SIM AI audio proof. Default-dialer call control does not establish privileged audio capture/injection.",
+      "actual": "Software-only research found embedded ADB/shell injection mechanisms, not a target-device proof. Shizuku, Accessibility, customer hardware and new carrier contracts are excluded.",
       "cause_confirmed": null,
       "attempts": [
         "ATT-003"
       ],
       "verification": [],
       "current_blocker": "Live Voice feature acceptance",
-      "next_action": "Verify a bidirectional SIM audio path on the actual device without Accessibility before promising a full AI call; do not confuse call control success with audio success.",
+      "next_action": "Target-device digital capture/injection proof using existing voice file and current constraints; no PBX or AI-spend prerequisite.",
       "history": [
         {
           "recorded_at_utc": "2026-10-29T00:28:24.687935+00:00",
@@ -63,17 +63,26 @@
           "evidence": [
             "docs/architecture/MOBILE_EXECUTOR_CONTRACT_AR.md"
           ]
+        },
+        {
+          "recorded_at_utc": "2026-10-30T15:12:10.897455+00:00",
+          "status": "OPEN",
+          "summary": "New exclusions and JemRec source evidence recorded; live SIM audio remains unverified.",
+          "evidence": [
+            "docs/research/2026-10-30/SOFTWARE_SIM_VOICE_RESEARCH_AR.md",
+            "docs/research/2026-10-30/AUDIO_PROOF_PLAN_AR.md"
+          ]
         }
       ]
     },
     {
       "id": "VOICE-002",
-      "title": "Target Android/app/Shizuku/carrier versions missing",
+      "title": "Target Android/vendor build/carrier/call-type data missing",
       "category": "external_device",
       "severity": "medium",
       "status": "BLOCKED_EXTERNAL",
       "first_seen": "2026-10-29",
-      "expected": "Exact device software data for repeatable audio test",
+      "expected": "Exact target handset software/carrier/call type for repeatable embedded-ADB audio test; Shizuku versions no longer required.",
       "actual": "Only Redmi Note12 Pro5G device name is supplied",
       "cause_confirmed": null,
       "attempts": [],
@@ -252,6 +261,32 @@
           "summary": "Current state reconstructed from preserved evidence and session actions; historical attempt detail remains in ATTEMPT_LOG and discovery records.",
           "evidence": [
             "docs/project/SOCIAL_CHANNELS_AR.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "VOICE-003",
+      "title": "Unattended recovery before first unlock is unverified",
+      "category": "device_recovery",
+      "severity": "high",
+      "status": "OPEN",
+      "first_seen": "2026-10-30",
+      "expected": "Fixed phone recovers after reboot without routine user interaction",
+      "actual": "Reviewed JemRec BootReceiver waits for first unlock; no target-phone recovery test.",
+      "cause_confirmed": "Candidate implementation stores ADB identity in credential-protected app storage and waits for BOOT_COMPLETED; not a universal impossibility proof.",
+      "attempts": [],
+      "verification": [],
+      "current_blocker": "Claim of fully unattended 24/7 mobile execution",
+      "next_action": "Measure reboot before and after first unlock; do not call post-unlock recovery unattended.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-30T15:12:10.897455+00:00",
+          "status": "OPEN",
+          "summary": "Source-level limitation recorded; no device test executed.",
+          "evidence": [
+            "docs/research/2026-10-30/SOFTWARE_SIM_VOICE_RESEARCH_AR.md",
+            "docs/research/2026-10-30/AUDIO_PROOF_PLAN_AR.md"
           ]
         }
       ]

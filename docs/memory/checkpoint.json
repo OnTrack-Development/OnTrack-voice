@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T14:38:47.408Z",
+  "updated_at_utc": "2026-10-30T15:12:10.897455+00:00",
   "display_timezone": "Africa/Cairo",
   "status": "PREPARATION_COMPLETE_AWAITING_OWNER_START",
-  "phase": "SAAS_PREPARATION",
+  "phase": "SOFTWARE_SIM_RESEARCH",
   "repository": "OnTrack-Development/OnTrack-voice",
   "application_repo_path": "saas/",
   "host_application_path": "/home/appontrack/public_html/saas",
@@ -36,14 +36,16 @@
   ],
   "next_action": {
     "before_owner_start": "Report preparation complete and supply prompt/memory paths; do not bootstrap application.",
-    "after_owner_start": "Inspect compatible PHP/Composer/build/MySQL inside isolated saas scope, establish application baseline and implement first authorized vertical slice."
+    "after_owner_start": "Inspect compatible PHP/Composer/build/MySQL inside isolated saas scope, establish application baseline and implement first authorized vertical slice.",
+    "current_research_followup": "Read research report and perform only an authorized target-device audio proof; no device-control or successful call evidence available in research session."
   },
   "open_issue_ids": [
     "VOICE-001",
     "VOICE-002",
     "ENV-001",
     "ENV-002",
-    "CHANNEL-001"
+    "CHANNEL-001",
+    "VOICE-003"
   ],
   "last_successful_job": "saas-prepare-1793233067549",
   "evidence": [
@@ -58,5 +60,21 @@
     "accessibility_service_allowed": false,
     "ordinary_apk_full_sim_audio_verified": false,
     "contract": "docs/architecture/MOBILE_EXECUTOR_CONTRACT_AR.md"
-  }
+  },
+  "research_checkpoint": {
+    "status": "COMPLETED_SOURCE_REVIEW_NOT_DEVICE_TEST",
+    "reviewed_on": "2026-10-30",
+    "report": "docs/research/2026-10-30/SOFTWARE_SIM_VOICE_RESEARCH_AR.md",
+    "proof_plan": "docs/research/2026-10-30/AUDIO_PROOF_PLAN_AR.md",
+    "primary_sources": 39,
+    "candidate_device_compatible": null,
+    "application_implementation_started": false,
+    "next_action": "Prove digital capture and injection on target phone; preserve first-unlock and OEM limitations."
+  },
+  "latest_owner_exclusions": [
+    "Shizuku",
+    "AccessibilityService",
+    "Customer hardware purchases",
+    "New carrier contracts/subscriptions"
+  ]
 }

@@ -41,7 +41,7 @@
     "app_version": null,
     "shizuku_version": null,
     "carrier": null,
-    "candidate": "Android + Shizuku / Voice SIP Agent",
+    "candidate": "Embedded local ADB + shell audio helper (JemRec mechanisms), research only",
     "echo_test_result": null,
     "inbound_ai_call_verified": false,
     "outbound_ai_call_verified": false,
@@ -50,7 +50,9 @@
     "mobile_execution_model": "APP_OWNED_LOOP_SERVER_AUTHORIZED_BATCH",
     "accessibility_service_allowed": false,
     "ordinary_apk_sim_audio_verified": false,
-    "control_vs_audio_separated": true
+    "control_vs_audio_separated": true,
+    "shizuku_path_status": "REJECTED_BY_OWNER",
+    "unattended_reboot_verified": false
   },
   "project": {
     "next_phase": "AWAITING_OWNER_START_AFTER_PREPARATION",
@@ -76,14 +78,19 @@
     "expensive_cpaas_default": false,
     "tenant_ai_byok": false,
     "platform_ai_managed_by": "OnTrack",
-    "root_permission_verified": false
+    "root_permission_verified": false,
+    "shizuku_allowed": false,
+    "accessibility_service_allowed": false,
+    "customer_additional_hardware_purchase_allowed": false,
+    "new_carrier_contract_or_subscription_allowed": false,
+    "existing_cloned_voice_should_be_reused": true
   },
   "evidence_utc": {
     "bootstrap": "2026-10-28T23:42:06.555882+00:00",
     "remote_exec": "2026-10-28T23:44:02.919046+00:00"
   },
   "warning": "Control-plane verification is not cellular audio verification. Read current live-branch queue/results before issuing a new job.",
-  "updated_at_utc": "2026-10-30T14:38:47.408Z",
+  "updated_at_utc": "2026-10-30T15:12:10.897455+00:00",
   "workspace": {
     "exists": true,
     "empty_at_preparation": true,
@@ -99,5 +106,15 @@
     "master_prompt_path": "docs/execution/MASTER_EXECUTION_PROMPT_AR.md",
     "preparation_status": "PREPARATION_COMPLETE_AWAITING_OWNER_START",
     "application_implementation_started": false
+  },
+  "research": {
+    "status": "COMPLETED_SOURCE_REVIEW_NOT_DEVICE_TEST",
+    "reviewed_on": "2026-10-30",
+    "report": "docs/research/2026-10-30/SOFTWARE_SIM_VOICE_RESEARCH_AR.md",
+    "proof_plan": "docs/research/2026-10-30/AUDIO_PROOF_PLAN_AR.md",
+    "primary_sources": 39,
+    "candidate_device_compatible": null,
+    "application_implementation_started": false,
+    "next_action": "Prove digital capture and injection on target phone; preserve first-unlock and OEM limitations."
   }
 }

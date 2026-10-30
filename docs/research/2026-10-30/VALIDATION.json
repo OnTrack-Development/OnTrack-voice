@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "timestamp_utc": "2026-10-30T15:14:04.802Z",
+  "status": "PASS",
+  "scope": "Repository documentation integrity, cost arithmetic and source evidence checks only",
+  "checks": {
+    "repository": {
+      "command": "python3 tools/verify_repository.py",
+      "exit_code": 0,
+      "counts": {
+        "json": 36,
+        "reference_files": 66,
+        "archives": 2,
+        "links": 107
+      }
+    },
+    "cost_model": {
+      "exit_code": 0,
+      "checks": [
+        "Per-request 10-second STT billing minimum",
+        "Empty and mixed-duration STT requests",
+        "0/75/90/100 percent cache arithmetic",
+        "UTF-8 byte count differs from Arabic character count",
+        "Invalid cache fraction rejected",
+        "Saved scenario output reproduces calculator"
+      ]
+    },
+    "source_register": {
+      "primary_sources": 39,
+      "unique_ids": true
+    },
+    "audio_status_preserved": "PENDING_DEVICE_AUDIO_PROOF"
+  },
+  "not_tested": [
+    "Handset installation",
+    "SIM capture/injection",
+    "Inbound or outbound real call",
+    "Latency or Egyptian Arabic recognition",
+    "Capacity and actual invoice",
+    "Unattended reboot"
+  ],
+  "host_changes": false,
+  "phone_changes": false,
+  "application_implementation_started": false
+}

@@ -1,0 +1,62 @@
+{
+  "price_review_date": "2026-10-30",
+  "status": "CALCULATED_ASSUMPTIONS_NOT_MEASURED",
+  "sources": {
+    "stt": "https://console.groq.com/docs/speech-to-text",
+    "tts": "https://beta.fish.audio/text-to-speech-api/"
+  },
+  "excluded": [
+    "SIM plan and overage",
+    "servers",
+    "bandwidth",
+    "storage",
+    "support",
+    "taxes",
+    "failed attempts",
+    "one-time cache creation"
+  ],
+  "scenarios": [
+    {
+      "call_minutes_assumed": 10,
+      "actual_submitted_stt_seconds": 300,
+      "billed_stt_seconds": "600",
+      "tts_total_utf8_bytes_assumed": 5000,
+      "cache_fraction_assumed": "0",
+      "new_tts_bytes": "5000",
+      "stt_usd": "0.006666666666666666666666666668",
+      "tts_usd": "0.075",
+      "llm_budget_assumed_usd": "0.01",
+      "variable_subtotal_usd": "0.09166666666666666666666666667"
+    },
+    {
+      "call_minutes_assumed": 10,
+      "actual_submitted_stt_seconds": 300,
+      "billed_stt_seconds": "600",
+      "tts_total_utf8_bytes_assumed": 5000,
+      "cache_fraction_assumed": "0.75",
+      "new_tts_bytes": "1250.00",
+      "stt_usd": "0.006666666666666666666666666668",
+      "tts_usd": "0.01875",
+      "llm_budget_assumed_usd": "0.01",
+      "variable_subtotal_usd": "0.03541666666666666666666666667"
+    },
+    {
+      "call_minutes_assumed": 10,
+      "actual_submitted_stt_seconds": 300,
+      "billed_stt_seconds": "600",
+      "tts_total_utf8_bytes_assumed": 5000,
+      "cache_fraction_assumed": "0.90",
+      "new_tts_bytes": "500.00",
+      "stt_usd": "0.006666666666666666666666666668",
+      "tts_usd": "0.00750",
+      "llm_budget_assumed_usd": "0.01",
+      "variable_subtotal_usd": "0.02416666666666666666666666667"
+    }
+  ],
+  "fixed_cost_example_usd_per_call": {
+    "100": "0.3",
+    "1000": "0.03",
+    "10000": "0.003"
+  },
+  "stt_only_hypothetical_20usd_monthly_break_even_hours": "5E+2"
+}

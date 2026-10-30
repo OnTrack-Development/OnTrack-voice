@@ -139,6 +139,24 @@
       "requirement": "No AccessibilityService permission or automated dialer UI tapping; separate proof of SIM AI audio on target device",
       "status": "REQUIREMENT_NOT_IMPLEMENTED",
       "evidence": null
+    },
+    {
+      "id": "AC-24",
+      "requirement": "No Shizuku dependency, no customer hardware purchase, no new carrier contract; existing SIM/plan and no Accessibility",
+      "status": "REQUIREMENT_RECORDED_NOT_IMPLEMENTED",
+      "evidence": "docs/research/2026-10-30/SOFTWARE_SIM_VOICE_RESEARCH_AR.md"
+    },
+    {
+      "id": "AC-25",
+      "requirement": "Bidirectional SIM audio on actual Redmi build and actual call type",
+      "status": "PENDING_DEVICE_AUDIO_PROOF",
+      "evidence": null
+    },
+    {
+      "id": "AC-26",
+      "requirement": "Unattended reboot recovery measured before first unlock",
+      "status": "PENDING_DEVICE_TEST",
+      "evidence": null
     }
   ]
 }

@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-10-30",
+  "files": [
+    {
+      "repository": "jemcik/JemRec",
+      "commit": "f011062adfb3a2154c4d5a9cc4394032fb4345f2",
+      "path": "shellserver/src/com/jemcik/jemrec/shell/GreetingPlayer.java",
+      "blob_sha": "ec5854efce63170e7fe86a1a24a3bcbcfa8a4c6c",
+      "line_count": 295,
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/shellserver/src/com/jemcik/jemrec/shell/GreetingPlayer.java",
+      "review_type": "SOURCE_REVIEW_NOT_DEVICE_TEST"
+    },
+    {
+      "repository": "jemcik/JemRec",
+      "commit": "f011062adfb3a2154c4d5a9cc4394032fb4345f2",
+      "path": "shellserver/src/com/jemcik/jemrec/shell/AnswerMachine.java",
+      "blob_sha": "e170f6b846071bc2ec11cd74d8eb644077862ca8",
+      "line_count": 851,
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/shellserver/src/com/jemcik/jemrec/shell/AnswerMachine.java",
+      "review_type": "SOURCE_REVIEW_NOT_DEVICE_TEST"
+    },
+    {
+      "repository": "jemcik/JemRec",
+      "commit": "f011062adfb3a2154c4d5a9cc4394032fb4345f2",
+      "path": "app/src/main/java/com/jemcik/jemrec/capture/BootReceiver.kt",
+      "blob_sha": "b0a0627c47570b55e86c6a7923c8f33a24e0f7b2",
+      "line_count": 62,
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/app/src/main/java/com/jemcik/jemrec/capture/BootReceiver.kt",
+      "review_type": "SOURCE_REVIEW_NOT_DEVICE_TEST"
+    },
+    {
+      "repository": "jemcik/JemRec",
+      "commit": "f011062adfb3a2154c4d5a9cc4394032fb4345f2",
+      "path": "app/src/main/java/com/jemcik/jemrec/capture/AdbdState.kt",
+      "blob_sha": "9a004fea86e6439bc3ea6bff839f5e613047c959",
+      "line_count": 59,
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/app/src/main/java/com/jemcik/jemrec/capture/AdbdState.kt",
+      "review_type": "SOURCE_REVIEW_NOT_DEVICE_TEST"
+    },
+    {
+      "repository": "jemcik/JemRec",
+      "commit": "f011062adfb3a2154c4d5a9cc4394032fb4345f2",
+      "path": "app/src/main/java/com/jemcik/jemrec/adb/AdbTransport.kt",
+      "blob_sha": "5fd5ed5ab9a7e076d6399f53b0dafc71733c71e9",
+      "line_count": 526,
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/app/src/main/java/com/jemcik/jemrec/adb/AdbTransport.kt",
+      "review_type": "SOURCE_REVIEW_NOT_DEVICE_TEST"
+    },
+    {
+      "repository": "jemcik/JemRec",
+      "commit": "f011062adfb3a2154c4d5a9cc4394032fb4345f2",
+      "path": "app/src/main/AndroidManifest.xml",
+      "blob_sha": "9aaa9c8b3be729665a921a24bcde77502df2d344",
+      "line_count": 464,
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/app/src/main/AndroidManifest.xml",
+      "review_type": "SOURCE_REVIEW_NOT_DEVICE_TEST"
+    },
+    {
+      "repository": "jemcik/JemRec",
+      "commit": "f011062adfb3a2154c4d5a9cc4394032fb4345f2",
+      "path": "NOTICE.md",
+      "blob_sha": "5ab260fdef7c601556627083608fcc4e23085bfc",
+      "line_count": 94,
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/NOTICE.md",
+      "review_type": "SOURCE_REVIEW_NOT_DEVICE_TEST"
+    },
+    {
+      "repository": "jemcik/JemRec",
+      "commit": "f011062adfb3a2154c4d5a9cc4394032fb4345f2",
+      "path": "shellserver/PATCHES.md",
+      "blob_sha": "a90cd003f27b59e5c85df75ed3c73e60d676b530",
+      "line_count": 103,
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/shellserver/PATCHES.md",
+      "review_type": "SOURCE_REVIEW_NOT_DEVICE_TEST"
+    },
+    {
+      "repository": "jemcik/JemRec",
+      "commit": "f011062adfb3a2154c4d5a9cc4394032fb4345f2",
+      "path": "app/src/main/java/com/jemcik/jemrec/capture/CaptureDaemon.kt",
+      "blob_sha": "b853399991b54848bbf019fb65d691b3586ea039",
+      "line_count": 1841,
+      "url": "https://github.com/jemcik/JemRec/blob/f011062adfb3a2154c4d5a9cc4394032fb4345f2/app/src/main/java/com/jemcik/jemrec/capture/CaptureDaemon.kt",
+      "review_type": "SOURCE_REVIEW_NOT_DEVICE_TEST"
+    },
+    {
+      "repository": "neyro-droid/P2P-PHONE-Call-Gateway",
+      "commit": "bb82907f6cb9fc5a1afa5a30f2fd2c923bff8821",
+      "path": "gsvrk2/remote-phone/android/app/src/main/java/com/remotephone/service/PhoneGatewayService.kt",
+      "blob_sha": "4bf38b6a4f48a6b425b480a82e441d0a5d793d35",
+      "url": "https://github.com/neyro-droid/P2P-PHONE-Call-Gateway/blob/bb82907f6cb9fc5a1afa5a30f2fd2c923bff8821/gsvrk2/remote-phone/android/app/src/main/java/com/remotephone/service/PhoneGatewayService.kt",
+      "review_type": "SOURCE_REVIEW_NOT_DEVICE_TEST",
+      "line_evidence": {
+        "microphone_only_no_root": [
+          297,
+          308
+        ],
+        "normal_media_playback": [
+          439,
+          455
+        ]
+      }
+    }
+  ],
+  "checks": {
+    "jemrec_manifest_accessibility_declaration_found": false,
+    "greeting_telephony_preferred_device": true,
+    "greeting_stream_mode": true,
+    "first_unlock_requirement_visible": true
+  },
+  "device_audio_verified": false
+}
+
