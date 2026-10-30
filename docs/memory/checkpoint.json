@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T15:48:24.175Z",
+  "updated_at_utc": "2026-10-30T16:00:07.193Z",
   "display_timezone": "Africa/Cairo",
   "status": "ANDROID_AUDIO_PROOF_APK_READY_DEVICE_TEST_PENDING",
-  "phase": "MOBILE_AUDIO_PROOF",
+  "phase": "TARGET_PHONE_SETUP",
   "repository": "OnTrack-Development/OnTrack-voice",
   "application_repo_path": "saas/",
   "host_application_path": "/home/appontrack/public_html/saas",
@@ -38,7 +38,7 @@
     "before_owner_start": "Report preparation complete and supply prompt/memory paths; do not bootstrap application.",
     "after_owner_start": "Inspect compatible PHP/Composer/build/MySQL inside isolated saas scope, establish application baseline and implement first authorized vertical slice.",
     "current_research_followup": "Read research report and perform only an authorized target-device audio proof; no device-control or successful call evidence available in research session.",
-    "current_mobile_build": "Install APK on target phone, perform one-time setup, import voice file and test inbound/outbound digital audio."
+    "current_mobile_build": "Check Xiaomi USB debugging (Security settings), retry setup once and inspect newest error; no re-pairing yet."
   },
   "open_issue_ids": [
     "VOICE-001",
@@ -46,7 +46,8 @@
     "ENV-001",
     "ENV-002",
     "CHANNEL-001",
-    "VOICE-003"
+    "VOICE-003",
+    "MOBILE-001"
   ],
   "last_successful_job": "saas-prepare-1793233067549",
   "evidence": [
@@ -87,5 +88,12 @@
     "workflow_run_id": 41082229515,
     "artifact_id": 12989349803,
     "apk_sha256": "6e0c90970bd9b9f68a8e2e0e7b0131450b8e42794c0f73c602cd02ef2b6a7883"
+  },
+  "device_setup": {
+    "status": "OWNER_REPORTED_PAIRED_SETUP_BLOCKED",
+    "issue_id": "MOBILE-001",
+    "protected_settings_grant": "REPORTED_REFUSED",
+    "usb_debugging_security_setting": "NOT_OBSERVED",
+    "audio_test_started": false
   }
 }

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T15:48:24.175Z",
+  "updated_at_utc": "2026-10-30T16:00:07.193Z",
   "issues": [
     {
       "id": "NET-001",
@@ -296,6 +296,31 @@
             "docs/research/2026-10-30/SOFTWARE_SIM_VOICE_RESEARCH_AR.md",
             "docs/research/2026-10-30/AUDIO_PROOF_PLAN_AR.md"
           ]
+        }
+      ]
+    },
+    {
+      "id": "MOBILE-001",
+      "title": "Xiaomi setup paired but privileged grant/connection incomplete",
+      "category": "device_setup",
+      "severity": "high",
+      "status": "INVESTIGATING",
+      "first_seen": "2026-10-30",
+      "expected": "Complete local ADB connection and protected-settings grant before starting audio proof",
+      "actual": "Owner screenshot says Already paired. Last visible detailed log reports Android refused debugging-settings changes and asks for USB debugging (Security settings). Current card reports unable to reach phone; owner closed/reopened app.",
+      "cause_confirmed": "Permission refusal was reported by app; actual Developer options switch state and current connection cause are not independently verified.",
+      "hypothesis": "Xiaomi USB debugging (Security settings) disabled or vendor grant restriction; current ADB reachability may be a separate follow-up.",
+      "attempts": [
+        "ATT-20261030-XIAOMI-SETUP"
+      ],
+      "verification": [],
+      "current_blocker": "Target phone setup; no SIM audio test yet",
+      "next_action": "Enable/check exact USB debugging (Security settings), retain Wi-Fi/Wireless debugging, retry once; inspect newest message if still blocked.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-30T16:00:07.193Z",
+          "status": "INVESTIGATING",
+          "summary": "User screenshot reviewed against pinned Setup.finish and ShellGrant source; pairing does not establish protected grant or audio."
         }
       ]
     }
