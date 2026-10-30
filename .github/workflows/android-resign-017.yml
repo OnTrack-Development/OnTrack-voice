@@ -1,0 +1,57 @@
+name: Restore 0.1.7 Android update signing identity
+on:
+  push:
+    paths: ['.github/workflows/android-resign-017.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: ontrack-voiceproof-debug-signing-v1
+          fail-on-cache-miss: true
+      - uses: android-actions/setup-android@v4
+      - name: Install signing tools
+        run: sdkmanager --install "build-tools;36.0.0"
+      - uses: actions/download-artifact@v5
+        with:
+          run-id: 41134782898
+          name: OnTrack-SIM-Audio-Test-0.1.7
+          github-token: ${{ github.token }}
+          path: original
+      - name: Verify source, preserve original identity and sign upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=original/OnTrack-SIM-Audio-Test-0.1.7.apk
+          test -s "$src"
+          before="$(sha256sum "$src" | cut -d' ' -f1)"
+          listed="$(cut -d' ' -f1 original/SHA256SUMS.txt | head -n 1)"
+          test "$before" = "$listed"
+          tool="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$tool" verify --print-certs "$src" > original-signature.txt
+          grep -Fq 'Signer #1 certificate SHA-256 digest: 02641b0c87846f973b5e46d3bc0fcb56bae564aaec41fd9a6efbf9876a36eb18' original-signature.txt
+          keytool -exportcert -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android > original-cert.der
+          test "$(sha256sum original-cert.der | cut -d' ' -f1)" = "d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f"
+          mkdir -p deliver
+          "$tool" sign --ks "$HOME/.android/debug.keystore" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out deliver/OnTrack-SIM-Audio-Test-0.1.7-SIGNED-FIX.apk "$src"
+          "$tool" verify --verbose --print-certs deliver/OnTrack-SIM-Audio-Test-0.1.7-SIGNED-FIX.apk > deliver/signature.txt
+          grep -Fq 'Signer #1 certificate SHA-256 digest: d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f' deliver/signature.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging deliver/OnTrack-SIM-Audio-Test-0.1.7-SIGNED-FIX.apk | grep -F "package: name='com.ontrack.voiceproof' versionCode='8'"
+          (cd deliver && sha256sum OnTrack-SIM-Audio-Test-0.1.7-SIGNED-FIX.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v5
+        with:
+          name: OnTrack-SIM-Audio-Test-0.1.7-SIGNED-FIX
+          path: deliver/
+          if-no-files-found: error
+          retention-days: 30
