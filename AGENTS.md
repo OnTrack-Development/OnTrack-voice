@@ -54,3 +54,7 @@
 Update CURRENT_STATE, project-state JSON, CHANGELOG and affected experiment/decision entries with concrete evidence and pending work. Record commit/report paths, command exit status and what each test proves. Never mark audio completed on the strength of pairing, a dashboard, green health, SIP registration or host command success.
 
 Use Arabic Egyptian for user updates, keep them direct and concise, and do not request repeated authorization for work already authorized by the owner.
+
+## Owner clarification — 2026-10-30
+
+The Android app receives authorized campaign/task/conversation-script/settings batches from the dashboard and owns the local dial/end/delay/next-number loop. The server retains policy/ownership/lease/stop/sync authority. Do not require AccessibilityService or automate dialer UI taps. Read docs/architecture/MOBILE_EXECUTOR_CONTRACT_AR.md. Default-dialer control does not grant cellular audio capture/injection; preserve the pending device-audio gate and do not promise ordinary APK full AI/SIM audio. This update records requirements only, not implementation start.

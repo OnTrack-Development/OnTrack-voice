@@ -46,7 +46,11 @@
     "inbound_ai_call_verified": false,
     "outbound_ai_call_verified": false,
     "sip_registration_verified": false,
-    "device_remote_control_available": false
+    "device_remote_control_available": false,
+    "mobile_execution_model": "APP_OWNED_LOOP_SERVER_AUTHORIZED_BATCH",
+    "accessibility_service_allowed": false,
+    "ordinary_apk_sim_audio_verified": false,
+    "control_vs_audio_separated": true
   },
   "project": {
     "next_phase": "AWAITING_OWNER_START_AFTER_PREPARATION",
@@ -59,7 +63,8 @@
     "automatic_call_campaigns": "PLANNED",
     "multi_tenant_voice": "PLANNED",
     "voice_next_phase": "P1_DEVICE_AUDIO_PROOF",
-    "social_channels": "PLANNED_OFFICIAL_CAPABILITY_GATED"
+    "social_channels": "PLANNED_OFFICIAL_CAPABILITY_GATED",
+    "mobile_executor_contract": "docs/architecture/MOBILE_EXECUTOR_CONTRACT_AR.md"
   },
   "constraints": {
     "one_company_owns_each_mobile_number": true,
@@ -78,7 +83,7 @@
     "remote_exec": "2026-10-28T23:44:02.919046+00:00"
   },
   "warning": "Control-plane verification is not cellular audio verification. Read current live-branch queue/results before issuing a new job.",
-  "updated_at_utc": "2026-10-29T00:28:24.687935+00:00",
+  "updated_at_utc": "2026-10-30T14:38:47.408Z",
   "workspace": {
     "exists": true,
     "empty_at_preparation": true,

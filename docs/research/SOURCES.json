@@ -133,6 +133,18 @@
       "url": "https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api/",
       "purpose": "Instagram messaging permissions/capabilities to verify before implementation",
       "review_status": "HTTP_429_DURING_REVIEW_NO_CONTENT_RETRIEVED"
+    },
+    {
+      "id": "android-default-dialer",
+      "url": "https://developer.android.com/develop/connectivity/telecom/dialer-app",
+      "purpose": "Native call-control role; not proof of SIM audio access",
+      "review_status": "REVIEWED_2026_10_30"
+    },
+    {
+      "id": "android-voice-call-audio",
+      "url": "https://developer.android.com/reference/android/media/MediaRecorder.AudioSource",
+      "purpose": "VOICE_CALL requires CAPTURE_AUDIO_OUTPUT reserved for system components",
+      "review_status": "REVIEWED_2026_10_30"
     }
   ]
 }

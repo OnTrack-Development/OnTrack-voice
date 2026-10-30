@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-29T00:28:24.687935+00:00",
+  "updated_at_utc": "2026-10-30T14:38:47.408Z",
   "display_timezone": "Africa/Cairo",
   "status": "PREPARATION_COMPLETE_AWAITING_OWNER_START",
   "phase": "SAAS_PREPARATION",
@@ -50,5 +50,13 @@
     "ops/host-link/results/appontrack-server11/saas-inspect-1793232909572.json",
     "ops/host-link/results/appontrack-server11/saas-prepare-1793233067549.json",
     "ops/host-link/results/appontrack-server11/verify-terminal-20261028234301727.json"
-  ]
+  ],
+  "latest_owner_clarification": {
+    "date": "2026-10-30",
+    "mobile_owns_call_cycle": true,
+    "dashboard_supplies_task_and_settings": true,
+    "accessibility_service_allowed": false,
+    "ordinary_apk_full_sim_audio_verified": false,
+    "contract": "docs/architecture/MOBILE_EXECUTOR_CONTRACT_AR.md"
+  }
 }

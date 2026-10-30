@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_on": "2026-10-29",
+  "updated_on": "2026-10-30",
   "checks": [
     {
       "id": "AC-01",
@@ -127,6 +127,18 @@
       "requirement": "Persistent GitHub action/issue/attempt/test journals and session checkpoint",
       "status": "PREPARED_GITHUB_FILES",
       "evidence": "docs/memory/README_AR.md"
+    },
+    {
+      "id": "AC-22",
+      "requirement": "Mobile receives dashboard task/settings and owns persisted dial/end/delay/next loop with server-authorized leases and synchronization",
+      "status": "PLANNED",
+      "evidence": null
+    },
+    {
+      "id": "AC-23",
+      "requirement": "No AccessibilityService permission or automated dialer UI tapping; separate proof of SIM AI audio on target device",
+      "status": "REQUIREMENT_NOT_IMPLEMENTED",
+      "evidence": null
     }
   ]
 }

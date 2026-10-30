@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-29T00:28:24.687935+00:00",
+  "updated_at_utc": "2026-10-30T14:38:47.408Z",
   "issues": [
     {
       "id": "NET-001",
@@ -41,20 +41,28 @@
       "status": "OPEN",
       "first_seen": "2026-10-29",
       "expected": "Inbound/outbound AI dialogue through tenant mobile SIM",
-      "actual": "Historical control/pairing and host shell proof exist; SIM audio remains unproven",
+      "actual": "App-owned task/dial/end/delay loop without Accessibility is the latest requirement; no target-device SIM AI audio proof. Default-dialer call control does not establish privileged audio capture/injection.",
       "cause_confirmed": null,
       "attempts": [
         "ATT-003"
       ],
       "verification": [],
       "current_blocker": "Live Voice feature acceptance",
-      "next_action": "After relevant start instruction, collect target-device versions and perform documented digital echo A/B plus logs, then AI inbound/outbound proof.",
+      "next_action": "Verify a bidirectional SIM audio path on the actual device without Accessibility before promising a full AI call; do not confuse call control success with audio success.",
       "history": [
         {
           "recorded_at_utc": "2026-10-29T00:28:24.687935+00:00",
           "status": "OPEN",
           "summary": "Current state reconstructed from preserved evidence and session actions; historical attempt detail remains in ATTEMPT_LOG and discovery records.",
           "evidence": []
+        },
+        {
+          "recorded_at_utc": "2026-10-30T14:38:47.408Z",
+          "status": "OPEN",
+          "summary": "Owner requires no AccessibilityService and mobile-owned loop; official Android VOICE_CALL privilege limitation reviewed.",
+          "evidence": [
+            "docs/architecture/MOBILE_EXECUTOR_CONTRACT_AR.md"
+          ]
         }
       ]
     },
