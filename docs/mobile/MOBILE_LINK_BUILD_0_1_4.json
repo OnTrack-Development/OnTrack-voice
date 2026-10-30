@@ -1,12 +1,22 @@
 {
   "version": "0.1.4-mobile-link",
-  "status": "BUILD_PENDING",
+  "status": "APK_VERIFIED_BACKEND_DEPLOY_PENDING",
   "source_commit": "f163c6bb7dc83f06ba5f65d11e9ee0aa1f31aa77",
   "workflow_run_id": 41122903309,
-  "corrected_live_check_run_id": 41122903296,
-  "live_setup_ack_local": true,
-  "live_setup_evidence": "docs/mobile/LIVE_SESSION_CORRECTED_CHECK_2026_10_30.json",
+  "workflow_job_id": 124293700079,
+  "artifact_id": 13009691302,
+  "apk_sha256": "41d32c09d4b8714dfce9d38614ccb322c15553f44a8749ad8a37964762b524cb",
+  "apk_bytes": 52327052,
+  "zip_sha256": "6606e77c438fd357b4954d7774967d17a390a6aae75b202f27f17be807f59dbf",
+  "certificate_sha256": "d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f",
+  "same_signer_as_0_1_1": true,
+  "overlay_hashes_match": true,
+  "correct_rpc_path_in_packaged_dex": true,
+  "live_setup_ack": true,
+  "live_setup_check_run_id": 41122903296,
+  "device_ai_call_verified": false,
+  "backend_deployed": false,
   "backend_deploy_job": "mobile-link-deploy-1793390868859",
-  "backend_deploy_status": "PENDING",
-  "device_ai_call_verified": false
+  "workflow_conclusion": "success",
+  "live_setup_check_conclusion": "success"
 }

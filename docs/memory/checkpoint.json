@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T20:25:41.374646+00:00",
+  "updated_at_utc": "2026-10-30T20:31:35.270547+00:00",
   "display_timezone": "Africa/Cairo",
-  "status": "LIVE_GEMINI_SETUP_ACCEPTED_014_BUILDING_HOST_DEPLOY_PENDING",
+  "status": "MOBILE_LINK_014_APK_VERIFIED_WAITING_HOST_WORKER",
   "phase": "MOBILE_SITE_LIVE_INTEGRATION",
   "repository": "OnTrack-Development/OnTrack-voice",
   "application_repo_path": "saas/",
@@ -38,7 +38,7 @@
     "before_owner_start": "Report preparation complete and supply prompt/memory paths; do not bootstrap application.",
     "after_owner_start": "Inspect compatible PHP/Composer/build/MySQL inside isolated saas scope, establish application baseline and implement first authorized vertical slice.",
     "current_research_followup": "Read research report and perform only an authorized target-device audio proof; no device-control or successful call evidence available in research session.",
-    "current_mobile_build": "Finish0.1.4 build/artifact checks; wait for queued host deploy report (existing worker follow loop requested); verify live protected mobile endpoints; deliver APK/settings/key and run direct owner AI call. No separate recording gate."
+    "current_mobile_build": "Owner must run the existing worker follow loop so queued mobile-link-deploy-1793390868859 executes. Do not replace/replay it. Then verify its report, live auth/settings/session, deliver key and run direct AI call with APK0.1.4; no recording-only gate."
   },
   "open_issue_ids": [
     "VOICE-001",
@@ -84,10 +84,11 @@
   ],
   "latest_owner_authorization": "Proceed directly to integrate app.ontrackegy.com and Android; do not block on separate recording test. Reevaluate failures during actual linking.",
   "mobile_build": {
-    "status": "BUILD_PENDING",
+    "status": "APK_DOWNLOADED_SIGNER_PROVENANCE_AND_RPC_PATH_VERIFIED",
     "version": "0.1.4-mobile-link",
     "source_commit": "f163c6bb7dc83f06ba5f65d11e9ee0aa1f31aa77",
     "workflow_run_id": 41122903309,
+    "artifact_id": 13009691302,
     "evidence": "docs/mobile/MOBILE_LINK_BUILD_0_1_4.json"
   },
   "device_setup": {
