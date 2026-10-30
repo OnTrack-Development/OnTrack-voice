@@ -1,0 +1,18 @@
+{
+  "version": "0.1.5-mobile-link",
+  "source_commit": "9f9a0f23fabf5a4ee873d27ea07748d841ea3feb",
+  "workflow_run_id": 41127903051,
+  "workflow_job_id": 124311046147,
+  "artifact_id": 13012375680,
+  "apk_sha256": "fbffb166062918ef70715ec43b9b6fb4d78040545c33bf0509a76e7217bf5c04",
+  "apk_bytes": 52310552,
+  "zip_sha256": "2a607d41683c1638c8c28bae3658d4c6967c851b82207816e57644208314c5e6",
+  "certificate_sha256": "d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f",
+  "same_signer_as_0_1_1_and_0_1_4": true,
+  "overlay_hashes_match": true,
+  "final_apk_manifest_guard": "PASS",
+  "phone_install_verified": false,
+  "device_ai_call_verified": false,
+  "backend_deployed": true,
+  "workflow_conclusion": "success"
+}

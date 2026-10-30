@@ -86,3 +86,7 @@ HTTP مباشر أكد OnTrack Live وassets/app.js?v=063 وGemini Live/current 
 ## Current integration handoff — 2026-10-30
 
 Owner explicitly requested direct phone/site AI integration without a separate recording-test gate.0.1.4 fixes our wrong slash in the Google Live RPC URL; actual setupComplete now accepted using the existing site token/model.0.1.3 must not be delivered for linking. Read docs/mobile/MOBILE_SITE_LINK_AR.md and current CHECKPOINT. Build run41122903309 and queued host deployment mobile-link-deploy-1793390868859 are separate gates. Do not overwrite the live host queue, read its credential config or request a new PAT. Settings are not deployed until matching result/HTTP checks. No live AI/SIM duplex claim yet.
+
+## Play Protect installation checkpoint — 2026-10-30
+
+Owner screenshots show Play Protect sensitive-data/fraud installation block for0.1.4. Upstream notification-listener service is unnecessary for the SIM bridge;0.1.5 removes it, its implementation/grant paths/UI and adds final APK manifest guard. Do not disable device protection, rename package to evade classification, or clear working pairing. Verify artifact/signing identity; owner installation remains pending. Matching host deployment report now success/exit0; HTTP auth/settings/session checks pass (docs/mobile/MOBILE_BACKEND_HTTP_2026_10_30.json). Never requeue completed deployment.

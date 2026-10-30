@@ -1,0 +1,36 @@
+{
+  "checked_at_utc": "2026-10-30T21:03:01.213596+00:00",
+  "checks": [
+    {
+      "path": "saas/mobile/",
+      "authenticated": false,
+      "http": 200
+    },
+    {
+      "path": "saas/mobile/device.php",
+      "authenticated": false,
+      "http": 401
+    },
+    {
+      "path": "saas/mobile/device.php",
+      "authenticated": true,
+      "http": 200,
+      "json": true,
+      "has_ephemeral_token": false
+    },
+    {
+      "path": "saas/mobile/session.php",
+      "authenticated": true,
+      "http": 200,
+      "json": true,
+      "has_ephemeral_token": true
+    },
+    {
+      "path": "saas/mobile/auth.sha256",
+      "authenticated": false,
+      "http": 403
+    }
+  ],
+  "secret_values_logged": false,
+  "phone_ai_call_verified": false
+}

@@ -8,7 +8,7 @@
   "official_source": "https://developers.google.com/android/play-protect/warning-dev-guidance",
   "change": "Remove listener service AND implementation; remove notification-access grants and optional UI; preserve debugging notification; keep package/signing lineage; do not disable Play Protect.",
   "version": "0.1.5-mobile-link",
-  "build_status": "PENDING",
+  "build_status": "APK_DOWNLOADED_PROVENANCE_MANIFEST_AND_SAME_SIGNER_VERIFIED",
   "phone_install_status": "PENDING",
   "ai_duplex_verified": false,
   "screenshots": [
@@ -52,5 +52,11 @@
       "filename": "03-1000152844.jpg",
       "sha256": "5913683ef1511197ccc753607cdcbc7ec552567fc1b5378568c8c1f473ab125e"
     }
-  ]
+  ],
+  "source_commit": "9f9a0f23fabf5a4ee873d27ea07748d841ea3feb",
+  "build_run_id": 41127903051,
+  "build_job_id": 124311046147,
+  "artifact_id": 13012375680,
+  "final_apk_manifest_guard": "PASS",
+  "build_evidence": "docs/mobile/MOBILE_LINK_BUILD_0_1_5.json"
 }

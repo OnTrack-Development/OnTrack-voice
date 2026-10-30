@@ -430,19 +430,26 @@
       "status": "INVESTIGATING",
       "first_seen": "2026-10-30",
       "expected": "Existing cron processes subsequent authorized deployment job",
-      "actual": "Inspection succeeded at20:06:36UTC after owner manually ran worker. Subsequent queued deployment has no report; public mobile API still404 on last check.",
+      "actual": "Matching queued deployment report received: success/exit0 at20:46:25UTC after owner reran worker. Live settings200; guestdevice401; authdevice200; authsession200; hashfile403.",
       "cause_confirmed": null,
       "attempts": [],
       "verification": [
-        "ops/host-link/results/appontrack-server11/mobile-bridge-inspect-1793389599248.json"
+        "ops/host-link/results/appontrack-server11/mobile-bridge-inspect-1793389599248.json",
+        "ops/host-link/results/appontrack-server11/mobile-link-deploy-1793390868859.json",
+        "docs/mobile/MOBILE_BACKEND_HTTP_2026_10_30.json"
       ],
-      "current_blocker": "Live mobile settings deployment",
-      "next_action": "Wait for existing worker to execute queued mobile-link-deploy-1793390868859 (manual follow loop requested; no replacement/replay). Verify matching report and live mobile endpoints, finish live-session handshake check, then deliver verified APK and connection key. No separate recording gate.",
+      "current_blocker": false,
+      "next_action": "Direct linked handset call after installation fix; automatic cron polling remains separately unverified. Do not rerun completed deployment.",
       "history": [
         {
           "recorded_at_utc": "2026-10-30T20:18:51.549390+00:00",
           "status": "INVESTIGATING",
           "summary": "Asked owner to run existing worker in a bounded3minute follow loop. No token/config read, reinstallation or queue overwrite."
+        },
+        {
+          "recorded_at_utc": "2026-10-30T21:04:48.072408+00:00",
+          "status": "INVESTIGATING",
+          "summary": "Deployment completed, live auth/session checks passed; no cron cause/fix claim."
         }
       ]
     },
@@ -461,15 +468,21 @@
         "ATT-20261030-NO-NOTIFICATION-LISTENER-015"
       ],
       "verification": [
-        "docs/mobile/PLAY_PROTECT_INSTALL_2026_10_30.json"
+        "docs/mobile/PLAY_PROTECT_INSTALL_2026_10_30.json",
+        "docs/mobile/MOBILE_LINK_BUILD_0_1_5.json"
       ],
       "current_blocker": true,
-      "next_action": "Build0.1.5; inspect FINAL APK manifest and same signing certificate; owner installs as update. If still blocked use official classification appeal, not protection bypass.",
+      "next_action": "Owner installs direct signed0.1.5 APK as update, preserving setup and Play Protect. If same warning persists, record exact verdict and use official Play Protect appeal. Then direct linked incoming AI call.",
       "history": [
         {
           "recorded_at_utc": "2026-10-30T21:01:29.778919+00:00",
           "status": "INVESTIGATING",
           "summary": "Remove listener service AND implementation; remove notification-access grants and optional UI; preserve debugging notification; keep package/signing lineage; do not disable Play Protect."
+        },
+        {
+          "recorded_at_utc": "2026-10-30T21:07:03.812484+00:00",
+          "status": "INVESTIGATING",
+          "summary": "0.1.5 artifact downloaded; zip/APK hashes, all overlay hashes, same signing certificate and final APK manifest verified. Owner installation still pending."
         }
       ]
     }

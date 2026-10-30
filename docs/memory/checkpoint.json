@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T21:01:29.778919+00:00",
+  "updated_at_utc": "2026-10-30T21:07:03.812484+00:00",
   "display_timezone": "Africa/Cairo",
-  "status": "PLAY_PROTECT_BLOCK_014_FIX_015_BUILD_PENDING",
+  "status": "MOBILE_LINK_015_READY_PHONE_INSTALL_PENDING",
   "phase": "MOBILE_SITE_LIVE_INTEGRATION",
   "repository": "OnTrack-Development/OnTrack-voice",
   "application_repo_path": "saas/",
@@ -38,7 +38,7 @@
     "before_owner_start": "Report preparation complete and supply prompt/memory paths; do not bootstrap application.",
     "after_owner_start": "Inspect compatible PHP/Composer/build/MySQL inside isolated saas scope, establish application baseline and implement first authorized vertical slice.",
     "current_research_followup": "Read research report and perform only an authorized target-device audio proof; no device-control or successful call evidence available in research session.",
-    "current_mobile_build": "Build and verify APK0.1.5, preserve pairing/data and protection; direct linked call once installed."
+    "current_mobile_build": "Deliver direct APK0.1.5. Owner installs update preserving working pairing and Play Protect; then use existing site key/settings and run direct incoming AI/SIM call. Device installation and duplex remain pending."
   },
   "open_issue_ids": [
     "VOICE-001",
@@ -85,13 +85,12 @@
   ],
   "latest_owner_authorization": "Proceed directly to integrate app.ontrackegy.com and Android; do not block on separate recording test. Reevaluate failures during actual linking.",
   "mobile_build": {
-    "status": "NOTIFICATION_LISTENER_REMOVED_CI_PENDING",
-    "version": "0.1.4-mobile-link",
-    "source_commit": "f163c6bb7dc83f06ba5f65d11e9ee0aa1f31aa77",
-    "workflow_run_id": 41122903309,
-    "artifact_id": 13009691302,
-    "evidence": "docs/mobile/MOBILE_LINK_BUILD_0_1_4.json",
-    "pending_version": "0.1.5-mobile-link"
+    "status": "APK_DOWNLOADED_SIGNER_PROVENANCE_AND_FINAL_MANIFEST_VERIFIED",
+    "version": "0.1.5-mobile-link",
+    "source_commit": "9f9a0f23fabf5a4ee873d27ea07748d841ea3feb",
+    "workflow_run_id": 41127903051,
+    "artifact_id": 13012375680,
+    "evidence": "docs/mobile/MOBILE_LINK_BUILD_0_1_5.json"
   },
   "device_setup": {
     "status": "AUDIO_REACHED_FAR_END_OWNER_REPORTED_PERMISSION_CAUSE_UNKNOWN",
@@ -120,7 +119,8 @@
     "manual_worker_invocation_succeeded": true,
     "cron_progress_verified": false,
     "backend_deployed": true,
-    "deploy_report": "ops/host-link/results/appontrack-server11/mobile-link-deploy-1793390868859.json"
+    "deploy_report": "ops/host-link/results/appontrack-server11/mobile-link-deploy-1793390868859.json",
+    "http_evidence": "docs/mobile/MOBILE_BACKEND_HTTP_2026_10_30.json"
   },
   "live_session_check": {
     "setup_ack": true,
