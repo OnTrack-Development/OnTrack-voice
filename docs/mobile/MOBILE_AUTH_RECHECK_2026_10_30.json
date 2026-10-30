@@ -1,0 +1,23 @@
+{
+  "checked_at_utc": "2026-10-30T21:12:26.705644+00:00",
+  "local_key_matches_deployed_source_hash": true,
+  "checks": [
+    {
+      "user_agent": "okhttp/4.12.0",
+      "http": 200,
+      "ok": true,
+      "enabled": true
+    },
+    {
+      "user_agent": "OnTrack-Link-Diagnostic",
+      "http": 200,
+      "ok": true,
+      "enabled": true
+    }
+  ],
+  "owner_screenshot": "Installed app link screen HTTP401; exact phone key not observable",
+  "secret_values_logged": false,
+  "screenshot_sha256": "ab853bfe80f0eeb2588fd31eab21a6a7b5bffa8c60b1945da6cd071f519a315b",
+  "phone_apk_version_displayed": false,
+  "next_action": "Stop link; replace saved password with exact provided key via copy/paste; restart link. Do not assume wrong input is confirmed or reset pairing."
+}

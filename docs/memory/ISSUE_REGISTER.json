@@ -471,7 +471,7 @@
         "docs/mobile/PLAY_PROTECT_INSTALL_2026_10_30.json",
         "docs/mobile/MOBILE_LINK_BUILD_0_1_5.json"
       ],
-      "current_blocker": true,
+      "current_blocker": false,
       "next_action": "Owner installs direct signed0.1.5 APK as update, preserving setup and Play Protect. If same warning persists, record exact verdict and use official Play Protect appeal. Then direct linked incoming AI call.",
       "history": [
         {
@@ -483,6 +483,41 @@
           "recorded_at_utc": "2026-10-30T21:07:03.812484+00:00",
           "status": "INVESTIGATING",
           "summary": "0.1.5 artifact downloaded; zip/APK hashes, all overlay hashes, same signing certificate and final APK manifest verified. Owner installation still pending."
+        },
+        {
+          "recorded_at_utc": "2026-10-30T21:13:16.563365+00:00",
+          "status": "INVESTIGATING",
+          "summary": "Owner now shows running MobileLinkActivity after0.1.5 delivery; installation no longer current blocker. Exact APK version not displayed; no universal Play Protect acceptance claim.",
+          "evidence": [
+            "docs/mobile/MOBILE_AUTH_RECHECK_2026_10_30.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "MOBILE-006",
+      "title": "Phone mobile link returns HTTP401 while exact key passes live API recheck",
+      "category": "mobile_authentication",
+      "severity": "high",
+      "status": "INVESTIGATING",
+      "first_seen": "2026-10-30T21:13:16.563365+00:00",
+      "expected": "Bearer-authenticated device.php returns200 from handset",
+      "actual": "Owner running link screen reportsHTTP401. Two independent requests with current provided key, including OkHttp user agent, return200/ok/enabledtrue.",
+      "cause_confirmed": null,
+      "hypothesis": "Phone may have a different saved key or formatting; actual phone input is masked and not available. Server key mismatch not reproduced.",
+      "attempts": [
+        "ATT-20261030-AUTH-RECHECK"
+      ],
+      "verification": [
+        "docs/mobile/MOBILE_AUTH_RECHECK_2026_10_30.json"
+      ],
+      "current_blocker": true,
+      "next_action": "Stop service; replace key with exact copy/paste; restart. If401 persists, instrument safe auth diagnostics without logging credential or resetting pairing.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-30T21:13:16.563365+00:00",
+          "status": "INVESTIGATING",
+          "summary": "Exact provided key matches source hash; live API returns200 including OkHttp UA. Phone error still unverified after input replacement."
         }
       ]
     }
