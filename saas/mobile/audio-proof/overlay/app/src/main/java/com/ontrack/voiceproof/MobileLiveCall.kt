@@ -7,6 +7,7 @@ import com.ontrack.voiceproof.capture.AnsweringMachine
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import okhttp3.*
+import okio.ByteString
 import org.json.JSONObject
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -63,6 +64,8 @@ internal class MobileLiveCall(
                     }
                 }.onFailure{fail(it.message?:"invalid live response")}
             }
+            override fun onMessage(webSocket:WebSocket,bytes:ByteString){onMessage(webSocket,bytes.utf8())}
+            override fun onClosing(webSocket:WebSocket,code:Int,reason:String){webSocket.close(code,"");if(!stopped.get())fail("جلسة الصوت أغلقت: $code")}
             override fun onFailure(webSocket:WebSocket,t:Throwable,response:Response?){fail("انقطع اتصال خدمة الصوت"+(response?.code?.let{" HTTP $it"}?:""))}
             override fun onClosed(webSocket:WebSocket,code:Int,reason:String){if(!stopped.get())fail("جلسة الصوت أغلقت: $code")}
         })
@@ -72,6 +75,10 @@ internal class MobileLiveCall(
         val input=DataInputStream(pipe!!.getInputStream())
         check(input.readInt()==0x4f545631 && input.readInt()==48000 && input.readInt()==2){"invalid shell PCM format"}
         output=DataOutputStream(pipe!!.getOutputStream())
+        ws?.send(JSONObject().put("clientContent",JSONObject()
+            .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
+                .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ المكالمة بتحية مصرية قصيرة باسم الإيجنت المخصص، ثم اسمع رد العميل.")))))
+            .put("turnComplete",true)).toString())
         val transform=LinkPcm(settings.optString("input_channel","right"))
         worker=scope.launch {
             try {

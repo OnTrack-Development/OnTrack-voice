@@ -24,12 +24,13 @@ if ($allowed && $_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save'])) {
     mobile_store($data);
 }
 $s=mobile_settings();
+$seen=json_decode((string)@file_get_contents(MOBILE_STORE.'/device-seen.json'),true);
 function e(string $v):string{return htmlspecialchars($v,ENT_QUOTES,'UTF-8');}
 ?><!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OnTrack — اتصال الموبايل</title>
 <style>body{font-family:system-ui;background:#f4f5f8;color:#202531;max-width:760px;margin:40px auto;padding:20px}form{background:white;padding:28px;border-radius:20px}label{display:block;margin:18px 0}input,textarea,select,button{font:inherit;padding:12px;border:1px solid #ccd1dc;border-radius:9px;box-sizing:border-box}input[type=text],input[type=password],textarea{width:100%}button{background:#c92837;color:white;cursor:pointer}textarea{min-height:180px}small{color:#667085}</style>
 <h1>ربط الموبايل بالإيجنت</h1><p>نسخة ربط تجريبية مع محرك الموقع الحالي. الشريحة موجودة في الهاتف؛ الصوت يمر من التطبيق.</p>
 <?php if(!$allowed):?><form method="post"><p><?=e($error)?></p><label>مفتاح الاتصال<input type="password" name="key" required autocomplete="current-password"></label><button>دخول</button></form>
-<?php else:?><form method="post"><input type="hidden" name="csrf" value="<?=e($_SESSION['csrf'])?>"><input type="hidden" name="save" value="1">
+<?php else:?><p>آخر اتصال من التطبيق: <?=e((string)($seen['seen_at']??'لم يتصل بعد'))?></p><form method="post"><input type="hidden" name="csrf" value="<?=e($_SESSION['csrf'])?>"><input type="hidden" name="save" value="1">
 <label><input type="checkbox" name="enabled" <?=$s['enabled']?'checked':''?>> تشغيل الربط الصوتي</label>
 <label><input type="checkbox" name="auto_answer" <?=$s['auto_answer']?'checked':''?>> الرد على المكالمات الواردة أثناء تشغيل التطبيق</label>
 <label>اسم الإيجنت<input name="agent_name" type="text" value="<?=e($s['agent_name'])?>"></label>
