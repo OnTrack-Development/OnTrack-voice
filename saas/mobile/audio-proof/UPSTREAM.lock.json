@@ -3,6 +3,6 @@
   "commit": "f011062adfb3a2154c4d5a9cc4394032fb4345f2",
   "license": "Apache-2.0",
   "application_id": "com.ontrack.voiceproof",
-  "version": "0.1.0-audio-proof",
+  "version": "0.1.1-audio-proof",
   "purpose": "One-call SIM capture/injection proof; no AI or campaign integration"
 }

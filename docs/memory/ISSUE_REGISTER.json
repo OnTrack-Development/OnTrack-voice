@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T16:06:26.404Z",
+  "updated_at_utc": "2026-10-30T16:20:15.541Z",
   "issues": [
     {
       "id": "NET-001",
@@ -307,9 +307,9 @@
       "status": "INVESTIGATING",
       "first_seen": "2026-10-30",
       "expected": "Complete local ADB connection and protected-settings grant before starting audio proof",
-      "actual": "Owner Wireless debugging screenshot shows ON, device Redmi Note12 Pro5G, active IP/port and no entries under Paired devices. App previously shows Already paired. USB security switch was confirmed ON in prior screenshot.",
+      "actual": "Latest owner screenshots show JemRec Currently connected in Android Paired devices, both debugging switches enabled, and fresh18:12:24 protected-settings grant refusal.",
       "cause_confirmed": "Permission refusal was reported by app; actual Developer options switch state and current connection cause are not independently verified.",
-      "hypothesis": "App's persisted hasPaired flag can disagree with Android's accepted keys; screenshot supports a pairing-state mismatch. Exact key-loss cause not proven. Setup currentStep selects NEEDS_CONNECTION solely from stored hasPaired after failed connect.",
+      "hypothesis": "Pairing/connectivity is no longer the blocker. Raw Android pm-grant exception and target user/profile need inspection; generic vendor advice hides the actual cause.",
       "attempts": [
         "ATT-20261030-XIAOMI-SETUP",
         "ATT-20261030-XIAOMI-SECURITY-ON",
@@ -317,7 +317,7 @@
       ],
       "verification": [],
       "current_blocker": "Target phone setup; no SIM audio test yet",
-      "next_action": "Reinitialize only test-app local setup and pair once with a fresh code; explain local settings/imported audio deletion if app-data reset is used. Verify an Android Paired devices entry, not only app flag. No new APK required for this attempt.",
+      "next_action": "Build diagnostic0.1.1 to retain/display raw grant and permission read-back; collect explicit per-user grant diagnostics. Do not repeat resets or alter unrelated Developer options.",
       "history": [
         {
           "recorded_at_utc": "2026-10-30T16:00:07.193Z",
@@ -333,6 +333,11 @@
           "recorded_at_utc": "2026-10-30T16:06:26.404Z",
           "status": "INVESTIGATING",
           "summary": "New evidence changes previous do-not-repair advice: Android paired list is visibly empty while app flag says paired. Existing setup screen exposes no re-pair control; Settings Start fresh is available only after READY."
+        },
+        {
+          "recorded_at_utc": "2026-10-30T16:20:15.541Z",
+          "status": "INVESTIGATING",
+          "summary": "New screenshots establish Android-side connected state and a fresh grant refusal despite security switch ON. Previous empty-pairing hypothesis superseded for current state."
         }
       ]
     }

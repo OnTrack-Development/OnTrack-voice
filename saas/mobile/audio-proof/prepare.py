@@ -49,9 +49,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 1', 'versionCode')
+                        'versionCode = 2', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.1.0-audio-proof"', 'versionName')
+                        'versionName = "0.1.1-audio-proof"', 'versionName')
     path.write_text(text)
     path = root / 'shellserver/tests/src/com/jemcik/jemrec/shell/AnswerMachineTest.java'
     text = replace_once(path.read_text(), '    private void testCallGreeting() {',
@@ -105,6 +105,19 @@ def main(root):
                         '                testState = "cancelled";\n'
                         '                reply(client, "TEST cancelled");\n                break;\n'
                         "            case 'R':\n                reply(client, \"RESULT 1 state=\"", 'shell cancel protocol')
+    path.write_text(text)
+    # Preserve the actual grant/read-back response; generic vendor advice was
+    # misleading once Xiaomi's security switch was already visibly enabled.
+    path = root / 'app/src/main/java/com/jemcik/jemrec/ui/Setup.kt'
+    text = replace_once(path.read_text(),
+                        '            val outcome = ShellGrant.outcome(pkg, PERMISSION, grant, readBack)',
+                        '            com.ontrack.voiceproof.OnTrackSetupDiagnostics.recordGrant(context, grant, readBack)\n'
+                        '            val outcome = ShellGrant.outcome(pkg, PERMISSION, grant, readBack)',
+                        'capture raw setup grant response')
+    text = replace_once(text,
+                        'error(ShellGrant.advice(outcome, DeviceSkin.current(), ShellGrant.monitoring(property)))',
+                        'error(ShellGrant.advice(outcome, DeviceSkin.current(), ShellGrant.monitoring(property)) + '
+                        '"\\n\\nAndroid response:\\n" + grant.take(3000))', 'display raw grant refusal')
     path.write_text(text)
     # Launcher becomes the Arabic proof screen; upstream setup remains available.
     path = root / 'app/src/main/AndroidManifest.xml'

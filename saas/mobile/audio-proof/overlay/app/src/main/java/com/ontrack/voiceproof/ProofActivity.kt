@@ -3,6 +3,8 @@ package com.ontrack.voiceproof
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -14,6 +16,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import com.ontrack.voiceproof.capture.*
 import com.ontrack.voiceproof.ui.Setup
+import com.ontrack.voiceproof.adb.AdbTransport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -76,13 +79,30 @@ class ProofActivity : ComponentActivity() {
             column.addView(this)
         }
         text("OnTrack • اختبار صوت الشريحة", 23f)
-        text("نسخة اختبار 0.1.0 — تشغيل ملف صوت داخل مكالمة حقيقية والتقاط الطرف الآخر. نجاح التثبيت أو الاقتران لا يثبت نجاح الصوت.")
+        text("نسخة اختبار 0.1.1 — تشخيص رد Android الأصلي، ثم اختبار صوت الشريحة. الاقتران وحده لا يثبت الصلاحيات أو الصوت.")
         status = text("ابدأ بالإعداد لمرة واحدة، ثم ارجع للشاشة دي.", 18f)
         fun button(label: String, tracked: Boolean = true, action: () -> Unit) = Button(this).apply {
             text = label; isAllCaps = false; setOnClickListener { action() }; column.addView(this)
             if (tracked) controls.add(this)
         }
         button("١ • إعداد الاتصال لمرة واحدة") { startActivity(Intent(this, MainActivity::class.java)) }
+        button("فحص سبب رفض الصلاحية وحفظ التفاصيل") { work("جاري قراءة رد Android ومنح الصلاحية لمستخدم الهاتف الحالي…") {
+            OnTrackSetupDiagnostics.collect(this)
+        } }
+        button("نسخ تقرير التشخيص") {
+            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("OnTrack diagnostics", report()))
+            status.text = "تم نسخ التقرير. يحتوي تفاصيل الصلاحية دون كود الاقتران أو مفاتيح ADB أو تسجيلات."
+        }
+        button("إعادة الاقتران مع الاحتفاظ بملف الصوت") {
+            AlertDialog.Builder(this).setTitle("إعادة الاقتران")
+                .setMessage("لو الجهاز مش ظاهر في Paired devices، سنعيد خطوة الربط فقط ونحتفظ بالصوت والإعدادات. لو ظاهر Currently connected، استخدم فحص سبب الرفض بدل إعادة الاقتران.")
+                .setPositiveButton("إعادة خطوة الربط") { _, _ -> work("جاري فتح خطوة الاقتران…") {
+                    AdbTransport.close()
+                    Setup.forgetPairing(this)
+                    withContext(Dispatchers.Main) { startActivity(DeepLink.intent(this@ProofActivity, DeepLink.Kind.PAIR_AGAIN)) }
+                    "أكمل الاقتران من الإشعار، ثم ارجع لشاشة التشخيص."
+                } }.setNegativeButton("إلغاء", null).show()
+        }
         text("في الإعداد: فعّل خيارات المطوّر وUSB debugging وWireless debugging، وأدخل كود الاقتران في الإشعار. على شاومي قد يلزم USB debugging (Security settings). لا تطلب النسخة Accessibility أو Shizuku.")
         button("٢ • اختيار ملف صوت MP3 / M4A / WAV") { importer.launch(arrayOf("audio/*")) }
         text("يُستخدم أول ٣٠ ثانية فقط. اختر مقطعًا مميزًا يسهل التأكد منه؛ التحويل والتخزين محليان.")
@@ -181,7 +201,7 @@ class ProofActivity : ComponentActivity() {
     }
 
     private fun report(): String = JSONObject().apply {
-        put("app", "OnTrack SIM Audio Proof"); put("version", "0.1.0-audio-proof")
+        put("app", "OnTrack SIM Audio Proof"); put("version", "0.1.1-audio-proof")
         put("upstream_commit", "f011062adfb3a2154c4d5a9cc4394032fb4345f2")
         put("generated_at_ms", System.currentTimeMillis())
         put("manufacturer", Build.MANUFACTURER); put("model", Build.MODEL)
@@ -189,7 +209,7 @@ class ProofActivity : ComponentActivity() {
         put("build_fingerprint", Build.FINGERPRINT)
         put("route", AnsweringMachine.route(this@ProofActivity))
         for (key in listOf("voice_sha256", "direction", "far_end_heard")) put(key, reportPrefs.getString(key, "UNKNOWN"))
-        for (key in listOf("stage_one", "test_result")) put(key, JSONObject(reportPrefs.getString(key, "{}")!!))
+        for (key in listOf("stage_one", "test_result", "setup_diagnostics")) put(key, JSONObject(reportPrefs.getString(key, "{}")!!))
         put("digital_capture_confirmed", false)
         put("full_duplex_ai_confirmed", false)
         put("note", "Source/build/route signals and manually reported hearing only. Review the remote speech recording separately. No phone numbers or audio included.")

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T16:06:26.404Z",
+  "updated_at_utc": "2026-10-30T16:20:15.541Z",
   "display_timezone": "Africa/Cairo",
-  "status": "ANDROID_AUDIO_PROOF_APK_READY_DEVICE_TEST_PENDING",
+  "status": "BUILDING_ANDROID_SETUP_DIAGNOSTIC_0_1_1",
   "phase": "TARGET_PHONE_SETUP",
   "repository": "OnTrack-Development/OnTrack-voice",
   "application_repo_path": "saas/",
@@ -38,7 +38,7 @@
     "before_owner_start": "Report preparation complete and supply prompt/memory paths; do not bootstrap application.",
     "after_owner_start": "Inspect compatible PHP/Composer/build/MySQL inside isolated saas scope, establish application baseline and implement first authorized vertical slice.",
     "current_research_followup": "Read research report and perform only an authorized target-device audio proof; no device-control or successful call evidence available in research session.",
-    "current_mobile_build": "Reinitialize only test-app local setup and pair once with a fresh code; explain local settings/imported audio deletion if app-data reset is used. Verify an Android Paired devices entry, not only app flag. No new APK required for this attempt."
+    "current_mobile_build": "Build diagnostic0.1.1 to retain/display raw grant and permission read-back; collect explicit per-user grant diagnostics. Do not repeat resets or alter unrelated Developer options."
   },
   "open_issue_ids": [
     "VOICE-001",
@@ -90,12 +90,12 @@
     "apk_sha256": "6e0c90970bd9b9f68a8e2e0e7b0131450b8e42794c0f73c602cd02ef2b6a7883"
   },
   "device_setup": {
-    "status": "ANDROID_PAIRED_LIST_EMPTY_APP_FLAG_STALE",
+    "status": "ANDROID_CONNECTED_PROTECTED_GRANT_REFUSED",
     "issue_id": "MOBILE-001",
-    "protected_settings_grant": "EARLIER_REPORTED_REFUSED_CURRENT_UNKNOWN",
+    "protected_settings_grant": "FRESH_REFUSAL_REPORTED_18_12_24",
     "usb_debugging_security_setting": "OWNER_SCREENSHOT_CONFIRMED_ON",
     "audio_test_started": false,
-    "android_paired_devices": "NONE_VISIBLE_IN_OWNER_SCREENSHOT",
+    "android_paired_devices": "OWNER_SCREENSHOT_CURRENTLY_CONNECTED",
     "wireless_debugging": "OWNER_SCREENSHOT_ON",
     "repair_reason": "New Android-side empty paired-device list conflicts with app's saved Already paired flag"
   }
