@@ -103,7 +103,7 @@ class MobileLinkService:Service() {
                 RecorderSwitch.set(this@MobileLinkService,false)
                 check(CaptureDaemon.setDaemonMode(this@MobileLinkService,CaptureDaemon.MODE_OFF))
                 var settings=JSONObject();var lastFetch=0L
-                var callSeen=false;var ringSince=0L;var answerIssued=false
+                var callSeen=false;var ringSince=0L;var answerIssued=false;var lastStatusReport=0L
                 while(isActive){
                     if(System.currentTimeMillis()-lastFetch>=5000){
                         settings=request(base+"saas/mobile/device.php",key,null).getJSONObject("settings")
@@ -148,6 +148,21 @@ class MobileLinkService:Service() {
                         call?.stop();call=null;callSeen=false;ringSince=0L;answerIssued=false
                         takeoverRequested=false;humanControl=false
                         notice("متصل — جاهز لمكالمة واردة أو اتصال من الهاتف")
+                    }
+                    val statusNow=SystemClock.elapsedRealtime()
+                    if(statusNow-lastStatusReport>=5000){
+                        lastStatusReport=statusNow
+                        val phase=when {
+                            state==0->"idle"
+                            state==1->"ringing"
+                            humanControl->"human"
+                            call?.active==true->"ai"
+                            else->"connecting"
+                        }
+                        val status=JSONObject().put("phase",phase)
+                            .put("agent_running",running && settings.optBoolean("enabled"))
+                            .put("revision",settings.optInt("revision",0))
+                        scope.launch {runCatching{request(base+"saas/mobile/status.php",key,status)}}
                     }
                     showOverlay()
                     delay(1000)
