@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T19:34:29.600Z",
+  "updated_at_utc": "2026-10-30T19:44:21.586769+00:00",
   "display_timezone": "Africa/Cairo",
-  "status": "FAR_END_AUDIO_OWNER_REPORTED_CAPTURE_PENDING",
-  "phase": "TARGET_PHONE_AUDIO_PROOF",
+  "status": "FAR_END_SPEECH_CONFIRMED_RECORDING_RETENTION_FIX_BUILDING",
+  "phase": "TARGET_PHONE_RECORDING_RETENTION_FIX",
   "repository": "OnTrack-Development/OnTrack-voice",
   "application_repo_path": "saas/",
   "host_application_path": "/home/appontrack/public_html/saas",
@@ -38,7 +38,7 @@
     "before_owner_start": "Report preparation complete and supply prompt/memory paths; do not bootstrap application.",
     "after_owner_start": "Inspect compatible PHP/Composer/build/MySQL inside isolated saas scope, establish application baseline and implement first authorized vertical slice.",
     "current_research_followup": "Read research report and perform only an authorized target-device audio proof; no device-control or successful call evidence available in research session.",
-    "current_mobile_build": "On the working configuration, confirm the far end heard the imported speech file after the beep, then have the far end speak a distinctive sentence and review the app recording. Preserve setup; no reset/re-pair. Export sanitized proof JSON. Exact APK version, direction, route and acoustic isolation remain unknown."
+    "current_mobile_build": "Install 0.1.2 after CI/signature verification, repeat the working one-call test, let the far end speak after playback, end the call normally, collect and listen to the saved recording, then copy/export verified JSON. Do not reset working setup."
   },
   "open_issue_ids": [
     "VOICE-001",
@@ -47,7 +47,9 @@
     "ENV-002",
     "CHANNEL-001",
     "VOICE-003",
-    "MOBILE-001"
+    "MOBILE-001",
+    "MOBILE-002",
+    "MOBILE-003"
   ],
   "last_successful_job": "saas-prepare-1793233067549",
   "evidence": [
@@ -105,6 +107,7 @@
     "status": "FAR_END_AUDIO_OWNER_REPORTED_CAPTURE_PENDING",
     "evidence": "docs/mobile/DEVICE_OBSERVATION_2026_10_30.json",
     "remote_speech_capture_verified": false,
-    "continuous_ai_duplex_verified": false
+    "continuous_ai_duplex_verified": false,
+    "imported_speech_file_explicitly_confirmed": true
   }
 }

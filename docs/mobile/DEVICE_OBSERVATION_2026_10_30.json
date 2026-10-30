@@ -8,7 +8,7 @@
   "observation": "Owner reports a beep and audio reaching the remote call participant.",
   "status": "FAR_END_AUDIO_OWNER_REPORTED_CAPTURE_PENDING",
   "far_end_audio_owner_reported": true,
-  "imported_speech_file_explicitly_confirmed": null,
+  "imported_speech_file_explicitly_confirmed": true,
   "digital_injection_isolated_from_acoustic_leakage": false,
   "remote_speech_capture_verified": false,
   "continuous_ai_duplex_verified": false,
@@ -26,5 +26,10 @@
     "Beep alone is insufficient; confirm the imported speech content and exclude acoustic leakage before digital-path acceptance.",
     "Inbound/outbound coverage, remote speech capture, live AI and reboot recovery remain pending."
   ],
-  "next_action": "On the working configuration, confirm the far end heard the imported speech file after the beep, then have the far end speak a distinctive sentence and review the app recording. Preserve setup; no reset/re-pair. Export sanitized proof JSON. Exact APK version, direction, route and acoustic isolation remain unknown."
+  "next_action": "Install 0.1.2 after CI/signature verification, repeat the working one-call test, let the far end speak after playback, end the call normally, collect and listen to the saved recording, then copy/export verified JSON. Do not reset working setup.",
+  "updated_at_utc": "2026-10-30T19:44:21.586769+00:00",
+  "latest_owner_statement_ar": "سمع الصوت اللي في الملف كامل واضح؛ مفيش تسجيلات موجوده؛ وأنا سمعت صوت الطرف الثاني",
+  "recording_list_owner_reported": "EMPTY",
+  "report_upload_owner_reported": "FILE_REPORTED_EMPTY",
+  "source_finding": "Pinned Main.stopRecording deletes outcome.test recordings intentionally; OnTrack overlay had retained this behavior."
 }

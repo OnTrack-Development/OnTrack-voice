@@ -51,9 +51,13 @@ class ProofActivity : ComponentActivity() {
         }
     }
     private val exporter = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri != null) work("جاري حفظ التقرير…") {
-            contentResolver.openOutputStream(uri)!!.use { it.write(report().toByteArray(Charsets.UTF_8)) }
-            "تم حفظ التقرير. التقرير لا يحتوي أرقام تليفونات أو صوتًا مسجلًا."
+        if (uri != null) work("جاري حفظ التقرير والتحقق من حجمه…", force = true) {
+            val snapshot = reportPrefs.getString("export_snapshot", null)
+                ?: error("لقطة التقرير غير موجودة؛ اضغط حفظ التقرير مرة أخرى")
+            val count = ProofExport.writeVerified(snapshot.toByteArray(Charsets.UTF_8),
+                { contentResolver.openOutputStream(uri, "wt") ?: error("تعذر فتح الملف للكتابة") },
+                { contentResolver.openInputStream(uri) ?: error("تعذر قراءة الملف للتحقق") })
+            "تم حفظ التقرير والتحقق منه: $count بايت. لا يحتوي أرقامًا أو تسجيلات صوت."
         }
     }
 
@@ -79,7 +83,7 @@ class ProofActivity : ComponentActivity() {
             column.addView(this)
         }
         text("OnTrack • اختبار صوت الشريحة", 23f)
-        text("نسخة اختبار 0.1.1 — تشخيص رد Android الأصلي، ثم اختبار صوت الشريحة. الاقتران وحده لا يثبت الصلاحيات أو الصوت.")
+        text("نسخة اختبار 0.1.2 — الاحتفاظ بتسجيل المكالمة وحفظ تقرير بحجم متحقق منه.")
         status = text("ابدأ بالإعداد لمرة واحدة، ثم ارجع للشاشة دي.", 18f)
         fun button(label: String, tracked: Boolean = true, action: () -> Unit) = Button(this).apply {
             text = label; isAllCaps = false; setOnClickListener { action() }; column.addView(this)
@@ -150,12 +154,37 @@ class ProofActivity : ComponentActivity() {
         button("٥ • قراءة نتيجة آخر اختبار") { work("جاري قراءة النتيجة…") {
             val fields = CaptureDaemon.testResult(this) ?: error("المساعد لم يرسل نتيجة")
             reportPrefs.edit().putString("test_result", JSONObject(fields).toString())
-                .putString("far_end_heard", "UNKNOWN").commit()
+                .commit()
             "إشارات الاختبار: ${JSONObject(fields).toString(2)}\nدي إشارات فنية؛ أكّد السماع من الطرف التاني، وراجع التسجيل من زر الإعداد."
         } }
+        button("٦ • جمع تسجيل الاختبار بعد انتهاء المكالمة") { work("جاري جمع التسجيلات المكتملة…") {
+            val watch = CaptureDaemon.watch(this) ?: error("مساعد الصوت غير متصل")
+            check(!watch.inCall && watch.recordingSince == 0L) { "انتظر انتهاء المكالمة قبل جمع التسجيل" }
+            val pendingFiles = CaptureDaemon.listPendingOrNull(this) ?: error("تعذر قراءة قائمة التسجيلات")
+            val outcomes = pendingFiles.map { name ->
+                when (val result = RecordingSaver.save(this, name, RecordingSaver.isIncoming(name), justEnded = false)) {
+                    is RecordingSaver.Outcome.Saved -> "Saved"
+                    is RecordingSaver.Outcome.Failed -> "Failed: ${result.reason}"
+                    else -> result.javaClass.simpleName
+                }
+            }
+            val recordings = Recordings.list(this, withCallers = false)
+            reportPrefs.edit().putString("recording_collection", JSONObject().apply {
+                put("at_ms", System.currentTimeMillis()); put("pending_count", pendingFiles.size)
+                put("outcomes", org.json.JSONArray(outcomes)); put("saved_count", recordings.size)
+                put("durations_ms", org.json.JSONArray(recordings.map { it.durationMillis }))
+            }.toString()).commit()
+            "التسجيلات المحفوظة: ${recordings.size}. نتائج الجمع: ${outcomes.ifEmpty { listOf("لا ملفات معلقة") }.joinToString()}\nافتح قائمة التسجيلات للاستماع؛ وجود ملف وحده لا يثبت وجود كلام الطرف الآخر."
+        } }
+        button("فتح قائمة التسجيلات والاستماع") { startActivity(Intent(this, MainActivity::class.java)) }
         button("الطرف التاني أكد سماع الملف") { confirmHearing("YES") }
         button("الطرف التاني لم يسمع الملف") { confirmHearing("NO") }
-        button("حفظ تقرير التشخيص JSON") { exporter.launch("ontrack-sim-audio-proof.json") }
+        button("حفظ تقرير التشخيص JSON") {
+            runCatching {
+                check(reportPrefs.edit().putString("export_snapshot", report()).commit()) { "تعذر تجهيز لقطة التقرير" }
+                exporter.launch("ontrack-sim-audio-proof.json")
+            }.onFailure { status.text = "تعذر تجهيز التقرير: ${it.message}. استخدم نسخ التقرير." }
+        }
         details = text("التسجيلات محلية ويمكن مراجعتها من شاشة الإعداد. لا ربط AI أو حملات في النسخة دي. بعد إعادة تشغيل الموبايل قد يلزم أول فتح للقفل وعودة Wi-Fi.", 14f)
         text("الصوت الأساسي مبني على JemRec / scrcpy — Apache-2.0. إشعارات المصدر والتعديلات مرفقة مع البناء.", 12f)
     }
@@ -201,7 +230,7 @@ class ProofActivity : ComponentActivity() {
     }
 
     private fun report(): String = JSONObject().apply {
-        put("app", "OnTrack SIM Audio Proof"); put("version", "0.1.1-audio-proof")
+        put("app", "OnTrack SIM Audio Proof"); put("version", "0.1.2-audio-proof")
         put("upstream_commit", "f011062adfb3a2154c4d5a9cc4394032fb4345f2")
         put("generated_at_ms", System.currentTimeMillis())
         put("manufacturer", Build.MANUFACTURER); put("model", Build.MODEL)
@@ -209,7 +238,10 @@ class ProofActivity : ComponentActivity() {
         put("build_fingerprint", Build.FINGERPRINT)
         put("route", AnsweringMachine.route(this@ProofActivity))
         for (key in listOf("voice_sha256", "direction", "far_end_heard")) put(key, reportPrefs.getString(key, "UNKNOWN"))
-        for (key in listOf("stage_one", "test_result", "setup_diagnostics")) put(key, JSONObject(reportPrefs.getString(key, "{}")!!))
+        for (key in listOf("stage_one", "test_result", "setup_diagnostics", "recording_collection")) {
+            put(key, runCatching { JSONObject(reportPrefs.getString(key, "{}") ?: "{}") }
+                .getOrElse { JSONObject().put("parse_error", true) })
+        }
         put("digital_capture_confirmed", false)
         put("full_duplex_ai_confirmed", false)
         put("note", "Source/build/route signals and manually reported hearing only. Review the remote speech recording separately. No phone numbers or audio included.")

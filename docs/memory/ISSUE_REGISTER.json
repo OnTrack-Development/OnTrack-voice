@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T19:34:29.600Z",
+  "updated_at_utc": "2026-10-30T19:44:21.586769+00:00",
   "issues": [
     {
       "id": "NET-001",
@@ -367,6 +367,58 @@
           "evidence": [
             "docs/mobile/DEVICE_OBSERVATION_2026_10_30.json"
           ]
+        }
+      ]
+    },
+    {
+      "id": "MOBILE-002",
+      "title": "Proof recordings deliberately deleted at call end",
+      "category": "mobile_audio_proof",
+      "severity": "high",
+      "status": "INVESTIGATING",
+      "first_seen": "2026-10-30",
+      "expected": "Retain call recording and produce nonempty inspectable JSON",
+      "actual": "Owner confirms no saved recordings. Full file heard at far end.",
+      "cause_confirmed": "Pinned shell Main.stopRecording deletes the diagnostic recording whenever outcome.test is true; earlier OnTrack overlay did not change this. This explains absence without proving capture content.",
+      "attempts": [
+        "ATT-20261030-RETAIN-PROOF-012"
+      ],
+      "verification": [
+        "docs/mobile/DEVICE_OBSERVATION_2026_10_30.json"
+      ],
+      "current_blocker": true,
+      "next_action": "Install 0.1.2 after CI/signature verification, repeat the working one-call test, let the far end speak after playback, end the call normally, collect and listen to the saved recording, then copy/export verified JSON. Do not reset working setup.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-30T19:44:21.586769+00:00",
+          "status": "INVESTIGATING",
+          "summary": "0.1.2 source fix prepared; CI and phone verification pending."
+        }
+      ]
+    },
+    {
+      "id": "MOBILE-003",
+      "title": "Exported JSON reported empty on upload",
+      "category": "mobile_audio_proof",
+      "severity": "high",
+      "status": "INVESTIGATING",
+      "first_seen": "2026-10-30",
+      "expected": "Retain call recording and produce nonempty inspectable JSON",
+      "actual": "Owner cannot upload saved report: reported empty. Exact file/provider/version unknown.",
+      "cause_confirmed": null,
+      "attempts": [
+        "ATT-20261030-RETAIN-PROOF-012"
+      ],
+      "verification": [
+        "docs/mobile/DEVICE_OBSERVATION_2026_10_30.json"
+      ],
+      "current_blocker": true,
+      "next_action": "Install 0.1.2 after CI/signature verification, repeat the working one-call test, let the far end speak after playback, end the call normally, collect and listen to the saved recording, then copy/export verified JSON. Do not reset working setup.",
+      "history": [
+        {
+          "recorded_at_utc": "2026-10-30T19:44:21.586769+00:00",
+          "status": "INVESTIGATING",
+          "summary": "0.1.2 source fix prepared; CI and phone verification pending."
         }
       ]
     }

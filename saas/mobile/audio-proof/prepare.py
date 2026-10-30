@@ -49,9 +49,26 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 2', 'versionCode')
+                        'versionCode = 3', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.1.1-audio-proof"', 'versionName')
+                        'versionName = "0.1.2-audio-proof"', 'versionName')
+    path.write_text(text)
+    # Upstream discards diagnostic-call recordings deliberately. Our proof
+    # needs the entire captured stream, including remote speech, for review.
+    # Preserve it and use the normal completed-file handoff (no message trim).
+    path = root / 'shellserver/src/com/jemcik/jemrec/shell/Main.java'
+    text = path.read_text()
+    start = text.index('        if (outcome != null && outcome.test) {', text.index('private static synchronized void stopRecording('))
+    end = text.index('        if (outcome != null) {', start)
+    text = text[:start] + (
+        '        if (outcome != null && outcome.test) {\n'
+        '            Ln.i("OnTrack proof: keeping complete test recording for local review");\n'
+        '            outcome = null; // retain the whole file, without message trimming\n'
+        '        }\n'
+    ) + text[end:]
+    stop_body = text[text.index('private static synchronized void stopRecording('):text.index('    /** Call end handling.')]
+    if '.delete()' in stop_body or 'wake(ACTION_CALL_ENDED, rec.incoming, name, rec.app);' not in stop_body:
+        raise SystemExit('Proof retention must preserve the completed-file handoff')
     path.write_text(text)
     path = root / 'shellserver/tests/src/com/jemcik/jemrec/shell/AnswerMachineTest.java'
     text = replace_once(path.read_text(), '    private void testCallGreeting() {',
