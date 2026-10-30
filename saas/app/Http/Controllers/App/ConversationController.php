@@ -19,9 +19,14 @@ class ConversationController extends Controller
     public function index(Request $request, string $workspace)
     {
         [$ws] = $this->context($request, $workspace);
+        $query = Conversation::where('tenant_id', $ws->tenant_id)->where('workspace_id', $ws->id);
+        if ($request->filled('channel')) {
+            $query->where('channel', $request->string('channel')->toString());
+        }
         return view('app.inbox.index', [
             'workspace' => $ws,
-            'conversations' => Conversation::where('tenant_id', $ws->tenant_id)->where('workspace_id', $ws->id)->latest()->get(),
+            'channel' => $request->string('channel')->toString(),
+            'conversations' => $query->latest()->get(),
         ]);
     }
 

@@ -54,6 +54,7 @@ class SocialController extends Controller
         $connection = SocialConnection::create([
             'tenant_id' => $ws->tenant_id,
             'workspace_id' => $ws->id,
+            'public_id' => str()->uuid()->toString(),
             'channel' => $data['channel'],
             'account_label' => $data['account_label'],
             'external_account_id' => $externalId,

@@ -1,13 +1,13 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد إضافة Knowledge Search وAgent Revisions**
+**آخر تحديث: 29 أكتوبر 2026 — بعد شريحة Telegram Webhook وSocial Inbox**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 55 اختبارًا / 231 assertion، ناجحة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 57 اختبارًا / 239 assertion، ناجحة |
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
@@ -21,6 +21,7 @@
 | Platform Admin Console | `IMPLEMENTED_LOCAL` — Dashboard/Models/Plans/Audit مع platform.admin 403 boundary |
 | Demo Mode | `IMPLEMENTED_LOCAL` — DemoSeeder وبيانات موسومة وحساب محلي تجريبي |
 | Social Registry | `IMPLEMENTED_LOCAL` — Telegram draft وcapability registry لـTelegram/Meta/Widget/WhatsApp؛ live external `PENDING_EXTERNAL` |
+| Telegram Webhook | `IMPLEMENTED_LOCAL` — secret، update dedupe، Conversation/Message tenant-scoped؛ Bot live `PENDING_EXTERNAL` |
 | Knowledge Search | `IMPLEMENTED_LOCAL` — نصي tenant-scoped على chunks، بلا ادعاء متجهي |
 | Agent Revisions | `IMPLEMENTED_LOCAL` — نسخ موقعة للإصدارات مرتبطة بالوكيل وعزلها |
 | WhatsApp Webhook | `IMPLEMENTED_LOCAL` — challenge، HMAC raw-body، dedupe؛ لا Meta live evidence |
@@ -93,6 +94,9 @@
 ### 19. Knowledge Search + Agent Revisions
 بحث نصي `LIKE` داخل قطع المعرفة مع عزل tenant وبدون ادعاء متجهي، و`agent_revisions` بترقيم إصدارات و`change_notes` وربط بالوكيل مع عزلها.
 
+### 20. Telegram Webhook + Social Inbox Registry
+Telegram الرسمي له endpoint موثق بـsecret و`update_id` dedupe، ويخلق محادثة ورسالة داخل Inbox المعزول. Registry يعلن القدرات الخاصة بكل قناة، وFacebook/Instagram تظل غير مفعلة حتى credentials/review/Meta evidence.
+
 ## أدلة الاختبار الفعلية
 
 البيئة: Laravel 12.70.2 / PHP 8.2.12 / SQLite.
@@ -142,7 +146,7 @@ PHP lint: all saas/app, saas/database, saas/routes, saas/tests = OK
 `docs/memory/INCIDENT_2026-10-29_CONTROL_CHANNEL_AR.md`.
 
 ## حزمة النشر
-`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-23`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
+`tools/pack_deploy.py` أنتجت الحزمة الحالية في `/tmp/deploy-jobs-24`: 6 chunks + final. تُعاد بعد كل تغيير ثم تُرسل بالتتابع بعد عودة العامل.
 
 ## الخطوة التالية بعد عودة العامل
 1. التحقق من `host-link-test.txt`.

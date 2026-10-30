@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('workspace_id')->constrained()->cascadeOnDelete();
+            $table->string('public_id', 80)->unique();
             $table->string('channel', 32);
             $table->string('account_label', 160);
             $table->string('external_account_id', 200)->nullable();

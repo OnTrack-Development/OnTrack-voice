@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\TelegramWebhookController;
 use App\Http\Controllers\Api\WidgetController;
 use App\Http\Controllers\Api\WhatsappWebhookController;
 use App\Http\Controllers\Marketing\PageController;
@@ -50,6 +51,7 @@ Route::post('/api/webhooks/meta/whatsapp/{publicId}', [WhatsappWebhookController
 Route::get('/api/widget/{publicKey}/config', [WidgetController::class, 'config']);
 Route::post('/api/widget/{publicKey}/start', [WidgetController::class, 'start']);
 Route::post('/api/widget/{publicKey}/message', [WidgetController::class, 'message']);
+Route::post('/api/webhooks/telegram/{publicId}', [TelegramWebhookController::class, 'receive']);
 
 Route::middleware(['auth', 'platform.admin'])->prefix('control')->name('control.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
