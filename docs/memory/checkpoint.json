@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T16:20:15.541Z",
+  "updated_at_utc": "2026-10-30T16:28:41.996Z",
   "display_timezone": "Africa/Cairo",
-  "status": "BUILDING_ANDROID_SETUP_DIAGNOSTIC_0_1_1",
-  "phase": "TARGET_PHONE_SETUP",
+  "status": "DIAGNOSTIC_APK_0_1_1_READY_PHONE_REPORT_PENDING",
+  "phase": "TARGET_PHONE_PERMISSION_DIAGNOSIS",
   "repository": "OnTrack-Development/OnTrack-voice",
   "application_repo_path": "saas/",
   "host_application_path": "/home/appontrack/public_html/saas",
@@ -38,7 +38,7 @@
     "before_owner_start": "Report preparation complete and supply prompt/memory paths; do not bootstrap application.",
     "after_owner_start": "Inspect compatible PHP/Composer/build/MySQL inside isolated saas scope, establish application baseline and implement first authorized vertical slice.",
     "current_research_followup": "Read research report and perform only an authorized target-device audio proof; no device-control or successful call evidence available in research session.",
-    "current_mobile_build": "Build diagnostic0.1.1 to retain/display raw grant and permission read-back; collect explicit per-user grant diagnostics. Do not repeat resets or alter unrelated Developer options."
+    "current_mobile_build": "Install diagnostic0.1.1 (different debug signer requires removing old test app), complete pairing, then collect/save raw permission report via the new diagnostic button. Do not repeat toggles or claim audio proof."
   },
   "open_issue_ids": [
     "VOICE-001",
@@ -81,13 +81,13 @@
   ],
   "latest_owner_authorization": "Build and deliver the Android audio-proof application/APK; use existing repo permissions.",
   "mobile_build": {
-    "status": "APK_BUILT_AND_VERIFIED",
-    "source_commit": "9b3120ec1d73ddb8f9d2f835624f3a93fbc54e2c",
-    "evidence": "docs/mobile/BUILD_STATUS.json",
-    "guide": "docs/mobile/AUDIO_PROOF_APP_AR.md",
-    "workflow_run_id": 41082229515,
-    "artifact_id": 12989349803,
-    "apk_sha256": "6e0c90970bd9b9f68a8e2e0e7b0131450b8e42794c0f73c602cd02ef2b6a7883"
+    "status": "DIAGNOSTIC_APK_BUILT_VERIFIED_DEVICE_REPORT_PENDING",
+    "version": "0.1.1-audio-proof",
+    "source_commit": "6fb040fa18e036066962ec5ff441fa71c4d2cff5",
+    "evidence": "docs/mobile/DIAGNOSTIC_BUILD_0_1_1.json",
+    "workflow_run_id": 41088969144,
+    "artifact_id": 12992159659,
+    "apk_sha256": "5ca2d8ba80dbd82d83e1eb2822b6e4e0f6ab906e748e1482db8163aeddbbfcfe"
   },
   "device_setup": {
     "status": "ANDROID_CONNECTED_PROTECTED_GRANT_REFUSED",

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "updated_at_utc": "2026-10-30T16:28:41.996Z",
+  "status": "DIAGNOSTIC_APK_BUILT_VERIFIED_DEVICE_REPORT_PENDING",
+  "version": "0.1.1-audio-proof",
+  "source_commit": "6fb040fa18e036066962ec5ff441fa71c4d2cff5",
+  "workflow_run_id": 41088969144,
+  "workflow_url": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/41088969144",
+  "artifact_id": 12992159659,
+  "artifact_expires_at_utc": "2026-11-29T16:24:12Z",
+  "archive_sha256": "1e5a0d38f00408f0b6a070f2cfdedd71a1d9ec4138bf516715fd422129c9f0d5",
+  "apk_sha256": "5ca2d8ba80dbd82d83e1eb2822b6e4e0f6ab906e748e1482db8163aeddbbfcfe",
+  "apk_bytes": 51071480,
+  "signature": "Signer #1 certificate DN: C=US, O=Android, CN=Android Debug\nSigner #1 certificate SHA-256 digest: d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f\nSigner #1 certificate SHA-1 digest: c0ec71d182f8c8be005aaf6dffc5a6cb6ba3d77d\nSigner #1 certificate MD5 digest: 9cc6a6d91db44316fd0288861e090c36\n",
+  "old_0_1_0_signature_different": true,
+  "installation_note": "Android cannot update0.1.0 in place with this different debug signer; uninstalling the old test app removes its local data. New private debug cache exists for subsequent builds while retained; it is not a production keystore backup.",
+  "debug_signing_cache_saved": true,
+  "checks": {
+    "overlay_prepare": "PASS",
+    "pcm_import_tests": "PASS",
+    "diagnostic_command_tests": "PASS",
+    "daemon_state_tests": "PASS",
+    "assemble_debug": "PASS",
+    "apksigner_verify": "PASS",
+    "downloaded_artifact_hash": "PASS",
+    "overlay_hashes": "PASS",
+    "diagnostic_class_in_apk": "PASS"
+  },
+  "phone_evidence": {
+    "adb": "OWNER_SCREENSHOT_CURRENTLY_CONNECTED",
+    "security_debugging": "OWNER_SCREENSHOT_ON",
+    "grant": "FRESH_REFUSAL_REPORTED_18_12_24",
+    "raw_exception": "NOT_YET_PROVIDED"
+  },
+  "permission_failure_fixed_on_phone": false,
+  "audio_verified": false,
+  "host_changed": false,
+  "log_excerpt": "2026-10-30T16:20:53.8222859Z Cache restored successfully\n2026-10-30T16:20:54.8271471Z Cache restored successfully\n2026-10-30T16:20:54.8950284Z Cache restored successfully\n2026-10-30T16:20:54.9025846Z Cache restored successfully\n2026-10-30T16:20:58.5235582Z Cache restored successfully\n2026-10-30T16:21:00.0512334Z Cache restored successfully\n2026-10-30T16:21:02.3384117Z Cache restored successfully\n2026-10-30T16:21:53.1463030Z > Task :daemon-tests:testClasses\n2026-10-30T16:21:55.8422181Z > Task :daemon-tests:test\n2026-10-30T16:22:14.0402934Z > Task :app:compileDebugKotlin\n2026-10-30T16:23:14.5417425Z > Task :app:testDebugUnitTest\n2026-10-30T16:23:14.6411154Z BUILD SUCCESSFUL in 2m 9s\n2026-10-30T16:23:30.0226850Z > Task :app:compileDebugKotlin UP-TO-DATE\n2026-10-30T16:24:10.8231761Z > Task :app:assembleDebug\n2026-10-30T16:24:10.9351785Z BUILD SUCCESSFUL in 55s\n2026-10-30T16:24:15.2002417Z SHA256 digest of uploaded artifact zip is 1e5a0d38f00408f0b6a070f2cfdedd71a1d9ec4138bf516715fd422129c9f0d5\n2026-10-30T16:24:30.6046368Z BUILD SUCCESSFUL in 10s"
+}
