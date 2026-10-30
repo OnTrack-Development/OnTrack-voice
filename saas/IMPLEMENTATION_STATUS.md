@@ -17,7 +17,7 @@
 | Conversation Core | `IMPLEMENTED_LOCAL` — Inbox عام، رد موظف، إيقاف AI مؤقت، وقفل بشري دائم |
 | WhatsApp Channels | `IMPLEMENTED_LOCAL` — 3 طرق onboarding وأسرار مشفرة؛ الاتصال الحي `PENDING_EXTERNAL` |
 | WhatsApp Pause Override | `IMPLEMENTED_LOCAL` — override لكل رقم 1..1440، wiring UI/schema؛ تطبيق runtime ينتظر inbound connection mapping |
-| Team / Memberships | `IMPLEMENTED_LOCAL` — فريق، أدوار، دعوات، قبول، إزالة، وحماية المالك الوحيد |
+| Team / Memberships | `IMPLEMENTED_LOCAL` — owner/admin/member policy، token-secure invitations، accept POST، منع إزالة/خفض آخر owner |
 | Platform Admin Console | `IMPLEMENTED_LOCAL` — Dashboard/Models/Plans/Audit مع platform.admin 403 boundary |
 | Demo Mode | `IMPLEMENTED_LOCAL` — DemoSeeder وبيانات موسومة وحساب محلي تجريبي |
 | AI Send Gate / Outbox | `IMPLEMENTED_LOCAL` — idempotent final gate يمنع الإرسال أثناء pause/lock/channel unavailable |

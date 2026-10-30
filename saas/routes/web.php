@@ -112,7 +112,8 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
     Route::post('/{workspace}/team/invite', [TeamController::class, 'invite'])->name('team.invite');
     Route::post('/{workspace}/team/{membership}/role', [TeamController::class, 'updateRole'])->name('team.updateRole');
     Route::post('/{workspace}/team/{membership}/remove', [TeamController::class, 'remove'])->name('team.remove');
-    Route::get('/invitations/{invitation}/accept', [TeamController::class, 'accept'])->name('team.accept');
+    Route::get('/invitations/{invitation}/{token}', [TeamController::class, 'showInvitation'])->name('team.invitation');
+    Route::post('/invitations/{invitation}/{token}/accept', [TeamController::class, 'accept'])->name('team.accept');
 
     Route::get('/{workspace}/operations', [OperationsController::class, 'index'])->name('operations.index');
 
