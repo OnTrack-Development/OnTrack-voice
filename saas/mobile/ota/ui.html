@@ -10,7 +10,7 @@
 <div class="card"><strong>تحديثات الواجهة OTA</strong><p class="small">الواجهة تتحدّث عند فتح التطبيق. أثناء المكالمة يتأجل تطبيق التحديث لنهايتها؛ الإعدادات والاقتران محفوظان.</p><div class="row"><button class="secondary" id="updates">فحص التحديثات</button><button class="secondary" id="rollback">الواجهة السابقة</button></div></div>
 <details><summary>عن الاتصال والصوت</summary><p class="small">المحرك هو محرك الموقع الحالي. ملف الصوت المستورد لاختبار الحقن، وليس استنساخًا حيًا لكل رد. تغييرات محرك أندرويد والصلاحيات تحتاج إصدار APK جديد. لا تستخدم اختبار الملف بالتزامن مع الربط.</p></details>
 <script>
-const el=id=>document.getElementById(id);const send=(command,data={})=>OnTrack.postMessage(JSON.stringify({command,...data}));
+const el=id=>document.getElementById(id);const send=(command,data={})=>OnTrack.postMessage(JSON.stringify({command,nonce:window.OTA_NONCE,...data}));
 window.onTrackInit=s=>{el('base').value=s.base;el('key').value=s.key;};
 window.onTrackState=s=>{el('status').textContent=s.status;el('version').textContent=`Android ${s.native} · UI OTA ${s.revision}`;el('start').disabled=s.running;el('key').disabled=s.running;el('base').disabled=s.running;el('rollback').disabled=s.inCall;};
 el('show').onclick=()=>el('key').type=el('key').type==='password'?'text':'password';

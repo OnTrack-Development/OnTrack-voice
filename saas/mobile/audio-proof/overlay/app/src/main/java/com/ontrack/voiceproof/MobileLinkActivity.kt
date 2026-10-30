@@ -21,6 +21,7 @@ class MobileLinkActivity:ComponentActivity(){
     private lateinit var banner:TextView
     private var ready=false
     private var generation=0
+    private var screenNonce=""
     private var updateBusy=false
     private var pending:MobileOta.Bundle?=null
     @SuppressLint("SetJavaScriptEnabled")
@@ -51,8 +52,9 @@ class MobileLinkActivity:ComponentActivity(){
     }
     private fun show(screen:MobileOta.Screen){
         ready=false;val current=++generation
+        screenNonce=java.util.UUID.randomUUID().toString()
         val policy="<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'\">"
-        web.loadDataWithBaseURL("https://ontrack-ui.invalid/",screen.html.replaceFirst("<head>","<head>"+policy),"text/html","UTF-8",null)
+        web.loadDataWithBaseURL("https://ontrack-ui.invalid/",screen.html.replaceFirst("<head>","<head>"+policy+"<script>window.OTA_NONCE="+JSONObject.quote(screenNonce)+";</script>"),"text/html","UTF-8",null)
         lifecycleScope.launch{delay(10000);if(!ready && current==generation){
             if(screen.revision>1){show(withContext(Dispatchers.IO){ota.rollback(true)});banner.text="تعذر فتح التحديث؛ رجعنا للواجهة السابقة"}
             else banner.text="تعذر فتح الواجهة؛ استخدم إعدادات الهاتف من شاشة التشخيص"
@@ -81,6 +83,7 @@ class MobileLinkActivity:ComponentActivity(){
             if(raw.length>2048)return
             runOnUiThread {lifecycleScope.launch{runCatching{
                 val msg=JSONObject(raw)
+                if(msg.optString("nonce")!=screenNonce)return@launch
                 when(msg.getString("command")){
                     "ready"->{ready=true;withContext(Dispatchers.IO){ota.confirm()};banner.text="الواجهة جاهزة • OTA ${ota.revision}";sendState()
                         val prefs=getSharedPreferences("ontrack_link",MODE_PRIVATE)
