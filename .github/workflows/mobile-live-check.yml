@@ -1,0 +1,21 @@
+name: Mobile Live Session Check
+on:
+  push:
+    branches: [main]
+    paths: ['tools/check_mobile_live.py', '.github/workflows/mobile-live-check.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 tools/check_mobile_live.py
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: mobile-live-check
+          path: mobile-live-check.json
+          retention-days: 7
