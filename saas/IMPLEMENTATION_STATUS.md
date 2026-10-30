@@ -1,13 +1,13 @@
 # حالة تنفيذ OnTrack SaaS
 
-**آخر تحديث: 29 أكتوبر 2026 — بعد اختبارات Admin Console وDemo Seed**
+**آخر تحديث: 29 أكتوبر 2026 — بعد AI Send Gate وOutbox**
 
 ## الحالة الدقيقة
 
 | النطاق | الحالة |
 |---|---|
 | مصدر التطبيق `saas/` في GitHub | `IMPLEMENTED_LOCAL` |
-| اختبارات التطبيق | `TESTED_LOCAL` — 60 اختبارًا / 249 assertion، ناجحة |
+| اختبارات التطبيق | `TESTED_LOCAL` — 63 اختبارًا / 255 assertion، ناجحة |
 | النشر على `public_html/saas` | `BLOCKED_EXTERNAL` — عامل host-link لا يستجيب |
 | قاعدة بيانات الإنتاج | `PENDING_EXTERNAL` — لا بيانات اعتماد MySQL |
 | النطاق الفرعي للمنصة | `PENDING_OWNER_DECISION` |
@@ -20,6 +20,7 @@
 | Team / Memberships | `IMPLEMENTED_LOCAL` — فريق، أدوار، دعوات، قبول، إزالة، وحماية المالك الوحيد |
 | Platform Admin Console | `IMPLEMENTED_LOCAL` — Dashboard/Models/Plans/Audit مع platform.admin 403 boundary |
 | Demo Mode | `IMPLEMENTED_LOCAL` — DemoSeeder وبيانات موسومة وحساب محلي تجريبي |
+| AI Send Gate / Outbox | `IMPLEMENTED_LOCAL` — idempotent final gate يمنع الإرسال أثناء pause/lock/channel unavailable |
 | Social Registry | `IMPLEMENTED_LOCAL` — Telegram draft وcapability registry لـTelegram/Meta/Widget/WhatsApp؛ live external `PENDING_EXTERNAL` |
 | Telegram Webhook | `IMPLEMENTED_LOCAL` — secret، update dedupe، Conversation/Message tenant-scoped؛ Bot live `PENDING_EXTERNAL` |
 | Knowledge Search | `IMPLEMENTED_LOCAL` — نصي tenant-scoped على chunks، بلا ادعاء متجهي |
@@ -97,13 +98,16 @@
 ### 20. Telegram Webhook + Social Inbox Registry
 Telegram الرسمي له endpoint موثق بـsecret و`update_id` dedupe، ويخلق محادثة ورسالة داخل Inbox المعزول. Registry يعلن القدرات الخاصة بكل قناة، وFacebook/Instagram تظل غير مفعلة حتى credentials/review/Meta evidence.
 
+### 21. AI Send Gate + Message Outbox
+`message_outbox` idempotent لكل tenant، و`AiSendGate` يعيد فحص المحادثة داخل transaction/row lock قبل إنشاء رسالة AI؛ يمنع `human_locked` و`ai_pause` والقناة غير المدعومة، ويمنع duplicate send.
+
 ## أدلة الاختبار الفعلية
 
 البيئة: Laravel 12.70.2 / PHP 8.2.12 / SQLite.
 
 ```text
 php artisan migrate --force
-22 custom migrations DONE (000001..000022)
+23 custom migrations DONE (000001..000023)
 
 php artisan test
 25 passed (90 assertions)
