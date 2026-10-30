@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-10-30T16:00:07.193Z",
+  "updated_at_utc": "2026-10-30T16:02:20.104Z",
   "issues": [
     {
       "id": "NET-001",
@@ -307,20 +307,26 @@
       "status": "INVESTIGATING",
       "first_seen": "2026-10-30",
       "expected": "Complete local ADB connection and protected-settings grant before starting audio proof",
-      "actual": "Owner screenshot says Already paired. Last visible detailed log reports Android refused debugging-settings changes and asks for USB debugging (Security settings). Current card reports unable to reach phone; owner closed/reopened app.",
+      "actual": "New owner screenshots confirm USB debugging and USB debugging (Security settings) are both ON. App still shows Finish connecting; Try again is disabled/busy and visible detailed log remains17:55:31. Wireless debugging inner page/port not yet provided.",
       "cause_confirmed": "Permission refusal was reported by app; actual Developer options switch state and current connection cause are not independently verified.",
-      "hypothesis": "Xiaomi USB debugging (Security settings) disabled or vendor grant restriction; current ADB reachability may be a separate follow-up.",
+      "hypothesis": "Current ADB connection/discovery or retry still in progress; disabled security switch is no longer a supported explanation for the present state. Protected grant success after enabling remains unverified.",
       "attempts": [
-        "ATT-20261030-XIAOMI-SETUP"
+        "ATT-20261030-XIAOMI-SETUP",
+        "ATT-20261030-XIAOMI-SECURITY-ON"
       ],
       "verification": [],
       "current_blocker": "Target phone setup; no SIM audio test yet",
-      "next_action": "Enable/check exact USB debugging (Security settings), retain Wi-Fi/Wireless debugging, retry once; inspect newest message if still blocked.",
+      "next_action": "Inspect Wireless debugging inner page showing IP/port and paired devices; retain pairing. Reconnect has six6-second discovery attempts plus connection time; grey button alone is not proof of permanent hang.",
       "history": [
         {
           "recorded_at_utc": "2026-10-30T16:00:07.193Z",
           "status": "INVESTIGATING",
           "summary": "User screenshot reviewed against pinned Setup.finish and ShellGrant source; pairing does not establish protected grant or audio."
+        },
+        {
+          "recorded_at_utc": "2026-10-30T16:02:20.104Z",
+          "status": "INVESTIGATING",
+          "summary": "Screenshots confirm Xiaomi security debugging ON; narrow next step to ADB connection/discovery rather than repeating permission-toggle advice."
         }
       ]
     }
