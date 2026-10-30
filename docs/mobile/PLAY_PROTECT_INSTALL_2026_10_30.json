@@ -1,0 +1,56 @@
+{
+  "recorded_at_utc": "2026-10-30T21:01:29.778919+00:00",
+  "issue": "MOBILE-005",
+  "owner_observation": "0.1.4 install blocked by Google Play Protect; App not installed",
+  "warning_text": "This app can request access to sensitive data. This can increase the risk of identity theft or financial fraud.",
+  "confirmed_source_fact": "Inherited manifest declares DebugNotificationCleaner NotificationListenerService; not required by SIM/Gemini bridge.",
+  "cause_assessment": "Warning matches documented Google enhanced fraud protection. Listener declaration is a directly matching trigger; exact proprietary device verdict is not available.",
+  "official_source": "https://developers.google.com/android/play-protect/warning-dev-guidance",
+  "change": "Remove listener service AND implementation; remove notification-access grants and optional UI; preserve debugging notification; keep package/signing lineage; do not disable Play Protect.",
+  "version": "0.1.5-mobile-link",
+  "build_status": "PENDING",
+  "phone_install_status": "PENDING",
+  "ai_duplex_verified": false,
+  "screenshots": [
+    {
+      "filename": "01-1000152839.jpg",
+      "sha256": "fb0aaf6934e5c56f0dda98a708f8ab2037303d66be310b64eb36cafc7acbf080"
+    },
+    {
+      "filename": "01-1000152840.jpg",
+      "sha256": "03f10934735f5fb9afa62cb6fe65ebae53c84ba0bf37cb56a944aa2768d076f8"
+    },
+    {
+      "filename": "01-1000152842.jpg",
+      "sha256": "a209daa9768ac2ce5039130f8ff51842c46178e05f6fe912d978537f9346ee36"
+    },
+    {
+      "filename": "01-1000152843.jpg",
+      "sha256": "2b5581c9f0487edc78525da95dbc597c9a8acb6df4526bfb62299475affda968"
+    },
+    {
+      "filename": "01-1000152846.jpg",
+      "sha256": "168ae0a1f972d3659190e13594d653aed9b6a6fc80cc6d36fc9f1bda33844652"
+    },
+    {
+      "filename": "01-1000152871.jpg",
+      "sha256": "7bfb26d414fa01067344da910a4afaed5cef2d20822015248c393b9b481cee7f"
+    },
+    {
+      "filename": "02-1000152841.jpg",
+      "sha256": "12c8bfe9cec191dc295261768088eafd0122d6e340f0647fcf37e92e7826b7bd"
+    },
+    {
+      "filename": "02-1000152845.jpg",
+      "sha256": "1e385b43d84093e199b7f6277d85f37616483aaee3ccb1db51db2a14255fd931"
+    },
+    {
+      "filename": "02-1000152870.jpg",
+      "sha256": "b10be8f5f5ceaf83111415a21096773218a10c74ba0e71a1d0c429f074e7f953"
+    },
+    {
+      "filename": "03-1000152844.jpg",
+      "sha256": "5913683ef1511197ccc753607cdcbc7ec552567fc1b5378568c8c1f473ab125e"
+    }
+  ]
+}

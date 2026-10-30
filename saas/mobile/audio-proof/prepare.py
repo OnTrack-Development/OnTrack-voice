@@ -49,9 +49,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 5', 'versionCode')
+                        'versionCode = 6', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.1.4-mobile-link"', 'versionName')
+                        'versionName = "0.1.5-mobile-link"', 'versionName')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
     text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")', 'mobile websocket transport')
@@ -173,6 +173,32 @@ def main(root):
                         'error(ShellGrant.advice(outcome, DeviceSkin.current(), ShellGrant.monitoring(property)) + '
                         '"\\n\\nAndroid response:\\n" + grant.take(3000))', 'display raw grant refusal')
     path.write_text(text)
+    # The SIM bridge does not need notification access. Remove the inherited
+    # listener capability, its grant path, and optional UI; never suppress the
+    # phone's own debugging notice. Keep only a non-service compatibility API.
+    path = root / 'app/src/main/java/com/jemcik/jemrec/ui/Setup.kt'
+    text = path.read_text()
+    start = text.index('        // Granted the same way and at the same moment as the permission above,')
+    end = text.index('        // Re-assert the off-Wi-Fi shield,', start)
+    text = text[:start] + text[end:]
+    start = text.index('    suspend fun grantNotificationAccess(context: Context): Boolean {')
+    end = text.index('\n    /**', start)
+    text = text[:start] + '    suspend fun grantNotificationAccess(context: Context): Boolean = false\n' + text[end:]
+    path.write_text(text)
+    path = root / 'app/src/main/java/com/jemcik/jemrec/ui/SettingsScreen.kt'
+    text = path.read_text()
+    start = text.index("            // Setup's debugging question, answerable again.")
+    end = text.index('\n        }\n\n        SettingsGroup("Troubleshooting")', start)
+    text = text[:start] + text[end:]
+    start = text.index('        if (state.voipEnabled.isNotEmpty()) {', text.index('SettingsGroup("Record calls in")'))
+    end = text.index('\n        SettingsFooter(', start)
+    text = text[:start] + text[end:]
+    start = text.index('            "These are not phone calls, so JemRec does not look them up')
+    end = text.index('\n        )', start)
+    text = text[:start] + '            "OnTrack does not read other apps\' notifications or collect messenger caller names.",' + text[end:]
+    path.write_text(text)
+    # Upstream banner classifier no longer exists; remove its obsolete unit test.
+    (root / 'app/src/test/java/com/jemcik/jemrec/capture/DebugNotificationCleanerTest.kt').unlink()
     # Launcher becomes the Arabic proof screen; upstream setup remains available.
     path = root / 'app/src/main/AndroidManifest.xml'
     android = '{http://schemas.android.com/apk/res/android}'
@@ -180,6 +206,9 @@ def main(root):
     ET.register_namespace('tools', 'http://schemas.android.com/tools')
     manifest = ET.parse(path)
     app = manifest.getroot().find('application')
+    for service in list(app.findall('service')):
+        if service.get(android + 'permission') == 'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE':
+            app.remove(service)
     app.set(android + 'label', 'OnTrack SIM Audio Test')
     app.set(android + 'icon', '@drawable/ontrack_icon')
     app.set(android + 'roundIcon', '@drawable/ontrack_icon')
@@ -215,8 +244,10 @@ def main(root):
         'This build does not establish compatibility or full duplex AI conversation on any device.\n')
     # Prove that the overlaid manifest does not request forbidden services.
     merged = (root / 'app/src/main/AndroidManifest.xml').read_text()
-    if 'BIND_ACCESSIBILITY_SERVICE' in merged or 'android.accessibilityservice' in merged:
-        raise SystemExit('Forbidden Accessibility declaration')
+    if any(x in merged for x in ['BIND_ACCESSIBILITY_SERVICE', 'android.accessibilityservice',
+                                  'BIND_NOTIFICATION_LISTENER_SERVICE', 'NotificationListenerService',
+                                  'android.permission.READ_SMS', 'android.permission.RECEIVE_SMS']):
+        raise SystemExit('Forbidden sensitive permission/service declaration')
     (root / 'ontrack-build-source.json').write_text(json.dumps({
         **LOCK, 'overlay_sha256': {str(p.relative_to(HERE)): hashlib.sha256(p.read_bytes()).hexdigest()
                                  for p in sorted((HERE / 'overlay').rglob('*')) if p.is_file()},

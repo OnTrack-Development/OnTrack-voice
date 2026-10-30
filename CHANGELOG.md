@@ -1,3 +1,7 @@
+## Android0.1.5 — install permission cleanup
+
+Remove inherited notification listener, notification grants and UI; keep debugging notices visible. Final APK permission guard added. Play Protect acceptance and live handset call pending. Host deployment report now confirms success.
+
 # سجل تغييرات المشروع
 
 ## 2026-10-30 — First owner-reported far-end audio
