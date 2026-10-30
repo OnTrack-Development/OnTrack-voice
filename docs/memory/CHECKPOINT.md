@@ -1,3 +1,7 @@
+## تحقق ميداني — OTA4 وHeartbeat من هاتف المالك (31 أكتوبر 2026)
+
+صورة الهاتف تؤكد فتح Android 0.1.7-ota وتشغيل UI OTA4 برسالة «الواجهة جاهزة • OTA 4» مع حالة «متصل — جاهز لمكالمة واردة أو اتصال من الهاتف». اختبار هوست حي `mobile-device-heartbeat-20261030T224309` نجح `exit_code=0` الساعة 22:44:02 UTC؛ أحدث heartbeat كان 22:44:01 UTC (العمر 1 ثانية)، `settings_enabled=true`، `auto_answer_enabled=true`، `settings_revision=4`. مصدر التقرير: `ops/host-link/results/appontrack-server11/mobile-device-heartbeat-20261030T224309.json` في الفرع `ontrack-host-link`. هذه أدلة تشغيل UI وطلبات الإعدادات من الهاتف، ولا تثبت اتصال AI/SIM صوتي ثنائي الاتجاه بعد. الخطوة التالية: مكالمة واردة فعلية من رقم ثانٍ وقياس الإجابة والتقاط الصوت والرد.
+
 ## أحدث عطل — WebView منع الصفحة المحلية، إصلاحNative0.1.7
 
 صورةالمالكبعد0.1.6تظهرتحميلOTAثمWebpage not available علىdata:text/htmlمعHTTP_RESPONSE_CODE_FAILURE. الكودكانيعيد403لكلطلب،بلامساريسمحويخدمHTMLالمحلي؛هذاعيبفيالنسخةالمسلّمةولايتعلقبمفتاحالمكالمات401.0.1.7يستبدلالتحميلبصفحةHTTPSافتراضيةمحددةلكلrender،وتُخدم200منالـHTMLالموقّعفقطللـmainGET؛كلالمواردالأخرىتبقىمحجوبة. أزرارNativeللتشخيصوالاسترجاعتبقىمتاحةإنفشلWebView. نضيفاختبارinstrumentationلـAndroidWebViewAPI34قبلالتسليم؛ البناءوالهاتفغيرمثبتينبعد.
