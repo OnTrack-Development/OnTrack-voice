@@ -44,5 +44,18 @@
     "Do not uninstall previous package or clear settings",
     "Do not turn off Play Protect",
     "No claim of phone install or AI/SIM duplex until actually verified"
-  ]
+  ],
+  "remediation": {
+    "status": "VERIFIED_APK_PRODUCED_NOT_YET_INSTALLED_ON_HANDSET",
+    "workflow_run": 41138550376,
+    "artifact_id": 13017885948,
+    "filename": "OnTrack-SIM-Audio-Test-0.1.7-SIGNED-FIX.apk",
+    "apk_sha256": "d723c9ec7624e12e447b848ee86f3e9ebc34118468b589bde89f46483b9c11ea",
+    "package_name": "com.ontrack.voiceproof",
+    "version_code": 8,
+    "certificate_sha256": "d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f",
+    "signing_verified": true,
+    "delivery": "GitHub Actions artifact and direct conversation attachment",
+    "device_install_pending": true
+  }
 }
