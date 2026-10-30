@@ -1,3 +1,7 @@
+## قرار معتمد — Phone Control Center / سياسة رد بعد 5 ثوانٍ (2026-10-31)
+
+اعتمد المالك مواصفات تجريبية على مستوى الخط/الشركة: `auto_answer=ON`، `answer_mode=after_delay`، `delay_seconds=5`، `agent=sales`، **دون تفعيل إنتاجي حتى الاختبار**. تفاصيل الـstate machine والأمان والقيود الرسمية على Android والـAPI/RBAC واختبارات E2E في [PHONE_CONTROL_CENTER_SPEC_AR.md](../architecture/PHONE_CONTROL_CENTER_SPEC_AR.md) (commit `8ccdd2d74279c4b72b72dd62f90d685fa343b9ac`). المصدر الحالي يرد فورًا عند RINGING، لا يضم مؤقتًا ولا Agent ID متعدد الشركات؛ لا يتم تغيير الربط الصوتي العامل أو قناة `mix` حتى اختبار السياسة الجديدة.
+
 ## تحقق ميداني — OTA4 وHeartbeat من هاتف المالك (31 أكتوبر 2026)
 
 صورة الهاتف تؤكد فتح Android 0.1.7-ota وتشغيل UI OTA4 برسالة «الواجهة جاهزة • OTA 4» مع حالة «متصل — جاهز لمكالمة واردة أو اتصال من الهاتف». اختبار هوست حي `mobile-device-heartbeat-20261030T224309` نجح `exit_code=0` الساعة 22:44:02 UTC؛ أحدث heartbeat كان 22:44:01 UTC (العمر 1 ثانية)، `settings_enabled=true`، `auto_answer_enabled=true`، `settings_revision=4`. مصدر التقرير: `ops/host-link/results/appontrack-server11/mobile-device-heartbeat-20261030T224309.json` في الفرع `ontrack-host-link`. هذه أدلة تشغيل UI وطلبات الإعدادات من الهاتف، ولا تثبت اتصال AI/SIM صوتي ثنائي الاتجاه بعد. الخطوة التالية: مكالمة واردة فعلية من رقم ثانٍ وقياس الإجابة والتقاط الصوت والرد.
