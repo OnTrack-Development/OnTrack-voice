@@ -21,6 +21,11 @@ try {
     $item=pilot_read('contacts')[0];expect($item['do_not_call']===true,'dnc_persisted');
     $row=pilot_campaign_create('Pilot','2026-11-01T10:00','2026-11-01T12:00','Introduction only');
     expect($row['status']==='draft' && $row['eligible_contacts_snapshot']===1,'campaign_guard');
+    $preview=pilot_campaign_preview($row['id']);expect(count($preview['eligible'])===1 && $preview['excluded']===1 && $preview['auto_dial_enabled']===false,'dnc_preview');
+    $paused=pilot_campaign_transition($row['id'],'pause');expect($paused['status']==='paused','pause');
+    $resumed=pilot_campaign_transition($row['id'],'resume');expect($resumed['status']==='draft','resume');
+    $cancelled=pilot_campaign_transition($row['id'],'cancel');expect($cancelled['status']==='cancelled','cancel');
+    try{pilot_campaign_transition($row['id'],'resume');throw new RuntimeException('accepted_cancelled_resume');}catch(InvalidArgumentException $e){}
     try{pilot_campaign_create('Wrong','2026-11-02T12:00','2026-11-01T10:00','x');throw new RuntimeException('accepted_invalid_schedule');}
     catch(InvalidArgumentException $e){}
     $temp=tempnam(sys_get_temp_dir(),'pilot-csv-');file_put_contents($temp,"Ahmed,+201012345678\nMona,+201112345678\n");
