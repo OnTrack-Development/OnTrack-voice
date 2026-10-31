@@ -30,6 +30,8 @@ class MobileLinkService:Service() {
         const val ACTION_DISABLE="com.ontrack.voiceproof.DISABLE"
         const val ACTION_TAKEOVER="com.ontrack.voiceproof.TAKEOVER"
         const val ACTION_SPEAKER="com.ontrack.voiceproof.SPEAKER"
+        const val ACTION_CAMPAIGN_ENABLE="com.ontrack.voiceproof.CAMPAIGN_ENABLE"
+        const val ACTION_CAMPAIGN_DISABLE="com.ontrack.voiceproof.CAMPAIGN_DISABLE"
         // Kept for pre-0.1.9 notifications, mapped to server disable.
         const val ACTION_PAUSE="com.ontrack.voiceproof.PAUSE"
         @Volatile var running=false
@@ -58,6 +60,7 @@ class MobileLinkService:Service() {
     private var loop:Job?=null
     private var callEventFlush:Job?=null
     private lateinit var callEventOutbox:CallEventOutbox
+    private lateinit var campaignDialer:CampaignDialer
     private var connectivity:ConnectivityManager?=null
     private var networkListener:ConnectivityManager.NetworkCallback?=null
     @Volatile private var takeoverRequested=false
@@ -102,6 +105,10 @@ class MobileLinkService:Service() {
         super.onCreate()
         overlay=CallOverlay(this)
         callEventOutbox=CallEventOutbox(this)
+        campaignDialer=CampaignDialer(this,{payload->
+            request(base(prefs().getString("base","")?:"")+"saas/mobile/campaigns_api.php",
+                prefs().getString("key","")?:"",payload)
+        },::notice)
         pendingDesired=when(prefs().getString("pending_agent_enabled",null)){
             "true"->true
             "false"->false
@@ -123,6 +130,20 @@ class MobileLinkService:Service() {
         startForeground(701,notification(latestStatus))
         val action=intent?.action
         when(action){
+            ACTION_CAMPAIGN_DISABLE->{
+                prefs().edit().putBoolean("campaign_opt_in",false).commit()
+                notice("تم إيقاف تنفيذ الحملات على الشريحة")
+                return START_STICKY
+            }
+            ACTION_CAMPAIGN_ENABLE->{
+                val permitted=androidx.core.content.ContextCompat.checkSelfPermission(
+                    this,android.Manifest.permission.CALL_PHONE)==android.content.pm.PackageManager.PERMISSION_GRANTED
+                if(permitted && prefs().getString("key","").orEmpty().length>=24) {
+                    prefs().edit().putBoolean("campaign_opt_in",true).commit()
+                    notice("الحملات مفعلة — للجدول المعتمد والأرقام المصرح بها فقط")
+                }else notice("يجب منح إذن الاتصال وربط الهاتف قبل تفعيل الحملات")
+                return START_STICKY
+            }
             ACTION_TAKEOVER->{
                 if(callAnswered && !humanControl){
                     takeoverRequested=true;humanControl=true
@@ -259,6 +280,8 @@ class MobileLinkService:Service() {
                         call?.stop();call=null;callSeen=false;ringingAt=0;answerIssued=false
                         takeoverRequested=false;humanControl=false;recoveringActiveCall=false
                     }
+                    runCatching { campaignDialer.tick(state,agentEnabled) }
+                        .onFailure { notice("فحص الحملات لم يكتمل: "+it.javaClass.simpleName) }
                     lastState=state
                     if(SystemClock.elapsedRealtime()-lastReport>4000){
                         lastReport=SystemClock.elapsedRealtime()
