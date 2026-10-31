@@ -4,7 +4,7 @@ declare(strict_types=1);
 /** Isolated single-device demo store. No campaign is ever auto-dialed here. */
 function pilot_store_root(): string { return MOBILE_STORE.'/pilot'; }
 function pilot_read(string $kind): array {
-    if (!in_array($kind,['contacts','campaigns'],true))throw new InvalidArgumentException('invalid_kind');
+    if (!in_array($kind,['contacts','campaigns','attempts'],true))throw new InvalidArgumentException('invalid_kind');
     $path=pilot_store_root().'/'.$kind.'.json';
     if (!is_file($path) || filesize($path)>3000000)return [];
     $value=json_decode((string)file_get_contents($path),true);
@@ -122,4 +122,76 @@ function pilot_campaign_preview(string $id): array {
         $eligible[]=['id'=>$contact['id'],'name'=>$contact['name'],'phone'=>$contact['phone']];
     }
     return ['campaign'=>$found,'eligible'=>$eligible,'excluded'=>$blocked,'auto_dial_enabled'=>false];
+}
+
+/** The only state that permits SIM dispatch is explicitly armed by the owner. */
+function pilot_campaign_arm(string $id): array {
+    return pilot_transaction(static function()use($id):array{
+        $campaigns=pilot_read('campaigns');
+        $now=new DateTimeImmutable('now',new DateTimeZone('Africa/Cairo'));
+        foreach($campaigns as &$campaign) {
+            if(!hash_equals((string)$campaign['id'],$id))continue;
+            if(($campaign['status']??'')!=='draft')throw new InvalidArgumentException('not_draft');
+            if(new DateTimeImmutable($campaign['ends_at'])<=$now)throw new InvalidArgumentException('expired_window');
+            $eligible=array_filter(pilot_read('contacts'),static fn($r)=>!empty($r['consented'])&&empty($r['do_not_call']));
+            if(!$eligible)throw new InvalidArgumentException('no_consented_contacts');
+            $campaign['status']='ready';$campaign['armed_at']=gmdate('c');
+            $updated=$campaign;unset($campaign);
+            pilot_atomic('campaigns',$campaigns);
+            return $updated;
+        }
+        throw new InvalidArgumentException('campaign_not_found');
+    });
+}
+/**
+ * Single-device exclusive claim. A claimed number is NEVER automatically retried
+ * even if the device crashes, loses its network, or fails to acknowledge the call.
+ */
+function pilot_campaign_claim(): ?array {
+    return pilot_transaction(static function():?array{
+        $campaigns=pilot_read('campaigns');$contacts=pilot_read('contacts');
+        $attempts=pilot_read('attempts');
+        $now=new DateTimeImmutable('now',new DateTimeZone('Africa/Cairo'));
+        foreach($attempts as $attempt)if(($attempt['status']??'')==='leased')return null;
+        foreach($campaigns as $campaign){
+            if(($campaign['status']??'')!=='ready')continue;
+            if($now<new DateTimeImmutable($campaign['starts_at'])||$now>=new DateTimeImmutable($campaign['ends_at']))continue;
+            $latest=0;
+            foreach($attempts as $attempt)if(($attempt['campaign_id']??'')===$campaign['id']) {
+                $latest=max($latest,(int)($attempt['leased_epoch']??0));
+            }
+            if($latest>0 && time()-$latest<60)return null;
+            foreach($contacts as $contact){
+                if(empty($contact['consented'])||!empty($contact['do_not_call']))continue;
+                $already=false;
+                foreach($attempts as $attempt)if(($attempt['campaign_id']??'')===$campaign['id']&&($attempt['contact_id']??'')===$contact['id']){$already=true;break;}
+                if($already)continue;
+                $claim=['id'=>bin2hex(random_bytes(16)),'campaign_id'=>$campaign['id'],
+                    'contact_id'=>$contact['id'],'phone'=>$contact['phone'],
+                    'name'=>$contact['name'],'status'=>'leased','leased_epoch'=>time(),
+                    'created_at'=>gmdate('c')];
+                $attempts[]=$claim;
+                pilot_atomic('attempts',$attempts);
+                return $claim;
+            }
+        }
+        return null;
+    });
+}
+function pilot_campaign_finish(string $id,string $result): array {
+    if(!in_array($result,['completed','failed','unknown'],true))throw new InvalidArgumentException('result');
+    return pilot_transaction(static function()use($id,$result):array{
+        $attempts=pilot_read('attempts');
+        foreach($attempts as &$attempt){
+            if(!hash_equals((string)$attempt['id'],$id))continue;
+            if(($attempt['status']??'')!=='leased') {
+                if(($attempt['status']??'')===$result)return $attempt;
+                throw new InvalidArgumentException('attempt_already_finished');
+            }
+            $attempt['status']=$result;$attempt['finished_at']=gmdate('c');
+            $out=$attempt;unset($attempt);pilot_atomic('attempts',$attempts);
+            return $out;
+        }
+        throw new InvalidArgumentException('attempt_not_found');
+    });
 }
