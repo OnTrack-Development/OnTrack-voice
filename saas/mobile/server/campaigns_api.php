@@ -17,6 +17,11 @@ try {
     if($action==='claim'){
         mobile_json(['ok'=>true,'claim'=>pilot_campaign_claim(),'dial_requested'=>false]);
     }
+    if($action==='verify'){
+        $attempt=(string)($data['attempt_id']??'');
+        if(!preg_match('/^[a-f0-9]{32}$/D',$attempt))throw new InvalidArgumentException('attempt_id');
+        mobile_json(['ok'=>true,'verification'=>pilot_campaign_verify_claim($attempt)]);
+    }
     if($action==='finish'){
         $attempt=(string)($data['attempt_id']??'');
         if(!preg_match('/^[a-f0-9]{32}$/D',$attempt))throw new InvalidArgumentException('attempt_id');
