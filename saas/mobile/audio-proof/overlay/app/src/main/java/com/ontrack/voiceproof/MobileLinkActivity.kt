@@ -141,16 +141,29 @@ class MobileLinkActivity:ComponentActivity(){
         check(!nativeBusy){"هناك تحديث قيد التنفيذ"}
         if(nativeRelease==null)checkNativeUpdates()
         val release=nativeRelease?:run{nativeStatus="أحدث إصدار مثبت بالفعل";sendState();return}
+        if(nativeUpdates.installPending()){
+            nativeStatus="تم تنزيل التحديث بالفعل؛ جاري انتظار تأكيد التثبيت من Android"
+            sendState();return
+        }
+        if(!nativeUpdates.canInstallPackages()){
+            nativeStatus="يلزم السماح بالتثبيت من OnTrack مرة واحدة بواسطة Android"
+            nativeUpdates.openInstallPermission()
+            sendState();return
+        }
         nativeBusy=true
         try{
-            nativeStatus="تنزيل تحديث Android من OnTrack…";sendState()
+            val already=withContext(Dispatchers.IO){nativeUpdates.cached(release)}
+            nativeStatus=if(already)"ملف التحديث محفوظ ومُتحقق منه؛ جارٍ فتح مثبت Android…"
+                else "تنزيل تحديث Android من OnTrack…"
+            sendState()
             val file=nativeUpdates.download(release){percentage->
                 runOnUiThread{nativeStatus="تحميل التحديث: $percentage%";sendState()}
             }
             check(!MobileLinkService.inCall){"المكالمة جارية؛ ثبّت بعد انتهائها"}
-            nativeStatus=if(nativeUpdates.requestInstall(file))
-                "تم تسليم APK إلى مثبت Android؛ أكمل موافقة النظام"
-            else "اسمح بتثبيت التحديث من OnTrack ثم اضغط تثبيت التحديث مجددًا"
+            val accepted=withContext(Dispatchers.IO){nativeUpdates.requestInstall(file)}
+            nativeStatus=if(accepted)
+                "التحديث محفوظ؛ بانتظار موافقة Android على التثبيت (لا حاجة لإعادة التحميل)"
+            else "اسمح بالتثبيت من OnTrack؛ ملف التحديث سيظل محفوظًا"
         }catch(t:Throwable){
             if(t is CancellationException)throw t
             nativeStatus="تعذّر تحديث Android: "+(t.message?:t.javaClass.simpleName)
@@ -163,7 +176,10 @@ class MobileLinkActivity:ComponentActivity(){
             .put("agentEnabled",MobileLinkService.agentEnabled).put("connected",MobileLinkService.connected).put("pendingSync",MobileLinkService.pendingSync).put("serverRevision",MobileLinkService.serverRevision)
             .put("overlayGranted",Settings.canDrawOverlays(this)).put("revision",ota.revision)
             .put("nativeUpdateAvailable",nativeRelease!=null).put("nativeUpdateBusy",nativeBusy)
-            .put("nativeUpdateStatus",nativeStatus).put("nativeUpdateVersion",nativeRelease?.versionName?:"").put("native",ota.nativeVersion).put("updating",updateBusy)
+            .put("nativeUpdateStatus",nativeStatus)
+            .put("nativeInstallPending",nativeUpdates.installPending())
+            .put("nativeInstallPermission",nativeUpdates.canInstallPackages())
+            .put("nativeUpdateVersion",nativeRelease?.versionName?:"").put("native",ota.nativeVersion).put("updating",updateBusy)
         web.evaluateJavascript("window.onTrackState && window.onTrackState($state)",null)
     }
     inner class Bridge{
