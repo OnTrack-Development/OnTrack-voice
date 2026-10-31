@@ -15,6 +15,8 @@ $allowed=!empty($_SESSION['mobile_admin']);
 $_SESSION['csrf']??=bin2hex(random_bytes(24));
 if ($allowed && $_SERVER['REQUEST_METHOD']==='POST' && (isset($_POST['save']) || isset($_POST['toggle']))) {
     if (!hash_equals($_SESSION['csrf'],(string)($_POST['csrf']??''))) {http_response_code(403);exit('csrf');}
+    $controlLock=fopen(MOBILE_STORE.'/control.lock','c');
+    if (!$controlLock || !flock($controlLock,LOCK_EX)) {http_response_code(503);exit('control_unavailable');}
     $old=mobile_settings(); $data=$old;
     if(isset($_POST['toggle'])) {
         if(!in_array($_POST['toggle'],['on','off'],true)){http_response_code(400);exit('invalid action');}
@@ -30,7 +32,8 @@ if ($allowed && $_SERVER['REQUEST_METHOD']==='POST' && (isset($_POST['save']) ||
         $data['response_style']='short_ar_egyptian';
     }
     $data['revision']=(int)$old['revision']+1;
-    mobile_store($data);$saved=true;
+    try {mobile_store($data);$saved=true;}
+    finally {flock($controlLock,LOCK_UN);fclose($controlLock);}
 }
 $s=mobile_settings();
 $seen=json_decode((string)@file_get_contents(MOBILE_STORE.'/device-seen.json'),true);
@@ -61,8 +64,8 @@ textarea{min-height:245px;resize:vertical;line-height:1.8}select{cursor:pointer}
 .login{max-width:440px;margin:75px auto;background:var(--panel);padding:28px;border:1px solid var(--line);border-radius:18px}
 @media(max-width:850px){.cards,.content{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.shell{padding:15px}}
 </style></head><body><main class="shell">
-<nav class="nav"><div class="brand"><span class="logo">OT</span><div>OnTrack Voice<div class="sub">Operations & AI Call Control</div></div></div>
-<span class="pill">Single-device pilot · ليست لوحة SaaS متعددة الشركات بعد</span></nav>
+<nav class="nav"><div class="brand"><span class="logo">OT</span><div>OnTrack Voice<div class="sub">OnTrack Development · Voice Operations</div></div></div>
+<span class="pill">OnTrack Development • إدارة الاتصال</span></nav>
 <?php if(!$allowed):?>
 <div class="login"><h1>تسجيل الدخول</h1><p>دخول مشرف تجربة ربط الشريحة</p>
 <form method="post"><label for="key">مفتاح الإدارة</label><input id="key" name="key" type="password" autocomplete="current-password" required>
@@ -75,7 +78,7 @@ textarea{min-height:245px;resize:vertical;line-height:1.8}select{cursor:pointer}
 <?php if($saved):?><div class="toast" role="status">تم حفظ الإعدادات. سيجلب الهاتف التغيير في دورة التحديث القادمة، وإعدادات المحادثة الجديدة تبدأ من المكالمة التالية.</div><?php endif?>
 <section class="cards">
 <div class="card"><div class="muted">حالة الهاتف</div><div class="metric"><span class="dot <?=$online?'':'off'?>"></span><?=$online?'متصل':'غير متصل'?></div><div class="muted">آخر اتصال: <?=e((string)($seen['seen_at']??'لم يتصل بعد'))?></div></div>
-<div class="card"><div class="muted">حالة AI Agent</div><div class="metric"><?=$s['enabled']?'مفعّل':'متوقف'?></div><div class="muted">يمكن إيقافه من هنا أو من التطبيق</div></div>
+<div class="card"><div class="muted">حالة AI Agent</div><div class="metric"><?=$s['enabled']?'مفعّل':'متوقف'?></div><div class="muted">الحالة المطلوبة من السيرفر؛ حالة التطبيق الفعلية تظهر في بطاقة المكالمة</div></div>
 <div class="card"><div class="muted">المكالمة اللحظية</div><div class="metric" id="liveCallState">جاري القراءة…</div><div class="muted" id="liveCallNote">بيانات بدون أرقام أو صوت، تحديث كل 5 ثوانٍ</div></div>
 <div class="card"><div class="muted">سياسة الوارد</div><div class="metric"><?=$s['auto_answer']?'رد تلقائي':'يدوي'?></div><div class="muted">بعد <?=intval($s['answer_delay_seconds']??5)?> ثوانٍ على النسخة الداعمة • Revision <?=intval($s['revision'])?></div></div>
 </section>
@@ -117,7 +120,9 @@ async function readCallStatus(){
   const state=document.getElementById('liveCallState');
   const note=document.getElementById('liveCallNote');
   state.textContent=phaseNames[data.phase]||'حالة غير معروفة';
-  note.textContent=data.fresh?'حالة مباشرة • إعدادات #'+data.policy_revision:'لم يصل تقرير حديث من الهاتف';
+  note.textContent=!data.fresh?'الهاتف غير متصل • حالة التطبيق غير مؤكدة':
+    data.synchronized?'تم تطبيق نفس حالة التشغيل على الهاتف والسيرفر • #'+data.desired_revision:
+    'جاري مزامنة حالة الهاتف مع السيرفر • #'+data.desired_revision;
  }catch(e){document.getElementById('liveCallState').textContent='غير متاح';}
 }
 readCallStatus();setInterval(readCallStatus,5000);
