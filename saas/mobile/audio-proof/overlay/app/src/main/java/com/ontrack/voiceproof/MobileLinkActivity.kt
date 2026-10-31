@@ -30,6 +30,8 @@ class MobileLinkActivity:ComponentActivity(){
     private var nativeBusy=false
     private var nativeStatus="جاري فحص تحديث Android"
     private var lastNativeInstallResult=""
+    @Volatile private var wifiFreeEnabledState=false
+    @Volatile private var wifiFreeReadyState=false
     private lateinit var banner:TextView
     private var splash:OnTrackLaunchScreen?=null
     private var ready=false
@@ -76,7 +78,16 @@ class MobileLinkActivity:ComponentActivity(){
             show(withContext(Dispatchers.IO){ota.screen(recover=true)})
             checkUpdates()
             checkNativeUpdates()
+            var polls=0
             while(isActive){
+                if(polls++%5==0){
+                    val state=withContext(Dispatchers.IO){
+                        val sw=com.ontrack.voiceproof.capture.StartWithoutWifi
+                        Pair(sw.enabled(this@MobileLinkActivity),sw.ready(this@MobileLinkActivity))
+                    }
+                    wifiFreeEnabledState=state.first
+                    wifiFreeReadyState=state.second
+                }
                 sendState()
                 if(pending!=null && !MobileLinkService.inCall){val next=pending!!;pending=null;activate(next)}
                 delay(1000)
@@ -182,7 +193,7 @@ class MobileLinkActivity:ComponentActivity(){
                     this@MobileLinkActivity,
                     request=com.ontrack.voiceproof.capture.CaptureDaemon.Request.USER)
             }
-            if(!ok || !feature.ready(this)){
+            if(!ok || !withContext(Dispatchers.IO){feature.ready(this@MobileLinkActivity)}){
                 feature.setEnabled(this,false)
                 error("هذا الهاتف لم ينجح في تشغيل ADB المحلي الثابت؛ لم يُفعّل وضع بلا Wi-Fi")
             }
@@ -194,7 +205,7 @@ class MobileLinkActivity:ComponentActivity(){
                     this@MobileLinkActivity,
                     request=com.ontrack.voiceproof.capture.CaptureDaemon.Request.USER)
             }
-            banner.text=if(feature.ready(this))
+            banner.text=if(withContext(Dispatchers.IO){feature.ready(this@MobileLinkActivity)})
                 "المنفذ ما زال مفتوحًا؛ أوقف USB debugging من إعدادات المطوّر لإغلاقه"
             else "تم تعطيل مسار الاتصال بدون Wi-Fi"
         }
@@ -211,8 +222,8 @@ class MobileLinkActivity:ComponentActivity(){
             .put("nativeUpdateStatus",nativeStatus)
             .put("nativeInstallPending",nativeUpdates.installPending())
             .put("nativeInstallPermission",nativeUpdates.canInstallPackages())
-            .put("wifiFreeEnabled",com.ontrack.voiceproof.capture.StartWithoutWifi.enabled(this))
-            .put("wifiFreeReady",com.ontrack.voiceproof.capture.StartWithoutWifi.ready(this))
+            .put("wifiFreeEnabled",wifiFreeEnabledState)
+            .put("wifiFreeReady",wifiFreeReadyState)
             .put("nativeUpdateVersion",nativeRelease?.versionName?:"").put("native",ota.nativeVersion).put("updating",updateBusy)
         web.evaluateJavascript("window.onTrackState && window.onTrackState($state)",null)
     }
