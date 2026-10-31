@@ -1,0 +1,13 @@
+{
+  "job_id": "mobile-020-live-security-verify",
+  "target": "appontrack-server11",
+  "job_sha256": "e616462f90bff2a188b39fd81ec4882a1f61993b94007d75f9f2bc5f80444e07",
+  "started_at": "2026-10-31T00:39:03.064964+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"index\": 200, \"brand_visible\": true, \"control.php\": 401, \"admin_ticket.php\": 401, \"admin_enter.php\": 401, \"status_feed.php\": 401}\n",
+  "stderr": "",
+  "finished_at": "2026-10-31T00:39:03.473086+00:00",
+  "duration_ms": 408
+}
