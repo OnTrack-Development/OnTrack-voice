@@ -47,7 +47,7 @@ def main():
         matches=[x for x in artifact if x['name']=='OnTrack-Voice-0.2.7' and not x['expired']]
         assert len(matches)==1,'Signed Android artifact missing or ambiguous'
         url=download_url(matches[0]['id'])
-        program=(Path('saas/mobile/ota/deploy.py')).read_text()+'\\n'+(Path('saas/mobile/ota/remote_deploy.py')).read_text()+'\\nimport sys\\nremote_install(sys.argv[1],sys.argv[2],sys.argv[3])\\n'
+        program=(Path('saas/mobile/ota/deploy.py')).read_text()+'\n'+(Path('saas/mobile/ota/remote_deploy.py')).read_text()+'\nimport sys\nremote_install(sys.argv[1],sys.argv[2],sys.argv[3])\n'
         code=base64.b64encode(zlib.compress(program.encode(),9)).decode()
         script="import base64,zlib;exec(zlib.decompress(base64.b64decode('"+code+"')))"
         job['timeout_seconds']=30
