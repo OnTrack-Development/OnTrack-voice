@@ -3,7 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/common.php';
 header('X-Frame-Options: DENY');
 session_name('ontrack_mobile_admin');
-session_set_cookie_params(['secure'=>true,'httponly'=>true,'samesite'=>'Strict','path'=>'/saas/mobile/']);
+session_set_cookie_params(['secure'=>true,'httponly'=>true,'samesite'=>'Lax','path'=>'/saas/mobile/']);
 session_start();
 $error='';$saved=false;
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['key'])) {
