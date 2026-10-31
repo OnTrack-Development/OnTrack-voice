@@ -128,7 +128,19 @@ body.light .otMetric small,body.light .otMiniCard small{color:#62718a}
 <button id="contactsUpload" class="primary" disabled>رفع الأرقام المؤكدة إلى OnTrack</button>
 <p class="small" id="contactResult">لا توجد أرقام مرفوعة في هذه الجلسة</p>
 </div><div class="divider"></div>
-<button class="primary" data-open-admin>فتح إدارة الحملات والأرقام</button>
+<div class="divider"></div><h2>إنشاء حملة من التطبيق</h2>
+<p>مسودة قابلة للمراجعة والتعديل. لن تبدأ أي مكالمة تلقائيًا بمجرد الحفظ.</p>
+<label for="mobileCampaignName">اسم الحملة</label><input id="mobileCampaignName" maxlength="160" placeholder="حملة العملاء الجدد" dir="auto">
+<label for="mobileCampaignStart">وقت البداية (القاهرة)</label><input id="mobileCampaignStart" type="datetime-local">
+<label for="mobileCampaignEnd">وقت النهاية (القاهرة)</label><input id="mobileCampaignEnd" type="datetime-local">
+<label for="mobileCampaignScenario">نص السيناريو</label>
+<textarea id="mobileCampaignScenario" maxlength="8000" rows="5" style="width:100%;background:#0d1523;color:#fff;border:1px solid #43516b;border-radius:12px;padding:12px" placeholder="تعليمات الوكيل للمكالمة"></textarea>
+<button id="saveMobileCampaign" class="primary">حفظ مسودة حملة</button>
+<p id="campaignResult" class="small" role="status">الحملات المحفوظة متاحة على الهاتف والموقع.</p>
+<button id="refreshCampaigns" class="outline">تحديث الحملات</button>
+<div id="mobileCampaignList" aria-live="polite"></div>
+<div class="divider"></div>
+<button class="outline" data-open-admin>استيراد ملفات Excel وCSV وإدارة متقدمة</button>
 </section>
 <section class="card" data-panel="voices">
 <div class="section-title"><h2>مكتبة الأصوات</h2><span class="chip">Basic / Premium</span></div>
@@ -214,6 +226,7 @@ function setView(v){
   b.setAttribute('aria-current',selected?'page':'false');
  });
  if(v==='calls' && last.callsSupported===true)send('loadCallHistory');
+ if(v==='campaigns' && Number(last.native)>=18)send('listCampaigns');
  window.scrollTo({top:0,behavior:'auto'});
 }
 document.querySelectorAll('.otTabs button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
@@ -241,6 +254,29 @@ window.onTrackCalls=history=>{
  }
 };
 el('refreshCalls').onclick=()=>{if(last.callsSupported===true)send('loadCallHistory')};
+window.onTrackCampaigns=payload=>{
+ const out=el('mobileCampaignList');out.replaceChildren();
+ const list=Array.isArray(payload.campaigns)?payload.campaigns:[];
+ if(payload.campaign){el('campaignResult').textContent='تم حفظ المسودة بنجاح، بدون تشغيل أي اتصالات.';send('listCampaigns');return;}
+ if(!list.length){const x=document.createElement('p');x.textContent='لا توجد مسودات حملات بعد';out.append(x);return}
+ list.forEach(c=>{
+  const card=document.createElement('div');card.className='otMiniCard';
+  const body=document.createElement('div');const name=document.createElement('strong');
+  name.textContent=String(c.name||'حملة بدون اسم');
+  const detail=document.createElement('small');detail.textContent=String(c.starts_at||'')+' · مسودة (بدون اتصال)';
+  body.append(name,detail);card.append(body);out.append(card);
+ });
+};
+el('saveMobileCampaign').onclick=()=>{
+ if(Number(last.native)<18){el('campaignResult').textContent='يجب تحديث Android إلى الإصدار الذي يدعم إدارة الحملات أولًا';return;}
+ const name=el('mobileCampaignName').value.trim(),starts=el('mobileCampaignStart').value,ends=el('mobileCampaignEnd').value,scenario=el('mobileCampaignScenario').value.trim();
+ if(!name||!starts||!ends||!scenario||ends<=starts){el('campaignResult').textContent='راجع الاسم والتوقيت والسيناريو قبل الحفظ';return}
+ if(!confirm('حفظ مسودة فقط بدون إجراء مكالمات؟'))return;
+ el('campaignResult').textContent='جاري حفظ المسودة…';
+ send('createCampaign',{name,starts,ends,scenario,confirmed:true});
+};
+el('refreshCampaigns').onclick=()=>{if(Number(last.native)>=18)send('listCampaigns');else el('campaignResult').textContent='حدّث Android لدعم إدارة الحملات داخل التطبيق'};
+
 let stagedCount=0;
 window.onTrackContactPreview=s=>{
  stagedCount=Number(s.count)||0;
