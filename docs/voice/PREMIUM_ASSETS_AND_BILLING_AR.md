@@ -1,3 +1,10 @@
+## تحقيق محرك الأصوات — اكتشاف 31 أكتوبر 2026
+
+- تم تحديد **البنية المرجحة جدًا** لملفات AYO الثلاثة: ملفات `Conditionals` المخزنة بواسطة **Resemble AI Chatterbox Multilingual**؛ تطابق حقول `t3.speaker_emb`, `t3.clap_emb`, `t3.cond_prompt_speech_tokens`, `t3.cond_prompt_speech_emb`, `t3.emotion_adv` و`gen.prompt_token`, `gen.prompt_token_len`, `gen.prompt_feat`, `gen.prompt_feat_len`, `gen.embedding` تعريف `Conditionals` حرفيًا.
+- مصدر المطابقة: https://github.com/resemble-ai/chatterbox/blob/master/src/chatterbox/mtl_tts.py ويستخدم `torch.load(...,weights_only=True)`؛ المصدر الرسمي https://github.com/resemble-ai/chatterbox يوثق دعم العربية في Multilingual.
+- كتالوج المصدر الآن `provider=chatterbox_multilingual` و`language=ar`، مع `ready=false` **إلزاميًا**. يلزم إثبات تحميل ملفات الأصول عبر `Conditionals.load` في تشغيل معزول ومرحلة `ChatterboxMultilingualTTS` وقياس أداء/نطق مصري وحقوق استخدام صوت AYO قبل تفعيل الصوت Premium.
+- هذا **لا يثبت** أن الملفات قابلة للتشغيل على Android أو في جلسة Gemini Live؛ الجمع بين صوت Gemini وتوليد Chatterbox قد يتطلب تبديل مزود/تغيير pipeline للصوت، ويجب ألا يُغيّر جسر `mix` العامل قبل E2E.
+
 # OnTrack Voice — أصوات Premium والباقات والمدفوعات
 
 ## ملفات AYO الأصلية (المالك — 31 أكتوبر 2026)
