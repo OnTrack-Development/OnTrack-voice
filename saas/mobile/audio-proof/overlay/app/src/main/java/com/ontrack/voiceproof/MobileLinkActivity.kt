@@ -55,6 +55,11 @@ class MobileLinkActivity:ComponentActivity(){
         if(granted)lifecycleScope.launch{loadAllContacts()}
         else {banner.text="لم يتم منح إذن قراءة جهات الاتصال؛ لم تُرفع أي بيانات";banner.visibility=View.VISIBLE}
     }
+    private val campaignPhonePermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
+        if(granted)ContextCompat.startForegroundService(this,
+            Intent(this,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_CAMPAIGN_ENABLE))
+        else {banner.text="إذن الاتصال لم يُمنح؛ تنفيذ الحملات يظل متوقفًا";banner.visibility=View.VISIBLE}
+    }
     private val contactPicker=registerForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
         if(result.resultCode==RESULT_OK){
             val uri=result.data?.data
@@ -412,6 +417,7 @@ class MobileLinkActivity:ComponentActivity(){
             .put("nativeInstallPermission",nativeUpdates.canInstallPackages())
             .put("wifiFreeEnabled",wifiFreeEnabledState)
             .put("wifiFreeReady",wifiFreeReadyState)
+            .put("campaignAutoEnabled",getSharedPreferences("ontrack_link",MODE_PRIVATE).getBoolean("campaign_opt_in",false))
             .put("contactsSupported",true)
             .put("callsSupported",true)
             .put("nativeUpdateVersion",nativeRelease?.versionName?:"").put("native",ota.nativeVersion).put("nativeCode",packageManager.getPackageInfo(packageName,0).longVersionCode).put("updating",updateBusy)
@@ -458,11 +464,25 @@ class MobileLinkActivity:ComponentActivity(){
                         contactsRequest(JSONObject().put("confirmed",true).put("id",id)
                             .put("blocked",msg.getBoolean("blocked")))
                     }
+                    "campaignAutoEnable"->{
+                        check(msg.optBoolean("confirmed")){"تأكيد المستخدم مطلوب"}
+                        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
+                        check(key.length>=24){"اربط الهاتف بالسيرفر"}
+                        if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.CALL_PHONE)
+                            ==PackageManager.PERMISSION_GRANTED) {
+                            ContextCompat.startForegroundService(this@MobileLinkActivity,
+                                Intent(this@MobileLinkActivity,MobileLinkService::class.java)
+                                    .setAction(MobileLinkService.ACTION_CAMPAIGN_ENABLE))
+                        } else campaignPhonePermission.launch(Manifest.permission.CALL_PHONE)
+                    }
+                    "campaignAutoDisable"->ContextCompat.startForegroundService(this@MobileLinkActivity,
+                        Intent(this@MobileLinkActivity,MobileLinkService::class.java)
+                            .setAction(MobileLinkService.ACTION_CAMPAIGN_DISABLE))
                     "listCampaigns"->campaignRequest(null)
                     "campaignAction"->{
                         check(msg.optBoolean("confirmed")){"تأكيد العملية مطلوب"}
                         val action=msg.optString("action")
-                        require(action in setOf("preview","pause","resume","cancel")){"إجراء غير مدعوم"}
+                        require(action in setOf("preview","pause","resume","cancel","arm")){"إجراء غير مدعوم"}
                         val id=msg.optString("id")
                         require(id.matches(Regex("[a-f0-9]{24}"))){"معرف الحملة غير صحيح"}
                         campaignRequest(JSONObject().put("confirmed",true).put("action",action).put("id",id))
