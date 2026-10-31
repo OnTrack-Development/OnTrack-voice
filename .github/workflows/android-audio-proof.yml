@@ -2,7 +2,7 @@ name: Android SIM Audio Proof
 on:
   push:
     branches: [main]
-    paths: ['saas/mobile/**', '.github/workflows/android-audio-proof.yml']
+    paths: ['saas/mobile/**', 'tools/queue_mobile_ota.py', '.github/workflows/android-audio-proof.yml']
   workflow_dispatch:
 permissions:
   contents: read
