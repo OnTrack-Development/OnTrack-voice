@@ -71,19 +71,25 @@ function pilot_dnc(string $id,bool $blocked): bool {
         return $found;
     });
 }
-function pilot_campaign_create(string $name,string $starts,string $ends,string $scenario): array {
+function pilot_campaign_create(string $name,string $starts,string $ends,string $scenario,array $contactIds=[]): array {
     $name=trim($name);$scenario=trim($scenario);
+    if(count($contactIds)>2000)throw new InvalidArgumentException('too_many_targets');
+    foreach($contactIds as $id)if(!is_string($id)||!preg_match('/^[0-9a-f]{24}$/D',$id))throw new InvalidArgumentException('target_id');
+    $contactIds=array_values(array_unique($contactIds));
     if($name===''||strlen($name)>160||strlen($scenario)>8000)throw new InvalidArgumentException('invalid_campaign');
     $start=DateTimeImmutable::createFromFormat('!Y-m-d\TH:i',$starts,new DateTimeZone('Africa/Cairo'));
     $end=DateTimeImmutable::createFromFormat('!Y-m-d\TH:i',$ends,new DateTimeZone('Africa/Cairo'));
     if(!$start||!$end||$end<=$start||$end->getTimestamp()-$start->getTimestamp()>31*86400)
         throw new InvalidArgumentException('invalid_schedule');
-    return pilot_transaction(static function()use($name,$start,$end,$scenario){
+    return pilot_transaction(static function()use($name,$start,$end,$scenario,$contactIds){
         $items=pilot_read('campaigns');
-        $eligible=count(array_filter(pilot_read('contacts'),static fn($c)=>!empty($c['consented'])&&empty($c['do_not_call'])));
+        $available=pilot_read('contacts');
+        $known=array_column($available,'id');
+        foreach($contactIds as $id)if(!in_array($id,$known,true))throw new InvalidArgumentException('unknown_target');
+        $eligible=count(array_filter($available,static fn($c)=>!empty($c['consented'])&&empty($c['do_not_call'])&&(!$contactIds||in_array($c['id'],$contactIds,true))));
         $row=['id'=>bin2hex(random_bytes(12)),'name'=>$name,'scenario'=>$scenario,'status'=>'draft',
             'timezone'=>'Africa/Cairo','starts_at'=>$start->format('c'),'ends_at'=>$end->format('c'),
-            'eligible_contacts_snapshot'=>$eligible,'created_at'=>gmdate('c'),
+            'eligible_contacts_snapshot'=>$eligible,'contact_ids'=>$contactIds,'created_at'=>gmdate('c'),
             'note'=>'No device dial job dispatched; requires reviewed device executor'];
         $items[]=$row;pilot_atomic('campaigns',$items);
         return $row;
@@ -118,6 +124,7 @@ function pilot_campaign_preview(string $id): array {
     if($found===null)throw new InvalidArgumentException('campaign_not_found');
     $eligible=[];$blocked=0;
     foreach(pilot_read('contacts') as $contact){
+        if(!empty($found['contact_ids'])&&!in_array($contact['id'],$found['contact_ids'],true))continue;
         if(empty($contact['consented'])||!empty($contact['do_not_call'])){$blocked++;continue;}
         $eligible[]=['id'=>$contact['id'],'name'=>$contact['name'],'phone'=>$contact['phone']];
     }
@@ -133,7 +140,8 @@ function pilot_campaign_arm(string $id): array {
             if(!hash_equals((string)$campaign['id'],$id))continue;
             if(($campaign['status']??'')!=='draft')throw new InvalidArgumentException('not_draft');
             if(new DateTimeImmutable($campaign['ends_at'])<=$now)throw new InvalidArgumentException('expired_window');
-            $eligible=array_filter(pilot_read('contacts'),static fn($r)=>!empty($r['consented'])&&empty($r['do_not_call']));
+            $targets=$campaign['contact_ids']??[];
+            $eligible=array_filter(pilot_read('contacts'),static fn($r)=>!empty($r['consented'])&&empty($r['do_not_call'])&&(!$targets||in_array($r['id'],$targets,true)));
             if(!$eligible)throw new InvalidArgumentException('no_consented_contacts');
             $campaign['status']='ready';$campaign['armed_at']=gmdate('c');
             $updated=$campaign;unset($campaign);
@@ -162,6 +170,7 @@ function pilot_campaign_claim(): ?array {
             }
             if($latest>0 && time()-$latest<60)return null;
             foreach($contacts as $contact){
+                if(!empty($campaign['contact_ids'])&&!in_array($contact['id'],$campaign['contact_ids'],true))continue;
                 if(empty($contact['consented'])||!empty($contact['do_not_call']))continue;
                 $already=false;
                 foreach($attempts as $attempt)if(($attempt['campaign_id']??'')===$campaign['id']&&($attempt['contact_id']??'')===$contact['id']){$already=true;break;}
