@@ -13,7 +13,7 @@ concurrency:
 jobs:
   publish_ota:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
@@ -33,7 +33,7 @@ jobs:
   publish_native:
     needs: publish_ota
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
