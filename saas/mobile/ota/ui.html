@@ -48,7 +48,7 @@ window.onTrackState=s=>{
  last=s;const version=Number((String(s.native).match(/^0\.1\.(\d+)/)||[])[1]||0), modern=version>=10;
  el('version').textContent='v'+s.native+' · OTA '+s.revision;
  el('status').textContent=s.status;
- const enabled=modern?s.agentEnabled:s.running,online=s.running,call=s.inCall;
+ const enabled=modern?s.agentEnabled:s.running,online=modern?s.connected:s.running,call=s.inCall;
  el('badge').textContent=!online?'إعادة الاتصال':enabled?'نشط':'متوقف';
  el('badge').className='chip '+(enabled?'good':'warn');
  el('dot').className='indicator '+(call?'call':enabled?'good':'');
