@@ -49,7 +49,7 @@ footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details su
 <p>الواجهة والإعدادات تتحدث مباشرة. عند تحديث محرك Android، التطبيق ينزّل النسخة ويطلب موافقة Android على التثبيت مرة واحدة.</p>
 <div class="status"><span class="indicator good"></span><div><strong style="font-size:15px">Android &amp; UI OTA</strong><span class="small" id="nativeUpdateStatus">جاري البحث عن تحديث جديد…</span></div></div>
 <div class="row"><button class="primary" id="upgradeAndroid" disabled>تثبيت تحديث Android</button><button id="scanAndroid" class="outline">فحص الإصدار</button></div>
-<p class="small">لا يبدأ تثبيت جديد أثناء المكالمة. التحديثات يتم التحقق من توقيعها وبصمتها؛ ولا يتم تجاوز موافقة النظام.</p>
+<p class="small">التحديثات المتكررة لا تعيد تنزيل الملف المتحقق منه. إذا طلب Android إذن تثبيت، فالموافقة مطلوبة من النظام وليست جزءًا من تحديث الواجهة. لا يحدث تثبيت أثناء مكالمة.</p>
 </section>
 <section class="card"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
 <section class="card"><h2>إعداد الهاتف</h2><p>ربط جهازك لأول مرة أو تصحيح Wireless debugging عند الحاجة. لا تختبارات تسجيل صوت قديمة في الواجهة الأساسية.</p>
@@ -87,9 +87,11 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('overlay').textContent=s.overlayGranted?'التحكم العائم مفعّل':'السماح بالظهور فوق التطبيقات';
  el('rollback').disabled=call;
  el('nativeUpdateStatus').textContent=s.nativeUpdateStatus||'جاري فحص تحديث Android…';
- el('upgradeAndroid').disabled=!s.nativeUpdateAvailable||s.nativeUpdateBusy||call;
- el('upgradeAndroid').textContent=s.nativeUpdateBusy?'جاري تجهيز التحديث…':
-   s.nativeUpdateAvailable?'تحميل وتثبيت '+(s.nativeUpdateVersion||'الإصدار الجديد'):'Android محدّث';
+ el('upgradeAndroid').disabled=!s.nativeUpdateAvailable||s.nativeUpdateBusy||call||!!s.nativeInstallPending;
+ el('upgradeAndroid').textContent=s.nativeInstallPending?'بانتظار موافقة تثبيت Android':
+   s.nativeUpdateBusy?'جاري تجهيز التحديث…':
+   s.nativeInstallPermission===false?'إعداد إذن التثبيت لمرة واحدة':
+   s.nativeUpdateAvailable?'فحص وتحميل أو استكمال تثبيت '+(s.nativeUpdateVersion||'الإصدار الجديد'):'Android محدّث';
  el('scanAndroid').disabled=s.nativeUpdateBusy||call;
  if(first&&online)first=false;
 };
