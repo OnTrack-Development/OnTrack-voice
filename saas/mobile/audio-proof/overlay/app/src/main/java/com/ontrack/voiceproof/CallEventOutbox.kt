@@ -17,13 +17,16 @@ internal class CallEventOutbox(context: Context) {
         var id=prefs.getString("active_id","").orEmpty()
         var sequence=prefs.getInt("sequence",0)
         var began=prefs.getLong("started_elapsed",0L)
+        var answered=prefs.getLong("answered_elapsed",0L)
         val pending=JSONArray(prefs.getString("pending","[]")?:"[]")
         check(pending.length()<1000){"Call event queue full; cannot discard events"}
         if(state!=0 && id.isEmpty()){
             id=UUID.randomUUID().toString()
             sequence=0
             began=SystemClock.elapsedRealtime()
+            answered=0L
         }
+        if(state==2 && previous!=2 && answered==0L)answered=SystemClock.elapsedRealtime()
         if(id.isEmpty()){
             prefs.edit().putInt("last_state",state).commit()
             return
@@ -33,8 +36,8 @@ internal class CallEventOutbox(context: Context) {
             2->"active"
             else->if(previous==1)"missed" else "ended"
         }
-        val duration=if(state==0 && began>0L)
-            ((SystemClock.elapsedRealtime()-began).coerceAtLeast(0L)/1000L).coerceAtMost(172800L).toInt()
+        val duration=if(state==0 && answered>0L)
+            ((SystemClock.elapsedRealtime()-answered).coerceAtLeast(0L)/1000L).coerceAtMost(172800L).toInt()
             else 0
         val entry=JSONObject().put("call_id",id).put("sequence",sequence+1)
             .put("phase",phase).put("duration_seconds",duration)
@@ -43,7 +46,8 @@ internal class CallEventOutbox(context: Context) {
             .putInt("last_state",state)
             .putString("active_id",if(state==0)"" else id)
             .putInt("sequence",if(state==0)0 else sequence+1)
-            .putLong("started_elapsed",if(state==0)0L else began).commit()){
+            .putLong("started_elapsed",if(state==0)0L else began)
+            .putLong("answered_elapsed",if(state==0)0L else answered).commit()){
                 "Call event persistence failed"
             }
     }
