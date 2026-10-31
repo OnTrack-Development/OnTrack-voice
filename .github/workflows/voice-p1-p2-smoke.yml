@@ -1,0 +1,30 @@
+name: Voice P1 P2 backend regression
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'saas/mobile/server/**'
+      - 'tools/test_mobile_call_ledger.php'
+      - 'tools/test_pilot_workspace.php'
+      - '.github/workflows/voice-p1-p2-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - name: PHP lint and isolated state-machine tests
+        run: |
+          set -euo pipefail
+          for file in saas/mobile/server/*.php; do php -l "$file"; done
+          php tools/test_mobile_call_ledger.php
+          php tools/test_pilot_workspace.php
+      - name: Verify opt-in and no-redial safety guards
+        run: |
+          set -euo pipefail
+          grep -Fq "pilot_campaign_verify_claim" saas/mobile/server/pilot_workspace.php
+          grep -Fq "pilot_campaign_claim" saas/mobile/server/campaigns_api.php
+          grep -Fq "do_not_call" saas/mobile/server/pilot_workspace.php
