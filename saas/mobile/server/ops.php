@@ -40,7 +40,7 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
             $flash='تم تحديث حالة عدم الاتصال بالرقم.';
         } elseif($action==='campaign') {
             $row=pilot_campaign_create((string)($_POST['name']??''),(string)($_POST['starts']??''),
-                (string)($_POST['ends']??''),(string)($_POST['scenario']??''));
+                (string)($_POST['ends']??''),(string)($_POST['scenario']??''),is_array($_POST['contacts']??null)?$_POST['contacts']:[]);
             $flash='تم إنشاء حملة مسودة. لا يتم الاتصال تلقائيًا قبل تفعيل منفذ Android المعتمد.';
         } elseif($action==='campaign_control') {
             $id=(string)($_POST['id']??'');
@@ -80,6 +80,11 @@ small{color:#a9bbcf}table{width:100%;border-collapse:collapse}td,th{border-botto
 <form method="post"><input type="hidden" name="csrf" value="<?=safe($_SESSION['csrf'])?>"><input type="hidden" name="action" value="campaign">
 <label>اسم الحملة<input name="name" maxlength="160" required></label><label>بداية الحملة<input type="datetime-local" name="starts" required></label>
 <label>نهاية الحملة<input type="datetime-local" name="ends" required></label><label>نص السيناريو<textarea name="scenario" maxlength="8000" required></textarea></label>
+<label>أرقام محددة (اتركها بدون اختيار لاستخدام كل الأرقام التي وافقت على التواصل)
+<select name="contacts[]" multiple size="7" style="width:100%;padding:12px;background:#0d1726;color:#fff;border:1px solid #304057;border-radius:12px">
+<?php foreach(array_slice($contacts,0,2000) as $contact):?>
+<option value="<?=safe((string)$contact['id'])?>" <?=!empty($contact['do_not_call'])||empty($contact['consented'])?'disabled':''?>><?=safe((string)$contact['name'])?> — <?=safe((string)$contact['phone'])?></option>
+<?php endforeach;?></select></label>
 <button>حفظ مسودة الحملة</button></form></section>
 </div>
 <div class="grid"><section class="card"><h2>جهات الاتصال (<?=count($contacts)?>)</h2>
