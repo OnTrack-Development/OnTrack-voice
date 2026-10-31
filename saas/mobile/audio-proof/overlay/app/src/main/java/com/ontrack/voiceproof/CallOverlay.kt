@@ -101,9 +101,10 @@ internal class CallOverlay(private val context:Context){
         head?.text=when{
             inCall&&human->"● أون تراك  |  استلام بشري  ▾"
             inCall->"● أون تراك  |  مكالمة AI  ▾"
+            !serviceReady->"● أون تراك  |  إعادة الاتصال  ▾"
             enabled->"● أون تراك  |  الإيجنت نشط  ▾"
             serviceReady->"● أون تراك  |  متوقف  ▾"
-            else->"● أون تراك  |  إعادة الاتصال  ▾"
+            else->"● أون تراك  |  غير متصل  ▾"
         }
         head?.setTextColor(if(enabled||inCall)green else muted)
         controls?.visibility=if(expanded)View.VISIBLE else View.GONE
