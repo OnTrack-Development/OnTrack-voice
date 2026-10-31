@@ -69,7 +69,7 @@ class ProofActivity:ComponentActivity(){
             orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(30),dp(18),dp(36))
             layoutDirection=View.LAYOUT_DIRECTION_RTL;setBackgroundColor(bg)
         }
-        val scroll=ScrollView(this).apply{fillViewport=true;addView(stack)}
+        val scroll=ScrollView(this).apply{isFillViewport=true;addView(stack)}
         setContentView(scroll)
         stack.addView(label("ONTRACK  /  VOICE",15f,red,true))
         stack.addView(label("إعداد اتصال الهاتف",26f,text,true))
