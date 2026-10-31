@@ -1,3 +1,12 @@
+## 31 أكتوبر 2026 — الحالة التنفيذية للدفعة الموحدة P1/P2/P5/P6
+
+- CODE: ee839f6e plans/Kashier/Premium catalog؛ fb8bb837 Android UI 0.2.6/OTA12 + import + campaign drafts؛ dd5138a1 in-app call history؛ 02c6dd89 server-side plan entitlements؛ 45a0a0b4 payment-order-bound refunds.
+- AYO: Safe local inspection of all 3 files via torch.load(weights_only=True) PASS؛ Resemble AI Chatterbox Multilingual Conditionals field structure proven. Source adapter saas/voice/premium_tts_cli.py commit 71a664bb، voice catalog ready=false. PT binary sources NOT uploaded to GitHub, no synthesized audio or TTS deployment.
+- CI: 41172270951 cancelled by newer native push; 41172480358 is the final 0.2.6 OTA12 workflow. Check actual job states and host reports before claiming Android publish or phone success. First PHP CI checks had succeeded.
+- HOST: New pilot PHP routes ops.php, pilot_workspace.php, pilot_import_file.php, contacts_import.php, calls_feed.php not yet verified deployed on app.ontrackegy.com. Do not claim accessible/live.
+- E2E OPEN: phone contact import, real call history log with name/number, outbound SIM campaign executor and schedule, Kashier TEST payment, Laravel payment/entitlement rollout, real Chatterbox Arabic TTS generation.
+- PHASE-2-NETWORK-STABILITY remains deferred only for weak 4G/5G voice resilience; P1/P2/P5/P6 remain required in current batch.
+
 ## 31 أكتوبر 2026 — دفعة واحدة: المكالمات والاتصالات والباقات وPremium/Kashier
 
 - أحدث قرار: أنجز مهام P1-P2-P5-P6 كلها كدفعة تطوير واحدة، مع UI للتطبيق أقرب إلى OnTrack الحقيقي، دون تقطيع المتطلبات إلى ردود منفصلة.
