@@ -1,3 +1,7 @@
+## 31 أكتوبر 2026 — خطة إقفال ديمو Android والويب
+
+تم اعتماد وحفظ `docs/plan/VOICE_DEMO_DELIVERY_CHECKLIST_AR.md` في GitHub، بمجموع 30 بندًا قابلة للتعليم. الأولوية P0: تحديث Native/OTA وآلية 4G/5G مع تقييم أمن ADB 5555، ثم Call ID/Call History، استيراد جهات الاتصال والحملات، AI Scenario/Agent Builder، المراقبة/التسجيل/الجودة، UI/E2E. أي ميزة غير مثبتة على الجهاز تظل `[ ]` حتى مع وجود الكود. لا تغيير live/اقتران أو بدء SaaS.
+
 ## OnTrack Voice 0.2.3 — تثبيت Android الجديد وSplash OTA9 (31 أكتوبر 2026)
 
 - المستخدم شارك صورة من جهاز Xiaomi تظهر `There was a problem parsing the package` بعد تحديث 0.2.2 عبر النسخة المثبتة 0.2.1. المستخدم يريد تحديث View بصمت دون إعادة تثبيت وتحديث Native من داخل التطبيق قدر الإمكان، ويريد شاشة OnTrack متحركة فاخرة، مع عدم فصل Cloud عن Android.
