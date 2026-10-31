@@ -25,11 +25,14 @@ def verify(folder):
 
 def main():
     manifest,html,meta=verify(Path(sys.argv[1]));assert os.environ.get('GITHUB_REF')=='refs/heads/main'
-    from queue_mobile_native import wait_queue
     queue_path='ops/host-link/jobs/'+TARGET+'.json'
-    obj,current=wait_queue()
+    obj,raw=content(queue_path);current=json.loads(raw)
     if current.get('id')=='mobile-ota-'+os.environ['GITHUB_RUN_ID']:
         print(json.dumps({'status':'ALREADY_QUEUED_UNCHANGED','job_id':current['id']}));return
+    _,result=content('ops/host-link/results/'+TARGET+'/'+current['id']+'.json')
+    report=json.loads(result)
+    assert report['job_id']==current['id'] and report['target']==TARGET and report['status'] in ('success','failed','expired','rejected'), 'Host queue busy/unknown'
+    assert report['job_sha256']==hashlib.sha256(raw).hexdigest(),'Host queue result mismatch'
     bundle=canonical({'manifest':manifest,'html':html});packed=base64.b64encode(lzma.compress(bundle,format=lzma.FORMAT_XZ,preset=9)).decode()
     source=(Path('saas/mobile/ota/deploy.py')).read_text()+'\nimport sys\ndeploy(sys.argv[1],sys.argv[2])\n'
     compact=base64.b64encode(zlib.compress(source.encode(),9)).decode()
