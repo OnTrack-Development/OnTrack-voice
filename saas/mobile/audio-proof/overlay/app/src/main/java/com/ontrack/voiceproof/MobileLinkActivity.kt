@@ -430,6 +430,14 @@ class MobileLinkActivity:ComponentActivity(){
                     }
                     "loadCallHistory"->loadCallHistory()
                     "listCampaigns"->campaignRequest(null)
+                    "campaignAction"->{
+                        check(msg.optBoolean("confirmed")){"تأكيد العملية مطلوب"}
+                        val action=msg.optString("action")
+                        require(action in setOf("preview","pause","resume","cancel")){"إجراء غير مدعوم"}
+                        val id=msg.optString("id")
+                        require(id.matches(Regex("[a-f0-9]{24}"))){"معرف الحملة غير صحيح"}
+                        campaignRequest(JSONObject().put("confirmed",true).put("action",action).put("id",id))
+                    }
                     "createCampaign"->{
                         check(msg.optBoolean("confirmed")){"يجب مراجعة مسودة الحملة"}
                         val name=msg.optString("name").trim()
