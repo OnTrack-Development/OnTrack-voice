@@ -41,7 +41,16 @@ internal class NativeUpdates(private val context: Context) {
         val request=Request.Builder().url(root+"latest.json").header("Cache-Control","no-cache").build()
         client.newCall(request).execute().use { reply ->
             require(reply.code==200) { "مفيش تحديث Android متاح دلوقتي (HTTP ${reply.code})" }
-            val bytes=reply.body?.byteStream()?.use { it.readNBytes(16385) }?:error("رد التحديث فارغ")
+            val bytes=reply.body?.byteStream()?.use { input ->
+                val out=java.io.ByteArrayOutputStream()
+                val buffer=ByteArray(4096)
+                while(out.size()<16385) {
+                    val n=input.read(buffer,0,minOf(buffer.size,16385-out.size()))
+                    if(n<0)break
+                    out.write(buffer,0,n)
+                }
+                out.toByteArray()
+            }?:error("رد التحديث فارغ")
             require(bytes.size<=16384) { "ملف التحديث أكبر من المسموح" }
             return bytes
         }
