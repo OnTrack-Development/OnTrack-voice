@@ -24,6 +24,10 @@ import java.io.ByteArrayInputStream
 class MobileLinkActivity:ComponentActivity(){
     private lateinit var web:WebView
     private lateinit var ota:MobileOta
+    private lateinit var nativeUpdates:NativeUpdates
+    private var nativeRelease:NativeUpdates.Release?=null
+    private var nativeBusy=false
+    private var nativeStatus="جاري فحص تحديث Android"
     private lateinit var banner:TextView
     private var ready=false
     private var generation=0
@@ -33,7 +37,7 @@ class MobileLinkActivity:ComponentActivity(){
     private var pending:MobileOta.Bundle?=null
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState:Bundle?){
-        super.onCreate(savedInstanceState);ota=MobileOta(this)
+        super.onCreate(savedInstanceState);ota=MobileOta(this);nativeUpdates=NativeUpdates(this)
         window.statusBarColor=Color.rgb(11,16,27);window.navigationBarColor=Color.rgb(11,16,27)
         val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(11,16,27))}
         banner=TextView(this).apply{
@@ -64,6 +68,7 @@ class MobileLinkActivity:ComponentActivity(){
         lifecycleScope.launch{
             show(withContext(Dispatchers.IO){ota.screen(recover=true)})
             checkUpdates()
+            checkNativeUpdates()
             while(isActive){
                 sendState()
                 if(pending!=null && !MobileLinkService.inCall){val next=pending!!;pending=null;activate(next)}
@@ -96,12 +101,47 @@ class MobileLinkActivity:ComponentActivity(){
         }catch(t:Throwable){if(t is CancellationException)throw t;banner.text="الواجهة الحالية تعمل؛ تعذر جلب التحديث الآن"}
         finally{updateBusy=false}
     }
+    private suspend fun checkNativeUpdates() {
+        if(nativeBusy)return
+        nativeBusy=true
+        nativeStatus="جاري فحص نسخة Android…";sendState()
+        try {
+            nativeRelease=withContext(Dispatchers.IO){nativeUpdates.check()}
+            nativeStatus=if(nativeRelease==null)"تطبيق Android محدّث" else
+                "إصدار Android جديد: "+nativeRelease!!.versionName
+        }catch(t:Throwable){
+            if(t is CancellationException)throw t
+            nativeStatus="تعذر فحص تحديث Android؛ جرّب مرة أخرى"
+        }finally{nativeBusy=false;sendState()}
+    }
+    private suspend fun installNativeUpdate() {
+        check(!MobileLinkService.inCall){"انتظر نهاية المكالمة قبل تثبيت Android"}
+        check(!nativeBusy){"هناك تحديث قيد التنفيذ"}
+        if(nativeRelease==null)checkNativeUpdates()
+        val release=nativeRelease?:run{nativeStatus="أحدث إصدار مثبت بالفعل";sendState();return}
+        nativeBusy=true
+        try{
+            nativeStatus="تنزيل تحديث Android من OnTrack…";sendState()
+            val file=nativeUpdates.download(release){percentage->
+                runOnUiThread{nativeStatus="تحميل التحديث: $percentage%";sendState()}
+            }
+            check(!MobileLinkService.inCall){"المكالمة جارية؛ ثبّت بعد انتهائها"}
+            nativeStatus=if(nativeUpdates.requestInstall(file))
+                "تم التحقق من التحديث؛ أكمل موافقة تثبيت Android"
+            else "اسمح بتثبيت التحديث من OnTrack ثم اضغط تثبيت التحديث مجددًا"
+        }catch(t:Throwable){
+            if(t is CancellationException)throw t
+            nativeStatus="تعذّر تحديث Android: "+(t.message?:t.javaClass.simpleName)
+        }finally{nativeBusy=false;sendState()}
+    }
     private fun sendState(){
         if(!ready)return
         val state=JSONObject().put("status",MobileLinkService.latestStatus).put("running",MobileLinkService.running)
             .put("inCall",MobileLinkService.inCall).put("humanControl",MobileLinkService.humanControl)
             .put("agentEnabled",MobileLinkService.agentEnabled).put("connected",MobileLinkService.connected).put("serverRevision",MobileLinkService.serverRevision)
-            .put("overlayGranted",Settings.canDrawOverlays(this)).put("revision",ota.revision).put("native",ota.nativeVersion).put("updating",updateBusy)
+            .put("overlayGranted",Settings.canDrawOverlays(this)).put("revision",ota.revision)
+            .put("nativeUpdateAvailable",nativeRelease!=null).put("nativeUpdateBusy",nativeBusy)
+            .put("nativeUpdateStatus",nativeStatus).put("nativeUpdateVersion",nativeRelease?.versionName?:"").put("native",ota.nativeVersion).put("updating",updateBusy)
         web.evaluateJavascript("window.onTrackState && window.onTrackState($state)",null)
     }
     inner class Bridge{
@@ -134,6 +174,8 @@ class MobileLinkActivity:ComponentActivity(){
                         }else banner.text="إذن النافذة العائمة مفعل"
                     }
                     "checkUpdates"->checkUpdates()
+                    "checkNativeUpdates"->checkNativeUpdates()
+                    "installNativeUpdate"->installNativeUpdate()
                     "rollback"->{check(!MobileLinkService.inCall){"انتظر نهاية المكالمة"};show(withContext(Dispatchers.IO){ota.rollback(false)});banner.text="تم الرجوع للواجهة السابقة"}
                     "diagnostics"->startActivity(Intent(this@MobileLinkActivity,ProofActivity::class.java))
                     "admin"->{
