@@ -14,6 +14,19 @@ $data=json_decode($raw,true);
 if(!is_array($data)||($data['confirmed']??false)!==true)mobile_json(['ok'=>false,'error'=>'confirmation_required'],422);
 try {
     $action=(string)($data['action']??'create');
+    if($action==='claim'){
+        mobile_json(['ok'=>true,'claim'=>pilot_campaign_claim(),'dial_requested'=>false]);
+    }
+    if($action==='finish'){
+        $attempt=(string)($data['attempt_id']??'');
+        if(!preg_match('/^[a-f0-9]{32}$/D',$attempt))throw new InvalidArgumentException('attempt_id');
+        mobile_json(['ok'=>true,'attempt'=>pilot_campaign_finish($attempt,(string)($data['result']??''))]);
+    }
+    if($action==='arm'){
+        $id=(string)($data['id']??'');
+        if(!preg_match('/^[a-f0-9]{24}$/D',$id))throw new InvalidArgumentException('id');
+        mobile_json(['ok'=>true,'campaign'=>pilot_campaign_arm($id),'dispatched'=>false]);
+    }
     if($action==='preview'){
         $id=(string)($data['id']??'');
         if(!preg_match('/^[a-f0-9]{24}$/D',$id))throw new InvalidArgumentException('id');
