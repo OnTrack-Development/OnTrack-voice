@@ -32,9 +32,11 @@ def main():
     assert report['job_id']==current['id'] and report['target']==TARGET and report['status'] in ['success','failed','expired','rejected'], 'Host queue busy/unknown; preserved'
     assert report['job_sha256']==hashlib.sha256(raw).hexdigest(),'Current result does not match queued command'
     bundle=canonical({'manifest':manifest,'html':html});packed=base64.b64encode(lzma.compress(bundle,format=lzma.FORMAT_XZ,preset=9)).decode()
-    script=(Path('saas/mobile/ota/deploy.py')).read_text().replace('zlib.decompress(base64.b64decode(encoded))','lzma.decompress(base64.b64decode(encoded))')+'\nimport lzma,sys\ndeploy(sys.argv[1],sys.argv[2])\n'
+    source=(Path('saas/mobile/ota/deploy.py')).read_text()+'\nimport sys\ndeploy(sys.argv[1],sys.argv[2])\n'
+    compact=base64.b64encode(zlib.compress(source.encode(),9)).decode()
+    script="import base64,zlib;exec(zlib.decompress(base64.b64decode('"+compact+"')))"
     now=datetime.datetime.now(datetime.timezone.utc);job={'schema':1,'id':'mobile-ota-'+os.environ['GITHUB_RUN_ID'],'target':TARGET,'action':'exec','created_at':now.isoformat(),'expires_at':(now+datetime.timedelta(hours=24)).isoformat(),'cwd':'/home/appontrack/public_html/saas','timeout_seconds':25,'argv':['/bin/python3','-c',script,packed,hashlib.sha256(bundle).hexdigest()]}
-    encoded=json.dumps(job,ensure_ascii=False,indent=2).encode();assert len(encoded)<=16384,'Host job exceeds installed worker limit'
+    encoded=json.dumps(job,ensure_ascii=False,indent=2).encode();assert len(encoded)<=16384,f'Host job exceeds installed worker limit ({len(encoded)} bytes)'
     request('contents/'+queue_path,'PUT',{'branch':BRANCH,'sha':obj['sha'],'message':'deploy: signed mobile OTA revision'+str(meta['revision']),'content':base64.b64encode(encoded).decode()})
     print(json.dumps({'status':'QUEUED_NOT_DEPLOYED','job_id':job['id'],'revision':meta['revision'],'bytes':len(encoded),'result_path':'ops/host-link/results/'+TARGET+'/'+job['id']+'.json'}))
 if __name__=='__main__':main()
