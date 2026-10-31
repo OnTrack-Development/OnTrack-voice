@@ -169,6 +169,38 @@ class MobileLinkActivity:ComponentActivity(){
             nativeStatus="تعذّر تحديث Android: "+(t.message?:t.javaClass.simpleName)
         }finally{nativeBusy=false;sendState()}
     }
+    private suspend fun setWifiFreeMode(enabled:Boolean) {
+        check(!MobileLinkService.inCall){"لا يمكن تغيير مسار ADB أثناء مكالمة"}
+        val feature=com.jemcik.jemrec.capture.StartWithoutWifi
+        if(enabled) {
+            check(com.jemcik.jemrec.capture.NetworkRevive.onWifi(this)){
+                "فعّل وضع بلا Wi-Fi أول مرة أثناء اتصالك بشبكة Wi-Fi موثوقة"
+            }
+            feature.setEnabled(this,true)
+            val ok=withContext(Dispatchers.IO){
+                com.jemcik.jemrec.capture.CaptureDaemon.revive(
+                    this@MobileLinkActivity,
+                    request=com.jemcik.jemrec.capture.CaptureDaemon.Request.USER)
+            }
+            if(!ok || !feature.ready(this)){
+                feature.setEnabled(this,false)
+                error("هذا الهاتف لم ينجح في تشغيل ADB المحلي الثابت؛ لم يُفعّل وضع بلا Wi-Fi")
+            }
+            banner.text="وضع الاتصال بدون Wi-Fi مفعّل تجريبيًا. ينفتح ADB على 5555 عند تشغيل التصحيح؛ أوقفه إذا لم تحتاجه."
+        }else{
+            feature.setEnabled(this,false)
+            withContext(Dispatchers.IO){
+                com.jemcik.jemrec.capture.CaptureDaemon.revive(
+                    this@MobileLinkActivity,
+                    request=com.jemcik.jemrec.capture.CaptureDaemon.Request.USER)
+            }
+            banner.text=if(feature.ready(this))
+                "المنفذ ما زال مفتوحًا؛ أوقف USB debugging من إعدادات المطوّر لإغلاقه"
+            else "تم تعطيل مسار الاتصال بدون Wi-Fi"
+        }
+        banner.visibility=View.VISIBLE
+        sendState()
+    }
     private fun sendState(){
         if(!ready)return
         val state=JSONObject().put("status",MobileLinkService.latestStatus).put("running",MobileLinkService.running)
@@ -179,6 +211,8 @@ class MobileLinkActivity:ComponentActivity(){
             .put("nativeUpdateStatus",nativeStatus)
             .put("nativeInstallPending",nativeUpdates.installPending())
             .put("nativeInstallPermission",nativeUpdates.canInstallPackages())
+            .put("wifiFreeEnabled",com.jemcik.jemrec.capture.StartWithoutWifi.enabled(this))
+            .put("wifiFreeReady",com.jemcik.jemrec.capture.StartWithoutWifi.ready(this))
             .put("nativeUpdateVersion",nativeRelease?.versionName?:"").put("native",ota.nativeVersion).put("updating",updateBusy)
         web.evaluateJavascript("window.onTrackState && window.onTrackState($state)",null)
     }
@@ -215,6 +249,8 @@ class MobileLinkActivity:ComponentActivity(){
                     "checkUpdates"->checkUpdates()
                     "checkNativeUpdates"->checkNativeUpdates()
                     "installNativeUpdate"->installNativeUpdate()
+                    "wifiFreeEnable"->setWifiFreeMode(true)
+                    "wifiFreeDisable"->setWifiFreeMode(false)
                     "rollback"->{check(!MobileLinkService.inCall){"انتظر نهاية المكالمة"};show(withContext(Dispatchers.IO){ota.rollback(false)});banner.text="تم الرجوع للواجهة السابقة"}
                     "diagnostics"->startActivity(Intent(this@MobileLinkActivity,ProofActivity::class.java))
                     "admin"->{
