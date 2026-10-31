@@ -1,3 +1,12 @@
+## OnTrack Voice — تنفيذ جزئي مثبت للديمو، 31 أكتوبر 2026
+
+- القائمة التنفيذية الملزمة: `docs/plan/VOICE_DEMO_DELIVERY_CHECKLIST_AR.md` (30 بندًا غير مغلقة حتى اختبار فعلي). مرتبطة بـ`AGENTS.md` والخطة.
+- إنشاء أول **CODE slice** لسجل مكالمات التطبيق في commit `95340642849c7b37c4320741000bab02bf609044`: `CallEventOutbox.kt` ينشئ call_id وأحداث ringing/active/ended/missed محفوظة محليًا مع إعادة إرسال وتجنب تكرارها، `call_event.php` + `call_ledger.php` مخزن خاص، `calls.php` شاشة سجل للإدارة، ورابطها في index. الرقم والاسم والتقرير غير متاحين بعد ولا يجوز ادعاؤهما.
+- CI run `41167848892`: خطوة **Validate mobile PHP endpoints** نجحت، وتشمل `php tools/test_mobile_call_ledger.php` وlint ملفات server. بقية بناء Android/اختبارات الجهاز ونشر OTA Native كانت جارية عند تسجيل هذه النقطة؛ لا نعتبرها PASS.
+- **HOST:** محاولة إرسال نشر ملفات Call Ledger عبر قناة الإدارة رُفضت قبل التنفيذ بسبب ضوابط أمان أداة التنفيذ. **لا يوجد أي دليل لنشر هذا المسار على app.ontrackegy.com**، والـqueue التشغيلي لم يُستبدل؛ يلزم مسار نشر مصرح به، بلا تحايل على القيود.
+- P0 بيانات الهاتف 4G/5G/ADB 5555 وNative OTA Xiaomi لم تُختبر على الجهاز في هذه الدفعة؛ `VC-P0-01..05` لا تزال OPEN. منع تعطيل Play Protect أو فقد بيانات الاقتران.
+- المرحلة التالية: تثبيت نتيجة CI والتوقيع؛ تحقق host backend المسموح؛ تجربة Android على Xiaomi لـ4G/5G وتحديث APK، ثم Call History E2E قبل إغلاق أي Checkbox.
+
 ## 31 أكتوبر 2026 — خطة إقفال ديمو Android والويب
 
 تم اعتماد وحفظ `docs/plan/VOICE_DEMO_DELIVERY_CHECKLIST_AR.md` في GitHub، بمجموع 30 بندًا قابلة للتعليم. الأولوية P0: تحديث Native/OTA وآلية 4G/5G مع تقييم أمن ADB 5555، ثم Call ID/Call History، استيراد جهات الاتصال والحملات، AI Scenario/Agent Builder، المراقبة/التسجيل/الجودة، UI/E2E. أي ميزة غير مثبتة على الجهاز تظل `[ ]` حتى مع وجود الكود. لا تغيير live/اقتران أو بدء SaaS.
