@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "mobile-release-http-verify-41219916371",
+  "id": "campaign-api-deploy-20261031-native",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-10-31T16:32:06.093Z",
-  "expires_at": "2026-10-31T18:32:06.093Z",
+  "created_at": "2026-10-31T16:54:34.706Z",
+  "expires_at": "2026-10-31T17:54:34.706Z",
   "cwd": "/home/appontrack/public_html/saas",
   "timeout_seconds": 25,
   "argv": [
     "/bin/python3",
     "-c",
-    "import urllib.request,json\nbase=\"https://app.ontrackegy.com/saas/mobile/updates/\"\nfor segment in (\"latest.json\",\"native/latest.json\"):\n url=base+segment\n try:\n  with urllib.request.urlopen(urllib.request.Request(url,headers={\"Cache-Control\":\"no-cache\"}),timeout=8) as response:\n   data=json.load(response);meta=json.loads(data[\"payload\"])\n   print(json.dumps({\"resource\":segment,\"status\":response.status,\"revision\":meta.get(\"revision\"),\"version_code\":meta.get(\"version_code\"),\"sha256\":meta.get(\"sha256\"),\"file\":meta.get(\"file\")}))\n except Exception as error:print(json.dumps({\"resource\":segment,\"error\":str(error)[:160]}))\n"
+    "from pathlib import Path\nimport hashlib,subprocess,json,os\nroot=Path(\"/home/appontrack/public_html/saas/mobile\")\nsrc=Path(\"/home/appontrack/public_html/saas/mobile/campaigns_api.php\")\nassert os.getuid()==2379 and root.is_dir() and not root.is_symlink()\nfor f in [\"common.php\",\"pilot_workspace.php\"]:\n assert (root/f).is_file(), \"Missing server dependency: \"+f\ndata=\"<?php\\ndeclare(strict_types=1);\\nrequire __DIR__.'/common.php';\\nrequire __DIR__.'/pilot_workspace.php';\\nmobile_require_device();\\nif($_SERVER['REQUEST_METHOD']==='GET') {\\n    $campaigns=pilot_read('campaigns');\\n    mobile_json(['ok'=>true,'campaigns'=>array_slice(array_reverse($campaigns),0,60)]);\\n}\\nif($_SERVER['REQUEST_METHOD']!=='POST')mobile_json(['ok'=>false,'error'=>'method_not_allowed'],405);\\n$raw=(string)file_get_contents('php://input');\\nif(strlen($raw)>12000)mobile_json(['ok'=>false,'error'=>'too_large'],413);\\n$data=json_decode($raw,true);\\nif(!is_array($data)||($data['confirmed']??false)!==true)mobile_json(['ok'=>false,'error'=>'confirmation_required'],422);\\ntry {\\n    $item=pilot_campaign_create((string)($data['name']??''),(string)($data['starts']??''),(string)($data['ends']??''),(string)($data['scenario']??''));\\n    mobile_json(['ok'=>true,'campaign'=>$item,'dispatched'=>false]);\\n} catch (InvalidArgumentException $e) {\\n    mobile_json(['ok'=>false,'error'=>'invalid_campaign'],422);\\n} catch (Throwable $e) {\\n    mobile_json(['ok'=>false,'error'=>'campaign_store_error'],500);\\n}\\n\".encode(\"utf-8\")\nassert len(data)<5000\nif src.exists():\n assert not src.is_symlink()\n if src.read_bytes()!=data:raise RuntimeError(\"Existing campaign API differs; inspect before overwrite\")\nelse:\n fd=os.open(str(src),os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)\n with os.fdopen(fd,\"wb\") as out:out.write(data)\nresult=subprocess.run([\"/usr/local/bin/php\",\"-l\",str(src)],capture_output=True,text=True,timeout=8)\nprint(json.dumps({\"ok\":result.returncode==0,\"lint\":result.stdout.strip()[:200],\"sha256\":hashlib.sha256(data).hexdigest(),\"created\":src.is_file()}))\nif result.returncode:raise RuntimeError(\"PHP lint failed\")\n"
   ]
 }
