@@ -137,8 +137,8 @@ class MobileLinkActivity:ComponentActivity(){
     private fun sendState(){
         if(!ready)return
         val state=JSONObject().put("status",MobileLinkService.latestStatus).put("running",MobileLinkService.running)
-            .put("inCall",MobileLinkService.inCall).put("humanControl",MobileLinkService.humanControl)
-            .put("agentEnabled",MobileLinkService.agentEnabled).put("connected",MobileLinkService.connected).put("serverRevision",MobileLinkService.serverRevision)
+            .put("inCall",MobileLinkService.inCall).put("callAnswered",MobileLinkService.callAnswered).put("humanControl",MobileLinkService.humanControl)
+            .put("agentEnabled",MobileLinkService.agentEnabled).put("connected",MobileLinkService.connected).put("pendingSync",MobileLinkService.pendingSync).put("serverRevision",MobileLinkService.serverRevision)
             .put("overlayGranted",Settings.canDrawOverlays(this)).put("revision",ota.revision)
             .put("nativeUpdateAvailable",nativeRelease!=null).put("nativeUpdateBusy",nativeBusy)
             .put("nativeUpdateStatus",nativeStatus).put("nativeUpdateVersion",nativeRelease?.versionName?:"").put("native",ota.nativeVersion).put("updating",updateBusy)
