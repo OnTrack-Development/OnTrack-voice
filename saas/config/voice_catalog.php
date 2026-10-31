@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 return [
-    'google.a oede' => ['label'=>'Aoede','provider'=>'gemini_live','tier'=>'basic','ready'=>true],
+    'google.aoede' => ['label'=>'Aoede','provider'=>'gemini_live','tier'=>'basic','ready'=>true],
     'google.kore' => ['label'=>'Kore','provider'=>'gemini_live','tier'=>'basic','ready'=>true],
     'google.puck' => ['label'=>'Puck','provider'=>'gemini_live','tier'=>'basic','ready'=>true],
     'ayo.calm' => ['label'=>'AYO Calm','provider'=>'external_tts','tier'=>'premium','ready'=>false,'asset'=>'AYO-calm.pt','sha256'=>'10b536280f44431af3a42b2b3ae68ab0e60a44ca116c417b9a9ba9a12bbb8105'],
