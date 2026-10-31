@@ -45,7 +45,7 @@ internal class CallOverlay(private val context:Context){
             setOnClickListener{context.startService(Intent(context,MobileLinkService::class.java).setAction(command))}
         }
     }
-    fun show(serviceReady:Boolean,enabled:Boolean,inCall:Boolean,human:Boolean){
+    fun show(serviceReady:Boolean,enabled:Boolean,inCall:Boolean,answered:Boolean,human:Boolean){
         if(!allowed()){remove();return}
         if(root==null){
             val panel=LinearLayout(context).apply{
@@ -100,16 +100,17 @@ internal class CallOverlay(private val context:Context){
         }
         head?.text=when{
             inCall&&human->"● أون تراك  |  استلام بشري  ▾"
+            inCall&&!answered->"● أون تراك  |  اتصال وارد  ▾"
             inCall->"● أون تراك  |  مكالمة AI  ▾"
             !serviceReady->"● أون تراك  |  إعادة الاتصال  ▾"
             enabled->"● أون تراك  |  الإيجنت نشط  ▾"
             serviceReady->"● أون تراك  |  متوقف  ▾"
             else->"● أون تراك  |  غير متصل  ▾"
         }
-        head?.setTextColor(if(enabled||inCall)green else muted)
+        head?.setTextColor(if((serviceReady&&enabled)||inCall)green else muted)
         controls?.visibility=if(expanded)View.VISIBLE else View.GONE
-        takeoverButton?.visibility=if(inCall&&!human)View.VISIBLE else View.GONE
-        speakerButton?.visibility=if(inCall)View.VISIBLE else View.GONE
+        takeoverButton?.visibility=if(answered&&!human)View.VISIBLE else View.GONE
+        speakerButton?.visibility=if(answered)View.VISIBLE else View.GONE
         powerButton?.apply{
             text=if(enabled)"إيقاف الإيجنت" else "تشغيل الإيجنت"
             setOnClickListener{
