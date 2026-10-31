@@ -5,7 +5,13 @@ require __DIR__.'/pilot_workspace.php';
 mobile_require_device();
 if($_SERVER['REQUEST_METHOD']==='GET') {
     $campaigns=pilot_read('campaigns');
-    mobile_json(['ok'=>true,'campaigns'=>array_slice(array_reverse($campaigns),0,60)]);
+    $attempts=[];
+    foreach(array_slice(array_reverse(pilot_read('attempts')),0,50) as $row){
+        $attempts[]=['id'=>(string)$row['id'],'campaign_id'=>(string)$row['campaign_id'],
+            'name'=>(string)$row['name'],'phone'=>(string)$row['phone'],
+            'status'=>(string)$row['status'],'created_at'=>(string)$row['created_at']];
+    }
+    mobile_json(['ok'=>true,'campaigns'=>array_slice(array_reverse($campaigns),0,60),'attempts'=>$attempts]);
 }
 if($_SERVER['REQUEST_METHOD']!=='POST')mobile_json(['ok'=>false,'error'=>'method_not_allowed'],405);
 $raw=(string)file_get_contents('php://input');
