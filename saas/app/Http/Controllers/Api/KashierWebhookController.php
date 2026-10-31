@@ -38,7 +38,8 @@ class KashierWebhookController extends Controller
             if (in_array($eventType,['refund','reversal','void'],true) && $status === 'SUCCESS') {
                 if ($order->status === 'paid') {
                     $order->update(['status'=>'refunded']);
-                    Subscription::where('tenant_id',$order->tenant_id)->where('plan_id',$order->plan_id)
+                    Subscription::where('tenant_id',$order->tenant_id)
+                        ->where('voice_payment_order_id',$order->id)
                         ->where('status','active')->update(['status'=>'cancelled']);
                 }
                 return response('',200);
@@ -51,6 +52,7 @@ class KashierWebhookController extends Controller
                 ->update(['status'=>'expired']);
             Subscription::create([
                 'tenant_id'=>$order->tenant_id, 'plan_id'=>$order->plan_id,
+                'voice_payment_order_id'=>$order->id,
                 'status'=>'active','started_at'=>now(),'renews_at'=>now()->addMonthNoOverflow(),
             ]);
             return response('',200);

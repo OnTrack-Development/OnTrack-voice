@@ -25,8 +25,15 @@ return new class extends Migration {
             $table->timestamps();
             $table->index(['tenant_id', 'status']);
         });
+        Schema::table('subscriptions', function (Blueprint $table) {
+            $table->foreignId('voice_payment_order_id')->nullable()->unique()
+                ->constrained('voice_payment_orders')->nullOnDelete();
+        });
     }
     public function down(): void {
+        Schema::table('subscriptions', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('voice_payment_order_id');
+        });
         Schema::dropIfExists('voice_payment_orders');
         Schema::table('plans', function (Blueprint $table) {
             $table->dropColumn(['price_minor','currency','billing_interval']);
