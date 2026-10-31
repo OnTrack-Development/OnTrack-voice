@@ -110,6 +110,25 @@ class MobileLinkActivity:ComponentActivity(){
         check(history.optBoolean("ok")){"لم يتم تحميل السجل"}
         web.evaluateJavascript("window.onTrackCalls && window.onTrackCalls("+history.toString()+")",null)
     }
+    private suspend fun campaignRequest(payload:JSONObject?) {
+        check(!MobileLinkService.inCall){"إدارة الحملات متاحة بعد انتهاء المكالمة"}
+        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
+        check(key.length>=24){"اربط التطبيق بالسيرفر أولاً"}
+        val result=withContext(Dispatchers.IO) {
+            val builder=Request.Builder().url("https://app.ontrackegy.com/saas/mobile/campaigns_api.php")
+                .header("Authorization","Bearer "+key)
+            val request=if(payload==null)builder.get().build() else builder
+                .post(payload.toString().toRequestBody("application/json".toMediaType())).build()
+            OkHttpClient.Builder().followRedirects(false).build().newCall(request).execute().use {
+                check(it.isSuccessful){"الحملات غير متاحة HTTP "+it.code}
+                val raw=it.body?.string().orEmpty()
+                check(raw.length<=90000){"رد الحملات كبير"}
+                JSONObject(raw)
+            }
+        }
+        check(result.optBoolean("ok")){"تعذر تحميل الحملات"}
+        web.evaluateJavascript("window.onTrackCampaigns && window.onTrackCampaigns("+result.toString()+")",null)
+    }
     private suspend fun uploadSelectedContacts() {
         check(!MobileLinkService.inCall){"اترك رفع الأرقام حتى انتهاء المكالمة"}
         check(pendingContacts.length()>0){"اختر أرقامًا قبل الرفع"}
@@ -353,6 +372,18 @@ class MobileLinkActivity:ComponentActivity(){
                         }else banner.text="إذن النافذة العائمة مفعل"
                     }
                     "loadCallHistory"->loadCallHistory()
+                    "listCampaigns"->campaignRequest(null)
+                    "createCampaign"->{
+                        check(msg.optBoolean("confirmed")){"يجب مراجعة مسودة الحملة"}
+                        val name=msg.optString("name").trim()
+                        val starts=msg.optString("starts").trim()
+                        val ends=msg.optString("ends").trim()
+                        val scenario=msg.optString("scenario").trim()
+                        require(name.isNotEmpty() && name.length<=160 && starts.length==16 && ends.length==16 &&
+                            scenario.isNotEmpty() && scenario.length<=8000){"بيانات الحملة غير صالحة"}
+                        campaignRequest(JSONObject().put("confirmed",true).put("name",name).put("starts",starts)
+                            .put("ends",ends).put("scenario",scenario))
+                    }
                     "contactsPick"->{
                         val intent=Intent(Intent.ACTION_PICK).apply{
                             type=ContactsContract.CommonDataKinds.Phone.CONTENT_TYPE
