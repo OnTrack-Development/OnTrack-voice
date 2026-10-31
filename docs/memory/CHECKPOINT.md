@@ -1,3 +1,11 @@
+## 31 أكتوبر 2026 — OTA12 / Android 0.2.6 RELEASE VERIFIED (host only)
+
+- Root issue: `publish_ota` failed due to 16,384-byte host job limit. Fixed by XZ signed-bundle packing and compressed Python deploy source; emitted queue length 15,265 bytes. Backward-compatible zlib decoder maintains previous tests.
+- Android 0.2.6 signed artifact from previously **fully successful CI build** run `41217573945` / artifact `13048863982` (including emulator WebView). Independently republished via release workflow run `41219916371` (publish_ota=SUCCESS, publish_native=SUCCESS), without claiming later flaky WebView rebuild failures as passes.
+- HOST worker: `mobile-ota-41219916371` SUCCESS/exit0 revision12 sha256 `2960e56f9789aec0fa4243f5b3c475229fc6ff2d1b642815aa9817063863eb52`; `mobile-native-41219916371` SUCCESS/exit0 versionCode17 sha256 `3c88e1e89038930a4138669f19de34f9ce746acfdf4be2aab10f6fde0a2a53de`.
+- HTTPS verified from the host in job `mobile-release-http-verify-41219916371`: both `saas/mobile/updates/latest.json` and `saas/mobile/updates/native/latest.json` return HTTP200 with matching revision/version and hashes; no credentials printed.
+- Still OPEN: installation of 0.2.6 on actual Xiaomi; complete P1/P2/P5/P6 E2E; later Android emulator WebView test flakiness seen in runs `41218421220` and `41219173959` (test failure with emulator input ANR). Do not label these runs successful. 
+
 ## 31 أكتوبر 2026 — الحالة التنفيذية للدفعة الموحدة P1/P2/P5/P6
 
 - CODE: ee839f6e plans/Kashier/Premium catalog؛ fb8bb837 Android UI 0.2.6/OTA12 + import + campaign drafts؛ dd5138a1 in-app call history؛ 02c6dd89 server-side plan entitlements؛ 45a0a0b4 payment-order-bound refunds.
