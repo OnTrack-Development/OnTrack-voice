@@ -110,6 +110,9 @@ body.light .otMetric small,body.light .otMiniCard small{color:#62718a}
 <div class="section-title"><h2>سجل المكالمات</h2><span class="chip good">تسجيل الأحداث</span></div>
 <p>سجل فعلي للمكالمات المرصودة على الشريحة: وقت الرنين والرد ومدة الاتصال. الأرقام والملخصات لا تظهر قبل التحقق من توفرها.</p>
 <div class="otMetrics"><div class="otMetric"><span class="symbol">◷</span><strong>Call History</strong><small>الأحداث من الهاتف إلى السيرفر</small></div><div class="otMetric"><span class="symbol">≡</span><strong>التقارير</strong><small>بيانات غير متاحة بعد حتى اكتمال الربط</small></div></div>
+<div class="divider"></div>
+<button class="outline" id="refreshCalls">تحديث السجل من الهاتف</button>
+<div id="callsList" aria-live="polite"><div class="otMiniCard"><div><strong>سجل المكالمات</strong><small>افتح القسم وسيتم تحميل آخر المكالمات المثبتة على السيرفر، بدون أرقام مختلقة.</small></div></div></div>
 <button class="primary" data-open-admin>فتح مركز سجل المكالمات</button>
 </section>
 <section class="card" data-panel="campaigns">
@@ -174,6 +177,7 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  const wifiSupported=typeof s.wifiFreeEnabled==='boolean';
  el('mobileDataMode').style.display=wifiSupported?'block':'none';
  el('nativeContactPanel').style.display=s.contactsSupported===true?'block':'none';
+ el('refreshCalls').disabled=s.callsSupported!==true;
  const wifiFree=!!s.wifiFreeEnabled, wifiReady=!!s.wifiFreeReady;
  el('wifiFreeStatus').textContent=wifiFree?
    (wifiReady?'جاهز للتجربة على بيانات الهاتف':'مفعّل لكنه غير جاهز على هذا الجهاز'):
@@ -209,6 +213,7 @@ function setView(v){
   const selected=b.dataset.view===v;b.classList.toggle('active',selected);
   b.setAttribute('aria-current',selected?'page':'false');
  });
+ if(v==='calls' && last.callsSupported===true)send('loadCallHistory');
  window.scrollTo({top:0,behavior:'auto'});
 }
 document.querySelectorAll('.otTabs button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
@@ -217,6 +222,25 @@ el('themeToggle').onclick=()=>{
  const light=document.body.classList.toggle('light');
  el('themeToggle').textContent=light?'☾ الوضع الداكن':'☀ الوضع الفاتح';
 };
+const callNames={ringing:'رنين',active:'تم الرد',ended:'انتهت',missed:'لم يتم الرد',unknown:'غير معروف'};
+window.onTrackCalls=history=>{
+ const root=el('callsList');root.textContent='';
+ const calls=Array.isArray(history.calls)?history.calls:[];
+ if(!calls.length){
+  const empty=document.createElement('div');empty.className='otMiniCard';
+  empty.textContent='لم تصل سجلات مكالمات من الهاتف حتى الآن';root.appendChild(empty);return;
+ }
+ for(const call of calls){
+  const card=document.createElement('div');card.className='otMiniCard';
+  const block=document.createElement('div');const label=document.createElement('strong');
+  label.textContent=(call.name||call.phone||'مكالمة بدون اسم أو رقم')+' — '+(callNames[call.status]||'غير معروف');
+  const sub=document.createElement('small');
+  const stamp=call.started?new Date(call.started).toLocaleString('ar-EG'):'وقت غير متاح';
+  sub.textContent=stamp+' · '+(Number.isFinite(call.duration)?call.duration+' ث':'المدة غير متاحة')+' · '+String(call.id||'').slice(0,8);
+  block.appendChild(label);block.appendChild(sub);card.appendChild(block);root.appendChild(card);
+ }
+};
+el('refreshCalls').onclick=()=>{if(last.callsSupported===true)send('loadCallHistory')};
 let stagedCount=0;
 window.onTrackContactPreview=s=>{
  stagedCount=Number(s.count)||0;

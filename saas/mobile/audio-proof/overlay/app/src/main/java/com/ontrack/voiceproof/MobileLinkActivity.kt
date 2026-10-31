@@ -94,6 +94,22 @@ class MobileLinkActivity:ComponentActivity(){
         val status=JSONObject().put("count",pendingContacts.length()).put("sample",sample)
         web.evaluateJavascript("window.onTrackContactPreview && window.onTrackContactPreview("+status.toString()+")",null)
     }
+    private suspend fun loadCallHistory() {
+        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
+        check(key.length>=24){"أدخل مفتاح الربط قبل قراءة سجل المكالمات"}
+        val history=withContext(Dispatchers.IO){
+            OkHttpClient.Builder().followRedirects(false).build().newCall(Request.Builder()
+                .url("https://app.ontrackegy.com/saas/mobile/calls_feed.php")
+                .header("Authorization","Bearer "+key).get().build()).execute().use{
+                check(it.isSuccessful){"السجل غير متاح HTTP "+it.code}
+                val bytes=it.body?.string().orEmpty()
+                check(bytes.length<90000){"رد السجل غير صالح"}
+                JSONObject(bytes)
+            }
+        }
+        check(history.optBoolean("ok")){"لم يتم تحميل السجل"}
+        web.evaluateJavascript("window.onTrackCalls && window.onTrackCalls("+history.toString()+")",null)
+    }
     private suspend fun uploadSelectedContacts() {
         check(!MobileLinkService.inCall){"اترك رفع الأرقام حتى انتهاء المكالمة"}
         check(pendingContacts.length()>0){"اختر أرقامًا قبل الرفع"}
@@ -302,6 +318,7 @@ class MobileLinkActivity:ComponentActivity(){
             .put("wifiFreeEnabled",wifiFreeEnabledState)
             .put("wifiFreeReady",wifiFreeReadyState)
             .put("contactsSupported",true)
+            .put("callsSupported",true)
             .put("nativeUpdateVersion",nativeRelease?.versionName?:"").put("native",ota.nativeVersion).put("updating",updateBusy)
         web.evaluateJavascript("window.onTrackState && window.onTrackState($state)",null)
     }
@@ -335,6 +352,7 @@ class MobileLinkActivity:ComponentActivity(){
                             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:$packageName")))
                         }else banner.text="إذن النافذة العائمة مفعل"
                     }
+                    "loadCallHistory"->loadCallHistory()
                     "contactsPick"->{
                         val intent=Intent(Intent.ACTION_PICK).apply{
                             type=ContactsContract.CommonDataKinds.Phone.CONTENT_TYPE
