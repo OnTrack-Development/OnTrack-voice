@@ -1,0 +1,13 @@
+{
+  "job_id": "mobile-calls-file-api-deploy-20261031",
+  "target": "appontrack-server11",
+  "job_sha256": "0d44355e5b268311d8dbc96f5fe6181cf335df991ccb46d83a07184aae467520",
+  "started_at": "2026-10-31T17:00:04.630922+00:00",
+  "status": "failed",
+  "exit_code": 1,
+  "output_truncated": false,
+  "stdout": "{\"file\": \"call_ledger.php\", \"sha256\": \"eaf04be1316900ba52d08a28b739bce1e1f30b1359b9b5188ae9b0ab1da487bd\", \"lint\": \"PASS\"}\n{\"file\": \"calls_feed.php\", \"sha256\": \"301713c44d71a2a100322387d8376cef140dd4b09df561e668d88595a55a747c\", \"lint\": \"PASS\"}\n",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 10, in <module>\nAssertionError: Existing file differs calls.php\n",
+  "finished_at": "2026-10-31T17:00:04.871609+00:00",
+  "duration_ms": 241
+}
