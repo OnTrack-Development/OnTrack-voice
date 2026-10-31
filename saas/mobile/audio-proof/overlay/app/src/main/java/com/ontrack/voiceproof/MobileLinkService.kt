@@ -56,6 +56,8 @@ class MobileLinkService:Service() {
     private lateinit var overlay:CallOverlay
     private var call:MobileLiveCall?=null
     private var loop:Job?=null
+    private var callEventFlush:Job?=null
+    private lateinit var callEventOutbox:CallEventOutbox
     private var connectivity:ConnectivityManager?=null
     private var networkListener:ConnectivityManager.NetworkCallback?=null
     @Volatile private var takeoverRequested=false
@@ -99,6 +101,7 @@ class MobileLinkService:Service() {
     override fun onCreate(){
         super.onCreate()
         overlay=CallOverlay(this)
+        callEventOutbox=CallEventOutbox(this)
         pendingDesired=when(prefs().getString("pending_agent_enabled",null)){
             "true"->true
             "false"->false
@@ -202,6 +205,15 @@ class MobileLinkService:Service() {
                     }
                     val raw=CaptureDaemon.linkControl(this@MobileLinkService,'Q')?:error("مساعد الشريحة غير متصل")
                     val state=raw.substringAfter("CALL ").toIntOrNull()?:error("حالة الاتصال غير مفهومة")
+                    // Persist device-observed call transitions even when server delivery retries.
+                    callEventOutbox.observe(state)
+                    if(callEventFlush?.isActive!=true)callEventFlush=scope.launch {
+                        runCatching {
+                            val event=callEventOutbox.peek()?:return@runCatching
+                            request(base+"saas/mobile/call_event.php",key,event)
+                            callEventOutbox.acknowledge(event)
+                        }
+                    }
                     connected=true
                     inCall=state==1||state==2
                     callAnswered=state==2

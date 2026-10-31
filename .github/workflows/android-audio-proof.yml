@@ -20,6 +20,7 @@ jobs:
           for source in saas/mobile/server/*.php; do php -l "$source"; done
           python3 -m py_compile saas/mobile/patch_live_session.py
           python3 tools/test_mobile_ota.py
+          php tools/test_mobile_call_ledger.php
       - uses: actions/checkout@v5
         with:
           repository: jemcik/JemRec
