@@ -13,6 +13,11 @@ class NativeInstallResultReceiver:BroadcastReceiver(){
         if(intent?.action!=ACTION_RESULT)return
         val status=intent.getIntExtra(PackageInstaller.EXTRA_STATUS,PackageInstaller.STATUS_FAILURE)
         val store=context.getSharedPreferences("ontrack_link",Context.MODE_PRIVATE)
+        // Terminal results must unlock retries; only pending user approval blocks duplicates.
+        if(status!=PackageInstaller.STATUS_PENDING_USER_ACTION){
+            context.getSharedPreferences("ontrack_native_installer",Context.MODE_PRIVATE)
+                .edit().remove("session_id").remove("created_at").apply()
+        }
         when(status){
             PackageInstaller.STATUS_PENDING_USER_ACTION->{
                 @Suppress("DEPRECATION")
@@ -27,6 +32,9 @@ class NativeInstallResultReceiver:BroadcastReceiver(){
                     }catch(_:Exception){
                         store.edit().putString("last_native_install","تعذر فتح موافقة التثبيت؛ افتح إعدادات تحديث التطبيق").apply()
                     }
+                }else{
+                    store.edit().putString("last_native_install",
+                        "لم يرسل Android نافذة الموافقة؛ راجع إصدار التطبيق وإذن التثبيت").apply()
                 }
             }
             PackageInstaller.STATUS_SUCCESS->store.edit()
