@@ -166,6 +166,26 @@ class MobileLinkActivity:ComponentActivity(){
         check(history.optBoolean("ok")){"لم يتم تحميل السجل"}
         web.evaluateJavascript("window.onTrackCalls && window.onTrackCalls("+history.toString()+")",null)
     }
+    private suspend fun contactsRequest(payload:JSONObject?) {
+        check(!MobileLinkService.inCall){"إدارة الأرقام متاحة بعد انتهاء المكالمة"}
+        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
+        check(key.length>=24){"اربط الهاتف بالسيرفر"}
+        val result=withContext(Dispatchers.IO){
+            val builder=Request.Builder().url("https://app.ontrackegy.com/saas/mobile/contacts_api.php")
+                .header("Authorization","Bearer "+key)
+            val request=if(payload==null)builder.get().build() else builder
+                .post(payload.toString().toRequestBody("application/json".toMediaType())).build()
+            OkHttpClient.Builder().followRedirects(false).build().newCall(request).execute().use {
+                check(it.isSuccessful){"تعذر إدارة الأرقام HTTP "+it.code}
+                val body=it.body?.string().orEmpty()
+                check(body.length<=90000){"رد السيرفر كبير"}
+                JSONObject(body)
+            }
+        }
+        check(result.optBoolean("ok")){"السيرفر رفض العملية"}
+        if(payload!=null)contactsRequest(null)
+        else web.evaluateJavascript("window.onTrackContactsList && window.onTrackContactsList("+result.toString()+")",null)
+    }
     private suspend fun campaignRequest(payload:JSONObject?) {
         check(!MobileLinkService.inCall){"إدارة الحملات متاحة بعد انتهاء المكالمة"}
         val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
@@ -429,6 +449,15 @@ class MobileLinkActivity:ComponentActivity(){
                         }else banner.text="إذن النافذة العائمة مفعل"
                     }
                     "loadCallHistory"->loadCallHistory()
+                    "listContacts"->contactsRequest(null)
+                    "contactDnc"->{
+                        check(msg.optBoolean("confirmed")){"تأكيد مطلوب"}
+                        val id=msg.optString("id")
+                        require(id.matches(Regex("[a-f0-9]{24}"))){"معرف رقم غير صالح"}
+                        require(msg.has("blocked")&&msg.get("blocked") is Boolean){"حالة الرقم غير صالحة"}
+                        contactsRequest(JSONObject().put("confirmed",true).put("id",id)
+                            .put("blocked",msg.getBoolean("blocked")))
+                    }
                     "listCampaigns"->campaignRequest(null)
                     "campaignAction"->{
                         check(msg.optBoolean("confirmed")){"تأكيد العملية مطلوب"}
