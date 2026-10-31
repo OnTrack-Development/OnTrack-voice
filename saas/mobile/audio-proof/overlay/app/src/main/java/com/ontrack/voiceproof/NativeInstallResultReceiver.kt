@@ -32,7 +32,7 @@ class NativeInstallResultReceiver:BroadcastReceiver(){
             PackageInstaller.STATUS_SUCCESS->store.edit()
                 .putString("last_native_install","تم تثبيت التحديث بنجاح").apply()
             else->{
-                val code=intent.getIntExtra(PackageInstaller.EXTRA_LEGACY_STATUS,-1)
+                val code=status
                 val reason=when(status){
                     PackageInstaller.STATUS_FAILURE_INVALID->"صيغة حزمة APK مرفوضة"
                     PackageInstaller.STATUS_FAILURE_CONFLICT->"تعارض مع النسخة المثبتة"
@@ -42,7 +42,7 @@ class NativeInstallResultReceiver:BroadcastReceiver(){
                     PackageInstaller.STATUS_FAILURE_ABORTED->"تم إلغاء التثبيت"
                     else->"فشل تثبيت Android"
                 }
-                store.edit().putString("last_native_install","$reason · Android $code").apply()
+                store.edit().putString("last_native_install","$reason · status $code").apply()
             }
         }
     }
