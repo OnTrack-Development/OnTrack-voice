@@ -43,6 +43,8 @@ jobs:
           run-id: 41222513565
           github-token: ${{ github.token }}
           path: .build/downloaded
+      - name: Verify native deployer accepts exact 0.2.7 package
+        run: grep -Fq 'x.filename=="OnTrack-Voice-0.2.7.apk"' saas/mobile/ota/native_deploy.py
       - name: Queue validated native APK only after host worker finishes prior job
         env:
           GH_TOKEN: ${{ github.token }}
