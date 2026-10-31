@@ -46,7 +46,7 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
             $id=(string)($_POST['id']??'');
             $operation=(string)($_POST['operation']??'');
             if(!preg_match('/^[a-f0-9]{24}$/D',$id))throw new InvalidArgumentException('معرّف غير صالح');
-            $campaign=pilot_campaign_transition($id,$operation);
+            $campaign=$operation==='arm'?pilot_campaign_arm($id):pilot_campaign_transition($id,$operation);
             $flash='تم تحديث الحملة: '.$campaign['status'].' — لا يتم الاتصال تلقائيًا';
         } else throw new InvalidArgumentException('عملية غير مدعومة');
     }catch(Throwable $e){http_response_code(422);$flash='تعذر التنفيذ: '.$e->getMessage();}
@@ -96,9 +96,19 @@ small{color:#a9bbcf}table{width:100%;border-collapse:collapse}td,th{border-botto
 <input type="hidden" name="csrf" value="<?=safe($_SESSION['csrf'])?>">
 <input type="hidden" name="action" value="campaign_control">
 <input type="hidden" name="id" value="<?=safe((string)$c['id'])?>">
-<?php foreach((($c['status']??'')==='paused'?['resume','cancel']:['pause','cancel']) as $operation):?>
+<?php foreach((($c['status']??'')==='paused'?['resume','cancel']:(($c['status']??'')==='draft'?['arm','pause','cancel']:['pause','cancel'])) as $operation):?>
 <button type="submit" name="operation" value="<?=safe($operation)?>" style="padding:7px 10px;width:auto;font-size:11px"><?=safe($operation)?></button>
 <?php endforeach;?>
 </form><?php endif;?></td></tr><?php endforeach;?></tbody></table></div>
 <p><small>إجراء مكالمة SIM تلقائيًا لم يُفعَّل في هذه النسخة. لا توجد اتصالات مخفية أو مكررة.</small></p></section>
+<section class="card" style="margin-top:20px"><h2>نتائج محاولات الاتصال من الشريحة</h2>
+<p>حالات فعلية حسب إقرارات Android، بدون افتراض الرد أو رضا العميل.</p><div class="wrap"><table>
+<thead><tr><th>الحملة</th><th>اسم العميل</th><th>الرقم</th><th>الحالة</th><th>وقت المحاولة</th></tr></thead><tbody>
+<?php foreach(array_slice(array_reverse(pilot_read('attempts')),0,100) as $attempt):?>
+<tr><td><?=safe((string)$attempt['campaign_id'])?></td>
+<td><?=safe((string)$attempt['name'])?></td>
+<td dir="ltr"><?=safe((string)$attempt['phone'])?></td>
+<td><?=safe((string)$attempt['status'])?></td>
+<td><?=safe((string)$attempt['created_at'])?></td></tr>
+<?php endforeach;?></tbody></table></div></section>
 </div></main></body></html>
