@@ -249,8 +249,12 @@ function setView(v){
  if(v==='campaigns' && Number(last.nativeCode)>=18)send('listCampaigns');
  window.scrollTo({top:0,behavior:'auto'});
 }
-document.querySelectorAll('.otTabs button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
-document.querySelectorAll('[data-open-admin]').forEach(b=>b.onclick=()=>send('admin'));
+document.querySelectorAll('.otTabs button').forEach(b=>{
+ b.type='button';
+ b.addEventListener('click',event=>{event.preventDefault();setView(b.dataset.view)});
+});
+setView('dashboard');
+document.querySelectorAll('[data-open-admin]').forEach(b=>b.onclick=()=>{setView('campaigns');el('campaignResult').textContent='الأدوات الخاصة بالحملات والأرقام داخل التطبيق؛ لا حاجة للواجهة القديمة.'});
 el('themeToggle').onclick=()=>{
  const light=document.body.classList.toggle('light');
  el('themeToggle').textContent=light?'☾ الوضع الداكن':'☀ الوضع الفاتح';
