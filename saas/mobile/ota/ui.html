@@ -51,6 +51,14 @@ footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details su
 <div class="row"><button class="primary" id="upgradeAndroid" disabled>تثبيت تحديث Android</button><button id="scanAndroid" class="outline">فحص الإصدار</button></div>
 <p class="small">التحديثات المتكررة لا تعيد تنزيل الملف المتحقق منه. إذا طلب Android إذن تثبيت، فالموافقة مطلوبة من النظام وليست جزءًا من تحديث الواجهة. لا يحدث تثبيت أثناء مكالمة.</p>
 </section>
+<section class="card" id="mobileDataMode">
+<div class="section-title"><h2>الاتصال ببيانات الهاتف</h2><span class="chip warn">اختياري · تجريبي</span></div>
+<p>تجربة تشغيل مساعد الشريحة على 4G/5G بدون الاعتماد على Wi-Fi. يتطلب إعدادًا أوليًا على شبكة Wi-Fi، ولا ينجح بالضرورة على أجهزة Xiaomi كلها أو بعد إعادة التشغيل.</p>
+<div class="status"><span class="indicator" id="wifiFreeLamp"></span><div><strong>المسار المحلي بدون Wi-Fi</strong><span class="small" id="wifiFreeStatus">غير مفعّل</span></div></div>
+<label style="display:flex;gap:10px;align-items:flex-start;margin:12px 0;font-size:13px;line-height:1.7"><input type="checkbox" id="wifiFreeConsent" style="width:auto;margin-top:5px;accent-color:#e3304c"><span>فاهم إن التجربة قد تفتح منفذ ADB رقم 5555 على شبكات الهاتف عند تفعيل التصحيح، وده يزيد مخاطر الوصول غير المصرح به. هستخدمه على جهاز اختبار فقط.</span></label>
+<button id="wifiFreeToggle" class="outline">تجربة الاتصال بدون Wi-Fi</button>
+<p class="small">لو حبيت تلغي الوضع، اتصل بالواي فاي أولًا واضغط إيقاف. لو المنفذ فضل مفتوح، أوقف USB debugging من إعدادات الهاتف. تشغيل البيانات لا يغني عن موافقة Android لإعداد ADB.</p>
+</section>
 <section class="card"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
 <section class="card"><h2>إعداد الهاتف</h2><p>ربط جهازك لأول مرة أو تصحيح Wireless debugging عند الحاجة. لا تختبارات تسجيل صوت قديمة في الواجهة الأساسية.</p>
 <div class="row"><button id="setup">الإعداد السريع</button><button class="outline" id="more">إعدادات متقدمة</button></div>
@@ -93,6 +101,13 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
    s.nativeInstallPermission===false?'إعداد إذن التثبيت لمرة واحدة':
    s.nativeUpdateAvailable?'فحص وتحميل أو استكمال تثبيت '+(s.nativeUpdateVersion||'الإصدار الجديد'):'Android محدّث';
  el('scanAndroid').disabled=s.nativeUpdateBusy||call;
+ const wifiFree=!!s.wifiFreeEnabled, wifiReady=!!s.wifiFreeReady;
+ el('wifiFreeStatus').textContent=wifiFree?
+   (wifiReady?'جاهز للتجربة على بيانات الهاتف':'مفعّل لكنه غير جاهز على هذا الجهاز'):
+   (wifiReady?'المنفذ قد يكون مفتوحًا رغم إيقاف الوضع':'غير مفعّل');
+ el('wifiFreeLamp').className='indicator '+(wifiFree&&wifiReady?'good':'');
+ el('wifiFreeToggle').textContent=wifiFree?'إيقاف وضع بدون Wi-Fi':'تجربة الاتصال بدون Wi-Fi';
+ el('wifiFreeToggle').disabled=call||(!wifiFree&&!el('wifiFreeConsent').checked);
  if(first&&online)first=false;
 };
 el('enable').onclick=()=>{
@@ -110,6 +125,8 @@ el('admin').onclick=()=>send('admin');
 el('more').onclick=()=>el('advanced').style.display=el('advanced').style.display==='block'?'none':'block';
 el('pair').onclick=()=>{const key=el('key').value.trim();if(!/^[A-Za-z0-9_-]{24,128}$/.test(key)){el('message').textContent='مفتاح الربط غير صالح';return;}send('start',{base:el('base').value,key});};
 el('showKey').onclick=()=>el('key').type=el('key').type==='password'?'text':'password';
+el('wifiFreeConsent').onchange=()=>{el('wifiFreeToggle').disabled=!!last.inCall||(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)};
+el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)return;send(last.wifiFreeEnabled?'wifiFreeDisable':'wifiFreeEnable')};
 el('scanAndroid').onclick=()=>send('checkNativeUpdates');
 el('upgradeAndroid').onclick=()=>send('installNativeUpdate');
 el('updates').onclick=()=>send('checkUpdates');el('rollback').onclick=()=>send('rollback');send('ready');
