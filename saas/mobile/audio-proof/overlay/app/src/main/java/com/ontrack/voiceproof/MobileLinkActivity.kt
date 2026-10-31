@@ -11,6 +11,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import org.json.JSONArray
 import android.graphics.Color
 import okhttp3.OkHttpClient
+import okhttp3.MultipartBody
+import android.provider.OpenableColumns
+import java.io.ByteArrayOutputStream
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
@@ -46,6 +49,8 @@ class MobileLinkActivity:ComponentActivity(){
     private var updateBusy=false
     private var pending:MobileOta.Bundle?=null
     private var pendingContacts=JSONArray()
+    private var pendingImportUri:Uri?=null
+    private var pendingImportName=""
     private val contactsPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
         if(granted)lifecycleScope.launch{loadAllContacts()}
         else {banner.text="لم يتم منح إذن قراءة جهات الاتصال؛ لم تُرفع أي بيانات";banner.visibility=View.VISIBLE}
@@ -69,6 +74,57 @@ class MobileLinkActivity:ComponentActivity(){
                 withContext(Dispatchers.Main){pendingContacts=rows;showContactPreview()}
             }
         }
+    }
+    private val filePicker=registerForActivityResult(ActivityResultContracts.OpenDocument()){uri->
+        if(uri!=null)lifecycleScope.launch{
+            val name=withContext(Dispatchers.IO){
+                contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use { cursor->
+                    if(cursor.moveToFirst())cursor.getString(0) else null
+                }?:uri.lastPathSegment.orEmpty()
+            }
+            if(!Regex("(?i)^.{1,140}\\.(csv|txt|xlsx)$").matches(name)){
+                pendingImportUri=null;pendingImportName=""
+                banner.text="مسموح CSV أو TXT أو XLSX فقط";banner.visibility=View.VISIBLE
+            }else{
+                pendingImportUri=uri;pendingImportName=name
+                web.evaluateJavascript("window.onTrackFilePreview && window.onTrackFilePreview("+JSONObject().put("name",name).toString()+")",null)
+            }
+        }
+    }
+    private suspend fun uploadContactsFile(){
+        check(!MobileLinkService.inCall){"ارفع الملف بعد انتهاء المكالمة"}
+        val uri=pendingImportUri?:error("اختار ملفًا أولًا")
+        val name=pendingImportName
+        check(Regex("(?i)^.{1,140}\\.(csv|txt|xlsx)$").matches(name)){"نوع الملف غير مسموح"}
+        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
+        check(key.length>=24){"اربط التطبيق بالسيرفر أولاً"}
+        val result=withContext(Dispatchers.IO){
+            val stream=contentResolver.openInputStream(uri)?:error("تعذر قراءة الملف")
+            val out=ByteArrayOutputStream()
+            stream.use { input->
+                val bytes=ByteArray(8192)
+                while(true){
+                    val n=input.read(bytes)
+                    if(n<0)break
+                    check(out.size()+n<=1048576){"الحد الأقصى للملف 1 ميجابايت"}
+                    out.write(bytes,0,n)
+                }
+            }
+            check(out.size()>0){"الملف فارغ"}
+            val form=MultipartBody.Builder().setType(MultipartBody.FORM)
+                .addFormDataPart("confirmed","1").addFormDataPart("consent","1")
+                .addFormDataPart("contacts",name,out.toByteArray().toRequestBody("application/octet-stream".toMediaType()))
+                .build()
+            OkHttpClient.Builder().followRedirects(false).build().newCall(Request.Builder()
+                .url("https://app.ontrackegy.com/saas/mobile/contacts_file_api.php")
+                .header("Authorization","Bearer "+key).post(form).build()).execute().use{
+                check(it.isSuccessful){"تعذر رفع الملف HTTP "+it.code}
+                JSONObject(it.body?.string().orEmpty())
+            }
+        }
+        check(result.optBoolean("ok")){"تم رفض الملف"}
+        pendingImportUri=null;pendingImportName=""
+        web.evaluateJavascript("window.onTrackFileImported && window.onTrackFileImported("+result.toString()+")",null)
     }
     private suspend fun loadAllContacts()=withContext(Dispatchers.IO){
         val rows=JSONArray()
@@ -395,6 +451,13 @@ class MobileLinkActivity:ComponentActivity(){
                         if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.READ_CONTACTS)
                             ==PackageManager.PERMISSION_GRANTED)loadAllContacts()
                         else contactsPermission.launch(Manifest.permission.READ_CONTACTS)
+                    }
+                    "contactsFilePick"->filePicker.launch(arrayOf(
+                        "text/plain","text/csv","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "application/octet-stream"))
+                    "contactsFileUpload"->{
+                        check(msg.optBoolean("confirmed") && msg.optBoolean("consent")){"تأكيد صريح مطلوب"}
+                        uploadContactsFile()
                     }
                     "contactsUpload"->{
                         check(msg.optBoolean("confirmed")){"راجع الأرقام وأكّد الرفع أولاً"}
