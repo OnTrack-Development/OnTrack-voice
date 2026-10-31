@@ -156,6 +156,7 @@ body.light .otMetric small,body.light .otMiniCard small{color:#62718a}
 <p id="campaignResult" class="small" role="status">الحملات المحفوظة متاحة على الهاتف والموقع.</p>
 <button id="refreshCampaigns" class="outline">تحديث الحملات</button>
 <div id="mobileCampaignList" aria-live="polite"></div>
+<div class="divider"></div><h2>تقرير المحاولات الفعلية</h2><p>الحالة مسجلة من محرك Android؛ لا تعني أن العميل رد إلا إذا وُجد إثبات مستقل.</p><div id="mobileAttemptList" aria-live="polite"></div>
 <div class="divider"></div>
 <button class="outline" data-open-admin>استيراد ملفات Excel وCSV وإدارة متقدمة</button>
 </section>
@@ -279,6 +280,15 @@ window.onTrackCampaigns=payload=>{
  const list=Array.isArray(payload.campaigns)?payload.campaigns:[];
  if(payload.preview){const p=payload.preview;el('campaignResult').textContent='المؤهلون: '+p.eligible.length+' · المستبعدون (DNC/بدون موافقة): '+p.excluded+' · الاتصال التلقائي غير مفعّل';return;}
  if(payload.campaign){el('campaignResult').textContent='تم حفظ المسودة بنجاح، بدون تشغيل أي اتصالات.';send('listCampaigns');return;}
+ const attemptsRoot=el('mobileAttemptList');attemptsRoot.replaceChildren();
+ const attempts=Array.isArray(payload.attempts)?payload.attempts:[];
+ if(!attempts.length){const empty=document.createElement('p');empty.textContent='لا توجد محاولات اتصال مسجلة';attemptsRoot.append(empty)}
+ for(const a of attempts){
+  const item=document.createElement('div');item.className='otMiniCard';
+  const label=document.createElement('strong');label.textContent=String(a.name||a.phone||'عميل');
+  const meta=document.createElement('small');meta.textContent=String(a.phone||'')+' · '+String(a.status||'unknown')+' · '+String(a.created_at||'');
+  const detail=document.createElement('div');detail.append(label,meta);item.append(detail);attemptsRoot.append(item);
+ }
  if(!list.length){const x=document.createElement('p');x.textContent='لا توجد مسودات حملات بعد';out.append(x);return}
  list.forEach(c=>{
   const card=document.createElement('div');card.className='otMiniCard';
