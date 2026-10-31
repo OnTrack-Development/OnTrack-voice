@@ -41,7 +41,9 @@ def main():
         # Upload transport is not a product dependency: fetch exact signed artifact from
         # the completed build via short-lived GitHub Actions blob redirect on the host.
         from queue_mobile_native import download_url
-        artifact=request('actions/runs/'+os.environ['GITHUB_RUN_ID']+'/artifacts?per_page=100')['artifacts']
+        source_run=os.environ.get('MOBILE_RELEASE_SOURCE_RUN_ID',os.environ['GITHUB_RUN_ID'])
+        assert source_run.isdecimal() and int(source_run)>0, 'Invalid pinned Android release run'
+        artifact=request('actions/runs/'+source_run+'/artifacts?per_page=100')['artifacts']
         matches=[x for x in artifact if x['name']=='OnTrack-Voice-0.2.7' and not x['expired']]
         assert len(matches)==1,'Signed Android artifact missing or ambiguous'
         url=download_url(matches[0]['id'])
