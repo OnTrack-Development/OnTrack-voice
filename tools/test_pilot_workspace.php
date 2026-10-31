@@ -28,6 +28,17 @@ try {
     try{pilot_campaign_transition($row['id'],'resume');throw new RuntimeException('accepted_cancelled_resume');}catch(InvalidArgumentException $e){}
     try{pilot_campaign_create('Wrong','2026-11-02T12:00','2026-11-01T10:00','x');throw new RuntimeException('accepted_invalid_schedule');}
     catch(InvalidArgumentException $e){}
+    $now=new DateTimeImmutable('now',new DateTimeZone('Africa/Cairo'));
+    $armed=pilot_campaign_create('E2E Lease',$now->modify('-2 minutes')->format('Y-m-d\\TH:i'),
+        $now->modify('+120 minutes')->format('Y-m-d\\TH:i'),'Owner approved script');
+    $ready=pilot_campaign_arm($armed['id']);expect($ready['status']==='ready','arm_explicit');
+    $lease=pilot_campaign_claim();expect(is_array($lease)&&$lease['phone']==='+201112345678','one_dnc_filtered_lease');
+    expect(pilot_campaign_claim()===null,'exclusive_claim_no_duplicate');
+    $finished=pilot_campaign_finish($lease['id'],'completed');expect($finished['status']==='completed','finish_once');
+    expect(pilot_campaign_finish($lease['id'],'completed')['status']==='completed','idempotent_finish');
+    expect(pilot_campaign_claim()===null,'no_redial');
+    try{pilot_campaign_finish($lease['id'],'failed');throw new RuntimeException('changed_terminal_result');}
+    catch(InvalidArgumentException $e){}
     $temp=tempnam(sys_get_temp_dir(),'pilot-csv-');file_put_contents($temp,"Ahmed,+201012345678\nMona,+201112345678\n");
     $parsed=pilot_file_rows($temp,'numbers.csv');expect(count($parsed)===2 && $parsed[1]['name']==='Mona','csv_parse');
     unlink($temp);
