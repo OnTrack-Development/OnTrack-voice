@@ -14,7 +14,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import com.ontrack.voiceproof.capture.CaptureDaemon
+import com.ontrack.voiceproof.capture.*
 
 /**
  * First-run setup wizard. Never tries to programmatically enable developer/USB
