@@ -1,6 +1,7 @@
 package com.ontrack.voiceproof
 
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -264,6 +265,35 @@ class MobileLinkActivity:ComponentActivity(){
                         ByteArrayInputStream(page.html.toByteArray(Charsets.UTF_8)))
                 }
                 return WebResourceResponse("text/plain","UTF-8",403,"Blocked",mapOf(),ByteArrayInputStream(ByteArray(0)))
+            }
+        }
+        // Explicit Android confirmation for consent, campaign arm and SIM charges.
+        // Only the signed local page may display a script-driven dialog.
+        web.webChromeClient=object:WebChromeClient(){
+            override fun onJsConfirm(view:WebView?,url:String?,message:String?,result:JsResult?):Boolean {
+                if(url?.startsWith("https://ontrack-ui.invalid/ui/")!=true){
+                    result?.cancel();return true
+                }
+                AlertDialog.Builder(this@MobileLinkActivity)
+                    .setTitle("تأكيد OnTrack")
+                    .setMessage(message.orEmpty().take(300))
+                    .setPositiveButton("تأكيد"){_,_->result?.confirm()}
+                    .setNegativeButton("إلغاء"){_,_->result?.cancel()}
+                    .setOnCancelListener{result?.cancel()}
+                    .show()
+                return true
+            }
+            override fun onJsAlert(view:WebView?,url:String?,message:String?,result:JsResult?):Boolean {
+                if(url?.startsWith("https://ontrack-ui.invalid/ui/")!=true){
+                    result?.cancel();return true
+                }
+                AlertDialog.Builder(this@MobileLinkActivity)
+                    .setTitle("OnTrack Voice")
+                    .setMessage(message.orEmpty().take(300))
+                    .setPositiveButton("حسنًا"){_,_->result?.confirm()}
+                    .setOnCancelListener{result?.cancel()}
+                    .show()
+                return true
             }
         }
         web.addJavascriptInterface(Bridge(),"OnTrack")
