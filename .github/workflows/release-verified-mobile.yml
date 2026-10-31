@@ -23,6 +23,8 @@ jobs:
           run-id: 41222513565
           github-token: ${{ github.token }}
           path: .build/downloaded
+      - name: Validate OTA publisher and secure download helper syntax
+        run: python3 -m py_compile tools/queue_mobile_ota.py saas/mobile/ota/deploy.py saas/mobile/ota/remote_deploy.py
       - name: Queue validated signed UI from successful CI build
         env:
           MOBILE_RELEASE_SOURCE_RUN_ID: '41222513565'
