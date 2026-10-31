@@ -263,6 +263,7 @@ el('refreshCalls').onclick=()=>{if(last.callsSupported===true)send('loadCallHist
 window.onTrackCampaigns=payload=>{
  const out=el('mobileCampaignList');out.replaceChildren();
  const list=Array.isArray(payload.campaigns)?payload.campaigns:[];
+ if(payload.preview){const p=payload.preview;el('campaignResult').textContent='المؤهلون: '+p.eligible.length+' · المستبعدون (DNC/بدون موافقة): '+p.excluded+' · الاتصال التلقائي غير مفعّل';return;}
  if(payload.campaign){el('campaignResult').textContent='تم حفظ المسودة بنجاح، بدون تشغيل أي اتصالات.';send('listCampaigns');return;}
  if(!list.length){const x=document.createElement('p');x.textContent='لا توجد مسودات حملات بعد';out.append(x);return}
  list.forEach(c=>{
@@ -270,7 +271,19 @@ window.onTrackCampaigns=payload=>{
   const body=document.createElement('div');const name=document.createElement('strong');
   name.textContent=String(c.name||'حملة بدون اسم');
   const detail=document.createElement('small');detail.textContent=String(c.starts_at||'')+' · مسودة (بدون اتصال)';
-  body.append(name,detail);card.append(body);out.append(card);
+  body.append(name,detail);card.append(body);
+  if(Number(last.nativeCode)>=18 && /^[a-f0-9]{24}$/.test(String(c.id||''))){
+   const actions=document.createElement('div');actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+   const choices=c.status==='cancelled'?[]:c.status==='paused'?['preview','resume','cancel']:['preview','pause','cancel'];
+   choices.forEach(a=>{
+    const b=document.createElement('button');b.style.cssText='width:auto;padding:8px;font-size:11px';
+    b.textContent=({preview:'معاينة DNC',pause:'إيقاف',resume:'استئناف',cancel:'إلغاء'})[a];
+    b.onclick=()=>{
+      if(a!=='preview'&&!confirm('تأكيد '+b.textContent+' الحملة؟'))return;
+      send('campaignAction',{action:a,id:c.id,confirmed:true});
+    };actions.append(b);
+   });card.append(actions);
+  }out.append(card);
  });
 };
 el('saveMobileCampaign').onclick=()=>{
