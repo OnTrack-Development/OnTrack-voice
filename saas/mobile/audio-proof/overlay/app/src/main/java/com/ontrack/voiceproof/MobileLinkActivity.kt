@@ -343,10 +343,11 @@ class MobileLinkActivity:ComponentActivity(){
     }
     inner class Bridge{
         @JavascriptInterface fun postMessage(raw:String){
-            if(raw.length>2048)return
+            if(raw.length>12000)return
             runOnUiThread {lifecycleScope.launch{runCatching{
                 val msg=JSONObject(raw)
                 if(msg.optString("nonce")!=screenNonce)return@launch
+                if(raw.length>2048 && msg.optString("command")!="createCampaign")return@launch
                 when(msg.getString("command")){
                     "ready"->{ready=true;withContext(Dispatchers.IO){ota.confirm()};banner.text="الواجهة جاهزة • OTA ${ota.revision}";sendState()
                         web.postDelayed({splash?.hide();banner.visibility=View.GONE},550)
