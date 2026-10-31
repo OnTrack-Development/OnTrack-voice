@@ -100,7 +100,7 @@ class MobileLinkActivity:ComponentActivity(){
         if(!ready)return
         val state=JSONObject().put("status",MobileLinkService.latestStatus).put("running",MobileLinkService.running)
             .put("inCall",MobileLinkService.inCall).put("humanControl",MobileLinkService.humanControl)
-            .put("agentEnabled",MobileLinkService.agentEnabled).put("serverRevision",MobileLinkService.serverRevision)
+            .put("agentEnabled",MobileLinkService.agentEnabled).put("connected",MobileLinkService.connected).put("serverRevision",MobileLinkService.serverRevision)
             .put("overlayGranted",Settings.canDrawOverlays(this)).put("revision",ota.revision).put("native",ota.nativeVersion).put("updating",updateBusy)
         web.evaluateJavascript("window.onTrackState && window.onTrackState($state)",null)
     }
