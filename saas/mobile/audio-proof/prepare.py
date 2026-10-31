@@ -49,9 +49,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 13', 'versionCode')
+                        'versionCode = 14', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.2.2-ota"', 'versionName')
+                        'versionName = "0.2.3-ota"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
@@ -236,6 +236,10 @@ def main(root):
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.ACCESS_NETWORK_STATE'})
     # Native APK updates use the platform package installer after explicit consent.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.REQUEST_INSTALL_PACKAGES'})
+    ET.SubElement(app, 'receiver', {
+        android + 'name':'.NativeInstallResultReceiver',
+        android + 'exported':'false'
+    })
     provider=ET.SubElement(app, 'provider', {
         android + 'name':'androidx.core.content.FileProvider',
         android + 'authorities':NEW+'.updates',
