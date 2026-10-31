@@ -82,7 +82,7 @@ def main():
     matches=[x for x in items if x["name"]=="OnTrack-Voice-0.2.1" and not x["expired"]]
     assert len(matches)==1,"Release artifact not found or duplicated"
     url=download_url(matches[0]["id"])
-    script=(Path("saas/mobile/ota/native_deploy.py")).read_text()+"\nimport sys\ndeploy(*sys.argv[1:])\n"
+    script=(Path("saas/mobile/ota/native_deploy.py")).read_text()+"\nimport sys\ndeploy(*sys.argv[1:])\nROOT.chmod(0o755) # hosting worker has a private umask; public native release files need traversable directory\n"
     now=datetime.datetime.now(datetime.timezone.utc)
     task={"schema":1,"id":job_id,"target":TARGET,"action":"exec","created_at":now.isoformat(),
           "expires_at":(now+datetime.timedelta(hours=3)).isoformat(),
