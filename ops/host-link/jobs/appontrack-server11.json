@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "mobile-020-admin-sync-20261031",
+  "id": "mobile-020-live-security-verify",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-10-31T00:36:29.618Z",
-  "expires_at": "2026-10-31T04:36:29.618Z",
+  "created_at": "2026-10-31T00:38:12.115Z",
+  "expires_at": "2026-10-31T04:38:12.115Z",
   "cwd": "/home/appontrack",
-  "timeout_seconds": 20,
+  "timeout_seconds": 26,
   "argv": [
     "/bin/python3",
     "-c",
-    "import os,json,pathlib,tempfile,subprocess\nchanges=json.loads(\"[[\\\"    $old=mobile_settings(); $data=$old;\\\",\\\"    $controlLock=fopen(MOBILE_STORE.'/control.lock','c');\\\\n    if (!$controlLock || !flock($controlLock,LOCK_EX)) {http_response_code(503);exit('control_unavailable');}\\\\n    $old=mobile_settings(); $data=$old;\\\"],[\\\"    mobile_store($data);$saved=true;\\\",\\\"    try {mobile_store($data);$saved=true;}\\\\n    finally {flock($controlLock,LOCK_UN);fclose($controlLock);}\\\"],[\\\"  note.textContent=data.fresh?'حالة مباشرة • إعدادات #'+data.policy_revision:'لم يصل تقرير حديث من الهاتف';\\\",\\\"  note.textContent=!data.fresh?'الهاتف غير متصل • حالة التطبيق غير مؤكدة':data.synchronized?'تم تطبيق نفس حالة التشغيل على الهاتف والسيرفر • #'+data.desired_revision:'جاري مزامنة حالة الهاتف مع السيرفر • #'+data.desired_revision;\\\"],[\\\"Operations & AI Call Control\\\",\\\"OnTrack Development · Voice Operations\\\"],[\\\"Single-device pilot · ليست لوحة SaaS متعددة الشركات بعد\\\",\\\"OnTrack Development • إدارة الاتصال\\\"],[\\\"يمكن إيقافه من هنا أو من التطبيق\\\",\\\"الحالة المطلوبة من السيرفر؛ حالة التطبيق الفعلية تظهر في بطاقة المكالمة\\\"]]\")\np=pathlib.Path('/home/appontrack/public_html/saas/mobile/index.php')\nassert os.getuid()==2379 and p.is_file() and not p.is_symlink()\nbefore=p.read_text()\nafter=before\nfor x,y in changes:\n assert after.count(x)==1,'unexpected admin source, refusing patch'\n after=after.replace(x,y,1)\nfd,tmp=tempfile.mkstemp(dir=str(p.parent),prefix='.voice-admin-')\ntry:\n with os.fdopen(fd,'w') as f:f.write(after);f.flush();os.fsync(f.fileno())\n assert subprocess.run(['/opt/cpanel/ea-php83/root/usr/bin/php','-l',tmp],capture_output=True,timeout=7).returncode==0\n backup=pathlib.Path('/home/appontrack/.ontrack-mobile/backups/voice-020-admin')\n backup.mkdir(parents=True,exist_ok=True,mode=0o700)\n (backup/'index.php').write_text(before);os.chmod(backup/'index.php',0o600)\n os.chmod(tmp,0o644);os.replace(tmp,p)\nfinally:\n if os.path.exists(tmp):os.unlink(tmp)\nprint(json.dumps({'admin_updated':True,'php_lint':'PASS','replacements':len(changes),'backup':True,'secrets_read':False}))\n"
+    "import urllib.request,urllib.error,json\nbase=\"https://app.ontrackegy.com/saas/mobile/\"\nout={}\nfor filename,method,expected in [(\"\", \"GET\",200),(\"control.php\",\"POST\",401),(\"admin_ticket.php\",\"POST\",401),(\"admin_enter.php\",\"GET\",401),(\"status_feed.php\",\"GET\",401)]:\n try:\n  req=urllib.request.Request(base+filename,data=(b'{}' if method==\"POST\" else None),method=method,headers={\"Content-Type\":\"application/json\",\"User-Agent\":\"OnTrack-020-Verification\"})\n  with urllib.request.urlopen(req,timeout=8) as response:\n   status=response.status;payload=response.read(24000).decode(\"utf-8\",\"replace\")\n except urllib.error.HTTPError as error:status=error.code;payload=\"\"\n label=filename or \"index\"\n out[label]=status\n if label==\"index\":out[\"brand_visible\"]=\"OnTrack Development\" in payload\nassert out[\"index\"]==200 and all(out[k]==401 for k in (\"control.php\",\"admin_ticket.php\",\"admin_enter.php\",\"status_feed.php\"))\nprint(json.dumps(out))\n"
   ]
 }
