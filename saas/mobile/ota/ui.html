@@ -52,7 +52,7 @@ window.onTrackState=s=>{
  el('badge').textContent=!online?'إعادة الاتصال':enabled?'نشط':'متوقف';
  el('badge').className='chip '+(enabled?'good':'warn');
  el('dot').className='indicator '+(call?'call':enabled?'good':'');
- el('mode').textContent=s.humanControl?'تحكم بشري':call?'مكالمة جارية':enabled?'جاهز للمكالمات':online?'الهاتف متصل — الإيجنت متوقف':'جاري الاتصال';
+ el('mode').textContent=s.humanControl?'تحكم بشري':call?'مكالمة جارية':!online?'إعادة الاتصال بالشبكة':enabled?'جاهز للمكالمات':'الهاتف متصل — الإيجنت متوقف';
  el('enable').disabled=modern?enabled||s.updating:false;
  el('disable').disabled=modern?!enabled||s.updating:!online;
  el('callActions').style.display=call?'block':'none';
