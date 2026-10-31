@@ -34,7 +34,7 @@ internal class CampaignDialer(
         prefs.edit().remove("campaign_pending_attempt").remove("campaign_pending_at")
             .remove("campaign_saw_active").remove("campaign_contact_name")
             .remove("campaign_contact_phone").remove("campaign_contact_id")
-            .remove("campaign_id").commit()
+            .remove("campaign_id").remove("campaign_scenario").commit()
     }
 
     fun tick(callState:Int,agentEnabled:Boolean) {
@@ -69,7 +69,8 @@ internal class CampaignDialer(
             .putString("campaign_id",claim.optString("campaign_id"))
             .putString("campaign_contact_id",claim.optString("contact_id"))
             .putString("campaign_contact_name",claim.optString("name"))
-            .putString("campaign_contact_phone",number).commit()){"Cannot persist leased call"}
+            .putString("campaign_contact_phone",number)
+            .putString("campaign_scenario",claim.optString("scenario").take(8000)).commit()){"Cannot persist leased call"}
         try {
             val verify=api(JSONObject().put("action","verify").put("confirmed",true)
                 .put("attempt_id",attempt)).getJSONObject("verification")
