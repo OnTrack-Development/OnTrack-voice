@@ -40,11 +40,11 @@ class MobileUiInstrumentedTest {
         val cache=File(context.filesDir,"mobile-ota").apply{mkdirs()}
         File(cache,"state.json").writeText("{\"highest\":3,\"rejected\":3,\"pending\":false}")
         ActivityScenario.launch(MobileLinkActivity::class.java).use{scenario->
-            await(scenario,"document.title==='OnTrack' && document.getElementById('key')?.value==='instrumentation_only_key_12345678'")
+            await(scenario,"document.title==='OnTrack Voice' && document.getElementById('key')?.value==='instrumentation_only_key_12345678'")
             scenario.onActivity{activity->assertTrue(find(activity.findViewById(android.R.id.content))!!.url!!.startsWith("https://ontrack-ui.invalid/ui/"))}
             // No actual call or real connection key: test only visible local UI.
-            js(scenario,"document.getElementById('key').value='bad';document.getElementById('start').disabled=false;document.getElementById('start').click();true")
-            await(scenario,"document.getElementById('error').textContent.length>0")
+            js(scenario,"document.getElementById('key').value='bad';document.getElementById('enable').disabled=false;document.getElementById('enable').click();true")
+            await(scenario,"document.getElementById('message').textContent.length>0")
             assertFalse(MobileLinkService.running)
             val state=JSONObject(File(cache,"state.json").readText())
             assertEquals(context.packageManager.getPackageInfo(context.packageName,0).longVersionCode,state.getLong("native_version"))
