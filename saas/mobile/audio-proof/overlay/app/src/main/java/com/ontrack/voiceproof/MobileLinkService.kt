@@ -228,6 +228,8 @@ class MobileLinkService:Service() {
                     val state=raw.substringAfter("CALL ").toIntOrNull()?:error("حالة الاتصال غير مفهومة")
                     // Persist device-observed call transitions even when server delivery retries.
                     callEventOutbox.observe(state)
+                    runCatching { campaignDialer.tick(state,agentEnabled) }
+                        .onFailure { notice("فحص الحملات لم يكتمل: "+it.javaClass.simpleName) }
                     if(callEventFlush?.isActive!=true)callEventFlush=scope.launch {
                         runCatching {
                             val event=callEventOutbox.peek()?:return@runCatching
@@ -265,6 +267,24 @@ class MobileLinkService:Service() {
                             try{
                                 notice("جاري توصيل المكالمة بالإيجنت")
                                 val session=request(base+"saas/mobile/session.php",key,JSONObject().put("mode","demo"))
+                                val prefsNow=prefs()
+                                if(prefsNow.getBoolean("campaign_saw_active",false) &&
+                                    prefsNow.getString("campaign_pending_attempt","").orEmpty().isNotEmpty()) {
+                                    val scenario=prefsNow.getString("campaign_scenario","").orEmpty()
+                                    if(scenario.isNotBlank()) {
+                                        val fullName=prefsNow.getString("campaign_contact_name","").orEmpty()
+                                        val phone=prefsNow.getString("campaign_contact_phone","").orEmpty()
+                                        val firstName=fullName.trim().split(Regex("\\s+")).firstOrNull().orEmpty()
+                                        val personalized=scenario
+                                            .replace("{{contact.full_name}}",fullName.ifBlank{"حضرتك"})
+                                            .replace("{{contact.first_name}}",firstName.ifBlank{"حضرتك"})
+                                            .replace("{{contact.phone}}",phone)
+                                        val instruction=session.getString("system_instruction")
+                                        session.put("system_instruction",instruction+
+                                            "\\n\\nسيناريو حملة مُعتمدة للمكالمة الصادرة الحالية فقط: \\n"+
+                                            personalized.take(8000))
+                                    }
+                                }
                                 if(!takeoverRequested && agentEnabled){
                                     val newCall=MobileLiveCall(this@MobileLinkService,client,scope,session,settings,::notice)
                                     call=newCall;newCall.start()
@@ -280,8 +300,6 @@ class MobileLinkService:Service() {
                         call?.stop();call=null;callSeen=false;ringingAt=0;answerIssued=false
                         takeoverRequested=false;humanControl=false;recoveringActiveCall=false
                     }
-                    runCatching { campaignDialer.tick(state,agentEnabled) }
-                        .onFailure { notice("فحص الحملات لم يكتمل: "+it.javaClass.simpleName) }
                     lastState=state
                     if(SystemClock.elapsedRealtime()-lastReport>4000){
                         lastReport=SystemClock.elapsedRealtime()
