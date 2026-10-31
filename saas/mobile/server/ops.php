@@ -42,6 +42,12 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
             $row=pilot_campaign_create((string)($_POST['name']??''),(string)($_POST['starts']??''),
                 (string)($_POST['ends']??''),(string)($_POST['scenario']??''));
             $flash='تم إنشاء حملة مسودة. لا يتم الاتصال تلقائيًا قبل تفعيل منفذ Android المعتمد.';
+        } elseif($action==='campaign_control') {
+            $id=(string)($_POST['id']??'');
+            $operation=(string)($_POST['operation']??'');
+            if(!preg_match('/^[a-f0-9]{24}$/D',$id))throw new InvalidArgumentException('معرّف غير صالح');
+            $campaign=pilot_campaign_transition($id,$operation);
+            $flash='تم تحديث الحملة: '.$campaign['status'].' — لا يتم الاتصال تلقائيًا';
         } else throw new InvalidArgumentException('عملية غير مدعومة');
     }catch(Throwable $e){http_response_code(422);$flash='تعذر التنفيذ: '.$e->getMessage();}
 }
@@ -84,6 +90,15 @@ small{color:#a9bbcf}table{width:100%;border-collapse:collapse}td,th{border-botto
 <button style="padding:7px;font-size:11px;background:<?=empty($c['do_not_call'])?'#783448':'#246455'?>"><?=empty($c['do_not_call'])?'لا تتصل مجددًا':'إلغاء الحظر'?></button>
 </form></td></tr><?php endforeach;?></tbody></table></div></section>
 <section class="card"><h2>الحملات (<?=count($campaigns)?>)</h2><div class="wrap"><table><thead><tr><th>الحملة</th><th>البدء</th><th>الحالة</th></tr></thead><tbody>
-<?php foreach(array_reverse($campaigns) as $c):?><tr><td><?=safe((string)$c['name'])?></td><td><?=safe((string)$c['starts_at'])?></td><td><span class="flag">مسودة</span></td></tr><?php endforeach;?></tbody></table></div>
+<?php foreach(array_reverse($campaigns) as $c):?><tr><td><?=safe((string)$c['name'])?></td><td><?=safe((string)$c['starts_at'])?></td><td><span class="flag"><?=safe((string)$c['status'])?></span>
+<?php if(($c['status']??'')!=='cancelled'):?>
+<form method="post" style="display:flex;gap:5px;flex-wrap:wrap">
+<input type="hidden" name="csrf" value="<?=safe($_SESSION['csrf'])?>">
+<input type="hidden" name="action" value="campaign_control">
+<input type="hidden" name="id" value="<?=safe((string)$c['id'])?>">
+<?php foreach((($c['status']??'')==='paused'?['resume','cancel']:['pause','cancel']) as $operation):?>
+<button type="submit" name="operation" value="<?=safe($operation)?>" style="padding:7px 10px;width:auto;font-size:11px"><?=safe($operation)?></button>
+<?php endforeach;?>
+</form><?php endif;?></td></tr><?php endforeach;?></tbody></table></div>
 <p><small>إجراء مكالمة SIM تلقائيًا لم يُفعَّل في هذه النسخة. لا توجد اتصالات مخفية أو مكررة.</small></p></section>
 </div></main></body></html>
