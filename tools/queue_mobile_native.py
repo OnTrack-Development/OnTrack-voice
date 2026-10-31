@@ -78,7 +78,9 @@ def main():
     job_id="mobile-native-"+os.environ["GITHUB_RUN_ID"]
     if current["id"]==job_id:
         print(json.dumps({"status":"ALREADY_QUEUED","id":job_id}));return
-    items=api("actions/runs/"+os.environ["GITHUB_RUN_ID"]+"/artifacts?per_page=100")["artifacts"]
+    source_run=os.environ.get("MOBILE_RELEASE_SOURCE_RUN_ID",os.environ["GITHUB_RUN_ID"])
+    assert source_run.isdecimal() and int(source_run)>0,"Invalid pinned release source run"
+    items=api("actions/runs/"+source_run+"/artifacts?per_page=100")["artifacts"]
     matches=[x for x in items if x["name"]=="OnTrack-Voice-0.2.6" and not x["expired"]]
     assert len(matches)==1,"Release artifact not found or duplicated"
     url=download_url(matches[0]["id"])
