@@ -65,7 +65,7 @@ textarea{min-height:245px;resize:vertical;line-height:1.8}select{cursor:pointer}
 @media(max-width:850px){.cards,.content{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.shell{padding:15px}}
 </style></head><body><main class="shell">
 <nav class="nav"><div class="brand"><span class="logo">OT</span><div>OnTrack Voice<div class="sub">OnTrack Development · Voice Operations</div></div></div>
-<span class="pill">OnTrack Development • إدارة الاتصال</span><?php if($allowed):?><a href="/saas/mobile/calls.php" style="color:#ff7088">سجل المكالمات</a><?php endif;?></nav>
+<span class="pill">OnTrack Development • إدارة الاتصال</span><?php if($allowed):?><a href="/saas/mobile/calls.php" style="color:#ff7088">سجل المكالمات</a> · <a href="/saas/mobile/ops.php" style="color:#ff7088">الحملات وجهات الاتصال</a><?php endif;?></nav>
 <?php if(!$allowed):?>
 <div class="login"><h1>تسجيل الدخول</h1><p>دخول مشرف تجربة ربط الشريحة</p>
 <form method="post"><label for="key">مفتاح الإدارة</label><input id="key" name="key" type="password" autocomplete="current-password" required>

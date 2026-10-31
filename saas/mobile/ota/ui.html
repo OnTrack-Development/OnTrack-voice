@@ -29,10 +29,47 @@ footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details su
 .otPulse{width:6px;height:6px;border-radius:50%;background:#e3304c;box-shadow:0 0 12px #e3304c;animation:otBeat 1s ease-in-out infinite}
 @keyframes otOrbit{to{transform:rotate(360deg)}}@keyframes otBeat{50%{opacity:.25;transform:scale(.5)}}
 @media(prefers-reduced-motion:reduce){.otHalo:before,.otHalo:after,.otPulse{animation:none}#otSplash{transition:none}}
+
+/* OnTrack Voice 0.2.6 — compact operations cockpit, mobile-first. */
+body{max-width:780px;margin:auto;padding:18px 16px 36px;background:radial-gradient(circle at 92% 0,#2a273a 0,transparent 38%),linear-gradient(160deg,#080e19,#101a2b 75%)}
+header{margin-bottom:15px}.logo{background:linear-gradient(145deg,#fa4c68,#ae1634);box-shadow:0 14px 40px #e3304c30}
+h1{font-size:23px}.otTopline{font-size:10px;letter-spacing:.16em;color:#ef8296;text-transform:uppercase;margin-bottom:4px}
+.otWelcome{margin:0 0 18px;padding:18px 20px;border:1px solid #3c3449;border-radius:20px;background:linear-gradient(120deg,#3d1b2d,#192438 75%);display:flex;align-items:center;justify-content:space-between;gap:15px}
+.otWelcome strong{font-size:19px;line-height:1.4}.otWelcome small{display:block;color:#c9b7c6;font-size:12px;margin-top:4px}
+.otSpark{width:44px;height:44px;border-radius:16px;flex-shrink:0;display:grid;place-items:center;background:#e3304c1d;color:#ff9bac;font-size:28px}
+.otTabs{display:flex;gap:7px;overflow-x:auto;padding:0 1px 9px;margin-bottom:13px;scrollbar-width:none}
+.otTabs::-webkit-scrollbar{display:none}.otTabs button{white-space:nowrap;width:auto;min-width:76px;padding:11px 14px;font-size:12px;border-radius:13px;background:#182537;color:#9eb0c8;border:1px solid #2b3950}
+.otTabs button.active{background:linear-gradient(145deg,#e83452,#b82c47);border-color:#f45d77;color:white;box-shadow:0 9px 22px #e834522a}
+.hidden-panel{display:none!important}.card{background:linear-gradient(150deg,#1b293c,#121d2c);border-color:#2f3d50;box-shadow:0 12px 40px #0000001f}
+.otMetrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.otMetric{background:#142132;border:1px solid #2b3d52;border-radius:18px;padding:16px}
+.otMetric strong{display:block;font-size:16px;margin:6px 0 2px}.otMetric small{color:#94a7c1;font-size:11px}.otMetric .symbol{font-size:23px}
+.otMiniCard{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px;border:1px solid #35465b;border-radius:13px;background:#111c2c;margin:10px 0}
+.otMiniCard strong{font-size:14px}.otMiniCard small{font-size:11px;color:#9db0c7;line-height:1.6;display:block;margin-top:4px}
+.otLocked{background:#47334b;color:#ffc0d8;border:1px solid #76506f;border-radius:9px;padding:6px 9px;font-size:10px;white-space:nowrap}
+.otDot{width:9px;height:9px;border-radius:50%;background:#fb546f;display:inline-block;margin-inline-end:6px;box-shadow:0 0 15px #fb546f}
+.otThemeButton{border:1px solid #3a4b64;background:#1e2b40;color:#e2e7ef;border-radius:12px;font-size:12px;padding:11px;width:auto;margin:0 0 15px}
+body.light{--bg:#f7f8fb;--panel:#fff;--border:#e2e6ef;--muted:#596b83;--text:#152038;background:linear-gradient(155deg,#fff8fa,#f2f5fa);color:#172238}
+body.light .card{background:#fff;box-shadow:0 10px 34px #1722380c;border-color:#e3e5ef}
+body.light .otWelcome{background:linear-gradient(125deg,#ffe8ee,#eef3fd);border-color:#f4cfd9}
+body.light .otWelcome strong{color:#28243a}body.light .otWelcome small{color:#796879}
+body.light .otTabs button,body.light .otMetric,body.light .otMiniCard{background:#fff;border-color:#d9e0ec;color:#172238}
+body.light .otTabs button.active{background:#d93453;color:#fff;border-color:#d93453}
+body.light p,body.light .small,body.light .sub{color:#5a6b82}
+body.light input{background:#f3f5fa;color:#182235;border-color:#d7deea}
+body.light .chip{background:#edf1f7;color:#334156}
+body.light .chip.good{background:#dff4ed;color:#135c46}
+body.light .chip.warn{background:#fff0d5;color:#85560f}
+body.light .otMetric small,body.light .otMiniCard small{color:#62718a}
+@media(max-width:385px){.otTabs button{min-width:65px;padding:10px}.otMetrics{gap:8px}.otMetric{padding:12px}}
 </style></head><body>
 <div id="otSplash" role="status" aria-live="polite"><div class="otHalo"><div class="otMonogram">OT</div></div><div class="otTitle">ONTRACK</div><div class="otSubtitle">VOICE INTELLIGENCE</div><div class="otProgress"><span class="otPulse"></span>يرجى الانتظار · جارٍ تجهيز الاتصال</div></div>
+<div class="otTopline">ONTRACK DEVELOPMENT / VOICE INTELLIGENCE</div>
 <header><div class="brand"><span class="logo">OT</span><div><h1>OnTrack Voice</h1><div class="sub">OnTrack Development · مركز الاتصال</div></div></div><div class="minor" id="version">—</div></header>
-<section class="card">
+<div class="otWelcome"><div><strong>مركز إدارة المكالمات الذكية</strong><small>كل أدوات تشغيل الهاتف والحملات في مكان واحد</small></div><div class="otSpark">✦</div></div>
+<button id="themeToggle" class="otThemeButton" aria-label="تغيير ألوان الواجهة">☀ الوضع الفاتح</button>
+<nav class="otTabs" aria-label="أقسام التطبيق"><button class="active" data-view="dashboard">الرئيسية</button><button data-view="calls">المكالمات</button><button data-view="campaigns">الحملات</button><button data-view="voices">الأصوات</button><button data-view="settings">الإعدادات</button></nav>
+<section class="card" data-panel="dashboard">
 <div class="section-title"><h2>حالة الإيجنت</h2><span id="badge" class="chip">جاري الاتصال</span></div>
 <div class="status" aria-live="polite"><span class="indicator" id="dot"></span><div><strong id="mode">جاري التحميل…</strong><span class="small" id="status">التحقق من حالة الهاتف والسيرفر</span></div></div>
 <div class="divider"></div>
@@ -40,18 +77,18 @@ footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details su
 <div class="show-on-call" id="callActions"><div class="divider"></div><div class="row"><button class="primary" id="takeover">استلام المكالمة</button><button id="speaker">السماعة</button></div><p>الاستلام يخص المكالمة الحالية فقط. المكالمة الجديدة تعود تلقائيًا للإيجنت حسب الإعداد.</p></div>
 <p id="message" role="alert"></p>
 </section>
-<section class="card"><div class="section-title"><h2>لوحة إدارة OnTrack</h2><span class="chip good">دخول آمن</span></div>
+<section class="card" data-panel="dashboard"><div class="section-title"><h2>لوحة إدارة OnTrack</h2><span class="chip good">دخول آمن</span></div>
 <p>المهام والسكريبت والأصوات وساعات العمل من لوحة الإدارة. الدخول مباشر بمفتاح الربط المحفوظ، بدون كتابة المفتاح مرة ثانية.</p>
 <button class="primary" id="admin">فتح لوحة الإدارة</button>
 </section>
-<section class="card" id="versionUpdates">
+<section class="card" id="versionUpdates" data-panel="settings">
 <div class="section-title"><h2>تحديثات OnTrack</h2><span class="chip good">تحديثات آمنة</span></div>
 <p>الواجهة والإعدادات تتحدث مباشرة. عند تحديث محرك Android، التطبيق ينزّل النسخة ويطلب موافقة Android على التثبيت مرة واحدة.</p>
 <div class="status"><span class="indicator good"></span><div><strong style="font-size:15px">Android &amp; UI OTA</strong><span class="small" id="nativeUpdateStatus">جاري البحث عن تحديث جديد…</span></div></div>
 <div class="row"><button class="primary" id="upgradeAndroid" disabled>تثبيت تحديث Android</button><button id="scanAndroid" class="outline">فحص الإصدار</button></div>
 <p class="small">التحديثات المتكررة لا تعيد تنزيل الملف المتحقق منه. إذا طلب Android إذن تثبيت، فالموافقة مطلوبة من النظام وليست جزءًا من تحديث الواجهة. لا يحدث تثبيت أثناء مكالمة.</p>
 </section>
-<section class="card" id="mobileDataMode">
+<section class="card" id="mobileDataMode" data-panel="settings">
 <div class="section-title"><h2>الاتصال ببيانات الهاتف</h2><span class="chip warn">اختياري · تجريبي</span></div>
 <p>تجربة تشغيل مساعد الشريحة على 4G/5G بدون الاعتماد على Wi-Fi. يتطلب إعدادًا أوليًا على شبكة Wi-Fi، ولا ينجح بالضرورة على أجهزة Xiaomi كلها أو بعد إعادة التشغيل.</p>
 <div class="status"><span class="indicator" id="wifiFreeLamp"></span><div><strong>المسار المحلي بدون Wi-Fi</strong><span class="small" id="wifiFreeStatus">غير مفعّل</span></div></div>
@@ -59,8 +96,8 @@ footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details su
 <button id="wifiFreeToggle" class="outline">تجربة الاتصال بدون Wi-Fi</button>
 <p class="small">لو حبيت تلغي الوضع، اتصل بالواي فاي أولًا واضغط إيقاف. لو المنفذ فضل مفتوح، أوقف USB debugging من إعدادات الهاتف. تشغيل البيانات لا يغني عن موافقة Android لإعداد ADB.</p>
 </section>
-<section class="card"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
-<section class="card"><h2>إعداد الهاتف</h2><p>ربط جهازك لأول مرة أو تصحيح Wireless debugging عند الحاجة. لا تختبارات تسجيل صوت قديمة في الواجهة الأساسية.</p>
+<section class="card" data-panel="settings"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
+<section class="card" data-panel="settings"><h2>إعداد الهاتف</h2><p>ربط جهازك لأول مرة أو تصحيح Wireless debugging عند الحاجة. لا تختبارات تسجيل صوت قديمة في الواجهة الأساسية.</p>
 <div class="row"><button id="setup">الإعداد السريع</button><button class="outline" id="more">إعدادات متقدمة</button></div>
 <div id="advanced">
 <label for="base">سيرفر OnTrack</label><input id="base" value="https://app.ontrackegy.com/" autocomplete="off">
@@ -68,6 +105,39 @@ footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details su
 <div class="row" style="margin-top:10px"><button id="pair">حفظ وإعادة ربط</button><button id="showKey" class="outline">إظهار المفتاح</button></div>
 <div class="divider"></div><div class="row"><button id="updates">فحص التحديثات</button><button id="rollback">واجهة سابقة</button></div>
 </div></section>
+
+<section class="card" data-panel="calls">
+<div class="section-title"><h2>سجل المكالمات</h2><span class="chip good">تسجيل الأحداث</span></div>
+<p>سجل فعلي للمكالمات المرصودة على الشريحة: وقت الرنين والرد ومدة الاتصال. الأرقام والملخصات لا تظهر قبل التحقق من توفرها.</p>
+<div class="otMetrics"><div class="otMetric"><span class="symbol">◷</span><strong>Call History</strong><small>الأحداث من الهاتف إلى السيرفر</small></div><div class="otMetric"><span class="symbol">≡</span><strong>التقارير</strong><small>بيانات غير متاحة بعد حتى اكتمال الربط</small></div></div>
+<button class="primary" data-open-admin>فتح مركز سجل المكالمات</button>
+</section>
+<section class="card" data-panel="campaigns">
+<div class="section-title"><h2>الجدولة والحملات</h2><span class="chip warn">تشغيل تدريجي</span></div>
+<p>إضافة الأرقام والأسماء، استيراد CSV/TXT/XLSX من مركز الويب، تحديد السيناريو ووقت البدء. التنفيذ على الشريحة لا يبدأ إلا بعد اعتماد منفذ الاتصال.</p>
+<div class="otMetrics"><div class="otMetric"><span class="symbol">▦</span><strong>جهات الاتصال</strong><small>استيراد مع موافقة المستخدم</small></div><div class="otMetric"><span class="symbol">◴</span><strong>الجدولة</strong><small>مسودات آمنة قبل التشغيل</small></div></div>
+<div id="nativeContactPanel" style="display:none">
+<div class="divider"></div><h2>رفع جهات الاتصال من الهاتف</h2>
+<p>اختار جهة واحدة من هاتفك، أو اسمح بقراءة دفتر الأرقام كله لمرة الاستيراد دي فقط. مش هنرفع أي رقم إلا لما تراجع العدد وتوافق.</p>
+<div class="row"><button id="contactsPick" class="outline">اختيار جهة اتصال</button><button id="contactsAll" class="outline">استعراض كل الأرقام</button></div>
+<div class="otMiniCard"><div><strong>معاينة قبل الرفع</strong><small id="contactPreview">لم تختَر أرقامًا بعد</small></div></div>
+<label style="display:flex;align-items:flex-start;gap:8px"><input type="checkbox" id="contactConsent" style="width:auto;margin-top:4px"><span>أؤكد موافقة أصحاب الأرقام المختارة على التواصل معهم لأغراض هذه الحملة.</span></label>
+<button id="contactsUpload" class="primary" disabled>رفع الأرقام المؤكدة إلى OnTrack</button>
+<p class="small" id="contactResult">لا توجد أرقام مرفوعة في هذه الجلسة</p>
+</div><div class="divider"></div>
+<button class="primary" data-open-admin>فتح إدارة الحملات والأرقام</button>
+</section>
+<section class="card" data-panel="voices">
+<div class="section-title"><h2>مكتبة الأصوات</h2><span class="chip">Basic / Premium</span></div>
+<p>الأصوات الأساسية متاحة عبر جلسات Gemini الحالية. الأصوات الخاصة تحتاج اشتراكًا يتيحها ومحرك TTS متوافقًا؛ لا يُشغَّل ملف PT كأنه صوت PCM.</p>
+<div class="otMiniCard"><div><strong><span class="otDot"></span> Gemini Live</strong><small>Aoede · Kore · Puck · Charon · Fenrir — حسب إعداد الخادم</small></div><span class="chip good">أساسي</span></div>
+<div class="otMiniCard"><div><strong>AYO Calm</strong><small>هدوء واحترافية • PyTorch voice preset</small></div><span class="otLocked">Premium · قيد الدمج</span></div>
+<div class="otMiniCard"><div><strong>AYO Excited</strong><small>حماسي • PyTorch voice preset</small></div><span class="otLocked">Premium · قيد الدمج</span></div>
+<div class="otMiniCard"><div><strong>AYO Sleepy</strong><small>نبرة هادئة جدًا • PyTorch voice preset</small></div><span class="otLocked">Premium · قيد الدمج</span></div>
+<div class="divider"></div><h2>الخطط والصلاحيات</h2>
+<p>كل باقة تتحكم في الأدوات والأصوات المتاحة لها من الخادم. الدفع المستقبلي عبر Kashier؛ تفعيل الاشتراك مشروط بتأكيد الدفع الموقّع.</p>
+<button class="primary" data-open-admin>إدارة الأصوات والخطط على الموقع</button>
+</section>
 <footer>OnTrack Development © 2026 · Voice Cloud</footer>
 <script>
 const el=id=>document.getElementById(id);
@@ -103,6 +173,7 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('scanAndroid').disabled=s.nativeUpdateBusy||call;
  const wifiSupported=typeof s.wifiFreeEnabled==='boolean';
  el('mobileDataMode').style.display=wifiSupported?'block':'none';
+ el('nativeContactPanel').style.display=s.contactsSupported===true?'block':'none';
  const wifiFree=!!s.wifiFreeEnabled, wifiReady=!!s.wifiFreeReady;
  el('wifiFreeStatus').textContent=wifiFree?
    (wifiReady?'جاهز للتجربة على بيانات الهاتف':'مفعّل لكنه غير جاهز على هذا الجهاز'):
@@ -131,5 +202,37 @@ el('wifiFreeConsent').onchange=()=>{el('wifiFreeToggle').disabled=!!last.inCall|
 el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)return;send(last.wifiFreeEnabled?'wifiFreeDisable':'wifiFreeEnable')};
 el('scanAndroid').onclick=()=>send('checkNativeUpdates');
 el('upgradeAndroid').onclick=()=>send('installNativeUpdate');
-el('updates').onclick=()=>send('checkUpdates');el('rollback').onclick=()=>send('rollback');send('ready');
+el('updates').onclick=()=>send('checkUpdates');el('rollback').onclick=()=>send('rollback');
+function setView(v){
+ document.querySelectorAll('[data-panel]').forEach(p=>p.classList.toggle('hidden-panel',p.dataset.panel!==v));
+ document.querySelectorAll('.otTabs button').forEach(b=>{
+  const selected=b.dataset.view===v;b.classList.toggle('active',selected);
+  b.setAttribute('aria-current',selected?'page':'false');
+ });
+ window.scrollTo({top:0,behavior:'auto'});
+}
+document.querySelectorAll('.otTabs button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+document.querySelectorAll('[data-open-admin]').forEach(b=>b.onclick=()=>send('admin'));
+el('themeToggle').onclick=()=>{
+ const light=document.body.classList.toggle('light');
+ el('themeToggle').textContent=light?'☾ الوضع الداكن':'☀ الوضع الفاتح';
+};
+let stagedCount=0;
+window.onTrackContactPreview=s=>{
+ stagedCount=Number(s.count)||0;
+ const names=(s.sample||[]).map(x=>[x.name||'بدون اسم',x.phone||''].join(' • '));
+ el('contactPreview').textContent='المختارة: '+stagedCount+(names.length?' | '+names.join(' / '):'');
+ el('contactsUpload').disabled=!stagedCount||!el('contactConsent').checked;
+ el('contactResult').textContent='الأرقام محفوظة في التطبيق مؤقتًا حتى تأكيد الرفع';
+};
+window.onTrackContactsImported=s=>{
+ stagedCount=0;el('contactsUpload').disabled=true;el('contactConsent').checked=false;
+ el('contactPreview').textContent='تم رفع الأرقام المؤكدة';
+ el('contactResult').textContent='أُضيف '+s.added+'، مكرر '+s.duplicates+'، غير صالح '+s.invalid;
+};
+el('contactsPick').onclick=()=>send('contactsPick');
+el('contactsAll').onclick=()=>send('contactsAll');
+el('contactConsent').onchange=()=>el('contactsUpload').disabled=!stagedCount||!el('contactConsent').checked;
+el('contactsUpload').onclick=()=>{if(stagedCount&&el('contactConsent').checked)send('contactsUpload',{confirmed:true})};
+setView('dashboard');send('ready');
 </script></body></html>

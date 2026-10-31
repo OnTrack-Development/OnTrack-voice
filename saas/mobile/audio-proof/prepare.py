@@ -49,9 +49,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 16', 'versionCode')
+                        'versionCode = 17', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.2.5-ota"', 'versionName')
+                        'versionName = "0.2.6-ota"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
@@ -236,6 +236,8 @@ def main(root):
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.ACCESS_NETWORK_STATE'})
     # Native APK updates use the platform package installer after explicit consent.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.REQUEST_INSTALL_PACKAGES'})
+    # Explicit opt-in for importing all phone contacts, no background address-book access.
+    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.READ_CONTACTS'})
     ET.SubElement(app, 'receiver', {
         android + 'name':'.NativeInstallResultReceiver',
         android + 'exported':'false'

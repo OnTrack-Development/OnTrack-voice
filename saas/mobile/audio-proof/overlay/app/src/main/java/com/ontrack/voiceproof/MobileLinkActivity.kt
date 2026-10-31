@@ -4,6 +4,11 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.provider.ContactsContract
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
+import org.json.JSONArray
 import android.graphics.Color
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -40,6 +45,78 @@ class MobileLinkActivity:ComponentActivity(){
     @Volatile private var localPage:LocalUiPage?=null
     private var updateBusy=false
     private var pending:MobileOta.Bundle?=null
+    private var pendingContacts=JSONArray()
+    private val contactsPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
+        if(granted)lifecycleScope.launch{loadAllContacts()}
+        else {banner.text="لم يتم منح إذن قراءة جهات الاتصال؛ لم تُرفع أي بيانات";banner.visibility=View.VISIBLE}
+    }
+    private val contactPicker=registerForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
+        if(result.resultCode==RESULT_OK){
+            val uri=result.data?.data
+            if(uri!=null)lifecycleScope.launch(Dispatchers.IO){
+                val rows=JSONArray()
+                runCatching{
+                    contentResolver.query(uri,arrayOf(
+                        ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                        ContactsContract.CommonDataKinds.Phone.NUMBER),null,null,null)?.use{cursor->
+                        val nameIndex=cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                        val numberIndex=cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                        if(cursor.moveToFirst() && numberIndex>=0)rows.put(JSONObject()
+                            .put("name",if(nameIndex>=0)cursor.getString(nameIndex)?:"" else "")
+                            .put("phone",cursor.getString(numberIndex)?:""))
+                    }
+                }
+                withContext(Dispatchers.Main){pendingContacts=rows;showContactPreview()}
+            }
+        }
+    }
+    private suspend fun loadAllContacts()=withContext(Dispatchers.IO){
+        val rows=JSONArray()
+        runCatching{
+            contentResolver.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    ContactsContract.CommonDataKinds.Phone.NUMBER),null,null,
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME+" ASC")?.use{cursor->
+                val nameIndex=cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                val phoneIndex=cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                while(cursor.moveToNext() && rows.length()<2000){
+                    if(phoneIndex>=0)rows.put(JSONObject()
+                        .put("name",if(nameIndex>=0)cursor.getString(nameIndex)?:"" else "")
+                        .put("phone",cursor.getString(phoneIndex)?:""))
+                }
+            }
+        }
+        withContext(Dispatchers.Main){pendingContacts=rows;showContactPreview()}
+    }
+    private fun showContactPreview(){
+        val sample=JSONArray()
+        for(i in 0 until minOf(5,pendingContacts.length()))sample.put(pendingContacts.getJSONObject(i))
+        val status=JSONObject().put("count",pendingContacts.length()).put("sample",sample)
+        web.evaluateJavascript("window.onTrackContactPreview && window.onTrackContactPreview("+status.toString()+")",null)
+    }
+    private suspend fun uploadSelectedContacts() {
+        check(!MobileLinkService.inCall){"اترك رفع الأرقام حتى انتهاء المكالمة"}
+        check(pendingContacts.length()>0){"اختر أرقامًا قبل الرفع"}
+        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
+        check(key.length>=24){"أدخل مفتاح الربط أولاً"}
+        val body=JSONObject().put("confirmed",true).put("contacts",pendingContacts).toString()
+        val response=withContext(Dispatchers.IO) {
+            OkHttpClient.Builder().followRedirects(false).build().newCall(Request.Builder()
+                .url("https://app.ontrackegy.com/saas/mobile/contacts_import.php")
+                .header("Authorization","Bearer "+key)
+                .post(body.toRequestBody("application/json".toMediaType())).build()).execute().use {
+                check(it.isSuccessful){"فشل استيراد الأرقام HTTP "+it.code}
+                JSONObject(it.body?.string().orEmpty())
+            }
+        }
+        check(response.optBoolean("ok")){"السيرفر رفض استيراد الأرقام"}
+        pendingContacts=JSONArray()
+        val counts=response.optJSONObject("counts")?:JSONObject()
+        val answer=JSONObject().put("added",counts.optInt("added"))
+            .put("duplicates",counts.optInt("duplicates"))
+            .put("invalid",counts.optInt("invalid"))
+        web.evaluateJavascript("window.onTrackContactsImported && window.onTrackContactsImported("+answer.toString()+")",null)
+    }
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState:Bundle?){
         super.onCreate(savedInstanceState);ota=MobileOta(this);nativeUpdates=NativeUpdates(this)
@@ -224,6 +301,7 @@ class MobileLinkActivity:ComponentActivity(){
             .put("nativeInstallPermission",nativeUpdates.canInstallPackages())
             .put("wifiFreeEnabled",wifiFreeEnabledState)
             .put("wifiFreeReady",wifiFreeReadyState)
+            .put("contactsSupported",true)
             .put("nativeUpdateVersion",nativeRelease?.versionName?:"").put("native",ota.nativeVersion).put("updating",updateBusy)
         web.evaluateJavascript("window.onTrackState && window.onTrackState($state)",null)
     }
@@ -256,6 +334,21 @@ class MobileLinkActivity:ComponentActivity(){
                         if(!Settings.canDrawOverlays(this@MobileLinkActivity)){
                             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:$packageName")))
                         }else banner.text="إذن النافذة العائمة مفعل"
+                    }
+                    "contactsPick"->{
+                        val intent=Intent(Intent.ACTION_PICK).apply{
+                            type=ContactsContract.CommonDataKinds.Phone.CONTENT_TYPE
+                        }
+                        contactPicker.launch(intent)
+                    }
+                    "contactsAll"->{
+                        if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.READ_CONTACTS)
+                            ==PackageManager.PERMISSION_GRANTED)loadAllContacts()
+                        else contactsPermission.launch(Manifest.permission.READ_CONTACTS)
+                    }
+                    "contactsUpload"->{
+                        check(msg.optBoolean("confirmed")){"راجع الأرقام وأكّد الرفع أولاً"}
+                        uploadSelectedContacts()
                     }
                     "checkUpdates"->checkUpdates()
                     "checkNativeUpdates"->checkNativeUpdates()
