@@ -1,5 +1,5 @@
 """Deploy only immutable OTA HTML and its signed manifest; no credential reads."""
-import base64, datetime, fcntl, hashlib, json, os, tempfile, zlib
+import base64, datetime, fcntl, hashlib, json, lzma, os, tempfile, zlib
 from pathlib import Path
 
 def atomic(path, content):
@@ -11,7 +11,7 @@ def atomic(path, content):
         if os.path.exists(temp):os.unlink(temp)
 
 def deploy(encoded,expected):
-    raw=zlib.decompress(base64.b64decode(encoded))
+    raw=lzma.decompress(base64.b64decode(encoded))
     if hashlib.sha256(raw).hexdigest()!=expected:raise ValueError('Bundle checksum mismatch')
     bundle=json.loads(raw);manifest=bundle['manifest'];envelope=json.loads(manifest);meta=json.loads(envelope['payload'])
     html=bundle['html'].encode();name=meta['file']
