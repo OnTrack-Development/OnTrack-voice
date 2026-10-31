@@ -226,7 +226,7 @@ function setView(v){
   b.setAttribute('aria-current',selected?'page':'false');
  });
  if(v==='calls' && last.callsSupported===true)send('loadCallHistory');
- if(v==='campaigns' && Number(last.native)>=18)send('listCampaigns');
+ if(v==='campaigns' && Number(last.nativeCode)>=18)send('listCampaigns');
  window.scrollTo({top:0,behavior:'auto'});
 }
 document.querySelectorAll('.otTabs button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
@@ -268,14 +268,14 @@ window.onTrackCampaigns=payload=>{
  });
 };
 el('saveMobileCampaign').onclick=()=>{
- if(Number(last.native)<18){el('campaignResult').textContent='يجب تحديث Android إلى الإصدار الذي يدعم إدارة الحملات أولًا';return;}
+ if(Number(last.nativeCode)<18){el('campaignResult').textContent='يجب تحديث Android إلى الإصدار الذي يدعم إدارة الحملات أولًا';return;}
  const name=el('mobileCampaignName').value.trim(),starts=el('mobileCampaignStart').value,ends=el('mobileCampaignEnd').value,scenario=el('mobileCampaignScenario').value.trim();
  if(!name||!starts||!ends||!scenario||ends<=starts){el('campaignResult').textContent='راجع الاسم والتوقيت والسيناريو قبل الحفظ';return}
  if(!confirm('حفظ مسودة فقط بدون إجراء مكالمات؟'))return;
  el('campaignResult').textContent='جاري حفظ المسودة…';
  send('createCampaign',{name,starts,ends,scenario,confirmed:true});
 };
-el('refreshCampaigns').onclick=()=>{if(Number(last.native)>=18)send('listCampaigns');else el('campaignResult').textContent='حدّث Android لدعم إدارة الحملات داخل التطبيق'};
+el('refreshCampaigns').onclick=()=>{if(Number(last.nativeCode)>=18)send('listCampaigns');else el('campaignResult').textContent='حدّث Android لدعم إدارة الحملات داخل التطبيق'};
 
 let stagedCount=0;
 window.onTrackContactPreview=s=>{
