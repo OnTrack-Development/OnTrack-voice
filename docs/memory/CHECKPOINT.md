@@ -1,3 +1,10 @@
+## 31 أكتوبر 2026 — نجاح تثبيت v0.2.4 ثم OTA v0.2.5 على Xiaomi (تقرير المستخدم)
+
+- المالك حمّل `v0.2.4` من الرابط الرسمي المباشر، وثبّته بنجاح. بعده استخدم **التحديث داخل التطبيق** للانتقال إلى `v0.2.5` ونجح التثبيت دون `There was a problem parsing the package`. هذه شهادة DEVICE فعلية لمسار الترقية (ليست قراءة عن بُعد لإصدار الجهاز).
+- GitHub Actions run `41170090334` final SUCCESS لكل jobs: `build`, `publish_ota`, `publish_native`. تقارير host-worker: `mobile-ota-41170090334` success revision11؛ `mobile-native-41170090334` success native16 SHA256 `24508b9ac60e7edca7a1c87bd4748078867f0c7d3e0e4fe544fbc89163ccb9c9`.
+- تحديث `docs/plan/VOICE_DEMO_DELIVERY_CHECKLIST_AR.md`: تأشير ✅ على خطوات التثبيت المثبتة وخطوة CI والنشر؛ ترك P0-01 الإجمالي مفتوحًا لحالات edge/إلغاء/أثناء المكالمة وقراءة الإصدار، وP0-03/05 OPEN لحين اختبار الصوت فعليًا على شبكة ضعيفة.
+- **الاختبار التالي:** مكالمة قصيرة برقم تجريبي بموافقة الطرف الآخر، Wi-Fi مغلق وبيانات الهاتف فعالة، اختبار صوت الطرفين ثم تدهور الشبكة وعودتها والتأكد من استمرار كلام الإيجنت وعدم الرجوع للتحية أو تجمده، ومن ثم فحص calls.php للتأكد من وجود سجل وحيد. سجل نتيجة المستخدم قبل أي تعديل صوت إضافي.
+
 ## 31 أكتوبر 2026 — تقرير عطل CI 0.2.5 وتعديل فحص Android
 
 - GitHub Actions run `41169445578` فشل **فقط** في `:app:connectedDebugAndroidTest` خلال `MobileUiInstrumentedTest.localMainDocumentRendersAndNativeBridgeInitializes`؛ XML: `java.lang.AssertionError: WebView JS callback` عند `latch.await(5,TimeUnit.SECONDS)` line28 والاختبار line46. Logcat يبين `Choreographer: Skipped 369 frames!` أثناء cold boot، على محاكي API34. Kotlin/unit وبناء APK قبله نجح. لذلك `publish_ota` و`publish_native` skipped، ولم يُنشر v16.
