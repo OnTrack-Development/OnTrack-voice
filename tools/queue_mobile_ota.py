@@ -36,7 +36,22 @@ def main():
     compact=base64.b64encode(zlib.compress(source.encode(),9)).decode()
     script="import base64,zlib;exec(zlib.decompress(base64.b64decode('"+compact+"')))"
     now=datetime.datetime.now(datetime.timezone.utc);job={'schema':1,'id':'mobile-ota-'+os.environ['GITHUB_RUN_ID'],'target':TARGET,'action':'exec','created_at':now.isoformat(),'expires_at':(now+datetime.timedelta(hours=24)).isoformat(),'cwd':'/home/appontrack/public_html/saas','timeout_seconds':25,'argv':['/bin/python3','-c',script,packed,hashlib.sha256(bundle).hexdigest()]}
-    encoded=json.dumps(job,ensure_ascii=False,indent=2).encode();assert len(encoded)<=16384,f'Host job exceeds installed worker limit ({len(encoded)} bytes)'
+    encoded=json.dumps(job,ensure_ascii=False,indent=2).encode()
+    if len(encoded)>16384:
+        # Upload transport is not a product dependency: fetch exact signed artifact from
+        # the completed build via short-lived GitHub Actions blob redirect on the host.
+        from queue_mobile_native import download_url
+        artifact=request('actions/runs/'+os.environ['GITHUB_RUN_ID']+'/artifacts?per_page=100')['artifacts']
+        matches=[x for x in artifact if x['name']=='OnTrack-Voice-0.2.7' and not x['expired']]
+        assert len(matches)==1,'Signed Android artifact missing or ambiguous'
+        url=download_url(matches[0]['id'])
+        program=(Path('saas/mobile/ota/deploy.py')).read_text()+'\\n'+(Path('saas/mobile/ota/remote_deploy.py')).read_text()+'\\nimport sys\\nremote_install(sys.argv[1],sys.argv[2],sys.argv[3])\\n'
+        code=base64.b64encode(zlib.compress(program.encode(),9)).decode()
+        script="import base64,zlib;exec(zlib.decompress(base64.b64decode('"+code+"')))"
+        job['timeout_seconds']=30
+        job['argv']=['/bin/python3','-c',script,url,meta['sha256'],str(meta['revision'])]
+        encoded=json.dumps(job,ensure_ascii=False,indent=2).encode()
+    assert len(encoded)<=16384,f'Host job exceeds installed worker limit ({len(encoded)} bytes)'
     request('contents/'+queue_path,'PUT',{'branch':BRANCH,'sha':obj['sha'],'message':'deploy: signed mobile OTA revision'+str(meta['revision']),'content':base64.b64encode(encoded).decode()})
     print(json.dumps({'status':'QUEUED_NOT_DEPLOYED','job_id':job['id'],'revision':meta['revision'],'bytes':len(encoded),'result_path':'ops/host-link/results/'+TARGET+'/'+job['id']+'.json'}))
 if __name__=='__main__':main()
