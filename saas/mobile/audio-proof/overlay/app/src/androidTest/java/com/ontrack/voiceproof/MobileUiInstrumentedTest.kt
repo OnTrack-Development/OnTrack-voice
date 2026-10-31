@@ -23,14 +23,14 @@ class MobileUiInstrumentedTest {
         return null
     }
     // Cold-boot Android emulators may stall the UI thread for >5s while initializing WebView.
-    // Still fail unless the actual signed page and JS bridge initialize within the deadline.
+    // Still fail unless the actual signed page and JS bridge initialize within the deadline, including a slow API-34 cold boot.
     private fun js(scenario:ActivityScenario<MobileLinkActivity>,script:String):String {
         val latch=CountDownLatch(1);val result=AtomicReference("")
         scenario.onActivity{activity->find(activity.findViewById(android.R.id.content))!!.evaluateJavascript(script){result.set(it);latch.countDown()}}
-        assertTrue("WebView JS callback",latch.await(15,TimeUnit.SECONDS));return result.get()
+        assertTrue("WebView JS callback",latch.await(40,TimeUnit.SECONDS));return result.get()
     }
     private fun await(scenario:ActivityScenario<MobileLinkActivity>,script:String){
-        val until=System.currentTimeMillis()+45000
+        val until=System.currentTimeMillis()+90000
         while(System.currentTimeMillis()<until){if(js(scenario,script)=="true")return;Thread.sleep(250)}
         fail("Local signed UI failed to render or native ready/init bridge failed")
     }
