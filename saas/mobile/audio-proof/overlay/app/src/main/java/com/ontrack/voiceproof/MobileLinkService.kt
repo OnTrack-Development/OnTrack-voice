@@ -34,6 +34,7 @@ class MobileLinkService:Service() {
         const val ACTION_PAUSE="com.ontrack.voiceproof.PAUSE"
         @Volatile var running=false
         @Volatile var agentEnabled=false
+        @Volatile var connected=false
         @Volatile var serverRevision=0
         @Volatile var inCall=false
         @Volatile var humanControl=false
@@ -58,7 +59,7 @@ class MobileLinkService:Service() {
     @Volatile private var takeoverRequested=false
     @Volatile private var pendingDesired:Boolean?=null
     private fun prefs()=getSharedPreferences("ontrack_link",MODE_PRIVATE)
-    private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(running,agentEnabled,inCall,humanControl)}}
+    private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(connected,agentEnabled,inCall,humanControl)}}
     private fun notice(value:String){
         latestStatus=value
         getSystemService(NotificationManager::class.java).notify(701,notification(value))
@@ -179,6 +180,7 @@ class MobileLinkService:Service() {
                     }
                     val raw=CaptureDaemon.linkControl(this@MobileLinkService,'Q')?:error("مساعد الشريحة غير متصل")
                     val state=raw.substringAfter("CALL ").toIntOrNull()?:error("حالة الاتصال غير مفهومة")
+                    connected=true
                     inCall=state==1||state==2
                     if(state==1 && lastState!=1){ringingAt=SystemClock.elapsedRealtime();answerIssued=false;callSeen=false;takeoverRequested=false;humanControl=false}
                     if(state==2 && ringingAt!=0L && !answerIssued && !callSeen){
@@ -237,7 +239,7 @@ class MobileLinkService:Service() {
             }catch(t:Throwable){
                 if(t is CancellationException)throw t
                 call?.stop();call=null
-                inCall=false // Preserve call-scoped human takeover across a network outage.
+                inCall=false;connected=false // Preserve call-scoped human takeover across a network outage.
                 notice("إعادة الاتصال تلقائيًا • "+t.javaClass.simpleName)
                 withTimeoutOrNull(backoff){retryWake.receive()}
                 backoff=(backoff*2).coerceAtMost(30000L)
@@ -257,7 +259,7 @@ class MobileLinkService:Service() {
     }
     override fun onDestroy(){
         networkListener?.let{runCatching{connectivity?.unregisterNetworkCallback(it)}}
-        call?.stop();scope.cancel();running=false;inCall=false;agentEnabled=false;humanControl=false
+        call?.stop();scope.cancel();running=false;connected=false;inCall=false;agentEnabled=false;humanControl=false
         overlay.remove();latestStatus="الربط متوقف"
         super.onDestroy()
     }
