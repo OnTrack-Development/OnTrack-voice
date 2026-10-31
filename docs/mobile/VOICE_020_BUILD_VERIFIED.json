@@ -1,0 +1,38 @@
+{
+  "version": "0.2.0-ota",
+  "package": "com.ontrack.voiceproof",
+  "version_code": 11,
+  "workflow_run": 41152775668,
+  "workflow_conclusion": "success",
+  "artifact_id": 13024080473,
+  "artifact_name": "OnTrack-Voice-0.2.0",
+  "apk_sha256": "f1c9f5ca86b2c11829f980cc9cc1d8d79a0dbc403aaa220e039acb1bc1ce2b3c",
+  "signature_sha256": "d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f",
+  "test_results": {
+    "kotlin_unit_and_daemon": "PASS",
+    "android_emulator_webview": "PASS: tests1 failures0 errors0",
+    "android_manifest": "PASS: version11 package unchanged",
+    "signing": "PASS"
+  },
+  "server": {
+    "control_api": "DEPLOYED_PHP_LINT_PASS",
+    "one_time_sso": "DEPLOYED_PHP_LINT_PASS",
+    "status_feed": "DEPLOYED_PHP_LINT_PASS",
+    "admin_dashboard": "DEPLOYED_PHP_LINT_PASS",
+    "unauthenticated_api_requests": "401_CONFIRMED",
+    "ota_revision6": "QUEUED_FOR_HOST_CRON_AT_RECORD_TIME"
+  },
+  "real_device": {
+    "wifi_reconnect": "NOT_TESTED",
+    "human_takeover": "NOT_TESTED",
+    "speaker_toggle": "NOT_TESTED",
+    "browser_sso": "NOT_TESTED",
+    "server_device_toggle_sync": "NOT_TESTED"
+  },
+  "notes": [
+    "Keep input_channel=mix",
+    "Install APK over old version without deleting app data",
+    "Android developer/USB/wireless debugging require explicit user action",
+    "Cloud status reports desired vs applied, not a guaranteed physical state while offline"
+  ]
+}
