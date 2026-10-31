@@ -12,6 +12,8 @@ class NativeInstallResultReceiver:BroadcastReceiver(){
     override fun onReceive(context:Context,intent:Intent?) {
         if(intent?.action!=ACTION_RESULT)return
         val status=intent.getIntExtra(PackageInstaller.EXTRA_STATUS,PackageInstaller.STATUS_FAILURE)
+        val detail=intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty()
+            .replace(Regex("[\\r\\n\\t]")," ").take(240)
         val store=context.getSharedPreferences("ontrack_link",Context.MODE_PRIVATE)
         // Terminal results must unlock retries; only pending user approval blocks duplicates.
         if(status!=PackageInstaller.STATUS_PENDING_USER_ACTION){
@@ -50,7 +52,8 @@ class NativeInstallResultReceiver:BroadcastReceiver(){
                     PackageInstaller.STATUS_FAILURE_ABORTED->"تم إلغاء التثبيت"
                     else->"فشل تثبيت Android"
                 }
-                store.edit().putString("last_native_install","$reason · status $code").apply()
+                store.edit().putString("last_native_install",
+                    "$reason · status $code"+if(detail.isBlank())"" else " · $detail").apply()
             }
         }
     }
