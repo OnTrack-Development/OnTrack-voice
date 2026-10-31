@@ -12,6 +12,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import android.os.Bundle
 import android.webkit.*
 import android.widget.*
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -29,6 +30,7 @@ class MobileLinkActivity:ComponentActivity(){
     private var nativeBusy=false
     private var nativeStatus="جاري فحص تحديث Android"
     private lateinit var banner:TextView
+    private var splash:OnTrackLaunchScreen?=null
     private var ready=false
     private var generation=0
     private var screenNonce=""
@@ -45,7 +47,11 @@ class MobileLinkActivity:ComponentActivity(){
             setBackgroundColor(Color.rgb(18,27,42))
             textSize=12f;text="OnTrack Voice • جاري تجهيز الاتصال"
         };root.addView(banner)
-        web=WebView(this);root.addView(web,LinearLayout.LayoutParams(-1,0,1f));setContentView(root)
+        web=WebView(this);root.addView(web,LinearLayout.LayoutParams(-1,0,1f))
+        val layer=FrameLayout(this)
+        layer.addView(root,FrameLayout.LayoutParams(-1,-1))
+        setContentView(layer)
+        splash=OnTrackLaunchScreen(this,layer)
         web.settings.apply{
             javaScriptEnabled=true;domStorageEnabled=false;allowFileAccess=false;allowContentAccess=false
             blockNetworkLoads=true;cacheMode=WebSettings.LOAD_NO_CACHE;mixedContentMode=WebSettings.MIXED_CONTENT_NEVER_ALLOW
@@ -77,7 +83,7 @@ class MobileLinkActivity:ComponentActivity(){
         }
     }
     private fun show(screen:MobileOta.Screen){
-        ready=false;val current=++generation
+        ready=false;splash?.reveal();splash?.message("جارٍ تحميل تجربة OnTrack…");val current=++generation
         screenNonce=java.util.UUID.randomUUID().toString()
         require(screen.html.contains("<head>")){"صيغة واجهة التحديث غير صالحة"}
         val content=screen.html.replaceFirst("<head>","<head><script>window.OTA_NONCE="+JSONObject.quote(screenNonce)+";</script>")
@@ -87,6 +93,7 @@ class MobileLinkActivity:ComponentActivity(){
         lifecycleScope.launch{delay(10000);if(!ready && current==generation){
             if(screen.revision>1){show(withContext(Dispatchers.IO){ota.rollback(true)});banner.text="تعذر فتح التحديث؛ رجعنا للواجهة السابقة"}
             else banner.text="تعذر فتح الواجهة؛ استخدم إعدادات الهاتف من شاشة التشخيص"
+            splash?.hide()
         }}
     }
     private suspend fun activate(bundle:MobileOta.Bundle){
@@ -127,7 +134,7 @@ class MobileLinkActivity:ComponentActivity(){
             }
             check(!MobileLinkService.inCall){"المكالمة جارية؛ ثبّت بعد انتهائها"}
             nativeStatus=if(nativeUpdates.requestInstall(file))
-                "تم التحقق من التحديث؛ أكمل موافقة تثبيت Android"
+                "تم تسليم APK إلى مثبت Android؛ أكمل موافقة النظام"
             else "اسمح بتثبيت التحديث من OnTrack ثم اضغط تثبيت التحديث مجددًا"
         }catch(t:Throwable){
             if(t is CancellationException)throw t
@@ -152,6 +159,7 @@ class MobileLinkActivity:ComponentActivity(){
                 if(msg.optString("nonce")!=screenNonce)return@launch
                 when(msg.getString("command")){
                     "ready"->{ready=true;withContext(Dispatchers.IO){ota.confirm()};banner.text="الواجهة جاهزة • OTA ${ota.revision}";sendState()
+                        web.postDelayed({splash?.hide();banner.visibility=View.GONE},550)
                         val prefs=getSharedPreferences("ontrack_link",MODE_PRIVATE)
                         val initial=JSONObject().put("base",prefs.getString("base","https://app.ontrackegy.com/"))
                             .put("key",prefs.getString("key",""))
