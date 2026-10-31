@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "mobile-native-https-verify-20261031",
+  "id": "mobile-native-404-diagnostic-20261031",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-10-31T01:59:31.236Z",
-  "expires_at": "2026-10-31T02:59:31.236Z",
+  "created_at": "2026-10-31T02:00:35.541Z",
+  "expires_at": "2026-10-31T03:00:35.541Z",
   "cwd": "/home/appontrack",
-  "timeout_seconds": 24,
+  "timeout_seconds": 29,
   "argv": [
     "/bin/python3",
     "-c",
-    "import urllib.request,json,datetime\nbase=\"https://app.ontrackegy.com/saas/mobile/updates/native/\"\nwith urllib.request.urlopen(urllib.request.Request(base+\"latest.json\",headers={\"Cache-Control\":\"no-cache\",\"User-Agent\":\"OnTrack-Native-Update-Probe\"}),timeout=9) as r:\n status=r.status;raw=r.read(16384);ct=r.headers.get(\"Content-Type\",\"\")\nmeta=json.loads(json.loads(raw)[\"payload\"])\nassert status==200 and meta[\"version_code\"]==12 and meta[\"package\"]==\"com.ontrack.voiceproof\"\nwith urllib.request.urlopen(urllib.request.Request(base+meta[\"file\"],method=\"HEAD\",headers={\"User-Agent\":\"OnTrack-Native-Update-Probe\"}),timeout=9) as r:\n apkstatus=r.status;length=int(r.headers.get(\"Content-Length\",\"0\"));apkctype=r.headers.get(\"Content-Type\",\"\")\nassert apkstatus==200 and length==meta[\"size\"]\nprint(json.dumps({\"manifest_http\":status,\"version\":meta[\"version_code\"],\"apk_http\":apkstatus,\"content_length\":length,\"size_matches\":True,\"sha256\":meta[\"sha256\"],\"apk_content_type\":apkctype,\"checked_utc\":datetime.datetime.now(datetime.timezone.utc).isoformat()}))\n"
+    "import pathlib,os,stat,json,urllib.request,urllib.error\nroot=pathlib.Path('/home/appontrack/public_html/saas/mobile/updates')\nout={}\nfor name in ('.htaccess','latest.json','native','.native-ignore','native/.htaccess','native/latest.json'):\n p=root/name\n out[name]={\"exists\":p.exists(),\"is_dir\":p.is_dir(),\"symlink\":p.is_symlink(),\"mode\":oct(p.stat().st_mode&0o777) if p.exists() else None,\"size\":p.stat().st_size if p.exists() and p.is_file() else None}\nfor name in ('latest.json','native/latest.json','native/','native/ontrack-voice-v12-d78e110aa8bdfab4264f7904af7e0e8cf16af0a9ed847c16161b70f560cefc00.apk'):\n try:\n  req=urllib.request.Request('https://app.ontrackegy.com/saas/mobile/updates/'+name,method='HEAD',headers={\"User-Agent\":\"OnTrack-Deployment-Diagnostic\"})\n  with urllib.request.urlopen(req,timeout=7) as res:out['http_'+name]={\"status\":res.status,\"content_type\":res.headers.get(\"Content-Type\"),\"length\":res.headers.get(\"Content-Length\")}\n except urllib.error.HTTPError as e:out['http_'+name]={\"status\":e.code}\n except Exception as e:out['http_'+name]={\"error\":type(e).__name__}\nprint(json.dumps(out))\n"
   ]
 }
