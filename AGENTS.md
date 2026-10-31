@@ -1,5 +1,9 @@
 # Working contract — OnTrack Voice
 
+## Mandatory demo delivery gate — owner request 2026-10-31
+
+Before any implementation, read `docs/plan/VOICE_DEMO_DELIVERY_CHECKLIST_AR.md`. It is the authoritative owner-request checklist for Android + the existing `app.ontrackegy.com` demo. Never check off a feature without matching CODE/CI/HOST/DEVICE/E2E evidence; do not switch to SaaS build before `VC-P5-05`. Update it after each verified completion.
+
 ## Read before acting
 
 1. `docs/memory/CHECKPOINT.md`, `docs/memory/checkpoint.json`, then `docs/project/CURRENT_STATE_AR.md` and `docs/project/project-state.json`.
