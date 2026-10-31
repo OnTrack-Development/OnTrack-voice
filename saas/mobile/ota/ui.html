@@ -136,6 +136,10 @@ body.light .otMetric small,body.light .otMiniCard small{color:#62718a}
 <button id="uploadContactsFile" class="primary" disabled>تأكيد ورفع الملف</button>
 <p id="contactFileResult" class="small" role="status"></p>
 </div><div class="divider"></div>
+<div class="divider"></div><h2>الأرقام المحفوظة وDo Not Call</h2>
+<p>بتقدر تمنع أو تسمح بالتواصل مع رقم محفوظ من التطبيق، وأي حملة تستبعد الأرقام المحظورة تلقائيًا.</p>
+<button id="refreshStoredContacts" class="outline">عرض قائمة الأرقام</button>
+<div id="storedContactList" aria-live="polite"></div>
 <div class="divider"></div><h2>إنشاء حملة من التطبيق</h2>
 <p>مسودة قابلة للمراجعة والتعديل. لن تبدأ أي مكالمة تلقائيًا بمجرد الحفظ.</p>
 <label for="mobileCampaignName">اسم الحملة</label><input id="mobileCampaignName" maxlength="160" placeholder="حملة العملاء الجدد" dir="auto">
@@ -313,6 +317,26 @@ window.onTrackContactsImported=s=>{
  el('contactPreview').textContent='تم رفع الأرقام المؤكدة';
  el('contactResult').textContent='أُضيف '+s.added+'، مكرر '+s.duplicates+'، غير صالح '+s.invalid;
 };
+window.onTrackContactsList=payload=>{
+ const root=el('storedContactList');root.replaceChildren();
+ const list=Array.isArray(payload.contacts)?payload.contacts:[];
+ const headline=document.createElement('p');headline.textContent='إجمالي الأرقام: '+(payload.total||list.length);root.append(headline);
+ if(!list.length){const empty=document.createElement('p');empty.textContent='لا توجد أرقام محفوظة';root.append(empty);return}
+ list.forEach(c=>{
+  const row=document.createElement('div');row.className='otMiniCard';
+  const body=document.createElement('div'),title=document.createElement('strong');
+  title.textContent=String(c.name||'بدون اسم');
+  const note=document.createElement('small');note.textContent=String(c.phone||'')+(c.do_not_call?' · ممنوع الاتصال':' · متاح بعد الموافقة');
+  body.append(title,note);row.append(body);
+  if(/^[a-f0-9]{24}$/.test(String(c.id||''))){
+   const btn=document.createElement('button');btn.style.cssText='width:auto;padding:9px;font-size:11px';
+   btn.textContent=c.do_not_call?'إلغاء منع الاتصال':'لا تتصل مجددًا';
+   btn.onclick=()=>{if(confirm('تأكيد تحديث حالة الرقم؟'))send('contactDnc',{id:c.id,blocked:!c.do_not_call,confirmed:true})};
+   row.append(btn);
+  }root.append(row)
+ });
+};
+el('refreshStoredContacts').onclick=()=>{if(Number(last.nativeCode)>=19)send('listContacts');else el('contactResult').textContent='حدّث التطبيق لدعم قائمة الأرقام'};
 let stagedFile=false;
 window.onTrackFilePreview=payload=>{
  stagedFile=!!payload.name;
