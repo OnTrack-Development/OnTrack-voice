@@ -8,6 +8,11 @@ Before any implementation, read `docs/plan/VOICE_DEMO_DELIVERY_CHECKLIST_AR.md`.
 
 `PHASE-2-NETWORK-STABILITY` is **explicitly DEFERRED**: do not block feature development on weak 4G/5G audio stability testing. Preserve existing stable-network SIM/audio behavior and safety controls. Current next work: `VC-P1-01` call events / `VC-P1-02` real call history, then contact import and campaigns. At demo completion / `VC-P5-05`, **remind the owner about NET-02-01..05 and ask for phase-two review**, with no claim that weak-network audio is solved. The authoritative list is `docs/plan/VOICE_DEMO_DELIVERY_CHECKLIST_AR.md`.
 
+## Owner scope update — 2026-10-31 (supersedes sequential delivery preference)
+
+The owner explicitly asks for a **single cohesive delivery** of Call History, mobile all/selected contact import, CSV/XLSX/TXT, scheduled campaigns and SIM executor, premium AYO voices, plan-level feature visibility and backend permissions, Kashier checkout/payment confirmation, and a refined Android/Web UI. Keep independent acceptance gates and do not claim one incomplete feature is done; do not narrow this to "one problem at a time" in communications. See P1/P2/P5/P6 and the unified batch scope in docs/plan/VOICE_DEMO_DELIVERY_CHECKLIST_AR.md. Real payments and PT voice playback need verified provider keys / compatible TTS runtime; no fake success. Weak-network stability remains deferred to PHASE-2-NETWORK-STABILITY.
+
+
 ## Read before acting
 
 1. `docs/memory/CHECKPOINT.md`, `docs/memory/checkpoint.json`, then `docs/project/CURRENT_STATE_AR.md` and `docs/project/project-state.json`.
