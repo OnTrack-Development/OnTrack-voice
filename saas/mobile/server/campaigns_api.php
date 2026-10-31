@@ -49,7 +49,9 @@ try {
         mobile_json(['ok'=>true,'campaign'=>pilot_campaign_transition($id,$action),'dispatched'=>false]);
     }
     if($action!=='create')throw new InvalidArgumentException('action');
-    $item=pilot_campaign_create((string)($data['name']??''),(string)($data['starts']??''),(string)($data['ends']??''),(string)($data['scenario']??''));
+    if(isset($data['contact_ids'])&&!is_array($data['contact_ids']))throw new InvalidArgumentException('targets');
+    $targets=$data['contact_ids']??[];
+    $item=pilot_campaign_create((string)($data['name']??''),(string)($data['starts']??''),(string)($data['ends']??''),(string)($data['scenario']??''),$targets);
     mobile_json(['ok'=>true,'campaign'=>$item,'dispatched'=>false]);
 } catch (InvalidArgumentException $e) {
     mobile_json(['ok'=>false,'error'=>'invalid_campaign'],422);
