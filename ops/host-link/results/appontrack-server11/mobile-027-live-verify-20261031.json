@@ -1,0 +1,13 @@
+{
+  "job_id": "mobile-027-live-verify-20261031",
+  "target": "appontrack-server11",
+  "job_sha256": "b3e72a0566204adc3d5e122840303cf7114bb22fee69fc7602a7ce74c989508e",
+  "started_at": "2026-10-31T17:17:02.975195+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"resource\": \"latest.json\", \"status\": 200, \"version\": 13, \"sha256\": \"03df15b612f9ed7a5b67988d3c7b1e2c7c332b34e1d8858f2170b59bc4ceca19\"}\n{\"resource\": \"binary\", \"status\": 200, \"bytes\": 34400}\n{\"resource\": \"native/latest.json\", \"status\": 200, \"version\": 18, \"sha256\": \"2df544f427dc7268056e3d2a367ff7b54e2603fddff35e3895f7273a49285ff3\"}\n{\"resource\": \"native/binary\", \"status\": 200, \"bytes\": 52477505}\n",
+  "stderr": "",
+  "finished_at": "2026-10-31T17:17:03.123078+00:00",
+  "duration_ms": 148
+}
