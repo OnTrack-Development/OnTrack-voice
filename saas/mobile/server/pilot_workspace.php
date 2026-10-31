@@ -168,7 +168,7 @@ function pilot_campaign_claim(): ?array {
                 if($already)continue;
                 $claim=['id'=>bin2hex(random_bytes(16)),'campaign_id'=>$campaign['id'],
                     'contact_id'=>$contact['id'],'phone'=>$contact['phone'],
-                    'name'=>$contact['name'],'status'=>'leased','leased_epoch'=>time(),
+                    'name'=>$contact['name'],'scenario'=>$campaign['scenario'],'status'=>'leased','leased_epoch'=>time(),
                     'created_at'=>gmdate('c')];
                 $attempts[]=$claim;
                 pilot_atomic('attempts',$attempts);
