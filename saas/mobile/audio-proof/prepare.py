@@ -49,9 +49,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 11', 'versionCode')
+                        'versionCode = 12', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.2.0-ota"', 'versionName')
+                        'versionName = "0.2.1-ota"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
@@ -234,6 +234,18 @@ def main(root):
     # User opt-in app overlay is unrelated to Accessibility and is never auto-granted.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.SYSTEM_ALERT_WINDOW'})
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.ACCESS_NETWORK_STATE'})
+    # Native APK updates use the platform package installer after explicit consent.
+    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.REQUEST_INSTALL_PACKAGES'})
+    provider=ET.SubElement(app, 'provider', {
+        android + 'name':'androidx.core.content.FileProvider',
+        android + 'authorities':NEW+'.updates',
+        android + 'exported':'false',
+        android + 'grantUriPermissions':'true'
+    })
+    ET.SubElement(provider, 'meta-data', {
+        android + 'name':'android.support.FILE_PROVIDER_PATHS',
+        android + 'resource':'@xml/native_updates_paths'
+    })
     ET.SubElement(app, 'activity', {android + 'name': '.ProofActivity', android + 'exported': 'false'})
     ET.SubElement(app, 'service', {android + 'name': '.MobileLinkService', android + 'exported': 'false', android + 'foregroundServiceType': 'dataSync'})
     # Upstream components use relative names under the new namespace; explicit
