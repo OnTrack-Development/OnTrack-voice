@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -126,18 +125,50 @@ internal class NativeUpdates(private val context: Context) {
         }finally{if(temp.exists())temp.delete()}
     }
 
+    /**
+     * Stream a fully verified APK to Android's PackageInstaller session, rather
+     * than relying on OEM file/URI parsing through ACTION_VIEW.
+     * The OS still controls install authorization and user confirmation.
+     */
     fun requestInstall(file:File):Boolean {
-        require(file.isFile && file.parentFile?.canonicalPath==destination.canonicalPath){"ملف غير موثوق"}
+        require(file.isFile && file.parentFile?.canonicalPath==destination.canonicalPath){"ملف تحديث غير موثوق"}
+        require(file.name.endsWith(".apk")){"امتداد التحديث غير صالح"}
         if(Build.VERSION.SDK_INT>=26 && !context.packageManager.canRequestPackageInstalls()) {
             context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                 Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             return false
         }
-        val content=FileProvider.getUriForFile(context,"${context.packageName}.updates",file)
-        context.startActivity(Intent(Intent.ACTION_VIEW).apply{
-            setDataAndType(content,"application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
-        return true
+        val installer=context.packageManager.packageInstaller
+        val params=android.content.pm.PackageInstaller.SessionParams(
+            android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+        params.setAppPackageName(context.packageName)
+        params.setSize(file.length())
+        if(Build.VERSION.SDK_INT>=31) {
+            params.setRequireUserAction(
+                android.content.pm.PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
+        }
+        val sessionId=installer.createSession(params)
+        try {
+            installer.openSession(sessionId).use { session ->
+                session.openWrite("base.apk",0L,file.length()).use { out ->
+                    file.inputStream().buffered().use { input -> input.copyTo(out,65536) }
+                    session.fsync(out)
+                }
+                // The receiver is explicit. PendingIntent must be mutable so
+                // PackageInstaller can attach STATUS and its confirmation intent.
+                val result=Intent(context,NativeInstallResultReceiver::class.java)
+                    .setAction(NativeInstallResultReceiver.ACTION_RESULT)
+                    .setPackage(context.packageName)
+                val sender=android.app.PendingIntent.getBroadcast(
+                    context,sessionId,result,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                        android.app.PendingIntent.FLAG_MUTABLE).intentSender
+                session.commit(sender)
+            }
+            return true
+        }catch(t:Throwable) {
+            runCatching{installer.abandonSession(sessionId)}
+            throw t
+        }
     }
 }
