@@ -140,6 +140,11 @@ body.light .otMetric small,body.light .otMiniCard small{color:#62718a}
 <p>بتقدر تمنع أو تسمح بالتواصل مع رقم محفوظ من التطبيق، وأي حملة تستبعد الأرقام المحظورة تلقائيًا.</p>
 <button id="refreshStoredContacts" class="outline">عرض قائمة الأرقام</button>
 <div id="storedContactList" aria-live="polite"></div>
+<div class="divider"></div><h2>تشغيل الحملات من شريحة Android</h2>
+<p>التنفيذ لا يعمل إلا بعد تفعيلك من هذا الهاتف، ومنح إذن المكالمات، واعتماد حملة مسموح بها. قد تُحتسب رسوم مكالمات من شركة الاتصالات. المكالمات التي نتيجتها غير مؤكدة لا يعاد طلبها تلقائيًا.</p>
+<label style="display:flex;align-items:start;gap:9px"><input id="simCampaignConsent" type="checkbox" style="width:auto;margin-top:4px"><span>أؤكد أن جميع المستلمين وافقوا على الاتصال وأنني أسمح باستخدام شريحة الهاتف والرصيد، مع احترام قوائم عدم الاتصال.</span></label>
+<div class="row"><button id="campaignAutoEnable" class="primary">تفعيل اتصال SIM</button><button id="campaignAutoDisable" class="outline">إيقاف فورًا</button></div>
+<p class="small" id="campaignAutoStatus">متوقف افتراضيًا. لا يمكن تفعيله إلا بموافقة صريحة.</p>
 <div class="divider"></div><h2>إنشاء حملة من التطبيق</h2>
 <p>مسودة قابلة للمراجعة والتعديل. لن تبدأ أي مكالمة تلقائيًا بمجرد الحفظ.</p>
 <label for="mobileCampaignName">اسم الحملة</label><input id="mobileCampaignName" maxlength="160" placeholder="حملة العملاء الجدد" dir="auto">
@@ -198,6 +203,7 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
    s.nativeInstallPermission===false?'إعداد إذن التثبيت لمرة واحدة':
    s.nativeUpdateAvailable?'فحص وتحميل أو استكمال تثبيت '+(s.nativeUpdateVersion||'الإصدار الجديد'):'Android محدّث';
  el('scanAndroid').disabled=s.nativeUpdateBusy||call;
+ el('campaignAutoStatus').textContent=s.campaignAutoEnabled?'تفعيل SIM معتمد على الهاتف — الحملات المعتمدة فقط':'تنفيذ SIM متوقف؛ لا مكالمات مجدولة بدون تفعيل';
  const wifiSupported=typeof s.wifiFreeEnabled==='boolean';
  el('mobileDataMode').style.display=wifiSupported?'block':'none';
  el('nativeContactPanel').style.display=s.contactsSupported===true?'block':'none';
@@ -282,10 +288,10 @@ window.onTrackCampaigns=payload=>{
   body.append(name,detail);card.append(body);
   if(Number(last.nativeCode)>=18 && /^[a-f0-9]{24}$/.test(String(c.id||''))){
    const actions=document.createElement('div');actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
-   const choices=c.status==='cancelled'?[]:c.status==='paused'?['preview','resume','cancel']:['preview','pause','cancel'];
+   const choices=c.status==='cancelled'?[]:c.status==='paused'?['preview','resume','cancel']:c.status==='draft'?['preview','arm','pause','cancel']:['preview','pause','cancel'];
    choices.forEach(a=>{
     const b=document.createElement('button');b.style.cssText='width:auto;padding:8px;font-size:11px';
-    b.textContent=({preview:'معاينة DNC',pause:'إيقاف',resume:'استئناف',cancel:'إلغاء'})[a];
+    b.textContent=({preview:'معاينة DNC',arm:'اعتماد للتشغيل',pause:'إيقاف',resume:'استئناف',cancel:'إلغاء'})[a];
     b.onclick=()=>{
       if(a!=='preview'&&!confirm('تأكيد '+b.textContent+' الحملة؟'))return;
       send('campaignAction',{action:a,id:c.id,confirmed:true});
@@ -294,6 +300,13 @@ window.onTrackCampaigns=payload=>{
   }out.append(card);
  });
 };
+el('campaignAutoEnable').onclick=()=>{
+ if(Number(last.nativeCode)<19){el('campaignAutoStatus').textContent='التحديث Android 0.2.8 مطلوب لتشغيل الشريحة';return}
+ if(!el('simCampaignConsent').checked){el('campaignAutoStatus').textContent='يجب الموافقة أولًا';return}
+ if(!confirm('تأكيد السماح بمكالمات صادرة تلقائية من شريحتك ضمن الحملات المعتمدة؟'))return;
+ send('campaignAutoEnable',{confirmed:true});
+};
+el('campaignAutoDisable').onclick=()=>send('campaignAutoDisable');
 el('saveMobileCampaign').onclick=()=>{
  if(Number(last.nativeCode)<18){el('campaignResult').textContent='يجب تحديث Android إلى الإصدار الذي يدعم إدارة الحملات أولًا';return;}
  const name=el('mobileCampaignName').value.trim(),starts=el('mobileCampaignStart').value,ends=el('mobileCampaignEnd').value,scenario=el('mobileCampaignScenario').value.trim();
