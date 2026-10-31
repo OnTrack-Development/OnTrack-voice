@@ -1,3 +1,13 @@
+## 31 أكتوبر 2026 — OnTrack Voice 0.2.4 / OTA10 / اتصال بدون Wi-Fi تجريبي / سجل مكالمات أولي
+- أصل طلب المستخدم: لماذا سجل المكالمات/الحملات/رفع جهات الاتصال/التقارير/التسجيل/مراقبة الصوت/سيناريوهات AI/Agent Builder لم تظهر في التطبيق والموقع؟ هي **ليست مكتملة**: Laravel `saas/` يحوي CRM/VoiceCampaign workflow/Flow Builder محليًا، لكن ليس ربط SIM telephony/outbound/report/recording ميدانيًا. التفاصيل في `docs/mobile/VOICE_CALL_FEATURE_GAP_AUDIT_2026_10_31_AR.md`.
+- حُددت مشكلة تكرار تحميل APK: النسخة القديمة تكرر طلب PackageInstaller بدل انتظار نتيجة الجلسة. أُضيف `NativeUpdates.installPending()` مع SharedPreferences، reuse cached APK، فحص إذن التثبيت قبل التنزيل، status callbacks وتمييز UI. Android 0.2.4 code15 و UI OTA revision10.
+- مصدر JemRec pinned يدعم `StartWithoutWifi` عبر ADB 5555 بعد إعداد أولي على Wi-Fi؛ أُضيف opt-in واضح مع تحذير خطر منفذ شبكة عام وقياس ready + disabled في النسخ القديمة. **لم يُثبت على Xiaomi بعد**، وقد يتعطل بعد reboot أو سياسات OEM. لا يُفعّل تلقائيًا.
+- في المصدر أضيف `CallEventOutbox.kt` و`call_event.php`, `call_ledger.php`, `calls.php` لتسجيل رنين/رد/نهاية/مدة داخل تخزين خاص، مع حماية device/admin وidempotency؛ لا اسم/رقم/ملخص/صوت حتى الآن. ملفات PHP ونقطة رابط الأدمن نُشرت على `app.ontrackegy.com/saas/mobile` عبر job `mobile-call-ledger-pilot-20261031` (success + PHP lint PASS).
+- GitHub Actions run `41167848892`: build=success، Android WebView=success، publish_ota=success، publish_native=success. استضافة OnTrack: UI10 job `mobile-ota-41167848892` success SHA256 `6f28fb74e9e40dc651f9dc09ce01aeabe4cae7b4b1ef132611f6f1f393959f76`؛ native15 `mobile-native-41167848892` success APK SHA256 `2046fb2e46dffbcb01108c882f1ec6e9486001d0c69bec1ce084d573dd07f8c7`, bytes 52424257.
+- فحص HTTPS العام والأمان المُجدول `mobile-024-live-security-20261031`: لا تعتبره PASS قبل قراءة تقرير host.
+- **مهم:** current installed phone version غير مؤكد، ولا يمكن نقل إصلاح native Kotlin القديم من مجرد HTML OTA. لإصلاح تثبيت Android على الجهاز مرة واحدة يحتاج APK أحدث مع شهادة التوقيع ذاتها؛ قد يطلب Android موافقة/إذن تثبيت من المصدر. لا تمسح التطبيق أو مفتاح الربط. الصوت `mix` لا يُعدل.
+- الاختبار المتبقي: Xiaomi update 0.2.4 وتحقق local install result، مكالمة عبر بيانات 4G/5G دون Wi-Fi بعد opt-in أمنية، أول حدث مكالمة يصل للسجل، والاتصال بعد reboot. لا تدّع نجاحها قبل handset evidence.
+
 ## OnTrack Voice — تنفيذ جزئي مثبت للديمو، 31 أكتوبر 2026
 
 - القائمة التنفيذية الملزمة: `docs/plan/VOICE_DEMO_DELIVERY_CHECKLIST_AR.md` (30 بندًا غير مغلقة حتى اختبار فعلي). مرتبطة بـ`AGENTS.md` والخطة.
