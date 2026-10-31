@@ -1,0 +1,13 @@
+{
+  "job_id": "mobile-024-live-security-20261031",
+  "target": "appontrack-server11",
+  "job_sha256": "8a0c00a24fad9163306816154c779280df26767e86173da5d6d8685946635e1c",
+  "started_at": "2026-10-31T04:26:02.396494+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\": \"PASS\", \"checks\": {\"updates/latest.json\": {\"http\": 200, \"asset_http\": 200, \"size\": 16129, \"sha256\": \"6f28fb74e9e40dc651f9dc09ce01aeabe4cae7b4b1ef132611f6f1f393959f76\", \"content_type\": \"text/html\"}, \"updates/native/latest.json\": {\"http\": 200, \"asset_http\": 200, \"size\": 52424257, \"sha256\": \"2046fb2e46dffbcb01108c882f1ec6e9486001d0c69bec1ce084d573dd07f8c7\", \"content_type\": \"application/vnd.android.package-archive\"}, \"calls.php\": {\"http_unauthenticated\": 403}, \"call_event.php\": {\"http_unauthenticated\": 401}}, \"checked_utc\": \"2026-10-31T04:26:02.602461+00:00\"}\n",
+  "stderr": "",
+  "finished_at": "2026-10-31T04:26:02.609984+00:00",
+  "duration_ms": 214
+}
