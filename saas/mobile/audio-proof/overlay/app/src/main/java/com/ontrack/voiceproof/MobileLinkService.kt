@@ -237,7 +237,7 @@ class MobileLinkService:Service() {
             }catch(t:Throwable){
                 if(t is CancellationException)throw t
                 call?.stop();call=null
-                inCall=false;humanControl=false;takeoverRequested=false
+                inCall=false // Preserve call-scoped human takeover across a network outage.
                 notice("إعادة الاتصال تلقائيًا • "+t.javaClass.simpleName)
                 withTimeoutOrNull(backoff){retryWake.receive()}
                 backoff=(backoff*2).coerceAtMost(30000L)
