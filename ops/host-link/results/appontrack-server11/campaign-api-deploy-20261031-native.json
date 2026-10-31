@@ -1,0 +1,13 @@
+{
+  "job_id": "campaign-api-deploy-20261031-native",
+  "target": "appontrack-server11",
+  "job_sha256": "ce9ea3ffaecbd387b94df0219e351e9b8e951cd0c3e4ddd090c866860e6b782b",
+  "started_at": "2026-10-31T16:55:02.411757+00:00",
+  "status": "failed",
+  "exit_code": 1,
+  "output_truncated": false,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 7, in <module>\nAssertionError: Missing server dependency: pilot_workspace.php\n",
+  "finished_at": "2026-10-31T16:55:02.469864+00:00",
+  "duration_ms": 58
+}
