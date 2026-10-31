@@ -4,6 +4,10 @@
 
 Before any implementation, read `docs/plan/VOICE_DEMO_DELIVERY_CHECKLIST_AR.md`. It is the authoritative owner-request checklist for Android + the existing `app.ontrackegy.com` demo. Never check off a feature without matching CODE/CI/HOST/DEVICE/E2E evidence; do not switch to SaaS build before `VC-P5-05`. Update it after each verified completion.
 
+## Current priority override — owner 2026-10-31
+
+`PHASE-2-NETWORK-STABILITY` is **explicitly DEFERRED**: do not block feature development on weak 4G/5G audio stability testing. Preserve existing stable-network SIM/audio behavior and safety controls. Current next work: `VC-P1-01` call events / `VC-P1-02` real call history, then contact import and campaigns. At demo completion / `VC-P5-05`, **remind the owner about NET-02-01..05 and ask for phase-two review**, with no claim that weak-network audio is solved. The authoritative list is `docs/plan/VOICE_DEMO_DELIVERY_CHECKLIST_AR.md`.
+
 ## Read before acting
 
 1. `docs/memory/CHECKPOINT.md`, `docs/memory/checkpoint.json`, then `docs/project/CURRENT_STATE_AR.md` and `docs/project/project-state.json`.
