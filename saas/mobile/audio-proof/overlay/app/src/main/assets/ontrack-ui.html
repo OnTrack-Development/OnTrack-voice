@@ -40,6 +40,27 @@ footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details su
 <div class="show-on-call" id="callActions"><div class="divider"></div><div class="row"><button class="primary" id="takeover">استلام المكالمة</button><button id="speaker">السماعة</button></div><p>الاستلام يخص المكالمة الحالية فقط. المكالمة الجديدة تعود تلقائيًا للإيجنت حسب الإعداد.</p></div>
 <p id="message" role="alert"></p>
 </section>
+<section class="card" id="mobileCalls">
+<div class="section-title"><h2>سجل المكالمات</h2><span class="chip">من السيرفر</span></div>
+<p>عرض المكالمات المسجلة فعليًا؛ لا تُنشأ سجلات تجريبية أو مدد افتراضية.</p>
+<label for="callFilter">بحث بالاسم أو الرقم أو الحالة</label><input id="callFilter" placeholder="ابحث في السجل" dir="auto">
+<div id="callList" class="stack" aria-live="polite"><p>اضغط تحديث السجل لعرض المكالمات.</p></div>
+<button id="refreshCalls" class="outline">تحديث سجل المكالمات</button>
+</section>
+<section class="card" id="mobileContacts">
+<div class="section-title"><h2>جهات اتصال الهاتف</h2><span class="chip good">إذن ومراجعة</span></div>
+<p>اختار رقمًا واحدًا أو استعرض جهات الاتصال كلها. لن يتم رفع أي أرقام بدون تأكيد صريح.</p>
+<div class="row"><button id="pickContact" class="outline">اختيار جهة اتصال</button><button id="allContacts" class="outline">استعراض كل الأرقام</button></div>
+<div id="contactPreview" class="small" aria-live="polite">لم يتم اختيار أرقام بعد.</div>
+<label style="display:flex;align-items:center;gap:10px"><input id="contactsConsent" type="checkbox" style="width:auto">أؤكد وجود موافقة أصحاب الأرقام على التواصل</label>
+<button id="uploadContacts" class="primary" disabled>تأكيد ورفع الأرقام المختارة</button>
+<p id="contactsResult" class="small" role="status"></p>
+</section>
+<section class="card" id="campaignHub">
+<div class="section-title"><h2>الحملات والسيناريوهات</h2><span class="chip warn">مسودات</span></div>
+<p>إعداد الجداول والسيناريوهات واستيراد CSV وExcel وTXT متاح عبر لوحة الحساب. الاتصال التلقائي من شريحة الهاتف غير مُفعّل بعد.</p>
+<button id="manageCampaigns" class="outline">إدارة الحملات والباقات</button>
+</section>
 <section class="card"><div class="section-title"><h2>لوحة إدارة OnTrack</h2><span class="chip good">دخول آمن</span></div>
 <p>المهام والسكريبت والأصوات وساعات العمل من لوحة الإدارة. الدخول مباشر بمفتاح الربط المحفوظ، بدون كتابة المفتاح مرة ثانية.</p>
 <button class="primary" id="admin">فتح لوحة الإدارة</button>
@@ -112,6 +133,36 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('wifiFreeToggle').disabled=call||(!wifiFree&&!el('wifiFreeConsent').checked);
  if(first&&online)first=false;
 };
+const safeText=v=>String(v??'');
+const makeNode=(tag,txt)=>{const n=document.createElement(tag);n.textContent=safeText(txt);return n};
+let callRows=[];
+function renderCalls(){
+ const term=el('callFilter').value.trim().toLowerCase();
+ const root=el('callList');root.replaceChildren();
+ const rows=callRows.filter(c=>[c.name,c.phone,c.status].some(v=>safeText(v).toLowerCase().includes(term)));
+ if(!rows.length){root.append(makeNode('p',callRows.length?'مفيش نتائج مطابقة.':'مفيش مكالمات مسجلة متاحة.'));return}
+ rows.forEach(c=>{
+  const item=document.createElement('div');item.className='card';item.style.margin='5px 0';item.style.padding='12px';
+  item.append(makeNode('strong',c.name||c.phone||'رقم غير متاح'));
+  const line=makeNode('div',[c.phone||'الرقم غير متاح',c.status||'غير معروف',c.duration==null?'مدة غير متاحة':c.duration+' ثانية'].join(' · '));
+  line.className='small';item.append(line);
+  const stamp=makeNode('small',c.started||'وقت غير متاح');item.append(stamp);root.append(item)
+ });
+}
+window.onTrackCalls=payload=>{callRows=Array.isArray(payload.calls)?payload.calls:[];renderCalls()};
+window.onTrackContactPreview=payload=>{
+ const count=Number(payload.count)||0;el('contactPreview').replaceChildren(makeNode('p','تم اختيار '+count+' رقم للمراجعة'));
+ (Array.isArray(payload.sample)?payload.sample:[]).forEach(c=>el('contactPreview').append(makeNode('div',(c.name||'بدون اسم')+' · '+(c.phone||''))));
+ el('uploadContacts').disabled=!count||!el('contactsConsent').checked;el('contactsResult').textContent='';
+};
+window.onTrackContactsImported=counts=>{el('contactsResult').textContent='تمت الإضافة: '+counts.added+' · مكرر: '+counts.duplicates+' · غير صالح: '+counts.invalid;el('contactPreview').textContent='لم يتم اختيار أرقام بعد.';el('uploadContacts').disabled=true;el('contactsConsent').checked=false};
+el('refreshCalls').onclick=()=>{el('callList').textContent='جاري قراءة السجل…';send('loadCallHistory')};
+el('callFilter').oninput=renderCalls;
+el('pickContact').onclick=()=>send('contactsPick');
+el('allContacts').onclick=()=>send('contactsAll');
+el('contactsConsent').onchange=()=>{el('uploadContacts').disabled=!el('contactsConsent').checked||!el('contactPreview').textContent.startsWith('تم اختيار')};
+el('uploadContacts').onclick=()=>{if(!el('contactsConsent').checked)return;el('uploadContacts').disabled=true;send('contactsUpload',{confirmed:true})};
+el('manageCampaigns').onclick=()=>send('admin');
 el('enable').onclick=()=>{
  el('message').textContent='';
  if(last.running){send('enable');return;}
