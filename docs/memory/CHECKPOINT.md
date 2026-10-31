@@ -1,3 +1,8 @@
+## 31 أكتوبر 2026 — تقرير عطل CI 0.2.5 وتعديل فحص Android
+
+- GitHub Actions run `41169445578` فشل **فقط** في `:app:connectedDebugAndroidTest` خلال `MobileUiInstrumentedTest.localMainDocumentRendersAndNativeBridgeInitializes`؛ XML: `java.lang.AssertionError: WebView JS callback` عند `latch.await(5,TimeUnit.SECONDS)` line28 والاختبار line46. Logcat يبين `Choreographer: Skipped 369 frames!` أثناء cold boot، على محاكي API34. Kotlin/unit وبناء APK قبله نجح. لذلك `publish_ota` و`publish_native` skipped، ولم يُنشر v16.
+- عدل اختبار WebView في commit `3c0d73d0da10`: مهلة JS 15 ثانية والفحص الكلي 45 ثانية، دون تعديل assertions المخصصة لتحميل الواجهة/الـnative bridge، CI rerun `41170090334`؛ لا ادعاء نجاح حتى نتيجة نهائية ونشر موثق.
+
 ## 31 أكتوبر 2026 — رد اختبار المستخدم: فشل Parsing مستمر وصوت 4G/5G غير مستقر
 
 - فشل Native Update على Xiaomi برسالة `There was a problem parsing the package` **مستمر**. التحميل السابق لم يعد يتكرر؛ هذا جزء فقط من OTA ثبت نجاحه على الجهاز.
