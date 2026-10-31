@@ -64,6 +64,9 @@
 
 | وقت UTC | البند | الإثبات/الملاحظة | الحالة |
 |---|---|---|---|
+| 2026-10-31 | VC-P0-01 | **DEVICE**: المستخدم يؤكد "There was a problem parsing the package" مجددًا؛ cache نجح ولم يعد التنزيل يتكرر، لكن التثبيت FAIL. مصدر Android Installer الفعلي/installed version لم يُثبت بعد؛ لا حذف للتطبيق. | BLOCKED_DEVICE |
+| 2026-10-31 | VC-P0-03/P0-05 | **DEVICE**: الإيجنت Online ويرد على 4G/5G حين الشبكة قوية؛ مع الشبكة الضعيفة يتقطع الصوت أو يسكت. `e595c8818a8e` مصدر معالجة resume/drop-stale-audio، لم يُختبر على الهاتف. | PARTIAL/OPEN |
+| 2026-10-31 | VC-P0-01/P0-05 | `e595c8818a8e`: إعداد Android 0.2.5 + OTA11، `EXTRA_STATUS_MESSAGE` للتشخيص، `sessionResumption` مع 6 محاولات واستبعاد الصوت المتأخر. **CODE فقط** والاختبارات الفعلية لازمة. | IN_PROGRESS |
 | 2026-10-31 | VC-P0-01/02 | مصدر Native Installer + OTA10 موجود، اختبار جهاز المالك غير مثبت | CODE فقط |
 | 2026-10-31 | VC-P0-03/04 | StartWithoutWifi اختياري في المصدر؛ لا يوجد دليل مكالمة 4G/5G على Xiaomi | CODE فقط |
 | 2026-10-31 | VC-P1-01/P1-02 | `95340642849c`: `CallEventOutbox` + API ledger + صفحة `calls.php` + اختبار PHP؛ **CODE فقط**، CI/HOST/DEVICE غير مكتملة | IN_PROGRESS — لم يُعلّم ✅ |
