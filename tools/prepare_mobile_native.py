@@ -7,9 +7,9 @@ source=Path(sys.argv[1])
 output=Path(sys.argv[2]);output.mkdir(parents=True,exist_ok=True)
 config=json.loads(Path("saas/mobile/ota/native_release.json").read_text())
 data=source.read_bytes()
-assert source.name=="OnTrack-Voice-0.2.2.apk"
+assert source.name=="OnTrack-Voice-0.2.3.apk"
 assert 1024<len(data)<=150*1024*1024
-assert config["version_code"]>=13 and config["min_installed_version"]<config["version_code"]
+assert config["version_code"]>=14 and config["min_installed_version"]<config["version_code"]
 hash=hashlib.sha256(data).hexdigest()
 config.update({"sha256":hash,"size":len(data),"file":f"ontrack-voice-v{config['version_code']}-{hash}.apk"})
 (output/"payload.json").write_text(json.dumps(config,sort_keys=True,separators=(',',':')))
