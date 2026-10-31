@@ -29,10 +29,47 @@ footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details su
 .otPulse{width:6px;height:6px;border-radius:50%;background:#e3304c;box-shadow:0 0 12px #e3304c;animation:otBeat 1s ease-in-out infinite}
 @keyframes otOrbit{to{transform:rotate(360deg)}}@keyframes otBeat{50%{opacity:.25;transform:scale(.5)}}
 @media(prefers-reduced-motion:reduce){.otHalo:before,.otHalo:after,.otPulse{animation:none}#otSplash{transition:none}}
+
+/* OnTrack Voice 0.2.6 — compact operations cockpit, mobile-first. */
+body{max-width:780px;margin:auto;padding:18px 16px 36px;background:radial-gradient(circle at 92% 0,#2a273a 0,transparent 38%),linear-gradient(160deg,#080e19,#101a2b 75%)}
+header{margin-bottom:15px}.logo{background:linear-gradient(145deg,#fa4c68,#ae1634);box-shadow:0 14px 40px #e3304c30}
+h1{font-size:23px}.otTopline{font-size:10px;letter-spacing:.16em;color:#ef8296;text-transform:uppercase;margin-bottom:4px}
+.otWelcome{margin:0 0 18px;padding:18px 20px;border:1px solid #3c3449;border-radius:20px;background:linear-gradient(120deg,#3d1b2d,#192438 75%);display:flex;align-items:center;justify-content:space-between;gap:15px}
+.otWelcome strong{font-size:19px;line-height:1.4}.otWelcome small{display:block;color:#c9b7c6;font-size:12px;margin-top:4px}
+.otSpark{width:44px;height:44px;border-radius:16px;flex-shrink:0;display:grid;place-items:center;background:#e3304c1d;color:#ff9bac;font-size:28px}
+.otTabs{display:flex;gap:7px;overflow-x:auto;padding:0 1px 9px;margin-bottom:13px;scrollbar-width:none}
+.otTabs::-webkit-scrollbar{display:none}.otTabs button{white-space:nowrap;width:auto;min-width:76px;padding:11px 14px;font-size:12px;border-radius:13px;background:#182537;color:#9eb0c8;border:1px solid #2b3950}
+.otTabs button.active{background:linear-gradient(145deg,#e83452,#b82c47);border-color:#f45d77;color:white;box-shadow:0 9px 22px #e834522a}
+.hidden-panel{display:none!important}.card{background:linear-gradient(150deg,#1b293c,#121d2c);border-color:#2f3d50;box-shadow:0 12px 40px #0000001f}
+.otMetrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.otMetric{background:#142132;border:1px solid #2b3d52;border-radius:18px;padding:16px}
+.otMetric strong{display:block;font-size:16px;margin:6px 0 2px}.otMetric small{color:#94a7c1;font-size:11px}.otMetric .symbol{font-size:23px}
+.otMiniCard{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px;border:1px solid #35465b;border-radius:13px;background:#111c2c;margin:10px 0}
+.otMiniCard strong{font-size:14px}.otMiniCard small{font-size:11px;color:#9db0c7;line-height:1.6;display:block;margin-top:4px}
+.otLocked{background:#47334b;color:#ffc0d8;border:1px solid #76506f;border-radius:9px;padding:6px 9px;font-size:10px;white-space:nowrap}
+.otDot{width:9px;height:9px;border-radius:50%;background:#fb546f;display:inline-block;margin-inline-end:6px;box-shadow:0 0 15px #fb546f}
+.otThemeButton{border:1px solid #3a4b64;background:#1e2b40;color:#e2e7ef;border-radius:12px;font-size:12px;padding:11px;width:auto;margin:0 0 15px}
+body.light{--bg:#f7f8fb;--panel:#fff;--border:#e2e6ef;--muted:#596b83;--text:#152038;background:linear-gradient(155deg,#fff8fa,#f2f5fa);color:#172238}
+body.light .card{background:#fff;box-shadow:0 10px 34px #1722380c;border-color:#e3e5ef}
+body.light .otWelcome{background:linear-gradient(125deg,#ffe8ee,#eef3fd);border-color:#f4cfd9}
+body.light .otWelcome strong{color:#28243a}body.light .otWelcome small{color:#796879}
+body.light .otTabs button,body.light .otMetric,body.light .otMiniCard{background:#fff;border-color:#d9e0ec;color:#172238}
+body.light .otTabs button.active{background:#d93453;color:#fff;border-color:#d93453}
+body.light p,body.light .small,body.light .sub{color:#5a6b82}
+body.light input{background:#f3f5fa;color:#182235;border-color:#d7deea}
+body.light .chip{background:#edf1f7;color:#334156}
+body.light .chip.good{background:#dff4ed;color:#135c46}
+body.light .chip.warn{background:#fff0d5;color:#85560f}
+body.light .otMetric small,body.light .otMiniCard small{color:#62718a}
+@media(max-width:385px){.otTabs button{min-width:65px;padding:10px}.otMetrics{gap:8px}.otMetric{padding:12px}}
 </style></head><body>
 <div id="otSplash" role="status" aria-live="polite"><div class="otHalo"><div class="otMonogram">OT</div></div><div class="otTitle">ONTRACK</div><div class="otSubtitle">VOICE INTELLIGENCE</div><div class="otProgress"><span class="otPulse"></span>يرجى الانتظار · جارٍ تجهيز الاتصال</div></div>
+<div class="otTopline">ONTRACK DEVELOPMENT / VOICE INTELLIGENCE</div>
 <header><div class="brand"><span class="logo">OT</span><div><h1>OnTrack Voice</h1><div class="sub">OnTrack Development · مركز الاتصال</div></div></div><div class="minor" id="version">—</div></header>
-<section class="card">
+<div class="otWelcome"><div><strong>مركز إدارة المكالمات الذكية</strong><small>كل أدوات تشغيل الهاتف والحملات في مكان واحد</small></div><div class="otSpark">✦</div></div>
+<button id="themeToggle" class="otThemeButton" aria-label="تغيير ألوان الواجهة">☀ الوضع الفاتح</button>
+<nav class="otTabs" aria-label="أقسام التطبيق"><button class="active" data-view="dashboard">الرئيسية</button><button data-view="calls">المكالمات</button><button data-view="campaigns">الحملات</button><button data-view="voices">الأصوات</button><button data-view="settings">الإعدادات</button></nav>
+<section class="card" data-panel="dashboard">
 <div class="section-title"><h2>حالة الإيجنت</h2><span id="badge" class="chip">جاري الاتصال</span></div>
 <div class="status" aria-live="polite"><span class="indicator" id="dot"></span><div><strong id="mode">جاري التحميل…</strong><span class="small" id="status">التحقق من حالة الهاتف والسيرفر</span></div></div>
 <div class="divider"></div>
@@ -40,39 +77,18 @@ footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details su
 <div class="show-on-call" id="callActions"><div class="divider"></div><div class="row"><button class="primary" id="takeover">استلام المكالمة</button><button id="speaker">السماعة</button></div><p>الاستلام يخص المكالمة الحالية فقط. المكالمة الجديدة تعود تلقائيًا للإيجنت حسب الإعداد.</p></div>
 <p id="message" role="alert"></p>
 </section>
-<section class="card" id="mobileCalls">
-<div class="section-title"><h2>سجل المكالمات</h2><span class="chip">من السيرفر</span></div>
-<p>عرض المكالمات المسجلة فعليًا؛ لا تُنشأ سجلات تجريبية أو مدد افتراضية.</p>
-<label for="callFilter">بحث بالاسم أو الرقم أو الحالة</label><input id="callFilter" placeholder="ابحث في السجل" dir="auto">
-<div id="callList" class="stack" aria-live="polite"><p>اضغط تحديث السجل لعرض المكالمات.</p></div>
-<button id="refreshCalls" class="outline">تحديث سجل المكالمات</button>
-</section>
-<section class="card" id="mobileContacts">
-<div class="section-title"><h2>جهات اتصال الهاتف</h2><span class="chip good">إذن ومراجعة</span></div>
-<p>اختار رقمًا واحدًا أو استعرض جهات الاتصال كلها. لن يتم رفع أي أرقام بدون تأكيد صريح.</p>
-<div class="row"><button id="pickContact" class="outline">اختيار جهة اتصال</button><button id="allContacts" class="outline">استعراض كل الأرقام</button></div>
-<div id="contactPreview" class="small" aria-live="polite">لم يتم اختيار أرقام بعد.</div>
-<label style="display:flex;align-items:center;gap:10px"><input id="contactsConsent" type="checkbox" style="width:auto">أؤكد وجود موافقة أصحاب الأرقام على التواصل</label>
-<button id="uploadContacts" class="primary" disabled>تأكيد ورفع الأرقام المختارة</button>
-<p id="contactsResult" class="small" role="status"></p>
-</section>
-<section class="card" id="campaignHub">
-<div class="section-title"><h2>الحملات والسيناريوهات</h2><span class="chip warn">مسودات</span></div>
-<p>إعداد الجداول والسيناريوهات واستيراد CSV وExcel وTXT متاح عبر لوحة الحساب. الاتصال التلقائي من شريحة الهاتف غير مُفعّل بعد.</p>
-<button id="manageCampaigns" class="outline">إدارة الحملات والباقات</button>
-</section>
-<section class="card"><div class="section-title"><h2>لوحة إدارة OnTrack</h2><span class="chip good">دخول آمن</span></div>
+<section class="card" data-panel="dashboard"><div class="section-title"><h2>لوحة إدارة OnTrack</h2><span class="chip good">دخول آمن</span></div>
 <p>المهام والسكريبت والأصوات وساعات العمل من لوحة الإدارة. الدخول مباشر بمفتاح الربط المحفوظ، بدون كتابة المفتاح مرة ثانية.</p>
 <button class="primary" id="admin">فتح لوحة الإدارة</button>
 </section>
-<section class="card" id="versionUpdates">
+<section class="card" id="versionUpdates" data-panel="settings">
 <div class="section-title"><h2>تحديثات OnTrack</h2><span class="chip good">تحديثات آمنة</span></div>
 <p>الواجهة والإعدادات تتحدث مباشرة. عند تحديث محرك Android، التطبيق ينزّل النسخة ويطلب موافقة Android على التثبيت مرة واحدة.</p>
 <div class="status"><span class="indicator good"></span><div><strong style="font-size:15px">Android &amp; UI OTA</strong><span class="small" id="nativeUpdateStatus">جاري البحث عن تحديث جديد…</span></div></div>
 <div class="row"><button class="primary" id="upgradeAndroid" disabled>تثبيت تحديث Android</button><button id="scanAndroid" class="outline">فحص الإصدار</button></div>
 <p class="small">التحديثات المتكررة لا تعيد تنزيل الملف المتحقق منه. إذا طلب Android إذن تثبيت، فالموافقة مطلوبة من النظام وليست جزءًا من تحديث الواجهة. لا يحدث تثبيت أثناء مكالمة.</p>
 </section>
-<section class="card" id="mobileDataMode">
+<section class="card" id="mobileDataMode" data-panel="settings">
 <div class="section-title"><h2>الاتصال ببيانات الهاتف</h2><span class="chip warn">اختياري · تجريبي</span></div>
 <p>تجربة تشغيل مساعد الشريحة على 4G/5G بدون الاعتماد على Wi-Fi. يتطلب إعدادًا أوليًا على شبكة Wi-Fi، ولا ينجح بالضرورة على أجهزة Xiaomi كلها أو بعد إعادة التشغيل.</p>
 <div class="status"><span class="indicator" id="wifiFreeLamp"></span><div><strong>المسار المحلي بدون Wi-Fi</strong><span class="small" id="wifiFreeStatus">غير مفعّل</span></div></div>
@@ -80,8 +96,8 @@ footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details su
 <button id="wifiFreeToggle" class="outline">تجربة الاتصال بدون Wi-Fi</button>
 <p class="small">لو حبيت تلغي الوضع، اتصل بالواي فاي أولًا واضغط إيقاف. لو المنفذ فضل مفتوح، أوقف USB debugging من إعدادات الهاتف. تشغيل البيانات لا يغني عن موافقة Android لإعداد ADB.</p>
 </section>
-<section class="card"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
-<section class="card"><h2>إعداد الهاتف</h2><p>ربط جهازك لأول مرة أو تصحيح Wireless debugging عند الحاجة. لا تختبارات تسجيل صوت قديمة في الواجهة الأساسية.</p>
+<section class="card" data-panel="settings"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
+<section class="card" data-panel="settings"><h2>إعداد الهاتف</h2><p>ربط جهازك لأول مرة أو تصحيح Wireless debugging عند الحاجة. لا تختبارات تسجيل صوت قديمة في الواجهة الأساسية.</p>
 <div class="row"><button id="setup">الإعداد السريع</button><button class="outline" id="more">إعدادات متقدمة</button></div>
 <div id="advanced">
 <label for="base">سيرفر OnTrack</label><input id="base" value="https://app.ontrackegy.com/" autocomplete="off">
@@ -89,6 +105,73 @@ footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details su
 <div class="row" style="margin-top:10px"><button id="pair">حفظ وإعادة ربط</button><button id="showKey" class="outline">إظهار المفتاح</button></div>
 <div class="divider"></div><div class="row"><button id="updates">فحص التحديثات</button><button id="rollback">واجهة سابقة</button></div>
 </div></section>
+
+<section class="card" data-panel="calls">
+<div class="section-title"><h2>سجل المكالمات</h2><span class="chip good">تسجيل الأحداث</span></div>
+<p>سجل فعلي للمكالمات المرصودة على الشريحة: وقت الرنين والرد ومدة الاتصال. الأرقام والملخصات لا تظهر قبل التحقق من توفرها.</p>
+<div class="otMetrics"><div class="otMetric"><span class="symbol">◷</span><strong>Call History</strong><small>الأحداث من الهاتف إلى السيرفر</small></div><div class="otMetric"><span class="symbol">≡</span><strong>التقارير</strong><small>بيانات غير متاحة بعد حتى اكتمال الربط</small></div></div>
+<div class="divider"></div>
+<label for="callsSearch">بحث بالاسم أو الرقم أو المعرف</label><input id="callsSearch" placeholder="اسم العميل أو رقم الهاتف" dir="auto">
+<label for="callsStatus">الحالة</label><select id="callsStatus" style="width:100%;padding:12px;background:#0d1523;color:#fff;border:1px solid #43516b;border-radius:12px"><option value="">كل الحالات</option><option value="ringing">رنين</option><option value="active">تم الرد</option><option value="ended">انتهت</option><option value="missed">لم يرد</option></select>
+<button class="outline" id="refreshCalls">تحديث السجل من الهاتف</button>
+<div id="callsList" aria-live="polite"><div class="otMiniCard"><div><strong>سجل المكالمات</strong><small>افتح القسم وسيتم تحميل آخر المكالمات المثبتة على السيرفر، بدون أرقام مختلقة.</small></div></div></div>
+<button class="primary" data-open-admin>فتح مركز سجل المكالمات</button>
+</section>
+<section class="card" data-panel="campaigns">
+<div class="section-title"><h2>الجدولة والحملات</h2><span class="chip warn">تشغيل تدريجي</span></div>
+<p>إضافة الأرقام والأسماء، استيراد CSV/TXT/XLSX من مركز الويب، تحديد السيناريو ووقت البدء. التنفيذ على الشريحة لا يبدأ إلا بعد اعتماد منفذ الاتصال.</p>
+<div class="otMetrics"><div class="otMetric"><span class="symbol">▦</span><strong>جهات الاتصال</strong><small>استيراد مع موافقة المستخدم</small></div><div class="otMetric"><span class="symbol">◴</span><strong>الجدولة</strong><small>مسودات آمنة قبل التشغيل</small></div></div>
+<div id="nativeContactPanel" style="display:none">
+<div class="divider"></div><h2>رفع جهات الاتصال من الهاتف</h2>
+<p>اختار جهة واحدة من هاتفك، أو اسمح بقراءة دفتر الأرقام كله لمرة الاستيراد دي فقط. مش هنرفع أي رقم إلا لما تراجع العدد وتوافق.</p>
+<div class="row"><button id="contactsPick" class="outline">اختيار جهة اتصال</button><button id="contactsAll" class="outline">استعراض كل الأرقام</button></div>
+<div class="otMiniCard"><div><strong>معاينة قبل الرفع</strong><small id="contactPreview">لم تختَر أرقامًا بعد</small></div></div>
+<label style="display:flex;align-items:flex-start;gap:8px"><input type="checkbox" id="contactConsent" style="width:auto;margin-top:4px"><span>أؤكد موافقة أصحاب الأرقام المختارة على التواصل معهم لأغراض هذه الحملة.</span></label>
+<button id="contactsUpload" class="primary" disabled>رفع الأرقام المؤكدة إلى OnTrack</button>
+<p class="small" id="contactResult">لا توجد أرقام مرفوعة في هذه الجلسة</p>
+<div class="divider"></div><h2>استيراد CSV / TXT / Excel</h2>
+<p>اختار الملف من موبايلك، وبعد ما تتأكد من الاسم وتوافق على التواصل اضغط استيراد. بحد أقصى 1 MB.</p>
+<button id="pickContactsFile" class="outline">اختيار ملف من الهاتف</button>
+<p id="contactFilePreview" class="small" aria-live="polite">لم يتم اختيار ملف</p>
+<button id="uploadContactsFile" class="primary" disabled>تأكيد ورفع الملف</button>
+<p id="contactFileResult" class="small" role="status"></p>
+</div><div class="divider"></div>
+<div class="divider"></div><h2>الأرقام المحفوظة وDo Not Call</h2>
+<p>بتقدر تمنع أو تسمح بالتواصل مع رقم محفوظ من التطبيق، وأي حملة تستبعد الأرقام المحظورة تلقائيًا.</p>
+<button id="refreshStoredContacts" class="outline">عرض قائمة الأرقام</button>
+<p class="small" id="campaignSelectedCount">لم يتم اختيار أرقام محددة؛ الحملة تستخدم كل الأرقام المؤهلة.</p>
+<div id="storedContactList" aria-live="polite"></div>
+<div class="divider"></div><h2>تشغيل الحملات من شريحة Android</h2>
+<p>التنفيذ لا يعمل إلا بعد تفعيلك من هذا الهاتف، ومنح إذن المكالمات، واعتماد حملة مسموح بها. قد تُحتسب رسوم مكالمات من شركة الاتصالات. المكالمات التي نتيجتها غير مؤكدة لا يعاد طلبها تلقائيًا.</p>
+<label style="display:flex;align-items:start;gap:9px"><input id="simCampaignConsent" type="checkbox" style="width:auto;margin-top:4px"><span>أؤكد أن جميع المستلمين وافقوا على الاتصال وأنني أسمح باستخدام شريحة الهاتف والرصيد، مع احترام قوائم عدم الاتصال.</span></label>
+<div class="row"><button id="campaignAutoEnable" class="primary">تفعيل اتصال SIM</button><button id="campaignAutoDisable" class="outline">إيقاف فورًا</button></div>
+<p class="small" id="campaignAutoStatus">متوقف افتراضيًا. لا يمكن تفعيله إلا بموافقة صريحة.</p>
+<div class="divider"></div><h2>إنشاء حملة من التطبيق</h2>
+<p>مسودة قابلة للمراجعة والتعديل. لن تبدأ أي مكالمة تلقائيًا بمجرد الحفظ.</p>
+<label for="mobileCampaignName">اسم الحملة</label><input id="mobileCampaignName" maxlength="160" placeholder="حملة العملاء الجدد" dir="auto">
+<label for="mobileCampaignStart">وقت البداية (القاهرة)</label><input id="mobileCampaignStart" type="datetime-local">
+<label for="mobileCampaignEnd">وقت النهاية (القاهرة)</label><input id="mobileCampaignEnd" type="datetime-local">
+<label for="mobileCampaignScenario">نص السيناريو</label>
+<textarea id="mobileCampaignScenario" maxlength="8000" rows="5" style="width:100%;background:#0d1523;color:#fff;border:1px solid #43516b;border-radius:12px;padding:12px" placeholder="تعليمات الوكيل للمكالمة"></textarea>
+<button id="saveMobileCampaign" class="primary">حفظ مسودة حملة</button>
+<p id="campaignResult" class="small" role="status">الحملات المحفوظة متاحة على الهاتف والموقع.</p>
+<button id="refreshCampaigns" class="outline">تحديث الحملات</button>
+<div id="mobileCampaignList" aria-live="polite"></div>
+<div class="divider"></div><h2>تقرير المحاولات الفعلية</h2><p>الحالة مسجلة من محرك Android؛ لا تعني أن العميل رد إلا إذا وُجد إثبات مستقل.</p><div id="mobileAttemptList" aria-live="polite"></div>
+<div class="divider"></div>
+<button class="outline" data-open-admin>استيراد ملفات Excel وCSV وإدارة متقدمة</button>
+</section>
+<section class="card" data-panel="voices">
+<div class="section-title"><h2>مكتبة الأصوات</h2><span class="chip">Basic / Premium</span></div>
+<p>الأصوات الأساسية متاحة عبر جلسات Gemini الحالية. الأصوات الخاصة تحتاج اشتراكًا يتيحها ومحرك TTS متوافقًا؛ لا يُشغَّل ملف PT كأنه صوت PCM.</p>
+<div class="otMiniCard"><div><strong><span class="otDot"></span> Gemini Live</strong><small>Aoede · Kore · Puck · Charon · Fenrir — حسب إعداد الخادم</small></div><span class="chip good">أساسي</span></div>
+<div class="otMiniCard"><div><strong>AYO Calm</strong><small>هدوء واحترافية • PyTorch voice preset</small></div><span class="otLocked">Premium · قيد الدمج</span></div>
+<div class="otMiniCard"><div><strong>AYO Excited</strong><small>حماسي • PyTorch voice preset</small></div><span class="otLocked">Premium · قيد الدمج</span></div>
+<div class="otMiniCard"><div><strong>AYO Sleepy</strong><small>نبرة هادئة جدًا • PyTorch voice preset</small></div><span class="otLocked">Premium · قيد الدمج</span></div>
+<div class="divider"></div><h2>الخطط والصلاحيات</h2>
+<p>كل باقة تتحكم في الأدوات والأصوات المتاحة لها من الخادم. الدفع المستقبلي عبر Kashier؛ تفعيل الاشتراك مشروط بتأكيد الدفع الموقّع.</p>
+<button class="primary" data-open-admin>إدارة الأصوات والخطط على الموقع</button>
+</section>
 <footer>OnTrack Development © 2026 · Voice Cloud</footer>
 <script>
 const el=id=>document.getElementById(id);
@@ -122,8 +205,11 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
    s.nativeInstallPermission===false?'إعداد إذن التثبيت لمرة واحدة':
    s.nativeUpdateAvailable?'فحص وتحميل أو استكمال تثبيت '+(s.nativeUpdateVersion||'الإصدار الجديد'):'Android محدّث';
  el('scanAndroid').disabled=s.nativeUpdateBusy||call;
+ el('campaignAutoStatus').textContent=s.campaignAutoEnabled?'تفعيل SIM معتمد على الهاتف — الحملات المعتمدة فقط':'تنفيذ SIM متوقف؛ لا مكالمات مجدولة بدون تفعيل';
  const wifiSupported=typeof s.wifiFreeEnabled==='boolean';
  el('mobileDataMode').style.display=wifiSupported?'block':'none';
+ el('nativeContactPanel').style.display=s.contactsSupported===true?'block':'none';
+ el('refreshCalls').disabled=s.callsSupported!==true;
  const wifiFree=!!s.wifiFreeEnabled, wifiReady=!!s.wifiFreeReady;
  el('wifiFreeStatus').textContent=wifiFree?
    (wifiReady?'جاهز للتجربة على بيانات الهاتف':'مفعّل لكنه غير جاهز على هذا الجهاز'):
@@ -133,36 +219,6 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('wifiFreeToggle').disabled=call||(!wifiFree&&!el('wifiFreeConsent').checked);
  if(first&&online)first=false;
 };
-const safeText=v=>String(v??'');
-const makeNode=(tag,txt)=>{const n=document.createElement(tag);n.textContent=safeText(txt);return n};
-let callRows=[];
-function renderCalls(){
- const term=el('callFilter').value.trim().toLowerCase();
- const root=el('callList');root.replaceChildren();
- const rows=callRows.filter(c=>[c.name,c.phone,c.status].some(v=>safeText(v).toLowerCase().includes(term)));
- if(!rows.length){root.append(makeNode('p',callRows.length?'مفيش نتائج مطابقة.':'مفيش مكالمات مسجلة متاحة.'));return}
- rows.forEach(c=>{
-  const item=document.createElement('div');item.className='card';item.style.margin='5px 0';item.style.padding='12px';
-  item.append(makeNode('strong',c.name||c.phone||'رقم غير متاح'));
-  const line=makeNode('div',[c.phone||'الرقم غير متاح',c.status||'غير معروف',c.duration==null?'مدة غير متاحة':c.duration+' ثانية'].join(' · '));
-  line.className='small';item.append(line);
-  const stamp=makeNode('small',c.started||'وقت غير متاح');item.append(stamp);root.append(item)
- });
-}
-window.onTrackCalls=payload=>{callRows=Array.isArray(payload.calls)?payload.calls:[];renderCalls()};
-window.onTrackContactPreview=payload=>{
- const count=Number(payload.count)||0;el('contactPreview').replaceChildren(makeNode('p','تم اختيار '+count+' رقم للمراجعة'));
- (Array.isArray(payload.sample)?payload.sample:[]).forEach(c=>el('contactPreview').append(makeNode('div',(c.name||'بدون اسم')+' · '+(c.phone||''))));
- el('uploadContacts').disabled=!count||!el('contactsConsent').checked;el('contactsResult').textContent='';
-};
-window.onTrackContactsImported=counts=>{el('contactsResult').textContent='تمت الإضافة: '+counts.added+' · مكرر: '+counts.duplicates+' · غير صالح: '+counts.invalid;el('contactPreview').textContent='لم يتم اختيار أرقام بعد.';el('uploadContacts').disabled=true;el('contactsConsent').checked=false};
-el('refreshCalls').onclick=()=>{el('callList').textContent='جاري قراءة السجل…';send('loadCallHistory')};
-el('callFilter').oninput=renderCalls;
-el('pickContact').onclick=()=>send('contactsPick');
-el('allContacts').onclick=()=>send('contactsAll');
-el('contactsConsent').onchange=()=>{el('uploadContacts').disabled=!el('contactsConsent').checked||!el('contactPreview').textContent.startsWith('تم اختيار')};
-el('uploadContacts').onclick=()=>{if(!el('contactsConsent').checked)return;el('uploadContacts').disabled=true;send('contactsUpload',{confirmed:true})};
-el('manageCampaigns').onclick=()=>send('admin');
 el('enable').onclick=()=>{
  el('message').textContent='';
  if(last.running){send('enable');return;}
@@ -182,5 +238,175 @@ el('wifiFreeConsent').onchange=()=>{el('wifiFreeToggle').disabled=!!last.inCall|
 el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)return;send(last.wifiFreeEnabled?'wifiFreeDisable':'wifiFreeEnable')};
 el('scanAndroid').onclick=()=>send('checkNativeUpdates');
 el('upgradeAndroid').onclick=()=>send('installNativeUpdate');
-el('updates').onclick=()=>send('checkUpdates');el('rollback').onclick=()=>send('rollback');send('ready');
+el('updates').onclick=()=>send('checkUpdates');el('rollback').onclick=()=>send('rollback');
+function setView(v){
+ document.querySelectorAll('[data-panel]').forEach(p=>p.classList.toggle('hidden-panel',p.dataset.panel!==v));
+ document.querySelectorAll('.otTabs button').forEach(b=>{
+  const selected=b.dataset.view===v;b.classList.toggle('active',selected);
+  b.setAttribute('aria-current',selected?'page':'false');
+ });
+ if(v==='calls' && last.callsSupported===true)send('loadCallHistory');
+ if(v==='campaigns' && Number(last.nativeCode)>=18)send('listCampaigns');
+ window.scrollTo({top:0,behavior:'auto'});
+}
+document.querySelectorAll('.otTabs button').forEach(b=>{
+ b.type='button';
+ b.addEventListener('click',event=>{event.preventDefault();setView(b.dataset.view)});
+});
+setView('dashboard');
+document.querySelectorAll('[data-open-admin]').forEach(b=>b.onclick=()=>{setView('campaigns');el('campaignResult').textContent='الأدوات الخاصة بالحملات والأرقام داخل التطبيق؛ لا حاجة للواجهة القديمة.'});
+el('themeToggle').onclick=()=>{
+ const light=document.body.classList.toggle('light');
+ el('themeToggle').textContent=light?'☾ الوضع الداكن':'☀ الوضع الفاتح';
+};
+const callNames={ringing:'رنين',active:'تم الرد',ended:'انتهت',missed:'لم يتم الرد',unknown:'غير معروف'};
+let callHistoryRows=[];
+function renderCallHistory(){
+ const root=el('callsList');root.replaceChildren();
+ const term=el('callsSearch').value.trim().toLowerCase(),status=el('callsStatus').value;
+ const calls=callHistoryRows.filter(c=>(!status||c.status===status)&&(!term||[c.id,c.name,c.phone].some(v=>String(v||'').toLowerCase().includes(term))));
+ if(!calls.length){const item=document.createElement('p');item.textContent=callHistoryRows.length?'لا توجد نتائج مطابقة':'لم تصل سجلات مكالمات من الهاتف حتى الآن';root.appendChild(item);return;}
+ for(const call of calls){
+  const card=document.createElement('div');card.className='otMiniCard';
+  const block=document.createElement('div');const label=document.createElement('strong');
+  label.textContent=(call.name||call.phone||'مكالمة بدون اسم أو رقم')+' — '+(callNames[call.status]||'غير معروف');
+  const sub=document.createElement('small');
+  const parsed=call.started?new Date(call.started):null;
+  const stamp=parsed&&!Number.isNaN(parsed.valueOf())?parsed.toLocaleString('ar-EG'):'وقت غير متاح';
+  sub.textContent=stamp+' · '+(Number.isFinite(call.duration)?call.duration+' ث':'المدة غير متاحة')+' · '+String(call.id||'').slice(0,8);
+  block.appendChild(label);block.appendChild(sub);card.appendChild(block);root.appendChild(card);
+ }
+}
+window.onTrackCalls=history=>{callHistoryRows=Array.isArray(history.calls)?history.calls:[];renderCallHistory();};
+el('callsSearch').oninput=renderCallHistory;el('callsStatus').onchange=renderCallHistory;
+el('refreshCalls').onclick=()=>{if(last.callsSupported===true)send('loadCallHistory')};
+window.onTrackCampaigns=payload=>{
+ const out=el('mobileCampaignList');out.replaceChildren();
+ const list=Array.isArray(payload.campaigns)?payload.campaigns:[];
+ if(payload.preview){const p=payload.preview;el('campaignResult').textContent='المؤهلون: '+p.eligible.length+' · المستبعدون (DNC/بدون موافقة): '+p.excluded+' · الاتصال التلقائي غير مفعّل';return;}
+ if(payload.campaign){el('campaignResult').textContent='تم حفظ المسودة بنجاح، بدون تشغيل أي اتصالات.';send('listCampaigns');return;}
+ const attemptsRoot=el('mobileAttemptList');attemptsRoot.replaceChildren();
+ const attempts=Array.isArray(payload.attempts)?payload.attempts:[];
+ if(!attempts.length){const empty=document.createElement('p');empty.textContent='لا توجد محاولات اتصال مسجلة';attemptsRoot.append(empty)}
+ for(const a of attempts){
+  const item=document.createElement('div');item.className='otMiniCard';
+  const label=document.createElement('strong');label.textContent=String(a.name||a.phone||'عميل');
+  const meta=document.createElement('small');meta.textContent=String(a.phone||'')+' · '+String(a.status||'unknown')+' · '+String(a.created_at||'');
+  const detail=document.createElement('div');detail.append(label,meta);item.append(detail);attemptsRoot.append(item);
+ }
+ if(!list.length){const x=document.createElement('p');x.textContent='لا توجد مسودات حملات بعد';out.append(x);return}
+ list.forEach(c=>{
+  const card=document.createElement('div');card.className='otMiniCard';
+  const body=document.createElement('div');const name=document.createElement('strong');
+  name.textContent=String(c.name||'حملة بدون اسم');
+  const detail=document.createElement('small');detail.textContent=String(c.starts_at||'')+' · مسودة (بدون اتصال)';
+  body.append(name,detail);card.append(body);
+  if(Number(last.nativeCode)>=18 && /^[a-f0-9]{24}$/.test(String(c.id||''))){
+   const actions=document.createElement('div');actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+   const choices=c.status==='cancelled'?[]:c.status==='paused'?['preview','resume','cancel']:c.status==='draft'?['preview','arm','pause','cancel']:['preview','pause','cancel'];
+   choices.forEach(a=>{
+    const b=document.createElement('button');b.style.cssText='width:auto;padding:8px;font-size:11px';
+    b.textContent=({preview:'معاينة DNC',arm:'اعتماد للتشغيل',pause:'إيقاف',resume:'استئناف',cancel:'إلغاء'})[a];
+    b.onclick=()=>{
+      if(a!=='preview'&&!confirm('تأكيد '+b.textContent+' الحملة؟'))return;
+      send('campaignAction',{action:a,id:c.id,confirmed:true});
+    };actions.append(b);
+   });card.append(actions);
+  }out.append(card);
+ });
+};
+el('campaignAutoEnable').onclick=()=>{
+ if(Number(last.nativeCode)<19){el('campaignAutoStatus').textContent='التحديث Android 0.2.8 مطلوب لتشغيل الشريحة';return}
+ if(!el('simCampaignConsent').checked){el('campaignAutoStatus').textContent='يجب الموافقة أولًا';return}
+ if(!confirm('تأكيد السماح بمكالمات صادرة تلقائية من شريحتك ضمن الحملات المعتمدة؟'))return;
+ send('campaignAutoEnable',{confirmed:true});
+};
+el('campaignAutoDisable').onclick=()=>send('campaignAutoDisable');
+el('saveMobileCampaign').onclick=()=>{
+ if(Number(last.nativeCode)<18){el('campaignResult').textContent='يجب تحديث Android إلى الإصدار الذي يدعم إدارة الحملات أولًا';return;}
+ const name=el('mobileCampaignName').value.trim(),starts=el('mobileCampaignStart').value,ends=el('mobileCampaignEnd').value,scenario=el('mobileCampaignScenario').value.trim();
+ if(!name||!starts||!ends||!scenario||ends<=starts){el('campaignResult').textContent='راجع الاسم والتوقيت والسيناريو قبل الحفظ';return}
+ if(!confirm('حفظ مسودة فقط بدون إجراء مكالمات؟'))return;
+ el('campaignResult').textContent='جاري حفظ المسودة…';
+ send('createCampaign',{name,starts,ends,scenario,contact_ids:[...campaignSelectedContacts],confirmed:true});
+};
+el('refreshCampaigns').onclick=()=>{if(Number(last.nativeCode)>=18)send('listCampaigns');else el('campaignResult').textContent='حدّث Android لدعم إدارة الحملات داخل التطبيق'};
+
+let stagedCount=0;
+window.onTrackContactPreview=s=>{
+ stagedCount=Number(s.count)||0;
+ const names=(s.sample||[]).map(x=>[x.name||'بدون اسم',x.phone||''].join(' • '));
+ el('contactPreview').textContent='المختارة: '+stagedCount+(names.length?' | '+names.join(' / '):'');
+ el('contactsUpload').disabled=!stagedCount||!el('contactConsent').checked;
+ el('contactResult').textContent='الأرقام محفوظة في التطبيق مؤقتًا حتى تأكيد الرفع';
+};
+window.onTrackContactsImported=s=>{
+ stagedCount=0;el('contactsUpload').disabled=true;el('contactConsent').checked=false;
+ el('contactPreview').textContent='تم رفع الأرقام المؤكدة';
+ el('contactResult').textContent='أُضيف '+s.added+'، مكرر '+s.duplicates+'، غير صالح '+s.invalid;
+};
+const campaignSelectedContacts=new Set();
+function selectedCount(){
+ el('campaignSelectedCount').textContent=campaignSelectedContacts.size?
+ 'سيتم استخدام '+campaignSelectedContacts.size+' رقم محدد فقط':'لم يتم اختيار أرقام محددة؛ الحملة تستخدم كل الأرقام المؤهلة';
+}
+window.onTrackContactsList=payload=>{
+ const root=el('storedContactList');root.replaceChildren();
+ const list=Array.isArray(payload.contacts)?payload.contacts:[];
+ const headline=document.createElement('p');headline.textContent='إجمالي الأرقام: '+(payload.total||list.length);root.append(headline);
+ if(!list.length){const empty=document.createElement('p');empty.textContent='لا توجد أرقام محفوظة';root.append(empty);return}
+ list.forEach(c=>{
+  const row=document.createElement('div');row.className='otMiniCard';
+  const body=document.createElement('div'),title=document.createElement('strong');
+  title.textContent=String(c.name||'بدون اسم');
+  const note=document.createElement('small');note.textContent=String(c.phone||'')+(c.do_not_call?' · ممنوع الاتصال':' · متاح بعد الموافقة');
+  body.append(title,note);row.append(body);
+  if(/^[a-f0-9]{24}$/.test(String(c.id||'')) && !c.do_not_call){
+   const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:5px;font-size:11px';
+   const chk=document.createElement('input');chk.type='checkbox';chk.style.width='auto';
+   chk.checked=campaignSelectedContacts.has(c.id);
+   chk.onchange=()=>{
+    if(chk.checked){
+      if(campaignSelectedContacts.size>=60){chk.checked=false;alert('الحد الأقصى 60 رقم في الاختيار الحالي');return;}
+      campaignSelectedContacts.add(c.id);
+    }else campaignSelectedContacts.delete(c.id);
+    selectedCount();
+   };
+   const txt=document.createElement('span');txt.textContent='اختيار للحملة';
+   label.append(chk,txt);row.append(label);
+  }
+  if(/^[a-f0-9]{24}$/.test(String(c.id||''))){
+   const btn=document.createElement('button');btn.style.cssText='width:auto;padding:9px;font-size:11px';
+   btn.textContent=c.do_not_call?'إلغاء منع الاتصال':'لا تتصل مجددًا';
+   btn.onclick=()=>{if(confirm('تأكيد تحديث حالة الرقم؟'))send('contactDnc',{id:c.id,blocked:!c.do_not_call,confirmed:true})};
+   row.append(btn);
+  }root.append(row)
+ });
+};
+el('refreshStoredContacts').onclick=()=>{if(Number(last.nativeCode)>=19)send('listContacts');else el('contactResult').textContent='حدّث التطبيق لدعم قائمة الأرقام'};
+let stagedFile=false;
+window.onTrackFilePreview=payload=>{
+ stagedFile=!!payload.name;
+ el('contactFilePreview').textContent=stagedFile?'الملف المحدد: '+payload.name:'لم يتم اختيار ملف';
+ el('contactFileResult').textContent='لم يتم رفع الملف بعد';
+ el('uploadContactsFile').disabled=!stagedFile||!el('contactConsent').checked;
+};
+window.onTrackFileImported=payload=>{
+ stagedFile=false;el('uploadContactsFile').disabled=true;
+ el('contactFilePreview').textContent='تم استيراد الملف المؤكد';
+ const c=payload.counts||{};
+ el('contactFileResult').textContent='تم إضافة '+(c.added||0)+' · مكرر '+(c.duplicates||0)+' · غير صالح '+(c.invalid||0);
+};
+el('pickContactsFile').onclick=()=>{if(Number(last.nativeCode)>=18)send('contactsFilePick');else el('contactFileResult').textContent='حدّث Android أولًا'};
+el('uploadContactsFile').onclick=()=>{
+ if(!stagedFile||!el('contactConsent').checked)return;
+ el('uploadContactsFile').disabled=true;
+ el('contactFileResult').textContent='جاري استيراد الملف…';
+ send('contactsFileUpload',{confirmed:true,consent:true});
+};
+el('contactsPick').onclick=()=>send('contactsPick');
+el('contactsAll').onclick=()=>send('contactsAll');
+el('contactConsent').onchange=()=>{el('contactsUpload').disabled=!stagedCount||!el('contactConsent').checked;el('uploadContactsFile').disabled=!stagedFile||!el('contactConsent').checked};
+el('contactsUpload').onclick=()=>{if(stagedCount&&el('contactConsent').checked)send('contactsUpload',{confirmed:true})};
+setView('dashboard');send('ready');
 </script></body></html>
