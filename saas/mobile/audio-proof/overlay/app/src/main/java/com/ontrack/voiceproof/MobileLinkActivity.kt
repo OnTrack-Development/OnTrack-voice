@@ -495,8 +495,13 @@ class MobileLinkActivity:ComponentActivity(){
                         val scenario=msg.optString("scenario").trim()
                         require(name.isNotEmpty() && name.length<=160 && starts.length==16 && ends.length==16 &&
                             scenario.isNotEmpty() && scenario.length<=8000){"بيانات الحملة غير صالحة"}
+                        val ids=msg.optJSONArray("contact_ids")?:JSONArray()
+                        require(ids.length()<=60){"الحد الأقصى 60 جهة مختارة لكل طلب"}
+                        for(i in 0 until ids.length()){
+                            require(ids.getString(i).matches(Regex("[a-f0-9]{24}"))){"معرف جهة اتصال غير صالح"}
+                        }
                         campaignRequest(JSONObject().put("confirmed",true).put("name",name).put("starts",starts)
-                            .put("ends",ends).put("scenario",scenario))
+                            .put("ends",ends).put("scenario",scenario).put("contact_ids",ids))
                     }
                     "contactsPick"->{
                         val intent=Intent(Intent.ACTION_PICK).apply{
