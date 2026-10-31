@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-31",
+  "version": "0.2.1-ota",
+  "version_code": 12,
+  "package": "com.ontrack.voiceproof",
+  "signing_certificate_sha256": "d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f",
+  "apk_sha256": "d78e110aa8bdfab4264f7904af7e0e8cf16af0a9ed847c16161b70f560cefc00",
+  "apk_bytes": 52407873,
+  "github_actions_run": 41157138497,
+  "github_artifact_id": 13025238406,
+  "checks": {
+    "gradle_unit_tests": "pass",
+    "android_webview_instrumentation": "pass",
+    "apk_signature_matches_installed": "pass",
+    "native_metadata_RSA_signature": "pass",
+    "native_apk_sha256": "pass",
+    "ota7_host_deploy": "pass",
+    "native12_host_deploy": "pass",
+    "native_manifest_https_get": "HTTP_200",
+    "native_apk_https_head": "HTTP_200",
+    "native_apk_content_length_matches": true,
+    "native_apk_mime": "application/vnd.android.package-archive",
+    "real_handset_upgrade": "not_tested",
+    "future_version_upgrade_flow": "not_tested"
+  },
+  "public_url": "https://app.ontrackegy.com/saas/mobile/updates/native/ontrack-voice-v12-d78e110aa8bdfab4264f7904af7e0e8cf16af0a9ed847c16161b70f560cefc00.apk",
+  "releases": {
+    "ui_job": "ops/host-link/results/appontrack-server11/mobile-ota-41157138497.json",
+    "native_job": "ops/host-link/results/appontrack-server11/mobile-native-41157138497.json",
+    "live_permission_fix": "ops/host-link/results/appontrack-server11/mobile-native-public-permission-fix-20261031.json"
+  },
+  "note": "Native directory originally created mode 0700 by private worker umask causing public HTTP404. chmod 0755 fixed; publisher wrapper now enforces 0755 after deploy without changing APK. First install of 0.2.1 over 0.2.0 is manual. Future native updates require OS install approval; UI OTA silent. No Accessibility. Neither the future-version updater nor real Wi-Fi handoff is field verified on owner phone yet."
+}
