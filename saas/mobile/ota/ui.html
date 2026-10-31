@@ -127,6 +127,12 @@ body.light .otMetric small,body.light .otMiniCard small{color:#62718a}
 <label style="display:flex;align-items:flex-start;gap:8px"><input type="checkbox" id="contactConsent" style="width:auto;margin-top:4px"><span>أؤكد موافقة أصحاب الأرقام المختارة على التواصل معهم لأغراض هذه الحملة.</span></label>
 <button id="contactsUpload" class="primary" disabled>رفع الأرقام المؤكدة إلى OnTrack</button>
 <p class="small" id="contactResult">لا توجد أرقام مرفوعة في هذه الجلسة</p>
+<div class="divider"></div><h2>استيراد CSV / TXT / Excel</h2>
+<p>اختار الملف من موبايلك، وبعد ما تتأكد من الاسم وتوافق على التواصل اضغط استيراد. بحد أقصى 1 MB.</p>
+<button id="pickContactsFile" class="outline">اختيار ملف من الهاتف</button>
+<p id="contactFilePreview" class="small" aria-live="polite">لم يتم اختيار ملف</p>
+<button id="uploadContactsFile" class="primary" disabled>تأكيد ورفع الملف</button>
+<p id="contactFileResult" class="small" role="status"></p>
 </div><div class="divider"></div>
 <div class="divider"></div><h2>إنشاء حملة من التطبيق</h2>
 <p>مسودة قابلة للمراجعة والتعديل. لن تبدأ أي مكالمة تلقائيًا بمجرد الحفظ.</p>
@@ -290,9 +296,29 @@ window.onTrackContactsImported=s=>{
  el('contactPreview').textContent='تم رفع الأرقام المؤكدة';
  el('contactResult').textContent='أُضيف '+s.added+'، مكرر '+s.duplicates+'، غير صالح '+s.invalid;
 };
+let stagedFile=false;
+window.onTrackFilePreview=payload=>{
+ stagedFile=!!payload.name;
+ el('contactFilePreview').textContent=stagedFile?'الملف المحدد: '+payload.name:'لم يتم اختيار ملف';
+ el('contactFileResult').textContent='لم يتم رفع الملف بعد';
+ el('uploadContactsFile').disabled=!stagedFile||!el('contactConsent').checked;
+};
+window.onTrackFileImported=payload=>{
+ stagedFile=false;el('uploadContactsFile').disabled=true;
+ el('contactFilePreview').textContent='تم استيراد الملف المؤكد';
+ const c=payload.counts||{};
+ el('contactFileResult').textContent='تم إضافة '+(c.added||0)+' · مكرر '+(c.duplicates||0)+' · غير صالح '+(c.invalid||0);
+};
+el('pickContactsFile').onclick=()=>{if(Number(last.nativeCode)>=18)send('contactsFilePick');else el('contactFileResult').textContent='حدّث Android أولًا'};
+el('uploadContactsFile').onclick=()=>{
+ if(!stagedFile||!el('contactConsent').checked)return;
+ el('uploadContactsFile').disabled=true;
+ el('contactFileResult').textContent='جاري استيراد الملف…';
+ send('contactsFileUpload',{confirmed:true,consent:true});
+};
 el('contactsPick').onclick=()=>send('contactsPick');
 el('contactsAll').onclick=()=>send('contactsAll');
-el('contactConsent').onchange=()=>el('contactsUpload').disabled=!stagedCount||!el('contactConsent').checked;
+el('contactConsent').onchange=()=>{el('contactsUpload').disabled=!stagedCount||!el('contactConsent').checked;el('uploadContactsFile').disabled=!stagedFile||!el('contactConsent').checked};
 el('contactsUpload').onclick=()=>{if(stagedCount&&el('contactConsent').checked)send('contactsUpload',{confirmed:true})};
 setView('dashboard');send('ready');
 </script></body></html>
