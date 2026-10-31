@@ -1,3 +1,12 @@
+## 31 أكتوبر 2026 — Android 0.2.7 / OTA13 + campaigns and file import (verified publish)
+
+- CODE: Android native `MobileLinkActivity.kt` now exposes authenticated `listCampaigns`, `createCampaign` (draft-only, explicit confirmation), `contactsFilePick`, and `contactsFileUpload` via bounded native bridge. Signed app UI OTA13 adds campaign scheduling/list and CSV/TXT/XLSX file picker. Uses numeric `nativeCode>=18` to gate native-only operations; preserves old OTA compatibility.
+- SERVER: `campaigns_api.php`, `contacts_file_api.php`, `pilot_workspace.php`, `pilot_import_file.php`, `ops.php`, `call_ledger.php`, `calls_feed.php`, `call_event.php` installed by host jobs. Existing divergent `calls.php` preserved and PHP lint passed. All 6 routes returned expected unauthenticated HTTP 401/403 in `mobile-api-auth-final-20261031`.
+- CI: signed Android 0.2.7 versionCode18/OTA13 build PASS including Android WebView instrumentation in run `41222513565` (artifact `13050443933`). Publication separated due initial runner missing Actions read permission for fallback artifact lookup; release workflow run `41223480502` publish_ota=success, publish_native=success. Failed earlier host tasks diagnosed and repaired (literal newline bootstrap, stale APK member filename). No overwrite of unknown queued job.
+- HOST: OTA13 `mobile-ota-41223480502` success SHA256 `03df15b612f9ed7a5b67988d3c7b1e2c7c332b34e1d8858f2170b59bc4ceca19`; Native18 `mobile-native-41223480502` success SHA256 `2df544f427dc7268056e3d2a367ff7b54e2603fddff35e3895f7273a49285ff3` (52,477,505 bytes).
+- LIVE HTTP: `mobile-027-live-verify-20261031` success: signed `updates/latest.json` and OTA HTML HTTP200 revision13 34,400 bytes, signed `native/latest.json` and APK HTTP200 versionCode18 52,477,505 bytes and exact hashes.
+- OPEN DEVICE/E2E: On-phone install and use of Android 0.2.7, real calls/feed, native imported contacts/file, campaign create/list, all still require real device tests; campaign SIM executor not implemented; automated call reporting/quality, full AYO TTS runtime, Kashier TEST and plan entitlement E2E remain OPEN. This work does not close P1/P2/P4/P5/P6 signoff. PHASE-2-NETWORK-STABILITY stays deferred.
+
 ## 31 أكتوبر 2026 — OTA12 / Android 0.2.6 RELEASE VERIFIED (host only)
 
 - Root issue: `publish_ota` failed due to 16,384-byte host job limit. Fixed by XZ signed-bundle packing and compressed Python deploy source; emitted queue length 15,265 bytes. Backward-compatible zlib decoder maintains previous tests.
