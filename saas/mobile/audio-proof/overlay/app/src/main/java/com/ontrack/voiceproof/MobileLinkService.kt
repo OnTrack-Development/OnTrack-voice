@@ -37,6 +37,8 @@ class MobileLinkService:Service() {
         @Volatile var connected=false
         @Volatile var serverRevision=0
         @Volatile var inCall=false
+        @Volatile var callAnswered=false
+        @Volatile var pendingSync=false
         @Volatile var humanControl=false
         @Volatile var latestStatus="الربط متوقف"
         fun base(value:String):String {
@@ -58,7 +60,21 @@ class MobileLinkService:Service() {
     private var networkListener:ConnectivityManager.NetworkCallback?=null
     @Volatile private var takeoverRequested=false
     @Volatile private var pendingDesired:Boolean?=null
+    @Volatile private var recoveringActiveCall=false
     private fun prefs()=getSharedPreferences("ontrack_link",MODE_PRIVATE)
+    private fun setPending(value:Boolean){
+        pendingDesired=value
+        pendingSync=true
+        // Offline STOP persists even if the OS kills the service before reconnect.
+        prefs().edit().putString("pending_agent_enabled",value.toString()).commit()
+    }
+    private fun confirmPending(value:Boolean) {
+        if(pendingDesired==value) {
+            prefs().edit().remove("pending_agent_enabled").commit()
+            pendingDesired=null
+            pendingSync=false
+        }
+    }
     private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(connected,agentEnabled,inCall,humanControl)}}
     private fun notice(value:String){
         latestStatus=value
@@ -83,6 +99,12 @@ class MobileLinkService:Service() {
     override fun onCreate(){
         super.onCreate()
         overlay=CallOverlay(this)
+        pendingDesired=when(prefs().getString("pending_agent_enabled",null)){
+            "true"->true
+            "false"->false
+            else->null
+        }
+        pendingSync=pendingDesired!=null
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel("ontrack_mobile_link","OnTrack Voice",NotificationManager.IMPORTANCE_LOW))
         connectivity=getSystemService(ConnectivityManager::class.java)
@@ -99,7 +121,7 @@ class MobileLinkService:Service() {
         val action=intent?.action
         when(action){
             ACTION_TAKEOVER->{
-                if(inCall && !humanControl){
+                if(callAnswered && !humanControl){
                     takeoverRequested=true;humanControl=true
                     // The shell socket returns the microphone mute to its original state.
                     call?.stop();call=null
@@ -108,7 +130,7 @@ class MobileLinkService:Service() {
                 return START_STICKY
             }
             ACTION_SPEAKER->{
-                if(inCall)scope.launch{
+                if(callAnswered)scope.launch{
                     runCatching{CaptureDaemon.linkControl(this@MobileLinkService,'S')}
                         .onSuccess{notice(if(it?.startsWith("SPEAKER ")==true)
                             "السماعة: "+it.removePrefix("SPEAKER ") else "لم يؤكد الجهاز تغيير السماعة")}
@@ -118,7 +140,7 @@ class MobileLinkService:Service() {
             }
             ACTION_ENABLE,ACTION_DISABLE,ACTION_PAUSE,"STOP"->{
                 val value=action==ACTION_ENABLE
-                pendingDesired=value
+                setPending(value)
                 if(!value) {
                     agentEnabled=false
                     if(inCall){takeoverRequested=true;humanControl=true;call?.stop();call=null}
@@ -145,7 +167,7 @@ class MobileLinkService:Service() {
                     val result=request(base+"saas/mobile/control.php",key,JSONObject().put("enabled",desired))
                     agentEnabled=result.getBoolean("enabled")
                     serverRevision=result.getInt("revision")
-                    if(pendingDesired==desired) pendingDesired=null
+                    confirmPending(desired)
                 }
                 // Re-attaches the local ADB assistant if its transport was lost on Wi-Fi switch.
                 check(CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)){
@@ -169,7 +191,7 @@ class MobileLinkService:Service() {
                         val result=request(base+"saas/mobile/control.php",key,JSONObject().put("enabled",desired))
                         agentEnabled=result.getBoolean("enabled")
                         serverRevision=result.getInt("revision")
-                        if(pendingDesired==desired)pendingDesired=null
+                        confirmPending(desired)
                         lastFetch=0
                     }
                     if(SystemClock.elapsedRealtime()-lastFetch>=3000 || lastFetch==0L){
@@ -182,6 +204,14 @@ class MobileLinkService:Service() {
                     val state=raw.substringAfter("CALL ").toIntOrNull()?:error("حالة الاتصال غير مفهومة")
                     connected=true
                     inCall=state==1||state==2
+                    callAnswered=state==2
+                    if(state==1 && lastState!=1){
+                        recoveringActiveCall=false // New call; previous manual handoff expired.
+                    }
+                    if(state==2 && recoveringActiveCall){
+                        // Do not attach a brand-new AI voice session in the middle of an old call.
+                        takeoverRequested=true;humanControl=true;callSeen=true
+                    }
                     if(state==1 && lastState!=1){ringingAt=SystemClock.elapsedRealtime();answerIssued=false;callSeen=false;takeoverRequested=false;humanControl=false}
                     if(state==2 && ringingAt!=0L && !answerIssued && !callSeen){
                         takeoverRequested=true;humanControl=true;callSeen=true
@@ -215,7 +245,7 @@ class MobileLinkService:Service() {
                     }
                     if(state==0 && lastState!=0){
                         call?.stop();call=null;callSeen=false;ringingAt=0;answerIssued=false
-                        takeoverRequested=false;humanControl=false
+                        takeoverRequested=false;humanControl=false;recoveringActiveCall=false
                     }
                     lastState=state
                     if(SystemClock.elapsedRealtime()-lastReport>4000){
@@ -229,6 +259,8 @@ class MobileLinkService:Service() {
                         }
                         val status=JSONObject().put("phase",phase)
                             .put("agent_running",agentEnabled)
+                            .put("connected",connected)
+                            .put("pending_sync",pendingSync)
                             .put("revision",serverRevision)
                         scope.launch{runCatching{request(base+"saas/mobile/status.php",key,status)}}
                     }
@@ -238,8 +270,10 @@ class MobileLinkService:Service() {
                 }
             }catch(t:Throwable){
                 if(t is CancellationException)throw t
+                if(inCall)recoveringActiveCall=true
                 call?.stop();call=null
-                inCall=false;connected=false // Preserve call-scoped human takeover across a network outage.
+                inCall=false;callAnswered=false;connected=false
+                // Keep human control of the same call after Wi-Fi recovery.
                 notice("إعادة الاتصال تلقائيًا • "+t.javaClass.simpleName)
                 withTimeoutOrNull(backoff){retryWake.receive()}
                 backoff=(backoff*2).coerceAtMost(30000L)
@@ -259,7 +293,7 @@ class MobileLinkService:Service() {
     }
     override fun onDestroy(){
         networkListener?.let{runCatching{connectivity?.unregisterNetworkCallback(it)}}
-        call?.stop();scope.cancel();running=false;connected=false;inCall=false;agentEnabled=false;humanControl=false
+        call?.stop();scope.cancel();running=false;connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false
         overlay.remove();latestStatus="الربط متوقف"
         super.onDestroy()
     }
