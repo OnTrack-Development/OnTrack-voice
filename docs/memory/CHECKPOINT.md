@@ -1,3 +1,11 @@
+## 31 أكتوبر 2026 — رد اختبار المستخدم: فشل Parsing مستمر وصوت 4G/5G غير مستقر
+
+- فشل Native Update على Xiaomi برسالة `There was a problem parsing the package` **مستمر**. التحميل السابق لم يعد يتكرر؛ هذا جزء فقط من OTA ثبت نجاحه على الجهاز.
+- الإيجنت على بيانات الهاتف يعمل ويرد إذا كانت الشبكة قوية، وعند ضعفها يحدث تقطيع أو صمت. **VOICE_STABILITY_OPEN** وليس إثباتًا لقبول P0-03.
+- تقرير العامل `mobile-024-live-security-20261031` مؤكد `success/exit 0`: manifest UI/native HTTP 200؛ APK v15 SHA256 `2046fb2e46dffbcb01108c882f1ec6e9486001d0c69bec1ce084d573dd07f8c7` وطول 52424257 وMIME `application/vnd.android.package-archive`. لا يثبت قابلية APK للتركيب على جهاز المستخدم.
+- إصلاح برمجي جديد تحت commit `e595c8818a8e59f0e9b57736e2157bdce2ef6635` Android 0.2.5/code16 + UI revision11: تضييق backlog للإرسال، إسقاط صوت استقبال قديم بدل إغلاق الجلسة، sessionResumption + retry محدود، وإظهار `PackageInstaller.EXTRA_STATUS_MESSAGE` عند الفشل. **لم يثبت نجاح الجهاز أو التحديث بعد**؛ CI run `41169445578` بدأت بعد هذا commit، يلزم قراءتها ثم تقرير نشر host قبل إعلانها.
+- الحل العملي لتشخيص تحديث APK على الجهاز القديم: تجربة تثبيت APK العام الموقع أعلى النسخة الحالية من مدير ملفات Android لا من زر التحديث، دون حذف التطبيق/مسح بيانات الربط. إذا فشل مدير الملفات أيضًا، احصل على رسالة Android الدقيقة (أو adb install -r للمعمل) لتحديد ERROR_CODE، لا افتراض فساد الملف.
+
 ## 31 أكتوبر 2026 — OnTrack Voice 0.2.4 / OTA10 / اتصال بدون Wi-Fi تجريبي / سجل مكالمات أولي
 - أصل طلب المستخدم: لماذا سجل المكالمات/الحملات/رفع جهات الاتصال/التقارير/التسجيل/مراقبة الصوت/سيناريوهات AI/Agent Builder لم تظهر في التطبيق والموقع؟ هي **ليست مكتملة**: Laravel `saas/` يحوي CRM/VoiceCampaign workflow/Flow Builder محليًا، لكن ليس ربط SIM telephony/outbound/report/recording ميدانيًا. التفاصيل في `docs/mobile/VOICE_CALL_FEATURE_GAP_AUDIT_2026_10_31_AR.md`.
 - حُددت مشكلة تكرار تحميل APK: النسخة القديمة تكرر طلب PackageInstaller بدل انتظار نتيجة الجلسة. أُضيف `NativeUpdates.installPending()` مع SharedPreferences، reuse cached APK، فحص إذن التثبيت قبل التنزيل، status callbacks وتمييز UI. Android 0.2.4 code15 و UI OTA revision10.
