@@ -28,6 +28,11 @@ try {
     try{pilot_campaign_transition($row['id'],'resume');throw new RuntimeException('accepted_cancelled_resume');}catch(InvalidArgumentException $e){}
     try{pilot_campaign_create('Wrong','2026-11-02T12:00','2026-11-01T10:00','x');throw new RuntimeException('accepted_invalid_schedule');}
     catch(InvalidArgumentException $e){}
+    $subset=pilot_campaign_create('Excluded Only','2026-11-01T10:00','2026-11-01T12:00',
+        'Do not call',[$items[0]['id']]);
+    expect($subset['eligible_contacts_snapshot']===0,'selected_contact_DNC_excluded');
+    $subsetPreview=pilot_campaign_preview($subset['id']);
+    expect(count($subsetPreview['eligible'])===0,'selected_only_exclusion');
     $now=new DateTimeImmutable('now',new DateTimeZone('Africa/Cairo'));
     $armed=pilot_campaign_create('E2E Lease',$now->modify('-2 minutes')->format('Y-m-d\\TH:i'),
         $now->modify('+120 minutes')->format('Y-m-d\\TH:i'),'Owner approved script');
