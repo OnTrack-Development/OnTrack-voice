@@ -238,6 +238,8 @@ def main(root):
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.REQUEST_INSTALL_PACKAGES'})
     # Explicit opt-in for importing all phone contacts, no background address-book access.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.READ_CONTACTS'})
+    # Outbound SIM placement is never enabled unless the owner explicitly opts in.
+    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.CALL_PHONE'})
     ET.SubElement(app, 'receiver', {
         android + 'name':'.NativeInstallResultReceiver',
         android + 'exported':'false'
