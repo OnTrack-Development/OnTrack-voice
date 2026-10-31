@@ -80,25 +80,27 @@ class ProofActivity:ComponentActivity(){
         val xiaomi=maker.contains("xiaomi")||maker.contains("redmi")||maker.contains("poco")
         val hint=if(xiaomi)"في شاومي / Redmi / POCO اضغط على إصدار MIUI أو HyperOS عدة مرات داخل حول الهاتف حتى يظهر تفعيل خيارات المطوّر."
                  else "افتح حول الهاتف واضغط على Build number سبع مرات تقريبًا، وقد يطلب الهاتف رمز القفل."
-        card(stack,"01  تفعيل خيارات المطوّر",hint,
-            "افتح حول الهاتف"){
-            settings(Settings.ACTION_DEVICE_INFO_SETTINGS,Settings.ACTION_SETTINGS)
+        card(stack,"01  تجهيز Android",
+            "الخطوة الأولى تفتح صفحة إعدادات الهاتف. فعّل خيارات المطوّر بالضغط على إصدار النظام، ثم USB debugging وWireless debugging من خيارات المطوّر. " +
+            (if(xiaomi)"في Xiaomi / POCO قد تحتاج USB debugging (Security settings). " else "") +
+            "الإعدادات المحمية يفعّلها صاحب الجهاز بنفسه.",
+            "فتح إعداد الهاتف المناسب"){
+            val developerEnabled=runCatching{
+                Settings.Global.getInt(contentResolver,Settings.Global.DEVELOPMENT_SETTINGS_ENABLED,0)!=0
+            }.getOrDefault(false)
+            if(developerEnabled)settings(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS,Settings.ACTION_SETTINGS)
+            else settings(Settings.ACTION_DEVICE_INFO_SETTINGS,Settings.ACTION_SETTINGS)
         }
-        card(stack,"02  تفعيل التصحيح",if(xiaomi)
-            "من خيارات المطوّر، فعّل USB debugging وWireless debugging؛ بعض أجهزة شاومي تحتاج USB debugging (Security settings) بموافقتك."
-            else "من خيارات المطوّر، فعّل USB debugging وWireless debugging. يتطلب Android تأكيد صاحب الهاتف.",
-            "افتح خيارات المطوّر"){
-            settings(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS,Settings.ACTION_SETTINGS)
-        }
-        card(stack,"03  الربط اللاسلكي", "فعّل Wireless debugging، ثم استخدم كود الاقتران الذي يعرضه Android. بعد الاقتران لا تكرر الخطوات طالما الاتصال محفوظ.",
-            "بدء الاقتران"){
+        card(stack,"02  اقتران الهاتف",
+            "لما تخلص تفعيل Wireless debugging، اضغط هنا لفتح الاقتران واتبع الكود الظاهر من Android. لو الجهاز متصل بالفعل، تخطّى الخطوة دي.",
+            "ربط OnTrack تلقائيًا"){
             try{startActivity(DeepLink.intent(this,DeepLink.Kind.PAIR_AGAIN))}
             catch(_:Exception){startActivity(Intent(this,MainActivity::class.java))}
         }
-        card(stack,"04  تشغيل OnTrack Voice","سيتم استخدام الإعداد الحالي والمفتاح المحفوظ على الجهاز. لا يوجد طلب Accessibility.",
-            "الذهاب إلى مركز الاتصال"){
+        val open=button("العودة إلى مركز OnTrack Voice"){
             startActivity(Intent(this,MobileLinkActivity::class.java));finish()
         }
+        stack.addView(open,LinearLayout.LayoutParams(-1,dp(52)).apply{bottomMargin=dp(14)})
         card(stack,"فحص جاهزية الاتصال","فحص سريع لحالة مساعد Android. لو مكتمل، مش محتاج تدخل صفحات إعدادات المطور تاني.",
             "فحص الاتصال"){
             status.text=try{
