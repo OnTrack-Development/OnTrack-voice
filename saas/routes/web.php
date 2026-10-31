@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\TelegramWebhookController;
+use App\Http\Controllers\Api\KashierWebhookController;
+use App\Http\Controllers\App\VoiceCheckoutController;
 use App\Http\Controllers\Api\WidgetController;
 use App\Http\Controllers\Api\WhatsappWebhookController;
 use App\Http\Controllers\Marketing\PageController;
@@ -55,6 +57,7 @@ Route::get('/api/widget/{publicKey}/config', [WidgetController::class, 'config']
 Route::post('/api/widget/{publicKey}/start', [WidgetController::class, 'start']);
 Route::post('/api/widget/{publicKey}/message', [WidgetController::class, 'message']);
 Route::post('/api/webhooks/telegram/{publicId}', [TelegramWebhookController::class, 'receive']);
+Route::post('/api/billing/kashier/webhook', [KashierWebhookController::class, 'receive'])->name('api.kashier.webhook')->middleware('throttle:100,1');
 
 Route::middleware(['auth', 'platform.admin'])->prefix('control')->name('control.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
@@ -112,6 +115,7 @@ Route::middleware(['auth', 'workspace.member'])->prefix('app')->name('app.')->gr
     Route::post('/{workspace}/channels/whatsapp', [WhatsappConnectionController::class, 'store'])->name('channels.whatsapp.store');
 
     Route::get('/{workspace}/plan', [PlanController::class, 'index'])->name('plan.index');
+    Route::post('/{workspace}/plan/checkout/{plan}', [VoiceCheckoutController::class, 'checkout'])->name('plan.checkout')->middleware('throttle:5,1');
     Route::get('/{workspace}/settings', [SettingsController::class, 'edit'])->name('settings.edit');
     Route::post('/{workspace}/settings', [SettingsController::class, 'update'])->name('settings.update');
 

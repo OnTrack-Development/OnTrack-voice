@@ -22,12 +22,18 @@ class PlansController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'monthly_quota_credits' => ['required', 'integer', 'min:0'],
             'features' => ['nullable', 'string', 'max:2000'],
+            'price_minor' => ['nullable','integer','min:1','max:100000000'],
+            'currency' => ['nullable','in:EGP'],
+            'billing_interval' => ['nullable','in:month'],
+
         ]);
 
         $plan = Plan::create([
             'name' => $data['name'],
             'status' => 'active',
             'monthly_quota_credits' => $data['monthly_quota_credits'],
+            'price_minor' => $data['price_minor'] ?? null,
+            'currency' => 'EGP', 'billing_interval' => 'month',
         ]);
 
         if (! blank($data['features'] ?? null)) {

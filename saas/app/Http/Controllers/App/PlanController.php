@@ -4,6 +4,7 @@ namespace App\Http\Controllers\App;
 
 use App\Http\Controllers\Controller;
 use App\Models\Subscription;
+use App\Models\Plan;
 use App\Models\TenantMembership;
 use App\Models\Workspace;
 use App\Support\UsageLedger;
@@ -17,6 +18,8 @@ class PlanController extends Controller
         $subscription = Subscription::where('tenant_id', $ws->tenant_id)->where('status', 'active')->latest('id')->with('plan.entitlements')->first();
         return view('app.plan.index', [
             'workspace' => $ws,
+            'availablePlans' => Plan::with('entitlements')->where('status','active')->orderBy('price_minor')->get(),
+            'premiumVoices' => array_filter(config('voice_catalog', []), fn ($v) => ($v['tier'] ?? '') === 'premium'),
             'subscription' => $subscription,
             'ledger' => $subscription
                 ? TenantUsageLedgerRepository::forTenant($ws->tenant_id)
