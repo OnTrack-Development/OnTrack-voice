@@ -10,6 +10,8 @@ $phase=(string)($body['phase']??'');
 if (!in_array($phase,['idle','ringing','ai','human','connecting'],true)) mobile_json(['ok'=>false,'error'=>'phase'],400);
 $revision=max(0,min(99999999,(int)($body['revision']??0)));
 $data=['phase'=>$phase,'agent_running'=>!empty($body['agent_running']),
+    'connected'=>($body['connected']??false)===true,
+    'pending_sync'=>($body['pending_sync']??false)===true,
     'policy_revision'=>$revision,'seen_at'=>gmdate('c')];
 if(!is_dir(MOBILE_STORE)) mobile_json(['ok'=>false,'error'=>'store'],503);
 $file=MOBILE_STORE.'/call-status.json';
