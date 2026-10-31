@@ -86,7 +86,7 @@ internal class NativeUpdates(private val context: Context) {
     suspend fun download(release:Release,progress:(Int)->Unit):File=withContext(Dispatchers.IO){
         val target=apk(release)
         if(verified(target,release))return@withContext target
-        val temp=File(destination,".native-download.tmp")
+        val temp=File(destination,".native-download.apk")
         try {
             val request=Request.Builder().url(root+release.file).build()
             client.newCall(request).execute().use {response ->
