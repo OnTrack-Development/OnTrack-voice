@@ -11,7 +11,9 @@ def atomic(path, content):
         if os.path.exists(temp):os.unlink(temp)
 
 def deploy(encoded,expected):
-    raw=lzma.decompress(base64.b64decode(encoded))
+    compressed=base64.b64decode(encoded)
+    try:raw=lzma.decompress(compressed)
+    except lzma.LZMAError:raw=zlib.decompress(compressed)
     if hashlib.sha256(raw).hexdigest()!=expected:raise ValueError('Bundle checksum mismatch')
     bundle=json.loads(raw);manifest=bundle['manifest'];envelope=json.loads(manifest);meta=json.loads(envelope['payload'])
     html=bundle['html'].encode();name=meta['file']
