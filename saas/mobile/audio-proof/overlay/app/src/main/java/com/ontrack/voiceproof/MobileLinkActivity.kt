@@ -4,6 +4,11 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.graphics.Color
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaType
 import android.os.Bundle
 import android.webkit.*
 import android.widget.*
@@ -29,15 +34,13 @@ class MobileLinkActivity:ComponentActivity(){
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState:Bundle?){
         super.onCreate(savedInstanceState);ota=MobileOta(this)
-        val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(0,30,0,0)}
-        banner=TextView(this).apply{setPadding(20,10,20,10);text="جاري فحص تحديث الواجهة…"};root.addView(banner)
-        val recovery=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-        Button(this).apply{text="التشخيص والإعداد";setOnClickListener{startActivity(Intent(this@MobileLinkActivity,ProofActivity::class.java))};recovery.addView(this,LinearLayout.LayoutParams(0,-2,1f))}
-        Button(this).apply{text="الواجهة السابقة";setOnClickListener{lifecycleScope.launch{
-            if(MobileLinkService.inCall){banner.text="انتظر نهاية المكالمة";return@launch}
-            runCatching{show(withContext(Dispatchers.IO){ota.rollback(false)})}.onFailure{banner.text="تعذر استعادة الواجهة"}
-        }};recovery.addView(this,LinearLayout.LayoutParams(0,-2,1f))}
-        root.addView(recovery)
+        window.statusBarColor=Color.rgb(11,16,27);window.navigationBarColor=Color.rgb(11,16,27)
+        val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(11,16,27))}
+        banner=TextView(this).apply{
+            setPadding(20,14,20,12);setTextColor(Color.rgb(168,185,208))
+            setBackgroundColor(Color.rgb(18,27,42))
+            textSize=12f;text="OnTrack Voice • جاري تجهيز الاتصال"
+        };root.addView(banner)
         web=WebView(this);root.addView(web,LinearLayout.LayoutParams(-1,0,1f));setContentView(root)
         web.settings.apply{
             javaScriptEnabled=true;domStorageEnabled=false;allowFileAccess=false;allowContentAccess=false
@@ -97,6 +100,7 @@ class MobileLinkActivity:ComponentActivity(){
         if(!ready)return
         val state=JSONObject().put("status",MobileLinkService.latestStatus).put("running",MobileLinkService.running)
             .put("inCall",MobileLinkService.inCall).put("humanControl",MobileLinkService.humanControl)
+            .put("agentEnabled",MobileLinkService.agentEnabled).put("serverRevision",MobileLinkService.serverRevision)
             .put("overlayGranted",Settings.canDrawOverlays(this)).put("revision",ota.revision).put("native",ota.nativeVersion).put("updating",updateBusy)
         web.evaluateJavascript("window.onTrackState && window.onTrackState($state)",null)
     }
@@ -120,7 +124,8 @@ class MobileLinkActivity:ComponentActivity(){
                         getSharedPreferences("ontrack_link",MODE_PRIVATE).edit().putString("base",base).putString("key",key).commit()
                         ContextCompat.startForegroundService(this@MobileLinkActivity,Intent(this@MobileLinkActivity,MobileLinkService::class.java))
                     }
-                    "stop"->stopService(Intent(this@MobileLinkActivity,MobileLinkService::class.java))
+                    "stop","disable"->ContextCompat.startForegroundService(this@MobileLinkActivity,Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_DISABLE))
+                    "enable"->ContextCompat.startForegroundService(this@MobileLinkActivity,Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_ENABLE))
                     "takeover"->startService(Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_TAKEOVER))
                     "speaker"->startService(Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_SPEAKER))
                     "overlayPermission"->{
@@ -131,7 +136,24 @@ class MobileLinkActivity:ComponentActivity(){
                     "checkUpdates"->checkUpdates()
                     "rollback"->{check(!MobileLinkService.inCall){"انتظر نهاية المكالمة"};show(withContext(Dispatchers.IO){ota.rollback(false)});banner.text="تم الرجوع للواجهة السابقة"}
                     "diagnostics"->startActivity(Intent(this@MobileLinkActivity,ProofActivity::class.java))
-                    "admin"->startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://app.ontrackegy.com/saas/mobile/")))
+                    "admin"->{
+                        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","")?:""
+                        require(key.length>=24){"أدخل مفتاح الربط أولاً"}
+                        val ticketUrl=withContext(Dispatchers.IO){
+                            val client=OkHttpClient.Builder().followRedirects(false).build()
+                            val req=Request.Builder().url("https://app.ontrackegy.com/saas/mobile/admin_ticket.php")
+                                .header("Authorization","Bearer "+key)
+                                .post("{}".toRequestBody("application/json".toMediaType())).build()
+                            client.newCall(req).execute().use{
+                                check(it.isSuccessful){"تعذر الدخول إلى اللوحة: HTTP "+it.code}
+                                JSONObject(it.body?.string()?:"").getString("url")
+                            }
+                        }
+                        val uri=Uri.parse(ticketUrl)
+                        check(uri.scheme=="https" && uri.host=="app.ontrackegy.com" &&
+                            uri.path=="/saas/mobile/admin_enter.php"){"رابط الدخول غير آمن"}
+                        startActivity(Intent(Intent.ACTION_VIEW,uri))
+                    }
                     else->error("أمر الواجهة غير مدعوم")
                 }
             }.onFailure{banner.text=it.message?:"تعذر تنفيذ الطلب"}}}
