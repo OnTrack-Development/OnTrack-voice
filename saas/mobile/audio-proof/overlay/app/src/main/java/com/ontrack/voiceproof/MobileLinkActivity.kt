@@ -340,7 +340,7 @@ class MobileLinkActivity:ComponentActivity(){
         localPage=page
         web.loadUrl(page.url)
         lifecycleScope.launch{delay(10000);if(!ready && current==generation){
-            if(screen.revision>1){show(withContext(Dispatchers.IO){ota.rollback(true)});banner.text="تعذر فتح التحديث؛ رجعنا للواجهة السابقة"}
+            if(screen.revision>1){banner.text="تعذر بدء واجهة OnTrack الجديدة؛ حاول تحديث الصفحة من إعدادات التطبيق. لن نعيد الواجهة القديمة تلقائيًا";splash?.hide()}
             else banner.text="تعذر فتح الواجهة؛ استخدم إعدادات الهاتف من شاشة التشخيص"
             splash?.hide()
         }}
