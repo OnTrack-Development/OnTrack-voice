@@ -35,6 +35,29 @@ internal class NativeUpdates(private val context: Context) {
         .generateCertificate(signer.inputStream()).publicKey
     private val destination=File(context.filesDir, "native-updates").apply { mkdirs() }
     val installedVersion:Long get()=localVersion
+    private val installPrefs=context.getSharedPreferences("ontrack_native_installer",Context.MODE_PRIVATE)
+    fun canInstallPackages():Boolean=Build.VERSION.SDK_INT<26 ||
+        context.packageManager.canRequestPackageInstalls()
+    fun openInstallPermission(){
+        if(Build.VERSION.SDK_INT>=26)context.startActivity(
+            Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:${context.packageName}"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+    /** Prevent duplicate APK downloads and sessions while Android requests approval. */
+    fun installPending():Boolean {
+        val sessionId=installPrefs.getInt("session_id",-1)
+        if(sessionId<=0)return false
+        val current=runCatching{
+            context.packageManager.packageInstaller.getSessionInfo(sessionId)
+        }.getOrNull()
+        if(current==null){
+            installPrefs.edit().remove("session_id").remove("created_at").apply()
+            return false
+        }
+        return true
+    }
+    fun cached(release:Release):Boolean=verified(apk(release),release)
 
     private fun fetchManifest():ByteArray {
         val request=Request.Builder().url(root+"latest.json").header("Cache-Control","no-cache").build()
@@ -133,11 +156,8 @@ internal class NativeUpdates(private val context: Context) {
     fun requestInstall(file:File):Boolean {
         require(file.isFile && file.parentFile?.canonicalPath==destination.canonicalPath){"ملف تحديث غير موثوق"}
         require(file.name.endsWith(".apk")){"امتداد التحديث غير صالح"}
-        if(Build.VERSION.SDK_INT>=26 && !context.packageManager.canRequestPackageInstalls()) {
-            context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            return false
-        }
+        if(!canInstallPackages()){openInstallPermission();return false}
+        if(installPending())return true
         val installer=context.packageManager.packageInstaller
         val params=android.content.pm.PackageInstaller.SessionParams(
             android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL)
@@ -163,11 +183,14 @@ internal class NativeUpdates(private val context: Context) {
                     context,sessionId,result,
                     android.app.PendingIntent.FLAG_UPDATE_CURRENT or
                         android.app.PendingIntent.FLAG_MUTABLE).intentSender
+                installPrefs.edit().putInt("session_id",sessionId)
+                    .putLong("created_at",System.currentTimeMillis()).apply()
                 session.commit(sender)
             }
             return true
         }catch(t:Throwable) {
             runCatching{installer.abandonSession(sessionId)}
+            installPrefs.edit().remove("session_id").remove("created_at").apply()
             throw t
         }
     }
