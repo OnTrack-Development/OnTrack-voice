@@ -89,3 +89,37 @@ function pilot_campaign_create(string $name,string $starts,string $ends,string $
         return $row;
     });
 }
+
+/**
+ * Strictly opt-in campaign queue. Leasing is reserved for the authenticated
+ * Android device, and a lease alone must never cause a phone call.
+ */
+function pilot_campaign_transition(string $id,string $action): array {
+    if(!in_array($action,['pause','cancel','resume'],true))throw new InvalidArgumentException('action');
+    return pilot_transaction(static function() use($id,$action):array {
+        $campaigns=pilot_read('campaigns');
+        foreach($campaigns as &$campaign) {
+            if(!hash_equals((string)$campaign['id'],$id))continue;
+            $old=(string)$campaign['status'];
+            $allowed=['pause'=>['draft','ready'],'cancel'=>['draft','paused','ready'],'resume'=>['paused']];
+            if(!in_array($old,$allowed[$action],true))throw new InvalidArgumentException('transition');
+            $campaign['status']=['pause'=>'paused','cancel'=>'cancelled','resume'=>'draft'][$action];
+            $campaign['updated_at']=gmdate('c');
+            $updated=$campaign;unset($campaign);
+            pilot_atomic('campaigns',$campaigns);
+            return $updated;
+        }
+        throw new InvalidArgumentException('campaign_not_found');
+    });
+}
+function pilot_campaign_preview(string $id): array {
+    $found=null;
+    foreach(pilot_read('campaigns') as $campaign)if(hash_equals((string)$campaign['id'],$id)){$found=$campaign;break;}
+    if($found===null)throw new InvalidArgumentException('campaign_not_found');
+    $eligible=[];$blocked=0;
+    foreach(pilot_read('contacts') as $contact){
+        if(empty($contact['consented'])||!empty($contact['do_not_call'])){$blocked++;continue;}
+        $eligible[]=['id'=>$contact['id'],'name'=>$contact['name'],'phone'=>$contact['phone']];
+    }
+    return ['campaign'=>$found,'eligible'=>$eligible,'excluded'=>$blocked,'auto_dial_enabled'=>false];
+}
