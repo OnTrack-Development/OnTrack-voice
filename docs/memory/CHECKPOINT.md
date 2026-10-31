@@ -1,3 +1,12 @@
+## 31 أكتوبر 2026 — دفعة واحدة: المكالمات والاتصالات والباقات وPremium/Kashier
+
+- أحدث قرار: أنجز مهام P1-P2-P5-P6 كلها كدفعة تطوير واحدة، مع UI للتطبيق أقرب إلى OnTrack الحقيقي، دون تقطيع المتطلبات إلى ردود منفصلة.
+- مدخلات صوتية جديدة: AYO-calm.pt (SHA256 10b536280f44431af3a42b2b3ae68ab0e60a44ca116c417b9a9ba9a12bbb8105)، AYO-excited.pt (77b67c9d95dbf2ea8b50fa88778c1d83eb917a0e9d8eeb3be14f055f9b9e38cf)، AYO-sleepy.pt (fef549851711566631866708f135cf3d512b55c3b98766431bd54742250aeb1e). PyTorch presets وليس WAV/MP3؛ كتالوج نصي فقط في الريبو والبائنري الأصلي موجود في مرفقات المحادثة/حزمة تسليم، **لم يُرفَع البائنري إلى GitHub** بعد.
+- تم رفع commit ee839f6e573e7b8021d4198e97df868fce124380: Laravel scaffold لسعر باقة قابل للإعداد، entitlement check، Kashier sessions/Webhook HMAC، وإدارة خيارات UI. يحتاج Laravel dependency/runtime/migrations/payment sandbox E2E وsecurity audit؛ لا دفع حقيقي.
+- تم رفع commit fb8bb837ebbb09352279969402a6e63ae66fbdd7: Android UI 0.2.6 وOTA12، اختيار جهة اتصال أو استعراض الأرقام بإذن صريح ثم معاينة وتأكيد قبل رفعها، خدمة API محمية للتواصل، إدارة Contacts/DNC وحملات مسودات بتوقيت القاهرة، استيراد لصق/CSV/TXT/XLSX، وتحسين فلاتر Call History. **لا Outbound campaign executor فعلي** إلى الآن؛ الاتصال التلقائي محفوظ كمتطلب OPEN.
+- CI run 41172270951 بدأت بعد commit fb8bb8؛ لا تدعِ نجاحها أو نشر النسخة حتى تقرير وظائف Actions والعامل. Host server PHP الجديد لم يُثبت نشره. أبقِ PHASE-2-NETWORK-STABILITY مؤجلة حتى الانتهاء من الديمو.
+
+
 ## 31 أكتوبر 2026 — توجيه جديد: تأجيل فحص ثبات بيانات الهاتف للمرحلة الثانية
 
 - **قرار المالك مُلزِم:** لا تستهلك وقت الديمو حاليًا في اختبارات/إصلاح التقطيع والصمت عند ضعف 4G/5G. وجود المشكلة مثبت سابقًا ولم يجر إغلاقها، لكنها تحولت إلى `PHASE-2-NETWORK-STABILITY` (DEFERRED / NOT DONE). لا تخلط هذه الحالة مع نجاح تثبيت v0.2.4 → v0.2.5 الذي ثبت على هاتف Xiaomi.
