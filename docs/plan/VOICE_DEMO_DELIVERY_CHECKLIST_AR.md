@@ -66,6 +66,7 @@
 |---|---|---|---|
 | 2026-10-31 | VC-P0-01/02 | مصدر Native Installer + OTA10 موجود، اختبار جهاز المالك غير مثبت | CODE فقط |
 | 2026-10-31 | VC-P0-03/04 | StartWithoutWifi اختياري في المصدر؛ لا يوجد دليل مكالمة 4G/5G على Xiaomi | CODE فقط |
+| 2026-10-31 | VC-P1-01/P1-02 | `95340642849c`: `CallEventOutbox` + API ledger + صفحة `calls.php` + اختبار PHP؛ **CODE فقط**، CI/HOST/DEVICE غير مكتملة | IN_PROGRESS — لم يُعلّم ✅ |
 | 2026-10-31 | VC-P1/P2/P3/P4/P5 | مراجعة فجوات `docs/mobile/VOICE_CALL_FEATURE_GAP_AUDIT_2026_10_31_AR.md`; صفحات Laravel محلية ليست تنفيذًا حيًا | OPEN |
 
 **المحطة التنفيذية الحالية:** `VC-P0-01 → VC-P0-04`، ثم ننفذ أول مسار Call-ID/Call History حقيقي. لا ننتقل لادعاء جاهزية SaaS قبل `VC-P5-05`.
