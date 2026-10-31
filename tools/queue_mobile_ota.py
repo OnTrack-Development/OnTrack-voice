@@ -2,7 +2,7 @@
 """After a verified build, publish a bounded job to the EXISTING host worker.
 No host token/credentials, queue replacement, direct SSH or process daemon.
 """
-import base64,datetime,hashlib,json,os,subprocess,sys,tempfile,urllib.request,zlib
+import base64,datetime,hashlib,json,lzma,os,subprocess,sys,tempfile,urllib.request,zlib
 from pathlib import Path
 REPO='OnTrack-Development/OnTrack-voice';BRANCH='ontrack-host-link';TARGET='appontrack-server11'
 CERT='d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'
@@ -31,8 +31,8 @@ def main():
     _,result=content('ops/host-link/results/'+TARGET+'/'+current['id']+'.json');report=json.loads(result)
     assert report['job_id']==current['id'] and report['target']==TARGET and report['status'] in ['success','failed','expired','rejected'], 'Host queue busy/unknown; preserved'
     assert report['job_sha256']==hashlib.sha256(raw).hexdigest(),'Current result does not match queued command'
-    bundle=canonical({'manifest':manifest,'html':html});packed=base64.b64encode(zlib.compress(bundle,9)).decode()
-    script=(Path('saas/mobile/ota/deploy.py')).read_text()+'\nimport sys\ndeploy(sys.argv[1],sys.argv[2])\n'
+    bundle=canonical({'manifest':manifest,'html':html});packed=base64.b64encode(lzma.compress(bundle,format=lzma.FORMAT_XZ,preset=9)).decode()
+    script=(Path('saas/mobile/ota/deploy.py')).read_text().replace('zlib.decompress(base64.b64decode(encoded))','lzma.decompress(base64.b64decode(encoded))')+'\nimport lzma,sys\ndeploy(sys.argv[1],sys.argv[2])\n'
     now=datetime.datetime.now(datetime.timezone.utc);job={'schema':1,'id':'mobile-ota-'+os.environ['GITHUB_RUN_ID'],'target':TARGET,'action':'exec','created_at':now.isoformat(),'expires_at':(now+datetime.timedelta(hours=24)).isoformat(),'cwd':'/home/appontrack/public_html/saas','timeout_seconds':25,'argv':['/bin/python3','-c',script,packed,hashlib.sha256(bundle).hexdigest()]}
     encoded=json.dumps(job,ensure_ascii=False,indent=2).encode();assert len(encoded)<=16384,'Host job exceeds installed worker limit'
     request('contents/'+queue_path,'PUT',{'branch':BRANCH,'sha':obj['sha'],'message':'deploy: signed mobile OTA revision'+str(meta['revision']),'content':base64.b64encode(encoded).decode()})
