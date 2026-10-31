@@ -101,6 +101,8 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
    s.nativeInstallPermission===false?'إعداد إذن التثبيت لمرة واحدة':
    s.nativeUpdateAvailable?'فحص وتحميل أو استكمال تثبيت '+(s.nativeUpdateVersion||'الإصدار الجديد'):'Android محدّث';
  el('scanAndroid').disabled=s.nativeUpdateBusy||call;
+ const wifiSupported=typeof s.wifiFreeEnabled==='boolean';
+ el('mobileDataMode').style.display=wifiSupported?'block':'none';
  const wifiFree=!!s.wifiFreeEnabled, wifiReady=!!s.wifiFreeReady;
  el('wifiFreeStatus').textContent=wifiFree?
    (wifiReady?'جاهز للتجربة على بيانات الهاتف':'مفعّل لكنه غير جاهز على هذا الجهاز'):
