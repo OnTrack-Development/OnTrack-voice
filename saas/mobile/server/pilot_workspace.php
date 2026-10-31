@@ -195,3 +195,25 @@ function pilot_campaign_finish(string $id,string $result): array {
         throw new InvalidArgumentException('attempt_not_found');
     });
 }
+
+/** Re-check Do Not Call immediately before any leased SIM placement. */
+function pilot_campaign_verify_claim(string $id): array {
+    $attempt=null;
+    foreach(pilot_read('attempts') as $row)
+        if(hash_equals((string)$row['id'],$id)){$attempt=$row;break;}
+    if($attempt===null || ($attempt['status']??'')!=='leased')return ['allowed'=>false,'reason'=>'not_active'];
+    $ready=false;
+    foreach(pilot_read('campaigns') as $row)
+        if(($row['id']??'')===$attempt['campaign_id'] && ($row['status']??'')==='ready'){
+            $now=new DateTimeImmutable('now',new DateTimeZone('Africa/Cairo'));
+            $ready=$now>=new DateTimeImmutable($row['starts_at'])&&$now<new DateTimeImmutable($row['ends_at']);
+            break;
+        }
+    if(!$ready)return ['allowed'=>false,'reason'=>'campaign_not_ready'];
+    foreach(pilot_read('contacts') as $row)if(($row['id']??'')===$attempt['contact_id']){
+        if(!empty($row['consented'])&&empty($row['do_not_call'])&&($row['phone']??'')===$attempt['phone'])
+            return ['allowed'=>true,'reason'=>'ok'];
+        return ['allowed'=>false,'reason'=>'contact_blocked'];
+    }
+    return ['allowed'=>false,'reason'=>'contact_deleted'];
+}
