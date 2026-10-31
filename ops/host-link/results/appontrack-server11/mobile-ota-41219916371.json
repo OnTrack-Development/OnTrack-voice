@@ -1,0 +1,13 @@
+{
+  "job_id": "mobile-ota-41219916371",
+  "target": "appontrack-server11",
+  "job_sha256": "6abcff061ae5ced8900e9d7450e75de0d9e35ec2b50b167e515362d42d02bbd3",
+  "started_at": "2026-10-31T16:30:03.052648+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\": \"installed\", \"scope\": \"saas/mobile/updates\", \"revision\": 12, \"sha256\": \"2960e56f9789aec0fa4243f5b3c475229fc6ff2d1b642815aa9817063863eb52\", \"runtime\": 1, \"no_credentials_read\": true, \"root_api_unchanged\": true}\n",
+  "stderr": "",
+  "finished_at": "2026-10-31T16:30:03.106079+00:00",
+  "duration_ms": 53
+}
