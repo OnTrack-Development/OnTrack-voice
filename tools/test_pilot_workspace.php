@@ -33,6 +33,7 @@ try {
         $now->modify('+120 minutes')->format('Y-m-d\\TH:i'),'Owner approved script');
     $ready=pilot_campaign_arm($armed['id']);expect($ready['status']==='ready','arm_explicit');
     $lease=pilot_campaign_claim();expect(is_array($lease)&&$lease['phone']==='+201112345678','one_dnc_filtered_lease');
+    expect(pilot_campaign_verify_claim($lease['id'])['allowed']===true,'verified_consent_and_dnc');
     expect(pilot_campaign_claim()===null,'exclusive_claim_no_duplicate');
     $finished=pilot_campaign_finish($lease['id'],'completed');expect($finished['status']==='completed','finish_once');
     expect(pilot_campaign_finish($lease['id'],'completed')['status']==='completed','idempotent_finish');
