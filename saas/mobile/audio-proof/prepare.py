@@ -49,9 +49,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 10', 'versionCode')
+                        'versionCode = 11', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.1.9-ota"', 'versionName')
+                        'versionName = "0.2.0-ota"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
@@ -218,7 +218,7 @@ def main(root):
     for service in list(app.findall('service')):
         if service.get(android + 'permission') == 'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE':
             app.remove(service)
-    app.set(android + 'label', 'OnTrack SIM Audio Test')
+    app.set(android + 'label', 'OnTrack Voice')
     app.set(android + 'icon', '@drawable/ontrack_icon')
     app.set(android + 'roundIcon', '@drawable/ontrack_icon')
     for activity in app.findall('activity'):
@@ -233,6 +233,7 @@ def main(root):
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.FOREGROUND_SERVICE_DATA_SYNC'})
     # User opt-in app overlay is unrelated to Accessibility and is never auto-granted.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.SYSTEM_ALERT_WINDOW'})
+    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.ACCESS_NETWORK_STATE'})
     ET.SubElement(app, 'activity', {android + 'name': '.ProofActivity', android + 'exported': 'false'})
     ET.SubElement(app, 'service', {android + 'name': '.MobileLinkService', android + 'exported': 'false', android + 'foregroundServiceType': 'dataSync'})
     # Upstream components use relative names under the new namespace; explicit
