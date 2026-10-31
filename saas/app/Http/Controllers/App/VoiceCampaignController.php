@@ -7,6 +7,7 @@ use App\Models\TenantMembership;
 use App\Models\VoiceCampaign;
 use App\Models\VoiceCampaignEntry;
 use App\Models\Workspace;
+use App\Support\VoiceEntitlements;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 
@@ -15,12 +16,14 @@ class VoiceCampaignController extends Controller
     public function index(Request $request, string $workspace)
     {
         [$ws] = $this->context($request, $workspace);
+        abort_unless(VoiceEntitlements::has((int)$ws->tenant_id, 'voice.campaigns'),403,'هذه الميزة غير متاحة في الباقة الحالية.');
         return view('app.voice.index', ['workspace'=>$ws,'campaigns'=>VoiceCampaign::where('tenant_id',$ws->tenant_id)->where('workspace_id',$ws->id)->withCount('entries')->latest()->get()]);
     }
 
     public function store(Request $request, string $workspace)
     {
         [$ws] = $this->context($request, $workspace);
+        abort_unless(VoiceEntitlements::has((int)$ws->tenant_id, 'voice.campaigns'),403,'هذه الميزة غير متاحة في الباقة الحالية.');
         $data=$request->validate(['name'=>['required','string','max:160'],'timezone'=>['required','string','max:64'],'delay_seconds'=>['required','integer','min:0','max:86400'],'max_attempts'=>['required','integer','min:1','max:10']]);
         VoiceCampaign::create(['tenant_id'=>$ws->tenant_id,'workspace_id'=>$ws->id,'status'=>'draft',...$data]);
         return back()->with('status','تم حفظ مهمة الاتصال كمسودة. نقل المكالمات الحقيقي ما زال يحتاج إثبات جهاز/قناة.');
@@ -29,6 +32,7 @@ class VoiceCampaignController extends Controller
     public function show(Request $request, string $workspace, VoiceCampaign $campaign)
     {
         [$ws] = $this->context($request, $workspace);
+        abort_unless(VoiceEntitlements::has((int)$ws->tenant_id, 'voice.campaigns'),403,'هذه الميزة غير متاحة في الباقة الحالية.');
         abort_unless($campaign->tenant_id === $ws->tenant_id && $campaign->workspace_id === $ws->id, 404);
         return view('app.voice.show', [
             'workspace' => $ws,
@@ -45,7 +49,9 @@ class VoiceCampaignController extends Controller
     public function import(Request $request, string $workspace, VoiceCampaign $campaign)
     {
         [$ws] = $this->context($request, $workspace);
+        abort_unless(VoiceEntitlements::has((int)$ws->tenant_id, 'voice.campaigns'),403,'هذه الميزة غير متاحة في الباقة الحالية.');
         abort_unless($campaign->tenant_id === $ws->tenant_id && $campaign->workspace_id === $ws->id, 404);
+        abort_unless(VoiceEntitlements::has((int)$ws->tenant_id,'voice.contact_import'),403,'استيراد الأرقام غير متاح في هذه الباقة.');
         $data = $request->validate(['rows' => ['required','string','max:200000']]);
 
         $lines = collect(preg_split('/\R+/u', trim($data['rows'])) ?: [])

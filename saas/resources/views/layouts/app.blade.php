@@ -53,9 +53,11 @@
                 <span aria-hidden="true">♤</span> الفريق والعضويات
             </a>
             <p class="side-section">الإدارة</p>
+            @if(isset($workspace) && \App\Support\VoiceEntitlements::has((int)$workspace->tenant_id, 'voice.campaigns'))
             <a class="side-link @if(request()->routeIs('app.voice.*')) active @endif" href="{{ route('app.voice.index', ['workspace' => $workspace->slug ?? '']) }}">
                 <span aria-hidden="true">◉</span> Voice
             </a>
+            @endif
             <a class="side-link @if(request()->routeIs('app.operations.*')) active @endif" href="{{ route('app.operations.index', ['workspace' => $workspace->slug ?? '']) }}">
                 <span aria-hidden="true">◴</span> غرفة العمليات
             </a>

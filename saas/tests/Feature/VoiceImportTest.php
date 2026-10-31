@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Tenant;
+use App\Models\Plan;
+use App\Models\PlanEntitlement;
+use App\Models\Subscription;
 use App\Models\TenantMembership;
 use App\Models\User;
 use App\Models\VoiceCampaign;
@@ -34,6 +37,6 @@ class VoiceImportTest extends TestCase
 
     private function context(string $slug): array
     {
-        $user=User::factory()->create(); $tenant=Tenant::create(['name'=>$slug,'slug'=>$slug,'status'=>'active','created_by'=>$user->id]); $workspace=Workspace::create(['tenant_id'=>$tenant->id,'name'=>'Main','slug'=>$slug.'-main']); TenantMembership::create(['tenant_id'=>$tenant->id,'workspace_id'=>$workspace->id,'user_id'=>$user->id,'role'=>'owner','status'=>'active']); return [$user,$workspace,$tenant];
+        $user=User::factory()->create(); $tenant=Tenant::create(['name'=>$slug,'slug'=>$slug,'status'=>'active','created_by'=>$user->id]); $workspace=Workspace::create(['tenant_id'=>$tenant->id,'name'=>'Main','slug'=>$slug.'-main']); TenantMembership::create(['tenant_id'=>$tenant->id,'workspace_id'=>$workspace->id,'user_id'=>$user->id,'role'=>'owner','status'=>'active']); $plan=Plan::create(['name'=>'Voice Test Plan','status'=>'active','monthly_quota_credits'=>100]); foreach(['voice.campaigns','voice.contact_import'] as $feature)PlanEntitlement::create(['plan_id'=>$plan->id,'feature'=>$feature,'unit'=>'enabled','quota'=>1]); Subscription::create(['tenant_id'=>$tenant->id,'plan_id'=>$plan->id,'status'=>'active','started_at'=>now(),'renews_at'=>now()->addMonth()]); return [$user,$workspace,$tenant];
     }
 }
