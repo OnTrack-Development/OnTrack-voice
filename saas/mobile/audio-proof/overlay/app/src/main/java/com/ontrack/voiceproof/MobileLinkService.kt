@@ -75,7 +75,7 @@ class MobileLinkService:Service() {
             pendingSync=false
         }
     }
-    private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(connected,agentEnabled,inCall,humanControl)}}
+    private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(connected,agentEnabled,inCall,callAnswered,humanControl)}}
     private fun notice(value:String){
         latestStatus=value
         getSystemService(NotificationManager::class.java).notify(701,notification(value))
@@ -90,8 +90,8 @@ class MobileLinkService:Service() {
             .setSmallIcon(android.R.drawable.sym_call_incoming)
             .setContentTitle("OnTrack Voice").setContentText(value)
             .setOngoing(true).setContentIntent(open)
-        if(inCall && !humanControl)item.addAction(android.R.drawable.ic_menu_view,"استلام المكالمة",pending(ACTION_TAKEOVER,1))
-        if(inCall)item.addAction(android.R.drawable.ic_menu_manage,"السماعة",pending(ACTION_SPEAKER,2))
+        if(callAnswered && !humanControl)item.addAction(android.R.drawable.ic_menu_view,"استلام المكالمة",pending(ACTION_TAKEOVER,1))
+        if(callAnswered)item.addAction(android.R.drawable.ic_menu_manage,"السماعة",pending(ACTION_SPEAKER,2))
         item.addAction(android.R.drawable.ic_media_pause,if(agentEnabled)"إيقاف الإيجنت" else "تشغيل الإيجنت",
             pending(if(agentEnabled) ACTION_DISABLE else ACTION_ENABLE,3))
         return item.build()
@@ -110,7 +110,7 @@ class MobileLinkService:Service() {
         connectivity=getSystemService(ConnectivityManager::class.java)
         val callback=object:ConnectivityManager.NetworkCallback(){
             override fun onAvailable(network:Network){client.connectionPool.evictAll();retryWake.trySend(Unit)}
-            override fun onLost(network:Network){retryWake.trySend(Unit)}
+            override fun onLost(network:Network){connected=false;retryWake.trySend(Unit)}
         }
         runCatching{connectivity?.registerDefaultNetworkCallback(callback)}
             .onSuccess{networkListener=callback}
