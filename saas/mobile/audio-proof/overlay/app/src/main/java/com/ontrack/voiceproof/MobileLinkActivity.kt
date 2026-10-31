@@ -171,16 +171,16 @@ class MobileLinkActivity:ComponentActivity(){
     }
     private suspend fun setWifiFreeMode(enabled:Boolean) {
         check(!MobileLinkService.inCall){"لا يمكن تغيير مسار ADB أثناء مكالمة"}
-        val feature=com.jemcik.jemrec.capture.StartWithoutWifi
+        val feature=com.ontrack.voiceproof.capture.StartWithoutWifi
         if(enabled) {
-            check(com.jemcik.jemrec.capture.NetworkRevive.onWifi(this)){
+            check(com.ontrack.voiceproof.capture.NetworkRevive.onWifi(this)){
                 "فعّل وضع بلا Wi-Fi أول مرة أثناء اتصالك بشبكة Wi-Fi موثوقة"
             }
             feature.setEnabled(this,true)
             val ok=withContext(Dispatchers.IO){
-                com.jemcik.jemrec.capture.CaptureDaemon.revive(
+                com.ontrack.voiceproof.capture.CaptureDaemon.revive(
                     this@MobileLinkActivity,
-                    request=com.jemcik.jemrec.capture.CaptureDaemon.Request.USER)
+                    request=com.ontrack.voiceproof.capture.CaptureDaemon.Request.USER)
             }
             if(!ok || !feature.ready(this)){
                 feature.setEnabled(this,false)
@@ -190,9 +190,9 @@ class MobileLinkActivity:ComponentActivity(){
         }else{
             feature.setEnabled(this,false)
             withContext(Dispatchers.IO){
-                com.jemcik.jemrec.capture.CaptureDaemon.revive(
+                com.ontrack.voiceproof.capture.CaptureDaemon.revive(
                     this@MobileLinkActivity,
-                    request=com.jemcik.jemrec.capture.CaptureDaemon.Request.USER)
+                    request=com.ontrack.voiceproof.capture.CaptureDaemon.Request.USER)
             }
             banner.text=if(feature.ready(this))
                 "المنفذ ما زال مفتوحًا؛ أوقف USB debugging من إعدادات المطوّر لإغلاقه"
@@ -211,8 +211,8 @@ class MobileLinkActivity:ComponentActivity(){
             .put("nativeUpdateStatus",nativeStatus)
             .put("nativeInstallPending",nativeUpdates.installPending())
             .put("nativeInstallPermission",nativeUpdates.canInstallPackages())
-            .put("wifiFreeEnabled",com.jemcik.jemrec.capture.StartWithoutWifi.enabled(this))
-            .put("wifiFreeReady",com.jemcik.jemrec.capture.StartWithoutWifi.ready(this))
+            .put("wifiFreeEnabled",com.ontrack.voiceproof.capture.StartWithoutWifi.enabled(this))
+            .put("wifiFreeReady",com.ontrack.voiceproof.capture.StartWithoutWifi.ready(this))
             .put("nativeUpdateVersion",nativeRelease?.versionName?:"").put("native",ota.nativeVersion).put("updating",updateBusy)
         web.evaluateJavascript("window.onTrackState && window.onTrackState($state)",null)
     }
