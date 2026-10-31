@@ -1,0 +1,47 @@
+name: Publish verified Android 0.2.6 artifact
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/release-verified-mobile.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: ontrack-verified-mobile-release
+  cancel-in-progress: false
+jobs:
+  publish_ota:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: OnTrack-Voice-0.2.6
+          repository: OnTrack-Development/OnTrack-voice
+          run-id: 41217573945
+          github-token: ${{ github.token }}
+          path: .build/downloaded
+      - name: Queue validated signed UI from successful CI build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/queue_mobile_ota.py .build/downloaded/ota
+  publish_native:
+    needs: publish_ota
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: OnTrack-Voice-0.2.6
+          repository: OnTrack-Development/OnTrack-voice
+          run-id: 41217573945
+          github-token: ${{ github.token }}
+          path: .build/downloaded
+      - name: Queue validated native APK only after host worker finishes prior job
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MOBILE_RELEASE_SOURCE_RUN_ID: '41217573945'
+        run: python3 tools/queue_mobile_native.py .build/downloaded/native
