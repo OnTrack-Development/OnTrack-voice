@@ -46,7 +46,7 @@ def main():
         source_run=os.environ.get('MOBILE_RELEASE_SOURCE_RUN_ID',os.environ['GITHUB_RUN_ID'])
         assert source_run.isdecimal() and int(source_run)>0, 'Invalid pinned Android release run'
         artifact=request('actions/runs/'+source_run+'/artifacts?per_page=100')['artifacts']
-        matches=[x for x in artifact if x['name']=='OnTrack-Voice-0.2.7' and not x['expired']]
+        matches=[x for x in artifact if x['name']=='OnTrack-Voice-0.2.8' and not x['expired']]
         assert len(matches)==1,'Signed Android artifact missing or ambiguous'
         url=download_url(matches[0]['id'])
         program=(Path('saas/mobile/ota/deploy.py')).read_text()+'\n'+(Path('saas/mobile/ota/remote_deploy.py')).read_text()+'\nimport sys\nremote_install(sys.argv[1],sys.argv[2],sys.argv[3])\n'
