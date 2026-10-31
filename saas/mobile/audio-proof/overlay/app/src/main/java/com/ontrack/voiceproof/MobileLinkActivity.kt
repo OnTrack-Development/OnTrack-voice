@@ -29,6 +29,7 @@ class MobileLinkActivity:ComponentActivity(){
     private var nativeRelease:NativeUpdates.Release?=null
     private var nativeBusy=false
     private var nativeStatus="جاري فحص تحديث Android"
+    private var lastNativeInstallResult=""
     private lateinit var banner:TextView
     private var splash:OnTrackLaunchScreen?=null
     private var ready=false
@@ -80,6 +81,20 @@ class MobileLinkActivity:ComponentActivity(){
                 if(pending!=null && !MobileLinkService.inCall){val next=pending!!;pending=null;activate(next)}
                 delay(1000)
             }
+        }
+    }
+    override fun onResume() {
+        super.onResume()
+        val result=getSharedPreferences("ontrack_link",MODE_PRIVATE)
+            .getString("last_native_install","").orEmpty()
+        if(result.isNotBlank() && result!=lastNativeInstallResult) {
+            lastNativeInstallResult=result
+            nativeStatus=result
+            if(::banner.isInitialized) {
+                banner.visibility=View.VISIBLE
+                banner.text=result
+            }
+            if(::web.isInitialized)sendState()
         }
     }
     private fun show(screen:MobileOta.Screen){
