@@ -15,7 +15,7 @@ $contents=@file_get_contents($used);
 $data=json_decode((string)$contents,true);
 if (!is_array($data) || !isset($data['expires']) || time()>(int)$data['expires']) {http_response_code(401);exit('Sign-in link expired');}
 session_name('ontrack_mobile_admin');
-session_set_cookie_params(['secure'=>true,'httponly'=>true,'samesite'=>'Strict','path'=>'/saas/mobile/']);
+session_set_cookie_params(['secure'=>true,'httponly'=>true,'samesite'=>'Lax','path'=>'/saas/mobile/']);
 session_start();
 session_regenerate_id(true);
 $_SESSION['mobile_admin']=true;
