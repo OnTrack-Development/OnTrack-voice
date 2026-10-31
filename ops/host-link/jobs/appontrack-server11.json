@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "mobile-native-404-diagnostic-20261031",
+  "id": "mobile-native-public-permission-fix-20261031",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-10-31T02:00:35.541Z",
-  "expires_at": "2026-10-31T03:00:35.541Z",
+  "created_at": "2026-10-31T02:01:41.407Z",
+  "expires_at": "2026-10-31T03:01:41.407Z",
   "cwd": "/home/appontrack",
-  "timeout_seconds": 29,
+  "timeout_seconds": 25,
   "argv": [
     "/bin/python3",
     "-c",
-    "import pathlib,os,stat,json,urllib.request,urllib.error\nroot=pathlib.Path('/home/appontrack/public_html/saas/mobile/updates')\nout={}\nfor name in ('.htaccess','latest.json','native','.native-ignore','native/.htaccess','native/latest.json'):\n p=root/name\n out[name]={\"exists\":p.exists(),\"is_dir\":p.is_dir(),\"symlink\":p.is_symlink(),\"mode\":oct(p.stat().st_mode&0o777) if p.exists() else None,\"size\":p.stat().st_size if p.exists() and p.is_file() else None}\nfor name in ('latest.json','native/latest.json','native/','native/ontrack-voice-v12-d78e110aa8bdfab4264f7904af7e0e8cf16af0a9ed847c16161b70f560cefc00.apk'):\n try:\n  req=urllib.request.Request('https://app.ontrackegy.com/saas/mobile/updates/'+name,method='HEAD',headers={\"User-Agent\":\"OnTrack-Deployment-Diagnostic\"})\n  with urllib.request.urlopen(req,timeout=7) as res:out['http_'+name]={\"status\":res.status,\"content_type\":res.headers.get(\"Content-Type\"),\"length\":res.headers.get(\"Content-Length\")}\n except urllib.error.HTTPError as e:out['http_'+name]={\"status\":e.code}\n except Exception as e:out['http_'+name]={\"error\":type(e).__name__}\nprint(json.dumps(out))\n"
+    "import os,pathlib,urllib.request,json\nroot=pathlib.Path('/home/appontrack/public_html/saas/mobile/updates/native')\nassert os.getuid()==2379 and root.is_dir() and not root.is_symlink()\nassert (root/'latest.json').is_file() and not (root/'latest.json').is_symlink()\nos.chmod(root,0o755)\nbase='https://app.ontrackegy.com/saas/mobile/updates/native/'\nwith urllib.request.urlopen(urllib.request.Request(base+'latest.json',headers={'Cache-Control':'no-cache'}),timeout=9) as r:status=r.status;manifest=json.loads(r.read(16384))\nmeta=json.loads(manifest['payload'])\nwith urllib.request.urlopen(urllib.request.Request(base+meta['file'],method='HEAD'),timeout=9) as r:apks=r.status;length=int(r.headers.get('Content-Length','0'));ctype=r.headers.get('Content-Type')\nassert status==200 and apks==200 and length==meta['size'] and meta['version_code']==12\nprint(json.dumps({'native_dir_mode':oct(root.stat().st_mode&0o777),'manifest_http':status,'apk_http':apks,'size':length,'sha256':meta['sha256'],'content_type':ctype,'verified':True}))\n"
   ]
 }
