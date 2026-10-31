@@ -338,7 +338,7 @@ class MobileLinkActivity:ComponentActivity(){
             .put("wifiFreeReady",wifiFreeReadyState)
             .put("contactsSupported",true)
             .put("callsSupported",true)
-            .put("nativeUpdateVersion",nativeRelease?.versionName?:"").put("native",ota.nativeVersion).put("updating",updateBusy)
+            .put("nativeUpdateVersion",nativeRelease?.versionName?:"").put("native",ota.nativeVersion).put("nativeCode",packageManager.getPackageInfo(packageName,0).longVersionCode).put("updating",updateBusy)
         web.evaluateJavascript("window.onTrackState && window.onTrackState($state)",null)
     }
     inner class Bridge{
