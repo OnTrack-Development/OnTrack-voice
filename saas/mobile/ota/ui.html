@@ -45,7 +45,7 @@ const send=(command,data={})=>OnTrack.postMessage(JSON.stringify({command,nonce:
 let last={},first=true;
 window.onTrackInit=s=>{el('base').value=s.base;el('key').value=s.key;};
 window.onTrackState=s=>{
- last=s;const version=Number((String(s.native).match(/^0\.1\.(\d+)/)||[])[1]||0), modern=version>=10;
+ last=s;const modern=typeof s.connected==='boolean' && typeof s.agentEnabled==='boolean';
  el('version').textContent='v'+s.native+' · OTA '+s.revision;
  el('status').textContent=s.status;
  const enabled=modern?s.agentEnabled:s.running,online=modern?s.connected:s.running,call=s.inCall;
