@@ -3,10 +3,12 @@ declare(strict_types=1);
 
 /**
  * Multi-tenant Android SIM enrollment. This MUST NOT reuse the old pilot bearer.
- * Pairing code: 96 bits, expires in 10 minutes, one-time, stored as SHA-256.
+ * Pairing code: 92 random bits plus a non-secret SIM-slot nibble (0/1),
+ * expires in 10 minutes, one-time, stored as SHA-256. Slot is server-locked.
  * Each installation/physical SIM slot can have at most one active binding.
  */
-function device_pairing_create(int $accountId,int $siteId,int $agentId,int $userId):string {
+function device_pairing_create(int $accountId,int $siteId,int $agentId,int $userId,int $simSlot):string {
+    if(!in_array($simSlot,[0,1],true))throw new InvalidArgumentException('device_pairing_invalid_slot');
     $account=account($accountId);
     $site=one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$siteId,$accountId]);
     $agent=one("SELECT id FROM agents WHERE id=? AND account_id=? AND site_id=? AND status!='archived'",[$agentId,$accountId,$siteId]);
@@ -14,7 +16,10 @@ function device_pairing_create(int $accountId,int $siteId,int $agentId,int $user
         throw new InvalidArgumentException('device_invalid_account_site_agent');
     $pending=(int)one("SELECT COUNT(*) n FROM device_pairings WHERE account_id=? AND status='pending' AND expires_at>?",[$accountId,now()])['n'];
     if($pending>=5)throw new InvalidArgumentException('device_pending_limit');
-    $raw=bin2hex(random_bytes(12));
+    // 92 unpredictable bits; the first nibble is the approved physical slot.
+    // Encoding the slot in the hashed one-time code avoids a schema migration
+    // and makes a SIM1 code impossible to redeem for SIM2 (or vice versa).
+    $raw=(string)$simSlot.substr(bin2hex(random_bytes(12)),1);
     insert("INSERT INTO device_pairings(account_id,site_id,agent_id,code_hash,status,expires_at,created_by,created_at)
        VALUES (?,?,?,?,'pending',?,?,?)",
        [$accountId,$siteId,$agentId,hash('sha256',$raw),gmdate('Y-m-d H:i:s',time()+600),$userId,now()]);
@@ -27,6 +32,11 @@ function device_pairing_redeem(string $code,string $installationId,int $simSlot,
         || !in_array($simSlot,[0,1],true)
         || mb_strlen($label)>100 || $label==='')
         throw new InvalidArgumentException('device_pairing_invalid');
+    // Reject a wrong-slot request before consuming the single-use ticket.
+    // Old pre-slot-lock tickets expire naturally and are never silently
+    // converted into a different slot authorization.
+    if($clean[0] !== (string)$simSlot)
+        throw new InvalidArgumentException('device_pairing_slot_mismatch');
     $token='otdev_'.bin2hex(random_bytes(32));
     $claim=hash('sha256',$installationId.'|'.$simSlot);
     db()->beginTransaction();
