@@ -128,4 +128,6 @@ catch(InvalidArgumentException $e){$expiredDenied=$e->getMessage()==='invitation
 ok($expiredDenied,'expired invite cannot be accepted');
 $reissued=create_staff_invitation(2,'Reissued','support@ontrack.test','viewer',(int)$reseller['id']);
 ok($reissued===$expiredId,'expired invitation may be reissued without duplicate rows');
+require_once __DIR__.'/test_voice_api_http.php';
+test_voice_api_http();
 echo "VOICE_SAAS_SMOKE_PASS\n";
