@@ -18,6 +18,14 @@ object TenantPairingContract {
         require(TOKEN.matches(value)) { "استجابة الربط غير صالحة" }
         return value
     }
+    /** A native per-slot status label; never infer server authorization from local storage. */
+    fun statusLine(slot: Int, linked: Boolean, account: String = "", site: String = "",
+                   agent: String = "", error: String? = null): String {
+        val prefix = "SIM ${slot(slot) + 1}"
+        if (!linked) return "$prefix — غير مربوطة"
+        if (error != null) return "$prefix — $error"
+        return "$prefix — ${account.ifBlank { "شركة غير معروفة" }} / ${site.ifBlank { "موقع غير معروف" }} / ${agent.ifBlank { "إيجنت غير معروف" }}"
+    }
     fun qr(uri: String): Pair<Int, String>? {
         // Strict parsing without allowing an untrusted URL to redirect the API.
         val match = Regex("^ontrackvoice://pair\\?slot=([01])&code=([A-Fa-f0-9-]{24,29})$").matchEntire(uri) ?: return null
