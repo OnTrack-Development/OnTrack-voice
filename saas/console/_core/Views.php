@@ -371,18 +371,38 @@ function render_calls(array $a):void{
         FROM tenant_call_events WHERE account_id=? GROUP BY device_id,call_id
         ORDER BY MAX(id) DESC LIMIT 100",[$id]);
     $actual=[];
+    $outcomes=['unknown'=>'لم يُقيّم','satisfied'=>'راضٍ (تقييم بشري)',
+        'unsatisfied'=>'غير راضٍ (تقييم بشري)','follow_up'=>'متابعة مطلوبة (بشرية)'];
     foreach($observations as $row){
         $agent=one('SELECT name FROM agents WHERE id=? AND account_id=?',[(int)$row['agent_id'],$id]);
         $state=(int)$row['ended']===1
             ?((int)$row['active']===1?'انتهت':'لم يتم الرد')
             :((int)$row['active']===1?'متصلة':'رنين');
-        $actual[]=[e(substr((string)$row['call_id'],0,8)),'#'.(int)$row['device_id'],e('SIM '.((int)$row['sim_slot']+1)),
-            e((string)($agent['name']??'إيجنت مؤرشف')),e($state),
-            e(fmt_duration((int)$row['duration_seconds'])),e((string)$row['last_at']).' UTC'];
+        $report=one('SELECT outcome,note,source,updated_at FROM tenant_call_reports WHERE account_id=? AND device_id=? AND call_id=?',
+            [$id,(int)$row['device_id'],$row['call_id']]);
+        $outcome=$report['outcome']??'unknown';
+        $note=(string)($report['note']??'');
+        $editor='—';
+        if(allowed('calls.write') && (int)$row['ended']===1){
+            $editor=form_start('save_tenant_call_report','/?tab=calls','class="compact"').
+                '<input type="hidden" name="device_id" value="'.(int)$row['device_id'].'">'.
+                '<input type="hidden" name="call_id" value="'.e((string)$row['call_id']).'">'.
+                '<select name="outcome" aria-label="تقييم بشري">';
+            foreach($outcomes as $value=>$label)
+                $editor.='<option value="'.e($value).'"'.($outcome===$value?' selected':'').'>'.e($label).'</option>';
+            $editor.='</select><textarea name="note" rows="2" maxlength="1000" placeholder="ملاحظة بشرية، ليست ملخص AI">'.e($note).'</textarea>'.
+                '<button class="btn small" type="submit">حفظ التقييم</button></form>';
+        }
+        $actual[]=[e(substr((string)$row['call_id'],0,8)),'#'.(int)$row['device_id'],
+            e('SIM '.((int)$row['sim_slot']+1)),e((string)($agent['name']??'إيجنت مؤرشف')),
+            e($state),e(fmt_duration((int)$row['duration_seconds'])),
+            e((string)$row['last_at']).' UTC',e($outcomes[$outcome]??'غير معروف'),
+            e($note),$editor];
     }
-    echo card('مكالمات الشرائح المرتبطة بالحساب — أحداث الهاتف',
-        tbl(['Call ID','الجهاز','الشريحة','الإيجنت','آخر حالة','المدة المبلغ عنها','وقت الجهاز'],$actual));
-    echo '<p class="info">الأحداث من حالة اتصال Android فقط، بدون رقم أو صوت أو ملخص. وقت الجهاز والمدة غير موثقين من المشغل؛ ليست إثباتًا لتشغيل AI أو لتسجيل المكالمة. لا تظهر بيانات شركة أخرى.</p>';
+    echo card('مكالمات الشرائح المرتبطة بالحساب — أحداث الهاتف وتقييم الموظف',
+        tbl(['Call ID','الجهاز','الشريحة','الإيجنت','آخر حالة','المدة المبلغ عنها',
+            'وقت الجهاز','نتيجة يدوية','ملاحظات','تعديل'],$actual));
+    echo '<p class="info">الأحداث من حالة اتصال Android فقط، بدون رقم أو صوت أو ملخص AI. تقييم الرضا والملاحظات إدخال بشري يدوي لا يُستنتج من المكالمة ولا يفعّل اتصال متابعة أو يرفع حظر DNC. وقت الجهاز والمدة غير موثقين من المشغل؛ ليست إثباتًا لتشغيل AI أو لتسجيل المكالمة. لا تظهر بيانات شركة أخرى.</p>';
     echo '<div class="info">البيانات الموسومة DEMO غير حقيقية ولا توجد تسجيلات صوتية مزيفة. الربط مع Call Ledger للموبايل يتطلب ترحيل tenant-scoped آمن.</div>';
 }
 function render_devices(array $a):void {
