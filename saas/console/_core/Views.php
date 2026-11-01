@@ -53,6 +53,8 @@ function nav_entries(string $type):array{
         'plans'=>['◫','الخطط والحدود'],'voices'=>['♫','إدارة الأصوات'],
         'staff'=>['♙','فريق المنصة'],'integrations'=>['⇄','التكاملات'],'keys'=>['⌘','مفاتيح API'],
         'sites'=>['◈','مواقعنا'],'agents'=>['✧','إيجنتاتنا'],
+        'devices'=>['▣','مركز الهاتف'],'calls'=>['☏','سجل المكالمات'],
+        'contacts'=>['♧','جهات الاتصال'],'campaigns'=>['▤','الحملات'],
         'billing'=>['▣','الفوترة'],'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات المنصة']
     ];
@@ -60,6 +62,7 @@ function nav_entries(string $type):array{
         'overview'=>['⌂','نظرة عامة'],'accounts'=>['♧','عملائي'],
         'plans'=>['◫','باقات العملاء'],'voices'=>['♫','الأصوات المتاحة'],
         'staff'=>['♙','الفريق والأدوار'],'domains'=>['◎','الدومينات والبراند'],
+        'sites'=>['◈','المواقع'],'agents'=>['✧','الإيجنتات'], 'devices'=>['▣','الأجهزة'],
         'integrations'=>['⇄','Laravel / WHMCS'],
         'keys'=>['⌘','مفاتيح API'],'billing'=>['▣','الاشتراكات'],
         'releases'=>['↓','تطبيق Android'],'settings'=>['⚙','هوية الريسيلر']
@@ -67,7 +70,7 @@ function nav_entries(string $type):array{
     return [
         'overview'=>['⌂','الرئيسية'],'sites'=>['◈','مواقعي'],
         'agents'=>['✧','AI Agent Builder'],'campaigns'=>['▤','الحملات'],
-        'calls'=>['☏','سجل المكالمات'],'devices'=>['▣','الأجهزة والخطوط'],
+        'calls'=>['☏','سجل المكالمات'],'contacts'=>['♧','جهات الاتصال'],'devices'=>['▣','الأجهزة والخطوط'],
         'voices'=>['♫','الأصوات'],'staff'=>['♙','الموظفون'],
         'keys'=>['⌘','مفاتيح API'],'integrations'=>['⇄','التكاملات'],'billing'=>['▣','الباقة والرصيد'],
         'releases'=>['↓','Android'],'settings'=>['⚙','الإعدادات']
@@ -269,7 +272,13 @@ function render_agents(array $a):void{
     foreach($agents as $agent){
         $flow=e((string)$agent['flow_json']);
         $body='<div class="agent-summary"><span class="pill neutral">'.e($agent['voice']).'</span>'.pill($agent['status']).'<span class="dim">موقع: '.e($selected['name']).'</span></div>';
-        if(allowed('agents.write'))$body.=form_start('update_agent','/?tab=agents&site='.$selected['id'],'class="stack agent-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'"><label class="field">الشخصية والتعليمات<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label><label class="field">معرفة الموقع<textarea name="knowledge" rows="4" maxlength="20000">'.e($agent['knowledge']).'</textarea></label><div class="flow-head"><strong>Agent Flow Builder</strong><small>عقد وأسئلة وشروط متسلسلة</small></div><div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.$flow.'</textarea></div>'.submit_btn('حفظ مسودة الإيجنت').
+        if(allowed('agents.write'))$body.=form_start('update_agent','/?tab=agents&site='.$selected['id'],'class="stack agent-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'">'.
+           '<label class="field">اسم الإيجنت<input name="name" maxlength="140" required value="'.e($agent['name']).'"></label>'.
+           '<label class="field">الصوت<select name="voice">';
+           foreach(all("SELECT code,name FROM voices WHERE status='active' AND ready=1 AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)",[$id]) as $opt)
+                $body.='<option value="'.e($opt['code']).'" '.($opt['code']===$agent['voice']?'selected':'').'>'.e($opt['name']).'</option>';
+           $body.='<option value="'.e($agent['voice']).'" selected>'.e($agent['voice']).' (الحالي)</option></select></label>'.
+           '<label class="field">الشخصية والتعليمات<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label><label class="field">معرفة الموقع<textarea name="knowledge" rows="4" maxlength="20000">'.e($agent['knowledge']).'</textarea></label><div class="flow-head"><strong>Agent Flow Builder</strong><small>عقد وأسئلة وشروط متسلسلة</small></div><div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.$flow.'</textarea></div>'.submit_btn('حفظ مسودة الإيجنت').
           form_start('archive_agent','/?tab=agents&site='.$selected['id'],'class="inline-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'"><button class="btn small danger" onclick="return confirm(\'أرشفة الإيجنت؟\')">أرشفة الإيجنت</button></form>';
         else $body.='<p>'.e($agent['instructions']).'</p>';
         echo card($agent['name'],$body);
@@ -288,6 +297,32 @@ function render_campaigns(array $a):void{
     echo card('الحملات',tbl(['الحملة','الموقع','الحالة','وقت الإنشاء','الإدارة'],$cells));
     if($map && allowed('campaigns.write'))
         echo card('إنشاء حملة مسودة',form_start('add_campaign','/?tab=campaigns').field_html('اسم الحملة','name','text','متابعة العملاء',true).select_html('الموقع','site_id',$map).'<p class="info">لا يمكن تشغيل حملة من الويب قبل ربط الجهاز والموافقات وجدول الاتصال.</p>'.submit_btn('إنشاء مسودة'));
+}
+function render_contacts(array $a):void {
+    $id=(int)$a['account_id'];
+    $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active'",[$id]);
+    $siteOptions=[];foreach($sites as $s)$siteOptions[$s['id']]=$s['name'];
+    $rows=all("SELECT c.*,s.name site_name FROM contacts c LEFT JOIN sites s ON s.id=c.site_id WHERE c.account_id=? ORDER BY c.id DESC LIMIT 300",[$id]);
+    $cells=[];
+    foreach($rows as $r){
+        $action=form_start('edit_contact','/?tab=contacts','class="inline-form"').
+          '<input type="hidden" name="contact_id" value="'.$r['id'].'">'.
+          '<input name="name" class="tiny-input" value="'.e($r['name']).'" required>'.
+          '<input name="phone" class="tiny-input" value="'.e($r['phone']).'" required>'.
+          '<label class="field"><input type="checkbox" name="dnc" '.((int)$r['dnc']===1?'checked':'').'>عدم الاتصال</label>'.
+          '<button class="btn small">حفظ</button></form>';
+        $action.=form_start('delete_contact','/?tab=contacts','class="inline-form"').'<input type="hidden" name="contact_id" value="'.$r['id'].'"><button class="btn small danger" onclick="return confirm(\'حذف جهة الاتصال؟\')">حذف</button></form>';
+        $cells[]=[e($r['name']),e($r['phone']),e($r['site_name']),$r['dnc']?pill('DNC'):pill('active'),$action];
+    }
+    echo card('جهات اتصال كل موقع',tbl(['الاسم','الهاتف','الموقع','الخصوصية','الإجراءات'],$cells));
+    if($siteOptions && allowed('contacts.write'))
+      echo card('إضافة جهة اتصال',form_start('add_contact','/?tab=contacts').
+          field_html('الاسم','name','text','اسم العميل',true).
+          field_html('الهاتف','phone','text','+201...',true).
+          select_html('الموقع','site_id',$siteOptions).
+          '<label class="field"><input type="checkbox" name="consent" required> موافقة العميل على التواصل مسجّلة</label>'.
+          '<label class="field"><input type="checkbox" name="dnc"> عدم الاتصال بهذا الرقم</label>'.
+          submit_btn('إضافة إلى جهات الاتصال'));
 }
 function render_calls(array $a):void{
     $id=(int)$a['account_id'];$rows=all('SELECT * FROM calls WHERE account_id=? ORDER BY id DESC LIMIT 100',[$id]);
