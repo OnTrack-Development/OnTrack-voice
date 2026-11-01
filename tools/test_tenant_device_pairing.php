@@ -78,6 +78,10 @@ function test_tenant_device_pairing():void {
     ok(device_binding_revoke(5,$a['device_id'])===false,'cross-tenant device revoke denied');
     ok(device_binding_revoke(4,$a['device_id'])===true,'owner scope revokes active SIM token');
     ok(device_binding_authorize($a['device_token'])===null,'revoked SIM token immediately denied');
+    $staleHeartbeatDenied=false;
+    try{device_binding_heartbeat($session);}
+    catch(RuntimeException $e){$staleHeartbeatDenied=$e->getMessage()==='device_binding_revoked';}
+    ok($staleHeartbeatDenied,'in-flight stale heartbeat cannot disclose revoked SIM agent profile');
     $replacement=device_pairing_create(4,1,1,$actor,0);
     $relinked=device_pairing_redeem($replacement,$inst,0,'Android relink SIM 1');
     ok($relinked['device_id']!==$a['device_id'],'revoked slot can re-pair independently');
