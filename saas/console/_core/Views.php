@@ -356,10 +356,56 @@ function render_calls(array $a):void{
 }
 function render_devices(array $a):void {
     $id=(int)$a['account_id'];
-    $rows=all('SELECT * FROM devices WHERE account_id=? ORDER BY id DESC',[$id]);
-    echo card('أجهزة الحساب',tbl(['الجهاز','الشريحة','الحالة'],array_map(fn($x)=>[e($x['name']),e($x['phone']),pill($x['status'])],$rows)));
+    require_once __DIR__.'/DevicePairing.php';
+    $bindings=all("SELECT d.*,s.name site_name,ag.name agent_name FROM device_bindings d
+        JOIN sites s ON s.id=d.site_id JOIN agents ag ON ag.id=d.agent_id
+        WHERE d.account_id=? ORDER BY d.id DESC LIMIT 100",[$id]);
+    $rows=[];
+    $manage=in_array($a['role'],['owner','admin'],true)&&!active_support();
+    foreach($bindings as $d){
+        $action=$manage && $d['status']==='active'
+            ?form_start('revoke_device_binding','/?tab=devices','class="inline-form"').
+                '<input type="hidden" name="device_id" value="'.(int)$d['id'].'">'.
+                '<button class="btn small" onclick="return confirm(\'فصل هذا الجهاز وإلغاء توكن الشريحة فورًا؟\')">فصل الجهاز</button></form>'
+            :'—';
+        $rows[]=[e($d['device_name']),e($d['site_name']),e($d['agent_name']),
+            e('SIM '.((int)$d['sim_slot']+1)),pill($d['status']),
+            e($d['last_seen_at']?:'لم يتصل بعد'),$action];
+    }
+    echo card('أجهزة Android المربوطة بالحساب',tbl(['الجهاز','الموقع','الإيجنت','الشريحة','الحالة','آخر اتصال','الإجراء'],$rows));
+    $pairs=all("SELECT p.id,p.created_at,p.expires_at,s.name site_name,ag.name agent_name
+        FROM device_pairings p JOIN sites s ON s.id=p.site_id JOIN agents ag ON ag.id=p.agent_id
+        WHERE p.account_id=? AND p.status='pending' AND p.expires_at>? ORDER BY p.id DESC LIMIT 5",
+        [$id,now()]);
+    $pending=[];
+    foreach($pairs as $p){
+        $action=$manage ?form_start('cancel_device_pairing','/?tab=devices','class="inline-form"').
+            '<input type="hidden" name="pairing_id" value="'.(int)$p['id'].'">'.
+            '<button class="btn small" type="submit">إلغاء</button></form>' : '—';
+        $pending[]=[e($p['site_name']),e($p['agent_name']),e($p['expires_at']).' UTC',$action];
+    }
+    echo card('طلبات الاقتران المعلقة',tbl(['الموقع','الإيجنت','ينتهي في','الإجراء'],$pending));
+    if($manage){
+        $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY name",[$id]);
+        $agents=all("SELECT ag.id,ag.name,s.name site_name FROM agents ag JOIN sites s ON s.id=ag.site_id
+            WHERE ag.account_id=? AND ag.status!='archived' AND s.status='active' ORDER BY ag.id",[$id]);
+        $siteOptions=[];$agentOptions=[];
+        foreach($sites as $s)$siteOptions[$s['id']]=$s['name'];
+        foreach($agents as $ag)$agentOptions[$ag['id']]=$ag['site_name'].' — '.$ag['name'];
+        if($siteOptions&&$agentOptions){
+            echo card('ربط جهاز وشريحة بخط مستقل',
+                '<p>أنشئ رمزًا مؤقتًا يظهر مرة واحدة، ثم أدخله في تطبيق Android عند اختيار رقم الشريحة. لكل شريحة حساب وإيجنت محددان، ولا يستخدم هذا الربط مفتاح هاتف التجربة القديم.</p>'.
+                form_start('create_device_pairing','/?tab=devices').
+                select_html('الموقع','site_id',$siteOptions).
+                select_html('الإيجنت','agent_id',$agentOptions).
+                submit_btn('إنشاء رمز اقتران لمدة 10 دقائق').
+                '<p class="dim">رمز الاقتران يُعرض مرة واحدة، ولا يتم حفظه كنص. واجهة مسح QR داخل تطبيق Android لم تُربط بعد.</p>');
+        }else{
+            echo card('ربط Android','<p>أضف موقعًا وإيجنت أولًا ثم أنشئ رمز ربط للشريحة.</p>');
+        }
+    }
     if($a['kind']!=='platform'){
-        echo card('ربط Android','<p>هذا الحساب ليس له هاتف مربوط بعد. الهوية القديمة للهاتف التجريبي غير آمنة للمشاركة بين العملاء.</p><p class="info">ربط Android متعدد العملاء يحتاج توثيق الجهاز لكل حساب وموقع، ولن نستعمل مفتاح هاتف عام لتسريب بيانات المستخدمين.</p><a class="btn" href="/saas/console/?tab=releases">تحميل التطبيق</a>');
+        echo '<p class="info">تجهيز الربط على السيرفر متاح، لكن التطبيق المثبت حاليًا ما زال على هوية التجربة القديمة؛ لا تتوقع مزامنة الجهاز الجديد قبل تحديث Android واختبار الشريحة.</p>';
         return;
     }
     require_once __DIR__.'/MobilePilot.php';
