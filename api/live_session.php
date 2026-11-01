@@ -113,6 +113,16 @@ if ($request['mode'] === 'outbound') {
     $systemInstruction = build_outbound_instruction(sanitize_voice_knowledge($request['mission']));
 }
 
+// The phone policy was previously assembled in the authenticated mobile endpoint
+// but never applied to the actual Gemini Live session sent to Android.
+// Never accept a policy override from a public HTTP request body.
+require_once __DIR__.'/mobile_instruction.php';
+$systemInstruction = compose_mobile_live_instruction(
+    $systemInstruction,
+    isset($ontrackMobileInstruction) ? (string)$ontrackMobileInstruction : null,
+    ($ontrackMobileAuthenticated ?? false) === true
+);
+
 $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 $expireTime = $now->modify('+30 minutes')->format('Y-m-d\TH:i:s\Z');
 $newSessionExpireTime = $now->modify('+2 minutes')->format('Y-m-d\TH:i:s\Z');
