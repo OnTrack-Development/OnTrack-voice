@@ -6,6 +6,8 @@ on:
       - 'saas/console/**'
       - 'tools/test_voice_saas_console.php'
       - 'tools/test_voice_sso.php'
+      - 'tools/sso_http_fixture.php'
+      - 'tools/test_voice_sso_http.py'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
@@ -30,9 +32,11 @@ jobs:
           find saas/console -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           php -l tools/test_voice_saas_console.php
           php -l tools/test_voice_sso.php
+          php -l tools/sso_http_fixture.php
       - name: Validate JavaScript
         run: node --check saas/console/assets/js/app.js
       - name: Database, roles, demo users, branding and isolation smoke
         run: |
           php tools/test_voice_saas_console.php
           php tools/test_voice_sso.php
+          python3 tools/test_voice_sso_http.py
