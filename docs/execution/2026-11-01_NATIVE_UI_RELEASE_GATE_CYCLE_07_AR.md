@@ -1,5 +1,5 @@
 # دورة #7 — منع نشر APK عند فشل نشر واجهة OTA على الهوست
-**2026-11-01 · نطاق المشكلة: سلسلة إصدار Android فقط**
+**2026-11-01 · PR #14 MERGED · CODED + CI_PASS · لا يتطلب نشر PHP/Android**
 
 ## السبب والأثر المثبت
 - تشغيل Android السابق `41306044730` انتهى SUCCESS على GitHub، لكن مرحلة `publish_ota` كانت فقط **queue** وليست إثبات نجاح الهوست.
@@ -24,3 +24,9 @@
 1. تأكيد PR CI ثم دمج التعديل الآمن. عدم تشغيل Android build تلقائيًا من تعديل release tool.
 2. معالجة سياسة UI revision وتوافق محتواها في إصدار منفصل قبل طلب Android native جديد؛ لا إعادة استخدام revision لنص مختلف.
 3. بناء مسار نشر PHP pilot آمن ومثبت بالـreceipt بدون تحديث APK، ثم اختبار DNC على الجهاز.
+
+## إغلاق الدورة المؤكد
+- PR #14: `https://github.com/OnTrack-Development/OnTrack-voice/pull/14` — merged into main `aed13a68bc3f8cde7c4a12dbde53b8d10ed5a8b4`.
+- PR CI `41310627580` SUCCESS، main CI `41310655875` SUCCESS؛ Python release gate regression + trigger isolation PASS.
+- لم يُشغّل Android APK build بسبب هذه التغييرات، ولا يوجد host deployment خاص بها لأنها GitHub release tool فقط.
+- `CHECKPOINT.md` و`IMPLEMENTATION_PLAN_AR.md` تم تحديثهما بالأدلة، والـSSO PR #9 لم يتغير.
