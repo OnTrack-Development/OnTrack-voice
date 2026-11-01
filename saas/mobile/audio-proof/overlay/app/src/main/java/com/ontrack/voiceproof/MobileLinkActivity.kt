@@ -69,6 +69,12 @@ class MobileLinkActivity:ComponentActivity(){
         banner.visibility=View.VISIBLE
         sendState()
     }
+    private val tenantSimPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
+        banner.text=if(granted) "تم السماح بالتحقق من الشريحة؛ أعد تأكيد الربط من QR أو الرمز"
+            else "لم يُمنح إذن حالة الهاتف؛ ربط حسابات الشرائح متوقف لحماية عزل الشركات"
+        banner.visibility=View.VISIBLE
+        requestTenantStatusRefresh()
+    }
     private val campaignPhonePermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
         if(granted)ContextCompat.startForegroundService(this,
             Intent(this,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_CAMPAIGN_ENABLE))
@@ -401,6 +407,9 @@ class MobileLinkActivity:ComponentActivity(){
                             p.optString("account_name"),p.optString("site_name"),p.optString("agent_name"))
                     } catch(e:SecurityException) {
                         TenantPairingContract.statusLine(slot,true,error="تم إلغاء الاعتماد من السيرفر")
+                    } catch(e:IllegalStateException) {
+                        TenantPairingContract.statusLine(slot,true,
+                            error=e.message?.take(120) ?: "تعذر التحقق من الاشتراك")
                     } catch(e:CancellationException) {
                         throw e
                     } catch(e:Exception) {
@@ -452,6 +461,11 @@ class MobileLinkActivity:ComponentActivity(){
                     try {
                         check(!MobileLinkService.inCall) { "انتظر انتهاء المكالمة أولًا" }
                         TenantPairingContract.codeForSlot(code,slot)
+                        if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,
+                                Manifest.permission.READ_PHONE_STATE)!=PackageManager.PERMISSION_GRANTED) {
+                            tenantSimPermission.launch(Manifest.permission.READ_PHONE_STATE)
+                            return@launch
+                        }
                         // Block pilot dial immediately, including the in-flight lease-to-dial window.
                         MobileLinkService.tenantPairingInProgress=true
                         try {
