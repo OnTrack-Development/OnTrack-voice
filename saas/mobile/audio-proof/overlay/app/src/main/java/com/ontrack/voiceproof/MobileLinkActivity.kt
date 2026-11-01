@@ -428,7 +428,8 @@ class MobileLinkActivity:ComponentActivity(){
             "فصل SIM 1 من السيرفر","فصل SIM 2 من السيرفر",
             "تشغيل سجل مكالمات الشرائح (بدون صوت أو أرقام)",
             "إيقاف سجل مكالمات الشرائح",
-            "عرض سجل مكالمات SIM 1","عرض سجل مكالمات SIM 2")
+            "عرض سجل مكالمات SIM 1","عرض سجل مكالمات SIM 2",
+            "تقييم مكالمة SIM 1 يدويًا","تقييم مكالمة SIM 2 يدويًا")
         AlertDialog.Builder(this).setTitle("إدارة شرائح الشركات")
             .setMessage("كل شريحة لها حساب وإيجنت مستقلان. هذا الربط لا يشغّل مكالمات AI تلقائيًا.")
             .setItems(items) { _,which ->
@@ -461,6 +462,7 @@ class MobileLinkActivity:ComponentActivity(){
                         banner.visibility=View.VISIBLE
                     }
                     8,9 -> showTenantCallHistory(slot)
+                    10,11 -> showTenantCallReport(slot)
                 }
             }.setNegativeButton("إغلاق",null).show()
     }
@@ -477,7 +479,14 @@ class MobileLinkActivity:ComponentActivity(){
                         else -> "رنين"
                     }
                     val seconds=item.optInt("duration_seconds",0).coerceAtLeast(0)
-                    "${i+1}. #${item.optString("call_id").take(8)} • $state • ${seconds/60}د ${seconds%60}ث • ${item.optString("observed_at")}"
+                    val report=item.optJSONObject("report")
+                    val outcome=when(report?.optString("outcome")) {
+                        "satisfied" -> "راضٍ (يدوي)"
+                        "unsatisfied" -> "غير راضٍ (يدوي)"
+                        "follow_up" -> "متابعة (يدوية)"
+                        else -> "غير مُقيّم"
+                    }
+                    "${i+1}. #${item.optString("call_id").take(8)} • $state • ${seconds/60}د ${seconds%60}ث • $outcome • ${item.optString("observed_at")}"
                 }
                 AlertDialog.Builder(this@MobileLinkActivity)
                     .setTitle("SIM ${slot+1} — سجل المكالمات")
@@ -490,6 +499,78 @@ class MobileLinkActivity:ComponentActivity(){
                 banner.visibility=View.VISIBLE
             }
         }
+    }
+    /** Manual call disposition: never claim the AI listened or rated this call. */
+    private fun showTenantCallReport(slot:Int) {
+        lifecycleScope.launch {
+            try {
+                val calls=withContext(Dispatchers.IO){ tenantEnrollment.callHistory(slot) }
+                val finished=(0 until calls.length()).map { calls.getJSONObject(it) }
+                    .filter { it.optString("state") in setOf("ended","unanswered") }
+                if(finished.isEmpty()) {
+                    AlertDialog.Builder(this@MobileLinkActivity)
+                        .setTitle("SIM ${slot+1} — التقييم اليدوي")
+                        .setMessage("لا توجد مكالمة منتهية ومؤكدة في سجل هذه الشريحة.")
+                        .setPositiveButton("إغلاق",null).show()
+                    return@launch
+                }
+                val labels=finished.map { call ->
+                    "#${call.optString("call_id").take(8)} • ${call.optString("observed_at")} • "+
+                        if(call.optString("state")=="unanswered")"لم يتم الرد" else "انتهت"
+                }
+                AlertDialog.Builder(this@MobileLinkActivity)
+                    .setTitle("SIM ${slot+1} — اختر مكالمة للتقييم")
+                    .setItems(labels.toTypedArray()) { _,selected ->
+                        showTenantCallReportForm(slot,finished[selected])
+                    }.setNegativeButton("إلغاء",null).show()
+            }catch(e:CancellationException){throw e}
+            catch(e:Exception){
+                banner.text="تعذر تحميل مكالمات SIM ${slot+1}: "+(e.message?:"تحقق من الاتصال").take(100)
+                banner.visibility=View.VISIBLE
+            }
+        }
+    }
+    private fun showTenantCallReportForm(slot:Int,call:JSONObject) {
+        val outcomes=listOf("unknown" to "لم يُقيّم","satisfied" to "راضٍ — تقييم بشري",
+            "unsatisfied" to "غير راضٍ — تقييم بشري","follow_up" to "متابعة مطلوبة — مراجعة بشرية")
+        val previous=call.optJSONObject("report")
+        val form=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(32,24,32,12)
+        }
+        val choice=Spinner(this)
+        choice.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,
+            outcomes.map { it.second })
+        choice.setSelection(outcomes.indexOfFirst { it.first==previous?.optString("outcome") }
+            .coerceAtLeast(0))
+        form.addView(TextView(this).apply { text="نتيجة الموظف (ليست تقييمًا آليًا)" })
+        form.addView(choice)
+        val note=EditText(this).apply {
+            hint="ملاحظة يكتبها الموظف؛ بدون تفريغ أو تسجيل صوتي"
+            setText(previous?.optString("note").orEmpty())
+            minLines=3;maxLines=5
+            inputType=android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            filters=arrayOf<android.text.InputFilter>(android.text.InputFilter.LengthFilter(1000))
+        }
+        form.addView(note)
+        AlertDialog.Builder(this).setTitle("SIM ${slot+1} — #${call.optString("call_id").take(8)}")
+            .setView(form)
+            .setPositiveButton("حفظ التقييم") { _,_ ->
+                lifecycleScope.launch {
+                    try {
+                        withContext(Dispatchers.IO) {
+                            tenantEnrollment.saveCallReport(slot,call.getString("call_id"),
+                                outcomes[choice.selectedItemPosition].first,note.text.toString())
+                        }
+                        banner.text="تم حفظ التقييم البشري لمكالمة SIM ${slot+1}"
+                    }catch(e:CancellationException){throw e}
+                    catch(e:Exception){
+                        banner.text="لم يُحفظ التقييم: "+(e.message?:"تحقق من الربط").take(100)
+                    }
+                    banner.visibility=View.VISIBLE
+                }
+            }.setNegativeButton("إلغاء",null).show()
     }
     private fun showTenantPairDialog(slot:Int,initialCode:String) {
         if(tenantEnrollment.paired(slot)) {
