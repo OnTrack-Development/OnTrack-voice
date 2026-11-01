@@ -64,8 +64,14 @@ class ConsoleWebActivity:ComponentActivity(){
    onBackPressedDispatcher.addCallback(this,object:OnBackPressedCallback(true){
      override fun handleOnBackPressed(){if(web.canGoBack())web.goBack() else finish()}
    })
-   web.loadUrl("https://app.ontrackegy.com/saas/console/"+
-      if(intent.getStringExtra("section")=="agents")"?tab=agents" else "")
+   val section=when(intent.getStringExtra("section")){
+      "agents"->"?tab=agents"
+      "answering"->"?tab=answering"
+      "flows"->"?tab=flows"
+      "devices"->"?tab=devices"
+      else->""
+   }
+   web.loadUrl("https://app.ontrackegy.com/saas/console/"+section)
  }
  override fun onDestroy(){web.stopLoading();web.destroy();super.onDestroy()}
 }
