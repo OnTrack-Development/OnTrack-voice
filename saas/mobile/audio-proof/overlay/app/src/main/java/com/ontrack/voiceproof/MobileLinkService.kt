@@ -411,6 +411,7 @@ class MobileLinkService:Service() {
         var lastState=TelephonyManager.CALL_STATE_IDLE
         var ringingAt=0L
         var answeredByAgent=false
+        var ringAttempted=false
         var startedAt=0L
         var tenantFlow:JSONObject?=null
         var tenantSession:JSONObject?=null
@@ -439,7 +440,7 @@ class MobileLinkService:Service() {
                     if(current==null){
                         if(selected!=null){
                             call?.stop();call=null;tenantSession=null;tenantFlow=null
-                            selected=null;answeredByAgent=false;humanControl=false
+                            selected=null;answeredByAgent=false;ringAttempted=false;humanControl=false
                             ringingAt=0L;startedAt=0L
                         }
                         inCall=false;callAnswered=false
@@ -455,11 +456,12 @@ class MobileLinkService:Service() {
                         delay(750);continue
                     }
                     if(selected!=current.slot){
-                        selected=current.slot;answeredByAgent=false;tenantFlow=null;tenantSession=null
+                        selected=current.slot;answeredByAgent=false;ringAttempted=false;tenantFlow=null;tenantSession=null
                         ringingAt=SystemClock.elapsedRealtime();startedAt=0L;humanControl=false
                     }
                     inCall=true;callAnswered=current.state==TelephonyManager.CALL_STATE_OFFHOOK
-                    if(current.state==TelephonyManager.CALL_STATE_RINGING && tenantFlow==null){
+                    if(current.state==TelephonyManager.CALL_STATE_RINGING && !ringAttempted){
+                        ringAttempted=true
                         try{
                             val flow=enrollment.publishedFlow(current.slot)
                             val answer=flow.optJSONObject("answer_policy")?:JSONObject()
@@ -486,8 +488,9 @@ class MobileLinkService:Service() {
                             }
                             val daemonState=CaptureDaemon.linkControl(this@MobileLinkService,'Q')
                             check(daemonState=="CALL 1"){"تعارض حالة شريحة الاتصال مع رابط PCM"}
+                            val ack=CaptureDaemon.linkControl(this@MobileLinkService,'A')
+                            check(ack!=null){"الهاتف لم يؤكد طلب الرد التلقائي"}
                             answeredByAgent=true
-                            CaptureDaemon.linkControl(this@MobileLinkService,'A')
                         }
                     }
                     if(current.state==TelephonyManager.CALL_STATE_OFFHOOK && answeredByAgent && tenantSession!=null && call==null && !humanControl){
