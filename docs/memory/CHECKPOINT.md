@@ -1,3 +1,11 @@
+## 2026-11-01 — Hourly cycle #1: verified staff invitations, consent gate (candidate pending CI)
+
+- **Previous release proof now verified:** PR #7 main `ecbe44fb590a63f344bc869b01038373c1ef6e22`; CI `41280246046` PASS; publish workflow `41280245756` PASS; host Cron receipt `ops/host-link/results/appontrack-server11/saas-console-41280245756.json` = **success**, exit_code 0, finished **2026-11-01 06:19:04 UTC**, source `ecbe44fb590a`, 20 files, PHP 8.3, DB `already_seeded` 9 users, backup true. This is `HOST_DEPLOYED` for that release only, not payment/SSO/Android E2E.
+- **Security bug identified:** `Actions.php::add_employee` previously attached an existing user to a tenant by typed email immediately, or created an active user with temporary password and immediate membership, without the addressee's consent. That violates approved Q02 and enables unwanted tenant access.
+- **CODE CANDIDATE in `fix/verified-staff-invites-20261101`:** additive schema.v4 `staff_invitations` for SQLite/MySQL, pending invitation with 7-day expiry and capacity checks, owner/admin cancellation, authenticated invitee-only acceptance through CSRF-protected `/invitations` route, user-facing pending banner and staff table. No user/membership is created on invite; no support impersonation acceptance/invite. Regression tests cover email collision, cross-identity, replay, expiry, cancel, tenant isolation and no user creation.
+- **UNVERIFIED until PR CI/merge:** no claim of live invitation UI or schema.v4 on host. Invites for unregistered addresses remain pending until independently verified registration/email delivery exists. Full WHMCS/Laravel signed SSO, account claim, gateway settlement, Android multi-tenant and 2FA remain OPEN.
+- **Next gate:** PR CI PHP 8.3/SQLite, review code and merge only if success and safe; verify host receipt and authenticated UI separately; next independent slice: verified registration + SSO external_subject identity mapping.
+
 ## 2026-11-01 — Signed owner decisions PR #7: CI passed, publish queued, hourly automation enabled
 
 - Owner requirements Q01–Q24 accepted and written in `docs/discovery/OWNER_APPROVED_MASTER_DECISIONS_2026_11_01_AR.md`. Earlier six decisions unchanged. `AGENTS.md`, `CLAUDE.md`, plan and hourly runbook updated in main by merged PR **#7**, commit `ecbe44fb590a63f344bc869b01038373c1ef6e22`.
