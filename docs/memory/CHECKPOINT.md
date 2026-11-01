@@ -1,3 +1,12 @@
+## 2026-11-01 — Hourly cycle #4: DNC opt-out protection merged (PR #11)
+
+- **Issue:** a contact marked `dnc=1` could be reintroduced as `dnc=0` through consented API lead, signed booking, or manual contact form; edit/delete could silently erase the only opt-out record. This violates owner Q13's immediate "do not call again" safety requirement.
+- **FIX MERGED**: PR #11 `https://github.com/OnTrack-Development/OnTrack-voice/pull/11`, main commit `49ecf6b9c212c9a7aaac8f926d8dc07466ebe677`. Added `saas/console/_core/DncGuard.php`, changed API, signed hooks, Actions, contacts UI. A DNC in any site of one account applies to new contacts in all that account's sites, including Egyptian +20/00/01 formatting. Other tenants' DNC never leaks. Routine edit/phone change/delete cannot silently clear DNC until a verified opt-in/retention path is built.
+- **CI_PASS**: PR head `879228a21435275af2ab66b5bb4e738b45454010`, PHP 8.3 / SQLite + real HTTP API + signed webhook + authenticated-form-handler CLI subprocess regressions: workflow `41297247472` = **success**. Synthetic data only; no calls/payments.
+- **PUBLISH STATUS**: workflow/host Cron receipt must be checked separately; success is **NOT YET CLAIMED** in this checkpoint. A GitHub CI success is not proof of host deployment.
+- **OPEN**: no durable normalized suppression ledger, explicit consent-based DNC removal and privacy/retention flow, Android/campaign pre-dial gate, real authenticated browser, device E2E. This is an ingestion guard only. Existing PR #9 signed SSO remains open and untouched in runtime; do not auto-merge it without staging security evidence.
+- **Details**: `docs/execution/2026-11-01_DNC_INGESTION_CYCLE_04_AR.md`. **Next**: verify host receipt for PR #11; implement durable tenant DNC suppression + opt-in reversal/retention and pre-dial enforcement, or continue independent verified registration/payment task after PR #9 staging review.
+
 ## 2026-11-01 — Hourly cycle #1 PR #8 merged, CI and host deployment verified
 
 - **Issue fixed in code:** previously `add_employee` could immediately attach an existing user to another tenant solely from a typed email, or create an active unverified user and membership. It now creates a 7-day pending invitation without granting membership. Only the authenticated email-matching existing user can explicitly accept it; CSRF, expiry, replay, cross-identity, support-session and tenant checks apply. Owners/admins can cancel scoped pending invitations. SQLite/MySQL additive `schema.v4` migration and staff/invitation UI are included.
