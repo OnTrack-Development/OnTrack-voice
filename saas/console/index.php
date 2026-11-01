@@ -39,7 +39,7 @@ if($path==='/login') {
         usleep(250000);
         login_page('البريد أو كلمة المرور غير صحيحة');exit;
     }
-    if(me())go('/');
+    if(me())go(memberships((int)me()['id'])?'/':'/invitations');
     login_page();exit;
 }
 if($path==='/brand-logo'){
