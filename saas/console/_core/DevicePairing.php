@@ -70,7 +70,6 @@ function device_binding_profile(array $binding):array {
     return ['device_id'=>(int)$binding['id'],'account_id'=>(int)$binding['account_id'],
         'site_id'=>(int)$site['id'],'site_name'=>$site['name'],
         'agent_id'=>(int)$agent['id'],'agent_name'=>$agent['name'],
-        'agent_instructions'=>$agent['instructions'],
         'voice'=>$agent['voice'],'instruction'=>$agent['instructions'],
         'sim_slot'=>(int)$binding['sim_slot'],'heartbeat_seconds'=>10,
         'transport'=>'tenant_pairing_preview_no_sim_bridge'];
