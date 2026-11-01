@@ -5,12 +5,20 @@ require_once __DIR__.'/../saas/console/_core/DevicePairing.php';
 function test_tenant_device_pairing():void {
     $admin=one("SELECT id FROM users WHERE email='admin@ontrackegy.com'");
     $actor=(int)$admin['id'];
-    $codeA=device_pairing_create(4,1,1,$actor);
+    $codeA=device_pairing_create(4,1,1,$actor,0);
     ok((bool)preg_match('/^[A-F0-9]{4}(?:-[A-F0-9]{4}){5}$/D',$codeA),'device code long random one-time format');
+    ok($codeA[0]==='0','SIM 1 code carries server-locked slot marker');
+    $wrongSlot=false;
+    try{device_pairing_redeem($codeA,'wrong-slot-install-0000001',1,'Wrong SIM');}
+    catch(InvalidArgumentException $e){$wrongSlot=$e->getMessage()==='device_pairing_slot_mismatch';}
+    ok($wrongSlot,'SIM 1 code cannot be redeemed on SIM 2, even before first use');
+    $invalidIssue=false;
+    try{device_pairing_create(4,1,1,$actor,2);}catch(InvalidArgumentException $e){$invalidIssue=true;}
+    ok($invalidIssue,'server rejects pairing ticket for nonexistent SIM slot');
     ok(!str_contains(json_encode(all('SELECT * FROM device_pairings WHERE account_id=4')),$codeA),
         'plaintext pairing secret not persisted');
     $invalidScope=false;
-    try{device_pairing_create(4,3,3,$actor);}catch(InvalidArgumentException $e){$invalidScope=true;}
+    try{device_pairing_create(4,3,3,$actor,0);}catch(InvalidArgumentException $e){$invalidScope=true;}
     ok($invalidScope,'cannot issue pairing for another tenant site/agent');
     $inst='realistic-device-install-001';
     $a=device_pairing_redeem($codeA,$inst,0,'Android test SIM 1');
@@ -29,11 +37,17 @@ function test_tenant_device_pairing():void {
     try{device_pairing_redeem($codeA,'other-install-00000000001',1,'Replay');}
     catch(InvalidArgumentException $e){$used=$e->getMessage()==='device_pairing_expired_or_used';}
     ok($used,'one-time code replay denied');
-    $codeB=device_pairing_create(5,3,3,$actor);
+    $codeB0=device_pairing_create(5,3,3,$actor,0);
+    $codeB=device_pairing_create(5,3,3,$actor,1);
+    ok($codeB[0]==='1','SIM 2 code carries server-locked slot marker');
     $sameSlot=false;
-    try{device_pairing_redeem($codeB,$inst,0,'Collision');}
+    try{device_pairing_redeem($codeB0,$inst,0,'Collision');}
     catch(PDOException $e){$sameSlot=true;}
     ok($sameSlot,'same physical SIM slot cannot be claimed by second tenant');
+    $wrongB=false;
+    try{device_pairing_redeem($codeB,$inst,0,'Wrong tenant slot');}
+    catch(InvalidArgumentException $e){$wrongB=$e->getMessage()==='device_pairing_slot_mismatch';}
+    ok($wrongB,'SIM 2 ticket cannot be used to overwrite SIM 1 tenant binding');
     $b=device_pairing_redeem($codeB,$inst,1,'Android test SIM 2');
     $sessionB=device_binding_authorize($b['device_token']);
     ok($sessionB!==null && (int)$sessionB['account_id']===5 && (int)$sessionB['sim_slot']===1,
@@ -43,11 +57,11 @@ function test_tenant_device_pairing():void {
     ok(device_binding_revoke(5,$a['device_id'])===false,'cross-tenant device revoke denied');
     ok(device_binding_revoke(4,$a['device_id'])===true,'owner scope revokes active SIM token');
     ok(device_binding_authorize($a['device_token'])===null,'revoked SIM token immediately denied');
-    $replacement=device_pairing_create(4,1,1,$actor);
+    $replacement=device_pairing_create(4,1,1,$actor,0);
     $relinked=device_pairing_redeem($replacement,$inst,0,'Android relink SIM 1');
     ok($relinked['device_id']!==$a['device_id'],'revoked slot can re-pair independently');
     ok(device_binding_authorize($b['device_token'])!==null,'other account SIM untouched by revoke');
-    $cancel=device_pairing_create(4,1,1,$actor);
+    $cancel=device_pairing_create(4,1,1,$actor,0);
     $pid=one('SELECT id FROM device_pairings WHERE code_hash=?',[hash('sha256',strtolower(str_replace('-','',$cancel)))]);
     ok(device_pairing_cancel(5,(int)$pid['id'])===false,'cannot cancel another tenant pairing');
     ok(device_pairing_cancel(4,(int)$pid['id'])===true,'owner scoped pairing cancellation');
@@ -55,7 +69,7 @@ function test_tenant_device_pairing():void {
     try{device_pairing_redeem($cancel,'other-install-00000000002',1,'Cancelled');}
     catch(InvalidArgumentException $e){$cancelled=true;}
     ok($cancelled,'cancelled pairing rejected');
-    $expired=device_pairing_create(4,1,1,$actor);
+    $expired=device_pairing_create(4,1,1,$actor,0);
     execute("UPDATE device_pairings SET expires_at='2000-01-01 00:00:00' WHERE code_hash=?",
         [hash('sha256',strtolower(str_replace('-','',$expired)))]);
     $stale=false;
@@ -72,7 +86,7 @@ function test_tenant_device_pairing():void {
     execute("UPDATE accounts SET status='suspended' WHERE id=4");
     ok(device_binding_authorize($relinked['device_token'])===null,'suspended account immediately revokes usable access');
     $blockedCreate=false;
-    try{device_pairing_create(4,1,1,$actor);}
+    try{device_pairing_create(4,1,1,$actor,0);}
     catch(InvalidArgumentException $e){$blockedCreate=true;}
     ok($blockedCreate,'suspended tenant cannot issue pairing');
     execute("UPDATE accounts SET status='active' WHERE id=4");
@@ -80,7 +94,7 @@ function test_tenant_device_pairing():void {
     ok(device_binding_authorize($b['device_token'])===null,'disconnected SIM token rejected immediately');
     ok(device_binding_authorize($relinked['device_token'])!==null,'other customer SIM unaffected by disconnect');
     ok(device_binding_disconnect($sessionB)===false,'repeat disconnect rejected');
-    $repaired=device_pairing_create(5,3,3,$actor);
+    $repaired=device_pairing_create(5,3,3,$actor,1);
     $newB=device_pairing_redeem($repaired,$inst,1,'SIM 2 after disconnect');
     ok($newB['device_id']!==$b['device_id'] && device_binding_authorize($newB['device_token'])!==null,
         'disconnected slot can enroll again without changing other slot');
