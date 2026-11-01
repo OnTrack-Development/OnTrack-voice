@@ -6,7 +6,7 @@
   for (const panel of panels) {
     const code = panel.getAttribute("data-pair-code") || "";
     const slot = panel.getAttribute("data-pair-slot");
-    if (!/^[A-Fa-f0-9]{4}(?:-?[A-Fa-f0-9]{4}){5}$/.test(code) || !/^[01]$/.test(slot)) {
+    if (!/^[A-Fa-f0-9]{4}(?:-?[A-Fa-f0-9]{4}){5}$/.test(code) || !/^[01]$/.test(slot) || code[0] !== slot) {
       panel.textContent = "رمز QR غير صالح";
       continue;
     }
