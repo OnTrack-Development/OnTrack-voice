@@ -240,7 +240,7 @@ function render_staff(array $a):void{
        $users[]=[e($r['name']),e($r['email']),$actions];
     }
     echo card('فريق العمل',tbl(['الاسم','البريد','الصلاحية والإدارة'],$users));
-    if(($a['role']??'')==='owner'||($a['role']??'')==='admin')
+    if((($a['role']??'')==='owner'||($a['role']??'')==='admin')&&!active_support())
         echo card('دعوة موظف (تحتاج قبول صاحب البريد)',form_start('add_employee','/?tab=staff').field_html('اسم الموظف','name','text','الاسم',true).field_html('البريد الإلكتروني','email','email','staff@company.com',true).
             select_html('الدور','role',['manager'=>'مدير','operator'=>'موظف عمليات','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).submit_btn('إنشاء دعوة بدون منح صلاحية'));
     $pending=all("SELECT id,email,name,role,expires_at FROM staff_invitations WHERE account_id=? AND status='pending' AND expires_at>? ORDER BY id DESC",[$id,now()]);
