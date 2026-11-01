@@ -87,6 +87,6 @@ Shizuku وAccessibility وأي شراء هاردوير للعميل وأي عق�
 ## 2026-11-01 — دورة #3: إصلاح API للأرشفة (PR #10)
 
 - **مكتمل بالكود والـCI:** `main` commit `04e5851ed960a82fff7f6b3f7655cccfed7c33f6` يمنع مفاتيح API من عرض المواقع والإيجنتات المؤرشفة أو قراءة معرفتها، ويمنع إنشاء Lead على موقع مؤرشف. HTTP regression اختبر API الحقيقي محليًا، مع استمرار وظائف الموقع النشط وعزل المستأجرين. CI PR `41292501176` وmain `41292532680` ناجحان.
-- **غير مكتمل:** إثبات نشر Cron `41292532708` لم يتأكد عند كتابة السجل؛ لا يوجد AUTH_UI أو DEVICE_E2E أو PAYMENT_E2E. هذه الخطوة لا تنفذ Trash/Restore الشامل ولا تغير قرار Q04.
+- **HOST_DEPLOYED مؤكد:** Workflow `41292532708` نجح، وCron receipt `ops/host-link/results/appontrack-server11/saas-console-41292532708.json` = success، exit 0، المصدر `04e5851ed960`، **21 ملفًا**، PHP 8.3، seed already_seeded، نسخة احتياطية محفوظة، انتهى **2026-11-01 09:19:04 UTC**. لا يوجد AUTH_UI أو DEVICE_E2E أو PAYMENT_E2E. هذه الخطوة لا تنفذ Trash/Restore الشامل ولا تغير قرار Q04.
 - **التوازي:** PR #9 للـSSO مفتوح ولم تُعدل ملفاته؛ يجب تقييم staging security قبل دمجه.
 - تفاصيل الإصلاح: `docs/execution/2026-11-01_API_ARCHIVE_CYCLE_03_AR.md`.
