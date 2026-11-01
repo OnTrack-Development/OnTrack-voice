@@ -1,3 +1,13 @@
+## 2026-11-01 — Signed owner decisions PR #7: CI passed, publish queued, hourly automation enabled
+
+- Owner requirements Q01–Q24 accepted and written in `docs/discovery/OWNER_APPROVED_MASTER_DECISIONS_2026_11_01_AR.md`. Earlier six decisions unchanged. `AGENTS.md`, `CLAUDE.md`, plan and hourly runbook updated in main by merged PR **#7**, commit `ecbe44fb590a63f344bc869b01038373c1ef6e22`.
+- **CI_PASS** confirmed: PR PHP/SQLite regression workflow `41280217523` = success; post-merge PHP console workflow `41280246046` = success.
+- **PUBLISH_WORKFLOW_PASS / HOST_DEPLOYED NOT YET VERIFIED**: deployment workflow `41280245756` success, including 'Queue safe deployment on existing host Cron worker'; receipt `ops/host-link/results/appontrack-server11/saas-console-41280245756.json` not found when checked. No proof yet the host applied commit; do not call that deployed.
+- **FIX CODED:** `OrderClaim.php` and signed webhook now mark paid order `paid_pending_claim` without authenticating or joining an existing OnTrack login by email alone. Console smoke regression asserts no unintended membership, no subscription activation, one outbox event, idempotent same reference and conflict for different reference.
+- **BLOCKED FOR COMPLETE CUSTOMER PURCHASE:** signed SSO/account claim, official gateway settlement verification, manual/Instapay/wallet review workflow, safe activation and external WHMCS/Laravel acknowledgments remain OPEN. The paid order is intentionally not attached to user; support team must not claim it is automatically accessible.
+- **HOURLY_AUTOMATION_ENABLED**: scheduled recurring hourly task `تطوير OnTrack Voice تلقائيًا` created successfully; each run must follow `docs/execution/AUTONOMOUS_HOURLY_RUNBOOK_AR.md`, open small code PRs, report tests, and avoid unsafe production financial/telephony side effects.
+- **Next:** verify host Cron receipt for release and build customer claim/SSO verified identity pipeline + sandbox payment order E2E.
+
 ## 2026-11-01 — Owner Q01–Q24 approved, billing identity boundary candidate, hourly execution runbook
 
 - **SPEC_APPROVED**: All Q01–Q24 answered; Q07 broad Android goal with staged validation and later iOS, Q13 custom per-campaign outcomes with DNC guard delegated and resolved. Earlier 6 owner decisions preserved without change. Master: `docs/discovery/OWNER_APPROVED_MASTER_DECISIONS_2026_11_01_AR.md`. Owner requires complete launch including registration/invites, 2FA, per-company support/trash policy, dual SIM accounts, real agent flow, Google Drive KB, configurable multi-currency/monthly/yearly/trial plans, Kashier plus manual/Instapay/wallet review, reseller-collected vs OnTrack-collected payment, WHMCS/Laravel customer purchase and secure SSO with no preexisting OnTrack account.
