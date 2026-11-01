@@ -1,3 +1,12 @@
+## 2026-11-01 — Owner escalated: build missing product, not only repair release infrastructure (Device Pairing milestone)
+
+- **User priority correction:** core product milestones first. Do not select an endless series of publishing/CI bug fixes as substitutes for SaaS/Android features.
+- **CODE CANDIDATE (before CI):** branch `feat/tenant-device-pairing-core-20261101` adds SaaS `device_pairings` and `device_bindings` via SQLite/MySQL additive migration v5. Per-account/site/agent 96-bit one-time 10-minute code (SHA-256 at rest) and independently scoped per-SIM 256-bit bearer token (SHA-256 at rest). Cross-tenant SIM-slot double-binding blocked via UNIQUE nullable slot_claim, revoked tokens immediately denied, archives and ownership checked on heartbeat.
+- **UI CANDIDATE:** Android device management section in Admin/Reseller/User console can issue code, cancel pending code, see and revoke bindings; platform legacy pilot remains separate. Customer device is **NOT** authorized with old shared pilot bearer.
+- **API CANDIDATE:** `saas/console/device/v1/index.php` (POST pair / heartbeat) returns site/agent-scoped profile only, HTTPS enforced, no calls or untested voice bridge. `tools/test_tenant_device_pairing.php` added to PHP 8.3 CI smoke: tenant/site scope, dual-SIM, one-time/replay, code expiry, revoke, archive.
+- **UNFINISHED:** Android installed native client does not yet submit new pairing code, store per-SIM token, or route SIM audio/AI by token; QR scanning UI not implemented; no actual Xiaomi paired-phone E2E. This is NOT end-to-end pairing completion or full Android support; status control-plane only. No live calls/delivery of secrets to unverified phones.
+- **Next:** finish code review & CI; if all green, merge and confirm SaaS host receipt. Then implement Android client activation and real dual-SIM on-device tests as next **product feature**, not more unrelated release microfixes. PR #9 SSO remains open and untouched.
+
 ## 2026-11-01 — Cycle #8 candidate: pinned PHP-only pilot host publish (PR #15)
 
 - **Gap:** PR #13 DNC pre-dial guard was CODED and CI_PASS but pilot PHP server was not published by SaaS console workflow. Native APK release is not proof of mobile PHP deployment.
