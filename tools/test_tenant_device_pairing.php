@@ -125,6 +125,41 @@ function test_tenant_device_pairing():void {
     ok((int)one('SELECT COUNT(*) n FROM tenant_call_events WHERE account_id=4')['n']===5 &&
        (int)one('SELECT COUNT(*) n FROM tenant_call_events WHERE account_id=5')['n']===1,
        'call history rows are strictly isolated by account');
+    // Human reports attach only to observed, ended calls on the exact tenant SIM.
+    $manual=tenant_call_report_save(4,(int)$a['device_id'],$callA,
+        'satisfied','عميل راضٍ حسب مراجعة الموظف','device');
+    ok($manual['outcome']==='satisfied' && $manual['source']==='device',
+        'paired SIM can save explicit human outcome after ended call');
+    $historyWithReport=device_call_history($session);
+    $reported=array_values(array_filter($historyWithReport,
+        static fn(array $item):bool=>$item['call_id']===$callA));
+    ok(count($reported)===1 && $reported[0]['report']['note']==='عميل راضٍ حسب مراجعة الموظف',
+        'mobile history shows only the manually entered report');
+    tenant_call_report_save(4,(int)$a['device_id'],$callA,
+        'follow_up','مراجعة بشرية لاحقة','web',$actor);
+    $savedReport=one('SELECT outcome,source,actor_user_id FROM tenant_call_reports WHERE account_id=? AND device_id=? AND call_id=?',
+        [4,$a['device_id'],$callA]);
+    ok($savedReport['outcome']==='follow_up' && $savedReport['source']==='web' &&
+        (int)$savedReport['actor_user_id']===$actor,
+        'web editor updates existing report with real user actor and no duplicate');
+    ok((int)one('SELECT COUNT(*) n FROM tenant_call_reports WHERE account_id=4 AND device_id=?',
+        [$a['device_id']])['n']===1,'report update is idempotent per call and device');
+    $wrongTenantReport=false;
+    try{tenant_call_report_save(5,(int)$a['device_id'],$callA,'satisfied','','device');}
+    catch(InvalidArgumentException $e){$wrongTenantReport=true;}
+    ok($wrongTenantReport,'SIM2 tenant cannot annotate SIM1 device or call');
+    $unfinishedReport=false;
+    try{tenant_call_report_save(5,(int)$b['device_id'],$callA,'satisfied','','device');}
+    catch(InvalidArgumentException $e){$unfinishedReport=true;}
+    ok($unfinishedReport,'active call cannot receive a fabricated finished-call report');
+    $invalidOutcome=false;
+    try{tenant_call_report_save(4,(int)$a['device_id'],$callA,'do_not_call','','device');}
+    catch(InvalidArgumentException $e){$invalidOutcome=true;}
+    ok($invalidOutcome,'manual disposition cannot pretend to apply DNC without verified number');
+    $missedReport=tenant_call_report_save(4,(int)$a['device_id'],$missedId,
+        'unknown','لم يتم الرد','web',$actor);
+    ok($missedReport['outcome']==='unknown',
+        'missed call may carry a human note without fabricated sentiment');
     $withoutStart=false;
     try{device_call_event($sessionB,['sim_slot'=>1,'device_id'=>(int)$b['device_id'],'call_id'=>$callB,
         'phase'=>'ended','duration_seconds'=>1,'occurred_at'=>$timestamp]);}
@@ -153,6 +188,14 @@ function test_tenant_device_pairing():void {
     try{device_call_history($session);}
     catch(RuntimeException $e){$revokedHistoryDenied=$e->getMessage()==='device_binding_revoked';}
     ok($revokedHistoryDenied,'revoked SIM cannot read prior call history');
+    $revokedReportDenied=false;
+    try{tenant_call_report_save(4,(int)$a['device_id'],$callA,'satisfied','','device');}
+    catch(InvalidArgumentException $e){$revokedReportDenied=true;}
+    ok($revokedReportDenied,'revoked SIM cannot write a new human report');
+    $historicalWebReport=tenant_call_report_save(4,(int)$a['device_id'],$callA,
+        'unsatisfied','مراجعة بشرية بعد الفصل','web',$actor);
+    ok($historicalWebReport['outcome']==='unsatisfied',
+        'authorized web staff can annotate historical calls after device revoke');
     $replacement=device_pairing_create(4,1,1,$actor,0);
     $relinked=device_pairing_redeem($replacement,$inst,0,'Android relink SIM 1');
     ok($relinked['device_id']!==$a['device_id'],'revoked slot can re-pair independently');
