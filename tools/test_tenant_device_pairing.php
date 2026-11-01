@@ -225,7 +225,7 @@ function test_tenant_device_pairing():void {
         [$a['device_id'],$freshId])['agent_id']===$newAgent,
         'new call belongs to reassigned agent');
     // An offline call observed under revision 1 must not be assigned to revision 2.
-    $delayedId='56789abc-def0-4abc-8abc-56789abcdef';
+    $delayedId='56789abc-def0-4abc-8abc-56789abcdef0';
     $delayed=['sim_slot'=>0,'device_id'=>(int)$a['device_id'],'call_id'=>$delayedId,
         'phase'=>'ringing','agent_revision'=>1,'duration_seconds'=>0,'occurred_at'=>$timestamp];
     device_call_event($session,$delayed);
@@ -240,7 +240,7 @@ function test_tenant_device_pairing():void {
     ok($wrongRevision,'one call cannot switch agent revisions between phases or retries');
     $unknownRevision=false;
     try{device_call_event($session,['sim_slot'=>0,'device_id'=>(int)$a['device_id'],
-        'call_id'=>'6789abcd-ef01-4abc-8abc-6789abcdef','phase'=>'ringing',
+        'call_id'=>'6789abcd-ef01-4abc-8abc-6789abcdef01','phase'=>'ringing',
         'agent_revision'=>999,'duration_seconds'=>0,'occurred_at'=>$timestamp]);}
     catch(InvalidArgumentException $e){$unknownRevision=true;}
     ok($unknownRevision,'unknown SIM agent revision cannot be fabricated');
