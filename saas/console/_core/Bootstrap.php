@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v6(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v8(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v8();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -338,6 +338,32 @@ function init_console_v6():void {
             UNIQUE(device_id,call_id,phase)
         )");
         db()->exec("CREATE INDEX IF NOT EXISTS idx_tenant_calls ON tenant_call_events(account_id,id)");
+    }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+/** Tenant SIM call outcomes are manually entered, never inferred from telephony state. */
+function init_console_v8():void {
+    $marker=private_path().'/schema.v8';
+    if(is_file($marker))return;
+    if(driver()==='mysql'){
+        db()->exec("CREATE TABLE IF NOT EXISTS tenant_call_reports (
+            account_id BIGINT NOT NULL,device_id BIGINT NOT NULL,sim_slot INT NOT NULL,
+            call_id CHAR(36) NOT NULL,outcome VARCHAR(20) NOT NULL,
+            note TEXT NOT NULL,source VARCHAR(12) NOT NULL,actor_user_id BIGINT NULL,
+            updated_at VARCHAR(19) NOT NULL,
+            PRIMARY KEY(account_id,device_id,call_id),
+            KEY idx_tenant_report_device(device_id,sim_slot)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }else{
+        db()->exec("CREATE TABLE IF NOT EXISTS tenant_call_reports (
+            account_id INTEGER NOT NULL,device_id INTEGER NOT NULL,sim_slot INTEGER NOT NULL,
+            call_id TEXT NOT NULL,outcome TEXT NOT NULL,
+            note TEXT NOT NULL,source TEXT NOT NULL,actor_user_id INTEGER,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY(account_id,device_id,call_id)
+        )");
+        db()->exec("CREATE INDEX IF NOT EXISTS idx_tenant_report_device ON tenant_call_reports(device_id,sim_slot)");
     }
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
