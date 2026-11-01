@@ -11,11 +11,21 @@ try{
     expect($same['duplicate']===true,'dedupe');
     ontrack_call_event(['call_id'=>$id,'sequence'=>2,'phase'=>'active'],$base);
     ontrack_call_event(['call_id'=>$id,'sequence'=>3,'phase'=>'ended','duration_seconds'=>22],$base);
+    ontrack_call_event(['call_id'=>$id,'sequence'=>4,'phase'=>'identified',
+        'duration_seconds'=>22,'phone_number'=>'+201012345678','contact_name'=>'أحمد علي'],$base);
+    $sameMetadata=ontrack_call_event(['call_id'=>$id,'sequence'=>4,'phase'=>'identified',
+        'duration_seconds'=>22,'phone_number'=>'+201012345678','contact_name'=>'أحمد علي'],$base);
+    expect($sameMetadata['duplicate']===true,'idempotent metadata');
     $rows=ontrack_call_list($base);
     expect(count($rows)===1,'one call');
     expect($rows[0]['phase']==='ended' && $rows[0]['duration_seconds']===22,'terminal record');
     expect($rows[0]['answered_at_utc']!==null,'answered timestamp');
-    try{ontrack_call_event(['call_id'=>$id,'sequence'=>4,'phase'=>'active'],$base);throw new RuntimeException('accepted reopened call');}
+    expect($rows[0]['contact_name']==='أحمد علي'&&$rows[0]['phone_number']==='+201012345678','verified caller');
+    expect($rows[0]['phase']==='ended','identity does not reopen call');
+    try{ontrack_call_event(['call_id'=>$id,'sequence'=>5,'phase'=>'identified','phone_number'=>'+201000000000'],$base);
+        throw new RuntimeException('conflicting identity allowed');}
+    catch(InvalidArgumentException $e){expect($e->getMessage()==='conflicting_phone','identity integrity');}
+    try{ontrack_call_event(['call_id'=>$id,'sequence'=>6,'phase'=>'active'],$base);throw new RuntimeException('accepted reopened call');}
     catch(InvalidArgumentException $e){expect($e->getMessage()==='call_already_ended','closed guard');}
     try{ontrack_call_event(['call_id'=>'../../bad','sequence'=>1,'phase'=>'ringing'],$base);throw new RuntimeException('accepted bad id');}
     catch(InvalidArgumentException $e){expect($e->getMessage()==='invalid_call_id','path guard');}

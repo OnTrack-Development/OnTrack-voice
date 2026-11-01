@@ -83,11 +83,11 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
             --ks "$HOME/.android/debug.keystore" \
             --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android \
-            --out .build/artifact/OnTrack-Voice-0.2.9.apk \
+            --out .build/artifact/OnTrack-Voice-0.3.0.apk \
             .build/jemrec/app/build/outputs/apk/debug/app-debug.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs .build/artifact/OnTrack-Voice-0.2.9.apk > .build/artifact/signature.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs .build/artifact/OnTrack-Voice-0.3.0.apk > .build/artifact/signature.txt
           grep -Fq 'Signer #1 certificate SHA-256 digest: d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f' .build/artifact/signature.txt
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose .build/artifact/OnTrack-Voice-0.2.9.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose .build/artifact/OnTrack-Voice-0.3.0.apk
           "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print .build/artifact/*.apk > .build/artifact/AndroidManifest.xml
           python3 tools/check_mobile_manifest.py .build/artifact/AndroidManifest.xml
           sha256sum .build/artifact/*.apk > .build/artifact/SHA256SUMS.txt
@@ -101,12 +101,12 @@ jobs:
           python3 -c "import sys; sys.path.insert(0,'tools'); from queue_mobile_ota import verify; from pathlib import Path; verify(Path('.build/artifact/ota')); print('OTA signature and hashes verified')"
       - name: Prepare and sign native Android OTA update
         run: |
-          python3 tools/prepare_mobile_native.py .build/artifact/OnTrack-Voice-0.2.9.apk .build/artifact/native
+          python3 tools/prepare_mobile_native.py .build/artifact/OnTrack-Voice-0.3.0.apk .build/artifact/native
           java tools/SignMobileOta.java "$HOME/.android/debug.keystore" .build/artifact/native
           python3 -c "import sys;sys.path.insert(0,'tools');from queue_mobile_native import verify;from pathlib import Path;verify(Path('.build/artifact/native'));print('Signed native release metadata verified')"
       - uses: actions/upload-artifact@v5
         with:
-          name: OnTrack-Voice-0.2.9
+          name: OnTrack-Voice-0.3.0
           path: .build/artifact/
           if-no-files-found: error
           retention-days: 30
@@ -130,7 +130,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
-          name: OnTrack-Voice-0.2.9
+          name: OnTrack-Voice-0.3.0
           path: .build/downloaded
       - name: Queue verified OTA files through existing host worker
         env:
@@ -148,7 +148,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
-          name: OnTrack-Voice-0.2.9
+          name: OnTrack-Voice-0.3.0
           path: .build/downloaded
       - name: Queue signed native APK through OnTrack worker
         env:

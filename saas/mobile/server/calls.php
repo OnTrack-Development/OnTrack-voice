@@ -22,6 +22,11 @@ $rows=array_values(array_filter($rows,static function(array $r)use($filter,$phas
     return stripos($hay,$filter)!==false;
 }));
 function ch(string $v):string{return htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
+function call_duration_ar($seconds):string {
+    if($seconds===null||!is_numeric($seconds))return '—';
+    $total=max(0,(int)$seconds);$min=intdiv($total,60);$sec=$total%60;
+    return $min>0?$min.' دقيقة'.($sec?' و'.$sec.' ثانية':''):$sec.' ثانية';
+}
 $states=['ringing'=>'رنين','active'=>'تم الرد','ended'=>'انتهت','missed'=>'لم يتم الرد','unknown'=>'غير معروف'];
 ?><!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>سجل المكالمات | OnTrack</title>
 <style>
@@ -39,12 +44,13 @@ code{font-size:11px;direction:ltr;display:inline-block;color:#b7c3d7}.empty{padd
 <?php foreach(['ringing'=>'رنين','active'=>'تم الرد','ended'=>'انتهت','missed'=>'لم يرد'] as $v=>$label):?>
 <option value="<?=ch($v)?>" <?=$phase===$v?'selected':''?>><?=ch($label)?></option>
 <?php endforeach;?></select><button type="submit">بحث</button></form>
-<p>بداية ربط سجل المكالمات الفعلي مع OnTrack. هذا السجل يلتقط تغيرات حالة الشريحة التي يراها التطبيق، وليس سجل الاتصالات القديم الخاص بنظام Android. الاسم والرقم والتسجيل والملخص ستظل «غير متاح» حتى ربط مصادرها فعليًا.</p>
+<p>بداية ربط سجل المكالمات الفعلي مع OnTrack. هذا السجل يلتقط تغيرات حالة الشريحة التي يراها التطبيق، وليس سجل الاتصالات القديم الخاص بنظام Android. الاسم والرقم يظهران بعد إذن قراءة سجلات المكالمات وجهات الاتصال ومطابقة السجل فعليًا. التسجيل والملخص لا يظهران إلا بعد التوليد الحقيقي.</p>
 <section><?php if(!$rows):?><div class="empty">لم تصل أي مكالمة مسجلة من تطبيق OnTrack حتى الآن.</div><?php else:?>
-<table><thead><tr><th>المعرف</th><th>وقت أول رصد UTC</th><th>الحالة</th><th>مدة الرصد</th><th>رقم الهاتف</th><th>التقرير</th></tr></thead><tbody>
+<table><thead><tr><th>المعرف</th><th>وقت أول رصد UTC</th><th>الحالة</th><th>مدة المكالمة</th><th>اسم جهة الاتصال</th><th>رقم الهاتف</th><th>التقرير</th></tr></thead><tbody>
 <?php foreach($rows as $row):?><tr><td><code><?=ch((string)$row['call_id'])?></code></td>
 <td><?=ch((string)$row['started_at_utc'])?></td>
 <td><?=ch($states[$row['phase']]??'غير معروف')?></td>
-<td><?=isset($row['duration_seconds'])&&$row['duration_seconds']!==null?(int)$row['duration_seconds'].' ث':'—'?></td>
-<td>غير متاح</td><td>لم يُنشأ بعد</td></tr><?php endforeach;?></tbody></table><?php endif;?></section>
+<td><?=ch(call_duration_ar($row['duration_seconds']??null))?></td>
+<td><?=ch((string)($row['contact_name']??'غير معروف'))?></td>
+<td dir="ltr"><?=ch((string)($row['phone_number']??'غير متاح'))?></td><td>لم يُنشأ بعد</td></tr><?php endforeach;?></tbody></table><?php endif;?></section>
 </main></body></html>

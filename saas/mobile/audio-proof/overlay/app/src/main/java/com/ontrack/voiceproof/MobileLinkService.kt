@@ -228,6 +228,7 @@ class MobileLinkService:Service() {
                     val state=raw.substringAfter("CALL ").toIntOrNull()?:error("حالة الاتصال غير مفهومة")
                     // Persist device-observed call transitions even when server delivery retries.
                     callEventOutbox.observe(state)
+                    runCatching { callEventOutbox.enrichFromCallLog() } // optional consented on-device contact matching
                     runCatching { campaignDialer.tick(state,agentEnabled) }
                         .onFailure { notice("فحص الحملات لم يكتمل: "+it.javaClass.simpleName) }
                     if(callEventFlush?.isActive!=true)callEventFlush=scope.launch {

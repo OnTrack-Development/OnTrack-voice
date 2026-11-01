@@ -49,9 +49,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 20', 'versionCode')
+                        'versionCode = 21', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.2.9-ota"', 'versionName')
+                        'versionName = "0.3.0-ota"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
@@ -238,6 +238,8 @@ def main(root):
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.REQUEST_INSTALL_PACKAGES'})
     # Explicit opt-in for importing all phone contacts, no background address-book access.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.READ_CONTACTS'})
+    # Optional and user-consented; Android may restrict call-log access for non-default dialers.
+    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.READ_CALL_LOG'})
     # Outbound SIM placement is never enabled unless the owner explicitly opts in.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.CALL_PHONE'})
     ET.SubElement(app, 'receiver', {

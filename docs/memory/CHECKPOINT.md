@@ -1,5 +1,14 @@
 ## 2026-11-01 — VERIFIED latest checkpoint (supersedes older P1/P2 release status)
 
+## 2026-11-01 — User-requested red/black/white code implementation, single push (NOT automatically E2E closed)
+
+- Execution rule: implement in **code** whenever owner says «نفّذ»؛ create images only when explicitly asked for an image. Single atomic push requested for this batch; do not split main commits.
+- Android user UI: unified OTA/new-bundled HTML with OnTrack red/black/white, icon-only persisted light/dark selection, bottom-tab navigation, Arabic minutes/seconds and contact-name permission path. Admin and reseller layouts postponed until tenant-scoped SaaS RBAC.
+- Identity integration approach: new optional READ_CALL_LOG + READ_CONTACTS permission, late unique Android CallLog match with phone lookup; backend accepts authenticated `identified` enrichment after terminal call without reopening or changing recorded duration. Never infer caller without unique log match or claim device permission has been granted.
+- Release planned v0.3.0 versionCode21 / OTA16. CI, host publication and actual device names/durations/visual checks must be verified individually after push. Real Xiaomi test still open.
+- Previous release v0.2.9/OTA15 built and both publication jobs succeeded on run 41253328620; separate from this new batch.
+
+
 - User requested complete group memory persisted in GitHub. Canonical handoff with product scope, exclusions, infrastructure, release and safety is at the top of `AGENTS.md` (commit `e3165c74`). Read that and the current repository before asking for anything.
 - HOST INCIDENT ROOT CAUSE confirmed by owner cPanel screenshots: Cron `* * * * * /bin/python3 /home/appontrack/ontrack-voice-link/worker.py` **was running**. `STOP` absent; GitHub public HTTP 200; `last-run.log` said `Host Link: ValueError`; local state active None/completed 71. A **queued job expired** before worker validation, and installed worker kept raising `ValueError` each minute. Earlier assertion that Cron had stopped was incorrect.
 - RECOVERY verified: safely replaced expired unexecuted queue with probe `recover-cron-20261101000753`, report **success** at `2026-11-01T00:08:03Z` on `ontrack-host-link`. A source-only change `ops/host-link/worker.py` (commit `8dd3677`) makes expired unstarted jobs emit receipt; **not yet confirmed deployed to installed worker**.

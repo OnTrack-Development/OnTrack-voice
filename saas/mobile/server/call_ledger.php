@@ -9,7 +9,7 @@ function ontrack_call_event(array $event, string $store): array {
     }
     $sequence=filter_var($event['sequence']??null,FILTER_VALIDATE_INT);
     $phase=(string)($event['phase']??'');
-    if ($sequence===false || $sequence<1 || $sequence>100000 || !in_array($phase,['ringing','active','ended','missed'],true)) {
+    if ($sequence===false || $sequence<1 || $sequence>100000 || !in_array($phase,['ringing','active','ended','missed','identified'],true)) {
         throw new InvalidArgumentException('invalid_call_event');
     }
     $duration=filter_var($event['duration_seconds']??0,FILTER_VALIDATE_INT);
@@ -24,10 +24,11 @@ function ontrack_call_event(array $event, string $store): array {
         if ($record!==null && $sequence<=(int)($record['last_sequence']??0)) {
             return ['ok'=>true,'duplicate'=>true,'call_id'=>$id,'phase'=>$record['phase']];
         }
-        if ($record!==null && in_array($record['phase']??'', ['ended','missed'],true)) {
+        if ($record!==null && $phase!=='identified' && in_array($record['phase']??'', ['ended','missed'],true)) {
             throw new InvalidArgumentException('call_already_ended');
         }
-        $now=gmdate('Y-m-d\TH:i:s\Z');
+        if($phase==='identified' && $record===null)throw new InvalidArgumentException('identity_requires_existing_call');
+        $now=gmdate('Y-m-d\\TH:i:s\\Z');
         $record ??=[
             'call_id'=>$id,
             'direction'=>'unknown',
@@ -48,7 +49,15 @@ function ontrack_call_event(array $event, string $store): array {
             $record['ended_at_utc']=$now;
             $record['duration_seconds']=$duration;
         }
-        $record['phase']=$phase;
+        if($phase==='identified') {
+            $phone=$event['phone_number']??null;
+            $name=$event['contact_name']??null;
+            if(!is_string($phone)||!preg_match('/^[+0-9() .-]{3,40}$/D',$phone))throw new InvalidArgumentException('invalid_phone');
+            if($name!==null && (!is_string($name)||mb_strlen($name)>100||preg_match('/[\\x00-\\x1f]/u',$name)))throw new InvalidArgumentException('invalid_contact_name');
+            if($record['phone_number']!==null && $record['phone_number']!==$phone)throw new InvalidArgumentException('conflicting_phone');
+            $record['phone_number']=$phone;
+            if(is_string($name)&&trim($name)!=='')$record['contact_name']=$name;
+        } else $record['phase']=$phase;
         $record['last_sequence']=$sequence;
         $record['updated_at_utc']=$now;
         $json=json_encode($record,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);

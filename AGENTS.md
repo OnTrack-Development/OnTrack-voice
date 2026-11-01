@@ -1,5 +1,18 @@
 # Working contract — OnTrack Voice
 
+## Owner execution convention — authoritative 2026-11-01
+
+**"نفّذ" / "طبّق" / "ظبّط" means edit and test actual code in the connected repository directly, not render images, mockups, write a prompt for another AI, or ask permission for each step.** Generate/edit an image **only** if owner explicitly asks for صورة / تصميم صورة / mockup image / render; an approved image is a *visual specification for implementation*, not implementation itself. Keep real changes in a **single atomic Git commit / single push when explicitly asked**, include tests and release manifests, then prove CI/HOST/DEVICE separately. No claim of deployment until verified.
+
+### UI identity & call-history corrections (owner-approved)
+- Red / black / white OnTrack visual system, premium production-ready Arabic RTL user mobile interface, coherent cards, tabs, typography and navigation; remove obsolete bundled UI and user-facing previous-interface switch.
+- Both light and dark themes. Theme switch is **icon-only** sun/moon (accessible label permitted, no visible words "dark mode"/"light mode"), persist chosen theme across app sessions.
+- Saved Android contacts must resolve to contact names in Call History only when **correct phone number is verified**. Request necessary permissions explicitly; never substitute/import an unrelated name, never show fabricated numbers. If Android restricts call log or permission denied, show accurate unavailable state and diagnose device.
+- Durations shown as localized minutes + remaining seconds (e.g., "1 دقيقة و10 ثانية"), not raw second counters. Data source is actual answered duration, not ringing time.
+- Current Android app is **end-user/user role UX only**. Architect future admin / reseller / end-user dashboards with server-authorized RBAC and tenant isolation, but **do not build or expose admin/reseller panels as user pages now**. Implement those only at later SaaS dashboard phase, not in the current mobile pilot. UI visibility alone is never authorization.
+- Completion scope is CODE + CI + HOST + DEVICE/E2E; never mark contact names solved just because optional permission/lookup code compiles. Follow real-call test evidence.
+
+
 ## 2026-11-01 — Mandatory group-memory handoff / latest verified facts
 
 **READ THIS FIRST on every new session**, then `docs/memory/CHECKPOINT.md`, `docs/plan/VOICE_DEMO_DELIVERY_CHECKLIST_AR.md`, and `docs/operations/HOST_LINK_RUNBOOK_AR.md`. Do not request information, permissions, terminal commands, or setup already available in repo and prior project context. Prefer executing and verifying with connected GitHub tools. This section is a durable summary of the project-group conversation, not a license to assume all features are deployed.

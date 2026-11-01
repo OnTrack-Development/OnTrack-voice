@@ -56,6 +56,13 @@ class MobileLinkActivity:ComponentActivity(){
         if(granted)lifecycleScope.launch{loadAllContacts()}
         else {banner.text="لم يتم منح إذن قراءة جهات الاتصال؛ لم تُرفع أي بيانات";banner.visibility=View.VISIBLE}
     }
+    private val callNamesPermissions=registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){grants->
+        val allowed=grants[Manifest.permission.READ_CALL_LOG]==true&&grants[Manifest.permission.READ_CONTACTS]==true
+        banner.text=if(allowed)"تم تفعيل مطابقة جهات الاتصال للمكالمات الجديدة"
+            else "Android لم يمنح كل الصلاحيات؛ ستبقى الأسماء غير المعروفة بدون تخمين"
+        banner.visibility=View.VISIBLE
+        sendState()
+    }
     private val campaignPhonePermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
         if(granted)ContextCompat.startForegroundService(this,
             Intent(this,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_CAMPAIGN_ENABLE))
@@ -450,6 +457,11 @@ class MobileLinkActivity:ComponentActivity(){
             .put("campaignAutoEnabled",getSharedPreferences("ontrack_link",MODE_PRIVATE).getBoolean("campaign_opt_in",false))
             .put("contactsSupported",true)
             .put("callsSupported",true)
+            .put("role","user")
+            .put("theme",getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("ui_theme","dark"))
+            .put("callNamesPermission",
+                ContextCompat.checkSelfPermission(this,Manifest.permission.READ_CALL_LOG)==PackageManager.PERMISSION_GRANTED
+                &&ContextCompat.checkSelfPermission(this,Manifest.permission.READ_CONTACTS)==PackageManager.PERMISSION_GRANTED)
             .put("nativeUpdateVersion",nativeRelease?.versionName?:"").put("native",ota.nativeVersion).put("nativeCode",packageManager.getPackageInfo(packageName,0).longVersionCode).put("updating",updateBusy)
         web.evaluateJavascript("window.onTrackState && window.onTrackState($state)",null)
     }
@@ -485,6 +497,18 @@ class MobileLinkActivity:ComponentActivity(){
                         }else banner.text="إذن النافذة العائمة مفعل"
                     }
                     "loadCallHistory"->loadCallHistory()
+                    "enableCallNames"->{
+                        val missing=listOf(Manifest.permission.READ_CALL_LOG,Manifest.permission.READ_CONTACTS)
+                            .filter{ContextCompat.checkSelfPermission(this@MobileLinkActivity,it)!=PackageManager.PERMISSION_GRANTED}
+                        if(missing.isNotEmpty())callNamesPermissions.launch(missing.toTypedArray())
+                        else {banner.text="الصلاحيات مفعّلة؛ سيتم مطابقة المكالمات الجديدة";banner.visibility=View.VISIBLE;sendState()}
+                    }
+                    "setTheme"->{
+                        val theme=msg.optString("theme")
+                        require(theme=="dark"||theme=="light"){"مظهر غير صالح"}
+                        check(getSharedPreferences("ontrack_link",MODE_PRIVATE).edit().putString("ui_theme",theme).commit()){"تعذر حفظ المظهر"}
+                        sendState()
+                    }
                     "listContacts"->contactsRequest(null)
                     "contactDnc"->{
                         check(msg.optBoolean("confirmed")){"تأكيد مطلوب"}
