@@ -82,6 +82,7 @@ try {
         case 'agents':render_agents($a);break;
         case 'campaigns':render_campaigns($a);break;
         case 'calls':render_calls($a);break;
+        case 'contacts':render_contacts($a);break;
         case 'devices':render_devices($a);break;
         case 'voices':render_voices($a);break;
         case 'keys':render_keys($a);break;

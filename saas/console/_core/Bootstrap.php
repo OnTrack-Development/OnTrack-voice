@@ -44,13 +44,63 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) return;
+    if (is_file($done)) { init_console_v2(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
     foreach($segments as $q){db()->exec($q);}
     file_put_contents($done,now());
     chmod($done,0600);
+    init_console_v2();
+}
+/** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
+function init_console_v2():void{
+    $marker=private_path().'/schema.v2';
+    if(is_file($marker))return;
+    db()->exec("CREATE TABLE IF NOT EXISTS support_policies (account_id BIGINT PRIMARY KEY, access_mode VARCHAR(12) NOT NULL DEFAULT 'full')");
+    foreach(['api_keys','integrations'] as $table){
+        $existing=driver()==='sqlite'
+           ?array_column(all("PRAGMA table_info(".$table.")"),'name')
+           :array_column(all("SHOW COLUMNS FROM ".$table),'Field');
+        if(!in_array('secret_enc',$existing,true))
+            db()->exec("ALTER TABLE ".$table." ADD COLUMN secret_enc TEXT NULL");
+    }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+function support_mode(int $accountId):string{
+    $row=one('SELECT access_mode FROM support_policies WHERE account_id=?',[$accountId]);
+    if(!$row)$row=one('SELECT access_mode FROM support_policies WHERE account_id=0');
+    return ($row['access_mode']??'full')==='read_only'?'read_only':'full';
+}
+function active_support():?array{
+    $sp=$_SESSION['support']??null;
+    return is_array($sp)&&($sp['expires']??0)>time()?$sp:null;
+}
+/** Encrypted secrets can be shown later only by privileged, reauthenticated owners.
+ * Never write plaintext secrets to GitHub, an HTML data-attribute or audit logs.
+ */
+function secret_key():string{
+    $path=private_path().'/console-vault.key';
+    if(!file_exists($path)){
+        $fh=@fopen($path,'x');
+        if($fh!==false){chmod($path,0600);fwrite($fh,random_bytes(32));fclose($fh);}
+    }
+    $key=@file_get_contents($path);
+    if(!is_string($key)||strlen($key)!==32)throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+    return $key;
+}
+function seal_secret(string $plain):string{
+    $nonce=random_bytes(12);$tag='';
+    $cipher=openssl_encrypt($plain,'aes-256-gcm',secret_key(),OPENSSL_RAW_DATA,$nonce,$tag);
+    if($cipher===false)throw new RuntimeException('تعذر تشفير السر');
+    return base64_encode($nonce.$tag.$cipher);
+}
+function unseal_secret(?string $box):?string{
+    if(!$box)return null;
+    $raw=base64_decode($box,true);
+    if($raw===false||strlen($raw)<29)return null;
+    $plain=openssl_decrypt(substr($raw,28),'aes-256-gcm',secret_key(),OPENSSL_RAW_DATA,substr($raw,0,12),substr($raw,12,16));
+    return $plain===false?null:$plain;
 }
 function e(?string $x):string{return htmlspecialchars((string)$x,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
 function csrf():string {
@@ -103,7 +153,7 @@ function mine():?array{
         if((int)($sp['expires']??0)>time() && $origin && $subject &&
             ($origin['kind']==='platform' || ($origin['kind']==='reseller'&&
                 is_reseller_child($originId,$target)))) {
-            return array_merge($subject,['account_id'=>$target,'role'=>'support_viewer','support_origin'=>$originId]);
+            return array_merge($subject,['account_id'=>$target,'role'=>support_mode($originId)==='read_only'?'support_viewer':'owner','support_origin'=>$originId]);
         }
         unset($_SESSION['support']);
     }
@@ -118,6 +168,7 @@ function has_platform():bool {
 function allowed(string $permission,?array $account=null):bool {
     $a=$account??mine();if(!$a)return false;
     $r=$a['role']??'viewer';
+    if($r==='support_viewer')return $permission==='read';
     if($r==='owner'||$r==='admin')return true;
     $grants=[
         'manager'=>['read','sites.write','agents.write','campaigns.write','contacts.write','calls.read','staff.read','devices.read','integrations.read'],
@@ -163,7 +214,7 @@ function site_limit(int $accountId,string $key):int{
 }
 function can_create(int $accountId,string $kind):bool{
     $table=$kind==='site'?'sites':'agents';$col=$kind==='site'?'site_limit':'agent_limit';
-    return (int)one("SELECT COUNT(*) n FROM {$table} WHERE account_id=?",[$accountId])['n']<site_limit($accountId,$col);
+    return (int)one("SELECT COUNT(*) n FROM {$table} WHERE account_id=? AND status!='archived'",[$accountId])['n']<site_limit($accountId,$col);
 }
 function is_reseller_child(int $reseller,int $customer):bool{
     $a=account($customer);return $a&&$a['kind']==='customer'&&(int)$a['parent_id']===$reseller;
@@ -175,8 +226,9 @@ function support_access(int $customerId):bool{
 function selected_site(int $accountId):?array {
     $id=(int)($_GET['site']??$_SESSION['site_id']??0);
     $site=$id?owned_site($id,$accountId):null;
-    if(!$site)$site=one('SELECT * FROM sites WHERE account_id=? ORDER BY id LIMIT 1',[$accountId]);
+    if($site&&$site['status']!=='active')$site=null;
+    if(!$site)$site=one("SELECT * FROM sites WHERE account_id=? AND status='active' ORDER BY id LIMIT 1",[$accountId]);
     if($site)$_SESSION['site_id']=$site['id'];
     return $site;
 }
-function is_demo():bool{return (bool)(getenv('ONTRACK_DEMO')?:true);}
+function is_demo():bool{return getenv('ONTRACK_DEMO')==='1';}
