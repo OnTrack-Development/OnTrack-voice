@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/StaffInvitations.php';
 
 function field(string $key,int $max=200):string{
     $v=trim((string)($_POST[$key]??''));
@@ -72,23 +73,21 @@ function act():void {
                 break;
             case 'add_employee':
                 require_permission('staff.manage');
-                $name=required('name',120);$email=required('email',190);
+                // Support impersonation is not authorization to invite principals.
+                if(active_support()||!in_array($a['role'],['owner','admin'],true))deny();
+                $email=strtolower(required('email',190));
+                $name=required('name',120);
                 $role=field('role',30);
-                if(!in_array($role,['manager','operator','finance','support','viewer'],true))throw new InvalidArgumentException('دور غير معروف');
-                $limit=site_limit($id,'staff_limit');
-                $count=(int)one('SELECT COUNT(*) n FROM memberships WHERE account_id=?',[$id])['n'];
-                if($kind!=='platform'&&$count>=$limit)throw new RuntimeException('وصلت لحد الموظفين في باقتك');
-                $existing=one('SELECT id FROM users WHERE email=?',[$email]);
-                if($existing) {
-                    $uid=(int)$existing['id'];$temp='دعوة عضوية لحساب موجود';
-                }else{
-                    $temp='OT-'.bin2hex(random_bytes(9));
-                    $uid=insert("INSERT INTO users(name,email,password_hash,status,created_at) VALUES (?,?,?,'active',?)",[$name,$email,hash_password($temp),now()]);
-                }
-                if(one('SELECT id FROM memberships WHERE user_id=? AND account_id=?',[$uid,$id]))throw new RuntimeException('الموظف موجود بالفعل');
-                insert('INSERT INTO memberships(user_id,account_id,role,created_at) VALUES (?,?,?,?)',[$uid,$id,$role,now()]);
-                audit('staff.created',$id,['user'=>$uid,'role'=>$role]);
-                flash('secret',$email.' | '.$temp);
+                $inviteId=create_staff_invitation($id,$name,$email,$role,(int)me()['id']);
+                audit('staff.invitation.created',$id,['invitation_id'=>$inviteId,'role'=>$role]);
+                flash('success','الدعوة بانتظار قبول صاحب البريد بعد تسجيل دخوله. لم تُمنح أي صلاحيات بعد.');
+                break;
+            case 'cancel_staff_invitation':
+                require_permission('staff.manage');
+                if(active_support()||!in_array($a['role'],['owner','admin'],true))deny();
+                $inviteId=intfield('invitation_id');
+                cancel_staff_invitation($inviteId,$id);
+                audit('staff.invitation.cancelled',$id,['invitation_id'=>$inviteId]);
                 break;
             case 'add_site':
                 require_permission('sites.write');

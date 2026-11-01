@@ -78,4 +78,54 @@ $conflict=false;
 try{record_verified_external_payment(one('SELECT * FROM orders WHERE id=?',[$orderId]),'verified_payment_1002');}
 catch(InvalidArgumentException $ex){$conflict=$ex->getMessage()==='payment_reference_conflict';}
 ok($conflict,'different payment reference on paid order is rejected');
+// Staff invitations must not silently attach an existing user by email.
+require_once __DIR__.'/../saas/console/_core/StaffInvitations.php';
+$inviteCols=driver()==='sqlite'?array_column(all('PRAGMA table_info(staff_invitations)'),'name'):[];
+ok(driver()!=='sqlite'||in_array('accepted_by',$inviteCols,true),'v4 staff invitations migration');
+$usersBefore=(int)one('SELECT COUNT(*) n FROM users')['n'];
+$membersBefore=(int)one('SELECT COUNT(*) n FROM memberships')['n'];
+$inviteId=create_staff_invitation(2,'Targeted Admin','ADMIN@ONTRACKEGY.COM','manager',(int)$reseller['id']);
+ok((int)one('SELECT COUNT(*) n FROM users')['n']===$usersBefore,'staff invitation does not create unverified user');
+ok((int)one('SELECT COUNT(*) n FROM memberships')['n']===$membersBefore,'staff invitation does not grant existing user membership');
+ok(count(pending_staff_invitations_for_user((int)$admin['id']))===1,'only invited logged-in identity sees invitation');
+ok(count(pending_staff_invitations_for_user((int)$reseller['id']))===0,'unrelated identity cannot view invitation');
+$wrongUser=false;
+try{accept_staff_invitation($inviteId,(int)$reseller['id']);}
+catch(InvalidArgumentException $e){$wrongUser=$e->getMessage()==='invitation_not_available';}
+ok($wrongUser,'wrong authenticated user cannot claim invite');
+$duplicateInvite=false;
+try{create_staff_invitation(2,'Targeted Admin','admin@ontrackegy.com','finance',(int)$reseller['id']);}
+catch(InvalidArgumentException $e){$duplicateInvite=$e->getMessage()==='invitation_already_pending';}
+ok($duplicateInvite,'duplicate pending invite rejected');
+$_SESSION=['uid'=>(int)$admin['id'],'account_id'=>1,'support'=>['account_id'=>5,'origin_id'=>1,'expires'=>time()+900]];
+$supportAccept=false;
+try{accept_staff_invitation($inviteId,(int)$admin['id']);}
+catch(InvalidArgumentException $e){$supportAccept=$e->getMessage()==='support_session_forbidden';}
+ok($supportAccept,'support session cannot accept an invitation');
+unset($_SESSION['support']);
+$joined=accept_staff_invitation($inviteId,(int)$admin['id']);
+ok($joined===2,'authenticated invited user can accept own invite');
+ok((int)one('SELECT COUNT(*) n FROM memberships WHERE account_id=2 AND user_id=?',[$admin['id']])['n']===1,'accepted invitation creates exactly one scoped membership');
+ok((string)one('SELECT role FROM memberships WHERE account_id=2 AND user_id=?',[$admin['id']])['role']==='manager','invited role is enforced');
+$replayDenied=false;
+try{accept_staff_invitation($inviteId,(int)$admin['id']);}
+catch(InvalidArgumentException $e){$replayDenied=$e->getMessage()==='invitation_not_available';}
+ok($replayDenied,'invitation replay cannot create another membership');
+$newInvite=create_staff_invitation(2,'New Unregistered','future-staff@example.invalid','viewer',(int)$reseller['id']);
+ok((int)one('SELECT COUNT(*) n FROM users')['n']===$usersBefore,'unregistered invited email remains pending without login');
+$crossCancel=false;
+try{cancel_staff_invitation($newInvite,3);}
+catch(InvalidArgumentException $e){$crossCancel=$e->getMessage()==='invitation_not_available';}
+ok($crossCancel,'another tenant cannot cancel invitation');
+cancel_staff_invitation($newInvite,2);
+ok((string)one('SELECT status FROM staff_invitations WHERE id=?',[$newInvite])['status']==='cancelled','authorized cancellation revokes invitation');
+$expiredId=create_staff_invitation(2,'Expired','support@ontrack.test','viewer',(int)$reseller['id']);
+execute("UPDATE staff_invitations SET expires_at='2000-01-01 00:00:00' WHERE id=?",[$expiredId]);
+$expiredDenied=false;
+$supportUser=one("SELECT id FROM users WHERE email='support@ontrack.test'");
+try{accept_staff_invitation($expiredId,(int)$supportUser['id']);}
+catch(InvalidArgumentException $e){$expiredDenied=$e->getMessage()==='invitation_not_available';}
+ok($expiredDenied,'expired invite cannot be accepted');
+$reissued=create_staff_invitation(2,'Reissued','support@ontrack.test','viewer',(int)$reseller['id']);
+ok($reissued===$expiredId,'expired invitation may be reissued without duplicate rows');
 echo "VOICE_SAAS_SMOKE_PASS\n";

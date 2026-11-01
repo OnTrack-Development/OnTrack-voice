@@ -106,6 +106,8 @@ function layout_open(array $a,string $tab):void{
     echo '<div class="profile"><span class="avatar">'.e(mb_substr($u['name'],0,1)).'</span><span><strong>'.e($u['name']).'</strong><small>'.e($a['role']??'').'</small></span></div>';
     echo form_start('logout','','class="compact"').'<button type="submit" class="logout-btn" title="تسجيل الخروج">↪</button></form>';
     echo '</div></header><main class="content">';
+    $myInvites=pending_staff_invitations_for_user((int)$u['id']);
+    if($myInvites && !$support)echo '<div class="alert success">لديك '.count($myInvites).' دعوة انضمام تنتظر قرارك. <a href="/saas/console/invitations">مراجعة الدعوات ←</a></div>';
     if($support)echo '<div class="support-context"><span>حساب '.e($a['name']).' · '.(support_mode((int)($a['support_origin']??0))==='read_only'?'قراءة فقط':'صلاحيات كاملة').'</span>'.form_start('support_leave').'<button class="btn small" type="submit">العودة لحسابي</button></form></div>';
     if($v=flash('success'))echo '<div class="alert success">'.e($v).'</div>';
     if($v=flash('error'))echo '<div class="alert danger">'.e($v).'</div>';
@@ -238,10 +240,32 @@ function render_staff(array $a):void{
        $users[]=[e($r['name']),e($r['email']),$actions];
     }
     echo card('فريق العمل',tbl(['الاسم','البريد','الصلاحية والإدارة'],$users));
-    if(($a['role']??'')==='owner'||($a['role']??'')==='admin')
-        echo card('إضافة موظف',form_start('add_employee','/?tab=staff').field_html('اسم الموظف','name','text','الاسم',true).field_html('البريد الإلكتروني','email','email','staff@company.com',true).
-            select_html('الدور','role',['manager'=>'مدير','operator'=>'موظف عمليات','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).submit_btn('إضافة الموظف'));
+    if((($a['role']??'')==='owner'||($a['role']??'')==='admin')&&!active_support())
+        echo card('دعوة موظف (تحتاج قبول صاحب البريد)',form_start('add_employee','/?tab=staff').field_html('اسم الموظف','name','text','الاسم',true).field_html('البريد الإلكتروني','email','email','staff@company.com',true).
+            select_html('الدور','role',['manager'=>'مدير','operator'=>'موظف عمليات','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).submit_btn('إنشاء دعوة بدون منح صلاحية'));
+    $pending=all("SELECT id,email,name,role,expires_at FROM staff_invitations WHERE account_id=? AND status='pending' AND expires_at>? ORDER BY id DESC",[$id,now()]);
+    $pendingRows=[];
+    foreach($pending as $inv){
+        $action=pill('pending');
+        if(in_array($a['role'],['owner','admin'],true)&&!active_support())
+            $action.=form_start('cancel_staff_invitation','/?tab=staff','class="inline-form"').'<input type="hidden" name="invitation_id" value="'.(int)$inv['id'].'"><button class="btn small danger" type="submit">إلغاء الدعوة</button></form>';
+        $pendingRows[]=[e($inv['name']),e($inv['email']),e($inv['role']),e($inv['expires_at']),$action];
+    }
+    echo card('دعوات الفريق المعلقة',tbl(['الاسم','البريد','الدور','تنتهي','الإجراء'],$pendingRows));
     echo '</div>';
+}
+function render_invitations():void {
+    $u=me();if(!$u)return;
+    $invites=pending_staff_invitations_for_user((int)$u['id']);
+    echo '<section class="card"><div class="card-head"><h3>دعوات الانضمام لحسابات أخرى</h3></div><p>لا تتم إضافة أي عضوية دون موافقتك. الدعوات المرسلة لبريد لا يملك حسابًا بعد تنتظر التسجيل والتحقق من البريد في مرحلة لاحقة.</p>';
+    $rows=[];
+    foreach($invites as $inv){
+        $button='<form method="post" action="/saas/console/invitations" class="inline-form"><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="action" value="accept_invitation"><input type="hidden" name="invitation_id" value="'.(int)$inv['id'].'"><button class="btn small primary" type="submit">قبول الدعوة</button></form>';
+        $rows[]=[e($inv['account_name']),e($inv['role']),e($inv['expires_at']),$button];
+    }
+    echo tbl(['الحساب','الدور','تنتهي','قرارك'],$rows).'</section>';
+    if(mine())echo '<p><a class="btn small" href="/saas/console/">العودة للوحة التحكم</a></p>';
+    else echo '<form method="post" action="/saas/console/logout"><input type="hidden" name="csrf" value="'.e(csrf()).'"><button type="submit" class="btn small">تسجيل الخروج</button></form>';
 }
 function render_sites(array $a):void{
     $id=(int)$a['account_id'];$sites=all("SELECT * FROM sites WHERE account_id=? AND status!='archived' ORDER BY id DESC",[$id]);
