@@ -70,6 +70,9 @@ $_SESSION=['uid'=>(int)$pharmacy['id'],'account_id'=>5];
 $secondSubject=signed_sso_ticket($integrationId,$secret,'external-client-002');
 check_sso(denied_sso(fn()=>finish_external_sso($secondSubject,(int)$pharmacy['id']),'sso_user_already_linked'),
     'one local user cannot bind two external subjects in one integration');
+$spoofed=signed_sso_ticket($integrationId,$secret,'external-client-spoofed');
+check_sso(denied_sso(fn()=>finish_external_sso($spoofed,(int)$nile['id']),'sso_local_login_required'),
+    'SSO primitive rejects user id not authenticated in current PHP session');
 $otherResellerSecret='otint_'.bin2hex(random_bytes(32));
 $otherId=insert("INSERT INTO integrations(account_id,name,provider,token_hash,token_prefix,status,created_at,secret_enc)
     VALUES (3,'SSO NILE','whmcs',?,?,'active',?,?)",
