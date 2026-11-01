@@ -1,0 +1,13 @@
+{
+  "job_id": "pilot-verify-20261101143317",
+  "target": "appontrack-server11",
+  "job_sha256": "2a22757fb395f78cef2eca0ef7427660b38690dfafdadd9e79f90db9751340c7",
+  "started_at": "2026-11-01T14:34:03.392522+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"php_count\": 20, \"auth_file_present\": true, \"ota_updates_present\": true, \"predial_verify_present\": true, \"dnc_ledger_present\": true, \"campaign_endpoint_present\": true, \"php_lint_failures\": []}\n",
+  "stderr": "",
+  "finished_at": "2026-11-01T14:34:04.427607+00:00",
+  "duration_ms": 1035
+}
