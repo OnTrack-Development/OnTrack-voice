@@ -24,6 +24,9 @@ object TenantPairingContract {
         require(TOKEN.matches(value)) { "استجابة الربط غير صالحة" }
         return value
     }
+    /** Never accept a stale server heartbeat after a newer agent assignment. */
+    fun agentRevisionValid(stored:Int,incoming:Int,agentId:Int):Boolean =
+        incoming>=1 && incoming>=stored && agentId>0
     /** Fail closed for legacy pilot telephony while any tenant SIM is paired or pairing. */
     fun pilotAllowed(pairingInProgress:Boolean,hasTenantSim:Boolean):Boolean =
         !pairingInProgress && !hasTenantSim

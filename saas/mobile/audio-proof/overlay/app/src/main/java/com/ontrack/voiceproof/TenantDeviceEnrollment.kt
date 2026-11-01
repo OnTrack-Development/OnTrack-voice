@@ -126,8 +126,10 @@ class TenantDeviceEnrollment(private val context: Context) {
             "بيانات السيرفر لا تطابق الشريحة المربوطة"
         }
         val revision=profile.getInt("agent_revision")
-        check(revision>=1 && revision>=saved.optInt("agent_revision",0) &&
-            profile.getInt("agent_id")>0) { "وصل تعيين إيجنت قديم؛ أعد التحديث" }
+        check(TenantPairingContract.agentRevisionValid(
+            saved.optInt("agent_revision",0),revision,profile.getInt("agent_id"))) {
+            "وصل تعيين إيجنت قديم؛ أعد التحديث"
+        }
         if(revision>saved.optInt("agent_revision",0) ||
             saved.optInt("agent_id")!=profile.getInt("agent_id") ||
             !saved.has("account_id")) {

@@ -66,6 +66,13 @@ class TenantPairingContractTest {
         assertEquals("SIM 1 — تعذر التحقق؛ الربط غير مؤكد",
             TenantPairingContract.statusLine(0,true,error="تعذر التحقق؛ الربط غير مؤكد"))
     }
+    @Test fun staleAgentRevisionCannotOverwriteNewerSimAssignment() {
+        assertTrue(TenantPairingContract.agentRevisionValid(1,2,8))
+        assertTrue(TenantPairingContract.agentRevisionValid(2,2,8))
+        assertFalse(TenantPairingContract.agentRevisionValid(3,2,8))
+        assertFalse(TenantPairingContract.agentRevisionValid(0,0,8))
+        assertFalse(TenantPairingContract.agentRevisionValid(1,2,0))
+    }
     @Test fun serverRefreshShowsReassignedAgentPerSim() {
         val before=TenantPairingContract.statusLine(0,true,"شركة ألف","المتجر","إيجنت قديم")
         val after=TenantPairingContract.statusLine(0,true,"شركة ألف","المتجر","إيجنت جديد")
