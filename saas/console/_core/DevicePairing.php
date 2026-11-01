@@ -88,7 +88,10 @@ function device_binding_profile(array $binding):array {
         'account_name'=>(string)$tenant['name'],
         'site_id'=>(int)$site['id'],'site_name'=>$site['name'],
         'agent_id'=>(int)$agent['id'],'agent_name'=>$agent['name'],
-        'voice'=>$agent['voice'],'instruction'=>$agent['instructions'],
+        // Draft agent changes must never leak through a bound SIM heartbeat.
+        // Only a specifically published immutable revision can supply instructions.
+        'voice'=>$published?(string)$published['voice']:null,
+        'instruction'=>$published?(string)$published['instructions']:null,
         'sim_slot'=>(int)$binding['sim_slot'],'heartbeat_seconds'=>10,
         'transport'=>'tenant_pairing_preview_no_sim_bridge'];
 }

@@ -44,9 +44,9 @@ function test_tenant_device_pairing():void {
     ok((int)$profile['sim_slot']===0 && (int)$profile['device_id']===(int)$a['device_id'],
         'SIM 1 profile is bound to its own device and physical slot');
     ok((int)$profile['agent_id']===(int)$session['agent_id'] &&
-        $profile['instruction']===(string)one('SELECT instructions FROM agents WHERE id=? AND account_id=? AND site_id=?',
-            [$session['agent_id'],$session['account_id'],$session['site_id']])['instructions'],
-        'SIM 1 instructions originate from its tenant-scoped agent');
+        $profile['instruction']===null && $profile['voice']===null &&
+        $profile['flow_ready']===false,
+        'unpublished agent draft policy must not be sent to Android SIM');
     ok(!isset($profile['device_token'])&&!isset($profile['token_hash']),
         'heartbeat never returns token or hash');
     $used=false;
