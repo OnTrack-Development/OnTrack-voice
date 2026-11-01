@@ -114,7 +114,27 @@ function act():void {
                 if($flow==='')$flow=(string)$ag['flow_json'];
                 $decoded=json_decode($flow,true);
                 if(!is_array($decoded)||!isset($decoded['nodes'],$decoded['edges'])||!is_array($decoded['nodes'])||!is_array($decoded['edges'])||count($decoded['nodes'])>100||count($decoded['edges'])>250)throw new InvalidArgumentException('Flow JSON غير صالح');
-                execute('UPDATE agents SET instructions=?,knowledge=?,flow_json=?,status=? WHERE id=? AND account_id=?',[field('instructions',5000),field('knowledge',20000),json_encode($decoded,JSON_UNESCAPED_UNICODE), 'draft',(int)$ag['id'],$id]);
+                $newName=required('name',140);
+                $voice=field('voice',80);
+                if($voice!==(string)$ag['voice']){
+                    $allowedVoice=one("SELECT id FROM voices WHERE code=? AND ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)",[$voice,$id]);
+                    if(!$allowedVoice && $kind!=='platform')throw new InvalidArgumentException('الصوت غير متاح لهذا الحساب');
+                }
+                $ids=[];
+                foreach($decoded['nodes'] as $n){
+                    if(!is_array($n)||!preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',(string)($n['id']??''))||isset($ids[$n['id']]))throw new InvalidArgumentException('معرّف عقدة Flow مكرر أو غير صالح');
+                    $ids[$n['id']]=true;
+                    if(!in_array($n['type']??'',[
+                       'start','say','listen','ask','condition','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end'],true))
+                       throw new InvalidArgumentException('نوع عقدة غير صالح');
+                }
+                foreach($decoded['edges'] as $edge){
+                    if(!is_array($edge)||!isset($ids[$edge['from']??''],$ids[$edge['to']??''])||
+                       strlen((string)($edge['label']??''))>280)
+                       throw new InvalidArgumentException('رابط Flow يشير إلى عقدة غير موجودة');
+                }
+                execute('UPDATE agents SET name=?,voice=?,instructions=?,knowledge=?,flow_json=?,status=? WHERE id=? AND account_id=?',
+                  [$newName,$voice,field('instructions',5000),field('knowledge',20000),json_encode($decoded,JSON_UNESCAPED_UNICODE), 'draft',(int)$ag['id'],$id]);
                 audit('agent.updated',$id,['agent'=>$ag['id']]);break;
             case 'add_campaign':
                 require_permission('campaigns.write');$sid=intfield('site_id');if(!owned_site($sid,$id))deny();
@@ -274,6 +294,29 @@ function act():void {
                 $ag=one('SELECT id FROM agents WHERE id=? AND account_id=?',[intfield('agent_id'),$id]);if(!$ag)deny(404);
                 execute("UPDATE agents SET status='archived' WHERE id=? AND account_id=?",[$ag['id'],$id]);
                 audit('agent.archived',$id,['agent'=>$ag['id']]);break;
+            case 'add_contact':
+                require_permission('contacts.write');
+                $site=owned_site(intfield('site_id'),$id);if(!$site||$site['status']!=='active')deny();
+                $name=required('name',120);$phone=required('phone',32);
+                if(!preg_match('/^\\+?[0-9 ()-]{8,30}$/D',$phone))throw new InvalidArgumentException('رقم هاتف غير صالح');
+                if(!isset($_POST['consent']))throw new InvalidArgumentException('يجب إثبات موافقة التواصل قبل إضافة جهة الاتصال');
+                insert('INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at) VALUES (?,?,?,?,?,?)',
+                    [$id,$site['id'],$name,$phone,isset($_POST['dnc'])?1:0,now()]);
+                audit('contact.created',$id,['site'=>$site['id']]);break;
+            case 'edit_contact':
+                require_permission('contacts.write');
+                $contact=one('SELECT id FROM contacts WHERE id=? AND account_id=?',[intfield('contact_id'),$id]);if(!$contact)deny(404);
+                $name=required('name',120);
+                $phone=required('phone',32);
+                if(!preg_match('/^\\+?[0-9 ()-]{8,30}$/D',$phone))throw new InvalidArgumentException('رقم هاتف غير صالح');
+                execute('UPDATE contacts SET name=?,phone=?,dnc=? WHERE id=? AND account_id=?',
+                    [$name,$phone,isset($_POST['dnc'])?1:0,$contact['id'],$id]);
+                audit('contact.updated',$id,['contact'=>$contact['id']]);break;
+            case 'delete_contact':
+                require_permission('contacts.write');
+                $row=one('SELECT id FROM contacts WHERE id=? AND account_id=?',[intfield('contact_id'),$id]);if(!$row)deny(404);
+                execute('DELETE FROM contacts WHERE id=? AND account_id=?',[$row['id'],$id]);
+                audit('contact.deleted',$id,['contact'=>$row['id']]);break;
             case 'update_campaign':
                 require_permission('campaigns.write');
                 $camp=one('SELECT id FROM campaigns WHERE id=? AND account_id=?',[intfield('campaign_id'),$id]);if(!$camp)deny(404);
