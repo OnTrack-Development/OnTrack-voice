@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4();
+    init_console_v4(); init_console_v5();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -270,3 +270,42 @@ function selected_site(int $accountId):?array {
     return $site;
 }
 function is_demo():bool{return getenv('ONTRACK_DEMO')==='1';}
+
+/** Device enrollment is additive and keeps legacy pilot auth separate. */
+function init_console_v5():void {
+    $marker=private_path().'/schema.v5';
+    if(is_file($marker))return;
+    if(driver()==='mysql'){
+        db()->exec("CREATE TABLE IF NOT EXISTS device_pairings (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            account_id BIGINT NOT NULL,site_id BIGINT NOT NULL,agent_id BIGINT NOT NULL,
+            code_hash CHAR(64) NOT NULL UNIQUE,status VARCHAR(24) NOT NULL,
+            expires_at VARCHAR(19) NOT NULL,created_by BIGINT NOT NULL,
+            created_at VARCHAR(19) NOT NULL,redeemed_at VARCHAR(19) NULL,device_id BIGINT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        db()->exec("CREATE TABLE IF NOT EXISTS device_bindings (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            account_id BIGINT NOT NULL,site_id BIGINT NOT NULL,agent_id BIGINT NOT NULL,
+            installation_id VARCHAR(128) NOT NULL,sim_slot INT NOT NULL,
+            slot_claim CHAR(64) NULL UNIQUE,device_name VARCHAR(100) NOT NULL,
+            token_hash CHAR(64) NOT NULL UNIQUE,status VARCHAR(24) NOT NULL,
+            created_at VARCHAR(19) NOT NULL,last_seen_at VARCHAR(19) NULL,revoked_at VARCHAR(19) NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }else{
+        db()->exec("CREATE TABLE IF NOT EXISTS device_pairings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL,site_id INTEGER NOT NULL,agent_id INTEGER NOT NULL,
+            code_hash TEXT NOT NULL UNIQUE,status TEXT NOT NULL,expires_at TEXT NOT NULL,
+            created_by INTEGER NOT NULL,created_at TEXT NOT NULL,redeemed_at TEXT,device_id INTEGER
+        )");
+        db()->exec("CREATE TABLE IF NOT EXISTS device_bindings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL,site_id INTEGER NOT NULL,agent_id INTEGER NOT NULL,
+            installation_id TEXT NOT NULL,sim_slot INTEGER NOT NULL,
+            slot_claim TEXT UNIQUE,device_name TEXT NOT NULL,
+            token_hash TEXT NOT NULL UNIQUE,status TEXT NOT NULL,
+            created_at TEXT NOT NULL,last_seen_at TEXT,revoked_at TEXT
+        )");
+    }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
