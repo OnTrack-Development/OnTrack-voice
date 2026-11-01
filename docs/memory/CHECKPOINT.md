@@ -1,3 +1,12 @@
+## 2026-11-01 — Product milestone: tenant device pairing control plane (PR #18)
+
+- **Owner course correction:** prioritize building missing features end to end, not an endless series of CI/release-fix microtasks.
+- **CODED / MERGED:** PR #18 https://github.com/OnTrack-Development/OnTrack-voice/pull/18, squash main `c8a51c2649ff6f9c46a615223f789cc859a4117d`. Additive schema v5 `device_pairings` and `device_bindings`, hashed one-time 10-minute codes, per-account/site/agent enrollment, distinct 256-bit token per Android installation SIM slot, UNIQUE active slot claim across tenants, immediate owner revoke, account/site archive guard, tenant-scoped Admin/Reseller/User management UI and HTTPS POST pair/heartbeat endpoint.
+- **CI_PASS:** final PR SHA `7c802d61841e2f13dda0ac9cd9808797a3dce78e`, PHP 8.3/SQLite SaaS CI run `41317385936` SUCCESS. Post-merge PHP SaaS CI run `41317440863` SUCCESS. Tests `tools/test_tenant_device_pairing.php` cover dual SIM account isolation, no cross-tenant claim, pairing expiry/replay, revoke, archive and suspension.
+- **PUBLISH_WORKFLOW_PASS / HOST RECEIPT PENDING:** GitHub SaaS publish workflow `41317440838` SUCCESS. Must verify host Cron `saas-console-41317440838` matching source before claiming HOST_DEPLOYED.
+- **NOT COMPLETED:** Android app still uses the pilot bearer rather than new per-SIM profile; manual code entry in Android, QR scanning, device-specific agent execution and real two-direction SIM call remain OPEN. This feature's **SaaS control plane** is coded and CI tested, not smartphone E2E. No live calls or payments initiated.
+- **Next product milestone (priority):** Android client enrollment and per-slot token/profile storage, authenticated session routing by bound tenant, then Xiaomi and dual-SIM E2E; not unrelated CI tooling.
+
 ## 2026-11-01 — Cycle #8 CLOSED: pilot DNC PHP deployed and independently verified (no APK)
 
 - **MERGED:** PR #15 `72a600d47a3c` (publisher), PR #16 `ed2d75e4d720` (explicitly exclude tracked `auth.sha256`), PR #17 `cf2988c7052bddc90df017f7ac9773814f11400b` (fix verified flat host path and per-file rollback). Open PR #9 SSO untouched.
