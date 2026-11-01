@@ -8,6 +8,16 @@ function test_tenant_device_pairing():void {
     $codeA=device_pairing_create(4,1,1,$actor,0);
     ok((bool)preg_match('/^[A-F0-9]{4}(?:-[A-F0-9]{4}){5}$/D',$codeA),'device code long random one-time format');
     ok($codeA[0]==='0','SIM 1 code carries server-locked slot marker');
+    $storedA=one('SELECT status FROM device_pairings WHERE code_hash=?',
+        [hash('sha256',strtolower(str_replace('-','',$codeA)))]);
+    ok($storedA['status']==='pending_sim0','database records intended SIM independently of QR');
+    $legacy=device_pairing_create(4,1,1,$actor,0);
+    execute("UPDATE device_pairings SET status='pending' WHERE code_hash=?",
+        [hash('sha256',strtolower(str_replace('-','',$legacy)))]);
+    $legacyDenied=false;
+    try{device_pairing_redeem($legacy,'legacy-install-000000001',0,'Legacy ticket');}
+    catch(InvalidArgumentException $e){$legacyDenied=$e->getMessage()==='device_pairing_expired_or_used';}
+    ok($legacyDenied,'pre-upgrade ambiguous ticket cannot bind a SIM after rollout');
     $wrongSlot=false;
     try{device_pairing_redeem($codeA,'wrong-slot-install-0000001',1,'Wrong SIM');}
     catch(InvalidArgumentException $e){$wrongSlot=$e->getMessage()==='device_pairing_slot_mismatch';}
