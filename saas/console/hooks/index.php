@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../_core/Bootstrap.php';
 require __DIR__.'/../_core/OrderClaim.php';
+require __DIR__.'/../_core/DncGuard.php';
 function respond(int $code,array $body):never {
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
@@ -83,11 +84,13 @@ try{
                 throw new InvalidArgumentException('invalid_booking_contact');
             $consent=($payload['consent']??false)===true;
             // An unconsented booking is recorded in DNC to prevent automated contact.
+            $dnc=dnc_effective_flag($reseller,$phone,!$consent);
             $lead=insert('INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at) VALUES (?,?,?,?,?,?)',
-                [$reseller,$siteId,$name,$phone,$consent?0:1,now()]);
+                [$reseller,$siteId,$name,$phone,$dnc,now()]);
             $result['status']='lead_created_pending_review';
             $result['contact_id']=$lead;
             $result['dial_requested']=false;
+            $result['dnc']=$dnc===1;
         }
         execute("UPDATE events SET status=? WHERE id=?",[$result['status'],$event]);
         db()->commit();
