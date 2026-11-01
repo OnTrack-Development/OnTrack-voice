@@ -8,7 +8,8 @@ ok((int)one('SELECT COUNT(*) n FROM accounts')['n']>=7,'seven tenant demo entiti
 ok((int)one('SELECT COUNT(*) n FROM agents')['n']>=5,'site-separated AI agents');
 $admin=one("SELECT * FROM users WHERE email='admin@ontrackegy.com'");
 ok((bool)$admin,'admin exists');
-ok(password_verify('OnTrack@Admin-2026-X7qM',$admin['password_hash']),'admin hash verifies');
+ok((password_get_info($admin['password_hash'])['algoName']??'unknown')!=='unknown','admin has secure password hash');
+ok(!password_verify('OnTrack@Admin-2026-X7qM',$admin['password_hash']),'known demo password rejected');
 $_SESSION=['uid'=>(int)$admin['id'],'account_id'=>1];
 ok((mine()['kind']??'')==='platform','admin membership');
 ok(has_platform(),'admin platform rights');
@@ -23,7 +24,7 @@ $account=account(5);
 ok(brand($account)['name']==='دلتا فويس','reseller white-label inherited');
 $direct=account(4);
 ok(brand($direct)['name']==='OnTrack Voice','direct OnTrack identity');
-ok((int)site_limit(4,'site_limit')===1,'direct starter plan caps sites');
+ok((int)site_limit(4,'site_limit')===4,'direct business plan permits multiple sites');
 ok(owned_site(3,5)!==null,'site belongs to right account');
 ok(owned_site(1,5)===null,'site isolation denied');
 ok((int)one("SELECT COUNT(*) n FROM voices WHERE ready=0")['n']===3,'unready AYO voices cannot be offered');
