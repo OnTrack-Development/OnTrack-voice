@@ -138,6 +138,14 @@ class MobileLinkService:Service() {
     override fun onBind(intent:Intent?):IBinder?=null
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
         startForeground(701,notification(latestStatus))
+        if(TenantDeviceEnrollment(this).hasAny()) {
+            // The pilot bearer is global and MUST NOT run on a tenant-enrolled device.
+            prefs().edit().putBoolean("campaign_opt_in",false).commit()
+            agentEnabled=false;connected=false
+            notice("الشرائح مربوطة بحسابات مستقلة؛ اتصال التجربة القديم معطّل")
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val action=intent?.action
         when(action){
             ACTION_CAMPAIGN_DISABLE->{
