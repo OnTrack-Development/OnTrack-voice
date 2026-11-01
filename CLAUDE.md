@@ -1,5 +1,6 @@
 # OnTrack Voice — session entry
 
+> **Read first:** [Owner decisions + pending questions (2026-11-01)](docs/discovery/OWNER_DECISIONS_AND_OPEN_QUESTIONS_2026_11_01_AR.md). Newer owner-approved decisions override contradictory legacy status notes. The Admin login works for the owner; separate assistant authenticated E2E verification remains open.\n\n
 Read [AGENTS.md](AGENTS.md), then [CURRENT_STATE_AR.md](docs/project/CURRENT_STATE_AR.md), before changing anything.
 
 This repository includes existing PHP voice demo code, a private GitHub host-control worker, and imported Agent Builder specifications. It is not a completed telephone SaaS. Continue from the verified checkpoint and preserve working host connectivity.
