@@ -124,7 +124,13 @@ class TenantCallObserverService:Service() {
                     return
                 }
                 val event=result.event
-                events.put(JSONObject().put("sim_slot",slot).put("call_id",event.callId)
+                val bindingId=try { enrollment.bindingId(slot) } catch(_:Exception) {
+                    status("فُصلت الشريحة؛ أُوقفت المراقبة قبل تسجيل حدث جديد")
+                    stopSelf()
+                    return
+                }
+                events.put(JSONObject().put("sim_slot",slot).put("device_id",bindingId)
+                    .put("call_id",event.callId)
                     .put("phase",event.phase).put("duration_seconds",event.durationSeconds)
                     .put("occurred_at",event.occurredAt))
             }
