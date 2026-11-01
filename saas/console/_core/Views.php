@@ -117,6 +117,31 @@ function layout_open(array $a,string $tab):void{
 function layout_close():void{
     echo '</main><footer class="footer">© '.date('Y').' · منصة الاتصال الذكي · العزل والصلاحيات يفرضها السيرفر</footer></div></div></body></html>';
 }
+/** Security pages intentionally have no sidebar or account access until verified. */
+function twofa_page(array $pending,bool $enabled,?string $error=null):void {
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store');
+    header('X-Frame-Options: DENY');
+    $title=$enabled?'تأكيد تسجيل الدخول':'تفعيل التحقق بخطوتين';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.e($title).' | OnTrack Voice</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"></head><body class="login-body"><div class="login-backdrop"></div><div class="login-panel">';
+    echo '<div class="login-brand"><span class="brand-icon">OT</span><div><strong>OnTrack Voice</strong><small>ACCOUNT SECURITY</small></div></div>';
+    echo '<div class="login-intro"><span class="eyebrow">TWO-FACTOR AUTHENTICATION</span><h1>'.e($title).'</h1><p>'.($enabled?'اكتب رمز تطبيق المصادقة أو أحد رموز الاسترداد الخاصة بك.':'حسابك الإداري يحتاج تطبيق مصادقة. أضف المفتاح ثم أدخل الرمز المكون من 6 أرقام لتفعيل الدخول.').'</p></div>';
+    if($error)echo '<div class="alert danger">'.e($error).'</div>';
+    if(!$enabled){
+        $secret=(string)($_SESSION['pending_2fa_secret']??'');
+        echo '<div class="info"><strong>المفتاح السري — يظهر أثناء الإعداد فقط</strong><p><code dir="ltr" style="user-select:all;word-break:break-all">'.e($secret).'</code></p><p>افتح Google Authenticator أو Microsoft Authenticator، اختر إدخال مفتاح يدويًا، النوع Time-based، ثم أدخل المفتاح كما هو. لا ترسل المفتاح لأحد.</p></div>';
+    }
+    echo '<form method="post" action="/saas/console/security/2fa" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><label class="field">رمز التحقق<input required name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="24" pattern="[0-9]{6}|[A-Fa-f0-9]{24}" dir="ltr" placeholder="000000"></label><button class="btn primary wide" type="submit">'.($enabled?'تأكيد الدخول':'تفعيل الحماية والدخول').'</button></form>';
+    echo '<p class="login-foot">لا يمكن الوصول إلى بيانات الحساب قبل إتمام التحقق. تنتهي مهلة تسجيل الدخول خلال 5 دقائق.</p></div></body></html>';
+}
+function twofa_recovery_page(array $codes):void {
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store');
+    header('X-Frame-Options: DENY');
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>رموز الاسترداد | OnTrack Voice</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"></head><body class="login-body"><div class="login-panel"><h1>تم تفعيل التحقق بخطوتين</h1><p>احتفظ برموز الاسترداد الثمانية في مكان آمن خارج الجهاز. كل رمز صالح لمرة واحدة، ولن تُعرض هذه الصفحة مرة أخرى.</p><div class="info" dir="ltr" style="text-align:center;line-height:2.2">';
+    foreach($codes as $code)echo '<code style="display:block;user-select:all">'.e($code).'</code>';
+    echo '</div><a class="btn primary wide" href="/saas/console/">حفظت الرموز — دخول اللوحة</a></div></body></html>';
+}
 function login_page(?string $error=null):void{
     header('Content-Type: text/html; charset=utf-8');
     header('X-Frame-Options: DENY');header('Cache-Control: no-store');
@@ -559,6 +584,11 @@ function render_releases(array $a):void{
 }
 function render_settings(array $a):void{
     $brand=brand($a);
+    require_once __DIR__.'/TwoFactor.php';
+    $security=twofa_enabled((int)me()['id'])
+        ?'<p>التحقق بخطوتين مفعّل لهذا المستخدم. رموز الاسترداد لا تُعرض مجددًا ولا يمكن استرجاعها من السيرفر.</p>'
+        :'<p>التحقق بخطوتين مطلوب عند تسجيل الدخول التالي لكل مالك أو مدير حساب.</p>';
+    echo card('أمان تسجيل الدخول · 2FA',$security);
     echo '<div class="cols two">';
     echo card('هوية حسابك','<div class="brand-preview"><div class="brand-icon">'.e(mb_substr($brand['name'],0,1)).'</div><div><h3>'.e($brand['name']).'</h3><p>ألوان الهوية الأساسية: أحمر / أسود / أبيض</p></div></div><p>المستخدم المباشر يرث OnTrack؛ المستخدم التابع يرث هوية الريسيلر بشكل آمن.</p>');
     if(in_array($a['kind'],['reseller','platform'],true)){

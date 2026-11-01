@@ -5,6 +5,9 @@ on:
     paths:
       - 'saas/console/**'
       - 'tools/test_voice_saas_console.php'
+      - 'tools/test_voice_totp.php'
+      - 'tools/test_voice_totp_http.py'
+      - 'tools/totp_http_router.php'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
@@ -28,8 +31,14 @@ jobs:
           set -eu
           find saas/console -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           php -l tools/test_voice_saas_console.php
+          php -l tools/test_voice_totp.php
+          php -l tools/totp_http_router.php
           php -l tools/test_tenant_device_pairing.php
       - name: Validate JavaScript
         run: node --check saas/console/assets/js/app.js
       - name: Database, roles, demo users, branding and isolation smoke
-        run: php tools/test_voice_saas_console.php
+        run: |
+          php tools/test_voice_saas_console.php
+          php tools/test_voice_totp.php
+      - name: Real local HTTP TOTP enrollment, login, recovery and CSRF
+        run: python3 tools/test_voice_totp_http.py

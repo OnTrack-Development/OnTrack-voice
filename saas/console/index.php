@@ -15,6 +15,49 @@ try {init_schema();} catch(Throwable $e){
     exit;
 }
 $path=route();
+require_once __DIR__.'/_core/TwoFactor.php';
+if($path==='/security/2fa') {
+    header('Cache-Control: no-store');
+    $pending=twofa_pending();
+    if(!$pending)go('/login');
+    $uid=(int)$pending['id'];
+    $enabled=twofa_enabled($uid);
+    if(!$enabled && !twofa_required($uid))go('/login');
+    if(!$enabled && empty($_SESSION['pending_2fa_secret']))
+        $_SESSION['pending_2fa_secret']=twofa_new_secret();
+    if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
+        require_csrf();
+        $tries=(int)($_SESSION['pending_2fa_fails']??0);
+        if($tries>=8){
+            unset($_SESSION['pending_2fa_uid'],$_SESSION['pending_2fa_secret']);
+            go('/login');
+        }
+        $_SESSION['pending_2fa_fails']=$tries+1;
+        try {
+            $code=trim((string)($_POST['code']??''));
+            if($enabled){
+                if(!twofa_check($uid,$code))throw new InvalidArgumentException('الرمز غير صحيح أو انتهت صلاحيته. قد يكون الحساب مقفلاً مؤقتًا.');
+            }else{
+                $codes=twofa_enroll($uid,(string)$_SESSION['pending_2fa_secret'],$code);
+                $_SESSION['twofa_recovery_display']=$codes;
+            }
+            twofa_complete($uid);
+            go($enabled?'/':'/security/recovery');
+        }catch(Throwable $e){
+            twofa_page($pending,$enabled,'تعذر التحقق من الرمز. حاول برمز جديد أو رمز استرداد صالح.');
+            exit;
+        }
+    }
+    twofa_page($pending,$enabled);exit;
+}
+if($path==='/security/recovery') {
+    require_login();
+    header('Cache-Control: no-store');
+    $codes=$_SESSION['twofa_recovery_display']??null;
+    unset($_SESSION['twofa_recovery_display']);
+    if(!is_array($codes)||!$codes)go('/');
+    twofa_recovery_page($codes);exit;
+}
 if($path==='/login') {
     if($_SERVER['REQUEST_METHOD']==='POST'){
         require_csrf();
@@ -26,7 +69,15 @@ if($path==='/login') {
         if($bad>=8){login_page('محاولات كثيرة. حاول بعد 15 دقيقة.');exit;}
         $u=filter_var($email,FILTER_VALIDATE_EMAIL)?one("SELECT * FROM users WHERE email=? AND status='active'",[$email]):null;
         if($u && password_verify($pass,$u['password_hash'])){
+            if(twofa_required((int)$u['id']) || twofa_enabled((int)$u['id'])){
+                twofa_begin((int)$u['id']);
+                $_SESSION['bad_logins']=0;
+                go('/security/2fa');
+            }
             session_regenerate_id(true);
+            unset($_SESSION['pending_2fa_uid'],$_SESSION['pending_2fa_at'],
+                $_SESSION['pending_2fa_secret'],$_SESSION['pending_2fa_fails'],
+                $_SESSION['twofa_verified_uid'],$_SESSION['twofa_recovery_display']);
             $_SESSION['uid']=(int)$u['id'];
             $m=memberships((int)$u['id']);
             $_SESSION['account_id']=$m[0]['account_id']??null;

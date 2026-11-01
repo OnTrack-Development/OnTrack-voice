@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v7(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5();
+    init_console_v4(); init_console_v5(); init_console_v7();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -169,7 +169,14 @@ function startsession():void {
 }
 function me():?array {
     if(empty($_SESSION['uid']))return null;
-    return one("SELECT id,name,email,status FROM users WHERE id=? AND status='active'",[(int)$_SESSION['uid']]);
+    $uid=(int)$_SESSION['uid'];
+    require_once __DIR__.'/TwoFactor.php';
+    // An enabled factor must never be bypassed by a stale session or SSO
+    // writing uid directly. Fresh administrative password logins also require
+    // enrollment before uid is ever populated.
+    if((twofa_required($uid)||twofa_enabled($uid)) &&
+        (int)($_SESSION['twofa_verified_uid']??0)!==$uid)return null;
+    return one("SELECT id,name,email,status FROM users WHERE id=? AND status='active'",[$uid]);
 }
 function memberships(int $uid):array{
     return all("SELECT m.account_id,m.role,a.kind,a.name,a.slug,a.parent_id,a.status
@@ -305,6 +312,34 @@ function init_console_v5():void {
             slot_claim TEXT UNIQUE,device_name TEXT NOT NULL,
             token_hash TEXT NOT NULL UNIQUE,status TEXT NOT NULL,
             created_at TEXT NOT NULL,last_seen_at TEXT,revoked_at TEXT
+        )");
+    }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+/** Additive per-user TOTP security, independent of device/SIM migrations. */
+function init_console_v7():void {
+    $marker=private_path().'/schema.v7';
+    if(is_file($marker))return;
+    if(driver()==='mysql'){
+        db()->exec("CREATE TABLE IF NOT EXISTS user_totp (
+            user_id BIGINT NOT NULL PRIMARY KEY,
+            secret_enc TEXT NOT NULL,
+            last_step BIGINT NOT NULL DEFAULT -1,
+            recovery_hashes TEXT NOT NULL,
+            failed_attempts INT NOT NULL DEFAULT 0,
+            locked_until BIGINT NULL,
+            created_at VARCHAR(19) NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }else{
+        db()->exec("CREATE TABLE IF NOT EXISTS user_totp (
+            user_id INTEGER PRIMARY KEY,
+            secret_enc TEXT NOT NULL,
+            last_step INTEGER NOT NULL DEFAULT -1,
+            recovery_hashes TEXT NOT NULL,
+            failed_attempts INTEGER NOT NULL DEFAULT 0,
+            locked_until INTEGER,
+            created_at TEXT NOT NULL
         )");
     }
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);

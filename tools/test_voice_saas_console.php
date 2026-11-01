@@ -10,11 +10,11 @@ $admin=one("SELECT * FROM users WHERE email='admin@ontrackegy.com'");
 ok((bool)$admin,'admin exists');
 ok((password_get_info($admin['password_hash'])['algoName']??'unknown')!=='unknown','admin has secure password hash');
 ok(!password_verify('OnTrack@Admin-2026-X7qM',$admin['password_hash']),'known demo password rejected');
-$_SESSION=['uid'=>(int)$admin['id'],'account_id'=>1];
+$_SESSION=['uid'=>(int)$admin['id'],'twofa_verified_uid'=>(int)$admin['id'],'account_id'=>1];
 ok((mine()['kind']??'')==='platform','admin membership');
 ok(has_platform(),'admin platform rights');
 $reseller=one("SELECT * FROM users WHERE email='reseller@delta.test'");
-$_SESSION=['uid'=>(int)$reseller['id'],'account_id'=>2];
+$_SESSION=['uid'=>(int)$reseller['id'],'twofa_verified_uid'=>(int)$reseller['id'],'account_id'=>2];
 ok((mine()['kind']??'')==='reseller','reseller membership');
 ok(is_reseller_child(2,5),'reseller owns child');
 ok(!is_reseller_child(2,7),'reseller cannot read other child');
@@ -39,13 +39,13 @@ ok(!str_contains($sealed,$secret),'secret encrypted at rest');
 ok(unseal_secret($sealed)===$secret,'authorized secret decrypts');
 $cols=all("PRAGMA table_info(api_keys)");
 ok(in_array('secret_enc',array_column($cols,'name'),true),'existing DB migrated with key vault column');
-$_SESSION=['uid'=>(int)$admin['id'],'account_id'=>1];
+$_SESSION=['uid'=>(int)$admin['id'],'twofa_verified_uid'=>(int)$admin['id'],'account_id'=>1];
 ok(support_mode(0)==='full','default support access is full');
 execute("INSERT INTO support_policies(account_id,access_mode) VALUES (2,'read_only')");
 $_SESSION['support']=['account_id'=>5,'origin_id'=>1,'expires'=>time()+900];
 ok((mine()['role']??'')==='owner','platform full support can manage customer');
 unset($_SESSION['support']);
-$_SESSION=['uid'=>(int)$reseller['id'],'account_id'=>2,
+$_SESSION=['uid'=>(int)$reseller['id'],'twofa_verified_uid'=>(int)$reseller['id'],'account_id'=>2,
            'support'=>['account_id'=>5,'origin_id'=>2,'expires'=>time()+900]];
 ok((mine()['role']??'')==='support_viewer','reseller can be configured read-only');
 ok(!allowed('agents.write'),'read-only support cannot modify agent');
@@ -97,7 +97,7 @@ $duplicateInvite=false;
 try{create_staff_invitation(2,'Targeted Admin','admin@ontrackegy.com','finance',(int)$reseller['id']);}
 catch(InvalidArgumentException $e){$duplicateInvite=$e->getMessage()==='invitation_already_pending';}
 ok($duplicateInvite,'duplicate pending invite rejected');
-$_SESSION=['uid'=>(int)$admin['id'],'account_id'=>1,'support'=>['account_id'=>5,'origin_id'=>1,'expires'=>time()+900]];
+$_SESSION=['uid'=>(int)$admin['id'],'twofa_verified_uid'=>(int)$admin['id'],'account_id'=>1,'support'=>['account_id'=>5,'origin_id'=>1,'expires'=>time()+900]];
 $supportAccept=false;
 try{accept_staff_invitation($inviteId,(int)$admin['id']);}
 catch(InvalidArgumentException $e){$supportAccept=$e->getMessage()==='support_session_forbidden';}

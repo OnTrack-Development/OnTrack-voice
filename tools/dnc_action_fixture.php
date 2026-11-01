@@ -7,7 +7,8 @@ require __DIR__.'/../saas/console/_core/Actions.php';
 init_schema();
 $user=one("SELECT id FROM users WHERE email='user@direct.test'");
 if(!$user)exit(2);
-$_SESSION=['uid'=>(int)$user['id'],'account_id'=>4,'csrf'=>'dnc-test-csrf'];
+$_SESSION=['uid'=>(int)$user['id'],'twofa_verified_uid'=>(int)$user['id'],
+    'account_id'=>4,'csrf'=>'dnc-test-csrf'];
 $action=(string)($argv[1]??'');
 $contactId=(int)($argv[2]??0);
 $phone=(string)($argv[3]??'01012345678');
