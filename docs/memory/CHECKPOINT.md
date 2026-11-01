@@ -1,3 +1,11 @@
+## 2026-11-01 — Hourly cycle #1 PR #8 merged, CI verified, host receipt pending
+
+- **Issue fixed in code:** previously `add_employee` could immediately attach an existing user to another tenant solely from a typed email, or create an active unverified user and membership. It now creates a 7-day pending invitation without granting membership. Only the authenticated email-matching existing user can explicitly accept it; CSRF, expiry, replay, cross-identity, support-session and tenant checks apply. Owners/admins can cancel scoped pending invitations. SQLite/MySQL additive `schema.v4` migration and staff/invitation UI are included.
+- **PR #8 merged**: `https://github.com/OnTrack-Development/OnTrack-voice/pull/8`, main commit `a35c636a2bf42ceb97cf696a48d1cf12e0b2a7e0`. PR CI `41284341013` = **success**, post-merge PHP console `41284375129` = **success**, publish workflow `41284374964` = **success** (bundle queued to host worker).
+- **HOST_DEPLOYED not yet verified for #8** at checkpoint write: Cron receipt `ops/host-link/results/appontrack-server11/saas-console-41284374964.json` absent on last check. Publish workflow success alone is not proof that host installed migration or UI.
+- **Known limits:** unregistered email invitations stay pending; verified signup/email delivery and external SSO/account claim are still OPEN. No authenticated browser UI or Android/device/financial E2E was run. Do not claim complete identity solution.
+- **Next:** verify Cron receipt and authenticated invitation UI, then proceed to verified registration/SSO subject binding as a separate testable slice.
+
 ## 2026-11-01 — Hourly cycle #1: verified staff invitations, consent gate (candidate pending CI)
 
 - **Previous release proof now verified:** PR #7 main `ecbe44fb590a63f344bc869b01038373c1ef6e22`; CI `41280246046` PASS; publish workflow `41280245756` PASS; host Cron receipt `ops/host-link/results/appontrack-server11/saas-console-41280245756.json` = **success**, exit_code 0, finished **2026-11-01 06:19:04 UTC**, source `ecbe44fb590a`, 20 files, PHP 8.3, DB `already_seeded` 9 users, backup true. This is `HOST_DEPLOYED` for that release only, not payment/SSO/Android E2E.
