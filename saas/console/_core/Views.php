@@ -373,7 +373,9 @@ function render_calls(array $a):void{
     $actual=[];
     foreach($observations as $row){
         $agent=one('SELECT name FROM agents WHERE id=? AND account_id=?',[(int)$row['agent_id'],$id]);
-        $state=(int)$row['ended']===1?'انتهت':((int)$row['active']===1?'متصلة':'رنين');
+        $state=(int)$row['ended']===1
+            ?((int)$row['active']===1?'انتهت':'لم يتم الرد')
+            :((int)$row['active']===1?'متصلة':'رنين');
         $actual[]=['#'.(int)$row['device_id'],e('SIM '.((int)$row['sim_slot']+1)),
             e((string)($agent['name']??'إيجنت مؤرشف')),e($state),
             e(fmt_duration((int)$row['duration_seconds'])),e((string)$row['last_at']).' UTC'];
