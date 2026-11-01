@@ -1,3 +1,9 @@
+## 2026-11-01 — متابعة المنتج PR #19: حالة كل شريحة والشركة على Android
+
+- **CODED:** شاشة Android تعرض حالة SIM1/SIM2 من heartbeat موثّق منفصل: الشركة والموقع والإيجنت، مع تمييز إلغاء الربط وعدم توفر السيرفر عن الربط المؤكد. Backend يعيد اسم الشركة في ملف الشريحة المصرح لها فقط؛ PHP/Kotlin tests تغطي الهوية والحالات. أثناء الاقتران يُمنع هاتف التجربة القديم من بدء اتصال حتى في نافذة lease→verify→dial. هذه شريحة منتج ضمن ربط Android، وليست إصلاح أداة نشر.
+- **Evidence:** التعديلات على PR #19؛ اختبارات CI النهائية للتحديث الجديد لم تثبت بعد. `HOST_DEPLOYED=NO` و`AUTH_UI_VERIFIED=NO` و`DEVICE_E2E_VERIFIED=NO`. إيصال #18 يثبت backend السابق فقط، وليس هذا التحديث. **BLOCKED** إطلاق اعتماد Android الحساس حتى مراجعة staging وفحص Xiaomi الفعلي؛ لا نشر تلقائي ولا اتصال تجريبي حقيقي.
+- **Next in same feature:** اختبار QR والكود على شريحتين بحسابين، فصل/إلغاء/إعادة ربط، التحقق من mapping الفيزيائي للشريحتين، ثم ربط agent per line/flow مع صوت SIM بعد الدليل؛ لا تبدأ باقات أو دفع قبل إنهاء النواقص القابلة للتنفيذ في ربط Android.
+
 ## 2026-11-01 — Android pairing product slice in PR #19 (pending verification)
 
 - Continue merged #18 backend with native Android SIM 1/SIM 2 code enrollment, encrypted tenant token profiles, server heartbeat, authenticated disconnect and re-pair, native UI and QR deep-link confirmation. Pilot bearer is prohibited from running alongside tenant enrollment.
