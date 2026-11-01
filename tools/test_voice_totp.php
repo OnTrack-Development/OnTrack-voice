@@ -11,7 +11,7 @@ $admin=one("SELECT id FROM users WHERE email='admin@ontrackegy.com'");
 $manager=one("SELECT id FROM users WHERE email='manager@delta.test'");
 $uid=(int)$admin['id'];
 totp_ok(twofa_required($uid),'admin requires second factor');
-totp_ok(!twofa_required((int)$manager['id']),'non-admin manager is not forced into enrollment');
+totp_ok(twofa_required((int)$manager['id']),'privileged manager also requires second factor');
 $vector=twofa_base32('12345678901234567890');
 totp_ok(twofa_unbase32($vector)==='12345678901234567890','base32 roundtrip');
 totp_ok(twofa_code($vector,1)==='287082','RFC6238 SHA1 vector truncated to six digits');
@@ -20,8 +20,8 @@ totp_ok(strlen($secret)===32 && twofa_unbase32($secret)!=='','random secret has 
 $at=1700000000;
 $code=twofa_code($secret,intdiv($at,30));
 $rejected=false;
-try{twofa_enroll((int)$manager['id'],$secret,$code,$at);}catch(InvalidArgumentException $e){$rejected=true;}
-totp_ok($rejected,'non-admin cannot enroll through forced setup');
+try{twofa_enroll(999999,$secret,$code,$at);}catch(InvalidArgumentException $e){$rejected=true;}
+totp_ok($rejected,'user without privileged membership cannot enroll through forced setup');
 $codes=twofa_enroll($uid,$secret,$code,$at);
 totp_ok(count($codes)===8 && count(array_unique($codes))===8,'eight independent one-time recovery codes');
 $row=twofa_record($uid);
