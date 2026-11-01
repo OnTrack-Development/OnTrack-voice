@@ -1,3 +1,9 @@
+## 2026-11-02 — شريحة منتج PR #19: تثبيت نسبة المكالمة للإيجنت عبر Offline Outbox
+
+**CODED + CI_PASS، غير مدموج وغير منشور.** إضافة `schema.v10` لتاريخ تعيين الإيجنت لكل SIM و`agent_revision` للأحداث؛ Android يثبت الإصدار عند بداية المكالمة ويحفظه في طابور الأحداث حتى عند تأخر الرفع؛ PHP يتحقق من الإصدار التاريخي المرتبط بنفس الجهاز والحساب والموقع ويرفض إسناد مكالمة قديمة للإيجنت الجديد. سجل Web وAndroid يعرض الإيجنت الأصلي. اختبار حسابين وشريحتين ورفض revisions مزيفة/متضاربة وlegacy غير آمن. Runtime SHA `695abfedef29aed7c094e69a809e88dbbd785318`، [PHP #41361475739](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/41361475739) SUCCESS، [Android #41361475682](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/41361475682) SUCCESS، [Native gate #41361475655](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/41361475655) SUCCESS. لا إثبات هاتف حقيقي أو صوت AI أو Flow revision.
+
+**حاجز الإطلاق:** PR #19 لا يزال OPEN، بلا مراجعة أمنية مستقلة أو staging مصادق أو Xiaomi dual-SIM فعلي. آخر Host Receipt `saas-console-41358252163` نشر مصدرًا آخر `dff8ec5cd5ec`، لا هذه الميزة. **الخطوة التالية في نفس الميزة:** اختبار الهاتف بحسابين، ثم توصيل Flow المنشور والصوت بكل شريحة بعد دمج مدروس مع PR #20 وحل تصادم `schema.v6`. لا دمج أو نشر قبل gate كامل.
+
 ## 2026-11-02 — حالة ميزة Android dual-SIM الحالية PR #19
 
 **CODED وليس منشورًا:** إعادة تعيين الإيجنت للشريحة المربوطة من لوحة العميل مع تحديث Android الموثق وتاريخ إصدارات agent_revision، وحفظ نسبة مراحل المكالمة لإيجنت البداية. Backend + Web + DB migration + Android + regression tests. الكود 3190d01e و7cde2d60؛ PHP CI 41356631162 وNative gate 41356631117 ناجحان؛ **Android CI 41356791496 SUCCESS** على SHA 076f4a94 (Kotlin tests + APK + emulator + signing).
