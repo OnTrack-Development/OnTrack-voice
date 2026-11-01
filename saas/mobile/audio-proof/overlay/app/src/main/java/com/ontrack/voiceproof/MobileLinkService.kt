@@ -91,13 +91,23 @@ class MobileLinkService:Service() {
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     private fun notification(value:String):Notification {
         val open=PendingIntent.getActivity(this,0,Intent(this,MobileLinkActivity::class.java),PendingIntent.FLAG_IMMUTABLE)
+        val callLabel=when{
+            inCall && humanControl->"أنت استلمت المكالمة من الإيجنت"
+            inCall && !callAnswered->"مكالمة قيد الرنين أو الاتصال"
+            inCall && agentEnabled->"مكالمة متصلة — الإيجنت قيد التشغيل"
+            else->value
+        }
         val item=NotificationCompat.Builder(this,"ontrack_mobile_link")
-            .setSmallIcon(android.R.drawable.sym_call_incoming)
-            .setContentTitle("OnTrack Voice").setContentText(value)
+            .setSmallIcon(android.R.drawable.ic_menu_call)
+            .setContentTitle("OnTrack Voice").setContentText(callLabel)
             .setOngoing(true).setContentIntent(open)
-        if(callAnswered && !humanControl)item.addAction(android.R.drawable.ic_menu_view,"استلام المكالمة",pending(ACTION_TAKEOVER,1))
-        if(callAnswered)item.addAction(android.R.drawable.ic_menu_manage,"السماعة",pending(ACTION_SPEAKER,2))
-        item.addAction(android.R.drawable.ic_media_pause,if(agentEnabled)"إيقاف الإيجنت" else "تشغيل الإيجنت",
+        if(inCall && callAnswered && agentEnabled && !humanControl)
+            item.addAction(android.R.drawable.ic_menu_myplaces,"استلام المكالمة من الإيجنت",pending(ACTION_TAKEOVER,1))
+        if(inCall && callAnswered)
+            item.addAction(android.R.drawable.ic_lock_silent_mode_off,"تبديل مخرج الصوت",pending(ACTION_SPEAKER,2))
+        item.addAction(
+            if(agentEnabled)android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+            if(agentEnabled)"إيقاف الإيجنت" else "تشغيل الإيجنت",
             pending(if(agentEnabled) ACTION_DISABLE else ACTION_ENABLE,3))
         return item.build()
     }
@@ -149,7 +159,7 @@ class MobileLinkService:Service() {
                     takeoverRequested=true;humanControl=true
                     // The shell socket returns the microphone mute to its original state.
                     call?.stop();call=null
-                    notice("تم استلام المكالمة الحالية • المكالمة القادمة للـAI")
+                    notice("استلمت المكالمة من الإيجنت • التحكم بشري الآن، والمكالمة القادمة للـAI")
                 }
                 return START_STICKY
             }
@@ -301,7 +311,12 @@ class MobileLinkService:Service() {
                         call?.stop();call=null;callSeen=false;ringingAt=0;answerIssued=false
                         takeoverRequested=false;humanControl=false;recoveringActiveCall=false
                     }
+                    val telephonyStateChanged=state!=lastState
                     lastState=state
+                    // Refresh notification actions when ringing turns into an answered call.
+                    // Without this, takeover/speaker controls can remain stale until another notice.
+                    if(telephonyStateChanged)getSystemService(NotificationManager::class.java)
+                        .notify(701,notification(latestStatus))
                     if(SystemClock.elapsedRealtime()-lastReport>4000){
                         lastReport=SystemClock.elapsedRealtime()
                         val phase=when{

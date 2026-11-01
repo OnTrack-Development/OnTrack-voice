@@ -2,7 +2,10 @@ package com.ontrack.voiceproof
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -11,117 +14,300 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import kotlin.math.abs
 
-/** Brand-aligned, user-consented TYPE_APPLICATION_OVERLAY. No Accessibility. */
-internal class CallOverlay(private val context:Context){
+/**
+ * Compact native control over the ongoing SIM call.
+ * No Accessibility, fake mute controls, injected HTML or second call service.
+ * All buttons use existing verified service actions and update on actual state.
+ */
+internal class CallOverlay(private val context: Context) {
     private val window=context.getSystemService(WindowManager::class.java)
-    private val density=context.resources.displayMetrics.density
-    private val bg=Color.rgb(14,20,33)
-    private val muted=Color.rgb(164,179,200)
-    private val accent=Color.rgb(227,48,76)
-    private val green=Color.rgb(39,205,155)
+    private val dp=context.resources.displayMetrics.density
+    private val red=Color.rgb(220,20,45)
+    private val green=Color.rgb(27,178,103)
+    private val black=Color.rgb(15,15,18)
+    private val white=Color.WHITE
+    private val gray=Color.rgb(151,151,160)
     private var root:LinearLayout?=null
-    private var head:TextView?=null
-    private var controls:LinearLayout?=null
-    private var takeoverButton:TextView?=null
-    private var speakerButton:TextView?=null
-    private var powerButton:TextView?=null
-    private var expanded=false
-    private fun px(value:Int)=(value*density).toInt()
+    private var orb:FrameLayout?=null
+    private var orbGlyph:Glyph?=null
+    private var menu:LinearLayout?=null
+    private var status:TextView?=null
+    private var title:TextView?=null
+    private var toggle:LinearLayout?=null
+    private var takeover:LinearLayout?=null
+    private var speaker:LinearLayout?=null
+    private var expand=false
+    private var lightTheme=false
+    private var currentColor=red
+    private var params:WindowManager.LayoutParams?=null
+
+    private fun px(value:Int)=(value*dp+0.5f).toInt()
+    private fun themeLight()=context.getSharedPreferences("ontrack_link",Context.MODE_PRIVATE)
+        .getString("ui_theme","dark")=="light"
     fun allowed()=Settings.canDrawOverlays(context)
-    private fun shape(color:Int,radius:Int=14)=GradientDrawable().apply{
-        setColor(color);cornerRadius=px(radius).toFloat()
-        setStroke(px(1),Color.rgb(48,62,84))
-    }
-    private fun action(title:String,background:Int,command:String):TextView{
-        return TextView(context).apply{
-            text=title;setTextColor(Color.WHITE);textSize=12.5f
-            typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL)
-            gravity=Gravity.CENTER;setPadding(px(12),px(11),px(12),px(11))
-            this.background=shape(background,12)
-            setOnClickListener{context.startService(Intent(context,MobileLinkService::class.java).setAction(command))}
+    private fun shape(color:Int,radius:Int,stroke:Int?=null,strokeWidth:Int=1)=
+        GradientDrawable().apply{
+            setColor(color);cornerRadius=px(radius).toFloat()
+            if(stroke!=null)setStroke(px(strokeWidth),stroke)
         }
+    private fun text(value:String,size:Float=13f,bold:Boolean=false,color:Int=white)=
+        TextView(context).apply{
+            text=value;textSize=size;setTextColor(color)
+            gravity=Gravity.CENTER_VERTICAL
+            typeface=Typeface.create("sans-serif",if(bold)Typeface.BOLD else Typeface.NORMAL)
+        }
+
+    /** Draw simple consistent line icons rather than font emoji or OEM assets. */
+    private inner class Glyph(private var symbol:String, tint:Int):View(context) {
+        private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{
+            color=tint;strokeWidth=2.1f;strokeCap=Paint.Cap.ROUND
+            strokeJoin=Paint.Join.ROUND;style=Paint.Style.STROKE
+        }
+        fun configure(newSymbol:String,newTint:Int){symbol=newSymbol;p.color=newTint;invalidate()}
+        override fun onDraw(canvas:Canvas){
+            super.onDraw(canvas)
+            val save=canvas.save()
+            val side=minOf(width,height).toFloat()
+            canvas.translate((width-side)/2f,(height-side)/2f)
+            canvas.scale(side/24f,side/24f)
+            when(symbol){
+                "power"->{canvas.drawArc(5f,5f,19f,19f,-54f,288f,false,p);canvas.drawLine(12f,3f,12f,12f,p)}
+                "person"->{
+                    canvas.drawCircle(12f,7f,3.1f,p)
+                    canvas.drawArc(5f,11f,19f,23f,187f,166f,false,p)
+                }
+                "speaker"->{
+                    val path=Path().apply{
+                        moveTo(3f,9f);lineTo(7.4f,9f);lineTo(12f,5f)
+                        lineTo(12f,19f);lineTo(7.4f,15f);lineTo(3f,15f);close()
+                    }
+                    canvas.drawPath(path,p)
+                    canvas.drawArc(10f,6f,20f,18f,-66f,132f,false,p)
+                    canvas.drawArc(7.5f,2.5f,23f,21.5f,-62f,124f,false,p)
+                }
+                "home"->{
+                    val path=Path().apply{
+                        moveTo(3f,11f);lineTo(12f,4f);lineTo(21f,11f)
+                        moveTo(6f,10f);lineTo(6f,20f);lineTo(18f,20f);lineTo(18f,10f)
+                        moveTo(10f,20f);lineTo(10f,14f);lineTo(14f,14f);lineTo(14f,20f)
+                    };canvas.drawPath(path,p)
+                }
+                "close"->{canvas.drawLine(6f,6f,18f,18f,p);canvas.drawLine(18f,6f,6f,18f,p)}
+                "phone"->{
+                    val path=Path().apply{
+                        moveTo(5f,4f);lineTo(8f,3f);lineTo(11f,8f);lineTo(9f,10f)
+                        cubicTo(10f,13f,12f,15f,15f,16f)
+                        lineTo(17f,14f);lineTo(21f,17f);lineTo(20f,20f)
+                        cubicTo(17f,23f,10f,19f,6f,14f)
+                        cubicTo(3f,10f,2f,6f,5f,4f)
+                    };canvas.drawPath(path,p)
+                }
+            }
+            canvas.restoreToCount(save)
+        }
+    }
+    private fun serviceAction(command:String){
+        context.startService(Intent(context,MobileLinkService::class.java).setAction(command))
+        collapse()
+    }
+    private fun collapse(){
+        expand=false
+        orbGlyph?.configure("power",white)
+        menu?.visibility=View.GONE
+        root?.requestLayout()
+        params?.let{p->root?.let{v->runCatching{window.updateViewLayout(v,p)}}}
+    }
+    private fun iconTile(symbol:String,label:String,description:String,color:Int,enabled:Boolean,onClick:()->Unit):LinearLayout{
+        val foreground=if(lightTheme)Color.rgb(20,20,24) else white
+        val surface=if(lightTheme)Color.rgb(250,250,251) else Color.rgb(31,31,35)
+        val border=if(lightTheme)Color.rgb(225,225,229) else Color.rgb(61,61,65)
+        return LinearLayout(context).apply{
+            orientation=LinearLayout.VERTICAL
+            gravity=Gravity.CENTER
+            setPadding(px(6),px(12),px(6),px(10))
+            background=shape(surface,14,border)
+            alpha=if(enabled)1f else .44f
+            isEnabled=enabled;isClickable=enabled;isFocusable=enabled
+            contentDescription="$label، $description"
+            accessibilityDelegate=object:View.AccessibilityDelegate(){
+                override fun onInitializeAccessibilityNodeInfo(host:View,info:AccessibilityNodeInfo){
+                    super.onInitializeAccessibilityNodeInfo(host,info)
+                    info.className="android.widget.Button"
+                }
+            }
+            val backgroundColor=if(lightTheme)Color.rgb(255,235,239) else Color.rgb(63,25,34)
+            val icon=FrameLayout(context).apply{background=shape(backgroundColor,12)}
+            icon.addView(Glyph(symbol,color),FrameLayout.LayoutParams(px(24),px(24),Gravity.CENTER))
+            addView(icon,LinearLayout.LayoutParams(px(44),px(44)))
+            addView(text(label,12f,true,foreground).apply{gravity=Gravity.CENTER},
+                LinearLayout.LayoutParams(-1,px(27)))
+            addView(text(description,10f,false,if(lightTheme)Color.rgb(93,93,101) else Color.rgb(183,183,190))
+                .apply{gravity=Gravity.CENTER;textAlignment=View.TEXT_ALIGNMENT_CENTER;maxLines=2},
+                LinearLayout.LayoutParams(-1,px(34)))
+            if(enabled)setOnClickListener{onClick()}
+        }
+    }
+    private fun attach(){
+        lightTheme=themeLight()
+        val panelSurface=if(lightTheme)white else black
+        val border=if(lightTheme)Color.rgb(226,226,230) else Color.rgb(52,52,57)
+        val container=LinearLayout(context).apply{
+            orientation=LinearLayout.VERTICAL;gravity=Gravity.END
+            layoutDirection=View.LAYOUT_DIRECTION_RTL
+        }
+        val circle=FrameLayout(context).apply{
+            background=shape(black,60,red,2)
+            elevation=px(7).toFloat()
+            isClickable=true;isFocusable=true
+            contentDescription="فتح عناصر تحكم OnTrack Voice"
+            accessibilityDelegate=object:View.AccessibilityDelegate(){
+                override fun onInitializeAccessibilityNodeInfo(host:View,info:AccessibilityNodeInfo){
+                    super.onInitializeAccessibilityNodeInfo(host,info);info.className="android.widget.Button"
+                }
+            }
+        }
+        orbGlyph=Glyph("power",white).also{circle.addView(it,
+            FrameLayout.LayoutParams(px(26),px(26),Gravity.CENTER))}
+        container.addView(circle,LinearLayout.LayoutParams(px(58),px(58)).apply{gravity=Gravity.END})
+        val sheet=LinearLayout(context).apply{
+            orientation=LinearLayout.VERTICAL
+            layoutDirection=View.LAYOUT_DIRECTION_RTL
+            setPadding(px(13),px(13),px(13),px(13))
+            background=shape(panelSurface,20,border)
+            elevation=px(10).toFloat()
+            visibility=View.GONE
+        }
+        title=text("OnTrack Voice",16f,true,if(lightTheme)black else white)
+        status=text("الحالة",12f,false,gray)
+        val header=LinearLayout(context).apply{
+            orientation=LinearLayout.VERTICAL
+            addView(title,LinearLayout.LayoutParams(-1,px(28)))
+            addView(status,LinearLayout.LayoutParams(-1,px(22)))
+        }
+        sheet.addView(header,LinearLayout.LayoutParams(-1,px(58)))
+        // Two tidy rows, two square touch targets each. No mock/inert controls.
+        val first=LinearLayout(context).apply{orientation=LinearLayout.HORIZONTAL}
+        val second=LinearLayout(context).apply{orientation=LinearLayout.HORIZONTAL}
+        sheet.addView(first)
+        sheet.addView(second,LinearLayout.LayoutParams(-1,-2).apply{topMargin=px(8)})
+        val note=text("الاستلام منك للإيجنت يخص المكالمة الحالية فقط",10f,false,gray).apply{gravity=Gravity.CENTER}
+        sheet.addView(note,LinearLayout.LayoutParams(-1,px(30)).apply{topMargin=px(6)})
+        container.addView(sheet,LinearLayout.LayoutParams(px(284),-2).apply{
+            topMargin=px(8);gravity=Gravity.END
+        })
+        val lp=WindowManager.LayoutParams(-2,-2,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT).apply{
+            gravity=Gravity.TOP or Gravity.END;x=px(14);y=px(110)
+        }
+        var startX=0;var startY=0;var touchX=0f;var touchY=0f
+        circle.setOnTouchListener {_,event->
+            when(event.actionMasked){
+                MotionEvent.ACTION_DOWN->{
+                    startX=lp.x;startY=lp.y;touchX=event.rawX;touchY=event.rawY;true
+                }
+                MotionEvent.ACTION_MOVE->{
+                    lp.x=(startX+touchX-event.rawX).toInt().coerceIn(0,px(240))
+                    lp.y=(startY+event.rawY-touchY).toInt()
+                        .coerceIn(px(28),context.resources.displayMetrics.heightPixels-px(170))
+                    runCatching{window.updateViewLayout(container,lp)}
+                    true
+                }
+                MotionEvent.ACTION_UP->{
+                    if(abs(event.rawX-touchX)<px(12)&&abs(event.rawY-touchY)<px(12)){
+                        expand=!expand
+                        orbGlyph?.configure(if(expand)"close" else "power",white)
+                        sheet.visibility=if(expand)View.VISIBLE else View.GONE
+                        if(expand)renderActions()
+                        container.requestLayout()
+                        runCatching{window.updateViewLayout(container,lp)}
+                    };true
+                }
+                MotionEvent.ACTION_CANCEL->true
+                else->false
+            }
+        }
+        try{
+            window.addView(container,lp)
+            root=container;orb=circle;menu=sheet;params=lp
+        }catch(_:Exception){
+            root=null;orb=null;menu=null;orbGlyph=null;params=null
+        }
+    }
+    private var lastReady=false
+    private var lastEnabled=false
+    private var lastCall=false
+    private var lastAnswered=false
+    private var lastHuman=false
+    private fun renderActions(){
+        val sheet=menu?:return
+        if(!expand)return
+        val first=sheet.getChildAt(1) as LinearLayout
+        val second=sheet.getChildAt(2) as LinearLayout
+        first.removeAllViews();second.removeAllViews()
+        val powerOn=lastEnabled
+        val power=iconTile("power",
+            if(powerOn)"إيقاف الإيجنت" else "تشغيل الإيجنت",
+            if(powerOn)"تعطيل الرد الآلي" else "تفعيل الرد الآلي",
+            if(powerOn)red else green,true){
+            serviceAction(if(powerOn)MobileLinkService.ACTION_DISABLE else MobileLinkService.ACTION_ENABLE)
+        }
+        val model=overlayUiModel(lastReady,lastEnabled,lastCall,lastAnswered,lastHuman)
+        val canTake=model.canTakeover
+        val handoff=iconTile("person",
+            model.takeoverTitle,model.takeoverHint,if(canTake)green else gray,canTake){
+            serviceAction(MobileLinkService.ACTION_TAKEOVER)
+        }
+        val audio=iconTile("speaker","مخرج الصوت",
+            if(model.canSwitchSpeaker)"تبديل السماعة" else "بعد الرد فقط",
+            red,model.canSwitchSpeaker){serviceAction(MobileLinkService.ACTION_SPEAKER)}
+        val home=iconTile("home","فتح التطبيق","التحكم الكامل",red,true){
+            collapse()
+            context.startActivity(Intent(context,MobileLinkActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        }
+        fun add(row:LinearLayout,tile:LinearLayout,margin:Boolean){
+            row.addView(tile,LinearLayout.LayoutParams(0,px(119),1f).apply{
+                if(margin)marginStart=px(8)
+            })
+        }
+        add(first,power,false);add(first,handoff,true)
+        add(second,audio,false);add(second,home,true)
     }
     fun show(serviceReady:Boolean,enabled:Boolean,inCall:Boolean,answered:Boolean,human:Boolean){
         if(!allowed()){remove();return}
-        if(root==null){
-            val panel=LinearLayout(context).apply{
-                orientation=LinearLayout.VERTICAL
-                background=shape(bg,18)
-                elevation=px(14).toFloat()
-                setPadding(px(9),px(8),px(9),px(8))
-                layoutDirection=View.LAYOUT_DIRECTION_RTL
-            }
-            head=TextView(context).apply{
-                textSize=13f;setTextColor(Color.WHITE)
-                typeface=Typeface.create("sans-serif-medium",Typeface.BOLD)
-                setPadding(px(10),px(7),px(10),px(7))
-                gravity=Gravity.CENTER_VERTICAL
-            }.also{panel.addView(it)}
-            controls=LinearLayout(context).apply{
-                orientation=LinearLayout.VERTICAL;visibility=View.GONE
-            }.also{panel.addView(it)}
-            val callRow=LinearLayout(context).apply{orientation=LinearLayout.HORIZONTAL}
-            takeoverButton=action("استلام المكالمة",Color.rgb(25,104,89),MobileLinkService.ACTION_TAKEOVER)
-            speakerButton=action("السماعة",Color.rgb(42,57,78),MobileLinkService.ACTION_SPEAKER)
-            callRow.addView(takeoverButton,LinearLayout.LayoutParams(0,px(46),2f).apply{marginEnd=px(6)})
-            callRow.addView(speakerButton,LinearLayout.LayoutParams(0,px(46),1f))
-            controls!!.addView(callRow)
-            powerButton=action("إيقاف الإيجنت",Color.rgb(111,35,56),MobileLinkService.ACTION_DISABLE)
-            controls!!.addView(powerButton,LinearLayout.LayoutParams(-1,px(46)).apply{topMargin=px(7)})
-            val params=WindowManager.LayoutParams(-2,-2,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-                PixelFormat.TRANSLUCENT).apply{
-                gravity=Gravity.TOP or Gravity.END;x=px(12);y=px(98)
-            }
-            var startX=0;var startY=0;var touchX=0f;var touchY=0f
-            head!!.setOnTouchListener{_:View,event:MotionEvent->
-                when(event.actionMasked){
-                    MotionEvent.ACTION_DOWN->{startX=params.x;startY=params.y;touchX=event.rawX;touchY=event.rawY;true}
-                    MotionEvent.ACTION_MOVE->{
-                        params.x=(startX+touchX-event.rawX).toInt().coerceAtLeast(0)
-                        params.y=(startY+event.rawY-touchY).toInt().coerceAtLeast(0)
-                        runCatching{window.updateViewLayout(panel,params)};true
-                    }
-                    MotionEvent.ACTION_UP->{
-                        if(abs(event.rawX-touchX)<px(12)&&abs(event.rawY-touchY)<px(12)){
-                            expanded=!expanded
-                            controls?.visibility=if(expanded)View.VISIBLE else View.GONE
-                        };true
-                    }
-                    else->false
-                }
-            }
-            try{window.addView(panel,params);root=panel}
-            catch(_:Exception){root=null;controls=null;head=null}
+        if(root!=null&&themeLight()!=lightTheme)remove()
+        if(root==null)attach()
+        val ready=serviceReady
+        lastReady=ready;lastEnabled=enabled;lastCall=inCall
+        lastAnswered=answered;lastHuman=human
+        val model=overlayUiModel(ready,enabled,inCall,answered,human)
+        val color=if(model.running)green else red
+        val changed=color!=currentColor
+        currentColor=color
+        orb?.background=shape(color,60,if(lightTheme)white else black,2)
+        orbGlyph?.invalidate()
+        orb?.contentDescription=model.announcement
+        status?.apply{
+            text="● "+model.status
+            setTextColor(color)
         }
-        head?.text=when{
-            inCall&&human->"● أون تراك  |  استلام بشري  ▾"
-            inCall&&!answered->"● أون تراك  |  اتصال وارد  ▾"
-            inCall->"● أون تراك  |  مكالمة AI  ▾"
-            !serviceReady->"● أون تراك  |  إعادة الاتصال  ▾"
-            enabled->"● أون تراك  |  الإيجنت نشط  ▾"
-            serviceReady->"● أون تراك  |  متوقف  ▾"
-            else->"● أون تراك  |  غير متصل  ▾"
-        }
-        head?.setTextColor(if((serviceReady&&enabled)||inCall)green else muted)
-        controls?.visibility=if(expanded)View.VISIBLE else View.GONE
-        takeoverButton?.visibility=if(answered&&!human)View.VISIBLE else View.GONE
-        speakerButton?.visibility=if(answered)View.VISIBLE else View.GONE
-        powerButton?.apply{
-            text=if(enabled)"إيقاف الإيجنت" else "تشغيل الإيجنت"
-            setOnClickListener{
-                context.startService(Intent(context,MobileLinkService::class.java)
-                    .setAction(if(enabled)MobileLinkService.ACTION_DISABLE else MobileLinkService.ACTION_ENABLE))
-            }
+        if(expand){
+            // Only rebuild controls on real state changes; preserve focus and avoid UI flicker.
+            val token="$ready:$enabled:$inCall:$answered:$human:$lightTheme"
+            if(token!=renderedToken||changed){renderedToken=token;renderActions()}
         }
     }
+    private var renderedToken=""
     fun remove(){
         root?.let{runCatching{window.removeView(it)}}
-        root=null;head=null;controls=null;takeoverButton=null;speakerButton=null;powerButton=null
-        expanded=false
+        root=null;orb=null;orbGlyph=null;menu=null;title=null;status=null;params=null
+        toggle=null;takeover=null;speaker=null;expand=false;renderedToken=""
     }
 }

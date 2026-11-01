@@ -6,13 +6,17 @@ from pathlib import Path
 
 ui=Path('saas/mobile/ota/ui.html').read_text()
 meta=json.loads(Path('saas/mobile/ota/release.json').read_text())
-assert meta['revision']>=17, 'A signed OTA revision must advance'
+assert meta['revision']>=18, 'A signed OTA revision must advance'
 assert meta['min_native']<=20<=meta['max_native'], 'Existing Android 0.2.9 must accept this OTA without APK'
 assert meta['runtime']==1
 for part in ('requestUiRefresh()', "send('checkUpdates')", "data-view=\"dashboard\"", 'body.light', "readUiTheme()"):
     assert part in ui, 'Missing UI-only capability: '+part
 assert 'id="rollback"' not in ui, 'Legacy UI rollback must stay hidden'
 assert 'id="uiPullStatus"' in ui
+assert 'callQuickActions' in ui and 'id="callControlHint"' in ui
+assert 'استلام من الإيجنت' in ui, 'Handoff must explicitly say the human takes the current call from the AI'
+assert "el('callActions').style.display=call?'block':'none'" in ui, 'Controls must show while ringing'
+assert "el('speaker').disabled=!modern||!answered" in ui, 'No speaker action before call is answered'
 assert 'id="upgradeAndroid"' in ui, 'Do not remove separate native update controls'
 inline=ui.split('<script>',1)[1].split('</script>',1)[0]
 subprocess.run(['node','--check'],input=inline,text=True,check=True)

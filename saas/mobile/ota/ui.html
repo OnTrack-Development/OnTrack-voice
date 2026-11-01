@@ -89,6 +89,15 @@ body.light .otThemeButton,body.light .minor{background:white;color:var(--text)}b
 #uiPullStatus[hidden]{display:none!important}
 #uiPullStatus{position:fixed;z-index:9990;top:calc(env(safe-area-inset-top) + 12px);left:50%;transform:translateX(-50%);max-width:92vw;min-width:220px;text-align:center;padding:12px 18px;border-radius:999px;background:var(--panel);border:1px solid var(--border);box-shadow:0 12px 30px #0006;color:var(--text);font-size:13px;font-weight:750;pointer-events:none}
 body.light #uiPullStatus{background:#fff;box-shadow:0 12px 30px #0002}
+/* Production call-control tiles, including ringing and human-handoff states. */
+.callControlHeading{font-size:15px;margin:0 0 12px}
+.callQuickActions{grid-template-columns:repeat(2,minmax(0,1fr))}
+.callQuickActions button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-height:116px;padding:12px 9px;border-radius:15px;border:1px solid var(--border)}
+.callQuickActions button svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linejoin:round;stroke-linecap:round}
+.callQuickActions button span{font-weight:750;font-size:12px;line-height:1.4}
+.callQuickActions button small{font-size:10px;font-weight:500;line-height:1.5;color:inherit;opacity:.8;text-align:center}
+.callQuickActions button:disabled{opacity:.5;filter:grayscale(.3)}
+body.light .callQuickActions button.outline{background:#fafafa}
 </style></head><body>
 <div id="uiPullStatus" hidden role="status" aria-live="polite">↻ فحص تحديث الواجهة…</div>
 <div id="otSplash" role="status" aria-live="polite"><div class="otHalo"><div class="otMonogram">OT</div></div><div class="otTitle">ONTRACK</div><div class="otSubtitle">VOICE INTELLIGENCE</div><div class="otProgress"><span class="otPulse"></span>يرجى الانتظار · جارٍ تجهيز الاتصال</div></div>
@@ -102,7 +111,21 @@ body.light #uiPullStatus{background:#fff;box-shadow:0 12px 30px #0002}
 <div class="status" aria-live="polite"><span class="indicator" id="dot"></span><div><strong id="mode">جاري التحميل…</strong><span class="small" id="status">التحقق من حالة الهاتف والسيرفر</span></div></div>
 <div class="divider"></div>
 <div class="row"><button class="positive" id="enable">تشغيل الإيجنت</button><button class="outline" id="disable">إيقاف الإيجنت</button></div>
-<div class="show-on-call" id="callActions"><div class="divider"></div><div class="row"><button class="primary" id="takeover">استلام المكالمة</button><button id="speaker">السماعة</button></div><p>الاستلام يخص المكالمة الحالية فقط. المكالمة الجديدة تعود تلقائيًا للإيجنت حسب الإعداد.</p></div>
+<div class="show-on-call" id="callActions">
+ <div class="divider"></div>
+ <h2 class="callControlHeading">التحكم أثناء المكالمة</h2>
+ <div class="row callQuickActions">
+  <button class="primary" id="takeover" type="button">
+   <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6.5" r="3"/><path d="M5 20v-2a7 7 0 0 1 14 0v2M4 11l2-2M4 11l2 2"/></svg>
+   <span>استلام من الإيجنت</span><small>التحكم البشري بالمكالمة</small>
+  </button>
+  <button class="outline" id="speaker" type="button">
+   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM17 9a5 5 0 0 1 0 6M20 6a9 9 0 0 1 0 12"/></svg>
+   <span>تبديل السماعة</span><small>تغيير مخرج الصوت</small>
+  </button>
+ </div>
+ <p id="callControlHint" class="small">الاستلام ينقل المكالمة الحالية من الإيجنت ليك. المكالمة التالية ترجع للإيجنت حسب الإعداد.</p>
+</div>
 <p id="message" role="alert"></p>
 </section>
 <section class="card" data-panel="dashboard"><div class="section-title"><h2>إجراءات سريعة</h2><span class="chip">حساب المستخدم</span></div><div class="row"><button type="button" data-go="calls" class="outline">سجل المكالمات</button><button type="button" data-go="campaigns" class="primary">الحملات</button></div></section>
@@ -242,9 +265,12 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('mode').textContent=s.humanControl?'تحكم بشري':call&&!answered?'مكالمة واردة':call?'مكالمة جارية':s.pendingSync?'جاري تطبيق قرارك على السيرفر':!online?'إعادة الاتصال بالشبكة':enabled?'جاهز للمكالمات':'الهاتف متصل — الإيجنت متوقف';
  el('enable').disabled=modern?enabled||s.updating:false;
  el('disable').disabled=modern?!enabled||s.updating:!online;
- el('callActions').style.display=call&&answered?'block':'none';
- el('takeover').disabled=s.humanControl||!modern||!answered;
- el('speaker').disabled=!modern;
+ el('callActions').style.display=call?'block':'none';
+ el('callControlHint').textContent=!answered?'المكالمة قيد الرنين؛ استلام المكالمة وتبديل الصوت متاحان بعد الرد.':
+   s.humanControl?'أنت استلمت المكالمة من الإيجنت؛ التحكم دلوقتي بشري والمكالمة التالية ترجع حسب الإعداد.':
+   'استلام المكالمة ينقل الصوت من الإيجنت إليك للمكالمة الحالية فقط.';
+ el('takeover').disabled=s.humanControl||!modern||!answered||!enabled;
+ el('speaker').disabled=!modern||!answered;
  el('overlay').disabled=s.overlayGranted;
  el('overlay').textContent=s.overlayGranted?'التحكم العائم مفعّل':'السماح بالظهور فوق التطبيقات';
  

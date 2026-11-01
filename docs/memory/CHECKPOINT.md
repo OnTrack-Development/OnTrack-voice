@@ -1,3 +1,10 @@
+## 2026-11-01 — floating native call-control redesign (CODE candidate; E2E OPEN)
+
+- User rejected the oversized blue/navy outlined native `CallOverlay`: requested compact round red/green closed button, expanded small square icon actions with small captions; both agent ON/OFF; correct state-aware buttons from ringing through answered AI and human takeover; explicit "استلام من الإيجنت" labeling, matching OnTrack red/black/white in light/dark.
+- New `CallOverlay.kt` and `OverlayUiModel.kt` implement a red/green state orb and four actual actions: enable/disable agent, take current call from AI, speaker route, open app. Action availability: idle/early ring disables pickup+speaker; answered AI enables both; human takeover disables duplicate pickup while speaker stays available. Notification and dashboard labels aligned; Kotlin `OverlayUiModelTest` covers all states.
+- **Important:** Android system overlay is native `WindowManager.TYPE_APPLICATION_OVERLAY`; it cannot be changed by HTML-only OTA. The in-app button cards can publish via UI OTA **18** compatible with installed native v20–v22; the floating native orb requires an OS-approved update to **Android 0.3.1, versionCode22**. No silent APK installation. Both CI/host/device must be proven separately.
+- Status: new code being released, not Xiaomi-tested at this checkpoint. Do not declare actual call handoff or device rendering PASS without E2E.
+
 ## 2026-11-01 — SIGNED UI-ONLY OTA17 PUBLISHED (no APK)
 
 - Confirmed root cause of "0.2.9 still shows old UI": signed OTA16 set `min_native=21`; installed owner's Android `0.2.9` has `versionCode20`. Signed UI OTA rejected it as incompatible. Android code20 already supports `MobileOta.check()` on startup and `checkUpdates` bridge.

@@ -1,5 +1,14 @@
 # Working contract — OnTrack Voice
 
+## Floating native call controls — owner approval 2026-11-01
+
+- The **Android `TYPE_APPLICATION_OVERLAY` control** (`CallOverlay.kt`) is an OS-level native window, NOT HTML. Redesign is therefore a **native code change and needs one Android-approved signed APK update**; never falsely claim visual-only OTA can replace this window. OnTrack's **in-app HTML call-control tiles** can/should still refresh independently via signed UI OTA, no APK.
+- Collapsed: one small circular icon control, **green** if server connected + agent enabled, **red** otherwise, with accessible truthful status; no massive navy/burgundy card, border or large text. Drag and tap supported.
+- Expanded: black/white/red identity, compact 2×2 rounded square actions with crisp line icons + small action/description. Only real actions: toggle agent, **"استلام من الإيجنت"** (takes current call from AI to human), speaker route toggle, open app. No fake mic/mute, no Accessiblity hack, no telephony subscription.
+- Show accurate state during **idle ON**, **idle OFF**, **ringing/outgoing setup**, **answered under AI**, **human handoff**. During ringing, take/speaker visible but disabled with "available after answer"; after handoff, label human and disable duplicate take; next call returns to configured agent. Notifications and Android dashboard should use same semantics. Check `OverlayUiModelTest` + Android build, then test actual Xiaomi device call.
+- User-facing `saas/mobile/ota/ui.html` in-call card uses icon tiles and labels immediately through signed OTA; native floating bubble will update after Android OS-approved installation of signed binary, not via UI-only OTA. Keep those release channels distinct.
+
+
 ## Release policy (owner clarified 2026-11-01): UI OTA is NOT APK installation
 - OnTrack **HTML/CSS/JS visual/interface** changes must go through the **signed UI OTA system**, with no APK download or PackageInstaller. The app already does `MobileOta.check()` at startup and loads verified HTML via the local WebView virtual document. Support a **pull-down from top** to recheck the signed UI OTA using the existing `checkUpdates` bridge command. Never route visual refresh through `installNativeUpdate`.
 - Current installed owner device: **Android 0.2.9 / native versionCode20**. To deliver the red/black/white design to this device, signed UI OTA metadata must satisfy `min_native <= 20 <= max_native`. Previous OTA16 wrongly required `min_native=21`; consequently 0.2.9 cannot adopt it. UI OTA17 fixes that; build and publication proof remain separate.
