@@ -8,7 +8,7 @@ declare(strict_types=1);
  */
 function twofa_required(int $userId):bool {
     return one("SELECT m.user_id FROM memberships m JOIN accounts a ON a.id=m.account_id
-        WHERE m.user_id=? AND m.role IN ('owner','admin') AND a.status='active' LIMIT 1",[$userId])!==null;
+        WHERE m.user_id=? AND m.role IN ('owner','admin','support','finance','manager') AND a.status='active' LIMIT 1",[$userId])!==null;
 }
 function twofa_record(int $userId):?array {
     return one('SELECT * FROM user_totp WHERE user_id=?',[$userId]);
