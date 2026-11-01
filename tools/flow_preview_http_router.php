@@ -18,4 +18,8 @@ if($path==='/saas/console/__fixture_login'){
     echo json_encode(['csrf'=>csrf(),'account_id'=>$accountId]);
     exit;
 }
+if($path==='/saas/console/'||$path==='/saas/console/index.php'){
+    require __DIR__.'/../saas/console/index.php';
+    exit;
+}
 require __DIR__.'/../saas/console/flow-preview.php';
