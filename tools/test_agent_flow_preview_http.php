@@ -21,6 +21,17 @@ function flow_http_request(string $url,string $method='POST',array $params=[],st
     if($status===0||!is_array($json))throw new RuntimeException('flow_http_invalid_response');
     return [$status,$json,$session];
 }
+/** Exercise the real console POST without following its 303 redirect. */
+function flow_http_form(string $url,array $params,string $cookie):int {
+    $ctx=stream_context_create(['http'=>[
+        'method'=>'POST','header'=>"Content-Type: application/x-www-form-urlencoded\r\nCookie: OTVOICESESSION=".$cookie."\r\n",
+        'content'=>http_build_query($params),'follow_location'=>0,'ignore_errors'=>true,'timeout'=>5
+    ]]);
+    @file_get_contents($url,false,$ctx);
+    foreach($http_response_header??[] as $line)
+        if(preg_match('/^HTTP\/\S+ (\d{3})/',$line,$m))return (int)$m[1];
+    throw new RuntimeException('flow_form_no_status');
+}
 function test_agent_flow_preview_http():void {
     $socket=stream_socket_server('tcp://127.0.0.1:0',$errno,$errstr);
     if($socket===false)throw new RuntimeException('flow_http_socket');
@@ -87,6 +98,24 @@ function test_agent_flow_preview_http():void {
         ok($status===404,'other tenant cannot reuse first account preview');
         ok((int)one('SELECT COUNT(*) n FROM contacts')['n']===$before,
             'real HTTP preview did not mutate customer records');
+        // Real saved-draft preview -> publish through the authenticated console form.
+        $original=one('SELECT flow_json FROM agents WHERE id=1 AND account_id=4');
+        execute('UPDATE agents SET flow_json=? WHERE id=1 AND account_id=4',[$graph]);
+        $publishForm=['action'=>'publish_agent_flow','csrf'=>$login['csrf'],
+            'agent_id'=>1,'return'=>'/?tab=agents&site=1'];
+        $beforeRelease=(int)one('SELECT COUNT(*) n FROM agent_flow_revisions WHERE account_id=4 AND agent_id=1')['n'];
+        ok(flow_http_form($base,$publishForm,$cookie)===303,'real publish form uses POST redirect');
+        ok((int)one('SELECT COUNT(*) n FROM agent_flow_revisions WHERE account_id=4 AND agent_id=1')['n']===$beforeRelease,
+            'publishing without completing a saved-draft test is blocked');
+        [$status,$start]=flow_http_request($url,'POST',$params,$cookie);
+        ok($status===200&&$start['waiting'],'saved draft starts in authenticated HTTP preview');
+        [$status,$finished]=flow_http_request($url,'POST',array_replace($params,[
+            'operation'=>'reply','preview_id'=>$start['preview_id'],'reply'=>'نعم']),$cookie);
+        ok($status===200&&$finished['done'],'saved draft test completes before publish');
+        ok(flow_http_form($base,$publishForm,$cookie)===303,'real publish form accepts tested draft');
+        ok((int)one('SELECT COUNT(*) n FROM agent_flow_revisions WHERE account_id=4 AND agent_id=1')['n']===$beforeRelease+1,
+            'real HTTP flow publish persists a revision');
+        execute('UPDATE agents SET flow_json=? WHERE id=1 AND account_id=4',[$original['flow_json']]);
         echo "AGENT_FLOW_HTTP_PASS\n";
     }finally{
         proc_terminate($process);proc_close($process);
