@@ -90,9 +90,10 @@ function device_binding_profile(array $binding):array {
 function device_binding_heartbeat(array $binding):array {
     // A binding can be revoked between bearer authorization and heartbeat.
     // Never return its agent policy after revocation, even during that race.
-    $updated=execute('UPDATE device_bindings SET last_seen_at=? WHERE id=? AND account_id=? AND sim_slot=? AND status=?',
+    // MySQL reports 0 affected rows when two heartbeats share the same
+    // second. Do not confuse an unchanged timestamp with a revoked binding.
+    execute('UPDATE device_bindings SET last_seen_at=? WHERE id=? AND account_id=? AND sim_slot=? AND status=?',
         [now(),$binding['id'],$binding['account_id'],$binding['sim_slot'],'active']);
-    if($updated!==1)throw new RuntimeException('device_binding_revoked');
     $current=one("SELECT d.* FROM device_bindings d
         JOIN accounts a ON a.id=d.account_id AND a.status='active'
         JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
