@@ -31,7 +31,7 @@ try{
         );
         device_answer(201,['ok'=>true,'binding'=>$bound,'state'=>'paired_control_plane_only']);
     }
-    if($operation==='heartbeat'||$operation==='disconnect'){
+    if(in_array($operation,['heartbeat','disconnect','published_flow'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
         if(!str_starts_with($auth,'Bearer '))device_answer(401,['ok'=>false,'error'=>'authorization_required']);
         $binding=device_binding_authorize(substr($auth,7));
@@ -40,7 +40,19 @@ try{
             if(!device_binding_disconnect($binding))device_answer(409,['ok'=>false,'error'=>'device_disconnect_conflict']);
             device_answer(200,['ok'=>true,'state'=>'revoked']);
         }
-        device_answer(200,['ok'=>true,'profile'=>device_binding_heartbeat($binding)]);
+        $profile=device_binding_heartbeat($binding);
+        if($operation==='published_flow'){
+            $flow=published_agent_flow((int)$binding['account_id'],(int)$binding['site_id'],(int)$binding['agent_id']);
+            if(!$flow)device_answer(409,['ok'=>false,'error'=>'agent_flow_not_published']);
+            device_answer(200,['ok'=>true,'agent_id'=>(int)$binding['agent_id'],
+                'site_id'=>(int)$binding['site_id'],'sim_slot'=>(int)$binding['sim_slot'],
+                'revision'=>(int)$flow['revision'],'hash'=>(string)$flow['flow_hash'],
+                'voice'=>(string)$flow['voice'],'instructions'=>(string)$flow['instructions'],
+                'knowledge'=>(string)$flow['knowledge'],
+                'flow'=>json_decode((string)$flow['flow_json'],true,32,JSON_THROW_ON_ERROR),
+                'execution'=>'published_contract_not_live_telephone_ai']);
+        }
+        device_answer(200,['ok'=>true,'profile'=>$profile]);
     }
     device_answer(404,['ok'=>false,'error'=>'unknown_operation']);
 }catch(InvalidArgumentException $e){

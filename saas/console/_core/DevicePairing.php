@@ -73,13 +73,18 @@ function device_binding_authorize(string $token):?array {
         JOIN agents ag ON ag.id=d.agent_id AND ag.site_id=d.site_id AND ag.account_id=d.account_id AND ag.status!='archived'
         WHERE d.token_hash=? AND d.status='active'",[hash('sha256',$token)]);
 }
+require_once __DIR__.'/PublishedFlow.php';
 function device_binding_profile(array $binding):array {
     $agent=one('SELECT id,name,voice,instructions FROM agents WHERE id=? AND account_id=? AND site_id=?',
         [$binding['agent_id'],$binding['account_id'],$binding['site_id']]);
     $site=one('SELECT id,name FROM sites WHERE id=? AND account_id=?',[$binding['site_id'],$binding['account_id']]);
     $tenant=account((int)$binding['account_id']);
     if(!$agent||!$site||!$tenant||$tenant['status']!=='active')throw new RuntimeException('device_profile_unavailable');
-    return ['device_id'=>(int)$binding['id'],'account_id'=>(int)$binding['account_id'],
+    $published=published_agent_flow((int)$binding['account_id'],(int)$binding['site_id'],(int)$binding['agent_id']);
+    return ['flow_revision'=>$published?(int)$published['revision']:null,
+        'flow_hash'=>$published?(string)$published['flow_hash']:null,
+        'flow_ready'=>$published!==null,
+        'device_id'=>(int)$binding['id'],'account_id'=>(int)$binding['account_id'],
         'account_name'=>(string)$tenant['name'],
         'site_id'=>(int)$site['id'],'site_name'=>$site['name'],
         'agent_id'=>(int)$agent['id'],'agent_name'=>$agent['name'],

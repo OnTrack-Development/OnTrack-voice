@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__.'/StaffInvitations.php';
 require_once __DIR__.'/DncGuard.php';
 require_once __DIR__.'/DevicePairing.php';
+require_once __DIR__.'/PublishedFlow.php';
 
 function field(string $key,int $max=200):string{
     $v=trim((string)($_POST[$key]??''));
@@ -139,6 +140,14 @@ function act():void {
                 execute('UPDATE agents SET name=?,voice=?,instructions=?,knowledge=?,flow_json=?,status=? WHERE id=? AND account_id=?',
                   [$newName,$voice,field('instructions',5000),field('knowledge',20000),json_encode($decoded,JSON_UNESCAPED_UNICODE), 'draft',(int)$ag['id'],$id]);
                 audit('agent.updated',$id,['agent'=>$ag['id']]);break;
+            case 'publish_agent_flow':
+                require_permission('agents.write');
+                $agentId=intfield('agent_id');
+                $result=publish_agent_flow($id,$agentId,(int)me()['id']);
+                audit('agent.flow.published',$id,['agent_id'=>$agentId,'revision'=>$result['revision'],
+                    'duplicate'=>$result['duplicate']]);
+                flash('success','تم نشر Flow نسخة '.(int)$result['revision'].' — الاتصال الصوتي يحتاج تفعيل محرك الهاتف واختباره.');
+                break;
             case 'add_campaign':
                 require_permission('campaigns.write');$sid=intfield('site_id');if(!owned_site($sid,$id))deny();
                 insert("INSERT INTO campaigns(account_id,site_id,name,status,created_at) VALUES (?,?,?,'draft',?)",[$id,$sid,required('name',140),now()]);

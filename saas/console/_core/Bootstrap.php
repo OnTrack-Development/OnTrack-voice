@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5(); init_console_v6();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -119,6 +119,34 @@ function init_console_v6():void {
             user_id INTEGER PRIMARY KEY, secret_enc TEXT NOT NULL,
             last_step INTEGER NOT NULL DEFAULT -1, created_at TEXT NOT NULL
         )");
+    }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+/** Immutable published flow snapshots for SIM-bound version selection. */
+function init_console_v7():void {
+    $marker=private_path().'/schema.v7';
+    if(is_file($marker))return;
+    if(driver()==='mysql'){
+        db()->exec("CREATE TABLE IF NOT EXISTS agent_flow_versions (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            account_id BIGINT NOT NULL,site_id BIGINT NOT NULL,agent_id BIGINT NOT NULL,
+            revision INT NOT NULL,flow_hash CHAR(64) NOT NULL,snapshot_hash CHAR(64) NOT NULL,
+            flow_json MEDIUMTEXT NOT NULL,voice VARCHAR(190) NOT NULL,
+            instructions TEXT NOT NULL,knowledge MEDIUMTEXT NOT NULL,
+            published_by BIGINT NOT NULL,published_at VARCHAR(19) NOT NULL,
+            UNIQUE KEY uq_agent_flow_revision(agent_id,revision),
+            KEY ix_tenant_agent_flow(account_id,site_id,agent_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }else{
+        db()->exec("CREATE TABLE IF NOT EXISTS agent_flow_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL,site_id INTEGER NOT NULL,agent_id INTEGER NOT NULL,
+            revision INTEGER NOT NULL,flow_hash TEXT NOT NULL,snapshot_hash TEXT NOT NULL,
+            flow_json TEXT NOT NULL,voice TEXT NOT NULL,instructions TEXT NOT NULL,
+            knowledge TEXT NOT NULL,published_by INTEGER NOT NULL,published_at TEXT NOT NULL,
+            UNIQUE(agent_id,revision)
+        )");
+        db()->exec('CREATE INDEX IF NOT EXISTS ix_tenant_agent_flow ON agent_flow_versions(account_id,site_id,agent_id)');
     }
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
