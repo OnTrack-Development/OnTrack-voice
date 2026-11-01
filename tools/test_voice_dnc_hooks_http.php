@@ -94,6 +94,15 @@ function test_voice_dnc_hooks_http():void {
         api_http_assert($status===200 && ($body['dnc']??null)===true &&
             (int)(one('SELECT dnc FROM contacts WHERE id=?',[$noConsentId])['dnc']??0)===1,
             'booking without consent is always DNC');
+        $noConsentKey=dnc_phone_key('+201177700001');
+        $entry=one('SELECT source FROM dnc_suppressions WHERE account_id=? AND phone_key=?',
+            [4,$noConsentKey]);
+        api_http_assert(($entry['source']??'')==='booking_no_consent',
+            'signed booking opt-out is persisted independently of contact');
+        execute('DELETE FROM contacts WHERE id=?',[$noConsentId]);
+        api_http_assert(dnc_is_suppressed(4,'01177700001') &&
+            !dnc_is_suppressed(5,'01177700001'),
+            'signed booking suppression survives contact deletion and stays tenant-scoped');
 
         [$status,$body]=dnc_hook_http_request($url,$foreignToken,
             dnc_hook_event('dnc-booking-test-003',3,'01144448888',true));
