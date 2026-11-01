@@ -1,8 +1,8 @@
-## 2026-11-01 — Hourly cycle #1 PR #8 merged, CI verified, host receipt pending
+## 2026-11-01 — Hourly cycle #1 PR #8 merged, CI and host deployment verified
 
 - **Issue fixed in code:** previously `add_employee` could immediately attach an existing user to another tenant solely from a typed email, or create an active unverified user and membership. It now creates a 7-day pending invitation without granting membership. Only the authenticated email-matching existing user can explicitly accept it; CSRF, expiry, replay, cross-identity, support-session and tenant checks apply. Owners/admins can cancel scoped pending invitations. SQLite/MySQL additive `schema.v4` migration and staff/invitation UI are included.
 - **PR #8 merged**: `https://github.com/OnTrack-Development/OnTrack-voice/pull/8`, main commit `a35c636a2bf42ceb97cf696a48d1cf12e0b2a7e0`. PR CI `41284341013` = **success**, post-merge PHP console `41284375129` = **success**, publish workflow `41284374964` = **success** (bundle queued to host worker).
-- **HOST_DEPLOYED not yet verified for #8** at checkpoint write: Cron receipt `ops/host-link/results/appontrack-server11/saas-console-41284374964.json` absent on last check. Publish workflow success alone is not proof that host installed migration or UI.
+- **HOST_DEPLOYED confirmed for #8**: Cron receipt `ops/host-link/results/appontrack-server11/saas-console-41284374964.json` = `success`, exit_code 0, finished **2026-11-01 07:21:03 UTC**, source `a35c636a2bf4`, **21 files**, PHP 8.3, seed `already_seeded` / 9 users, backup=true. This proves the new runtime tree installed; does not prove authenticated invite acceptance in a real browser or live SSO.
 - **Known limits:** unregistered email invitations stay pending; verified signup/email delivery and external SSO/account claim are still OPEN. No authenticated browser UI or Android/device/financial E2E was run. Do not claim complete identity solution.
 - **Next:** verify Cron receipt and authenticated invitation UI, then proceed to verified registration/SSO subject binding as a separate testable slice.
 
