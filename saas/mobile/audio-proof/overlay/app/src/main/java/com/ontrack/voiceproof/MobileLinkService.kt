@@ -177,6 +177,15 @@ class MobileLinkService:Service() {
             }
             return START_STICKY
         }
+        // Native release 0.3.4: never start the global, legacy phone pilot for
+        // an unpaired device. A SIM-specific verified tenant binding is required.
+        prefs().edit().putBoolean("campaign_opt_in",false).commit()
+        agentEnabled=false;connected=false
+        call?.stop();call=null
+        notice("اربط شريحة SIM بشركتك وإيجنت منشور قبل تشغيل المحرك الجديد")
+        stopSelf()
+        return START_NOT_STICKY
+        @Suppress("UNREACHABLE_CODE")
         val action=intent?.action
         when(action){
             ACTION_CAMPAIGN_DISABLE->{
