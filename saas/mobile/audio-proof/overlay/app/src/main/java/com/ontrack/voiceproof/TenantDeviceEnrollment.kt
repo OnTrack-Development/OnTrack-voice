@@ -139,6 +139,13 @@ class TenantDeviceEnrollment(private val context: Context) {
         val payload=JSONObject(event.toString()).put("operation","call_event").put("sim_slot",slot)
         return request(payload,saved.getString("token")).getJSONObject("event")
     }
+    /** Only the authenticated SIM binding's observations; no phone number data. */
+    fun callHistory(slot:Int):org.json.JSONArray {
+        heartbeat(slot)
+        val saved=local(slot)
+        return request(JSONObject().put("operation","call_history").put("sim_slot",slot),
+            saved.getString("token")).getJSONArray("calls")
+    }
     fun disconnect(slot:Int) {
         val saved=local(slot)
         try {
