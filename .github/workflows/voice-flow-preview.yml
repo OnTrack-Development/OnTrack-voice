@@ -7,6 +7,8 @@ on:
       - 'saas/console/flow-preview.php'
       - 'saas/console/assets/js/flow-graph.js'
       - 'tools/test_agent_flow_preview.php'
+      - 'tools/test_agent_flow_preview_http.php'
+      - 'tools/flow_preview_http_router.php'
       - 'tools/test_voice_saas_console.php'
       - '.github/workflows/voice-flow-preview.yml'
   push:
@@ -16,6 +18,8 @@ on:
       - 'saas/console/flow-preview.php'
       - 'saas/console/assets/js/flow-graph.js'
       - 'tools/test_agent_flow_preview.php'
+      - 'tools/test_agent_flow_preview_http.php'
+      - 'tools/flow_preview_http_router.php'
       - 'tools/test_voice_saas_console.php'
       - '.github/workflows/voice-flow-preview.yml'
 permissions:
@@ -36,6 +40,8 @@ jobs:
           php -l saas/console/_core/FlowPreview.php
           php -l saas/console/flow-preview.php
           php -l tools/test_agent_flow_preview.php
+          php -l tools/test_agent_flow_preview_http.php
+          php -l tools/flow_preview_http_router.php
           node --check saas/console/assets/js/flow-graph.js
       - name: Seeded DB, flow traversal and tenant isolation
         run: php tools/test_voice_saas_console.php
