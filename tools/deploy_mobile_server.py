@@ -40,7 +40,7 @@ def parse_release(raw):
                 continue
             if not member.isfile() or not valid_name(member.name):
                 raise ValueError("invalid_release_member")
-            if member.name in entries or member.size > 512 * 1024:
+            if member.name[7:] in entries or member.size > 512 * 1024:
                 raise ValueError("duplicate_or_oversized_member")
             handle = archive.extractfile(member)
             if handle is None:
