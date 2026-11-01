@@ -1,3 +1,12 @@
+## 2026-11-01 — Hourly cycle #5: durable DNC suppression ledger (PR #12)
+
+- **Issue:** PR #11 ingestion guard depended on `contacts.dnc=1`; direct deletion/import cleanup could erase the only opt-out evidence. Account-scoped DNC was not indexed or durable.
+- **CODE CANDIDATE:** PR #12 `https://github.com/OnTrack-Development/OnTrack-voice/pull/12` adds `saas/console/_core/DncLedger.php` with SQLite/MySQL unique `(account_id,phone_key)`, idempotent 250-row legacy backfill, marker and `Seed.php` migration during existing-host deploy. `DncGuard.php` checks durable ledger first, heals legacy contacts, persists explicit opt-outs; signed booking `booking_no_consent` saved inside event transaction after pre-transaction schema init. No unrelated SSO PR #9 runtime files modified.
+- **TESTS ADDED:** `tools/test_voice_dnc_ledger.php` integrated into console smoke: migration, normalization, duplicate/replay, account isolation, contact deletion survival, late legacy imports, invalid phone, release-seeder re-entry. Signed webhook HTTP regression now verifies durable no-consent booking after contact deletion. Early PR CI `41301290614` and `41301326940` PASS; latest HEAD CI, merge, publish and host receipt must be checked independently.
+- **STATUS:** `CODED`; `CI_PASS` for earlier branch revisions only. **NOT HOST_DEPLOYED until pinned Cron receipt**. AUTH_UI/DEVICE_E2E OPEN. This ledger does not block Android dial yet and does not implement verified opt-in reversal or retention.
+- **Next:** verify final PR CI, review/merge if safe, verify host Cron receipt. Then add pre-dial DNC+consent gate with device/campaign evidence, or continue independent identity/payment work after staging review of PR #9.
+- **Details:** `docs/execution/2026-11-01_DNC_LEDGER_CYCLE_05_AR.md`.
+
 ## 2026-11-01 — Hourly cycle #4: DNC opt-out protection merged (PR #11)
 
 - **Issue:** a contact marked `dnc=1` could be reintroduced as `dnc=0` through consented API lead, signed booking, or manual contact form; edit/delete could silently erase the only opt-out record. This violates owner Q13's immediate "do not call again" safety requirement.

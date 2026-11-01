@@ -42,6 +42,8 @@ try{
     if(!$resellerAccount||!in_array($resellerAccount['kind'],['platform','reseller','customer'],true))
         respond(403,['ok'=>false,'error'=>'tenant']);
     if($resellerAccount['kind']==='customer' && $kind!=='booking.created')respond(403,['ok'=>false,'error'=>'customer_scope']);
+    // The first-run ledger backfill must complete before the booking transaction.
+    if($kind==='booking.created')dnc_init_ledger();
     db()->beginTransaction();
     try{
         $prior=one('SELECT * FROM events WHERE integration_id=? AND external_id=?',[$integration['id'],$eventId]);
@@ -84,7 +86,7 @@ try{
                 throw new InvalidArgumentException('invalid_booking_contact');
             $consent=($payload['consent']??false)===true;
             // An unconsented booking is recorded in DNC to prevent automated contact.
-            $dnc=dnc_effective_flag($reseller,$phone,!$consent);
+            $dnc=dnc_effective_flag($reseller,$phone,!$consent,'booking_no_consent');
             $lead=insert('INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at) VALUES (?,?,?,?,?,?)',
                 [$reseller,$siteId,$name,$phone,$dnc,now()]);
             $result['status']='lead_created_pending_review';
