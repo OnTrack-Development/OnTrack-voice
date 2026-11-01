@@ -1,7 +1,7 @@
 ## 2026-11-01 — Android pairing product slice in PR #19 (pending verification)
 
 - Continue merged #18 backend with native Android SIM 1/SIM 2 code enrollment, encrypted tenant token profiles, server heartbeat, authenticated disconnect and re-pair, native UI and QR deep-link confirmation. Pilot bearer is prohibited from running alongside tenant enrollment.
-- **Evidence gate:** CODED on PR #19 only. Android/PHP CI pending; no host publish, signed APK installation, authenticated user UI, physical dual-SIM or voice E2E proven. In-app camera scanning and dashboard QR rendering remain outstanding; no tenant telephony until account/SIM routing is proven on hardware.
+- **Evidence gate:** CODED PR #19; PHP 8.3/SQLite CI `41321194985` SUCCESS and Android native unit + emulator/build CI `41321194978` SUCCESS on code SHA `0044b2140c0143a30af12599ea4b9a98efed1c7d`. APK/OTA publish jobs SKIPPED on PR; no host publish, signed APK installation, authenticated user UI, physical dual-SIM or voice E2E proven. In-app camera scanning and dashboard QR rendering remain outstanding; no tenant telephony until account/SIM routing is proven on hardware. **BLOCKED from auto-merge/release:** security-sensitive native credential feature needs independent real-device enrollment/revoke + staged review.
 - Next: close PR CI and security review, stage signed APK safely, test two distinct accounts on real Android device, then implement tenant call routing and agent flow; do not replace product work with unrelated release tooling.
 
 # خطة التنفيذ الحالية — v1.2
