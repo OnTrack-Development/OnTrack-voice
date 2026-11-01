@@ -1,3 +1,12 @@
+## 2026-11-01 — VERIFIED latest checkpoint (supersedes older P1/P2 release status)
+
+- User requested complete group memory persisted in GitHub. Canonical handoff with product scope, exclusions, infrastructure, release and safety is at the top of `AGENTS.md` (commit `e3165c74`). Read that and the current repository before asking for anything.
+- HOST INCIDENT ROOT CAUSE confirmed by owner cPanel screenshots: Cron `* * * * * /bin/python3 /home/appontrack/ontrack-voice-link/worker.py` **was running**. `STOP` absent; GitHub public HTTP 200; `last-run.log` said `Host Link: ValueError`; local state active None/completed 71. A **queued job expired** before worker validation, and installed worker kept raising `ValueError` each minute. Earlier assertion that Cron had stopped was incorrect.
+- RECOVERY verified: safely replaced expired unexecuted queue with probe `recover-cron-20261101000753`, report **success** at `2026-11-01T00:08:03Z` on `ontrack-host-link`. A source-only change `ops/host-link/worker.py` (commit `8dd3677`) makes expired unstarted jobs emit receipt; **not yet confirmed deployed to installed worker**.
+- RELEASE now verified at CI/host transport level: GitHub Actions run `41253328620` attempt 2 had `build`, `publish_ota`, `publish_native` all **success**; host report `mobile-native-41253328620` **success** at `2026-11-01T00:11:08Z`. Android **v0.2.9 nativeCode20 / OTA15** with unified modern tabbed UI and without legacy automatic rollback. No owner-device install proof or real SIM E2E yet. Publishing an APK is not installing it.
+- UNRESOLVED: P2 `p2-selected-target-api-web-20261031` has no receipt and expired before recovery; whether code was applied on the host must be verified by exact live hashes before retry. P1/P2 device tests, contact matching and actual SIM dial E2E unverified. P3/P4/P5/P6 remain according to actual evidence gates, not code-only claims.
+- NEXT: verify live UI/APK serving and host PHP file hashes via a safe new host-link job now that Cron is healthy; then finish device-side verification and feature gap checklist. Do not request redundant manual terminal or re-creating already working Cron. No credentials in repo.
+
 ## 2026-10-31 P1/P2 batch — implementation progress; NOT E2E signed off
 
 - OWNER SCOPE: Call History + Contacts CSV/XLSX/TXT/DNC + automatic SIM campaigns in Android and web. Weak-network audio resilience remains explicitly deferred to phase 2.
