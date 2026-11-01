@@ -14,15 +14,15 @@ function device_pairing_create(int $accountId,int $siteId,int $agentId,int $user
     $agent=one("SELECT id FROM agents WHERE id=? AND account_id=? AND site_id=? AND status!='archived'",[$agentId,$accountId,$siteId]);
     if(!$account||$account['status']!=='active'||!$site||!$agent)
         throw new InvalidArgumentException('device_invalid_account_site_agent');
-    $pending=(int)one("SELECT COUNT(*) n FROM device_pairings WHERE account_id=? AND status='pending' AND expires_at>?",[$accountId,now()])['n'];
+    $pending=(int)one("SELECT COUNT(*) n FROM device_pairings WHERE account_id=? AND status IN ('pending','pending_sim0','pending_sim1') AND expires_at>?",[$accountId,now()])['n'];
     if($pending>=5)throw new InvalidArgumentException('device_pending_limit');
     // 92 unpredictable bits; the first nibble is the approved physical slot.
     // Encoding the slot in the hashed one-time code avoids a schema migration
     // and makes a SIM1 code impossible to redeem for SIM2 (or vice versa).
     $raw=(string)$simSlot.substr(bin2hex(random_bytes(12)),1);
     insert("INSERT INTO device_pairings(account_id,site_id,agent_id,code_hash,status,expires_at,created_by,created_at)
-       VALUES (?,?,?,?,'pending',?,?,?)",
-       [$accountId,$siteId,$agentId,hash('sha256',$raw),gmdate('Y-m-d H:i:s',time()+600),$userId,now()]);
+       VALUES (?,?,?,?,?,?,?,?)",
+       [$accountId,$siteId,$agentId,hash('sha256',$raw),'pending_sim'.$simSlot,gmdate('Y-m-d H:i:s',time()+600),$userId,now()]);
     return strtoupper(implode('-',str_split($raw,4)));
 }
 function device_pairing_redeem(string $code,string $installationId,int $simSlot,string $label):array {
@@ -33,15 +33,16 @@ function device_pairing_redeem(string $code,string $installationId,int $simSlot,
         || mb_strlen($label)>100 || $label==='')
         throw new InvalidArgumentException('device_pairing_invalid');
     // Reject a wrong-slot request before consuming the single-use ticket.
-    // Previously issued legacy tickets have no slot marker; they expire
-    // within ten minutes. Do not treat them as proof of physical SIM identity.
+    // Legacy 'pending' tickets are intentionally not redeemable after this
+    // change. New slot-bound tickets have an explicit status in the same DB
+    // column; no schema migration or guessing a legacy ticket's intent.
     if($clean[0] !== (string)$simSlot)
         throw new InvalidArgumentException('device_pairing_slot_mismatch');
     $token='otdev_'.bin2hex(random_bytes(32));
     $claim=hash('sha256',$installationId.'|'.$simSlot);
     db()->beginTransaction();
     try{
-        $pair=one("SELECT * FROM device_pairings WHERE code_hash=? AND status='pending' AND expires_at>?",[hash('sha256',$clean),now()]);
+        $pair=one("SELECT * FROM device_pairings WHERE code_hash=? AND status=? AND expires_at>?",[hash('sha256',$clean),'pending_sim'.$simSlot,now()]);
         if(!$pair)throw new InvalidArgumentException('device_pairing_expired_or_used');
         $a=account((int)$pair['account_id']);
         $site=one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$pair['site_id'],$pair['account_id']]);
@@ -55,8 +56,8 @@ function device_pairing_redeem(string $code,string $installationId,int $simSlot,
                 $pair['account_id'],$pair['site_id'],$pair['agent_id'],$installationId,$simSlot,
                 $claim,$label,hash('sha256',$token),now()
             ]);
-        $changed=execute("UPDATE device_pairings SET status='redeemed',device_id=?,redeemed_at=? WHERE id=? AND status='pending' AND expires_at>?",
-            [$deviceId,now(),$pair['id'],now()]);
+        $changed=execute("UPDATE device_pairings SET status='redeemed',device_id=?,redeemed_at=? WHERE id=? AND status=? AND expires_at>?",
+            [$deviceId,now(),$pair['id'],'pending_sim'.$simSlot,now()]);
         if($changed!==1)throw new RuntimeException('device_pairing_race');
         db()->commit();
         return ['device_id'=>$deviceId,'device_token'=>$token,'sim_slot'=>$simSlot,
@@ -96,7 +97,7 @@ function device_binding_revoke(int $accountId,int $deviceId):bool {
     return $changed===1;
 }
 function device_pairing_cancel(int $accountId,int $pairingId):bool {
-    return execute("UPDATE device_pairings SET status='cancelled' WHERE id=? AND account_id=? AND status='pending'",
+    return execute("UPDATE device_pairings SET status='cancelled' WHERE id=? AND account_id=? AND status IN ('pending','pending_sim0','pending_sim1')",
         [$pairingId,$accountId])===1;
 }
 
