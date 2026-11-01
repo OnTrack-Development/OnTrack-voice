@@ -1,0 +1,71 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/../../_core/Bootstrap.php';
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+header('X-Content-Type-Options: nosniff');
+function answer(int $status,array $data):never {
+    http_response_code($status);
+    echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;
+}
+$authorization=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
+if(!str_starts_with($authorization,'Bearer '))answer(401,['ok'=>false,'error'=>'missing_api_key']);
+$key=substr($authorization,7);
+if(!preg_match('/^otv_[0-9a-f]{60}$/D',$key))answer(401,['ok'=>false,'error'=>'key_format']);
+try{
+    init_schema();
+    $grant=one("SELECT * FROM api_keys WHERE token_hash=? AND status='active'",[hash('sha256',$key)]);
+    if(!$grant)answer(401,['ok'=>false,'error'=>'invalid_api_key']);
+    $a=account((int)$grant['account_id']);
+    if(!$a||$a['status']!=='active')answer(403,['ok'=>false,'error'=>'account_unavailable']);
+    $scopes=array_filter(explode(',',(string)$grant['scopes']));
+    $site=(int)($grant['site_id']??0);
+    $method=(string)($_SERVER['REQUEST_METHOD']??'GET');
+    $operation=(string)($_GET['op']??'sites');
+    $required=match($operation){
+        'sites','agents'=>'knowledge:read',
+        'knowledge'=>'knowledge:read',
+        'lead.create'=>'leads:write',
+        default=>null
+    };
+    if($required===null)answer(404,['ok'=>false,'error'=>'unknown_api_operation']);
+    if(!in_array($required,$scopes,true))answer(403,['ok'=>false,'error'=>'scope_denied']);
+    execute('UPDATE api_keys SET last_used_at=? WHERE id=?',[now(),$grant['id']]);
+    if($method==='GET'){
+        if($operation==='sites'){
+            $rows=$site?all('SELECT id,name,domain,status FROM sites WHERE account_id=? AND id=?',[$a['id'],$site]):
+                all('SELECT id,name,domain,status FROM sites WHERE account_id=?',[$a['id']]);
+            answer(200,['ok'=>true,'sites'=>$rows]);
+        }
+        if($operation==='agents'){
+            $rows=$site?all("SELECT id,site_id,name,voice,status FROM agents WHERE account_id=? AND site_id=?",[$a['id'],$site]):
+                all('SELECT id,site_id,name,voice,status FROM agents WHERE account_id=?',[$a['id']]);
+            answer(200,['ok'=>true,'agents'=>$rows]);
+        }
+        if($operation==='knowledge'){
+            $agent=(int)($_GET['agent_id']??0);
+            $row=one('SELECT id,site_id,name,knowledge FROM agents WHERE id=? AND account_id=?',[$agent,$a['id']]);
+            if(!$row || ($site&&$site!==(int)$row['site_id']))answer(404,['ok'=>false,'error'=>'agent_unavailable']);
+            answer(200,['ok'=>true,'agent'=>$row]);
+        }
+        answer(405,['ok'=>false,'error'=>'method']);
+    }
+    if($method==='POST'&&$operation==='lead.create'){
+        $raw=(string)file_get_contents('php://input');
+        if(strlen($raw)>2048)answer(413,['ok'=>false,'error'=>'body_too_large']);
+        $p=json_decode($raw,true);
+        if(!is_array($p))answer(422,['ok'=>false,'error'=>'json']);
+        $requested=(int)($p['site_id']??0);
+        if($site && $site!==$requested)answer(403,['ok'=>false,'error'=>'cross_site']);
+        $s=owned_site($requested,(int)$a['id']);
+        if(!$s)answer(403,['ok'=>false,'error'=>'cross_account']);
+        $name=trim((string)($p['name']??''));
+        $phone=trim((string)($p['phone']??''));
+        $consent=$p['consent']??false;
+        if($name===''||mb_strlen($name)>120||!preg_match('/^\+?[0-9 -]{8,25}$/D',$phone)||$consent!==true)
+            answer(422,['ok'=>false,'error'=>'invalid_contact_or_consent']);
+        $id=insert('INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at) VALUES (?,?,?,?,0,?)',[$a['id'],$requested,$name,$phone,now()]);
+        answer(201,['ok'=>true,'contact_id'=>$id,'status'=>'created','dialed'=>false]);
+    }
+    answer(405,['ok'=>false,'error'=>'method_not_allowed']);
+}catch(Throwable $e){answer(503,['ok'=>false,'error'=>'database_error']);}

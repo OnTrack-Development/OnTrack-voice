@@ -1,0 +1,354 @@
+<?php
+declare(strict_types=1);
+
+function form_start(string $action,string $return='/',string $extra=''):string{
+    return '<form method="post" '.$extra.' class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="action" value="'.e($action).'"><input type="hidden" name="return" value="'.e($return).'">';
+}
+function field_html(string $label,string $name,string $type='text',string $placeholder='',bool $required=false):string{
+    return '<label class="field">'.e($label).'<input name="'.e($name).'" type="'.e($type).'" placeholder="'.e($placeholder).'" '.($required?'required':'').' maxlength="190"></label>';
+}
+function submit_btn(string $label):string{return '<button type="submit" class="btn primary">'.e($label).'</button></form>';}
+function select_html(string $label,string $key,array $options):string{
+    $html='<label class="field">'.e($label).'<select name="'.e($key).'">';
+    foreach($options as $val=>$desc)$html.='<option value="'.e((string)$val).'">'.e((string)$desc).'</option>';
+    return $html.'</select></label>';
+}
+function card(string $title,string $body,string $meta=''):string{
+    return '<section class="card"><div class="card-head"><h3>'.e($title).'</h3>'.($meta?'<span class="dim">'.e($meta).'</span>':'').'</div>'.$body.'</section>';
+}
+function counter(string $caption,int|string $n,string $icon):string{
+    return '<div class="metric"><div class="metric-title"><span>'.e($caption).'</span><i>'.e($icon).'</i></div><strong>'.e((string)$n).'</strong></div>';
+}
+function tbl(array $columns,array $rows):string{
+    $html='<div class="table-wrap"><table><thead><tr>';
+    foreach($columns as $name)$html.='<th>'.e((string)$name).'</th>';
+    $html.='</tr></thead><tbody>';
+    if(!$rows)$html.='<tr><td colspan="'.count($columns).'" class="empty">لا توجد بيانات بعد</td></tr>';
+    foreach($rows as $cells){
+        $html.='<tr>';
+        foreach($cells as $cell)$html.='<td>'.(string)$cell.'</td>';
+        $html.='</tr>';
+    }
+    return $html.'</tbody></table></div>';
+}
+function pill(string $v):string{
+    $state=strtolower($v);
+    $good=in_array($state,['active','paid','online','completed','ready','success'],true);
+    $bad=in_array($state,['revoked','suspended','failed','offline','cancelled'],true);
+    return '<span class="pill '.($good?'ok':($bad?'bad':'neutral')).'">'.e($v).'</span>';
+}
+function fmt_duration(int $seconds):string{
+    $m=intdiv(max(0,$seconds),60);$s=max(0,$seconds)%60;
+    return $m?($m.' دقيقة'.($s?' و'.$s.' ثانية':'')):($s.' ثانية');
+}
+function nav_entries(string $type):array{
+    $common=[
+        'overview'=>['⌂','الرئيسية'],
+        'staff'=>['♙','الموظفون'],
+        'billing'=>['▣','الباقات والمدفوعات'],
+        'settings'=>['⚙','الإعدادات']
+    ];
+    if($type==='platform')return [
+        'overview'=>['⌂','نظرة عامة'],'accounts'=>['♧','الحسابات والريسيلرز'],
+        'plans'=>['◫','الخطط والحدود'],'voices'=>['♫','إدارة الأصوات'],
+        'staff'=>['♙','فريق المنصة'],'integrations'=>['⇄','التكاملات'],
+        'sites'=>['◈','مواقعنا'],'agents'=>['✧','إيجنتاتنا'],
+        'billing'=>['▣','الفوترة'],'releases'=>['↓','تطبيق Android'],
+        'settings'=>['⚙','إعدادات المنصة']
+    ];
+    if($type==='reseller')return [
+        'overview'=>['⌂','نظرة عامة'],'accounts'=>['♧','عملائي'],
+        'plans'=>['◫','باقات العملاء'],'voices'=>['♫','الأصوات المتاحة'],
+        'staff'=>['♙','الفريق والأدوار'],'domains'=>['◎','الدومينات والبراند'],
+        'integrations'=>['⇄','Laravel / WHMCS'],
+        'keys'=>['⌘','مفاتيح API'],'billing'=>['▣','الاشتراكات'],
+        'releases'=>['↓','تطبيق Android'],'settings'=>['⚙','هوية الريسيلر']
+    ];
+    return [
+        'overview'=>['⌂','الرئيسية'],'sites'=>['◈','مواقعي'],
+        'agents'=>['✧','AI Agent Builder'],'campaigns'=>['▤','الحملات'],
+        'calls'=>['☏','سجل المكالمات'],'devices'=>['▣','الأجهزة والخطوط'],
+        'voices'=>['♫','الأصوات'],'staff'=>['♙','الموظفون'],
+        'keys'=>['⌘','مفاتيح API'],'billing'=>['▣','الباقة والرصيد'],
+        'releases'=>['↓','Android'],'settings'=>['⚙','الإعدادات']
+    ];
+}
+function layout_open(array $a,string $tab):void{
+    $u=me();$brand=brand($a);$items=nav_entries((string)$a['kind']);$heading=$items[$tab][1]??'الرئيسية';
+    $role=match($a['kind']){'platform'=>'ADMIN CONTROL','reseller'=>'RESELLER HUB',default=>'USER WORKSPACE'};
+    $support=isset($_SESSION['support'])&&($a['role']??'')==='support_viewer';
+    header('Content-Type: text/html; charset=utf-8');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('Cache-Control: private,no-store');
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script></head><body>';
+    echo '<div class="app-shell"><aside class="sidebar"><a href="/saas/console/" class="brand"><span class="brand-logo">';
+    if(!empty($brand['logo'])) echo '<img src="/saas/console/brand-logo" alt="">';else echo '<b>'.e(mb_substr($brand['name'],0,1)).'</b>';
+    echo '</span><span class="brand-lines"><strong>'.e($brand['name']).'</strong><small>'.e($role).'</small></span></a>';
+    echo '<div class="nav-caption">مساحة العمل</div><nav class="nav-list">';
+    foreach($items as $key=>$v){
+        $active=$tab===$key?' selected':'';
+        echo '<a href="/saas/console/?tab='.e($key).'" class="nav-link'.$active.'"><span class="nav-icon">'.e($v[0]).'</span><span>'.e($v[1]).'</span></a>';
+    }
+    echo '</nav><div class="side-footer"><span class="live-dot"></span> مركز إدارة الاتصال الذكي <small>OnTrack Voice SaaS · Demo</small></div></aside><div class="main-area">';
+    echo '<header class="topbar"><div class="headline"><span class="eyebrow">'.e($role).'</span><h1>'.e($heading).'</h1></div><div class="header-actions">';
+    $members=memberships((int)$u['id']);
+    if(count($members)>1&&!$support){
+        echo form_start('switch');$options=[];
+        foreach($members as $m)$options[$m['account_id']]=$m['name'].' · '.$m['kind'];
+        echo select_html('المساحة','account_id',$options).submit_btn('تبديل');
+    }
+    echo '<button type="button" class="icon-button" id="themeToggle" aria-label="تغيير المظهر" title="تغيير المظهر">☀</button>';
+    echo '<div class="profile"><span class="avatar">'.e(mb_substr($u['name'],0,1)).'</span><span><strong>'.e($u['name']).'</strong><small>'.e($a['role']??'').'</small></span></div>';
+    echo form_start('logout','','class="compact"').'<button type="submit" class="logout-btn" title="تسجيل الخروج">↪</button></form>';
+    echo '</div></header><main class="content">';
+    if($support)echo '<div class="support-warning">⚠ أنت في وضع الدعم للقراءة فقط بحساب '.e($a['name']).'. كل العمليات مسجلة. '.form_start('support_leave').'<button class="btn small" type="submit">العودة لحسابي</button></form></div>';
+    if($v=flash('success'))echo '<div class="alert success">'.e($v).'</div>';
+    if($v=flash('error'))echo '<div class="alert danger">'.e($v).'</div>';
+    if($v=flash('secret'))echo '<div class="alert secret"><b>بيانات تظهر مرة واحدة:</b> <code>'.e($v).'</code></div>';
+    echo '<div class="demo-banner"><span>DEMO</span> واجهة استعراضية ببيانات تجريبية معزولة. تشغيل مكالمات حقيقية ومدفوعات Live ليس مفعلاً من هذه اللوحة.</div>';
+}
+function layout_close():void{
+    echo '</main><footer class="footer">© '.date('Y').' · منصة الاتصال الذكي · العزل والصلاحيات يفرضها السيرفر</footer></div></div></body></html>';
+}
+function login_page(?string $error=null):void{
+    header('Content-Type: text/html; charset=utf-8');
+    header('X-Frame-Options: DENY');header('Cache-Control: no-store');
+    $brandName='OnTrack Voice';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تسجيل الدخول | '.e($brandName).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script></head><body class="login-body"><div class="login-backdrop"></div><div class="login-panel"><div class="login-brand"><span class="brand-icon">OT</span><div><strong>OnTrack Voice</strong><small>INTELLIGENT CALLING PLATFORM</small></div></div><div class="login-intro"><span class="eyebrow">YOUR VOICE. YOUR BUSINESS.</span><h1>أهلاً برجوعك</h1><p>منصة واحدة لإدارة الإيجنتات والمكالمات والعملاء والباقات بأمان.</p></div>';
+    if($error)echo '<div class="alert danger">'.e($error).'</div>';
+    echo '<form method="post" action="/saas/console/login" class="stack">'.'<input type="hidden" name="csrf" value="'.e(csrf()).'"><label class="field">البريد الإلكتروني<input required type="email" name="email" autocomplete="username" placeholder="name@company.com"></label><label class="field">كلمة المرور<div class="password-wrap"><input required type="password" name="password" autocomplete="current-password" id="loginPassword" placeholder="••••••••••"><button type="button" class="password-toggle" data-toggle-password>إظهار</button></div></label><button class="btn primary wide" type="submit">تسجيل الدخول <span>←</span></button></form><p class="login-foot">تجربة أولية · يتم تحديد الصلاحيات حسب الحساب</p></div></body></html>';
+}
+function render_overview(array $a):void{
+    $id=(int)$a['account_id'];$kind=$a['kind'];
+    if($kind==='platform'){
+        $n1=(int)one("SELECT COUNT(*) n FROM accounts WHERE kind='reseller'")['n'];
+        $n2=(int)one("SELECT COUNT(*) n FROM accounts WHERE kind='customer'")['n'];
+        $n3=(int)one('SELECT COUNT(*) n FROM agents')['n'];
+        $n4=(int)one('SELECT COUNT(*) n FROM calls')['n'];
+        $title='منصة OnTrack';$sub='إدارة الحسابات والخطط والإيجنتات والتكاملات من نقطة واحدة.';
+    }elseif($kind==='reseller'){
+        $n1=(int)one("SELECT COUNT(*) n FROM accounts WHERE parent_id=?",[$id])['n'];
+        $n2=(int)one("SELECT COALESCE(SUM(p.call_quota),0) n FROM subscriptions s JOIN plans p ON s.plan_id=p.id JOIN accounts a ON a.id=s.account_id WHERE a.parent_id=? AND s.status='active'",[$id])['n'];
+        $n3=site_limit($id,'call_quota');$n4=(int)one('SELECT COUNT(*) n FROM integrations WHERE account_id=?',[$id])['n'];
+        $title='مساحة الريسيلر';$sub='إدارة العملاء والهوية والاشتراكات من مكان واحد دون رفع ملفات.';
+    }else{
+        $n1=(int)one('SELECT COUNT(*) n FROM sites WHERE account_id=?',[$id])['n'];
+        $n2=(int)one('SELECT COUNT(*) n FROM agents WHERE account_id=?',[$id])['n'];
+        $n3=site_limit($id,'call_quota');
+        $n4=(int)one('SELECT COUNT(*) n FROM calls WHERE account_id=?',[$id])['n'];
+        $title='مساحة عملك الذكية';$sub='اختار الموقع المناسب، وابنِ الإيجنت، وتابع حملاتك واستهلاكك.';
+    }
+    echo '<section class="welcome"><div><span class="eyebrow">SMART VOICE CONTROL</span><h2>'.e($title).'</h2><p>'.e($sub).'</p><div class="welcome-actions"><a class="btn light" href="/saas/console/?tab='.($kind==='reseller'?'accounts':'agents').'">إدارة '.($kind==='reseller'?'العملاء':'الإيجنتات').' ←</a><a class="btn ghost-light" href="/saas/console/?tab=releases">تطبيق Android</a></div></div><div class="orb-art"><span></span><b>OT</b></div></section>';
+    echo '<div class="metric-grid">';
+    if($kind==='platform'){
+        echo counter('الريسيلرز',$n1,'♧').counter('العملاء',$n2,'♙').counter('الإيجنتات',$n3,'✧').counter('سجلات المكالمات',$n4,'☏');
+    }elseif($kind==='reseller'){
+        echo counter('شركات العملاء',$n1,'♧').counter('حصص العملاء المحجوزة',$n2,'◫').counter('رصيد باقة الريسيلر',$n3,'▣').counter('تكاملات مرتبطة',$n4,'⇄');
+    }else{
+        echo counter('المواقع',$n1,'◎').counter('الإيجنتات',$n2,'✧').counter('مكالمات الخطة الشهرية',$n3,'☏').counter('سجلات تجريبية',$n4,'▤');
+    }
+    echo '</div><div class="cols two">';
+    $tips='<div class="quick-grid"><a href="/saas/console/?tab=sites"><b>◈</b><span>مواقع مستقلة</span><small>إيجنت ومعرفة لكل موقع</small></a><a href="/saas/console/?tab=agents"><b>✧</b><span>Agent Flow Builder</span><small>السيناريو والشخصية والصوت</small></a><a href="/saas/console/?tab=keys"><b>⌘</b><span>API Keys</span><small>مفاتيح مسمّاة وقابلة للإلغاء</small></a><a href="/saas/console/?tab=staff"><b>♙</b><span>إدارة الموظفين</span><small>أدوار وصلاحيات لكل حساب</small></a></div>';
+    echo card('ابدأ من هنا',$tips,'إجراءات سريعة');
+    $items=$kind==='platform'?all('SELECT action,created_at FROM audit_events ORDER BY id DESC LIMIT 5'):all('SELECT action,created_at FROM audit_events WHERE account_id=? ORDER BY id DESC LIMIT 5',[$id]);
+    echo card('آخر الأحداث',tbl(['الحدث','التاريخ'],array_map(fn($x)=>[e($x['action']),e($x['created_at'])],$items)),'سجل تدقيق حقيقي');
+    echo '</div>';
+}
+function render_accounts(array $a):void{
+    if(!in_array($a['kind'],['platform','reseller'],true))deny();
+    $id=(int)$a['account_id'];
+    $rows=$a['kind']==='platform'?
+        all("SELECT a.*, (SELECT COUNT(*) FROM memberships m WHERE m.account_id=a.id) seats FROM accounts a WHERE a.kind!='platform' ORDER BY a.id DESC"):
+        all("SELECT a.*, (SELECT COUNT(*) FROM memberships m WHERE m.account_id=a.id) seats FROM accounts a WHERE a.parent_id=? ORDER BY a.id DESC",[$id]);
+    echo '<div class="cols two">';
+    echo card('إنشاء حساب جديد',form_start('create_account','/?tab=accounts').
+        ($a['kind']==='platform'?select_html('نوع الحساب','kind',['reseller'=>'ريسيلر','customer'=>'عميل مباشر']):'').
+        field_html('اسم الشركة','name','text','اسم المؤسسة',true).
+        field_html('بريد المالك','email','email','owner@company.com',true).
+        submit_btn('إنشاء الحساب وإظهار كلمة مرور مؤقتة'));
+    echo card('وضع الدعم','دخول الحسابات المتاحة للموظفين المخوّلين فقط، لمدة 15 دقيقة وبصلاحية قراءة دون كشف كلمة المرور أو مفاتيح API. كل فتح للحساب يُسجل بالسبب.');
+    echo '</div>';
+    $cells=[];
+    foreach($rows as $r){
+        $support=form_start('support_enter','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><input name="reason" required maxlength="200" placeholder="سبب الدعم / التذكرة" class="tiny-input"><button class="btn small" type="submit">دخول للدعم</button></form>';
+        $cells[]=[e($r['name']).'<small class="block dim">'.e($r['slug']).'</small>',pill((string)$r['kind']),e((string)($r['parent_id']??'مباشر')),e((string)$r['seats']),pill((string)$r['status']),$support];
+    }
+    echo card('الحسابات التابعة',tbl(['الاسم','النوع','الريسيلر','الأعضاء','الحالة','دخول كحساب دعم'],$cells));
+}
+function render_plans(array $a):void{
+    $type=$a['kind'];$id=(int)$a['account_id'];
+    $list=$type==='platform'?all('SELECT * FROM plans ORDER BY kind,id'):all("SELECT * FROM plans WHERE kind='user' AND status='active' ORDER BY id");
+    $rows=[];
+    foreach($list as $p)$rows[]=[e($p['name']),pill($p['kind']),e((string)$p['call_quota']),e((string)$p['site_limit']),e((string)$p['agent_limit']),e((string)$p['staff_limit']),e((string)$p['price_minor']).' قرش'];
+    echo card('كتالوج الخطط',tbl(['الباقة','النوع','مكالمات شهرياً','مواقع','AI','موظفون','سعر تجريبي'],$rows));
+    if($type==='platform'){
+        echo card('إنشاء باقة',form_start('create_plan','/?tab=plans').'<div class="form-grid">'.
+            select_html('النوع','kind',['reseller'=>'ريسيلر','user'=>'مستخدم']).field_html('اسم الخطة','name','text','باقة جديدة',true).
+            field_html('مكالمات/شهر','calls','number','1000').field_html('المواقع','sites','number','1').
+            field_html('AI Agents','agents','number','1').field_html('الموظفون','staff','number','3').
+            field_html('أقصى عدد عملاء للريسيلر','customers','number','10').field_html('السعر بالقروش','price','number','0').
+            '</div>'.submit_btn('حفظ الخطة'));
+    }elseif($type==='reseller'){
+        $customers=all("SELECT id,name FROM accounts WHERE parent_id=? AND kind='customer'",[$id]);
+        $co=[];$po=[];
+        foreach($customers as $c)$co[$c['id']]=$c['name'];
+        foreach($list as $p)$po[$p['id']]=$p['name'].' — '.$p['call_quota'].' مكالمة';
+        if($co&&$po)echo card('تخصيص باقة لعميل',form_start('assign_plan','/?tab=plans').select_html('العميل','customer_id',$co).select_html('الباقة','plan_id',$po).submit_btn('تعيين مع التحقق من رصيد الريسيلر'));
+    }
+}
+function render_staff(array $a):void{
+    $id=(int)$a['account_id'];$rows=all("SELECT u.name,u.email,m.role FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.account_id=? ORDER BY m.id",[$id]);
+    echo '<div class="cols two">';
+    echo card('فريق العمل',tbl(['الاسم','البريد','الصلاحية'],array_map(fn($r)=>[e($r['name']),e($r['email']),pill($r['role'])],$rows)));
+    if(($a['role']??'')==='owner'||($a['role']??'')==='admin')
+        echo card('إضافة موظف',form_start('add_employee','/?tab=staff').field_html('اسم الموظف','name','text','الاسم',true).field_html('البريد الإلكتروني','email','email','staff@company.com',true).
+            select_html('الدور','role',['manager'=>'مدير','operator'=>'موظف عمليات','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).submit_btn('إضافة الموظف'));
+    echo '</div>';
+}
+function render_sites(array $a):void{
+    $id=(int)$a['account_id'];$sites=all('SELECT * FROM sites WHERE account_id=? ORDER BY id DESC',[$id]);
+    echo '<div class="cols two">';
+    $cells=[];
+    foreach($sites as $s)$cells[]=[e($s['name']),'<span dir="ltr">'.e($s['domain']).'</span>',pill($s['status']),'<a class="btn small" href="/saas/console/?tab=agents&site='.$s['id'].'">الإيجنتات ←</a>'];
+    echo card('مواقعي',tbl(['الموقع','الدومين','الحالة','التشغيل'],$cells));
+    if(allowed('sites.write'))echo card('موقع جديد',form_start('add_site','/?tab=sites').field_html('اسم الموقع','name','text','الصيدلية / الملابس / الدعم',true).field_html('الدومين','domain','text','store.example.com').submit_btn('إضافة موقع مستقل'));
+    echo '</div>';
+}
+function render_agents(array $a):void{
+    $id=(int)$a['account_id'];$sites=all('SELECT id,name FROM sites WHERE account_id=? ORDER BY id',[$id]);
+    $map=[];foreach($sites as $s)$map[$s['id']]=$s['name'];
+    $selected=selected_site($id);
+    $agents=$selected?all('SELECT * FROM agents WHERE account_id=? AND site_id=? ORDER BY id DESC',[$id,$selected['id']]):[];
+    echo '<div class="section-line"><p>كل Agent مربوط بموقع واحد، وله Flow ومعرفة وصوت مستقلين.</p><div class="site-picker">';
+    foreach($sites as $site)echo '<a class="chip-link '.($selected&&$site['id']==$selected['id']?'chosen':'').'" href="?tab=agents&site='.$site['id'].'">'.e($site['name']).'</a>';
+    echo '</div></div>';
+    if(!$sites){echo card('ابدأ بموقع','أنشئ موقعاً من قائمة المواقع قبل إضافة الإيجنت.');return;}
+    if(allowed('agents.write'))echo card('إيجنت جديد',form_start('add_agent','/?tab=agents').'<div class="form-grid">'.
+        field_html('اسم الإيجنت','name','text','مثال: مساعد الحجوزات',true).
+        select_html('الموقع','site_id',$map).
+        select_html('الصوت','voice',['google.aoede'=>'Aoede','google.kore'=>'Kore','google.puck'=>'Puck']).
+        '</div><label class="field">تعليمات الإيجنت<textarea name="instructions" rows="3" maxlength="5000" placeholder="شخصية الإيجنت ودوره وطريقة الرد"></textarea></label><label class="field">Knowledge Base<textarea name="knowledge" rows="3" maxlength="20000" placeholder="معلومات هذا الموقع فقط"></textarea></label>'.
+        submit_btn('حفظ إيجنت كمسودة'));
+    foreach($agents as $agent){
+        $flow=e((string)$agent['flow_json']);
+        $body='<div class="agent-summary"><span class="pill neutral">'.e($agent['voice']).'</span>'.pill($agent['status']).'<span class="dim">موقع: '.e($selected['name']).'</span></div>';
+        if(allowed('agents.write'))$body.=form_start('update_agent','/?tab=agents&site='.$selected['id'],'class="stack agent-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'"><label class="field">الشخصية والتعليمات<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label><label class="field">معرفة الموقع<textarea name="knowledge" rows="4" maxlength="20000">'.e($agent['knowledge']).'</textarea></label><div class="flow-head"><strong>Agent Flow Builder</strong><small>عقد وأسئلة وشروط متسلسلة</small></div><div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.$flow.'</textarea><div class="flow-preview"></div><div class="row"><button type="button" class="btn small add-flow-node">+ إضافة خطوة</button><button type="button" class="btn small toggle-flow-json">عرض JSON</button></div></div>'.submit_btn('حفظ مسودة الإيجنت');
+        else $body.='<p>'.e($agent['instructions']).'</p>';
+        echo card($agent['name'],$body);
+    }
+}
+function render_campaigns(array $a):void{
+    $id=(int)$a['account_id'];$s=all('SELECT id,name FROM sites WHERE account_id=?',[$id]);$map=[];
+    foreach($s as $v)$map[$v['id']]=$v['name'];
+    $rows=all('SELECT c.*,s.name site_name FROM campaigns c LEFT JOIN sites s ON s.id=c.site_id WHERE c.account_id=? ORDER BY c.id DESC',[$id]);
+    echo card('الحملات',tbl(['الحملة','الموقع','الحالة','وقت الإنشاء'],array_map(fn($c)=>[e($c['name']),e($c['site_name']),pill($c['status']),e($c['created_at'])],$rows)));
+    if($map && allowed('campaigns.write'))
+        echo card('إنشاء حملة مسودة',form_start('add_campaign','/?tab=campaigns').field_html('اسم الحملة','name','text','متابعة العملاء',true).select_html('الموقع','site_id',$map).'<p class="info">لا يمكن تشغيل حملة من الويب قبل ربط الجهاز والموافقات وجدول الاتصال.</p>'.submit_btn('إنشاء مسودة'));
+}
+function render_calls(array $a):void{
+    $id=(int)$a['account_id'];$rows=all('SELECT * FROM calls WHERE account_id=? ORDER BY id DESC LIMIT 100',[$id]);
+    echo card('سجل المكالمات',tbl(['العميل','الرقم','المدة','الحالة','النوع','التوقيت'],array_map(fn($v)=>[e($v['name']),e($v['phone']),e(fmt_duration((int)$v['duration_seconds'])),pill($v['status']),(int)$v['is_demo']?'DEMO':'فعلي',e($v['created_at'])],$rows)));
+    echo '<div class="info">البيانات الموسومة DEMO غير حقيقية ولا توجد تسجيلات صوتية مزيفة. الربط مع Call Ledger للموبايل يتطلب ترحيل tenant-scoped آمن.</div>';
+}
+function render_devices(array $a):void{
+    $id=(int)$a['account_id'];$rows=all('SELECT * FROM devices WHERE account_id=? ORDER BY id DESC',[$id]);
+    echo card('الهواتف والخطوط',tbl(['الجهاز','الشريحة','الحالة'],array_map(fn($v)=>[e($v['name']),e($v['phone']),pill($v['status'])],$rows)));
+    echo card('مركز تشغيل Android','<p>المحرك الحالي لـ OnTrack Voice موجود في المسار التجريبي المنفصل. لا يتم مشاركة مفتاح الجهاز العام بين كل حسابات SaaS.</p><a class="btn primary" target="_blank" rel="noopener" href="/saas/mobile/">فتح مركز الهاتف التجريبي ↗</a>');
+}
+function render_voices(array $a):void{
+    $id=(int)$a['account_id'];$list=all('SELECT * FROM voices ORDER BY tier, id');
+    $grants=all('SELECT voice_id FROM voice_grants WHERE account_id=?',[$id]);$g=array_column($grants,'voice_id');
+    $rows=[];
+    foreach($list as $v){
+        $last='<span class="dim">'.(in_array($v['id'],$g)?'متاح':'غير مخصص').'</span>';
+        if($a['kind']==='platform')$last=form_start('toggle_voice','/?tab=voices','class="inline-form"').'<input type="hidden" name="voice_id" value="'.$v['id'].'"><button class="btn small" type="submit">إظهار/إخفاء</button></form>';
+        $rows[]=[e($v['name']),e($v['provider']),pill($v['tier']),(int)$v['ready']?pill('ready'):pill('not ready'),pill($v['status']),$last];
+    }
+    echo card('Voice Catalog',tbl(['الصوت','المزود','الفئة','جاهزية فعلية','العرض','التحكم'],$rows));
+    echo '<div class="info">أصوات AYO Premium لم يتم إثبات تشغيلها بعد؛ لن تُباع أو تُفعل قبل اختبار المحرك.</div>';
+    if($a['kind']==='platform'||$a['kind']==='reseller'){
+        $targets=$a['kind']==='platform'?all("SELECT id,name FROM accounts WHERE kind!='platform'"):all('SELECT id,name FROM accounts WHERE parent_id=?',[$id]);
+        $opts=[];foreach($targets as $v)$opts[$v['id']]=$v['name'];
+        $active=[];foreach($list as $v)if((int)$v['ready']===1)$active[$v['id']]=$v['name'];
+        if($opts&&$active)echo card('تخصيص صوت لحساب',form_start('add_voice_grant','/?tab=voices').select_html('الحساب','account_id',$opts).select_html('الصوت الجاهز','voice_id',$active).submit_btn('منح الصوت ضمن صلاحيات الباقة'));
+    }
+}
+function render_keys(array $a):void{
+    $id=(int)$a['account_id'];$list=all('SELECT k.*,s.name site_name FROM api_keys k LEFT JOIN sites s ON s.id=k.site_id WHERE k.account_id=? ORDER BY k.id DESC',[$id]);
+    $rows=[];
+    foreach($list as $k){
+        $buttons=pill($k['status']);
+        if($k['status']==='active'&&($a['role']==='owner'||$a['role']==='admin'))
+            $buttons.=form_start('revoke_key','/?tab=keys','class="inline-form"').'<input type="hidden" name="key_id" value="'.$k['id'].'"><button class="btn danger small" type="submit" onclick="return confirm(\'إلغاء هذا المفتاح فوراً؟\')">إلغاء</button></form>';
+        $rows[]=[e($k['name']),'<code>'.e($k['prefix']).'•••</code>',e($k['site_name']??'الحساب'),e($k['scopes']),$buttons];
+    }
+    echo card('مفاتيح API',tbl(['الاسم','المعرّف','الموقع','الصلاحيات','الحالة'],$rows));
+    $sites=all('SELECT id,name FROM sites WHERE account_id=?',[$id]);$map=[0=>'كامل الحساب'];foreach($sites as $v)$map[$v['id']]=$v['name'];
+    if($a['role']==='owner'||$a['role']==='admin'){
+        $scopes=$a['kind']==='reseller'?'customers:create,plans:read':'agents:invoke,knowledge:read';
+        echo card('إنشاء مفتاح API مُسمّى',form_start('create_key','/?tab=keys').field_html('اسم المفتاح','name','text','موقع الصيدلية - Production',true).select_html('الموقع','site_id',$map).field_html('الصلاحيات بفواصل','scopes','text',$scopes).'<p class="small dim">السر يظهر مرة واحدة، ويمكن إلغاؤه فوراً.</p>'.submit_btn('إنشاء المفتاح'));
+    }
+}
+function render_integrations(array $a):void{
+    $id=(int)$a['account_id'];
+    $entries=all('SELECT * FROM integrations WHERE account_id=? ORDER BY id DESC',[$id]);
+    $rows=[];
+    foreach($entries as $i){
+        $status=pill($i['status']);
+        if($i['status']==='active')$status.=form_start('revoke_integration','/?tab=integrations','class="inline-form"').'<input type="hidden" name="integration_id" value="'.$i['id'].'"><button class="btn danger small" type="submit">إلغاء</button></form>';
+        $rows[]=[e($i['name']),e($i['provider']),'<code>'.e($i['token_prefix']).'•••</code>',$status];
+    }
+    echo card('التكاملات',tbl(['الاسم','النوع','مفتاح الاتصال','الحالة'],$rows));
+    if(in_array($a['kind'],['platform','reseller'],true))
+        echo '<div class="cols two">'.card('إنشاء Integration',form_start('new_integration','/?tab=integrations').field_html('اسم الاتصال','name','text','WHMCS Store / Laravel CRM',true).select_html('المزود','provider',['whmcs'=>'WHMCS','laravel'=>'Laravel','kashier'=>'Kashier','webhook'=>'Generic Webhook']).submit_btn('إنشاء وتوليد Secret')).
+            card('طريقة العمل','<p>التكامل يستقبل Webhook موقّعًا من موقع الريسيلر أو WHMCS. طلب الخطة يظل Pending إلى تأكيد الدفع المعتمد أو الموافقة اليدوية.</p><code>POST /saas/console/hooks/index.php</code><p class="dim">العنوان النهائي للتكامل في دومين الريسيلر بعد تفعيل DNS/TLS، وتستخدم نفس ملفات OnTrack.</p>').'</div>';
+}
+function render_domains(array $a):void{
+    if($a['kind']!=='reseller')deny();
+    $id=(int)$a['account_id'];
+    $d=all('SELECT * FROM domains WHERE account_id=? ORDER BY id DESC',[$id]);
+    echo card('النطاقات المرتبطة',tbl(['الدومين','TXT verification','الحالة'],array_map(fn($v)=>[e($v['hostname']),'<code>'.e($v['verification_token']).'</code>',pill($v['status'])],$d)));
+    echo card('طلب ربط دومين',form_start('add_domain','/?tab=domains').field_html('الدومين أو Subdomain','hostname','text','voice.reseller.com',true).'<p class="info">يتطلب إثبات DNS وربط VirtualHost وشهادة TLS على سيرفر OnTrack. إضافة الدومين لا تفعّله تلقائيًا ولا يحتاج رفع ملفات عند الريسيلر.</p>'.submit_btn('إنشاء طلب الربط'));
+}
+function render_billing(array $a):void{
+    $id=(int)$a['account_id'];
+    $sub=one("SELECT p.*,s.status sub_status,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.account_id=? ORDER BY s.id DESC LIMIT 1",[$id]);
+    $text=$sub?'<div class="plan-panel"><span class="eyebrow">YOUR CURRENT PLAN</span><h2>'.e($sub['name']).'</h2><p>'.e((string)$sub['call_quota']).' مكالمة متصلة شهرياً · '.e((string)$sub['agent_limit']).' AI · '.e((string)$sub['site_limit']).' مواقع</p><small>تنتهي الفترة: '.e($sub['ends_at']).'</small></div>':'<p>لا توجد باقة نشطة.</p>';
+    echo card('اشتراك الحساب',$text);
+    if(in_array($a['kind'],['platform','reseller'],true)){
+        $orders=$a['kind']==='platform'?all('SELECT o.*,a.name account_name FROM orders o JOIN accounts a ON a.id=o.account_id ORDER BY o.id DESC LIMIT 60'):all('SELECT o.*,a.name account_name FROM orders o JOIN accounts a ON a.id=o.account_id WHERE a.parent_id=? ORDER BY o.id DESC LIMIT 60',[$id]);
+        $rows=[];
+        foreach($orders as $o){
+            $act=pill($o['status']);
+            if($o['status']==='pending_manual_review')$act.=form_start('manual_approve','/?tab=billing','class="inline-form"').'<input type="hidden" name="order_id" value="'.$o['id'].'"><button class="btn small primary" type="submit" onclick="return confirm(\'تأكيد وصول الدفع اليدوي؟\')">اعتماد الدفع</button></form>';
+            $rows[]=[e($o['account_name']),e($o['external_order_id']),$act,e($o['created_at'])];
+        }
+        echo card('طلبات الدفع والاعتماد',tbl(['العميل','رقم الطلب','الحالة/الإجراء','التاريخ'],$rows));
+    }
+    echo '<div class="info">مدفوعات Kashier الحقيقية لا تُفعّل من صفحة Success؛ التفعيل يتطلب Webhook موثّقًا أو موافقة دفع يدوي مسجلة.</div>';
+}
+function render_releases(array $a):void{
+    $file='/home/appontrack/public_html/saas/mobile/updates/native/latest.json';
+    $apk='';
+    if(is_file($file)){
+        $d=json_decode((string)file_get_contents($file),true);
+        $payload=json_decode((string)($d['payload']??''),true);
+        if(is_array($payload)&&is_string($payload['file']??null) && basename($payload['file'])===$payload['file'])
+            $apk='/saas/mobile/updates/native/'.rawurlencode($payload['file']);
+    }
+    $brand=brand($a);
+    echo card('تطبيق Android — '.e($brand['name']),'<p>تطبيق الاتصال بشريحة الهاتف، مع تفعيل الجهاز داخل الحساب. ملفات التطبيق والتحديثات مركزية على استضافة OnTrack.</p>'.($apk?'<a class="btn primary" href="'.e($apk).'">↓ تنزيل APK الموقّع</a>':'<div class="info">لم يتم العثور على رابط إصدار موثّق في السيرفر الحالي.</div>').'<p class="small dim">تحديثات الواجهة تتم عبر OTA بدون APK. تحديث أجزاء Android الأصلية يحتاج موافقة النظام على التثبيت.</p>');
+}
+function render_settings(array $a):void{
+    $brand=brand($a);
+    echo '<div class="cols two">';
+    echo card('هوية حسابك','<div class="brand-preview"><div class="brand-icon">'.e(mb_substr($brand['name'],0,1)).'</div><div><h3>'.e($brand['name']).'</h3><p>ألوان الهوية الأساسية: أحمر / أسود / أبيض</p></div></div><p>المستخدم المباشر يرث OnTrack؛ المستخدم التابع يرث هوية الريسيلر بشكل آمن.</p>');
+    if(in_array($a['kind'],['reseller','platform'],true)){
+        echo card('تعديل الاسم والشعار',form_start('brand','/?tab=settings','enctype="multipart/form-data"').field_html('الاسم التجاري الظاهر','brand_name','text',$brand['name'],true).'<label class="field">شعار PNG/JPEG/WEBP (حتى 1MB)<input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></label>'.submit_btn('حفظ الهوية'));
+    }else{
+        echo card('إعدادات المستخدم','<p>اسم وشعار البرنامج متاحان من علامة الريسيلر الذي تتبع له، أو علامة OnTrack إن كنت عميلاً مباشراً.</p>');
+    }
+    echo '</div>';
+}

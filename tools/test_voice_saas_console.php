@@ -1,0 +1,31 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/../saas/console/database/Seed.php';
+function ok(bool $v,string $label):void {if(!$v)throw new RuntimeException('FAIL '.$label);echo "PASS $label\n";}
+$seed=seed_console();
+ok(in_array($seed['status'],['seeded','already_seeded'],true),'schema + demo seed');
+ok((int)one('SELECT COUNT(*) n FROM accounts')['n']>=7,'seven tenant demo entities');
+ok((int)one('SELECT COUNT(*) n FROM agents')['n']>=5,'site-separated AI agents');
+$admin=one("SELECT * FROM users WHERE email='admin@ontrackegy.com'");
+ok((bool)$admin,'admin exists');
+ok(password_verify('OnTrack@Admin-2026-X7qM',$admin['password_hash']),'admin hash verifies');
+$_SESSION=['uid'=>(int)$admin['id'],'account_id'=>1];
+ok((mine()['kind']??'')==='platform','admin membership');
+ok(has_platform(),'admin platform rights');
+$reseller=one("SELECT * FROM users WHERE email='reseller@delta.test'");
+$_SESSION=['uid'=>(int)$reseller['id'],'account_id'=>2];
+ok((mine()['kind']??'')==='reseller','reseller membership');
+ok(is_reseller_child(2,5),'reseller owns child');
+ok(!is_reseller_child(2,7),'reseller cannot read other child');
+ok(support_access(5),'reseller support scope own customer');
+ok(!support_access(7),'reseller support denied cross tenant');
+$account=account(5);
+ok(brand($account)['name']==='دلتا فويس','reseller white-label inherited');
+$direct=account(4);
+ok(brand($direct)['name']==='OnTrack Voice','direct OnTrack identity');
+ok((int)site_limit(4,'site_limit')===1,'direct starter plan caps sites');
+ok(owned_site(3,5)!==null,'site belongs to right account');
+ok(owned_site(1,5)===null,'site isolation denied');
+ok((int)one("SELECT COUNT(*) n FROM voices WHERE ready=0")['n']===3,'unready AYO voices cannot be offered');
+ok((int)one('SELECT COUNT(*) n FROM orders WHERE status=?',['pending_manual_review'])['n']===1,'manual payment pending');
+echo "VOICE_SAAS_SMOKE_PASS\n";
