@@ -230,6 +230,13 @@ def main(root):
     intent = ET.SubElement(activity, 'intent-filter')
     ET.SubElement(intent, 'action', {android + 'name': 'android.intent.action.MAIN'})
     ET.SubElement(intent, 'category', {android + 'name': 'android.intent.category.LAUNCHER'})
+    # Camera QR scanners can open the app using this URI. It only pre-fills
+    # a native confirmation dialog; no automatic redemption or browser bridge.
+    qr = ET.SubElement(activity, 'intent-filter')
+    ET.SubElement(qr, 'action', {android + 'name': 'android.intent.action.VIEW'})
+    ET.SubElement(qr, 'category', {android + 'name': 'android.intent.category.DEFAULT'})
+    ET.SubElement(qr, 'category', {android + 'name': 'android.intent.category.BROWSABLE'})
+    ET.SubElement(qr, 'data', {android + 'scheme': 'ontrackvoice', android + 'host': 'pair'})
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.FOREGROUND_SERVICE_DATA_SYNC'})
     # User opt-in app overlay is unrelated to Accessibility and is never auto-granted.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.SYSTEM_ALERT_WINDOW'})
