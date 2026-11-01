@@ -38,10 +38,10 @@ function act():void {
             case 'support_enter':
                 if(!in_array($kind,['platform','reseller'],true) || !in_array($a['role'],['owner','admin','support'],true))deny();
                 $target=intfield('account_id');if(!support_access($target))deny();
-                $reason=required('reason',200);
+                $reason=field('reason',200);if($reason==='')$reason='طلب دعم من لوحة الإدارة';
                 $expiry=gmdate('Y-m-d H:i:s',time()+900);
                 insert("INSERT INTO support_grants(actor_user_id,target_account_id,reason,expires_at,created_at) VALUES (?,?,?,?,?)",[me()['id'],$target,$reason,$expiry,now()]);
-                $_SESSION['support']=['account_id'=>$target,'origin_id'=>$id,'expires'=>time()+900];
+                $_SESSION['support']=['account_id'=>$target,'origin_id'=>$id,'expires'=>time()+1800];
                 audit('support.start',$target,['from'=>$id,'reason'=>$reason]);
                 session_regenerate_id(true);go('/');
             case 'support_leave':
@@ -129,7 +129,7 @@ function act():void {
                 if(!$parts||array_diff($parts,$allowedScopes))throw new InvalidArgumentException('صلاحيات API غير معروفة');
                 if(in_array('customers:create',$parts,true)&&$kind!=='reseller')deny();
                 $token='otv_'.bin2hex(random_bytes(30));
-                insert("INSERT INTO api_keys(account_id,site_id,name,prefix,token_hash,scopes,status,created_at) VALUES (?,?,?,?,?,?,'active',?)",[$id,$sid?:null,$name,substr($token,0,12),hash('sha256',$token),implode(',',$parts),now()]);
+                insert("INSERT INTO api_keys(account_id,site_id,name,prefix,token_hash,scopes,status,created_at,secret_enc) VALUES (?,?,?,?,?,?,'active',?,?)",[$id,$sid?:null,$name,substr($token,0,12),hash('sha256',$token),implode(',',$parts),now(),seal_secret($token)]);
                 audit('api_key.created',$id,['name'=>$name,'scopes'=>$scope,'site'=>$sid]);
                 flash('secret','API Key: '.$token.' — سيظهر مرة واحدة فقط');break;
             case 'revoke_key':
@@ -137,14 +137,14 @@ function act():void {
                 execute("UPDATE api_keys SET status='revoked' WHERE id=? AND account_id=?",[intfield('key_id'),$id]);
                 audit('api_key.revoked',$id,['key'=>intfield('key_id')]);break;
             case 'new_integration':
-                if(!in_array($kind,['reseller','platform'],true)||!in_array($a['role'],['owner','admin'],true))deny();
+                if(!in_array($a['role'],['owner','admin'],true))deny();
                 $provider=field('provider',30);if(!in_array($provider,['whmcs','laravel','kashier','webhook'],true))throw new InvalidArgumentException('نوع تكامل غير مدعوم');
                 $token='otint_'.bin2hex(random_bytes(32));
-                insert("INSERT INTO integrations(account_id,name,provider,token_hash,token_prefix,status,created_at) VALUES (?,?,?,?,?,'active',?)",[$id,required('name',100),$provider,hash('sha256',$token),substr($token,0,12),now()]);
+                insert("INSERT INTO integrations(account_id,name,provider,token_hash,token_prefix,status,created_at,secret_enc) VALUES (?,?,?,?,?,'active',?,?)",[$id,required('name',100),$provider,hash('sha256',$token),substr($token,0,12),now(),seal_secret($token)]);
                 audit('integration.created',$id,['provider'=>$provider]);
                 flash('secret','سر Webhook للتكامل: '.$token.' — انسخه مرة واحدة');break;
             case 'revoke_integration':
-                if(!in_array($kind,['reseller','platform'],true)||!in_array($a['role'],['owner','admin'],true))deny();
+                if(!in_array($a['role'],['owner','admin'],true))deny();
                 execute("UPDATE integrations SET status='revoked' WHERE id=? AND account_id=?",[intfield('integration_id'),$id]);
                 audit('integration.revoked',$id);break;
             case 'assign_plan':
@@ -213,6 +213,140 @@ function act():void {
                     db()->commit();
                 }catch(Throwable $ex){db()->rollBack();throw $ex;}
                 audit('manual_payment.approved',(int)$order['account_id'],['order'=>$order['id']]);break;
+            case 'support_policy':
+                if($kind!=='platform'&&$kind!=='reseller')deny();
+                if(!in_array($a['role'],['owner','admin'],true))deny();
+                $target=$kind==='platform'?intfield('reseller_id'):$id;
+                if($target && $kind==='platform'){
+                    $res=account($target);
+                    if(!$res||$res['kind']!=='reseller')deny();
+                }
+                $mode=field('access_mode',12);
+                if(!in_array($mode,['full','read_only'],true))throw new InvalidArgumentException('وضع غير صالح');
+                $exists=one('SELECT account_id FROM support_policies WHERE account_id=?',[$target]);
+                if($exists)execute('UPDATE support_policies SET access_mode=? WHERE account_id=?',[$mode,$target]);
+                else insert('INSERT INTO support_policies(account_id,access_mode) VALUES (?,?)',[$target,$mode]);
+                audit('support.policy.updated',$target,['mode'=>$mode]);break;
+            case 'reveal_secret':
+                if(!in_array($a['role'],['owner','admin'],true) || active_support())deny();
+                $kindKey=field('secret_type',20);
+                $tbl=$kindKey==='api'?'api_keys':($kindKey==='integration'?'integrations':null);
+                if(!$tbl)deny();
+                $u=one('SELECT password_hash FROM users WHERE id=?',[me()['id']]);
+                if(!password_verify((string)($_POST['password']??''),(string)$u['password_hash']))throw new RuntimeException('تأكيد كلمة المرور غير صحيح');
+                $keyRow=one('SELECT * FROM '.$tbl.' WHERE id=? AND account_id=? AND status=?',[intfield('secret_id'),$id,'active']);
+                if(!$keyRow)deny(404);
+                $plain=unseal_secret($keyRow['secret_enc']??null);
+                if($plain===null)throw new RuntimeException('مفتاح قديم غير قابل للاسترجاع. استخدم زر التدوير');
+                audit('secret.viewed',$id,['type'=>$kindKey,'id'=>$keyRow['id']]);
+                flash('secret','المفتاح المطلوب: '.$plain);break;
+            case 'rotate_secret':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $kindKey=field('secret_type',20);
+                $tbl=$kindKey==='api'?'api_keys':($kindKey==='integration'?'integrations':null);
+                if(!$tbl)deny();
+                $row=one('SELECT * FROM '.$tbl.' WHERE id=? AND account_id=? AND status=?',[intfield('secret_id'),$id,'active']);
+                if(!$row)deny(404);
+                $token=($kindKey==='api'?'otv_':'otint_').bin2hex(random_bytes(32));
+                $prefix=substr($token,0,12);
+                $col=$kindKey==='api'?'prefix':'token_prefix';
+                execute('UPDATE '.$tbl.' SET token_hash=?,'.$col.'=?,secret_enc=? WHERE id=? AND account_id=?',[hash('sha256',$token),$prefix,seal_secret($token),$row['id'],$id]);
+                audit('secret.rotated',$id,['type'=>$kindKey,'id'=>$row['id']]);
+                flash('secret','تم إلغاء المفتاح السابق، المفتاح الجديد: '.$token);break;
+            case 'rename_secret':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $tbl=field('secret_type',20)==='api'?'api_keys':'integrations';
+                execute('UPDATE '.$tbl.' SET name=? WHERE id=? AND account_id=?',[required('name',100),intfield('secret_id'),$id]);
+                audit('secret.renamed',$id,['type'=>$tbl]);break;
+            case 'update_site':
+                require_permission('sites.write');
+                $site=owned_site(intfield('site_id'),$id);if(!$site)deny(404);
+                execute('UPDATE sites SET name=?,domain=? WHERE id=? AND account_id=?',[required('name',140),field('domain',190),$site['id'],$id]);
+                audit('site.updated',$id,['site'=>$site['id']]);break;
+            case 'archive_site':
+                require_permission('sites.write');
+                $site=owned_site(intfield('site_id'),$id);if(!$site)deny(404);
+                execute("UPDATE sites SET status='archived' WHERE id=? AND account_id=?",[$site['id'],$id]);
+                execute("UPDATE agents SET status='archived' WHERE site_id=? AND account_id=?",[$site['id'],$id]);
+                audit('site.archived',$id,['site'=>$site['id']]);break;
+            case 'archive_agent':
+                require_permission('agents.write');
+                $ag=one('SELECT id FROM agents WHERE id=? AND account_id=?',[intfield('agent_id'),$id]);if(!$ag)deny(404);
+                execute("UPDATE agents SET status='archived' WHERE id=? AND account_id=?",[$ag['id'],$id]);
+                audit('agent.archived',$id,['agent'=>$ag['id']]);break;
+            case 'update_campaign':
+                require_permission('campaigns.write');
+                $camp=one('SELECT id FROM campaigns WHERE id=? AND account_id=?',[intfield('campaign_id'),$id]);if(!$camp)deny(404);
+                $status=field('status',20);
+                if(!in_array($status,['draft','paused','archived'],true))throw new InvalidArgumentException('حالة غير آمنة، لا يتم تشغيل مكالمة من هذه اللوحة التجريبية');
+                execute('UPDATE campaigns SET name=?,status=? WHERE id=? AND account_id=?',[required('name',140),$status,$camp['id'],$id]);
+                audit('campaign.updated',$id,['campaign'=>$camp['id'],'status'=>$status]);break;
+            case 'edit_account':
+                if(!in_array($kind,['platform','reseller'],true)||!in_array($a['role'],['owner','admin'],true))deny();
+                $target=scoped_customer(intfield('account_id'));
+                if($target['kind']==='platform'||($kind==='reseller'&&$target['kind']!=='customer'))deny();
+                execute('UPDATE accounts SET name=? WHERE id=?',[required('name',120),$target['id']]);
+                audit('account.renamed',$target['id']);break;
+            case 'set_account_status':
+                if(!in_array($kind,['platform','reseller'],true)||!in_array($a['role'],['owner','admin'],true))deny();
+                $target=scoped_customer(intfield('account_id'));
+                if($target['kind']==='platform')deny();
+                $status=field('status',12);
+                if(!in_array($status,['active','suspended'],true))deny();
+                execute('UPDATE accounts SET status=? WHERE id=?',[$status,$target['id']]);
+                audit('account.status',$target['id'],['status'=>$status]);break;
+            case 'edit_plan':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
+                $plan=one('SELECT id FROM plans WHERE id=?',[intfield('plan_id')]);if(!$plan)deny();
+                execute('UPDATE plans SET name=?,call_quota=?,site_limit=?,agent_limit=?,staff_limit=? WHERE id=?',
+                   [required('name',120),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),$plan['id']]);
+                audit('plan.updated',$id,['plan'=>$plan['id']]);break;
+            case 'archive_plan':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
+                execute("UPDATE plans SET status='archived' WHERE id=?",[intfield('plan_id')]);
+                audit('plan.archived',$id);break;
+            case 'edit_staff':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $uid=intfield('user_id');$role=field('role',25);
+                if(!in_array($role,['manager','operator','finance','support','viewer'],true))deny();
+                $target=one('SELECT id,role FROM memberships WHERE user_id=? AND account_id=?',[$uid,$id]);
+                if(!$target||in_array($target['role'],['owner','admin'],true))deny();
+                execute('UPDATE memberships SET role=? WHERE id=?',[$role,$target['id']]);
+                audit('staff.role.updated',$id,['user'=>$uid,'role'=>$role]);break;
+            case 'remove_staff':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $uid=intfield('user_id');
+                $target=one('SELECT id,role FROM memberships WHERE user_id=? AND account_id=?',[$uid,$id]);
+                if(!$target||in_array($target['role'],['owner','admin'],true))deny();
+                execute('DELETE FROM memberships WHERE id=?',[$target['id']]);
+                audit('staff.removed',$id,['user'=>$uid]);break;
+            case 'sync_google_voices':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
+                require_once __DIR__.'/VoiceCatalog.php';
+                $synced=sync_google_live_voices();
+                audit('voices.catalog_synced',$id,['count'=>$synced]);
+                flash('success','تم تحديث كتالوج Google بعدد '.$synced.' صوتاً، والتفعيل من الإدارة');break;
+            case 'set_voice_ready':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
+                $voice=one('SELECT id FROM voices WHERE id=?',[intfield('voice_id')]);if(!$voice)deny(404);
+                $ready=field('ready',1)==='1'?1:0;
+                if($ready && (string)($_POST['confirmed']??'')!=='1')
+                   throw new InvalidArgumentException('يجب إثبات صلاحية الصوت على مزود الاتصال أولاً');
+                execute('UPDATE voices SET ready=? WHERE id=?',[$ready,$voice['id']]);
+                audit('voice.ready.updated',$id,['voice'=>$voice['id'],'ready'=>$ready]);break;
+            case 'pilot_settings':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/MobilePilot.php';
+                $name=required('agent_name',120);$voice=required('voice',40);
+                if(!preg_match('/^[A-Za-z0-9_-]{2,40}$/D',$voice))throw new InvalidArgumentException('صيغة الصوت غير صالحة');
+                $delay=intfield('answer_delay_seconds');
+                if($delay>30)throw new InvalidArgumentException('مهلة الرد لا تتجاوز 30 ثانية');
+                $changes=['agent_name'=>$name,'voice'=>$voice,'instruction'=>field('instruction',5000),
+                  'auto_answer'=>isset($_POST['auto_answer']),
+                  'enabled'=>isset($_POST['enabled']),'answer_delay_seconds'=>$delay];
+                $revision=pilot_write_policy($changes);
+                audit('pilot.policy.updated',$id,['revision'=>$revision,'enabled'=>$changes['enabled']]);
+                flash('success','تم إرسال سياسة الهاتف إلى ملف المزامنة، Revision '.$revision.'؛ ظهورها على الجهاز يحتاج تأكيد ACK');break;
             default:throw new InvalidArgumentException('عملية غير معروفة');
         }
         flash('success','تم حفظ العملية بنجاح');
