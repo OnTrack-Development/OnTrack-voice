@@ -10,6 +10,12 @@ object TenantPairingContract {
         require(CODE.matches(value)) { "رمز الاقتران غير صالح (24 حرفًا)" }
         return value.uppercase()
     }
+    /** Server locks a single-use code to exactly one SIM slot (92 random bits). */
+    fun codeForSlot(raw: String, selectedSlot: Int): String {
+        val normalized = code(raw)
+        require(normalized[0] == ('0' + slot(selectedSlot))) { "رمز الربط مخصص للشريحة الأخرى" }
+        return normalized
+    }
     fun slot(value: Int): Int {
         require(value == 0 || value == 1) { "الشريحة غير مدعومة" }
         return value
@@ -32,6 +38,9 @@ object TenantPairingContract {
     fun qr(uri: String): Pair<Int, String>? {
         // Strict parsing without allowing an untrusted URL to redirect the API.
         val match = Regex("^ontrackvoice://pair\\?slot=([01])&code=([A-Fa-f0-9-]{24,29})$").matchEntire(uri) ?: return null
-        return runCatching { Pair(slot(match.groupValues[1].toInt()), code(match.groupValues[2])) }.getOrNull()
+        return runCatching {
+            val selectedSlot = slot(match.groupValues[1].toInt())
+            Pair(selectedSlot, codeForSlot(match.groupValues[2], selectedSlot))
+        }.getOrNull()
     }
 }
