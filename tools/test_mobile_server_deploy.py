@@ -12,6 +12,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from deploy_mobile_server import install_archive, parse_release, download_release
+from pack_mobile_server import package
 
 PHP = shutil.which("php") or "/usr/bin/php"
 SOURCE = "a" * 40
@@ -107,6 +108,18 @@ class PilotServerPublishTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "missing_protected_device_auth"):
             self.install(release())
         self.assertEqual((self.root / "common.php").read_text(), "<?php echo 'old';")
+
+    def test_packaging_excludes_tracked_auth_verifier(self):
+        (self.root / ".htaccess").write_text(
+            'Options -Indexes\\n<Files "auth.sha256">\\n Require all denied\\n</Files>\\n')
+        for i in range(17):
+            (self.root / ("module_%02d.php" % i)).write_text("<?php return true;")
+        archive = self.private / "release.tar.gz"
+        self.assertEqual(package(self.root, archive), 19)
+        names = parse_release(archive.read_bytes())
+        self.assertNotIn("auth.sha256", names)
+        self.assertIn("common.php", names)
+        self.assertIn(".htaccess", names)
 
     def test_non_https_or_untrusted_artifact_rejected(self):
         for url in ("file:///tmp/release.zip", "https://example.com/file.zip",
