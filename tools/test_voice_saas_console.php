@@ -140,4 +140,6 @@ require_once __DIR__.'/test_tenant_device_pairing.php';
 test_tenant_device_pairing();
 require_once __DIR__.'/test_agent_flow_preview.php';
 test_agent_flow_preview();
+require_once __DIR__.'/test_agent_flow_preview_http.php';
+test_agent_flow_preview_http();
 echo "VOICE_SAAS_SMOKE_PASS\n";
