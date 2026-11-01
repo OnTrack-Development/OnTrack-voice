@@ -1,0 +1,13 @@
+{
+  "job_id": "saas-console-http-smoke-20261101-flow",
+  "target": "appontrack-server11",
+  "job_sha256": "a2cafe0ce603a1e81ff794c0c50e29ec138c7e23c1a686c7a4e674447145a995",
+  "started_at": "2026-11-01T21:08:02.534105+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\": \"PUBLIC_CONSOLE_OK\", \"console_http\": 200, \"device_wrong_method_http\": 405, \"unauthorized_flow_http\": 401, \"graph_script_http\": 200, \"portal_script_http\": 200, \"source\": \"c2bc9cef298a\"}\n",
+  "stderr": "",
+  "finished_at": "2026-11-01T21:08:02.837781+00:00",
+  "duration_ms": 304
+}
