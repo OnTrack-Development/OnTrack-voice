@@ -116,6 +116,10 @@ function test_agent_flow_preview_http():void {
         ok((int)one('SELECT COUNT(*) n FROM agent_flow_revisions WHERE account_id=4 AND agent_id=1')['n']===$beforeRelease+1,
             'real HTTP flow publish persists a revision');
         execute('UPDATE agents SET flow_json=? WHERE id=1 AND account_id=4',[$original['flow_json']]);
+        if($beforeRelease===0){
+            execute('DELETE FROM agent_flow_publications WHERE account_id=4 AND agent_id=1');
+            execute('DELETE FROM agent_flow_revisions WHERE account_id=4 AND agent_id=1');
+        }
         echo "AGENT_FLOW_HTTP_PASS\n";
     }finally{
         proc_terminate($process);proc_close($process);
