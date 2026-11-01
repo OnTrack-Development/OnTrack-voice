@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -169,6 +169,40 @@ function init_console_v8():void {
             name TEXT NOT NULL,company_name TEXT NOT NULL,password_hash TEXT NOT NULL,
             token_hash TEXT UNIQUE,status TEXT NOT NULL,expires_at TEXT NOT NULL,
             created_at TEXT NOT NULL
+        )");
+    }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+/** Signed external identity links. Additive v9, distinct from device v5. */
+function init_console_v9():void {
+    $marker=private_path().'/schema.v9';
+    if(is_file($marker))return;
+    if(driver()==='mysql'){
+        db()->exec("CREATE TABLE IF NOT EXISTS external_identity_links (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            integration_id BIGINT NOT NULL, external_subject VARCHAR(128) NOT NULL,
+            user_id BIGINT NOT NULL, created_at VARCHAR(190) NOT NULL,
+            UNIQUE KEY uq_sso_subject(integration_id,external_subject),
+            UNIQUE KEY uq_sso_user(integration_id,user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        db()->exec("CREATE TABLE IF NOT EXISTS sso_used_tickets (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            integration_id BIGINT NOT NULL, jti_hash VARCHAR(64) NOT NULL,
+            expires_at VARCHAR(190) NOT NULL, created_at VARCHAR(190) NOT NULL,
+            UNIQUE KEY uq_sso_jti(integration_id,jti_hash)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }else{
+        db()->exec("CREATE TABLE IF NOT EXISTS external_identity_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            integration_id INTEGER NOT NULL, external_subject TEXT NOT NULL,
+            user_id INTEGER NOT NULL, created_at TEXT NOT NULL,
+            UNIQUE(integration_id,external_subject), UNIQUE(integration_id,user_id)
+        )");
+        db()->exec("CREATE TABLE IF NOT EXISTS sso_used_tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            integration_id INTEGER NOT NULL, jti_hash TEXT NOT NULL,
+            expires_at TEXT NOT NULL, created_at TEXT NOT NULL,
+            UNIQUE(integration_id,jti_hash)
         )");
     }
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);

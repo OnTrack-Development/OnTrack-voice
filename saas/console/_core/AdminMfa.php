@@ -107,7 +107,8 @@ function mfa_route():never {
             unset($_SESSION['mfa_pending'],$_SESSION['mfa_pending_uid'],$_SESSION['mfa_pending_at'],
                 $_SESSION['mfa_failures'],$_SESSION['mfa_block_until']);
             $_SESSION['mfa_ok']=true;session_regenerate_id(true);
-            audit('mfa.verified',$_SESSION['account_id']??null);go('/');
+            audit('mfa.verified',$_SESSION['account_id']??null);
+            go(!empty($_SESSION['sso_pending'])?'/sso/confirm':'/');
         }
         $_SESSION['mfa_failures']=(int)($_SESSION['mfa_failures']??0)+1;
         if($_SESSION['mfa_failures']>=8){$_SESSION['mfa_block_until']=time()+900;$error='محاولات كثيرة، حاول بعد 15 دقيقة.';}
