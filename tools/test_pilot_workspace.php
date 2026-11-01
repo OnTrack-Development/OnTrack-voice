@@ -72,6 +72,16 @@ try {
     $recreated=pilot_read('contacts')[0];
     expect($recreated['do_not_call']===true && $recreated['consented']===false,
         'reimport_preserves_suppression_and_no_consent');
+    $blockedCampaign=pilot_campaign_create('Reimport blocked',$now->modify('-1 minute')->format('Y-m-d\\TH:i'),
+        $now->modify('+1 hour')->format('Y-m-d\\TH:i'),'Synthetic no dial',[$recreated['id']]);
+    expect($blockedCampaign['eligible_contacts_snapshot']===0,'durable_dnc_excluded_at_campaign_creation');
+    $blockedPreview=pilot_campaign_preview($blockedCampaign['id']);
+    expect(count($blockedPreview['eligible'])===0 && $blockedPreview['excluded']===1,
+        'durable_dnc_excluded_at_preview');
+    $armDenied=false;
+    try{pilot_campaign_arm($blockedCampaign['id']);}
+    catch(InvalidArgumentException $e){$armDenied=$e->getMessage()==='no_consented_contacts';}
+    expect($armDenied,'durable_dnc_prevents_arming_campaign');
     expect(pilot_campaign_claim()===null,'no_lease_for_durable_suppression');
     $corruptPath=$root.'/pilot/dnc.json';
     file_put_contents($corruptPath,'{corrupt');
