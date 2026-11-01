@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../../_core/Bootstrap.php';
 require __DIR__.'/../../_core/DevicePairing.php';
+require __DIR__.'/../../_core/TenantVoiceSession.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -31,7 +32,7 @@ try{
         );
         device_answer(201,['ok'=>true,'binding'=>$bound,'state'=>'paired_control_plane_only']);
     }
-    if(in_array($operation,['heartbeat','disconnect','published_flow'],true)){
+    if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
         if(!str_starts_with($auth,'Bearer '))device_answer(401,['ok'=>false,'error'=>'authorization_required']);
         $binding=device_binding_authorize(substr($auth,7));
@@ -41,6 +42,17 @@ try{
             device_answer(200,['ok'=>true,'state'=>'revoked']);
         }
         $profile=device_binding_heartbeat($binding);
+        if($operation==='voice_session'){
+            // No global pilot policy, unpaired device, foreign SIM, or draft agent can receive a token.
+            try{$session=tenant_voice_session($binding);}
+            catch(RuntimeException $problem){
+                $reason=$problem->getMessage();
+                if(in_array($reason,['tenant_voice_not_launched','voice_provider_not_configured'],true))
+                    device_answer(409,['ok'=>false,'error'=>$reason]);
+                device_answer(503,['ok'=>false,'error'=>'voice_provider_unavailable']);
+            }
+            device_answer(200,['ok'=>true,'session'=>$session]);
+        }
         if($operation==='published_flow'){
             $flow=published_agent_flow((int)$binding['account_id'],(int)$binding['site_id'],(int)$binding['agent_id']);
             if(!$flow)device_answer(409,['ok'=>false,'error'=>'agent_flow_not_published']);
