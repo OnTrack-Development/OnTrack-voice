@@ -389,11 +389,12 @@ class MobileLinkActivity:ComponentActivity(){
         tenantStatusJob=lifecycleScope.launch {
             val lines=withContext(Dispatchers.IO) {
                 (0..1).map { slot ->
-                    if(!tenantEnrollment.paired(slot))
+                    val paired=tenantEnrollment.paired(slot)
+                    val hardwareIssue=if(paired)TenantSimHardware.problem(this@MobileLinkActivity,slot) else null
+                    if(!paired)
                         TenantPairingContract.statusLine(slot,false)
-                    else if(TenantSimHardware.problem(this@MobileLinkActivity,slot)!=null)
-                        TenantPairingContract.statusLine(slot,true,
-                            error=TenantSimHardware.problem(this@MobileLinkActivity,slot)!!)
+                    else if(hardwareIssue!=null)
+                        TenantPairingContract.statusLine(slot,true,error=hardwareIssue)
                     else try {
                         val p=tenantEnrollment.heartbeat(slot)
                         TenantPairingContract.statusLine(slot,true,
