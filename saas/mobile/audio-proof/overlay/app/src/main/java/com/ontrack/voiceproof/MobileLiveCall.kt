@@ -90,19 +90,19 @@ internal class MobileLiveCall(
         val handle=resumeHandle
         ws=client.newWebSocket(Request.Builder().url(liveUrl).build(),object:WebSocketListener(){
             override fun onOpen(webSocket:WebSocket,response:Response) {
+                val style=when(settings.optString("response_style","egyptian_short")){
+                    "formal_ar"->"تحدث بالعربية الفصحى بأسلوب مهني وواضح."
+                    "english"->"Speak in clear and concise English."
+                    "bilingual"->"تحدث بالعربية أو الإنجليزية حسب لغة العميل."
+                    else->"تحدث باللهجة المصرية بصورة طبيعية ومختصرة."
+                }
+                val policy=session.getString("system_instruction")+"\\n\\n"+style+
+                    " استخدم سؤالًا واحدًا في كل دور ثم استمع للعميل، ولا تكرر التحية أو الأسئلة."+
+                    " توقف عند المقاطعة ولا تختلق أي حجز أو دفع أو تكامل لم يتم فعلياً."
                 val setup=JSONObject().put("model","models/"+session.getString("model").removePrefix("models/"))
                     .put("generationConfig",JSONObject().put("responseModalities",org.json.JSONArray(listOf("AUDIO")))
                         .put("speechConfig",JSONObject().put("voiceConfig",JSONObject().put("prebuiltVoiceConfig",JSONObject().put("voiceName",settings.optString("voice","Aoede"))))))
-                    .put("systemInstruction",JSONObject().put("parts",org.json.JSONArray().put(JSONObject().put("text",(session.getString("system_instruction") + "\\n\\n" +
-                        "قواعد إلزامية للمكالمة الحية: تحدث بالعربية المصرية فقط، ولا تحول إلى أي لغة أخرى مهما كان نص العميل. " +
-                        "التزم بجملة أو جملتين قصيرتين في كل رد، بحد أقصى 20 كلمة تقريبًا، ثم اسكت لتسمع العميل. " +
-                        "اعرض معلومة عقارية واحدة مفيدة أو اسأل سؤالًا واحدًا في كل دور، ولا تقرأ السكريبت دفعة واحدة. " +
-                        "لا تكرر الترحيب أو الأسعار أو وصف العقار أو ما سبق قوله إلا إذا طلب العميل ذلك. " +
-                        "عند مقاطعة العميل توقف فورًا، واستمع إليه حتى ينتهي؛ إذا كان سؤاله مرتبطًا بالموضوع أجب عنه باختصار، " +
-                        "ثم أكمل من النقطة التي كنت وصلت لها لا من أول السيناريو. إذا كان السؤال خارج الموضوع أجب بمهنية " +
-                        "دون اختراع معلومات، ثم اعرض العودة للموضوع مرة واحدة فقط. " +
-                        "تذكر ما عرفته عن الميزانية والاحتياجات والاعتراضات أثناء الجلسة؛ لا تعاود الأسئلة التي أجاب عنها. " +
-                        "ابدأ ردك بالمعلومة المطلوبة مباشرة، وقلل الحشو وانتظر المتصل.")))))
+                    .put("systemInstruction",JSONObject().put("parts",org.json.JSONArray().put(JSONObject().put("text",policy)))))
                     .put("inputAudioTranscription",JSONObject()).put("outputAudioTranscription",JSONObject())
                     .put("sessionResumption",if(handle.isNullOrBlank())JSONObject() else JSONObject().put("handle",handle))
                 if(!webSocket.send(JSONObject().put("setup",setup).toString()))onTransportLost(webSocket,"تعذر فتح الصوت")
