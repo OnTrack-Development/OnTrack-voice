@@ -52,7 +52,7 @@ function dnc_init_ledger():void {
 
 /** Idempotent, append-only suppression. Never update an existing opt-out. */
 function dnc_insert_ledger_key(int $accountId,string $key,string $source):void {
-    if($accountId<=0 || !preg_match('/^[0-9]{1,40}$/D',$key) ||
+    if($accountId<=0 || !preg_match('/^[0-9]{8,40}$/D',$key) ||
         !in_array($source,['legacy_contact','contact_optout','booking_no_consent'],true))
         throw new InvalidArgumentException('invalid_dnc_ledger_entry');
     $sql=driver()==='mysql'
