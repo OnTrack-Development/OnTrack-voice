@@ -1,0 +1,39 @@
+name: Native OTA host acknowledgement gate
+on:
+  pull_request:
+    paths:
+      - 'tools/queue_mobile_native.py'
+      - 'tools/test_mobile_release_gate.py'
+      - '.github/workflows/android-audio-proof.yml'
+      - '.github/workflows/mobile-release-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/queue_mobile_native.py'
+      - 'tools/test_mobile_release_gate.py'
+      - '.github/workflows/android-audio-proof.yml'
+      - '.github/workflows/mobile-release-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax and release receipt regression
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/queue_mobile_native.py tools/test_mobile_release_gate.py
+          python3 tools/test_mobile_release_gate.py
+      - name: Release trigger isolation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          workflow = Path('.github/workflows/android-audio-proof.yml').read_text()
+          assert "      - 'tools/queue_mobile_native.py'" not in workflow
+          assert "      - 'saas/mobile/server/**'" not in workflow
+          assert "      - 'saas/mobile/audio-proof/**'" in workflow
+          print("Native build trigger isolation PASS")
+          PY

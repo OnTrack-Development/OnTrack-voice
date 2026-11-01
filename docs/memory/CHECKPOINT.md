@@ -1,3 +1,10 @@
+## 2026-11-01 — Cycle #7: Native publish must wait for verified UI host receipt (candidate, CI pending)
+
+- **Observed release mismatch (verified):** GitHub Android run `41306044730` = SUCCESS including publish queue steps; actual host `mobile-ota-41306044730` = FAILED, exit 1 (`Revision cannot be reused with different content`), yet host `mobile-native-41306044730` = SUCCESS, published versionCode 22, SHA256 `ff60a4d49dd86294a8fb1c1c7254ae2ccc587f19ad21af504e1271d4e02b548b`, **2026-11-01 12:29:08 UTC**. This was an APK release artifact publication, NOT proof of installation on user's phone.
+- **CODE CANDIDATE:** `tools/queue_mobile_native.py` now requires the same run's matching, hash-verified successful UI host receipt and exact revision/hash match before native queue. `tools/test_mobile_release_gate.py` covers failure, mismatch, stale, corrupt, successful receipts. Dedicated `mobile-release-gate.yml` CI checks this without APK build; `android-audio-proof.yml` no longer triggers on release queue tool edits. This change does not itself deploy mobile PHP or update a device.
+- **PENDING:** PR CI and merge, no claim of verified release gate until success. Separate pilot PHP release/host receipt and real Android pre-dial DNC E2E remain OPEN. UI OTA revision collision needs an independent versioning fix.
+- **Details:** `docs/execution/2026-11-01_NATIVE_UI_RELEASE_GATE_CYCLE_07_AR.md`.
+
 ## 2026-11-01 — Hourly cycle #6 PR #13 merged: pilot DNC pre-dial gate, release separation
 
 - **MERGED / CODED:** PR #13 `https://github.com/OnTrack-Development/OnTrack-voice/pull/13`, main squash `c303880e94b74263a4f5afd3bc1a3a790fb6720a`. Durable pilot-only DNC private file, legacy opt-out migration, no unverified unban, fail-closed corrupt store, opt-out enforcement at campaign import/preview/arm/claim and lock-protected pre-dial verification. The existing Android dialer already calls server verify; APK unchanged.

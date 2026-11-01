@@ -46,13 +46,40 @@ def wait_queue():
             _,result=read(f"ops/host-link/results/{TARGET}/{current['id']}.json")
             report=json.loads(result)
             if (report["job_id"]==current["id"] and report["status"] in ("success","failed","expired","rejected","timeout")
-                    and report["job_sha256"]==hashlib.sha256(raw).hexdigest()):
-                return obj,current
+                    and report["job_sha256"]==hashlib.sha256(raw).hexdigest()
+                    and report.get("target")==TARGET):
+                return obj,current,report
         except urllib.error.HTTPError as e:
             if e.code!=404:raise
         print("Host worker busy; waiting for prior job",current["id"],attempt+1,flush=True)
         time.sleep(12)
     raise RuntimeError("Host worker did not finish previous job; native OTA not queued")
+
+def require_successful_ui_release(current, report, run_id, ui_envelope):
+    """Never publish native APK when its paired UI OTA failed on the real host.
+
+    A green Actions job means only that the UI job was QUEUED. The host receipt
+    is authoritative; require the same run, target, exit status, revision and
+    signed-artifact hash before any native publication is queued.
+    """
+    if current.get("id") != "mobile-ota-" + str(run_id):
+        raise RuntimeError("UI_OTA_HOST_ACK_MISSING: expected this build's UI job")
+    if report.get("job_id") != current["id"] or report.get("target") != TARGET:
+        raise RuntimeError("UI_OTA_HOST_ACK_MISMATCH")
+    if report.get("status") != "success" or report.get("exit_code") != 0:
+        raise RuntimeError("UI_OTA_HOST_DEPLOY_FAILED: native release blocked")
+    try:
+        expected = json.loads(ui_envelope["payload"])
+        receipt = json.loads(report["stdout"])
+        if (receipt.get("status") != "installed"
+                or receipt.get("scope") != "saas/mobile/updates"
+                or type(receipt.get("revision")) is not int
+                or receipt["revision"] != expected["revision"]
+                or receipt.get("sha256") != expected["sha256"]):
+            raise ValueError("receipt metadata mismatch")
+    except (KeyError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("UI_OTA_HOST_PROOF_INVALID: native release blocked") from exc
+
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,req,fp,code,msg,headers,newurl):return None
@@ -74,7 +101,11 @@ def download_url(artifact_id):
 def main():
     folder=Path(sys.argv[1]);envelope,cert,meta=verify(folder)
     assert os.environ.get("GITHUB_REF")=="refs/heads/main"
-    obj,current=wait_queue()
+    obj,current,report=wait_queue()
+    ui_manifest=folder.parent/"ota"/"latest.json"
+    if not ui_manifest.is_file():
+        raise RuntimeError("UI_OTA_SIGNED_ARTIFACT_MISSING: native release blocked")
+    require_successful_ui_release(current,report,os.environ["GITHUB_RUN_ID"],json.loads(ui_manifest.read_text()))
     job_id="mobile-native-"+os.environ["GITHUB_RUN_ID"]
     if current["id"]==job_id:
         print(json.dumps({"status":"ALREADY_QUEUED","id":job_id}));return
