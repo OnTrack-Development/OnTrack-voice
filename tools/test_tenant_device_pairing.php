@@ -34,7 +34,7 @@ function test_tenant_device_pairing():void {
     ok(!isset($profile['device_token'])&&!isset($profile['token_hash']),
         'heartbeat never returns token or hash');
     $used=false;
-    try{device_pairing_redeem($codeA,'other-install-00000000001',1,'Replay');}
+    try{device_pairing_redeem($codeA,'other-install-00000000001',0,'Replay');}
     catch(InvalidArgumentException $e){$used=$e->getMessage()==='device_pairing_expired_or_used';}
     ok($used,'one-time code replay denied');
     $codeB0=device_pairing_create(5,3,3,$actor,0);
@@ -66,14 +66,14 @@ function test_tenant_device_pairing():void {
     ok(device_pairing_cancel(5,(int)$pid['id'])===false,'cannot cancel another tenant pairing');
     ok(device_pairing_cancel(4,(int)$pid['id'])===true,'owner scoped pairing cancellation');
     $cancelled=false;
-    try{device_pairing_redeem($cancel,'other-install-00000000002',1,'Cancelled');}
+    try{device_pairing_redeem($cancel,'other-install-00000000002',0,'Cancelled');}
     catch(InvalidArgumentException $e){$cancelled=true;}
     ok($cancelled,'cancelled pairing rejected');
     $expired=device_pairing_create(4,1,1,$actor,0);
     execute("UPDATE device_pairings SET expires_at='2000-01-01 00:00:00' WHERE code_hash=?",
         [hash('sha256',strtolower(str_replace('-','',$expired)))]);
     $stale=false;
-    try{device_pairing_redeem($expired,'other-install-00000000003',1,'Expired');}
+    try{device_pairing_redeem($expired,'other-install-00000000003',0,'Expired');}
     catch(InvalidArgumentException $e){$stale=true;}
     ok($stale,'expired pairing rejected');
     execute("UPDATE sites SET status='archived' WHERE id=3 AND account_id=5");
