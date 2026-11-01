@@ -21,6 +21,8 @@ function test_tenant_device_pairing():void {
     $profile=device_binding_heartbeat($session);
     ok($profile['account_id']===4 && $profile['agent_name']==='مساعد المتجر',
         'heartbeat serves correct account and agent policy');
+    ok($profile['account_name']===(string)account(4)['name'] && $profile['account_name']!=='',
+        'heartbeat identifies the bound company without revealing credentials');
     ok(!isset($profile['device_token'])&&!isset($profile['token_hash']),
         'heartbeat never returns token or hash');
     $used=false;
