@@ -36,6 +36,17 @@ class TenantPairingContractTest {
         assertNotNull(TenantSimHardware.problemForState(android.telephony.TelephonyManager.SIM_STATE_PIN_REQUIRED))
         assertNotNull(TenantSimHardware.problemForState(android.telephony.TelephonyManager.SIM_STATE_UNKNOWN))
     }
+    @Test fun subscriptionChangeFailsClosedWithoutLeakingCarrierIdentifiers() {
+        assertNull(TenantSimHardware.subscriptionProblem(17,17))
+        assertNotNull(TenantSimHardware.subscriptionProblem(17,18))
+        assertNotNull(TenantSimHardware.subscriptionProblem(17,-1))
+        assertNotNull(TenantSimHardware.subscriptionProblem(null,17))
+        assertNotNull(TenantSimHardware.subscriptionProblem(-1,17))
+        val changed=TenantSimHardware.subscriptionProblem(17,18)!!
+        assertTrue(changed.contains("أعد ربط"))
+        assertFalse(changed.contains("17"))
+        assertFalse(changed.contains("18"))
+    }
     @Test fun pilotTelephonyDeniedWhilePairingOrAnyTenantSlotActive() {
         assertTrue(TenantPairingContract.pilotAllowed(false,false))
         assertFalse(TenantPairingContract.pilotAllowed(true,false))
