@@ -11,6 +11,9 @@ function test_voice_dnc_ledger():void {
     dnc_init_ledger();
     api_http_assert(is_file(private_path().'/schema.dnc.v1'),
         'additive DNC migration completed with durable marker');
+    $repeatSeed=seed_console();
+    api_http_assert(($repeatSeed['status']??'')==='already_seeded',
+        'release seeder re-entry preserves existing data and DNC migration');
     $legacyKey=dnc_phone_key('01077700099');
     api_http_assert(dnc_ledger_contains(4,$legacyKey),
         'migration backfilled existing opted-out contact into indexed ledger');
