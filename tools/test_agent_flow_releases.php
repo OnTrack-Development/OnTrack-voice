@@ -18,6 +18,13 @@ function test_agent_flow_releases():void {
     $runningFirst=flow_release_begin(4,1,1);
     ok($runningFirst['revision']===1&&$runningFirst['waiting']===true,
         'published Flow begins at the tenant agent and pauses for customer reply');
+    $otherAgent=one('SELECT flow_json FROM agents WHERE id=3 AND account_id=5 AND site_id=3');
+    $otherRelease=flow_release_publish(5,3,1,hash('sha256',(string)$otherAgent['flow_json']));
+    $otherSession=flow_release_begin(5,3,3);
+    ok($otherRelease['revision']===1&&$otherSession['revision_id']===$otherRelease['id'],
+        'independent tenant gets its own published agent session');
+    ok(flow_release_for_bound_agent(4,3,3)===null&&flow_release_for_bound_agent(5,1,1)===null,
+        'two tenant agents cannot cross-load each other\'s published policy');
     $pinned=flow_release_for_bound_agent(4,1,1);
     ok($pinned!==null&&$pinned['flow_json']===$json&&$pinned['instructions']==='تعليمات النسخة الأولى',
         'bound tenant and site resolve the published immutable snapshot');
