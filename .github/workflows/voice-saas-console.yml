@@ -34,7 +34,6 @@ jobs:
           php -l tools/test_console_kashier_webhook.php
           php tools/test_console_kashier_webhook.php
           php -l tools/test_voice_sso.php
-          php tools/test_voice_sso.php
       - name: Validate JavaScript and local QR rendering
         run: |
           node --check saas/console/assets/js/app.js
@@ -42,3 +41,5 @@ jobs:
           node tools/test_voice_qr.cjs
       - name: Database, roles, demo users, branding and isolation smoke
         run: php tools/test_voice_saas_console.php
+      - name: External SSO regression in isolated second test phase
+        run: php tools/test_voice_sso.php
