@@ -36,7 +36,7 @@ function kashier_minor_units(mixed $amount):?int {
     return (int)$m[1]*100+(int)str_pad($m[2]??'',2,'0');
 }
 /** A signed event does not activate a user or grant paid entitlements. */
-function kashier_settle(array $body,int $integrationId):array {
+function kashier_settle(array $body,?int $integrationId):array {
     $data=$body['data'];
     if(!in_array($body['event'],['pay','capture'],true)||($data['status']??'')!=='SUCCESS')
         return ['status'=>'ignored_non_success','duplicate'=>false];
@@ -48,11 +48,18 @@ function kashier_settle(array $body,int $integrationId):array {
     if($minor===null)throw new InvalidArgumentException('invalid_amount');
     db()->beginTransaction();
     try{
-        $order=one('SELECT * FROM orders WHERE integration_id=? AND external_order_id=?',
-            [$integrationId,$orderId]);
+        if(str_starts_with($orderId,'ovc_')){
+            $order=one('SELECT * FROM orders WHERE integration_id IS NULL AND external_order_id=?',[$orderId]);
+        }else{
+            if($integrationId===null)throw new InvalidArgumentException('external_integration_unconfigured');
+            $order=one('SELECT * FROM orders WHERE integration_id=? AND external_order_id=?',
+                [$integrationId,$orderId]);
+        }
         if(!$order || (int)$order['amount_minor']!==$minor)
             throw new InvalidArgumentException('order_mismatch');
-        $result=record_verified_external_payment($order,$tx);
+        $result=$order['integration_id']===null
+            ?record_verified_internal_checkout($order,$tx)
+            :record_verified_external_payment($order,$tx);
         db()->commit();return $result;
     }catch(Throwable $error){if(db()->inTransaction())db()->rollBack();throw $error;}
 }

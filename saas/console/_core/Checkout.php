@@ -81,3 +81,50 @@ function checkout_start(int $accountId,int $planId,array $user):string {
     audit('billing.checkout.created',$accountId,['order_id'=>$id,'plan_id'=>$planId]);
     return $url;
 }
+/** Direct checkout is bound to a logged-in tenant BEFORE payment, never by email. */
+function record_verified_internal_checkout(array $order,string $reference):array {
+    if(!preg_match('/^[A-Za-z0-9_-]{8,160}$/D',$reference))
+        throw new InvalidArgumentException('invalid_payment_reference');
+    if($order['integration_id']!==null
+        ||!preg_match('/^ovc_[a-f0-9]{32}$/D',(string)$order['external_order_id']))
+        throw new InvalidArgumentException('not_internal_checkout');
+    if($order['status']==='active'){
+        if(!hash_equals((string)$order['payment_reference'],$reference))
+            throw new InvalidArgumentException('payment_reference_conflict');
+        return ['status'=>'active','duplicate'=>true,'account_id'=>(int)$order['account_id']];
+    }
+    if($order['status']!=='pending_payment')throw new InvalidArgumentException('order_not_payable');
+    $account=account((int)$order['account_id']);
+    $plan=one('SELECT * FROM plans WHERE id=? AND status=?',[$order['plan_id'],'active']);
+    if(!$account||$account['status']!=='active'||!$plan
+        ||!in_array($account['kind'],['reseller','customer'],true)
+        ||$plan['kind']!==($account['kind']==='reseller'?'reseller':'user')
+        ||(int)$plan['price_minor']!==(int)$order['amount_minor'])
+        throw new InvalidArgumentException('checkout_account_or_plan_changed');
+    if(one('SELECT id FROM orders WHERE payment_reference=? AND id<>?',[$reference,$order['id']]))
+        throw new InvalidArgumentException('transaction_already_claimed');
+    if($account['kind']==='customer'&&!empty($account['parent_id'])){
+        $reseller=account((int)$account['parent_id']);
+        if(!$reseller||$reseller['status']!=='active')throw new InvalidArgumentException('reseller_unavailable');
+        $used=(int)one("SELECT COALESCE(SUM(p.call_quota),0) n FROM subscriptions s
+            JOIN plans p ON p.id=s.plan_id JOIN accounts a ON a.id=s.account_id
+            WHERE a.parent_id=? AND a.id!=? AND s.status='active'",[
+            $reseller['id'],$account['id']])['n'];
+        if($used+(int)$plan['call_quota']>site_limit((int)$reseller['id'],'call_quota'))
+            throw new InvalidArgumentException('reseller_quota_exceeded');
+    }
+    $changed=execute("UPDATE orders SET status='active',payment_reference=?
+        WHERE id=? AND account_id=? AND integration_id IS NULL AND status='pending_payment'",[
+        $reference,$order['id'],$order['account_id']]);
+    if($changed!==1)throw new RuntimeException('payment_state_conflict');
+    execute("UPDATE subscriptions SET status='replaced' WHERE account_id=? AND status='active'",
+        [$order['account_id']]);
+    insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at)
+        VALUES (?,?,'active',?,?)",[$order['account_id'],$plan['id'],now(),
+        gmdate('Y-m-d H:i:s',time()+30*86400)]);
+    insert("INSERT INTO outbox(account_id,integration_id,kind,payload,status,created_at)
+        VALUES (?,NULL,?,?,'pending',?)",[(int)$order['account_id'],
+        'subscription.activated',json_encode(['order_id'=>(int)$order['id'],
+            'plan_id'=>(int)$plan['id'],'source'=>'verified_kashier'],JSON_THROW_ON_ERROR),now()]);
+    return ['status'=>'active','duplicate'=>false,'account_id'=>(int)$order['account_id']];
+}

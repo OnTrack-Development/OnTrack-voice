@@ -549,6 +549,21 @@ function render_billing(array $a):void{
     $sub=one("SELECT p.*,s.status sub_status,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.account_id=? ORDER BY s.id DESC LIMIT 1",[$id]);
     $text=$sub?'<div class="plan-panel"><span class="eyebrow">YOUR CURRENT PLAN</span><h2>'.e($sub['name']).'</h2><p>'.e((string)$sub['call_quota']).' مكالمة متصلة شهرياً · '.e((string)$sub['agent_limit']).' AI · '.e((string)$sub['site_limit']).' مواقع</p><small>تنتهي الفترة: '.e($sub['ends_at']).'</small></div>':'<p>لا توجد باقة نشطة.</p>';
     echo card('اشتراك الحساب',$text);
+
+    if(in_array($a['kind'],['reseller','customer'],true)
+       &&in_array($a['role'],['owner','admin'],true)&&!active_support()){
+        $plans=all("SELECT id,name,price_minor,call_quota FROM plans WHERE kind=? AND status='active' ORDER BY price_minor,id",
+            [$a['kind']==='reseller'?'reseller':'user']);
+        $choices=[];foreach($plans as $plan){
+            if((int)$plan['price_minor']<=0)continue;
+            $choices[(string)$plan['id']]=$plan['name'].' — '.number_format((int)$plan['price_minor']/100,2).' ج.م / 30 يوم';
+        }
+        if($choices)echo card('شراء أو تجديد باقة',
+            form_start('checkout_plan','/?tab=billing').
+            select_html('اختر باقة','plan_id',$choices).
+            '<p class="dim">الدفع عبر صفحة Kashier الآمنة. الاشتراك لا يتفعل إلا بعد وصول تأكيد دفع موقّع على السيرفر.</p>'.
+            submit_btn('متابعة الدفع الآمن'));
+    }
     if(in_array($a['kind'],['platform','reseller'],true)){
         $orders=$a['kind']==='platform'?all('SELECT o.*,a.name account_name FROM orders o JOIN accounts a ON a.id=o.account_id ORDER BY o.id DESC LIMIT 60'):all('SELECT o.*,a.name account_name FROM orders o JOIN accounts a ON a.id=o.account_id WHERE a.parent_id=? ORDER BY o.id DESC LIMIT 60',[$id]);
         $rows=[];

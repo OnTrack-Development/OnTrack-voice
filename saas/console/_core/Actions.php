@@ -4,6 +4,7 @@ require_once __DIR__.'/StaffInvitations.php';
 require_once __DIR__.'/DncGuard.php';
 require_once __DIR__.'/DevicePairing.php';
 require_once __DIR__.'/PublishedFlow.php';
+require_once __DIR__.'/Checkout.php';
 
 function field(string $key,int $max=200):string{
     $v=trim((string)($_POST[$key]??''));
@@ -231,6 +232,11 @@ function act():void {
                 if(one('SELECT id FROM domains WHERE hostname=?',[$host]))throw new RuntimeException('الدومين مستخدم');
                 insert("INSERT INTO domains(account_id,hostname,verification_token,status,created_at) VALUES (?,?,?,'pending',?)",[$id,$host,bin2hex(random_bytes(18)),now()]);
                 audit('domain.requested',$id,['host'=>$host]);break;
+            case 'checkout_plan':
+                require_permission('billing.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $url=checkout_start($id,intfield('plan_id'),me());
+                header('Location: '.$url,true,303);exit;
             case 'manual_approve':
                 if(!in_array($kind,['platform','reseller'],true)||!in_array($a['role'],['owner','admin','finance'],true))deny();
                 $proof=required('payment_reference',160);

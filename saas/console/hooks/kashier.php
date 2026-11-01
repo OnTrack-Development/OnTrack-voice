@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../_core/Bootstrap.php';
 require __DIR__.'/../_core/OrderClaim.php';
+require __DIR__.'/../_core/Checkout.php';
 require __DIR__.'/../_core/KashierWebhook.php';
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -18,7 +19,7 @@ try{
     $key=is_array($config)?($config['payment_api_key']??null):null;
     $mid=is_array($config)?($config['merchant_id']??null):null;
     $integration=is_array($config)?($config['integration_id']??null):null;
-    if(!is_string($key)||strlen($key)<5||!is_string($mid)||$mid===''||!is_int($integration)||$integration<1)
+    if(!is_string($key)||strlen($key)<5||!is_string($mid)||$mid===''||($integration!==null&&(!is_int($integration)||$integration<1)))
         kashier_reply(503);
     $payload=json_decode($raw,true,24,JSON_THROW_ON_ERROR);
     if(!is_array($payload)||!kashier_verified($payload,
@@ -31,8 +32,10 @@ try{
         kashier_reply(403);
     // Authenticated provider events must be tied to configured OnTrack integration.
     init_schema();
-    $row=one("SELECT id FROM integrations WHERE id=? AND status='active'",[$integration]);
-    if(!$row)kashier_reply(403);
+    if($integration!==null){
+        $row=one("SELECT id FROM integrations WHERE id=? AND status='active'",[$integration]);
+        if(!$row)kashier_reply(403);
+    }
     $result=kashier_settle($payload,$integration);
     // 200 and 409 both acknowledge Kashier deliveries.
     kashier_reply(($result['duplicate']??false)?409:200);
