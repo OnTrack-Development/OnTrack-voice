@@ -221,18 +221,20 @@ function act():void {
                 audit('domain.requested',$id,['host'=>$host]);break;
             case 'manual_approve':
                 if(!in_array($kind,['platform','reseller'],true)||!in_array($a['role'],['owner','admin','finance'],true))deny();
+                $proof=required('payment_reference',160);
+                if(!preg_match('/^[a-zA-Z0-9_.:-]{8,160}$/D',$proof))throw new InvalidArgumentException('مرجع إثبات الدفع اليدوي غير صالح');
                 $order=one("SELECT * FROM orders WHERE id=? AND status='pending_manual_review'",[intfield('order_id')]);
                 if(!$order)throw new RuntimeException('الطلب غير موجود أو ليس بانتظار المراجعة');
                 scoped_customer((int)$order['account_id']);
                 db()->beginTransaction();
                 try{
-                    execute("UPDATE orders SET status='approved' WHERE id=? AND status='pending_manual_review'",[$order['id']]);
+                    execute("UPDATE orders SET status='approved',payment_reference=? WHERE id=? AND status='pending_manual_review'",[$proof,$order['id']]);
                     $existing=one("SELECT id FROM subscriptions WHERE account_id=? AND plan_id=? AND status='active'",[$order['account_id'],$order['plan_id']]);
                     if(!$existing)insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at) VALUES (?,?,'active',?,?)",[$order['account_id'],$order['plan_id'],now(),gmdate('Y-m-d H:i:s',time()+30*86400)]);
                     insert("INSERT INTO outbox(account_id,kind,payload,status,created_at) VALUES (?,?,?,'pending',?)",[$order['account_id'],'subscription.activated',json_encode(['order'=>$order['id'],'source'=>'manual_review']),now()]);
                     db()->commit();
                 }catch(Throwable $ex){db()->rollBack();throw $ex;}
-                audit('manual_payment.approved',(int)$order['account_id'],['order'=>$order['id']]);break;
+                audit('manual_payment.approved',(int)$order['account_id'],['order'=>$order['id'],'proof_ref'=>$proof]);break;
             case 'support_policy':
                 if($kind!=='platform'&&$kind!=='reseller')deny();
                 if(!in_array($a['role'],['owner','admin'],true))deny();

@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -52,6 +52,7 @@ function init_schema():void {
     file_put_contents($done,now());
     chmod($done,0600);
     init_console_v2();
+    init_console_v3();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -65,6 +66,14 @@ function init_console_v2():void{
         if(!in_array('secret_enc',$existing,true))
             db()->exec("ALTER TABLE ".$table." ADD COLUMN secret_enc TEXT NULL");
     }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+/** Add all published Google Live voices to existing database, without enabling untested options. */
+function init_console_v3():void {
+    $marker=private_path().'/schema.v3';
+    if(is_file($marker))return;
+    require_once __DIR__.'/VoiceCatalog.php';
+    sync_google_live_voices();
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
 function support_mode(int $accountId):string{

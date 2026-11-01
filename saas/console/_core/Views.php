@@ -467,7 +467,7 @@ function render_billing(array $a):void{
         $rows=[];
         foreach($orders as $o){
             $act=pill($o['status']);
-            if($o['status']==='pending_manual_review')$act.=form_start('manual_approve','/?tab=billing','class="inline-form"').'<input type="hidden" name="order_id" value="'.$o['id'].'"><button class="btn small primary" type="submit" onclick="return confirm(\'تأكيد وصول الدفع اليدوي؟\')">اعتماد الدفع</button></form>';
+            if($o['status']==='pending_manual_review')$act.=form_start('manual_approve','/?tab=billing','class="inline-form"').'<input type="hidden" name="order_id" value="'.$o['id'].'"><input name="payment_reference" class="tiny-input" required minlength="8" placeholder="مرجع إثبات الدفع"><button class="btn small primary" type="submit" onclick="return confirm(\'هل تحققت فعلياً من وصول الدفع؟\')">اعتماد الدفع</button></form>';
             $rows[]=[e($o['account_name']),e($o['external_order_id']),$act,e($o['created_at'])];
         }
         echo card('طلبات الدفع والاعتماد',tbl(['العميل','رقم الطلب','الحالة/الإجراء','التاريخ'],$rows));

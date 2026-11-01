@@ -37,8 +37,9 @@ try{
     if(!is_array($payload))respond(422,['ok'=>false,'error'=>'payload']);
     $reseller=(int)$integration['account_id'];
     $resellerAccount=account($reseller);
-    if(!$resellerAccount||!in_array($resellerAccount['kind'],['platform','reseller'],true))
+    if(!$resellerAccount||!in_array($resellerAccount['kind'],['platform','reseller','customer'],true))
         respond(403,['ok'=>false,'error'=>'tenant']);
+    if($resellerAccount['kind']==='customer' && $kind!=='booking.created')respond(403,['ok'=>false,'error'=>'customer_scope']);
     db()->beginTransaction();
     try{
         $prior=one('SELECT * FROM events WHERE integration_id=? AND external_id=?',[$integration['id'],$eventId]);
@@ -97,8 +98,20 @@ try{
                 $result['status']='active';$result['account_id']=$customer;
             }
         }elseif($kind==='booking.created'){
-            // Intentional no auto-dial and no unconsented campaign.
-            $result['status']='booking_received_pending_review';
+            $siteId=(int)($payload['site_id']??0);
+            $site=one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$siteId,$reseller]);
+            if(!$site)throw new InvalidArgumentException('site_not_found');
+            $name=trim((string)($payload['name']??''));
+            $phone=trim((string)($payload['phone']??''));
+            if($name===''||mb_strlen($name)>120||!preg_match('/^\\+?[0-9 ()-]{8,30}$/D',$phone))
+                throw new InvalidArgumentException('invalid_booking_contact');
+            $consent=($payload['consent']??false)===true;
+            // An unconsented booking is recorded in DNC to prevent automated contact.
+            $lead=insert('INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at) VALUES (?,?,?,?,?,?)',
+                [$reseller,$siteId,$name,$phone,$consent?0:1,now()]);
+            $result['status']='lead_created_pending_review';
+            $result['contact_id']=$lead;
+            $result['dial_requested']=false;
         }
         execute("UPDATE events SET status=? WHERE id=?",[$result['status'],$event]);
         db()->commit();
