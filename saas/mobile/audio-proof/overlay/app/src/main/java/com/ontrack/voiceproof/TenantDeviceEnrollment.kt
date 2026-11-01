@@ -80,7 +80,7 @@ class TenantDeviceEnrollment(private val context: Context) {
     }
     fun enroll(rawCode:String,slot:Int,deviceName:String):JSONObject {
         TenantPairingContract.slot(slot)
-        TenantSimHardware.requireReady(context,slot)
+        val subscriptionId=TenantSimHardware.subscriptionId(context,slot)
         check(!paired(slot)) { "الشريحة مربوطة بالفعل؛ افصلها أولًا" }
         val name=deviceName.trim().take(100)
         require(name.isNotEmpty()) { "اسم الهاتف مطلوب" }
@@ -93,7 +93,8 @@ class TenantDeviceEnrollment(private val context: Context) {
         val token=TenantPairingContract.token(binding.getString("device_token"))
         val saved=JSONObject().put("device_id",binding.getInt("device_id"))
             .put("sim_slot",slot).put("site_id",binding.getInt("site_id"))
-            .put("agent_id",binding.getInt("agent_id")).put("token",token)
+            .put("agent_id",binding.getInt("agent_id"))
+            .put("subscription_id",subscriptionId).put("token",token)
         check(prefs.edit().putString(field(slot),seal(saved.toString())).commit()) {
             "تعذر حفظ اعتماد الشريحة؛ افصلها من لوحة الحساب وأعد الربط"
         }
@@ -107,8 +108,11 @@ class TenantDeviceEnrollment(private val context: Context) {
         }
     }
     fun heartbeat(slot:Int):JSONObject {
-        TenantSimHardware.requireReady(context,slot)
         val saved=local(slot)
+        val currentSubscription=TenantSimHardware.subscriptionId(context,slot)
+        val storedSubscription=if(saved.has("subscription_id")) saved.optInt("subscription_id",-1) else null
+        val problem=TenantSimHardware.subscriptionProblem(storedSubscription,currentSubscription)
+        check(problem==null) { problem ?: "تعذر التحقق من هوية الشريحة" }
         val response=request(JSONObject().put("operation","heartbeat"),saved.getString("token"))
         val profile=response.getJSONObject("profile")
         check(profile.getInt("sim_slot")==slot && profile.getInt("device_id")==saved.getInt("device_id")
