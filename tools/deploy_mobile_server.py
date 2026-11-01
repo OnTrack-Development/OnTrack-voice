@@ -74,7 +74,11 @@ def install_archive(raw, digest, source, *, root=HOST_ROOT, private=HOST_PRIVATE
     if not root.parent.is_dir() or root.parent.is_symlink():
         raise ValueError("unsafe_parent")
     assert_no_symlinks(root)
-    assert_no_symlinks(private)
+    if private.is_symlink() or not private.is_dir():
+        raise ValueError("unsafe_private_directory")
+    auth_file = root / "auth.sha256"
+    if not auth_file.is_file() or auth_file.is_symlink():
+        raise ValueError("missing_protected_device_auth")
     entries = parse_release(raw)
     backups = private / "pilot-server-backups"
     backups.mkdir(mode=0o700, exist_ok=True)
