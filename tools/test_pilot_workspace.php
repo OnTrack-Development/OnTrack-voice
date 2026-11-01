@@ -45,6 +45,42 @@ try {
     expect(pilot_campaign_claim()===null,'no_redial');
     try{pilot_campaign_finish($lease['id'],'failed');throw new RuntimeException('changed_terminal_result');}
     catch(InvalidArgumentException $e){}
+    // Explicit opt-out must survive contact deletion, re-import and an
+    // Android attempt already leased but not yet placed.
+    $live=pilot_read('contacts')[1];
+    $raceAttempt=['id'=>bin2hex(random_bytes(16)),'campaign_id'=>$armed['id'],
+        'contact_id'=>$live['id'],'phone'=>$live['phone'],'status'=>'leased',
+        'leased_epoch'=>time(),'created_at'=>gmdate('c')];
+    pilot_transaction(static function()use($raceAttempt):void {
+        $attempts=pilot_read('attempts');$attempts[]=$raceAttempt;
+        pilot_atomic('attempts',$attempts);
+    });
+    expect(pilot_campaign_verify_claim($raceAttempt['id'])['allowed']===true,'leased_pre_dial_initially_allowed');
+    expect(pilot_dnc($live['id'],true),'opt_out_while_leased');
+    expect(pilot_campaign_verify_claim($raceAttempt['id'])['allowed']===false,'opt_out_revokes_pre_dial_permission');
+    expect(pilot_campaign_finish($raceAttempt['id'],'failed')['status']==='failed','blocked_attempt_terminal');
+    $unblocked=false;
+    try{pilot_dnc($live['id'],false);}
+    catch(InvalidArgumentException $e){$unblocked=$e->getMessage()==='verified_reconsent_required';}
+    expect($unblocked,'unverified_opt_out_reversal_rejected');
+    $suppressed=pilot_read('dnc');
+    expect(in_array('+201012345678',$suppressed,true)&&in_array('+201112345678',$suppressed,true),
+        'durable_ledger_contains_both_opt_outs');
+    pilot_transaction(static function():void {pilot_atomic('contacts',[]);});
+    $reimport=pilot_import_contacts([['name'=>'Reimport after deletion','phone'=>'00201112345678']]);
+    expect($reimport['added']===1 && $reimport['blocked']===1,'suppressed_number_cannot_be_reimported_as_callable');
+    $recreated=pilot_read('contacts')[0];
+    expect($recreated['do_not_call']===true && $recreated['consented']===false,
+        'reimport_preserves_suppression_and_no_consent');
+    expect(pilot_campaign_claim()===null,'no_lease_for_durable_suppression');
+    $corruptPath=$root.'/pilot/dnc.json';
+    file_put_contents($corruptPath,'{corrupt');
+    $failClosed=false;
+    try{pilot_import_contacts([['name'=>'Unsafe','phone'=>'+201255566677']]);}
+    catch(RuntimeException $e){$failClosed=true;}
+    expect($failClosed,'corrupt_dnc_store_fails_closed');
+    expect(count(pilot_read('contacts'))===1,'corrupt_dnc_did_not_write_new_contacts');
+    pilot_transaction(static function()use($suppressed):void {pilot_atomic('dnc',$suppressed);});
     $temp=tempnam(sys_get_temp_dir(),'pilot-csv-');file_put_contents($temp,"Ahmed,+201012345678\nMona,+201112345678\n");
     $parsed=pilot_file_rows($temp,'numbers.csv');expect(count($parsed)===2 && $parsed[1]['name']==='Mona','csv_parse');
     unlink($temp);
