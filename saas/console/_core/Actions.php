@@ -35,6 +35,14 @@ function act():void {
         // Migrate DNC outside a transaction (MySQL CREATE TABLE auto-commits).
         if(in_array($action,['add_contact','edit_contact','delete_contact'],true))dnc_init_ledger();
         switch($action) {
+            case 'set_view':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $view=(string)($_POST['view']??'');
+                if(!in_array($view,['admin','user'],true))throw new InvalidArgumentException('وضع عرض غير صالح');
+                $_SESSION['console_view']=$view;
+                audit('console.view.changed',$id,['view'=>$view]);
+                session_regenerate_id(true);
+                go($view==='user'?'/?tab=agents':'/');
             case 'switch':
                 $target=intfield('account_id');$valid=false;
                 foreach(memberships((int)me()['id']) as $m)if((int)$m['account_id']===$target)$valid=true;
@@ -138,9 +146,22 @@ function act():void {
                        strlen((string)($edge['label']??''))>280)
                        throw new InvalidArgumentException('رابط Flow يشير إلى عقدة غير موجودة');
                 }
-                execute('UPDATE agents SET name=?,voice=?,instructions=?,knowledge=?,flow_json=?,status=? WHERE id=? AND account_id=?',
-                  [$newName,$voice,field('instructions',5000),field('knowledge',20000),json_encode($decoded,JSON_UNESCAPED_UNICODE), 'draft',(int)$ag['id'],$id]);
-                audit('agent.updated',$id,['agent'=>$ag['id']]);break;
+                $publishNow=($_POST['publish_now']??'')==='1';
+                $normalized=json_encode($decoded,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+                if($publishNow)flow_preview_compile($decoded);
+                $started=false;
+                try{
+                    if($publishNow){db()->beginTransaction();$started=true;}
+                    execute('UPDATE agents SET name=?,voice=?,instructions=?,knowledge=?,flow_json=?,status=? WHERE id=? AND account_id=?',
+                        [$newName,$voice,field('instructions',5000),field('knowledge',20000),$normalized,'draft',(int)$ag['id'],$id]);
+                    if($publishNow){
+                        $result=publish_agent_flow($id,(int)$ag['id'],(int)me()['id']);
+                        db()->commit();$started=false;
+                        audit('agent.flow.published',$id,['agent_id'=>$ag['id'],'revision'=>$result['revision'],'duplicate'=>$result['duplicate']]);
+                        $success='تم حفظ ونشر Flow v'.(int)$result['revision'].' مباشرة. الأجهزة تتلقى النسخة المنشورة عند المزامنة.';
+                    }
+                }catch(Throwable $ex){if($started&&db()->inTransaction())db()->rollBack();throw $ex;}
+                audit('agent.updated',$id,['agent'=>$ag['id'],'published'=>$publishNow]);break;
             case 'publish_agent_flow':
                 require_permission('agents.write');
                 $agentId=intfield('agent_id');
@@ -449,7 +470,7 @@ function act():void {
                 flash('success','تم إرسال سياسة الهاتف إلى ملف المزامنة، Revision '.$revision.'؛ ظهورها على الجهاز يحتاج تأكيد ACK');break;
             default:throw new InvalidArgumentException('عملية غير معروفة');
         }
-        flash('success','تم حفظ العملية بنجاح');
+        flash('success',$success??'تم حفظ العملية بنجاح');
     }catch(Throwable $e){
         flash('error',$e instanceof InvalidArgumentException?$e->getMessage():'تعذر تنفيذ العملية: '.$e->getMessage());
     }

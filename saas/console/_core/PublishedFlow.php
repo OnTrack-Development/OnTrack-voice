@@ -25,12 +25,14 @@ function publish_agent_flow(int $accountId,int $agentId,int $actorId):array {
     flow_preview_compile($graph);
     $normalized=json_encode($graph,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
     $hash=hash('sha256',$normalized);
-    db()->beginTransaction();
+    $own=!db()->inTransaction();
+    if($own)db()->beginTransaction();
     try{
         $prior=published_agent_flow($accountId,(int)$agent['site_id'],$agentId);
         $snapshot=hash('sha256',$normalized."\n".(string)$agent['voice']."\n".(string)$agent['instructions']."\n".(string)$agent['knowledge']);
         if($prior && hash_equals($prior['snapshot_hash'],$snapshot)){
-            db()->commit();
+            execute("UPDATE agents SET status='published' WHERE id=? AND account_id=? AND status!='archived'",[$agentId,$accountId]);
+            if($own)db()->commit();
             return ['revision'=>(int)$prior['revision'],'duplicate'=>true,'hash'=>$hash];
         }
         $revision=$prior?(int)$prior['revision']+1:1;
@@ -40,7 +42,7 @@ function publish_agent_flow(int $accountId,int $agentId,int $actorId):array {
             (string)$agent['knowledge'],$actorId,now()]);
         execute("UPDATE agents SET status='published' WHERE id=? AND account_id=? AND status!='archived'",
             [$agentId,$accountId]);
-        db()->commit();
+        if($own)db()->commit();
         return ['revision'=>$revision,'duplicate'=>false,'hash'=>$hash];
-    }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
+    }catch(Throwable $e){if($own&&db()->inTransaction())db()->rollBack();throw $e;}
 }

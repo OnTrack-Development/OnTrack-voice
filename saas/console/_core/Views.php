@@ -42,6 +42,7 @@ function fmt_duration(int $seconds):string{
     return $m?($m.' دقيقة'.($s?' و'.$s.' ثانية':'')):($s.' ثانية');
 }
 function nav_entries(string $type):array{
+    if($type==='platform'&&console_view_mode()==='user')$type='customer';
     $common=[
         'overview'=>['⌂','الرئيسية'],
         'staff'=>['♙','الموظفون'],
@@ -78,7 +79,7 @@ function nav_entries(string $type):array{
 }
 function layout_open(array $a,string $tab):void{
     $u=me();$brand=brand($a);$items=nav_entries((string)$a['kind']);$heading=$items[$tab][1]??'الرئيسية';
-    $role=match($a['kind']){'platform'=>'ADMIN CONTROL','reseller'=>'RESELLER HUB',default=>'USER WORKSPACE'};
+    $role=console_view_mode($a)==='user'?'USER WORKSPACE':match($a['kind']){'platform'=>'ADMIN CONTROL','reseller'=>'RESELLER HUB',default=>'USER WORKSPACE'};
     $support=active_support()!==null;
     header('Content-Type: text/html; charset=utf-8');
     header('Referrer-Policy: strict-origin-when-cross-origin');
@@ -101,6 +102,10 @@ function layout_open(array $a,string $tab):void{
         echo form_start('switch');$options=[];
         foreach($members as $m)$options[$m['account_id']]=$m['name'].' · '.$m['kind'];
         echo select_html('المساحة','account_id',$options).submit_btn('تبديل');
+    }
+    if($a['kind']==='platform'&&in_array($a['role'],['owner','admin'],true)&&!$support){
+        $targetView=console_view_mode($a)==='user'?'admin':'user';
+        echo form_start('set_view','','class="inline-form"').'<input type="hidden" name="view" value="'.e($targetView).'"><button type="submit" class="btn small primary">'.($targetView==='user'?'مساحة المستخدم':'لوحة الأدمن').'</button></form>';
     }
     echo '<button type="button" class="icon-button" id="themeToggle" aria-label="تغيير المظهر" title="تغيير المظهر">☀</button>';
     echo '<div class="profile"><span class="avatar">'.e(mb_substr($u['name'],0,1)).'</span><span><strong>'.e($u['name']).'</strong><small>'.e($a['role']??'').'</small></span></div>';
@@ -147,6 +152,7 @@ function login_page(?string $error=null):void{
 }
 function render_overview(array $a):void{
     $id=(int)$a['account_id'];$kind=$a['kind'];
+    if($kind==='platform'&&console_view_mode($a)==='user')$kind='customer';
     if($kind==='platform'){
         $n1=(int)one("SELECT COUNT(*) n FROM accounts WHERE kind='reseller'")['n'];
         $n2=(int)one("SELECT COUNT(*) n FROM accounts WHERE kind='customer'")['n'];
@@ -303,7 +309,7 @@ function render_agents(array $a):void{
     $map=[];foreach($sites as $s)$map[$s['id']]=$s['name'];
     $selected=selected_site($id);
     $agents=$selected?all("SELECT * FROM agents WHERE account_id=? AND site_id=? AND status!='archived' ORDER BY id DESC",[$id,$selected['id']]):[];
-    echo '<div class="section-line"><p>كل Agent مربوط بموقع واحد، وله Flow ومعرفة وصوت مستقلين.</p><div class="site-picker">';
+    echo '<div class="section-line"><p>سيناريو كل إيجنت مستقل؛ الحفظ والنشر يتم بضغطة واحدة من داخل المحرر.</p><div class="site-picker">';
     foreach($sites as $site)echo '<a class="chip-link '.($selected&&$site['id']==$selected['id']?'chosen':'').'" href="?tab=agents&site='.$site['id'].'">'.e($site['name']).'</a>';
     echo '</div></div>';
     if(!$sites){echo card('ابدأ بموقع','أنشئ موقعاً من قائمة المواقع قبل إضافة الإيجنت.');return;}
@@ -323,9 +329,9 @@ function render_agents(array $a):void{
            foreach(all("SELECT code,name FROM voices WHERE status='active' AND ready=1 AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)",[$id]) as $opt)
                 $body.='<option value="'.e($opt['code']).'" '.($opt['code']===$agent['voice']?'selected':'').'>'.e($opt['name']).'</option>';
            $body.='<option value="'.e($agent['voice']).'" selected>'.e($agent['voice']).' (الحالي)</option></select></label>'.
-           '<label class="field">الشخصية والتعليمات<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label><label class="field">معرفة الموقع<textarea name="knowledge" rows="4" maxlength="20000">'.e($agent['knowledge']).'</textarea></label><div class="flow-head"><strong>Agent Flow Builder</strong><small>عقد وأسئلة وشروط متسلسلة</small></div><div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.$flow.'</textarea></div>'.submit_btn('حفظ مسودة الإيجنت').
-          form_start('publish_agent_flow','/?tab=agents&site='.$selected['id'],'class="inline-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'"><button class="btn small primary" type="submit" onclick="return confirm(\'نشر نسخة جديدة من Flow المحفوظ؟\')">نشر Flow</button></form>'.
-          form_start('archive_agent','/?tab=agents&site='.$selected['id'],'class="inline-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'"><button class="btn small danger" onclick="return confirm(\'أرشفة الإيجنت؟\')">أرشفة الإيجنت</button></form>';
+           '<label class="field">الشخصية والتعليمات<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label><label class="field">معرفة الموقع<textarea name="knowledge" rows="4" maxlength="20000">'.e($agent['knowledge']).'</textarea></label><div class="flow-head"><strong>Agent Flow Builder</strong><small>عقد وأسئلة وشروط متسلسلة</small></div><div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.$flow.'</textarea></div>'.
+           '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">حفظ ونشر Flow مباشرة</button><button class="btn" type="submit">حفظ كمسودة</button></div></form>'.
+                    form_start('archive_agent','/?tab=agents&site='.$selected['id'],'class="inline-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'"><button class="btn small danger" onclick="return confirm(\'أرشفة الإيجنت؟\')">أرشفة الإيجنت</button></form>';
         } else $body.='<p>'.e($agent['instructions']).'</p>';
         echo card($agent['name'],$body);
     }

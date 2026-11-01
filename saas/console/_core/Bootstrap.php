@@ -300,6 +300,11 @@ function mine():?array{
     foreach(memberships((int)$u['id']) as $m){if((int)$m['account_id']===$id){return array_merge(account($id)??[],$m);}}
     return null;
 }
+function console_view_mode(?array $context=null):string {
+    $a=$context??mine();
+    if(!$a||($a['kind']??'')!=='platform'||!in_array($a['role']??'',['owner','admin'],true)||active_support())return 'admin';
+    return ($_SESSION['console_view']??'admin')==='user'?'user':'admin';
+}
 function has_platform():bool {
     $u=me();if(!$u)return false;
     foreach(memberships((int)$u['id']) as $m)if($m['kind']==='platform' && in_array($m['role'],['owner','admin','support','finance'],true))return true;
