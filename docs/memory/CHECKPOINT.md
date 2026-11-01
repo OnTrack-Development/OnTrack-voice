@@ -1,3 +1,13 @@
+## 2026-11-02 — PR #19: تغيير إيجنت الشريحة بعد الاقتران (CODED, NOT RELEASED)
+
+- Backend + Web: مالك/أدمن الحساب يقدر يعيّن إيجنت جديد لنفس SIM بدون فصل أو QR جديد. السيرفر يقبل إيجنت من نفس الحساب والموقع فقط، ويرفض المؤرشف أو ربط حساب آخر، مع CSRF/RBAC/Audit. الشريحة الأخرى والتوكن والموقع لا يتغيرون.
+- DB: ترحيل إضافي schema.v9 لإصدار agent_revision متزايد. Heartbeat يعيد اسم/صوت/تعليمات الإيجنت الجديد؛ أحداث المكالمة التي بدأت بالفعل تحتفظ بإيجنت أول حدث تم استلامه، والمكالمات التالية تستخدم الإيجنت الجديد. لا توجد مصادقة من شركة الاتصالات على توقيت الأحداث المؤجلة.
+- Android: حفظ account_id وagent_revision والإيجنت بشكل مشفر لكل SIM، قبول تغيير الإيجنت بعد heartbeat موثق من نفس الحساب/الموقع، ورفض النسخ القديمة، وعرض الإيجنت والتعليمات المحدثة في واجهة الهاتف. **هذا تحكم وتعيين فقط، وليس تشغيل صوت Gemini على SIM.**
+- Code commits: 3190d01e9987bc27b112266c39bd7e378e23568f و7cde2d60c1bba12dbfdef5e1dd0263d229d41d4a. PHP/SQLite CI #41356631162 SUCCESS (عزل الحسابات، reassign، عدم تكرار revision، حفظ agent للمكالمة، واجهة Web)، Native gate #41356631117 SUCCESS. Android CI #41356725540 PENDING وقت الكتابة؛ لا يُعتبر PASS حتى ينتهي.
+- Host receipt الأخير المفحوص: saas-console-41354086831 SUCCESS بتاريخ 2026-11-01 21:52 UTC للمصدر المختلف main 9df8524f6aac. **PR #19 لم يُنشر**؛ HOST_DEPLOYED=NO، AUTH_UI_VERIFIED=NO، DEVICE_E2E_VERIFIED=NO.
+- BLOCKED: اختبار Xiaomi الحقيقي بشريحتين وحسابين، تثبيت APK موقع، مراجعة أمنية مستقلة، staging مصادق، ربط Flow المنشور بصوت SIM. PR #20 و#9 مفتوحان، وتعارض schema.v6 بين #19/#20 يحتاج rebase مدروس قبل الدمج. لا مكالمات/مدفوعات حقيقية.
+- NEXT: اكتمال Android CI ثم إثبات pairing/reassign/revoke على الهاتف قبل دمج أو نشر، وبعدها تشغيل الإيجنت الصوتي لكل شريحة.
+
 ## 2026-11-01 — PR #19 continuation: tenant SIM manual call outcomes (candidate, NOT DEPLOYED)
 
 - **Product code on the EXISTING PR #19 branch:** per-SIM call history now supports an actual human-entered outcome and note for an observed ended/missed call. New additive SQLite/MySQL `schema.v8` table `tenant_call_reports`, device-bearer `call_report` API, tenant-scoped Arabic Web editor with CSRF/RBAC/audit, Android per-SIM call selector/editor and history labels. Existing device heartbeat now exposes that SIM's assigned agent name, voice and instructions to Android for verification; it **does not start SIM AI audio**. Source code commit `a85e69ab3919d937431e9483ece3a22378c8fff6` (subsequent docs-only commits possible).
