@@ -17,10 +17,11 @@
 
 ## أدلة التشغيل
 - PR #12: https://github.com/OnTrack-Development/OnTrack-voice/pull/12
-- CI: يُحدَّث بعد آخر تشغيل على HEAD النهائي.
-- Merge: يُحدَّث بعد نجاح CI ومراجعة التغييرات.
-- Host Cron receipt: يُحدَّث بعد نجاح النشر؛ GitHub Actions publish وحده لا يثبت تثبيت الملفات على الهوست.
-- Authenticated UI / Device E2E: OPEN.
+- **PR #12 MERGED**: `https://github.com/OnTrack-Development/OnTrack-voice/pull/12`؛ squash main `d6a9a883153fe73993ec7f3be144be08d8149a38`.
+- **CI_PASS**: آخر PR HEAD `1e981d4208b2bf7e8c26bc7aff02136c21e6f6df`، workflow `41301426937` = success (PHP 8.3، SQLite، HTTP API + signed booking + contact handlers + ledger). بعد الدمج main CI `41301462574` = success.
+- **PUBLISH_SUCCESS**: workflow `41301462639` = success؛ تم وضع bundle pinned على قناة host Cron.
+- **HOST_DEPLOYED VERIFIED**: `ops/host-link/results/appontrack-server11/saas-console-41301462639.json` = success، exit 0، `2026-11-01 11:21:04 UTC`، source `d6a9a883153f`، 23 ملفًا، PHP 8.3، `seed=already_seeded` (9 مستخدمين)، `backup=true`. يتضمن Seeder مسار إنشاء ledger وترحيل البيانات في الـDB القديمة، وليس مجرد نسخ كود.
+- **AUTH_UI_VERIFIED / DEVICE_E2E_VERIFIED**: OPEN؛ لا اختبار متصفح مسجل دخول أو اتصال Android حقيقي. **MySQL live test**: OPEN (CI اختبر SQLite؛ MySQL migration additive مغطى بالكود وليس بإثبات بيئة حقيقية).
 
 ## الخطوة التالية
 تنفيذ DNC/consent **قبل كل محاولة Dial** مع جدولة الحملات، ومنع تكرار المحاولات بعد opt-out؛ إثبات device E2E مستقل. PR #9 SSO مفتوح ولم يتم دمجه أو تعديل كود الهوية الخاص به.
