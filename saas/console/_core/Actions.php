@@ -4,6 +4,7 @@ require_once __DIR__.'/StaffInvitations.php';
 require_once __DIR__.'/DncGuard.php';
 require_once __DIR__.'/DevicePairing.php';
 require_once __DIR__.'/PublishedFlow.php';
+require_once __DIR__.'/FlowTemplates.php';
 require_once __DIR__.'/Checkout.php';
 
 function field(string $key,int $max=200):string{
@@ -117,9 +118,24 @@ function act():void {
                 $v=one("SELECT * FROM voices WHERE code=? AND ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)",[$voice,$id]);
                 if(!$v && $kind!=='platform')throw new RuntimeException('الصوت غير متاح لهذه الباقة');
                 if(!$v && $kind==='platform')$voice='google.aoede';
-                $flow=json_encode(['nodes'=>[['id'=>'start','type'=>'start','text'=>'أهلاً بك'],['id'=>'end','type'=>'end']],'edges'=>[['from'=>'start','to'=>'end']]],JSON_UNESCAPED_UNICODE);
-                insert("INSERT INTO agents(account_id,site_id,name,voice,instructions,knowledge,flow_json,status,created_at) VALUES (?,?,?,?,?,?,?,'draft',?)",[$id,$sid,$name,$voice,field('instructions',5000),field('knowledge',20000),$flow,now()]);
-                audit('agent.created',$id,['site'=>$sid,'name'=>$name]);break;
+                $template=(string)($_POST['flow_template']??'appointment_general');
+                $templateGraph=flow_template_graph($template);
+                $flow=json_encode($templateGraph,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+                $publishNew=($_POST['publish_now']??'')==='1';
+                if($publishNew)flow_preview_compile($templateGraph);
+                $started=false;
+                try {
+                    if($publishNew){db()->beginTransaction();$started=true;}
+                    $newAgent=insert("INSERT INTO agents(account_id,site_id,name,voice,instructions,knowledge,flow_json,status,created_at) VALUES (?,?,?,?,?,?,?,'draft',?)",
+                        [$id,$sid,$name,$voice,field('instructions',5000),field('knowledge',20000),$flow,now()]);
+                    if($publishNew){
+                        $published=publish_agent_flow($id,$newAgent,(int)me()['id']);
+                        db()->commit();$started=false;
+                        audit('agent.flow.published',$id,['agent_id'=>$newAgent,'revision'=>$published['revision'],'template'=>$template]);
+                        $success='تم إنشاء الإيجنت ونشر السيناريو v'.$published['revision'].' مباشرة.';
+                    }
+                }catch(Throwable $ex){if($started&&db()->inTransaction())db()->rollBack();throw $ex;}
+                audit('agent.created',$id,['site'=>$sid,'name'=>$name,'template'=>$template]);break;
             case 'update_agent':
                 require_permission('agents.write');
                 $ag=one('SELECT * FROM agents WHERE id=? AND account_id=?',[intfield('agent_id'),$id]);if(!$ag)deny(404);

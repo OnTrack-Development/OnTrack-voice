@@ -305,6 +305,7 @@ function render_sites(array $a):void{
     echo '</div>';
 }
 function render_agents(array $a):void{
+    require_once __DIR__.'/FlowTemplates.php';
     $id=(int)$a['account_id'];$sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY id",[$id]);
     $map=[];foreach($sites as $s)$map[$s['id']]=$s['name'];
     $selected=selected_site($id);
@@ -313,12 +314,20 @@ function render_agents(array $a):void{
     foreach($sites as $site)echo '<a class="chip-link '.($selected&&$site['id']==$selected['id']?'chosen':'').'" href="?tab=agents&site='.$site['id'].'">'.e($site['name']).'</a>';
     echo '</div></div>';
     if(!$sites){echo card('ابدأ بموقع','أنشئ موقعاً من قائمة المواقع قبل إضافة الإيجنت.');return;}
+    $templateOptions=[];
+    foreach(flow_template_catalog() as $key=>$tpl)$templateOptions[$key]=$tpl['category'].' — '.$tpl['title'];
     if(allowed('agents.write'))echo card('إيجنت جديد',form_start('add_agent','/?tab=agents').'<div class="form-grid">'.
         field_html('اسم الإيجنت','name','text','مثال: مساعد الحجوزات',true).
         select_html('الموقع','site_id',$map).
         select_html('الصوت','voice',array_column(all("SELECT code,name FROM voices WHERE ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?) ORDER BY name",[$id]),'name','code')?:['google.aoede'=>'Aoede']).
-        '</div><label class="field">تعليمات الإيجنت<textarea name="instructions" rows="3" maxlength="5000" placeholder="شخصية الإيجنت ودوره وطريقة الرد"></textarea></label><label class="field">Knowledge Base<textarea name="knowledge" rows="3" maxlength="20000" placeholder="معلومات هذا الموقع فقط"></textarea></label>'.
-        submit_btn('حفظ إيجنت كمسودة'));
+        '</div>'.select_html('مكتبة السيناريوهات الجاهزة','flow_template',$templateOptions).
+        '<label class="field">تعليمات الإيجنت<textarea name="instructions" rows="3" maxlength="5000" placeholder="شخصية الإيجنت ودوره وطريقة الرد"></textarea></label><label class="field">Knowledge Base<textarea name="knowledge" rows="3" maxlength="20000" placeholder="معلومات هذا الموقع فقط"></textarea></label>'.
+        '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">إنشاء ونشر السيناريو مباشرة</button><button class="btn" type="submit">إنشاء مسودة للتعديل</button></div></form>');
+    $templateGraphs=[];
+    foreach(flow_template_catalog() as $key=>$tpl)$templateGraphs[]=['id'=>$key,'title'=>$tpl['category'].' — '.$tpl['title'],
+        'description'=>$tpl['description'],'graph'=>flow_template_graph($key)];
+    echo '<script type="application/json" id="ontrack-flow-templates">'.
+        json_encode($templateGraphs,JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_THROW_ON_ERROR).'</script>';
     foreach($agents as $agent){
         $flow=e((string)$agent['flow_json']);
         $version=published_agent_flow($id,(int)$agent['site_id'],(int)$agent['id']);

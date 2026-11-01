@@ -25,6 +25,21 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
  const zoomIn=button('+',()=>{scale=Math.min(1.5,scale+.1);transform()}),zoomOut=button('−',()=>{scale=Math.max(.4,scale-.1);transform()});
  const raw=button('{}',()=>{source.hidden=!source.hidden;raw.classList.toggle('selected-tool',!source.hidden)});
  tools.append(type,add,connect,auto,zoomIn,zoomOut,raw);toolbar.append(tools);shell.append(toolbar);
+  // Templates only replace the local editable graph; publishing remains a deliberate form submit.
+  let templates=[];
+  try{templates=JSON.parse(document.getElementById('ontrack-flow-templates')?.textContent||'[]')}catch{}
+  const templateSelect=make('select','graph-type');
+  templateSelect.setAttribute('aria-label','مكتبة السيناريوهات');
+  templateSelect.append(new Option('اختار سيناريو للتعديل',''));
+  templates.forEach(t=>templateSelect.append(new Option(t.title,t.id)));
+  const applyTemplate=button('استخدام السيناريو',()=>{
+    const candidate=templates.find(t=>t.id===templateSelect.value);
+    if(!candidate)return;
+    if(!confirm('استبدال التصميم الحالي بنسخة من السيناريو المختار؟'))return;
+    data=JSON.parse(JSON.stringify(candidate.graph));selected=data.nodes[0]?.id||null;
+    arrange();notice.textContent='تم تحميل '+candidate.title+'؛ عدله أو اختبره ثم احفظ مسودة أو انشر مباشرة.';
+  },'primary');
+  tools.prepend(templateSelect,applyTemplate);
  const layout=make('div','graph-layout'),viewport=make('div','graph-viewport'),world=make('div','graph-world'),lines=S('svg',{class:'graph-edges',width:2500,height:3000,viewBox:'0 0 2500 3000'}),cards=make('div','graph-nodes'),inspector=make('aside','graph-inspector');
  world.append(lines,cards);viewport.append(world);layout.append(viewport,inspector);shell.append(layout);
  const footer=make('div','graph-footer'),counter=make('span','',''),notice=make('span','','اسحب العقد أو اضغط لتعديلها');
