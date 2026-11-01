@@ -1,0 +1,41 @@
+name: OnTrack Agent Flow Text Preview
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'saas/console/_core/FlowPreview.php'
+      - 'saas/console/flow-preview.php'
+      - 'saas/console/assets/js/flow-graph.js'
+      - 'tools/test_agent_flow_preview.php'
+      - 'tools/test_voice_saas_console.php'
+      - '.github/workflows/voice-flow-preview.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'saas/console/_core/FlowPreview.php'
+      - 'saas/console/flow-preview.php'
+      - 'saas/console/assets/js/flow-graph.js'
+      - 'tools/test_agent_flow_preview.php'
+      - 'tools/test_voice_saas_console.php'
+      - '.github/workflows/voice-flow-preview.yml'
+permissions:
+  contents: read
+jobs:
+  preview-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,openssl,fileinfo
+          coverage: none
+      - name: PHP and browser script syntax
+        run: |
+          php -l saas/console/_core/FlowPreview.php
+          php -l saas/console/flow-preview.php
+          php -l tools/test_agent_flow_preview.php
+          node --check saas/console/assets/js/flow-graph.js
+      - name: Seeded DB, flow traversal and tenant isolation
+        run: php tools/test_voice_saas_console.php
