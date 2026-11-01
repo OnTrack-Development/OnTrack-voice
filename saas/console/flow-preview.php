@@ -28,9 +28,10 @@ try{
         flow_preview_answer(419,['ok'=>false,'error'=>'csrf_expired']);
     $accountId=(int)$account['account_id'];
     $agentId=filter_var($_POST['agent_id']??null,FILTER_VALIDATE_INT);
-    if($agentId===false||$agentId===null||$agentId<1
-        ||!flow_preview_agent_for_account($accountId,(int)$agentId))
+    if($agentId===false||$agentId===null||$agentId<1)
         flow_preview_answer(404,['ok'=>false,'error'=>'agent_not_found']);
+    $agent=flow_preview_agent_for_account($accountId,(int)$agentId);
+    if(!$agent)flow_preview_answer(404,['ok'=>false,'error'=>'agent_not_found']);
     $json=$_POST['flow_json']??null;
     if(!is_string($json)||strlen($json)>16000)
         flow_preview_answer(422,['ok'=>false,'error'=>'flow_invalid_graph']);
@@ -69,6 +70,17 @@ try{
         flow_preview_answer(422,['ok'=>false,'error'=>'invalid_operation']);
     }
     $_SESSION['flow_previews']=$sessions;
+    // A completed preview of the SAVED draft unlocks publish for this browser
+    // session for 30 minutes. Unsaved editor JSON never unlocks publishing.
+    if($result['done']){
+        $saved=one('SELECT flow_json FROM agents WHERE id=? AND account_id=? AND site_id=?',
+            [$agentId,$accountId,$agent['site_id']]);
+        if($saved&&hash_equals(hash('sha256',(string)$saved['flow_json']),$hash)){
+            if(!isset($_SESSION['flow_publish_tests'])||!is_array($_SESSION['flow_publish_tests']))
+                $_SESSION['flow_publish_tests']=[];
+            $_SESSION['flow_publish_tests'][$accountId.':'.$agentId]=['hash'=>$hash,'at'=>$now];
+        }
+    }
     flow_preview_answer(200,['ok'=>true,'preview_id'=>$previewId,
         'events'=>$result['events'],'waiting'=>$result['waiting'],'done'=>$result['done'],
         'mode'=>'text_preview_no_ai_no_external_actions']);
