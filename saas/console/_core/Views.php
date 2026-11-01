@@ -306,6 +306,7 @@ function render_sites(array $a):void{
 }
 function render_agents(array $a):void{
     require_once __DIR__.'/FlowTemplates.php';
+    require_once __DIR__.'/AgentAnswerPolicy.php';
     $id=(int)$a['account_id'];$sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY id",[$id]);
     $map=[];foreach($sites as $s)$map[$s['id']]=$s['name'];
     $selected=selected_site($id);
@@ -330,6 +331,7 @@ function render_agents(array $a):void{
         json_encode($templateGraphs,JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_THROW_ON_ERROR).'</script>';
     foreach($agents as $agent){
         $flow=e((string)$agent['flow_json']);
+        $answer=answer_policy_for_agent($id,(int)$agent['id']);
         $version=published_agent_flow($id,(int)$agent['site_id'],(int)$agent['id']);
         $body='<div class="agent-summary"><span class="pill neutral">'.e($agent['voice']).'</span>'.pill($agent['status']).'<span class="dim">موقع: '.e($selected['name']).'</span>'.($version?'<span class="pill neutral">المنشور v'.(int)$version['revision'].'</span>':'<span class="pill neutral">غير منشور</span>').'</div>';
         if(allowed('agents.write')){$body.=form_start('update_agent','/?tab=agents&site='.$selected['id'],'class="stack agent-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'">'.
@@ -338,11 +340,18 @@ function render_agents(array $a):void{
            foreach(all("SELECT code,name FROM voices WHERE status='active' AND ready=1 AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)",[$id]) as $opt)
                 $body.='<option value="'.e($opt['code']).'" '.($opt['code']===$agent['voice']?'selected':'').'>'.e($opt['name']).'</option>';
            $body.='<option value="'.e($agent['voice']).'" selected>'.e($agent['voice']).' (الحالي)</option></select></label>'.
-           '<label class="field">الشخصية والتعليمات<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label><label class="field">معرفة الموقع<textarea name="knowledge" rows="4" maxlength="20000">'.e($agent['knowledge']).'</textarea></label><div class="flow-head"><strong>Agent Flow Builder</strong><small>عقد وأسئلة وشروط متسلسلة</small></div><div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.$flow.'</textarea></div>'.
+           '<label class="field">الشخصية والتعليمات<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label><label class="field">معرفة الموقع<textarea name="knowledge" rows="4" maxlength="20000">'.e($agent['knowledge']).'</textarea></label>'.
+           '<div class="flow-head" id="answer-settings"><strong>إعدادات الرد على المكالمات</strong><small>تنتقل مع النسخة المنشورة إلى الشريحة عند جاهزية المحرك الجديد</small></div>'.
+           '<div class="form-grid"><label class="field">التأخير قبل الرد (ثانية)<input name="answer_delay_seconds" type="number" min="0" max="30" value="'.(int)$answer['answer_delay_seconds'].'" required></label>'.
+           '<label class="field">الحد الأقصى للمكالمة (دقيقة)<input name="max_call_minutes" type="number" min="1" max="30" value="'.(int)$answer['max_call_minutes'].'" required></label>'.
+           '<label class="field">لغة وأسلوب الرد<select name="response_style"><option value="egyptian_short"'.($answer['response_style']==='egyptian_short'?' selected':'').'>مصري مختصر</option><option value="formal_ar"'.($answer['response_style']==='formal_ar'?' selected':'').'>عربي رسمي</option><option value="english"'.($answer['response_style']==='english'?' selected':'').'>إنجليزي</option><option value="bilingual"'.($answer['response_style']==='bilingual'?' selected':'').'>عربي وإنجليزي</option></select></label>'.
+           '<label class="field">عند تعذر الاستكمال<select name="fallback"><option value="human"'.($answer['fallback']==='human'?' selected':'').'>تحويل لموظف</option><option value="end"'.($answer['fallback']==='end'?' selected':'').'>إنهاء بأدب</option></select></label></div>'.
+           '<label class="field"><input type="checkbox" name="auto_answer"'.($answer['auto_answer']?' checked':'').'> الرد الآلي عند تفعيل محرك الاتصال الجديد</label>'.
+           '<div class="flow-head" id="scenario-editor"><strong>Agent Flow Builder</strong><small>عقد وأسئلة وشروط متسلسلة</small></div><div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.$flow.'</textarea></div>'.
            '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">حفظ ونشر Flow مباشرة</button><button class="btn" type="submit">حفظ كمسودة</button></div></form>'.
                     form_start('archive_agent','/?tab=agents&site='.$selected['id'],'class="inline-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'"><button class="btn small danger" onclick="return confirm(\'أرشفة الإيجنت؟\')">أرشفة الإيجنت</button></form>';
         } else $body.='<p>'.e($agent['instructions']).'</p>';
-        echo card($agent['name'],$body);
+        echo '<section id="agent-'.(int)$agent['id'].'">'.card($agent['name'],$body).'</section>';
     }
 }
 function render_campaigns(array $a):void{
