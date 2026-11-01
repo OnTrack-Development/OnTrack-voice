@@ -477,7 +477,7 @@ class MobileLinkActivity:ComponentActivity(){
                         else -> "رنين"
                     }
                     val seconds=item.optInt("duration_seconds",0).coerceAtLeast(0)
-                    "${i+1}. $state • ${seconds/60}د ${seconds%60}ث • ${item.optString("observed_at")}"
+                    "${i+1}. #${item.optString("call_id").take(8)} • $state • ${seconds/60}د ${seconds%60}ث • ${item.optString("observed_at")}"
                 }
                 AlertDialog.Builder(this@MobileLinkActivity)
                     .setTitle("SIM ${slot+1} — سجل المكالمات")
