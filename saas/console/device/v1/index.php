@@ -31,7 +31,7 @@ try{
         );
         device_answer(201,['ok'=>true,'binding'=>$bound,'state'=>'paired_control_plane_only']);
     }
-    if(in_array($operation,['heartbeat','disconnect','call_event','call_history'],true)){
+    if(in_array($operation,['heartbeat','disconnect','call_event','call_history','call_report'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
         if(!str_starts_with($auth,'Bearer '))device_answer(401,['ok'=>false,'error'=>'authorization_required']);
         $binding=device_binding_authorize(substr($auth,7));
@@ -40,6 +40,18 @@ try{
             if(!is_int($data['sim_slot']??null) || $data['sim_slot']!==(int)$binding['sim_slot'])
                 device_answer(422,['ok'=>false,'error'=>'device_call_history_invalid_slot']);
             device_answer(200,['ok'=>true,'calls'=>device_call_history($binding)]);
+        }
+        if($operation==='call_report'){
+            if(!is_int($data['sim_slot']??null) || $data['sim_slot']!==(int)$binding['sim_slot']
+                || !is_int($data['device_id']??null) || $data['device_id']!==(int)$binding['id']
+                || !is_string($data['call_id']??null)
+                || !is_string($data['outcome']??null)
+                || !is_string($data['note']??null))
+                device_answer(422,['ok'=>false,'error'=>'device_call_report_invalid']);
+            device_binding_heartbeat($binding);
+            $report=tenant_call_report_save((int)$binding['account_id'],(int)$binding['id'],
+                $data['call_id'],$data['outcome'],$data['note'],'device');
+            device_answer(200,['ok'=>true,'report'=>$report]);
         }
         if($operation==='call_event'){
             $result=device_call_event($binding,$data);
