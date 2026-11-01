@@ -7,7 +7,7 @@ declare(strict_types=1);
  * No outbound requests, calls or payment activity. Secrets are random and
  * never logged. PHP's built-in server executes the REAL API front controller.
  */
-function api_http_request(string $base,string $token,string $op,?array $payload=null):array {
+function api_http_request(string $base,string $token,string $op,?array $payload=null,array $query=[]):array {
     $headers="Authorization: Bearer ".$token."\r\n";
     if($payload!==null)$headers.="Content-Type: application/json\r\n";
     $ctx=stream_context_create(['http'=>[
@@ -16,7 +16,7 @@ function api_http_request(string $base,string $token,string $op,?array $payload=
         'content'=>$payload===null?'':json_encode($payload,JSON_UNESCAPED_SLASHES),
         'ignore_errors'=>true,'timeout'=>5,
     ]]);
-    $raw=@file_get_contents($base.'?op='.rawurlencode($op),false,$ctx);
+    $raw=@file_get_contents($base.'?'.http_build_query(array_merge(['op'=>$op],$query)),false,$ctx);
     if($raw===false)throw new RuntimeException('api_http_transport_failed');
     $status=0;
     if(isset($http_response_header[0]) && preg_match('/^HTTP\/\S+ (\d{3})/',$http_response_header[0],$m))
@@ -77,11 +77,11 @@ function test_voice_api_http():void {
             !in_array($retiredAgent,$ids,true) && !in_array($retiredSiteAgent,$ids,true),
             'agents listing excludes archived agents and agents on archived sites');
 
-        [$status,$body]=api_http_request($base,$key,'knowledge&agent_id=1');
+        [$status,$body]=api_http_request($base,$key,'knowledge',null,['agent_id'=>1]);
         api_http_assert($status===200 && (int)($body['agent']['id']??0)===1,
             'active agent knowledge remains readable');
         foreach([$retiredAgent,$retiredSiteAgent] as $id){
-            [$status,$body]=api_http_request($base,$key,'knowledge&agent_id='.$id);
+            [$status,$body]=api_http_request($base,$key,'knowledge',null,['agent_id'=>$id]);
             api_http_assert($status===404 && ($body['error']??'')==='agent_unavailable',
                 'retired knowledge returns 404 without leaking data');
         }
