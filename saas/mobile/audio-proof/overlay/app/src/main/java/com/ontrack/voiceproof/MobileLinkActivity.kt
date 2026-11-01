@@ -425,7 +425,9 @@ class MobileLinkActivity:ComponentActivity(){
             "ربط SIM 1"+if(tenantEnrollment.paired(0))" (مربوطة)" else "",
             "ربط SIM 2"+if(tenantEnrollment.paired(1))" (مربوطة)" else "",
             "التحقق من ربط SIM 1","التحقق من ربط SIM 2",
-            "فصل SIM 1 من السيرفر","فصل SIM 2 من السيرفر")
+            "فصل SIM 1 من السيرفر","فصل SIM 2 من السيرفر",
+            "تشغيل سجل مكالمات الشرائح (بدون صوت أو أرقام)",
+            "إيقاف سجل مكالمات الشرائح")
         AlertDialog.Builder(this).setTitle("إدارة شرائح الشركات")
             .setMessage("كل شريحة لها حساب وإيجنت مستقلان. هذا الربط لا يشغّل مكالمات AI تلقائيًا.")
             .setItems(items) { _,which ->
@@ -437,6 +439,26 @@ class MobileLinkActivity:ComponentActivity(){
                         .setMessage("سيُلغى اعتماد هذه الشريحة على السيرفر، ولن يتأثر حساب الشريحة الأخرى.")
                         .setPositiveButton("فصل") { _,_ -> runTenantOperation(slot,true) }
                         .setNegativeButton("إلغاء",null).show()
+                    6 -> {
+                        if(!tenantEnrollment.hasAny()) {
+                            banner.text="اربط شريحة واحدة على الأقل قبل تشغيل سجل المكالمات"
+                        } else if(ContextCompat.checkSelfPermission(this,Manifest.permission.READ_PHONE_STATE)
+                            !=PackageManager.PERMISSION_GRANTED) {
+                            tenantSimPermission.launch(Manifest.permission.READ_PHONE_STATE)
+                            banner.text="اسمح بحالة الهاتف ثم شغّل سجل المكالمات مجددًا"
+                        } else {
+                            ContextCompat.startForegroundService(this,
+                                Intent(this,TenantCallObserverService::class.java))
+                            banner.text="بدأ التحقق من الشريحتين؛ تُحفظ حالات المكالمات فقط بدون أرقام أو صوت"
+                        }
+                        banner.visibility=View.VISIBLE
+                    }
+                    7 -> {
+                        startService(Intent(this,TenantCallObserverService::class.java)
+                            .setAction(TenantCallObserverService.ACTION_STOP))
+                        banner.text="تم طلب إيقاف مراقبة سجل المكالمات"
+                        banner.visibility=View.VISIBLE
+                    }
                 }
             }.setNegativeButton("إغلاق",null).show()
     }
