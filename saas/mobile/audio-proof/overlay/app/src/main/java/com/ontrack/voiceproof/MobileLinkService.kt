@@ -34,6 +34,8 @@ class MobileLinkService:Service() {
         const val ACTION_CAMPAIGN_DISABLE="com.ontrack.voiceproof.CAMPAIGN_DISABLE"
         // Kept for pre-0.1.9 notifications, mapped to server disable.
         const val ACTION_PAUSE="com.ontrack.voiceproof.PAUSE"
+        /** Blocks pilot telephony during a tenant enrollment, even before token persistence. */
+        @Volatile var tenantPairingInProgress=false
         @Volatile var running=false
         @Volatile var agentEnabled=false
         @Volatile var connected=false
@@ -138,7 +140,7 @@ class MobileLinkService:Service() {
     override fun onBind(intent:Intent?):IBinder?=null
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
         startForeground(701,notification(latestStatus))
-        if(TenantDeviceEnrollment(this).hasAny()) {
+        if(tenantPairingInProgress || TenantDeviceEnrollment(this).hasAny()) {
             // The pilot bearer is global and MUST NOT run on a tenant-enrolled device.
             prefs().edit().putBoolean("campaign_opt_in",false).commit()
             agentEnabled=false;connected=false
@@ -202,6 +204,7 @@ class MobileLinkService:Service() {
         // A single active monitor remains alive across Wi-Fi handoffs and server errors.
         while(scope.isActive){
             try{
+                if(stopPilotForTenantPairing())return
                 val base=base(prefs().getString("base","")?:"")
                 val key=prefs().getString("key","")?:""
                 require(key.length>=24){"أدخل مفتاح اتصال الربط"}
@@ -228,6 +231,7 @@ class MobileLinkService:Service() {
                 var ringingAt=0L
                 var answerIssued=false
                 while(scope.isActive){
+                    if(stopPilotForTenantPairing())return
                     if(pendingDesired!=null){
                         val desired=pendingDesired!!
                         val result=request(base+"saas/mobile/control.php",key,JSONObject().put("enabled",desired))
@@ -356,6 +360,16 @@ class MobileLinkService:Service() {
                 backoff=(backoff*2).coerceAtMost(30000L)
             }
         }
+    }
+    /** Never continue pilot AI/telephony after any tenant SIM starts enrollment. */
+    private fun stopPilotForTenantPairing():Boolean {
+        if(!tenantPairingInProgress && !TenantDeviceEnrollment(this).hasAny())return false
+        agentEnabled=false;connected=false
+        prefs().edit().putBoolean("campaign_opt_in",false).commit()
+        call?.stop();call=null
+        notice("ربط شرائح الشركات نشط؛ تم إيقاف هاتف التجربة")
+        stopSelf()
+        return true
     }
     private fun request(url:String,key:String,body:JSONObject?):JSONObject{
         val builder=Request.Builder().url(url).header("Authorization","Bearer $key")
