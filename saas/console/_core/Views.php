@@ -279,6 +279,7 @@ function render_sites(array $a):void{
     echo '</div>';
 }
 function render_agents(array $a):void{
+    require_once __DIR__.'/FlowReleases.php';
     $id=(int)$a['account_id'];$sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY id",[$id]);
     $map=[];foreach($sites as $s)$map[$s['id']]=$s['name'];
     $selected=selected_site($id);
@@ -303,6 +304,23 @@ function render_agents(array $a):void{
                 $body.='<option value="'.e($opt['code']).'" '.($opt['code']===$agent['voice']?'selected':'').'>'.e($opt['name']).'</option>';
            $body.='<option value="'.e($agent['voice']).'" selected>'.e($agent['voice']).' (الحالي)</option></select></label>'.
            '<label class="field">الشخصية والتعليمات<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label><label class="field">معرفة الموقع<textarea name="knowledge" rows="4" maxlength="20000">'.e($agent['knowledge']).'</textarea></label><div class="flow-head"><strong>Agent Flow Builder</strong><small>عقد وأسئلة وشروط متسلسلة</small></div><div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.$flow.'</textarea></div>'.submit_btn('حفظ مسودة الإيجنت').
+          '<div class="flow-release-controls"><p class="info">احفظ المسودة أولًا، ثم اختبر السيناريو نصيًا، ثم انشر نسخة ثابتة. النشر لا يبدأ مكالمة ولا يفعّل شريحة.</p>'.
+          form_start('publish_agent_flow','/?tab=agents&site='.$selected['id'],'class="inline-form"').
+          '<input type="hidden" name="agent_id" value="'.$agent['id'].'"><button class="btn small" onclick="return confirm(\'نشر النسخة المحفوظة من Flow؟\')">نشر Flow المحفوظ</button></form>';
+          $active=flow_release_current($id,(int)$agent['id']);
+          if($active)$body.='<span class="pill neutral">النسخة المنشورة: '.(int)$active['revision'].'</span>';
+          $history=all('SELECT revision FROM agent_flow_revisions WHERE account_id=? AND agent_id=? ORDER BY revision DESC LIMIT 20',[$id,$agent['id']]);
+          $options='';
+          foreach($history as $release){
+              if($active&&(int)$release['revision']===(int)$active['revision'])continue;
+              $number=(int)$release['revision'];
+              $options.='<option value="'.$number.'">النسخة '.$number.'</option>';
+          }
+          if($options!=='')$body.=form_start('rollback_agent_flow','/?tab=agents&site='.$selected['id'],'class="inline-form"').
+              '<input type="hidden" name="agent_id" value="'.$agent['id'].'">'.
+              '<label>استرجاع نسخة سابقة <select name="revision">'.$options.'</select></label>'.
+              '<button class="btn small" onclick="return confirm(\'استرجاع النسخة المنشورة؟\')">استرجاع</button></form>';
+          $body.='</div>'.
           form_start('archive_agent','/?tab=agents&site='.$selected['id'],'class="inline-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'"><button class="btn small danger" onclick="return confirm(\'أرشفة الإيجنت؟\')">أرشفة الإيجنت</button></form>';
         } else $body.='<p>'.e($agent['instructions']).'</p>';
         echo card($agent['name'],$body);
