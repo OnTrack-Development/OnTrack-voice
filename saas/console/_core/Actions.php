@@ -326,6 +326,13 @@ function act():void {
                 $synced=sync_google_live_voices();
                 audit('voices.catalog_synced',$id,['count'=>$synced]);
                 flash('success','تم تحديث كتالوج Google بعدد '.$synced.' صوتاً، والتفعيل من الإدارة');break;
+            case 'fetch_google_voices':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceCatalog.php';
+                $count=fetch_google_provider_voices(required('google_api_key',256));
+                audit('voices.google_api.synced',$id,['count'=>$count]);
+                flash('success','تمت مزامنة '.$count.' صوتاً من Google API؛ استخدم الاعتماد لتحديد المتاح');
+                break;
             case 'set_voice_ready':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 $voice=one('SELECT id FROM voices WHERE id=?',[intfield('voice_id')]);if(!$voice)deny(404);
