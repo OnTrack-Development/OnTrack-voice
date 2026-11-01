@@ -2,7 +2,7 @@
 """After a verified build, publish a bounded job to the EXISTING host worker.
 No host token/credentials, queue replacement, direct SSH or process daemon.
 """
-import base64,datetime,hashlib,json,lzma,os,subprocess,sys,tempfile,urllib.request,zlib
+import base64,datetime,hashlib,json,lzma,os,subprocess,sys,tempfile,urllib.request,urllib.error,zlib
 from pathlib import Path
 REPO='OnTrack-Development/OnTrack-voice';BRANCH='ontrack-host-link';TARGET='appontrack-server11'
 CERT='d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'
@@ -29,9 +29,16 @@ def main():
     obj,raw=content(queue_path);current=json.loads(raw)
     if current.get('id')=='mobile-ota-'+os.environ['GITHUB_RUN_ID']:
         print(json.dumps({'status':'ALREADY_QUEUED_UNCHANGED','job_id':current['id']}));return
-    _,result=content('ops/host-link/results/'+TARGET+'/'+current['id']+'.json')
+    try:
+        _,result=content('ops/host-link/results/'+TARGET+'/'+current['id']+'.json')
+    except urllib.error.HTTPError as error:
+        if error.code!=404:raise
+        # Missing report does NOT prove the queued action failed. Never overwrite it:
+        # the worker may have run it and failed only while uploading the receipt.
+        raise RuntimeError('HOST_LINK_BLOCKED: no report for '+current['id']+
+            '; previous job preserved, restart/recover host worker before OTA publish') from error
     report=json.loads(result)
-    assert report['job_id']==current['id'] and report['target']==TARGET and report['status'] in ('success','failed','expired','rejected'), 'Host queue busy/unknown'
+    assert report['job_id']==current['id'] and report['target']==TARGET and report['status'] in ('success','failed','expired','rejected','timeout'), 'Host queue busy/unknown'
     assert report['job_sha256']==hashlib.sha256(raw).hexdigest(),'Host queue result mismatch'
     bundle=canonical({'manifest':manifest,'html':html});packed=base64.b64encode(lzma.compress(bundle,format=lzma.FORMAT_XZ,preset=9)).decode()
     source=(Path('saas/mobile/ota/deploy.py')).read_text()+'\nimport sys\ndeploy(sys.argv[1],sys.argv[2])\n'
