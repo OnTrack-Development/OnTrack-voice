@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/StaffInvitations.php';
+require_once __DIR__.'/DncGuard.php';
 
 function field(string $key,int $max=200):string{
     $v=trim((string)($_POST[$key]??''));
@@ -301,21 +302,30 @@ function act():void {
                 $name=required('name',120);$phone=required('phone',32);
                 if(!preg_match('/^\\+?[0-9 ()-]{8,30}$/D',$phone))throw new InvalidArgumentException('رقم هاتف غير صالح');
                 if(!isset($_POST['consent']))throw new InvalidArgumentException('يجب إثبات موافقة التواصل قبل إضافة جهة الاتصال');
+                $dnc=dnc_effective_flag($id,$phone,isset($_POST['dnc']));
                 insert('INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at) VALUES (?,?,?,?,?,?)',
-                    [$id,$site['id'],$name,$phone,isset($_POST['dnc'])?1:0,now()]);
+                    [$id,$site['id'],$name,$phone,$dnc,now()]);
                 audit('contact.created',$id,['site'=>$site['id']]);break;
             case 'edit_contact':
                 require_permission('contacts.write');
-                $contact=one('SELECT id FROM contacts WHERE id=? AND account_id=?',[intfield('contact_id'),$id]);if(!$contact)deny(404);
+                $contact=one('SELECT id,phone,dnc FROM contacts WHERE id=? AND account_id=?',[intfield('contact_id'),$id]);if(!$contact)deny(404);
                 $name=required('name',120);
                 $phone=required('phone',32);
                 if(!preg_match('/^\\+?[0-9 ()-]{8,30}$/D',$phone))throw new InvalidArgumentException('رقم هاتف غير صالح');
+                // An opt-out must not be silently erased by editing the same row.
+                // Changing its number would erase the only DNC evidence for the old number.
+                if((int)$contact['dnc']===1 && dnc_phone_key((string)$contact['phone'])!==dnc_phone_key($phone))
+                    throw new InvalidArgumentException('لا يمكن تغيير رقم محظور؛ احتفظ بسجل عدم الاتصال');
+                $dnc=dnc_effective_flag($id,$phone,isset($_POST['dnc'])||(int)$contact['dnc']===1);
                 execute('UPDATE contacts SET name=?,phone=?,dnc=? WHERE id=? AND account_id=?',
-                    [$name,$phone,isset($_POST['dnc'])?1:0,$contact['id'],$id]);
+                    [$name,$phone,$dnc,$contact['id'],$id]);
                 audit('contact.updated',$id,['contact'=>$contact['id']]);break;
             case 'delete_contact':
                 require_permission('contacts.write');
-                $row=one('SELECT id FROM contacts WHERE id=? AND account_id=?',[intfield('contact_id'),$id]);if(!$row)deny(404);
+                $row=one('SELECT id,dnc FROM contacts WHERE id=? AND account_id=?',[intfield('contact_id'),$id]);if(!$row)deny(404);
+                // Until the separate durable suppression/retention workflow exists,
+                // deletion of the only DNC record would silently restore dial eligibility.
+                if((int)$row['dnc']===1)throw new InvalidArgumentException('رقم عدم الاتصال محمي؛ يلزم مسار إزالة موثق مستقل');
                 execute('DELETE FROM contacts WHERE id=? AND account_id=?',[$row['id'],$id]);
                 audit('contact.deleted',$id,['contact'=>$row['id']]);break;
             case 'update_campaign':

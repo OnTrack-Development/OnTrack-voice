@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/../../_core/Bootstrap.php';
+require __DIR__.'/../../_core/DncGuard.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -68,8 +69,9 @@ try{
         $consent=$p['consent']??false;
         if($name===''||mb_strlen($name)>120||!preg_match('/^\+?[0-9 -]{8,25}$/D',$phone)||$consent!==true)
             answer(422,['ok'=>false,'error'=>'invalid_contact_or_consent']);
-        $id=insert('INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at) VALUES (?,?,?,?,0,?)',[$a['id'],$requested,$name,$phone,now()]);
-        answer(201,['ok'=>true,'contact_id'=>$id,'status'=>'created','dialed'=>false]);
+        $dnc=dnc_effective_flag((int)$a['id'],$phone,false);
+        $id=insert('INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at) VALUES (?,?,?,?,?,?)',[$a['id'],$requested,$name,$phone,$dnc,now()]);
+        answer(201,['ok'=>true,'contact_id'=>$id,'status'=>'created','dnc'=>$dnc===1,'dialed'=>false]);
     }
     answer(405,['ok'=>false,'error'=>'method_not_allowed']);
 }catch(Throwable $e){answer(503,['ok'=>false,'error'=>'database_error']);}
