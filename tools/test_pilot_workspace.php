@@ -90,6 +90,11 @@ try {
     catch(RuntimeException $e){$failClosed=true;}
     expect($failClosed,'corrupt_dnc_store_fails_closed');
     expect(count(pilot_read('contacts'))===1,'corrupt_dnc_did_not_write_new_contacts');
+    file_put_contents($corruptPath,'{}');
+    $objectDenied=false;
+    try{pilot_suppression_keys();}
+    catch(RuntimeException $e){$objectDenied=$e->getMessage()==='dnc_store_invalid';}
+    expect($objectDenied,'empty_json_object_cannot_erase_dnc_ledger');
     pilot_transaction(static function()use($suppressed):void {pilot_atomic('dnc',$suppressed);});
     $temp=tempnam(sys_get_temp_dir(),'pilot-csv-');file_put_contents($temp,"Ahmed,+201012345678\nMona,+201112345678\n");
     $parsed=pilot_file_rows($temp,'numbers.csv');expect(count($parsed)===2 && $parsed[1]['name']==='Mona','csv_parse');
