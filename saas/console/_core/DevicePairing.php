@@ -171,3 +171,25 @@ function device_call_event(array $binding,array $payload):array {
     }
     return ['event_id'=>$eventId,'duplicate'=>false];
 }
+
+/** Read-only last 20 physical call observations for this exact device/SIM binding. */
+function device_call_history(array $binding):array {
+    // A stale session cannot read a history after device revocation.
+    device_binding_heartbeat($binding);
+    $rows=all("SELECT call_id,MAX(observed_at) observed_at,
+        MAX(duration_seconds) duration_seconds,
+        MAX(CASE WHEN phase='ended' THEN 1 ELSE 0 END) ended,
+        MAX(CASE WHEN phase='active' THEN 1 ELSE 0 END) active
+        FROM tenant_call_events
+        WHERE account_id=? AND device_id=? AND sim_slot=?
+        GROUP BY call_id ORDER BY MAX(id) DESC LIMIT 20",
+        [$binding['account_id'],$binding['id'],$binding['sim_slot']]);
+    return array_map(static fn(array $row):array=>[
+        'call_id'=>(string)$row['call_id'],
+        'observed_at'=>(string)$row['observed_at'],
+        'duration_seconds'=>(int)$row['duration_seconds'],
+        'state'=>(int)$row['ended']===1
+            ?((int)$row['active']===1?'ended':'unanswered')
+            :((int)$row['active']===1?'active':'ringing')
+    ],$rows);
+}
