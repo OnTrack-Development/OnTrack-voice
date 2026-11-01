@@ -49,7 +49,7 @@ class MobileLinkActivity:ComponentActivity(){
     @Volatile private var wifiFreeReadyState=false
     private lateinit var banner:TextView
     private lateinit var tenantEnrollment:TenantDeviceEnrollment
-    private lateinit var tenantStatus:TextView
+    private var tenantStatusLines=arrayOf("SIM 1 — جاري التحقق","SIM 2 — جاري التحقق")
     private var tenantStatusJob:Job?=null
     private var splash:OnTrackLaunchScreen?=null
     private var ready=false
@@ -270,30 +270,8 @@ class MobileLinkActivity:ComponentActivity(){
         val layer=FrameLayout(this)
         layer.addView(root,FrameLayout.LayoutParams(-1,-1))
         tenantEnrollment=TenantDeviceEnrollment(this)
-        val tenantButton=Button(this).apply {
-            text="إدارة شرائح الشركات (SIM 1 / SIM 2)"
-            setOnClickListener { showTenantMenu() }
-        }
-        root.addView(tenantButton,1,LinearLayout.LayoutParams(-1,-2))
-        tenantStatus=TextView(this).apply {
-            setPadding(24,8,24,8)
-            setTextColor(Color.rgb(235,235,240))
-            setBackgroundColor(Color.rgb(31,31,36))
-            textSize=12f
-            text="SIM 1 — جاري التحقق\nSIM 2 — جاري التحقق"
-        }
-        root.addView(tenantStatus,2,LinearLayout.LayoutParams(-1,-2))
-        val qrButton=Button(this).apply {
-            text="مسح QR لربط شريحة"
-            setOnClickListener { scanTenantQr() }
-        }
-        root.addView(qrButton,3,LinearLayout.LayoutParams(-1,-2))
-        val shortcuts=LinearLayout(this)
-        shortcuts.addView(Button(this).apply{text="فتح الموقع داخل التطبيق";setOnClickListener{openConsole()}},
-            LinearLayout.LayoutParams(0,-2,1f))
-        shortcuts.addView(Button(this).apply{text="السيناريو";setOnClickListener{showScenarioMenu()}},
-            LinearLayout.LayoutParams(0,-2,1f))
-        root.addView(shortcuts,4,LinearLayout.LayoutParams(-1,-2))
+        // All tenant controls now live inside the signed OnTrack WebView shell.
+        // No unstyled native Android buttons outside the main vertical scroll.
         setContentView(layer)
         handleTenantLink(intent)
         splash=OnTrackLaunchScreen(this,layer)
@@ -427,7 +405,8 @@ class MobileLinkActivity:ComponentActivity(){
                     }
                 }
             }
-            tenantStatus.text=lines.joinToString("\n")
+            tenantStatusLines=lines.toTypedArray()
+            sendState()
         }
     }
     private fun openConsole(section:String=""){
@@ -727,6 +706,8 @@ class MobileLinkActivity:ComponentActivity(){
             .put("nativeUpdateStatus",nativeStatus)
             .put("nativeInstallPending",nativeUpdates.installPending())
             .put("nativeInstallPermission",nativeUpdates.canInstallPackages())
+            .put("tenantSim1",tenantStatusLines[0]).put("tenantSim2",tenantStatusLines[1])
+            .put("tenantLinked",tenantEnrollment.hasAny())
             .put("wifiFreeEnabled",wifiFreeEnabledState)
             .put("wifiFreeReady",wifiFreeReadyState)
             .put("campaignAutoEnabled",getSharedPreferences("ontrack_link",MODE_PRIVATE).getBoolean("campaign_opt_in",false))
@@ -758,8 +739,11 @@ class MobileLinkActivity:ComponentActivity(){
                 when(command){
                     "openConsole" -> openConsole()
                     "openScenario" -> showScenarioMenu()
+                    "tenantMenu" -> showTenantMenu()
+                    "tenantQrScan" -> scanTenantQr()
+                    "tenantRefresh" -> requestTenantStatusRefresh()
                     "copyKey" -> copyPilotKey()
-                    "ready"->{ready=true;withContext(Dispatchers.IO){ota.confirm()};banner.text="الواجهة جاهزة • OTA ${ota.revision}";sendState()
+                    "ready"->{ready=true;requestTenantStatusRefresh();withContext(Dispatchers.IO){ota.confirm()};banner.text="الواجهة جاهزة • OTA ${ota.revision}";sendState()
                         web.postDelayed({splash?.hide();banner.visibility=View.GONE},550)
                         val prefs=getSharedPreferences("ontrack_link",MODE_PRIVATE)
                         val initial=JSONObject().put("base",prefs.getString("base","https://app.ontrackegy.com/"))

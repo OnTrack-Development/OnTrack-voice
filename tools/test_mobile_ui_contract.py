@@ -18,12 +18,17 @@ assert 'استلام من الإيجنت' in ui, 'Handoff must explicitly say th
 assert "el('callActions').style.display=call?'block':'none'" in ui, 'Controls must show while ringing'
 assert "el('speaker').disabled=!modern||!answered" in ui, 'No speaker action before call is answered'
 assert 'id="upgradeAndroid"' in ui, 'Do not remove separate native update controls'
-assert meta['revision'] >= 19 and meta['max_native'] >= 23, 'Native 23 OTA contract required'
+assert meta['revision'] >= 20 and meta['max_native'] >= 24, 'Native 24 OTA contract required'
 for element in ('id="openConsole"', 'id="openScenario"', 'id="copyKey"'):
     assert element in ui, 'OnTrack release shortcuts must remain available: '+element
 for command in ("send('openConsole')", "send('openScenario')", "send('copyKey')"):
     assert command in ui, 'Native Android bridge command not wired: '+command
 assert "Number(s.nativeCode)>=23" in ui, 'Do not enable new native commands on older APKs'
+assert "Number(s.nativeCode)>=24" in ui, 'SIM controls must require Android 0.3.3'
+for el in ('id="tenantDeviceCenter"', 'id="tenantMenu"', 'id="tenantQr"', 'id="tenantRefresh"', 'id="tenantSim1"', 'id="tenantSim2"'):
+    assert el in ui, 'Unified SIM panel missing '+el
+for command in ("send('tenantMenu')", "send('tenantQrScan')", "send('tenantRefresh')"):
+    assert command in ui, 'Native Android SIM bridge not wired: '+command
 inline=ui.split('<script>',1)[1].split('</script>',1)[0]
 subprocess.run(['node','--check'],input=inline,text=True,check=True)
 print('PASS: OnTrack UI OTA compatible with installed v20, pull-to-refresh and JS syntax')

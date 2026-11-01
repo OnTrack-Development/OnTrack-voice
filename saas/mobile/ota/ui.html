@@ -98,6 +98,13 @@ body.light #uiPullStatus{background:#fff;box-shadow:0 12px 30px #0002}
 .callQuickActions button small{font-size:10px;font-weight:500;line-height:1.5;color:inherit;opacity:.8;text-align:center}
 .callQuickActions button:disabled{opacity:.5;filter:grayscale(.3)}
 body.light .callQuickActions button.outline{background:#fafafa}
+/* Native and OTA screens share one card-based device center; no grey Android controls above the UI. */
+.tenant-sim-list{display:grid;gap:9px;margin:13px 0}
+.tenant-sim{display:flex;align-items:flex-start;gap:10px;justify-content:space-between;padding:13px 14px;background:var(--raised);border:1px solid var(--border);border-radius:13px}
+.tenant-sim strong{font-size:13px;white-space:nowrap;direction:ltr}
+.tenant-sim span{font-size:12px;line-height:1.6;color:var(--muted);text-align:start;overflow-wrap:anywhere}
+#tenantDeviceCenter .row{margin-top:9px}
+.subtle-button{background:transparent;border:1px dashed var(--border);color:var(--muted);font-size:12px;margin-top:9px;padding:9px 12px;min-height:42px}
 </style></head><body>
 <div id="uiPullStatus" hidden role="status" aria-live="polite">↻ فحص تحديث الواجهة…</div>
 <div id="otSplash" role="status" aria-live="polite"><div class="otHalo"><div class="otMonogram">OT</div></div><div class="otTitle">ONTRACK</div><div class="otSubtitle">VOICE INTELLIGENCE</div><div class="otProgress"><span class="otPulse"></span>يرجى الانتظار · جارٍ تجهيز الاتصال</div></div>
@@ -129,10 +136,16 @@ body.light .callQuickActions button.outline{background:#fafafa}
 <p id="message" role="alert"></p>
 </section>
 <section class="card" data-panel="dashboard"><div class="section-title"><h2>إجراءات سريعة</h2><span class="chip">حساب المستخدم</span></div><div class="row"><button type="button" data-go="calls" class="outline">سجل المكالمات</button><button type="button" data-go="campaigns" class="primary">الحملات</button></div></section>
-<section class="card" data-panel="dashboard" id="consoleScenarioShortcuts">
-<div class="section-title"><h2>الموقع والسيناريو</h2><span class="chip">إدارة الإيجنت</span></div>
-<p>لوحة OnTrack داخل التطبيق، ونسخة Agent Flow المنشورة حسب الشريحة. تحتاج Android 0.3.2 لتفعيل الأزرار.</p>
-<div class="row"><button id="openConsole" type="button" class="primary">فتح الموقع داخل التطبيق</button><button id="openScenario" type="button" class="outline">السيناريو / Agent Flow</button></div>
+<section class="card" data-panel="dashboard" id="tenantDeviceCenter">
+<div class="section-title"><h2>الجهاز والسيناريو</h2><span class="chip warn" id="tenantStateBadge">التحقق من الشرائح</span></div>
+<p>اربط كل شريحة بالشركة والإيجنت من QR مستقل. الربط الجديد خاص بإدارة الجهاز والـFlow؛ المكالمات الصوتية الجديدة لم تُفعّل بعد.</p>
+<div class="tenant-sim-list" role="status" aria-live="polite">
+  <div class="tenant-sim"><strong>SIM 1</strong><span id="tenantSim1">جاري التحقق…</span></div>
+  <div class="tenant-sim"><strong>SIM 2</strong><span id="tenantSim2">جاري التحقق…</span></div>
+</div>
+<div class="row"><button type="button" id="tenantMenu" class="primary">إدارة الشرائح</button><button type="button" id="tenantQr" class="outline">مسح QR</button></div>
+<div class="row"><button type="button" id="openConsole" class="outline">فتح لوحة الموقع</button><button type="button" id="openScenario" class="outline">Agent Flow</button></div>
+<button type="button" id="tenantRefresh" class="subtle-button">تحديث حالة الشرائح</button>
 </section>
 <section class="card" id="versionUpdates" data-panel="settings">
 <div class="section-title"><h2>تحديثات OnTrack</h2><span class="chip good">تحديثات آمنة</span></div>
@@ -284,6 +297,20 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('openConsole').disabled=!hasNativeConsole;
  el('openScenario').disabled=!hasNativeConsole;
  el('copyKey').disabled=!hasNativeConsole;
+ const tenantOk=Number(s.nativeCode)>=24;
+ el('tenantMenu').disabled=!tenantOk||call;
+ el('tenantQr').disabled=!tenantOk||call;
+ el('tenantRefresh').disabled=!tenantOk;
+ el('tenantSim1').textContent=tenantOk?(s.tenantSim1||'جاري التحقق…'):'حدّث Android لعرض حالة الشريحة';
+ el('tenantSim2').textContent=tenantOk?(s.tenantSim2||'جاري التحقق…'):'حدّث Android لعرض حالة الشريحة';
+ el('tenantStateBadge').textContent=tenantOk?(s.tenantLinked?'شرائح مرتبطة · الصوت غير مفعّل':'الشرائح غير مربوطة'):'يتطلب Android 0.3.3';
+ el('tenantStateBadge').className='chip '+(s.tenantLinked?'good':'warn');
+ if(tenantOk&&s.tenantLinked){
+  el('badge').textContent='إيجنت الشركات · الصوت غير مفعّل';
+  el('mode').textContent='مكالمات الشركات لم تنتقل لمحرك الصوت الجديد';
+  el('status').textContent='تم ربط الشريحة للتحكم والسيناريو فقط؛ تشغيل المكالمات غير مفعّل';
+  el('enable').disabled=true;el('disable').disabled=true;
+ }
  el('nativeUpdateStatus').textContent=s.nativeUpdateStatus||'جاري فحص تحديث Android…';
  el('upgradeAndroid').disabled=!s.nativeUpdateAvailable||s.nativeUpdateBusy||call||!!s.nativeInstallPending;
  el('upgradeAndroid').textContent=s.nativeInstallPending?'بانتظار موافقة تثبيت Android':
@@ -323,6 +350,9 @@ el('showKey').onclick=()=>el('key').type=el('key').type==='password'?'text':'pas
 el('copyKey').onclick=()=>send('copyKey');
 el('openConsole').onclick=()=>send('openConsole');
 el('openScenario').onclick=()=>send('openScenario');
+el('tenantMenu').onclick=()=>send('tenantMenu');
+el('tenantQr').onclick=()=>send('tenantQrScan');
+el('tenantRefresh').onclick=()=>send('tenantRefresh');
 el('wifiFreeConsent').onchange=()=>{el('wifiFreeToggle').disabled=!!last.inCall||(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)};
 el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)return;send(last.wifiFreeEnabled?'wifiFreeDisable':'wifiFreeEnable')};
 el('scanAndroid').onclick=()=>send('checkNativeUpdates');
