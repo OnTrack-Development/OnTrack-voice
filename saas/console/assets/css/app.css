@@ -160,3 +160,9 @@ html,body{max-width:100%;overflow-x:clip}
 @media(prefers-reduced-motion:reduce){
  .sidebar{transition:none}
 }
+
+/* Device enrollment QR is generated locally; no external image request. */
+.pair-qr-grid{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0}
+.pair-qr-card{display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px;border:1px solid var(--border,#444);border-radius:16px;max-width:240px;background:var(--surface,#fff)}
+.pair-qr-code svg{width:180px;height:180px;max-width:100%;display:block;border-radius:10px}
+.pair-qr-panel{overflow-wrap:anywhere}
