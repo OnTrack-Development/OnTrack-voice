@@ -5,6 +5,7 @@ require_once __DIR__.'/DncGuard.php';
 require_once __DIR__.'/DevicePairing.php';
 require_once __DIR__.'/PublishedFlow.php';
 require_once __DIR__.'/FlowTemplates.php';
+require_once __DIR__.'/AgentAnswerPolicy.php';
 require_once __DIR__.'/Checkout.php';
 
 function field(string $key,int $max=200):string{
@@ -162,6 +163,7 @@ function act():void {
                        strlen((string)($edge['label']??''))>280)
                        throw new InvalidArgumentException('رابط Flow يشير إلى عقدة غير موجودة');
                 }
+                $answerPolicy=answer_policy_form($_POST);
                 $publishNow=($_POST['publish_now']??'')==='1';
                 $normalized=json_encode($decoded,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
                 if($publishNow)flow_preview_compile($decoded);
@@ -170,6 +172,7 @@ function act():void {
                     if($publishNow){db()->beginTransaction();$started=true;}
                     execute('UPDATE agents SET name=?,voice=?,instructions=?,knowledge=?,flow_json=?,status=? WHERE id=? AND account_id=?',
                         [$newName,$voice,field('instructions',5000),field('knowledge',20000),$normalized,'draft',(int)$ag['id'],$id]);
+                    save_answer_policy($id,(int)$ag['id'],$answerPolicy);
                     if($publishNow){
                         $result=publish_agent_flow($id,(int)$ag['id'],(int)me()['id']);
                         db()->commit();$started=false;
