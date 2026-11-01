@@ -1,6 +1,6 @@
 ## 2026-11-02 — حالة ميزة Android dual-SIM الحالية PR #19
 
-**CODED وليس منشورًا:** إعادة تعيين الإيجنت للشريحة المربوطة من لوحة العميل مع تحديث Android الموثق وتاريخ إصدارات agent_revision، وحفظ نسبة مراحل المكالمة لإيجنت البداية. Backend + Web + DB migration + Android + regression tests. الكود 3190d01e و7cde2d60؛ PHP CI 41356631162 وNative gate 41356631117 ناجحان؛ Android CI 41356725540 قيد الانتظار وقت التسجيل.
+**CODED وليس منشورًا:** إعادة تعيين الإيجنت للشريحة المربوطة من لوحة العميل مع تحديث Android الموثق وتاريخ إصدارات agent_revision، وحفظ نسبة مراحل المكالمة لإيجنت البداية. Backend + Web + DB migration + Android + regression tests. الكود 3190d01e و7cde2d60؛ PHP CI 41356631162 وNative gate 41356631117 ناجحان؛ **Android CI 41356791496 SUCCESS** على SHA 076f4a94 (Kotlin tests + APK + emulator + signing).
 
 **غير مكتمل:** التشغيل الصوتي الحقيقي للإيجنت على SIM، Xiaomi بحسابين وشريحتين، staging/مراجعة مستقلة، ربط Agent Flow المنشور من PR #20. PR #9 SSO مفتوح. لا دمج قبل مراجعة تعارض schema.v6؛ لا نشر قبل receipt لنفس المصدر. آخر receipt مفحوص saas-console-41354086831 لمصدر main 9df8524f6aac فقط.
 
