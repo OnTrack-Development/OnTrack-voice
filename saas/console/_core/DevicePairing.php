@@ -184,12 +184,65 @@ function device_call_history(array $binding):array {
         WHERE account_id=? AND device_id=? AND sim_slot=?
         GROUP BY call_id ORDER BY MAX(id) DESC LIMIT 20",
         [$binding['account_id'],$binding['id'],$binding['sim_slot']]);
-    return array_map(static fn(array $row):array=>[
-        'call_id'=>(string)$row['call_id'],
-        'observed_at'=>(string)$row['observed_at'],
-        'duration_seconds'=>(int)$row['duration_seconds'],
-        'state'=>(int)$row['ended']===1
-            ?((int)$row['active']===1?'ended':'unanswered')
-            :((int)$row['active']===1?'active':'ringing')
-    ],$rows);
+    return array_map(static function(array $row)use($binding):array {
+        $report=one('SELECT outcome,note,source,updated_at FROM tenant_call_reports WHERE account_id=? AND device_id=? AND call_id=?',
+            [$binding['account_id'],$binding['id'],$row['call_id']]);
+        return [
+            'call_id'=>(string)$row['call_id'],
+            'observed_at'=>(string)$row['observed_at'],
+            'duration_seconds'=>(int)$row['duration_seconds'],
+            'state'=>(int)$row['ended']===1
+                ?((int)$row['active']===1?'ended':'unanswered')
+                :((int)$row['active']===1?'active':'ringing'),
+            'report'=>$report?[
+                'outcome'=>(string)$report['outcome'],'note'=>(string)$report['note'],
+                'source'=>(string)$report['source'],'updated_at'=>(string)$report['updated_at']
+            ]:null
+        ];
+    },$rows);
+}
+
+/**
+ * Human-entered outcome for an observed, finished SIM call. Not an AI summary.
+ * No number exists in this ledger: never infer satisfaction or clear DNC from it.
+ * Web actors may annotate a revoked device's historical calls; device bearers
+ * must still be active and tenant-bound at the moment of the write.
+ */
+function tenant_call_report_save(int $accountId,int $deviceId,string $callId,
+    string $outcome,string $note,string $source,?int $actorUserId=null):array {
+    if(!preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D',$callId)
+        || !in_array($outcome,['unknown','satisfied','unsatisfied','follow_up'],true)
+        || !in_array($source,['device','web'],true)
+        || ($source==='web' && (!$actorUserId||$actorUserId<1))
+        || ($source==='device' && $actorUserId!==null)
+        || mb_strlen($note)>1000 || str_contains($note,"\0"))
+        throw new InvalidArgumentException('device_call_report_invalid');
+    $device=$source==='device'
+        ?one("SELECT d.sim_slot FROM device_bindings d
+            JOIN accounts a ON a.id=d.account_id AND a.status='active'
+            JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
+            JOIN agents ag ON ag.id=d.agent_id AND ag.account_id=d.account_id AND ag.site_id=d.site_id AND ag.status!='archived'
+            WHERE d.account_id=? AND d.id=? AND d.status='active'",[$accountId,$deviceId])
+        :one('SELECT sim_slot FROM device_bindings WHERE account_id=? AND id=?',[$accountId,$deviceId]);
+    if(!$device)throw new InvalidArgumentException('device_call_report_unknown_binding');
+    $finished=one("SELECT id FROM tenant_call_events
+        WHERE account_id=? AND device_id=? AND sim_slot=? AND call_id=? AND phase='ended'",
+        [$accountId,$deviceId,$device['sim_slot'],$callId]);
+    if(!$finished)throw new InvalidArgumentException('device_call_report_unfinished');
+    $note=trim($note);$at=now();
+    $values=[$accountId,$deviceId,(int)$device['sim_slot'],$callId,$outcome,$note,
+        $source,$actorUserId,$at];
+    $columns='account_id,device_id,sim_slot,call_id,outcome,note,source,actor_user_id,updated_at';
+    if(driver()==='mysql'){
+        execute("INSERT INTO tenant_call_reports ($columns) VALUES (?,?,?,?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE outcome=VALUES(outcome),note=VALUES(note),
+            source=VALUES(source),actor_user_id=VALUES(actor_user_id),updated_at=VALUES(updated_at)",$values);
+    }else{
+        execute("INSERT INTO tenant_call_reports ($columns) VALUES (?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(account_id,device_id,call_id) DO UPDATE SET
+            outcome=excluded.outcome,note=excluded.note,source=excluded.source,
+            actor_user_id=excluded.actor_user_id,updated_at=excluded.updated_at",$values);
+    }
+    return ['call_id'=>$callId,'outcome'=>$outcome,'note'=>$note,
+        'source'=>$source,'updated_at'=>$at];
 }
