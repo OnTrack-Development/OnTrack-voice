@@ -40,7 +40,7 @@ function dnc_init_ledger():void {
         foreach($batch as $row){
             $lastId=(int)$row['id'];
             $key=dnc_phone_key((string)$row['phone']);
-            if((int)$row['account_id']>0 && $key!=='' && strlen($key)<=40)
+            if((int)$row['account_id']>0 && strlen($key)>=8 && strlen($key)<=40)
                 dnc_insert_ledger_key((int)$row['account_id'],$key,'legacy_contact');
         }
     }while(count($batch)===250);
