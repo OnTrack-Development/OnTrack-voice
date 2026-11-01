@@ -77,7 +77,7 @@ function test_tenant_device_pairing():void {
     $callA='01234567-89ab-4cde-8f01-23456789abcd';
     $callB='12345678-9abc-4def-8abc-123456789abc';
     $timestamp=gmdate('Y-m-d\\TH:i:s\\Z');
-    $event=['sim_slot'=>0,'call_id'=>$callA,'phase'=>'ringing',
+    $event=['sim_slot'=>0,'device_id'=>(int)$a['device_id'],'call_id'=>$callA,'phase'=>'ringing',
         'duration_seconds'=>0,'occurred_at'=>$timestamp];
     $created=device_call_event($session,$event);
     ok($created['duplicate']===false && $created['event_id']>0,'SIM1 call ringing event recorded');
@@ -96,7 +96,11 @@ function test_tenant_device_pairing():void {
     $crossSlot=false;
     try{device_call_event($sessionB,$event);}catch(InvalidArgumentException $e){$crossSlot=true;}
     ok($crossSlot,'SIM2 bearer cannot write SIM1 event');
-    $other=['sim_slot'=>1,'call_id'=>$callA,'phase'=>'active',
+    $wrongBinding=$event;$wrongBinding['device_id']=(int)$b['device_id'];
+    $crossBinding=false;
+    try{device_call_event($session,$wrongBinding);}catch(InvalidArgumentException $e){$crossBinding=true;}
+    ok($crossBinding,'queued event from another binding cannot be attributed to this tenant');
+    $other=['sim_slot'=>1,'device_id'=>(int)$b['device_id'],'call_id'=>$callA,'phase'=>'active',
         'duration_seconds'=>0,'occurred_at'=>$timestamp];
     ok(device_call_event($sessionB,$other)['duplicate']===false,
         'same call UUID on SIM2 remains separate from SIM1');
@@ -104,12 +108,12 @@ function test_tenant_device_pairing():void {
        (int)one('SELECT COUNT(*) n FROM tenant_call_events WHERE account_id=5')['n']===1,
        'call history rows are strictly isolated by account');
     $withoutStart=false;
-    try{device_call_event($sessionB,['sim_slot'=>1,'call_id'=>$callB,
+    try{device_call_event($sessionB,['sim_slot'=>1,'device_id'=>(int)$b['device_id'],'call_id'=>$callB,
         'phase'=>'ended','duration_seconds'=>1,'occurred_at'=>$timestamp]);}
     catch(InvalidArgumentException $e){$withoutStart=true;}
     ok($withoutStart,'server refuses fabricated end without start');
     $future=false;
-    try{device_call_event($sessionB,['sim_slot'=>1,'call_id'=>$callB,
+    try{device_call_event($sessionB,['sim_slot'=>1,'device_id'=>(int)$b['device_id'],'call_id'=>$callB,
         'phase'=>'active','duration_seconds'=>0,'occurred_at'=>'2038-01-01T00:00:00Z']);}
     catch(InvalidArgumentException $e){$future=true;}
     ok($future,'server refuses unbounded device clock timestamps');
@@ -119,7 +123,7 @@ function test_tenant_device_pairing():void {
     ok(device_binding_revoke(4,$a['device_id'])===true,'owner scope revokes active SIM token');
     ok(device_binding_authorize($a['device_token'])===null,'revoked SIM token immediately denied');
     $revokedEventDenied=false;
-    try{device_call_event($session,['sim_slot'=>0,'call_id'=>$callA,'phase'=>'active',
+    try{device_call_event($session,['sim_slot'=>0,'device_id'=>(int)$a['device_id'],'call_id'=>$callA,'phase'=>'active',
         'duration_seconds'=>0,'occurred_at'=>$timestamp]);}
     catch(RuntimeException $e){$revokedEventDenied=$e->getMessage()==='device_binding_revoked';}
     ok($revokedEventDenied,'stale SIM session cannot write events after revocation');
