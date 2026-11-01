@@ -68,7 +68,7 @@ jobs:
           raw=pathlib.Path('dist/pilot-server/release.tar.gz').read_bytes()
           members=parse_release(raw)
           assert 'auth.sha256' not in members
-          pathlib.Path('dist/pilot-server/release.sha256').write_text(hashlib.sha256(raw).hexdigest()+'\\n')
+          pathlib.Path('dist/pilot-server/release.sha256').write_text(hashlib.sha256(raw).hexdigest()+'\n')
           print('PILOT_PHP_ONLY_ARCHIVE_VERIFIED', len(members))
           PY
       - name: Upload pinned PHP-only release
