@@ -57,5 +57,19 @@ function test_published_agent_flow():void {
     $actual=answer_policy_normalize(json_decode((string)$live['answer_policy_json'],true));
     ok($actual['auto_answer']===true && $actual['answer_delay_seconds']===8,
         'published SIM receives current per-agent answer policy');
+    require_once dirname(__DIR__).'/saas/console/_core/TenantVoiceSession.php';
+    $definition=tenant_voice_definition($binding);
+    ok($definition['revision']===3 &&
+       $definition['account_id']===$account &&
+       $definition['site_id']===$site &&
+       $definition['policy']['answer_delay_seconds']===8,
+       'new voice session uses published tenant and immutable answer policy');
+    $otherDenied=false;
+    try{tenant_voice_definition(['account_id'=>5,'site_id'=>$site,'agent_id'=>$id,'sim_slot'=>1]);}
+    catch(InvalidArgumentException $e){$otherDenied=true;}
+    ok($otherDenied,'new voice engine cannot use a foreign tenant');
+    // Never mint a live provider token in an offline test. A missing provider
+    // must fail clearly rather than falling back to the legacy pilot bearer.
+    echo "TENANT_VOICE_SESSION_CONTRACT_PASS\n";
     echo "AGENT_PUBLISHED_FLOW_PASS\n";
 }
