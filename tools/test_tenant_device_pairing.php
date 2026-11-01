@@ -74,5 +74,13 @@ function test_tenant_device_pairing():void {
     catch(InvalidArgumentException $e){$blockedCreate=true;}
     ok($blockedCreate,'suspended tenant cannot issue pairing');
     execute("UPDATE accounts SET status='active' WHERE id=4");
+    ok(device_binding_disconnect($sessionB)===true,'authenticated SIM can disconnect itself');
+    ok(device_binding_authorize($b['device_token'])===null,'disconnected SIM token rejected immediately');
+    ok(device_binding_authorize($relinked['device_token'])!==null,'other customer SIM unaffected by disconnect');
+    ok(device_binding_disconnect($sessionB)===false,'repeat disconnect rejected');
+    $repaired=device_pairing_create(5,3,3,$actor);
+    $newB=device_pairing_redeem($repaired,$inst,1,'SIM 2 after disconnect');
+    ok($newB['device_id']!==$b['device_id'] && device_binding_authorize($newB['device_token'])!==null,
+        'disconnected slot can enroll again without changing other slot');
     echo "TENANT_SIM_PAIRING_PASS\n";
 }
