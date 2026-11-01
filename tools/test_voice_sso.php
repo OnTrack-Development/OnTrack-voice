@@ -40,6 +40,7 @@ $verified=verify_external_sso_ticket($ticket);
 check_sso($verified['claims']['sub']==='external-client-001','signed WHMCS assertion validated');
 check_sso(external_sso_preview($verified)['linked_user_id']===null,'unbound subject is not auto-linked by email');
 check_sso(denied_sso(fn()=>finish_external_sso($ticket,null),'sso_local_login_required'),'unbound subject cannot silently login');
+$_SESSION=['uid'=>(int)$nile['id'],'account_id'=>7];
 check_sso(denied_sso(fn()=>finish_external_sso($ticket,(int)$nile['id']),'sso_tenant_denied'),'other reseller user cannot link');
 check_sso((int)one('SELECT COUNT(*) n FROM sso_used_tickets WHERE integration_id=?',[$integrationId])['n']===0,
     'rejected cross-tenant claim did not burn ticket');
@@ -61,9 +62,11 @@ $_SESSION=[];
 $login=finish_external_sso($again,null);
 check_sso($login['new_link']===false && $login['user_id']===(int)$pharmacy['id'],
     'linked identity can sign in with fresh one-time ticket');
+$_SESSION=['uid'=>(int)$fashion['id'],'account_id'=>6];
 $wrongUser=signed_sso_ticket($integrationId,$secret,'external-client-001');
 check_sso(denied_sso(fn()=>finish_external_sso($wrongUser,(int)$fashion['id']),'sso_account_mismatch'),
     'signed ticket cannot swap a different logged-in user');
+$_SESSION=['uid'=>(int)$pharmacy['id'],'account_id'=>5];
 $secondSubject=signed_sso_ticket($integrationId,$secret,'external-client-002');
 check_sso(denied_sso(fn()=>finish_external_sso($secondSubject,(int)$pharmacy['id']),'sso_user_already_linked'),
     'one local user cannot bind two external subjects in one integration');
