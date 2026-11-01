@@ -661,6 +661,17 @@ function render_settings(array $a):void{
         $mfaActive
         ?'<p>المصادقة مفعّلة لهذا الحساب. عند تسجيل الدخول ستحتاج كود تطبيق المصادقة.</p><span class="pill ok">مفعّل ومؤكد</span>'
         :'<p>غير مفعّل. تسجيل الدخول يعمل بكلمة المرور، ويمكنك اختيار تفعيله بعد مسح QR وتأكيد كود من التطبيق.</p><a class="btn primary" href="/saas/console/mfa/setup">ربط تطبيق المصادقة وعرض QR</a>');
+    if($a['kind']==='platform'&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
+        $provider=one("SELECT name FROM integrations WHERE account_id=? AND provider='google_live' AND status='active' ORDER BY id DESC LIMIT 1",[$a['account_id']]);
+        echo card('محرك الصوت الجديد — Google Gemini Live',
+            '<p>الربط الصوتي على الشريحة يعتمد على مفتاح Gemini Live ساري، ويُخزّن مشفرًا على السيرفر ولا يظهر داخل التطبيق. الاختبار الحالي يتأكد من إصدار رمز مؤقت حقيقي من Google.</p>'.
+            '<p class="info">حالة المزوّد: '.($provider?'محفوظ — '.e($provider['name']):'غير مربوط').'. ربط المزوّد لا يشغّل المكالمات قبل فحص الصوت ثنائي الاتجاه على الهاتف.</p>'.
+            form_start('save_live_provider','/?tab=settings').
+            '<label class="field">معرف موديل Gemini Live<input name="model" dir="ltr" required maxlength="120" value="'.e((string)($provider['name']??'gemini-2.5-flash-native-audio-preview-12-2025')).'"></label>'.
+            '<label class="field">Google API Key<input type="password" name="google_key" autocomplete="new-password" required minlength="16" maxlength="256"></label>'.
+            '<label class="field">تأكيد كلمة مرور حساب الإدارة<input type="password" name="confirm_password" autocomplete="current-password" required></label>'.
+            submit_btn('اختبار اتصال Google وحفظ المفتاح مشفرًا'));
+    }
     echo '<div class="cols two">';
     echo card('هوية حسابك','<div class="brand-preview"><div class="brand-icon">'.e(mb_substr($brand['name'],0,1)).'</div><div><h3>'.e($brand['name']).'</h3><p>ألوان الهوية الأساسية: أحمر / أسود / أبيض</p></div></div><p>المستخدم المباشر يرث OnTrack؛ المستخدم التابع يرث هوية الريسيلر بشكل آمن.</p>');
     if(in_array($a['kind'],['reseller','platform'],true)){
