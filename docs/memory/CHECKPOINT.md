@@ -1,3 +1,11 @@
+## 2026-11-01 — Hourly cycle #6 PR #13 merged: pilot DNC pre-dial gate, release separation
+
+- **MERGED / CODED:** PR #13 `https://github.com/OnTrack-Development/OnTrack-voice/pull/13`, main squash `c303880e94b74263a4f5afd3bc1a3a790fb6720a`. Durable pilot-only DNC private file, legacy opt-out migration, no unverified unban, fail-closed corrupt store, opt-out enforcement at campaign import/preview/arm/claim and lock-protected pre-dial verification. The existing Android dialer already calls server verify; APK unchanged.
+- **CI_PASS:** final PR head `aadf09bc402c`: pilot PHP/ledger workflow `41306010120` = success; SaaS PHP console workflow `41306010195` = success. Post-merge pilot workflow `41306044753` = success. Tests synthetic only, no SIM calls.
+- **HOST_DEPLOYED NOT VERIFIED:** no automatic pilot server PHP deployment workflow or host receipt for PR #13. The SaaS console release receipt `saas-console-41301462639` is **older**, not proof of this mobile PHP release. Device E2E and tenant-bound DNC still OPEN.
+- **RELEASE SAFETY FINDING:** old `android-audio-proof.yml` triggered full signed Android APK build/OTA publication on **any** `saas/mobile/server/**` change. Main push triggered Android run `41306044730` (in progress at last check), although this PR changes PHP only. Fixed future trigger in main commit `eef9327049101c2a6798ba985a127fc9156d480e` by removing server-only path from native APK workflow; `voice-p1-p2-smoke.yml` remains server CI. The already-started run is **not cancelled** by that commit; verify outcome and any host queue receipts before claiming native release or safety.
+- **NEXT:** verify Android run `41306044730` did not cause unintended release; implement safe pinned PHP pilot server host deployment and receipt, then tenant-bound Android DNC + real device E2E and verified re-consent. Keep PR #9 SSO open until independent staging security review.
+
 ## 2026-11-01 — Hourly cycle #6: pilot Android pre-dial DNC fail-closed (PR #13)
 
 - **Issue:** single-device pilot `pilot_workspace.php` previously allowed `pilot_dnc(id,false)` to lift opt-outs without fresh verified consent, and the opt-out existed only on a mutable contact. `pilot_campaign_verify_claim` did not hold the opt-out lock. This pilot state is distinct from the SaaS multi-tenant ledger in PR #12.
