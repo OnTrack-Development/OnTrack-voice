@@ -51,7 +51,7 @@ if($path==='/sso/confirm'){
         exit;
     }
     $local=me();
-    if($local && mfa_privileged((int)$local['id']) && empty($_SESSION['mfa_ok']))go('/mfa');
+    if($local && mfa_gate_required((int)$local['id']) && empty($_SESSION['mfa_ok']))go('/mfa');
     $linkedUid=$preview['linked_user_id'];
     if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
         require_csrf();
@@ -68,7 +68,7 @@ if($path==='/sso/confirm'){
             unset($_SESSION['mfa_pending'],$_SESSION['mfa_pending_uid'],$_SESSION['mfa_pending_at']);
             audit($result['new_link']?'sso.identity.linked':'sso.login',
                 $result['account_id'],['integration_id'=>$result['integration_id']]);
-            go(mfa_privileged((int)$result['user_id'])?'/mfa':'/');
+            go(mfa_gate_required((int)$result['user_id'])?'/mfa':'/');
         }catch(Throwable $e){
             // No ticket or signature detail is ever reflected to the browser.
             http_response_code(403);
@@ -122,8 +122,9 @@ if($path==='/login') {
     login_page();exit;
 }
 if($path==='/mfa')mfa_route();
+if($path==='/mfa/setup')mfa_route(true);
 if(!in_array($path,['/login','/logout'],true) && me()
-   && mfa_privileged((int)me()['id']) && empty($_SESSION['mfa_ok']))go('/mfa');
+   && mfa_gate_required((int)me()['id']) && empty($_SESSION['mfa_ok']))go('/mfa');
 if($path==='/brand-logo'){
     $a=mine();if(!$a)deny(404);
     $brand=brand($a);

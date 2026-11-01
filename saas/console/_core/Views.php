@@ -598,6 +598,11 @@ function render_releases(array $a):void{
 }
 function render_settings(array $a):void{
     $brand=brand($a);
+    $mfaActive=mfa_gate_required((int)me()['id']);
+    echo card('التحقق بخطوتين',
+        $mfaActive
+        ?'<p>المصادقة مفعّلة لهذا الحساب. عند تسجيل الدخول ستحتاج كود تطبيق المصادقة.</p><span class="pill ok">مفعّل ومؤكد</span>'
+        :'<p>غير مفعّل. تسجيل الدخول يعمل بكلمة المرور، ويمكنك اختيار تفعيله بعد مسح QR وتأكيد كود من التطبيق.</p><a class="btn primary" href="/saas/console/mfa/setup">ربط تطبيق المصادقة وعرض QR</a>');
     echo '<div class="cols two">';
     echo card('هوية حسابك','<div class="brand-preview"><div class="brand-icon">'.e(mb_substr($brand['name'],0,1)).'</div><div><h3>'.e($brand['name']).'</h3><p>ألوان الهوية الأساسية: أحمر / أسود / أبيض</p></div></div><p>المستخدم المباشر يرث OnTrack؛ المستخدم التابع يرث هوية الريسيلر بشكل آمن.</p>');
     if(in_array($a['kind'],['reseller','platform'],true)){

@@ -38,6 +38,7 @@ jobs:
         run: |
           node --check saas/console/assets/js/app.js
           node --check saas/console/assets/js/pairing-qr.js
+          node --check saas/console/assets/js/mfa-qr.js
           node tools/test_voice_qr.cjs
       - name: Database, roles, demo users, branding and isolation smoke
         run: php tools/test_voice_saas_console.php
