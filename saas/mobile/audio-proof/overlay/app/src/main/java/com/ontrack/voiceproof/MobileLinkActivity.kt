@@ -573,12 +573,20 @@ class MobileLinkActivity:ComponentActivity(){
                 val msg=JSONObject(raw)
                 if(msg.optString("nonce")!=screenNonce)return@launch
                 if(raw.length>2048 && msg.optString("command")!="createCampaign")return@launch
-                when(msg.getString("command")){
+                val command=msg.getString("command")
+                if(tenantEnrollment.hasAny() && command in setOf(
+                    "start","stop","disable","enable","takeover","speaker",
+                    "loadCallHistory","listContacts","contactDnc","campaignAutoEnable",
+                    "campaignAutoDisable","listCampaigns","campaignAction","createCampaign",
+                    "contactsPick","contactsAll","contactsFilePick","contactsFileUpload",
+                    "contactsUpload","admin"
+                )) error("وضع الشرائح المستقلة نشط؛ واجهات هاتف التجربة غير متاحة لحماية حسابات العملاء")
+                when(command){
                     "ready"->{ready=true;withContext(Dispatchers.IO){ota.confirm()};banner.text="الواجهة جاهزة • OTA ${ota.revision}";sendState()
                         web.postDelayed({splash?.hide();banner.visibility=View.GONE},550)
                         val prefs=getSharedPreferences("ontrack_link",MODE_PRIVATE)
                         val initial=JSONObject().put("base",prefs.getString("base","https://app.ontrackegy.com/"))
-                            .put("key",prefs.getString("key",""))
+                            .put("key",if(tenantEnrollment.hasAny()) "" else prefs.getString("key",""))
                         web.evaluateJavascript("window.onTrackInit && window.onTrackInit($initial)",null)
                     }
                     "start"->{
