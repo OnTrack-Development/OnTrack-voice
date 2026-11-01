@@ -1,11 +1,13 @@
 name: OnTrack Voice SaaS PHP Console
 on:
   push:
-    branches: [main]
+    branches: [main, voice-saas-console-staging]
     paths:
       - 'saas/console/**'
       - 'tools/test_voice_saas_console.php'
       - '.github/workflows/voice-saas-console.yml'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
