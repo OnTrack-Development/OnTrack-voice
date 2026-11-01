@@ -107,3 +107,32 @@ function flow_release_for_bound_agent(int $accountId,int $siteId,int $agentId):?
     if(!$current||(int)$current['site_id']!==$siteId)return null;
     return $current;
 }
+
+/**
+ * Side-effect-free runtime for a PINNED published revision. The caller must
+ * authenticate its tenant/device before invoking this internal API.
+ * No SIM/audio bridge, external actions or browser-controlled revision choice.
+ */
+function flow_release_begin(int $accountId,int $siteId,int $agentId):array {
+    $snapshot=flow_release_for_bound_agent($accountId,$siteId,$agentId);
+    if(!$snapshot)throw new InvalidArgumentException('flow_no_published_revision');
+    $graph=json_decode((string)$snapshot['flow_json'],true,32,JSON_THROW_ON_ERROR);
+    $flow=flow_preview_compile($graph);
+    $step=flow_preview_step($flow,flow_preview_initial($flow));
+    return ['revision_id'=>(int)$snapshot['id'],'revision'=>(int)$snapshot['revision'],
+        'voice'=>$snapshot['voice'],'instructions'=>$snapshot['instructions'],
+        'state'=>$step['state'],'events'=>$step['events'],
+        'waiting'=>$step['waiting'],'done'=>$step['done']];
+}
+function flow_release_advance(int $accountId,int $siteId,int $agentId,int $revisionId,
+    array $state,string $answer):array {
+    if(!flow_release_agent($accountId,$agentId)
+        ||!flow_release_for_bound_agent($accountId,$siteId,$agentId))
+        throw new InvalidArgumentException('flow_agent_not_available');
+    $snapshot=one('SELECT flow_json FROM agent_flow_revisions
+        WHERE id=? AND account_id=? AND site_id=? AND agent_id=?',
+        [$revisionId,$accountId,$siteId,$agentId]);
+    if(!$snapshot)throw new InvalidArgumentException('flow_revision_not_found');
+    $graph=json_decode((string)$snapshot['flow_json'],true,32,JSON_THROW_ON_ERROR);
+    return flow_preview_step(flow_preview_compile($graph),$state,$answer);
+}
