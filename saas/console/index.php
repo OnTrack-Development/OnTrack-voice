@@ -33,7 +33,7 @@ if($path==='/login') {
             $_SESSION['bad_logins']=0;
             unset($_SESSION['support']);
             audit('login.success',$_SESSION['account_id']);
-            go('/');
+            go($m?'/':'/invitations');
         }
         $_SESSION['bad_logins']=$bad+1;
         usleep(250000);
@@ -56,9 +56,37 @@ if($path==='/brand-logo'){
     readfile($full);exit;
 }
 require_login();
+if($path==='/invitations'){
+    if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
+        require_csrf();
+        if(($_POST['action']??'')!=='accept_invitation')deny(400,'عملية غير معروفة');
+        try {
+            $newAccount=accept_staff_invitation((int)($_POST['invitation_id']??0),(int)me()['id']);
+            audit('staff.invitation.accepted',$newAccount,['invitation_id'=>(int)$_POST['invitation_id']]);
+            $_SESSION['account_id']=$newAccount;
+            session_regenerate_id(true);
+            flash('success','تم قبول الدعوة وإضافة عضويتك بعد موافقتك.');
+            go('/');
+        }catch(Throwable $e){
+            flash('error',$e instanceof InvalidArgumentException?$e->getMessage():'تعذر قبول الدعوة');
+            go('/invitations');
+        }
+    }
+    $current=mine();
+    if($current)layout_open($current,'overview');
+    else {
+        header('Content-Type: text/html; charset=utf-8');
+        header('Cache-Control: private,no-store');
+        echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>الدعوات | OnTrack Voice</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"></head><body><main class="content">';
+        if($message=flash('error'))echo '<div class="alert danger">'.e($message).'</div>';
+    }
+    render_invitations();
+    if($current)layout_close();else echo '</main></body></html>';
+    exit;
+}
 if($_SERVER['REQUEST_METHOD']==='POST'){
     if($path==='/logout'||($_POST['action']??'')==='logout'){
-        require_csrf();audit('logout',owner_scope());
+        require_csrf();audit('logout',mine()?(int)mine()['account_id']:null);
         $_SESSION=[];
         if(ini_get('session.use_cookies'))setcookie(session_name(),'',time()-3600,'/saas/console','',true,true);
         session_destroy();go('/login');
