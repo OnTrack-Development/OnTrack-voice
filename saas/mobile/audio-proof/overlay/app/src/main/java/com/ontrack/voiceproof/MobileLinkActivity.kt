@@ -27,6 +27,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.*
 import org.json.JSONObject
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.barcode.common.Barcode
 import java.io.ByteArrayInputStream
 
 /** Only verified local HTML enters this isolated WebView; no remote navigation,
@@ -261,6 +264,11 @@ class MobileLinkActivity:ComponentActivity(){
             setOnClickListener { showTenantMenu() }
         }
         root.addView(tenantButton,1,LinearLayout.LayoutParams(-1,-2))
+        val qrButton=Button(this).apply {
+            text="مسح QR لربط شريحة"
+            setOnClickListener { scanTenantQr() }
+        }
+        root.addView(qrButton,2,LinearLayout.LayoutParams(-1,-2))
         setContentView(layer)
         handleTenantLink(intent)
         splash=OnTrackLaunchScreen(this,layer)
@@ -340,6 +348,29 @@ class MobileLinkActivity:ComponentActivity(){
         val parsed=TenantPairingContract.qr(intent?.dataString.orEmpty()) ?: return
         // Scanning a QR only fills the native form. It never redeems automatically.
         showTenantPairDialog(parsed.first,parsed.second)
+    }
+    private fun scanTenantQr() {
+        if(MobileLinkService.inCall) {
+            banner.text="انتظر انتهاء المكالمة قبل ربط الشريحة"
+            banner.visibility=View.VISIBLE
+            return
+        }
+        // Optional Play services scanner; code stays on-device until confirmed.
+        // Manual code entry works even when Google Play services is unavailable.
+        val options=GmsBarcodeScannerOptions.Builder()
+            .setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
+        GmsBarcodeScanning.getClient(this,options).startScan()
+            .addOnSuccessListener { barcode ->
+                val parsed=TenantPairingContract.qr(barcode.rawValue.orEmpty())
+                if(parsed==null) {
+                    banner.text="QR غير صالح؛ استخدم رابط OnTrack أو أدخل الرمز يدويًا"
+                    banner.visibility=View.VISIBLE
+                } else showTenantPairDialog(parsed.first,parsed.second)
+            }
+            .addOnFailureListener {
+                banner.text="ماسح QR غير متاح على الجهاز؛ أدخل رمز الاقتران يدويًا"
+                banner.visibility=View.VISIBLE
+            }
     }
     private fun showTenantMenu() {
         val items=arrayOf(
