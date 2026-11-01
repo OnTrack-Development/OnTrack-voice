@@ -117,3 +117,54 @@ function device_binding_disconnect(array $binding):bool {
     return execute("UPDATE device_bindings SET status='revoked',slot_claim=NULL,revoked_at=? WHERE id=? AND account_id=? AND sim_slot=? AND status='active'",
         [now(),$binding['id'],$binding['account_id'],$binding['sim_slot']])===1;
 }
+
+/**
+ * A physical SIM call-state observation, not a dial authorization or proof of AI audio.
+ * Account/site/agent/device are derived exclusively from the authenticated binding.
+ * Device timestamps are bounded but not cryptographically attested.
+ */
+function device_call_event(array $binding,array $payload):array {
+    $slot=$payload['sim_slot']??null;
+    $callId=$payload['call_id']??null;
+    $phase=$payload['phase']??null;
+    $duration=$payload['duration_seconds']??null;
+    $occurred=$payload['occurred_at']??null;
+    if(!is_int($slot)||$slot!==(int)$binding['sim_slot'] ||
+       !is_string($callId)||!preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D',$callId) ||
+       !is_string($phase)||!in_array($phase,['ringing','active','ended'],true) ||
+       !is_int($duration)||$duration<0||$duration>86400 ||
+       ($phase!=='ended' && $duration!==0) ||
+       !is_string($occurred)||!preg_match('/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/D',$occurred))
+        throw new InvalidArgumentException('device_call_event_invalid');
+    $when=strtotime($occurred);
+    if($when===false||gmdate('Y-m-d\\TH:i:s\\Z',$when)!==$occurred||
+       $when<time()-604800||$when>time()+300)
+        throw new InvalidArgumentException('device_call_event_timestamp_invalid');
+    // Re-check revocation and account/agent status immediately before any write.
+    $current=one("SELECT d.* FROM device_bindings d
+        JOIN accounts a ON a.id=d.account_id AND a.status='active'
+        JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
+        JOIN agents ag ON ag.id=d.agent_id AND ag.site_id=d.site_id AND ag.account_id=d.account_id AND ag.status!='archived'
+        WHERE d.id=? AND d.account_id=? AND d.sim_slot=? AND d.status='active'",
+        [$binding['id'],$binding['account_id'],$slot]);
+    if(!$current)throw new RuntimeException('device_binding_revoked');
+    $args=[(int)$current['id'],$callId,$phase];
+    $existing=one('SELECT id FROM tenant_call_events WHERE device_id=? AND call_id=? AND phase=?',$args);
+    if($existing)return ['event_id'=>(int)$existing['id'],'duplicate'=>true];
+    if($phase==='ended'&&!one("SELECT id FROM tenant_call_events WHERE device_id=? AND call_id=? AND phase IN ('ringing','active') LIMIT 1",
+        [(int)$current['id'],$callId]))
+        throw new InvalidArgumentException('device_call_event_without_start');
+    try {
+        $eventId=insert("INSERT INTO tenant_call_events
+            (account_id,site_id,agent_id,device_id,sim_slot,call_id,phase,duration_seconds,observed_at)
+            VALUES (?,?,?,?,?,?,?,?,?)",[
+            $current['account_id'],$current['site_id'],$current['agent_id'],$current['id'],
+            $slot,$callId,$phase,$duration,str_replace(['T','Z'],[' ',''],$occurred)
+        ]);
+    }catch(PDOException $e){
+        $duplicate=one('SELECT id FROM tenant_call_events WHERE device_id=? AND call_id=? AND phase=?',$args);
+        if(!$duplicate)throw $e;
+        return ['event_id'=>(int)$duplicate['id'],'duplicate'=>true];
+    }
+    return ['event_id'=>$eventId,'duplicate'=>false];
+}
