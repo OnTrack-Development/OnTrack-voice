@@ -17,7 +17,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-HOST_ROOT = pathlib.Path("/home/appontrack/public_html/saas/mobile/server")
+HOST_ROOT = pathlib.Path("/home/appontrack/public_html/saas/mobile")
 HOST_PRIVATE = pathlib.Path("/home/appontrack/.ontrack-mobile")
 PHP83 = "/opt/cpanel/ea-php83/root/usr/bin/php"
 
@@ -54,12 +54,27 @@ def parse_release(raw):
 
 
 def assert_no_symlinks(directory):
+    """Inspect only the target directory; never traverse unrelated OTA APKs."""
     if directory.is_symlink() or not directory.is_dir():
         raise ValueError("unsafe_target_directory")
-    for parent, folders, files in os.walk(directory, followlinks=False):
-        for name in folders + files:
-            if (pathlib.Path(parent) / name).is_symlink():
-                raise ValueError("target_contains_symlink")
+    for child in directory.iterdir():
+        if child.is_symlink():
+            raise ValueError("target_contains_symlink")
+
+
+def atomic_copy(source, destination):
+    """Restore a backup through a temporary file in the destination directory."""
+    fd, temp = tempfile.mkstemp(prefix=".pilot-restore-", dir=str(destination.parent))
+    try:
+        with os.fdopen(fd, "wb") as out, open(source, "rb") as inp:
+            shutil.copyfileobj(inp, out)
+            out.flush()
+            os.fsync(out.fileno())
+        os.chmod(temp, 0o644)
+        os.replace(temp, destination)
+    finally:
+        if os.path.exists(temp):
+            os.unlink(temp)
 
 
 def install_archive(raw, digest, source, *, root=HOST_ROOT, private=HOST_PRIVATE,
@@ -80,6 +95,10 @@ def install_archive(raw, digest, source, *, root=HOST_ROOT, private=HOST_PRIVATE
     if not auth_file.is_file() or auth_file.is_symlink():
         raise ValueError("missing_protected_device_auth")
     entries = parse_release(raw)
+    for name in entries:
+        target = root / name
+        if target.is_symlink() or (target.exists() and not target.is_file()):
+            raise ValueError("unsafe_target_member")
     backups = private / "pilot-server-backups"
     backups.mkdir(mode=0o700, exist_ok=True)
     if backups.is_symlink():
@@ -88,42 +107,49 @@ def install_archive(raw, digest, source, *, root=HOST_ROOT, private=HOST_PRIVATE
     backup = backups / source[:12]
     if backup.exists() or backup.is_symlink():
         raise ValueError("release_already_installed")
-    stage_parent = pathlib.Path(tempfile.mkdtemp(prefix=".pilot-php-", dir=str(private)))
-    stage = stage_parent / "server"
-    swapped = False
+    stage = pathlib.Path(tempfile.mkdtemp(prefix=".pilot-php-", dir=str(private)))
+    changed = []
+    backup_created = False
     try:
-        shutil.copytree(root, stage, symlinks=False)
-        stage.chmod(0o755)
         for name, data in entries.items():
-            path = stage / name
-            if path.is_symlink() or (path.exists() and not path.is_file()):
-                raise ValueError("unsafe_stage_member")
-            path.write_bytes(data)
-            path.chmod(0o644)
+            (stage / name).write_bytes(data)
+            (stage / name).chmod(0o600)
         for name in sorted(entries):
-            if not name.endswith(".php"):
-                continue
-            result = subprocess.run([php, "-l", str(stage / name)],
-                                    capture_output=True, text=True, timeout=3)
-            if result.returncode:
-                raise RuntimeError("host_php_lint_failed:" + name)
-        # Rename the whole directory, preserving untracked auth.sha256 and
-        # all existing private state. Never delete or replace the secret.
-        os.replace(root, backup)
-        try:
-            os.replace(stage, root)
-            swapped = True
-        except BaseException:
-            os.replace(backup, root)
-            raise
+            if name.endswith(".php"):
+                result = subprocess.run([php, "-l", str(stage / name)],
+                                        capture_output=True, text=True, timeout=3)
+                if result.returncode:
+                    raise RuntimeError("host_php_lint_failed:" + name)
+        backup.mkdir(mode=0o700)
+        backup_created = True
+        # Back up ONLY files to be replaced, never auth.sha256 or APK/OTA.
+        for name in entries:
+            current = root / name
+            if current.is_file():
+                shutil.copy2(current, backup / name)
+                (backup / name).chmod(0o600)
+        # Small PHP-only overlay; each file uses an atomic same-filesystem rename.
+        for name in sorted(entries):
+            os.replace(stage / name, root / name)
+            (root / name).chmod(0o644)
+            changed.append(name)
         return {"status": "deployed", "source": source, "sha256": digest,
                 "php_files": sum(n.endswith(".php") for n in entries),
-                "auth_hash_preserved": (root / "auth.sha256").exists(),
-                "backup": str(backup), "target": "/saas/mobile/server/"}
+                "auth_hash_preserved": auth_file.is_file(),
+                "backup": str(backup), "target": "/saas/mobile/",
+                "unrelated_files_untouched": True}
+    except BaseException:
+        for name in reversed(changed):
+            saved = backup / name
+            if saved.is_file():
+                atomic_copy(saved, root / name)
+            elif (root / name).exists():
+                (root / name).unlink()
+        if backup_created and not changed:
+            shutil.rmtree(backup)
+        raise
     finally:
-        if not swapped and backup.exists() and not root.exists():
-            os.replace(backup, root)
-        shutil.rmtree(stage_parent, ignore_errors=True)
+        shutil.rmtree(stage, ignore_errors=True)
 
 
 def download_release(url):
