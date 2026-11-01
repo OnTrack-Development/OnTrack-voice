@@ -77,4 +77,35 @@ class TenantPairingContractTest {
             "ontrackvoice://pair?slot=0&code="+"a".repeat(24)+"&next=evil"))
             assertNull(TenantPairingContract.qr(bad))
     }
+    @Test fun simCallLifecycleRecordsRealTransitionsWithoutNumbersOrAudio() {
+        val idA="01234567-89ab-4cde-8f01-23456789abcd"
+        val idB="12345678-9abc-4def-8abc-123456789abc"
+        val whenUtc="2026-11-01T19:00:00Z"
+        val ringing=TenantCallEventContract.observe(
+            TenantCallEventContract.State(),1,1000L,idA,whenUtc)
+        assertEquals("ringing",ringing.event?.phase)
+        assertEquals(idA,ringing.state.callId)
+        assertEquals(0,ringing.event?.durationSeconds)
+        val duplicate=TenantCallEventContract.observe(ringing.state,1,1100L,idB,whenUtc)
+        assertNull(duplicate.event)
+        assertEquals(idA,duplicate.state.callId)
+        val active=TenantCallEventContract.observe(ringing.state,2,3000L,idB,whenUtc)
+        assertEquals("active",active.event?.phase)
+        assertEquals(idA,active.event?.callId)
+        val ended=TenantCallEventContract.observe(active.state,0,6300L,idB,whenUtc)
+        assertEquals("ended",ended.event?.phase)
+        assertEquals(5,ended.event?.durationSeconds)
+        assertNull(ended.state.callId)
+        assertNull(TenantCallEventContract.observe(ended.state,0,7000L,idB,whenUtc).event)
+        val second=TenantCallEventContract.observe(
+            TenantCallEventContract.State(),2,1000L,idB,whenUtc)
+        assertEquals(idB,second.event?.callId)
+        assertEquals("active",second.event?.phase)
+        assertThrows(IllegalArgumentException::class.java) {
+            TenantCallEventContract.observe(second.state,7,2000L,idB,whenUtc)
+        }
+        assertFalse(ended.event.toString().contains("phone"))
+        assertFalse(ended.event.toString().contains("audio"))
+    }
+
 }
