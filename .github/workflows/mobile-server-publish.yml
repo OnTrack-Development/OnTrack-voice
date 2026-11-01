@@ -1,0 +1,75 @@
+name: Publish OnTrack Pilot PHP Server (No APK)
+on:
+  pull_request:
+    paths:
+      - 'saas/mobile/server/**'
+      - 'tools/deploy_mobile_server.py'
+      - 'tools/queue_mobile_server.py'
+      - 'tools/test_mobile_server_deploy.py'
+      - 'tools/queue_saas_console.py'
+      - '.github/workflows/mobile-server-publish.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'saas/mobile/server/**'
+      - 'tools/deploy_mobile_server.py'
+      - 'tools/queue_mobile_server.py'
+      - 'tools/test_mobile_server_deploy.py'
+      - 'tools/queue_saas_console.py'
+      - '.github/workflows/mobile-server-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pilot-php-server-publisher
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring,openssl
+          coverage: none
+      - name: PHP syntax and DNC/predial state regression
+        run: |
+          set -euo pipefail
+          find saas/mobile/server -name '*.php' -type f -print0 | xargs -0 -n1 php -l
+          php tools/test_mobile_call_ledger.php
+          php tools/test_pilot_workspace.php
+      - name: Pinned archive, rollback and secret-preservation regression
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/deploy_mobile_server.py tools/queue_mobile_server.py tools/queue_saas_console.py
+          python3 tools/test_mobile_server_deploy.py
+  publish:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package PHP pilot files only (exclude host auth.sha256 and private state)
+        run: |
+          set -euo pipefail
+          mkdir -p dist/pilot-server
+          test ! -e saas/mobile/server/auth.sha256
+          tar --format=ustar -czf dist/pilot-server/release.tar.gz -C saas/mobile server
+          sha256sum dist/pilot-server/release.tar.gz | awk '{print $1}' > dist/pilot-server/release.sha256
+      - name: Upload pinned PHP-only release
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnTrack-Pilot-PHP-Server
+          path: dist/pilot-server/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Queue release on existing host Cron worker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/queue_mobile_server.py

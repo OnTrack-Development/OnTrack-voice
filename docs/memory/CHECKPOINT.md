@@ -1,3 +1,12 @@
+## 2026-11-01 — Cycle #8 candidate: pinned PHP-only pilot host publish (PR #15)
+
+- **Gap:** PR #13 DNC pre-dial guard was CODED and CI_PASS but pilot PHP server was not published by SaaS console workflow. Native APK release is not proof of mobile PHP deployment.
+- **CODE CANDIDATE:** PR #15 `https://github.com/OnTrack-Development/OnTrack-voice/pull/15` adds immutable SHA-pinned pilot PHP-only archive, strict path/member allowlist, private auth.sha256 preservation, host PHP lint, directory backup/rollback, serialized host Cron queue, and no-network regression. It never builds APK, UI OTA or places calls.
+- **CI / HOST:** pending final PR CI and post-merge publish receipt. Do NOT claim host deployment merely because workflow queues a job.
+- **UNTOUCHED:** PR #9 external SSO remains OPEN, Android DEVICE_E2E and multi-tenant SIM isolation OPEN. UI OTA revision collision remains separately unresolved.
+- **Next:** verify CI, merge if green and safe, read host receipt `pilot-server-<run_id>`, update proof; then Android DNC no-dial E2E when device available.
+- Details: `docs/execution/2026-11-01_PILOT_PHP_HOST_PUBLISH_CYCLE_08_AR.md`.
+
 ## 2026-11-01 — Cycle #7 CLOSED: native publish UI host ACK safety gate merged and CI verified
 
 - **PR #14 MERGED:** `https://github.com/OnTrack-Development/OnTrack-voice/pull/14`, squash main `aed13a68bc3f8cde7c4a12dbde53b8d10ed5a8b4`.
