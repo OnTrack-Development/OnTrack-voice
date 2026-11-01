@@ -397,6 +397,8 @@ class MobileLinkActivity:ComponentActivity(){
                             p.optString("account_name"),p.optString("site_name"),p.optString("agent_name"))
                     } catch(e:SecurityException) {
                         TenantPairingContract.statusLine(slot,true,error="تم إلغاء الاعتماد من السيرفر")
+                    } catch(e:CancellationException) {
+                        throw e
                     } catch(e:Exception) {
                         TenantPairingContract.statusLine(slot,true,error="تعذر التحقق؛ الربط غير مؤكد")
                     }
@@ -475,7 +477,7 @@ class MobileLinkActivity:ComponentActivity(){
         val site=profile.optString("site_name","غير معروف")
         val agent=profile.optString("agent_name","غير معروف")
         AlertDialog.Builder(this).setTitle("SIM ${slot+1} — تم التحقق من الربط")
-            .setMessage("الشركة: $account\\nالموقع: $site\\nالإيجنت: $agent\\nتم تأكيد ربط الحساب فقط. تشغيل صوت الشريحة يتطلب اختبار الجهاز.")
+            .setMessage("الشركة: $account\nالموقع: $site\nالإيجنت: $agent\nتم تأكيد ربط الحساب فقط. تشغيل صوت الشريحة يتطلب اختبار الجهاز.")
             .setPositiveButton("حسنًا",null).show()
     }
     private fun runTenantOperation(slot:Int,disconnect:Boolean) {
