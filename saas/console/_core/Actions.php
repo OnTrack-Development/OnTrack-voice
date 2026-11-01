@@ -28,6 +28,8 @@ function act():void {
     $action=(string)($_POST['action']??'');
     if($a['role']==='support_viewer' && $action!=='support_leave')deny(403,'وضع الدعم للقراءة فقط');
     $id=(int)$a['account_id'];$kind=$a['kind'];
+    // Migrate DNC outside a transaction (MySQL CREATE TABLE auto-commits).
+    if(in_array($action,['add_contact','edit_contact','delete_contact'],true))dnc_init_ledger();
     try {
         switch($action) {
             case 'switch':
