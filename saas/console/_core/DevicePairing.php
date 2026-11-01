@@ -88,8 +88,19 @@ function device_binding_profile(array $binding):array {
         'transport'=>'tenant_pairing_preview_no_sim_bridge'];
 }
 function device_binding_heartbeat(array $binding):array {
-    execute('UPDATE device_bindings SET last_seen_at=? WHERE id=? AND status=?',[now(),$binding['id'],'active']);
-    return device_binding_profile($binding);
+    // A binding can be revoked between bearer authorization and heartbeat.
+    // Never return its agent policy after revocation, even during that race.
+    $updated=execute('UPDATE device_bindings SET last_seen_at=? WHERE id=? AND account_id=? AND sim_slot=? AND status=?',
+        [now(),$binding['id'],$binding['account_id'],$binding['sim_slot'],'active']);
+    if($updated!==1)throw new RuntimeException('device_binding_revoked');
+    $current=one("SELECT d.* FROM device_bindings d
+        JOIN accounts a ON a.id=d.account_id AND a.status='active'
+        JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
+        JOIN agents ag ON ag.id=d.agent_id AND ag.site_id=d.site_id AND ag.account_id=d.account_id AND ag.status!='archived'
+        WHERE d.id=? AND d.account_id=? AND d.sim_slot=? AND d.status='active'",
+        [$binding['id'],$binding['account_id'],$binding['sim_slot']]);
+    if(!$current)throw new RuntimeException('device_binding_revoked');
+    return device_binding_profile($current);
 }
 function device_binding_revoke(int $accountId,int $deviceId):bool {
     $changed=execute("UPDATE device_bindings SET status='revoked',slot_claim=NULL,revoked_at=? WHERE id=? AND account_id=? AND status='active'",
