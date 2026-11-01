@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "saas-http-verify-20261101035147",
+  "id": "saas-root-check-20261101035238",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-01T03:51:47.240Z",
-  "expires_at": "2026-11-01T04:51:47.240Z",
+  "created_at": "2026-11-01T03:52:38.265Z",
+  "expires_at": "2026-11-01T04:52:38.265Z",
   "cwd": "/home/appontrack/public_html/saas",
   "timeout_seconds": 30,
   "argv": [
     "/bin/python3",
     "-c",
-    "import urllib.request,urllib.error,json\nitems=['/saas/console/login','/saas/console/assets/css/app.css','/saas/console/_core/Bootstrap.php','/saas/console/database/Seed.php']\nresult=[]\nfor path in items:\n try:\n  req=urllib.request.Request('https://app.ontrackegy.com'+path,headers={'User-Agent':'OnTrack-Console-Health/1.0'})\n  with urllib.request.urlopen(req,timeout=5) as response:\n   content=response.read(8192)\n   result.append({'path':path,'code':response.status,'bytes':len(content),'login_form':b'password' in content})\n except urllib.error.HTTPError as err:result.append({'path':path,'code':err.code})\n except Exception as err:result.append({'path':path,'error':type(err).__name__})\nprint(json.dumps(result))"
+    "import urllib.request,urllib.error,json,pathlib\nurls=['/','/PING.txt','/console/','/console/login','/console/index.php','/console/assets/css/app.css','/saas/PING.txt','/saas/mobile/updates/latest.json']\nresult=[]\nfor path in urls:\n try:\n  req=urllib.request.Request('https://app.ontrackegy.com'+path,headers={'User-Agent':'OnTrack-DNS-Root-Probe'})\n  with urllib.request.urlopen(req,timeout=4) as res:result.append([path,res.status,res.geturl(),len(res.read(600))])\n except urllib.error.HTTPError as ex:result.append([path,ex.code,ex.geturl()])\n except Exception as ex:result.append([path,type(ex).__name__])\nroot=pathlib.Path('/home/appontrack/public_html/saas');print(json.dumps({'urls':result,'index_exists':(root/'index.php').exists(),'console_exists':(root/'console'/'index.php').exists(),'root_htaccess':(root/'.htaccess').exists()}))"
   ]
 }
