@@ -56,5 +56,10 @@ function test_voice_dnc_ledger():void {
     try{dnc_record_suppression(4,'not-a-phone');}
     catch(InvalidArgumentException $e){$bad=$e->getMessage()==='invalid_dnc_ledger_entry';}
     api_http_assert($bad,'invalid phone cannot poison the DNC ledger');
+    $placeholderRejected=false;
+    try{dnc_record_suppression(4,'DEMO-NO-DIAL-01');}
+    catch(InvalidArgumentException $e){$placeholderRejected=true;}
+    api_http_assert($placeholderRejected,
+        'short digits inside synthetic demo placeholder cannot become suppression');
     echo "VOICE_DNC_LEDGER_PASS\n";
 }
