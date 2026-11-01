@@ -102,6 +102,12 @@ class PilotServerPublishTest(unittest.TestCase):
             self.install(release())
         self.assertEqual((self.root / "common.php").read_text(), "<?php echo 'old';")
 
+    def test_missing_host_auth_blocks_release(self):
+        (self.root / "auth.sha256").unlink()
+        with self.assertRaisesRegex(ValueError, "missing_protected_device_auth"):
+            self.install(release())
+        self.assertEqual((self.root / "common.php").read_text(), "<?php echo 'old';")
+
     def test_non_https_or_untrusted_artifact_rejected(self):
         for url in ("file:///tmp/release.zip", "https://example.com/file.zip",
                     "http://x.blob.core.windows.net/archive.zip"):
