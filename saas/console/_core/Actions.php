@@ -322,7 +322,10 @@ function act():void {
                 audit('contact.updated',$id,['contact'=>$contact['id']]);break;
             case 'delete_contact':
                 require_permission('contacts.write');
-                $row=one('SELECT id FROM contacts WHERE id=? AND account_id=?',[intfield('contact_id'),$id]);if(!$row)deny(404);
+                $row=one('SELECT id,dnc FROM contacts WHERE id=? AND account_id=?',[intfield('contact_id'),$id]);if(!$row)deny(404);
+                // Until the separate durable suppression/retention workflow exists,
+                // deletion of the only DNC record would silently restore dial eligibility.
+                if((int)$row['dnc']===1)throw new InvalidArgumentException('رقم عدم الاتصال محمي؛ يلزم مسار إزالة موثق مستقل');
                 execute('DELETE FROM contacts WHERE id=? AND account_id=?',[$row['id'],$id]);
                 audit('contact.deleted',$id,['contact'=>$row['id']]);break;
             case 'update_campaign':
