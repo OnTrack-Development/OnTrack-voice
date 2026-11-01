@@ -407,11 +407,11 @@ class MobileLinkActivity:ComponentActivity(){
                             p.optString("account_name"),p.optString("site_name"),p.optString("agent_name"))
                     } catch(e:SecurityException) {
                         TenantPairingContract.statusLine(slot,true,error="تم إلغاء الاعتماد من السيرفر")
+                    } catch(e:CancellationException) {
+                        throw e
                     } catch(e:IllegalStateException) {
                         TenantPairingContract.statusLine(slot,true,
                             error=e.message?.take(120) ?: "تعذر التحقق من الاشتراك")
-                    } catch(e:CancellationException) {
-                        throw e
                     } catch(e:Exception) {
                         TenantPairingContract.statusLine(slot,true,error="تعذر التحقق؛ الربط غير مؤكد")
                     }
