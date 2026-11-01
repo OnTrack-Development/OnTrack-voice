@@ -151,6 +151,28 @@ class TenantCallObserverService:Service() {
                 JSONArray(prefs.getString("outbox","[]")).optJSONObject(0)
             }
             if(event==null) { delay(8000);continue }
+            // Re-pairing must never reattribute old events to a new company.
+            val currentId=runCatching{enrollment.bindingId(event.getInt("sim_slot"))}.getOrNull()
+            if(currentId!=event.optInt("device_id",-1)) {
+                synchronized(lock) {
+                    val pending=JSONArray(prefs.getString("outbox","[]"))
+                    val orphaned=JSONArray(prefs.getString("orphaned","[]"))
+                    if(orphaned.length()>=200) {
+                        status("أحداث ربط سابق تنتظر مراجعة محلية؛ أُوقفت المراقبة")
+                        stopSelf()
+                        return
+                    }
+                    orphaned.put(pending.get(0))
+                    val next=JSONArray()
+                    for(i in 1 until pending.length())next.put(pending.get(i))
+                    check(prefs.edit().putString("orphaned",orphaned.toString())
+                        .putString("outbox",next.toString()).commit()) {
+                        "تعذر عزل أحداث الربط السابق"
+                    }
+                }
+                status("عُزل حدث شريحة قديم محليًا؛ لن ينتقل إلى حساب آخر")
+                continue
+            }
             try {
                 enrollment.submitCallEvent(event.getInt("sim_slot"),event)
                 synchronized(lock) {
