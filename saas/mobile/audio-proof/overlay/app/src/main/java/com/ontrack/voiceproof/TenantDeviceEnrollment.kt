@@ -79,6 +79,7 @@ class TenantDeviceEnrollment(private val context: Context) {
     }
     fun enroll(rawCode:String,slot:Int,deviceName:String):JSONObject {
         TenantPairingContract.slot(slot)
+        TenantSimHardware.requireReady(context,slot)
         check(!paired(slot)) { "الشريحة مربوطة بالفعل؛ افصلها أولًا" }
         val name=deviceName.trim().take(100)
         require(name.isNotEmpty()) { "اسم الهاتف مطلوب" }
@@ -98,6 +99,7 @@ class TenantDeviceEnrollment(private val context: Context) {
         return heartbeat(slot)
     }
     fun heartbeat(slot:Int):JSONObject {
+        TenantSimHardware.requireReady(context,slot)
         val saved=local(slot)
         val response=request(JSONObject().put("operation","heartbeat"),saved.getString("token"))
         val profile=response.getJSONObject("profile")
