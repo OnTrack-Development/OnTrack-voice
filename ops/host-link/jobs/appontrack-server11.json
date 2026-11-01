@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "mfa-postdeploy-login-smoke-20261101",
+  "id": "voice-tenant-engine-readonly-audit-20261102",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-01T21:52:28.646Z",
-  "expires_at": "2026-11-01T23:52:28.646Z",
+  "created_at": "2026-11-01T22:27:23.261Z",
+  "expires_at": "2026-11-02T00:27:23.261Z",
   "cwd": "/home/appontrack/public_html/saas",
-  "timeout_seconds": 30,
+  "timeout_seconds": 20,
   "argv": [
     "/bin/python3",
     "-c",
-    "import json,urllib.request,urllib.error,subprocess\nroot=\"https://app.ontrackegy.com/saas/console/\"\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self,req,fp,code,msg,headers,newurl):return None\nopener=urllib.request.build_opener(NoRedirect())\ndef get(path):\n    req=urllib.request.Request(root+path,headers={\"User-Agent\":\"OnTrack-MFA-Login-Smoke\",\"Cache-Control\":\"no-cache\"})\n    try:\n        with opener.open(req,timeout=10) as r:return r.status\n    except urllib.error.HTTPError as e:return e.code\nlogin=get(\"login\")\nsetup=get(\"mfa/setup\")\nqr=get(\"assets/js/mfa-qr.js\")\nassert login==200 and setup in (302,303) and qr==200,(login,setup,qr)\nphp=\"\"\"require '/home/appontrack/public_html/saas/console/_core/Bootstrap.php';require '/home/appontrack/public_html/saas/console/_core/AdminMfa.php';init_schema();$uid=(int)one(\"SELECT u.id FROM users u JOIN memberships m ON m.user_id=u.id JOIN accounts a ON a.id=m.account_id WHERE a.kind='platform' AND m.role='owner' LIMIT 1\")['id'];echo json_encode(['privileged'=>mfa_privileged($uid),'gate_required'=>mfa_gate_required($uid),'enrolled_records'=>(int)one('SELECT COUNT(*) n FROM admin_mfa')['n']]);\"\"\"\np=subprocess.run([\"/opt/cpanel/ea-php83/root/usr/bin/php\",\"-r\",php],capture_output=True,text=True,timeout=8,check=True)\ndata=json.loads(p.stdout)\nassert data[\"privileged\"]==True and data[\"gate_required\"]==False and data[\"enrolled_records\"]==0,data\nprint(json.dumps({\"result\":\"PUBLIC_MFA_LOGIN_FIXED\",\"login_http\":login,\"unenrolled_setup_redirect_http\":setup,\"qr_generator_http\":qr,\"admin_mfa_gate_required\":data[\"gate_required\"],\"enrolled_records\":data[\"enrolled_records\"],\"secrets_read\":False,\"deployed_source\":\"9df8524f6aac\"}))\n"
+    "import os,json\nroot=\"/home/appontrack/public_html/saas\"\npaths=[\"api/live_session.php\",\"console/device/v1/index.php\",\"mobile/server/session.php\",\"mobile/session.php\",\"console/_core/AgentAnswerPolicy.php\"]\nout={p:os.path.isfile(os.path.join(root,p)) for p in paths}\nenv={name:bool(os.environ.get(name)) for name in [\"GEMINI_API_KEY\",\"GOOGLE_API_KEY\",\"ONTRACK_GEMINI_API_KEY\"]}\nprint(json.dumps({\"files_present\":out,\"env_key_flags\":env,\"secrets_read\":False,\"voice_mode\":\"audit_only\"}))\n"
   ]
 }
