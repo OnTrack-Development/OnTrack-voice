@@ -1,3 +1,10 @@
+## 2026-11-01 — Product cycle: Android dual-SIM native enrollment (PR #19; NOT RELEASED)
+
+- **CODED on PR #19**: native Android code-entry enrollment per SIM, AndroidKeyStore AES-256-GCM per-slot tokens, tenant-scoped heartbeat, server-authorized per-slot disconnect and re-enrollment, strict QR deep-link confirmation, pilot bearer/campaign blocking while tenant pairing exists. PHP endpoint and cross-tenant regression expanded. PR: https://github.com/OnTrack-Development/OnTrack-voice/pull/19.
+- **CI_PASS: PENDING** at authoring; check PR head workflows. **HOST_DEPLOYED: NO** for this change. **AUTH_UI_VERIFIED: NO**. **DEVICE_E2E_VERIFIED: NO**. Existing #18 backend deployment evidence remains valid but does not prove this Android code.
+- **Not finished:** dashboard-generated QR and in-app QR camera scanner, independent Android device pairing E2E, tenant-bound telephony/agent runtime, actual two-SIM physical subscription mapping, real voice/audio. Pilot is deliberately disabled on tenant-paired installs to prevent cross-tenant leakage. Native release requires pinned signing, approval and real-device validation. PR #9 SSO remains untouched.
+- **Next:** review CI Android build/emulator + PHP security, correct any failure, then release only after risk gate; verify Xiaomi pairing and revocation, dual-SIM/account isolation on real hardware before enabling tenant call execution.
+
 ## 2026-11-01 — Product milestone: tenant device pairing control plane (PR #18)
 
 - **Owner course correction:** prioritize building missing features end to end, not an endless series of CI/release-fix microtasks.
