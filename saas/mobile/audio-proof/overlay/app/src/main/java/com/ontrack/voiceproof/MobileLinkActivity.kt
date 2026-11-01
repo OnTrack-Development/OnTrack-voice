@@ -477,6 +477,12 @@ class MobileLinkActivity:ComponentActivity(){
             }.setNegativeButton("إلغاء",null).show()
     }
     private fun showTenantProfile(slot:Int,profile:JSONObject) {
+        if(profile.optBoolean("verification_pending")) {
+            AlertDialog.Builder(this).setTitle("SIM ${slot+1} — تم حفظ الربط")
+                .setMessage("السيرفر أصدر اعتماد الشريحة وتم حفظه مشفرًا على الهاتف، لكن التحقق اللاحق لم يكتمل. لا تعيد استخدام رمز QR؛ اضغط التحقق من ربط الشريحة بعد استعادة الاتصال. المكالمات تظل متوقفة.")
+                .setPositiveButton("حسنًا",null).show()
+            return
+        }
         val account=profile.optString("account_name","غير معروف")
         val site=profile.optString("site_name","غير معروف")
         val agent=profile.optString("agent_name","غير معروف")
