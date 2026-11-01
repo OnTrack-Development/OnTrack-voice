@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -147,6 +147,29 @@ function init_console_v7():void {
             UNIQUE(agent_id,revision)
         )");
         db()->exec('CREATE INDEX IF NOT EXISTS ix_tenant_agent_flow ON agent_flow_versions(account_id,site_id,agent_id)');
+    }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+/** Email proof pending table; no user exists before verification. */
+function init_console_v8():void {
+    $marker=private_path().'/schema.v8';
+    if(is_file($marker))return;
+    if(driver()==='mysql'){
+        db()->exec("CREATE TABLE IF NOT EXISTS signup_requests (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(190) NOT NULL UNIQUE,name VARCHAR(120) NOT NULL,
+            company_name VARCHAR(120) NOT NULL,password_hash TEXT NOT NULL,
+            token_hash CHAR(64) NULL,status VARCHAR(20) NOT NULL,
+            expires_at VARCHAR(19) NOT NULL,created_at VARCHAR(19) NOT NULL,
+            UNIQUE KEY uq_signup_token(token_hash)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }else{
+        db()->exec("CREATE TABLE IF NOT EXISTS signup_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,email TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,company_name TEXT NOT NULL,password_hash TEXT NOT NULL,
+            token_hash TEXT UNIQUE,status TEXT NOT NULL,expires_at TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )");
     }
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }

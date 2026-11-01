@@ -146,4 +146,6 @@ require_once __DIR__.'/test_published_agent_flow.php';
 test_published_agent_flow();
 require_once __DIR__.'/test_console_checkout.php';
 test_checkout();
+require_once __DIR__.'/test_verified_signup.php';
+test_signup();
 echo "VOICE_SAAS_SMOKE_PASS\n";

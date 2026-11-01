@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/_core/Bootstrap.php';
 require __DIR__.'/_core/AdminMfa.php';
+require __DIR__.'/_core/Signup.php';
 require __DIR__.'/_core/Actions.php';
 require __DIR__.'/_core/Views.php';
 
@@ -16,6 +17,8 @@ try {init_schema();} catch(Throwable $e){
     exit;
 }
 $path=route();
+if($path==='/register')signup_route();
+if($path==='/verify-email')signup_verify_route();
 if($path==='/login') {
     if($_SERVER['REQUEST_METHOD']==='POST'){
         require_csrf();
