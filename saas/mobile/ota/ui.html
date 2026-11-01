@@ -129,6 +129,11 @@ body.light .callQuickActions button.outline{background:#fafafa}
 <p id="message" role="alert"></p>
 </section>
 <section class="card" data-panel="dashboard"><div class="section-title"><h2>إجراءات سريعة</h2><span class="chip">حساب المستخدم</span></div><div class="row"><button type="button" data-go="calls" class="outline">سجل المكالمات</button><button type="button" data-go="campaigns" class="primary">الحملات</button></div></section>
+<section class="card" data-panel="dashboard" id="consoleScenarioShortcuts">
+<div class="section-title"><h2>الموقع والسيناريو</h2><span class="chip">إدارة الإيجنت</span></div>
+<p>لوحة OnTrack داخل التطبيق، ونسخة Agent Flow المنشورة حسب الشريحة. تحتاج Android 0.3.2 لتفعيل الأزرار.</p>
+<div class="row"><button id="openConsole" type="button" class="primary">فتح الموقع داخل التطبيق</button><button id="openScenario" type="button" class="outline">السيناريو / Agent Flow</button></div>
+</section>
 <section class="card" id="versionUpdates" data-panel="settings">
 <div class="section-title"><h2>تحديثات OnTrack</h2><span class="chip good">تحديثات آمنة</span></div>
 <p>الواجهة والإعدادات تتحدث مباشرة. عند تحديث محرك Android، التطبيق ينزّل النسخة ويطلب موافقة Android على التثبيت مرة واحدة.</p>
@@ -151,6 +156,7 @@ body.light .callQuickActions button.outline{background:#fafafa}
 <label for="base">سيرفر OnTrack</label><input id="base" value="https://app.ontrackegy.com/" autocomplete="off">
 <label for="key">مفتاح الربط المحفوظ</label><input id="key" type="password" autocomplete="off">
 <div class="row" style="margin-top:10px"><button id="pair">حفظ وإعادة ربط</button><button id="showKey" class="outline">إظهار المفتاح</button></div>
+<button type="button" id="copyKey" class="outline" style="margin-top:9px">نسخ مفتاح الربط المحفوظ</button>
 <div class="divider"></div><button id="updates">فحص التحديثات</button>
 </div></section>
 
@@ -274,6 +280,10 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('overlay').disabled=s.overlayGranted;
  el('overlay').textContent=s.overlayGranted?'التحكم العائم مفعّل':'السماح بالظهور فوق التطبيقات';
  
+ const hasNativeConsole=Number(s.nativeCode)>=23;
+ el('openConsole').disabled=!hasNativeConsole;
+ el('openScenario').disabled=!hasNativeConsole;
+ el('copyKey').disabled=!hasNativeConsole;
  el('nativeUpdateStatus').textContent=s.nativeUpdateStatus||'جاري فحص تحديث Android…';
  el('upgradeAndroid').disabled=!s.nativeUpdateAvailable||s.nativeUpdateBusy||call||!!s.nativeInstallPending;
  el('upgradeAndroid').textContent=s.nativeInstallPending?'بانتظار موافقة تثبيت Android':
@@ -310,6 +320,9 @@ el('setup').onclick=()=>send('diagnostics');
 el('more').onclick=()=>el('advanced').style.display=el('advanced').style.display==='block'?'none':'block';
 el('pair').onclick=()=>{const key=el('key').value.trim();if(!/^[A-Za-z0-9_-]{24,128}$/.test(key)){el('message').textContent='مفتاح الربط غير صالح';return;}send('start',{base:el('base').value,key});};
 el('showKey').onclick=()=>el('key').type=el('key').type==='password'?'text':'password';
+el('copyKey').onclick=()=>send('copyKey');
+el('openConsole').onclick=()=>send('openConsole');
+el('openScenario').onclick=()=>send('openScenario');
 el('wifiFreeConsent').onchange=()=>{el('wifiFreeToggle').disabled=!!last.inCall||(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)};
 el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)return;send(last.wifiFreeEnabled?'wifiFreeDisable':'wifiFreeEnable')};
 el('scanAndroid').onclick=()=>send('checkNativeUpdates');
