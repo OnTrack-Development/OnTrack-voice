@@ -21,6 +21,21 @@
     input.type=input.type==='password'?'text':'password';
     button.textContent=input.type==='password'?'إظهار':'إخفاء';
   }));
+  document.querySelectorAll('[data-copy-secret]').forEach(button=>button.addEventListener('click',async()=>{
+    const area=button.closest('.secret');
+    const field=area?.querySelector('[data-copy-source]');
+    const status=area?.querySelector('[data-copy-result]');
+    if(!field)return;
+    let copied=false;
+    try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(field.value);copied=true}}catch(_){}
+    if(!copied){
+      field.focus();field.select();field.setSelectionRange(0,field.value.length);
+      try{copied=document.execCommand('copy')===true}catch(_){}
+    }
+    if(copied){button.textContent='تم النسخ';if(status)status.textContent='تم نسخ المفتاح بنجاح.'}
+    else if(status)status.textContent='تم تحديد المفتاح؛ اختر نسخ من قائمة النص.';
+  }));
+  document.querySelectorAll('[data-copy-source]').forEach(field=>field.addEventListener('click',()=>field.select()));
   // Responsive WEB navigation: an accessible drawer only below the tablet breakpoint.
   const navToggle=document.getElementById('navToggle');
   const navClose=document.getElementById('navClose');

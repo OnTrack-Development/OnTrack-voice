@@ -25,7 +25,13 @@
           await navigator.clipboard.writeText(uri);
           button.textContent = "تم النسخ";
         } catch (_) {
-          button.textContent = "انسخ رمز الربط يدويًا";
+          const field = document.createElement("input");
+          field.type = "text"; field.readOnly = true; field.value = uri; field.dir = "ltr";
+          field.setAttribute("aria-label", "رابط الربط للنسخ اليدوي");
+          panel.parentNode?.appendChild(field);
+          field.focus(); field.select();
+          try { if (document.execCommand("copy")) { button.textContent = "تم النسخ"; return; } } catch (_) {}
+          button.textContent = "الرابط محدد — انسخه من قائمة النص";
         }
       });
     } catch (_) {

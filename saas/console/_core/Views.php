@@ -111,7 +111,14 @@ function layout_open(array $a,string $tab):void{
     if($support)echo '<div class="support-context"><span>حساب '.e($a['name']).' · '.(support_mode((int)($a['support_origin']??0))==='read_only'?'قراءة فقط':'صلاحيات كاملة').'</span>'.form_start('support_leave').'<button class="btn small" type="submit">العودة لحسابي</button></form></div>';
     if($v=flash('success'))echo '<div class="alert success">'.e($v).'</div>';
     if($v=flash('error'))echo '<div class="alert danger">'.e($v).'</div>';
-    if($v=flash('secret'))echo '<div class="alert secret"><b>بيانات تظهر مرة واحدة:</b> <code>'.e($v).'</code></div>';
+    if($v=flash('secret')){
+        // Selectable input works without Clipboard API; no network or external scripts.
+        $visible=preg_match('/(?:otv_|otint_)[A-Za-z0-9_-]{20,140}/',(string)$v,$match)?$match[0]:(string)$v;
+        echo '<div class="alert secret"><b>مفتاح الاتصال:</b><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">';
+        echo '<input type="text" readonly dir="ltr" spellcheck="false" autocomplete="off" data-copy-source value="'.e($visible).'" style="flex:1;min-width:220px;font-family:monospace">';
+        echo '<button type="button" class="btn small primary" data-copy-secret>نسخ المفتاح</button></div>';
+        echo '<small class="dim" data-copy-result role="status">اضغط على الحقل لتحديد المفتاح يدويًا إذا لزم.</small></div>';
+    }
     if($pairCode=flash('device_pair_qr')){
         // The code is rendered only on the post-create session response.
         // QR is generated in-browser from bundled MIT JS; never a third-party QR API.
