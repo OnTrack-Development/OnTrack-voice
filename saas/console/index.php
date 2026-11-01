@@ -3,9 +3,11 @@ declare(strict_types=1);
 require __DIR__.'/_core/Bootstrap.php';
 require __DIR__.'/_core/Actions.php';
 require __DIR__.'/_core/Views.php';
+require __DIR__.'/_core/ExternalSso.php';
 
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
+header('Referrer-Policy: no-referrer');
 header('Permissions-Policy: camera=(),microphone=(),geolocation=()');
 startsession();
 try {init_schema();} catch(Throwable $e){
@@ -15,6 +17,73 @@ try {init_schema();} catch(Throwable $e){
     exit;
 }
 $path=route();
+$path=route();
+// Source applications should POST the signed assertion as a hidden form field,
+// avoiding bearer credentials in URLs and web-server query logs. GET is accepted
+// only as a compatibility fallback and is immediately redirected to a clean URL.
+if($path==='/sso'){
+    header('Cache-Control: no-store');
+    if(!in_array($_SERVER['REQUEST_METHOD']??'GET',['GET','POST'],true))deny(405);
+    try {
+        $ticket=(string)($_POST['ticket']??$_GET['ticket']??'');
+        $verified=verify_external_sso_ticket($ticket);
+        external_sso_preview($verified);
+        $_SESSION['sso_pending']=$ticket;
+        session_regenerate_id(true);
+        go('/sso/confirm');
+    }catch(Throwable $e){
+        http_response_code(400);
+        echo '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>OnTrack SSO</title><body style="font-family:system-ui;padding:40px"><h2>تعذر التحقق من تسجيل الدخول الخارجي</h2><p>الرابط منتهي أو غير صالح. ارجع للموقع المصدر وأعد محاولة الدخول.</p><a href="/saas/console/login">الدخول المحلي</a></body></html>';
+        exit;
+    }
+}
+if($path==='/sso/confirm'){
+    header('Cache-Control: private,no-store');
+    $ticket=(string)($_SESSION['sso_pending']??'');
+    try{
+        $verified=verify_external_sso_ticket($ticket);
+        $preview=external_sso_preview($verified);
+    }catch(Throwable $e){
+        unset($_SESSION['sso_pending']);
+        http_response_code(400);
+        echo '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><body style="font-family:system-ui;padding:40px"><h2>انتهت صلاحية جلسة الدخول الخارجي</h2><p>ابدأ تسجيل الدخول مرة أخرى من موقعك الأصلي.</p><a href="/saas/console/login">الدخول المحلي</a></body></html>';
+        exit;
+    }
+    $local=me();
+    $linkedUid=$preview['linked_user_id'];
+    if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
+        require_csrf();
+        try{
+            if($linkedUid!==null && $local && (int)$local['id']!==$linkedUid)
+                throw new InvalidArgumentException('sso_account_mismatch');
+            $result=finish_external_sso($ticket,$local?(int)$local['id']:null);
+            unset($_SESSION['sso_pending'],$_SESSION['support']);
+            session_regenerate_id(true);
+            $_SESSION['uid']=$result['user_id'];
+            $_SESSION['account_id']=$result['account_id'];
+            audit($result['new_link']?'sso.identity.linked':'sso.login',
+                $result['account_id'],['integration_id'=>$result['integration_id']]);
+            go('/');
+        }catch(Throwable $e){
+            // No ticket or signature detail is ever reflected to the browser.
+            http_response_code(403);
+            echo '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><body style="font-family:system-ui;padding:40px"><h2>تعذر إكمال ربط الهوية</h2><p>تأكد من الحساب وصلاحياته ثم ابدأ من موقع المصدر مجددًا.</p><a href="/saas/console/login">الدخول المحلي</a></body></html>';
+            exit;
+        }
+    }
+    if($linkedUid===null && !$local)go('/login');
+    $mismatch=$linkedUid!==null && $local && (int)$local['id']!==$linkedUid;
+    $label=$linkedUid!==null?'الدخول بالحساب المرتبط':'ربط هويتي الخارجية بحساب OnTrack الحالي';
+    $info=$linkedUid!==null?'الهوية الخارجية مرتبطة بحساب OnTrack موجود.':'الربط يتطلب موافقتك وتسجيل دخولك المحلي، ولا ينشئ عضوية أو اشتراكًا.';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تأكيد الهوية | OnTrack Voice</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"></head><body><main class="content"><section class="card"><h2>تأكيد الدخول الخارجي</h2><p>'.e($info).'</p><p>المصدر: '.e($preview['issuer']).'</p>';
+    if($mismatch){
+        echo '<p>أنت مسجل بحساب مختلف عن الحساب المرتبط. سجّل الخروج وابدأ الربط من موقع المصدر مرة أخرى.</p>';
+    }else{
+        echo '<form method="post" action="/saas/console/sso/confirm"><input type="hidden" name="csrf" value="'.e(csrf()).'"><button class="btn primary" type="submit">'.e($label).'</button></form>';
+    }
+    echo '<p><a href="/saas/console/login">العودة إلى تسجيل الدخول</a></p></section></main></body></html>';
+    exit;
+}
 if($path==='/login') {
     if($_SERVER['REQUEST_METHOD']==='POST'){
         require_csrf();
@@ -33,13 +102,13 @@ if($path==='/login') {
             $_SESSION['bad_logins']=0;
             unset($_SESSION['support']);
             audit('login.success',$_SESSION['account_id']);
-            go($m?'/':'/invitations');
+            go(!empty($_SESSION['sso_pending'])?'/sso/confirm':($m?'/':'/invitations'));
         }
         $_SESSION['bad_logins']=$bad+1;
         usleep(250000);
         login_page('البريد أو كلمة المرور غير صحيحة');exit;
     }
-    if(me())go(memberships((int)me()['id'])?'/':'/invitations');
+    if(me())go(!empty($_SESSION['sso_pending'])?'/sso/confirm':(memberships((int)me()['id'])?'/':'/invitations'));
     login_page();exit;
 }
 if($path==='/brand-logo'){
