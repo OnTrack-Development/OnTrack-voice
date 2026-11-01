@@ -1,3 +1,13 @@
+## 2026-11-01 — Native floating control v0.3.1 + UI OTA18 RELEASE VERIFIED ON HOST
+
+- User request: remove oversized navy/burgundy floating card; use small round **green for connected+enabled** / **red otherwise** overlay, tap expands 2x2 genuine icon buttons and small explanatory text; ON, OFF, ringing, connected AI and human-handoff states must all be correct. Button label explicitly **استلام من الإيجنت**; speaker control active only after answer, no speculative mute control.
+- CODE shipped in single atomic main commit **`b6c26a4f83423b54efc3858feb2657b221179707`**: `CallOverlay.kt` replaced, `OverlayUiModel.kt` with unit tests, service notification state transitions and takeover wording aligned, in-app HTML mini-tile actions aligned, updated docs.
+- CI GitHub Actions **41259385082**: `build`, `publish_ota`, `publish_native` all **success**, including overlay state JUnit tests, emulator WebView, original cert signing tests.
+- UI-only **OTA revision18**: independent no-APK workflow **41259385027** SUCCESS, on-host receipt `mobile-ota-41259385027` success at 2026-11-01 01:03:03Z. HTML sha256 `2def03557e8aba14c14cdc1ff6be1e7a4eb7fbef49fb3a9c871c1ad07c137a2a`; signed manifest covers native versionCode20 through22. This can update UI call-action tiles in existing Android 0.2.9 without APK.
+- Native signed Android **0.3.1, versionCode22**: host receipt `mobile-native-41259385082` success at 2026-11-01 01:13:08Z, APK sha256 `ff60a4d49dd86294a8fb1c1c7254ae2ccc587f19ad21af504e1271d4e02b548b`, size 52,534,849 bytes; OS approval required on phone to replace **native** Android overlay. **UI-only OTA cannot change `WindowManager.TYPE_APPLICATION_OVERLAY`**.
+- Independent read-only host check `verify-native22-ui18-20261101011413` **success exit0** at **2026-11-01 01:15:03Z**: verified on-host version22 APK file size and exact sha256, signed UI revision18 file sha256, public-read file permissions; read no secrets. This is host integrity verification, **NOT an actual GET from public internet nor Xiaomi on-device visual E2E**.
+- DEVICE SIGNOFF OPEN: installation on Xiaomi, circle toggling on both statuses, tap/drag, ringing/answered/real SIM handoff and speaker behavior in real call, Android notification icon states, light/dark on phone. Do not declare production UI signoff before those tests.
+
 ## 2026-11-01 — floating native call-control redesign (CODE candidate; E2E OPEN)
 
 - User rejected the oversized blue/navy outlined native `CallOverlay`: requested compact round red/green closed button, expanded small square icon actions with small captions; both agent ON/OFF; correct state-aware buttons from ringing through answered AI and human takeover; explicit "استلام من الإيجنت" labeling, matching OnTrack red/black/white in light/dark.
