@@ -1,11 +1,23 @@
-## 2026-11-01 — Owner escalated: build missing product, not only repair release infrastructure (Device Pairing milestone)
+## 2026-11-01 — Cycle #8 CLOSED: pilot DNC PHP deployed and independently verified (no APK)
 
-- **User priority correction:** core product milestones first. Do not select an endless series of publishing/CI bug fixes as substitutes for SaaS/Android features.
-- **CODE CANDIDATE (before CI):** branch `feat/tenant-device-pairing-core-20261101` adds SaaS `device_pairings` and `device_bindings` via SQLite/MySQL additive migration v5. Per-account/site/agent 96-bit one-time 10-minute code (SHA-256 at rest) and independently scoped per-SIM 256-bit bearer token (SHA-256 at rest). Cross-tenant SIM-slot double-binding blocked via UNIQUE nullable slot_claim, revoked tokens immediately denied, archives and ownership checked on heartbeat.
-- **UI CANDIDATE:** Android device management section in Admin/Reseller/User console can issue code, cancel pending code, see and revoke bindings; platform legacy pilot remains separate. Customer device is **NOT** authorized with old shared pilot bearer.
-- **API CANDIDATE:** `saas/console/device/v1/index.php` (POST pair / heartbeat) returns site/agent-scoped profile only, HTTPS enforced, no calls or untested voice bridge. `tools/test_tenant_device_pairing.php` added to PHP 8.3 CI smoke: tenant/site scope, dual-SIM, one-time/replay, code expiry, revoke, archive.
-- **UNFINISHED:** Android installed native client does not yet submit new pairing code, store per-SIM token, or route SIM audio/AI by token; QR scanning UI not implemented; no actual Xiaomi paired-phone E2E. This is NOT end-to-end pairing completion or full Android support; status control-plane only. No live calls/delivery of secrets to unverified phones.
-- **Next:** finish code review & CI; if all green, merge and confirm SaaS host receipt. Then implement Android client activation and real dual-SIM on-device tests as next **product feature**, not more unrelated release microfixes. PR #9 SSO remains open and untouched.
+- **MERGED:** PR #15 `72a600d47a3c` (publisher), PR #16 `ed2d75e4d720` (explicitly exclude tracked `auth.sha256`), PR #17 `cf2988c7052bddc90df017f7ac9773814f11400b` (fix verified flat host path and per-file rollback). Open PR #9 SSO untouched.
+- **CI_PASS:** PR #17 final head workflow `41316597775` SUCCESS; post-merge `41316660497` SUCCESS. PHP 8.3 syntax, DNC/predial tests, packaging, checksum, malicious archive, partial rollback, OTA/auth preservation tests passed.
+- **HOST_DEPLOYED VERIFIED:** host Cron `pilot-server-41316660497` receipt SUCCESS exit0 **2026-11-01 14:33:05 UTC**; pinned commit `cf2988c7052bddc90df017f7ac9773814f11400b`, SHA256 `fd5e1bca8febfd38e66b36c32ab98d752cf2ee7feabe3df71f84509ba6b5a8ed`, 20 PHP files installed at `/saas/mobile/`, private backup retained, auth verifier preserved, unrelated OTA files untouched.
+- **HOST_READ_ONLY_VERIFIED:** independent Cron job `pilot-verify-20261101143317` SUCCESS exit0 **2026-11-01 14:34:04 UTC**: all 20 installed PHP files lint clean, DNC/predial/campaign guard present, `auth.sha256` and `updates/` preserved.
+- **Failed attempts were diagnosed, not concealed:** main workflow `41316076748` failed packaging due tracked auth verifier; main workflow `41316251942` queued but host receipt `pilot-server-41316251942` FAILED (incorrect `/saas/mobile/server` target). Read-only host probe `pilot-path-probe-20261101142825` proved PHP deployed flat in `/saas/mobile/`. Both fixed in PR #16/#17 before successful host publish.
+- **DEVICE_E2E: OPEN**; no actual SIM call placed. **TENANT_BOUND_ANDROID: OPEN**; pilot DNC ledger remains single-device, not SaaS tenant-bound. **UI OTA revision collision: OPEN**; PR #14 gate fix does not repair old collision. **SSO PR #9: OPEN**.
+- **NEXT:** test no-dial/DNC and lease-to-dial race on real Android device; implement tenant-bound device+dual-SIM pairing and verified re-consent. Tracked auth verifier should be removed/rotated in a planned secure migration, not exposed in release artifact.
+- Details: `docs/execution/2026-11-01_PILOT_PHP_HOST_PUBLISH_CYCLE_08_AR.md`.
+
+## 2026-11-01 — Cycle #8 host evidence: PHP-only publisher built; flat host target correction PR #17
+
+- **PR #15 MERGED:** `72a600d47a3c5742d9afe04ba925dac81d365a93`, CI `41316042137` SUCCESS; initial main publish `41316076748` FAILED packaging because tracked `saas/mobile/server/auth.sha256` exists. No host job issued.
+- **PR #16 MERGED:** `ed2d75e4d720d81d8ecdd14f0f72c305279b776e`, CI `41316217344` SUCCESS; explicit PHP/.htaccess packer excludes auth. Main workflow `41316251942` SUCCESS = **QUEUED ONLY**. Host receipt `pilot-server-41316251942` **FAILED** exit1 `unsafe_target_directory`.
+- **ROOT CAUSE CONFIRMED BY HOST READ-ONLY PROBE:** `pilot-path-probe-20261101142825` SUCCESS; PHP files and `auth.sha256` are in flat `/home/appontrack/public_html/saas/mobile/`, not nonexistent `/saas/mobile/server/`; `updates/` must be preserved.
+- **PR #17 CODE CANDIDATE:** change host target to verified flat directory, stage and lint allowlisted PHP files, atomic per-file replace with private backup and rollback on mid-publish error; no APK, OTA, phone calls or payment.
+- **HOST_DEPLOYED OPEN** until a matching successful Cron receipt for PR #17. **DEVICE_E2E OPEN**; PR #9 SSO still OPEN and untouched.
+- **NEXT:** PR #17 CI, merge if green, verify host receipt; then device DNC E2E and tenant-bound SIM isolation.
+- Details: `docs/execution/2026-11-01_PILOT_PHP_HOST_PUBLISH_CYCLE_08_AR.md`.
 
 ## 2026-11-01 — Cycle #8 candidate: pinned PHP-only pilot host publish (PR #15)
 
