@@ -391,6 +391,9 @@ class MobileLinkActivity:ComponentActivity(){
                 (0..1).map { slot ->
                     if(!tenantEnrollment.paired(slot))
                         TenantPairingContract.statusLine(slot,false)
+                    else if(TenantSimHardware.problem(this@MobileLinkActivity,slot)!=null)
+                        TenantPairingContract.statusLine(slot,true,
+                            error=TenantSimHardware.problem(this@MobileLinkActivity,slot)!!)
                     else try {
                         val p=tenantEnrollment.heartbeat(slot)
                         TenantPairingContract.statusLine(slot,true,
