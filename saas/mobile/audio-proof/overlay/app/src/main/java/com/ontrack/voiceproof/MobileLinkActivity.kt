@@ -482,7 +482,7 @@ class MobileLinkActivity:ComponentActivity(){
                 AlertDialog.Builder(this@MobileLinkActivity)
                     .setTitle("SIM ${slot+1} — سجل المكالمات")
                     .setMessage(if(lines.isEmpty())"لا توجد أحداث مكالمات مؤكدة من الهاتف بعد"
-                        else lines.joinToString("\\n")+"\\n\\nحالات هاتف فقط؛ بدون أرقام أو تسجيل صوتي.")
+                        else lines.joinToString("\n")+"\n\nحالات هاتف فقط؛ بدون أرقام أو تسجيل صوتي.")
                     .setPositiveButton("إغلاق",null).show()
             } catch(e:CancellationException) { throw e }
               catch(e:Exception) {
