@@ -10,7 +10,7 @@ function pilot_read(string $kind): array {
     if(filesize($path)>3000000)throw new RuntimeException('pilot_store_too_large');
     $raw=@file_get_contents($path);
     $value=is_string($raw)?json_decode($raw,true):null;
-    if(!is_array($value)||!array_is_list($value))
+    if(!is_array($value)||!array_is_list($value) || !str_starts_with(ltrim((string)$raw),'['))
         throw new RuntimeException('pilot_store_invalid');
     return $value;
 }
@@ -55,7 +55,7 @@ function pilot_suppression_keys(): array {
         if(!is_string($raw)||strlen($raw)>3000000)
             throw new RuntimeException('dnc_store_unavailable');
         $rows=json_decode($raw,true);
-        if(!is_array($rows)||!array_is_list($rows))
+        if(!is_array($rows)||!array_is_list($rows) || !str_starts_with(ltrim($raw),'['))
             throw new RuntimeException('dnc_store_invalid');
         foreach($rows as $phone){
             if(!is_string($phone)||($normalized=pilot_number($phone))===null)
