@@ -730,7 +730,7 @@ class MobileLinkActivity:ComponentActivity(){
                 if(raw.length>2048 && msg.optString("command")!="createCampaign")return@launch
                 val command=msg.getString("command")
                 if(tenantEnrollment.hasAny() && command in setOf(
-                    "start","stop","disable","enable","takeover","speaker",
+                    "start","stop",
                     "loadCallHistory","listContacts","contactDnc","campaignAutoEnable",
                     "campaignAutoDisable","listCampaigns","campaignAction","createCampaign",
                     "contactsPick","contactsAll","contactsFilePick","contactsFileUpload",
@@ -739,6 +739,7 @@ class MobileLinkActivity:ComponentActivity(){
                 when(command){
                     "openConsole" -> openConsole()
                     "openScenario" -> showScenarioMenu()
+                    "openAnswerSettings" -> openConsole("answering")
                     "tenantMenu" -> showTenantMenu()
                     "tenantQrScan" -> scanTenantQr()
                     "tenantRefresh" -> requestTenantStatusRefresh()
