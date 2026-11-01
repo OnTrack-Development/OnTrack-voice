@@ -23,6 +23,10 @@ function flow_release_validate(array $graph):void {
             $ends++;$visited[$id]=true;return;
         }
         if(!$out)throw new InvalidArgumentException('flow_publish_dead_end');
+        // Only question/condition/field nodes may branch. A 'say' or 'start'
+        // node with multiple routes would silently pick the first at runtime.
+        if(in_array($node['type'],['start','say'],true)&&count($out)!==1)
+            throw new InvalidArgumentException('flow_publish_ambiguous_route');
         $visiting[$id]=true;
         foreach($out as $edge)$walk($edge['to']);
         unset($visiting[$id]);$visited[$id]=true;
