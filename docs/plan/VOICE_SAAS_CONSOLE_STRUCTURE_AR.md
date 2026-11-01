@@ -170,3 +170,16 @@ Then deploy via existing GitHub host-link to /saas/console, verify installed fil
 - Quotas, payments and Premium readiness never fabricate billing or running audio.
 - Synthetic demo isolated from real lines, tokens, customers, call history.
 - PHP deployment under /saas without breaking existing Android/OTA; every production gate has CI+host+device evidence as appropriate.
+
+
+## 12) إضافات 1 نوفمبر: الدخول للحسابات والدومينات والمواقع وتكامل الدفع
+
+**الملحق التنفيذي الملزم للموافقة:** [دخول الدعم، الريسيلر دومين، APK، multi-site agents، API Keys، Laravel/WHMCS/Kashier والـProvisioning](VOICE_SAAS_RESELLER_DOMAINS_AGENTS_ACCESS_AR.md).
+
+- Admin له Support Session مؤقت ومدقق لأي عميل بتفويض؛ Reseller يقدر يدخل **عملاءه فقط** مع شريط دعم وموافقة/سبب/انتهاء صلاحية، لا يحصل على كلمة مرور العميل أو مفاتيحه.
+- Custom Domain لكل ريسيلر: DNS ownership + TLS + verified Host routing إلى **نفس** ملفات /saas/console، وبراند الريسيلر للعميل، ولا يرفع أي نسخة من النظام عنده.
+- روابط تنزيل Android APK الموقّع من Admin وReseller وUser؛ UI OTA منفصل عن تحديث كود Android الأصلي.
+- Admin يقدر يملك Internal User Workspace لإيجنتاته؛ العميل يمكنه مواقع متعددة وكل موقع Agent/Flow/KB وAPI Key مستقل وفق الخطة، مع حد خطوط SIM وتزامن واقعي.
+- إنشاء/تسمية/تدوير/إلغاء API Keys مع scopes وsite binding وتسجيل استعمال. Builder Flow كامل، معرفات مواقع وشخصيات ومعرفة منفصلة.
+- **WHMCS وLaravel وKashier:** التسجيل/الحجز/الطلب يخلق Order Pending؛ عند الدفع الإلكتروني الموثق server-to-server أو InvoicePaid موثَّق تتحول الحالة إلى Provisioning ثم Active تلقائيًا، أما الدفع اليدوي فلا يُفعّل إلا بعد Approval مسجل من موظف مخوّل. صفحة Success لا تصنع خطة بمفردها. رسائل العميل ترسلها WHMCS أو Laravel Notifications بعد provisioning عبر Signed Outbox، مع منع التكرار وربط Product→Plan وrenewals/refunds.
+- كل ده **هيكل للموافقة** وليس دليل تنفيذ أو نشر. لا تعدل التطبيق الحالي أو الاستضافة قبل الاعتماد.
