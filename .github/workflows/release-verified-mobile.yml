@@ -78,7 +78,7 @@ jobs:
           assert apk["version_code"]==25 and apk["version_name"]=="0.3.4-ota"
           print("SIGNED_OTA_21_AND_NATIVE_25_VERIFIED")
           PY
-      - name: Queue signed UI OTA 21 (host receipt required for native)
+      - name: Queue verified signed UI OTA 21 (host receipt required before native 25)
         env:
           GH_TOKEN: ${{ github.token }}
           MOBILE_RELEASE_SOURCE_RUN_ID: '41358830774'
@@ -101,7 +101,7 @@ jobs:
           run-id: 41358830774
           github-token: ${{ github.token }}
           path: .build/downloaded
-      - name: Require actual signed UI 21 host success and queue native 24
+      - name: Require actual signed UI 21 host success and queue native 25
         env:
           GH_TOKEN: ${{ github.token }}
           MOBILE_RELEASE_SOURCE_RUN_ID: '41358830774'
