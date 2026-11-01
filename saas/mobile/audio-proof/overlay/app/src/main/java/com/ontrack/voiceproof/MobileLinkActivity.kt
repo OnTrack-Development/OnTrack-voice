@@ -447,7 +447,7 @@ class MobileLinkActivity:ComponentActivity(){
                 lifecycleScope.launch {
                     try {
                         check(!MobileLinkService.inCall) { "انتظر انتهاء المكالمة أولًا" }
-                        TenantPairingContract.code(code)
+                        TenantPairingContract.codeForSlot(code,slot)
                         // Block pilot dial immediately, including the in-flight lease-to-dial window.
                         MobileLinkService.tenantPairingInProgress=true
                         try {
