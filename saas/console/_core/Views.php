@@ -264,7 +264,8 @@ function render_invitations():void {
         $rows[]=[e($inv['account_name']),e($inv['role']),e($inv['expires_at']),$button];
     }
     echo tbl(['الحساب','الدور','تنتهي','قرارك'],$rows).'</section>';
-    echo '<p><a class="btn small" href="/saas/console/">العودة للوحة التحكم</a></p>';
+    if(mine())echo '<p><a class="btn small" href="/saas/console/">العودة للوحة التحكم</a></p>';
+    else echo '<form method="post" action="/saas/console/logout"><input type="hidden" name="csrf" value="'.e(csrf()).'"><button type="submit" class="btn small">تسجيل الخروج</button></form>';
 }
 function render_sites(array $a):void{
     $id=(int)$a['account_id'];$sites=all("SELECT * FROM sites WHERE account_id=? AND status!='archived' ORDER BY id DESC",[$id]);
