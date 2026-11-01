@@ -125,11 +125,13 @@ function device_binding_disconnect(array $binding):bool {
  */
 function device_call_event(array $binding,array $payload):array {
     $slot=$payload['sim_slot']??null;
+    $deviceId=$payload['device_id']??null;
     $callId=$payload['call_id']??null;
     $phase=$payload['phase']??null;
     $duration=$payload['duration_seconds']??null;
     $occurred=$payload['occurred_at']??null;
     if(!is_int($slot)||$slot!==(int)$binding['sim_slot'] ||
+       !is_int($deviceId)||$deviceId!==(int)$binding['id'] ||
        !is_string($callId)||!preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D',$callId) ||
        !is_string($phase)||!in_array($phase,['ringing','active','ended'],true) ||
        !is_int($duration)||$duration<0||$duration>86400 ||
