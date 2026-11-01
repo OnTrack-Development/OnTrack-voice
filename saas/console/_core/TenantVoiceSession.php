@@ -68,7 +68,8 @@ function tenant_voice_session(array $binding):array {
     $key=trim((string)getenv('ONTRACK_GEMINI_API_KEY'));
     if($key===''||$model===''){
         // Platform configuration only; never use the legacy phone pilot key.
-        $profile=one("SELECT name,secret_enc FROM integrations WHERE account_id=1 AND provider='google_live' AND status='active' ORDER BY id DESC LIMIT 1");
+        $platform=one("SELECT id FROM accounts WHERE kind='platform' AND status='active' ORDER BY id LIMIT 1");
+        $profile=$platform?one("SELECT name,secret_enc FROM integrations WHERE account_id=? AND provider='google_live' AND status='active' ORDER BY id DESC LIMIT 1",[(int)$platform['id']]):null;
         if($profile){
             $model=trim((string)$profile['name']);
             $key=(string)(unseal_secret($profile['secret_enc']??null)??'');
