@@ -1,3 +1,13 @@
+## 2026-11-01 — Cycle #8 host evidence: PHP-only publisher built; flat host target correction PR #17
+
+- **PR #15 MERGED:** `72a600d47a3c5742d9afe04ba925dac81d365a93`, CI `41316042137` SUCCESS; initial main publish `41316076748` FAILED packaging because tracked `saas/mobile/server/auth.sha256` exists. No host job issued.
+- **PR #16 MERGED:** `ed2d75e4d720d81d8ecdd14f0f72c305279b776e`, CI `41316217344` SUCCESS; explicit PHP/.htaccess packer excludes auth. Main workflow `41316251942` SUCCESS = **QUEUED ONLY**. Host receipt `pilot-server-41316251942` **FAILED** exit1 `unsafe_target_directory`.
+- **ROOT CAUSE CONFIRMED BY HOST READ-ONLY PROBE:** `pilot-path-probe-20261101142825` SUCCESS; PHP files and `auth.sha256` are in flat `/home/appontrack/public_html/saas/mobile/`, not nonexistent `/saas/mobile/server/`; `updates/` must be preserved.
+- **PR #17 CODE CANDIDATE:** change host target to verified flat directory, stage and lint allowlisted PHP files, atomic per-file replace with private backup and rollback on mid-publish error; no APK, OTA, phone calls or payment.
+- **HOST_DEPLOYED OPEN** until a matching successful Cron receipt for PR #17. **DEVICE_E2E OPEN**; PR #9 SSO still OPEN and untouched.
+- **NEXT:** PR #17 CI, merge if green, verify host receipt; then device DNC E2E and tenant-bound SIM isolation.
+- Details: `docs/execution/2026-11-01_PILOT_PHP_HOST_PUBLISH_CYCLE_08_AR.md`.
+
 ## 2026-11-01 — Cycle #8 candidate: pinned PHP-only pilot host publish (PR #15)
 
 - **Gap:** PR #13 DNC pre-dial guard was CODED and CI_PASS but pilot PHP server was not published by SaaS console workflow. Native APK release is not proof of mobile PHP deployment.
