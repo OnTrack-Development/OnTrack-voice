@@ -16,7 +16,7 @@
 ## حالة التحقق (تُحدّث بعد نتيجة CI)
 - `CODED`: branch محفوظ في GitHub.
 - `CI_PASS`: **PASS**: GitHub Actions PR run `41297247472`، PHP 8.3 / SQLite + HTTP API + signed hooks + subprocess form handlers.
-- `HOST_DEPLOYED`: **PENDING** حتى نجاح publish workflow ثم Cron receipt مطابق لـcommit.
+- `HOST_DEPLOYED`: **VERIFIED**: main CI `41297275347` success؛ publish workflow `41297275398` success؛ host Cron receipt `ops/host-link/results/appontrack-server11/saas-console-41297275398.json` = success، exit 0، المصدر `49ecf6b9c212`، **22 ملفًا**، PHP 8.3، seed already_seeded، backup=true، انتهاء `2026-11-01 10:24:04 UTC`.
 - `AUTH_UI_VERIFIED`: **OPEN** (لا جلسة مستخدم مصادقة متاحة في هذه الدورة).
 - `DEVICE_E2E_VERIFIED`: **OPEN** (لا مكالمات حقيقية).
 
