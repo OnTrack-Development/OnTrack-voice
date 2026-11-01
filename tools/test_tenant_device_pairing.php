@@ -63,5 +63,16 @@ function test_tenant_device_pairing():void {
     execute("UPDATE sites SET status='archived' WHERE id=3 AND account_id=5");
     ok(device_binding_authorize($b['device_token'])===null,'archived tenant site disables SIM token');
     execute("UPDATE sites SET status='active' WHERE id=3 AND account_id=5");
+    $invalidSlot=false;
+    try{device_pairing_redeem(str_repeat('A',24),'realistic-device-install-001',2,'Wrong slot');}
+    catch(InvalidArgumentException $e){$invalidSlot=true;}
+    ok($invalidSlot,'SIM slot must be zero or one');
+    execute("UPDATE accounts SET status='suspended' WHERE id=4");
+    ok(device_binding_authorize($relinked['device_token'])===null,'suspended account immediately revokes usable access');
+    $blockedCreate=false;
+    try{device_pairing_create(4,1,1,$actor);}
+    catch(InvalidArgumentException $e){$blockedCreate=true;}
+    ok($blockedCreate,'suspended tenant cannot issue pairing');
+    execute("UPDATE accounts SET status='active' WHERE id=4");
     echo "TENANT_SIM_PAIRING_PASS\n";
 }
