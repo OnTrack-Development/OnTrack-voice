@@ -2,6 +2,8 @@
 declare(strict_types=1);
 require __DIR__.'/common.php';
 mobile_require_device();
+// Internal trust marker: this file is entered only after device bearer verification.
+$ontrackMobileAuthenticated=true;
 if ($_SERVER['REQUEST_METHOD']!=='POST') mobile_json(['ok'=>false,'error'=>'POST_only'],405);
 $mobile=mobile_settings();
 if (!$mobile['enabled']) mobile_json(['ok'=>false,'error'=>'mobile_connection_disabled'],409);
