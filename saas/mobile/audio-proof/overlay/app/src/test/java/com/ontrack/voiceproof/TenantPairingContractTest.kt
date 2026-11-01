@@ -30,6 +30,12 @@ class TenantPairingContractTest {
         for (bad in listOf("legacyPilotBearer", "otdev_"+"a".repeat(63), "otdev_"+"Z".repeat(64)))
             assertThrows(IllegalArgumentException::class.java) { TenantPairingContract.token(bad) }
     }
+    @Test fun physicalSimMustBeReadyBeforePairingOrHeartbeat() {
+        assertNull(TenantSimHardware.problemForState(android.telephony.TelephonyManager.SIM_STATE_READY))
+        assertTrue(TenantSimHardware.problemForState(android.telephony.TelephonyManager.SIM_STATE_ABSENT)!!.contains("لا توجد"))
+        assertNotNull(TenantSimHardware.problemForState(android.telephony.TelephonyManager.SIM_STATE_PIN_REQUIRED))
+        assertNotNull(TenantSimHardware.problemForState(android.telephony.TelephonyManager.SIM_STATE_UNKNOWN))
+    }
     @Test fun pilotTelephonyDeniedWhilePairingOrAnyTenantSlotActive() {
         assertTrue(TenantPairingContract.pilotAllowed(false,false))
         assertFalse(TenantPairingContract.pilotAllowed(true,false))
