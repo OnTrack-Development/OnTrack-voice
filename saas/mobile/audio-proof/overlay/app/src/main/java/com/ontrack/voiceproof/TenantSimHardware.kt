@@ -1,6 +1,10 @@
 package com.ontrack.voiceproof
 
 import android.content.Context
+import android.Manifest
+import android.content.pm.PackageManager
+import android.telephony.SubscriptionManager
+import androidx.core.content.ContextCompat
 import android.telephony.TelephonyManager
 
 /**
@@ -29,6 +33,39 @@ internal object TenantSimHardware {
         } catch (_: RuntimeException) {
             "تعذر قراءة حالة الشريحة؛ الربط متوقف"
         }
+    }
+
+    /**
+     * Android subscriptionId is a local, best-effort change detector, NOT a
+     * carrier identity, ICCID, proof of SIM ownership, or stable hardware ID.
+     * It may change after reboot/eSIM reconfiguration; fail closed and re-pair.
+     * No phone number, IMSI or ICCID is read, persisted or transmitted.
+     */
+    fun subscriptionId(context: Context, slot: Int): Int {
+        requireReady(context, slot)
+        check(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE)
+            == PackageManager.PERMISSION_GRANTED) {
+            "اسمح بالتحقق من الشريحة (حالة الهاتف) قبل الربط أو التحقق"
+        }
+        val manager = context.getSystemService(SubscriptionManager::class.java)
+            ?: error("تعذر قراءة الاشتراك النشط؛ الربط متوقف")
+        val subscription = try {
+            manager.getActiveSubscriptionInfoForSimSlotIndex(slot)
+        } catch (_: SecurityException) {
+            error("Android منع قراءة الاشتراك النشط؛ الربط متوقف")
+        } catch (_: RuntimeException) {
+            error("تعذر التحقق من الاشتراك النشط؛ الربط متوقف")
+        }
+        val id = subscription?.subscriptionId ?: SubscriptionManager.INVALID_SUBSCRIPTION_ID
+        check(id >= 0) { "الاشتراك النشط غير مؤكد؛ الربط متوقف" }
+        return id
+    }
+
+    fun subscriptionProblem(saved: Int?, current: Int): String? = when {
+        saved == null || saved < 0 -> "الربط القديم بلا بصمة اشتراك؛ افصل الشريحة وأعد ربطها"
+        current < 0 -> "الاشتراك النشط غير مؤكد؛ الربط متوقف"
+        saved != current -> "تغيّر اشتراك الشريحة؛ افصلها وأعد ربط الحساب بعد التحقق"
+        else -> null
     }
 
     fun requireReady(context: Context, slot: Int) {
