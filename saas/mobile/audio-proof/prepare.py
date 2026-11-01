@@ -273,6 +273,9 @@ def main(root):
     })
     ET.SubElement(app, 'activity', {android + 'name': '.ProofActivity', android + 'exported': 'false'})
     ET.SubElement(app, 'service', {android + 'name': '.MobileLinkService', android + 'exported': 'false', android + 'foregroundServiceType': 'dataSync'})
+    # Opt-in foreground observation of per-subscription call states; no dialing.
+    ET.SubElement(app, 'service', {android + 'name': '.TenantCallObserverService',
+        android + 'exported': 'false', android + 'foregroundServiceType': 'dataSync'})
     # Upstream components use relative names under the new namespace; explicit
     # intents inside shell source were rewritten above. No Accessibility added.
     manifest.write(path, encoding='utf-8', xml_declaration=True)
