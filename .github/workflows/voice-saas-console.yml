@@ -31,6 +31,8 @@ jobs:
           php -l tools/test_tenant_device_pairing.php
           php -l tools/test_admin_mfa.php
           php tools/test_admin_mfa.php
+          php -l tools/test_console_kashier_webhook.php
+          php tools/test_console_kashier_webhook.php
       - name: Validate JavaScript and local QR rendering
         run: |
           node --check saas/console/assets/js/app.js
