@@ -160,6 +160,26 @@ function test_tenant_device_pairing():void {
         'unknown','لم يتم الرد','web',$actor);
     ok($missedReport['outcome']==='unknown',
         'missed call may carry a human note without fabricated sentiment');
+    // Render the real tenant console: reports must be escaped and isolated.
+    tenant_call_report_save(4,(int)$a['device_id'],$callA,
+        'satisfied','<script>alert(1)</script>','web',$actor);
+    require_once __DIR__.'/../saas/console/_core/Views.php';
+    $oldSession=$_SESSION;
+    $_SESSION=['uid'=>$actor,'account_id'=>1,
+        'support'=>['account_id'=>4,'origin_id'=>1,'expires'=>time()+900]];
+    ob_start();render_calls(mine());$account4Html=(string)ob_get_clean();
+    ok(str_contains($account4Html,'save_tenant_call_report') &&
+        str_contains($account4Html,'&lt;script&gt;') &&
+        !str_contains($account4Html,'<script>alert(1)</script>'),
+        'real web call report editor is available and escapes staff-entered notes');
+    $_SESSION['support']['account_id']=5;
+    ob_start();render_calls(mine());$account5Html=(string)ob_get_clean();
+    ok(!str_contains($account5Html,'&lt;script&gt;') &&
+        !str_contains($account5Html,'مراجعة بشرية لاحقة'),
+        'web call reports do not leak across tenant accounts');
+    $_SESSION=$oldSession;
+    tenant_call_report_save(4,(int)$a['device_id'],$callA,
+        'follow_up','مراجعة بشرية لاحقة','web',$actor);
     $withoutStart=false;
     try{device_call_event($sessionB,['sim_slot'=>1,'device_id'=>(int)$b['device_id'],'call_id'=>$callB,
         'phase'=>'ended','duration_seconds'=>1,'occurred_at'=>$timestamp]);}
