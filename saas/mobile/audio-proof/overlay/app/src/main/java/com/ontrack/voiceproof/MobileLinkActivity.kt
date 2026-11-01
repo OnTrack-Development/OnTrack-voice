@@ -516,7 +516,7 @@ class MobileLinkActivity:ComponentActivity(){
                 }
                 val labels=finished.map { call ->
                     "#${call.optString("call_id").take(8)} • ${call.optString("observed_at")} • "+
-                        if(call.optString("state")=="unanswered")"لم يتم الرد" else "انتهت"
+                        (if(call.optString("state")=="unanswered")"لم يتم الرد" else "انتهت")
                 }
                 AlertDialog.Builder(this@MobileLinkActivity)
                     .setTitle("SIM ${slot+1} — اختر مكالمة للتقييم")
@@ -632,8 +632,10 @@ class MobileLinkActivity:ComponentActivity(){
         val account=profile.optString("account_name","غير معروف")
         val site=profile.optString("site_name","غير معروف")
         val agent=profile.optString("agent_name","غير معروف")
-        AlertDialog.Builder(this).setTitle("SIM ${slot+1} — تم التحقق من الربط")
-            .setMessage("الشركة: $account\nالموقع: $site\nالإيجنت: $agent\nتم تأكيد ربط الحساب فقط. تشغيل صوت الشريحة يتطلب اختبار الجهاز.")
+        val voice=profile.optString("voice","غير محدد")
+        val instructions=profile.optString("instruction").take(650).ifBlank { "لا توجد تعليمات محفوظة" }
+        AlertDialog.Builder(this).setTitle("SIM ${slot+1} — ملف الإيجنت المعتمد")
+            .setMessage("الشركة: $account\nالموقع: $site\nالإيجنت: $agent\nالصوت: $voice\n\nتعليمات الإيجنت:\n$instructions\n\nهذه إعدادات من السيرفر للشريحة المحددة، وليست إثباتًا لتشغيل صوت AI. يلزم اختبار الجهاز.")
             .setPositiveButton("حسنًا",null).show()
     }
     private fun runTenantOperation(slot:Int,disconnect:Boolean) {
