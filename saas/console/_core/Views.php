@@ -376,12 +376,12 @@ function render_calls(array $a):void{
         $state=(int)$row['ended']===1
             ?((int)$row['active']===1?'انتهت':'لم يتم الرد')
             :((int)$row['active']===1?'متصلة':'رنين');
-        $actual[]=['#'.(int)$row['device_id'],e('SIM '.((int)$row['sim_slot']+1)),
+        $actual[]=[e(substr((string)$row['call_id'],0,8)),'#'.(int)$row['device_id'],e('SIM '.((int)$row['sim_slot']+1)),
             e((string)($agent['name']??'إيجنت مؤرشف')),e($state),
             e(fmt_duration((int)$row['duration_seconds'])),e((string)$row['last_at']).' UTC'];
     }
     echo card('مكالمات الشرائح المرتبطة بالحساب — أحداث الهاتف',
-        tbl(['الجهاز','الشريحة','الإيجنت','آخر حالة','المدة المبلغ عنها','وقت الجهاز'],$actual));
+        tbl(['Call ID','الجهاز','الشريحة','الإيجنت','آخر حالة','المدة المبلغ عنها','وقت الجهاز'],$actual));
     echo '<p class="info">الأحداث من حالة اتصال Android فقط، بدون رقم أو صوت أو ملخص. وقت الجهاز والمدة غير موثقين من المشغل؛ ليست إثباتًا لتشغيل AI أو لتسجيل المكالمة. لا تظهر بيانات شركة أخرى.</p>';
     echo '<div class="info">البيانات الموسومة DEMO غير حقيقية ولا توجد تسجيلات صوتية مزيفة. الربط مع Call Ledger للموبايل يتطلب ترحيل tenant-scoped آمن.</div>';
 }
