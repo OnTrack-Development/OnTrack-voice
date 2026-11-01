@@ -114,6 +114,14 @@ function test_tenant_device_pairing():void {
         'duration_seconds'=>0,'occurred_at'=>$timestamp];
     ok(device_call_event($sessionB,$other)['duplicate']===false,
         'same call UUID on SIM2 remains separate from SIM1');
+    $historyA=device_call_history($session);
+    $historyB=device_call_history($sessionB);
+    ok(count($historyA)===2 && count($historyB)===1,
+        'native call history API scopes to original SIM binding only');
+    ok($historyA[0]['state']==='unanswered' && $historyA[0]['duration_seconds']===0,
+        'missed call appears as unanswered on mobile');
+    ok($historyB[0]['state']==='active' && $historyB[0]['call_id']===$callA,
+        'SIM2 cannot read SIM1 call rows even with colliding call UUID');
     ok((int)one('SELECT COUNT(*) n FROM tenant_call_events WHERE account_id=4')['n']===5 &&
        (int)one('SELECT COUNT(*) n FROM tenant_call_events WHERE account_id=5')['n']===1,
        'call history rows are strictly isolated by account');
@@ -141,6 +149,10 @@ function test_tenant_device_pairing():void {
     try{device_binding_heartbeat($session);}
     catch(RuntimeException $e){$staleHeartbeatDenied=$e->getMessage()==='device_binding_revoked';}
     ok($staleHeartbeatDenied,'in-flight stale heartbeat cannot disclose revoked SIM agent profile');
+    $revokedHistoryDenied=false;
+    try{device_call_history($session);}
+    catch(RuntimeException $e){$revokedHistoryDenied=$e->getMessage()==='device_binding_revoked';}
+    ok($revokedHistoryDenied,'revoked SIM cannot read prior call history');
     $replacement=device_pairing_create(4,1,1,$actor,0);
     $relinked=device_pairing_redeem($replacement,$inst,0,'Android relink SIM 1');
     ok($relinked['device_id']!==$a['device_id'],'revoked slot can re-pair independently');
