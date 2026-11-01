@@ -439,3 +439,12 @@ USB debugging وUSB debugging (Security settings) كلاهما ON بحسب ال�
 البناء 41088969144 نجح: اختبارات PCM وأوامر التشخيص وإلغاء الاختبار، وتجميعAPK وفحص التوقيع. نزّلت الحزمة وطابقت SHA ومصدرoverlay ووجود كلاس التشخيص. الدليل docs/mobile/DIAGNOSTIC_BUILD_0_1_1.json. الرد الخام من الهاتف لم يصل بعد؛ المشكلة لا تزال OPEN.
 
 النسخة تعرض وتحفظ grant/read-back الحقيقيين، وتجرب منحة التطبيق للمستخدم الحالي صراحة، وتوفر إعادة الاقتران مع حفظ الصوت. لا إعادة لمسح بيانات باعتبارها علاجًا للصلاحية؛ إزالة0.1.0 مطلوبة لتثبيت0.1.1 فقط بسبب اختلاف debug signer. مفتاح0.1.1 محفوظ في private Actions cache (مؤكد منlog) لكنه ليس backup دائمًا ولا مفتاحproduction. الخطوة: تقريرالزر الجديد من الهاتف، دون تغيير مفاتيح أمان إضافية. لا صوت SIM مثبت.
+
+## 2026-11-01 — Hourly cycle #3: archived-resource API access hardening, PR #10
+
+- **Problem reproduced from code:** API bearer keys could enumerate archived sites/agents, retrieve archived agent knowledge, and write new leads to archived sites despite UI archive restrictions. Scope: API lifecycle/tenant boundary only; full Trash/Restore remains OPEN.
+- **CODED + MERGED:** PR #10 https://github.com/OnTrack-Development/OnTrack-voice/pull/10, squash main `04e5851ed960a82fff7f6b3f7655cccfed7c33f6`. Changes: `saas/console/api/v1/index.php`, `tools/test_voice_api_http.php`, smoke wiring and `docs/execution/2026-11-01_API_ARCHIVE_CYCLE_03_AR.md`.
+- **CI_PASS:** PR run `41292501176` success (latest PR head), post-merge `41292532680` success. Real API HTTP regression runs against local seeded SQLite, tests archived sites/agents/knowledge, active read/write, revoked keys, cross-tenant isolation, no write on archived site.
+- **HOST_DEPLOYED PENDING** until Cron receipt for publish run `41292532708` confirms source SHA and exit code. A green publish workflow alone does not prove server installation. No authenticated UI/device/payment E2E in this run.
+- **No collision:** open SSO PR #9 (head `e67257ad7827b1b66823af665670e260f6205bc3`) was left untouched and unmerged; it requires staging/security checks before production.
+- **Next:** verify release workflow + host receipt, then continue verified registration/SSO (PR #9) or independent 2FA/Trash work after checking current PR state.
