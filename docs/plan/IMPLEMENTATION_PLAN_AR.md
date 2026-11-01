@@ -1,3 +1,9 @@
+## 2026-11-01 — Android pairing product slice in PR #19 (pending verification)
+
+- Continue merged #18 backend with native Android SIM 1/SIM 2 code enrollment, encrypted tenant token profiles, server heartbeat, authenticated disconnect and re-pair, native UI and QR deep-link confirmation. Pilot bearer is prohibited from running alongside tenant enrollment.
+- **Evidence gate:** CODED on PR #19 only. Android/PHP CI pending; no host publish, signed APK installation, authenticated user UI, physical dual-SIM or voice E2E proven. In-app camera scanning and dashboard QR rendering remain outstanding; no tenant telephony until account/SIM routing is proven on hardware.
+- Next: close PR CI and security review, stage signed APK safely, test two distinct accounts on real Android device, then implement tenant call routing and agent flow; do not replace product work with unrelated release tooling.
+
 # خطة التنفيذ الحالية — v1.2
 
 > **أولوية التنفيذ بعد PR #18 (2026-11-01):** تم نشر خدمة إدارة اقتران Android متعدد العملاء والشريحتين في SaaS مع اختبارات CI وعزل توكنات الأجهزة. **المطلوب التالي هو تنفيذ الاقتران في APK والتحقق من استلام ملف الإيجنت للشريحة ثم تجربة مكالمة حقيقية؛ ليس بدء دورة لإصلاح مشكلة نشر جانبية.** الأدلة موجودة في بداية [CHECKPOINT](../memory/CHECKPOINT.md).\n\n
