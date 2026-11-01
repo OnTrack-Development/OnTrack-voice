@@ -18,6 +18,9 @@ object TenantPairingContract {
         require(TOKEN.matches(value)) { "استجابة الربط غير صالحة" }
         return value
     }
+    /** Fail closed for legacy pilot telephony while any tenant SIM is paired or pairing. */
+    fun pilotAllowed(pairingInProgress:Boolean,hasTenantSim:Boolean):Boolean =
+        !pairingInProgress && !hasTenantSim
     /** A native per-slot status label; never infer server authorization from local storage. */
     fun statusLine(slot: Int, linked: Boolean, account: String = "", site: String = "",
                    agent: String = "", error: String? = null): String {
