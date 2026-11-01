@@ -18,6 +18,19 @@ class TenantPairingContractTest {
         for (bad in listOf("legacyPilotBearer", "otdev_"+"a".repeat(63), "otdev_"+"Z".repeat(64)))
             assertThrows(IllegalArgumentException::class.java) { TenantPairingContract.token(bad) }
     }
+    @Test fun statusDistinguishesTwoCompaniesAndServerRevocation() {
+        assertEquals("SIM 1 — غير مربوطة", TenantPairingContract.statusLine(0,false))
+        val first=TenantPairingContract.statusLine(0,true,"شركة ألف","المتجر","مبيعات")
+        val second=TenantPairingContract.statusLine(1,true,"شركة باء","العيادة","حجوزات")
+        assertTrue(first.contains("شركة ألف"))
+        assertFalse(first.contains("شركة باء"))
+        assertTrue(second.contains("شركة باء"))
+        assertFalse(second.contains("شركة ألف"))
+        assertEquals("SIM 2 — تم إلغاء الاعتماد من السيرفر",
+            TenantPairingContract.statusLine(1,true,error="تم إلغاء الاعتماد من السيرفر"))
+        assertEquals("SIM 1 — تعذر التحقق؛ الربط غير مؤكد",
+            TenantPairingContract.statusLine(0,true,error="تعذر التحقق؛ الربط غير مؤكد"))
+    }
     @Test fun qrIntentNeverControlsEndpointOrAutoPairs() {
         val good=TenantPairingContract.qr("ontrackvoice://pair?slot=1&code=abcd-ef01-2345-6789-abcd-ef01")
         assertEquals(1,good?.first)
