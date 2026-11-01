@@ -1,3 +1,11 @@
+## 2026-11-01 — Product continuation: Agent Flow deterministic text execution preview (PR #20, NOT LIVE)
+
+- **Priority / blocked dependency:** PR #19 Android dual-SIM QR/code enrollment has PHP + Android + native gate SUCCESS on SHA `86851e3b64de197db7c749ecff25be842dc69b21` (runs `41331885250`, `41331885247`, `41331885243`), but independent security review, authenticated UI and physical Xiaomi two-SIM/account/revoke E2E remain **BLOCKED**. It is not merged or deployed. PR #9 SSO untouched.
+- **CODED (candidate) on separate PR #20:** a real side-effect-free deterministic interpreter for the existing draft Agent Flow graph (start/say/ask/listen/condition/collect_field/end), interactive Arabic text replies and explicit branch selection. Authenticated account/agent/site scope, CSRF, HTTPS, graph-hash-scoped ephemeral sessions, input/loop bounds, no CRM/booking/knowledge/handoff side effects. It is **not** live Gemini voice, publish/rollback, SIM telephony or AI side-question handling.
+- **TESTS:** PHP/SQLite tenant isolation, archived site denial, yes/no branch/no guessing, loop cap, no CRM writes; JavaScript syntax via dedicated workflow. CI status and final SHA must be checked after the PR run; no success claimed merely by pushing.
+- **Evidence gates:** CODED candidate PR https://github.com/OnTrack-Development/OnTrack-voice/pull/20; CI_PASS **PENDING**; HOST_DEPLOYED **NO** for #20; AUTH_UI_VERIFIED **NO**; DEVICE_E2E_VERIFIED **NO**. Latest proven SaaS host receipt is `saas-console-41317440838` on `ontrack-host-link`, success exit 0 source `c8a51c2649ff`, 2026-11-01 14:42:04 UTC (PR #18 only).
+- **NEXT:** resolve PR #20 CI, perform independent authenticated preview/security browser check before merge. Complete #19 physical dual-SIM proof and then bind a published immutable Flow revision to each real SIM session, without enabling calls prematurely.
+
 ## 2026-11-01 — Product milestone: tenant device pairing control plane (PR #18)
 
 - **Owner course correction:** prioritize building missing features end to end, not an endless series of CI/release-fix microtasks.
