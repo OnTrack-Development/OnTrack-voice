@@ -20,6 +20,9 @@ try{
     if(!$a||$a['status']!=='active')answer(403,['ok'=>false,'error'=>'account_unavailable']);
     $scopes=array_filter(explode(',',(string)$grant['scopes']));
     $site=(int)($grant['site_id']??0);
+    // An API key scoped to a retired site must not retain access to that site.
+    if($site && !one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$site,$a['id']]))
+        answer(403,['ok'=>false,'error'=>'site_unavailable']);
     $method=(string)($_SERVER['REQUEST_METHOD']??'GET');
     $operation=(string)($_GET['op']??'sites');
     $required=match($operation){
@@ -33,18 +36,18 @@ try{
     execute('UPDATE api_keys SET last_used_at=? WHERE id=?',[now(),$grant['id']]);
     if($method==='GET'){
         if($operation==='sites'){
-            $rows=$site?all('SELECT id,name,domain,status FROM sites WHERE account_id=? AND id=?',[$a['id'],$site]):
-                all('SELECT id,name,domain,status FROM sites WHERE account_id=?',[$a['id']]);
+            $rows=$site?all("SELECT id,name,domain,status FROM sites WHERE account_id=? AND id=? AND status='active'",[$a['id'],$site]):
+                all("SELECT id,name,domain,status FROM sites WHERE account_id=? AND status='active'",[$a['id']]);
             answer(200,['ok'=>true,'sites'=>$rows]);
         }
         if($operation==='agents'){
-            $rows=$site?all("SELECT id,site_id,name,voice,status FROM agents WHERE account_id=? AND site_id=?",[$a['id'],$site]):
-                all('SELECT id,site_id,name,voice,status FROM agents WHERE account_id=?',[$a['id']]);
+            $rows=$site?all("SELECT g.id,g.site_id,g.name,g.voice,g.status FROM agents g JOIN sites s ON s.id=g.site_id AND s.account_id=g.account_id WHERE g.account_id=? AND g.site_id=? AND g.status!='archived' AND s.status='active'",[$a['id'],$site]):
+                all("SELECT g.id,g.site_id,g.name,g.voice,g.status FROM agents g JOIN sites s ON s.id=g.site_id AND s.account_id=g.account_id WHERE g.account_id=? AND g.status!='archived' AND s.status='active'",[$a['id']]);
             answer(200,['ok'=>true,'agents'=>$rows]);
         }
         if($operation==='knowledge'){
             $agent=(int)($_GET['agent_id']??0);
-            $row=one('SELECT id,site_id,name,knowledge FROM agents WHERE id=? AND account_id=?',[$agent,$a['id']]);
+            $row=one("SELECT g.id,g.site_id,g.name,g.knowledge FROM agents g JOIN sites s ON s.id=g.site_id AND s.account_id=g.account_id WHERE g.id=? AND g.account_id=? AND g.status!='archived' AND s.status='active'",[$agent,$a['id']]);
             if(!$row || ($site&&$site!==(int)$row['site_id']))answer(404,['ok'=>false,'error'=>'agent_unavailable']);
             answer(200,['ok'=>true,'agent'=>$row]);
         }
@@ -59,6 +62,7 @@ try{
         if($site && $site!==$requested)answer(403,['ok'=>false,'error'=>'cross_site']);
         $s=owned_site($requested,(int)$a['id']);
         if(!$s)answer(403,['ok'=>false,'error'=>'cross_account']);
+        if($s['status']!=='active')answer(403,['ok'=>false,'error'=>'site_unavailable']);
         $name=trim((string)($p['name']??''));
         $phone=trim((string)($p['phone']??''));
         $consent=$p['consent']??false;
