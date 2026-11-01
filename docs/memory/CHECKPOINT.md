@@ -1,3 +1,12 @@
+## 2026-11-01 — Hourly cycle #6: pilot Android pre-dial DNC fail-closed (PR #13)
+
+- **Issue:** single-device pilot `pilot_workspace.php` previously allowed `pilot_dnc(id,false)` to lift opt-outs without fresh verified consent, and the opt-out existed only on a mutable contact. `pilot_campaign_verify_claim` did not hold the opt-out lock. This pilot state is distinct from the SaaS multi-tenant ledger in PR #12.
+- **CODE CANDIDATE:** PR #13 `https://github.com/OnTrack-Development/OnTrack-voice/pull/13` adds durable private pilot `dnc.json`, backfills legacy flags, rejects corrupt store, protects import/preview/arm/claim, locks pre-dial verify, expires old leases after 30s, and rejects unsafe opt-out reversal in API/UI. Regression tests include leased opt-out, contact deletion/reimport, campaign arm rejection and corrupt DNC. Android `CampaignDialer.kt` already calls `claim` and `verify` before `placeCall`; no APK modification in this PR.
+- **CI EVIDENCE (initial code head):** `Voice P1 P2 backend regression` run `41305909639` = success; `OnTrack Voice SaaS PHP Console` run `41305909534` = success on head `316bdddcdbec`. Subsequent documentation changes require checking the final PR HEAD workflows before merge.
+- **HOST_DEPLOYED: NOT VERIFIED** for pilot files. The existing SaaS Console publish workflow does **not** publish `saas/mobile/server`. No phone/server release claimed. Last confirmed SaaS Console host receipt remains `saas-console-41301462639` (PR #12). Device E2E and actual pre-dial blocking on the installed phone remain OPEN.
+- **BLOCKERS:** tenant-bound Android pairing/dual SIM isolation, verified re-consent removal, device E2E and a safe pinned host deployment route for pilot PHP. The post-verify to `placeCall` race still exists; do not claim zero-race guarantee. PR #9 signed SSO is open and untouched.
+- **Details:** `docs/execution/2026-11-01_PILOT_DNC_PREDIAL_CYCLE_06_AR.md`. **Next:** confirm final CI, merge only after pass; deploy pilot server only via authorized verified host release with receipt; then test no-dial against a consented synthetic number on actual device.
+
 ## 2026-11-01 — Hourly cycle #5: durable DNC ledger merged and deployed (PR #12)
 
 - **Issue:** PR #11 ingestion guard depended on `contacts.dnc=1`; direct deletion/import cleanup could erase the only opt-out evidence. Account-scoped DNC was not indexed or durable.

@@ -5,10 +5,12 @@ require __DIR__.'/pilot_workspace.php';
 mobile_require_device();
 if($_SERVER['REQUEST_METHOD']==='GET') {
     $rows=array_slice(array_reverse(pilot_read('contacts')),0,200);
+    $suppressed=pilot_suppression_keys();
     $contacts=[];
     foreach($rows as $row) {
         $contacts[]=['id'=>(string)$row['id'],'name'=>(string)$row['name'],
-            'phone'=>(string)$row['phone'],'do_not_call'=>!empty($row['do_not_call'])];
+            'phone'=>(string)$row['phone'],'do_not_call'=>!empty($row['do_not_call']) || isset($suppressed[(string)pilot_number((string)$row['phone'])]),
+            'consented'=>!empty($row['consented'])];
     }
     mobile_json(['ok'=>true,'contacts'=>$contacts,'total'=>count(pilot_read('contacts'))]);
 }
@@ -24,6 +26,8 @@ try {
     $found=pilot_dnc((string)$data['id'],$data['blocked']);
     if(!$found)mobile_json(['ok'=>false,'error'=>'not_found'],404);
     mobile_json(['ok'=>true,'updated'=>true]);
+} catch(InvalidArgumentException $e) {
+    mobile_json(['ok'=>false,'error'=>'verified_reconsent_required'],422);
 } catch(Throwable $e) {
     mobile_json(['ok'=>false,'error'=>'storage_unavailable'],503);
 }

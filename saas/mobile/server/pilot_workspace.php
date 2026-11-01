@@ -4,11 +4,15 @@ declare(strict_types=1);
 /** Isolated single-device demo store. No campaign is ever auto-dialed here. */
 function pilot_store_root(): string { return MOBILE_STORE.'/pilot'; }
 function pilot_read(string $kind): array {
-    if (!in_array($kind,['contacts','campaigns','attempts'],true))throw new InvalidArgumentException('invalid_kind');
+    if (!in_array($kind,['contacts','campaigns','attempts','dnc'],true))throw new InvalidArgumentException('invalid_kind');
     $path=pilot_store_root().'/'.$kind.'.json';
-    if (!is_file($path) || filesize($path)>3000000)return [];
-    $value=json_decode((string)file_get_contents($path),true);
-    return is_array($value)?$value:[];
+    if (!is_file($path))return [];
+    if(filesize($path)>3000000)throw new RuntimeException('pilot_store_too_large');
+    $raw=@file_get_contents($path);
+    $value=is_string($raw)?json_decode($raw,true):null;
+    if(!is_array($value)||!array_is_list($value) || !str_starts_with(ltrim((string)$raw),'['))
+        throw new RuntimeException('pilot_store_invalid');
+    return $value;
 }
 function pilot_atomic(string $kind,array $items): void {
     $path=pilot_store_root().'/'.$kind.'.json';
@@ -38,12 +42,55 @@ function pilot_number(string $raw): ?string {
     if(preg_match('/^201[0125]\d{8}$/D',$digits))$digits='+'.$digits;
     return preg_match('/^\+[1-9]\d{7,14}$/D',$digits)?$digits:null;
 }
+/**
+ * The pilot has a separate single-device store from the SaaS multi-tenant DNC
+ * ledger. This local list is append-only until a verified re-consent workflow
+ * exists. A corrupt suppression file is a HARD ERROR, never an empty list.
+ */
+function pilot_suppression_keys(): array {
+    $path=pilot_store_root().'/dnc.json';
+    $keys=[];
+    if(is_file($path)){
+        $raw=@file_get_contents($path);
+        if(!is_string($raw)||strlen($raw)>3000000)
+            throw new RuntimeException('dnc_store_unavailable');
+        $rows=json_decode($raw,true);
+        if(!is_array($rows)||!array_is_list($rows) || !str_starts_with(ltrim($raw),'['))
+            throw new RuntimeException('dnc_store_invalid');
+        foreach($rows as $phone){
+            if(!is_string($phone)||($normalized=pilot_number($phone))===null)
+                throw new RuntimeException('dnc_entry_invalid');
+            $keys[$normalized]=true;
+        }
+    }
+    // Backward compatibility: an old contact opt-out remains effective even
+    // before its first successful migration into the separate DNC file.
+    foreach(pilot_read('contacts') as $row){
+        if(empty($row['do_not_call']))continue;
+        $normalized=pilot_number((string)($row['phone']??''));
+        if($normalized===null)throw new RuntimeException('legacy_dnc_invalid');
+        $keys[$normalized]=true;
+    }
+    return $keys;
+}
+/** Call only under pilot_transaction(), before writing mutable contacts. */
+function pilot_sync_suppressions(array $keys):void {
+    pilot_atomic('dnc',array_keys($keys));
+}
+function pilot_contact_dialable(array $row,array $blocked):bool {
+    $phone=pilot_number((string)($row['phone']??''));
+    return $phone!==null && !isset($blocked[$phone]) &&
+        !empty($row['consented']) && empty($row['do_not_call']);
+}
+
 function pilot_import_contacts(array $rows): array {
     if(count($rows)>2000)throw new InvalidArgumentException('too_many_contacts');
     return pilot_transaction(static function()use($rows){
         $items=pilot_read('contacts');
+        $blocked=pilot_suppression_keys();
+        pilot_sync_suppressions($blocked); // durable legacy backfill before imports
         $seen=[];foreach($items as $i=>$row)$seen[(string)($row['phone']??'')]=$i;
-        $count=['added'=>0,'duplicates'=>0,'invalid'=>0];
+        $count=['added'=>0,'duplicates'=>0,'invalid'=>0,'blocked'=>0];
         foreach($rows as $row) {
             if(!is_array($row)){$count['invalid']++;continue;}
             $phone=pilot_number((string)($row['phone']??''));
@@ -51,8 +98,10 @@ function pilot_import_contacts(array $rows): array {
             if(array_key_exists($phone,$seen)){$count['duplicates']++;continue;}
             $name=trim((string)($row['name']??''));
             $name=function_exists('mb_substr')?mb_substr($name,0,100):substr($name,0,100);
+            $isBlocked=isset($blocked[$phone]);
+            if($isBlocked)$count['blocked']++;
             $items[]=['id'=>bin2hex(random_bytes(12)),'name'=>$name,'phone'=>$phone,
-                'consented'=>true,'do_not_call'=>false,'source'=>'owner_approved_import',
+                'consented'=>!$isBlocked,'do_not_call'=>$isBlocked,'source'=>'owner_approved_import',
                 'created_at'=>gmdate('c')];
             $seen[$phone]=count($items)-1;$count['added']++;
         }
@@ -62,13 +111,28 @@ function pilot_import_contacts(array $rows): array {
 }
 function pilot_dnc(string $id,bool $blocked): bool {
     return pilot_transaction(static function()use($id,$blocked){
-        $items=pilot_read('contacts');$found=false;
+        $items=pilot_read('contacts');
+        $keys=pilot_suppression_keys();
         foreach($items as &$item)if(hash_equals((string)$item['id'],$id)){
-            $item['do_not_call']=$blocked;$found=true;break;
+            $phone=pilot_number((string)($item['phone']??''));
+            if($phone===null)throw new RuntimeException('invalid_contact_phone');
+            if(!$blocked){
+                // A boolean from a phone or form is NOT independently verified
+                // renewed consent. Never silently reverse an opt-out.
+                if(isset($keys[$phone])||!empty($item['do_not_call']))
+                    throw new InvalidArgumentException('verified_reconsent_required');
+                return true;
+            }
+            $keys[$phone]=true;
+            pilot_sync_suppressions($keys); // write durable DNC FIRST
+            $item['do_not_call']=true;
+            $item['consented']=false;
+            unset($item);
+            pilot_atomic('contacts',$items);
+            return true;
         }
         unset($item);
-        if($found)pilot_atomic('contacts',$items);
-        return $found;
+        return false;
     });
 }
 function pilot_campaign_create(string $name,string $starts,string $ends,string $scenario,array $contactIds=[]): array {
@@ -84,9 +148,10 @@ function pilot_campaign_create(string $name,string $starts,string $ends,string $
     return pilot_transaction(static function()use($name,$start,$end,$scenario,$contactIds){
         $items=pilot_read('campaigns');
         $available=pilot_read('contacts');
+        $blocked=pilot_suppression_keys();
         $known=array_column($available,'id');
         foreach($contactIds as $id)if(!in_array($id,$known,true))throw new InvalidArgumentException('unknown_target');
-        $eligible=count(array_filter($available,static fn($c)=>!empty($c['consented'])&&empty($c['do_not_call'])&&(!$contactIds||in_array($c['id'],$contactIds,true))));
+        $eligible=count(array_filter($available,static fn($c)=>pilot_contact_dialable($c,$blocked)&&(!$contactIds||in_array($c['id'],$contactIds,true))));
         $row=['id'=>bin2hex(random_bytes(12)),'name'=>$name,'scenario'=>$scenario,'status'=>'draft',
             'timezone'=>'Africa/Cairo','starts_at'=>$start->format('c'),'ends_at'=>$end->format('c'),
             'eligible_contacts_snapshot'=>$eligible,'contact_ids'=>$contactIds,'created_at'=>gmdate('c'),
@@ -122,13 +187,14 @@ function pilot_campaign_preview(string $id): array {
     $found=null;
     foreach(pilot_read('campaigns') as $campaign)if(hash_equals((string)$campaign['id'],$id)){$found=$campaign;break;}
     if($found===null)throw new InvalidArgumentException('campaign_not_found');
-    $eligible=[];$blocked=0;
+    $eligible=[];$excluded=0;
+    $blocked=pilot_suppression_keys();
     foreach(pilot_read('contacts') as $contact){
         if(!empty($found['contact_ids'])&&!in_array($contact['id'],$found['contact_ids'],true))continue;
-        if(empty($contact['consented'])||!empty($contact['do_not_call'])){$blocked++;continue;}
+        if(!pilot_contact_dialable($contact,$blocked)){$excluded++;continue;}
         $eligible[]=['id'=>$contact['id'],'name'=>$contact['name'],'phone'=>$contact['phone']];
     }
-    return ['campaign'=>$found,'eligible'=>$eligible,'excluded'=>$blocked,'auto_dial_enabled'=>false];
+    return ['campaign'=>$found,'eligible'=>$eligible,'excluded'=>$excluded,'auto_dial_enabled'=>false];
 }
 
 /** The only state that permits SIM dispatch is explicitly armed by the owner. */
@@ -141,7 +207,8 @@ function pilot_campaign_arm(string $id): array {
             if(($campaign['status']??'')!=='draft')throw new InvalidArgumentException('not_draft');
             if(new DateTimeImmutable($campaign['ends_at'])<=$now)throw new InvalidArgumentException('expired_window');
             $targets=$campaign['contact_ids']??[];
-            $eligible=array_filter(pilot_read('contacts'),static fn($r)=>!empty($r['consented'])&&empty($r['do_not_call'])&&(!$targets||in_array($r['id'],$targets,true)));
+            $blocked=pilot_suppression_keys();
+            $eligible=array_filter(pilot_read('contacts'),static fn($r)=>pilot_contact_dialable($r,$blocked)&&(!$targets||in_array($r['id'],$targets,true)));
             if(!$eligible)throw new InvalidArgumentException('no_consented_contacts');
             $campaign['status']='ready';$campaign['armed_at']=gmdate('c');
             $updated=$campaign;unset($campaign);
@@ -158,6 +225,8 @@ function pilot_campaign_arm(string $id): array {
 function pilot_campaign_claim(): ?array {
     return pilot_transaction(static function():?array{
         $campaigns=pilot_read('campaigns');$contacts=pilot_read('contacts');
+        $blocked=pilot_suppression_keys();
+        pilot_sync_suppressions($blocked);
         $attempts=pilot_read('attempts');
         $now=new DateTimeImmutable('now',new DateTimeZone('Africa/Cairo'));
         foreach($attempts as $attempt)if(($attempt['status']??'')==='leased')return null;
@@ -171,7 +240,7 @@ function pilot_campaign_claim(): ?array {
             if($latest>0 && time()-$latest<60)return null;
             foreach($contacts as $contact){
                 if(!empty($campaign['contact_ids'])&&!in_array($contact['id'],$campaign['contact_ids'],true))continue;
-                if(empty($contact['consented'])||!empty($contact['do_not_call']))continue;
+                if(!pilot_contact_dialable($contact,$blocked))continue;
                 $already=false;
                 foreach($attempts as $attempt)if(($attempt['campaign_id']??'')===$campaign['id']&&($attempt['contact_id']??'')===$contact['id']){$already=true;break;}
                 if($already)continue;
@@ -205,24 +274,33 @@ function pilot_campaign_finish(string $id,string $result): array {
     });
 }
 
-/** Re-check Do Not Call immediately before any leased SIM placement. */
+/** Re-check the durable DNC + consent under the same lock as opt-out writes. */
 function pilot_campaign_verify_claim(string $id): array {
-    $attempt=null;
-    foreach(pilot_read('attempts') as $row)
-        if(hash_equals((string)$row['id'],$id)){$attempt=$row;break;}
-    if($attempt===null || ($attempt['status']??'')!=='leased')return ['allowed'=>false,'reason'=>'not_active'];
-    $ready=false;
-    foreach(pilot_read('campaigns') as $row)
-        if(($row['id']??'')===$attempt['campaign_id'] && ($row['status']??'')==='ready'){
-            $now=new DateTimeImmutable('now',new DateTimeZone('Africa/Cairo'));
-            $ready=$now>=new DateTimeImmutable($row['starts_at'])&&$now<new DateTimeImmutable($row['ends_at']);
-            break;
-        }
-    if(!$ready)return ['allowed'=>false,'reason'=>'campaign_not_ready'];
-    foreach(pilot_read('contacts') as $row)if(($row['id']??'')===$attempt['contact_id']){
-        if(!empty($row['consented'])&&empty($row['do_not_call'])&&($row['phone']??'')===$attempt['phone'])
+    return pilot_transaction(static function()use($id):array{
+        $attempt=null;
+        foreach(pilot_read('attempts') as $row)
+            if(hash_equals((string)$row['id'],$id)){$attempt=$row;break;}
+        if($attempt===null || ($attempt['status']??'')!=='leased')
+            return ['allowed'=>false,'reason'=>'not_active'];
+        if(time()-(int)($attempt['leased_epoch']??0)>30)
+            return ['allowed'=>false,'reason'=>'lease_expired'];
+        $ready=false;
+        foreach(pilot_read('campaigns') as $row)
+            if(($row['id']??'')===$attempt['campaign_id'] && ($row['status']??'')==='ready'){
+                $now=new DateTimeImmutable('now',new DateTimeZone('Africa/Cairo'));
+                $ready=$now>=new DateTimeImmutable($row['starts_at'])&&$now<new DateTimeImmutable($row['ends_at']);
+                break;
+            }
+        if(!$ready)return ['allowed'=>false,'reason'=>'campaign_not_ready'];
+        $blocked=pilot_suppression_keys(); // throws on corrupt/unavailable ledger
+        pilot_sync_suppressions($blocked); // migrate legacy opt-outs durably
+        foreach(pilot_read('contacts') as $row)if(($row['id']??'')===$attempt['contact_id']){
+            if(($row['phone']??'')!==$attempt['phone'])
+                return ['allowed'=>false,'reason'=>'contact_changed'];
+            if(!pilot_contact_dialable($row,$blocked))
+                return ['allowed'=>false,'reason'=>'contact_blocked'];
             return ['allowed'=>true,'reason'=>'ok'];
-        return ['allowed'=>false,'reason'=>'contact_blocked'];
-    }
-    return ['allowed'=>false,'reason'=>'contact_deleted'];
+        }
+        return ['allowed'=>false,'reason'=>'contact_deleted'];
+    });
 }

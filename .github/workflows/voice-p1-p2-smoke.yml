@@ -7,6 +7,12 @@ on:
       - 'tools/test_mobile_call_ledger.php'
       - 'tools/test_pilot_workspace.php'
       - '.github/workflows/voice-p1-p2-smoke.yml'
+  pull_request:
+    paths:
+      - 'saas/mobile/server/**'
+      - 'tools/test_mobile_call_ledger.php'
+      - 'tools/test_pilot_workspace.php'
+      - '.github/workflows/voice-p1-p2-smoke.yml'
   workflow_dispatch:
 permissions:
   contents: read
