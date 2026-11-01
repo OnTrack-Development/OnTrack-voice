@@ -1,5 +1,10 @@
 # Working contract — OnTrack Voice
 
+## 2026-11-01 — Voice SaaS console: STRUCTURE ONLY, awaiting owner approval
+
+The owner requested an approval-ready three-portal PHP/MySQL **non-Laravel** plan before writing console runtime code. Canonical proposed architecture: docs/plan/VOICE_SAAS_CONSOLE_STRUCTURE_AR.md. Includes platform admin, white-label reseller, direct/reseller customers, account-scoped staff + granular RBAC, plans/pooled call quotas, ready-only voice catalog, Kashier, signed reseller integrations that provision customer/lead/booking, protected demo logins and seeded synthetic data. Proposed deploy path: /home/appontrack/public_html/saas/console, private secrets outside public_html; preserve existing /saas/mobile and root. **Do not deploy the console, run schema migrations or claim the plan approved until owner explicitly approves the structure.** No questions or repeat setup; execute after approval.
+
+
 ## Floating native call controls — owner approval 2026-11-01
 
 - The **Android `TYPE_APPLICATION_OVERLAY` control** (`CallOverlay.kt`) is an OS-level native window, NOT HTML. Redesign is therefore a **native code change and needs one Android-approved signed APK update**; never falsely claim visual-only OTA can replace this window. OnTrack's **in-app HTML call-control tiles** can/should still refresh independently via signed UI OTA, no APK.

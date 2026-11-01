@@ -1,3 +1,7 @@
+## 2026-11-01 — Voice SaaS Admin/Reseller/User dashboard structure PROPOSED, not approved
+
+User requested ONLY structure first for approval, not code/deployment yet. Detailed structure is at docs/plan/VOICE_SAAS_CONSOLE_STRUCTURE_AR.md: PHP 8.3 + MySQL no Laravel runtime, /saas/console separate from existing pilot and older Laravel reference; three dashboards; platform/reseller/user staff RBAC + tenant security, branding inherited by reseller customer, own admin reseller/user plans and monthly call allowances, select permitted/ready voices, login + protected synthetic demo, integration API/Webhooks for reseller website registrations/bookings automatically creating pending account/customer/lead, Kashier sandbox, role/tenant E2E gates. After explicit approval: implement code + host deployment. Current status STRUCTURE_PROPOSED; NO NEW CONSOLE CODE or HOST DEPLOY performed for this request.
+
 ## 2026-11-01 — Native floating control v0.3.1 + UI OTA18 RELEASE VERIFIED ON HOST
 
 - User request: remove oversized navy/burgundy floating card; use small round **green for connected+enabled** / **red otherwise** overlay, tap expands 2x2 genuine icon buttons and small explanatory text; ON, OFF, ringing, connected AI and human-handoff states must all be correct. Button label explicitly **استلام من الإيجنت**; speaker control active only after answer, no speculative mute control.
