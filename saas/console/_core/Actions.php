@@ -143,7 +143,12 @@ function act():void {
                 require_permission('agents.write');
                 require_once __DIR__.'/FlowReleases.php';
                 $agentId=intfield('agent_id');
-                $release=flow_release_publish($id,$agentId,(int)me()['id']);
+                $test=$_SESSION['flow_publish_tests'][$id.':'.$agentId]??null;
+                if(!is_array($test)||!is_string($test['hash']??null)
+                    ||(int)($test['at']??0)<time()-1800)
+                    throw new InvalidArgumentException('اختبر النسخة المحفوظة حتى النهاية قبل النشر (صلاحية الاختبار 30 دقيقة)');
+                $release=flow_release_publish($id,$agentId,(int)me()['id'],$test['hash']);
+                unset($_SESSION['flow_publish_tests'][$id.':'.$agentId]);
                 audit('agent.flow.published',$id,['agent'=>$agentId,'revision'=>$release['revision']]);
                 flash('success','تم نشر نسخة Flow رقم '.$release['revision'].'؛ التشغيل الصوتي على الشريحة ما زال يحتاج ربطًا واختبارًا.');
                 break;
