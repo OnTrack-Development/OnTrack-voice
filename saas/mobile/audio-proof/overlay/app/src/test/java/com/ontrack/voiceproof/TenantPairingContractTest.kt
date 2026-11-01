@@ -94,9 +94,12 @@ class TenantPairingContractTest {
         assertEquals(idA,active.event?.callId)
         val ended=TenantCallEventContract.observe(active.state,0,6300L,idB,whenUtc)
         assertEquals("ended",ended.event?.phase)
-        assertEquals(5,ended.event?.durationSeconds)
+        assertEquals(3,ended.event?.durationSeconds)
         assertNull(ended.state.callId)
         assertNull(TenantCallEventContract.observe(ended.state,0,7000L,idB,whenUtc).event)
+        val missed=TenantCallEventContract.observe(ringing.state,0,5000L,idB,whenUtc)
+        assertEquals(0,missed.event?.durationSeconds)
+        assertEquals("ended",missed.event?.phase)
         val second=TenantCallEventContract.observe(
             TenantCallEventContract.State(),2,1000L,idB,whenUtc)
         assertEquals(idB,second.event?.callId)
