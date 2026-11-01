@@ -85,7 +85,7 @@ function layout_open(array $a,string $tab):void{
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     header('Cache-Control: private,no-store');
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script><script src="/saas/console/assets/js/flow-graph.js" defer></script></head><body>';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script><script src="/saas/console/assets/js/flow-graph.js" defer></script><script src="/saas/console/assets/js/qrcode.js" defer></script><script src="/saas/console/assets/js/pairing-qr.js" defer></script></head><body>';
     echo '<div class="app-shell"><aside class="sidebar" id="mainNavigation" aria-label="القائمة الرئيسية"><button type="button" class="nav-close" id="navClose" aria-label="إغلاق القائمة">×</button><a href="/saas/console/" class="brand"><span class="brand-logo">';
     if(!empty($brand['logo'])) echo '<img src="/saas/console/brand-logo" alt="">';else echo '<b>'.e(mb_substr($brand['name'],0,1)).'</b>';
     echo '</span><span class="brand-lines"><strong>'.e($brand['name']).'</strong><small>'.e($role).'</small></span></a>';
@@ -112,6 +112,15 @@ function layout_open(array $a,string $tab):void{
     if($v=flash('success'))echo '<div class="alert success">'.e($v).'</div>';
     if($v=flash('error'))echo '<div class="alert danger">'.e($v).'</div>';
     if($v=flash('secret'))echo '<div class="alert secret"><b>بيانات تظهر مرة واحدة:</b> <code>'.e($v).'</code></div>';
+    if($pairCode=flash('device_pair_qr')){
+        // The code is rendered only on the post-create session response.
+        // QR is generated in-browser from bundled MIT JS; never a third-party QR API.
+        echo '<section class="alert secret pair-qr-panel"><strong>امسح QR من تطبيق OnTrack (اختر شريحة واحدة فقط؛ الرمز يستخدم مرة واحدة)</strong><div class="pair-qr-grid">';
+        foreach([0,1] as $slot){
+            echo '<div class="pair-qr-card"><b>SIM '.($slot+1).'</b><div class="pair-qr-code" data-pair-code="'.e($pairCode).'" data-pair-slot="'.$slot.'"></div><button type="button" class="btn small" data-pair-copy="'.$slot.'">نسخ رابط الشريحة</button></div>';
+        }
+        echo '</div><p class="dim">QR يحتوي رمزًا مؤقتًا؛ لا تشاركه مع أحد. المسح يفتح شاشة تأكيد داخل التطبيق ولا يربط تلقائيًا.</p></section>';
+    }
     // Synthetic rows retain explicit DEMO marks; no persistent warning bars.
 }
 function layout_close():void{
