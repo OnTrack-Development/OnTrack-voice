@@ -5,6 +5,10 @@ require_once __DIR__.'/../_core/Bootstrap.php';
 function seed_console(): array {
     init_schema();
     if ((int)one('SELECT COUNT(*) n FROM users')['n'] > 0) {
+        // Host deploy runs this seeder after installing a pinned release.
+        // Migrate existing DNC evidence before the first live booking request.
+        require_once __DIR__.'/../_core/DncGuard.php';
+        dnc_init_ledger();
         return ['status'=>'already_seeded','users'=>(int)one('SELECT COUNT(*) n FROM users')['n']];
     }
     $now=now();
