@@ -96,6 +96,13 @@ function test_tenant_device_pairing():void {
     ok((int)$stored['account_id']===4 && (int)$stored['site_id']===1 &&
         (int)$stored['agent_id']===1 && (int)$stored['sim_slot']===0 &&
         (int)$stored['duration_seconds']===43,'call record derives tenant, site and agent from SIM token');
+    $missedId='23456789-abcd-4def-8abc-23456789abcd';
+    $missed=['sim_slot'=>0,'device_id'=>(int)$a['device_id'],'call_id'=>$missedId,
+        'phase'=>'ringing','duration_seconds'=>0,'occurred_at'=>$timestamp];
+    device_call_event($session,$missed);
+    $missed['phase']='ended';
+    ok(device_call_event($session,$missed)['duplicate']===false,
+        'unanswered SIM call is persisted with zero connected seconds');
     $crossSlot=false;
     try{device_call_event($sessionB,$event);}catch(InvalidArgumentException $e){$crossSlot=true;}
     ok($crossSlot,'SIM2 bearer cannot write SIM1 event');
@@ -107,7 +114,7 @@ function test_tenant_device_pairing():void {
         'duration_seconds'=>0,'occurred_at'=>$timestamp];
     ok(device_call_event($sessionB,$other)['duplicate']===false,
         'same call UUID on SIM2 remains separate from SIM1');
-    ok((int)one('SELECT COUNT(*) n FROM tenant_call_events WHERE account_id=4')['n']===3 &&
+    ok((int)one('SELECT COUNT(*) n FROM tenant_call_events WHERE account_id=4')['n']===5 &&
        (int)one('SELECT COUNT(*) n FROM tenant_call_events WHERE account_id=5')['n']===1,
        'call history rows are strictly isolated by account');
     $withoutStart=false;
