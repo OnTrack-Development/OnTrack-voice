@@ -13,7 +13,7 @@ function test_agent_flow_releases():void {
     ok((bool)$original,'release fixture belongs to direct tenant');
     execute('UPDATE agents SET flow_json=?,instructions=? WHERE id=1 AND account_id=4',
         [$json,'تعليمات النسخة الأولى']);
-    $first=flow_release_publish(4,1,1);
+    $first=flow_release_publish(4,1,1,hash('sha256',$json));
     ok($first['revision']===1,'publish creates first immutable revision');
     $pinned=flow_release_for_bound_agent(4,1,1);
     ok($pinned!==null&&$pinned['flow_json']===$json&&$pinned['instructions']==='تعليمات النسخة الأولى',
@@ -21,7 +21,7 @@ function test_agent_flow_releases():void {
     ok(flow_release_for_bound_agent(5,1,1)===null&&flow_release_for_bound_agent(4,2,1)===null,
         'other tenant and other site cannot retrieve a published agent');
     $duplicate=false;
-    try{flow_release_publish(4,1,1);}catch(InvalidArgumentException $e){$duplicate=$e->getMessage()==='flow_publish_unchanged';}
+    try{flow_release_publish(4,1,1,hash('sha256',$json));}catch(InvalidArgumentException $e){$duplicate=$e->getMessage()==='flow_publish_unchanged';}
     ok($duplicate,'unchanged draft cannot generate duplicate releases');
     $graph['nodes'][2]['text']='نسخة ثانية';
     $newJson=json_encode($graph,JSON_UNESCAPED_UNICODE);
@@ -29,7 +29,11 @@ function test_agent_flow_releases():void {
         [$newJson,'تعليمات النسخة الثانية']);
     ok(flow_release_for_bound_agent(4,1,1)['flow_json']===$json,
         'editing draft never changes an in-flight pinned revision');
-    $second=flow_release_publish(4,1,1);
+    $untested=false;
+    try{flow_release_publish(4,1,1,hash('sha256',$json));}
+    catch(InvalidArgumentException $e){$untested=$e->getMessage()==='flow_publish_test_required';}
+    ok($untested,'publishing a changed draft without matching test is denied');
+    $second=flow_release_publish(4,1,1,hash('sha256',$newJson));
     ok($second['revision']===2&&flow_release_current(4,1)['flow_json']===$newJson,
         'publishing a new draft activates the second revision');
     $old=one('SELECT flow_json,instructions FROM agent_flow_revisions WHERE account_id=4 AND agent_id=1 AND revision=1');
@@ -44,7 +48,7 @@ function test_agent_flow_releases():void {
     try{flow_release_rollback(5,1,2,1);}catch(InvalidArgumentException $e){$foreign=true;}
     ok($foreign,'cross-account rollback rejected');
     $foreignPublish=false;
-    try{flow_release_publish(5,1,1);}catch(InvalidArgumentException $e){$foreignPublish=true;}
+    try{flow_release_publish(5,1,1,hash('sha256',$json));}catch(InvalidArgumentException $e){$foreignPublish=true;}
     ok($foreignPublish,'cross-account publish rejected');
     foreach([
         ['nodes'=>[['id'=>'s','type'=>'start'],['id'=>'x','type'=>'crm_write'],['id'=>'e','type'=>'end']],
