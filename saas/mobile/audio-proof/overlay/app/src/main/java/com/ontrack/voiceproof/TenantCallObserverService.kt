@@ -117,8 +117,9 @@ class TenantCallObserverService:Service() {
                 Instant.now().truncatedTo(ChronoUnit.SECONDS).toString())
             if(result.state==old)return
             val revision=try {
-                if(old.callId==null)enrollment.agentRevision(slot)
-                else prefs.getInt("call_revision_$slot",0)
+                TenantPairingContract.pinnedCallRevision(old.callId,
+                    prefs.getInt("call_revision_$slot",0),
+                    if(old.callId==null)enrollment.agentRevision(slot) else 0)
             } catch(_:Exception) { 0 }
             if(revision<1) {
                 status("SIM ${slot+1}: إصدار الإيجنت غير معروف؛ أُوقفت المراقبة دون تخمين")

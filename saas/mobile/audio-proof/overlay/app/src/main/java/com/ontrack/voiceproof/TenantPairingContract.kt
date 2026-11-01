@@ -27,6 +27,12 @@ object TenantPairingContract {
     /** Never accept a stale server heartbeat after a newer agent assignment. */
     fun agentRevisionValid(stored:Int,incoming:Int,agentId:Int):Boolean =
         incoming>=1 && incoming>=stored && agentId>0
+    /** Pin a call to the assignment observed at its first state transition. */
+    fun pinnedCallRevision(activeCallId:String?,pinned:Int,assigned:Int):Int {
+        val revision=if(activeCallId==null)assigned else pinned
+        require(revision>0) { "إصدار الإيجنت غير متاح للمكالمة" }
+        return revision
+    }
     /** Fail closed for legacy pilot telephony while any tenant SIM is paired or pairing. */
     fun pilotAllowed(pairingInProgress:Boolean,hasTenantSim:Boolean):Boolean =
         !pairingInProgress && !hasTenantSim

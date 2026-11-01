@@ -80,6 +80,17 @@ class TenantPairingContractTest {
         assertTrue(after.contains("إيجنت جديد"))
         assertFalse(after.contains("إيجنت قديم"))
     }
+    @Test fun callKeepsOriginalSimAgentRevisionAcrossOfflineReassignment() {
+        assertEquals(1,TenantPairingContract.pinnedCallRevision("call-a",1,2))
+        assertEquals(2,TenantPairingContract.pinnedCallRevision(null,1,2))
+        assertEquals(4,TenantPairingContract.pinnedCallRevision("call-b",4,0))
+        assertThrows(IllegalArgumentException::class.java) {
+            TenantPairingContract.pinnedCallRevision("call-c",0,5)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            TenantPairingContract.pinnedCallRevision(null,1,0)
+        }
+    }
     @Test fun agentRevisionCanBePinnedBeforeOfflineOutboxFlush() {
         val observedAtStart=1
         val serverAfterReassign=2
