@@ -54,4 +54,28 @@ ok((mine()['role']??'')==='owner' && allowed('agents.write'),'reseller support f
 $_SESSION['support']['account_id']=7;
 ok((mine()['account_id']??0)!==7,'cross-reseller support session rejected');
 unset($_SESSION['support']);
+// A signed payment event must never claim an existing OnTrack identity by email alone.
+require_once __DIR__.'/../saas/console/_core/OrderClaim.php';
+$priorUsers=(int)one('SELECT COUNT(*) n FROM users')['n'];
+$priorAccounts=(int)one('SELECT COUNT(*) n FROM accounts')['n'];
+$priorMembers=(int)one('SELECT COUNT(*) n FROM memberships')['n'];
+$priorSubscriptions=(int)one('SELECT COUNT(*) n FROM subscriptions')['n'];
+$intId=insert("INSERT INTO integrations(account_id,name,provider,token_hash,token_prefix,status,created_at) VALUES (?,?,?,?,?,'active',?)",
+    [2,'test-identity-link','whmcs',hash('sha256',random_bytes(32)),'test',now()]);
+$orderId=insert("INSERT INTO orders(account_id,external_order_id,integration_id,plan_id,customer_name,customer_email,amount_minor,status,created_at) VALUES (?,?,?,?,?,?,?,'pending_payment',?)",
+    [2,'identity-verified-order-1001',$intId,3,'Faked external display name','admin@ontrackegy.com',500,now()]);
+$payOrder=one('SELECT * FROM orders WHERE id=?',[$orderId]);
+$payment=record_verified_external_payment($payOrder,'verified_payment_1001');
+ok($payment['status']==='paid_pending_claim' && $payment['claim_required']===true,'verified payment recorded but requires identity claim');
+ok((int)one('SELECT COUNT(*) n FROM users')['n']===$priorUsers,'email collision did not create or select login user');
+ok((int)one('SELECT COUNT(*) n FROM accounts')['n']===$priorAccounts,'payment did not provision account before identity proof');
+ok((int)one('SELECT COUNT(*) n FROM memberships')['n']===$priorMembers,'email collision cannot grant membership');
+ok((int)one('SELECT COUNT(*) n FROM subscriptions')['n']===$priorSubscriptions,'unclaimed paid order cannot grant subscription');
+$paymentReplay=record_verified_external_payment(one('SELECT * FROM orders WHERE id=?',[$orderId]),'verified_payment_1001');
+ok($paymentReplay['duplicate']===true,'payment replay is idempotent');
+ok((int)one('SELECT COUNT(*) n FROM outbox WHERE integration_id=? AND kind=?',[$intId,'payment.received_pending_claim'])['n']===1,'payment outbox created exactly once');
+$conflict=false;
+try{record_verified_external_payment(one('SELECT * FROM orders WHERE id=?',[$orderId]),'verified_payment_1002');}
+catch(InvalidArgumentException $ex){$conflict=$ex->getMessage()==='payment_reference_conflict';}
+ok($conflict,'different payment reference on paid order is rejected');
 echo "VOICE_SAAS_SMOKE_PASS\n";
