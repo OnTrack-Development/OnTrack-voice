@@ -45,13 +45,15 @@ class PilotServerPublishTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         base = Path(self.tmp.name)
-        self.root = base / "saas" / "mobile" / "server"
+        self.root = base / "saas" / "mobile"
         self.root.mkdir(parents=True)
         self.private = base / "private"
         self.private.mkdir(mode=0o700)
         (self.root / "auth.sha256").write_text("dummy-non-secret-auth-hash")
         (self.root / "common.php").write_text("<?php echo 'old';")
         (self.root / "local-file.txt").write_text("preserve me")
+        (self.root / "updates").mkdir()
+        (self.root / "updates" / "latest.json").write_text("native metadata unchanged")
 
     def install(self, raw, *, source=SOURCE, uid=None):
         return install_archive(raw, hashlib.sha256(raw).hexdigest(), source,
@@ -66,10 +68,11 @@ class PilotServerPublishTest(unittest.TestCase):
         self.assertTrue(result["auth_hash_preserved"])
         self.assertEqual((self.root / "auth.sha256").read_text(), "dummy-non-secret-auth-hash")
         self.assertEqual((self.root / "local-file.txt").read_text(), "preserve me")
+        self.assertEqual((self.root / "updates" / "latest.json").read_text(), "native metadata unchanged")
         self.assertEqual((self.root / "common.php").read_text(), "<?php echo 'safe';\n")
         backup = self.private / "pilot-server-backups" / SOURCE[:12]
         self.assertEqual((backup / "common.php").read_text(), "<?php echo 'old';")
-        self.assertEqual((backup / "auth.sha256").read_text(), "dummy-non-secret-auth-hash")
+        self.assertFalse((backup / "auth.sha256").exists())
         with self.assertRaisesRegex(ValueError, "release_already_installed"):
             self.install(raw)
 
