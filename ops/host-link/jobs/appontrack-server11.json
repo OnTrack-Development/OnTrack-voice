@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "mobile-release-http-verify-v24-20261101",
+  "id": "voice-mfa-live-enrollment-audit-20261101",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-01T21:39:39.559Z",
-  "expires_at": "2026-11-01T23:39:39.559Z",
+  "created_at": "2026-11-01T21:50:00.898Z",
+  "expires_at": "2026-11-01T23:50:00.898Z",
   "cwd": "/home/appontrack/public_html/saas",
   "timeout_seconds": 30,
   "argv": [
-    "/bin/python3",
-    "-c",
-    "import json,urllib.request\nroot=\"https://app.ontrackegy.com/saas/mobile/updates/\"\ndef get(path,method=\"GET\"):\n  req=urllib.request.Request(root+path,method=method,headers={\"User-Agent\":\"OnTrack-V24-Public-Release-Smoke\",\"Cache-Control\":\"no-cache\"})\n  with urllib.request.urlopen(req,timeout=12) as r:\n    assert r.status==200\n    return json.loads(r.read(16384)) if method==\"GET\" else dict(r.headers)\nm=json.loads(get(\"native/latest.json\")[\"payload\"])\nassert m[\"version_code\"]==24 and m[\"version_name\"]==\"0.3.3-ota\"\nassert m[\"sha256\"]==\"a300840a87c9f22039a97056b3fb60a03fd000e83ee4f1df307028dc427a0cd8\"\napk=get(\"native/\"+m[\"file\"],\"HEAD\")\nassert int(apk.get(\"Content-Length\",0))==m[\"size\"]==55016134\nu=json.loads(get(\"latest.json\")[\"payload\"])\nassert u[\"revision\"]==20 and u[\"sha256\"]==\"d922372c57b343a9487a64015763483ea02f9d616db9d36594ef3b5207ee9300\"\nui=get(u[\"file\"],\"HEAD\")\nassert int(ui.get(\"Content-Length\",0))==u[\"size\"]\nprint(json.dumps({\"status\":\"public_verified\",\"android\":m[\"version_name\"],\"version_code\":24,\"apk_http\":200,\"apk_bytes\":m[\"size\"],\"ota_revision\":20,\"ota_http\":200,\"html_http\":200,\"apk_file\":m[\"file\"]}))\n"
+    "/opt/cpanel/ea-php83/root/usr/bin/php",
+    "-r",
+    "require '/home/appontrack/public_html/saas/console/_core/Bootstrap.php';init_schema();$enabled=(int)one('SELECT COUNT(*) n FROM admin_mfa')['n'];$admins=(int)one(\"SELECT COUNT(DISTINCT m.user_id) n FROM memberships m JOIN accounts a ON a.id=m.account_id WHERE m.role IN ('owner','admin') AND a.status='active'\")['n'];echo json_encode(['status'=>'read_only','enabled_mfa_records'=>$enabled,'eligible_admin_accounts'=>$admins,'secret_accessed'=>false]);"
   ]
 }
