@@ -11,6 +11,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.security.KeyStore
 import java.util.UUID
+import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -96,7 +97,14 @@ class TenantDeviceEnrollment(private val context: Context) {
         check(prefs.edit().putString(field(slot),seal(saved.toString())).commit()) {
             "تعذر حفظ اعتماد الشريحة؛ افصلها من لوحة الحساب وأعد الربط"
         }
-        return heartbeat(slot)
+        // Pairing was redeemed and encrypted locally. A subsequent heartbeat
+        // timeout must not be reported as an unsuccessful pairing (or retry
+        // the already-consumed one-time code). Recheck status separately.
+        return try { heartbeat(slot) } catch (cancelled:CancellationException) {
+            throw cancelled
+        } catch (_:Exception) {
+            JSONObject().put("sim_slot",slot).put("verification_pending",true)
+        }
     }
     fun heartbeat(slot:Int):JSONObject {
         TenantSimHardware.requireReady(context,slot)
