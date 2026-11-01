@@ -7,6 +7,7 @@ on:
       - 'tools/deploy_saas_console.py'
       - 'tools/queue_saas_console.py'
       - 'tools/test_voice_saas_console.php'
+      - 'tools/test_voice_sso.php'
       - '.github/workflows/voice-saas-publish.yml'
   workflow_dispatch:
 permissions:
@@ -27,6 +28,7 @@ jobs:
           set -eu
           find saas/console -name '*.php' -type f -print0 | xargs -0 -n1 php -l
           php tools/test_voice_saas_console.php
+          php tools/test_voice_sso.php
           node --check saas/console/assets/js/app.js
           python3 -m py_compile tools/deploy_saas_console.py tools/queue_saas_console.py
   publish:
