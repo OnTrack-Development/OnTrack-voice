@@ -33,8 +33,8 @@ function device_pairing_redeem(string $code,string $installationId,int $simSlot,
         || mb_strlen($label)>100 || $label==='')
         throw new InvalidArgumentException('device_pairing_invalid');
     // Reject a wrong-slot request before consuming the single-use ticket.
-    // Old pre-slot-lock tickets expire naturally and are never silently
-    // converted into a different slot authorization.
+    // Previously issued legacy tickets have no slot marker; they expire
+    // within ten minutes. Do not treat them as proof of physical SIM identity.
     if($clean[0] !== (string)$simSlot)
         throw new InvalidArgumentException('device_pairing_slot_mismatch');
     $token='otdev_'.bin2hex(random_bytes(32));
