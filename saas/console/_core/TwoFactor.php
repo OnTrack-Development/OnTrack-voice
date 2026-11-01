@@ -133,6 +133,8 @@ function twofa_pending():?array {
     return one("SELECT id,name,email FROM users WHERE id=? AND status='active'",[$uid]);
 }
 function twofa_complete(int $userId):void {
+    if((int)($_SESSION['pending_2fa_uid']??0)!==$userId)
+        throw new RuntimeException('totp_pending_identity_mismatch');
     $members=memberships($userId);
     unset($_SESSION['pending_2fa_uid'],$_SESSION['pending_2fa_at'],$_SESSION['pending_2fa_secret'],
         $_SESSION['pending_2fa_fails'],$_SESSION['support']);
@@ -141,5 +143,6 @@ function twofa_complete(int $userId):void {
     $_SESSION['twofa_verified_uid']=$userId;
     $_SESSION['account_id']=$members[0]['account_id']??null;
     $_SESSION['bad_logins']=0;
+    $_SESSION['csrf']=bin2hex(random_bytes(32));
     audit('login.success',$_SESSION['account_id']);
 }
