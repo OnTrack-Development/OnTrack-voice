@@ -109,6 +109,37 @@ function test_voice_api_http():void {
         api_http_assert($status===200 && !in_array(1,array_map('intval',array_column($body['sites']??[],'id')),true),
             'another tenant cannot enumerate active site');
 
+        // An earlier DNC opt-out wins over a new consented API lead, even on
+        // another site or when the Egyptian phone uses national formatting.
+        $suppressedPhone='+20 (10) 1234-5678';
+        insert("INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at)
+            VALUES (4,2,'DNC original',?,1,?)",[$suppressedPhone,now()]);
+        $blockedLead=['site_id'=>1,'name'=>'Synthetic reimport','phone'=>'01012345678','consent'=>true];
+        [$status,$body]=api_http_request($base,$key,'lead.create',$blockedLead);
+        $newId=(int)($body['contact_id']??0);
+        api_http_assert($status===201 && ($body['dnc']??null)===true &&
+            (int)(one('SELECT dnc FROM contacts WHERE id=?',[$newId])['dnc']??0)===1,
+            'same-tenant DNC survives new API lead on a different site and phone formatting');
+
+        [$status,$body]=api_http_request($base,$foreignKey,'lead.create',
+            array_merge($blockedLead,['site_id'=>3]));
+        $foreignId=(int)($body['contact_id']??0);
+        api_http_assert($status===201 && ($body['dnc']??null)===false &&
+            (int)(one('SELECT dnc FROM contacts WHERE id=?',[$foreignId])['dnc']??1)===0,
+            'DNC status does not leak across tenants');
+
+        [$status,$body]=api_http_request($base,$key,'lead.create',
+            array_merge($blockedLead,['phone'=>'+201099900001']));
+        api_http_assert($status===201 && ($body['dnc']??null)===false,
+            'unrelated consented lead is not spuriously suppressed');
+
+        $countBefore=(int)one('SELECT COUNT(*) n FROM contacts WHERE account_id=4')['n'];
+        [$status,$body]=api_http_request($base,$key,'lead.create',
+            array_merge($blockedLead,['consent'=>false]));
+        api_http_assert($status===422 &&
+            (int)one('SELECT COUNT(*) n FROM contacts WHERE account_id=4')['n']===$countBefore,
+            'API still rejects unconsented lead without a database write');
+
         execute("UPDATE api_keys SET status='revoked' WHERE token_hash=?",[hash('sha256',$key)]);
         [$status,$body]=api_http_request($base,$key,'sites');
         api_http_assert($status===401 && ($body['error']??'')==='invalid_api_key',
