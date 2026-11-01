@@ -129,6 +129,8 @@ ok($expiredDenied,'expired invite cannot be accepted');
 $reissued=create_staff_invitation(2,'Reissued','support@ontrack.test','viewer',(int)$reseller['id']);
 ok($reissued===$expiredId,'expired invitation may be reissued without duplicate rows');
 require_once __DIR__.'/test_voice_api_http.php';
+require_once __DIR__.'/test_voice_dnc_ledger.php';
+test_voice_dnc_ledger();
 test_voice_api_http();
 require_once __DIR__.'/test_voice_dnc_hooks_http.php';
 test_voice_dnc_hooks_http();
