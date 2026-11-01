@@ -404,6 +404,7 @@ function act():void {
                 $code=device_pairing_create($id,$siteId,$agentId,(int)me()['id']);
                 audit('device.pairing.created',$id,['site_id'=>$siteId,'agent_id'=>$agentId]);
                 flash('secret','رمز ربط الجهاز — صالح 10 دقائق ولمرة واحدة: '.$code);
+                flash('device_pair_qr',$code);
                 break;
             case 'cancel_device_pairing':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
