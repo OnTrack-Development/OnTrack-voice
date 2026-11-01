@@ -41,6 +41,12 @@ function test_tenant_device_pairing():void {
         'heartbeat serves correct account and agent policy');
     ok($profile['account_name']===(string)account(4)['name'] && $profile['account_name']!=='',
         'heartbeat identifies the bound company without revealing credentials');
+    ok((int)$profile['sim_slot']===0 && (int)$profile['device_id']===(int)$a['device_id'],
+        'SIM 1 profile is bound to its own device and physical slot');
+    ok((int)$profile['agent_id']===(int)$session['agent_id'] &&
+        $profile['instruction']===(string)one('SELECT instructions FROM agents WHERE id=? AND account_id=? AND site_id=?',
+            [$session['agent_id'],$session['account_id'],$session['site_id']])['instructions'],
+        'SIM 1 instructions originate from its tenant-scoped agent');
     ok(!isset($profile['device_token'])&&!isset($profile['token_hash']),
         'heartbeat never returns token or hash');
     $used=false;
@@ -62,6 +68,11 @@ function test_tenant_device_pairing():void {
     $sessionB=device_binding_authorize($b['device_token']);
     ok($sessionB!==null && (int)$sessionB['account_id']===5 && (int)$sessionB['sim_slot']===1,
         'two SIM slots isolate separate customer accounts');
+    $profileB=device_binding_profile($sessionB);
+    ok((int)$profileB['device_id']===(int)$b['device_id'] && (int)$profileB['sim_slot']===1 &&
+        (int)$profileB['agent_id']===(int)$sessionB['agent_id'] &&
+        (int)$profileB['account_id']!== (int)$profile['account_id'],
+        'SIM 2 receives a separate tenant and agent profile');
     ok(device_binding_authorize($a['device_token'])['account_id']!==$sessionB['account_id'],
         'SIM token cannot cross into another tenant');
     ok(device_binding_revoke(5,$a['device_id'])===false,'cross-tenant device revoke denied');
