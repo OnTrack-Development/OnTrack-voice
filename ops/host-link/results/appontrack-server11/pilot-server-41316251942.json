@@ -1,0 +1,13 @@
+{
+  "job_id": "pilot-server-41316251942",
+  "target": "appontrack-server11",
+  "job_sha256": "806320e0d05e1e5bf20cba788205638ff1cd52f742c95ba46902c52b67f798bd",
+  "started_at": "2026-11-01T14:28:02.814773+00:00",
+  "status": "failed",
+  "exit_code": 1,
+  "output_truncated": false,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 154, in <module>\n  File \"<string>\", line 151, in publish\n  File \"<string>\", line 76, in install_archive\n  File \"<string>\", line 58, in assert_no_symlinks\nValueError: unsafe_target_directory\n",
+  "finished_at": "2026-11-01T14:28:03.548242+00:00",
+  "duration_ms": 734
+}
