@@ -214,7 +214,7 @@ function site_limit(int $accountId,string $key):int{
 }
 function can_create(int $accountId,string $kind):bool{
     $table=$kind==='site'?'sites':'agents';$col=$kind==='site'?'site_limit':'agent_limit';
-    return (int)one("SELECT COUNT(*) n FROM {$table} WHERE account_id=?",[$accountId])['n']<site_limit($accountId,$col);
+    return (int)one("SELECT COUNT(*) n FROM {$table} WHERE account_id=? AND status!='archived'",[$accountId])['n']<site_limit($accountId,$col);
 }
 function is_reseller_child(int $reseller,int $customer):bool{
     $a=account($customer);return $a&&$a['kind']==='customer'&&(int)$a['parent_id']===$reseller;
@@ -226,7 +226,8 @@ function support_access(int $customerId):bool{
 function selected_site(int $accountId):?array {
     $id=(int)($_GET['site']??$_SESSION['site_id']??0);
     $site=$id?owned_site($id,$accountId):null;
-    if(!$site)$site=one('SELECT * FROM sites WHERE account_id=? ORDER BY id LIMIT 1',[$accountId]);
+    if($site&&$site['status']!=='active')$site=null;
+    if(!$site)$site=one("SELECT * FROM sites WHERE account_id=? AND status='active' ORDER BY id LIMIT 1",[$accountId]);
     if($site)$_SESSION['site_id']=$site['id'];
     return $site;
 }
