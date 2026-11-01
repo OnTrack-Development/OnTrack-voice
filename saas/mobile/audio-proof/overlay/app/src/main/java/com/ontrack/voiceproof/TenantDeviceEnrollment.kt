@@ -122,6 +122,18 @@ class TenantDeviceEnrollment(private val context: Context) {
         }
         return profile
     }
+    /**
+     * Uploads a device-observed call-state event under the selected SIM bearer.
+     * A fresh heartbeat checks both the physical subscription and current
+     * server-side tenant/agent binding before every event. No pilot bearer.
+     */
+    fun submitCallEvent(slot:Int,event:JSONObject):JSONObject {
+        val verified=heartbeat(slot)
+        check(verified.getInt("sim_slot")==slot) { "ملف الشريحة لا يطابق الهاتف" }
+        val saved=local(slot)
+        val payload=JSONObject(event.toString()).put("operation","call_event").put("sim_slot",slot)
+        return request(payload,saved.getString("token")).getJSONObject("event")
+    }
     fun disconnect(slot:Int) {
         val saved=local(slot)
         try {
