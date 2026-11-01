@@ -3,6 +3,9 @@ package com.ontrack.voiceproof
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.net.Uri
 import android.provider.Settings
 import android.provider.ContactsContract
@@ -285,6 +288,12 @@ class MobileLinkActivity:ComponentActivity(){
             setOnClickListener { scanTenantQr() }
         }
         root.addView(qrButton,3,LinearLayout.LayoutParams(-1,-2))
+        val shortcuts=LinearLayout(this)
+        shortcuts.addView(Button(this).apply{text="فتح الموقع داخل التطبيق";setOnClickListener{openConsole()}},
+            LinearLayout.LayoutParams(0,-2,1f))
+        shortcuts.addView(Button(this).apply{text="السيناريو";setOnClickListener{showScenarioMenu()}},
+            LinearLayout.LayoutParams(0,-2,1f))
+        root.addView(shortcuts,4,LinearLayout.LayoutParams(-1,-2))
         setContentView(layer)
         handleTenantLink(intent)
         splash=OnTrackLaunchScreen(this,layer)
@@ -421,6 +430,25 @@ class MobileLinkActivity:ComponentActivity(){
             tenantStatus.text=lines.joinToString("\n")
         }
     }
+    private fun openConsole(section:String=""){
+        startActivity(Intent(this,ConsoleWebActivity::class.java).apply{
+            if(section=="agents")putExtra("section","agents")
+        })
+    }
+    private fun showScenarioMenu(){
+        AlertDialog.Builder(this).setTitle("سيناريوهات الإيجنت")
+            .setItems(arrayOf("سيناريو SIM 1","سيناريو SIM 2","تعديل السيناريو من الموقع")){_,choice->
+                if(choice==2)openConsole("agents") else showTenantPublishedFlow(choice)
+            }.setNegativeButton("إغلاق",null).show()
+    }
+    private fun copyPilotKey(){
+        check(!tenantEnrollment.hasAny()){"مفتاح التجربة القديم غير متاح أثناء ربط الشرائح المستقلة"}
+        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
+        check(key.matches(Regex("[A-Za-z0-9_-]{24,128}"))){"لا يوجد مفتاح محفوظ صالح للنسخ"}
+        (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+            .setPrimaryClip(ClipData.newPlainText("OnTrack device key",key))
+        banner.text="تم نسخ المفتاح المحفوظ";banner.visibility=View.VISIBLE
+    }
     private fun showTenantMenu() {
         val items=arrayOf(
             "ربط SIM 1"+if(tenantEnrollment.paired(0))" (مربوطة)" else "",
@@ -449,14 +477,36 @@ class MobileLinkActivity:ComponentActivity(){
             try {
                 check(!MobileLinkService.inCall) { "اعرض Flow بعد انتهاء المكالمة" }
                 val flow=withContext(Dispatchers.IO) { tenantEnrollment.publishedFlow(slot) }
-                val graph=flow.getJSONObject("flow")
-                val nodes=graph.getJSONArray("nodes").length()
-                val revision=flow.getInt("revision")
-                val voice=flow.optString("voice","")
+                val flowData=flow.getJSONObject("flow")
+                val nodes=flowData.getJSONArray("nodes");val edges=flowData.getJSONArray("edges")
+                val text=StringBuilder("الصوت: ").append(flow.optString("voice"))
+                    .append("\nالتعليمات: ").append(flow.optString("instructions").take(3000))
+                    .append("\n\nخطوات السيناريو:\n")
+                for(i in 0 until nodes.length()){
+                    val n=nodes.getJSONObject(i)
+                    text.append("\n").append(i+1).append(" · ").append(n.optString("type"))
+                        .append(" [").append(n.optString("id")).append("]\n")
+                        .append(n.optString("text").take(1000)).append("\n")
+                }
+                text.append("\nالروابط والشروط:\n")
+                for(i in 0 until edges.length()){
+                    val e=edges.getJSONObject(i)
+                    text.append("• ").append(e.optString("from")).append(" → ")
+                        .append(e.optString("to"))
+                    if(e.optString("label").isNotBlank())
+                        text.append(" (").append(e.optString("label").take(160)).append(")")
+                    text.append("\n")
+                }
+                val scroll=ScrollView(this@MobileLinkActivity)
+                scroll.addView(TextView(this@MobileLinkActivity).apply{
+                    this.text=text.toString();textSize=15f;setTextIsSelectable(true)
+                    setPadding(25,20,25,20)
+                })
                 AlertDialog.Builder(this@MobileLinkActivity)
-                    .setTitle("SIM ${slot+1} — Flow المنشور v${revision}")
-                    .setMessage("تم استلام النسخة المنشورة للتحقق فقط.\nالصوت: ${voice}\nالعقد: ${nodes}\nالاتصال الصوتي الحقيقي لا يبدأ من شاشة المعاينة.")
-                    .setPositiveButton("حسنًا",null).show()
+                    .setTitle("SIM ${slot+1} · سيناريو v${flow.getInt("revision")}")
+                    .setView(scroll)
+                    .setPositiveButton("تعديل في الموقع"){_,_->openConsole("agents")}
+                    .setNegativeButton("إغلاق",null).show()
             }catch(t:Throwable) {
                 if(t is CancellationException)throw t
                 banner.text="Flow SIM ${slot+1}: "+(t.message?:"تعذر جلب النسخة المنشورة")
@@ -703,9 +753,12 @@ class MobileLinkActivity:ComponentActivity(){
                     "loadCallHistory","listContacts","contactDnc","campaignAutoEnable",
                     "campaignAutoDisable","listCampaigns","campaignAction","createCampaign",
                     "contactsPick","contactsAll","contactsFilePick","contactsFileUpload",
-                    "contactsUpload","admin"
+                    "contactsUpload","admin","copyKey"
                 )) error("وضع الشرائح المستقلة نشط؛ واجهات هاتف التجربة غير متاحة لحماية حسابات العملاء")
                 when(command){
+                    "openConsole" -> openConsole()
+                    "openScenario" -> showScenarioMenu()
+                    "copyKey" -> copyPilotKey()
                     "ready"->{ready=true;withContext(Dispatchers.IO){ota.confirm()};banner.text="الواجهة جاهزة • OTA ${ota.revision}";sendState()
                         web.postDelayed({splash?.hide();banner.visibility=View.GONE},550)
                         val prefs=getSharedPreferences("ontrack_link",MODE_PRIVATE)

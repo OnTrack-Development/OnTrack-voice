@@ -271,6 +271,7 @@ def main(root):
         android + 'name':'android.support.FILE_PROVIDER_PATHS',
         android + 'resource':'@xml/native_updates_paths'
     })
+    ET.SubElement(app, 'activity', {android + 'name': '.ConsoleWebActivity', android + 'exported': 'false'})
     ET.SubElement(app, 'activity', {android + 'name': '.ProofActivity', android + 'exported': 'false'})
     ET.SubElement(app, 'service', {android + 'name': '.MobileLinkService', android + 'exported': 'false', android + 'foregroundServiceType': 'dataSync'})
     # Upstream components use relative names under the new namespace; explicit
