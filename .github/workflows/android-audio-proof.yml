@@ -13,6 +13,11 @@ on:
       - 'saas/mobile/ota/native_deploy.py'
       # Release tooling changes are verified in mobile-release-gate.yml;
       # they must not build or publish a new APK by themselves.
+  pull_request:
+    branches: [main]
+    paths:
+      - 'saas/mobile/audio-proof/**'
+      - '.github/workflows/android-audio-proof.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -62,7 +67,7 @@ jobs:
         run: python3 saas/mobile/audio-proof/prepare.py .build/jemrec
       - name: Test audio import and daemon state logic
         working-directory: .build/jemrec
-        run: ./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.PcmWavTest' --tests 'com.ontrack.voiceproof.SetupDiagnosticFormatTest' --tests 'com.ontrack.voiceproof.ProofExportTest' --tests 'com.ontrack.voiceproof.LinkPcmTest' --tests 'com.ontrack.voiceproof.SignedOtaTest' --tests 'com.ontrack.voiceproof.LocalUiPageTest' --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' --tests 'com.ontrack.voiceproof.OverlayUiModelTest' :daemon-tests:test
+        run: ./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.PcmWavTest' --tests 'com.ontrack.voiceproof.SetupDiagnosticFormatTest' --tests 'com.ontrack.voiceproof.ProofExportTest' --tests 'com.ontrack.voiceproof.LinkPcmTest' --tests 'com.ontrack.voiceproof.SignedOtaTest' --tests 'com.ontrack.voiceproof.LocalUiPageTest' --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' --tests 'com.ontrack.voiceproof.OverlayUiModelTest' --tests 'com.ontrack.voiceproof.TenantPairingContractTest' :daemon-tests:test
       - name: Assert previously-installed Android signing identity
         run: |
           set -euo pipefail
@@ -131,6 +136,7 @@ jobs:
           if-no-files-found: ignore
 
   publish_ota:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -148,6 +154,7 @@ jobs:
         run: python3 tools/queue_mobile_ota.py .build/downloaded/ota
 
   publish_native:
+    if: github.event_name != 'pull_request'
     needs: [build, publish_ota]
     runs-on: ubuntu-latest
     timeout-minutes: 8
