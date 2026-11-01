@@ -9,7 +9,8 @@ if($_SERVER['REQUEST_METHOD']==='GET') {
     $contacts=[];
     foreach($rows as $row) {
         $contacts[]=['id'=>(string)$row['id'],'name'=>(string)$row['name'],
-            'phone'=>(string)$row['phone'],'do_not_call'=>!pilot_contact_dialable($row,$suppressed)];
+            'phone'=>(string)$row['phone'],'do_not_call'=>!empty($row['do_not_call']) || isset($suppressed[(string)pilot_number((string)$row['phone'])]),
+            'consented'=>!empty($row['consented'])];
     }
     mobile_json(['ok'=>true,'contacts'=>$contacts,'total'=>count(pilot_read('contacts'))]);
 }
