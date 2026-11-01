@@ -57,6 +57,8 @@ class TenantDeviceEnrollment(private val context: Context) {
         val ciphertext=prefs.getString(field(slot),null)?:error("الشريحة غير مربوطة")
         return JSONObject(unseal(ciphertext))
     }
+    /** Local non-secret binding identifier; never substitute for authorization. */
+    fun bindingId(slot:Int):Int = local(slot).getInt("device_id")
     private fun installationId():String {
         prefs.getString("installation_id",null)?.let { return it }
         val id=UUID.randomUUID().toString()
@@ -131,6 +133,9 @@ class TenantDeviceEnrollment(private val context: Context) {
         val verified=heartbeat(slot)
         check(verified.getInt("sim_slot")==slot) { "ملف الشريحة لا يطابق الهاتف" }
         val saved=local(slot)
+        check(event.optInt("device_id",-1)==saved.getInt("device_id")) {
+            "حدث قديم تابع لربط مختلف؛ لن يُرسل إلى حساب آخر"
+        }
         val payload=JSONObject(event.toString()).put("operation","call_event").put("sim_slot",slot)
         return request(payload,saved.getString("token")).getJSONObject("event")
     }
