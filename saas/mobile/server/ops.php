@@ -32,10 +32,11 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
             }
             if(!$rows)throw new InvalidArgumentException('اختر ملفًا أو أدخل أرقامًا');
             $result=pilot_import_contacts($rows);
-            $flash=sprintf('تم إضافة %d، مكرر %d، غير صالح %d',$result['added'],$result['duplicates'],$result['invalid']);
+            $flash=sprintf('تم إضافة %d (منهم %d محظور)، مكرر %d، غير صالح %d',$result['added'],$result['blocked'],$result['duplicates'],$result['invalid']);
         } elseif($action==='dnc') {
             if(!preg_match('/^[0-9a-f]{24}$/D',(string)($_POST['id']??'')))throw new InvalidArgumentException('معرف غير صالح');
-            $found=pilot_dnc((string)$_POST['id'],($_POST['blocked']??'')==='1');
+            if(($_POST['blocked']??'')!=='1')throw new InvalidArgumentException('رفع الحظر يحتاج موافقة جديدة موثقة؛ لا يتم من هذه الشاشة.');
+            $found=pilot_dnc((string)$_POST['id'],true);
             if(!$found)throw new InvalidArgumentException('جهة الاتصال غير موجودة');
             $flash='تم تحديث حالة عدم الاتصال بالرقم.';
         } elseif($action==='campaign') {
@@ -52,6 +53,7 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
     }catch(Throwable $e){http_response_code(422);$flash='تعذر التنفيذ: '.$e->getMessage();}
 }
 $contacts=pilot_read('contacts');$campaigns=pilot_read('campaigns');
+$suppressed=pilot_suppression_keys();
 function safe(string $v):string{return htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
 ?><!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>إدارة المكالمات | OnTrack Voice</title><style>
@@ -83,7 +85,7 @@ small{color:#a9bbcf}table{width:100%;border-collapse:collapse}td,th{border-botto
 <label>أرقام محددة (اتركها بدون اختيار لاستخدام كل الأرقام التي وافقت على التواصل)
 <select name="contacts[]" multiple size="7" style="width:100%;padding:12px;background:#0d1726;color:#fff;border:1px solid #304057;border-radius:12px">
 <?php foreach(array_slice($contacts,0,2000) as $contact):?>
-<option value="<?=safe((string)$contact['id'])?>" <?=!empty($contact['do_not_call'])||empty($contact['consented'])?'disabled':''?>><?=safe((string)$contact['name'])?> — <?=safe((string)$contact['phone'])?></option>
+<option value="<?=safe((string)$contact['id'])?>" <?=!pilot_contact_dialable($contact,$suppressed)?'disabled':''?>><?=safe((string)$contact['name'])?> — <?=safe((string)$contact['phone'])?></option>
 <?php endforeach;?></select></label>
 <button>حفظ مسودة الحملة</button></form></section>
 </div>
@@ -91,8 +93,12 @@ small{color:#a9bbcf}table{width:100%;border-collapse:collapse}td,th{border-botto
 <div class="wrap"><table><thead><tr><th>الاسم</th><th>الهاتف</th><th>الاتصال</th></tr></thead><tbody>
 <?php foreach(array_slice(array_reverse($contacts),0,100) as $c):?><tr><td><?=safe((string)$c['name'])?></td><td dir="ltr"><?=safe((string)$c['phone'])?></td><td><form method="post">
 <input type="hidden" name="csrf" value="<?=safe($_SESSION['csrf'])?>"><input type="hidden" name="action" value="dnc">
-<input type="hidden" name="id" value="<?=safe((string)$c['id'])?>"><input type="hidden" name="blocked" value="<?=empty($c['do_not_call'])?'1':'0'?>">
-<button style="padding:7px;font-size:11px;background:<?=empty($c['do_not_call'])?'#783448':'#246455'?>"><?=empty($c['do_not_call'])?'لا تتصل مجددًا':'إلغاء الحظر'?></button>
+<input type="hidden" name="id" value="<?=safe((string)$c['id'])?>"><input type="hidden" name="blocked" value="1">
+<?php if(!pilot_contact_dialable($c,$suppressed)):?>
+<span class="flag">محظور أو بلا موافقة — رفع الحظر يتطلب موافقة جديدة موثقة</span>
+<?php else:?>
+<button style="padding:7px;font-size:11px;background:#783448">لا تتصل مجددًا</button>
+<?php endif;?>
 </form></td></tr><?php endforeach;?></tbody></table></div></section>
 <section class="card"><h2>الحملات (<?=count($campaigns)?>)</h2><div class="wrap"><table><thead><tr><th>الحملة</th><th>البدء</th><th>الحالة</th></tr></thead><tbody>
 <?php foreach(array_reverse($campaigns) as $c):?><tr><td><?=safe((string)$c['name'])?></td><td><?=safe((string)$c['starts_at'])?></td><td><span class="flag"><?=safe((string)$c['status'])?></span>
