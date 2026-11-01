@@ -364,6 +364,23 @@ function render_contacts(array $a):void {
 function render_calls(array $a):void{
     $id=(int)$a['account_id'];$rows=all('SELECT * FROM calls WHERE account_id=? ORDER BY id DESC LIMIT 100',[$id]);
     echo card('سجل المكالمات',tbl(['العميل','الرقم','المدة','الحالة','النوع','التوقيت'],array_map(fn($v)=>[e($v['name']),e($v['phone']),e(fmt_duration((int)$v['duration_seconds'])),pill($v['status']),(int)$v['is_demo']?'DEMO':'فعلي',e($v['created_at'])],$rows)));
+    $observations=all("SELECT device_id,call_id,MAX(sim_slot) sim_slot,MAX(agent_id) agent_id,
+        MAX(observed_at) last_at,MAX(duration_seconds) duration_seconds,
+        MAX(CASE WHEN phase='ended' THEN 1 ELSE 0 END) ended,
+        MAX(CASE WHEN phase='active' THEN 1 ELSE 0 END) active
+        FROM tenant_call_events WHERE account_id=? GROUP BY device_id,call_id
+        ORDER BY MAX(id) DESC LIMIT 100",[$id]);
+    $actual=[];
+    foreach($observations as $row){
+        $agent=one('SELECT name FROM agents WHERE id=? AND account_id=?',[(int)$row['agent_id'],$id]);
+        $state=(int)$row['ended']===1?'انتهت':((int)$row['active']===1?'متصلة':'رنين');
+        $actual[]=['#'.(int)$row['device_id'],e('SIM '.((int)$row['sim_slot']+1)),
+            e((string)($agent['name']??'إيجنت مؤرشف')),e($state),
+            e(fmt_duration((int)$row['duration_seconds'])),e((string)$row['last_at']).' UTC'];
+    }
+    echo card('مكالمات الشرائح المرتبطة بالحساب — أحداث الهاتف',
+        tbl(['الجهاز','الشريحة','الإيجنت','آخر حالة','المدة المبلغ عنها','وقت الجهاز'],$actual));
+    echo '<p class="info">الأحداث من حالة اتصال Android فقط، بدون رقم أو صوت أو ملخص. وقت الجهاز والمدة غير موثقين من المشغل؛ ليست إثباتًا لتشغيل AI أو لتسجيل المكالمة. لا تظهر بيانات شركة أخرى.</p>';
     echo '<div class="info">البيانات الموسومة DEMO غير حقيقية ولا توجد تسجيلات صوتية مزيفة. الربط مع Call Ledger للموبايل يتطلب ترحيل tenant-scoped آمن.</div>';
 }
 function render_devices(array $a):void {
