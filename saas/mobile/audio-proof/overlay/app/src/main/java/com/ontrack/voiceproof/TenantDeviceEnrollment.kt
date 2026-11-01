@@ -63,14 +63,14 @@ class TenantDeviceEnrollment(private val context: Context) {
         check(prefs.edit().putString("installation_id",id).commit()) { "تعذر حفظ هوية الهاتف" }
         return id
     }
-    private fun request(body:JSONObject, token:String?=null):JSONObject {
+    private fun request(body:JSONObject, token:String?=null,maxResponse:Int=16384):JSONObject {
         val builder=Request.Builder().url(TenantPairingContract.ENDPOINT)
             .header("Content-Type","application/json")
         if(token!=null)builder.header("Authorization","Bearer "+TenantPairingContract.token(token))
         val req=builder.post(body.toString().toRequestBody("application/json".toMediaType())).build()
         client.newCall(req).execute().use { response ->
             val raw=response.body?.string().orEmpty()
-            check(raw.length<=16384) { "استجابة السيرفر غير صالحة" }
+            check(raw.length<=maxResponse) { "استجابة السيرفر غير صالحة" }
             if(response.code==401)throw SecurityException("تم إلغاء صلاحية ربط الشريحة")
             check(response.isSuccessful) { "السيرفر رفض الطلب HTTP ${response.code}" }
             val data=JSONObject(raw)
@@ -121,6 +121,31 @@ class TenantDeviceEnrollment(private val context: Context) {
             "بيانات السيرفر لا تطابق الشريحة المربوطة"
         }
         return profile
+    }
+
+    /** Fetch only the immutable server-published Flow for this SIM/tenant.
+     * This does not initiate calls or unlock the legacy pilot voice transport.
+     */
+    fun publishedFlow(slot:Int):JSONObject {
+        val saved=local(slot)
+        val state=heartbeat(slot) // revalidate hardware + server authorization every time
+        check(state.optBoolean("flow_ready",false)) { "الإيجنت ليس لديه Flow منشور" }
+        val reply=request(JSONObject().put("operation","published_flow"),
+            saved.getString("token"),65536)
+        val revision=reply.optInt("revision",-1)
+        val digest=reply.optString("hash","")
+        check(revision>0 && revision==state.optInt("flow_revision",-1)
+            && Regex("^[a-f0-9]{64}$").matches(digest)
+            && digest==state.optString("flow_hash","")
+            && reply.optInt("site_id",-1)==saved.getInt("site_id")
+            && reply.optInt("agent_id",-1)==saved.getInt("agent_id")
+            && reply.optInt("sim_slot",-1)==slot) {
+            "نسخة Flow لا تتطابق مع حساب الشريحة؛ لم يتم تنفيذ شيء"
+        }
+        val flow=reply.getJSONObject("flow")
+        check(flow.getJSONArray("nodes").length() in 1..100 &&
+            flow.getJSONArray("edges").length()<=250) { "Flow غير صالح" }
+        return reply
     }
     fun disconnect(slot:Int) {
         val saved=local(slot)

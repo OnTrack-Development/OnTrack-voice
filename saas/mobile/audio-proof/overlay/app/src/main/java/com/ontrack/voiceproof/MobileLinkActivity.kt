@@ -404,7 +404,8 @@ class MobileLinkActivity:ComponentActivity(){
                     else try {
                         val p=tenantEnrollment.heartbeat(slot)
                         TenantPairingContract.statusLine(slot,true,
-                            p.optString("account_name"),p.optString("site_name"),p.optString("agent_name"))
+                            p.optString("account_name"),p.optString("site_name"),p.optString("agent_name")) +
+                            if(p.optBoolean("flow_ready",false)) " • Flow v"+p.optInt("flow_revision") else " • Flow غير منشور"
                     } catch(e:SecurityException) {
                         TenantPairingContract.statusLine(slot,true,error="تم إلغاء الاعتماد من السيرفر")
                     } catch(e:CancellationException) {
@@ -425,7 +426,8 @@ class MobileLinkActivity:ComponentActivity(){
             "ربط SIM 1"+if(tenantEnrollment.paired(0))" (مربوطة)" else "",
             "ربط SIM 2"+if(tenantEnrollment.paired(1))" (مربوطة)" else "",
             "التحقق من ربط SIM 1","التحقق من ربط SIM 2",
-            "فصل SIM 1 من السيرفر","فصل SIM 2 من السيرفر")
+            "فصل SIM 1 من السيرفر","فصل SIM 2 من السيرفر",
+            "عرض Flow المنشور لـ SIM 1","عرض Flow المنشور لـ SIM 2")
         AlertDialog.Builder(this).setTitle("إدارة شرائح الشركات")
             .setMessage("كل شريحة لها حساب وإيجنت مستقلان. هذا الربط لا يشغّل مكالمات AI تلقائيًا.")
             .setItems(items) { _,which ->
@@ -433,12 +435,34 @@ class MobileLinkActivity:ComponentActivity(){
                 when(which) {
                     0,1 -> showTenantPairDialog(slot,"")
                     2,3 -> runTenantOperation(slot,false)
+                    6,7 -> showTenantPublishedFlow(slot)
                     4,5 -> AlertDialog.Builder(this).setTitle("تأكيد فصل SIM ${slot+1}")
                         .setMessage("سيُلغى اعتماد هذه الشريحة على السيرفر، ولن يتأثر حساب الشريحة الأخرى.")
                         .setPositiveButton("فصل") { _,_ -> runTenantOperation(slot,true) }
                         .setNegativeButton("إلغاء",null).show()
                 }
             }.setNegativeButton("إغلاق",null).show()
+    }
+
+    private fun showTenantPublishedFlow(slot:Int) {
+        lifecycleScope.launch {
+            try {
+                check(!MobileLinkService.inCall) { "اعرض Flow بعد انتهاء المكالمة" }
+                val flow=withContext(Dispatchers.IO) { tenantEnrollment.publishedFlow(slot) }
+                val graph=flow.getJSONObject("flow")
+                val nodes=graph.getJSONArray("nodes").length()
+                val revision=flow.getInt("revision")
+                val voice=flow.optString("voice","")
+                AlertDialog.Builder(this@MobileLinkActivity)
+                    .setTitle("SIM ${slot+1} — Flow المنشور v${revision}")
+                    .setMessage("تم استلام النسخة المنشورة للتحقق فقط.\nالصوت: ${voice}\nالعقد: ${nodes}\nالاتصال الصوتي الحقيقي لا يبدأ من شاشة المعاينة.")
+                    .setPositiveButton("حسنًا",null).show()
+            }catch(t:Throwable) {
+                if(t is CancellationException)throw t
+                banner.text="Flow SIM ${slot+1}: "+(t.message?:"تعذر جلب النسخة المنشورة")
+                banner.visibility=View.VISIBLE
+            }
+        }
     }
     private fun showTenantPairDialog(slot:Int,initialCode:String) {
         if(tenantEnrollment.paired(slot)) {
