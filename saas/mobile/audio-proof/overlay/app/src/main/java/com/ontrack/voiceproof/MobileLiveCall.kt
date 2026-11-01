@@ -38,7 +38,7 @@ internal class MobileLiveCall(
         val token=session.getString("token")
         require(token.startsWith("auth_tokens/")) { "server did not return an ephemeral token" }
         val url=HttpUrl.Builder().scheme("https").host("generativelanguage.googleapis.com")
-            .addPathSegments("ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained")
+            .addPathSegments("ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained")
             .addQueryParameter("access_token",token).build().toString().replaceFirst("https:","wss:")
         liveUrl=url
         openSocket()
