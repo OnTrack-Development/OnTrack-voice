@@ -29,7 +29,10 @@ jobs:
           find saas/console -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           php -l tools/test_voice_saas_console.php
           php -l tools/test_tenant_device_pairing.php
-      - name: Validate JavaScript
-        run: node --check saas/console/assets/js/app.js
+      - name: Validate JavaScript and local QR rendering
+        run: |
+          node --check saas/console/assets/js/app.js
+          node --check saas/console/assets/js/pairing-qr.js
+          node tools/test_voice_qr.cjs
       - name: Database, roles, demo users, branding and isolation smoke
         run: php tools/test_voice_saas_console.php
