@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "saas-route-diagnose-20261101035327",
+  "id": "saas-fix-dir-modes-20261101035423",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-01T03:53:27.720Z",
-  "expires_at": "2026-11-01T04:53:27.720Z",
-  "cwd": "/home/appontrack/public_html",
-  "timeout_seconds": 30,
+  "created_at": "2026-11-01T03:54:23.531Z",
+  "expires_at": "2026-11-01T04:54:23.531Z",
+  "cwd": "/home/appontrack/public_html/saas",
+  "timeout_seconds": 20,
   "argv": [
     "/bin/python3",
     "-c",
-    "import pathlib,stat,json,urllib.request,urllib.error\nbase=pathlib.Path('/home/appontrack/public_html')\npaths=['.htaccess','saas/.htaccess','saas/console/.htaccess','saas/console/index.php','saas/console/assets/css/app.css','saas/mobile/updates/latest.json']\nfs=[]\nfor p in paths:\n obj=base/p\n info={'path':p,'exists':obj.exists(),'symlink':obj.is_symlink()}\n if obj.exists():\n  info['mode']=oct(stat.S_IMODE(obj.stat().st_mode));info['size']=obj.stat().st_size\n  if p.endswith('.htaccess'):info['rules']=obj.read_text(errors='replace')[:2200]\n fs.append(info)\nurls=[]\nfor path in ['/saas/console/index.php','/saas/console/','/saas/console/README.md','/saas/console/assets/js/app.js','/saas/mobile/updates/latest.json']:\n try:\n  with urllib.request.urlopen(urllib.request.Request('https://app.ontrackegy.com'+path,headers={'User-Agent':'OnTrack-Route-Probe'}),timeout=5) as x:urls.append([path,x.status,x.geturl(),x.headers.get('Content-Type','')])\n except urllib.error.HTTPError as e:urls.append([path,e.code,e.geturl()])\n except Exception as e:urls.append([path,type(e).__name__])\nprint(json.dumps({'fs':fs,'urls':urls}))"
+    "import os,pathlib,stat,json\nroot=pathlib.Path('/home/appontrack/public_html/saas/console')\nassert os.getuid()==2379 and root.is_dir() and not root.is_symlink()\ncount=0\nfor base,dirs,files in os.walk(root,followlinks=False):\n current=pathlib.Path(base)\n assert current==root or root in current.parents\n if current.is_symlink():raise RuntimeError('symlink dir')\n current.chmod(0o755)\n count+=1\n for name in dirs:\n  if (current/name).is_symlink():raise RuntimeError('symlink child')\nprint(json.dumps({'status':'public_directories_traversable','directories':count,'root_mode':oct(stat.S_IMODE(root.stat().st_mode))}))"
   ]
 }
