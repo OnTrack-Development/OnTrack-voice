@@ -73,7 +73,9 @@ function test_agent_flow_releases():void {
         ['nodes'=>[['id'=>'s','type'=>'start'],['id'=>'e','type'=>'end']],
          'edges'=>[['from'=>'s','to'=>'s']]],
         ['nodes'=>[['id'=>'s','type'=>'start'],['id'=>'e','type'=>'end'],['id'=>'orphan','type'=>'say']],
-         'edges'=>[['from'=>'s','to'=>'e']]]
+         'edges'=>[['from'=>'s','to'=>'e']]],
+        ['nodes'=>[['id'=>'s','type'=>'start'],['id'=>'e','type'=>'end'],['id'=>'f','type'=>'end']],
+         'edges'=>[['from'=>'s','to'=>'e'],['from'=>'s','to'=>'f','label'=>'branch']]]
     ] as $invalid){
         $denied=false;
         try{flow_release_validate($invalid);}catch(InvalidArgumentException $e){$denied=true;}
