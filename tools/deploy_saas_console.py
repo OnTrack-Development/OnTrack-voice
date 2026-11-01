@@ -55,6 +55,11 @@ def deploy(download_url,tar_sha,source_commit):
                     files+=1
         if not (inner/"index.php").is_file() or not (inner/"_core"/".htaccess").is_file():
             raise ValueError("Missing app front controller or security rules")
+        # Host worker umask 077 otherwise creates Apache-inaccessible 0700 folders.
+        for directory, children, filenames in os.walk(inner,followlinks=False):
+            pathlib.Path(directory).chmod(0o755)
+            if any((pathlib.Path(directory)/child).is_symlink() for child in children):
+                raise ValueError("Symlink in release tree")
         php="/opt/cpanel/ea-php83/root/usr/bin/php"
         for name in ["index.php","_core/Bootstrap.php","_core/Actions.php","_core/Views.php","database/Seed.php","api/v1/index.php","hooks/index.php"]:
             x=subprocess.run([php,"-l",str(inner/name)],capture_output=True,text=True,timeout=3)
