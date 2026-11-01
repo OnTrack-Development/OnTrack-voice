@@ -209,8 +209,8 @@ function allowed(string $permission,?array $account=null):bool {
     if($r==='support_viewer')return $permission==='read';
     if($r==='owner'||$r==='admin')return true;
     $grants=[
-        'manager'=>['read','sites.write','agents.write','campaigns.write','contacts.write','calls.read','staff.read','devices.read','integrations.read'],
-        'operator'=>['read','agents.read','campaigns.read','campaigns.write','calls.read','contacts.read','devices.read'],
+        'manager'=>['read','sites.write','agents.write','campaigns.write','contacts.write','calls.read','calls.write','staff.read','devices.read','integrations.read'],
+        'operator'=>['read','agents.read','campaigns.read','campaigns.write','calls.read','calls.write','contacts.read','devices.read'],
         'support'=>['read','calls.read','staff.read','devices.read','integrations.read'],
         'finance'=>['read','billing.read','billing.write'],
         'viewer'=>['read']
