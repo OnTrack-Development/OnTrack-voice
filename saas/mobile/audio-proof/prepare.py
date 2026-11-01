@@ -250,6 +250,9 @@ def main(root):
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.REQUEST_INSTALL_PACKAGES'})
     # Explicit opt-in for importing all phone contacts, no background address-book access.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.READ_CONTACTS'})
+    # Tenant SIM subscription-change detection; Android runtime consent required.
+    # No ICCID/IMSI/phone number is read or uploaded. Denial blocks enrollment.
+    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.READ_PHONE_STATE'})
     # Optional and user-consented; Android may restrict call-log access for non-default dialers.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.READ_CALL_LOG'})
     # Outbound SIM placement is never enabled unless the owner explicitly opts in.
