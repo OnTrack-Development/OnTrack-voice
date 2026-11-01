@@ -66,6 +66,13 @@ class TenantPairingContractTest {
         assertEquals("SIM 1 — تعذر التحقق؛ الربط غير مؤكد",
             TenantPairingContract.statusLine(0,true,error="تعذر التحقق؛ الربط غير مؤكد"))
     }
+    @Test fun serverRefreshShowsReassignedAgentPerSim() {
+        val before=TenantPairingContract.statusLine(0,true,"شركة ألف","المتجر","إيجنت قديم")
+        val after=TenantPairingContract.statusLine(0,true,"شركة ألف","المتجر","إيجنت جديد")
+        assertTrue(before.contains("إيجنت قديم"))
+        assertTrue(after.contains("إيجنت جديد"))
+        assertFalse(after.contains("إيجنت قديم"))
+    }
     @Test fun qrIntentNeverControlsEndpointOrAutoPairs() {
         val good=TenantPairingContract.qr("ontrackvoice://pair?slot=1&code=1bcd-ef01-2345-6789-abcd-ef01")
         assertEquals(1,good?.first)

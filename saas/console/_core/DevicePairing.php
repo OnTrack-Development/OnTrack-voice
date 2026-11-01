@@ -61,7 +61,8 @@ function device_pairing_redeem(string $code,string $installationId,int $simSlot,
         if($changed!==1)throw new RuntimeException('device_pairing_race');
         db()->commit();
         return ['device_id'=>$deviceId,'device_token'=>$token,'sim_slot'=>$simSlot,
-            'site_id'=>(int)$pair['site_id'],'agent_id'=>(int)$pair['agent_id']];
+            'site_id'=>(int)$pair['site_id'],'agent_id'=>(int)$pair['agent_id'],
+            'account_id'=>(int)$pair['account_id'],'agent_revision'=>1];
     }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
 }
 /** Active token must be tied to a valid, current account, site and agent. */
@@ -84,7 +85,8 @@ function device_binding_profile(array $binding):array {
         'site_id'=>(int)$site['id'],'site_name'=>$site['name'],
         'agent_id'=>(int)$agent['id'],'agent_name'=>$agent['name'],
         'voice'=>$agent['voice'],'instruction'=>$agent['instructions'],
-        'sim_slot'=>(int)$binding['sim_slot'],'heartbeat_seconds'=>10,
+        'sim_slot'=>(int)$binding['sim_slot'],'agent_revision'=>(int)($binding['agent_revision']??1),
+        'heartbeat_seconds'=>10,
         'transport'=>'tenant_pairing_preview_no_sim_bridge'];
 }
 function device_binding_heartbeat(array $binding):array {
@@ -107,6 +109,28 @@ function device_binding_revoke(int $accountId,int $deviceId):bool {
     $changed=execute("UPDATE device_bindings SET status='revoked',slot_claim=NULL,revoked_at=? WHERE id=? AND account_id=? AND status='active'",
         [now(),$deviceId,$accountId]);
     return $changed===1;
+}
+/** Change the agent for one paired SIM without re-pairing or changing its tenant/site/token. */
+function device_binding_assign_agent(int $accountId,int $deviceId,int $agentId):array {
+    if($accountId<1||$deviceId<1||$agentId<1)throw new InvalidArgumentException('device_assignment_invalid');
+    $binding=one("SELECT d.* FROM device_bindings d
+        JOIN accounts a ON a.id=d.account_id AND a.status='active'
+        JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
+        WHERE d.id=? AND d.account_id=? AND d.status='active'",[$deviceId,$accountId]);
+    if(!$binding)throw new InvalidArgumentException('device_binding_unavailable');
+    $agent=one("SELECT id FROM agents WHERE id=? AND account_id=? AND site_id=? AND status!='archived'",
+        [$agentId,$accountId,$binding['site_id']]);
+    if(!$agent)throw new InvalidArgumentException('device_assignment_agent_unavailable');
+    execute("UPDATE device_bindings SET agent_id=?,agent_revision=agent_revision+1
+        WHERE id=? AND account_id=? AND site_id=? AND status='active' AND agent_id<>?",
+        [$agentId,$deviceId,$accountId,$binding['site_id'],$agentId]);
+    $current=one("SELECT d.* FROM device_bindings d
+        JOIN accounts a ON a.id=d.account_id AND a.status='active'
+        JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
+        JOIN agents ag ON ag.id=d.agent_id AND ag.site_id=d.site_id AND ag.account_id=d.account_id AND ag.status!='archived'
+        WHERE d.id=? AND d.account_id=? AND d.status='active'",[$deviceId,$accountId]);
+    if(!$current)throw new RuntimeException('device_binding_revoked');
+    return device_binding_profile($current);
 }
 function device_pairing_cancel(int $accountId,int $pairingId):bool {
     return execute("UPDATE device_pairings SET status='cancelled' WHERE id=? AND account_id=? AND status IN ('pending','pending_sim0','pending_sim1')",
@@ -158,10 +182,14 @@ function device_call_event(array $binding,array $payload):array {
         [(int)$current['id'],$callId]))
         throw new InvalidArgumentException('device_call_event_without_start');
     try {
+        // Keep the first observed agent for all phases of an in-progress call.
+        $first=one('SELECT agent_id FROM tenant_call_events WHERE device_id=? AND call_id=? ORDER BY id LIMIT 1',
+            [$current['id'],$callId]);
+        $eventAgentId=$first?(int)$first['agent_id']:(int)$current['agent_id'];
         $eventId=insert("INSERT INTO tenant_call_events
             (account_id,site_id,agent_id,device_id,sim_slot,call_id,phase,duration_seconds,observed_at)
             VALUES (?,?,?,?,?,?,?,?,?)",[
-            $current['account_id'],$current['site_id'],$current['agent_id'],$current['id'],
+            $current['account_id'],$current['site_id'],$eventAgentId,$current['id'],
             $slot,$callId,$phase,$duration,str_replace(['T','Z'],[' ',''],$occurred)
         ]);
     }catch(PDOException $e){

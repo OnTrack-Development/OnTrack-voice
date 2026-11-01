@@ -419,6 +419,17 @@ function render_devices(array $a):void {
                 '<input type="hidden" name="device_id" value="'.(int)$d['id'].'">'.
                 '<button class="btn small" onclick="return confirm(\'فصل هذا الجهاز وإلغاء توكن الشريحة فورًا؟\')">فصل الجهاز</button></form>'
             :'—';
+        if($manage && $d['status']==='active'){
+            $options=all("SELECT id,name FROM agents WHERE account_id=? AND site_id=? AND status!='archived' ORDER BY name",
+                [$id,$d['site_id']]);
+            $chooser=form_start('assign_device_agent','/?tab=devices');
+            $chooser.='<input type="hidden" name="device_id" value="'.(int)$d['id'].'">';
+            $chooser.='<label class="field">إيجنت هذه الشريحة<select name="agent_id">';
+            foreach($options as $opt)$chooser.='<option value="'.(int)$opt['id'].'"'.
+                ((int)$opt['id']===(int)$d['agent_id']?' selected':'').'>'.e($opt['name']).'</option>';
+            $chooser.='</select></label>'.submit_btn('تعيين الإيجنت');
+            $action=$chooser.$action;
+        }
         $rows[]=[e($d['device_name']),e($d['site_name']),e($d['agent_name']),
             e('SIM '.((int)$d['sim_slot']+1)),pill($d['status']),
             e($d['last_seen_at']?:'لم يتصل بعد'),$action];

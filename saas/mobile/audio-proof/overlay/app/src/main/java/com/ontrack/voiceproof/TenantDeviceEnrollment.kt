@@ -96,6 +96,8 @@ class TenantDeviceEnrollment(private val context: Context) {
         val saved=JSONObject().put("device_id",binding.getInt("device_id"))
             .put("sim_slot",slot).put("site_id",binding.getInt("site_id"))
             .put("agent_id",binding.getInt("agent_id"))
+            .put("account_id",binding.getInt("account_id"))
+            .put("agent_revision",binding.getInt("agent_revision"))
             .put("subscription_id",subscriptionId).put("token",token)
         check(prefs.edit().putString(field(slot),seal(saved.toString())).commit()) {
             "تعذر حفظ اعتماد الشريحة؛ افصلها من لوحة الحساب وأعد الربط"
@@ -119,8 +121,22 @@ class TenantDeviceEnrollment(private val context: Context) {
         val profile=response.getJSONObject("profile")
         check(profile.getInt("sim_slot")==slot && profile.getInt("device_id")==saved.getInt("device_id")
             && profile.getInt("site_id")==saved.getInt("site_id")
-            && profile.getInt("agent_id")==saved.getInt("agent_id")) {
+            && (saved.optInt("account_id",0)==0 ||
+                profile.getInt("account_id")==saved.getInt("account_id"))) {
             "بيانات السيرفر لا تطابق الشريحة المربوطة"
+        }
+        val revision=profile.getInt("agent_revision")
+        check(revision>=1 && revision>=saved.optInt("agent_revision",0) &&
+            profile.getInt("agent_id")>0) { "وصل تعيين إيجنت قديم؛ أعد التحديث" }
+        if(revision>saved.optInt("agent_revision",0) ||
+            saved.optInt("agent_id")!=profile.getInt("agent_id") ||
+            !saved.has("account_id")) {
+            saved.put("agent_id",profile.getInt("agent_id"))
+                .put("agent_revision",revision)
+                .put("account_id",profile.getInt("account_id"))
+            check(prefs.edit().putString(field(slot),seal(saved.toString())).commit()) {
+                "تعذر حفظ تعيين الإيجنت الجديد"
+            }
         }
         return profile
     }

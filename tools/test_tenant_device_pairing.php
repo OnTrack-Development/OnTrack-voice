@@ -180,6 +180,51 @@ function test_tenant_device_pairing():void {
     $_SESSION=$oldSession;
     tenant_call_report_save(4,(int)$a['device_id'],$callA,
         'follow_up','مراجعة بشرية لاحقة','web',$actor);
+    // Reassign SIM1 to a new same-site agent without touching SIM2 or re-pairing.
+    $newAgent=insert("INSERT INTO agents(account_id,site_id,name,voice,instructions,knowledge,flow_json,status,created_at)
+        VALUES (?,?,?,?,?,?,?,'draft',?)",
+        [4,1,'إيجنت مبيعات جديد','ar-EG','تعليمات جديدة','','{}',now()]);
+    $badTenant=false;
+    try{device_binding_assign_agent(5,(int)$a['device_id'],$newAgent);}
+    catch(InvalidArgumentException $e){$badTenant=true;}
+    ok($badTenant,'other tenant cannot reassign SIM');
+    $badSite=false;
+    try{device_binding_assign_agent(4,(int)$a['device_id'],3);}
+    catch(InvalidArgumentException $e){$badSite=true;}
+    ok($badSite,'agent from another site cannot be assigned');
+    $phaseId='3456789a-bcde-4fab-8abc-3456789abcde';
+    device_call_event($session,['sim_slot'=>0,'device_id'=>(int)$a['device_id'],
+        'call_id'=>$phaseId,'phase'=>'ringing','duration_seconds'=>0,'occurred_at'=>$timestamp]);
+    $assigned=device_binding_assign_agent(4,(int)$a['device_id'],$newAgent);
+    ok($assigned['agent_id']===$newAgent && $assigned['agent_revision']===2,
+        'existing SIM accepts new same-site agent and increments revision');
+    ok(device_binding_assign_agent(4,(int)$a['device_id'],$newAgent)['agent_revision']===2,
+        'repeated same agent assignment is idempotent');
+    $freshProfile=device_binding_heartbeat($session);
+    ok($freshProfile['agent_id']===$newAgent && $freshProfile['instruction']==='تعليمات جديدة',
+        'same bearer gets new agent instructions on heartbeat');
+    ok(device_binding_heartbeat($sessionB)['agent_id']===(int)$b['agent_id'],
+        'SIM2 in another account is unchanged');
+    device_call_event($session,['sim_slot'=>0,'device_id'=>(int)$a['device_id'],
+        'call_id'=>$phaseId,'phase'=>'active','duration_seconds'=>0,'occurred_at'=>$timestamp]);
+    device_call_event($session,['sim_slot'=>0,'device_id'=>(int)$a['device_id'],
+        'call_id'=>$phaseId,'phase'=>'ended','duration_seconds'=>3,'occurred_at'=>$timestamp]);
+    $phases=all('SELECT agent_id FROM tenant_call_events WHERE device_id=? AND call_id=?',
+        [$a['device_id'],$phaseId]);
+    ok(count($phases)===3 && count(array_filter($phases,
+        static fn(array $row):bool=>(int)$row['agent_id']!==1))===0,
+        'ongoing call phases remain pinned to original agent');
+    $freshId='456789ab-cdef-4abc-8abc-456789abcdef';
+    device_call_event($session,['sim_slot'=>0,'device_id'=>(int)$a['device_id'],
+        'call_id'=>$freshId,'phase'=>'ringing','duration_seconds'=>0,'occurred_at'=>$timestamp]);
+    ok((int)one('SELECT agent_id FROM tenant_call_events WHERE device_id=? AND call_id=?',
+        [$a['device_id'],$freshId])['agent_id']===$newAgent,
+        'new call belongs to reassigned agent');
+    ob_start();render_devices(['account_id'=>4,'role'=>'owner','kind'=>'customer']);
+    $deviceHtml=(string)ob_get_clean();
+    ok(str_contains($deviceHtml,'assign_device_agent') &&
+        str_contains($deviceHtml,'إيجنت مبيعات جديد'),
+        'tenant UI renders per-SIM agent selector');
     $withoutStart=false;
     try{device_call_event($sessionB,['sim_slot'=>1,'device_id'=>(int)$b['device_id'],'call_id'=>$callB,
         'phase'=>'ended','duration_seconds'=>1,'occurred_at'=>$timestamp]);}

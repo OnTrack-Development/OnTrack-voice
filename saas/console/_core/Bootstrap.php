@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v8(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v8(); init_console_v9(); init_console_v9(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -365,5 +365,17 @@ function init_console_v8():void {
         )");
         db()->exec("CREATE INDEX IF NOT EXISTS idx_tenant_report_device ON tenant_call_reports(device_id,sim_slot)");
     }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+/** Additive revision for SIM agent assignment; preserve existing paired tokens. */
+function init_console_v9():void {
+    $marker=private_path().'/schema.v9';
+    if(is_file($marker))return;
+    $cols=driver()==='mysql'
+        ?array_column(all('SHOW COLUMNS FROM device_bindings'),'Field')
+        :array_column(all('PRAGMA table_info(device_bindings)'),'name');
+    if(!in_array('agent_revision',$cols,true))
+        db()->exec('ALTER TABLE device_bindings ADD COLUMN agent_revision INTEGER NOT NULL DEFAULT 1');
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }

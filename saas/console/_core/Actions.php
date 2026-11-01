@@ -424,6 +424,13 @@ function act():void {
                 if(!device_pairing_cancel($id,intfield('pairing_id')))throw new InvalidArgumentException('طلب الربط غير متاح');
                 audit('device.pairing.cancelled',$id,['pairing_id'=>intfield('pairing_id')]);
                 break;
+            case 'assign_device_agent':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $deviceId=intfield('device_id');$agentId=intfield('agent_id');
+                $profile=device_binding_assign_agent($id,$deviceId,$agentId);
+                audit('device.agent.assigned',$id,['device_id'=>$deviceId,'agent_id'=>$agentId,
+                    'sim_slot'=>$profile['sim_slot'],'revision'=>$profile['agent_revision']]);
+                break;
             case 'revoke_device_binding':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 if(!device_binding_revoke($id,intfield('device_id')))throw new InvalidArgumentException('الجهاز غير موجود أو مفصول مسبقًا');
