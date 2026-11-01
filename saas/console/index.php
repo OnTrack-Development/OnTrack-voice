@@ -46,7 +46,8 @@ if($path==='/login') {
     login_page();exit;
 }
 if($path==='/mfa')mfa_route();
-if($path!=='/login' && me() && mfa_privileged((int)me()['id']) && empty($_SESSION['mfa_ok']))go('/mfa');
+if(!in_array($path,['/login','/logout'],true) && me()
+   && mfa_privileged((int)me()['id']) && empty($_SESSION['mfa_ok']))go('/mfa');
 if($path==='/brand-logo'){
     $a=mine();if(!$a)deny(404);
     $brand=brand($a);

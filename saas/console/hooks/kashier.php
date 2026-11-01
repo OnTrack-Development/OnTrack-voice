@@ -24,8 +24,11 @@ try{
     if(!is_array($payload)||!kashier_verified($payload,
         (string)($_SERVER['HTTP_X_KASHIER_SIGNATURE']??''),$key))kashier_reply(401);
     $data=$payload['data'];
-    if(!isset($data['merchantId'])||!is_string($data['merchantId'])
-        ||!hash_equals($mid,$data['merchantId']))kashier_reply(403);
+    // Official payment webhook samples do not contain merchantId. The private
+    // per-merchant API key verifies source; optional MID must itself be signed.
+    if(isset($data['merchantId'])&&in_array('merchantId',$data['signatureKeys']??[],true)
+       &&(!is_string($data['merchantId'])||!hash_equals($mid,$data['merchantId'])))
+        kashier_reply(403);
     // Authenticated provider events must be tied to configured OnTrack integration.
     init_schema();
     $row=one("SELECT id FROM integrations WHERE id=? AND status='active'",[$integration]);

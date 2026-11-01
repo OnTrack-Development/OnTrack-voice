@@ -65,7 +65,7 @@ function mfa_page(?string $problem=null):never {
             echo '<label class="field">تأكيد كلمة المرور <input type="password" name="password" autocomplete="current-password" required></label>';
         }
     }else echo '<input type="hidden" name="mfa_action" value="verify">';
-    if($existing||$valid??false)
+    if($existing || ($valid ?? false))
         echo '<label class="field">رمز المصادقة من 6 أرقام <input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>';
     echo '<button class="btn primary" type="submit">'.(!$existing&&!($valid??false)?'إعداد المصادقة':'تحقق ومتابعة').'</button></form>';
     echo '<form method="post" action="/saas/console/logout"><input type="hidden" name="csrf" value="'.e(csrf()).'"><button class="btn" type="submit">تسجيل الخروج</button></form></section></main></body></html>';exit;
