@@ -77,10 +77,15 @@ function seed_console(): array {
         ['ayo.calm','AYO Calm','chatterbox_multilingual','premium',0],
         ['ayo.excited','AYO Excited','chatterbox_multilingual','premium',0],
         ['ayo.sleepy','AYO Sleepy','chatterbox_multilingual','premium',0]
-    ] as $v)insert("INSERT INTO voices(code,name,provider,tier,ready,status) VALUES (?,?,?,?,?,'active')",$v);
+    ] as $v){
+        $voice=one('SELECT id FROM voices WHERE code=?',[$v[0]]);
+        if(!$voice)insert("INSERT INTO voices(code,name,provider,tier,ready,status) VALUES (?,?,?,?,?,'active')",$v);
+        else execute("UPDATE voices SET ready=?,tier=?,status='active' WHERE id=?",[$v[4],$v[3],$voice['id']]);
+    }
+    $basic=all("SELECT id FROM voices WHERE code IN ('google.aoede','google.kore','google.puck')");
     foreach([2,3,4,5,6,7] as $id)
-        foreach([1,2,3] as $voice)
-            insert('INSERT INTO voice_grants(account_id,voice_id) VALUES (?,?)',[$id,$voice]);
+        foreach($basic as $voice)
+            insert('INSERT INTO voice_grants(account_id,voice_id) VALUES (?,?)',[$id,$voice['id']]);
     foreach([
         [5,'whmcs-order-1001',3,'طلب WHMCS مدفوع تجريبياً','paid_demo'],
         [6,'manual-1002',3,'طلب تحويل بنكي تجريبي','pending_manual_review']

@@ -27,7 +27,7 @@ ok(brand($direct)['name']==='OnTrack Voice','direct OnTrack identity');
 ok((int)site_limit(4,'site_limit')===4,'direct business plan permits multiple sites');
 ok(owned_site(3,5)!==null,'site belongs to right account');
 ok(owned_site(1,5)===null,'site isolation denied');
-ok((int)one("SELECT COUNT(*) n FROM voices WHERE ready=0")['n']===3,'unready AYO voices cannot be offered');
+ok((int)one("SELECT COUNT(*) n FROM voices WHERE ready=0 AND provider='chatterbox_multilingual'")['n']===3,'unready AYO voices cannot be offered');
 ok((int)one('SELECT COUNT(*) n FROM orders WHERE status=?',['pending_manual_review'])['n']===1,'manual payment pending');
 require_once __DIR__.'/../saas/console/_core/VoiceCatalog.php';
 ok(count(google_live_voices())===30,'official Google Live catalog contains 30 voice options');
