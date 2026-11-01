@@ -1,0 +1,57 @@
+name: Deploy OnTrack Voice SaaS Console
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'saas/console/**'
+      - 'tools/deploy_saas_console.py'
+      - 'tools/queue_saas_console.py'
+      - 'tools/test_voice_saas_console.php'
+      - '.github/workflows/voice-saas-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,openssl,fileinfo
+          coverage: none
+      - name: Syntax and tenant-demo regression
+        run: |
+          set -eu
+          find saas/console -name '*.php' -type f -print0 | xargs -0 -n1 php -l
+          php tools/test_voice_saas_console.php
+          node --check saas/console/assets/js/app.js
+          python3 -m py_compile tools/deploy_saas_console.py tools/queue_saas_console.py
+  publish:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package pinned console runtime only
+        run: |
+          set -eu
+          mkdir -p dist/saas-console
+          tar --format=ustar -czf dist/saas-console/release.tar.gz -C saas console
+          sha256sum dist/saas-console/release.tar.gz | awk '{print $1}' > dist/saas-console/release.sha256
+      - name: Upload immutable console bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnTrack-SaaS-Console
+          path: dist/saas-console/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Queue safe deployment on existing host Cron worker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/queue_saas_console.py
