@@ -191,6 +191,8 @@ try {
         case 'staff':render_staff($a);break;
         case 'sites':render_sites($a);break;
         case 'agents':render_agents($a);break;
+        case 'flows':render_flows($a);break;
+        case 'answering':render_answering($a);break;
         case 'campaigns':render_campaigns($a);break;
         case 'calls':render_calls($a);break;
         case 'contacts':render_contacts($a);break;

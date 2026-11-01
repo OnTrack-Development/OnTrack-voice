@@ -54,6 +54,7 @@ function nav_entries(string $type):array{
         'plans'=>['◫','الخطط والحدود'],'voices'=>['♫','إدارة الأصوات'],
         'staff'=>['♙','فريق المنصة'],'integrations'=>['⇄','التكاملات'],'keys'=>['⌘','مفاتيح API'],
         'sites'=>['◈','مواقعنا'],'agents'=>['✧','إيجنتاتنا'],
+        'flows'=>['◇','السيناريوهات'],'answering'=>['☷','إعدادات الرد'],
         'devices'=>['▣','مركز الهاتف'],'calls'=>['☏','سجل المكالمات'],
         'contacts'=>['♧','جهات الاتصال'],'campaigns'=>['▤','الحملات'],
         'billing'=>['▣','الفوترة'],'releases'=>['↓','تطبيق Android'],
@@ -63,14 +64,16 @@ function nav_entries(string $type):array{
         'overview'=>['⌂','نظرة عامة'],'accounts'=>['♧','عملائي'],
         'plans'=>['◫','باقات العملاء'],'voices'=>['♫','الأصوات المتاحة'],
         'staff'=>['♙','الفريق والأدوار'],'domains'=>['◎','الدومينات والبراند'],
-        'sites'=>['◈','المواقع'],'agents'=>['✧','الإيجنتات'], 'devices'=>['▣','الأجهزة'],
+        'sites'=>['◈','المواقع'],'agents'=>['✧','الإيجنتات'],
+        'flows'=>['◇','السيناريوهات'],'answering'=>['☷','إعدادات الرد'], 'devices'=>['▣','الأجهزة'],
         'integrations'=>['⇄','Laravel / WHMCS'],
         'keys'=>['⌘','مفاتيح API'],'billing'=>['▣','الاشتراكات'],
         'releases'=>['↓','تطبيق Android'],'settings'=>['⚙','هوية الريسيلر']
     ];
     return [
         'overview'=>['⌂','الرئيسية'],'sites'=>['◈','مواقعي'],
-        'agents'=>['✧','AI Agent Builder'],'campaigns'=>['▤','الحملات'],
+        'agents'=>['✧','AI Agent Builder'],'flows'=>['◇','السيناريوهات'],
+        'answering'=>['☷','إعدادات الرد'],'campaigns'=>['▤','الحملات'],
         'calls'=>['☏','سجل المكالمات'],'contacts'=>['♧','جهات الاتصال'],'devices'=>['▣','الأجهزة والخطوط'],
         'voices'=>['♫','الأصوات'],'staff'=>['♙','الموظفون'],
         'keys'=>['⌘','مفاتيح API'],'integrations'=>['⇄','التكاملات'],'billing'=>['▣','الباقة والرصيد'],
@@ -353,6 +356,37 @@ function render_agents(array $a):void{
         } else $body.='<p>'.e($agent['instructions']).'</p>';
         echo '<section id="agent-'.(int)$agent['id'].'">'.card($agent['name'],$body).'</section>';
     }
+}
+
+function render_flows(array $a):void {
+    $id=(int)$a['account_id'];
+    $agents=all("SELECT ag.id,ag.name,ag.site_id,s.name site_name FROM agents ag JOIN sites s ON s.id=ag.site_id
+        WHERE ag.account_id=? AND ag.status!='archived' AND s.status='active' ORDER BY ag.id DESC",[$id]);
+    echo '<p class="info">مكتبة قوالب عربية قابلة للتعديل؛ اختر الإيجنت ثم افتح محرره لتطبيق القالب أو الاختبار النصي أو النشر المباشر.</p>';
+    $rows=[];
+    foreach($agents as $agent){
+        $version=published_agent_flow($id,(int)$agent['site_id'],(int)$agent['id']);
+        $url='/?tab=agents&site='.(int)$agent['site_id'].'#agent-'.(int)$agent['id'];
+        $rows[]=[e($agent['name']),e($agent['site_name']),$version?'v'.(int)$version['revision']:'مسودة',
+            '<a class="btn small primary" href="'.e($url).'">فتح السيناريو وتعديله ←</a>'];
+    }
+    echo card('السيناريوهات المنشورة والمسودات',tbl(['الإيجنت','الموقع','آخر إصدار','التعديل والاختبار'],$rows));
+    if(!$agents)echo '<p><a class="btn primary" href="/saas/console/?tab=agents">إنشاء أول إيجنت من قوالب السيناريوهات</a></p>';
+}
+function render_answering(array $a):void {
+    $id=(int)$a['account_id'];
+    $agents=all("SELECT ag.id,ag.name,ag.site_id,s.name site_name FROM agents ag JOIN sites s ON s.id=ag.site_id
+        WHERE ag.account_id=? AND ag.status!='archived' AND s.status='active' ORDER BY ag.id DESC",[$id]);
+    echo '<p class="info">إعدادات الرد محفوظة لكل إيجنت بشكل مستقل؛ لا تصل للشريحة إلا في نسخة Flow المنشورة. ربط المحرك الصوتي الحقيقي على SIM ما زال يحتاج اختبارًا.</p>';
+    $rows=[];
+    foreach($agents as $agent){
+        $policy=answer_policy_for_agent($id,(int)$agent['id']);
+        $url='/?tab=agents&site='.(int)$agent['site_id'].'#agent-'.(int)$agent['id'];
+        $rows[]=[e($agent['name']),$policy['auto_answer']?'مُعدّ للرد الآلي':'يدوي',
+            (int)$policy['answer_delay_seconds'].' ثوانٍ',
+            '<a class="btn small primary" href="'.e($url).'">تعديل إعدادات الرد ←</a>'];
+    }
+    echo card('إعدادات الرد بحسب الإيجنت',tbl(['الإيجنت','السياسة','التأخير','التعديل'],$rows));
 }
 function render_campaigns(array $a):void{
     $id=(int)$a['account_id'];$s=all('SELECT id,name FROM sites WHERE account_id=?',[$id]);$map=[];
