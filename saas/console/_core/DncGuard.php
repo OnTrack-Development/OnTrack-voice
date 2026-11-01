@@ -24,7 +24,7 @@ function dnc_phone_key(string $phone):string {
 /** Returns true only for opt-outs belonging to the SAME account. */
 function dnc_is_suppressed(int $accountId,string $phone):bool {
     $key=dnc_phone_key($phone);
-    if($accountId<=0||$key===''||strlen($key)>40)
+    if($accountId<=0||strlen($key)<8||strlen($key)>40)
         throw new InvalidArgumentException('invalid_dnc_lookup');
     if(dnc_ledger_contains($accountId,$key))return true;
     // Legacy direct imports may have created opted-out contacts after the
