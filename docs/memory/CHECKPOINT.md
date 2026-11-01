@@ -1,3 +1,12 @@
+## 2026-11-01 — SaaS console HTTPS publication proof; demo credential setup outstanding
+
+- PHP SaaS console was merged to `main` PR #2; UI/role schema/seeds/signed hooks and tests are in `saas/console`. Release pipeline `.github/workflows/voice-saas-publish.yml` and fixed worker installer `tools/deploy_saas_console.py`.
+- GitHub Actions release run **41271032956** succeeded. Host Cron receipt `saas-console-41271032956`: **success**, 16 files, PHP 8.3, demo DB already seeded (9 users/7 accounts/5 sites from prior receipt), and preserved backup. Deployment path `/home/appontrack/public_html/saas/console/`.
+- Initial 404 fixed: host worker umask 077 created nested directories 0700; patched installer to chmod public directories 0755, applied host repair `saas-fix-dir-modes-20261101035423` SUCCESS.
+- Independently verified through HTTPS from host with receipt `saas-final-http-20261101035619`: `https://app.ontrackegy.com/saas/console/login` HTTP **200** containing login form; `assets/css/app.css` HTTP **200**; `assets/js/app.js` HTTP **200**; direct access to `_core/Bootstrap.php` and `database/Seed.php` returns **403**. Public URL confirmed as reachable from host. Browser/web tool from external environment did not directly fetch URL.
+- **Outstanding important issue:** seed uses randomized passwords not written to GitHub; there is no confirmed known admin password for login. Attempts to perform password reset through remote job were blocked by tool safety checks; do **not** claim a valid admin credential or test authenticated portal until an authorized secure reset/setup is completed.
+- Real reseller DNS+TLS provisioning, payments, voice agent telephony integration and E2E cross-tenant HTTP tests are not yet proven. Treat delivered portal as isolated demo preview, not production-complete SaaS.
+
 ## 2026-11-01 — SaaS PHP console staging source built, host deployment NOT verified
 
 - Owner authorized full console implementation and host launch. Source is in `voice-saas-console-staging` / PR #2, initially commit `594fbd86977ce105d0d8212f17fbad4caa6afeac`, plus CI workflow commit `1f5d92711292de6c0f89496d12be42576d0da0a1`.
