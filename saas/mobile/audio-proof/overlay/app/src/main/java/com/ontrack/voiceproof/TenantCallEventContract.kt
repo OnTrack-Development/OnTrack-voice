@@ -20,7 +20,8 @@ internal object TenantCallEventContract {
         }
         val id=previous.callId ?: newCallId
         require(Regex("^[a-f0-9-]{36}$").matches(id)) { "Invalid call identifier" }
-        // Duration starts when off-hook (answered), not while ringing.\n        val start=if(state==2 && previous.lastState!=2)elapsedMs else previous.startedElapsedMs
+        // Duration starts when off-hook (answered), not while ringing.
+        val start=if(state==2 && previous.lastState!=2)elapsedMs else previous.startedElapsedMs
         return Result(State(id,start,state),Event(id,if(state==1)"ringing" else "active",0,occurredAt))
     }
 }
