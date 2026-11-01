@@ -6,9 +6,13 @@ function pilot_store_root(): string { return MOBILE_STORE.'/pilot'; }
 function pilot_read(string $kind): array {
     if (!in_array($kind,['contacts','campaigns','attempts','dnc'],true))throw new InvalidArgumentException('invalid_kind');
     $path=pilot_store_root().'/'.$kind.'.json';
-    if (!is_file($path) || filesize($path)>3000000)return [];
-    $value=json_decode((string)file_get_contents($path),true);
-    return is_array($value)?$value:[];
+    if (!is_file($path))return [];
+    if(filesize($path)>3000000)throw new RuntimeException('pilot_store_too_large');
+    $raw=@file_get_contents($path);
+    $value=is_string($raw)?json_decode($raw,true):null;
+    if(!is_array($value)||!array_is_list($value))
+        throw new RuntimeException('pilot_store_invalid');
+    return $value;
 }
 function pilot_atomic(string $kind,array $items): void {
     $path=pilot_store_root().'/'.$kind.'.json';
