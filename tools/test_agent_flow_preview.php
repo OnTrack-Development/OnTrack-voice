@@ -63,14 +63,14 @@ function test_agent_flow_preview():void {
     $next=flow_preview_step($flow,$first['state'],'عميل تجريبي');
     ok($next['state']['fields']['field']==='عميل تجريبي'&&$next['done'],
         'collect_field keeps preview-only answer in ephemeral state');
-    $writesBefore=(int)one('SELECT COUNT(*) n FROM leads')['n'];
+    $writesBefore=(int)one('SELECT COUNT(*) n FROM contacts')['n'];
     $unsafe=['nodes'=>[['id'=>'s','type'=>'start'],['id'=>'x','type'=>'crm_write','text'=>'غير مسموح']],
         'edges'=>[['from'=>'s','to'=>'x']]];
     $flow=flow_preview_compile($unsafe);
     $blocked=flow_preview_step($flow,flow_preview_initial($flow));
     ok($blocked['done']&&str_contains($blocked['events'][0]['text'],'لم تُنفّذ'),
         'CRM action explicitly blocked in preview');
-    ok((int)one('SELECT COUNT(*) n FROM leads')['n']===$writesBefore,
+    ok((int)one('SELECT COUNT(*) n FROM contacts')['n']===$writesBefore,
         'preview does not create CRM leads');
     $loop=['nodes'=>[['id'=>'s','type'=>'start']], 'edges'=>[['from'=>'s','to'=>'s']]];
     $loopResult=flow_preview_step(flow_preview_compile($loop),flow_preview_initial(flow_preview_compile($loop)));
