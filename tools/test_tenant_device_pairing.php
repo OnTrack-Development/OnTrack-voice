@@ -73,11 +73,56 @@ function test_tenant_device_pairing():void {
         (int)$profileB['agent_id']===(int)$sessionB['agent_id'] &&
         (int)$profileB['account_id']!== (int)$profile['account_id'],
         'SIM 2 receives a separate tenant and agent profile');
+    // Actual Android telephony observations, without invented numbers or audio.
+    $callA='01234567-89ab-4cde-8f01-23456789abcd';
+    $callB='12345678-9abc-4def-8abc-123456789abc';
+    $timestamp=gmdate('Y-m-d\\TH:i:s\\Z');
+    $event=['sim_slot'=>0,'call_id'=>$callA,'phase'=>'ringing',
+        'duration_seconds'=>0,'occurred_at'=>$timestamp];
+    $created=device_call_event($session,$event);
+    ok($created['duplicate']===false && $created['event_id']>0,'SIM1 call ringing event recorded');
+    $replayed=device_call_event($session,$event);
+    ok($replayed['duplicate']===true && $replayed['event_id']===$created['event_id'],
+        'offline retries do not duplicate a call phase');
+    $event['phase']='active';
+    ok(device_call_event($session,$event)['duplicate']===false,'SIM1 answered event recorded');
+    $event['phase']='ended';$event['duration_seconds']=43;
+    ok(device_call_event($session,$event)['duplicate']===false,'SIM1 ended duration recorded');
+    $stored=one('SELECT account_id,site_id,agent_id,device_id,sim_slot,duration_seconds FROM tenant_call_events WHERE device_id=? AND call_id=? AND phase=?',
+        [$a['device_id'],$callA,'ended']);
+    ok((int)$stored['account_id']===4 && (int)$stored['site_id']===1 &&
+        (int)$stored['agent_id']===1 && (int)$stored['sim_slot']===0 &&
+        (int)$stored['duration_seconds']===43,'call record derives tenant, site and agent from SIM token');
+    $crossSlot=false;
+    try{device_call_event($sessionB,$event);}catch(InvalidArgumentException $e){$crossSlot=true;}
+    ok($crossSlot,'SIM2 bearer cannot write SIM1 event');
+    $other=['sim_slot'=>1,'call_id'=>$callA,'phase'=>'active',
+        'duration_seconds'=>0,'occurred_at'=>$timestamp];
+    ok(device_call_event($sessionB,$other)['duplicate']===false,
+        'same call UUID on SIM2 remains separate from SIM1');
+    ok((int)one('SELECT COUNT(*) n FROM tenant_call_events WHERE account_id=4')['n']===3 &&
+       (int)one('SELECT COUNT(*) n FROM tenant_call_events WHERE account_id=5')['n']===1,
+       'call history rows are strictly isolated by account');
+    $withoutStart=false;
+    try{device_call_event($sessionB,['sim_slot'=>1,'call_id'=>$callB,
+        'phase'=>'ended','duration_seconds'=>1,'occurred_at'=>$timestamp]);}
+    catch(InvalidArgumentException $e){$withoutStart=true;}
+    ok($withoutStart,'server refuses fabricated end without start');
+    $future=false;
+    try{device_call_event($sessionB,['sim_slot'=>1,'call_id'=>$callB,
+        'phase'=>'active','duration_seconds'=>0,'occurred_at'=>'2038-01-01T00:00:00Z']);}
+    catch(InvalidArgumentException $e){$future=true;}
+    ok($future,'server refuses unbounded device clock timestamps');
     ok(device_binding_authorize($a['device_token'])['account_id']!==$sessionB['account_id'],
         'SIM token cannot cross into another tenant');
     ok(device_binding_revoke(5,$a['device_id'])===false,'cross-tenant device revoke denied');
     ok(device_binding_revoke(4,$a['device_id'])===true,'owner scope revokes active SIM token');
     ok(device_binding_authorize($a['device_token'])===null,'revoked SIM token immediately denied');
+    $revokedEventDenied=false;
+    try{device_call_event($session,['sim_slot'=>0,'call_id'=>$callA,'phase'=>'active',
+        'duration_seconds'=>0,'occurred_at'=>$timestamp]);}
+    catch(RuntimeException $e){$revokedEventDenied=$e->getMessage()==='device_binding_revoked';}
+    ok($revokedEventDenied,'stale SIM session cannot write events after revocation');
     $staleHeartbeatDenied=false;
     try{device_binding_heartbeat($session);}
     catch(RuntimeException $e){$staleHeartbeatDenied=$e->getMessage()==='device_binding_revoked';}
