@@ -83,7 +83,7 @@ class TenantDeviceEnrollment(private val context: Context) {
         val name=deviceName.trim().take(100)
         require(name.isNotEmpty()) { "اسم الهاتف مطلوب" }
         val result=request(JSONObject().put("operation","pair")
-            .put("code",TenantPairingContract.code(rawCode))
+            .put("code",TenantPairingContract.codeForSlot(rawCode,slot))
             .put("installation_id",installationId())
             .put("sim_slot",slot).put("device_name",name))
         val binding=result.getJSONObject("binding")
