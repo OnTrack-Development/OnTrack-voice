@@ -147,6 +147,29 @@ class TenantDeviceEnrollment(private val context: Context) {
             flow.getJSONArray("edges").length()<=250) { "Flow غير صالح" }
         return reply
     }
+    /** New tenant voice-session authorization. Never uses a legacy pilot key.
+     * One session is bound to the exact published agent, revision, SIM and site.
+     * This only issues a short-lived token; it never answers a call itself.
+     */
+    fun voiceSession(slot:Int,expectedFlow:JSONObject):JSONObject {
+        val saved=local(slot)
+        val live=publishedFlow(slot) // verifies current hardware, pairing and snapshot
+        check(live.getInt("revision")==expectedFlow.getInt("revision")
+            && live.getString("hash")==expectedFlow.getString("hash")) {
+            "تغيّرت نسخة السيناريو، أعد المحاولة بعد التحقق"
+        }
+        val response=request(JSONObject().put("operation","voice_session"),saved.getString("token"),65536)
+        val session=response.getJSONObject("session")
+        check(session.optInt("agent_id",-1)==saved.getInt("agent_id")
+            && session.optInt("site_id",-1)==saved.getInt("site_id")
+            && session.optInt("sim_slot",-1)==slot
+            && session.optInt("revision",-1)==live.getInt("revision")
+            && session.optString("hash","")==live.getString("hash")
+            && session.optString("token","").startsWith("auth_tokens/")) {
+            "بيانات جلسة الصوت لا تطابق اعتماد الشريحة؛ رفض الاتصال"
+        }
+        return session
+    }
     fun disconnect(slot:Int) {
         val saved=local(slot)
         try {
