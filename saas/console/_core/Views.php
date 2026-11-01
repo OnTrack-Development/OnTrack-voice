@@ -86,7 +86,7 @@ function layout_open(array $a,string $tab):void{
     header('X-Frame-Options: DENY');
     header('Cache-Control: private,no-store');
     echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script><script src="/saas/console/assets/js/flow-graph.js" defer></script></head><body>';
-    echo '<div class="app-shell"><aside class="sidebar"><a href="/saas/console/" class="brand"><span class="brand-logo">';
+    echo '<div class="app-shell"><aside class="sidebar" id="mainNavigation" aria-label="القائمة الرئيسية"><button type="button" class="nav-close" id="navClose" aria-label="إغلاق القائمة">×</button><a href="/saas/console/" class="brand"><span class="brand-logo">';
     if(!empty($brand['logo'])) echo '<img src="/saas/console/brand-logo" alt="">';else echo '<b>'.e(mb_substr($brand['name'],0,1)).'</b>';
     echo '</span><span class="brand-lines"><strong>'.e($brand['name']).'</strong><small>'.e($role).'</small></span></a>';
     echo '<div class="nav-caption">مساحة العمل</div><nav class="nav-list">';
@@ -94,8 +94,8 @@ function layout_open(array $a,string $tab):void{
         $active=$tab===$key?' selected':'';
         echo '<a href="/saas/console/?tab='.e($key).'" class="nav-link'.$active.'"><span class="nav-icon">'.e($v[0]).'</span><span>'.e($v[1]).'</span></a>';
     }
-    echo '</nav><div class="side-footer"><span class="live-dot"></span> مركز إدارة الاتصال الذكي <small>OnTrack Voice SaaS · Demo</small></div></aside><div class="main-area">';
-    echo '<header class="topbar"><div class="headline"><span class="eyebrow">'.e($role).'</span><h1>'.e($heading).'</h1></div><div class="header-actions">';
+    echo '</nav><div class="side-footer"><span class="live-dot"></span> مركز إدارة الاتصال الذكي <small>OnTrack Voice SaaS · Demo</small></div></aside><button type="button" class="nav-backdrop" id="navBackdrop" aria-label="إغلاق القائمة" tabindex="-1"></button><div class="main-area">';
+    echo '<header class="topbar"><button type="button" class="icon-button nav-toggle" id="navToggle" aria-controls="mainNavigation" aria-expanded="false" aria-label="فتح القائمة">☰</button><div class="headline"><span class="eyebrow">'.e($role).'</span><h1>'.e($heading).'</h1></div><div class="header-actions">';
     $members=memberships((int)$u['id']);
     if(count($members)>1&&!$support){
         echo form_start('switch');$options=[];
