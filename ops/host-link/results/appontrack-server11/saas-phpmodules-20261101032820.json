@@ -1,0 +1,13 @@
+{
+  "job_id": "saas-phpmodules-20261101032820",
+  "target": "appontrack-server11",
+  "job_sha256": "afb9ad222e1868789369bf9501b06936a8ecadf004136844c14dc3367acb3aab",
+  "started_at": "2026-11-01T03:29:02.577496+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "[{\"binary\": \"/usr/bin/php\", \"version\": \"PHP 8.1.34 (cgi-fcgi) (built: Oct 21 2026 00:00:00)\", \"exit\": 0, \"pdo_sqlite\": true, \"sqlite3\": true, \"pdo_mysql\": true, \"mysqli\": true}, {\"binary\": \"/opt/cpanel/ea-php83/root/usr/bin/php\", \"version\": \"PHP 8.3.35 (cli) (built: Oct 21 2026 00:00:00) (NTS)\", \"exit\": 0, \"pdo_sqlite\": true, \"sqlite3\": true, \"pdo_mysql\": true, \"mysqli\": true}, {\"binary\": \"/opt/cpanel/ea-php84/root/usr/bin/php\", \"version\": \"PHP 8.4.26 (cli) (built: Oct 21 2026 00:00:00) (NTS)\", \"exit\": 0, \"pdo_sqlite\": true, \"sqlite3\": true, \"pdo_mysql\": true, \"mysqli\": true}, {\"binary\": \"/opt/alt/php83/usr/bin/php\", \"version\": \"PHP 8.3.35 (cli) (built: Oct 21 2026 00:00:00) (NTS)\", \"exit\": 0, \"pdo_sqlite\": false, \"sqlite3\": true, \"pdo_mysql\": true, \"mysqli\": true}]\n",
+  "stderr": "",
+  "finished_at": "2026-11-01T03:29:03.203806+00:00",
+  "duration_ms": 626
+}
