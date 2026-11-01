@@ -139,6 +139,22 @@ function act():void {
                 execute('UPDATE agents SET name=?,voice=?,instructions=?,knowledge=?,flow_json=?,status=? WHERE id=? AND account_id=?',
                   [$newName,$voice,field('instructions',5000),field('knowledge',20000),json_encode($decoded,JSON_UNESCAPED_UNICODE), 'draft',(int)$ag['id'],$id]);
                 audit('agent.updated',$id,['agent'=>$ag['id']]);break;
+            case 'publish_agent_flow':
+                require_permission('agents.write');
+                require_once __DIR__.'/FlowReleases.php';
+                $agentId=intfield('agent_id');
+                $release=flow_release_publish($id,$agentId,(int)me()['id']);
+                audit('agent.flow.published',$id,['agent'=>$agentId,'revision'=>$release['revision']]);
+                flash('success','تم نشر نسخة Flow رقم '.$release['revision'].'؛ التشغيل الصوتي على الشريحة ما زال يحتاج ربطًا واختبارًا.');
+                break;
+            case 'rollback_agent_flow':
+                require_permission('agents.write');
+                require_once __DIR__.'/FlowReleases.php';
+                $agentId=intfield('agent_id');
+                $release=flow_release_rollback($id,$agentId,intfield('revision'),(int)me()['id']);
+                audit('agent.flow.rolled_back',$id,['agent'=>$agentId,'revision'=>$release['revision']]);
+                flash('success','تم استرجاع Flow المنشور إلى النسخة '.$release['revision'].'.');
+                break;
             case 'add_campaign':
                 require_permission('campaigns.write');$sid=intfield('site_id');if(!owned_site($sid,$id))deny();
                 insert("INSERT INTO campaigns(account_id,site_id,name,status,created_at) VALUES (?,?,?,'draft',?)",[$id,$sid,required('name',140),now()]);
