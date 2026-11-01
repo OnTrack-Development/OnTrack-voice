@@ -427,7 +427,8 @@ class MobileLinkActivity:ComponentActivity(){
             "التحقق من ربط SIM 1","التحقق من ربط SIM 2",
             "فصل SIM 1 من السيرفر","فصل SIM 2 من السيرفر",
             "تشغيل سجل مكالمات الشرائح (بدون صوت أو أرقام)",
-            "إيقاف سجل مكالمات الشرائح")
+            "إيقاف سجل مكالمات الشرائح",
+            "عرض سجل مكالمات SIM 1","عرض سجل مكالمات SIM 2")
         AlertDialog.Builder(this).setTitle("إدارة شرائح الشركات")
             .setMessage("كل شريحة لها حساب وإيجنت مستقلان. هذا الربط لا يشغّل مكالمات AI تلقائيًا.")
             .setItems(items) { _,which ->
@@ -459,8 +460,36 @@ class MobileLinkActivity:ComponentActivity(){
                         banner.text="تم طلب إيقاف مراقبة سجل المكالمات"
                         banner.visibility=View.VISIBLE
                     }
+                    8,9 -> showTenantCallHistory(slot)
                 }
             }.setNegativeButton("إغلاق",null).show()
+    }
+    private fun showTenantCallHistory(slot:Int) {
+        lifecycleScope.launch {
+            try {
+                val calls=withContext(Dispatchers.IO){ tenantEnrollment.callHistory(slot) }
+                val lines=(0 until calls.length()).map { i ->
+                    val item=calls.getJSONObject(i)
+                    val state=when(item.optString("state")) {
+                        "ended" -> "انتهت"
+                        "unanswered" -> "لم يتم الرد"
+                        "active" -> "متصلة"
+                        else -> "رنين"
+                    }
+                    val seconds=item.optInt("duration_seconds",0).coerceAtLeast(0)
+                    "${i+1}. $state • ${seconds/60}د ${seconds%60}ث • ${item.optString("observed_at")}"
+                }
+                AlertDialog.Builder(this@MobileLinkActivity)
+                    .setTitle("SIM ${slot+1} — سجل المكالمات")
+                    .setMessage(if(lines.isEmpty())"لا توجد أحداث مكالمات مؤكدة من الهاتف بعد"
+                        else lines.joinToString("\\n")+"\\n\\nحالات هاتف فقط؛ بدون أرقام أو تسجيل صوتي.")
+                    .setPositiveButton("إغلاق",null).show()
+            } catch(e:CancellationException) { throw e }
+              catch(e:Exception) {
+                banner.text="تعذر تحميل سجل الشريحة: "+(e.message?:"تحقق من الربط والشبكة").take(100)
+                banner.visibility=View.VISIBLE
+            }
+        }
     }
     private fun showTenantPairDialog(slot:Int,initialCode:String) {
         if(tenantEnrollment.paired(slot)) {
