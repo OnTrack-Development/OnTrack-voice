@@ -174,7 +174,8 @@ function me():?array {
     // An enabled factor must never be bypassed by a stale session or SSO
     // writing uid directly. Fresh administrative password logins also require
     // enrollment before uid is ever populated.
-    if(twofa_enabled($uid) && (int)($_SESSION['twofa_verified_uid']??0)!==$uid)return null;
+    if((twofa_required($uid)||twofa_enabled($uid)) &&
+        (int)($_SESSION['twofa_verified_uid']??0)!==$uid)return null;
     return one("SELECT id,name,email,status FROM users WHERE id=? AND status='active'",[$uid]);
 }
 function memberships(int $uid):array{
