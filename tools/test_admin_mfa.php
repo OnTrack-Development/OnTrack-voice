@@ -12,24 +12,33 @@ valid(mfa_step($secret,$code,$t+120)===null,'expired code must fail');
 valid(mfa_step($secret,'12345',$t)===null,'bad format');
 echo "ADMIN_MFA_PASS\n";
 
-/* Regression: a privileged account with no enrolled MFA must not be locked out.
- * Enrolling a valid, encrypted TOTP seed switches the gate on; unconfirmed
- * drafts are session-only and never count as enrolled. */
-require_once dirname(__DIR__).'/saas/console/database/Seed.php';
-seed_console();
-$admin=one("SELECT u.id FROM users u JOIN memberships m ON m.user_id=u.id WHERE m.role='owner' ORDER BY u.id LIMIT 1");
-valid($admin!==null,'fixture privileged owner');
-$uid=(int)$admin['id'];
-execute('DELETE FROM admin_mfa WHERE user_id=?',[$uid]);
-valid(mfa_privileged($uid),'role is privileged');
-valid(!mfa_gate_required($uid),'unenrolled admin can log in without TOTP');
+/* Isolated, in-memory DB fixture: NEVER mutate the shared seeded app DB.
+ * Enrolled record alone permits a TOTP challenge; role or pending session doesn't. */
+$GLOBALS['mfa_test_row']=null;
+function one(string $sql,array $args=[]):?array {
+    if(str_contains($sql,'FROM admin_mfa'))return $GLOBALS['mfa_test_row'];
+    if(str_contains($sql,'FROM memberships'))return ['user_id'=>1];
+    return null;
+}
+function unseal_secret(?string $raw):?string {
+    return is_string($raw)&&str_starts_with($raw,'test-encrypted:')?substr($raw,15):null;
+}
+function execute(string $sql,array $args=[]):int {
+    if(!str_starts_with($sql,'UPDATE admin_mfa SET last_step='))throw new RuntimeException('Unexpected SQL');
+    if($GLOBALS['mfa_test_row']===null||(int)$GLOBALS['mfa_test_row']['last_step'] >= (int)$args[0])return 0;
+    $GLOBALS['mfa_test_row']['last_step']=(int)$args[0];return 1;
+}
+$uid=1;
+valid(mfa_privileged($uid),'owner is privileged');
+valid(!mfa_gate_required($uid),'unenrolled admin logs in without TOTP');
 $_SESSION=['mfa_pending'=>mfa_secret(),'mfa_pending_uid'=>$uid,'mfa_pending_at'=>time()];
-valid(!mfa_gate_required($uid),'unverified QR pending must not enable MFA');
+valid(!mfa_gate_required($uid),'QR draft does not activate MFA');
 $enrolled=mfa_secret();
-insert('INSERT INTO admin_mfa(user_id,secret_enc,last_step,created_at) VALUES (?,?,?,?)',[$uid,seal_secret($enrolled),-1,now()]);
-valid(mfa_gate_required($uid),'verified-enrollment record enables MFA gate');
+$GLOBALS['mfa_test_row']=['secret_enc'=>'test-encrypted:'.$enrolled,'last_step'=>-1];
+valid(mfa_gate_required($uid),'verified stored MFA enrollment requires login code');
 $code=mfa_totp($enrolled,intdiv(time(),30));
-valid(mfa_check($uid,$code),'activated MFA accepts correct TOTP');
-valid(!mfa_check($uid,$code),'activated MFA rejects replay');
-execute('DELETE FROM admin_mfa WHERE user_id=?',[$uid]);
+valid(mfa_check($uid,$code),'enrolled TOTP accepts correct code');
+valid(!mfa_check($uid,$code),'enrolled TOTP blocks code replay');
+$GLOBALS['mfa_test_row']=null;
+valid(!mfa_gate_required($uid),'gate off without enrollment record');
 echo "MFA_ENROLLMENT_GATE_PASS\n";
