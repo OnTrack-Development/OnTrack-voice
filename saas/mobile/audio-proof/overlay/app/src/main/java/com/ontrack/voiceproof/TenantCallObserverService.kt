@@ -36,7 +36,7 @@ class TenantCallObserverService:Service() {
     private val lock=Any()
     private val prefs by lazy { getSharedPreferences("ontrack_tenant_call_events_v1",MODE_PRIVATE) }
     private val enrollment by lazy { TenantDeviceEnrollment(this) }
-    private val registered=mutableListOf<Pair<TelephonyManager,TelephonyCallback>>()
+    private val registered=mutableListOf<Triple<Int,TelephonyManager,TelephonyCallback>>()
     private var started=false
     private class Listener(private val sink:(Int)->Unit):
         TelephonyCallback(),TelephonyCallback.CallStateListener {
@@ -87,7 +87,7 @@ class TenantCallObserverService:Service() {
                     val callback=Listener { state -> onCallState(slot,state) }
                     withContext(Dispatchers.Main) {
                         manager.registerTelephonyCallback(mainExecutor,callback)
-                        registered.add(manager to callback)
+                        registered.add(Triple(slot,manager,callback))
                     }
                     count++
                 } catch(e:CancellationException) { throw e }
@@ -145,6 +145,30 @@ class TenantCallObserverService:Service() {
             }
         }
     }
+    /** Preserve stale events locally rather than reassign them to a different tenant. */
+    private fun quarantineFirst(message:String):Boolean {
+        synchronized(lock) {
+            val pending=JSONArray(prefs.getString("outbox","[]"))
+            if(pending.length()==0)return true
+            val orphaned=JSONArray(prefs.getString("orphaned","[]"))
+            if(orphaned.length()>=200) {
+                status("الأحداث المعزولة ممتلئة؛ أُوقفت المراقبة دون فقد البيانات")
+                stopSelf()
+                return false
+            }
+            orphaned.put(pending.get(0))
+            val next=JSONArray()
+            for(i in 1 until pending.length())next.put(pending.get(i))
+            if(!prefs.edit().putString("orphaned",orphaned.toString())
+                .putString("outbox",next.toString()).commit()) {
+                status("تعذر حفظ الحدث المعزول؛ أُوقفت المراقبة")
+                stopSelf()
+                return false
+            }
+        }
+        status(message)
+        return true
+    }
     private suspend fun flushLoop() {
         while(scope.isActive) {
             val event=synchronized(lock) {
@@ -154,23 +178,7 @@ class TenantCallObserverService:Service() {
             // Re-pairing must never reattribute old events to a new company.
             val currentId=runCatching{enrollment.bindingId(event.getInt("sim_slot"))}.getOrNull()
             if(currentId!=event.optInt("device_id",-1)) {
-                synchronized(lock) {
-                    val pending=JSONArray(prefs.getString("outbox","[]"))
-                    val orphaned=JSONArray(prefs.getString("orphaned","[]"))
-                    if(orphaned.length()>=200) {
-                        status("أحداث ربط سابق تنتظر مراجعة محلية؛ أُوقفت المراقبة")
-                        stopSelf()
-                        return
-                    }
-                    orphaned.put(pending.get(0))
-                    val next=JSONArray()
-                    for(i in 1 until pending.length())next.put(pending.get(i))
-                    check(prefs.edit().putString("orphaned",orphaned.toString())
-                        .putString("outbox",next.toString()).commit()) {
-                        "تعذر عزل أحداث الربط السابق"
-                    }
-                }
-                status("عُزل حدث شريحة قديم محليًا؛ لن ينتقل إلى حساب آخر")
+                if(!quarantineFirst("عُزل حدث شريحة قديم؛ لن ينتقل إلى حساب آخر"))return
                 continue
             }
             try {
@@ -186,8 +194,16 @@ class TenantCallObserverService:Service() {
                 }
             } catch(e:CancellationException) { throw e }
               catch(_:SecurityException) {
-                status("تم إلغاء ربط الشريحة؛ أُوقفت المراقبة مع حفظ الأحداث")
-                stopSelf();return
+                val slot=event.getInt("sim_slot")
+                if(!quarantineFirst("SIM ${slot+1}: أُلغي الربط؛ عُزل الحدث ولم يتأثر حساب الشريحة الأخرى"))return
+                withContext(Dispatchers.Main) {
+                    val matches=registered.filter { it.first==slot }
+                    for((_,manager,callback) in matches)
+                        runCatching { manager.unregisterTelephonyCallback(callback) }
+                    registered.removeAll { it.first==slot }
+                    if(registered.isEmpty())stopSelf()
+                }
+                continue
             } catch(_:Exception) {
                 // Offline events remain on disk; retry only when explicitly running.
                 delay(10000)
@@ -195,7 +211,7 @@ class TenantCallObserverService:Service() {
         }
     }
     override fun onDestroy() {
-        for((manager,callback) in registered)runCatching{manager.unregisterTelephonyCallback(callback)}
+        for((_,manager,callback) in registered)runCatching{manager.unregisterTelephonyCallback(callback)}
         registered.clear()
         scope.cancel()
         super.onDestroy()
