@@ -29,3 +29,13 @@
 - **PR #17 CANDIDATE**: تصحيح هدف النشر إلى المسار الحقيقي، واستبدال نقل الدليل بالكامل بـPHP-only atomic overlay وbackup/rollback، مع اختبار mid-write rollback. لا تعديل على APK/OTA أو بيانات المكالمات.
 - **HOST_DEPLOYED لا يزال OPEN** حتى receipt ناجح لنفس source SHA، و**DEVICE_E2E** لا يزال OPEN.
 
+
+## النتيجة النهائية — 2026-11-01 14:34 UTC
+
+- **PR #17 MERGED**: `https://github.com/OnTrack-Development/OnTrack-voice/pull/17`, main `cf2988c7052bddc90df017f7ac9773814f11400b`.
+- **CI_PASS:** PR `41316597775` وSaaS CI `41316597803` = SUCCESS؛ post-merge publish `41316660497` = SUCCESS.
+- **HOST_DEPLOYED VERIFIED:** Cron receipt `ops/host-link/results/appontrack-server11/pilot-server-41316660497.json`: SUCCESS exit0 عند **2026-11-01 14:33:05 UTC**، المصدر `cf2988c7052bddc90df017f7ac9773814f11400b`، SHA256 `fd5e1bca8febfd38e66b36c32ab98d752cf2ee7feabe3df71f84509ba6b5a8ed`، **20 ملف PHP**، `auth_hash_preserved=true`، `unrelated_files_untouched=true`، نسخة rollback خاصة في `/home/appontrack/.ontrack-mobile/pilot-server-backups/cf2988c7052b`.
+- **HOST READ-ONLY VERIFY:** Cron receipt `pilot-verify-20261101143317.json`: SUCCESS exit0 عند **2026-11-01 14:34:04 UTC**، 20 ملف PHP بلا أخطاء lint، pre-dial/DNC/campaign endpoint موجودة، `auth.sha256` و`updates/` موجودان؛ لم يُقرأ محتوى أسرار أو يُشغّل اتصال.
+- **DEVICE_E2E_VERIFIED: OPEN**؛ وجود كود DNC على الهوست لا يثبت أن Android منع مكالمة SIM فعلية. **MULTI_TENANT_SIM: OPEN**؛ pilot ما زال منفصلًا عن SaaS tenant binding.
+- **Security follow-up:** وجود `auth.sha256` في source repository مثبت من metadata، وتم استبعاده تمامًا من حزمة النشر؛ لاحقًا يجب تقييم نقله خارج المستودع وتدوير مفتاح الجهاز وفق خطة ربط الأجهزة دون كسر التطبيق.
+- **NEXT:** Android no-dial E2E عند توفر الجهاز، مع قياس lease→verify→dial race، ثم ربط الجهاز والشريحتين بحسابات SaaS. PR #9 SSO لم يُدمج.
