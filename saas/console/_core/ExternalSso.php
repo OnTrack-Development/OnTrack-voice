@@ -91,6 +91,9 @@ function finish_external_sso(string $ticket,?int $localUserId):array {
     $verified=verify_external_sso_ticket($ticket);
     $i=$verified['integration'];$c=$verified['claims'];
     if(active_support())throw new InvalidArgumentException('sso_support_session_forbidden');
+    // Defense in depth: caller cannot assert an arbitrary local user id.
+    if($localUserId!==null && (int)(me()['id']??0)!==$localUserId)
+        throw new InvalidArgumentException('sso_local_login_required');
     db()->beginTransaction();
     try {
         $link=one('SELECT user_id FROM external_identity_links WHERE integration_id=? AND external_subject=?',
