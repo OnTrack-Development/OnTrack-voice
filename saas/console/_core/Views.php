@@ -385,18 +385,19 @@ function render_devices(array $a):void {
             e($d['last_seen_at']?:'لم يتصل بعد'),$action];
     }
     echo card('أجهزة Android المربوطة بالحساب',tbl(['الجهاز','الموقع','الإيجنت','الشريحة','الحالة','آخر اتصال','الإجراء'],$rows));
-    $pairs=all("SELECT p.id,p.created_at,p.expires_at,s.name site_name,ag.name agent_name
+    $pairs=all("SELECT p.id,p.status,p.created_at,p.expires_at,s.name site_name,ag.name agent_name
         FROM device_pairings p JOIN sites s ON s.id=p.site_id JOIN agents ag ON ag.id=p.agent_id
-        WHERE p.account_id=? AND p.status='pending' AND p.expires_at>? ORDER BY p.id DESC LIMIT 5",
+        WHERE p.account_id=? AND p.status IN ('pending','pending_sim0','pending_sim1') AND p.expires_at>? ORDER BY p.id DESC LIMIT 5",
         [$id,now()]);
     $pending=[];
     foreach($pairs as $p){
         $action=$manage ?form_start('cancel_device_pairing','/?tab=devices','class="inline-form"').
             '<input type="hidden" name="pairing_id" value="'.(int)$p['id'].'">'.
             '<button class="btn small" type="submit">إلغاء</button></form>' : '—';
-        $pending[]=[e($p['site_name']),e($p['agent_name']),e($p['expires_at']).' UTC',$action];
+        $simLabel=$p['status']==='pending_sim0'?'SIM 1':($p['status']==='pending_sim1'?'SIM 2':'رمز قديم — ألغِه وأنشئ جديدًا');
+        $pending[]=[e($p['site_name']),e($p['agent_name']),e($simLabel),e($p['expires_at']).' UTC',$action];
     }
-    echo card('طلبات الاقتران المعلقة',tbl(['الموقع','الإيجنت','ينتهي في','الإجراء'],$pending));
+    echo card('طلبات الاقتران المعلقة',tbl(['الموقع','الإيجنت','الشريحة','ينتهي في','الإجراء'],$pending));
     if($manage){
         $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY name",[$id]);
         $agents=all("SELECT ag.id,ag.name,s.name site_name FROM agents ag JOIN sites s ON s.id=ag.site_id
