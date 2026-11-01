@@ -339,6 +339,7 @@ function render_contacts(array $a):void {
         $cells[]=[e($r['name']),e($r['phone']),e($r['site_name']),$r['dnc']?pill('DNC'):pill('active'),$action];
     }
     echo card('جهات اتصال كل موقع',tbl(['الاسم','الهاتف','الموقع','الخصوصية','الإجراءات'],$cells));
+    echo '<div class="info">أرقام عدم الاتصال (DNC) محمية على مستوى الحساب بالكامل، بما في ذلك مواقع الحساب الأخرى والتكاملات. لا يمكن إلغاء الحظر بتعديل عادي أو حذف السجل؛ يتطلب ذلك مسار موافقة موثق مستقل (قيد التطوير).</div>';
     if($siteOptions && allowed('contacts.write'))
       echo card('إضافة جهة اتصال',form_start('add_contact','/?tab=contacts').
           field_html('الاسم','name','text','اسم العميل',true).
