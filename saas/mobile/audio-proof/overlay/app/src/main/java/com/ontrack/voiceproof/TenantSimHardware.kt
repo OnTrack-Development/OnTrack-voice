@@ -56,6 +56,7 @@ internal object TenantSimHardware {
         } catch (_: RuntimeException) {
             error("تعذر التحقق من الاشتراك النشط؛ الربط متوقف")
         }
+        check(subscription?.simSlotIndex == slot) { "الاشتراك لا يطابق منفذ الشريحة؛ الربط متوقف" }
         val id = subscription?.subscriptionId ?: SubscriptionManager.INVALID_SUBSCRIPTION_ID
         check(id >= 0) { "الاشتراك النشط غير مؤكد؛ الربط متوقف" }
         return id
