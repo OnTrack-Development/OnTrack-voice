@@ -39,7 +39,7 @@ internal class CampaignDialer(
 
     fun tick(callState:Int,agentEnabled:Boolean) {
         // No pilot claim, report or dial while either SIM belongs to a tenant.
-        if(MobileLinkService.tenantPairingInProgress || TenantDeviceEnrollment(host).hasAny())return
+        if(!TenantPairingContract.pilotAllowed(MobileLinkService.tenantPairingInProgress, TenantDeviceEnrollment(host).hasAny()))return
         if(pendingAttempt.isNotEmpty()) {
             if(callState==2 && !sawActive) {
                 sawActive=true
@@ -85,8 +85,8 @@ internal class CampaignDialer(
                 error("Owner opted out")
             // Recheck immediately before Android placeCall: enrollment can start
             // while the network verify request is in flight.
-            check(!MobileLinkService.tenantPairingInProgress &&
-                !TenantDeviceEnrollment(host).hasAny()){"Tenant SIM enrollment took ownership"}
+            check(TenantPairingContract.pilotAllowed(MobileLinkService.tenantPairingInProgress,
+                TenantDeviceEnrollment(host).hasAny())){"Tenant SIM enrollment took ownership"}
             val telecom=host.getSystemService(TelecomManager::class.java)
                 ?:error("Telecom manager unavailable")
             telecom.placeCall(Uri.fromParts("tel",number,null),Bundle())
