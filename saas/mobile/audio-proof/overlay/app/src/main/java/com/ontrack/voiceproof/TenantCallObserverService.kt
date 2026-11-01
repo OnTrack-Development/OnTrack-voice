@@ -116,6 +116,15 @@ class TenantCallObserverService:Service() {
                 SystemClock.elapsedRealtime(),UUID.randomUUID().toString(),
                 Instant.now().truncatedTo(ChronoUnit.SECONDS).toString())
             if(result.state==old)return
+            val revision=try {
+                if(old.callId==null)enrollment.agentRevision(slot)
+                else prefs.getInt("call_revision_$slot",0)
+            } catch(_:Exception) { 0 }
+            if(revision<1) {
+                status("SIM ${slot+1}: إصدار الإيجنت غير معروف؛ أُوقفت المراقبة دون تخمين")
+                stopSelf()
+                return
+            }
             val events=JSONArray(prefs.getString("outbox","[]"))
             if(result.event!=null) {
                 if(events.length()>=200) {
@@ -131,14 +140,17 @@ class TenantCallObserverService:Service() {
                 }
                 events.put(JSONObject().put("sim_slot",slot).put("device_id",bindingId)
                     .put("call_id",event.callId)
-                    .put("phase",event.phase).put("duration_seconds",event.durationSeconds)
+                    .put("phase",event.phase).put("agent_revision",revision)
+                    .put("duration_seconds",event.durationSeconds)
                     .put("occurred_at",event.occurredAt))
             }
             val edit=prefs.edit().putString("outbox",events.toString())
                 .putInt("last_state_$slot",result.state.lastState)
             if(result.state.callId==null)edit.remove("call_id_$slot").remove("call_started_$slot")
+                .remove("call_revision_$slot")
             else edit.putString("call_id_$slot",result.state.callId)
                 .putLong("call_started_$slot",result.state.startedElapsedMs)
+                .putInt("call_revision_$slot",revision)
             if(!edit.commit()) {
                 status("تعذر حفظ حدث المكالمة محليًا؛ أُوقفت المراقبة")
                 stopSelf()
@@ -175,6 +187,10 @@ class TenantCallObserverService:Service() {
                 JSONArray(prefs.getString("outbox","[]")).optJSONObject(0)
             }
             if(event==null) { delay(8000);continue }
+            if(event.optInt("agent_revision",0)<1) {
+                if(!quarantineFirst("حدث قديم بلا إصدار إيجنت؛ عُزل بدل نسبته خطأً"))return
+                continue
+            }
             // Re-pairing must never reattribute old events to a new company.
             val currentId=runCatching{enrollment.bindingId(event.getInt("sim_slot"))}.getOrNull()
             if(currentId!=event.optInt("device_id",-1)) {

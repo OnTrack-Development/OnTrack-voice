@@ -59,6 +59,8 @@ class TenantDeviceEnrollment(private val context: Context) {
     }
     /** Local non-secret binding identifier; never substitute for authorization. */
     fun bindingId(slot:Int):Int = local(slot).getInt("device_id")
+    /** Agent assignment observed at call start, before offline outbox upload. */
+    fun agentRevision(slot:Int):Int = local(slot).getInt("agent_revision")
     private fun installationId():String {
         prefs.getString("installation_id",null)?.let { return it }
         val id=UUID.randomUUID().toString()

@@ -364,7 +364,9 @@ function render_contacts(array $a):void {
 function render_calls(array $a):void{
     $id=(int)$a['account_id'];$rows=all('SELECT * FROM calls WHERE account_id=? ORDER BY id DESC LIMIT 100',[$id]);
     echo card('سجل المكالمات',tbl(['العميل','الرقم','المدة','الحالة','النوع','التوقيت'],array_map(fn($v)=>[e($v['name']),e($v['phone']),e(fmt_duration((int)$v['duration_seconds'])),pill($v['status']),(int)$v['is_demo']?'DEMO':'فعلي',e($v['created_at'])],$rows)));
-    $observations=all("SELECT device_id,call_id,MAX(sim_slot) sim_slot,MAX(agent_id) agent_id,
+    $observations=all("SELECT device_id,call_id,MAX(sim_slot) sim_slot,
+        (SELECT e2.agent_id FROM tenant_call_events e2 WHERE e2.device_id=tenant_call_events.device_id
+         AND e2.call_id=tenant_call_events.call_id ORDER BY e2.id LIMIT 1) agent_id,
         MAX(observed_at) last_at,MAX(duration_seconds) duration_seconds,
         MAX(CASE WHEN phase='ended' THEN 1 ELSE 0 END) ended,
         MAX(CASE WHEN phase='active' THEN 1 ELSE 0 END) active
@@ -402,7 +404,7 @@ function render_calls(array $a):void{
     echo card('مكالمات الشرائح المرتبطة بالحساب — أحداث الهاتف وتقييم الموظف',
         tbl(['Call ID','الجهاز','الشريحة','الإيجنت','آخر حالة','المدة المبلغ عنها',
             'وقت الجهاز','نتيجة يدوية','ملاحظات','تعديل'],$actual));
-    echo '<p class="info">الأحداث من حالة اتصال Android فقط، بدون رقم أو صوت أو ملخص AI. تقييم الرضا والملاحظات إدخال بشري يدوي لا يُستنتج من المكالمة ولا يفعّل اتصال متابعة أو يرفع حظر DNC. وقت الجهاز والمدة غير موثقين من المشغل؛ ليست إثباتًا لتشغيل AI أو لتسجيل المكالمة. لا تظهر بيانات شركة أخرى.</p>';
+    echo '<p class="info">الأحداث من حالة اتصال Android فقط، بدون رقم أو صوت أو ملخص AI. يتم تثبيت إيجنت بداية المكالمة حسب إصدار التعيين المسجل على الشريحة، حتى لو تأخر رفع الأحداث أو تغير الإيجنت؛ لا يثبت ذلك تشغيل الصوت. تقييم الرضا والملاحظات إدخال بشري يدوي لا يُستنتج من المكالمة ولا يفعّل اتصال متابعة أو يرفع حظر DNC. وقت الجهاز والمدة غير موثقين من المشغل؛ ليست إثباتًا لتشغيل AI أو لتسجيل المكالمة. لا تظهر بيانات شركة أخرى.</p>';
     echo '<div class="info">البيانات الموسومة DEMO غير حقيقية ولا توجد تسجيلات صوتية مزيفة. الربط مع Call Ledger للموبايل يتطلب ترحيل tenant-scoped آمن.</div>';
 }
 function render_devices(array $a):void {

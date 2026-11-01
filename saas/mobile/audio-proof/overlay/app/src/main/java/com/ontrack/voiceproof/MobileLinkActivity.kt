@@ -486,7 +486,7 @@ class MobileLinkActivity:ComponentActivity(){
                         "follow_up" -> "متابعة (يدوية)"
                         else -> "غير مُقيّم"
                     }
-                    "${i+1}. #${item.optString("call_id").take(8)} • $state • ${seconds/60}د ${seconds%60}ث • $outcome • ${item.optString("observed_at")}"
+                    "${i+1}. #${item.optString("call_id").take(8)} • ${item.optString("agent_name","إيجنت غير معروف")} • $state • ${seconds/60}د ${seconds%60}ث • $outcome • ${item.optString("observed_at")}"
                 }
                 AlertDialog.Builder(this@MobileLinkActivity)
                     .setTitle("SIM ${slot+1} — سجل المكالمات")

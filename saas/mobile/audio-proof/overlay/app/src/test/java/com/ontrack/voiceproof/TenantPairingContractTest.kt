@@ -80,6 +80,14 @@ class TenantPairingContractTest {
         assertTrue(after.contains("إيجنت جديد"))
         assertFalse(after.contains("إيجنت قديم"))
     }
+    @Test fun agentRevisionCanBePinnedBeforeOfflineOutboxFlush() {
+        val observedAtStart=1
+        val serverAfterReassign=2
+        assertTrue(TenantPairingContract.agentRevisionValid(observedAtStart,serverAfterReassign,8))
+        // A call retains the revision captured at first telephony observation.
+        assertEquals(1,observedAtStart)
+        assertFalse(TenantPairingContract.agentRevisionValid(serverAfterReassign,observedAtStart,1))
+    }
     @Test fun qrIntentNeverControlsEndpointOrAutoPairs() {
         val good=TenantPairingContract.qr("ontrackvoice://pair?slot=1&code=1bcd-ef01-2345-6789-abcd-ef01")
         assertEquals(1,good?.first)

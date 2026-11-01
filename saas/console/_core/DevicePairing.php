@@ -56,6 +56,8 @@ function device_pairing_redeem(string $code,string $installationId,int $simSlot,
                 $pair['account_id'],$pair['site_id'],$pair['agent_id'],$installationId,$simSlot,
                 $claim,$label,hash('sha256',$token),now()
             ]);
+        insert('INSERT INTO device_agent_revisions (device_id,account_id,site_id,agent_id,agent_revision,created_at) VALUES (?,?,?,?,?,?)',
+            [$deviceId,$pair['account_id'],$pair['site_id'],$pair['agent_id'],1,now()]);
         $changed=execute("UPDATE device_pairings SET status='redeemed',device_id=?,redeemed_at=? WHERE id=? AND status=? AND expires_at>?",
             [$deviceId,now(),$pair['id'],'pending_sim'.$simSlot,now()]);
         if($changed!==1)throw new RuntimeException('device_pairing_race');
@@ -113,24 +115,36 @@ function device_binding_revoke(int $accountId,int $deviceId):bool {
 /** Change the agent for one paired SIM without re-pairing or changing its tenant/site/token. */
 function device_binding_assign_agent(int $accountId,int $deviceId,int $agentId):array {
     if($accountId<1||$deviceId<1||$agentId<1)throw new InvalidArgumentException('device_assignment_invalid');
-    $binding=one("SELECT d.* FROM device_bindings d
-        JOIN accounts a ON a.id=d.account_id AND a.status='active'
-        JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
-        WHERE d.id=? AND d.account_id=? AND d.status='active'",[$deviceId,$accountId]);
-    if(!$binding)throw new InvalidArgumentException('device_binding_unavailable');
-    $agent=one("SELECT id FROM agents WHERE id=? AND account_id=? AND site_id=? AND status!='archived'",
-        [$agentId,$accountId,$binding['site_id']]);
-    if(!$agent)throw new InvalidArgumentException('device_assignment_agent_unavailable');
-    execute("UPDATE device_bindings SET agent_id=?,agent_revision=agent_revision+1
-        WHERE id=? AND account_id=? AND site_id=? AND status='active' AND agent_id<>?",
-        [$agentId,$deviceId,$accountId,$binding['site_id'],$agentId]);
-    $current=one("SELECT d.* FROM device_bindings d
-        JOIN accounts a ON a.id=d.account_id AND a.status='active'
-        JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
-        JOIN agents ag ON ag.id=d.agent_id AND ag.site_id=d.site_id AND ag.account_id=d.account_id AND ag.status!='archived'
-        WHERE d.id=? AND d.account_id=? AND d.status='active'",[$deviceId,$accountId]);
-    if(!$current)throw new RuntimeException('device_binding_revoked');
-    return device_binding_profile($current);
+    db()->beginTransaction();
+    try{
+        $binding=one("SELECT d.* FROM device_bindings d
+            JOIN accounts a ON a.id=d.account_id AND a.status='active'
+            JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
+            WHERE d.id=? AND d.account_id=? AND d.status='active'",[$deviceId,$accountId]);
+        if(!$binding)throw new InvalidArgumentException('device_binding_unavailable');
+        $agent=one("SELECT id FROM agents WHERE id=? AND account_id=? AND site_id=? AND status!='archived'",
+            [$agentId,$accountId,$binding['site_id']]);
+        if(!$agent)throw new InvalidArgumentException('device_assignment_agent_unavailable');
+        if((int)$binding['agent_id']!==$agentId){
+            $updated=execute("UPDATE device_bindings SET agent_id=?,agent_revision=agent_revision+1
+                WHERE id=? AND account_id=? AND site_id=? AND status='active'
+                  AND agent_id=? AND agent_revision=?",
+                [$agentId,$deviceId,$accountId,$binding['site_id'],$binding['agent_id'],$binding['agent_revision']]);
+            if($updated!==1)throw new RuntimeException('device_assignment_concurrent_change');
+            insert('INSERT INTO device_agent_revisions
+                (device_id,account_id,site_id,agent_id,agent_revision,created_at)
+                VALUES (?,?,?,?,?,?)',
+                [$deviceId,$accountId,$binding['site_id'],$agentId,(int)$binding['agent_revision']+1,now()]);
+        }
+        $current=one("SELECT d.* FROM device_bindings d
+            JOIN accounts a ON a.id=d.account_id AND a.status='active'
+            JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
+            JOIN agents ag ON ag.id=d.agent_id AND ag.site_id=d.site_id AND ag.account_id=d.account_id AND ag.status!='archived'
+            WHERE d.id=? AND d.account_id=? AND d.status='active'",[$deviceId,$accountId]);
+        if(!$current)throw new RuntimeException('device_binding_revoked');
+        db()->commit();
+        return device_binding_profile($current);
+    }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
 }
 function device_pairing_cancel(int $accountId,int $pairingId):bool {
     return execute("UPDATE device_pairings SET status='cancelled' WHERE id=? AND account_id=? AND status IN ('pending','pending_sim0','pending_sim1')",
@@ -155,19 +169,21 @@ function device_call_event(array $binding,array $payload):array {
     $phase=$payload['phase']??null;
     $duration=$payload['duration_seconds']??null;
     $occurred=$payload['occurred_at']??null;
+    $revision=$payload['agent_revision']??null;
     if(!is_int($slot)||$slot!==(int)$binding['sim_slot'] ||
        !is_int($deviceId)||$deviceId!==(int)$binding['id'] ||
        !is_string($callId)||!preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D',$callId) ||
        !is_string($phase)||!in_array($phase,['ringing','active','ended'],true) ||
        !is_int($duration)||$duration<0||$duration>86400 ||
        ($phase!=='ended' && $duration!==0) ||
+       ($revision!==null && (!is_int($revision)||$revision<1)) ||
        !is_string($occurred)||!preg_match('/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/D',$occurred))
         throw new InvalidArgumentException('device_call_event_invalid');
     $when=strtotime($occurred);
     if($when===false||gmdate('Y-m-d\\TH:i:s\\Z',$when)!==$occurred||
        $when<time()-604800||$when>time()+300)
         throw new InvalidArgumentException('device_call_event_timestamp_invalid');
-    // Re-check revocation and account/agent status immediately before any write.
+    // Authorization is checked again at write time; never trust agent_id in payload.
     $current=one("SELECT d.* FROM device_bindings d
         JOIN accounts a ON a.id=d.account_id AND a.status='active'
         JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
@@ -175,21 +191,32 @@ function device_call_event(array $binding,array $payload):array {
         WHERE d.id=? AND d.account_id=? AND d.sim_slot=? AND d.status='active'",
         [$binding['id'],$binding['account_id'],$slot]);
     if(!$current)throw new RuntimeException('device_binding_revoked');
+    $first=one('SELECT agent_id,agent_revision FROM tenant_call_events
+        WHERE device_id=? AND call_id=? ORDER BY id LIMIT 1',[$current['id'],$callId]);
+    // Legacy events without a revision are supported only when we can pin an
+    // already-observed call, or before the first reassignment. Never silently
+    // attach a delayed offline call to a newly assigned agent.
+    if($revision===null && !$first && (int)$current['agent_revision']!==1)
+        throw new InvalidArgumentException('device_call_event_revision_required');
+    $resolvedRevision=$revision??($first && $first['agent_revision']!==null
+        ?(int)$first['agent_revision']:(int)$current['agent_revision']);
+    $history=one('SELECT agent_id FROM device_agent_revisions
+        WHERE device_id=? AND account_id=? AND site_id=? AND agent_revision=?',
+        [$current['id'],$current['account_id'],$current['site_id'],$resolvedRevision]);
+    if(!$history || ($first && (int)$first['agent_id']!==(int)$history['agent_id']) ||
+        ($first && $first['agent_revision']!==null &&
+            (int)$first['agent_revision']!==$resolvedRevision))
+        throw new InvalidArgumentException('device_call_event_revision_mismatch');
     $args=[(int)$current['id'],$callId,$phase];
     $existing=one('SELECT id FROM tenant_call_events WHERE device_id=? AND call_id=? AND phase=?',$args);
     if($existing)return ['event_id'=>(int)$existing['id'],'duplicate'=>true];
-    if($phase==='ended'&&!one("SELECT id FROM tenant_call_events WHERE device_id=? AND call_id=? AND phase IN ('ringing','active') LIMIT 1",
-        [(int)$current['id'],$callId]))
+    if($phase==='ended'&&!$first)
         throw new InvalidArgumentException('device_call_event_without_start');
     try {
-        // Keep the first observed agent for all phases of an in-progress call.
-        $first=one('SELECT agent_id FROM tenant_call_events WHERE device_id=? AND call_id=? ORDER BY id LIMIT 1',
-            [$current['id'],$callId]);
-        $eventAgentId=$first?(int)$first['agent_id']:(int)$current['agent_id'];
         $eventId=insert("INSERT INTO tenant_call_events
-            (account_id,site_id,agent_id,device_id,sim_slot,call_id,phase,duration_seconds,observed_at)
-            VALUES (?,?,?,?,?,?,?,?,?)",[
-            $current['account_id'],$current['site_id'],$eventAgentId,$current['id'],
+            (account_id,site_id,agent_id,agent_revision,device_id,sim_slot,call_id,phase,duration_seconds,observed_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?)",[
+            $current['account_id'],$current['site_id'],$history['agent_id'],$resolvedRevision,$current['id'],
             $slot,$callId,$phase,$duration,str_replace(['T','Z'],[' ',''],$occurred)
         ]);
     }catch(PDOException $e){
@@ -204,7 +231,11 @@ function device_call_event(array $binding,array $payload):array {
 function device_call_history(array $binding):array {
     // A stale session cannot read a history after device revocation.
     device_binding_heartbeat($binding);
-    $rows=all("SELECT call_id,MAX(observed_at) observed_at,
+    $rows=all("SELECT call_id,
+        (SELECT e2.agent_id FROM tenant_call_events e2
+         WHERE e2.device_id=tenant_call_events.device_id AND e2.call_id=tenant_call_events.call_id
+         ORDER BY e2.id LIMIT 1) agent_id,
+        MAX(observed_at) observed_at,
         MAX(duration_seconds) duration_seconds,
         MAX(CASE WHEN phase='ended' THEN 1 ELSE 0 END) ended,
         MAX(CASE WHEN phase='active' THEN 1 ELSE 0 END) active
@@ -213,10 +244,13 @@ function device_call_history(array $binding):array {
         GROUP BY call_id ORDER BY MAX(id) DESC LIMIT 20",
         [$binding['account_id'],$binding['id'],$binding['sim_slot']]);
     return array_map(static function(array $row)use($binding):array {
+        $agent=one('SELECT name FROM agents WHERE id=? AND account_id=? AND site_id=?',
+            [(int)$row['agent_id'],$binding['account_id'],$binding['site_id']]);
         $report=one('SELECT outcome,note,source,updated_at FROM tenant_call_reports WHERE account_id=? AND device_id=? AND call_id=?',
             [$binding['account_id'],$binding['id'],$row['call_id']]);
         return [
             'call_id'=>(string)$row['call_id'],
+            'agent_name'=>(string)($agent['name']??'إيجنت مؤرشف'),
             'observed_at'=>(string)$row['observed_at'],
             'duration_seconds'=>(int)$row['duration_seconds'],
             'state'=>(int)$row['ended']===1

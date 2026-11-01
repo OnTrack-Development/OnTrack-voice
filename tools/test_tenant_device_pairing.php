@@ -36,6 +36,8 @@ function test_tenant_device_pairing():void {
         'first SIM bound to tenant and fixed agent');
     $session=device_binding_authorize($a['device_token']);
     ok($session!==null && (int)$session['account_id']===4,'issued SIM token authenticates only its tenant');
+    $initialHistory=one('SELECT agent_id FROM device_agent_revisions WHERE device_id=? AND agent_revision=1',[$a['device_id']]);
+    ok((int)$initialHistory['agent_id']===1,'SIM1 initial agent assignment is durably versioned');
     $profile=device_binding_heartbeat($session);
     $sameSecond=device_binding_heartbeat($session);
     ok($sameSecond['device_id']===$profile['device_id'],
@@ -194,8 +196,10 @@ function test_tenant_device_pairing():void {
     ok($badSite,'agent from another site cannot be assigned');
     $phaseId='3456789a-bcde-4fab-8abc-3456789abcde';
     device_call_event($session,['sim_slot'=>0,'device_id'=>(int)$a['device_id'],
-        'call_id'=>$phaseId,'phase'=>'ringing','duration_seconds'=>0,'occurred_at'=>$timestamp]);
+        'call_id'=>$phaseId,'phase'=>'ringing','agent_revision'=>1,'duration_seconds'=>0,'occurred_at'=>$timestamp]);
     $assigned=device_binding_assign_agent(4,(int)$a['device_id'],$newAgent);
+    ok((int)one('SELECT agent_id FROM device_agent_revisions WHERE device_id=? AND agent_revision=2',
+        [$a['device_id']])['agent_id']===$newAgent,'SIM agent revision 2 maps to new agent');
     ok($assigned['agent_id']===$newAgent && $assigned['agent_revision']===2,
         'existing SIM accepts new same-site agent and increments revision');
     ok(device_binding_assign_agent(4,(int)$a['device_id'],$newAgent)['agent_revision']===2,
@@ -206,9 +210,9 @@ function test_tenant_device_pairing():void {
     ok(device_binding_heartbeat($sessionB)['agent_id']===(int)$b['agent_id'],
         'SIM2 in another account is unchanged');
     device_call_event($session,['sim_slot'=>0,'device_id'=>(int)$a['device_id'],
-        'call_id'=>$phaseId,'phase'=>'active','duration_seconds'=>0,'occurred_at'=>$timestamp]);
+        'call_id'=>$phaseId,'phase'=>'active','agent_revision'=>1,'duration_seconds'=>0,'occurred_at'=>$timestamp]);
     device_call_event($session,['sim_slot'=>0,'device_id'=>(int)$a['device_id'],
-        'call_id'=>$phaseId,'phase'=>'ended','duration_seconds'=>3,'occurred_at'=>$timestamp]);
+        'call_id'=>$phaseId,'phase'=>'ended','agent_revision'=>1,'duration_seconds'=>3,'occurred_at'=>$timestamp]);
     $phases=all('SELECT agent_id FROM tenant_call_events WHERE device_id=? AND call_id=?',
         [$a['device_id'],$phaseId]);
     ok(count($phases)===3 && count(array_filter($phases,
@@ -216,10 +220,39 @@ function test_tenant_device_pairing():void {
         'ongoing call phases remain pinned to original agent');
     $freshId='456789ab-cdef-4abc-8abc-456789abcdef';
     device_call_event($session,['sim_slot'=>0,'device_id'=>(int)$a['device_id'],
-        'call_id'=>$freshId,'phase'=>'ringing','duration_seconds'=>0,'occurred_at'=>$timestamp]);
+        'call_id'=>$freshId,'phase'=>'ringing','agent_revision'=>2,'duration_seconds'=>0,'occurred_at'=>$timestamp]);
     ok((int)one('SELECT agent_id FROM tenant_call_events WHERE device_id=? AND call_id=?',
         [$a['device_id'],$freshId])['agent_id']===$newAgent,
         'new call belongs to reassigned agent');
+    // An offline call observed under revision 1 must not be assigned to revision 2.
+    $delayedId='56789abc-def0-4abc-8abc-56789abcdef';
+    $delayed=['sim_slot'=>0,'device_id'=>(int)$a['device_id'],'call_id'=>$delayedId,
+        'phase'=>'ringing','agent_revision'=>1,'duration_seconds'=>0,'occurred_at'=>$timestamp];
+    device_call_event($session,$delayed);
+    ok((int)one('SELECT agent_id FROM tenant_call_events WHERE device_id=? AND call_id=?',
+        [$a['device_id'],$delayedId])['agent_id']===1,
+        'offline call remains attributed to historical SIM agent after reassignment');
+    $delayed['phase']='ended';
+    device_call_event($session,$delayed);
+    $delayed['agent_revision']=2;
+    $wrongRevision=false;
+    try{device_call_event($session,$delayed);}catch(InvalidArgumentException $e){$wrongRevision=true;}
+    ok($wrongRevision,'one call cannot switch agent revisions between phases or retries');
+    $unknownRevision=false;
+    try{device_call_event($session,['sim_slot'=>0,'device_id'=>(int)$a['device_id'],
+        'call_id'=>'6789abcd-ef01-4abc-8abc-6789abcdef','phase'=>'ringing',
+        'agent_revision'=>999,'duration_seconds'=>0,'occurred_at'=>$timestamp]);}
+    catch(InvalidArgumentException $e){$unknownRevision=true;}
+    ok($unknownRevision,'unknown SIM agent revision cannot be fabricated');
+    $legacyAfterReassign=false;
+    try{device_call_event($session,['sim_slot'=>0,'device_id'=>(int)$a['device_id'],
+        'call_id'=>'789abcde-f012-4abc-8abc-789abcdef012','phase'=>'ringing',
+        'duration_seconds'=>0,'occurred_at'=>$timestamp]);}
+    catch(InvalidArgumentException $e){$legacyAfterReassign=true;}
+    ok($legacyAfterReassign,'old Android without revision cannot misattribute new calls after agent switch');
+    $history=device_call_history($session);
+    ok(count($history)>0 && isset($history[0]['agent_name']),
+        'Android call history includes agent pinned to first call phase');
     ob_start();render_devices(['account_id'=>4,'role'=>'owner','kind'=>'customer']);
     $deviceHtml=(string)ob_get_clean();
     ok(str_contains($deviceHtml,'assign_device_agent') &&
