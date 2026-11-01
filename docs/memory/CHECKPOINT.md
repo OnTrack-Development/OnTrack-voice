@@ -1,3 +1,10 @@
+## 2026-11-01 — UI OTA-only delivery correction, not an APK
+
+- User clarified **no APK download/installation for UI identity/visual changes**. Old app native v0.2.9 `versionCode20` already supports signed HTML OTA and automatic startup check. The red/black/white UI earlier in OTA16 was incorrectly gated behind `min_native=21`, so couldn't load on native20; this explains user's report that v0.2.9 still showed the previous appearance. No proof of OTA16 live deployment was available at the moment of diagnosis.
+- Fix queued in repository: **OTA revision17 compatible with nativeCode20..21**, pull-down at top sends existing `checkUpdates` and applies signed new HTML automatically, theme stored first-party in signed local UI for code20. No native install needed for visual refresh. Separate UI-only signer/publisher workflow under `.github/workflows/mobile-ui-ota.yml`. CI + host report + phone appearance must be verified separately.
+- **Native-only** contact identity capability, if Android READ_CALL_LOG is required for fresh caller identity, cannot be fixed by OTA alone; keep its acceptance gate open. No claim of instant permission grant/true name matching.
+- Don't ask owner to reinstall APK for UI design. This is an existing implementation path, not a proposed new platform.
+
 ## 2026-11-01 — VERIFIED latest checkpoint (supersedes older P1/P2 release status)
 
 ## 2026-11-01 — User-requested red/black/white code implementation, single push (NOT automatically E2E closed)

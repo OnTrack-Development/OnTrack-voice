@@ -1,5 +1,14 @@
 # OnTrack Voice — قائمة تسليم الديمو الملزمة (Android + app.ontrackegy.com)
 
+## Owner clarification — UI OTA only, no APK installation for design (2026-11-01)
+- [ ] **UX-OTA-07** Red/black/white UI renders on **already-installed Android native v20/0.2.9** through signed HTML OTA, without APK install or download. The previous OTA16 native21 lower bound was a release compatibility bug; OTA17 target range native20–21.
+- [ ] **UX-OTA-08** Opening app automatically checks for signed UI updates; swipe downward from the top refreshes UI update availability with existing native `checkUpdates`. Only signed valid newer revision is loaded; no fake updates, no disruptive network reload during call.
+- [ ] **UX-OTA-09** Light/dark theme icon-only and persists on existing v20 (local signed UI cookie) and newer Android (native preference). Device/E2E proof needed.
+- [ ] **UX-OTA-10** UI OTA signing and host deployment independent of Gradle/APK builds; original pinned signing identity. **Never route UI refresh through PackageInstaller**.
+- Native permission/telephony feature changes remain a separate technical category requiring OS-approved native upgrade; avoid calling them UI updates.
+
+
+
 ## قرار تصميم وتنفيذ ملزم — 1 نوفمبر 2026 (واجهة المستخدم الحالية)
 
 - [ ] **UX-RED-01** تنفيذ التصميم داخل **الكود نفسه**، وليس إخراج صورة، بألوان OnTrack: الأحمر والأسود والأبيض، عناصر تفاعلية حقيقية، RTL واضح، تبويبات حديثة وبدون واجهة قديمة. عندما يقول المالك «نفّذ» فالمقصود تنفيذ وتست ونشر، وصورة فقط عند طلب صريح.

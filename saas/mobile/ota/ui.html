@@ -84,7 +84,13 @@ body.light input,body.light select,body.light textarea{background:#fafafa!import
 body.light .otThemeButton,body.light .minor{background:white;color:var(--text)}body.light .chip{background:#f0f0f2;color:#26262b}body.light .chip.good{background:#e0f5e8;color:#14592d}body.light .chip.warn{background:#ffedda;color:#75470d}
 @media(max-width:385px){.otTabs button{min-width:0;font-size:10px;padding:5px 0}.navIcon{font-size:19px}}
 
+
+/* Signed OTA refresh works on existing 0.2.9 APK; no native installation. */
+#uiPullStatus[hidden]{display:none!important}
+#uiPullStatus{position:fixed;z-index:9990;top:calc(env(safe-area-inset-top) + 12px);left:50%;transform:translateX(-50%);max-width:92vw;min-width:220px;text-align:center;padding:12px 18px;border-radius:999px;background:var(--panel);border:1px solid var(--border);box-shadow:0 12px 30px #0006;color:var(--text);font-size:13px;font-weight:750;pointer-events:none}
+body.light #uiPullStatus{background:#fff;box-shadow:0 12px 30px #0002}
 </style></head><body>
+<div id="uiPullStatus" hidden role="status" aria-live="polite">↻ فحص تحديث الواجهة…</div>
 <div id="otSplash" role="status" aria-live="polite"><div class="otHalo"><div class="otMonogram">OT</div></div><div class="otTitle">ONTRACK</div><div class="otSubtitle">VOICE INTELLIGENCE</div><div class="otProgress"><span class="otPulse"></span>يرجى الانتظار · جارٍ تجهيز الاتصال</div></div>
 <div class="otTopline">ONTRACK DEVELOPMENT / VOICE INTELLIGENCE</div>
 <header><div class="brand"><span class="logo">OT</span><div><h1>OnTrack Voice</h1><div class="sub">OnTrack Development · مركز الاتصال</div></div></div><div class="otHeaderTools"><button id="themeToggle" type="button" class="otThemeButton" aria-label="تبديل المظهر">☀</button><div class="minor" id="version">—</div></div></header>
@@ -199,6 +205,31 @@ setTimeout(finishSplash,2400);
 
 const send=(command,data={})=>OnTrack.postMessage(JSON.stringify({command,nonce:window.OTA_NONCE,...data}));
 let last={},first=true;
+// The existing 0.2.9 native bridge supports checkUpdates: signed HTML only.
+let pullStart=0,pullArmed=false,pullBusy=false,pullTimer=0;
+function pullMessage(message,ms=13000){
+ const notice=el('uiPullStatus');notice.textContent=message;notice.hidden=false;
+ clearTimeout(pullTimer);pullTimer=setTimeout(()=>{notice.hidden=true;pullBusy=false},ms);
+}
+function requestUiRefresh(){
+ if(pullBusy)return;pullBusy=true;
+ pullMessage('↻ جاري فحص تحديث واجهة OnTrack…');
+ send('checkUpdates');
+}
+document.addEventListener('touchstart',e=>{
+ if(e.touches.length!==1||window.scrollY>3||pullBusy||e.target.closest('input,textarea,select,button')){pullArmed=false;return;}
+ pullStart=e.touches[0].clientY;pullArmed=true;
+},{passive:true});
+document.addEventListener('touchend',e=>{
+ if(!pullArmed)return;pullArmed=false;
+ const dy=e.changedTouches.length?e.changedTouches[0].clientY-pullStart:0;
+ if(dy>=100&&window.scrollY<15)requestUiRefresh();
+},{passive:true});
+document.addEventListener('touchcancel',()=>{pullArmed=false},{passive:true});
+function readUiTheme(){
+ try{return document.cookie.split('; ').find(v=>v.startsWith('ontrack_voice_theme='))?.split('=')[1]==='light'?'light':'dark'}catch(e){return 'dark'}
+}
+
 window.onTrackInit=s=>{el('base').value=s.base;el('key').value=s.key;};
 window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  last=s;if(s.theme==='dark'||s.theme==='light')applyTheme(s.theme);const modern=typeof s.connected==='boolean' && typeof s.agentEnabled==='boolean';
@@ -257,7 +288,7 @@ el('wifiFreeConsent').onchange=()=>{el('wifiFreeToggle').disabled=!!last.inCall|
 el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)return;send(last.wifiFreeEnabled?'wifiFreeDisable':'wifiFreeEnable')};
 el('scanAndroid').onclick=()=>send('checkNativeUpdates');
 el('upgradeAndroid').onclick=()=>send('installNativeUpdate');
-el('updates').onclick=()=>send('checkUpdates');
+el('updates').onclick=requestUiRefresh;
 function setView(v){
  document.querySelectorAll('[data-panel]').forEach(p=>p.classList.toggle('hidden-panel',p.dataset.panel!==v));
  document.querySelectorAll('.otTabs button').forEach(b=>{
@@ -274,8 +305,12 @@ document.querySelectorAll('.otTabs button').forEach(b=>{
 });
 setView('dashboard');
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>setView(b.dataset.go));
+applyTheme(readUiTheme());
 function applyTheme(mode){const light=mode==='light';document.body.classList.toggle('light',light);el('themeToggle').textContent=light?'☾':'☀';el('themeToggle').setAttribute('aria-label',light?'تفعيل المظهر الداكن':'تفعيل المظهر الفاتح');document.querySelector('meta[name="theme-color"]').content=light?'#f7f7f8':'#0b0b0e';}
-el('themeToggle').onclick=()=>{const theme=document.body.classList.contains('light')?'dark':'light';applyTheme(theme);send('setTheme',{theme});};
+el('themeToggle').onclick=()=>{const theme=document.body.classList.contains('light')?'dark':'light';applyTheme(theme);
+ try{document.cookie='ontrack_voice_theme='+theme+'; Max-Age=31536000; Secure; SameSite=Strict; Path=/ui/'}catch(e){}
+ if(Number(last.nativeCode)>=21)send('setTheme',{theme});
+};
 function formatCallDuration(v){if(!Number.isFinite(v)||v<0)return 'المدة غير متاحة';let n=Math.floor(v),m=Math.floor(n/60),s=n%60;return m?m+' دقيقة'+(s?' و'+s+' ثانية':''):s+' ثانية';}
 const callNames={ringing:'رنين',active:'تم الرد',ended:'انتهت',missed:'لم يتم الرد',unknown:'غير معروف'};
 let callHistoryRows=[];

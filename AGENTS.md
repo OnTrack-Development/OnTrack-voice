@@ -1,5 +1,14 @@
 # Working contract — OnTrack Voice
 
+## Release policy (owner clarified 2026-11-01): UI OTA is NOT APK installation
+- OnTrack **HTML/CSS/JS visual/interface** changes must go through the **signed UI OTA system**, with no APK download or PackageInstaller. The app already does `MobileOta.check()` at startup and loads verified HTML via the local WebView virtual document. Support a **pull-down from top** to recheck the signed UI OTA using the existing `checkUpdates` bridge command. Never route visual refresh through `installNativeUpdate`.
+- Current installed owner device: **Android 0.2.9 / native versionCode20**. To deliver the red/black/white design to this device, signed UI OTA metadata must satisfy `min_native <= 20 <= max_native`. Previous OTA16 wrongly required `min_native=21`; consequently 0.2.9 cannot adopt it. UI OTA17 fixes that; build and publication proof remain separate.
+- Use `.github/workflows/mobile-ui-ota.yml` to sign and publish a UI **without producing any APK**; keep Android/telephony builds isolated. Signing must reuse the pinned original certificate. No user credentials or new certificate.
+- **Native Android feature/permission changes** (e.g. READ_CALL_LOG, telephony, background service) cannot be changed with HTML OTA and technically require an installed native update with OS approval. Never misrepresent what the UI-only OTA can achieve; don't install native for CSS/tabs/labels.
+- Update prompts must represent real verified newer releases. On native v20 the installed bridge automatically stages a signed new UI when checked; don't claim the existing binary can expose a newly invented preinstall API. Swiping from the top triggers UI refresh without APK. If user declines native update, preserve app data, no repeated download loops.
+
+
+
 ## Owner execution convention — authoritative 2026-11-01
 
 **"نفّذ" / "طبّق" / "ظبّط" means edit and test actual code in the connected repository directly, not render images, mockups, write a prompt for another AI, or ask permission for each step.** Generate/edit an image **only** if owner explicitly asks for صورة / تصميم صورة / mockup image / render; an approved image is a *visual specification for implementation*, not implementation itself. Keep real changes in a **single atomic Git commit / single push when explicitly asked**, include tests and release manifests, then prove CI/HOST/DEVICE separately. No claim of deployment until verified.
