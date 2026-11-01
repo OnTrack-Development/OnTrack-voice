@@ -1,3 +1,11 @@
+## 2026-11-01 — Owner Q01–Q24 approved, billing identity boundary candidate, hourly execution runbook
+
+- **SPEC_APPROVED**: All Q01–Q24 answered; Q07 broad Android goal with staged validation and later iOS, Q13 custom per-campaign outcomes with DNC guard delegated and resolved. Earlier 6 owner decisions preserved without change. Master: `docs/discovery/OWNER_APPROVED_MASTER_DECISIONS_2026_11_01_AR.md`. Owner requires complete launch including registration/invites, 2FA, per-company support/trash policy, dual SIM accounts, real agent flow, Google Drive KB, configurable multi-currency/monthly/yearly/trial plans, Kashier plus manual/Instapay/wallet review, reseller-collected vs OnTrack-collected payment, WHMCS/Laravel customer purchase and secure SSO with no preexisting OnTrack account.
+- **CODE CANDIDATE (NOT YET VERIFIED)**: `saas/console/_core/OrderClaim.php` records a signed externally-asserted payment as `paid_pending_claim` and adds one pending outbox event. `saas/console/hooks/index.php` no longer auto-links memberships to existing users based on email from signed payment hooks; `tools/test_voice_saas_console.php` checks email collision, replay/idempotency, conflict and absence of unauthorized access/subscriptions.
+- **Critical incomplete gate**: a verified payment still needs independently verified gateway settlement for Kashier, signed WHMCS/Laravel identity claim/SSO, then a separate idempotent service activation. No success on these paths is claimed; until claim E2E exists, such orders stay paid but unclaimed. Production use must plan for this change.
+- **AUTOMATION CONTRACT PREPARED**: `docs/execution/AUTONOMOUS_HOURLY_RUNBOOK_AR.md`; active scheduler not confirmed until `Automations.create` returns a Task ID.
+- **Next immediate step**: PR CI on branch `feat/owner-decisions-billing-contract-20261101`, review CI, merge only after success, obtain deploy receipt if any. Distinguish `CI_PASS` from `HOST_DEPLOYED`; `AUTH_UI_VERIFIED`, `PAYMENT_E2E_VERIFIED` and `DEVICE_E2E_VERIFIED` remain OPEN.
+
 ## 2026-11-01 — SaaS production rework landed (this OVERRIDES earlier "structure pending" notes)
 
 - Owner rejected separated phone pilot, text-only Agent Flow Builder, forced read-only support, unrecoverable integration keys, tiny Google voice list and missing edit/archive management.
