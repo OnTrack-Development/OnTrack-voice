@@ -446,15 +446,22 @@ class MobileLinkActivity:ComponentActivity(){
                     try {
                         check(!MobileLinkService.inCall) { "انتظر انتهاء المكالمة أولًا" }
                         TenantPairingContract.code(code)
-                        // Never allow the legacy pilot bearer to operate after tenant enrollment.
-                        stopService(Intent(this@MobileLinkActivity,MobileLinkService::class.java))
-                        getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
-                            .putBoolean("campaign_opt_in",false).commit()
-                        val profile=withContext(Dispatchers.IO) {
-                            tenantEnrollment.enroll(code,slot,android.os.Build.MODEL.ifBlank { "Android" })
+                        // Block pilot dial immediately, including the in-flight lease-to-dial window.
+                        MobileLinkService.tenantPairingInProgress=true
+                        try {
+                            stopService(Intent(this@MobileLinkActivity,MobileLinkService::class.java))
+                            check(getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
+                                .putBoolean("campaign_opt_in",false).commit()) {
+                                "تعذر إيقاف حملات هاتف التجربة"
+                            }
+                            val profile=withContext(Dispatchers.IO) {
+                                tenantEnrollment.enroll(code,slot,android.os.Build.MODEL.ifBlank { "Android" })
+                            }
+                            showTenantProfile(slot,profile)
+                            requestTenantStatusRefresh()
+                        } finally {
+                            MobileLinkService.tenantPairingInProgress=false
                         }
-                        showTenantProfile(slot,profile)
-                        requestTenantStatusRefresh()
                     } catch(t:Throwable) {
                         if(t is CancellationException)throw t
                         banner.text="تعذر ربط SIM ${slot+1}: "+(t.message?:"خطأ غير معروف")
