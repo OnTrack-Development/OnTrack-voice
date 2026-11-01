@@ -1,5 +1,5 @@
 # دورة التطوير الرابعة — منع كسر DNC أثناء إدخال جهات الاتصال
-**التاريخ:** 2026-11-01 · **الفرع:** `fix/dnc-suppression-ingestion-20261101`
+**التاريخ:** 2026-11-01 · **الفرع:** `fix/dnc-suppression-ingestion-20261101` · **PR #11 MERGED** إلى main commit `49ecf6b9c212c9a7aaac8f926d8dc07466ebe677`
 
 ## المشكلة المُعاد إنتاجها من المصدر
 - `api/v1/index.php?op=lead.create` كان ينشئ كل lead مع `dnc=0` حتى لو العميل نفسه سبق وقال «لا تتصل مجددًا» في موقع آخر لنفس الحساب.
@@ -11,11 +11,11 @@
 - lookup محصور بـ`account_id`، ويورّث الحظر عبر جميع المواقع التابعة للحساب دون مشاركة بيانات مستأجر آخر.
 - API lead وsigned booking webhook وواجهة إضافة جهة اتصال تضع `dnc=1` عند وجود opt-out سابق، حتى لو جاء consent=true لاحقًا. `dial_requested=false` يظل ثابتًا في booking.
 - تحرير سجل محظور لا يمحو DNC، ولا يسمح بتغيير رقم السجل الذي يمثل إثبات الحظر. الحذف الروتيني لسجل DNC ممنوع مؤقتًا حتى وجود مسار رفع الحظر بموافقة موثقة مع سياسة الاحتفاظ؛ الواجهة توضّح ذلك.
-- أضيفت اختبارات HTTP للـAPI والـsigned webhook تشمل مصر المحلي/الدولي، الحظر عبر موقعين، العزل بين الحسابات، رفض غير الموافق، رفض cross-tenant، replay/duplicate.
+- أضيفت اختبارات HTTP للـAPI والـsigned webhook تشمل مصر المحلي/الدولي، الحظر عبر موقعين، العزل بين الحسابات، رفض غير الموافق، رفض cross-tenant، replay/duplicate، بالإضافة إلى تشغيل handlers الفعلية add/edit/delete في عمليات PHP CLI معزولة.
 
 ## حالة التحقق (تُحدّث بعد نتيجة CI)
 - `CODED`: branch محفوظ في GitHub.
-- `CI_PASS`: **PENDING** حتى إغلاق GitHub Actions؛ لا تُسجّل success قبل فحص run فعلي.
+- `CI_PASS`: **PASS**: GitHub Actions PR run `41297247472`، PHP 8.3 / SQLite + HTTP API + signed hooks + subprocess form handlers.
 - `HOST_DEPLOYED`: **PENDING** حتى نجاح publish workflow ثم Cron receipt مطابق لـcommit.
 - `AUTH_UI_VERIFIED`: **OPEN** (لا جلسة مستخدم مصادقة متاحة في هذه الدورة).
 - `DEVICE_E2E_VERIFIED`: **OPEN** (لا مكالمات حقيقية).
