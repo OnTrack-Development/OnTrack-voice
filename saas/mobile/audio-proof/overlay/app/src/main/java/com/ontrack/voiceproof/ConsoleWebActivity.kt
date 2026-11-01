@@ -1,6 +1,7 @@
 package com.ontrack.voiceproof
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.app.AlertDialog
 import android.webkit.*
 import android.widget.*
 import androidx.activity.ComponentActivity
@@ -39,6 +40,25 @@ class ConsoleWebActivity:ComponentActivity(){
      override fun shouldInterceptRequest(view:WebView,request:WebResourceRequest):WebResourceResponse?{
        if(allowed(request.url.toString()))return null
        return WebResourceResponse("text/plain","UTF-8",ByteArrayInputStream(ByteArray(0)))
+     }
+   }
+   web.webChromeClient=object:WebChromeClient(){
+     override fun onJsConfirm(view:WebView?,url:String?,message:String?,result:JsResult?):Boolean{
+       if(!allowed(url.orEmpty())){result?.cancel();return true}
+       AlertDialog.Builder(this@ConsoleWebActivity).setTitle("تأكيد إجراء OnTrack")
+         .setMessage(message.orEmpty().take(300))
+         .setPositiveButton("تأكيد"){_,_->result?.confirm()}
+         .setNegativeButton("إلغاء"){_,_->result?.cancel()}
+         .setOnCancelListener{result?.cancel()}.show()
+       return true
+     }
+     override fun onJsAlert(view:WebView?,url:String?,message:String?,result:JsResult?):Boolean{
+       if(!allowed(url.orEmpty())){result?.cancel();return true}
+       AlertDialog.Builder(this@ConsoleWebActivity).setTitle("OnTrack Voice")
+         .setMessage(message.orEmpty().take(300))
+         .setPositiveButton("حسنًا"){_,_->result?.confirm()}
+         .setOnCancelListener{result?.cancel()}.show()
+       return true
      }
    }
    onBackPressedDispatcher.addCallback(this,object:OnBackPressedCallback(true){
