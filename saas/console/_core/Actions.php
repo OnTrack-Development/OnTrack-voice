@@ -401,9 +401,12 @@ function act():void {
             case 'create_device_pairing':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 $siteId=intfield('site_id');$agentId=intfield('agent_id');
-                $code=device_pairing_create($id,$siteId,$agentId,(int)me()['id']);
-                audit('device.pairing.created',$id,['site_id'=>$siteId,'agent_id'=>$agentId]);
-                flash('secret','رمز ربط الجهاز — صالح 10 دقائق ولمرة واحدة: '.$code);
+                $requestedSlot=$_POST['sim_slot']??null;
+                if(!in_array($requestedSlot,['0','1'],true))throw new InvalidArgumentException('اختر شريحة SIM 1 أو SIM 2');
+                $simSlot=(int)$requestedSlot;
+                $code=device_pairing_create($id,$siteId,$agentId,(int)me()['id'],$simSlot);
+                audit('device.pairing.created',$id,['site_id'=>$siteId,'agent_id'=>$agentId,'sim_slot'=>$simSlot]);
+                flash('secret','رمز ربط SIM '.($simSlot+1).' — صالح 10 دقائق ولمرة واحدة: '.$code);
                 flash('device_pair_qr',$code);
                 break;
             case 'cancel_device_pairing':
