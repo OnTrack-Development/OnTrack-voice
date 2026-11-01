@@ -87,3 +87,9 @@ function device_pairing_cancel(int $accountId,int $pairingId):bool {
     return execute("UPDATE device_pairings SET status='cancelled' WHERE id=? AND account_id=? AND status='pending'",
         [$pairingId,$accountId])===1;
 }
+
+/** Device-owner initiated disconnect. Revokes only the authenticated SIM binding. */
+function device_binding_disconnect(array $binding):bool {
+    return execute("UPDATE device_bindings SET status='revoked',slot_claim=NULL,revoked_at=? WHERE id=? AND account_id=? AND sim_slot=? AND status='active'",
+        [now(),$binding['id'],$binding['account_id'],$binding['sim_slot']])===1;
+}
