@@ -1,0 +1,13 @@
+{
+  "job_id": "saas-rework-verify-20261101043130",
+  "target": "appontrack-server11",
+  "job_sha256": "284d24afcefedc1c6f30121c16a9aea3d7947ddb346d12f7c8c5e4da7496b776",
+  "started_at": "2026-11-01T04:32:03.180794+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"urls\": [{\"path\": \"/saas/console/login\", \"status\": 200, \"length\": 1667, \"login\": true}, {\"path\": \"/saas/console/assets/css/app.css\", \"status\": 200, \"length\": 16384, \"login\": null}, {\"path\": \"/saas/console/assets/js/flow-graph.js\", \"status\": 200, \"length\": 9709, \"login\": null}, {\"path\": \"/saas/console/_core/Bootstrap.php\", \"status\": 403}, {\"path\": \"/saas/console/_core/MobilePilot.php\", \"status\": 403}], \"db_status\": 0, \"db_info\": \"{\\\"db_driver\\\":\\\"sqlite\\\",\\\"voice_rows\\\":6,\\\"support_policy_rows\\\":0,\\\"schema2\\\":true,\\\"vault_column\\\":true}\", \"db_error\": \"\"}\n",
+  "stderr": "",
+  "finished_at": "2026-11-01T04:32:03.533145+00:00",
+  "duration_ms": 352
+}
