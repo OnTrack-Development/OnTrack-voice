@@ -40,7 +40,7 @@ function flow_release_agent(int $accountId,int $agentId,bool $lock=false):?array
     return one($query,[$agentId,$accountId]);
 }
 /** Persist a new immutable snapshot of the SAVED draft and atomically activate it. */
-function flow_release_publish(int $accountId,int $agentId,int $actorId):array {
+function flow_release_publish(int $accountId,int $agentId,int $actorId,string $testedHash):array {
     db()->beginTransaction();
     try {
         $agent=flow_release_agent($accountId,$agentId,true);
@@ -51,6 +51,8 @@ function flow_release_publish(int $accountId,int $agentId,int $actorId):array {
         if(!is_array($graph))throw new InvalidArgumentException('flow_invalid_graph');
         flow_release_validate($graph);
         $hash=hash('sha256',$json);
+        if(!preg_match('/^[a-f0-9]{64}$/D',$testedHash)||!hash_equals($hash,$testedHash))
+            throw new InvalidArgumentException('flow_publish_test_required');
         $current=flow_release_current($accountId,$agentId);
         if($current&&hash_equals($current['graph_hash'],$hash)
             &&$current['instructions']===(string)$agent['instructions']
