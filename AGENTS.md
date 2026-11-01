@@ -1,5 +1,6 @@
 # Working contract — OnTrack Voice
 
+> **CURRENT OWNER CONTRACT — 2026-11-01:** Read [docs/discovery/OWNER_DECISIONS_AND_OPEN_QUESTIONS_2026_11_01_AR.md](docs/discovery/OWNER_DECISIONS_AND_OPEN_QUESTIONS_2026_11_01_AR.md) **first**. Six owner decisions OV-001..OV-006 are locked. Q01..Q24 are OPEN: do not silently choose business rules. The owner has a working Admin login; missing agent/browser session does not imply the console is broken. PR #6 responsive Web merged, live visual E2E still unverified. Older «structure pending» and «audio never worked» text is historic and cannot override newer owner/device evidence.\n\n
 ## 2026-11-01 — SaaS production rework landed (this OVERRIDES earlier "structure pending" notes)
 
 - Owner rejected separated phone pilot, text-only Agent Flow Builder, forced read-only support, unrecoverable integration keys, tiny Google voice list and missing edit/archive management.
