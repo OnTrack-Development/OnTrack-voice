@@ -140,7 +140,7 @@ class MobileLinkService:Service() {
     override fun onBind(intent:Intent?):IBinder?=null
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
         startForeground(701,notification(latestStatus))
-        if(tenantPairingInProgress || TenantDeviceEnrollment(this).hasAny()) {
+        if(!TenantPairingContract.pilotAllowed(tenantPairingInProgress,TenantDeviceEnrollment(this).hasAny())) {
             // The pilot bearer is global and MUST NOT run on a tenant-enrolled device.
             prefs().edit().putBoolean("campaign_opt_in",false).commit()
             agentEnabled=false;connected=false
@@ -363,7 +363,7 @@ class MobileLinkService:Service() {
     }
     /** Never continue pilot AI/telephony after any tenant SIM starts enrollment. */
     private fun stopPilotForTenantPairing():Boolean {
-        if(!tenantPairingInProgress && !TenantDeviceEnrollment(this).hasAny())return false
+        if(TenantPairingContract.pilotAllowed(tenantPairingInProgress,TenantDeviceEnrollment(this).hasAny()))return false
         agentEnabled=false;connected=false
         prefs().edit().putBoolean("campaign_opt_in",false).commit()
         call?.stop();call=null
