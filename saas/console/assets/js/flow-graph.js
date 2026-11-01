@@ -29,6 +29,73 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
  world.append(lines,cards);viewport.append(world);layout.append(viewport,inspector);shell.append(layout);
  const footer=make('div','graph-footer'),counter=make('span','',''),notice=make('span','','اسحب العقد أو اضغط لتعديلها');
  footer.append(counter,notice);shell.append(footer);
+ // Real graph traversal with deterministic text input; no external AI/CRM/voice actions.
+ const previewButton=button('▶ اختبار Flow نصيًا',()=>openPreview(),'primary');
+ tools.append(previewButton);
+ const preview=make('section','flow-preview'),previewTitle=make('strong','','اختبار السيناريو — محاكاة نصية فقط');
+ const previewClose=button('إغلاق',()=>{preview.hidden=true});
+ const previewHeader=make('div','flow-preview-header');
+ previewHeader.append(previewTitle,previewClose);
+ const previewHelp=make('p','','المحاكاة تختبر العقد والشروط فقط، ولا تتصل بالذكاء الاصطناعي أو الهاتف أو CRM ولا تحفظ بيانات عميل.');
+ const previewLog=make('div','flow-preview-log');
+ previewLog.setAttribute('role','log');previewLog.setAttribute('aria-live','polite');
+ const previewForm=make('div','flow-preview-form'),previewInput=make('input','flow-preview-input');
+ previewInput.type='text';previewInput.maxLength=500;previewInput.placeholder='اكتب رد العميل هنا';
+ previewInput.setAttribute('aria-label','رد العميل التجريبي');
+ const previewSend=button('إرسال',()=>sendPreview(),'primary');
+ previewForm.append(previewInput,previewSend);
+ preview.append(previewHeader,previewHelp,previewLog,previewForm);
+ preview.hidden=true;previewInput.disabled=true;previewSend.disabled=true;
+ const previewStyle=make('style');
+ previewStyle.textContent='.flow-preview[hidden]{display:none!important}.flow-preview{direction:rtl;margin:18px 0;padding:18px;border:1px solid #57515a;border-radius:16px;background:var(--card,#1d1b20);color:var(--text,#f6f4f6)}.flow-preview-header{display:flex;align-items:center;justify-content:space-between;gap:12px}.flow-preview p{font-size:13px;opacity:.85}.flow-preview-log{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;margin:14px 0;padding:12px;border:1px solid #57515a;border-radius:12px;min-height:75px}.flow-preview-line{padding:9px 12px;border-radius:12px;max-width:85%;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;background:#3b343d;color:#fff}.flow-preview-line.user{align-self:flex-start;background:#a81f35}.flow-preview-line.notice{align-self:center;background:#584d35}.flow-preview-form{display:flex;gap:8px}.flow-preview-input{flex:1;min-width:0;border-radius:9px;padding:10px;background:var(--card,#242127);color:inherit;border:1px solid #777}.flow-preview-input:disabled{opacity:.6}';
+ shell.append(previewStyle,preview);
+ let previewId=null,previewBusy=false;
+ const previewLine=(kind,message)=>{
+   const line=make('div','flow-preview-line '+kind,String(message));
+   previewLog.append(line);previewLog.scrollTop=previewLog.scrollHeight;
+ };
+ async function previewRequest(operation,reply){
+   if(previewBusy)return;
+   const form=source.closest('form');
+   const csrf=form?.querySelector('[name="csrf"]')?.value;
+   const agentId=form?.querySelector('[name="agent_id"]')?.value;
+   if(!csrf||!agentId){previewLine('notice','لا توجد جلسة تعديل إيجنت صالحة.');return}
+   previewBusy=true;previewSend.disabled=true;previewInput.disabled=true;
+   try{
+     store();
+     const params=new URLSearchParams({csrf,agent_id:agentId,flow_json:source.value,operation});
+     if(operation==='reply'){params.set('preview_id',previewId||'');params.set('reply',reply||'')}
+     const response=await fetch('/saas/console/flow-preview.php',{
+       method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
+       headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+       body:params.toString()
+     });
+     const result=await response.json();
+     if(!response.ok||result.ok!==true)throw Error('تعذر الاختبار ('+(result.error||response.status)+')');
+     previewId=result.preview_id;
+     (result.events||[]).forEach(event=>previewLine(event.kind==='agent'?'agent':'notice',event.text||''));
+     if(result.done)previewLine('notice','انتهى هذا المسار التجريبي.');
+     previewInput.disabled=!result.waiting;previewSend.disabled=!result.waiting;
+     if(result.waiting)previewInput.focus();
+   }catch(err){
+     previewLine('notice',err?.message||'تعذر الاتصال بخدمة المحاكاة');
+     previewInput.disabled=false;previewSend.disabled=false;
+   }finally{previewBusy=false}
+ }
+ function openPreview(){
+   preview.hidden=false;previewId=null;previewLog.replaceChildren();
+   previewInput.value='';previewInput.disabled=true;previewSend.disabled=true;
+   previewRequest('start',null);
+ }
+ function sendPreview(){
+   const value=previewInput.value.trim();
+   if(!value||previewBusy||!previewId)return;
+   previewLine('user',value);previewInput.value='';
+   previewRequest('reply',value);
+ }
+ previewInput.addEventListener('keydown',event=>{
+   if(event.key==='Enter'){event.preventDefault();sendPreview()}
+ });
  root.replaceChildren(shell,source);source.hidden=true;
  const store=()=>{source.value=JSON.stringify(data);counter.textContent=data.nodes.length+' خطوات · '+data.edges.length+' روابط'};
  const focus=()=>data.nodes.find(n=>n.id===selected)||null;
