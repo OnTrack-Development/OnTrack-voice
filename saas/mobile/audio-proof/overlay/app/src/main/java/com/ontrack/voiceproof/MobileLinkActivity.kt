@@ -46,6 +46,8 @@ class MobileLinkActivity:ComponentActivity(){
     @Volatile private var wifiFreeReadyState=false
     private lateinit var banner:TextView
     private lateinit var tenantEnrollment:TenantDeviceEnrollment
+    private lateinit var tenantStatus:TextView
+    private var tenantStatusJob:Job?=null
     private var splash:OnTrackLaunchScreen?=null
     private var ready=false
     private var generation=0
@@ -264,11 +266,19 @@ class MobileLinkActivity:ComponentActivity(){
             setOnClickListener { showTenantMenu() }
         }
         root.addView(tenantButton,1,LinearLayout.LayoutParams(-1,-2))
+        tenantStatus=TextView(this).apply {
+            setPadding(24,8,24,8)
+            setTextColor(Color.rgb(235,235,240))
+            setBackgroundColor(Color.rgb(31,31,36))
+            textSize=12f
+            text="SIM 1 — جاري التحقق\nSIM 2 — جاري التحقق"
+        }
+        root.addView(tenantStatus,2,LinearLayout.LayoutParams(-1,-2))
         val qrButton=Button(this).apply {
             text="مسح QR لربط شريحة"
             setOnClickListener { scanTenantQr() }
         }
-        root.addView(qrButton,2,LinearLayout.LayoutParams(-1,-2))
+        root.addView(qrButton,3,LinearLayout.LayoutParams(-1,-2))
         setContentView(layer)
         handleTenantLink(intent)
         splash=OnTrackLaunchScreen(this,layer)
@@ -335,6 +345,7 @@ class MobileLinkActivity:ComponentActivity(){
                     wifiFreeReadyState=state.second
                 }
                 sendState()
+                if(polls%10==1)requestTenantStatusRefresh()
                 if(pending!=null && !MobileLinkService.inCall){val next=pending!!;pending=null;activate(next)}
                 delay(1000)
             }
@@ -371,6 +382,28 @@ class MobileLinkActivity:ComponentActivity(){
                 banner.text="ماسح QR غير متاح على الجهاز؛ أدخل رمز الاقتران يدويًا"
                 banner.visibility=View.VISIBLE
             }
+    }
+    /** Server-verified, per-SIM tenant status. Offline never appears as verified. */
+    private fun requestTenantStatusRefresh() {
+        if(tenantStatusJob?.isActive==true)return
+        tenantStatusJob=lifecycleScope.launch {
+            val lines=withContext(Dispatchers.IO) {
+                (0..1).map { slot ->
+                    if(!tenantEnrollment.paired(slot))
+                        TenantPairingContract.statusLine(slot,false)
+                    else try {
+                        val p=tenantEnrollment.heartbeat(slot)
+                        TenantPairingContract.statusLine(slot,true,
+                            p.optString("account_name"),p.optString("site_name"),p.optString("agent_name"))
+                    } catch(e:SecurityException) {
+                        TenantPairingContract.statusLine(slot,true,error="تم إلغاء الاعتماد من السيرفر")
+                    } catch(e:Exception) {
+                        TenantPairingContract.statusLine(slot,true,error="تعذر التحقق؛ الربط غير مؤكد")
+                    }
+                }
+            }
+            tenantStatus.text=lines.joinToString("\n")
+        }
     }
     private fun showTenantMenu() {
         val items=arrayOf(
@@ -421,6 +454,7 @@ class MobileLinkActivity:ComponentActivity(){
                             tenantEnrollment.enroll(code,slot,android.os.Build.MODEL.ifBlank { "Android" })
                         }
                         showTenantProfile(slot,profile)
+                        requestTenantStatusRefresh()
                     } catch(t:Throwable) {
                         if(t is CancellationException)throw t
                         banner.text="تعذر ربط SIM ${slot+1}: "+(t.message?:"خطأ غير معروف")
@@ -430,10 +464,11 @@ class MobileLinkActivity:ComponentActivity(){
             }.setNegativeButton("إلغاء",null).show()
     }
     private fun showTenantProfile(slot:Int,profile:JSONObject) {
+        val account=profile.optString("account_name","غير معروف")
         val site=profile.optString("site_name","غير معروف")
         val agent=profile.optString("agent_name","غير معروف")
         AlertDialog.Builder(this).setTitle("SIM ${slot+1} — تم التحقق من الربط")
-            .setMessage("الموقع: $site\\nالإيجنت: $agent\\nتم تأكيد ربط الحساب فقط. تشغيل صوت الشريحة يتطلب اختبار الجهاز.")
+            .setMessage("الشركة: $account\\nالموقع: $site\\nالإيجنت: $agent\\nتم تأكيد ربط الحساب فقط. تشغيل صوت الشريحة يتطلب اختبار الجهاز.")
             .setPositiveButton("حسنًا",null).show()
     }
     private fun runTenantOperation(slot:Int,disconnect:Boolean) {
@@ -449,6 +484,7 @@ class MobileLinkActivity:ComponentActivity(){
                     banner.text="تم فصل SIM ${slot+1} من السيرفر ومسح اعتمادها من الهاتف"
                     banner.visibility=View.VISIBLE
                 }
+                requestTenantStatusRefresh()
             } catch(t:Throwable) {
                 if(t is CancellationException)throw t
                 banner.text="SIM ${slot+1}: "+(t.message?:"تعذر الاتصال")
