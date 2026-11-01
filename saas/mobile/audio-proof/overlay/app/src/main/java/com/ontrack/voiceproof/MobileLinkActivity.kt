@@ -42,6 +42,7 @@ class MobileLinkActivity:ComponentActivity(){
     @Volatile private var wifiFreeEnabledState=false
     @Volatile private var wifiFreeReadyState=false
     private lateinit var banner:TextView
+    private lateinit var tenantEnrollment:TenantDeviceEnrollment
     private var splash:OnTrackLaunchScreen?=null
     private var ready=false
     private var generation=0
@@ -254,7 +255,14 @@ class MobileLinkActivity:ComponentActivity(){
         web=WebView(this);root.addView(web,LinearLayout.LayoutParams(-1,0,1f))
         val layer=FrameLayout(this)
         layer.addView(root,FrameLayout.LayoutParams(-1,-1))
+        tenantEnrollment=TenantDeviceEnrollment(this)
+        val tenantButton=Button(this).apply {
+            text="إدارة شرائح الشركات (SIM 1 / SIM 2)"
+            setOnClickListener { showTenantMenu() }
+        }
+        root.addView(tenantButton,1,LinearLayout.LayoutParams(-1,-2))
         setContentView(layer)
+        handleTenantLink(intent)
         splash=OnTrackLaunchScreen(this,layer)
         web.settings.apply{
             javaScriptEnabled=true;domStorageEnabled=false;allowFileAccess=false;allowContentAccess=false
@@ -321,6 +329,99 @@ class MobileLinkActivity:ComponentActivity(){
                 sendState()
                 if(pending!=null && !MobileLinkService.inCall){val next=pending!!;pending=null;activate(next)}
                 delay(1000)
+            }
+        }
+    }
+    override fun onNewIntent(intent:Intent) {
+        super.onNewIntent(intent)
+        handleTenantLink(intent)
+    }
+    private fun handleTenantLink(intent:Intent?) {
+        val parsed=TenantPairingContract.qr(intent?.dataString.orEmpty()) ?: return
+        // Scanning a QR only fills the native form. It never redeems automatically.
+        showTenantPairDialog(parsed.first,parsed.second)
+    }
+    private fun showTenantMenu() {
+        val items=arrayOf(
+            "ربط SIM 1"+if(tenantEnrollment.paired(0))" (مربوطة)" else "",
+            "ربط SIM 2"+if(tenantEnrollment.paired(1))" (مربوطة)" else "",
+            "التحقق من ربط SIM 1","التحقق من ربط SIM 2",
+            "فصل SIM 1 من السيرفر","فصل SIM 2 من السيرفر")
+        AlertDialog.Builder(this).setTitle("إدارة شرائح الشركات")
+            .setMessage("كل شريحة لها حساب وإيجنت مستقلان. هذا الربط لا يشغّل مكالمات AI تلقائيًا.")
+            .setItems(items) { _,which ->
+                val slot=which%2
+                when(which) {
+                    0,1 -> showTenantPairDialog(slot,"")
+                    2,3 -> runTenantOperation(slot,false)
+                    4,5 -> AlertDialog.Builder(this).setTitle("تأكيد فصل SIM ${slot+1}")
+                        .setMessage("سيُلغى اعتماد هذه الشريحة على السيرفر، ولن يتأثر حساب الشريحة الأخرى.")
+                        .setPositiveButton("فصل") { _,_ -> runTenantOperation(slot,true) }
+                        .setNegativeButton("إلغاء",null).show()
+                }
+            }.setNegativeButton("إغلاق",null).show()
+    }
+    private fun showTenantPairDialog(slot:Int,initialCode:String) {
+        if(tenantEnrollment.paired(slot)) {
+            banner.text="SIM ${slot+1} مربوطة بالفعل. افصلها أولًا قبل ربط حساب آخر."
+            banner.visibility=View.VISIBLE
+            return
+        }
+        val input=EditText(this).apply {
+            hint="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
+            setText(initialCode)
+            inputType=android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        }
+        AlertDialog.Builder(this).setTitle("ربط SIM ${slot+1} بحساب OnTrack")
+            .setMessage("أدخل الرمز المؤقت من لوحة الحساب. لا تستخدم مفتاح هاتف التجربة.")
+            .setView(input)
+            .setPositiveButton("ربط") { _,_ ->
+                val code=input.text.toString()
+                lifecycleScope.launch {
+                    try {
+                        check(!MobileLinkService.inCall) { "انتظر انتهاء المكالمة أولًا" }
+                        TenantPairingContract.code(code)
+                        // Never allow the legacy pilot bearer to operate after tenant enrollment.
+                        stopService(Intent(this@MobileLinkActivity,MobileLinkService::class.java))
+                        getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
+                            .putBoolean("campaign_opt_in",false).commit()
+                        val profile=withContext(Dispatchers.IO) {
+                            tenantEnrollment.enroll(code,slot,android.os.Build.MODEL.ifBlank { "Android" })
+                        }
+                        showTenantProfile(slot,profile)
+                    } catch(t:Throwable) {
+                        if(t is CancellationException)throw t
+                        banner.text="تعذر ربط SIM ${slot+1}: "+(t.message?:"خطأ غير معروف")
+                        banner.visibility=View.VISIBLE
+                    }
+                }
+            }.setNegativeButton("إلغاء",null).show()
+    }
+    private fun showTenantProfile(slot:Int,profile:JSONObject) {
+        val site=profile.optString("site_name","غير معروف")
+        val agent=profile.optString("agent_name","غير معروف")
+        AlertDialog.Builder(this).setTitle("SIM ${slot+1} — تم التحقق من الربط")
+            .setMessage("الموقع: $site\\nالإيجنت: $agent\\nتم تأكيد ربط الحساب فقط. تشغيل صوت الشريحة يتطلب اختبار الجهاز.")
+            .setPositiveButton("حسنًا",null).show()
+    }
+    private fun runTenantOperation(slot:Int,disconnect:Boolean) {
+        lifecycleScope.launch {
+            try {
+                check(!MobileLinkService.inCall) { "انتظر انتهاء المكالمة" }
+                val profile=withContext(Dispatchers.IO) {
+                    if(disconnect) { tenantEnrollment.disconnect(slot);null }
+                    else tenantEnrollment.heartbeat(slot)
+                }
+                if(profile!=null)showTenantProfile(slot,profile)
+                else {
+                    banner.text="تم فصل SIM ${slot+1} من السيرفر ومسح اعتمادها من الهاتف"
+                    banner.visibility=View.VISIBLE
+                }
+            } catch(t:Throwable) {
+                if(t is CancellationException)throw t
+                banner.text="SIM ${slot+1}: "+(t.message?:"تعذر الاتصال")
+                banner.visibility=View.VISIBLE
             }
         }
     }
