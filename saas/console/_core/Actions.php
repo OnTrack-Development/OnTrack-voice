@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/StaffInvitations.php';
 require_once __DIR__.'/DncGuard.php';
+require_once __DIR__.'/DevicePairing.php';
 
 function field(string $key,int $max=200):string{
     $v=trim((string)($_POST[$key]??''));
@@ -397,6 +398,23 @@ function act():void {
                    throw new InvalidArgumentException('يجب إثبات صلاحية الصوت على مزود الاتصال أولاً');
                 execute('UPDATE voices SET ready=? WHERE id=?',[$ready,$voice['id']]);
                 audit('voice.ready.updated',$id,['voice'=>$voice['id'],'ready'=>$ready]);break;
+            case 'create_device_pairing':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $siteId=intfield('site_id');$agentId=intfield('agent_id');
+                $code=device_pairing_create($id,$siteId,$agentId,(int)me()['id']);
+                audit('device.pairing.created',$id,['site_id'=>$siteId,'agent_id'=>$agentId]);
+                flash('secret','رمز ربط الجهاز — صالح 10 دقائق ولمرة واحدة: '.$code);
+                break;
+            case 'cancel_device_pairing':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                if(!device_pairing_cancel($id,intfield('pairing_id')))throw new InvalidArgumentException('طلب الربط غير متاح');
+                audit('device.pairing.cancelled',$id,['pairing_id'=>intfield('pairing_id')]);
+                break;
+            case 'revoke_device_binding':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                if(!device_binding_revoke($id,intfield('device_id')))throw new InvalidArgumentException('الجهاز غير موجود أو مفصول مسبقًا');
+                audit('device.binding.revoked',$id,['device_id'=>intfield('device_id')]);
+                break;
             case 'pilot_settings':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 require_once __DIR__.'/MobilePilot.php';

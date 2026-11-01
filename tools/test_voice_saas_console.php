@@ -136,4 +136,6 @@ require_once __DIR__.'/test_voice_dnc_hooks_http.php';
 test_voice_dnc_hooks_http();
 require_once __DIR__.'/test_voice_dnc_actions.php';
 test_voice_dnc_actions();
+require_once __DIR__.'/test_tenant_device_pairing.php';
+test_tenant_device_pairing();
 echo "VOICE_SAAS_SMOKE_PASS\n";
