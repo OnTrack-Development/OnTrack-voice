@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-tenant-engine-readonly-audit-20261102",
+  "target": "appontrack-server11",
+  "job_sha256": "0330a82be7098379e8b7013664f5141b28fe9cccab2456e65aac66ab7259b020",
+  "started_at": "2026-11-01T22:28:02.558358+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"files_present\": {\"api/live_session.php\": false, \"console/device/v1/index.php\": true, \"mobile/server/session.php\": false, \"mobile/session.php\": true, \"console/_core/AgentAnswerPolicy.php\": false}, \"env_key_flags\": {\"GEMINI_API_KEY\": false, \"GOOGLE_API_KEY\": false, \"ONTRACK_GEMINI_API_KEY\": false}, \"secrets_read\": false, \"voice_mode\": \"audit_only\"}\n",
+  "stderr": "",
+  "finished_at": "2026-11-01T22:28:02.595069+00:00",
+  "duration_ms": 37
+}
