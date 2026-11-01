@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/_core/Bootstrap.php';
+require __DIR__.'/_core/AdminMfa.php';
 require __DIR__.'/_core/Actions.php';
 require __DIR__.'/_core/Views.php';
 
@@ -28,6 +29,8 @@ if($path==='/login') {
         if($u && password_verify($pass,$u['password_hash'])){
             session_regenerate_id(true);
             $_SESSION['uid']=(int)$u['id'];
+            $_SESSION['mfa_ok']=false;
+            unset($_SESSION['mfa_pending'],$_SESSION['mfa_pending_uid'],$_SESSION['mfa_pending_at'],$_SESSION['mfa_failures'],$_SESSION['mfa_block_until']);
             $m=memberships((int)$u['id']);
             $_SESSION['account_id']=$m[0]['account_id']??null;
             $_SESSION['bad_logins']=0;
@@ -42,6 +45,8 @@ if($path==='/login') {
     if(me())go(memberships((int)me()['id'])?'/':'/invitations');
     login_page();exit;
 }
+if($path==='/mfa')mfa_route();
+if($path!=='/login' && me() && mfa_privileged((int)me()['id']) && empty($_SESSION['mfa_ok']))go('/mfa');
 if($path==='/brand-logo'){
     $a=mine();if(!$a)deny(404);
     $brand=brand($a);

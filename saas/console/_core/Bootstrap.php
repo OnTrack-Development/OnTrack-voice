@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5();
+    init_console_v4(); init_console_v5(); init_console_v6();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -101,6 +101,23 @@ function init_console_v4():void {
             created_by INTEGER NOT NULL, created_at TEXT NOT NULL,
             expires_at TEXT NOT NULL, accepted_by INTEGER, accepted_at TEXT,
             UNIQUE(account_id,email)
+        )");
+    }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+/** New administrative second factor, additive across SQLite and MySQL. */
+function init_console_v6():void {
+    $marker=private_path().'/schema.v6';
+    if(is_file($marker))return;
+    if(driver()==='mysql'){
+        db()->exec("CREATE TABLE IF NOT EXISTS admin_mfa (
+            user_id BIGINT UNSIGNED PRIMARY KEY, secret_enc TEXT NOT NULL,
+            last_step BIGINT NOT NULL DEFAULT -1, created_at VARCHAR(190) NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }else{
+        db()->exec("CREATE TABLE IF NOT EXISTS admin_mfa (
+            user_id INTEGER PRIMARY KEY, secret_enc TEXT NOT NULL,
+            last_step INTEGER NOT NULL DEFAULT -1, created_at TEXT NOT NULL
         )");
     }
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
