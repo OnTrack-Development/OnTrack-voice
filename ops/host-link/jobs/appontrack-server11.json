@@ -1,15 +1,8 @@
 {
   "schema": 1,
-  "id": "verify-native22-ui18-20261101011413",
+  "id": "saas-probe-20261101032628",
   "target": "appontrack-server11",
-  "action": "exec",
-  "created_at": "2026-11-01T01:14:13.533Z",
-  "expires_at": "2026-11-01T02:14:13.533Z",
-  "cwd": "/home/appontrack/public_html/saas",
-  "timeout_seconds": 30,
-  "argv": [
-    "/bin/python3",
-    "-c",
-    "import hashlib,json,pathlib,stat\nroot=pathlib.Path('/home/appontrack/public_html/saas/mobile/updates')\nnative=root/'native'\ndef sha(p):\n h=hashlib.sha256()\n with p.open('rb') as f:\n  for chunk in iter(lambda:f.read(1048576),b''):h.update(chunk)\n return h.hexdigest()\nnm=json.loads(json.loads((native/'latest.json').read_text())['payload'])\num=json.loads(json.loads((root/'latest.json').read_text())['payload'])\nassert nm['version_code']==22, nm['version_code']\nassert um['revision']==18 and um['min_native']<=20<=um['max_native'] and um['max_native']>=22, um\napk=(native/nm['file']).resolve();html=(root/um['file']).resolve()\nassert apk.parent==native and html.parent==root\nassert apk.stat().st_size==nm['size'] and sha(apk)==nm['sha256'],'APK integrity'\nassert html.stat().st_size==um['size'] and sha(html)==um['sha256'],'HTML integrity'\nassert bool(apk.stat().st_mode & stat.S_IROTH) and bool(html.stat().st_mode & stat.S_IROTH),'public read permission'\nprint(json.dumps({'status':'verified','native':22,'apk_size':apk.stat().st_size,'apk_sha256':nm['sha256'],'ota_revision':18,'html_sha256':um['sha256'],'no_key_reads':True}))\n"
-  ]
+  "action": "probe",
+  "created_at": "2026-11-01T03:26:28.576Z",
+  "expires_at": "2026-11-01T04:26:28.576Z"
 }
