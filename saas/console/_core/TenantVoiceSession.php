@@ -66,6 +66,14 @@ function tenant_voice_session(array $binding):array {
     $definition=tenant_voice_definition($binding);
     $model=trim((string)getenv('ONTRACK_GEMINI_LIVE_MODEL'));
     $key=trim((string)getenv('ONTRACK_GEMINI_API_KEY'));
+    if($key===''||$model===''){
+        // Platform configuration only; never use the legacy phone pilot key.
+        $profile=one("SELECT name,secret_enc FROM integrations WHERE account_id=1 AND provider='google_live' AND status='active' ORDER BY id DESC LIMIT 1");
+        if($profile){
+            $model=trim((string)$profile['name']);
+            $key=(string)(unseal_secret($profile['secret_enc']??null)??'');
+        }
+    }
     if($model===''||$key===''||!preg_match('/^[A-Za-z0-9._-]{5,120}$/D',$model))
         throw new RuntimeException('voice_provider_not_configured');
     // Keep the endpoint disabled until the actual per-SIM call + PCM E2E is certified.
