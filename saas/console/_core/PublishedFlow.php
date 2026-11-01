@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/FlowPreview.php';
+require_once __DIR__.'/AgentAnswerPolicy.php';
 /** Immutable, tenant-scoped agent versions. Publishing does not itself start SIM audio. */
 function published_agent_flow(int $accountId,int $siteId,int $agentId):?array {
     return one("SELECT v.* FROM agent_flow_versions v
@@ -29,17 +30,18 @@ function publish_agent_flow(int $accountId,int $agentId,int $actorId):array {
     if($own)db()->beginTransaction();
     try{
         $prior=published_agent_flow($accountId,(int)$agent['site_id'],$agentId);
-        $snapshot=hash('sha256',$normalized."\n".(string)$agent['voice']."\n".(string)$agent['instructions']."\n".(string)$agent['knowledge']);
+        $policy=json_encode(answer_policy_for_agent($accountId,$agentId),JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+        $snapshot=hash('sha256',$normalized."\n".(string)$agent['voice']."\n".(string)$agent['instructions']."\n".(string)$agent['knowledge']."\n".$policy);
         if($prior && hash_equals($prior['snapshot_hash'],$snapshot)){
             execute("UPDATE agents SET status='published' WHERE id=? AND account_id=? AND status!='archived'",[$agentId,$accountId]);
             if($own)db()->commit();
             return ['revision'=>(int)$prior['revision'],'duplicate'=>true,'hash'=>$hash];
         }
         $revision=$prior?(int)$prior['revision']+1:1;
-        insert('INSERT INTO agent_flow_versions(account_id,site_id,agent_id,revision,flow_hash,snapshot_hash,flow_json,voice,instructions,knowledge,published_by,published_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',[$accountId,$agent['site_id'],$agentId,$revision,
+        insert('INSERT INTO agent_flow_versions(account_id,site_id,agent_id,revision,flow_hash,snapshot_hash,flow_json,voice,instructions,knowledge,published_by,published_at,answer_policy_json)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',[$accountId,$agent['site_id'],$agentId,$revision,
             $hash,$snapshot,$normalized,(string)$agent['voice'],(string)$agent['instructions'],
-            (string)$agent['knowledge'],$actorId,now()]);
+            (string)$agent['knowledge'],$actorId,now(),$policy]);
         execute("UPDATE agents SET status='published' WHERE id=? AND account_id=? AND status!='archived'",
             [$agentId,$accountId]);
         if($own)db()->commit();
