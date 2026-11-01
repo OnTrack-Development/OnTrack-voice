@@ -9,6 +9,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from deploy_mobile_server import install_archive, parse_release, download_release
@@ -105,6 +106,21 @@ class PilotServerPublishTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "target_contains_symlink"):
             self.install(release())
         self.assertEqual((self.root / "common.php").read_text(), "<?php echo 'old';")
+
+    def test_partial_overlay_error_restores_previous_php_and_ota(self):
+        raw = release()
+        original_replace = os.replace
+        def fail_one_file(src, dst):
+            if str(dst).endswith("/module_05.php"):
+                raise OSError("simulated_mid_publish_failure")
+            return original_replace(src, dst)
+        with patch("deploy_mobile_server.os.replace", side_effect=fail_one_file):
+            with self.assertRaisesRegex(OSError, "simulated_mid_publish_failure"):
+                self.install(raw)
+        self.assertEqual((self.root / "common.php").read_text(), "<?php echo 'old';")
+        self.assertFalse((self.root / "module_04.php").exists())
+        self.assertEqual((self.root / "auth.sha256").read_text(), "dummy-non-secret-auth-hash")
+        self.assertEqual((self.root / "updates" / "latest.json").read_text(), "native metadata unchanged")
 
     def test_missing_host_auth_blocks_release(self):
         (self.root / "auth.sha256").unlink()
