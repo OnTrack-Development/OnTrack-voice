@@ -21,7 +21,7 @@ object TenantPairingContract {
     /** A native per-slot status label; never infer server authorization from local storage. */
     fun statusLine(slot: Int, linked: Boolean, account: String = "", site: String = "",
                    agent: String = "", error: String? = null): String {
-        val prefix = "SIM ${slot(slot) + 1}"
+        val prefix = "SIM ${TenantPairingContract.slot(slot) + 1}"
         if (!linked) return "$prefix — غير مربوطة"
         if (error != null) return "$prefix — $error"
         return "$prefix — ${account.ifBlank { "شركة غير معروفة" }} / ${site.ifBlank { "موقع غير معروف" }} / ${agent.ifBlank { "إيجنت غير معروف" }}"
