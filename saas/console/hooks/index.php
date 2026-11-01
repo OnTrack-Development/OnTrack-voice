@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/../_core/Bootstrap.php';
+require __DIR__.'/../_core/OrderClaim.php';
 function respond(int $code,array $body):never {
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
@@ -69,34 +70,9 @@ try{
                 ($payload['payment_status']??'')!=='paid'||
                 !preg_match('/^[a-zA-Z0-9_-]{8,160}$/D',(string)($payload['payment_reference']??'')))
                 throw new InvalidArgumentException('payment_not_verified');
-            if($order['status']==='active'){
-                $result['status']='active';$result['account_id']=$order['account_id'];
-            }else{
-                // The caller is the trusted server-side WHMCS/Laravel integration;
-                // browser success redirects never access this endpoint.
-                $parent=$resellerAccount['kind']==='reseller'?$reseller:null;
-                if($parent){
-                    $quota=(int)one("SELECT p.call_quota n FROM subscriptions s JOIN plans p ON s.plan_id=p.id WHERE s.account_id=? AND s.status='active' ORDER BY s.id DESC LIMIT 1",[$parent])['n'];
-                    $allocated=(int)one("SELECT COALESCE(SUM(p.call_quota),0) n FROM subscriptions s JOIN plans p ON p.id=s.plan_id JOIN accounts a ON a.id=s.account_id WHERE a.parent_id=? AND s.status='active'",[$parent])['n'];
-                    $want=(int)one('SELECT call_quota FROM plans WHERE id=?',[$order['plan_id']])['call_quota'];
-                    if($allocated+$want>$quota)throw new RuntimeException('reseller_pool_exhausted');
-                }
-                $slug='customer-'.bin2hex(random_bytes(7));
-                $customer=insert("INSERT INTO accounts(kind,parent_id,name,slug,status,created_at) VALUES ('customer',?,?,?,'active',?)",[$parent,$order['customer_name'],$slug,now()]);
-                $user=one('SELECT id FROM users WHERE email=?',[$order['customer_email']]);
-                if($user)$uid=(int)$user['id'];
-                else{
-                    // Invitation is generated but cannot be claimed without a verified
-                    // delivery bridge; no email is sent to an untrusted address.
-                    $randomPassword=bin2hex(random_bytes(32));
-                    $uid=insert("INSERT INTO users(name,email,password_hash,status,created_at) VALUES (?,?,?,'active',?)",[$order['customer_name'],$order['customer_email'],hash_password($randomPassword),now()]);
-                }
-                insert('INSERT INTO memberships(user_id,account_id,role,created_at) VALUES (?,?,?,?)',[$uid,$customer,'owner',now()]);
-                insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at) VALUES (?,?,'active',?,?)",[$customer,$order['plan_id'],now(),gmdate('Y-m-d H:i:s',time()+30*86400)]);
-                execute("UPDATE orders SET account_id=?,status='active',payment_reference=? WHERE id=?",[$customer,$payload['payment_reference'],$order['id']]);
-                insert("INSERT INTO outbox(account_id,integration_id,kind,payload,status,created_at) VALUES (?,?,?,?,'pending',?)",[$customer,$integration['id'],'subscription.activated',json_encode(['account_id'=>$customer,'external_order_id'=>$orderNo,'email'=>$order['customer_email']],JSON_UNESCAPED_UNICODE),now()]);
-                $result['status']='active';$result['account_id']=$customer;
-            }
+            // A server-signed payment callback is NOT a verified customer login.
+            // Record settlement without attaching an existing OnTrack user by email.
+            $result=array_merge($result,record_verified_external_payment($order,(string)$payload['payment_reference']));
         }elseif($kind==='booking.created'){
             $siteId=(int)($payload['site_id']??0);
             $site=one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$siteId,$reseller]);
