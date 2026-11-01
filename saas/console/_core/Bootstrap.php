@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v6(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -306,6 +306,38 @@ function init_console_v5():void {
             token_hash TEXT NOT NULL UNIQUE,status TEXT NOT NULL,
             created_at TEXT NOT NULL,last_seen_at TEXT,revoked_at TEXT
         )");
+    }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+/**
+ * Device-observed per-SIM call lifecycle ledger. This is NOT a transcript,
+ * phone number, AI session, or evidence that the audio path worked.
+ * The unique event key makes Android offline retries idempotent.
+ */
+function init_console_v6():void {
+    $marker=private_path().'/schema.v6';
+    if(is_file($marker))return;
+    if(driver()==='mysql'){
+        db()->exec("CREATE TABLE IF NOT EXISTS tenant_call_events (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            account_id BIGINT NOT NULL,site_id BIGINT NOT NULL,agent_id BIGINT NOT NULL,
+            device_id BIGINT NOT NULL,sim_slot INT NOT NULL,
+            call_id CHAR(36) NOT NULL,phase VARCHAR(12) NOT NULL,
+            duration_seconds INT NOT NULL DEFAULT 0,observed_at VARCHAR(19) NOT NULL,
+            UNIQUE KEY uq_tenant_call_event(device_id,call_id,phase),
+            KEY idx_tenant_calls(account_id,id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }else{
+        db()->exec("CREATE TABLE IF NOT EXISTS tenant_call_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL,site_id INTEGER NOT NULL,agent_id INTEGER NOT NULL,
+            device_id INTEGER NOT NULL,sim_slot INTEGER NOT NULL,
+            call_id TEXT NOT NULL,phase TEXT NOT NULL,
+            duration_seconds INTEGER NOT NULL DEFAULT 0,observed_at TEXT NOT NULL,
+            UNIQUE(device_id,call_id,phase)
+        )");
+        db()->exec("CREATE INDEX IF NOT EXISTS idx_tenant_calls ON tenant_call_events(account_id,id)");
     }
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
