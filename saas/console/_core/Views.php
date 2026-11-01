@@ -344,7 +344,12 @@ function render_voices(array $a):void{
     if($a['kind']==='platform')
         echo card('Google Voice Discovery',form_start('sync_google_voices','/?tab=voices').
             '<p>استيراد كتالوج Google Gemini Live المنشور (30 صوتاً). كل صوت جديد يبقى غير مفعّل حتى التحقق من توافقه مع مزوّد الاتصال الفعلي.</p>'.
-            submit_btn('مزامنة 30 صوت Google'));
+            submit_btn('مزامنة 30 صوت Google')).
+        card('جلب الأصوات مباشرة من حساب Google',
+          form_start('fetch_google_voices','/?tab=voices').
+          '<label class="field">Google API Key (لا يُحفظ بعد الفحص)<input type="password" name="google_api_key" required autocomplete="off" minlength="12"></label>'.
+          '<p class="dim">يستخدم Google Gemini Voices API لجلب الأصوات المتاحة لحسابك؛ كل صوت مستورد يبقى غير مفعل إلى أن تختبره وتسمح به.</p>'.
+          submit_btn('جلب الأصوات الحقيقية من Google'));
     echo '<div class="info">أصوات AYO Premium لم يتم إثبات تشغيلها بعد؛ لن تُباع أو تُفعل قبل اختبار المحرك.</div>';
     if($a['kind']==='platform'||$a['kind']==='reseller'){
         $targets=$a['kind']==='platform'?all("SELECT id,name FROM accounts WHERE kind!='platform'"):all('SELECT id,name FROM accounts WHERE parent_id=?',[$id]);
