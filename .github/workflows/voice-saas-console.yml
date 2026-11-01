@@ -41,6 +41,7 @@ jobs:
           node --check saas/console/assets/js/mfa-qr.js
           node tools/test_voice_qr.cjs
           php tools/test_flow_templates.php
+          php tools/test_answer_policy.php
       - name: Database, roles, demo users, branding and isolation smoke
         run: php tools/test_voice_saas_console.php
       - name: External SSO regression in isolated second test phase

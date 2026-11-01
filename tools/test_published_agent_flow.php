@@ -44,5 +44,18 @@ function test_published_agent_flow():void {
     }
     $second=published_agent_flow($account,$site,$id);
     ok((int)$second['revision']===2 && $second['flow_hash']!==$first['hash'],'versions isolated');
+    $policy=answer_policy_normalize(['auto_answer'=>true,'answer_delay_seconds'=>8,
+        'response_style'=>'formal_ar','max_call_minutes'=>12,'fallback'=>'human']);
+    $beforePolicy=published_agent_flow($account,$site,$id);
+    save_answer_policy($account,$id,$policy);
+    $stillPublished=published_agent_flow($account,$site,$id);
+    ok(($stillPublished['answer_policy_json']??'')===($beforePolicy['answer_policy_json']??''),
+        'draft answer policy never changes published SIM snapshot');
+    $newRevision=publish_agent_flow($account,$id,1);
+    ok($newRevision['revision']===3,'answering policy change triggers immutable new revision');
+    $live=published_agent_flow($account,$site,$id);
+    $actual=answer_policy_normalize(json_decode((string)$live['answer_policy_json'],true));
+    ok($actual['auto_answer']===true && $actual['answer_delay_seconds']===8,
+        'published SIM receives current per-agent answer policy');
     echo "AGENT_PUBLISHED_FLOW_PASS\n";
 }
