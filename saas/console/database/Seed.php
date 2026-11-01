@@ -26,21 +26,21 @@ function seed_console(): array {
     ];
     foreach($accountRows as $a)insert("INSERT INTO accounts(kind,parent_id,name,slug,status,brand_name,created_at) VALUES (?,?,?,?,'active',?,?)",[$a[0],$a[1],$a[2],$a[3],$a[4],$now]);
     $users=[
-        ['مسؤول المنصة','admin@ontrackegy.com','$2y$12$eYzQbcavussbjhhpayi/FOPBgD2R8pYI5Pwy5U1LGlyFy3u10/Z9S',1,'owner'],
-        ['مالك دلتا فويس','reseller@delta.test','$2y$12$Fjh7jJiJ0ypPT8S2Ms9g3uGdDDkqEMpHxZpMdI85AAgjEIgDFnKOu',2,'owner'],
-        ['مالك الشركة المباشرة','user@direct.test','$2y$12$3zFC2ACVGGbLgJwTD9n3yeujBeSWjWh2vA1TiJhQO0yWbxfIrFzCy',4,'owner'],
-        ['مدير دلتا','manager@delta.test','$2y$12$Fjh7jJiJ0ypPT8S2Ms9g3uGdDDkqEMpHxZpMdI85AAgjEIgDFnKOu',2,'manager'],
-        ['حساب صيدلية الندى','pharmacy@delta.test','$2y$12$3zFC2ACVGGbLgJwTD9n3yeujBeSWjWh2vA1TiJhQO0yWbxfIrFzCy',5,'owner'],
-        ['حساب أزياء القاهرة','fashion@delta.test','$2y$12$3zFC2ACVGGbLgJwTD9n3yeujBeSWjWh2vA1TiJhQO0yWbxfIrFzCy',6,'owner'],
-        ['مالك نيل فويس','reseller@nile.test','$2y$12$Fjh7jJiJ0ypPT8S2Ms9g3uGdDDkqEMpHxZpMdI85AAgjEIgDFnKOu',3,'owner'],
-        ['شركة نيل','user@nile.test','$2y$12$3zFC2ACVGGbLgJwTD9n3yeujBeSWjWh2vA1TiJhQO0yWbxfIrFzCy',7,'owner'],
-        ['دعم المنصة','support@ontrack.test','$2y$12$Fjh7jJiJ0ypPT8S2Ms9g3uGdDDkqEMpHxZpMdI85AAgjEIgDFnKOu',1,'support']
+        ['مسؤول المنصة','admin@ontrackegy.com',hash_password(bin2hex(random_bytes(30))),1,'owner'],
+        ['مالك دلتا فويس','reseller@delta.test',hash_password(bin2hex(random_bytes(30))),2,'owner'],
+        ['مالك الشركة المباشرة','user@direct.test',hash_password(bin2hex(random_bytes(30))),4,'owner'],
+        ['مدير دلتا','manager@delta.test',hash_password(bin2hex(random_bytes(30))),2,'manager'],
+        ['حساب صيدلية الندى','pharmacy@delta.test',hash_password(bin2hex(random_bytes(30))),5,'owner'],
+        ['حساب أزياء القاهرة','fashion@delta.test',hash_password(bin2hex(random_bytes(30))),6,'owner'],
+        ['مالك نيل فويس','reseller@nile.test',hash_password(bin2hex(random_bytes(30))),3,'owner'],
+        ['شركة نيل','user@nile.test',hash_password(bin2hex(random_bytes(30))),7,'owner'],
+        ['دعم المنصة','support@ontrack.test',hash_password(bin2hex(random_bytes(30))),1,'support']
     ];
     foreach($users as $u) {
         $id=insert("INSERT INTO users(name,email,password_hash,status,created_at) VALUES (?,?,?,'active',?)",[$u[0],$u[1],$u[2],$now]);
         insert("INSERT INTO memberships(user_id,account_id,role,created_at) VALUES (?,?,?,?)",[$id,$u[3],$u[4],$now]);
     }
-    foreach([[2,1],[3,2],[4,3],[5,4],[6,3],[7,3]] as $p)
+    foreach([[2,1],[3,2],[4,4],[5,4],[6,3],[7,3]] as $p)
         insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at) VALUES (?,?,'active',?,?)",[$p[0],$p[1],$now,gmdate('Y-m-d H:i:s',time()+30*86400)]);
     $sites=[
         [4,'المتجر الرئيسي','store.direct.example'],
