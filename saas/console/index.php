@@ -75,6 +75,9 @@ if($path==='/login') {
                 go('/security/2fa');
             }
             session_regenerate_id(true);
+            unset($_SESSION['pending_2fa_uid'],$_SESSION['pending_2fa_at'],
+                $_SESSION['pending_2fa_secret'],$_SESSION['pending_2fa_fails'],
+                $_SESSION['twofa_verified_uid'],$_SESSION['twofa_recovery_display']);
             $_SESSION['uid']=(int)$u['id'];
             $m=memberships((int)$u['id']);
             $_SESSION['account_id']=$m[0]['account_id']??null;
