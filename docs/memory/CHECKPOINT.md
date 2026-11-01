@@ -1,3 +1,12 @@
+## 2026-11-01 — Cycle #7 CLOSED: native publish UI host ACK safety gate merged and CI verified
+
+- **PR #14 MERGED:** `https://github.com/OnTrack-Development/OnTrack-voice/pull/14`, squash main `aed13a68bc3f8cde7c4a12dbde53b8d10ed5a8b4`.
+- **CI_PASS:** PR `Native OTA host acknowledgement gate` run `41310627580` SUCCESS (Python syntax, synthetic receipt success/failure/replay/mismatch and native trigger isolation); post-merge main run `41310655875` SUCCESS. No Android build or APK publication was triggered by this release-tool-only merge.
+- **ROOT CAUSE VERIFIED:** old Android run `41306044730` GitHub SUCCESS but host `mobile-ota-41306044730` FAILED (`Revision cannot be reused with different content`); `mobile-native-41306044730` SUCCESS published v22 at 12:29:08 UTC. The previous native publisher treated UI queue success as installation proof.
+- **FIX:** native queue now waits for matching same-run, SHA-verified successful host UI receipt and exact installed revision + content hash; rejects stale, failed, mismatched or missing proof. New CI tests are isolated from Android APK workflow.
+- **HOST_DEPLOYED: N/A** for PR #14 (GitHub release script/workflow only). **DEVICE_E2E: OPEN**; v22 published to host does not prove installed on owner device. **Pilot DNC PHP HOST_DEPLOYED: OPEN**; separate deploy channel needed.
+- **NEXT:** resolve UI revision collision in a separately verified signed UI release; implement pinned pilot PHP deploy + receipt without APK build; then tenant-bound Android DNC and device E2E.
+
 ## 2026-11-01 — Cycle #7: Native publish must wait for verified UI host receipt (candidate, CI pending)
 
 - **Observed release mismatch (verified):** GitHub Android run `41306044730` = SUCCESS including publish queue steps; actual host `mobile-ota-41306044730` = FAILED, exit 1 (`Revision cannot be reused with different content`), yet host `mobile-native-41306044730` = SUCCESS, published versionCode 22, SHA256 `ff60a4d49dd86294a8fb1c1c7254ae2ccc587f19ad21af504e1271d4e02b548b`, **2026-11-01 12:29:08 UTC**. This was an APK release artifact publication, NOT proof of installation on user's phone.
