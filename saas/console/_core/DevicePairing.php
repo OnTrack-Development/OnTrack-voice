@@ -66,8 +66,10 @@ function device_binding_profile(array $binding):array {
     $agent=one('SELECT id,name,voice,instructions FROM agents WHERE id=? AND account_id=? AND site_id=?',
         [$binding['agent_id'],$binding['account_id'],$binding['site_id']]);
     $site=one('SELECT id,name FROM sites WHERE id=? AND account_id=?',[$binding['site_id'],$binding['account_id']]);
-    if(!$agent||!$site)throw new RuntimeException('device_profile_unavailable');
+    $tenant=account((int)$binding['account_id']);
+    if(!$agent||!$site||!$tenant||$tenant['status']!=='active')throw new RuntimeException('device_profile_unavailable');
     return ['device_id'=>(int)$binding['id'],'account_id'=>(int)$binding['account_id'],
+        'account_name'=>(string)$tenant['name'],
         'site_id'=>(int)$site['id'],'site_name'=>$site['name'],
         'agent_id'=>(int)$agent['id'],'agent_name'=>$agent['name'],
         'voice'=>$agent['voice'],'instruction'=>$agent['instructions'],
