@@ -1,0 +1,32 @@
+name: OnTrack Voice SaaS PHP Console
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'saas/console/**'
+      - 'tools/test_voice_saas_console.php'
+      - '.github/workflows/voice-saas-console.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP 8.3 and database extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,openssl,fileinfo
+          coverage: none
+      - name: PHP syntax for all runtime source files
+        run: |
+          set -eu
+          find saas/console -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l tools/test_voice_saas_console.php
+      - name: Validate JavaScript
+        run: node --check saas/console/assets/js/app.js
+      - name: Database, roles, demo users, branding and isolation smoke
+        run: php tools/test_voice_saas_console.php

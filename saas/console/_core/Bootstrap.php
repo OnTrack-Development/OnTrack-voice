@@ -1,0 +1,182 @@
+<?php
+declare(strict_types=1);
+const SAAS_ROOT = __DIR__ . '/..';
+const SAAS_PRIVATE = '/home/appontrack/.ontrack-saas';
+date_default_timezone_set('UTC');
+function private_path(): string {
+    $path = is_dir('/home/appontrack') ? SAAS_PRIVATE : sys_get_temp_dir().'/ontrack-saas-demo';
+    if (!is_dir($path)) {mkdir($path,0700,true);}
+    return $path;
+}
+function db(): PDO {
+    static $pdo;
+    if ($pdo instanceof PDO) return $pdo;
+    $configFile=private_path().'/database.json';
+    $config=is_file($configFile)?json_decode((string)file_get_contents($configFile),true):[];
+    $config=is_array($config)?$config:[];
+    if (($config['driver']??'')==='mysql') {
+        $pdo = new PDO(
+            'mysql:host='.($config['host']??'localhost').';port='.($config['port']??3306).';dbname='.($config['database']??'').';charset=utf8mb4',
+            (string)($config['user']??''),(string)($config['password']??''),
+            [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
+             PDO::ATTR_EMULATE_PREPARES=>false]
+        );
+    } else {
+        if (!in_array('sqlite',PDO::getAvailableDrivers(),true)) {
+            throw new RuntimeException('DB_NOT_CONFIGURED: set a private MySQL database.json; no SQLite driver available');
+        }
+        $dbpath=private_path().'/ontrack-console.sqlite';
+        $pdo=new PDO('sqlite:'.$dbpath,null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
+        $pdo->exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=4000; PRAGMA journal_mode=WAL');
+        @chmod($dbpath,0600);
+    }
+    return $pdo;
+}
+function driver():string {return db()->getAttribute(PDO::ATTR_DRIVER_NAME);}
+function sql(string $q,array $args=[]):PDOStatement {
+    $s=db()->prepare($q);$s->execute($args);return $s;
+}
+function one(string $q,array $a=[]):?array{$v=sql($q,$a)->fetch();return $v?:null;}
+function all(string $q,array $a=[]):array{return sql($q,$a)->fetchAll();}
+function execute(string $q,array $a=[]):int{return sql($q,$a)->rowCount();}
+function insert(string $q,array $a=[]):int{sql($q,$a);return (int)db()->lastInsertId();}
+function now():string{return gmdate('Y-m-d H:i:s');}
+function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
+function init_schema():void {
+    $done=private_path().'/schema.v1';
+    if (is_file($done)) return;
+    $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
+    $text=(string)file_get_contents($path);
+    $segments=array_filter(array_map('trim',explode(";\n",$text)));
+    foreach($segments as $q){db()->exec($q);}
+    file_put_contents($done,now());
+    chmod($done,0600);
+}
+function e(?string $x):string{return htmlspecialchars((string)$x,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
+function csrf():string {
+    if (empty($_SESSION['csrf'])) $_SESSION['csrf']=bin2hex(random_bytes(32));
+    return $_SESSION['csrf'];
+}
+function require_csrf():void {
+    if (!hash_equals(csrf(),(string)($_POST['csrf']??''))) {http_response_code(419);exit('انتهت صلاحية الطلب');}
+}
+function flash(string $key,?string $value=null):?string{
+    if($value!==null){$_SESSION['flash_'.$key]=$value;return null;}
+    $v=$_SESSION['flash_'.$key]??null;unset($_SESSION['flash_'.$key]);return $v;
+}
+function route():string {
+    $uri=parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH)?:'/';
+    $prefix='/saas/console';
+    if (str_starts_with($uri,$prefix)) $uri=substr($uri,strlen($prefix));
+    $uri='/'.trim($uri,'/');
+    return $uri==='/'?'/':$uri;
+}
+function go(string $path):never {header('Location: /saas/console'.($path==='/'?'':$path),true,303);exit;}
+function startsession():void {
+    if(PHP_SAPI==='cli')return;
+    ini_set('session.use_strict_mode','1');
+    session_name('OTVOICESESSION');
+    session_set_cookie_params(['lifetime'=>0,'path'=>'/saas/console','secure'=>!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off','httponly'=>true,'samesite'=>'Lax']);
+    session_start();
+}
+function me():?array {
+    if(empty($_SESSION['uid']))return null;
+    return one("SELECT id,name,email,status FROM users WHERE id=? AND status='active'",[(int)$_SESSION['uid']]);
+}
+function memberships(int $uid):array{
+    return all("SELECT m.account_id,m.role,a.kind,a.name,a.slug,a.parent_id,a.status
+        FROM memberships m JOIN accounts a ON a.id=m.account_id
+        WHERE m.user_id=? AND a.status='active' ORDER BY a.id",[$uid]);
+}
+function account(int $id):?array{return one('SELECT * FROM accounts WHERE id=?',[$id]);}
+function mine():?array{
+    $u=me();if(!$u)return null;
+    $id=(int)($_SESSION['account_id']??0);
+    if (!empty($_SESSION['support']) && is_array($_SESSION['support'])) {
+        $sp=$_SESSION['support'];
+        $originId=(int)($sp['origin_id']??0);
+        $target=(int)($sp['account_id']??0);
+        $origin=null;
+        foreach(memberships((int)$u['id']) as $m)
+            if((int)$m['account_id']===$originId)$origin=$m;
+        $subject=account($target);
+        if((int)($sp['expires']??0)>time() && $origin && $subject &&
+            ($origin['kind']==='platform' || ($origin['kind']==='reseller'&&
+                is_reseller_child($originId,$target)))) {
+            return array_merge($subject,['account_id'=>$target,'role'=>'support_viewer','support_origin'=>$originId]);
+        }
+        unset($_SESSION['support']);
+    }
+    foreach(memberships((int)$u['id']) as $m){if((int)$m['account_id']===$id){return array_merge(account($id)??[],$m);}}
+    return null;
+}
+function has_platform():bool {
+    $u=me();if(!$u)return false;
+    foreach(memberships((int)$u['id']) as $m)if($m['kind']==='platform' && in_array($m['role'],['owner','admin','support','finance'],true))return true;
+    return false;
+}
+function allowed(string $permission,?array $account=null):bool {
+    $a=$account??mine();if(!$a)return false;
+    $r=$a['role']??'viewer';
+    if($r==='owner'||$r==='admin')return true;
+    $grants=[
+        'manager'=>['read','sites.write','agents.write','campaigns.write','contacts.write','calls.read','staff.read','devices.read','integrations.read'],
+        'operator'=>['read','agents.read','campaigns.read','campaigns.write','calls.read','contacts.read','devices.read'],
+        'support'=>['read','calls.read','staff.read','devices.read','integrations.read'],
+        'finance'=>['read','billing.read','billing.write'],
+        'viewer'=>['read']
+    ];
+    return in_array($permission,$grants[$r]??[],true);
+}
+function deny(int $code=403,string $message='لا تملك صلاحية لهذا الإجراء'):never {
+    http_response_code($code);echo '<div style="direction:rtl;font-family:system-ui;padding:40px">'.e($message).'</div>';exit;
+}
+function require_login():array{
+    $user=me();if(!$user)go('/login');
+    return $user;
+}
+function require_permission(string $p):void {if(!allowed($p))deny();}
+function owned_site(int $siteId,int $accountId):?array{
+    return one('SELECT * FROM sites WHERE id=? AND account_id=?',[$siteId,$accountId]);
+}
+function owner_scope():int{
+    $a=mine();if(!$a)deny();
+    return (int)$a['account_id'];
+}
+function brand(array $a):array{
+    if($a['kind']==='platform')return ['name'=>'OnTrack Voice','logo'=>'','accent'=>'#e11d39'];
+    if($a['kind']==='reseller')return ['name'=>(string)($a['brand_name']?:$a['name']),'logo'=>(string)($a['logo_path']??''),'accent'=>'#e11d39'];
+    if(!empty($a['parent_id'])){
+        $p=account((int)$a['parent_id']);
+        if($p)return ['name'=>(string)($p['brand_name']?:$p['name']),'logo'=>(string)($p['logo_path']??''),'accent'=>'#e11d39'];
+    }
+    return ['name'=>'OnTrack Voice','logo'=>'','accent'=>'#e11d39'];
+}
+function audit(string $action,?int $accountId=null,array $details=[]):void{
+    $actor=me();if(!$actor)return;
+    $info=json_encode($details,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+    insert('INSERT INTO audit_events(actor_user_id,account_id,action,detail,created_at) VALUES (?,?,?,?,?)',[$actor['id'],$accountId,$action,$info,now()]);
+}
+function site_limit(int $accountId,string $key):int{
+    $row=one("SELECT p.* FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.account_id=? AND s.status='active' ORDER BY s.id DESC LIMIT 1",[$accountId]);
+    return (int)($row[$key]??0);
+}
+function can_create(int $accountId,string $kind):bool{
+    $table=$kind==='site'?'sites':'agents';$col=$kind==='site'?'site_limit':'agent_limit';
+    return (int)one("SELECT COUNT(*) n FROM {$table} WHERE account_id=?",[$accountId])['n']<site_limit($accountId,$col);
+}
+function is_reseller_child(int $reseller,int $customer):bool{
+    $a=account($customer);return $a&&$a['kind']==='customer'&&(int)$a['parent_id']===$reseller;
+}
+function support_access(int $customerId):bool{
+    $a=mine();if(!$a)return false;
+    return $a['kind']==='platform' || ($a['kind']==='reseller'&&is_reseller_child((int)$a['account_id'],$customerId));
+}
+function selected_site(int $accountId):?array {
+    $id=(int)($_GET['site']??$_SESSION['site_id']??0);
+    $site=$id?owned_site($id,$accountId):null;
+    if(!$site)$site=one('SELECT * FROM sites WHERE account_id=? ORDER BY id LIMIT 1',[$accountId]);
+    if($site)$_SESSION['site_id']=$site['id'];
+    return $site;
+}
+function is_demo():bool{return (bool)(getenv('ONTRACK_DEMO')?:true);}
