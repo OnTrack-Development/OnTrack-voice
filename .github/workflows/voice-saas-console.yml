@@ -42,4 +42,6 @@ jobs:
       - name: Database, roles, demo users, branding and isolation smoke
         run: php tools/test_voice_saas_console.php
       - name: External SSO regression in isolated second test phase
-        run: php tools/test_voice_sso.php
+        run: |
+          php tools/test_voice_sso.php
+          python3 tools/test_voice_sso_http.py
