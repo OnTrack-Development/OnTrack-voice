@@ -5,7 +5,13 @@ require_once __DIR__.'/../saas/console/_core/KashierWebhook.php';
 require_once __DIR__.'/../saas/console/_core/OrderClaim.php';
 function test_verified_checkout_settlement():void {
     $plan=one("SELECT * FROM plans WHERE kind='user' AND status='active' AND price_minor>0 ORDER BY id LIMIT 1");
-    ok($plan!==null,'paid user plan available for a synthetic purchase');
+    // Demo seed deliberately prices all plans at zero; create a paid plan in the isolated test database.
+    if(!$plan){
+        $paidPlanId=insert("INSERT INTO plans(kind,name,call_quota,site_limit,agent_limit,staff_limit,reseller_customers,price_minor,status,created_at)
+            VALUES ('user','Synthetic paid regression plan',800,2,2,3,0,2575,'active',?)",[now()]);
+        $plan=one("SELECT * FROM plans WHERE id=?",[$paidPlanId]);
+    }
+    ok($plan!==null && (int)$plan['price_minor']===2575,'paid fixture exists only in test DB');
     $accountId=4;
     $reference='ovc_'.bin2hex(random_bytes(16));
     $tx='TX_'.bin2hex(random_bytes(16));
