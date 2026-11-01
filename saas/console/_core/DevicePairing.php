@@ -92,6 +92,7 @@ function device_binding_profile(array $binding):array {
         // Only a specifically published immutable revision can supply instructions.
         'voice'=>$published?(string)$published['voice']:null,
         'instruction'=>$published?(string)$published['instructions']:null,
+        'answer_policy'=>$published?answer_policy_normalize((array)(json_decode((string)($published['answer_policy_json']??''),true)??[])):null,
         'sim_slot'=>(int)$binding['sim_slot'],'heartbeat_seconds'=>10,
         'transport'=>'tenant_pairing_preview_no_sim_bridge'];
 }

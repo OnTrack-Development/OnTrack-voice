@@ -49,6 +49,7 @@ try{
                 'revision'=>(int)$flow['revision'],'hash'=>(string)$flow['flow_hash'],
                 'voice'=>(string)$flow['voice'],'instructions'=>(string)$flow['instructions'],
                 'knowledge'=>(string)$flow['knowledge'],
+                'answer_policy'=>answer_policy_normalize((array)(json_decode((string)($flow['answer_policy_json']??''),true)??[])),
                 'flow'=>json_decode((string)$flow['flow_json'],true,32,JSON_THROW_ON_ERROR),
                 'execution'=>'published_contract_not_live_telephone_ai']);
         }
