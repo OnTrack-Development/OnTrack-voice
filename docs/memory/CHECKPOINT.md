@@ -1,3 +1,11 @@
+## 2026-11-02 — PR #19: دليل جهات اتصال منفصل لكل SIM (CODED; CI PENDING; NOT DEPLOYED)
+
+- **شريحة منتج فعلية:** أضفنا قراءة وبحث جهات الاتصال من تطبيق Android لكل SIM مربوطة، من قاعدة بيانات SaaS الموجودة، عبر API موثّق بتوكن تلك الشريحة. واجهة Android تعرض الاسم والرقم وعلامة «لا تتصل» المستمدة من دفتر DNC الدائم؛ لا تعرض جهة اتصال من حساب/موقع آخر. حد 25 جهة لكل بحث، ولا توجد مكالمات أو عمليات مالية.
+- **التنفيذ:** `saas/console/_core/DevicePairing.php` و`device/v1/index.php` و`TenantDeviceEnrollment.kt` و`MobileLinkActivity.kt` و`TenantPairingContract.kt`. اختبارات PHP/SQLite أُضيفت في `tools/test_tenant_device_pairing.php` لعزل حسابين وشريحتين وDNC؛ اختبار Kotlin لمدخلات البحث. لم نغيّر مخطط DB؛ البيانات من `contacts` و`dnc_suppressions` الموجودين.
+- **حالة الإثبات عند كتابة هذا التحديث:** CODED على فرع PR #19؛ **لم تظهر بعد نتيجة GitHub Actions مرتبطة بآخر HEAD**، ولذلك `CI_PASS=NOT_YET_VERIFIED`. لم يُجرَ اختبار هاتف Xiaomi أو authenticated staging أو مراجعة أمنية مستقلة. `HOST_DEPLOYED=NO` لهذا الفرع. آخر receipt مفحوص `saas-console-41358252163` بتاريخ 2026-11-01 22:41 UTC نشر main `dff8ec5cd5ec` وليس PR #19.
+- **BLOCKED:** تنفيذ مكالمة SIM حقيقية وربط الصوت/Gemini وAgent Flow المنشور لا يزال يحتاج إثبات جهاز ودمج PR #20 بعد حل تصادم schema.v6. PR #9 SSO مفتوح وغير قابل للدمج حاليًا. لا Merge ولا Deploy بدون CI كامل ومراجعة وhost receipt مطابق.
+- **NEXT:** تحقق من نتائج PHP/Android CI لهذا HEAD، ثم راجع واجهة جهات الاتصال على Staging/Android وعمليات عزل SIM1/SIM2؛ بعدها استكمل ربط Flow والصوت إن توفرت بيئة اختبار آمنة.
+
 ## 2026-11-02 — PR #19: نتيجة «لا تتصل مجددًا» تربط تقرير SIM بدفتر DNC (CODED; release held)
 
 - **التغيير المنتج الفعلي:** الموظف على Web أو Android يختار `do_not_call` لتقرير مكالمة مرصودة ومنتهية على شريحة عميل، ويكتب رقم العميل يدويًا ويؤكد طلب عدم الاتصال. لم تكن أحداث Android تتضمن رقمًا، لذلك لا تخمين للهوية. السيرفر يتحقق من `call_id/device_id/account_id/sim_slot` ويكتب التقرير والحظر `dnc_suppressions` في معاملة DB واحدة، مع مصدر `call_optout`، وعزل الحسابات وتكرار آمن. تعديل التقييم لاحقًا لا يمس الحظر. قائمة جهات الاتصال تعرض الحالة الفعلية من دفتر DNC حتى لو كان علم جهة الاتصال القديم غير محدث.
