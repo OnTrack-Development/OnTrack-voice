@@ -231,3 +231,33 @@ function wa_manual_reply(int $accountId,int $conversationId,string $body,?callab
     wa_audit($accountId,$conversationId,'whatsapp.staff.sent','meta_accepted_not_delivered');
     return ['message_id'=>$mid,'status'=>'accepted_not_delivered','paused_minutes'=>15];
 }
+
+/** Provider metadata check, no outbound customer message. */
+function wa_test_meta_connection(array $connection,?callable $transport=null):array {
+    $token=unseal_secret($connection['access_token_enc']??null);
+    $phoneId=(string)$connection['phone_number_id'];
+    if(!$token||!preg_match('/^[0-9]{5,100}$/D',$phoneId))
+        throw new InvalidArgumentException('whatsapp_test_configuration_invalid');
+    $version=trim((string)getenv('ONTRACK_META_GRAPH_VERSION'));
+    if(!preg_match('/^v[0-9]{1,2}\.0$/D',$version))$version='v25.0';
+    $endpoint='https://graph.facebook.com/'.$version.'/'.$phoneId.'?fields=id,display_phone_number';
+    if($transport!==null)$response=$transport($endpoint,$token);
+    else{
+        if(!function_exists('curl_init'))throw new RuntimeException('whatsapp_curl_unavailable');
+        $ch=curl_init($endpoint);
+        curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,
+            CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$token,'Accept: application/json'],
+            CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>11,CURLOPT_FOLLOWLOCATION=>false,
+            CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2]);
+        $raw=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
+        curl_close($ch);$response=['status'=>$status,'body'=>$raw];
+    }
+    $json=json_decode((string)($response['body']??''),true);
+    if((int)($response['status']??0)!==200||
+       (string)($json['id']??'')!==$phoneId)
+        throw new RuntimeException('Meta لم يؤكد ملكية Phone Number ID (HTTP '.(int)($response['status']??0).')');
+    execute("UPDATE wa_connections SET state='verified',last_tested_at=?,updated_at=? WHERE id=? AND account_id=?",
+        [now(),now(),(int)$connection['id'],(int)$connection['account_id']]);
+    wa_audit((int)$connection['account_id'],null,'whatsapp.meta.verified','phone_number_id confirmed, webhook pending');
+    return ['verified'=>true,'phone_display'=>(string)($json['display_phone_number']??'')];
+}
