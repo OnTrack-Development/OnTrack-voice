@@ -67,8 +67,8 @@ function tenant_voice_ephemeral_token(string $apiKey,int $minutes=10):string {
         throw new RuntimeException('voice_provider_token_invalid');
     return $token;
 }
-function tenant_voice_session(array $binding):array {
-    $definition=tenant_voice_definition($binding);
+/** Resolve the platform's encrypted Live provider, with no legacy pilot fallback. */
+function tenant_voice_provider():array {
     $model=trim((string)getenv('ONTRACK_GEMINI_LIVE_MODEL'));
     $key=trim((string)getenv('ONTRACK_GEMINI_API_KEY'));
     if($key===''||$model===''){
@@ -82,6 +82,23 @@ function tenant_voice_session(array $binding):array {
     }
     if($model===''||$key===''||!preg_match('/^[A-Za-z0-9._-]{5,120}$/D',$model))
         throw new RuntimeException('voice_provider_not_configured');
+    return ['model'=>$model,'key'=>$key];
+}
+/** Validate Google Live access for an authenticated paired SIM, without placing
+ * a call and without making production telephony active or returning a bearer. */
+function tenant_voice_preflight(array $binding):array {
+    $definition=tenant_voice_definition($binding);
+    $provider=tenant_voice_provider();
+    $ephemeral=tenant_voice_ephemeral_token($provider['key'],1);
+    if(!str_starts_with($ephemeral,'auth_tokens/'))throw new RuntimeException('voice_provider_token_invalid');
+    return ['ready'=>true,'revision'=>$definition['revision'],
+        'agent_id'=>$definition['agent_id'],'site_id'=>$definition['site_id'],
+        'sim_slot'=>(int)$binding['sim_slot'],'model'=>$provider['model']];
+}
+function tenant_voice_session(array $binding):array {
+    $definition=tenant_voice_definition($binding);
+    $provider=tenant_voice_provider();
+    $model=$provider['model'];$key=$provider['key'];
     // Keep the endpoint disabled until the actual per-SIM call + PCM E2E is certified.
     if(getenv('ONTRACK_TENANT_VOICE_ENABLED')!=='1')
         throw new RuntimeException('tenant_voice_not_launched');

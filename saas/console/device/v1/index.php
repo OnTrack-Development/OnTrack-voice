@@ -32,7 +32,7 @@ try{
         );
         device_answer(201,['ok'=>true,'binding'=>$bound,'state'=>'paired_control_plane_only']);
     }
-    if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session'],true)){
+    if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session','voice_preflight'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
         if(!str_starts_with($auth,'Bearer '))device_answer(401,['ok'=>false,'error'=>'authorization_required']);
         $binding=device_binding_authorize(substr($auth,7));
@@ -42,6 +42,16 @@ try{
             device_answer(200,['ok'=>true,'state'=>'revoked']);
         }
         $profile=device_binding_heartbeat($binding);
+        if($operation==='voice_preflight'){
+            try{$ready=tenant_voice_preflight($binding);}
+            catch(RuntimeException $problem){
+                $reason=$problem->getMessage();
+                if($reason==='voice_provider_not_configured')
+                    device_answer(409,['ok'=>false,'error'=>$reason]);
+                device_answer(503,['ok'=>false,'error'=>'voice_provider_unavailable']);
+            }
+            device_answer(200,['ok'=>true,'preflight'=>$ready]);
+        }
         if($operation==='voice_session'){
             // No global pilot policy, unpaired device, foreign SIM, or draft agent can receive a token.
             try{$session=tenant_voice_session($binding);}

@@ -195,11 +195,16 @@ class TenantDeviceEnrollment(private val context: Context) {
         }
         val flow=publishedFlow(slot)
         val revision=flow.getInt("revision")
-        val session=voiceSession(slot,flow)
-        check(session.getString("token").startsWith("auth_tokens/")){
-            "Google Live لم يرجع رمز جلسة سليم"
+        val saved=local(slot)
+        val response=request(JSONObject().put("operation","voice_preflight"),saved.getString("token"))
+        val preflight=response.getJSONObject("preflight")
+        check(preflight.optBoolean("ready") &&
+            preflight.optInt("revision")==revision &&
+            preflight.optInt("sim_slot")==slot &&
+            preflight.optInt("agent_id")==saved.getInt("agent_id")) {
+            "Google Live رفض إعداد الجلسة لهذه الشريحة"
         }
-        return "SIM ${slot+1}: ربط الجهاز سليم • Flow v${revision} منشور • Google Live أصدر جلسة مؤقتة. لم تُجرَ مكالمة GSM بعد."
+        return "SIM ${slot+1}: الربط صحيح • Flow v${revision} منشور • اختبار Google Live ناجح. لم تحدث مكالمة صوتية بعد."
     }
     fun disconnect(slot:Int) {
         val saved=local(slot)
