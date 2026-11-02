@@ -58,7 +58,7 @@ function fmt_duration(int $seconds):string{
     return $m?($m.' دقيقة'.($s?' و'.$s.' ثانية':'')):($s.' ثانية');
 }
 function nav_entries(string $type):array{
-    if($type==='platform'&&console_view_mode()==='user')$type='customer';
+    if(in_array($type,['platform','reseller'],true)&&console_view_mode()==='user')$type='customer';
     $common=[
         'overview'=>['⌂','الرئيسية'],
         'staff'=>['♙','الموظفون'],
@@ -129,6 +129,23 @@ function layout_open(array $a,string $tab):void{
         }
         echo '</div></details>';
     }
+    if($support){
+        $origin=account((int)($a['support_origin']??0));
+        $backLabel=($origin['kind']??'')==='reseller'?'العودة لمساحة الريسيلر':'العودة للوحة مدير المنصة';
+        echo '<div class="workspace-switcher" aria-label="تبديل مساحة العمل">'.
+            '<span class="workspace-switcher-title">أنت داخل حساب عميل للدعم</span>'.
+            form_start('support_leave','','class="workspace-switch-form"').
+            '<button type="submit" class="workspace-switch-button">↩ '.e($backLabel).'</button></form></div>';
+    }elseif(console_can_switch_view($a)){
+        $to=console_view_mode($a)==='user'?'admin':'user';
+        $toLabel=$to==='user'?'الانتقال لمساحة المستخدم':
+            (($a['kind']==='reseller')?'العودة لمساحة الريسيلر':'العودة للوحة مدير المنصة');
+        echo '<div class="workspace-switcher" aria-label="تبديل مساحة العمل">'.
+            '<span class="workspace-switcher-title">المساحة الحالية · '.($to==='user'?'إدارة الحساب':'مساحة المستخدم').'</span>'.
+            form_start('set_view','','class="workspace-switch-form"').
+            '<input type="hidden" name="view" value="'.e($to).'">'.
+            '<button type="submit" class="workspace-switch-button">⇄ '.e($toLabel).'</button></form></div>';
+    }
     echo '</nav><div class="side-footer"><span class="live-dot"></span> OnTrack Voice <small>Business communication platform</small></div></aside><button type="button" class="nav-backdrop" id="navBackdrop" aria-label="إغلاق القائمة" tabindex="-1"></button><div class="main-area">';
     echo '<header class="topbar"><button type="button" class="icon-button nav-toggle" id="navToggle" aria-controls="mainNavigation" aria-expanded="false" aria-label="فتح القائمة">☰</button><div class="headline"><span class="eyebrow">'.e($role).'</span><h1>'.e($heading).'</h1></div><div class="header-actions">';
     $members=memberships((int)$u['id']);
@@ -137,9 +154,19 @@ function layout_open(array $a,string $tab):void{
         foreach($members as $m)$options[$m['account_id']]=$m['name'].' · '.$m['kind'];
         echo select_html('المساحة','account_id',$options).submit_btn('تبديل');
     }
-    if($a['kind']==='platform'&&in_array($a['role'],['owner','admin'],true)&&!$support){
+    if($support){
+        $origin=account((int)($a['support_origin']??0));
+        echo form_start('support_leave','','class="inline-form workspace-return-top"').
+            '<button type="submit" class="btn small primary">'.
+            (($origin['kind']??'')==='reseller'?'↩ لوحة الريسيلر':'↩ لوحة المدير').
+            '</button></form>';
+    }elseif(console_can_switch_view($a)){
         $targetView=console_view_mode($a)==='user'?'admin':'user';
-        echo form_start('set_view','','class="inline-form"').'<input type="hidden" name="view" value="'.e($targetView).'"><button type="submit" class="btn small primary">'.($targetView==='user'?'مساحة المستخدم':'لوحة الأدمن').'</button></form>';
+        $switchText=$targetView==='user'?'مساحة المستخدم':
+            (($a['kind']==='reseller')?'لوحة الريسيلر':'لوحة المدير');
+        echo form_start('set_view','','class="inline-form workspace-return-top"').
+            '<input type="hidden" name="view" value="'.e($targetView).'">'.
+            '<button type="submit" class="btn small primary">⇄ '.e($switchText).'</button></form>';
     }
     echo '<button type="button" class="icon-button" id="themeToggle" aria-label="تغيير المظهر" title="تغيير المظهر">☀</button>';
     echo '<div class="profile"><span class="avatar">'.e(mb_substr($u['name'],0,1)).'</span><span><strong>'.e($u['name']).'</strong><small>'.e($a['role']??'').'</small></span></div>';
@@ -147,7 +174,7 @@ function layout_open(array $a,string $tab):void{
     echo '</div></header><main class="content">';
     $myInvites=pending_staff_invitations_for_user((int)$u['id']);
     if($myInvites && !$support)echo '<div class="alert success">لديك '.count($myInvites).' دعوة انضمام تنتظر قرارك. <a href="/saas/console/invitations">مراجعة الدعوات ←</a></div>';
-    if($support)echo '<div class="support-context"><span>حساب '.e($a['name']).' · '.(support_mode((int)($a['support_origin']??0))==='read_only'?'قراءة فقط':'صلاحيات كاملة').'</span>'.form_start('support_leave').'<button class="btn small" type="submit">العودة لحسابي</button></form></div>';
+    if($support)echo '<div class="support-context"><span>حساب '.e($a['name']).' · '.(support_mode((int)($a['support_origin']??0))==='read_only'?'قراءة فقط':'صلاحيات كاملة').'</span>'.form_start('support_leave').'<button class="btn small" type="submit">العودة للوحة الإدارة</button></form></div>';
     if($v=flash('success'))echo '<div class="alert success">'.e($v).'</div>';
     if($v=flash('error'))echo '<div class="alert danger">'.e($v).'</div>';
     if($v=flash('secret')){
@@ -186,7 +213,7 @@ function login_page(?string $error=null):void{
 }
 function render_overview(array $a):void{
     $id=(int)$a['account_id'];$kind=$a['kind'];
-    if($kind==='platform'&&console_view_mode($a)==='user')$kind='customer';
+    if(in_array($kind,['platform','reseller'],true)&&console_view_mode($a)==='user')$kind='customer';
     if($kind==='platform'){
         $n1=(int)one("SELECT COUNT(*) n FROM accounts WHERE kind='reseller'")['n'];
         $n2=(int)one("SELECT COUNT(*) n FROM accounts WHERE kind='customer'")['n'];
