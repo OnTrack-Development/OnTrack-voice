@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal class MobileLiveCall(
     private val context:Context, private val client:OkHttpClient, private val scope:CoroutineScope,
     private val session:JSONObject, private val settings:JSONObject, private val notice:(String)->Unit,
+    private val onFinished:(String)->Unit = {},
 ) {
     private val stopped=AtomicBoolean(false)
     private val ready=CompletableDeferred<Unit>()
@@ -33,6 +34,18 @@ internal class MobileLiveCall(
     private lateinit var liveUrl:String
     private var recovery:Job?=null
     private val writeLock=Any()
+    private val transcriptLock=Any()
+    private val reportTranscript=StringBuilder()
+    private fun appendLiveTranscription(label:String,text:String) {
+        val clean=text.trim()
+        if(clean.isBlank())return
+        synchronized(transcriptLock){
+            if(reportTranscript.length>=11600)return
+            val remaining=11600-reportTranscript.length
+            val part=("$label: $clean\n").take(remaining)
+            reportTranscript.append(part)
+        }
+    }
     private var worker:Job?=null
     suspend fun start() {
         val token=session.getString("token")
@@ -132,6 +145,13 @@ internal class MobileLiveCall(
                     }
                     if(message.has("error")) error("Gemini error "+message.getJSONObject("error").optInt("code"))
                     val content=message.optJSONObject("serverContent")?:return
+                    // Gemini Live emits actual caller and agent speech transcriptions
+                    // independently from PCM. Do not attempt speech recognition from
+                    // the Android microphone or infer text from audio payload bytes.
+                    content.optJSONObject("inputTranscription")
+                        ?.optString("text","")?.let{appendLiveTranscription("المتصل",it)}
+                    content.optJSONObject("outputTranscription")
+                        ?.optString("text","")?.let{appendLiveTranscription("الإيجنت",it)}
                     if(content.optBoolean("interrupted")) {
                         generation++;while(playback.tryReceive().isSuccess) {}
                         synchronized(writeLock){output?.writeInt(-1);output?.flush()}
@@ -178,6 +198,17 @@ internal class MobileLiveCall(
         }
     }
     private fun fail(reason:String){if(!stopped.get()){notice(reason);ready.completeExceptionally(IllegalStateException(reason));stop()}}
-    fun stop(){if(stopped.compareAndSet(false,true)){socketReady=false;recovery?.cancel();runCatching{pipe?.close()};playback.close();worker?.cancel();ws?.close(1000,"call ended");ws=null;output=null}}
+    fun stop(){
+        if(stopped.compareAndSet(false,true)){
+            socketReady=false
+            val transcription=synchronized(transcriptLock){reportTranscript.toString().trim()}
+            // Callback persists the text encrypted on device. No made-up summary
+            // if the Live service did not send enough transcription.
+            if(transcription.length>=18)runCatching{onFinished(transcription)}
+                .onFailure{notice("تعذر حفظ نص المكالمة بأمان؛ التقرير غير متاح مؤقتًا")}
+            recovery?.cancel();runCatching{pipe?.close()};playback.close()
+            worker?.cancel();ws?.close(1000,"call ended");ws=null;output=null
+        }
+    }
     val active:Boolean get()=!stopped.get()
 }
