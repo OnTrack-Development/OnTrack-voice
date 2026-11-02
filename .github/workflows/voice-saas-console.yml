@@ -1,7 +1,7 @@
 name: OnTrack Voice SaaS PHP Console
 on:
   push:
-    branches: [main, voice-saas-console-staging, voice-saas-rework]
+    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102']
     paths:
       - 'saas/console/**'
       - 'tools/test_voice_saas_console.php'

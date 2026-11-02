@@ -42,7 +42,7 @@ function tenant_voice_definition(array $binding):array {
 }
 /** Server-side only, fixed Google hostname and TLS-verifying POST. No master API key in response. */
 function tenant_voice_ephemeral_token(string $apiKey,int $minutes=10):string {
-    if($apiKey===''||!preg_match('/^[A-Za-z0-9_-]{16,256}$/D',$apiKey))
+    if($apiKey===''||!preg_match('/\A[A-Za-z0-9._~-]{4,256}\z/D',$apiKey))
         throw new RuntimeException('voice_provider_not_configured');
     if(!function_exists('curl_init'))throw new RuntimeException('voice_curl_unavailable');
     $expiry=gmdate('Y-m-d\TH:i:s\Z',time()+min(30,max(1,$minutes))*60);

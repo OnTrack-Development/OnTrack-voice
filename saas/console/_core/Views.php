@@ -333,13 +333,13 @@ function render_agents(array $a):void{
     if(!$sites){echo card('ابدأ بموقع','أنشئ موقعاً من قائمة المواقع قبل إضافة الإيجنت.');return;}
     $templateOptions=[];
     foreach(flow_template_catalog() as $key=>$tpl)$templateOptions[$key]=$tpl['category'].' — '.$tpl['title'];
-    if(allowed('agents.write'))echo card('إيجنت جديد',form_start('add_agent','/?tab=agents').'<div class="form-grid">'.
+    if(allowed('agents.write'))echo '<details class="agent-create"><summary class="btn primary">+ إنشاء إيجنت</summary>'.card('إيجنت جديد',form_start('add_agent','/?tab=agents').'<div class="form-grid">'.
         field_html('اسم الإيجنت','name','text','مثال: مساعد الحجوزات',true).
         select_html('الموقع','site_id',$map).
         select_html('الصوت','voice',array_column(all("SELECT code,name FROM voices WHERE ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?) ORDER BY name",[$id]),'name','code')?:['google.aoede'=>'Aoede']).
         '</div>'.select_html('مكتبة السيناريوهات الجاهزة','flow_template',$templateOptions).
         '<label class="field">تعليمات الإيجنت<textarea name="instructions" rows="3" maxlength="5000" placeholder="شخصية الإيجنت ودوره وطريقة الرد"></textarea></label><label class="field">Knowledge Base<textarea name="knowledge" rows="3" maxlength="20000" placeholder="معلومات هذا الموقع فقط"></textarea></label>'.
-        '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">إنشاء ونشر السيناريو مباشرة</button><button class="btn" type="submit">إنشاء مسودة للتعديل</button></div></form>');
+        '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">إنشاء ونشر السيناريو مباشرة</button><button class="btn" type="submit">إنشاء مسودة للتعديل</button></div></form>').'</details>';
     $templateGraphs=[];
     foreach(flow_template_catalog() as $key=>$tpl)$templateGraphs[]=['id'=>$key,'title'=>$tpl['category'].' — '.$tpl['title'],
         'description'=>$tpl['description'],'graph'=>flow_template_graph($key)];
@@ -367,7 +367,7 @@ function render_agents(array $a):void{
            '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">حفظ ونشر Flow مباشرة</button><button class="btn" type="submit">حفظ كمسودة</button></div></form>'.
                     form_start('archive_agent','/?tab=agents&site='.$selected['id'],'class="inline-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'"><button class="btn small danger" onclick="return confirm(\'أرشفة الإيجنت؟\')">أرشفة الإيجنت</button></form>';
         } else $body.='<p>'.e($agent['instructions']).'</p>';
-        echo '<section id="agent-'.(int)$agent['id'].'">'.card($agent['name'],$body).'</section>';
+        echo '<details class="agent-editor" id="agent-'.(int)$agent['id'].'"'.((string)($_GET['agent']??'')===(string)$agent['id']?' open':'').'><summary><strong>'.e($agent['name']).'</strong><span>'.pill((string)$agent['status']).'</span><span class="dim">فتح إعدادات الإيجنت والسيناريو</span></summary>'.card('إعدادات الإيجنت',$body).'</details>';
     }
 }
 
@@ -701,7 +701,7 @@ function render_settings(array $a):void{
             '<p class="info">حالة المزوّد: '.($provider?'محفوظ — '.e($provider['name']):'غير مربوط').'. ربط المزوّد لا يشغّل المكالمات قبل فحص الصوت ثنائي الاتجاه على الهاتف.</p>'.
             form_start('save_live_provider','/?tab=settings').
             '<label class="field">موديل Gemini Live<input name="model" dir="ltr" list="google-live-models" required maxlength="120" value="'.e((string)($provider['name']??'gemini-3.8-live')).'"><datalist id="google-live-models"><option value="gemini-3.8-live"><option value="gemini-3.8-live-extended-thinking"><option value="gemini-3.1-flash-live-preview"></datalist></label>'.
-            '<label class="field">Google API Key<input type="password" name="google_key" autocomplete="new-password" required minlength="16" maxlength="256"></label>'.
+            '<label class="field">Google API Key<input type="password" name="google_key" autocomplete="new-password" required maxlength="256"></label>'.
             '<p class="dim">هنتحقق من صلاحية المفتاح عبر Google API، وبعدين نعرض نتيجة اختبار Live بشكل منفصل.</p>'.
             submit_btn('تحقق واحفظ مفتاح Google'));
     }
