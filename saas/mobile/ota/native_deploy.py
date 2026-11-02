@@ -52,7 +52,7 @@ def deploy(zip_url,manifest_b64,cert_b64,sha_expected):
                     if length>110*1024*1024:raise ValueError("archive too large")
                     out.write(chunk)
             with zipfile.ZipFile(tmp) as z:
-                candidates=[x for x in z.infolist() if x.filename=="OnTrack-Voice-0.3.6.apk"]
+                candidates=[x for x in z.infolist() if x.filename=="OnTrack-Voice-0.3.7.apk"]
                 assert len(candidates)==1 and candidates[0].file_size==meta["size"]
                 pkg=candidates[0]
                 assert not (pkg.external_attr>>16 & 0o170000)==0o120000
