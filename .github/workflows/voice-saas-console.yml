@@ -16,6 +16,7 @@ on:
       - 'tools/test_flow_ai_stress.php'
       - 'tools/test_graph_routing.cjs'
       - 'tools/test_whatsapp_inbox.php'
+      - 'tools/test_whatsapp_whmcs_bridge.php'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
@@ -82,3 +83,5 @@ jobs:
         run: php tools/test_flow_ai_stress.php
       - name: Official Meta WhatsApp webhook, Inbox and human takeover
         run: php tools/test_whatsapp_inbox.php
+      - name: WHMCS AI Support Agent channel bridge reviewer and human takeover regression
+        run: php tools/test_whatsapp_whmcs_bridge.php
