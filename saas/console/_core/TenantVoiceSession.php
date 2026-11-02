@@ -95,12 +95,33 @@ function tenant_voice_preflight(array $binding):array {
         'agent_id'=>$definition['agent_id'],'site_id'=>$definition['site_id'],
         'sim_slot'=>(int)$binding['sim_slot'],'model'=>$provider['model']];
 }
+/**
+ * Time-limited, exact-scope owner device trial. This private config is outside
+ * the webroot, is not included in releases, and cannot authorize a foreign SIM.
+ * Production enablement remains a separate explicit setting.
+ */
+function tenant_voice_owner_trial_enabled(array $binding):bool {
+    $file=private_path().'/tenant-voice-owner-trial.json';
+    if(!is_file($file) || filesize($file)>1024)return false;
+    $settings=json_decode((string)file_get_contents($file),true);
+    if(!is_array($settings) || ($settings['enabled']??null)!==true)return false;
+    $until=(string)($settings['expires_utc']??'');
+    if(!preg_match('/^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/D',$until))return false;
+    $expires=strtotime($until);
+    if($expires===false || $expires<=time() || $expires>time()+172800)return false;
+    foreach(['account_id','site_id','agent_id','sim_slot'] as $name){
+        if(!isset($settings[$name]) || !is_int($settings[$name]) ||
+           (int)($binding[$name]??-1)!==$settings[$name])return false;
+    }
+    return true;
+}
 function tenant_voice_session(array $binding):array {
     $definition=tenant_voice_definition($binding);
     $provider=tenant_voice_provider();
     $model=$provider['model'];$key=$provider['key'];
     // Keep the endpoint disabled until the actual per-SIM call + PCM E2E is certified.
-    if(getenv('ONTRACK_TENANT_VOICE_ENABLED')!=='1')
+    if(getenv('ONTRACK_TENANT_VOICE_ENABLED')!=='1' &&
+       !tenant_voice_owner_trial_enabled($binding))
         throw new RuntimeException('tenant_voice_not_launched');
     $token=tenant_voice_ephemeral_token($key,$definition['policy']['max_call_minutes']);
     return ['token'=>$token,'model'=>$model,'system_instruction'=>$definition['instruction'],
