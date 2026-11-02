@@ -43,7 +43,10 @@ for(const r of routed){
   assert(r.from[1]>a.y&&r.from[1]<a.y+route.HEIGHT,'output on node edge');
   assert(r.to[1]>b.y&&r.to[1]<b.y+route.HEIGHT,'input on node edge');
   assert(!r.d.includes(' C '),'no cubic spaghetti');
-  assert(r.d.includes(' Q '),'rounded orthogonal turn expected');
+  const turns=r.points.some((p,i)=>i>0&&i<r.points.length-1&&
+    (r.points[i-1][0]!==r.points[i+1][0])&&
+    (r.points[i-1][1]!==r.points[i+1][1]));
+  if(turns)assert(r.d.includes(' Q '),'rounded orthogonal turn expected');
   // The path control points are Manhattan-only. Diagonal movement is
   // produced solely by small quadratic corner smoothing.
   for(let i=1;i<r.points.length;i++){
