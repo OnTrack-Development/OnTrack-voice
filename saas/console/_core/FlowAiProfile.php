@@ -66,8 +66,7 @@ function flow_ai_profile_generate(int $accountId,int $agentId,string $idea,array
         throw new InvalidArgumentException('اكتب التعديل المطلوب من المساعد.');
     $agent=flow_preview_agent_for_account($accountId,$agentId);
     if(!$agent)throw new InvalidArgumentException('agent_not_available');
-    $provider=tenant_voice_provider();
-    $model=flow_ai_model();
+    // Live adapter resolves the platform provider; no user-supplied AI key.
     $snapshot=[
         'instructions'=>mb_substr((string)($current['instructions']??''),0,2800),
         'goal'=>mb_substr((string)($current['goal']??''),0,1400),
@@ -118,26 +117,7 @@ PROMPT;
         'integration_suggestions'=>['type'=>'ARRAY','items'=>['type'=>'STRING','enum'=>['whmcs','laravel','wordpress','files']]]
     ],'required'=>['instructions','goal','guardrails','knowledge_append','explanation',
         'use_knowledge','use_signed_facts','human_handoff','integration_suggestions']];
-    $payload=['systemInstruction'=>['parts'=>[['text'=>$system]]],
-        'contents'=>[['role'=>'user','parts'=>[['text'=>$context]]]],
-        'generationConfig'=>['responseMimeType'=>'application/json','responseSchema'=>$schema,
-            'maxOutputTokens'=>4200]];
-    $curl=curl_init('https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent');
-    if(!$curl)throw new RuntimeException('ai_profile_provider_unavailable');
-    curl_setopt_array($curl,[
-        CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
-        CURLOPT_RETURNTRANSFER=>true,
-        CURLOPT_HTTPHEADER=>['Content-Type: application/json','x-goog-api-key: '.$provider['key']],
-        CURLOPT_CONNECTTIMEOUT=>7,CURLOPT_TIMEOUT=>27,
-        CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,
-        CURLOPT_FOLLOWLOCATION=>false,CURLOPT_MAXREDIRS=>0,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS
-    ]);
-    $body=curl_exec($curl);
-    $status=(int)curl_getinfo($curl,CURLINFO_HTTP_CODE);
-    curl_close($curl);
-    if(!is_string($body)||strlen($body)>90000||$status!==200)
-        throw new RuntimeException('تعذر اقتراح إعدادات الإيجنت من Google (HTTP '.$status.').');
-    $proposal=flow_ai_profile_extract($body);
+    $proposal=flow_ai_profile_validate(flow_ai_live_proposal($system,$context,$schema));
     // Keep structural suggestions; replace untrusted model completion claims.
     $proposal['explanation']=flow_ai_profile_summary($proposal);
     return $proposal;
