@@ -317,6 +317,7 @@ function allowed(string $permission,?array $account=null):bool {
     if($r==='owner'||$r==='admin')return true;
     $grants=[
         'manager'=>['read','sites.write','agents.write','campaigns.write','contacts.write','calls.read','staff.read','devices.read','integrations.read'],
+        'reception'=>['read','calls.read','contacts.read','devices.read'],
         'operator'=>['read','agents.read','campaigns.read','campaigns.write','calls.read','contacts.read','devices.read'],
         'support'=>['read','calls.read','staff.read','devices.read','integrations.read'],
         'finance'=>['read','billing.read','billing.write'],
