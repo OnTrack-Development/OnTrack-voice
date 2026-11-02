@@ -41,7 +41,10 @@ try{
     if(!is_array($data))throw new InvalidArgumentException('Invalid payload');
     // Only a valid tenant relay signature can authorize normalization of
     // third-party events. Normal Meta delivery remains untouched.
-    if($fromRelay)$data=wa_relay_normalize($connection,$data);
+    if($fromRelay){
+        $connection=wa_relay_bind_existing_phone($connection,$data);
+        $data=wa_relay_normalize($connection,$data);
+    }
     $result=wa_webhook_ingest($connection,$data);
     http_response_code(200);
     echo json_encode(['ok'=>true,'accepted'=>$result['accepted'],'duplicates'=>$result['duplicates']],
