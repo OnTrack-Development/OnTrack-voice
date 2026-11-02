@@ -4,6 +4,7 @@ require __DIR__.'/../../_core/Bootstrap.php';
 require __DIR__.'/../../_core/DevicePairing.php';
 require __DIR__.'/../../_core/TenantVoiceSession.php';
 require __DIR__.'/../../_core/TenantWorkspace.php';
+require __DIR__.'/../../_core/TenantFileParser.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -18,12 +19,15 @@ if(($_SERVER['REQUEST_METHOD']??'')!=='POST')
 if(PHP_SAPI!=='cli' && (empty($_SERVER['HTTPS'])||$_SERVER['HTTPS']==='off'))
     device_answer(426,['ok'=>false,'error'=>'https_required']);
 $raw=(string)file_get_contents('php://input');
-if(strlen($raw)>350000)device_answer(413,['ok'=>false,'error'=>'request_too_large']);
+if(strlen($raw)>1490000)device_answer(413,['ok'=>false,'error'=>'request_too_large']);
 $data=json_decode($raw,true);
 if(!is_array($data))device_answer(422,['ok'=>false,'error'=>'invalid_json']);
 try{
     init_schema();
     $operation=(string)($data['operation']??'');
+    $maxBody=$operation==='workspace_file_import'?1490000:
+       ($operation==='workspace_import'?350000:4096);
+    if(strlen($raw)>$maxBody)device_answer(413,['ok'=>false,'error'=>'request_too_large']);
     if($operation==='pair'){
         $slot=$data['sim_slot']??null;
         if(!is_int($slot))device_answer(422,['ok'=>false,'error'=>'invalid_slot']);
@@ -35,7 +39,7 @@ try{
     }
     if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session','voice_preflight',
         'workspace_contacts','workspace_contact_dnc','workspace_import','workspace_calls',
-        'workspace_call_event','workspace_campaigns','workspace_campaign_create','workspace_campaign_action'],true)){
+        'workspace_call_event','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_file_import'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
         if(!str_starts_with($auth,'Bearer '))device_answer(401,['ok'=>false,'error'=>'authorization_required']);
         $binding=device_binding_authorize(substr($auth,7));
@@ -53,6 +57,22 @@ try{
             if($operation==='workspace_import'){
                 if(!is_array($data['contacts']??null))device_answer(422,['ok'=>false,'error'=>'invalid_contact_list']);
                 device_answer(200,['ok'=>true,'counts'=>tenant_workspace_import($binding,$data['contacts'])]);
+            }
+            if($operation==='workspace_file_import'){
+                $name=(string)($data['name']??'');$encoded=$data['data_b64']??null;
+                if(!preg_match('/^.{1,140}\\.(csv|txt|xlsx)$/iD',$name)||!is_string($encoded))
+                    device_answer(422,['ok'=>false,'error'=>'invalid_file']);
+                $decoded=base64_decode($encoded,true);
+                if(!is_string($decoded)||strlen($decoded)<1||strlen($decoded)>1048576)
+                    device_answer(422,['ok'=>false,'error'=>'invalid_file']);
+                $file=tempnam(sys_get_temp_dir(),'otv-tenant-');
+                if($file===false)device_answer(503,['ok'=>false,'error'=>'temporary_file_failed']);
+                try{
+                    if(file_put_contents($file,$decoded,LOCK_EX)===false)throw new RuntimeException('file_write_failed');
+                    $rows=tenant_file_rows($file,$name);
+                    $counts=tenant_workspace_import($binding,$rows);
+                }finally{if(is_file($file))unlink($file);}
+                device_answer(200,['ok'=>true,'counts'=>$counts]);
             }
             if($operation==='workspace_contact_dnc'){
                 if(!is_bool($data['blocked']??null))device_answer(422,['ok'=>false,'error'=>'invalid_blocked']);
