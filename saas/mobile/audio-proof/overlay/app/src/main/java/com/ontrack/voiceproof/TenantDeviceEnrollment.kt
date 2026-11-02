@@ -129,10 +129,21 @@ class TenantDeviceEnrollment(private val context: Context) {
         check(problem==null) { problem ?: "تعذر التحقق من هوية الشريحة" }
         val response=request(JSONObject().put("operation","heartbeat"),saved.getString("token"))
         val profile=response.getJSONObject("profile")
+        // The device identity, SIM and site are immutable. The tenant admin may
+        // replace an archived agent with another published agent *in the same site*.
+        // Accept that one scoped change only after an authenticated HTTPS heartbeat;
+        // never accept a different device, site or physical SIM under this bearer.
         check(profile.getInt("sim_slot")==slot && profile.getInt("device_id")==saved.getInt("device_id")
-            && profile.getInt("site_id")==saved.getInt("site_id")
-            && profile.getInt("agent_id")==saved.getInt("agent_id")) {
-            "بيانات السيرفر لا تطابق الشريحة المربوطة"
+            && profile.getInt("site_id")==saved.getInt("site_id")) {
+            "بيانات السيرفر لا تطابق هوية الشريحة أو الموقع المربوط"
+        }
+        val serverAgent=profile.getInt("agent_id")
+        check(serverAgent>0) { "معرّف الإيجنت في السيرفر غير صالح" }
+        if(serverAgent!=saved.getInt("agent_id")){
+            val refreshed=JSONObject(saved.toString()).put("agent_id",serverAgent)
+            check(prefs.edit().putString(field(slot),seal(refreshed.toString())).commit()){
+                "فشل حفظ الإيجنت الجديد للشريحة؛ لم يتم تشغيل المكالمة"
+            }
         }
         return profile
     }
@@ -141,8 +152,8 @@ class TenantDeviceEnrollment(private val context: Context) {
      * This does not initiate calls or unlock the legacy pilot voice transport.
      */
     fun publishedFlow(slot:Int):JSONObject {
-        val saved=local(slot)
         val state=heartbeat(slot) // revalidate hardware + server authorization every time
+        val saved=local(slot) // heartbeat may securely update the published agent ID
         check(state.optBoolean("flow_ready",false)) { "الإيجنت ليس لديه Flow منشور" }
         val reply=request(JSONObject().put("operation","published_flow"),
             saved.getString("token"),65536)
@@ -166,8 +177,8 @@ class TenantDeviceEnrollment(private val context: Context) {
      * This only issues a short-lived token; it never answers a call itself.
      */
     fun voiceSession(slot:Int,expectedFlow:JSONObject):JSONObject {
-        val saved=local(slot)
         val live=publishedFlow(slot) // verifies current hardware, pairing and snapshot
+        val saved=local(slot) // read after flow/heartbeat synchronizes a new agent
         check(live.getInt("revision")==expectedFlow.getInt("revision")
             && live.getString("hash")==expectedFlow.getString("hash")) {
             "تغيّرت نسخة السيناريو، أعد المحاولة بعد التحقق"
