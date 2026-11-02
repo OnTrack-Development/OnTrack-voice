@@ -283,16 +283,16 @@ function render_agents(array $a):void{
     $map=[];foreach($sites as $s)$map[$s['id']]=$s['name'];
     $selected=selected_site($id);
     $agents=$selected?all("SELECT * FROM agents WHERE account_id=? AND site_id=? AND status!='archived' ORDER BY id DESC",[$id,$selected['id']]):[];
-    echo '<div class="section-line"><p>كل Agent مربوط بموقع واحد، وله Flow ومعرفة وصوت مستقلين.</p><div class="site-picker">';
+    echo '<div class="section-line"><p>إدارة الإيجنتات حسب الموقع، مع إعدادات الصوت والتعليمات والسيناريو.</p><div class="site-picker" aria-label="اختيار الموقع">';
     foreach($sites as $site)echo '<a class="chip-link '.($selected&&$site['id']==$selected['id']?'chosen':'').'" href="?tab=agents&site='.$site['id'].'">'.e($site['name']).'</a>';
     echo '</div></div>';
     if(!$sites){echo card('ابدأ بموقع','أنشئ موقعاً من قائمة المواقع قبل إضافة الإيجنت.');return;}
-    if(allowed('agents.write'))echo card('إيجنت جديد',form_start('add_agent','/?tab=agents').'<div class="form-grid">'.
+    if(allowed('agents.write'))echo '<details class="agent-create"><summary class="btn primary">+ إضافة إيجنت جديد</summary>'.card('إيجنت جديد',form_start('add_agent','/?tab=agents').'<div class="form-grid">'.
         field_html('اسم الإيجنت','name','text','مثال: مساعد الحجوزات',true).
         select_html('الموقع','site_id',$map).
         select_html('الصوت','voice',array_column(all("SELECT code,name FROM voices WHERE ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?) ORDER BY name",[$id]),'name','code')?:['google.aoede'=>'Aoede']).
         '</div><label class="field">تعليمات الإيجنت<textarea name="instructions" rows="3" maxlength="5000" placeholder="شخصية الإيجنت ودوره وطريقة الرد"></textarea></label><label class="field">Knowledge Base<textarea name="knowledge" rows="3" maxlength="20000" placeholder="معلومات هذا الموقع فقط"></textarea></label>'.
-        submit_btn('حفظ إيجنت كمسودة'));
+        submit_btn('حفظ إيجنت كمسودة')).'</details>';
     foreach($agents as $agent){
         $flow=e((string)$agent['flow_json']);
         $body='<div class="agent-summary"><span class="pill neutral">'.e($agent['voice']).'</span>'.pill($agent['status']).'<span class="dim">موقع: '.e($selected['name']).'</span></div>';
@@ -305,7 +305,7 @@ function render_agents(array $a):void{
            '<label class="field">الشخصية والتعليمات<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label><label class="field">معرفة الموقع<textarea name="knowledge" rows="4" maxlength="20000">'.e($agent['knowledge']).'</textarea></label><div class="flow-head"><strong>Agent Flow Builder</strong><small>عقد وأسئلة وشروط متسلسلة</small></div><div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.$flow.'</textarea></div>'.submit_btn('حفظ مسودة الإيجنت').
           form_start('archive_agent','/?tab=agents&site='.$selected['id'],'class="inline-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'"><button class="btn small danger" onclick="return confirm(\'أرشفة الإيجنت؟\')">أرشفة الإيجنت</button></form>';
         } else $body.='<p>'.e($agent['instructions']).'</p>';
-        echo card($agent['name'],$body);
+        echo '<details class="agent-editor" id="agent-'.(int)$agent['id'].'"'.((string)($_GET['agent']??'')===(string)$agent['id']?' open':'').'><summary><strong>'.e($agent['name']).'</strong><span>'.pill($agent['status']).'</span><span class="dim">فتح الإعدادات والتعديل</span></summary>'.card('إعدادات الإيجنت',$body).'</details>';
     }
 }
 function render_campaigns(array $a):void{
