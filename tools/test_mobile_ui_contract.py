@@ -5,6 +5,9 @@ import subprocess
 from pathlib import Path
 
 ui=Path('saas/mobile/ota/ui.html').read_text()
+embedded=Path('saas/mobile/audio-proof/overlay/app/src/main/assets/ontrack-ui.html').read_text()
+assert embedded == ui, 'APK embedded HTML differs from signed OTA UI; emulator will run old Pilot UI'
+assert 'id="key"' not in embedded and 'id="tenantWorkspaceSlot"' in embedded, 'Old Pilot UI bundled into Android APK'
 meta=json.loads(Path('saas/mobile/ota/release.json').read_text())
 assert meta['revision']>=18, 'A signed OTA revision must advance'
 assert meta['min_native']<=20<=meta['max_native'], 'Existing Android 0.2.9 must accept this OTA without APK'
