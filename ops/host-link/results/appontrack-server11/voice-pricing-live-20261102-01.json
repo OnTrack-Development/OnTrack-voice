@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-pricing-live-20261102-01",
+  "target": "appontrack-server11",
+  "job_sha256": "da9bfb8dbfc94ab173e2bbb19a08bfb4ad8c906782b2f1a844ea5894db80c132",
+  "started_at": "2026-11-02T01:33:02.239910+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"pricing_column_ready\":true,\"plans\":4,\"schema_v11_marker\":true,\"sim1\":{\"id\":1,\"agent\":7,\"site\":6,\"active\":true}}",
+  "stderr": "",
+  "finished_at": "2026-11-02T01:33:02.294307+00:00",
+  "duration_ms": 54
+}
