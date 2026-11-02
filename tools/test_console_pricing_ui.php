@@ -25,7 +25,7 @@ try{
     $css=(string)file_get_contents(__DIR__.'/../saas/console/assets/css/app.css');
     verify(str_contains($css,'input[type="checkbox"]'),'checkbox styles explicitly scoped');
     $ui=(string)file_get_contents(__DIR__.'/../saas/mobile/ota/ui.html');
-    verify(str_contains($ui,"last.tenantLinked || last.running"),'linked SIM activation never asks for pilot key');
+    verify(!str_contains($ui,'id="key"') && str_contains($ui,"if(!last.tenantLinked)"),'SaaS SIM activation never asks for pilot key');
 }finally{
     execute('UPDATE plans SET price_minor=?,overage_minor=? WHERE id=?',[$previousPrice,$previousRate,$plan['id']]);
 }
