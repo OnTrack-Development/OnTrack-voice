@@ -551,7 +551,7 @@ function render_secret_controls(string $type,array $row,string $tab):string{
     $return='/?tab='.$tab;
     $controls=pill((string)$row['status']);
     if($row['status']!=='active')return $controls;
-    $controls.=form_start('reveal_secret',$return,'class="inline-form"').'<input type="hidden" name="secret_type" value="'.e($type).'"><input type="hidden" name="secret_id" value="'.$row['id'].'"><input type="password" name="password" class="tiny-input" placeholder="كلمة مرور حسابك" required autocomplete="current-password"><button class="btn small">عرض ونسخ</button></form>';
+    $controls.=form_start('reveal_secret',$return,'class="inline-form"').'<input type="hidden" name="secret_type" value="'.e($type).'"><input type="hidden" name="secret_id" value="'.$row['id'].'"><button class="btn small" type="submit">عرض ونسخ المفتاح</button></form>';
     $controls.=form_start('rotate_secret',$return,'class="inline-form"').'<input type="hidden" name="secret_type" value="'.e($type).'"><input type="hidden" name="secret_id" value="'.$row['id'].'"><button class="btn small" onclick="return confirm(\'تغيير السر يلغي المفتاح القديم فوراً، هل تريد الاستمرار؟\')">تدوير</button></form>';
     $action=$type==='api'?'revoke_key':'revoke_integration';
     $field=$type==='api'?'key_id':'integration_id';
@@ -570,7 +570,7 @@ function render_keys(array $a):void{
         $rows[]=[$name,'<code>'.e($k['prefix']).'•••</code>',e($k['site_name']??'الحساب'),e($k['scopes']),render_secret_controls('api',$k,'keys')];
     }
     echo card('API Keys · <span class="dim">مفتاح لكل موقع</span>',
-        '<p class="dim">المفاتيح الجديدة مشفرة بمفتاح خاص خارج موقع الويب. عرضها مجدداً يتطلب كلمة مرور صاحب الحساب. المفاتيح القديمة قبل هذه الإضافة تحتاج تدويرًا لأنها محفوظة Hash فقط.</p>'.
+        '<p class="dim">المفاتيح الجديدة مشفرة بمفتاح خاص خارج موقع الويب. عرضها مجددًا متاح للمالك أو الأدمن المسجّل، مع تسجيل كل عرض في سجل التدقيق. المفاتيح القديمة قبل هذه الإضافة تحتاج تدويرًا لأنها محفوظة Hash فقط.</p>'.
         '<p><a class="btn small" href="?tab=keys'.($include?'':'&archived=1').'">'.($include?'عرض المفاتيح النشطة':'عرض سجل المفاتيح الملغاة').'</a></p>'.
         tbl(['الاسم','المعرّف','الموقع','الصلاحيات','الإجراءات'],$rows));
     $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active'",[$id]);
@@ -593,7 +593,7 @@ function render_integrations(array $a):void{
       $rows[]=[$name,e($row['provider']),'<code>'.e($row['token_prefix']).'•••</code>',render_secret_controls('integration',$row,'integrations')];
     }
     echo card('التكاملات',
-        '<p class="dim">كل تكامل له سر مستقل، ويمكن عرضه بعد تأكيد كلمة المرور، أو تدويره، أو إلغاؤه وإخفاؤه من القائمة النشطة.</p>'.
+        '<p class="dim">كل تكامل له سر مستقل. المالك أو الأدمن يقدر يعرضه وينسخه، وكل عرض متسجل في Audit Log.</p>'.
         '<p><a class="btn small" href="?tab=integrations'.($include?'':'&archived=1').'">'.($include?'عرض النشطة':'سجل التكاملات المعطلة').'</a></p>'.
         tbl(['الاسم','النوع','مفتاح الاتصال','الإجراءات'],$rows));
     if(in_array($a['role'],['owner','admin'],true)&&!active_support())
@@ -669,8 +669,8 @@ function render_settings(array $a):void{
             form_start('save_live_provider','/?tab=settings').
             '<label class="field">معرف موديل Gemini Live<input name="model" dir="ltr" required maxlength="120" value="'.e((string)($provider['name']??'gemini-2.5-flash-native-audio-preview-12-2025')).'"></label>'.
             '<label class="field">Google API Key<input type="password" name="google_key" autocomplete="new-password" required minlength="16" maxlength="256"></label>'.
-            '<label class="field">تأكيد كلمة مرور حساب الإدارة<input type="password" name="confirm_password" autocomplete="current-password" required></label>'.
-            submit_btn('اختبار اتصال Google وحفظ المفتاح مشفرًا'));
+            '<p class="dim">هنتحقق من صلاحية المفتاح عبر Google API، وبعدين نعرض نتيجة اختبار Live بشكل منفصل.</p>'.
+            submit_btn('تحقق واحفظ مفتاح Google'));
     }
     echo '<div class="cols two">';
     echo card('هوية حسابك','<div class="brand-preview"><div class="brand-icon">'.e(mb_substr($brand['name'],0,1)).'</div><div><h3>'.e($brand['name']).'</h3><p>ألوان الهوية الأساسية: أحمر / أسود / أبيض</p></div></div><p>المستخدم المباشر يرث OnTrack؛ المستخدم التابع يرث هوية الريسيلر بشكل آمن.</p>');

@@ -312,8 +312,7 @@ function act():void {
                 $kindKey=field('secret_type',20);
                 $tbl=$kindKey==='api'?'api_keys':($kindKey==='integration'?'integrations':null);
                 if(!$tbl)deny();
-                $u=one('SELECT password_hash FROM users WHERE id=?',[me()['id']]);
-                if(!password_verify((string)($_POST['password']??''),(string)$u['password_hash']))throw new RuntimeException('تأكيد كلمة المرور غير صحيح');
+                // Authenticated + CSRF-verified owner/admin, audit every secret reveal.
                 $keyRow=one('SELECT * FROM '.$tbl.' WHERE id=? AND account_id=? AND status=?',[intfield('secret_id'),$id,'active']);
                 if(!$keyRow)deny(404);
                 $plain=unseal_secret($keyRow['secret_enc']??null);
@@ -476,18 +475,18 @@ function act():void {
                 break;
             case 'save_live_provider':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
-                $u=one('SELECT password_hash FROM users WHERE id=? AND status=?',[(int)me()['id'],'active']);
-                if(!$u||!password_verify((string)($_POST['confirm_password']??''),(string)$u['password_hash']))
-                    throw new InvalidArgumentException('تأكيد كلمة مرور الأدمن غير صحيح');
+                // Authenticated administrator with CSRF token; no repeated password prompt.
                 $model=required('model',120);
                 if(!preg_match('/^[A-Za-z0-9._-]{5,120}$/D',$model))
                     throw new InvalidArgumentException('معرف موديل Google غير صالح');
                 $apiKey=field('google_key',256);
-                if(!preg_match('/^[A-Za-z0-9_-]{16,256}$/D',$apiKey))
-                    throw new InvalidArgumentException('صيغة Google API Key غير صحيحة');
-                // Validate actual ephemeral Gemini authorization before storing credential.
+                require_once __DIR__.'/VoiceCatalog.php';
+                google_api_probe($apiKey);
+                // API-key validity and Live entitlement are two different checks.
                 require_once __DIR__.'/TenantVoiceSession.php';
-                tenant_voice_ephemeral_token($apiKey,1);
+                $liveReady=false;
+                try{tenant_voice_ephemeral_token($apiKey,1);$liveReady=true;}
+                catch(RuntimeException $liveError){$liveReady=false;}
                 db()->beginTransaction();
                 try{
                     execute("UPDATE integrations SET status='revoked' WHERE account_id=? AND provider='google_live' AND status='active'",[$id]);
@@ -497,7 +496,10 @@ function act():void {
                     db()->commit();
                 }catch(Throwable $ex){if(db()->inTransaction())db()->rollBack();throw $ex;}
                 audit('voice.google_live.configured',$id,['model'=>$model]);
-                flash('success','تم اختبار Google Live وحفظ المفتاح مشفرًا؛ تشغيل المكالمات ينتظر اختبار SIM والصوت.');break;
+                $success=$liveReady
+                    ?'تم اختبار Google API وإصدار رمز Live مؤقت وحفظ المفتاح مشفرًا. الاختبار الصوتي على الشريحة لسه مطلوب.'
+                    :'المفتاح اتقبل من Google واتحفظ مشفرًا. اختبار Gemini Live لم ينجح بعد؛ راجع صلاحية Live والموديل، مش لازم يكون المفتاح غلط.';
+                break;
             case 'pilot_settings':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 require_once __DIR__.'/MobilePilot.php';
