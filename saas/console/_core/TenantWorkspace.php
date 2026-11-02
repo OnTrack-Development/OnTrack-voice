@@ -45,13 +45,23 @@ function tenant_workspace_dnc(array $b,mixed $id,bool $blocked):array{
     return ['updated'=>true,'do_not_call'=>true];
 }
 function tenant_workspace_calls(array $b):array{
-    $rows=all('SELECT external_call_id,phone,name,status,duration_seconds,created_at FROM calls WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? ORDER BY id DESC LIMIT 100',
+    $rows=all('SELECT c.external_call_id,c.phone,c.name,c.status,c.duration_seconds,c.created_at,
+        r.summary,r.customer_notes,r.outcome,r.handoff_status,r.handoff_reason
+        FROM calls c LEFT JOIN tenant_call_reports r
+        ON r.device_binding_id=c.device_binding_id AND r.call_id=c.external_call_id
+        AND r.account_id=c.account_id AND r.site_id=c.site_id
+        WHERE c.account_id=? AND c.site_id=? AND c.device_binding_id=? AND c.sim_slot=?
+        ORDER BY c.id DESC LIMIT 100',
         [$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']]);
     $calls=[];foreach($rows as $r)$calls[]=[
         'id'=>$r['external_call_id'],'call_id'=>$r['external_call_id'],
         'phone'=>$r['phone'],'name'=>$r['name'],'status'=>$r['status'],
         'duration'=>(int)$r['duration_seconds'],'duration_seconds'=>(int)$r['duration_seconds'],
-        'started'=>str_replace(' ','T',(string)$r['created_at']).'Z','started_at'=>$r['created_at']];
+        'started'=>str_replace(' ','T',(string)$r['created_at']).'Z','started_at'=>$r['created_at'],
+        'identity_status'=>$r['phone']!==''?'available':'unverified',
+        'summary'=>$r['summary']??null,'customer_notes'=>$r['customer_notes']??null,
+        'outcome'=>$r['outcome']??'unknown','handoff_status'=>$r['handoff_status']??'not_requested',
+        'handoff_reason'=>$r['handoff_reason']??''];
     return ['calls'=>$calls,'total'=>count($calls)];
 }
 function tenant_workspace_call_event(array $b,array $p):array{
@@ -69,8 +79,16 @@ function tenant_workspace_call_event(array $b,array $p):array{
                     $b['account_id'],$b['site_id'],'','',0,'ringing',now(),$id,$b['id'],$b['sim_slot']]);
             if($phase==='identified'){
                 $phone=(string)($p['phone_number']??'');$name=trim((string)($p['contact_name']??''));
-                if($phone!==''&&mb_strlen($name)<=100&&preg_match('/^\\+?[0-9 ()-]{8,30}$/D',$phone))
+                if($phone!==''&&mb_strlen($name)<=100&&preg_match('/^\\+?[0-9 ()-]{8,30}$/D',$phone)){
+                    // A contact name may be absent from Android contacts; only use
+                    // a single exact site-scoped match, never guess by number prefix.
+                    if($name===''){
+                        $known=all('SELECT name FROM contacts WHERE account_id=? AND site_id=? AND phone=? LIMIT 2',
+                            [$b['account_id'],$b['site_id'],$phone]);
+                        if(count($known)===1)$name=(string)$known[0]['name'];
+                    }
                     execute('UPDATE calls SET phone=?,name=? WHERE device_binding_id=? AND external_call_id=?',[$phone,$name,$b['id'],$id]);
+                }
             }else{
                 execute('UPDATE calls SET status=?,duration_seconds=CASE WHEN duration_seconds>? THEN duration_seconds ELSE ? END WHERE device_binding_id=? AND external_call_id=?',[
                     $phase,$duration,$duration,$b['id'],$id]);
@@ -79,6 +97,92 @@ function tenant_workspace_call_event(array $b,array $p):array{
         }
         db()->commit();return ['accepted'=>true,'duplicate'=>(bool)$exists];
     }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
+}
+
+/** Return only findings for a call belonging to this exact account + site +
+ * physically paired SIM. Never create a fake summary when no AI outcome exists.
+ */
+function tenant_call_report_find(array $binding,string $callId):?array {
+    return one('SELECT summary,customer_notes,outcome,handoff_status,handoff_reason,source,revision,updated_at
+        FROM tenant_call_reports
+        WHERE account_id=? AND site_id=? AND device_binding_id=? AND call_id=?',[
+        (int)$binding['account_id'],(int)$binding['site_id'],(int)$binding['id'],$callId]);
+}
+function tenant_call_report_save(array $binding,array $data,string $source='device'):array {
+    if(!in_array($source,['device','manual'],true))
+        throw new InvalidArgumentException('invalid_report_source');
+    $callId=$data['call_id']??'';
+    if(!is_string($callId)||!preg_match('/^[a-f0-9-]{36}$/D',$callId))
+        throw new InvalidArgumentException('invalid_call_id');
+    $call=one('SELECT id,phone FROM calls WHERE account_id=? AND site_id=?
+        AND device_binding_id=? AND sim_slot=? AND external_call_id=?',[
+        (int)$binding['account_id'],(int)$binding['site_id'],(int)$binding['id'],
+        (int)$binding['sim_slot'],$callId]);
+    if(!$call)throw new InvalidArgumentException('call_not_found_for_sim');
+    $get=function(string $name,int $limit)use($data):string {
+        $v=$data[$name]??'';
+        if(!is_string($v)||mb_strlen($v)>$limit)
+            throw new InvalidArgumentException('invalid_call_report_'.$name);
+        return trim($v);
+    };
+    $summary=$get('summary',4000);
+    $notes=$get('customer_notes',4000);
+    $reason=$get('handoff_reason',2000);
+    $outcome=(string)($data['outcome']??'unknown');
+    $handoff=(string)($data['handoff_status']??'not_requested');
+    if(!in_array($outcome,['unknown','interested','satisfied','unsatisfied','follow_up','do_not_call','not_interested'],true)||
+       !in_array($handoff,['not_requested','requested','completed'],true))
+        throw new InvalidArgumentException('invalid_call_report_state');
+    if($source==='device'&&$handoff==='completed')
+        throw new InvalidArgumentException('human_handoff_requires_confirmed_staff_action');
+    if($handoff!=='not_requested'&&$reason==='')
+        throw new InvalidArgumentException('handoff_reason_required');
+    if($summary===''&&$notes===''&&$handoff==='not_requested'&&$outcome==='unknown')
+        throw new InvalidArgumentException('empty_call_report');
+    $db=db();
+    $db->beginTransaction();
+    try{
+        $current=tenant_call_report_find($binding,$callId);
+        $args=[$summary,$notes,$outcome,$handoff,$reason,$source,now(),
+            (int)$binding['account_id'],(int)$binding['site_id'],(int)$binding['id'],$callId];
+        if($current){
+            // One report per call. Retries with identical content are idempotent.
+            if($current['summary']===$summary&&$current['customer_notes']===$notes&&
+               $current['outcome']===$outcome&&$current['handoff_status']===$handoff&&
+               $current['handoff_reason']===$reason){
+                $db->commit();
+                return ['saved'=>true,'duplicate'=>true,'report'=>$current];
+            }
+            // A device must not downgrade a confirmed human handoff.
+            if($source==='device'&&$current['handoff_status']==='completed'&&
+               $handoff!=='completed')
+                throw new InvalidArgumentException('handoff_cannot_be_downgraded');
+            execute('UPDATE tenant_call_reports
+                SET summary=?,customer_notes=?,outcome=?,handoff_status=?,handoff_reason=?,
+                    source=?,updated_at=?,revision=revision+1
+                WHERE account_id=? AND site_id=? AND device_binding_id=? AND call_id=?',$args);
+        }else{
+            insert('INSERT INTO tenant_call_reports
+                (summary,customer_notes,outcome,handoff_status,handoff_reason,source,updated_at,
+                 account_id,site_id,device_binding_id,call_id,created_at)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',array_merge($args,[now()]));
+        }
+        if($outcome==='do_not_call' && !empty($call['phone'])){
+            // Keep suppression across sites. Never remove a previous DNC here.
+            dnc_effective_flag((int)$binding['account_id'],(string)$call['phone'],true);
+            execute('UPDATE contacts SET dnc=1 WHERE account_id=? AND phone=?',[
+                (int)$binding['account_id'],(string)$call['phone']]);
+        }
+        $result=tenant_call_report_find($binding,$callId);
+        $db->commit();
+        return ['saved'=>true,'duplicate'=>false,'report'=>$result];
+    }catch(Throwable $error){
+        if($db->inTransaction())$db->rollBack();
+        throw $error;
+    }
+}
+function tenant_workspace_call_report(array $binding,array $input):array {
+    return tenant_call_report_save($binding,$input,'device');
 }
 
 function tenant_workspace_campaigns(array $b):array{
