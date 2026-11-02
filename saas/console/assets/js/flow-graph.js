@@ -332,7 +332,13 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
      });
      if(proposal)await chatRequest('flow_ai_applied',{graph_json:JSON.stringify(proposal)});
      if(profileProposal)applyProfileToForm(profileProposal);
-     if(proposal){data=JSON.parse(JSON.stringify(proposal));selected=data.nodes[0]?.id||null;hovered=null;arrange();store()}
+     if(proposal){
+       data=JSON.parse(JSON.stringify(proposal));
+       selected=data.nodes[0]?.id||null;hovered=null;
+       if(data.edges.length>=12){edgeFocus=true;edgeToggle.textContent='◉ تركيز';
+         edgeToggle.setAttribute('aria-pressed','true')}
+       arrange();store();
+     }
      aiMessage('assistant','تم تطبيق المقترح كمسودة. تقدر تطلب تعديلات إضافية من نفس المحادثة.');
      clearAiProposal();
      const draft=[...form.querySelectorAll('button[type=submit]')].find(b=>!b.hasAttribute('name')||b.name!=='publish_now');
@@ -437,9 +443,20 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    const xMax=Math.max(...data.nodes.map(n=>n.x+routing.WIDTH))+90;
    const yMin=Math.min(...data.nodes.map(n=>n.y))-80;
    const yMax=Math.max(...data.nodes.map(n=>n.y+routing.HEIGHT))+80;
-   scale=Math.max(.25,Math.min(1.04,(width-35)/(xMax-xMin),(height-40)/(yMax-yMin)));
+   scale=Math.max(.08,Math.min(1.04,(width-35)/(xMax-xMin),(height-40)/(yMax-yMin)));
    x=(width-scale*(xMax-xMin))/2-scale*xMin;
    y=(height-scale*(yMax-yMin))/2-scale*yMin;
+   transform();
+ }
+ function focusStart(){
+   // In large graphs open at a readable working zoom instead of shrinking all
+   // 54 connections into microscopic text. The Fit button still shows overview.
+   const node=data.nodes.find(n=>n.type==='start')||data.nodes[0];
+   if(!node)return;
+   const width=viewport.clientWidth||840;
+   scale=Math.max(.58,Math.min(.8,width/(routing.WIDTH*4)));
+   x=38-node.x*scale;
+   y=90-node.y*scale;
    transform();
  }
  function refreshNodeFocus(){
@@ -543,7 +560,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    });
    data.layout_version=2;
    setSceneSize(result.width,result.height);
-   render();fitGraph();
+   render();if(data.nodes.length>15)focusStart();else fitGraph();
  }
  viewport.addEventListener('pointerdown',evt=>{
    if(evt.target.closest('.graph-node'))return;pan={cx:evt.clientX,cy:evt.clientY,ox:x,oy:y};viewport.setPointerCapture(evt.pointerId)
@@ -557,7 +574,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  else{
    setSceneSize(Math.max(...data.nodes.map(n=>n.x+routing.WIDTH+310),2500),
      Math.max(...data.nodes.map(n=>n.y+routing.HEIGHT+470),1900));
-   render();fitGraph();
+   render();if(data.nodes.length>15)focusStart();else fitGraph();
  }
  const editorForm=root.closest('form');
  if(editorForm)editorForm.addEventListener('submit',async event=>{
