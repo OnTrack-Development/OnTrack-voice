@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "wa-existing-fields-and-role-reload-smoke-20261102-2203",
+  "id": "wa-existing-inbound-diagnostic-20261102-2206",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-02T22:03:00.000Z",
-  "expires_at": "2026-11-03T01:03:00.000Z",
+  "created_at": "2026-11-02T22:06:00.000Z",
+  "expires_at": "2026-11-02T23:06:00.000Z",
   "cwd": "/home/appontrack/public_html/saas",
-  "timeout_seconds": 25,
+  "timeout_seconds": 18,
   "argv": [
     "/opt/cpanel/ea-php83/root/usr/bin/php",
     "-r",
-    "require \"/home/appontrack/public_html/saas/console/_core/Bootstrap.php\";\nrequire \"/home/appontrack/public_html/saas/console/_core/StaffInvitations.php\";\nrequire \"/home/appontrack/public_html/saas/console/_core/Views.php\";\ntry{\n init_schema();\n $m=one(\"SELECT m.user_id uid,m.account_id aid FROM memberships m JOIN accounts a ON a.id=m.account_id WHERE a.kind='customer' AND m.role='owner' ORDER BY a.id LIMIT 1\");\n if(!$m)throw new RuntimeException(\"no_demo_customer\");\n $_SESSION=[\"uid\"=>(int)$m[\"uid\"],\"account_id\"=>(int)$m[\"aid\"]];\n $_GET=[\"tab\"=>\"whatsapp\"];\n ob_start();render_whatsapp([\"account_id\"=>(int)$m[\"aid\"],\"kind\"=>\"customer\",\"role\"=>\"owner\"]);$html=ob_get_clean();\n $a=strpos($html,'data-wa-method-panel=\"existing_webhook\"');$b=strpos($html,'data-wa-method-panel=\"signup\"',$a);\n if($b===false)$b=strpos($html,'data-wa-method-panel=\"coexist\"',$a);\n if($b===false)$b=strpos($html,'</section></div></details>',$a);\n $panel=$a!==false && $b!==false?substr($html,$a,$b-$a):\"\";\n $disallowed=[\"waba_id\",\"phone_number_id\",\"meta_app_id\",\"app_secret\",\"access_token\",\"graph_version\"];\n $unexpected=[];foreach($disallowed as $name)if(str_contains($panel,'name=\"'.$name.'\"'))$unexpected[]=$name;\n $app=file_get_contents(\"/home/appontrack/public_html/saas/console/assets/js/app.js\");\n echo json_encode([\"existing_panel_present\"=>$a!==false,\"old_callback_field\"=>str_contains($panel,'name=\"source_callback_url\"'),\"old_token_field\"=>str_contains($panel,'name=\"source_verify_token\"'),\"unexpected_meta_inputs\"=>$unexpected,\"direct_form_has_meta\"=>str_contains($html,'name=\"access_token\"'),\"reload_ajax_exclusion\"=>str_contains($app,\"'switch','set_view','support_enter'\"),\"release_ui_sha\"=>substr(hash_file(\"sha256\",\"/home/appontrack/public_html/saas/console/_core/Views.php\"),0,12)]);\n if($a===false||$b===false||$unexpected||!str_contains($panel,'name=\"source_callback_url\"')||!str_contains($panel,'name=\"source_verify_token\"')||!str_contains($app,\"'switch','set_view','support_enter'\"))exit(3);\n}catch(Throwable $e){while(ob_get_level()>0)ob_end_clean();echo json_encode([\"error\"=>get_class($e),\"stage\"=>\"render\"]);exit(2);}"
+    "require \"/home/appontrack/public_html/saas/console/_core/Bootstrap.php\";\nrequire \"/home/appontrack/public_html/saas/console/_core/WhatsAppSupport.php\";\ntry {\n init_schema();\n $q=all(\"SELECT id,account_id,state,phone_number_id,onboarding_method,webhook_relay_enabled,source_callback_url,last_webhook_at,ai_enabled,ai_agent_id FROM wa_connections ORDER BY id DESC LIMIT 20\");\n $out=[];\n foreach($q as $c){\n  $counts=one(\"SELECT COUNT(*) n FROM wa_conversations WHERE connection_id=? AND account_id=?\",[(int)$c[\"id\"],(int)$c[\"account_id\"]]);\n  $out[]=[\"kind\"=>(string)($c[\"onboarding_method\"]??\"\"),\"state\"=>(string)$c[\"state\"],\n    \"pending_phone\"=>str_starts_with((string)$c[\"phone_number_id\"],\"pending_\"),\n    \"relay_enabled\"=>(bool)$c[\"webhook_relay_enabled\"],\n    \"source_host\"=>parse_url((string)($c[\"source_callback_url\"]??\"\"),PHP_URL_HOST)?:null,\n    \"has_last_webhook\"=>!empty($c[\"last_webhook_at\"]),\n    \"conversation_count\"=>(int)$counts[\"n\"],\"ai_enabled\"=>(bool)$c[\"ai_enabled\"],\n    \"has_agent\"=>(int)$c[\"ai_agent_id\"]>0];\n }\n echo json_encode([\"connections\"=>count($out),\"details\"=>$out],JSON_THROW_ON_ERROR);\n}catch(Throwable $e){echo json_encode([\"error\"=>get_class($e),\"message\"=>mb_substr($e->getMessage(),0,100)]);exit(2);}"
   ]
 }
