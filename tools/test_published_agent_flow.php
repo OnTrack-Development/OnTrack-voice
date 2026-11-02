@@ -59,6 +59,12 @@ function test_published_agent_flow():void {
         'published SIM receives current per-agent answer policy');
     require_once dirname(__DIR__).'/saas/console/_core/TenantVoiceSession.php';
     $definition=tenant_voice_definition($binding);
+    $publishedName=(string)one('SELECT name FROM agents WHERE id=? AND account_id=? AND site_id=?',
+        [$id,$account,$site])['name'];
+    ok($definition['agent_name']===$publishedName &&
+       str_contains($definition['instruction'],'اسمك في هذه المكالمة: '.$publishedName) &&
+       !str_contains($definition['instruction'],'الإيجنت: '.$id),
+       'Gemini speaks published tenant agent name, not internal ID');
     ok($definition['revision']===3 &&
        $definition['account_id']===$account &&
        $definition['site_id']===$site &&
