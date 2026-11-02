@@ -1,12 +1,13 @@
 name: OnTrack Voice SaaS PHP Console
 on:
   push:
-    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102', 'fix/console-pricing-connection-ui-20261102', 'fix/sim1-staging-ui-20261102', 'feat/tenant-only-mobile-workspace-20261102']
+    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102', 'fix/console-pricing-connection-ui-20261102', 'fix/sim1-staging-ui-20261102', 'feat/tenant-only-mobile-workspace-20261102', 'fix/voice-duplex-proof-role-scope-20261102']
     paths:
       - 'saas/console/**'
       - 'tools/test_voice_saas_console.php'
       - 'tools/test_tenant_workspace.php'
       - 'tools/test_console_pricing_ui.php'
+      - 'tools/test_voice_role_surface.php'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
@@ -52,6 +53,8 @@ jobs:
         run: php tools/test_console_pricing_ui.php
       - name: Tenant workspace isolation and call history
         run: php tools/test_tenant_workspace.php
+      - name: Role surface and voice uplink privacy regressions
+        run: php tools/test_voice_role_surface.php
       - name: External SSO regression in isolated second test phase
         run: |
           php tools/test_voice_sso.php
