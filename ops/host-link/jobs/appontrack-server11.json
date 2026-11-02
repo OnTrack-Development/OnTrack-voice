@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "voice-google-models-20261102-07",
+  "id": "voice-header-check-20261102-08",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-02T01:13:27.765Z",
-  "expires_at": "2026-11-02T02:13:27.765Z",
+  "created_at": "2026-11-02T01:14:26.355Z",
+  "expires_at": "2026-11-02T02:14:26.355Z",
   "cwd": "/home/appontrack/public_html",
   "argv": [
-    "/opt/cpanel/ea-php83/root/usr/bin/php",
-    "-r",
-    "require '/home/appontrack/public_html/saas/console/_core/Bootstrap.php';require '/home/appontrack/public_html/saas/console/_core/TenantVoiceSession.php';init_schema();try{$p=tenant_voice_provider();$key=$p['key'];$url='https://generativelanguage.googleapis.com/v1beta/models?pageSize=100';$h=curl_init($url);curl_setopt_array($h,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HTTPHEADER=>['x-goog-api-key: '.$key],CURLOPT_TIMEOUT=>10,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2]);$raw=curl_exec($h);$status=(int)curl_getinfo($h,CURLINFO_RESPONSE_CODE);curl_close($h);$j=is_string($raw)?json_decode($raw,true):null;$names=array_column((array)($j['models']??[]),'name');$available=array_values(array_filter($names,fn($v)=>str_contains(strtolower($v),'live')||str_contains(strtolower($v),'audio')));echo json_encode(['http'=>$status,'configured_model'=>$p['model'],'configured_listed'=>in_array('models/'.$p['model'],$names,true),'listed_count'=>count($names),'audio_live_candidates'=>array_slice($available,0,16),'has_more'=>(bool)($j['nextPageToken']??null)]);}catch(Throwable $e){echo json_encode(['error'=>substr($e->getMessage(),0,80)]);exit(4);}"
+    "/bin/python3",
+    "-c",
+    "import urllib.request,urllib.error,json\nurl='https://app.ontrackegy.com/saas/console/device/v1/index.php'\nbody=json.dumps({'operation':'heartbeat'}).encode('utf-8')\nreq=urllib.request.Request(url,data=body,method='POST',headers={'Authorization':'Bearer header-check-not-a-real-token','Content-Type':'application/json'})\ntry:\n with urllib.request.urlopen(req,timeout=12) as response: code=response.status;raw=response.read(500)\nexcept urllib.error.HTTPError as err:code=err.code;raw=err.read(500)\ntry: data=json.loads(raw)\nexcept Exception: data={'error':'non_json_http_response'}\nprint(json.dumps({'http_status':code,'api_error':data.get('error'),'authorization_header_forwarded':data.get('error')=='device_not_authorized'}))"
   ],
-  "timeout_seconds": 25
+  "timeout_seconds": 20
 }
