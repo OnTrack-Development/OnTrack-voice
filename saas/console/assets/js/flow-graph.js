@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const TYPES={start:'بداية',say:'رسالة',listen:'استماع',ask:'سؤال',instruction:'تعليمات AI / معرفة',condition:'شرط',knowledge_lookup:'بحث في المعرفة',collect_field:'جمع بيانات',crm_lookup:'بحث CRM',crm_write:'تحديث CRM',schedule:'حجز موعد',handoff:'تحويل بشري',end:'إنهاء'};
+const TYPES={start:'بداية',say:'رسالة',listen:'استماع',ask:'سؤال',instruction:'تعليمات AI / معرفة',condition:'شرط',instruction:'تعليمات داخلية',knowledge_lookup:'بحث في المعرفة',collect_field:'جمع بيانات',crm_lookup:'بحث CRM',crm_write:'تحديث CRM',schedule:'حجز موعد',handoff:'تحويل بشري',end:'إنهاء'};
 const NS='http://www.w3.org/2000/svg';
 const make=(tag,cls,value)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined)e.textContent=value;return e};
 const S=(tag,attrs)=>{const e=document.createElementNS(NS,tag);Object.entries(attrs||{}).forEach(([k,v])=>e.setAttribute(k,String(v)));return e};
@@ -21,10 +21,25 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
  const tools=make('div','graph-tools'),type=make('select','graph-type');
  Object.entries(TYPES).forEach(([k,v])=>type.add(new Option(v,k)));type.value='ask';
  const button=(txt,action,klass)=>{const b=make('button','graph-btn '+(klass||''),txt);b.type='button';b.addEventListener('click',action);return b};
+ const fullscreen=button('⛶ ملء الشاشة',()=>toggleFullscreen());
  const add=button('+ خطوة',()=>addNode(),'primary'),connect=button('ربط',()=>{connecting=!connecting;connect.classList.toggle('selected-tool',connecting);notice.textContent=connecting?'اختار العقدة التي تريد الربط بها':'اسحب العقد أو اضغط لتعديلها'}),auto=button('ترتيب',()=>arrange());
  const zoomIn=button('+',()=>{scale=Math.min(1.5,scale+.1);transform()}),zoomOut=button('−',()=>{scale=Math.max(.4,scale-.1);transform()});
  const raw=button('{}',()=>{source.hidden=!source.hidden;raw.classList.toggle('selected-tool',!source.hidden)});
- tools.append(type,add,connect,auto,zoomIn,zoomOut,raw);toolbar.append(tools);shell.append(toolbar);
+ tools.append(type,add,connect,auto,zoomIn,zoomOut,raw,fullscreen);toolbar.append(tools);shell.append(toolbar);
+ async function toggleFullscreen(){
+   try {
+     if(document.fullscreenElement===shell){await document.exitFullscreen()}
+     else if(!document.fullscreenElement&&shell.requestFullscreen){await shell.requestFullscreen()}
+     else shell.classList.toggle('graph-maximized');
+   }catch{shell.classList.toggle('graph-maximized')}
+   syncFullscreen();
+ }
+ function syncFullscreen(){
+   const on=document.fullscreenElement===shell||shell.classList.contains('graph-maximized');
+   fullscreen.textContent=on?'⤡ تصغير':'⛶ ملء الشاشة';
+   document.body.classList.toggle('graph-editor-maximized',on);
+ }
+ document.addEventListener('fullscreenchange',syncFullscreen);
   // Templates only replace the local editable graph; publishing remains a deliberate form submit.
   let templates=[];
   try{templates=JSON.parse(document.getElementById('ontrack-flow-templates')?.textContent||'[]')}catch{}
@@ -41,8 +56,74 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
   },'primary');
   tools.prepend(templateSelect,applyTemplate);
  const layout=make('div','graph-layout'),viewport=make('div','graph-viewport'),world=make('div','graph-world'),lines=S('svg',{class:'graph-edges',width:2500,height:3000,viewBox:'0 0 2500 3000'}),cards=make('div','graph-nodes'),inspector=make('aside','graph-inspector');
- world.append(lines,cards);viewport.append(world);layout.append(viewport,inspector);shell.append(layout);
+ world.append(lines,cards);viewport.append(world);layout.append(viewport,inspector);shell.append(layout);shell.append(aiPanel);
  const footer=make('div','graph-footer'),counter=make('span','',''),notice=make('span','','اسحب العقد أو اضغط لتعديلها');
+ // AI is a draft advisor: suggestions never mutate the graph until an explicit user command.
+ const aiPanel=make('section','graph-ai-panel'),aiTitle=make('h3','','مساعد AI للمخطط');
+ const aiDescription=make('p','','اكتب السيناريو بالمصري. يُرسل الوصف فقط إلى مزوّد المنصة. راجع الاقتراح قبل تنفيذ المسودة؛ لا يتم النشر تلقائيًا.');
+ const aiInput=make('textarea');aiInput.rows=3;aiInput.maxLength=2500;
+ aiInput.placeholder='مثلاً: عميل عقارات يسأل عن السعر والموقع، وبعد الاعتراض اقترح متابعة بشرية…';
+ const aiSubmit=button('اقترح مخطط',()=>requestAiProposal(),'primary');
+ const aiStatus=make('p','graph-ai-status','');
+ const aiPreview=make('div','graph-ai-preview');
+ const aiApply=button('نفّذ المقترح كمسودة',()=>applyAiProposal(),'primary');aiApply.hidden=true;
+ const aiCancel=button('إلغاء المقترح',()=>clearAiProposal());aiCancel.hidden=true;
+ const aiActions=make('div','graph-ai-actions');aiActions.append(aiSubmit,aiApply,aiCancel);
+ aiPanel.append(aiTitle,aiDescription,aiInput,aiActions,aiStatus,aiPreview);
+ let proposal=null,busy=false;
+ function clearAiProposal(){
+   proposal=null;aiPreview.replaceChildren();aiStatus.textContent='';aiApply.hidden=true;aiCancel.hidden=true;
+ }
+ async function requestAiProposal(){
+   const prompt=aiInput.value.trim();
+   if(proposal&&/^(نفذ|نفّذ|طبق|اعتمد|execute)$/i.test(prompt)){applyAiProposal();return;}
+   if(prompt.length<15){aiStatus.textContent='اشرح المطلوب في 15 حرف على الأقل.';return;}
+   if(busy)return;
+   const form=root.closest('form');
+   if(!form){aiStatus.textContent='تعذر تحديد الإيجنت الحالي.';return;}
+   const csrf=form.querySelector('[name=csrf]')?.value;
+   const agentId=form.querySelector('[name=agent_id]')?.value;
+   if(!csrf||!agentId){aiStatus.textContent='لا توجد جلسة تعديل معتمدة.';return;}
+   busy=true;clearAiProposal();aiSubmit.disabled=true;aiStatus.textContent='جارٍ بناء مخطط مقترح…';
+   try {
+     const params=new URLSearchParams({csrf,agent_id:agentId,action:'flow_ai_propose',description:prompt});
+     const res=await fetch(form.action,{method:'POST',credentials:'same-origin',
+       headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json'},
+       body:params.toString()});
+     const payload=await res.json();
+     if(!res.ok||!payload.ok)throw Error(payload.error||'تعذر بناء المخطط');
+     const g=payload.graph;
+     if(!g||!Array.isArray(g.nodes)||!Array.isArray(g.edges)||g.nodes.length>32)
+       throw Error('مخطط غير صالح من مزوّد AI');
+     proposal=g;
+     const title=make('strong','','مخطط مقترح: '+g.nodes.length+' خطوات و'+g.edges.length+' روابط');
+     const list=make('ol','graph-ai-list');
+     g.nodes.forEach(n=>{
+       const item=make('li');
+       item.append(make('b','',TYPES[n.type]||n.type),make('span','',String(n.text||'').slice(0,180)));
+       list.append(item);
+     });
+     aiPreview.replaceChildren(title,list);
+     aiApply.hidden=false;aiCancel.hidden=false;
+     aiStatus.textContent='للمراجعة فقط. قل «نفّذ» أو اضغط «نفّذ المقترح» لحفظه كمسودة. النشر منفصل.';
+   }catch(error){aiStatus.textContent=error.message||'تعذر إنشاء المقترح؛ لم تتغير المسودة.'}
+   finally{busy=false;aiSubmit.disabled=false;}
+ }
+ function applyAiProposal(){
+   if(!proposal)return;
+   const form=root.closest('form');
+   if(!form){aiStatus.textContent='لا توجد استمارة حفظ.';return;}
+   if(!confirm('استبدال مسودة المخطط الحالية بالمقترح وحفظها؟ لن يتم نشره على المكالمات.'))return;
+   data=JSON.parse(JSON.stringify(proposal));proposal=null;selected=data.nodes[0]?.id||null;
+   render();store();clearAiProposal();
+   const draft=[...form.querySelectorAll('button[type=submit]')].find(b=>!b.hasAttribute('name')||b.name!=='publish_now');
+   if(draft)form.requestSubmit(draft);
+   else aiStatus.textContent='تم تطبيق المخطط بالمحرر. اضغط حفظ كمسودة.';
+ }
+ aiInput.addEventListener('keydown',e=>{
+   if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();requestAiProposal()}
+ });
+
  footer.append(counter,notice);shell.append(footer);
  // Real graph traversal with deterministic text input; no external AI/CRM/voice actions.
  const previewButton=button('▶ اختبار Flow نصيًا',()=>openPreview(),'primary');
