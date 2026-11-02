@@ -62,6 +62,61 @@ function act():void {
         // Migrate DNC outside a transaction (MySQL CREATE TABLE auto-commits).
         if(in_array($action,['add_contact','edit_contact','delete_contact'],true))dnc_init_ledger();
         switch($action) {
+            case 'voice_knowledge_upload':
+                require_permission('agents.write');
+                $site=intfield('site_id');
+                $name=required('name',150);$file=$_FILES['knowledge_file']??null;
+                $content='';$kind='note';
+                if(is_array($file)&&($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
+                    if(($file['error']??-1)!==UPLOAD_ERR_OK||!is_uploaded_file((string)($file['tmp_name']??''))||
+                       (int)($file['size']??0)>180000||($file['size']??0)<=0)
+                        throw new InvalidArgumentException('ملف المعرفة غير صالح أو أكبر من 180KB');
+                    $filename=(string)($file['name']??'');$kind=strtolower(pathinfo($filename,PATHINFO_EXTENSION));
+                    if(!in_array($kind,['txt','md','csv','json'],true))
+                        throw new InvalidArgumentException('المسموح الآن TXT وMD وCSV وJSON فقط');
+                    $content=(string)file_get_contents((string)$file['tmp_name']);
+                }else{$content=field('knowledge_text',180000);}
+                require_once __DIR__.'/VoiceKnowledge.php';
+                $saved=voice_knowledge_add($id,$site,$name,$kind,$content);
+                audit('voice.knowledge.created',$id,['source_id'=>$saved,'site_id'=>$site]);
+                break;
+            case 'voice_knowledge_delete':
+                require_permission('agents.write');
+                require_once __DIR__.'/VoiceKnowledge.php';
+                if(!voice_knowledge_delete($id,intfield('source_id')))deny(404);
+                audit('voice.knowledge.deleted',$id);break;
+            case 'voice_connector_add':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceConnectors.php';
+                $connector=voice_connector_add($id,intfield('site_id'),field('type',25),
+                    required('name',120),required('base_url',500),required('read_path',500),
+                    field('auth_mode',25),field('credential',2000));
+                audit('voice.connector.created',$id,['connector_id'=>$connector,'type'=>field('type',25)]);
+                break;
+            case 'voice_connector_test':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceConnectors.php';
+                $result=voice_connector_test($id,intfield('connector_id'));
+                audit('voice.connector.verified',$id,['type'=>$result['type']]);
+                flash('success','اتصال القراءة نجح؛ النوع '.e($result['type']).' (لم تُنفذ أي عملية كتابة)');
+                break;
+            case 'voice_connector_delete':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $connectorId=intfield('connector_id');
+                if(execute('DELETE FROM voice_data_connectors WHERE id=? AND account_id=?',[$connectorId,$id])!==1)deny(404);
+                audit('voice.connector.deleted',$id,['connector_id'=>$connectorId]);break;
+            case 'voice_caller_add':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceCallerRoles.php';
+                $principal=voice_caller_add($id,intfield('site_id'),required('name',120),
+                    required('phone_e164',20),field('role',24),field('pin',10));
+                audit('voice.caller.created',$id,['principal_id'=>$principal,'role'=>field('role',24)]);
+                break;
+            case 'voice_caller_delete':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $principal=intfield('caller_id');
+                if(execute('DELETE FROM voice_caller_roles WHERE id=? AND account_id=?',[$principal,$id])!==1)deny(404);
+                audit('voice.caller.deleted',$id,['principal_id'=>$principal]);break;
             case 'set_view':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 $view=(string)($_POST['view']??'');
