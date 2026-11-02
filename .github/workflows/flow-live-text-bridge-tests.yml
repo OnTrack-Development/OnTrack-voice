@@ -52,4 +52,4 @@ jobs:
           rm -rf /tmp/ontrack-saas-demo
           php tools/test_tenant_workspace.php
           rm -rf /tmp/ontrack-saas-demo
-          php tools/test_console_shell.php
+          node tools/test_console_ajax_ui.cjs
