@@ -192,6 +192,7 @@ try {
         case 'sites':render_sites($a);break;
         case 'agents':render_agents($a);break;
         case 'whatsapp':render_whatsapp($a);break;
+        case 'whatsapp_admin':render_whatsapp_platform_settings($a);break;
         case 'flows':render_flows($a);break;
         case 'answering':render_answering($a);break;
         case 'campaigns':render_campaigns($a);break;
