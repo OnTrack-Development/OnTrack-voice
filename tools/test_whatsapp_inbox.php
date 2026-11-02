@@ -57,6 +57,14 @@ try{
     wa_check($sent['status']==='accepted_not_delivered','Meta acceptance is not confirmed delivery');
     wa_check((int)one('SELECT COUNT(*) n FROM wa_messages WHERE conversation_id=?',[$cid])['n']===2,
         'manual reply stored after Meta accepted');
+    $statusEvent=['object'=>'whatsapp_business_account','entry'=>[[
+        'changes'=>[['value'=>[
+            'metadata'=>['phone_number_id'=>$numberId],
+            'statuses'=>[['id'=>'wamid.sent_123','status'=>'delivered']]
+        ]]]]]];
+    wa_webhook_ingest($conn,$statusEvent);
+    wa_check((string)one("SELECT delivery_status FROM wa_messages WHERE connection_id=? AND provider_message_id=?",[$id,'wamid.sent_123'])['delivery_status']==='delivered',
+        'signed Meta delivery receipt updates message only after real delivery');
     $after=wa_conversation($cid,4);
     wa_check(!wa_ai_allowed($after),'human reply pauses AI for 15 minutes');
     wa_check((int)$after['generation']>=2,'human takeover increments state generation');
