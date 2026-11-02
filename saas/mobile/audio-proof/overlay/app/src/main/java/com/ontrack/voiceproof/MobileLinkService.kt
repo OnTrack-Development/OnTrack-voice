@@ -64,6 +64,7 @@ class MobileLinkService:Service() {
     private var call:MobileLiveCall?=null
     private var loop:Job?=null
     private var callEventFlush:Job?=null
+    private var callReportFlush:Job?=null
     private var connectivity:ConnectivityManager?=null
     private var networkListener:ConnectivityManager.NetworkCallback?=null
     @Volatile private var takeoverRequested=false
@@ -189,6 +190,8 @@ class MobileLinkService:Service() {
     private suspend fun tenantMonitor(){
         val enrollment=TenantDeviceEnrollment(this)
         val tenantEvents=CallEventOutbox(this,"ontrack_tenant_call_events")
+        val reportOutbox=CallReportOutbox(this)
+        var lastReportAttempt=0L
         var selected:Int?=null
         var lastState=TelephonyManager.CALL_STATE_IDLE
         var ringingAt=0L
@@ -231,6 +234,24 @@ class MobileLinkService:Service() {
                             }
                             if(response.optBoolean("accepted"))tenantEvents.acknowledge(event)
                         }.onFailure { notice("تعذر رفع حدث مكالمة SaaS؛ سيُعاد الإرسال دون تكرار") }
+                    }
+                    // A report is retried separately from call-state events. The
+                    // original event may not have arrived yet; keep encrypted
+                    // evidence until the server explicitly acknowledges saving.
+                    if(callReportFlush?.isActive!=true &&
+                        SystemClock.elapsedRealtime()-lastReportAttempt>=6000L){
+                        lastReportAttempt=SystemClock.elapsedRealtime()
+                        callReportFlush=scope.launch {
+                            runCatching {
+                                val report=reportOutbox.peek()?:return@runCatching
+                                val slot=report.optInt("sim_slot",-1)
+                                if(slot !in 0..1 || !enrollment.paired(slot))return@runCatching
+                                val response=enrollment.workspace(slot,"workspace_call_analysis",report)
+                                if(response.optBoolean("saved"))reportOutbox.acknowledge(report)
+                            }.onFailure {
+                                notice("تعذر حفظ تحليل المكالمة؛ محفوظ مشفرًا وسيُعاد الإرسال")
+                            }
+                        }
                     }
                     if(current==null){
                         if(selected!=null){
@@ -317,7 +338,15 @@ class MobileLinkService:Service() {
                         val liveSettings=JSONObject().put("voice",selectedVoice)
                             .put("input_channel","mix")
                             .put("response_style",policy.optString("response_style","egyptian_short"))
-                        val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,sess,liveSettings,::notice)
+                        // Reuse the UUID assigned by the device event outbox.
+                        // Bind immutable SIM+call ID before the Live session begins.
+                        val reportCallId=tenantEvents.currentCallId(current.slot)
+                        val reportSlot=current.slot
+                        val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,
+                            sess,liveSettings,::notice) { realTranscript ->
+                            if(reportCallId!=null)
+                                reportOutbox.enqueue(reportSlot,reportCallId,realTranscript)
+                        }
                         call=currentCall;currentCall.start();startedAt=SystemClock.elapsedRealtime()
                     }
                     if(call!=null && startedAt>0 &&
