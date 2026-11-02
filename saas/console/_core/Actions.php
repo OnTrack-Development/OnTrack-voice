@@ -763,8 +763,16 @@ function act():void {
                 wa_create_connection($id,intfield('site_id'),required('label',120),
                     required('phone_number_id',100),required('access_token',2000),
                     required('app_secret',1000),required('verify_token',200),
-                    field('whmcs_bridge_url',350),field('whmcs_bridge_token',2000));
-                $success='اتحفظ اتصال واتساب كمسودة. اختبر Meta وبعدين سجّل Webhook؛ الرد الآلي من WHMCS محتاج Bridge موثّق.';
+                    field('whmcs_bridge_url',350),field('whmcs_bridge_token',2000),
+                    (int)($_POST['ai_agent_id']??0));
+                $success='اتحفظ واتساب كمسودة مستقلة. اختبر Meta، وبعدها فعّل إيجنت OnTrack المنشور من نفس الصفحة.';
+                break;
+            case 'wa_native_toggle':
+                require_permission('agents.write');
+                require_once __DIR__.'/WhatsAppNativeAgent.php';
+                $enabled=field('enabled',1)==='1';
+                wa_native_toggle($id,intfield('connection_id'),$enabled);
+                $success=$enabled?'تم تفعيل إيجنت OnTrack المستقل لهذه القناة؛ الرد الآلي لا يحتاج WHMCS.':'تم إيقاف الرد الآلي لقناة واتساب.';
                 break;
             case 'wa_connection_test':
                 require_permission('agents.write');
