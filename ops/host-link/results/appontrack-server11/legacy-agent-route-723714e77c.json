@@ -1,0 +1,13 @@
+{
+  "job_id": "legacy-agent-route-723714e77c",
+  "target": "appontrack-server11",
+  "job_sha256": "d1594578f71f210d24ab2395dc23f457b8546bfaaedf9e86d905c58a0bc96792",
+  "started_at": "2026-11-02T00:55:03.146065+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\": \"patched\", \"target\": \"/index.php\", \"backup\": true, \"php_lint\": \"pass\"}\n",
+  "stderr": "",
+  "finished_at": "2026-11-02T00:55:03.283033+00:00",
+  "duration_ms": 137
+}
