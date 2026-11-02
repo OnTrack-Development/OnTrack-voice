@@ -1,0 +1,13 @@
+{
+  "job_id": "agent-studio-runtime-e2e-20261102-01",
+  "target": "appontrack-server11",
+  "job_sha256": "1c3ccd366ba6041d1cc4ffefe1b50e38c06239c152f6df7a3f722f6054d09779",
+  "started_at": "2026-11-02T06:53:03.148915+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"ok\":true,\"mode\":\"dynamic\",\"revision\":5,\"goal_present\":true,\"graph_nodes_not_in_prompt\":true,\"published_scope_passed\":true}",
+  "stderr": "",
+  "finished_at": "2026-11-02T06:53:03.258659+00:00",
+  "duration_ms": 110
+}
