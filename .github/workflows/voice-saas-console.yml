@@ -14,6 +14,7 @@ on:
       - 'tools/test_dynamic_agent_studio.php'
       - 'tools/test_ai_agent_profile.php'
       - 'tools/test_flow_ai_stress.php'
+      - 'tools/test_graph_routing.cjs'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
@@ -47,10 +48,12 @@ jobs:
         run: |
           node --check saas/console/assets/js/app.js
           node --check saas/console/assets/js/flow-graph.js
+          node --check saas/console/assets/js/graph-routing.js
           node --check saas/console/assets/js/pairing-qr.js
           node --check saas/console/assets/js/mfa-qr.js
           node tools/test_voice_qr.cjs
           node tools/test_floating_flow_ui.cjs
+          node tools/test_graph_routing.cjs
           node tools/test_console_ajax_ui.cjs
           php tools/test_flow_templates.php
           php tools/test_answer_policy.php
