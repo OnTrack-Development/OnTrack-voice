@@ -48,9 +48,10 @@ internal class MobileLiveCall(
         val input=DataInputStream(pipe!!.getInputStream())
         check(input.readInt()==0x4f545631 && input.readInt()==48000 && input.readInt()==2){"invalid shell PCM format"}
         output=DataOutputStream(pipe!!.getOutputStream())
+        val agentName=session.optString("agent_name","مساعد OnTrack").trim().ifBlank{"مساعد OnTrack"}
         ws?.send(JSONObject().put("clientContent",JSONObject()
             .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
-                .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ المكالمة بتحية مصرية قصيرة باسم الإيجنت المخصص، ثم اسمع رد العميل.")))))
+                .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ المكالمة بتحية مصرية قصيرة باسم "+agentName+" فقط، ولا تنطق رقم الإيجنت أو نسخة السيناريو. ثم اسمع رد العميل.")))))
             .put("turnComplete",true)).toString())
         val transform=LinkPcm(settings.optString("input_channel","right"))
         worker=scope.launch {
