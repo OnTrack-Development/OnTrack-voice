@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "voice-post-release-check-20261102-01",
+  "id": "tenant-pilot-counts-20261102-01",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-02T01:41:15.473Z",
-  "expires_at": "2026-11-02T02:41:15.473Z",
+  "created_at": "2026-11-02T02:02:32.109Z",
+  "expires_at": "2026-11-02T03:02:32.109Z",
   "cwd": "/home/appontrack/public_html",
   "argv": [
-    "/opt/cpanel/ea-php83/root/usr/bin/php",
-    "-r",
-    "require '/home/appontrack/public_html/saas/console/_core/Bootstrap.php';require '/home/appontrack/public_html/saas/console/_core/TenantVoiceSession.php';init_schema();$b=one(\"SELECT * FROM device_bindings WHERE id=1 AND account_id=1 AND site_id=6 AND agent_id=7 AND sim_slot=0 AND status='active'\");$path='/home/appontrack/public_html/saas/mobile/updates/native/latest.json';$meta=null;if(is_file($path)){$env=json_decode((string)file_get_contents($path),true);$meta=json_decode((string)($env['payload']??''),true);}echo json_encode(['sim1_active'=>$b!==null,'trial_enabled'=>$b?tenant_voice_owner_trial_enabled($b):false,'native_release_code'=>(int)($meta['version_code']??0),'native_release_27'=>(int)($meta['version_code']??0)===27,'overage_column'=>in_array('overage_minor',array_column(all('PRAGMA table_info(plans)'),'name'),true)],JSON_UNESCAPED_UNICODE);"
+    "/bin/python3",
+    "-c",
+    "import pathlib,json,os\np=pathlib.Path('/home/appontrack/.ontrack-mobile/pilot')\nout={'pilot_store_exists':p.exists(),'stats':{},'auth_file_exists':pathlib.Path('/home/appontrack/public_html/saas/mobile/server/auth.sha256').exists()}\nfor kind in ('contacts','campaigns','attempts','dnc'):\n f=p/(kind+'.json')\n try:\n  v=json.loads(f.read_text()) if f.is_file() else []\n  out['stats'][kind]={'count':len(v) if isinstance(v,list) else None,'bytes':f.stat().st_size if f.is_file() else 0}\n except Exception as e:out['stats'][kind]={'error':type(e).__name__}\nprint(json.dumps(out,ensure_ascii=False))"
   ],
-  "timeout_seconds": 18
+  "timeout_seconds": 16
 }
