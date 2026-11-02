@@ -1,3 +1,11 @@
+## 2026-11-02 — PR #19: دليل جهات اتصال منفصل لكل SIM (CODED; CI PENDING; NOT DEPLOYED)
+
+- **شريحة منتج فعلية:** أضفنا قراءة وبحث جهات الاتصال من تطبيق Android لكل SIM مربوطة، من قاعدة بيانات SaaS الموجودة، عبر API موثّق بتوكن تلك الشريحة. واجهة Android تعرض الاسم والرقم وعلامة «لا تتصل» المستمدة من دفتر DNC الدائم؛ لا تعرض جهة اتصال من حساب/موقع آخر. حد 25 جهة لكل بحث، ولا توجد مكالمات أو عمليات مالية.
+- **التنفيذ:** `saas/console/_core/DevicePairing.php` و`device/v1/index.php` و`TenantDeviceEnrollment.kt` و`MobileLinkActivity.kt` و`TenantPairingContract.kt`. اختبارات PHP/SQLite أُضيفت في `tools/test_tenant_device_pairing.php` لعزل حسابين وشريحتين وDNC؛ اختبار Kotlin لمدخلات البحث. لم نغيّر مخطط DB؛ البيانات من `contacts` و`dnc_suppressions` الموجودين.
+- **حالة الإثبات عند كتابة هذا التحديث:** CODED على فرع PR #19؛ **لم تظهر بعد نتيجة GitHub Actions مرتبطة بآخر HEAD**، ولذلك `CI_PASS=NOT_YET_VERIFIED`. لم يُجرَ اختبار هاتف Xiaomi أو authenticated staging أو مراجعة أمنية مستقلة. `HOST_DEPLOYED=NO` لهذا الفرع. آخر receipt مفحوص `saas-console-41358252163` بتاريخ 2026-11-01 22:41 UTC نشر main `dff8ec5cd5ec` وليس PR #19.
+- **BLOCKED:** تنفيذ مكالمة SIM حقيقية وربط الصوت/Gemini وAgent Flow المنشور لا يزال يحتاج إثبات جهاز ودمج PR #20 بعد حل تصادم schema.v6. PR #9 SSO مفتوح وغير قابل للدمج حاليًا. لا Merge ولا Deploy بدون CI كامل ومراجعة وhost receipt مطابق.
+- **NEXT:** تحقق من نتائج PHP/Android CI لهذا HEAD، ثم راجع واجهة جهات الاتصال على Staging/Android وعمليات عزل SIM1/SIM2؛ بعدها استكمل ربط Flow والصوت إن توفرت بيئة اختبار آمنة.
+
 ## 2026-11-02 — امتداد PR #19: «لا تتصل مجددًا» من تقرير المكالمة (CODED, NOT DEPLOYED)
 
 - Web وAndroid يسمحان بتسجيل طلب عدم الاتصال يدويًا **فقط** بعد انتهاء مكالمة مرصودة على SIM صحيحة، مع إدخال الرقم وتأكيد الموظف. Backend يربط التقرير والرقم بدفتر DNC الدائم الخاص بالحساب ذريًا، وتظهر حالة الحظر في جهات الاتصال. اختبارات PHP/SQLite وKotlin تغطي التأكيد والعزل والتكرار وعدم رفع الحظر عند تعديل التقييم. الكود `59b7d46b` و`736bfcdb` على PR #19؛ **CI النهائي ينتظر التحقق** (PHP أولي `41366231603` SUCCESS). لا ترحيل DB جديد، بل توسيع ledger الحالي بمصدر `call_optout`.
