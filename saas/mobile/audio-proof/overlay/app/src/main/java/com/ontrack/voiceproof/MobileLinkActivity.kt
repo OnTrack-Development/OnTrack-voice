@@ -119,40 +119,41 @@ class MobileLinkActivity:ComponentActivity(){
             }
         }
     }
-    private suspend fun uploadContactsFile(){
+    private fun selectedTenantSlot():Int {
+        val first=tenantEnrollment.paired(0);val second=tenantEnrollment.paired(1)
+        check(first||second){"اربط SIM بحساب SaaS من شاشة الأجهزة أولًا"}
+        if(first&&!second)return 0
+        if(second&&!first)return 1
+        val chosen=getSharedPreferences("ontrack_tenant_workspace",MODE_PRIVATE).getInt("sim_slot",-1)
+        check(chosen in 0..1 && tenantEnrollment.paired(chosen)){"اختار SIM 1 أو SIM 2 من مساحة العمل"}
+        return chosen
+    }
+    private suspend fun tenantWorkspace(operation:String,body:JSONObject=JSONObject()):JSONObject =
+        withContext(Dispatchers.IO) {tenantEnrollment.workspace(selectedTenantSlot(),operation,body)}
+    private suspend fun uploadContactsFile() {
         check(!MobileLinkService.inCall){"ارفع الملف بعد انتهاء المكالمة"}
         val uri=pendingImportUri?:error("اختار ملفًا أولًا")
         val name=pendingImportName
         check(Regex("(?i)^.{1,140}\\.(csv|txt|xlsx)$").matches(name)){"نوع الملف غير مسموح"}
-        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
-        check(key.length>=24){"اربط التطبيق بالسيرفر أولاً"}
-        val result=withContext(Dispatchers.IO){
+        val data=withContext(Dispatchers.IO){
             val stream=contentResolver.openInputStream(uri)?:error("تعذر قراءة الملف")
             val out=ByteArrayOutputStream()
-            stream.use { input->
-                val bytes=ByteArray(8192)
+            stream.use{input->
+                val chunk=ByteArray(8192)
                 while(true){
-                    val n=input.read(bytes)
-                    if(n<0)break
-                    check(out.size()+n<=1048576){"الحد الأقصى للملف 1 ميجابايت"}
-                    out.write(bytes,0,n)
+                    val size=input.read(chunk)
+                    if(size<0)break
+                    check(out.size()+size<=1048576){"الملف أكبر من 1 ميجابايت"}
+                    out.write(chunk,0,size)
                 }
             }
             check(out.size()>0){"الملف فارغ"}
-            val form=MultipartBody.Builder().setType(MultipartBody.FORM)
-                .addFormDataPart("confirmed","1").addFormDataPart("consent","1")
-                .addFormDataPart("contacts",name,out.toByteArray().toRequestBody("application/octet-stream".toMediaType()))
-                .build()
-            OkHttpClient.Builder().followRedirects(false).build().newCall(Request.Builder()
-                .url("https://app.ontrackegy.com/saas/mobile/contacts_file_api.php")
-                .header("Authorization","Bearer "+key).post(form).build()).execute().use{
-                check(it.isSuccessful){"تعذر رفع الملف HTTP "+it.code}
-                JSONObject(it.body?.string().orEmpty())
-            }
+            android.util.Base64.encodeToString(out.toByteArray(),android.util.Base64.NO_WRAP)
         }
-        check(result.optBoolean("ok")){"تم رفض الملف"}
+        val response=tenantWorkspace("workspace_file_import",
+            JSONObject().put("confirmed",true).put("name",name).put("data_b64",data))
         pendingImportUri=null;pendingImportName=""
-        web.evaluateJavascript("window.onTrackFileImported && window.onTrackFileImported("+result.toString()+")",null)
+        web.evaluateJavascript("window.onTrackFileImported && window.onTrackFileImported("+response.toString()+")",null)
     }
     private suspend fun loadAllContacts()=withContext(Dispatchers.IO){
         val rows=JSONArray()
@@ -179,82 +180,37 @@ class MobileLinkActivity:ComponentActivity(){
         web.evaluateJavascript("window.onTrackContactPreview && window.onTrackContactPreview("+status.toString()+")",null)
     }
     private suspend fun loadCallHistory() {
-        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
-        check(key.length>=24){"أدخل مفتاح الربط قبل قراءة سجل المكالمات"}
-        val history=withContext(Dispatchers.IO){
-            OkHttpClient.Builder().followRedirects(false).build().newCall(Request.Builder()
-                .url("https://app.ontrackegy.com/saas/mobile/calls_feed.php")
-                .header("Authorization","Bearer "+key).get().build()).execute().use{
-                check(it.isSuccessful){"السجل غير متاح HTTP "+it.code}
-                val bytes=it.body?.string().orEmpty()
-                check(bytes.length<90000){"رد السجل غير صالح"}
-                JSONObject(bytes)
-            }
-        }
-        check(history.optBoolean("ok")){"لم يتم تحميل السجل"}
-        web.evaluateJavascript("window.onTrackCalls && window.onTrackCalls("+history.toString()+")",null)
+        val result=tenantWorkspace("workspace_calls")
+        web.evaluateJavascript("window.onTrackCalls && window.onTrackCalls("+result.toString()+")",null)
     }
     private suspend fun contactsRequest(payload:JSONObject?) {
-        check(!MobileLinkService.inCall){"إدارة الأرقام متاحة بعد انتهاء المكالمة"}
-        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
-        check(key.length>=24){"اربط الهاتف بالسيرفر"}
-        val result=withContext(Dispatchers.IO){
-            val builder=Request.Builder().url("https://app.ontrackegy.com/saas/mobile/contacts_api.php")
-                .header("Authorization","Bearer "+key)
-            val request=if(payload==null)builder.get().build() else builder
-                .post(payload.toString().toRequestBody("application/json".toMediaType())).build()
-            OkHttpClient.Builder().followRedirects(false).build().newCall(request).execute().use {
-                check(it.isSuccessful){"تعذر إدارة الأرقام HTTP "+it.code}
-                val body=it.body?.string().orEmpty()
-                check(body.length<=90000){"رد السيرفر كبير"}
-                JSONObject(body)
-            }
-        }
-        check(result.optBoolean("ok")){"السيرفر رفض العملية"}
+        check(!MobileLinkService.inCall){"إدارة الأرقام بعد انتهاء المكالمة"}
+        val operation=if(payload==null)"workspace_contacts" else "workspace_contact_dnc"
+        val result=tenantWorkspace(operation,payload?:JSONObject())
         if(payload!=null)contactsRequest(null)
         else web.evaluateJavascript("window.onTrackContactsList && window.onTrackContactsList("+result.toString()+")",null)
     }
     private suspend fun campaignRequest(payload:JSONObject?) {
-        check(!MobileLinkService.inCall){"إدارة الحملات متاحة بعد انتهاء المكالمة"}
-        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
-        check(key.length>=24){"اربط التطبيق بالسيرفر أولاً"}
-        val result=withContext(Dispatchers.IO) {
-            val builder=Request.Builder().url("https://app.ontrackegy.com/saas/mobile/campaigns_api.php")
-                .header("Authorization","Bearer "+key)
-            val request=if(payload==null)builder.get().build() else builder
-                .post(payload.toString().toRequestBody("application/json".toMediaType())).build()
-            OkHttpClient.Builder().followRedirects(false).build().newCall(request).execute().use {
-                check(it.isSuccessful){"الحملات غير متاحة HTTP "+it.code}
-                val raw=it.body?.string().orEmpty()
-                check(raw.length<=90000){"رد الحملات كبير"}
-                JSONObject(raw)
-            }
+        check(!MobileLinkService.inCall){"إدارة الحملات بعد انتهاء المكالمة"}
+        val operation=when {
+            payload==null->"workspace_campaigns"
+            payload.has("action")->"workspace_campaign_action"
+            else->"workspace_campaign_create"
         }
-        check(result.optBoolean("ok")){"تعذر تحميل الحملات"}
+        val result=tenantWorkspace(operation,payload?:JSONObject())
         web.evaluateJavascript("window.onTrackCampaigns && window.onTrackCampaigns("+result.toString()+")",null)
     }
     private suspend fun uploadSelectedContacts() {
-        check(!MobileLinkService.inCall){"اترك رفع الأرقام حتى انتهاء المكالمة"}
-        check(pendingContacts.length()>0){"اختر أرقامًا قبل الرفع"}
-        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
-        check(key.length>=24){"أدخل مفتاح الربط أولاً"}
-        val body=JSONObject().put("confirmed",true).put("contacts",pendingContacts).toString()
-        val response=withContext(Dispatchers.IO) {
-            OkHttpClient.Builder().followRedirects(false).build().newCall(Request.Builder()
-                .url("https://app.ontrackegy.com/saas/mobile/contacts_import.php")
-                .header("Authorization","Bearer "+key)
-                .post(body.toRequestBody("application/json".toMediaType())).build()).execute().use {
-                check(it.isSuccessful){"فشل استيراد الأرقام HTTP "+it.code}
-                JSONObject(it.body?.string().orEmpty())
-            }
-        }
-        check(response.optBoolean("ok")){"السيرفر رفض استيراد الأرقام"}
+        check(!MobileLinkService.inCall){"ارفع الأرقام بعد انتهاء المكالمة"}
+        check(pendingContacts.length()>0){"اختر أرقامًا أولًا"}
+        val result=tenantWorkspace("workspace_import",
+            JSONObject().put("confirmed",true).put("contacts",pendingContacts))
         pendingContacts=JSONArray()
-        val counts=response.optJSONObject("counts")?:JSONObject()
-        val answer=JSONObject().put("added",counts.optInt("added"))
+        val counts=result.optJSONObject("counts")?:JSONObject()
+        val reply=JSONObject().put("added",counts.optInt("added"))
             .put("duplicates",counts.optInt("duplicates"))
             .put("invalid",counts.optInt("invalid"))
-        web.evaluateJavascript("window.onTrackContactsImported && window.onTrackContactsImported("+answer.toString()+")",null)
+        web.evaluateJavascript("window.onTrackContactsImported && window.onTrackContactsImported("+reply.toString()+")",null)
     }
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState:Bundle?){
@@ -419,14 +375,6 @@ class MobileLinkActivity:ComponentActivity(){
             .setItems(arrayOf("سيناريو SIM 1","سيناريو SIM 2","تعديل السيناريو من الموقع")){_,choice->
                 if(choice==2)openConsole("agents") else showTenantPublishedFlow(choice)
             }.setNegativeButton("إغلاق",null).show()
-    }
-    private fun copyPilotKey(){
-        check(!tenantEnrollment.hasAny()){"مفتاح التجربة القديم غير متاح أثناء ربط الشرائح المستقلة"}
-        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
-        check(key.matches(Regex("[A-Za-z0-9_-]{24,128}"))){"لا يوجد مفتاح محفوظ صالح للنسخ"}
-        (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-            .setPrimaryClip(ClipData.newPlainText("OnTrack device key",key))
-        banner.text="تم نسخ المفتاح المحفوظ";banner.visibility=View.VISIBLE
     }
     private fun showTenantMenu() {
         val items=arrayOf(
@@ -730,6 +678,9 @@ class MobileLinkActivity:ComponentActivity(){
             .put("nativeInstallPermission",nativeUpdates.canInstallPackages())
             .put("tenantSim1",tenantStatusLines[0]).put("tenantSim2",tenantStatusLines[1])
             .put("tenantLinked",tenantEnrollment.hasAny())
+            .put("tenantPaired1",tenantEnrollment.paired(0))
+            .put("tenantPaired2",tenantEnrollment.paired(1))
+            .put("tenantWorkspaceSlot",getSharedPreferences("ontrack_tenant_workspace",MODE_PRIVATE).getInt("sim_slot",-1))
             .put("wifiFreeEnabled",wifiFreeEnabledState)
             .put("wifiFreeReady",wifiFreeReadyState)
             .put("campaignAutoEnabled",getSharedPreferences("ontrack_link",MODE_PRIVATE).getBoolean("campaign_opt_in",false))
@@ -752,11 +703,7 @@ class MobileLinkActivity:ComponentActivity(){
                 if(raw.length>2048 && msg.optString("command")!="createCampaign")return@launch
                 val command=msg.getString("command")
                 if(tenantEnrollment.hasAny() && command in setOf(
-                    "start","stop",
-                    "loadCallHistory","listContacts","contactDnc","campaignAutoEnable",
-                    "campaignAutoDisable","listCampaigns","campaignAction","createCampaign",
-                    "contactsPick","contactsAll","contactsFilePick","contactsFileUpload",
-                    "contactsUpload","admin","copyKey"
+                    "start","copyKey"
                 )) error("وضع الشرائح المستقلة نشط؛ واجهات هاتف التجربة غير متاحة لحماية حسابات العملاء")
                 when(command){
                     "openConsole" -> openConsole()
@@ -766,21 +713,20 @@ class MobileLinkActivity:ComponentActivity(){
                     "tenantQrScan" -> scanTenantQr()
                     "tenantRefresh" -> requestTenantStatusRefresh()
                     "tenantTest" -> testTenantReadiness()
-                    "copyKey" -> copyPilotKey()
+                    "workspaceSlot"->{
+                        val slot=msg.getInt("sim_slot")
+                        check(slot in 0..1 && tenantEnrollment.paired(slot)){"الشريحة غير مربوطة بحساب SaaS"}
+                        check(getSharedPreferences("ontrack_tenant_workspace",MODE_PRIVATE)
+                            .edit().putInt("sim_slot",slot).commit()){"تعذر حفظ الشريحة المختارة"}
+                        sendState()
+                    }
+                    "copyKey" -> error("مفتاح تجربة الهاتف القديم غير مستخدم")
                     "ready"->{ready=true;requestTenantStatusRefresh();withContext(Dispatchers.IO){ota.confirm()};banner.text="الواجهة جاهزة • OTA ${ota.revision}";sendState()
                         web.postDelayed({splash?.hide();banner.visibility=View.GONE},550)
-                        val prefs=getSharedPreferences("ontrack_link",MODE_PRIVATE)
-                        val initial=JSONObject().put("base",prefs.getString("base","https://app.ontrackegy.com/"))
-                            .put("key",if(tenantEnrollment.hasAny()) "" else prefs.getString("key",""))
+                        val initial=JSONObject().put("base","").put("key","")
                         web.evaluateJavascript("window.onTrackInit && window.onTrackInit($initial)",null)
                     }
-                    "start"->{
-                        check(!MobileLinkService.running){"أوقف الربط الحالي قبل تغيير بياناته"}
-                        val base=MobileLinkService.base(msg.getString("base"));val key=msg.getString("key").trim()
-                        require(key.matches(Regex("[A-Za-z0-9_-]{24,128}"))){"انسخ المفتاح فقط بدون مسافات أو علامات إضافية"}
-                        getSharedPreferences("ontrack_link",MODE_PRIVATE).edit().putString("base",base).putString("key",key).commit()
-                        ContextCompat.startForegroundService(this@MobileLinkActivity,Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_ENABLE))
-                    }
+                    "start"->error("ربط Pilot القديم متوقف؛ اربط SIM بحسابك ثم اضغط تشغيل الإيجنت")
                     "stop","disable"->ContextCompat.startForegroundService(this@MobileLinkActivity,Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_DISABLE))
                     "enable"->ContextCompat.startForegroundService(this@MobileLinkActivity,Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_ENABLE))
                     "takeover"->startService(Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_TAKEOVER))
@@ -812,17 +758,7 @@ class MobileLinkActivity:ComponentActivity(){
                         contactsRequest(JSONObject().put("confirmed",true).put("id",id)
                             .put("blocked",msg.getBoolean("blocked")))
                     }
-                    "campaignAutoEnable"->{
-                        check(msg.optBoolean("confirmed")){"تأكيد المستخدم مطلوب"}
-                        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","").orEmpty()
-                        check(key.length>=24){"اربط الهاتف بالسيرفر"}
-                        if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.CALL_PHONE)
-                            ==PackageManager.PERMISSION_GRANTED) {
-                            ContextCompat.startForegroundService(this@MobileLinkActivity,
-                                Intent(this@MobileLinkActivity,MobileLinkService::class.java)
-                                    .setAction(MobileLinkService.ACTION_CAMPAIGN_ENABLE))
-                        } else campaignPhonePermission.launch(Manifest.permission.CALL_PHONE)
-                    }
+                    "campaignAutoEnable"->error("الاتصال الجماعي معطل حتى تكتمل اختبارات سياسات الموافقة وDNC على SaaS؛ لن يستخدم مفتاح Pilot")
                     "campaignAutoDisable"->ContextCompat.startForegroundService(this@MobileLinkActivity,
                         Intent(this@MobileLinkActivity,MobileLinkService::class.java)
                             .setAction(MobileLinkService.ACTION_CAMPAIGN_DISABLE))
@@ -880,24 +816,7 @@ class MobileLinkActivity:ComponentActivity(){
                     "wifiFreeDisable"->setWifiFreeMode(false)
                     "rollback"->{check(!MobileLinkService.inCall){"انتظر نهاية المكالمة"};show(withContext(Dispatchers.IO){ota.rollback(false)});banner.text="تم الرجوع للواجهة السابقة"}
                     "diagnostics"->startActivity(Intent(this@MobileLinkActivity,ProofActivity::class.java))
-                    "admin"->{
-                        val key=getSharedPreferences("ontrack_link",MODE_PRIVATE).getString("key","")?:""
-                        require(key.length>=24){"أدخل مفتاح الربط أولاً"}
-                        val ticketUrl=withContext(Dispatchers.IO){
-                            val client=OkHttpClient.Builder().followRedirects(false).build()
-                            val req=Request.Builder().url("https://app.ontrackegy.com/saas/mobile/admin_ticket.php")
-                                .header("Authorization","Bearer "+key)
-                                .post("{}".toRequestBody("application/json".toMediaType())).build()
-                            client.newCall(req).execute().use{
-                                check(it.isSuccessful){"تعذر الدخول إلى اللوحة: HTTP "+it.code}
-                                JSONObject(it.body?.string()?:"").getString("url")
-                            }
-                        }
-                        val uri=Uri.parse(ticketUrl)
-                        check(uri.scheme=="https" && uri.host=="app.ontrackegy.com" &&
-                            uri.path=="/saas/mobile/admin_enter.php"){"رابط الدخول غير آمن"}
-                        startActivity(Intent(Intent.ACTION_VIEW,uri))
-                    }
+                    "admin"->openConsole()
                     else->error("أمر الواجهة غير مدعوم")
                 }
             }.onFailure{banner.text=it.message?:"تعذر تنفيذ الطلب"}}}
