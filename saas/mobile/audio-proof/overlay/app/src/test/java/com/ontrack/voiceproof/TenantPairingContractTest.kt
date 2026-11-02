@@ -53,6 +53,14 @@ class TenantPairingContractTest {
         assertTrue(TenantPairingContract.humanOptOutValid("do_not_call","+20 1012345678",true))
         assertTrue(TenantPairingContract.humanOptOutValid("follow_up","",false))
     }
+    @Test fun tenantContactsSearchIsBoundedAndDoesNotAcceptWildcards() {
+        assertTrue(TenantPairingContract.contactSearchValid("أحمد +201012345678"))
+        assertTrue(TenantPairingContract.contactSearchValid(""))
+        assertFalse(TenantPairingContract.contactSearchValid("%"))
+        assertFalse(TenantPairingContract.contactSearchValid("_"))
+        assertFalse(TenantPairingContract.contactSearchValid("a".repeat(61)))
+        assertFalse(TenantPairingContract.contactSearchValid("foo\\nbar"))
+    }
     @Test fun pilotTelephonyDeniedWhilePairingOrAnyTenantSlotActive() {
         assertTrue(TenantPairingContract.pilotAllowed(false,false))
         assertFalse(TenantPairingContract.pilotAllowed(true,false))
