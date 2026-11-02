@@ -140,8 +140,11 @@ try{
                 'voice'=>(string)$flow['voice'],'instructions'=>(string)$flow['instructions'],
                 'knowledge'=>(string)$flow['knowledge'],
                 'answer_policy'=>answer_policy_normalize((array)(json_decode((string)($flow['answer_policy_json']??''),true)??[])),
+                'conversation_mode'=>'dynamic',
+                // Legacy field only for older app versions; it must not be
+                // interpreted as an executable conversation decision tree.
                 'flow'=>json_decode((string)$flow['flow_json'],true,32,JSON_THROW_ON_ERROR),
-                'execution'=>'published_contract_not_live_telephone_ai']);
+                'execution'=>'dynamic_gemini_live_profile_legacy_graph_ignored']);
         }
         device_answer(200,['ok'=>true,'profile'=>$profile]);
     }
