@@ -42,6 +42,9 @@ class MobileLinkService:Service() {
         @Volatile var running=false
         @Volatile var agentEnabled=false
         @Volatile var connected=false
+        @Volatile var tenantServerCheckedAt=0L
+        val tenantServerVerified:Boolean get()=tenantServerCheckedAt>0L &&
+            SystemClock.elapsedRealtime()-tenantServerCheckedAt<90_000L
         @Volatile var serverRevision=0
         @Volatile var inCall=false
         @Volatile var callAnswered=false
@@ -64,6 +67,8 @@ class MobileLinkService:Service() {
     private var call:MobileLiveCall?=null
     private var loop:Job?=null
     private var callEventFlush:Job?=null
+    private var tenantHeartbeatJob:Job?=null
+    private var lastHeartbeatAttempt=0L
     private var connectivity:ConnectivityManager?=null
     private var networkListener:ConnectivityManager.NetworkCallback?=null
     @Volatile private var takeoverRequested=false
@@ -203,6 +208,25 @@ class MobileLinkService:Service() {
             while(scope.isActive && enrollment.hasAny() && !tenantPairingInProgress){
                 try{
                     agentEnabled=tenantPrefs().getBoolean("enabled",false)
+                    connected=call?.liveConnected==true
+                    // An idle telephone does not have a Live websocket. Verify
+                    // the SaaS tenant separately, without blocking call-state polling.
+                    val now=SystemClock.elapsedRealtime()
+                    if(agentEnabled && now-lastHeartbeatAttempt>=30_000L &&
+                        tenantHeartbeatJob?.isActive!=true){
+                        lastHeartbeatAttempt=now
+                        tenantHeartbeatJob=scope.launch(Dispatchers.IO){
+                            runCatching {
+                                for(slot in 0..1)if(enrollment.paired(slot)){
+                                    enrollment.heartbeat(slot)
+                                    tenantServerCheckedAt=SystemClock.elapsedRealtime()
+                                }
+                            }.onFailure {
+                                // Keep last good proof bounded by TTL; not an assertion
+                                // that the voice websocket or physical uplink failed.
+                            }
+                        }
+                    }
                     if(!agentEnabled){
                         call?.stop();call=null
                         connected=false;inCall=false;callAnswered=false
@@ -318,7 +342,9 @@ class MobileLinkService:Service() {
                             .put("input_channel","right")
                             .put("response_style",policy.optString("response_style","egyptian_short"))
                         val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,sess,liveSettings,::notice)
-                        call=currentCall;currentCall.start();startedAt=SystemClock.elapsedRealtime()
+                        call=currentCall;currentCall.start()
+                        connected=currentCall.liveConnected
+                        startedAt=SystemClock.elapsedRealtime()
                     }
                     if(call!=null && startedAt>0 &&
                         SystemClock.elapsedRealtime()-startedAt>policy.optInt("max_call_minutes",10).coerceIn(1,30)*60000L){
@@ -345,6 +371,7 @@ class MobileLinkService:Service() {
     /** Never continue pilot AI/telephony after any tenant SIM starts enrollment. */
     override fun onDestroy(){
         networkListener?.let{runCatching{connectivity?.unregisterNetworkCallback(it)}}
+        tenantHeartbeatJob?.cancel()
         call?.stop();scope.cancel();running=false;connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false
         overlay.remove();latestStatus="الربط متوقف"
         super.onDestroy()
