@@ -43,7 +43,7 @@ try{
         'AI edit keeps existing knowledge lookup node type');
     $originalModel=getenv('ONTRACK_GEMINI_FLOW_MODEL');
     putenv('ONTRACK_GEMINI_FLOW_MODEL=gemini-3.5-flash-lite');
-    chat_check(flow_ai_model()==='gemini-3.5-flash-lite','effective model shown accurately');
+    chat_check(flow_ai_model()==='gemini-3.8-live-extended-thinking','editor uses requested live thinking model');
     if($originalModel===false)putenv('ONTRACK_GEMINI_FLOW_MODEL');
     else putenv('ONTRACK_GEMINI_FLOW_MODEL='.$originalModel);
     chat_check(str_contains($explanation,'الحجز')||str_contains($explanation,'تكامل'),'safe side-effect disclaimer');
