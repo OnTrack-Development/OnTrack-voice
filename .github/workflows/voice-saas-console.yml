@@ -6,6 +6,7 @@ on:
       - 'saas/console/**'
       - 'tools/test_voice_saas_console.php'
       - 'tools/test_tenant_workspace.php'
+      - 'tools/test_console_pricing_ui.php'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
