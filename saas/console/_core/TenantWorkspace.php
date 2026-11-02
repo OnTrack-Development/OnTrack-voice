@@ -65,7 +65,7 @@ function tenant_workspace_call_event(array $b,array $p):array{
         $exists=one('SELECT sequence FROM tenant_call_events WHERE device_binding_id=? AND call_id=? AND sequence=?',[$b['id'],$id,$seq]);
         if(!$exists){
             if(!one('SELECT id FROM calls WHERE device_binding_id=? AND external_call_id=?',[$b['id'],$id]))
-                insert('INSERT INTO calls(account_id,site_id,phone,name,duration_seconds,status,is_demo,created_at,external_call_id,device_binding_id,sim_slot) VALUES (?,?,?,?,?,?,1,?,?,?,?)',[
+                insert('INSERT INTO calls(account_id,site_id,phone,name,duration_seconds,status,is_demo,created_at,external_call_id,device_binding_id,sim_slot) VALUES (?,?,?,?,?,?,0,?,?,?,?)',[
                     $b['account_id'],$b['site_id'],'','',0,'ringing',now(),$id,$b['id'],$b['sim_slot']]);
             if($phase==='identified'){
                 $phone=(string)($p['phone_number']??'');$name=trim((string)($p['contact_name']??''));
