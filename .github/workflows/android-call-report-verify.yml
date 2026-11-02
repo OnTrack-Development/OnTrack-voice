@@ -37,7 +37,13 @@ jobs:
       - name: Verify compiled Android sources and unit tests
         working-directory: .build/jemrec
         run: |
-          ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest
+          ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest \
+            --tests 'com.ontrack.voiceproof.LinkPcmTest' \
+            --tests 'com.ontrack.voiceproof.TenantAgentIdentityTest' \
+            --tests 'com.ontrack.voiceproof.TenantPairingContractTest' \
+            --tests 'com.ontrack.voiceproof.TenantEngineRestorePolicyTest' \
+            --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' \
+            --tests 'com.ontrack.voiceproof.SignedOtaTest'
       - name: Record unsigned QA build
         uses: actions/upload-artifact@v5
         with:
