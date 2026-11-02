@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const TYPES={start:'بداية',say:'رسالة',listen:'استماع',ask:'سؤال',instruction:'تعليمات AI / معرفة',condition:'شرط',instruction:'تعليمات داخلية',knowledge_lookup:'بحث في المعرفة',collect_field:'جمع بيانات',crm_lookup:'بحث CRM',crm_write:'تحديث CRM',schedule:'حجز موعد',handoff:'تحويل بشري',end:'إنهاء'};
+const TYPES={start:'بداية',say:'رسالة',listen:'استماع',ask:'سؤال',condition:'شرط',instruction:'تعليمات AI / معرفة',knowledge_lookup:'بحث في المعرفة',collect_field:'جمع بيانات',crm_lookup:'بحث CRM',crm_write:'تحديث CRM',schedule:'حجز موعد',handoff:'تحويل بشري',end:'إنهاء'};
 const NS='http://www.w3.org/2000/svg';
 const make=(tag,cls,value)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined)e.textContent=value;return e};
 const S=(tag,attrs)=>{const e=document.createElementNS(NS,tag);Object.entries(attrs||{}).forEach(([k,v])=>e.setAttribute(k,String(v)));return e};
@@ -56,7 +56,7 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
   },'primary');
   tools.prepend(templateSelect,applyTemplate);
  const layout=make('div','graph-layout'),viewport=make('div','graph-viewport'),world=make('div','graph-world'),lines=S('svg',{class:'graph-edges',width:2500,height:3000,viewBox:'0 0 2500 3000'}),cards=make('div','graph-nodes'),inspector=make('aside','graph-inspector');
- world.append(lines,cards);viewport.append(world);layout.append(viewport,inspector);shell.append(layout);shell.append(aiPanel);
+ world.append(lines,cards);viewport.append(world);layout.append(viewport,inspector);shell.append(layout);
  const footer=make('div','graph-footer'),counter=make('span','',''),notice=make('span','','اسحب العقد أو اضغط لتعديلها');
  // AI is a draft advisor: suggestions never mutate the graph until an explicit user command.
  const aiPanel=make('section','graph-ai-panel'),aiTitle=make('h3','','مساعد AI للمخطط');
@@ -70,6 +70,7 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
  const aiCancel=button('إلغاء المقترح',()=>clearAiProposal());aiCancel.hidden=true;
  const aiActions=make('div','graph-ai-actions');aiActions.append(aiSubmit,aiApply,aiCancel);
  aiPanel.append(aiTitle,aiDescription,aiInput,aiActions,aiStatus,aiPreview);
+ shell.append(aiPanel);
  let proposal=null,busy=false;
  function clearAiProposal(){
    proposal=null;aiPreview.replaceChildren();aiStatus.textContent='';aiApply.hidden=true;aiCancel.hidden=true;
