@@ -64,7 +64,7 @@ $body=json_encode(['candidates'=>[['finishReason'=>'STOP','content'=>['parts'=>[
 $parsed=flow_ai_extract_graph($body);
 verify_flow_source(count($parsed['nodes'])===3,'structured Gemini response parsed; thought part excluded');
 $fenced=json_encode(['candidates'=>[['finishReason'=>'STOP','content'=>['parts'=>[
-    ['text'=>"```json\\n".json_encode($proposal,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)."\\n```"]
+    ['text'=>"```json\n".json_encode($proposal,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)."\n```"]
 ]]]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
 verify_flow_source(count(flow_ai_extract_graph($fenced)['edges'])===2,'safe fenced JSON parsed');
 $truncated=json_encode(['candidates'=>[['finishReason'=>'MAX_TOKENS','content'=>['parts'=>[
