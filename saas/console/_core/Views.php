@@ -2,7 +2,13 @@
 declare(strict_types=1);
 
 function form_start(string $action,string $return='/',string $extra=''):string{
-    return '<form method="post" '.$extra.' class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="action" value="'.e($action).'"><input type="hidden" name="return" value="'.e($return).'">';
+    $attrs=trim($extra);
+    $classes='stack';
+    if(preg_match('/\\bclass="([^"]*)"/D',$attrs,$match)){
+        $classes.=' '.$match[1];
+        $attrs=(string)preg_replace('/\\s*class="[^"]*"/','',$attrs,1);
+    }
+    return '<form method="post" class="'.e(trim($classes)).'" '.trim($attrs).'><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="action" value="'.e($action).'"><input type="hidden" name="return" value="'.e($return).'">';
 }
 function field_html(string $label,string $name,string $type='text',string $placeholder='',bool $required=false):string{
     return '<label class="field">'.e($label).'<input name="'.e($name).'" type="'.e($type).'" placeholder="'.e($placeholder).'" '.($required?'required':'').' maxlength="190"></label>';
@@ -89,7 +95,9 @@ function layout_open(array $a,string $tab):void{
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     header('Cache-Control: private,no-store');
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script><script src="/saas/console/assets/js/flow-graph.js" defer></script><script src="/saas/console/assets/js/qrcode.js" defer></script><script src="/saas/console/assets/js/pairing-qr.js" defer></script></head><body>';
+    // A stale CSS/JS cache must not render new server HTML with the old layout.
+    $uiVersion=substr(hash_file('sha256',__DIR__.'/../assets/css/app.css'),0,12);
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css?v='.$uiVersion.'"><script src="/saas/console/assets/js/app.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/flow-graph.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/qrcode.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/pairing-qr.js?v='.$uiVersion.'" defer></script></head><body>';
     echo '<div class="app-shell"><aside class="sidebar" id="mainNavigation" aria-label="القائمة الرئيسية"><button type="button" class="nav-close" id="navClose" aria-label="إغلاق القائمة">×</button><a href="/saas/console/" class="brand"><span class="brand-logo">';
     if(!empty($brand['logo'])) echo '<img src="/saas/console/brand-logo" alt="">';else echo '<b>'.e(mb_substr($brand['name'],0,1)).'</b>';
     echo '</span><span class="brand-lines"><strong>'.e($brand['name']).'</strong><small>'.e($role).'</small></span></a>';
@@ -327,13 +335,13 @@ function render_agents(array $a):void{
     $map=[];foreach($sites as $s)$map[$s['id']]=$s['name'];
     $selected=selected_site($id);
     $agents=$selected?all("SELECT * FROM agents WHERE account_id=? AND site_id=? AND status!='archived' ORDER BY id DESC",[$id,$selected['id']]):[];
-    echo '<div class="section-line"><p>سيناريو كل إيجنت مستقل؛ الحفظ والنشر يتم بضغطة واحدة من داخل المحرر.</p><div class="site-picker">';
+    echo '<div class="section-line agents-toolbar"><div class="agents-heading"><span class="eyebrow">AGENT WORKSPACE</span><h2>الإيجنتات والسيناريوهات</h2><p>اختر موقعًا، افتح الإيجنت، ثم احفظ أو انشر إعداداته من محرر واحد.</p></div><div class="site-picker" aria-label="اختيار الموقع">';
     foreach($sites as $site)echo '<a class="chip-link '.($selected&&$site['id']==$selected['id']?'chosen':'').'" href="?tab=agents&site='.$site['id'].'">'.e($site['name']).'</a>';
     echo '</div></div>';
     if(!$sites){echo card('ابدأ بموقع','أنشئ موقعاً من قائمة المواقع قبل إضافة الإيجنت.');return;}
     $templateOptions=[];
     foreach(flow_template_catalog() as $key=>$tpl)$templateOptions[$key]=$tpl['category'].' — '.$tpl['title'];
-    if(allowed('agents.write'))echo '<details class="agent-create"><summary class="btn primary">+ إنشاء إيجنت</summary>'.card('إيجنت جديد',form_start('add_agent','/?tab=agents').'<div class="form-grid">'.
+    if(allowed('agents.write'))echo '<details class="agent-create"><summary class="btn primary">إنشاء إيجنت جديد</summary>'.card('إيجنت جديد',form_start('add_agent','/?tab=agents').'<div class="form-grid">'.
         field_html('اسم الإيجنت','name','text','مثال: مساعد الحجوزات',true).
         select_html('الموقع','site_id',$map).
         select_html('الصوت','voice',array_column(all("SELECT code,name FROM voices WHERE ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?) ORDER BY name",[$id]),'name','code')?:['google.aoede'=>'Aoede']).
