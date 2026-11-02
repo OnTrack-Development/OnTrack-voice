@@ -10,6 +10,7 @@ if(is_dir('/home/appontrack'))throw new RuntimeException('CI-only test; never mo
 seed_console();
 assert_voice(in_array('reception',array_keys([
     'reception'=>voice_role_scopes('reception')])), 'reception role exists');
+assert_voice(in_array('finance',voice_role_scopes('manager'),true),'manager has all read-only business categories');
 $owner=one("SELECT u.id FROM users u JOIN memberships m ON m.user_id=u.id WHERE m.account_id=4 AND m.role='owner' LIMIT 1");
 assert_voice((bool)$owner,'tenant owner exists');
 $ownerId=(int)$owner['id'];
