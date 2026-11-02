@@ -214,7 +214,14 @@ class MobileLinkActivity:ComponentActivity(){
     }
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState:Bundle?){
-        super.onCreate(savedInstanceState);ota=MobileOta(this);nativeUpdates=NativeUpdates(this)
+        super.onCreate(savedInstanceState)
+        // Retire the previous global Pilot credentials, never touch encrypted
+        // per-SIM SaaS enrollment, UI theme or native OTA installation state.
+        check(getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
+            .remove("key").remove("base").putBoolean("campaign_opt_in",false).commit()) {
+            "تعذر إنهاء اعتماد Pilot القديم؛ المكالمات متوقفة حتى تتم إزالة المفتاح"
+        }
+        ota=MobileOta(this);nativeUpdates=NativeUpdates(this)
         window.statusBarColor=Color.rgb(11,16,27);window.navigationBarColor=Color.rgb(11,16,27)
         val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(11,16,27))}
         banner=TextView(this).apply{
@@ -455,9 +462,9 @@ class MobileLinkActivity:ComponentActivity(){
                 "مفيش أي SIM مربوطة. افتح الأجهزة في حسابك وأنشئ QR واربط الشريحة الأول."
                 else results.joinToString("\n")
             AlertDialog.Builder(this@MobileLinkActivity)
-                .setTitle("اختبار جاهزية محرك الشركات")
-                .setMessage(message+"\n\nده اختبار ربط وGoogle فقط؛ مش مكالمة صوتية فعلية.")
-                .setPositiveButton("فتح إعدادات المحرك"){_,_->openConsole("settings")}
+                .setTitle("اختبار ربط الشريحة")
+                .setMessage(message+"\n\nالاختبار يثبت الربط وجاهزية الجلسة فقط؛ مش مكالمة صوتية فعلية.")
+                .setPositiveButton("فتح إعدادات الإيجنت"){_,_->openConsole("agents")}
                 .setNegativeButton("إغلاق",null).show()
             banner.text=message.take(140)
             sendState()
