@@ -405,18 +405,30 @@ function render_voice_data_sources(array $a,array $site):void {
                 form_start('voice_connector_delete',$url,'class="inline-form"').'<input type="hidden" name="connector_id" value="'.(int)$row['id'].'"><button class="btn small danger" type="submit">حذف</button></form></div>';
         }
         echo card('تكاملات القراءة', $html);
-        $users=all('SELECT id,name,phone_e164,role,status FROM voice_caller_roles WHERE account_id=? AND site_id=? ORDER BY id DESC LIMIT 40',[$id,$siteId]);
-        $html='<p class="info">تسجيل أرقام المدراء والموظفين مع صلاحيات محددة. التعرف على الرقم وحده لا يفتح بيانات حساسة؛ التحقق بالـPIN مطلوب. <strong>ربط التحقق الصوتي بالمكالمات الحية لم يُفعّل بعد.</strong></p>'.
+        $staff=all("SELECT v.id,v.phone_e164,v.status,u.name,m.role
+          FROM voice_staff_numbers v JOIN users u ON u.id=v.user_id
+          JOIN memberships m ON m.account_id=v.account_id AND m.user_id=v.user_id
+          WHERE v.account_id=? ORDER BY v.id DESC LIMIT 40",[$id]);
+        $options=[];
+        foreach(all("SELECT u.id,u.name,m.role FROM memberships m
+           JOIN users u ON u.id=m.user_id WHERE m.account_id=? AND u.status='active' ORDER BY u.name",[$id]) as $member)
+            $options[(int)$member['id']]=$member['name'].' ('.$member['role'].')';
+        $html='<p class="info">يمكن ربط أكثر من رقم بكل موظف. صلاحيات كل رقم محددة ولا تتجاوز صلاحيات الموظف في الحساب. <strong>التعرف على الرقم وحده لا يفتح بيانات حساسة؛ يلزم تحقق PIN منفصل. تفعيل DTMF داخل المكالمة لم يكتمل بعد.</strong></p>'.
             form_start('voice_caller_add',$url).
-            '<input type="hidden" name="site_id" value="'.$siteId.'">'.
-            field_html('اسم الموظف','name','text','مدير الفرع',true).
-            field_html('رقم الهاتف الدولي E.164','phone_e164','tel','+201000000000',true).
-            select_html('الدور','role',['owner'=>'صاحب الحساب','manager'=>'مدير','accountant'=>'محاسب','reception'=>'استقبال','support'=>'دعم','viewer'=>'قراءة محدودة']).
-            '<label class="field">رمز تحقق مستقل من 6 إلى 10 أرقام<input name="pin" type="password" pattern="[0-9]{6,10}" minlength="6" maxlength="10" required autocomplete="new-password"></label>'.
-            '<button class="btn primary" type="submit">إضافة رقم وصلاحيات</button></form>';
-        foreach($users as $row){
-            $html.='<div class="voice-data-row"><strong>'.e($row['name']).'</strong><span dir="ltr">'.e($row['phone_e164']).'</span><span>'.e($row['role']).'</span>'.
-                form_start('voice_caller_delete',$url,'class="inline-form"').'<input type="hidden" name="caller_id" value="'.(int)$row['id'].'"><button class="btn small danger">سحب الصلاحية</button></form></div>';
+            select_html('الموظف من فريق الحساب','user_id',$options).
+            field_html('رقم دولي E.164','phone_e164','tel','+201000000000',true).
+            '<label class="field">PIN من 6 إلى 10 أرقام<input name="pin" type="password" pattern="[0-9]{6,10}" minlength="6" maxlength="10" autocomplete="new-password" required></label>'.
+            '<fieldset><legend>صلاحيات القراءة المسموحة لهذا الرقم (لا تتجاوز دور الموظف)</legend>';
+        foreach(['general'=>'معلومات عامة','tickets'=>'التذاكر','bookings'=>'الحجوزات والمواعيد',
+            'finance'=>'المالية','websites'=>'المواقع','operations'=>'التشغيل'] as $scope=>$label)
+            $html.='<label class="field"><input type="checkbox" name="scopes[]" value="'.e($scope).'"> '.e($label).'</label>';
+        $html.='</fieldset><button class="btn primary" type="submit">حفظ الرقم وصلاحياته</button></form>';
+        foreach($staff as $row){
+            $html.='<div class="voice-data-row"><strong>'.e($row['name']).'</strong><span dir="ltr">'.e($row['phone_e164']).'</span>'.
+              '<span>'.e($row['role']).' · '.e($row['status']).'</span>';
+            if($row['status']==='active')$html.=form_start('voice_caller_delete',$url,'class="inline-form"').
+               '<input type="hidden" name="caller_id" value="'.(int)$row['id'].'"><button class="btn small danger">سحب الصلاحية</button></form>';
+            $html.='</div>';
         }
         echo card('أرقام الموظفين والأدوار',$html);
     }
