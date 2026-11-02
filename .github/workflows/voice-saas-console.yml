@@ -9,6 +9,7 @@ on:
       - 'tools/test_console_pricing_ui.php'
       - 'tools/test_flow_ai_sources.php'
       - 'tools/test_floating_flow_ui.cjs'
+      - 'tools/test_flow_ai_chat.php'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
@@ -58,6 +59,8 @@ jobs:
         run: php tools/test_tenant_workspace.php
       - name: AI flow knowledge, connector security, tenant isolation and RBAC
         run: php tools/test_flow_ai_sources.php
+      - name: Persistent AI chat history, explanation and account/user isolation
+        run: php tools/test_flow_ai_chat.php
       - name: External SSO regression in isolated second test phase
         run: |
           php tools/test_voice_sso.php
