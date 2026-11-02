@@ -763,9 +763,10 @@ function act():void {
                 wa_create_connection($id,intfield('site_id'),required('label',120),
                     required('phone_number_id',100),required('access_token',2000),
                     required('app_secret',1000),required('verify_token',200),
-                    field('whmcs_bridge_url',350),field('whmcs_bridge_token',2000),
+                    '','',
                     (int)($_POST['ai_agent_id']??0),required('waba_id',100),
-                    field('meta_app_id',100),required('graph_version',8),required('public_id',36));
+                    field('meta_app_id',100),required('graph_version',8),required('public_id',36),
+                    field('use_webhook_relay',1)==='1'?required('relay_secret',64):'');
                 $success='اتحفظ واتساب كمسودة مستقلة. اختبر Meta، وبعدها فعّل إيجنت OnTrack المنشور من نفس الصفحة.';
                 break;
             case 'wa_native_toggle':
@@ -780,12 +781,6 @@ function act():void {
                 require_once __DIR__.'/WhatsAppSupport.php';
                 $result=wa_test_meta_connection(wa_connection(intfield('connection_id'),$id));
                 $success='Meta أكد رقم الإرسال '.($result['phone_display']?:'').'. التحقق من استقبال Webhook والرد الفعلي لسه مستقل.';
-                break;
-            case 'wa_whmcs_bridge_test':
-                require_permission('agents.write');
-                require_once __DIR__.'/WhatsAppWhmcsBridge.php';
-                wa_whmcs_probe(wa_connection(intfield('connection_id'),$id));
-                $success='تم تأكيد Bridge الحقيقي لموديول WHMCS AI Support Agent ومراجعة الردود. كل رسالة تظل مرتبطة بمحادثتها وصلاحياتها.';
                 break;
             case 'wa_manual_reply':
                 require_permission('read');
