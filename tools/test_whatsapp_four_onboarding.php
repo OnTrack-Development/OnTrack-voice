@@ -92,8 +92,6 @@ try{
     $original='https://services.ontrackegy.com/modules/addons/whatsapp_notifications/webhook.php';
     $existsId=wa_create_existing_connection(4,(int)$site['id'],0,
         'Already connected WhatsApp', $original, 'legacy_verify_token_123456789',
-        '2000000000015','2000000000016','1234567890123','v26.0',
-        'example_access_token_123456789','example_app_secret_123456789',
         bin2hex(random_bytes(18)),bin2hex(random_bytes(32)));
     $ids[]=$existsId;
     $existing=wa_connection($existsId,4);
@@ -104,6 +102,45 @@ try{
     onboarding_check(!str_contains(wa_public_callback((string)$existing['public_id']),'services.ontrackegy.com'),
         'OnTrack receiver separate from previous Meta callback');
     onboarding_check((int)$existing['webhook_relay_enabled']===1,'provider relay enabled');
+    onboarding_check(str_starts_with((string)$existing['phone_number_id'],'pending_'),
+        'real Phone Number ID not asked for or invented');
+    onboarding_check(($existing['waba_id']??null)===null,'no redundant WABA ID requested');
+    onboarding_check(unseal_secret($existing['access_token_enc'])==='',
+        'no duplicate Meta access token stored');
+    onboarding_check(unseal_secret($existing['app_secret_enc'])==='',
+        'no duplicate Meta app secret stored');
+    onboarding_check($existing['state']==='draft'&&empty($existing['ai_enabled']),
+        'existing connection not falsely activated for sending');
+    $event=['version'=>1,'channel'=>'whatsapp','event'=>'message.received',
+        'phone_number_id'=>'2000000000015','message'=>[
+            'id'=>'wamid.existing_test_001','from'=>'201003334455',
+            'name'=>'عميل','text'=>'أهلاً']];
+    $bound=wa_relay_bind_existing_phone($existing,$event);
+    onboarding_check($bound['phone_number_id']==='2000000000015',
+        'first signed event identifies real phone without manual Meta fields');
+    onboarding_check($bound['state']==='relay_receiving',
+        'receiving verified independently of outbound send status');
+    $blocked=false;
+    try{wa_meta_send($bound,'201003334455','رد تجريبي',
+        static fn()=>['status'=>200,'body'=>'{"messages":[{"id":"wamid.fake"}]}']);}
+    catch(RuntimeException){$blocked=true;}
+    onboarding_check($blocked,'cannot fake outgoing message through unsupported Meta credentials');
+    ob_start();render_whatsapp(['account_id'=>4,'kind'=>'customer','role'=>'owner']);
+    $existingScreen=(string)ob_get_clean();
+    $panelStart=strpos($existingScreen,'data-wa-method-panel="existing_webhook"');
+    $panelEnd=strpos($existingScreen,'data-wa-method-panel="coexist"',$panelStart);
+    if($panelEnd===false)$panelEnd=strpos($existingScreen,'data-wa-method-panel="signup"',$panelStart);
+    onboarding_check($panelStart!==false && $panelEnd!==false,'existing panel exists independently');
+    $existingPanel=substr($existingScreen,$panelStart,$panelEnd-$panelStart);
+    foreach(['name="waba_id"','name="phone_number_id"','name="meta_app_id"',
+        'name="app_secret"','name="access_token"','name="graph_version"'] as $field){
+        onboarding_check(!str_contains($existingPanel,$field),
+            'existing panel must not request redundant field '.$field);
+    }
+    onboarding_check(str_contains($existingPanel,'name="source_callback_url"')&&
+        str_contains($existingPanel,'name="source_verify_token"'),
+        'existing webhook and verify token are the only source fields');
+
     echo "WHATSAPP_FOUR_ONBOARDING_MODES_GATES_AND_EXISTING_CALLBACK_PASS\n";
 }finally{
     foreach($ids as $cid){
