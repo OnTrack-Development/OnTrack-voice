@@ -940,7 +940,7 @@ function render_whatsapp(array $a):void {
     $id=(int)$a['account_id'];
     $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY id",[$id]);
     $connections=all('SELECT id,site_id,public_id,label,phone_number_id,state,
-        whmcs_bridge_url,last_tested_at,last_webhook_at FROM wa_connections WHERE account_id=? ORDER BY id DESC',[$id]);
+        whmcs_bridge_url,whmcs_bridge_verified_at,last_tested_at,last_webhook_at FROM wa_connections WHERE account_id=? ORDER BY id DESC',[$id]);
     $selected=(int)($_GET['conversation']??0);
     $conversation=$selected?one('SELECT * FROM wa_conversations WHERE id=? AND account_id=?',[$selected,$id]):null;
     $list=all("SELECT c.*,w.label connection_label,
@@ -1016,10 +1016,14 @@ function render_whatsapp(array $a):void {
             '<small>Callback URL (Meta)</small><code dir="ltr">'.e($webhook).'</code>'.
             '<small>الـVerify Token هو نفس اللي أدخلته أثناء الربط؛ مش بيتعرض مرة تانية.</small>'.
             '<small>Webhook: '.e((string)($conn['last_webhook_at']??'لم يتم تأكيد استقبال رسالة')).'</small>'.
-            '<small>WHMCS AI Support: '.($conn['whmcs_bridge_url']?'مُعرّف كعنوان، لم يُثبت الاستدعاء':'غير موصل بعد').'</small>'.
+            '<small>WHMCS AI Support: '.($conn['whmcs_bridge_url']?($conn['whmcs_bridge_verified_at']?'متحقق من استجابة موديول WHMCS':'مُعرّف كعنوان، لم يُثبت الاستدعاء'):'غير موصل بعد').'</small>'.
             form_start('wa_connection_test','/?tab=whatsapp','class="inline-form"').
             '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
-            '<button class="btn small" type="submit">اختبار مفتاح Meta والرقم</button></form></div>';
+            '<button class="btn small" type="submit">اختبار مفتاح Meta والرقم</button></form>'.
+            ($conn['whmcs_bridge_url']?form_start('wa_whmcs_bridge_test','/?tab=whatsapp','class="inline-form"').
+            '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
+            '<button class="btn small" type="submit">اختبار الربط مع WHMCS AI Support Agent</button></form>':'').
+            '</div>';
     }
     echo '</section><section class="card"><h3>إضافة رقم Meta Cloud API</h3>';
     if(!$sites)echo '<p>أضف موقعًا نشطًا أولًا.</p>';
