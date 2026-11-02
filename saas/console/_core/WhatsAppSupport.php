@@ -49,7 +49,8 @@ function wa_create_connection(int $accountId,int $siteId,string $label,string $p
        !preg_match('/^[0-9]{5,100}$/D',$phoneId)||
        strlen($token)<8||strlen($token)>2000||
        strlen($appSecret)<8||strlen($appSecret)>1000||
-       strlen($verifyToken)<12||strlen($verifyToken)>200)
+       strlen($verifyToken)<12||strlen($verifyToken)>200||
+       preg_match('/[\\x00-\\x1f\\x7f]/',$token.$appSecret.$verifyToken.$bridgeToken))
         throw new InvalidArgumentException('whatsapp_connection_fields_invalid');
     $bridge=wa_bridge_url($bridgeUrl);
     if(($bridge==='')!==($bridgeToken==='')||strlen($bridgeToken)>2000)
@@ -84,6 +85,24 @@ function wa_webhook_ingest(array $connection,array $payload):array {
             $value=$change['value']??null;
             if(!is_array($value)||($value['metadata']['phone_number_id']??null)!==(string)$connection['phone_number_id'])
                 continue; // fail closed on cross-connection callbacks
+            // Meta delivery receipts are distinct from send acceptance.
+            foreach((array)($value['statuses']??[]) as $status){
+                if(!is_array($status))continue;
+                $providerId=(string)($status['id']??'');
+                $state=(string)($status['status']??'');
+                if(!preg_match('/^[A-Za-z0-9._:-]{5,160}$/D',$providerId)||
+                    !in_array($state,['sent','delivered','read','failed'],true))continue;
+                $message=one("SELECT id,conversation_id,delivery_status FROM wa_messages
+                    WHERE connection_id=? AND account_id=? AND provider_message_id=? AND role IN ('staff','ai')",
+                    [(int)$connection['id'],(int)$connection['account_id'],$providerId]);
+                if(!$message)continue;
+                $ranks=['accepted'=>0,'sent'=>1,'delivered'=>2,'read'=>3,'failed'=>1];
+                $old=(string)$message['delivery_status'];
+                if(($ranks[$state]??0)>($ranks[$old]??0)){
+                    execute('UPDATE wa_messages SET delivery_status=? WHERE id=? AND account_id=?',
+                        [$state,(int)$message['id'],(int)$connection['account_id']]);
+                }
+            }
             $profiles=[];
             foreach((array)($value['contacts']??[]) as $profile){
                 if(is_array($profile)&&is_string($profile['wa_id']??null))
