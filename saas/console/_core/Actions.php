@@ -107,16 +107,19 @@ function act():void {
                 audit('voice.connector.deleted',$id,['connector_id'=>$connectorId]);break;
             case 'voice_caller_add':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
-                require_once __DIR__.'/VoiceCallerRoles.php';
-                $principal=voice_caller_add($id,intfield('site_id'),required('name',120),
-                    required('phone_e164',20),field('role',24),field('pin',10));
-                audit('voice.caller.created',$id,['principal_id'=>$principal,'role'=>field('role',24)]);
+                require_once __DIR__.'/VoiceAccess.php';
+                $scopes=$_POST['scopes']??[];
+                if(!is_array($scopes))throw new InvalidArgumentException('الصلاحيات غير صالحة');
+                $principal=voice_staff_enroll($id,intfield('user_id'),
+                    required('phone_e164',20),field('pin',10),$scopes);
+                audit('voice.staff_phone.created',$id,['principal_id'=>$principal,'user_id'=>intfield('user_id')]);
                 break;
             case 'voice_caller_delete':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceAccess.php';
                 $principal=intfield('caller_id');
-                if(execute('DELETE FROM voice_caller_roles WHERE id=? AND account_id=?',[$principal,$id])!==1)deny(404);
-                audit('voice.caller.deleted',$id,['principal_id'=>$principal]);break;
+                if(!voice_staff_revoke($id,$principal))deny(404);
+                audit('voice.staff_phone.revoked',$id,['principal_id'=>$principal]);break;
             case 'set_view':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 $view=(string)($_POST['view']??'');
