@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/VoiceAccess.php';
 
 function form_start(string $action,string $return='/',string $extra=''):string{
     $attrs=trim($extra);
@@ -81,7 +82,7 @@ function nav_entries(string $type):array{
         'staff'=>['♙','الفريق والأدوار'],'domains'=>['◎','الدومينات والبراند'],
         'sites'=>['◈','المواقع'],'agents'=>['✧','الإيجنتات'],
         'flows'=>['◇','السيناريوهات'],'answering'=>['☷','إعدادات الرد'], 'devices'=>['▣','الأجهزة'],
-        'integrations'=>['⇄','Laravel / WHMCS'],
+        'integrations'=>['⇄','التكاملات الخارجية'],
         'keys'=>['⌘','مفاتيح API'],'billing'=>['▣','الاشتراكات'],
         'releases'=>['↓','تطبيق Android'],'settings'=>['⚙','هوية الريسيلر']
     ];
@@ -319,7 +320,7 @@ function render_staff(array $a):void{
        $actions=pill($r['role']);
        if(!in_array($r['role'],['owner','admin'],true)&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
            $actions.=form_start('edit_staff','/?tab=staff','class="inline-form"').'<input type="hidden" name="user_id" value="'.$r['id'].'">'.
-                select_html('تغيير الدور','role',['manager'=>'مدير','operator'=>'مشغّل','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).'<button class="btn small primary">حفظ</button></form></details>';
+                select_html('تغيير الدور','role',['manager'=>'مدير','operator'=>'مشغّل','reception'=>'استقبال','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).'<button class="btn small primary">حفظ</button></form></details>';
            $actions.=form_start('remove_staff','/?tab=staff','class="inline-form"').'<input type="hidden" name="user_id" value="'.$r['id'].'"><button class="btn small danger" onclick="return confirm(\'إزالة الموظف من هذا الحساب؟\')">إزالة</button></form>';
        }
        $users[]=[e($r['name']),e($r['email']),$actions];
@@ -327,7 +328,7 @@ function render_staff(array $a):void{
     echo card('فريق العمل',tbl(['الاسم','البريد','الصلاحية والإدارة'],$users));
     if((($a['role']??'')==='owner'||($a['role']??'')==='admin')&&!active_support())
         echo card('دعوة موظف (تحتاج قبول صاحب البريد)',form_start('add_employee','/?tab=staff').field_html('اسم الموظف','name','text','الاسم',true).field_html('البريد الإلكتروني','email','email','staff@company.com',true).
-            select_html('الدور','role',['manager'=>'مدير','operator'=>'موظف عمليات','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).submit_btn('إنشاء دعوة بدون منح صلاحية'));
+            select_html('الدور','role',['manager'=>'مدير','operator'=>'موظف عمليات','reception'=>'استقبال','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).submit_btn('إنشاء دعوة بدون منح صلاحية'));
     $pending=all("SELECT id,email,name,role,expires_at FROM staff_invitations WHERE account_id=? AND status='pending' AND expires_at>? ORDER BY id DESC",[$id,now()]);
     $pendingRows=[];
     foreach($pending as $inv){
@@ -337,6 +338,7 @@ function render_staff(array $a):void{
         $pendingRows[]=[e($inv['name']),e($inv['email']),e($inv['role']),e($inv['expires_at']),$action];
     }
     echo card('دعوات الفريق المعلقة',tbl(['الاسم','البريد','الدور','تنتهي','الإجراء'],$pendingRows));
+    render_voice_staff_section($a,$rows);
     echo '</div>';
 }
 function render_invitations():void {
@@ -674,10 +676,10 @@ function render_integrations(array $a):void{
         tbl(['الاسم','النوع','مفتاح الاتصال','الإجراءات'],$rows));
     if(in_array($a['role'],['owner','admin'],true)&&!active_support())
       echo '<div class="cols two">'.card('إنشاء Integration',
-        form_start('new_integration','/?tab=integrations').field_html('اسم الاتصال','name','text','WHMCS Store / Laravel CRM',true).
-        select_html('المزود','provider',['whmcs'=>'WHMCS','laravel'=>'Laravel','kashier'=>'Kashier','webhook'=>'Generic Webhook']).
+        form_start('new_integration','/?tab=integrations').field_html('اسم الاتصال','name','text','WHMCS / Laravel / WordPress / نظام خارجي',true).
+        select_html('المزود','provider',['whmcs'=>'WHMCS','laravel'=>'Laravel','wordpress'=>'WordPress / WooCommerce','generic_rest'=>'نظام خارجي (REST / Webhook)','kashier'=>'Kashier','webhook'=>'Generic Webhook']).
         submit_btn('إنشاء الاتصال')).
-        card('Webhook / API','<p>المصدر Laravel أو WHMCS يرسل أحداثاً موقعة. تفعيل الخدمات يتطلب إثبات دفع على السيرفر أو موافقة مالية. حالة الربط الحي لا تعتبر مكتملة دون اختبار.</p><code>POST /saas/console/hooks/index.php</code>').'</div>';
+        card('Webhook / API','<p>مصادر WHMCS وLaravel وWordPress وأي نظام خارجي ترسل ملخصات بيانات موقّعة HMAC. موصلات WordPress والعام قراءة فقط حاليًا. تنفيذ الأوامر يتطلب أذونات صريحة وتأكيدا مستقلا؛ إضافة الاتصال لا تعني نجاح الربط الفعلي.</p><code>POST /saas/console/hooks/index.php</code>').'</div>';
 }
 function render_domains(array $a):void{
     if($a['kind']!=='reseller')deny();
@@ -756,4 +758,51 @@ function render_settings(array $a):void{
         echo card('إعدادات المستخدم','<p>اسم وشعار البرنامج متاحان من علامة الريسيلر الذي تتبع له، أو علامة OnTrack إن كنت عميلاً مباشراً.</p>');
     }
     echo '</div>';
+}
+
+
+/** Owner-managed phone roster; employee membership is mandatory and PIN is never rendered. */
+function render_voice_staff_section(array $a,array $members):void {
+    $accountId=(int)$a['account_id'];
+    $canManage=in_array($a['role'],['owner','admin'],true)&&!active_support();
+    $query="SELECT v.id,v.user_id,v.phone_e164,v.scopes_json,v.status,u.name,m.role
+        FROM voice_staff_numbers v JOIN users u ON u.id=v.user_id
+        JOIN memberships m ON m.account_id=v.account_id AND m.user_id=v.user_id
+        WHERE v.account_id=? AND v.status='active'";
+    $args=[$accountId];
+    if(!$canManage){$query.=' AND v.user_id=?';$args[]=(int)(me()['id']??0);}
+    $query.=' ORDER BY v.id DESC';
+    $numbers=all($query,$args);
+    $phoneRows=[];
+    foreach($numbers as $n){
+        $actions='';
+        if($canManage)
+            $actions=form_start('voice_staff_revoke','/?tab=staff','class="inline-form"').
+                '<input type="hidden" name="number_id" value="'.(int)$n['id'].'">'.
+                '<button type="submit" class="btn small danger">إلغاء الصلاحية</button></form>';
+        $scopes=json_decode((string)$n['scopes_json'],true);
+        $phoneRows[]=[e($n['name']),'<span dir="ltr">'.e($n['phone_e164']).'</span>',
+            e(implode('، ',is_array($scopes)?$scopes:[])),$actions];
+    }
+    echo card('الأرقام المصرح لها بالسؤال الصوتي',
+        '<p class="dim">التعرّف على الرقم لا يكفي لفتح بيانات الحساب: يجب إدخال PIN خاص عبر لوحة أرقام المكالمة بعد مطابقة الشريحة والحساب. عرض البيانات حسب دور الموظف فقط.</p>'.
+        tbl(['الموظف','رقم الهاتف','نطاق البيانات','الإجراء'],$phoneRows));
+    if(!$canManage)return;
+    $scopeLabels=['general'=>'عام','tickets'=>'التذاكر','bookings'=>'الحجوزات',
+        'finance'=>'الفواتير والحسابات','websites'=>'المواقع','operations'=>'العمليات'];
+    $body='<p class="dim">أضف أكثر من رقم للموظف حسب الحاجة. PIN من 6–10 أرقام، ويُخزَّن كـhash وليس نصًا. لن تُفتح البيانات في المكالمة قبل التحقق.</p>';
+    foreach($members as $m){
+        $role=(string)$m['role'];$scopes=voice_role_scopes($role);
+        if(!$scopes)continue;
+        $checks='';
+        foreach($scopes as $scope)$checks.='<label class="field"><input type="checkbox" name="scopes[]" value="'.e($scope).'" checked> '.e($scopeLabels[$scope]).'</label>';
+        $body.='<details class="row-rename"><summary>ربط رقم: '.e($m['name']).' — '.e($role).'</summary>'.
+            form_start('voice_staff_enroll','/?tab=staff').
+            '<input type="hidden" name="user_id" value="'.(int)$m['id'].'">'.
+            '<label class="field">رقم دولي<input name="phone" type="tel" dir="ltr" placeholder="+201012345678" maxlength="20" required></label>'.
+            '<label class="field">رمز تحقق PIN<input name="pin" type="password" inputmode="numeric" autocomplete="new-password" minlength="6" maxlength="10" pattern="[0-9]{6,10}" required></label>'.
+            '<div class="stack"><strong>البيانات المتاحة أثناء المكالمة</strong>'.$checks.'</div>'.
+            submit_btn('إضافة الرقم وتحديد الصلاحيات').'</details>';
+    }
+    echo card('إضافة أرقام الموظفين', $body);
 }
