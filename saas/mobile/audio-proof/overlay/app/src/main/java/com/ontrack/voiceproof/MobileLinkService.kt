@@ -42,6 +42,7 @@ class MobileLinkService:Service() {
         @Volatile var running=false
         @Volatile var agentEnabled=false
         @Volatile var connected=false
+        @Volatile var networkReconnecting=false
         @Volatile var serverRevision=0
         @Volatile var inCall=false
         @Volatile var callAnswered=false
@@ -69,7 +70,16 @@ class MobileLinkService:Service() {
     @Volatile private var takeoverRequested=false
     @Volatile private var pendingDesired:Boolean?=null
     @Volatile private var recoveringActiveCall=false
-    private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(connected,agentEnabled,inCall,callAnswered,humanControl)}}
+    private fun showOverlay(){
+        val live=call?.liveConnected==true
+        connected=live
+        val reconnecting=agentEnabled && (networkReconnecting ||
+            (inCall && callAnswered && !humanControl && !live))
+        main.post {
+            if(::overlay.isInitialized)
+                overlay.show(live,agentEnabled,inCall,callAnswered,humanControl,reconnecting)
+        }
+    }
     private fun notice(value:String){
         latestStatus=value
         getSystemService(NotificationManager::class.java).notify(701,notification(value))
@@ -109,8 +119,14 @@ class MobileLinkService:Service() {
             NotificationChannel("ontrack_mobile_link","OnTrack Voice",NotificationManager.IMPORTANCE_LOW))
         connectivity=getSystemService(ConnectivityManager::class.java)
         val callback=object:ConnectivityManager.NetworkCallback(){
-            override fun onAvailable(network:Network){client.connectionPool.evictAll();retryWake.trySend(Unit)}
-            override fun onLost(network:Network){connected=false;retryWake.trySend(Unit)}
+            override fun onAvailable(network:Network){
+                networkReconnecting=false
+                client.connectionPool.evictAll();retryWake.trySend(Unit);showOverlay()
+            }
+            override fun onLost(network:Network){
+                networkReconnecting=true
+                connected=false;retryWake.trySend(Unit);showOverlay()
+            }
         }
         runCatching{connectivity?.registerDefaultNetworkCallback(callback)}
             .onSuccess{networkListener=callback}
@@ -345,7 +361,7 @@ class MobileLinkService:Service() {
     /** Never continue pilot AI/telephony after any tenant SIM starts enrollment. */
     override fun onDestroy(){
         networkListener?.let{runCatching{connectivity?.unregisterNetworkCallback(it)}}
-        call?.stop();scope.cancel();running=false;connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false
+        call?.stop();scope.cancel();running=false;connected=false;networkReconnecting=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false
         overlay.remove();latestStatus="الربط متوقف"
         super.onDestroy()
     }
