@@ -79,7 +79,6 @@
   };
   openAgentFromHash();
   window.addEventListener('hashchange',openAgentFromHash);
-}
   // Consistent in-app confirmation/feedback; browser alert/confirm/prompt are
   // intentionally never used. Put the overlay inside the Fullscreen element so
   // deleting a Flow node cannot force native fullscreen to close.
