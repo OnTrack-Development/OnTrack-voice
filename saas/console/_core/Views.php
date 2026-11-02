@@ -934,26 +934,29 @@ function render_voice_staff_section(array $a,array $members):void {
 }
 
 
-/** Full tenant-isolated WhatsApp Inbox; AI answers only after the original WHMCS bridge passes verification. */
+/** Tenant-isolated WhatsApp Inbox and owner-controlled standalone OnTrack AI. */
 function render_whatsapp(array $a):void {
     require_once __DIR__.'/WhatsAppSupport.php';
     $id=(int)$a['account_id'];
     $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY id",[$id]);
-    $connections=all('SELECT id,site_id,public_id,label,phone_number_id,state,
+    $connections=all('SELECT id,site_id,public_id,label,phone_number_id,state,ai_agent_id,ai_enabled,
         whmcs_bridge_url,whmcs_bridge_verified_at,last_tested_at,last_webhook_at FROM wa_connections WHERE account_id=? ORDER BY id DESC',[$id]);
+    $agents=all("SELECT ag.id,ag.name,s.name site_name FROM agents ag
+        JOIN sites s ON s.id=ag.site_id AND s.account_id=ag.account_id
+        WHERE ag.account_id=? AND ag.status='published' AND s.status='active' ORDER BY ag.id DESC",[$id]);
     $selected=(int)($_GET['conversation']??0);
     $conversation=$selected?one('SELECT * FROM wa_conversations WHERE id=? AND account_id=?',[$selected,$id]):null;
     $list=all("SELECT c.*,w.label connection_label,
         (SELECT m.body FROM wa_messages m WHERE m.conversation_id=c.id AND m.account_id=c.account_id ORDER BY m.id DESC LIMIT 1) last_text
         FROM wa_conversations c JOIN wa_connections w ON w.id=c.connection_id AND w.account_id=c.account_id
         WHERE c.account_id=? ORDER BY c.last_message_at DESC,c.id DESC LIMIT 100",[$id]);
-    echo '<div class="section-line"><div><span class="eyebrow">OFFICIAL META CLOUD API · WHMCS AGENT CONNECTOR</span>'.
-        '<h2>WhatsApp · صندوق الوارد</h2><p>رسائل العملاء والرد البشري، مع صلاحية إيقاف AI لكل محادثة. AI الخاص بـ WHMCS لا يعمل إلا بعد تحقق ربطه الفعلي.</p></div></div>';
+    echo '<div class="section-line"><div><span class="eyebrow">OFFICIAL META CLOUD API · ONTRACK NATIVE SUPPORT</span>'.
+        '<h2>WhatsApp · صندوق الوارد</h2><p>رسائل العملاء والرد البشري والأزرار الذكية، وإيجنت OnTrack مستقل لكل قناة. WHMCS أو Laravel تكاملات اختيارية فقط.</p></div></div>';
     if($message=flash('success'))echo '<p class="info" role="status">'.e($message).'</p>';
     if($message=flash('error'))echo '<p class="info" role="alert">'.e($message).'</p>';
     echo '<div class="wa-system-status"><span><strong>قنوات Meta: </strong>'.count($connections).'</span>'.
         '<span><strong>محادثات: </strong>'.count($list).'</span>'.
-        '<span><strong>محرّك الرد: </strong>WHMCS AI Support Agent فقط · يحتاج Bridge مُثبت</span></div>';
+        '<span><strong>محرّك الرد: </strong>OnTrack AI المستقل · يتفعّل بإيجنت منشور ومفتاح منصة</span></div>';
     echo '<div class="wa-workspace"><aside class="wa-inbox-list"><div class="wa-inbox-title">المحادثات <small>آخر 100</small></div>';
     if(!$list)echo '<div class="wa-empty">مافيش محادثات واردة حتى الآن. اربط Meta وتأكد من وصول رسالة فعلية موقّعة.</div>';
     foreach($list as $conv){
@@ -977,12 +980,12 @@ function render_whatsapp(array $a):void {
         echo '<div class="wa-chat-header"><div><strong>'.e($name).'</strong><small dir="ltr">+'.e($conversation['contact']).'</small></div><div class="wa-chat-status">';
         if($locked)echo '<span class="pill bad">موظف فقط · قفل مستمر</span>';
         elseif($paused)echo '<span class="pill neutral">AI متوقف حتى '.e($conversation['ai_pause_until']).' UTC</span>';
-        else echo '<span class="pill ok">AI مسموح من حيث سياسة التوقف · الربط الخارجي مستقل</span>';
+        else echo '<span class="pill ok">AI غير متوقف بشريًا · التشغيل حسب إعدادات القناة</span>';
         echo '</div></div><div class="wa-messages" aria-label="سجل الرسائل">';
         if(!$rows)echo '<p class="wa-empty">لا توجد رسائل</p>';
         foreach($rows as $m){
             $role=in_array($m['role'],['customer','staff','ai'],true)?$m['role']:'customer';
-            $label=match($role){'staff'=>'الموظف','ai'=>'WHMCS AI',default=>'العميل'};
+            $label=match($role){'staff'=>'الموظف','ai'=>'AI Agent',default=>'العميل'};
             echo '<div class="wa-bubble wa-'.$role.'"><span class="wa-bubble-role">'.e($label).'</span>'.
                 '<div>'.nl2br(e((string)$m['body'])).'</div>'.
                 '<small>'.e((string)$m['created_at']).' UTC · '.e((string)$m['delivery_status']).'</small></div>';
@@ -1006,7 +1009,7 @@ function render_whatsapp(array $a):void {
     }
     echo '</section></div>';
     if(!allowed('agents.write'))return;
-    echo '<details class="wa-settings"><summary class="btn">إعدادات قنوات WhatsApp وWHMCS</summary>'.
+    echo '<details class="wa-settings"><summary class="btn">إعدادات قنوات WhatsApp والإيجنتات</summary>'.
         '<div class="wa-settings-grid"><section class="card"><h3>القنوات الموجودة</h3>';
     if(!$connections)echo '<p class="dim">لا توجد قناة مفعّلة.</p>';
     foreach($connections as $conn){
@@ -1016,10 +1019,16 @@ function render_whatsapp(array $a):void {
             '<small>Callback URL (Meta)</small><code dir="ltr">'.e($webhook).'</code>'.
             '<small>الـVerify Token هو نفس اللي أدخلته أثناء الربط؛ مش بيتعرض مرة تانية.</small>'.
             '<small>Webhook: '.e((string)($conn['last_webhook_at']??'لم يتم تأكيد استقبال رسالة')).'</small>'.
-            '<small>WHMCS AI Support: '.($conn['whmcs_bridge_url']?($conn['whmcs_bridge_verified_at']?'متحقق من استجابة موديول WHMCS':'مُعرّف كعنوان، لم يُثبت الاستدعاء'):'غير موصل بعد').'</small>'.
+            '<small>OnTrack AI: '.(!empty($conn['ai_agent_id'])?('إيجنت #'.(int)$conn['ai_agent_id'].' · '.(!empty($conn['ai_enabled'])?'مفعّل':'معطّل')):'بدون إيجنت · الرد اليدوي متاح').'</small>'.
+            ($conn['whmcs_bridge_url']?'<small>تكامل WHMCS الاختياري: '.($conn['whmcs_bridge_verified_at']?'مُختبر':'لم يُختبر').'</small>':'').
             form_start('wa_connection_test','/?tab=whatsapp','class="inline-form"').
             '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
             '<button class="btn small" type="submit">اختبار مفتاح Meta والرقم</button></form>'.
+            (!empty($conn['ai_agent_id'])?
+                form_start('wa_native_toggle','/?tab=whatsapp','class="inline-form"').
+                '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
+                '<input type="hidden" name="enabled" value="'.(!empty($conn['ai_enabled'])?'0':'1').'">'.
+                '<button class="btn small" type="submit">'.(!empty($conn['ai_enabled'])?'إيقاف رد OnTrack AI':'تفعيل رد OnTrack AI').'</button></form>':'').
             ($conn['whmcs_bridge_url']?form_start('wa_whmcs_bridge_test','/?tab=whatsapp','class="inline-form"').
             '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
             '<button class="btn small" type="submit">اختبار الربط مع WHMCS AI Support Agent</button></form>':'').
@@ -1029,15 +1038,18 @@ function render_whatsapp(array $a):void {
     if(!$sites)echo '<p>أضف موقعًا نشطًا أولًا.</p>';
     else {
         $map=[];foreach($sites as $site)$map[(int)$site['id']]=$site['name'];
+        $agentOptions=[0=>'بدون AI — الرد البشري فقط'];
+        foreach($agents as $agent)$agentOptions[(int)$agent['id']]=$agent['site_name'].' · '.$agent['name'];
         echo form_start('wa_connection_add','/?tab=whatsapp','class="wa-settings-form"').
             select_html('مساحة الموقع','site_id',$map).
+            select_html('إيجنت دعم OnTrack (منشور على نفس الموقع)','ai_agent_id',$agentOptions).
             field_html('اسم القناة','label','text','دعم العملاء',true).
             '<label class="field">Phone Number ID<input name="phone_number_id" inputmode="numeric" pattern="[0-9]+" required></label>'.
             '<label class="field">Meta Access Token<input name="access_token" type="password" autocomplete="new-password" required></label>'.
             '<label class="field">Meta App Secret<input name="app_secret" type="password" autocomplete="new-password" required></label>'.
             '<label class="field">Webhook Verify Token (12+ حرف)<input name="verify_token" minlength="12" type="password" autocomplete="new-password" required></label>'.
-            '<details><summary>ربط WHMCS AI Support Agent (اختياري حتى تجهيز الـBridge)</summary>'.
-            '<p class="dim">لا يتم استبدال الموديول ولا استخدام Google بدل WHMCS؛ رابط الـBridge لازم يكون تابعًا لموديول AI Support Agent الرسمي المثبت في services.ontrackegy.com.</p>'.
+            '<details><summary>تكامل خارجي قديم مع WHMCS (اختياري وغير مطلوب للتشغيل)</summary>'.
+            '<p class="dim">تكامل اختياري للحسابات القديمة فقط. إيجنت OnTrack المستقل يستخدم إعدادات AI الخاصة بالمنصة ولا يحتاج الموديول.</p>'.
             '<label class="field">رابط Endpoint<input name="whmcs_bridge_url" type="url" placeholder="https://services.ontrackegy.com/modules/addons/ai_support_agent/...php"></label>'.
             '<label class="field">Bridge Secret<input name="whmcs_bridge_token" type="password" autocomplete="new-password"></label></details>'.
             '<button class="btn primary" type="submit">حفظ الاتصال كمسودة آمنة</button></form>';
