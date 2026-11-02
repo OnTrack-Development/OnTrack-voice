@@ -499,13 +499,6 @@ function init_console_v13():void {
         auth_mode VARCHAR(25) NOT NULL,secret_enc TEXT NULL,
         status VARCHAR(20) NOT NULL,last_tested_at VARCHAR(19) NULL,
         created_at VARCHAR(19) NOT NULL)".$engine);
-    db()->exec("CREATE TABLE IF NOT EXISTS voice_caller_roles (
-        id $id,account_id $int NOT NULL,site_id $int NOT NULL,
-        phone_e164 VARCHAR(20) NOT NULL,name VARCHAR(120) NOT NULL,
-        role VARCHAR(24) NOT NULL,permissions_json TEXT NOT NULL,
-        pin_hash VARCHAR(255) NOT NULL,status VARCHAR(20) NOT NULL,
-        created_at VARCHAR(19) NOT NULL,
-        UNIQUE(account_id,phone_e164))".$engine);
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
 
