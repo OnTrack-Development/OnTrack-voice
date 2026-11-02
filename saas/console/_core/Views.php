@@ -106,7 +106,7 @@ function layout_open(array $a,string $tab):void{
     header('X-Frame-Options: DENY');
     header('Cache-Control: private,no-store');
     // A stale CSS/JS cache must not render new server HTML with the old layout.
-    $uiVersion=substr(hash_file('sha256',__DIR__.'/../assets/css/app.css'),0,12);
+    $uiVersion=substr(hash('sha256',hash_file('sha256',__DIR__.'/../assets/css/app.css').hash_file('sha256',__DIR__.'/../assets/js/app.js')),0,12);
     echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css?v='.$uiVersion.'"><script src="/saas/console/assets/js/app.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/graph-routing.js?v='.$uiVersion.'"></script><script src="/saas/console/assets/js/flow-graph.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/qrcode.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/pairing-qr.js?v='.$uiVersion.'" defer></script></head><body>';
     echo '<div class="app-shell"><aside class="sidebar" id="mainNavigation" aria-label="القائمة الرئيسية"><button type="button" class="nav-close" id="navClose" aria-label="إغلاق القائمة">×</button><a href="/saas/console/" class="brand"><span class="brand-logo">';
     if(!empty($brand['logo'])) echo '<img src="/saas/console/brand-logo" alt="">';else echo '<b>'.e(mb_substr($brand['name'],0,1)).'</b>';
@@ -135,7 +135,7 @@ function layout_open(array $a,string $tab):void{
         $backLabel=($origin['kind']??'')==='reseller'?'العودة لمساحة الريسيلر':'العودة للوحة مدير المنصة';
         echo '<div class="workspace-switcher" aria-label="تبديل مساحة العمل">'.
             '<span class="workspace-switcher-title">أنت داخل حساب عميل للدعم</span>'.
-            form_start('support_leave','','class="workspace-switch-form"').
+            form_start('support_leave','','class="workspace-switch-form" data-no-ajax="1"').
             '<button type="submit" class="workspace-switch-button">↩ '.e($backLabel).'</button></form></div>';
     }elseif(console_can_switch_view($a)){
         $to=console_view_mode($a)==='user'?'admin':'user';
@@ -143,7 +143,7 @@ function layout_open(array $a,string $tab):void{
             (($a['kind']==='reseller')?'العودة لمساحة الريسيلر':'العودة للوحة مدير المنصة');
         echo '<div class="workspace-switcher" aria-label="تبديل مساحة العمل">'.
             '<span class="workspace-switcher-title">المساحة الحالية · '.($to==='user'?'إدارة الحساب':'مساحة المستخدم').'</span>'.
-            form_start('set_view','','class="workspace-switch-form"').
+            form_start('set_view','','class="workspace-switch-form" data-no-ajax="1"').
             '<input type="hidden" name="view" value="'.e($to).'">'.
             '<button type="submit" class="workspace-switch-button">⇄ '.e($toLabel).'</button></form></div>';
     }
@@ -151,13 +151,13 @@ function layout_open(array $a,string $tab):void{
     echo '<header class="topbar"><button type="button" class="icon-button nav-toggle" id="navToggle" aria-controls="mainNavigation" aria-expanded="false" aria-label="فتح القائمة">☰</button><div class="headline"><span class="eyebrow">'.e($role).'</span><h1>'.e($heading).'</h1></div><div class="header-actions">';
     $members=memberships((int)$u['id']);
     if(count($members)>1&&!$support){
-        echo form_start('switch');$options=[];
+        echo form_start('switch','','data-no-ajax="1"');$options=[];
         foreach($members as $m)$options[$m['account_id']]=$m['name'].' · '.$m['kind'];
         echo select_html('المساحة','account_id',$options).submit_btn('تبديل');
     }
     if($support){
         $origin=account((int)($a['support_origin']??0));
-        echo form_start('support_leave','','class="inline-form workspace-return-top"').
+        echo form_start('support_leave','','class="inline-form workspace-return-top" data-no-ajax="1"').
             '<button type="submit" class="btn small primary">'.
             (($origin['kind']??'')==='reseller'?'↩ لوحة الريسيلر':'↩ لوحة المدير').
             '</button></form>';
@@ -165,7 +165,7 @@ function layout_open(array $a,string $tab):void{
         $targetView=console_view_mode($a)==='user'?'admin':'user';
         $switchText=$targetView==='user'?'مساحة المستخدم':
             (($a['kind']==='reseller')?'لوحة الريسيلر':'لوحة المدير');
-        echo form_start('set_view','','class="inline-form workspace-return-top"').
+        echo form_start('set_view','','class="inline-form workspace-return-top" data-no-ajax="1"').
             '<input type="hidden" name="view" value="'.e($targetView).'">'.
             '<button type="submit" class="btn small primary">⇄ '.e($switchText).'</button></form>';
     }
@@ -175,7 +175,7 @@ function layout_open(array $a,string $tab):void{
     echo '</div></header><main class="content">';
     $myInvites=pending_staff_invitations_for_user((int)$u['id']);
     if($myInvites && !$support)echo '<div class="alert success">لديك '.count($myInvites).' دعوة انضمام تنتظر قرارك. <a href="/saas/console/invitations">مراجعة الدعوات ←</a></div>';
-    if($support)echo '<div class="support-context"><span>حساب '.e($a['name']).' · '.(support_mode((int)($a['support_origin']??0))==='read_only'?'قراءة فقط':'صلاحيات كاملة').'</span>'.form_start('support_leave').'<button class="btn small" type="submit">العودة للوحة الإدارة</button></form></div>';
+    if($support)echo '<div class="support-context"><span>حساب '.e($a['name']).' · '.(support_mode((int)($a['support_origin']??0))==='read_only'?'قراءة فقط':'صلاحيات كاملة').'</span>'.form_start('support_leave','','data-no-ajax="1"').'<button class="btn small" type="submit">العودة للوحة الإدارة</button></form></div>';
     if($v=flash('success'))echo '<div class="alert success">'.e($v).'</div>';
     if($v=flash('error'))echo '<div class="alert danger">'.e($v).'</div>';
     if($v=flash('secret')){
