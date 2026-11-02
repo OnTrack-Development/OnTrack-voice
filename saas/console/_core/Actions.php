@@ -789,7 +789,11 @@ function act():void {
             case 'wa_manual_reply':
                 require_permission('read');
                 require_once __DIR__.'/WhatsAppSupport.php';
-                wa_manual_reply($id,intfield('conversation_id'),required('body',4096));
+                $rawButtons=trim(field('quick_replies',200));
+                $buttons=$rawButtons===''?[]:array_values(array_filter(array_map('trim',explode("\n",$rawButtons)),static fn($v)=>$v!==''));
+                if(count($buttons)>3||count(array_unique($buttons))!==count($buttons))
+                    throw new InvalidArgumentException('مسموح من زر إلى 3 أزرار مختلفة فقط');
+                wa_manual_reply($id,intfield('conversation_id'),required('body',4096),null,$buttons);
                 audit('whatsapp.staff.send',$id,['conversation_id'=>intfield('conversation_id')]);
                 $success='Meta قبل رد الموظف، وAI اتوقف 15 دقيقة لهذه المحادثة. انتظار إشعار التسليم.';
                 break;
