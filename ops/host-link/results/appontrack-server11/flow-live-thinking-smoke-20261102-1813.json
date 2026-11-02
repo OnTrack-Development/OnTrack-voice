@@ -1,0 +1,13 @@
+{
+  "job_id": "flow-live-thinking-smoke-20261102-1813",
+  "target": "appontrack-server11",
+  "job_sha256": "1362cbacc804ce2b3c158878e86b89b5633f76c3003b50a205a140102a2f1354",
+  "started_at": "2026-11-02T18:13:02.571391+00:00",
+  "status": "failed",
+  "exit_code": 2,
+  "output_truncated": false,
+  "stdout": "{\"test\":\"live_3_8_thinking\",\"ok\":false,\"error_type\":\"RuntimeException\",\"error\":\"ai_live_connection_lost\"}",
+  "stderr": "",
+  "finished_at": "2026-11-02T18:13:27.261768+00:00",
+  "duration_ms": 24690
+}
