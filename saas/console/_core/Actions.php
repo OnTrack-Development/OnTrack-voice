@@ -171,7 +171,10 @@ function act():void {
             $messages[]=['role'=>'assistant','text'=>$explanation];
             flow_ai_chat_write($id,$userId,$agentId,$messages,$graph,$chat['pending_profile']);
             echo json_encode(['ok'=>true,'graph'=>$graph,'explanation'=>$explanation,
-                'model'=>flow_ai_model(),'saved'=>false,'published'=>false],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+                'model'=>flow_ai_model(),'metrics'=>flow_ai_graph_quality($graph),
+                'stress_mode'=>flow_ai_stress_requested($description)||
+                    (is_array($current)&&count($current['nodes']??[])>=24),
+                'saved'=>false,'published'=>false],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
         }catch(Throwable $error){
             http_response_code($error instanceof InvalidArgumentException?422:503);
             echo json_encode(['ok'=>false,'error'=>$error instanceof InvalidArgumentException?
