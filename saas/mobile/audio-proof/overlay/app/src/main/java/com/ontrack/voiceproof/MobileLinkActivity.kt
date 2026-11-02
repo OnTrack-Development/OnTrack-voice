@@ -493,6 +493,28 @@ class MobileLinkActivity:ComponentActivity(){
             }
         }
     }
+    private fun testTenantReadiness(){
+        lifecycleScope.launch {
+            banner.text="بنفحص ربط الشرائح والـFlow وجلسة Google Live من غير إجراء مكالمة..."
+            banner.visibility=View.VISIBLE
+            val results=withContext(Dispatchers.IO){
+                (0..1).filter{tenantEnrollment.paired(it)}.map{slot->
+                    try{tenantEnrollment.testReadiness(slot)}
+                    catch(t:Exception){"SIM ${slot+1}: "+(t.message?:"فشل اختبار الجاهزية")}
+                }
+            }
+            val message=if(results.isEmpty())
+                "مفيش أي SIM مربوطة. افتح الأجهزة في حسابك وأنشئ QR واربط الشريحة الأول."
+                else results.joinToString("\n")
+            AlertDialog.Builder(this@MobileLinkActivity)
+                .setTitle("اختبار جاهزية محرك الشركات")
+                .setMessage(message+"\n\nده اختبار ربط وGoogle فقط؛ مش مكالمة صوتية فعلية.")
+                .setPositiveButton("فتح إعدادات المحرك"){_,_->openConsole("settings")}
+                .setNegativeButton("إغلاق",null).show()
+            banner.text=message.take(140)
+            sendState()
+        }
+    }
     private fun showTenantPairDialog(slot:Int,initialCode:String) {
         if(tenantEnrollment.paired(slot)) {
             banner.text="SIM ${slot+1} مربوطة بالفعل. افصلها أولًا قبل ربط حساب آخر."
@@ -743,6 +765,7 @@ class MobileLinkActivity:ComponentActivity(){
                     "tenantMenu" -> showTenantMenu()
                     "tenantQrScan" -> scanTenantQr()
                     "tenantRefresh" -> requestTenantStatusRefresh()
+                    "tenantTest" -> testTenantReadiness()
                     "copyKey" -> copyPilotKey()
                     "ready"->{ready=true;requestTenantStatusRefresh();withContext(Dispatchers.IO){ota.confirm()};banner.text="الواجهة جاهزة • OTA ${ota.revision}";sendState()
                         web.postDelayed({splash?.hide();banner.visibility=View.GONE},550)

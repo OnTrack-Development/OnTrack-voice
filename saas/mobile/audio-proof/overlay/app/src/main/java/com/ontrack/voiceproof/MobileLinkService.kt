@@ -453,8 +453,9 @@ class MobileLinkService:Service() {
                             ringingAt=0L;startedAt=0L
                         }
                         inCall=false;callAnswered=false
-                        connected=true
-                        if(lastState!=TelephonyManager.CALL_STATE_IDLE)notice("محرك الشركات بانتظار مكالمة جديدة")
+                        // Running a monitor is not an authenticated voice connection.
+                        connected=false
+                        if(lastState!=TelephonyManager.CALL_STATE_IDLE)notice("مراقب الشرائح جاهز؛ اختبر Google والـFlow قبل المكالمة")
                         lastState=TelephonyManager.CALL_STATE_IDLE
                         delay(750);continue
                     }

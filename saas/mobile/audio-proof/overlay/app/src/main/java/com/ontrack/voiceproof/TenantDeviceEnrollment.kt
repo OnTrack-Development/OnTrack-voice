@@ -71,8 +71,22 @@ class TenantDeviceEnrollment(private val context: Context) {
         client.newCall(req).execute().use { response ->
             val raw=response.body?.string().orEmpty()
             check(raw.length<=maxResponse) { "استجابة السيرفر غير صالحة" }
-            if(response.code==401)throw SecurityException("تم إلغاء صلاحية ربط الشريحة")
-            check(response.isSuccessful) { "السيرفر رفض الطلب HTTP ${response.code}" }
+            val error=runCatching{JSONObject(raw).optString("error","")}.getOrDefault("")
+            if(response.code==401)throw SecurityException("تسجيل ربط الشريحة اتلغى أو انتهت صلاحيته. افصل الشريحة وأعد الربط.")
+            if(!response.isSuccessful){
+                val message=when(error){
+                    "device_pairing_expired_or_used"->"رمز QR منتهي أو اتستخدم قبل كده؛ أنشئ رمز جديد من أجهزة الحساب."
+                    "device_pairing_slot_mismatch"->"QR ده لشريحة مختلفة؛ تأكد من SIM 1 أو SIM 2."
+                    "sim_slot_already_paired"->"الشريحة مربوطة بحساب آخر؛ لازم تفصل الربط القديم من لوحة الأجهزة."
+                    "agent_flow_not_published"->"انشر Flow للإيجنت أولًا قبل تجربة المحرك."
+                    "tenant_voice_not_launched"->"محرك الصوت الجديد غير مفعّل على الخادم بعد."
+                    "voice_provider_not_configured"->"Google Live غير متصل؛ راجع إعدادات المزوّد في لوحة الأدمن."
+                    "voice_provider_unavailable"->"Google Live لم يصدر جلسة صوت حاليًا؛ تحقق من صلاحيات Live والموديل."
+                    "database_error"->"قاعدة بيانات الربط غير متاحة؛ راجع سجل السيرفر."
+                    else->"السيرفر أعاد HTTP ${response.code} ${error.take(80)}"
+                }
+                error(message)
+            }
             val data=JSONObject(raw)
             check(data.optBoolean("ok")) { "السيرفر رفض عملية الربط" }
             return data
@@ -169,6 +183,23 @@ class TenantDeviceEnrollment(private val context: Context) {
             "بيانات جلسة الصوت لا تطابق اعتماد الشريحة؛ رفض الاتصال"
         }
         return session
+    }
+    /** Dry-run for binding + immutable published Flow + ephemeral Gemini session.
+     * No GSM call, audio capture, or legacy pilot session is performed.
+     */
+    fun testReadiness(slot:Int):String {
+        val profile=heartbeat(slot)
+        val who=profile.optString("agent_name","الإيجنت")
+        check(profile.optBoolean("flow_ready",false)){
+            "SIM ${slot+1}: الربط صحيح لكن ${who} ليس له Flow منشور"
+        }
+        val flow=publishedFlow(slot)
+        val revision=flow.getInt("revision")
+        val session=voiceSession(slot,flow)
+        check(session.getString("token").startsWith("auth_tokens/")){
+            "Google Live لم يرجع رمز جلسة سليم"
+        }
+        return "SIM ${slot+1}: ربط الجهاز سليم • Flow v${revision} منشور • Google Live أصدر جلسة مؤقتة. لم تُجرَ مكالمة GSM بعد."
     }
     fun disconnect(slot:Int) {
         val saved=local(slot)

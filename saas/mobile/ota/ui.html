@@ -146,6 +146,7 @@ body.light .callQuickActions button.outline{background:#fafafa}
 <div class="row"><button type="button" id="tenantMenu" class="primary">إدارة الشرائح</button><button type="button" id="tenantQr" class="outline">مسح QR</button></div>
 <div class="row"><button type="button" id="openConsole" class="outline">فتح لوحة الموقع</button><button type="button" id="openScenario" class="outline">Agent Flow</button></div>
 <div class="row"><button type="button" id="openAnswerSettings" class="outline">إعدادات الرد واللغة</button></div>
+<div class="row"><button type="button" id="tenantTest" class="outline">اختبار ربط الشريحة وGoogle Live</button></div>
 <button type="button" id="tenantRefresh" class="subtle-button">تحديث حالة الشرائح</button>
 </section>
 <section class="card" id="versionUpdates" data-panel="settings">
@@ -303,6 +304,7 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('tenantMenu').disabled=!tenantOk||call;
  el('tenantQr').disabled=!tenantOk||call;
  el('tenantRefresh').disabled=!tenantOk;
+ el('tenantTest').disabled=Number(s.nativeCode)<26;
  el('tenantSim1').textContent=tenantOk?(s.tenantSim1||'جاري التحقق…'):'حدّث Android لعرض حالة الشريحة';
  el('tenantSim2').textContent=tenantOk?(s.tenantSim2||'جاري التحقق…'):'حدّث Android لعرض حالة الشريحة';
  el('tenantStateBadge').textContent=tenantOk?(s.tenantLinked?'شرائح مرتبطة · الصوت غير مفعّل':'الشرائح غير مربوطة'):'يتطلب Android 0.3.3';
@@ -358,6 +360,7 @@ el('openScenario').onclick=()=>send('openScenario');
 el('tenantMenu').onclick=()=>send('tenantMenu');
 el('tenantQr').onclick=()=>send('tenantQrScan');
 el('tenantRefresh').onclick=()=>send('tenantRefresh');
+el('tenantTest').onclick=()=>send('tenantTest');
 el('openAnswerSettings').onclick=()=>send('openAnswerSettings');
 el('wifiFreeConsent').onchange=()=>{el('wifiFreeToggle').disabled=!!last.inCall||(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)};
 el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)return;send(last.wifiFreeEnabled?'wifiFreeDisable':'wifiFreeEnable')};
