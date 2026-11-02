@@ -476,3 +476,26 @@ body.graph-editor-maximized{overflow:hidden}
 .ot-ajax-loading .content{opacity:.7;transition:opacity .16s ease}
 @media(max-width:620px){.ot-confirm-dialog{padding:21px}.ot-confirm-actions .btn{flex:1}
  .ot-ui-toast{bottom:90px;inset-inline-start:12px;width:calc(100% - 24px)}}
+
+
+/* Goal-driven Agent Studio: no forced flow graph layout. */
+.agent-studio-banner{padding:18px 22px;border-radius:18px;border:1px solid var(--border);
+ background:var(--panel2);margin:16px 0 24px;line-height:1.85}
+.agent-studio-banner strong{display:block;font-size:16px;margin-bottom:5px}
+.agent-studio-banner p{color:var(--muted);font-size:13px;max-width:850px}
+.agent-studio-section{padding:18px;border:1px solid var(--border);background:var(--panel2);
+ border-radius:16px;margin:14px 0}
+.agent-studio-section-title{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:14px}
+.agent-studio-section-title strong{font-size:15px}
+.agent-studio-section-title small{color:var(--muted);font-size:11px}
+.agent-studio-capabilities{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.agent-studio-capability{display:flex;align-items:flex-start;gap:11px;cursor:pointer;
+ background:var(--panel);border:1px solid var(--border);padding:14px;border-radius:13px}
+.agent-studio-capability input{flex-shrink:0;accent-color:#e23a53;margin-top:4px}
+.agent-studio-capability span{display:flex;flex-direction:column;gap:5px}
+.agent-studio-capability strong{font-size:12px}
+.agent-studio-capability small{color:var(--muted);font-size:11px;line-height:1.6}
+.agent-studio-status{color:var(--muted);font-size:12px;align-self:center}
+.agent-studio-form textarea,.agent-studio-form-create textarea{resize:vertical}
+@media(max-width:700px){.agent-studio-section-title{align-items:flex-start;flex-direction:column}
+ .agent-studio-banner{padding:15px}.agent-studio-section{padding:13px}}
