@@ -10,7 +10,7 @@ function tenant_voice_definition(array $binding):array {
     $accountId=(int)$binding['account_id'];$siteId=(int)$binding['site_id'];$agentId=(int)$binding['agent_id'];
     $flow=published_agent_flow($accountId,$siteId,$agentId);
     if(!$flow)throw new InvalidArgumentException('agent_flow_not_published');
-    $nameRow=one("SELECT name FROM agents WHERE id=? AND account_id=? AND site_id=? AND status='published'",
+    $nameRow=one("SELECT name FROM agents WHERE id=? AND account_id=? AND site_id=?",
         [$agentId,$accountId,$siteId]);
     if(!$nameRow || trim((string)$nameRow['name'])==='')throw new InvalidArgumentException('agent_name_unavailable');
     $agentName=mb_substr(trim((string)$nameRow['name']),0,120);
