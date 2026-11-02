@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/../saas/console/database/Seed.php';
 require_once __DIR__.'/../saas/console/_core/WhatsAppOnboarding.php';
+require_once __DIR__.'/../saas/console/_core/Views.php';
 function onboarding_check(bool $pass,string $reason):void {
     if(!$pass)throw new RuntimeException('WA_FOUR_METHODS_FAIL: '.$reason);
 }
@@ -25,6 +26,21 @@ try{
     $cfg=wa_platform_onboarding();
     onboarding_check(wa_onboarding_ready($cfg,'signup'),'admin-enabled Embedded Signup shown');
     onboarding_check(!wa_onboarding_ready($cfg,'coexist'),'disabled Coexistence hidden');
+    $member=one("SELECT user_id FROM memberships WHERE account_id=4 AND role='owner' LIMIT 1");
+    onboarding_check($member!==null,'tenant owner can open onboarding');
+    $_SESSION=['uid'=>(int)$member['user_id'],'account_id'=>4];
+    $_GET=['tab'=>'whatsapp'];
+    ob_start();render_whatsapp(['account_id'=>4,'kind'=>'customer','role'=>'owner']);
+    $html=(string)ob_get_clean();
+    onboarding_check(str_contains($html,'data-wa-method="meta_direct"'),'direct Meta mode shown');
+    onboarding_check(str_contains($html,'data-wa-method="existing_webhook"'),'previously connected mode shown');
+    onboarding_check(str_contains($html,'data-wa-method="signup"'),'enabled signup mode shown');
+    onboarding_check(!str_contains($html,'data-wa-method="coexist"'),'disabled coexist hidden');
+    onboarding_check(str_contains($html,'https://business.facebook.com/settings/system-users'),
+        'access token field includes direct Meta help link');
+    onboarding_check(str_contains($html,'https://developers.facebook.com/apps/'),
+        'App ID and App Secret source links present');
+    onboarding_check(str_contains($html,'wa-existing-receiver'),'existing callback preserved with separate OnTrack relay');
     $blocked=false;
     try{wa_onboarding_finish(4,(int)$site['id'],0,'coexist',
         'meta_demo_auth_code_123','2000000000012','2000000000013');}
@@ -67,6 +83,12 @@ try{
     ]);
     onboarding_check(!wa_onboarding_ready(wa_platform_onboarding(),'signup'),'admin hides signup');
     onboarding_check(wa_onboarding_ready(wa_platform_onboarding(),'coexist'),'coexist only enabled');
+    ob_start();render_whatsapp(['account_id'=>4,'kind'=>'customer','role'=>'owner']);
+    $coexistMarkup=(string)ob_get_clean();
+    onboarding_check(!str_contains($coexistMarkup,'data-wa-method="signup"'),
+        'admin-disabled signup disappears from client');
+    onboarding_check(str_contains($coexistMarkup,'data-wa-method="coexist"'),
+        'admin-enabled coexist appears for client');
     $original='https://services.ontrackegy.com/modules/addons/whatsapp_notifications/webhook.php';
     $existsId=wa_create_existing_connection(4,(int)$site['id'],0,
         'Already connected WhatsApp', $original, 'legacy_verify_token_123456789',
