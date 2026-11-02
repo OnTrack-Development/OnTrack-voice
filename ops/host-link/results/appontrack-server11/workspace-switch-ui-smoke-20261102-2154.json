@@ -1,0 +1,13 @@
+{
+  "job_id": "workspace-switch-ui-smoke-20261102-2154",
+  "target": "appontrack-server11",
+  "job_sha256": "d642b0d6d3db93f45e7053dd0c55b376aa12f110106d433e4f1e2ebe9b2a35b4",
+  "started_at": "2026-11-02T21:54:03.175388+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\":\"checked\",\"ui\":{\"platform\":{\"preview\":true,\"back_button\":true,\"switch_action\":true,\"admin_accounts_hidden\":true,\"admin_nav_restored\":true,\"enter_user_button\":true},\"reseller\":{\"preview\":true,\"back_button\":true,\"switch_action\":true,\"admin_accounts_hidden\":true,\"admin_nav_restored\":true,\"enter_user_button\":true}}}",
+  "stderr": "",
+  "finished_at": "2026-11-02T21:54:03.249640+00:00",
+  "duration_ms": 74
+}
