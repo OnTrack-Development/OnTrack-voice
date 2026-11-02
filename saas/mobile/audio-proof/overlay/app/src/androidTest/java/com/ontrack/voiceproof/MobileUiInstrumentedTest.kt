@@ -36,17 +36,19 @@ class MobileUiInstrumentedTest {
     }
     @Test fun localMainDocumentRendersAndNativeBridgeInitializes(){
         val context=InstrumentationRegistry.getInstrumentation().targetContext
-        val fake="instrumentation_only_key_12345678"
-        context.getSharedPreferences("ontrack_link",0).edit().putString("base","https://app.ontrackegy.com/").putString("key",fake).commit()
-        // Model the failed0.1.6 OTA remembered on the owner phone.
+        // The customer workspace now relies only on the encrypted per-SIM SaaS
+        // enrollment. The legacy Pilot API key must not be entered or displayed.
+        // Model the failed 0.1.6 OTA remembered on the owner phone.
         val cache=File(context.filesDir,"mobile-ota").apply{mkdirs()}
         File(cache,"state.json").writeText("{\"highest\":3,\"rejected\":3,\"pending\":false}")
         ActivityScenario.launch(MobileLinkActivity::class.java).use{scenario->
-            await(scenario,"document.title==='OnTrack Voice' && document.getElementById('key')?.value==='instrumentation_only_key_12345678'")
+            await(scenario,"document.title==='OnTrack Voice' && document.getElementById('tenantWorkspaceSlot')!==null && document.getElementById('key')===null && typeof window.onTrackState==='function'")
             scenario.onActivity{activity->assertTrue(find(activity.findViewById(android.R.id.content))!!.url!!.startsWith("https://ontrack-ui.invalid/ui/"))}
-            // No actual call or real connection key: test only visible local UI.
-            js(scenario,"document.getElementById('key').value='bad';document.getElementById('enable').disabled=false;document.getElementById('enable').click();true")
-            await(scenario,"document.getElementById('message').textContent.length>0")
+            // No SIM enrollment in this emulator: the UI must block enable
+            // without ever asking for a Pilot key or attempting a real call.
+            js(scenario,"document.getElementById('enable').disabled=false;document.getElementById('enable').click();true")
+            await(scenario,"document.getElementById('message').textContent.includes('SIM')")
+            assertEquals("true",js(scenario,"!document.getElementById('key') && !document.getElementById('copyKey') && !document.getElementById('pair')"))
             assertFalse(MobileLinkService.running)
             val state=JSONObject(File(cache,"state.json").readText())
             assertEquals(context.packageManager.getPackageInfo(context.packageName,0).longVersionCode,state.getLong("native_version"))
