@@ -20,6 +20,11 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: e55445583c487c1f2698aee4043eb4575e5714f5
+          persist-credentials: false
+      - name: Confirm source pinned to tested owner UX revision
+        run: test "$(git rev-parse HEAD)" = "e55445583c487c1f2698aee4043eb4575e5714f5"
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -34,7 +39,7 @@ jobs:
         run: python3 tools/test_mobile_ui_contract.py
       - name: Sign only HTML/CSS/JS OTA with pinned original APK certificate
         run: |
-          python3 tools/prepare_mobile_ota.py .build/artifact/ota
+          GITHUB_SHA=e55445583c487c1f2698aee4043eb4575e5714f5 python3 tools/prepare_mobile_ota.py .build/artifact/ota
           java tools/SignMobileOta.java "$HOME/.android/debug.keystore" .build/artifact/ota
           python3 -c "import sys;sys.path.insert(0,'tools');from queue_mobile_ota import verify;from pathlib import Path;verify(Path('.build/artifact/ota'));print('SIGNED UI OTA VERIFIED')"
       - name: Upload signed UI-only artifact (no APK)
