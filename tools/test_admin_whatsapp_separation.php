@@ -43,6 +43,9 @@ foreach($cases as $role=>$info){
         check_admin_wa(str_contains($settings,'wa_platform_onboarding_save'),'Meta controls rendered only admin');
         check_admin_wa(str_contains($settings,'Embedded Signup v4 Configuration ID'),'Embedded config rendered');
         check_admin_wa(str_contains($settings,'Coexistence Configuration ID'),'Coexistence config rendered');
+        check_admin_wa(str_contains($settings,'Login with the JavaScript SDK'),'missing JSSDK toggle guidance');
+        check_admin_wa(str_contains($settings,'Allowed Domains for the JavaScript SDK'),'missing JS domain allowlist guidance');
+        check_admin_wa(str_contains($settings,'app.ontrackegy.com'),'correct OnTrack JS SDK domain');
         check_admin_wa(!str_contains($settings,'wa_connection_add'),'no user phone registration in admin page');
         ob_start();render_settings($a);$regular=(string)ob_get_clean();
         check_admin_wa(str_contains($regular,'?tab=whatsapp_admin'),'platform settings links to dedicated tab');
