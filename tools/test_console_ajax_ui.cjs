@@ -29,6 +29,8 @@ for(const marker of [
   "payload.current_graph_read===true",
   "aiModel.textContent=payload.model",
 ])assert(flow.includes(marker),'Missing flow continuity/async save behavior: '+marker);
+assert(app.includes("'switch','set_view','support_enter'"),'Role switching must bypass AJAX');
+assert(views.includes('data-no-ajax="1"'),'Role switch forms must force native full-page navigation');
 for(const marker of ["HTTP_X_REQUESTED_WITH", "json_encode(['ok'=>true,'message'","json_encode(['ok'=>false,'error'"])
   assert(php.includes(marker),'Missing AJAX server response '+marker);
 assert(!/\b(?:alert|confirm|prompt)\s*\(/.test(flow),'No browser modal in Flow Builder');
