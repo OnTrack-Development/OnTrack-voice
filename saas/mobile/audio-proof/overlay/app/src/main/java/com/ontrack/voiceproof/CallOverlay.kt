@@ -241,6 +241,7 @@ internal class CallOverlay(private val context: Context) {
         }
     }
     private var lastReady=false
+    private var lastReconnecting=false
     private var lastEnabled=false
     private var lastCall=false
     private var lastAnswered=false
@@ -258,7 +259,7 @@ internal class CallOverlay(private val context: Context) {
             if(powerOn)red else green,true){
             serviceAction(if(powerOn)MobileLinkService.ACTION_DISABLE else MobileLinkService.ACTION_ENABLE)
         }
-        val model=overlayUiModel(lastReady,lastEnabled,lastCall,lastAnswered,lastHuman)
+        val model=overlayUiModel(lastReady,lastEnabled,lastCall,lastAnswered,lastHuman,lastReconnecting)
         val canTake=model.canTakeover
         val handoff=iconTile("person",
             model.takeoverTitle,model.takeoverHint,if(canTake)green else gray,canTake){
@@ -280,15 +281,19 @@ internal class CallOverlay(private val context: Context) {
         add(first,power,false);add(first,handoff,true)
         add(second,audio,false);add(second,home,true)
     }
-    fun show(serviceReady:Boolean,enabled:Boolean,inCall:Boolean,answered:Boolean,human:Boolean){
+    fun show(serviceReady:Boolean,enabled:Boolean,inCall:Boolean,answered:Boolean,human:Boolean,reconnecting:Boolean=false){
         if(!allowed()){remove();return}
         if(root!=null&&themeLight()!=lightTheme)remove()
         if(root==null)attach()
         val ready=serviceReady
-        lastReady=ready;lastEnabled=enabled;lastCall=inCall
+        lastReady=ready;lastEnabled=enabled;lastCall=inCall;lastReconnecting=reconnecting
         lastAnswered=answered;lastHuman=human
-        val model=overlayUiModel(ready,enabled,inCall,answered,human)
-        val color=if(model.running)green else red
+        val model=overlayUiModel(ready,enabled,inCall,answered,human,reconnecting)
+        val color=when(model.indicator){
+            OverlayIndicator.GREEN->green
+            OverlayIndicator.RED->red
+            OverlayIndicator.GRAY->gray
+        }
         val changed=color!=currentColor
         currentColor=color
         orb?.background=shape(color,60,if(lightTheme)white else black,2)
@@ -300,7 +305,7 @@ internal class CallOverlay(private val context: Context) {
         }
         if(expand){
             // Only rebuild controls on real state changes; preserve focus and avoid UI flicker.
-            val token="$ready:$enabled:$inCall:$answered:$human:$lightTheme"
+            val token="$ready:$enabled:$inCall:$answered:$human:$reconnecting:$lightTheme"
             if(token!=renderedToken||changed){renderedToken=token;renderActions()}
         }
     }
