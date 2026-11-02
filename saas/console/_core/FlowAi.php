@@ -58,7 +58,10 @@ function flow_ai_extract_graph(string $providerBody):array {
 
 /** Display the effective model, not just a hardcoded default label. */
 function flow_ai_model():string {
-    $model=flow_ai_model();
+    $model=trim((string)getenv('ONTRACK_GEMINI_FLOW_MODEL'));
+    if($model==='')$model='gemini-3.5-flash-lite';
+    if(!preg_match('/\\A[A-Za-z0-9._-]{5,100}\\z/D',$model))
+        throw new RuntimeException('ai_flow_model_invalid');
     return $model;
 }
 
@@ -70,10 +73,7 @@ function flow_ai_generate(int $accountId,int $agentId,string $idea,array $histor
     if(!$agent)throw new InvalidArgumentException('agent_not_available');
     // Only administrator's existing platform provider credential, never Pilot or tenant keys.
     $provider=tenant_voice_provider();
-    $model=trim((string)getenv('ONTRACK_GEMINI_FLOW_MODEL'));
-    if($model==='')$model='gemini-3.5-flash-lite';
-    if(!preg_match('/\\A[A-Za-z0-9._-]{5,100}\\z/D',$model))
-        throw new RuntimeException('ai_flow_model_invalid');
+    $model=flow_ai_model();
     $instruction=<<<'PROMPT'
 You are a graph designer for an Egyptian Arabic telephone AI agent. Return only a JSON object
 with keys "nodes" and "edges". Each node has id, type, text, x, y. Each edge has from, to, label.
