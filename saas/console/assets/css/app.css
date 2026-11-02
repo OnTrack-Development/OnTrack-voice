@@ -499,3 +499,24 @@ body.graph-editor-maximized{overflow:hidden}
 .agent-studio-form textarea,.agent-studio-form-create textarea{resize:vertical}
 @media(max-width:700px){.agent-studio-section-title{align-items:flex-start;flex-direction:column}
  .agent-studio-banner{padding:15px}.agent-studio-section{padding:13px}}
+
+/* Full Visual Builder + Agent Studio panel layout. */
+.agent-builder-tabs{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 13px;
+ padding:8px;border:1px solid var(--border);border-radius:15px;background:var(--panel2)}
+.agent-builder-tab{border:1px solid transparent;background:transparent;color:var(--muted);
+ padding:10px 13px;border-radius:11px;cursor:pointer;font:inherit;font-size:12px;transition:.2s ease}
+.agent-builder-tab.active,.agent-builder-tab[aria-selected="true"]{border-color:var(--border);
+ color:var(--text);background:var(--panel);box-shadow:0 6px 20px #0002}
+.agent-builder-pane[hidden]{display:none!important}
+.agent-builder-pane[data-builder-pane="visual"]{min-height:570px}
+.agent-builder-intro{padding:12px 16px;background:var(--panel2);border-radius:12px;margin-bottom:10px}
+.agent-builder-intro strong{font-size:14px}
+.agent-builder-intro p{font-size:12px;color:var(--muted);line-height:1.7;margin-top:5px}
+.graph-ai-profile-preview{border:1px solid var(--border);border-radius:12px;
+ background:var(--panel2);padding:12px;display:grid;gap:9px}
+.graph-ai-profile-preview strong{font-size:13px}
+.graph-ai-profile-preview p{font-size:11px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
+.graph-ai-mode{width:100%;border:1px solid var(--border);border-radius:9px;
+ color:var(--text);background:var(--panel2);padding:9px;font:inherit;font-size:12px}
+@media(max-width:700px){.agent-builder-tabs{gap:4px;padding:5px}
+ .agent-builder-tab{flex:1 1 44%;padding:9px 5px;font-size:11px}}
