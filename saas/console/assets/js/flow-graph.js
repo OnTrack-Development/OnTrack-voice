@@ -4,7 +4,9 @@ const TYPES={start:'بداية',say:'رسالة',listen:'استماع',ask:'سؤ
 const NS='http://www.w3.org/2000/svg';
 const make=(tag,cls,value)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined)e.textContent=value;return e};
 const S=(tag,attrs)=>{const e=document.createElementNS(NS,tag);Object.entries(attrs||{}).forEach(([k,v])=>e.setAttribute(k,String(v)));return e};
-document.querySelectorAll('[data-flow-editor]').forEach(root=>{
+const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-editor]').forEach(root=>{
+ if(root.dataset.otFlowMounted==='1')return;
+ root.dataset.otFlowMounted='1';
  const source=root.querySelector('[name=flow_json]');if(!source)return;
  let data;try{data=JSON.parse(source.value)}catch{data={nodes:[],edges:[]}};
  if(!Array.isArray(data.nodes))data.nodes=[];if(!Array.isArray(data.edges))data.edges=[];
@@ -387,6 +389,38 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
  viewport.addEventListener('wheel',evt=>{if(!evt.ctrlKey)return;evt.preventDefault();scale=Math.max(.4,Math.min(1.5,scale+(evt.deltaY<0?.08:-.08)));transform()},{passive:false});
  source.addEventListener('change',()=>{if(source.hidden)return;try{const value=JSON.parse(source.value);if(!Array.isArray(value.nodes)||!Array.isArray(value.edges))throw Error();data=value;render()}catch{window.ontrackToast('JSON غير صالح',{error:true})}});
  if(!data.nodes.length){data.nodes=[{id:'start',type:'start',text:'أهلاً بك',x:1000,y:100},{id:'end',type:'end',text:'شكراً لتواصلك',x:1000,y:350}];data.edges=[{from:'start',to:'end',label:''}]}
- arrange();root.closest('form')?.addEventListener('submit',store);
+ arrange();
+ const editorForm=root.closest('form');
+ if(editorForm)editorForm.addEventListener('submit',async event=>{
+   event.preventDefault();event.stopPropagation();
+   if(editorForm.dataset.otSaving==='1')return;
+   store();
+   const publishNow=event.submitter?.name==='publish_now';
+   if(publishNow){
+     const accepted=await window.ontrackConfirm('نشر هذه النسخة سيفعّل المخطط للمكالمات عند المزامنة. حفظ المسودة منفصل.',{
+       title:'نشر السيناريو',confirmText:'نشر المخطط'});
+     if(!accepted)return;
+   }
+   const submitter=event.submitter;
+   editorForm.dataset.otSaving='1';if(submitter)submitter.disabled=true;
+   try{
+     const fields=new FormData(editorForm);
+     if(publishNow)fields.set('publish_now','1');else fields.delete('publish_now');
+     const response=await fetch(editorForm.action||location.pathname,{
+       method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
+       headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},body:fields
+     });
+     const result=await response.json();
+     if(!response.ok||result.ok!==true)throw Error(result.error||'تعذر حفظ السيناريو');
+     notice.textContent=result.message||(publishNow?'تم النشر':'تم حفظ المسودة');
+     window.ontrackToast(notice.textContent);
+     // No navigation: preserve zoom, fullscreen and the assistant conversation.
+   }catch(error){
+     notice.textContent=error.message||'تعذر حفظ السيناريو';
+     window.ontrackToast(notice.textContent,{error:true});
+   }finally{delete editorForm.dataset.otSaving;if(submitter)submitter.disabled=false}
+ });
 });
+window.ontrackMountFlowEditors=mountFlowEditors;
+mountFlowEditors();
 })();
