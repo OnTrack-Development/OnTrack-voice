@@ -31,6 +31,21 @@ try{
     $explanation=flow_ai_explain_graph($graph);
     chat_check(str_contains($explanation,'البداية'),'explains start');
     chat_check(str_contains($explanation,'استضافة')&&str_contains($explanation,'دومين'),'explains both branches');
+    chat_check(str_contains($explanation,'المسار الافتراضي'),'explains fallback route');
+    $extended=$graph;
+    foreach($extended['nodes'] as &$node){
+        if($node['id']==='hosting'){$node['type']='knowledge_lookup';break;}
+    }
+    unset($node);
+    $expandedExplanation=flow_ai_explain_graph($extended);
+    chat_check(str_contains($expandedExplanation,'بحث في المعرفة'),'explains actual knowledge_lookup node');
+    chat_check(count(flow_ai_validate_proposal($extended)['nodes'])===5,
+        'AI edit keeps existing knowledge lookup node type');
+    $originalModel=getenv('ONTRACK_GEMINI_FLOW_MODEL');
+    putenv('ONTRACK_GEMINI_FLOW_MODEL=gemini-3.5-flash-lite');
+    chat_check(flow_ai_model()==='gemini-3.5-flash-lite','effective model shown accurately');
+    if($originalModel===false)putenv('ONTRACK_GEMINI_FLOW_MODEL');
+    else putenv('ONTRACK_GEMINI_FLOW_MODEL='.$originalModel);
     chat_check(str_contains($explanation,'الحجز')||str_contains($explanation,'تكامل'),'safe side-effect disclaimer');
     flow_ai_chat_write(4,$userId,$agentId,[['role'=>'user','text'=>$description],
         ['role'=>'assistant','text'=>$explanation]],$graph);
