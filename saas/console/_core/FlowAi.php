@@ -10,7 +10,7 @@ function flow_ai_validate_proposal(array $candidate):array {
     if(!is_array($graph['nodes'])||!is_array($graph['edges'])||
        count($graph['nodes'])<2||count($graph['nodes'])>32||
        count($graph['edges'])>64)throw new InvalidArgumentException('ai_flow_invalid_size');
-    $safe=['start','say','listen','ask','condition','instruction','end'];
+    $safe=['start','say','listen','ask','condition','instruction','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end'];
     $nodes=[];
     foreach($graph['nodes'] as $n){
         if(!is_array($n)||!in_array($n['type']??null,$safe,true))
@@ -77,7 +77,7 @@ function flow_ai_generate(int $accountId,int $agentId,string $idea,array $histor
     $instruction=<<<'PROMPT'
 You are a graph designer for an Egyptian Arabic telephone AI agent. Return only a JSON object
 with keys "nodes" and "edges". Each node has id, type, text, x, y. Each edge has from, to, label.
-Use strictly these types: start, say, listen, ask, instruction, condition, end.
+Use only these types: start, say, listen, ask, instruction, condition, knowledge_lookup, collect_field, crm_lookup, crm_write, schedule, handoff, end. Preserve existing node types when editing.
 Use EXACTLY one start and at least one end. Use 6 to 12 nodes, with at most 18 edges, to leave enough room for complete JSON.
 This is a MULTI-TURN EDITING ASSISTANT: use previous messages and the actual current draft.
 When asked to edit, keep the flow's existing useful nodes, wording, routing and IDs
@@ -144,7 +144,7 @@ PROMPT;
     $schema=['type'=>'OBJECT','properties'=>[
         'nodes'=>['type'=>'ARRAY','items'=>['type'=>'OBJECT','properties'=>[
             'id'=>['type'=>'STRING'],'type'=>['type'=>'STRING',
-                'enum'=>['start','say','listen','ask','instruction','condition','end']],
+                'enum'=>['start','say','listen','ask','instruction','condition','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end']],
             'text'=>['type'=>'STRING'],'x'=>['type'=>'INTEGER'],'y'=>['type'=>'INTEGER']],
             'required'=>['id','type','text','x','y']]],
         'edges'=>['type'=>'ARRAY','items'=>['type'=>'OBJECT','properties'=>[
