@@ -19,9 +19,9 @@ assert "el('callActions').style.display=call?'block':'none'" in ui, 'Controls mu
 assert "el('speaker').disabled=!modern||!answered" in ui, 'No speaker action before call is answered'
 assert 'id="upgradeAndroid"' in ui, 'Do not remove separate native update controls'
 assert meta['revision'] >= 22 and meta['max_native'] >= 26, 'Native 26 OTA contract required'
-for element in ('id="openConsole"', 'id="openScenario"', 'id="copyKey"'):
+for element in ('id="openConsole"', 'id="openScenario"', 'id="tenantWorkspaceSlot"'):
     assert element in ui, 'OnTrack release shortcuts must remain available: '+element
-for command in ("send('openConsole')", "send('openScenario')", "send('copyKey')"):
+for command in ("send('openConsole')", "send('openScenario')", "send('workspaceSlot'"):
     assert command in ui, 'Native Android bridge command not wired: '+command
 assert "Number(s.nativeCode)>=23" in ui, 'Do not enable new native commands on older APKs'
 assert "Number(s.nativeCode)>=24" in ui, 'SIM controls must require Android 0.3.3'
