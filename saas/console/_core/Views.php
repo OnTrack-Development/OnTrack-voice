@@ -954,6 +954,8 @@ function render_voice_staff_section(array $a,array $members):void {
 /** Tenant-isolated WhatsApp Inbox and owner-controlled standalone OnTrack AI. */
 function render_whatsapp(array $a):void {
     require_once __DIR__.'/WhatsAppSupport.php';
+    require_once __DIR__.'/WhatsAppOnboarding.php';
+    $waPlatform=wa_platform_onboarding();
     $id=(int)$a['account_id'];
     $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY id",[$id]);
     $connections=all('SELECT id,site_id,public_id,label,phone_number_id,state,ai_agent_id,ai_enabled,
@@ -1079,6 +1081,14 @@ function render_whatsapp(array $a):void {
         $verifyToken=bin2hex(random_bytes(24));
         $relaySecret=bin2hex(random_bytes(32));
         $webhook=wa_public_callback($publicId);
+        $showSignup=wa_onboarding_ready($waPlatform,'signup');
+        $showCoexist=wa_onboarding_ready($waPlatform,'coexist');
+        echo '<div class="wa-mode-picker" role="group" aria-label="طريقة ربط واتساب">'.
+            '<button type="button" class="wa-mode-button active" data-wa-method="meta_direct" aria-pressed="true"><strong>ربط Meta جديد</strong><small>Webhook مباشر إلى OnTrack</small></button>'.
+            '<button type="button" class="wa-mode-button" data-wa-method="existing_webhook" aria-pressed="false"><strong>واتساب مربوط بالفعل</strong><small>احتفظ بربطك الحالي وأضف AI</small></button>'.
+            ($showSignup?'<button type="button" class="wa-mode-button" data-wa-method="signup" aria-pressed="false"><strong>الربط التلقائي</strong><small>Meta Embedded Signup</small></button>':'').
+            ($showCoexist?'<button type="button" class="wa-mode-button" data-wa-method="coexist" aria-pressed="false"><strong>Coexistence</strong><small>WhatsApp Business App + API</small></button>':'').
+            '</div><div data-wa-method-panel="meta_direct">';
         echo '<div class="wa-manual-notice">الربط اليدوي يحتاج بيانات Meta الخاصة برقمك. بعد الحفظ اختبر الربط، ثم انسخ Callback URL وVerify Token إلى إعدادات Webhook في تطبيق Meta. <strong>التحقق من الرقم لا يعني تشغيل استقبال الرسائل تلقائيًا.</strong></div>';
         echo form_start('wa_connection_add','/?tab=whatsapp','class="wa-settings-form wa-manual-form"').
             '<input type="hidden" name="public_id" value="'.e($publicId).'">'.
@@ -1107,6 +1117,52 @@ function render_whatsapp(array $a):void {
             '</details>'.
             '<div class="wa-manual-foot"><p>انسخ الرابط والتوكن <strong>قبل الحفظ</strong>؛ التوكن يتخزن Hash فقط ولن يظهر مرة تانية. لو حدّثت الصفحة قبل الحفظ هيتولد رابط وتوكن جديدين. الحالة تبدأ مسودة ولا يتم إرسال رسائل تلقائيًا.</p>'.
             '<button class="btn primary" type="submit">حفظ إعدادات واتساب اليدوية</button></div></form>';
+        echo '</div>';
+        $existingPublic=bin2hex(random_bytes(18));
+        $existingRelaySecret=bin2hex(random_bytes(32));
+        $existingCallback=wa_public_callback($existingPublic);
+        echo '<div data-wa-method-panel="existing_webhook" hidden>'.
+            '<div class="wa-manual-notice"><strong>الرقم مربوط في Meta قبل كده؟</strong> سيب Callback URL وVerify Token الحاليين زي ما هما. موديول واتساب الموجود لازم يمرّر نسخة موقّعة من الرسائل لـOnTrack. إدخال الرابط القديم وحده مش بيوصل الرسائل.</div>'.
+            form_start('wa_existing_connection_add','/?tab=whatsapp','class="wa-settings-form wa-manual-form"').
+            '<input type="hidden" name="public_id" value="'.e($existingPublic).'">'.
+            '<input type="hidden" name="relay_secret" value="'.e($existingRelaySecret).'">'.
+            '<div class="wa-manual-grid">'.
+            '<div class="wa-manual-cell third">'.select_html('الموقع','site_id',$map).'</div>'.
+            '<div class="wa-manual-cell third">'.select_html('الإيجنت المنشور','ai_agent_id',$agentOptions).'</div>'.
+            '<div class="wa-manual-cell third"><label class="field">اسم الاتصال<input name="label" required maxlength="120" placeholder="واتساب الموجود"></label></div>'.
+            '<div class="wa-manual-cell half"><label class="field">Callback URL القديم<input name="source_callback_url" dir="ltr" type="url" placeholder="https://example.com/whatsapp/webhook.php" maxlength="400" required></label><small class="wa-field-help">هات الرابط من إعدادات <strong>الموديول الحالي</strong>، مش من OnTrack. <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer">تأكد منه في Meta ← WhatsApp ← Configuration</a>.</small></div>'.
+            '<div class="wa-manual-cell half"><label class="field">Verify Token القديم<input name="source_verify_token" type="password" maxlength="200" autocomplete="off" required></label><small class="wa-field-help">التوكن الموجود بالفعل في إعدادات الموديول وMeta؛ مش هيتغير أو يُستخدم لإرسال الرسائل.</small></div>'.
+            '<div class="wa-manual-cell half"><label class="field">WABA ID<input name="waba_id" dir="ltr" inputmode="numeric" pattern="[0-9]+" maxlength="100" required></label><small class="wa-field-help"><a href="https://business.facebook.com/settings/whatsapp-business-accounts" target="_blank" rel="noopener noreferrer">Business Settings ← WhatsApp Accounts</a></small></div>'.
+            '<div class="wa-manual-cell half"><label class="field">Phone Number ID<input name="phone_number_id" dir="ltr" inputmode="numeric" pattern="[0-9]+" maxlength="100" required></label><small class="wa-field-help"><a href="https://business.facebook.com/wa/manage/phone-numbers/" target="_blank" rel="noopener noreferrer">WhatsApp Manager ← Phone Numbers</a></small></div>'.
+            '<div class="wa-manual-cell third"><label class="field">Meta App ID<input name="meta_app_id" dir="ltr" inputmode="numeric" maxlength="100"></label><small class="wa-field-help"><a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer">Meta Developers ← Settings ← Basic</a></small></div>'.
+            '<div class="wa-manual-cell third"><label class="field">App Secret للإرسال<input name="app_secret" type="password" maxlength="1000" autocomplete="new-password" required></label><small class="wa-field-help"><a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer">App Settings ← Basic</a></small></div>'.
+            '<div class="wa-manual-cell third"><label class="field">Access Token للإرسال<input name="access_token" type="password" maxlength="2000" autocomplete="new-password" required></label><small class="wa-field-help"><a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener noreferrer">System Users ← Generate Token</a>. نحتاج بيانات إرسال Meta عشان AI يرد من رقمك؛ الـWebhook وحده استقبال فقط.</small></div>'.
+            '<div class="wa-manual-cell half"><label class="field">Graph API Version<input name="graph_version" dir="ltr" value="v26.0" maxlength="8" required></label><small class="wa-field-help"><a href="https://developers.facebook.com/docs/graph-api/guides/versioning/" target="_blank" rel="noopener noreferrer">Graph API Versioning</a></small></div>'.
+            '</div>'.
+            '<div class="wa-manual-copy-group"><div class="wa-copy-strip"><span>OnTrack Receiver URL</span><code id="wa-existing-receiver" dir="ltr">'.e($existingCallback).'</code><button type="button" class="btn small" data-wa-copy="wa-existing-receiver">نسخ</button></div>'.
+            '<div class="wa-copy-strip"><span>Forwarding Signing Key</span><code id="wa-existing-signing" dir="ltr">'.e($existingRelaySecret).'</code><button type="button" class="btn small" data-wa-copy="wa-existing-signing">نسخ</button></div></div>'.
+            '<p class="dim">انسخ مفتاح التوقيع قبل الحفظ؛ مش هيتعرض تاني. <strong>لا تحط OnTrack Receiver URL في Meta بدل الرابط القديم</strong>؛ الموديول الحالي هو اللي لازم يبعت إليه الأحداث، وده محتاج تفعيل Forwarding من مصدر الرسائل.</p>'.
+            '<button class="btn primary" type="submit">ربط واتساب الموجود</button></form></div>';
+        foreach(['signup'=>'الربط التلقائي عبر Meta','coexist'=>'ربط WhatsApp Business App بدون فصله'] as $mode=>$heading){
+            if(!wa_onboarding_ready($waPlatform,$mode))continue;
+            $cfg=$mode==='signup'?$waPlatform['signup_config_id']:$waPlatform['coexist_config_id'];
+            echo '<div data-wa-method-panel="'.e($mode).'" hidden>'.
+                '<div class="wa-manual-notice">'.e($heading).' — هتفتح نافذة Meta الرسمية للموافقة. الإعدادات والأسرار تفضل عند إدارة OnTrack، والعميل مايدخلش أي Access Token.</div>'.
+                form_start('wa_embedded_finish','/?tab=whatsapp',
+                    'class="wa-embedded-form" data-wa-embedded-form="'.e($mode).'"').
+                '<input type="hidden" name="mode" value="'.e($mode).'">'.
+                '<input type="hidden" name="code" value="">'.
+                '<input type="hidden" name="waba_id" value="">'.
+                '<input type="hidden" name="phone_number_id" value="">'.
+                '<div class="wa-manual-grid"><div class="wa-manual-cell half">'.select_html('الموقع','site_id',$map).'</div>'.
+                '<div class="wa-manual-cell half">'.select_html('الإيجنت المنشور','ai_agent_id',$agentOptions).'</div></div>'.
+                '<div class="wa-embedded-button-row"><button type="button" class="btn primary" data-wa-embedded-start
+                    data-wa-app-id="'.e((string)$waPlatform['app_id']).'"
+                    data-wa-graph-version="'.e((string)$waPlatform['graph_version']).'"
+                    data-wa-config-id="'.e((string)$cfg).'"
+                    data-wa-embedded-mode="'.e($mode).'">الربط عبر Meta</button>'.
+                '<p class="dim" data-wa-embedded-status role="status">لن يتم إنشاء اتصال إلا بعد موافقة Meta والتحقق من ملكية WABA والرقم.</p></div></form></div>';
+        }
     }
     echo '</section></div></details>';
 }
