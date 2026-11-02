@@ -33,6 +33,30 @@ function act():void {
     $action=(string)($_POST['action']??'');
     if($a['role']==='support_viewer' && $action!=='support_leave')deny(403,'وضع الدعم للقراءة فقط');
     $id=(int)$a['account_id'];$kind=$a['kind'];
+    if($action==='flow_ai_propose'){
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        try{
+            if(!allowed('agents.write'))throw new RuntimeException('لا تملك صلاحية تعديل الإيجنت');
+            $agentId=intfield('agent_id');
+            $now=time();
+            $history=array_values(array_filter((array)($_SESSION['flow_ai_requests']??[]),
+                static fn($t)=>is_int($t)&&$t>$now-600));
+            if(count($history)>=8)throw new RuntimeException('وصلت للحد المؤقت لمقترحات AI؛ جرّب لاحقًا.');
+            $history[]=$now;$_SESSION['flow_ai_requests']=$history;
+            require_once __DIR__.'/FlowAi.php';
+            $graph=flow_ai_generate($id,$agentId,field('description',2500));
+            echo json_encode(['ok'=>true,'graph'=>$graph,'saved'=>false,'published'=>false],
+                JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        }catch(Throwable $error){
+            http_response_code($error instanceof InvalidArgumentException?422:503);
+            echo json_encode(['ok'=>false,'error'=>$error instanceof InvalidArgumentException?
+                $error->getMessage():($error instanceof RuntimeException?
+                   $error->getMessage():'تعذر إنشاء المقترح؛ لم تتغير المسودة.')],
+                JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
     try {
         // Migrate DNC outside a transaction (MySQL CREATE TABLE auto-commits).
         if(in_array($action,['add_contact','edit_contact','delete_contact'],true))dnc_init_ledger();
