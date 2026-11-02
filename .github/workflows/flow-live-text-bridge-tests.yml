@@ -14,6 +14,7 @@ on:
       - 'saas/console/_core/Actions.php'
       - 'saas/console/device/v1/index.php'
       - 'tools/test_sim_agent_call_reports.php'
+      - 'tools/test_tenant_call_ai_summary.php'
       - '.github/workflows/flow-live-text-bridge-tests.yml'
   workflow_dispatch:
 permissions:
@@ -49,6 +50,8 @@ jobs:
           php -l saas/console/device/v1/index.php
           rm -rf /tmp/ontrack-saas-demo
           php tools/test_sim_agent_call_reports.php
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_tenant_call_ai_summary.php
           rm -rf /tmp/ontrack-saas-demo
           php tools/test_tenant_workspace.php
           rm -rf /tmp/ontrack-saas-demo
