@@ -40,6 +40,6 @@
     }
   }
   };
-  window.ontrackMountPairingQR=mount;
+  if(typeof window!=='undefined')window.ontrackMountPairingQR=mount;
   mount();
 }());
