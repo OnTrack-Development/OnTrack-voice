@@ -564,7 +564,7 @@ function render_calls(array $a):void{
     $keyword=trim((string)($_GET['q']??''));
     if(mb_strlen($keyword)>80)$keyword=mb_substr($keyword,0,80);
     $requestedStatus=(string)($_GET['status']??'all');
-    $statuses=['all','answered','missed','failed','completed','busy','no_answer'];
+    $statuses=['all','active','ended','ringing','answered','missed','failed','completed','busy','no_answer'];
     $filter=in_array($requestedStatus,$statuses,true)?$requestedStatus:'all';
     $params=[$id];
     $where='account_id=?';
@@ -574,7 +574,7 @@ function render_calls(array $a):void{
         $params[]=$term;$params[]=$term;
     }
     if($filter!=='all'){$where.=' AND status=?';$params[]=$filter;}
-    $list=all('SELECT id,name,phone,status,duration_seconds,is_demo,created_at FROM calls WHERE '.$where.' ORDER BY id DESC LIMIT 200',$params);
+    $list=all('SELECT id,name,phone,status,duration_seconds,is_demo,device_binding_id,external_call_id,created_at FROM calls WHERE '.$where.' ORDER BY id DESC LIMIT 200',$params);
     $requestedId=max(0,(int)($_GET['call']??0));
     $selected=null;
     foreach($list as $item){if((int)$item['id']===$requestedId)$selected=$item;}
@@ -587,14 +587,14 @@ function render_calls(array $a):void{
     echo '<form class="calls-filters" action="/saas/console/" method="get" role="search"><input type="hidden" name="tab" value="calls">'.
         '<label class="field">بحث بالاسم أو الرقم<input name="q" value="'.e($keyword).'" placeholder="اسم العميل أو الرقم" maxlength="80"></label>'.
         '<label class="field">الحالة<select name="status">';
-    $labels=['all'=>'كل الحالات','answered'=>'تم الرد','missed'=>'فائتة','failed'=>'فشلت','completed'=>'مكتملة','busy'=>'مشغول','no_answer'=>'لم يرد'];
+    $labels=['all'=>'كل الحالات','active'=>'مكالمة جارية','ended'=>'انتهت','ringing'=>'جاري الاتصال','answered'=>'تم الرد','missed'=>'فائتة','failed'=>'فشلت','completed'=>'مكتملة','busy'=>'مشغول','no_answer'=>'لم يرد'];
     foreach($labels as $key=>$name)echo '<option value="'.e($key).'"'.($filter===$key?' selected':'').'>'.e($name).'</option>';
     echo '</select></label><button class="btn primary" type="submit">بحث</button></form>';
     echo '<div class="calls-inbox"><div class="calls-list" aria-label="سجل المكالمات">';
     if(!$list)echo '<div class="calls-empty">لا توجد مكالمات مطابقة للبحث. البيانات هتظهر هنا بعد وصول سجل مكالمات حقيقي من الجهاز.</div>';
     foreach($list as $c){
         $chosen=$selected&&(int)$selected['id']===(int)$c['id'];
-        $url='/?tab=calls&call='.(int)$c['id'].'&status='.rawurlencode($filter).'&q='.rawurlencode($keyword);
+        $url='/saas/console/?tab=calls&call='.(int)$c['id'].'&status='.rawurlencode($filter).'&q='.rawurlencode($keyword);
         $letter=mb_substr((string)($c['name']?:$c['phone']),0,1);
         echo '<a class="call-contact'.($chosen?' active':'').'" href="'.e($url).'"'.($chosen?' aria-current="true"':'').'><span class="call-avatar">'.e($letter).'</span>'.
             '<span class="call-contact-main"><strong>'.e((string)($c['name']?:'رقم غير مسجل')).'</strong><small dir="ltr">'.e((string)$c['phone']).'</small></span>'.
@@ -607,7 +607,7 @@ function render_calls(array $a):void{
             '<div class="call-facts"><div><span>الحالة</span>'.pill((string)$selected['status']).'</div>'.
             '<div><span>المدة</span><strong>'.e(fmt_duration((int)$selected['duration_seconds'])).'</strong></div>'.
             '<div><span>التاريخ</span><strong>'.e((string)$selected['created_at']).'</strong></div>'.
-            '<div><span>المصدر</span><strong>'.((int)$selected['is_demo']===1?'بيانات تجربة':'سجل الجهاز').'</strong></div></div>'.
+            '<div><span>المصدر</span><strong>'.(!empty($selected['external_call_id']) && !empty($selected['device_binding_id'])?'سجل من شريحة الهاتف':((int)$selected['is_demo']===1?'بيانات تجربة':'سجل الجهاز')).'</strong></div></div>'.
             '<div class="call-transcript-empty"><strong>المحادثة والملخص</strong><p>لا يوجد تفريغ نصي أو تسجيل مرتبط بهذا السجل. مش هنعرض رسائل أو تسجيلات وهمية.</p></div>';
     }else echo '<div class="calls-empty">اختار مكالمة لعرض التفاصيل بعد مزامنتها من الشريحة.</div>';
     echo '</section></div></section>';
