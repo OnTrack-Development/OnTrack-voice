@@ -162,7 +162,7 @@
     reportMeta('استكمل الموافقة داخل نافذة Meta الرسمية.');
     try{
       window.FB.init({appId,version,xfbml:false,cookie:false});
-      const extras={setup:{},sessionInfoVersion:'3'};
+      const extras={setup:{}};
       if(mode==='coexist')extras.featureType='whatsapp_business_app_onboarding';
       window.FB.login(response=>{
         if(currentMetaLogin?.form!==form)return;
