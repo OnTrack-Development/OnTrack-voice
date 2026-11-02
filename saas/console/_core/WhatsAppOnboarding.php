@@ -107,7 +107,7 @@ function wa_onboarding_finish(int $accountId,int $siteId,int $agentId,string $mo
             throw new InvalidArgumentException('لازم تختار إيجنت منشور لنفس الموقع');
     }
     // The caller's code can authorize assets only on the returned Meta BISU token.
-    $exchange=wa_onboarding_graph($settings,'POST','/oauth/access_token',[
+    $exchange=wa_onboarding_graph($settings,'GET','/oauth/access_token',[
         'client_id'=>$settings['app_id'],'client_secret'=>$appSecret,'code'=>$code
     ],'',$transport);
     $token=(string)($exchange['access_token']??'');
