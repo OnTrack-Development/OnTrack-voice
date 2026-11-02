@@ -338,6 +338,10 @@ function test_tenant_device_pairing():void {
     try{device_binding_heartbeat($session);}
     catch(RuntimeException $e){$staleHeartbeatDenied=$e->getMessage()==='device_binding_revoked';}
     ok($staleHeartbeatDenied,'in-flight stale heartbeat cannot disclose revoked SIM agent profile');
+    $revokedContactsDenied=false;
+    try{device_contact_list($session,'SIM1 directory');}
+    catch(RuntimeException $e){$revokedContactsDenied=$e->getMessage()==='device_binding_revoked';}
+    ok($revokedContactsDenied,'revoked SIM token cannot browse tenant contacts');
     $revokedHistoryDenied=false;
     try{device_call_history($session);}
     catch(RuntimeException $e){$revokedHistoryDenied=$e->getMessage()==='device_binding_revoked';}
