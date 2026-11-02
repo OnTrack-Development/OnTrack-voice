@@ -191,8 +191,19 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    const res=await fetch(id.form.action,{method:'POST',credentials:'same-origin',cache:'no-store',
      headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','Accept':'application/json'},
      body:params.toString()});
-   const payload=await res.json();
-   if(!res.ok||payload.ok!==true)throw Error(payload.error||'تعذر استرجاع ذاكرة المساعد');
+   const contentType=(res.headers.get('content-type')||'').toLowerCase();
+   const raw=await res.text();
+   if(!contentType.includes('application/json')){
+     if(res.status===401||res.status===403||res.status===419||res.redirected)
+       throw Error('جلسة التعديل انتهت أو محتاجة تسجيل دخول. حدّث الصفحة وسجّل الدخول من جديد.');
+     throw Error('السيرفر رجّع صفحة بدل JSON (HTTP '+res.status+'). اتأكد من رابط لوحة الإيجنت وحالة السيرفر.');
+   }
+   let payload;
+   try{payload=JSON.parse(raw)}catch{
+     throw Error('رد السيرفر غير صالح (HTTP '+res.status+'). لم يتم تغيير المخطط.');
+   }
+   if(!res.ok||payload?.ok!==true)
+     throw Error(typeof payload?.error==='string'?payload.error:'تعذر التواصل مع مساعد المخطط (HTTP '+res.status+').');
    return payload;
  }
  function showProposal(g){
