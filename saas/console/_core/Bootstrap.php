@@ -491,7 +491,8 @@ function init_console_v13():void {
     db()->exec("CREATE TABLE IF NOT EXISTS voice_knowledge_sources (
         id $id,account_id $int NOT NULL,site_id $int NOT NULL,
         name VARCHAR(150) NOT NULL,kind VARCHAR(25) NOT NULL,
-        content $knowledgeText NOT NULL,status VARCHAR(18) NOT NULL,
+        content $knowledgeText NOT NULL,visibility VARCHAR(20) NOT NULL DEFAULT 'public',
+        status VARCHAR(18) NOT NULL,
         sha256 VARCHAR(64) NOT NULL,created_at VARCHAR(19) NOT NULL)".$engine);
     db()->exec("CREATE TABLE IF NOT EXISTS voice_data_connectors (
         id $id,account_id $int NOT NULL,site_id $int NOT NULL,
