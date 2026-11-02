@@ -862,7 +862,7 @@ function render_billing(array $a):void{
             '<p class="dim">الدفع عبر صفحة Kashier الآمنة. الاشتراك لا يتفعل إلا بعد وصول تأكيد دفع موقّع على السيرفر.</p>'.
             submit_btn('متابعة الدفع الآمن'));
     }
-    if(in_array($a['kind'],['platform','reseller'],true)){
+    if(in_array($a['kind'],['platform','reseller'],true)&&console_view_mode($a)==='admin'){
         $orders=$a['kind']==='platform'?all('SELECT o.*,a.name account_name FROM orders o JOIN accounts a ON a.id=o.account_id ORDER BY o.id DESC LIMIT 60'):all('SELECT o.*,a.name account_name FROM orders o JOIN accounts a ON a.id=o.account_id WHERE a.parent_id=? ORDER BY o.id DESC LIMIT 60',[$id]);
         $rows=[];
         foreach($orders as $o){
@@ -923,7 +923,7 @@ function render_settings(array $a):void{
     }
     echo '<div class="cols two">';
     echo card('هوية حسابك','<div class="brand-preview"><div class="brand-icon">'.e(mb_substr($brand['name'],0,1)).'</div><div><h3>'.e($brand['name']).'</h3><p>ألوان الهوية الأساسية: أحمر / أسود / أبيض</p></div></div><p>المستخدم المباشر يرث OnTrack؛ المستخدم التابع يرث هوية الريسيلر بشكل آمن.</p>');
-    if(in_array($a['kind'],['reseller','platform'],true)){
+    if(in_array($a['kind'],['reseller','platform'],true)&&console_view_mode($a)==='admin'){
         echo card('تعديل الاسم والشعار',form_start('brand','/?tab=settings','enctype="multipart/form-data"').field_html('الاسم التجاري الظاهر','brand_name','text',$brand['name'],true).'<label class="field">شعار PNG/JPEG/WEBP (حتى 1MB)<input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></label>'.submit_btn('حفظ الهوية'));
     }else{
         echo card('إعدادات المستخدم','<p>اسم وشعار البرنامج متاحان من علامة الريسيلر الذي تتبع له، أو علامة OnTrack إن كنت عميلاً مباشراً.</p>');
