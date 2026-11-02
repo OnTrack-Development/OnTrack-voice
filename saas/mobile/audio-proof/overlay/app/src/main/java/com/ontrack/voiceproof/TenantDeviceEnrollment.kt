@@ -166,6 +166,15 @@ class TenantDeviceEnrollment(private val context: Context) {
         return request(JSONObject().put("operation","call_history").put("sim_slot",slot),
             saved.getString("token")).getJSONArray("calls")
     }
+    /** Read-only directory for the current tenant + site, never a dial command. */
+    fun contacts(slot:Int,query:String=""):org.json.JSONArray {
+        require(query.length<=60) { "البحث طويل جدًا" }
+        heartbeat(slot)
+        val saved=local(slot)
+        return request(JSONObject().put("operation","contacts")
+            .put("sim_slot",slot).put("query",query),
+            saved.getString("token")).getJSONArray("contacts")
+    }
     /** Human-authored report only; the phone never invents sentiment or transcript. */
     fun saveCallReport(slot:Int,callId:String,outcome:String,note:String,
                        optOutPhone:String="",optOutConfirmed:Boolean=false):JSONObject {
