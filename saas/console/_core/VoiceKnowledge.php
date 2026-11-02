@@ -1,21 +1,22 @@
 <?php
 declare(strict_types=1);
 /** Only content explicitly approved for the selected tenant/site. */
-function voice_knowledge_add(int $accountId,int $siteId,string $name,string $kind,string $content):int {
-    if(!in_array($kind,['txt','md','csv','json','note'],true)||
+function voice_knowledge_add(int $accountId,int $siteId,string $name,string $kind,string $content,string $visibility='public'):int {
+    if(!in_array($visibility,['public','staff'],true)||
+       !in_array($kind,['txt','md','csv','json','note'],true)||
        trim($name)===''||mb_strlen($name)>150||trim($content)===''||
        strlen($content)>180000||!mb_check_encoding($content,'UTF-8'))
         throw new InvalidArgumentException('knowledge_invalid_content');
     if(!one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$siteId,$accountId]))
         throw new InvalidArgumentException('site_unavailable');
     return insert("INSERT INTO voice_knowledge_sources
-        (account_id,site_id,name,kind,content,status,sha256,created_at)
-        VALUES (?,?,?,?,?,'active',?,?)",
-        [$accountId,$siteId,$name,$kind,$content,hash('sha256',$content),now()]);
+        (account_id,site_id,name,kind,content,visibility,status,sha256,created_at)
+        VALUES (?,?,?,?,?,?,'active',?,?)",
+        [$accountId,$siteId,$name,$kind,$content,$visibility,hash('sha256',$content),now()]);
 }
 function voice_knowledge_context(int $accountId,int $siteId,int $max=7000):string {
     $rows=all("SELECT name,content FROM voice_knowledge_sources
-        WHERE account_id=? AND site_id=? AND status='active' ORDER BY id DESC LIMIT 12",[$accountId,$siteId]);
+        WHERE account_id=? AND site_id=? AND status='active' AND visibility='public' ORDER BY id DESC LIMIT 12",[$accountId,$siteId]);
     $output='';$max=max(0,min(12000,$max));
     foreach($rows as $row){
         $item="\n[مصدر معرفة: ".mb_substr((string)$row['name'],0,90)."]\n".(string)$row['content'];
