@@ -29,13 +29,19 @@ $raw=file_get_contents('php://input',false,null,0,262145);
 if(!is_string($raw)||strlen($raw)>262144){
     http_response_code(413);echo '{"ok":false}';exit;
 }
-$signature=(string)($_SERVER['HTTP_X_HUB_SIGNATURE_256']??'');
-if(!wa_signature_valid($connection,$signature,$raw)){
+$metaSignature=(string)($_SERVER['HTTP_X_HUB_SIGNATURE_256']??'');
+$relaySignature=(string)($_SERVER['HTTP_X_ONTRACK_WEBHOOK_SIGNATURE_256']??'');
+$fromMeta=wa_signature_valid($connection,$metaSignature,$raw);
+$fromRelay=!$fromMeta&&wa_relay_signature_valid($connection,$relaySignature,$raw);
+if(!$fromMeta&&!$fromRelay){
     http_response_code(403);echo '{"ok":false}';exit;
 }
 try{
     $data=json_decode($raw,true,64,JSON_THROW_ON_ERROR);
     if(!is_array($data))throw new InvalidArgumentException('Invalid payload');
+    // Only a valid tenant relay signature can authorize normalization of
+    // third-party events. Normal Meta delivery remains untouched.
+    if($fromRelay)$data=wa_relay_normalize($connection,$data);
     $result=wa_webhook_ingest($connection,$data);
     http_response_code(200);
     echo json_encode(['ok'=>true,'accepted'=>$result['accepted'],'duplicates'=>$result['duplicates']],
