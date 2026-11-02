@@ -79,4 +79,79 @@
   };
   openAgentFromHash();
   window.addEventListener('hashchange',openAgentFromHash);
+}
+  // Consistent in-app confirmation/feedback; browser alert/confirm/prompt are
+  // intentionally never used. Put the overlay inside the Fullscreen element so
+  // deleting a Flow node cannot force native fullscreen to close.
+  let activeDialog=false;
+  window.ontrackConfirm=(message,{title='تأكيد العملية',confirmText='تأكيد',danger=false}={})=>{
+    if(activeDialog)return Promise.resolve(false);
+    activeDialog=true;
+    return new Promise(resolve=>{
+      const host=document.fullscreenElement||document.body;
+      const previous=document.activeElement;
+      const overlay=document.createElement('div');overlay.className='ot-confirm-overlay';
+      const dialog=document.createElement('section');dialog.className='ot-confirm-dialog';
+      dialog.setAttribute('role','alertdialog');
+      dialog.setAttribute('aria-modal','true');
+      const titleElement=document.createElement('h3');
+      titleElement.id='ot-confirm-title-'+Date.now();
+      titleElement.textContent=title;
+      dialog.setAttribute('aria-labelledby',titleElement.id);
+      const textElement=document.createElement('p');textElement.textContent=String(message);
+      const actions=document.createElement('div');actions.className='ot-confirm-actions';
+      const cancel=document.createElement('button');cancel.type='button';cancel.className='btn';
+      cancel.textContent='إلغاء';
+      const approve=document.createElement('button');approve.type='button';
+      approve.className='btn'+(danger?' danger':' primary');approve.textContent=confirmText;
+      actions.append(cancel,approve);dialog.append(titleElement,textElement,actions);
+      overlay.append(dialog);host.append(overlay);
+      const finish=ok=>{
+        overlay.removeEventListener('keydown',onKey);
+        overlay.remove();activeDialog=false;
+        if(previous?.isConnected&&typeof previous.focus==='function')previous.focus();
+        resolve(ok);
+      };
+      const onKey=event=>{
+        if(event.key==='Escape'){event.preventDefault();event.stopPropagation();finish(false);return}
+        if(event.key!=='Tab')return;
+        const first=cancel,last=approve;
+        if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
+        else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
+      };
+      overlay.addEventListener('keydown',onKey);
+      cancel.addEventListener('click',()=>finish(false),{once:true});
+      approve.addEventListener('click',()=>finish(true),{once:true});
+      overlay.addEventListener('click',event=>{if(event.target===overlay)finish(false)});
+      cancel.focus();
+    });
+  };
+  window.ontrackToast=(message,{error=false}={})=>{
+    const host=document.fullscreenElement||document.body;
+    const toast=document.createElement('div');
+    toast.className='ot-ui-toast'+(error?' error':'');
+    toast.setAttribute('role',error?'alert':'status');
+    toast.textContent=String(message);
+    host.append(toast);
+    setTimeout(()=>toast.remove(),4300);
+  };
+  // Legacy console form actions use the same OnTrack modal. The actual submit
+  // happens only after the user presses our confirm button.
+  document.addEventListener('submit',async event=>{
+    const button=event.submitter;
+    if(!button?.hasAttribute('data-confirm')||button.dataset.otApproved==='1')return;
+    event.preventDefault();event.stopPropagation();
+    const form=button.form;
+    if(!form)return;
+    const accepted=await window.ontrackConfirm(button.getAttribute('data-confirm'),{
+      title:'تأكيد التغيير',
+      confirmText:button.getAttribute('data-confirm-label')||'تأكيد',
+      danger:button.classList.contains('danger')
+    });
+    if(!accepted)return;
+    button.dataset.otApproved='1';
+    try{form.requestSubmit(button)}
+    finally{delete button.dataset.otApproved}
+  },true);
+
 })();
