@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v13(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v13();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -509,46 +509,14 @@ function init_console_v13():void {
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
 
-
-/** Additive staff voice authorization and connector fact snapshots. No old data overwritten. */
-function init_console_v13():void {
-    $marker=private_path().'/schema.v13';
+/** Additive staff authorization and fact registry; independent of KB/connector v13. */
+function init_console_v14():void {
+    $marker=private_path().'/schema.v14';
     if(is_file($marker))return;
-    if(driver()==='mysql'){
-        db()->exec("CREATE TABLE IF NOT EXISTS voice_staff_numbers (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            account_id BIGINT NOT NULL,user_id BIGINT NOT NULL,
-            phone_e164 VARCHAR(20) NOT NULL,pin_hash VARCHAR(255) NOT NULL,
-            scopes_json TEXT NOT NULL,status VARCHAR(20) NOT NULL,
-            failed_attempts INT NOT NULL DEFAULT 0,locked_until VARCHAR(19) NULL,
-            created_at VARCHAR(19) NOT NULL,updated_at VARCHAR(19) NOT NULL,
-            UNIQUE KEY uq_voice_staff_phone(account_id,phone_e164)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-        db()->exec("CREATE TABLE IF NOT EXISTS integration_facts (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            account_id BIGINT NOT NULL,integration_id BIGINT NOT NULL,
-            category VARCHAR(24) NOT NULL,fact_key VARCHAR(80) NOT NULL,
-            fact_value TEXT NOT NULL,updated_at VARCHAR(19) NOT NULL,
-            UNIQUE KEY uq_connector_fact(account_id,integration_id,category,fact_key)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    }else{
-        db()->exec("CREATE TABLE IF NOT EXISTS voice_staff_numbers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,account_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,phone_e164 TEXT NOT NULL,
-            pin_hash TEXT NOT NULL,scopes_json TEXT NOT NULL,status TEXT NOT NULL,
-            failed_attempts INTEGER NOT NULL DEFAULT 0,locked_until TEXT,
-            created_at TEXT NOT NULL,updated_at TEXT NOT NULL,
-            UNIQUE(account_id,phone_e164)
-        )");
-        db()->exec("CREATE TABLE IF NOT EXISTS integration_facts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,account_id INTEGER NOT NULL,
-            integration_id INTEGER NOT NULL,category TEXT NOT NULL,
-            fact_key TEXT NOT NULL,fact_value TEXT NOT NULL,updated_at TEXT NOT NULL,
-            UNIQUE(account_id,integration_id,category,fact_key)
-        )");
-    }
-    // Existing voice call RBAC and signed integration fact ingestion share one
-    // membership-backed identity registry (multiple phones per employee).
+    $mysql=driver()==='mysql';
+    $id=$mysql?'BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY':'INTEGER PRIMARY KEY AUTOINCREMENT';
+    $int=$mysql?'BIGINT':'INTEGER';
+    $engine=$mysql?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci':'';
     db()->exec("CREATE TABLE IF NOT EXISTS voice_staff_numbers (
         id $id,account_id $int NOT NULL,user_id $int NOT NULL,
         phone_e164 VARCHAR(20) NOT NULL,pin_hash VARCHAR(255) NOT NULL,
