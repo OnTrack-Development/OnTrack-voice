@@ -757,6 +757,42 @@ function act():void {
                     ?'تم اختبار Google API وإصدار رمز Live مؤقت وحفظ المفتاح مشفرًا. الاختبار الصوتي على الشريحة لسه مطلوب.'
                     :'المفتاح اتقبل من Google واتحفظ مشفرًا. اختبار Gemini Live لم ينجح بعد؛ راجع صلاحية Live والموديل، مش لازم يكون المفتاح غلط.';
                 break;
+            case 'wa_connection_add':
+                require_permission('agents.write');
+                require_once __DIR__.'/WhatsAppSupport.php';
+                wa_create_connection($id,intfield('site_id'),required('label',120),
+                    required('phone_number_id',100),required('access_token',2000),
+                    required('app_secret',1000),required('verify_token',200),
+                    field('whmcs_bridge_url',350),field('whmcs_bridge_token',2000));
+                $success='اتحفظ اتصال واتساب كمسودة. اختبر Meta وبعدين سجّل Webhook؛ الرد الآلي من WHMCS محتاج Bridge موثّق.';
+                break;
+            case 'wa_connection_test':
+                require_permission('agents.write');
+                require_once __DIR__.'/WhatsAppSupport.php';
+                $result=wa_test_meta_connection(wa_connection(intfield('connection_id'),$id));
+                $success='Meta أكد رقم الإرسال '.($result['phone_display']?:'').'. التحقق من استقبال Webhook والرد الفعلي لسه مستقل.';
+                break;
+            case 'wa_manual_reply':
+                require_permission('read');
+                require_once __DIR__.'/WhatsAppSupport.php';
+                wa_manual_reply($id,intfield('conversation_id'),required('body',4096));
+                audit('whatsapp.staff.send',$id,['conversation_id'=>intfield('conversation_id')]);
+                $success='Meta قبل رد الموظف، وAI اتوقف 15 دقيقة لهذه المحادثة. انتظار إشعار التسليم.';
+                break;
+            case 'wa_human_lock':
+                require_permission('read');
+                require_once __DIR__.'/WhatsAppSupport.php';
+                wa_human_takeover($id,intfield('conversation_id'),true);
+                audit('whatsapp.human.lock',$id,['conversation_id'=>intfield('conversation_id')]);
+                $success='المحادثة اتحولت للتحكم البشري حتى فك القفل.';
+                break;
+            case 'wa_human_release':
+                require_permission('read');
+                require_once __DIR__.'/WhatsAppSupport.php';
+                wa_release_human($id,intfield('conversation_id'));
+                audit('whatsapp.human.release',$id,['conversation_id'=>intfield('conversation_id')]);
+                $success='تم فك القفل؛ توقف AI المؤقت بعد رد الموظف يستمر حتى انتهاء مدته.';
+                break;
             case 'pilot_settings':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 require_once __DIR__.'/MobilePilot.php';
@@ -792,6 +828,6 @@ function act():void {
         flash('error',$message);
     }
     $return=(string)($_POST['return']??'/');
-    if(!preg_match('~^/(?:\?tab=[a-z]+(?:&site=[0-9]+)?)?$~D',$return))$return='/';
+    if(!preg_match('~^/(?:\?tab=[a-z]+(?:&site=[0-9]+)?(?:&conversation=[0-9]+)?)?$~D',$return))$return='/';
     go($return);
 }
