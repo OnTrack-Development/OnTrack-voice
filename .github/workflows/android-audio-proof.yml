@@ -6,6 +6,8 @@ on:
     # Visual HTML OTA now has its own signed no-APK pipeline.
     paths:
       - 'saas/mobile/audio-proof/**'
+      - 'tools/test_mobile_ui_contract.py'
+      - 'saas/mobile/ota/ui.html'
       - '.github/workflows/android-audio-proof.yml'
       # Server PHP has its own Voice P1 P2 backend regression. A backend-only
       # change must NOT rebuild/publish an unrelated signed native Android APK.
