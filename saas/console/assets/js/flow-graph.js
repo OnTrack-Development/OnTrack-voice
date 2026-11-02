@@ -71,8 +71,11 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
  aiLauncher.setAttribute('aria-expanded','false');
  const aiTitle=make('h3','','مساعد AI للمخطط');
  const aiClose=button('×',()=>toggleAi(false),'graph-ai-close');
+ const aiReset=button('محادثة جديدة',()=>resetAiChat(),'graph-ai-reset');
+ aiReset.setAttribute('title','امسح ذاكرة هذا الإيجنت فقط بعد التأكيد');
  aiClose.setAttribute('aria-label','إغلاق شات المساعد');
- const aiHead=make('div','graph-ai-head');aiHead.append(aiTitle,aiClose);
+ const aiHead=make('div','graph-ai-head'),aiHeadActions=make('div','graph-ai-head-actions');
+ aiHeadActions.append(aiReset,aiClose);aiHead.append(aiTitle,aiHeadActions);
  const aiDescription=make('p','','اشرح السيناريو بالمصري. المساعد يقترح مخططًا للمراجعة، ولن يُعدّل المسودة أو ينشرها بدون موافقتك.');
  const aiThread=make('div','graph-ai-thread');
  aiThread.setAttribute('role','log');aiThread.setAttribute('aria-live','polite');
@@ -84,7 +87,7 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
  aiStatus.setAttribute('role','status');
  const aiPreview=make('div','graph-ai-preview');
  const aiApply=button('نفّذ المقترح كمسودة',()=>applyAiProposal(),'primary');aiApply.hidden=true;
- const aiCancel=button('إلغاء المقترح',()=>clearAiProposal());aiCancel.hidden=true;
+ const aiCancel=button('إلغاء المقترح',()=>discardAiProposal());aiCancel.hidden=true;
  const aiActions=make('div','graph-ai-actions');aiActions.append(aiSubmit,aiApply,aiCancel);
  const aiCompose=make('div','graph-ai-compose');aiCompose.append(aiInput,aiActions,aiStatus);
  aiThread.append(make('div','graph-ai-message assistant','أهلاً! اشرحلي السيناريو، هجهزلك مخطط تراجعه قبل ما تضغط «نفّذ».'));
@@ -105,57 +108,117 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
    aiThread.insertBefore(make('div','graph-ai-message '+kind,message),aiPreview);
    aiThread.scrollTop=aiThread.scrollHeight;
  }
- let proposal=null,busy=false;
+ let proposal=null,busy=false,hasHistory=false;
+ function chatIdentity(){
+   const form=root.closest('form');
+   const csrf=form?.querySelector('[name=csrf]')?.value;
+   const agentId=form?.querySelector('[name=agent_id]')?.value;
+   return form&&csrf&&agentId?{form,csrf,agentId}:null;
+ }
+ async function chatRequest(action,fields={}){
+   const id=chatIdentity();
+   if(!id)throw Error('لم يتم تحديد الإيجنت أو جلسة التعديل');
+   const params=new URLSearchParams({csrf:id.csrf,agent_id:id.agentId,action,...fields});
+   const res=await fetch(id.form.action,{method:'POST',credentials:'same-origin',cache:'no-store',
+     headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','Accept':'application/json'},
+     body:params.toString()});
+   const payload=await res.json();
+   if(!res.ok||payload.ok!==true)throw Error(payload.error||'تعذر استرجاع ذاكرة المساعد');
+   return payload;
+ }
+ function showProposal(g){
+   if(!g||!Array.isArray(g.nodes)||!Array.isArray(g.edges)||g.nodes.length>32)
+     throw Error('مخطط غير صالح من المساعد');
+   proposal=g;
+   const title=make('strong','','مخطط مقترح: '+g.nodes.length+' خطوات و'+g.edges.length+' روابط');
+   const list=make('ol','graph-ai-list');
+   g.nodes.forEach(n=>{
+     const item=make('li');
+     item.append(make('b','',TYPES[n.type]||n.type),make('span','',String(n.text||'').slice(0,180)));
+     list.append(item);
+   });
+   aiPreview.replaceChildren(title,list);
+   aiApply.hidden=false;aiCancel.hidden=false;
+   aiThread.scrollTop=aiThread.scrollHeight;
+ }
+ async function loadAiChat(){
+   try{
+     const payload=await chatRequest('flow_ai_history');
+     if(busy)return;
+     aiThread.replaceChildren(aiPreview);
+     (payload.messages||[]).forEach(msg=>{
+       if(msg?.role==='user'||msg?.role==='assistant')aiMessage(msg.role,String(msg.text||''));
+     });
+     hasHistory=(payload.messages||[]).length>0;
+     if(!hasHistory)aiMessage('assistant','أهلاً! احكيلي عايز تغير إيه في المخطط، وهشرحلك كل مسار قبل ما توافق على المسودة.');
+     if(payload.pending_graph){
+       showProposal(payload.pending_graph);
+       aiStatus.textContent='آخر اقتراح لسه معروض للمراجعة. تقدر تطلب تعديله أو تنفّذه كمسودة.';
+     }
+   }catch(error){
+     aiStatus.textContent=error.message||'تعذر تحميل المحادثة القديمة.';
+   }
+ }
+ async function resetAiChat(){
+   if(busy||!confirm('مسح محادثة هذا الإيجنت نهائيًا؟ المخطط المحفوظ أو المنشور لن يتغير.'))return;
+   try{
+     await chatRequest('flow_ai_reset');
+     clearAiProposal();hasHistory=false;
+     aiThread.replaceChildren(aiPreview);
+     aiMessage('assistant','بدأنا محادثة جديدة. المخطط الحالي في المحرر لم يتغير.');
+   }catch(error){aiStatus.textContent=error.message||'تعذر مسح المحادثة'}
+ }
  function clearAiProposal(){
    proposal=null;aiPreview.replaceChildren();aiStatus.textContent='';aiApply.hidden=true;aiCancel.hidden=true;
+ }
+ async function discardAiProposal(){
+   if(!proposal||busy)return;
+   try{
+     await chatRequest('flow_ai_discard');
+     clearAiProposal();
+     aiMessage('assistant','ألغيت الاقتراح، لكن المحادثة محفوظة؛ ممكن نكمل تعديل المخطط.');
+   }catch(error){aiStatus.textContent=error.message||'تعذر إلغاء الاقتراح'}
  }
  async function requestAiProposal(){
    const prompt=aiInput.value.trim();
    if(proposal&&/^(نفذ|نفّذ|طبق|اعتمد|execute)$/i.test(prompt)){applyAiProposal();return;}
-   if(prompt.length<15){aiStatus.textContent='اشرح المطلوب في 15 حرف على الأقل.';return;}
+   if(prompt.length<(hasHistory?3:15)){
+     aiStatus.textContent=hasHistory?'اكتب طلبًا من 3 حروف على الأقل.':'اشرح المطلوب في 15 حرف على الأقل.';return;
+   }
    if(busy)return;
-   const form=root.closest('form');
-   if(!form){aiStatus.textContent='تعذر تحديد الإيجنت الحالي.';return;}
-   const csrf=form.querySelector('[name=csrf]')?.value;
-   const agentId=form.querySelector('[name=agent_id]')?.value;
-   if(!csrf||!agentId){aiStatus.textContent='لا توجد جلسة تعديل معتمدة.';return;}
+   if(!chatIdentity()){aiStatus.textContent='لا توجد جلسة تعديل معتمدة.';return;}
    busy=true;clearAiProposal();aiMessage('user',prompt);aiSubmit.disabled=true;aiStatus.textContent='جارٍ بناء مخطط مقترح…';
-   try {
-     const params=new URLSearchParams({csrf,agent_id:agentId,action:'flow_ai_propose',description:prompt});
-     const res=await fetch(form.action,{method:'POST',credentials:'same-origin',
-       headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json'},
-       body:params.toString()});
-     const payload=await res.json();
-     if(!res.ok||!payload.ok)throw Error(payload.error||'تعذر بناء المخطط');
-     const g=payload.graph;
-     if(!g||!Array.isArray(g.nodes)||!Array.isArray(g.edges)||g.nodes.length>32)
-       throw Error('مخطط غير صالح من مزوّد AI');
-     proposal=g;
-     const title=make('strong','','مخطط مقترح: '+g.nodes.length+' خطوات و'+g.edges.length+' روابط');
-     const list=make('ol','graph-ai-list');
-     g.nodes.forEach(n=>{
-       const item=make('li');
-       item.append(make('b','',TYPES[n.type]||n.type),make('span','',String(n.text||'').slice(0,180)));
-       list.append(item);
+   try{
+     const payload=await chatRequest('flow_ai_propose',{
+       description:prompt,current_graph_json:JSON.stringify(data)
      });
-     aiMessage('assistant','جهزت مقترح من '+g.nodes.length+' خطوات و'+g.edges.length+' روابط. راجعه وبعدها نفّذه كمسودة لو مناسب.');
-     aiPreview.replaceChildren(title,list);
-     aiApply.hidden=false;aiCancel.hidden=false;
-     aiStatus.textContent='للمراجعة فقط. قل «نفّذ» أو اضغط «نفّذ المقترح» لحفظه كمسودة. النشر منفصل.';
+     hasHistory=true;aiInput.value='';
+     const g=payload.graph;
+     if(g)showProposal(g);
+     const explanation=String(payload.explanation||'');
+     if(explanation)aiMessage('assistant',explanation);
+     if(g)aiStatus.textContent='اقرأ الشرح وراجع العقد. اطلب أي تعديل أو اضغط «نفّذ المقترح كمسودة». النشر خطوة منفصلة.';
+     else aiStatus.textContent='ده شرح المخطط الحالي، تقدر تطلب تعديله في نفس المحادثة.';
    }catch(error){const message=error.message||'تعذر إنشاء المقترح؛ لم تتغير المسودة.';aiMessage('assistant',message);aiStatus.textContent=message}
    finally{busy=false;aiSubmit.disabled=false;}
  }
- function applyAiProposal(){
-   if(!proposal)return;
+ async function applyAiProposal(){
+   if(!proposal||busy)return;
    const form=root.closest('form');
    if(!form){aiStatus.textContent='لا توجد استمارة حفظ.';return;}
    if(!confirm('استبدال مسودة المخطط الحالية بالمقترح وحفظها؟ لن يتم نشره على المكالمات.'))return;
-   aiMessage('assistant','تم اعتماد المقترح كمسودة فقط؛ النشر خطوة منفصلة.');
-   data=JSON.parse(JSON.stringify(proposal));proposal=null;selected=data.nodes[0]?.id||null;
-   render();store();clearAiProposal();
-   const draft=[...form.querySelectorAll('button[type=submit]')].find(b=>!b.hasAttribute('name')||b.name!=='publish_now');
-   if(draft)form.requestSubmit(draft);
-   else aiStatus.textContent='تم تطبيق المخطط بالمحرر. اضغط حفظ كمسودة.';
+   busy=true;aiApply.disabled=true;
+   try{
+     await chatRequest('flow_ai_applied',{graph_json:JSON.stringify(proposal)});
+     aiMessage('assistant','تم اختيار المقترح للحفظ كمسودة. محادثتنا محفوظة ونقدر نكمل بعد حفظ الصفحة.');
+     data=JSON.parse(JSON.stringify(proposal));selected=data.nodes[0]?.id||null;
+     render();store();clearAiProposal();
+     const draft=[...form.querySelectorAll('button[type=submit]')].find(b=>!b.hasAttribute('name')||b.name!=='publish_now');
+     if(draft)form.requestSubmit(draft);
+     else aiStatus.textContent='تم تطبيق المخطط بالمحرر. اضغط حفظ كمسودة.';
+   }catch(error){
+     aiStatus.textContent=error.message||'تعذر تسجيل اختيار المسودة';
+   }finally{busy=false;aiApply.disabled=false;}
  }
  aiInput.addEventListener('keydown',e=>{
    if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();requestAiProposal()}
@@ -230,6 +293,9 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
    if(event.key==='Enter'){event.preventDefault();sendPreview()}
  });
  root.replaceChildren(shell,source);source.hidden=true;
+ // Rebuild chat from the server every time the agent draft page is reopened.
+ // This is account/user/agent scoped, not browser-global memory.
+ void loadAiChat();
  const store=()=>{source.value=JSON.stringify(data);counter.textContent=data.nodes.length+' خطوات · '+data.edges.length+' روابط'};
  const focus=()=>data.nodes.find(n=>n.id===selected)||null;
  const transform=()=>{world.style.transform='translate('+x+'px,'+y+'px) scale('+scale+')'};
