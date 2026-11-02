@@ -311,7 +311,7 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('tenantStateBadge').className='chip '+(s.tenantLinked?'good':'warn');
  if(tenantOk&&s.tenantLinked){
   const engine=Number(s.nativeCode)>=25;
-  const monitoring=!!s.agentEnabled && !!s.tenantServiceRunning;
+  const monitoring=!!s.agentEnabled && (s.tenantServiceRunning===undefined || !!s.tenantServiceRunning);
   const starting=!!s.tenantDesiredEnabled && !monitoring;
   el('badge').textContent=!engine?'يلزم تحديث Android':
     monitoring?(s.connected?'Google Live · مكالمة متصلة':'مراقب SIM · يعمل وينتظر المكالمة'):
