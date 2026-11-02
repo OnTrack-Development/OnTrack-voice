@@ -374,7 +374,8 @@ function render_calls(array $a):void{
         ORDER BY MAX(id) DESC LIMIT 100",[$id]);
     $actual=[];
     $outcomes=['unknown'=>'لم يُقيّم','satisfied'=>'راضٍ (تقييم بشري)',
-        'unsatisfied'=>'غير راضٍ (تقييم بشري)','follow_up'=>'متابعة مطلوبة (بشرية)'];
+        'unsatisfied'=>'غير راضٍ (تقييم بشري)','follow_up'=>'متابعة مطلوبة (بشرية)',
+        'do_not_call'=>'لا تتصل مجددًا — حظر دائم يدوي'];
     foreach($observations as $row){
         $agent=one('SELECT name FROM agents WHERE id=? AND account_id=?',[(int)$row['agent_id'],$id]);
         $state=(int)$row['ended']===1
@@ -393,6 +394,8 @@ function render_calls(array $a):void{
             foreach($outcomes as $value=>$label)
                 $editor.='<option value="'.e($value).'"'.($outcome===$value?' selected':'').'>'.e($label).'</option>';
             $editor.='</select><textarea name="note" rows="2" maxlength="1000" placeholder="ملاحظة بشرية، ليست ملخص AI">'.e($note).'</textarea>'.
+                '<input name="optout_phone" type="tel" maxlength="40" autocomplete="off" placeholder="رقم العميل للحظر — مطلوب فقط عند لا تتصل مجددًا">'.
+                '<label class="field"><input type="checkbox" name="optout_confirmed" value="1"> أؤكد أن العميل طلب عدم الاتصال بهذا الرقم، وأن الرقم أدخلته بنفسي</label>'.
                 '<button class="btn small" type="submit">حفظ التقييم</button></form>';
         }
         $actual[]=[e(substr((string)$row['call_id'],0,8)),'#'.(int)$row['device_id'],
@@ -404,7 +407,7 @@ function render_calls(array $a):void{
     echo card('مكالمات الشرائح المرتبطة بالحساب — أحداث الهاتف وتقييم الموظف',
         tbl(['Call ID','الجهاز','الشريحة','الإيجنت','آخر حالة','المدة المبلغ عنها',
             'وقت الجهاز','نتيجة يدوية','ملاحظات','تعديل'],$actual));
-    echo '<p class="info">الأحداث من حالة اتصال Android فقط، بدون رقم أو صوت أو ملخص AI. يتم تثبيت إيجنت بداية المكالمة حسب إصدار التعيين المسجل على الشريحة، حتى لو تأخر رفع الأحداث أو تغير الإيجنت؛ لا يثبت ذلك تشغيل الصوت. تقييم الرضا والملاحظات إدخال بشري يدوي لا يُستنتج من المكالمة ولا يفعّل اتصال متابعة أو يرفع حظر DNC. وقت الجهاز والمدة غير موثقين من المشغل؛ ليست إثباتًا لتشغيل AI أو لتسجيل المكالمة. لا تظهر بيانات شركة أخرى.</p>';
+    echo '<p class="info">الأحداث من حالة اتصال Android فقط، بدون رقم أو صوت أو ملخص AI. يتم تثبيت إيجنت بداية المكالمة حسب إصدار التعيين المسجل على الشريحة، حتى لو تأخر رفع الأحداث أو تغير الإيجنت؛ لا يثبت ذلك تشغيل الصوت. تقييم الرضا والملاحظات إدخال بشري يدوي لا يُستنتج من المكالمة. اختيار «لا تتصل مجددًا» يتطلب إدخال الرقم وتأكيد الموظف، ويسجل حظرًا دائمًا داخل حساب الشركة فقط؛ لا يُستنتج الرقم من أحداث Android، ولا يُلغى الحظر بتغيير التقييم. تطبيق الحظر قبل كل اتصال فعلي ما زال غير مثبت. وقت الجهاز والمدة غير موثقين من المشغل؛ ليست إثباتًا لتشغيل AI أو لتسجيل المكالمة. لا تظهر بيانات شركة أخرى.</p>';
     echo '<div class="info">البيانات الموسومة DEMO غير حقيقية ولا توجد تسجيلات صوتية مزيفة. الربط مع Call Ledger للموبايل يتطلب ترحيل tenant-scoped آمن.</div>';
 }
 function render_devices(array $a):void {

@@ -404,7 +404,8 @@ function act():void {
                 $callId=required('call_id',36);
                 $outcome=required('outcome',20);
                 tenant_call_report_save($id,$deviceId,$callId,$outcome,field('note',1000),
-                    'web',(int)me()['id']);
+                    'web',(int)me()['id'],field('optout_phone',40),
+                    ($_POST['optout_confirmed']??'')==='1');
                 audit('call.report.manual.updated',$id,
                     ['device_id'=>$deviceId,'call_id'=>$callId,'outcome'=>$outcome]);
                 break;

@@ -46,11 +46,14 @@ try{
                 || !is_int($data['device_id']??null) || $data['device_id']!==(int)$binding['id']
                 || !is_string($data['call_id']??null)
                 || !is_string($data['outcome']??null)
-                || !is_string($data['note']??null))
+                || !is_string($data['note']??null)
+                || !is_string($data['optout_phone']??'')
+                || !is_bool($data['optout_confirmed']??false))
                 device_answer(422,['ok'=>false,'error'=>'device_call_report_invalid']);
             device_binding_heartbeat($binding);
             $report=tenant_call_report_save((int)$binding['account_id'],(int)$binding['id'],
-                $data['call_id'],$data['outcome'],$data['note'],'device');
+                $data['call_id'],$data['outcome'],$data['note'],'device',null,
+                $data['optout_phone']??'',$data['optout_confirmed']??false);
             device_answer(200,['ok'=>true,'report'=>$report]);
         }
         if($operation==='call_event'){

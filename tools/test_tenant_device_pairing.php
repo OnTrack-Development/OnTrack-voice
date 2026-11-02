@@ -158,6 +158,30 @@ function test_tenant_device_pairing():void {
     try{tenant_call_report_save(4,(int)$a['device_id'],$callA,'do_not_call','','device');}
     catch(InvalidArgumentException $e){$invalidOutcome=true;}
     ok($invalidOutcome,'manual disposition cannot pretend to apply DNC without verified number');
+    // A human opt-out requires a manually supplied number; it cannot be inferred
+    // from call-state events, and must survive report edits and duplicate retries.
+    $noConfirm=false;
+    try{tenant_call_report_save(4,(int)$a['device_id'],$callA,'do_not_call','','device',null,'01012345678');}
+    catch(InvalidArgumentException $e){$noConfirm=true;}
+    ok($noConfirm,'SIM cannot suppress a number without explicit human confirmation');
+    $badPhone=false;
+    try{tenant_call_report_save(4,(int)$a['device_id'],$callA,'do_not_call','','device',null,'123',true);}
+    catch(InvalidArgumentException $e){$badPhone=true;}
+    ok($badPhone,'SIM cannot suppress an invalid or unverified phone key');
+    $optOut=tenant_call_report_save(4,(int)$a['device_id'],$callA,
+        'do_not_call','العميل طلب عدم الاتصال','device',null,'01012345678',true);
+    ok($optOut['dnc_suppressed']===true && dnc_is_suppressed(4,'+201012345678'),
+        'human-confirmed SIM report creates durable account-scoped DNC suppression');
+    ok(!dnc_is_suppressed(5,'+201012345678'),
+        'other tenant remains unaffected by a SIM opt-out');
+    tenant_call_report_save(4,(int)$a['device_id'],$callA,
+        'do_not_call','إعادة إرسال','device',null,'+201012345678',true);
+    ok((int)one('SELECT COUNT(*) n FROM dnc_suppressions WHERE account_id=? AND phone_key=?',
+        [4,dnc_phone_key('01012345678')])['n']===1,
+        'repeat call opt-out is idempotent');
+    tenant_call_report_save(4,(int)$a['device_id'],$callA,'satisfied','','web',$actor);
+    ok(dnc_is_suppressed(4,'01012345678'),
+        'later report changes cannot erase an existing DNC suppression');
     $missedReport=tenant_call_report_save(4,(int)$a['device_id'],$missedId,
         'unknown','لم يتم الرد','web',$actor);
     ok($missedReport['outcome']==='unknown',

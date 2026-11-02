@@ -484,6 +484,7 @@ class MobileLinkActivity:ComponentActivity(){
                         "satisfied" -> "راضٍ (يدوي)"
                         "unsatisfied" -> "غير راضٍ (يدوي)"
                         "follow_up" -> "متابعة (يدوية)"
+                        "do_not_call" -> "عدم اتصال — حظر يدوي"
                         else -> "غير مُقيّم"
                     }
                     "${i+1}. #${item.optString("call_id").take(8)} • ${item.optString("agent_name","إيجنت غير معروف")} • $state • ${seconds/60}د ${seconds%60}ث • $outcome • ${item.optString("observed_at")}"
@@ -532,7 +533,8 @@ class MobileLinkActivity:ComponentActivity(){
     }
     private fun showTenantCallReportForm(slot:Int,call:JSONObject) {
         val outcomes=listOf("unknown" to "لم يُقيّم","satisfied" to "راضٍ — تقييم بشري",
-            "unsatisfied" to "غير راضٍ — تقييم بشري","follow_up" to "متابعة مطلوبة — مراجعة بشرية")
+            "unsatisfied" to "غير راضٍ — تقييم بشري","follow_up" to "متابعة مطلوبة — مراجعة بشرية",
+            "do_not_call" to "لا تتصل مجددًا — حظر الرقم")
         val previous=call.optJSONObject("report")
         val form=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
@@ -554,6 +556,16 @@ class MobileLinkActivity:ComponentActivity(){
             filters=arrayOf<android.text.InputFilter>(android.text.InputFilter.LengthFilter(1000))
         }
         form.addView(note)
+        val optOutPhone=EditText(this).apply {
+            hint="رقم العميل — مطلوب فقط عند لا تتصل مجددًا"
+            inputType=android.text.InputType.TYPE_CLASS_PHONE
+            filters=arrayOf<android.text.InputFilter>(android.text.InputFilter.LengthFilter(40))
+        }
+        form.addView(optOutPhone)
+        val optOutConfirmed=CheckBox(this).apply {
+            text="أؤكد أن العميل طلب عدم الاتصال بهذا الرقم"
+        }
+        form.addView(optOutConfirmed)
         AlertDialog.Builder(this).setTitle("SIM ${slot+1} — #${call.optString("call_id").take(8)}")
             .setView(form)
             .setPositiveButton("حفظ التقييم") { _,_ ->
@@ -561,7 +573,8 @@ class MobileLinkActivity:ComponentActivity(){
                     try {
                         withContext(Dispatchers.IO) {
                             tenantEnrollment.saveCallReport(slot,call.getString("call_id"),
-                                outcomes[choice.selectedItemPosition].first,note.text.toString())
+                                outcomes[choice.selectedItemPosition].first,note.text.toString(),
+                                optOutPhone.text.toString(),optOutConfirmed.isChecked)
                         }
                         banner.text="تم حفظ التقييم البشري لمكالمة SIM ${slot+1}"
                     }catch(e:CancellationException){throw e}

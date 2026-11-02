@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/DncGuard.php';
 
 /**
  * Multi-tenant Android SIM enrollment. This MUST NOT reuse the old pilot bearer.
@@ -271,14 +272,24 @@ function device_call_history(array $binding):array {
  * must still be active and tenant-bound at the moment of the write.
  */
 function tenant_call_report_save(int $accountId,int $deviceId,string $callId,
-    string $outcome,string $note,string $source,?int $actorUserId=null):array {
+    string $outcome,string $note,string $source,?int $actorUserId=null,
+    string $optOutPhone='',bool $optOutConfirmed=false):array {
     if(!preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D',$callId)
-        || !in_array($outcome,['unknown','satisfied','unsatisfied','follow_up'],true)
+        || !in_array($outcome,['unknown','satisfied','unsatisfied','follow_up','do_not_call'],true)
         || !in_array($source,['device','web'],true)
         || ($source==='web' && (!$actorUserId||$actorUserId<1))
         || ($source==='device' && $actorUserId!==null)
         || mb_strlen($note)>1000 || str_contains($note,"\0"))
         throw new InvalidArgumentException('device_call_report_invalid');
+    // The telephony ledger contains NO phone number. An explicit human-entered
+    // number and confirmation are mandatory; never infer opt-out from a call ID.
+    $optOutKey='';
+    if($outcome==='do_not_call'){
+        $optOutKey=dnc_phone_key($optOutPhone);
+        if(!$optOutConfirmed||!preg_match('/^[0-9]{8,40}$/D',$optOutKey))
+            throw new InvalidArgumentException('device_call_report_optout_confirmation_required');
+        dnc_init_ledger(); // MySQL DDL must finish before the atomic report write.
+    }
     $device=$source==='device'
         ?one("SELECT d.sim_slot FROM device_bindings d
             JOIN accounts a ON a.id=d.account_id AND a.status='active'
@@ -295,6 +306,8 @@ function tenant_call_report_save(int $accountId,int $deviceId,string $callId,
     $values=[$accountId,$deviceId,(int)$device['sim_slot'],$callId,$outcome,$note,
         $source,$actorUserId,$at];
     $columns='account_id,device_id,sim_slot,call_id,outcome,note,source,actor_user_id,updated_at';
+    db()->beginTransaction();
+    try{
     if(driver()==='mysql'){
         execute("INSERT INTO tenant_call_reports ($columns) VALUES (?,?,?,?,?,?,?,?,?)
             ON DUPLICATE KEY UPDATE outcome=VALUES(outcome),note=VALUES(note),
@@ -305,6 +318,9 @@ function tenant_call_report_save(int $accountId,int $deviceId,string $callId,
             outcome=excluded.outcome,note=excluded.note,source=excluded.source,
             actor_user_id=excluded.actor_user_id,updated_at=excluded.updated_at",$values);
     }
+    if($optOutKey!=='')dnc_insert_ledger_key($accountId,$optOutKey,'call_optout');
+    db()->commit();
+    }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
     return ['call_id'=>$callId,'outcome'=>$outcome,'note'=>$note,
-        'source'=>$source,'updated_at'=>$at];
+        'source'=>$source,'updated_at'=>$at,'dnc_suppressed'=>$optOutKey!==''];
 }

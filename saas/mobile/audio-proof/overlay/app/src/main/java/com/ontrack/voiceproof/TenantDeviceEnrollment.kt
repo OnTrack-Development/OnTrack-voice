@@ -167,19 +167,27 @@ class TenantDeviceEnrollment(private val context: Context) {
             saved.getString("token")).getJSONArray("calls")
     }
     /** Human-authored report only; the phone never invents sentiment or transcript. */
-    fun saveCallReport(slot:Int,callId:String,outcome:String,note:String):JSONObject {
+    fun saveCallReport(slot:Int,callId:String,outcome:String,note:String,
+                       optOutPhone:String="",optOutConfirmed:Boolean=false):JSONObject {
         require(Regex("^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$").matches(callId)) {
             "معرف المكالمة غير صالح"
         }
-        require(outcome in setOf("unknown","satisfied","unsatisfied","follow_up")) {
+        require(outcome in setOf("unknown","satisfied","unsatisfied","follow_up","do_not_call")) {
             "التقييم غير مدعوم"
         }
         require(note.length<=1000) { "الملاحظة أطول من المسموح" }
+        if(outcome=="do_not_call") {
+            require(optOutConfirmed && optOutPhone.filter { it.isDigit() }.length in 8..40) {
+                "تأكيد طلب عدم الاتصال وإدخال الرقم مطلوبان"
+            }
+        }
         heartbeat(slot) // Fresh subscription and server authorization for this SIM.
         val saved=local(slot)
         return request(JSONObject().put("operation","call_report")
             .put("sim_slot",slot).put("device_id",saved.getInt("device_id"))
-            .put("call_id",callId).put("outcome",outcome).put("note",note),
+            .put("call_id",callId).put("outcome",outcome).put("note",note)
+            .put("optout_phone",if(outcome=="do_not_call")optOutPhone else "")
+            .put("optout_confirmed",outcome=="do_not_call" && optOutConfirmed),
             saved.getString("token")).getJSONObject("report")
     }
     fun disconnect(slot:Int) {
