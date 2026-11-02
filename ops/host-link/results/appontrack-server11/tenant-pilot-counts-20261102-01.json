@@ -1,0 +1,13 @@
+{
+  "job_id": "tenant-pilot-counts-20261102-01",
+  "target": "appontrack-server11",
+  "job_sha256": "3e701343f7f7f0d02fdaec919b09247c408fbd81100bbeb7b829f6a1a6b496e6",
+  "started_at": "2026-11-02T02:03:02.355299+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"pilot_store_exists\": true, \"stats\": {\"contacts\": {\"count\": 0, \"bytes\": 0}, \"campaigns\": {\"count\": 0, \"bytes\": 0}, \"attempts\": {\"count\": 0, \"bytes\": 0}, \"dnc\": {\"count\": 0, \"bytes\": 2}}, \"auth_file_exists\": false}\n",
+  "stderr": "",
+  "finished_at": "2026-11-02T02:03:02.382630+00:00",
+  "duration_ms": 28
+}
