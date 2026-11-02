@@ -12,7 +12,7 @@ function flow_preview_compile(array $graph):array {
     if(!is_array($nodes)||!array_is_list($nodes)||!is_array($edges)||!array_is_list($edges)
         ||count($nodes)<1||count($nodes)>100||count($edges)>250)
         throw new InvalidArgumentException('flow_invalid_graph');
-    $types=['start','say','listen','ask','condition','knowledge_lookup',
+    $types=['start','say','listen','ask','condition','instruction','knowledge_lookup',
         'collect_field','crm_lookup','crm_write','schedule','handoff','end'];
     $index=[];$starts=[];
     foreach($nodes as $node){
@@ -115,7 +115,8 @@ function flow_preview_step(array $flow,array $state,?string $answer=null):array 
                 $state['done']=true;break;
             }
         }else{
-            if($message!=='')$events[]=['kind'=>'agent','text'=>$message];
+            // Internal guidance/knowledge policy is never spoken as a chat message.
+            if($message!==''&&$type!=='instruction')$events[]=['kind'=>'agent','text'=>$message];
             $next=flow_preview_edge($flow,$id,null);
             if($next===null){
                 $events[]=['kind'=>'notice','text'=>'لا توجد خطوة تالية؛ انتهت المحاكاة.'];

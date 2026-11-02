@@ -37,17 +37,40 @@ CATALOG;
     }
     return $catalog;
 }
+/**
+ * A template is a conversational goal with knowledge instructions and choices,
+ * not a compulsory personal-data collection form. Existing published revisions
+ * remain unchanged; selecting a template creates a fresh editable draft.
+ */
 function flow_template_graph(string $key):array {
     $entry=flow_template_catalog()[$key]??null;
     if(!$entry)throw new InvalidArgumentException('flow_template_not_found');
-    $nodes=[['id'=>'start','type'=>'start','text'=>$entry['greeting'],'x'=>1000,'y'=>100]];
-    $edges=[];$previous='start';$i=0;
-    foreach($entry['questions'] as $question){
-        ++$i;$id='q'.$i;
-        $nodes[]=['id'=>$id,'type'=>'collect_field','text'=>$question,'x'=>1000,'y'=>100+$i*220];
-        $edges[]=['from'=>$previous,'to'=>$id,'label'=>''];$previous=$id;
-    }
-    $nodes[]=['id'=>'end','type'=>'end','text'=>$entry['closing'],'x'=>1000,'y'=>170+$i*220];
-    $edges[]=['from'=>$previous,'to'=>'end','label'=>''];
+    $hints=array_slice($entry['questions'],0,3);
+    $focus=implode('؛ ',$hints);
+    $nodes=[
+      ['id'=>'start','type'=>'start','text'=>$entry['greeting'],'x'=>850,'y'=>70],
+      ['id'=>'guidance','type'=>'instruction','text'=>'هدف الحوار: '.$entry['title'].'. استخدم معرفة الموقع لإجابة أسئلة العميل عن الخدمة، والأسعار المعتمدة، والمواعيد، والاعتراضات. لا تسأل الأسئلة التالية كلها كاستبيان، بل اختر المناسب فقط: '.$focus,'x'=>850,'y'=>270],
+      ['id'=>'interest','type'=>'ask','text'=>'إيه أهم حاجة تحب تعرفها عن الخدمة أو العرض؟','x'=>850,'y'=>470],
+      ['id'=>'consult','type'=>'instruction','text'=>'ردّ على اهتمام العميل باستخدام Knowledge Base قبل أي سؤال جديد. اسمع الاعتراضات وناقش البدائل الواقعية، واشرح الفوائد بدون اختلاق معلومات. الأسئلة الجانبية يُجاب عنها ثم يستكمل موضوع العميل. لا تجمع الهاتف أو الاسم إلا عند موافقته على متابعة فعلية.','x'=>850,'y'=>660],
+      ['id'=>'followup','type'=>'ask','text'=>'حابب أشرح لك نقطة تانية أو أساعدك تختار البديل الأنسب؟','x'=>850,'y'=>860],
+      ['id'=>'objections','type'=>'instruction','text'=>'لو العميل ذكر اعتراضاً على السعر أو الوقت أو الموقع، عالجه من معلومات الشركة الموثقة أولاً. عند نقص المعلومات اعرض تحويله للبشر، ولا تؤكد أي إجراء قبل تكامل فعلي.','x'=>850,'y'=>1050],
+      ['id'=>'next','type'=>'ask','text'=>'تحب نرتب متابعة مع المسؤول؟ قول نعم أو لا؛ براحتك تماماً.','x'=>850,'y'=>1260],
+      ['id'=>'positive','type'=>'say','text'=>'تمام، هنجهز طلب المتابعة بعد تأكيد تفاصيل التواصل وموافقتك. لا يوجد حجز أو بيع مؤكد في هذه المحاكاة.','x'=>530,'y'=>1480],
+      ['id'=>'decline','type'=>'say','text'=>'شكراً لوقتك، مش هنضيف طلب تواصل بدون موافقتك.','x'=>1190,'y'=>1480],
+      ['id'=>'end','type'=>'end','text'=>$entry['closing'],'x'=>850,'y'=>1680]
+    ];
+    $edges=[
+      ['from'=>'start','to'=>'guidance','label'=>''],
+      ['from'=>'guidance','to'=>'interest','label'=>''],
+      ['from'=>'interest','to'=>'consult','label'=>''],
+      ['from'=>'consult','to'=>'followup','label'=>''],
+      ['from'=>'followup','to'=>'objections','label'=>''],
+      ['from'=>'objections','to'=>'next','label'=>''],
+      ['from'=>'next','to'=>'positive','label'=>'نعم'],
+      ['from'=>'next','to'=>'decline','label'=>'لا'],
+      ['from'=>'next','to'=>'positive','label'=>''],
+      ['from'=>'positive','to'=>'end','label'=>''],
+      ['from'=>'decline','to'=>'end','label'=>'']
+    ];
     return ['nodes'=>$nodes,'edges'=>$edges];
 }
