@@ -3,6 +3,7 @@ declare(strict_types=1);
 if(is_dir('/home/appontrack'))throw new RuntimeException('CI_TEST_ONLY');
 require_once __DIR__.'/../saas/console/database/Seed.php';
 require_once __DIR__.'/../saas/console/_core/TenantVoiceSession.php';
+require_once __DIR__.'/../saas/console/_core/VoiceKnowledge.php';
 require_once __DIR__.'/../saas/console/_core/Views.php';
 function dynamic_test(bool $yes,string $message):void{
     if(!$yes)throw new RuntimeException('DYNAMIC_AGENT_STUDIO_FAIL: '.$message);
