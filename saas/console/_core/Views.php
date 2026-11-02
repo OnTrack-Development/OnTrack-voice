@@ -866,6 +866,23 @@ function render_settings(array $a):void{
         ?'<p>المصادقة مفعّلة لهذا الحساب. عند تسجيل الدخول ستحتاج كود تطبيق المصادقة.</p><span class="pill ok">مفعّل ومؤكد</span>'
         :'<p>غير مفعّل. تسجيل الدخول يعمل بكلمة المرور، ويمكنك اختيار تفعيله بعد مسح QR وتأكيد كود من التطبيق.</p><a class="btn primary" href="/saas/console/mfa/setup">ربط تطبيق المصادقة وعرض QR</a>');
     if($a['kind']==='platform'&&console_view_mode($a)==='admin'&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
+        require_once __DIR__.'/WhatsAppOnboarding.php';
+        $meta=wa_platform_onboarding();
+        echo card('WhatsApp · طرق الربط المتاحة للعملاء',
+            '<p class="dim">الربط اليدوي وربط واتساب الموجود متاحان لجميع الحسابات. الربط التلقائي وCoexistence لا يظهران إلا بعد تفعيلك إعدادات Meta الخاصة بالمنصة.</p>'.
+            '<div class="wa-manual-notice">Embedded Signup v4 يتطلب إعداد Tech Provider أو Solution Partner وتصاريح Meta المناسبة. تفعيل الزر يتيح المسار للعميل، لكنه لا يضمن قبول Meta للرقم حتى إتمام اختبار حقيقي.</div>'.
+            form_start('wa_platform_onboarding_save','/?tab=settings','class="wa-settings-form wa-manual-form"').
+            '<div class="wa-manual-grid">'.
+            '<div class="wa-manual-cell half"><label class="field">Meta Platform App ID<input name="meta_app_id" dir="ltr" inputmode="numeric" maxlength="100" value="'.e((string)$meta['app_id']).'" placeholder="من Meta Developers"></label><small class="wa-field-help"><a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer">التطبيق ← Settings ← Basic</a></small></div>'.
+            '<div class="wa-manual-cell half"><label class="field">Meta Platform App Secret<input type="password" name="meta_app_secret" maxlength="1000" autocomplete="new-password" placeholder="'.(!empty($meta['app_secret_enc'])?'محفوظ مشفرًا · اتركه فارغًا للاحتفاظ به':'أدخل App Secret').'" ></label><small class="wa-field-help">السيرفر فقط؛ لا يظهر للعميل إطلاقًا.</small></div>'.
+            '<div class="wa-manual-cell half"><label class="field">Embedded Signup v4 Configuration ID<input name="meta_signup_config_id" dir="ltr" inputmode="numeric" maxlength="100" value="'.e((string)$meta['signup_config_id']).'"></label><small class="wa-field-help"><a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer">Facebook Login for Business ← Configurations</a></small></div>'.
+            '<div class="wa-manual-cell half"><label class="field">Coexistence Configuration ID<input name="meta_coexist_config_id" dir="ltr" inputmode="numeric" maxlength="100" value="'.e((string)$meta['coexist_config_id']).'"></label><small class="wa-field-help">Configuration مهيأ لـWhatsApp Business App Coexistence.</small></div>'.
+            '<div class="wa-manual-cell half"><label class="field">Meta Graph API Version<input name="graph_version" dir="ltr" maxlength="8" value="'.e((string)$meta['graph_version']).'" required></label></div>'.
+            '<div class="wa-manual-cell half"><label class="field">Platform Webhook Verify Token<input type="password" name="meta_verify_token" maxlength="200" autocomplete="new-password" placeholder="'.(!empty($meta['verify_token_hash'])?'محفوظ كـHash · سيبها فارغة للاحتفاظ به':'توكن تختاره من الإدارة').'" ></label><small class="wa-field-help">Callback منصة Meta: <code>https://app.ontrackegy.com/saas/console/whatsapp-platform-webhook.php</code>. مختلف عن الروابط اليدوية.</small></div>'.
+            '</div>'.
+            '<label class="wa-relay-toggle"><input type="checkbox" name="signup_enabled" value="1" '.(!empty($meta['signup_enabled'])?'checked':'').'>إظهار وتفعيل الربط التلقائي للعملاء</label>'.
+            '<label class="wa-relay-toggle"><input type="checkbox" name="coexist_enabled" value="1" '.(!empty($meta['coexist_enabled'])?'checked':'').'>إظهار وتفعيل Coexistence للعملاء</label>'.
+            submit_btn('حفظ إعدادات طرق واتساب'));
         $provider=one("SELECT name FROM integrations WHERE account_id=? AND provider='google_live' AND status='active' ORDER BY id DESC LIMIT 1",[$a['account_id']]);
         echo card('محرك الصوت الجديد — Google Gemini Live',
             '<p>الربط الصوتي على الشريحة يعتمد على مفتاح Gemini Live ساري، ويُخزّن مشفرًا على السيرفر ولا يظهر داخل التطبيق. الاختبار الحالي يتأكد من إصدار رمز مؤقت حقيقي من Google.</p>'.
