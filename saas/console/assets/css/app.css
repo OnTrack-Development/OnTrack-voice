@@ -212,3 +212,18 @@ html,body{max-width:100%;overflow-x:clip}
 .call-transcript-empty p,.calls-empty{color:var(--muted)}
 @media(max-width:900px){.calls-inbox{grid-template-columns:1fr}.calls-list{max-height:390px;border-inline-end:0;border-bottom:1px solid var(--border)}}
 @media(max-width:600px){.calls-top{padding:18px;align-items:flex-start;flex-direction:column}.calls-filters{padding:14px;flex-wrap:wrap}.calls-filters .field:first-of-type{flex:1 0 100%}.calls-filters .field:nth-of-type(2){flex:1}.call-detail{padding:20px}.call-contact{padding:12px}.call-contact-meta time{font-size:9px}}
+
+/* Compact one-agent-at-a-time workspace, retaining the complete Flow Builder. */
+.agent-create,.agent-editor{border:1px solid var(--border);border-radius:17px;background:var(--panel);margin:13px 0;overflow:hidden;box-shadow:0 10px 28px #00000012}
+.agent-create>summary,.agent-editor>summary{list-style:none;cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.agent-create>summary::-webkit-details-marker,.agent-editor>summary::-webkit-details-marker{display:none}
+.agent-editor>summary strong{font-size:15px;flex:1;min-width:145px}
+.agent-editor>summary .dim{font-size:11px}
+.agent-editor>summary:after{content:'⌄';font-size:19px;color:var(--muted);margin-inline-start:auto}
+.agent-editor[open]>summary:after{transform:rotate(180deg)}
+.agent-create[open]>summary,.agent-editor[open]>summary{border-bottom:1px solid var(--border)}
+.agent-create>.card,.agent-editor>.card{border:0;box-shadow:none;margin:0;border-radius:0}
+.agent-editor>summary:hover,.agent-create>summary:hover{background:var(--panel2)}
+.agent-editor:focus-within,.agent-create:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.agent-editor[open]{border-color:var(--accent)}
+@media(max-width:700px){.agent-editor>summary,.agent-create>summary{padding:13px}.agent-editor>summary strong{min-width:100%}.agent-editor>summary .dim{display:none}}

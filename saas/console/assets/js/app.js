@@ -71,4 +71,12 @@
     }
   });
   isCompact.addEventListener?.('change',()=>closeNav());
+  // Keep direct links anchored to their actual editor.
+  const openAgentFromHash=()=>{
+    if(!/^#agent-[1-9][0-9]*$/.test(window.location.hash))return;
+    const editor=document.getElementById(window.location.hash.slice(1));
+    if(editor?.matches('details.agent-editor'))editor.open=true;
+  };
+  openAgentFromHash();
+  window.addEventListener('hashchange',openAgentFromHash);
 })();
