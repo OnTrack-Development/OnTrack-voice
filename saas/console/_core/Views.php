@@ -4,7 +4,7 @@ declare(strict_types=1);
 function form_start(string $action,string $return='/',string $extra=''):string{
     $attrs=trim($extra);
     $classes='stack';
-    if(preg_match('/\\bclass="([^"]*)"/D',$attrs,$match)){
+    if(preg_match('/\\bclass="([^"]*)"/',$attrs,$match)){
         $classes.=' '.$match[1];
         $attrs=(string)preg_replace('/\\s*class="[^"]*"/','',$attrs,1);
     }
