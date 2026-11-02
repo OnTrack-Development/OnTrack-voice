@@ -962,7 +962,12 @@ function render_settings(array $a):void{
             submit_btn('تحقق واحفظ مفتاح Google'));
     }
     echo '<div class="cols two">';
-    echo card('هوية حسابك','<div class="brand-preview"><div class="brand-icon">'.e(mb_substr($brand['name'],0,1)).'</div><div><h3>'.e($brand['name']).'</h3><p>ألوان الهوية الأساسية: أحمر / أسود / أبيض</p></div></div><p>المستخدم المباشر يرث OnTrack؛ المستخدم التابع يرث هوية الريسيلر بشكل آمن.</p>');
+    $adminIdentity=in_array($a['kind'],['platform','reseller'],true)&&console_view_mode($a)==='admin';
+    $identityTitle=$adminIdentity?($a['kind']==='platform'?'هوية المنصة':'هوية الريسيلر'):'هوية حسابك';
+    $identityDescription=$adminIdentity
+        ?'هنا بتتحكم في هوية الإدارة والعلامة التجارية. إعدادات وبيانات المستخدم التشغيلية موجودة في مساحة المستخدم.'
+        :'المستخدم المباشر يرث OnTrack؛ المستخدم التابع يرث هوية الريسيلر بشكل آمن.';
+    echo card($identityTitle,'<div class="brand-preview"><div class="brand-icon">'.e(mb_substr($brand['name'],0,1)).'</div><div><h3>'.e($brand['name']).'</h3><p>ألوان الهوية الأساسية: أحمر / أسود / أبيض</p></div></div><p>'.e($identityDescription).'</p>');
     if(in_array($a['kind'],['reseller','platform'],true)&&console_view_mode($a)==='admin'){
         echo card('تعديل الاسم والشعار',form_start('brand','/?tab=settings','enctype="multipart/form-data"').field_html('الاسم التجاري الظاهر','brand_name','text',$brand['name'],true).'<label class="field">شعار PNG/JPEG/WEBP (حتى 1MB)<input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></label>'.submit_btn('حفظ الهوية'));
     }else{
