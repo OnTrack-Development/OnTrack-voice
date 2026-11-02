@@ -734,6 +734,18 @@ function act():void {
                 if(!device_pairing_cancel($id,intfield('pairing_id')))throw new InvalidArgumentException('طلب الربط غير متاح');
                 audit('device.pairing.cancelled',$id,['pairing_id'=>intfield('pairing_id')]);
                 break;
+            case 'change_device_agent':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $changed=device_binding_change_agent($id,intfield('device_id'),intfield('agent_id'));
+                audit('device.agent.changed',$id,[
+                    'device_id'=>$changed['device_id'],'sim_slot'=>$changed['sim_slot'],
+                    'previous_agent_id'=>$changed['previous_agent_id'],
+                    'agent_id'=>$changed['agent_id'],'changed'=>$changed['changed']
+                ]);
+                $success=$changed['changed']
+                    ?'تم تغيير الإيجنت على SIM '.($changed['sim_slot']+1).' بنجاح؛ نفس الربط والتوكن محفوظان. المكالمات الجديدة تستخدم الإيجنت الجديد بعد التحديث.'
+                    :'الإيجنت المحدد مربوط بالفعل بنفس الشريحة.';
+                break;
             case 'revoke_device_binding':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 if(!device_binding_revoke($id,intfield('device_id')))throw new InvalidArgumentException('الجهاز غير موجود أو مفصول مسبقًا');
