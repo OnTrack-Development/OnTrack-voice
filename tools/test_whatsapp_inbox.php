@@ -80,6 +80,9 @@ try{
     wa_check($blocked,'bridge only within original WHMCS AI addon namespace');
     wa_check(str_contains(wa_bridge_url('https://services.ontrackegy.com/modules/addons/ai_support_agent/whatsapp_bridge.php'),
         'ai_support_agent'),'original WHMCS addon path');
+    $member=one("SELECT user_id FROM memberships WHERE account_id=4 AND role='owner' ORDER BY user_id LIMIT 1");
+    wa_check($member!==null,'site owner fixture');
+    $_SESSION=['uid'=>(int)$member['user_id'],'account_id'=>4];
     $_GET=['tab'=>'whatsapp','conversation'=>(string)$cid];
     ob_start();render_whatsapp(['account_id'=>4,'role'=>'owner','kind'=>'customer']);
     $html=(string)ob_get_clean();
