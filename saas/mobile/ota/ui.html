@@ -321,7 +321,11 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
     monitoring?'المحرك مفعّل؛ Google Live يتصل وقت المكالمة':
     starting?'طلب التشغيل محفوظ؛ جاري التحقق من خدمة Android':'المراقبة متوقفة؛ اضغط تشغيل';
   if(s.tenantPairingInProgress)el('mode').textContent='جاري ربط الشريحة؛ التشغيل متوقف مؤقتًا';
-  el('status').textContent=engine?(s.status||'يلزم اعتماد المزوّد واختبار الهاتف قبل الرد'):'حدّث Android لمراقب الشرائح الجديد';
+  // SaaS pairing, Live websocket and microphone transcription are separate facts.
+  el('status').textContent=!engine?'حدّث Android لمراقب الشرائح الجديد':
+    s.inCall&&s.connected?'جلسة Google Live متصلة — وصول كلام العميل يحتاج تحقق مستقل':
+    s.tenantServerVerified?'سيرفر SaaS متصل؛ الشريحة جاهزة':
+    'ربط SaaS محفوظ؛ جارٍ التحقق من السيرفر (ليس دليل انقطاع المكالمة)';
   el('enable').disabled=!engine||monitoring||call||!!s.updating||!!s.tenantPairingInProgress;
   el('disable').disabled=!engine||!s.agentEnabled||!!s.updating;
  }
