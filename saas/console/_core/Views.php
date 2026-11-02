@@ -365,6 +365,64 @@ function render_sites(array $a):void{
     if(allowed('sites.write'))echo card('موقع جديد',form_start('add_site','/?tab=sites').field_html('اسم الموقع','name','text','الصيدلية / الملابس / الدعم',true).field_html('الدومين','domain','text','store.example.com').submit_btn('إضافة موقع مستقل'));
     echo '</div>';
 }
+/** Only operational controls: stored text and tested read-only sources.
+ * Caller-based privileges are registered here but NOT yet trusted by voice runtime.
+ */
+function render_voice_data_sources(array $a,array $site):void {
+    $id=(int)$a['account_id'];$siteId=(int)$site['id'];
+    if(!allowed('agents.write'))return;
+    $url='/?tab=agents&site='.$siteId;
+    echo '<details class="agent-create voice-data-workspace"><summary class="btn">مصادر المعرفة والتكاملات وأرقام الموظفين</summary>';
+    $rows=all('SELECT id,name,kind,status FROM voice_knowledge_sources WHERE account_id=? AND site_id=? ORDER BY id DESC LIMIT 30',[$id,$siteId]);
+    $html='<p class="info">مصادر المعرفة التي تخص الموقع الحالي فقط. تُستخدم في اقتراحات Flow وإجابات الإيجنت بعد النشر.</p>';
+    $html.=form_start('voice_knowledge_upload',$url,'enctype="multipart/form-data"').
+        '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+        field_html('اسم مصدر المعرفة','name','text','مثلاً سياسات الحجوزات',true).
+        '<label class="field">ملف TXT أو MD أو CSV أو JSON بحد 180KB<input type="file" name="knowledge_file" accept=".txt,.md,.csv,.json"></label>'.
+        '<label class="field">أو محتوى نصي<textarea name="knowledge_text" maxlength="180000" rows="4" placeholder="يمكنك كتابة المعلومات بدل رفع ملف"></textarea></label>'.
+        '<button class="btn primary" type="submit">إضافة إلى قاعدة المعرفة</button></form>';
+    foreach($rows as $row){
+        $html.='<div class="voice-data-row"><strong>'.e($row['name']).'</strong><span>'.e($row['kind']).'</span>'.
+            form_start('voice_knowledge_delete',$url,'class="inline-form"').
+            '<input type="hidden" name="source_id" value="'.(int)$row['id'].'"><button class="btn small danger" type="submit">إزالة المصدر</button></form></div>';
+    }
+    echo card('قاعدة المعرفة',$html);
+    if(in_array($a['role'],['owner','admin'],true)&&!active_support()){
+        $connectors=all('SELECT id,name,type,status,last_tested_at FROM voice_data_connectors WHERE account_id=? AND site_id=? ORDER BY id DESC LIMIT 20',[$id,$siteId]);
+        $html='<p class="info">WordPress وWHMCS وLaravel أو REST مخصص. الاتصال للقراءة فقط، ويظل غير مفعّل حتى ينجح اختبار حقيقي. لا تُنفَّذ أوامر من صوت العميل.</p>'.
+            form_start('voice_connector_add',$url).
+            '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+            select_html('نوع المصدر','type',['wordpress'=>'WordPress REST','whmcs'=>'WHMCS API (المنتجات فقط)','laravel'=>'Laravel HTTPS API','custom'=>'REST API عام للقراءة']).
+            field_html('اسم التكامل','name','text','مثلاً متجر الفرع',true).
+            field_html('العنوان العام HTTPS','base_url','url','https://example.com',true).
+            field_html('مسار القراءة المحدد','read_path','text','/wp-json/wp/v2/pages?per_page=5',true).
+            select_html('اعتماد الاتصال','auth_mode',['none'=>'عام دون كلمة مرور','bearer'=>'Bearer Token','wp_application'=>'WordPress Application Password','whmcs'=>'WHMCS Identifier:Secret']).
+            '<label class="field">بيانات الاتصال (تُشفّر على السيرفر)<input type="password" name="credential" autocomplete="new-password" maxlength="2000"></label>'.
+            '<button class="btn primary" type="submit">إضافة مصدر للقراءة</button></form>';
+        foreach($connectors as $row){
+            $html.='<div class="voice-data-row"><strong>'.e($row['name']).'</strong><span>'.e($row['type']).' · '.e($row['status']).'</span>'.
+                form_start('voice_connector_test',$url,'class="inline-form"').'<input type="hidden" name="connector_id" value="'.(int)$row['id'].'"><button class="btn small" type="submit">اختبار اتصال حقيقي</button></form>'.
+                form_start('voice_connector_delete',$url,'class="inline-form"').'<input type="hidden" name="connector_id" value="'.(int)$row['id'].'"><button class="btn small danger" type="submit">حذف</button></form></div>';
+        }
+        echo card('تكاملات القراءة', $html);
+        $users=all('SELECT id,name,phone_e164,role,status FROM voice_caller_roles WHERE account_id=? AND site_id=? ORDER BY id DESC LIMIT 40',[$id,$siteId]);
+        $html='<p class="info">تسجيل أرقام المدراء والموظفين مع صلاحيات محددة. التعرف على الرقم وحده لا يفتح بيانات حساسة؛ التحقق بالـPIN مطلوب. <strong>ربط التحقق الصوتي بالمكالمات الحية لم يُفعّل بعد.</strong></p>'.
+            form_start('voice_caller_add',$url).
+            '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+            field_html('اسم الموظف','name','text','مدير الفرع',true).
+            field_html('رقم الهاتف الدولي E.164','phone_e164','tel','+201000000000',true).
+            select_html('الدور','role',['owner'=>'صاحب الحساب','manager'=>'مدير','accountant'=>'محاسب','reception'=>'استقبال','support'=>'دعم','viewer'=>'قراءة محدودة']).
+            '<label class="field">رمز تحقق مستقل من 6 إلى 10 أرقام<input name="pin" type="password" pattern="[0-9]{6,10}" minlength="6" maxlength="10" required autocomplete="new-password"></label>'.
+            '<button class="btn primary" type="submit">إضافة رقم وصلاحيات</button></form>';
+        foreach($users as $row){
+            $html.='<div class="voice-data-row"><strong>'.e($row['name']).'</strong><span dir="ltr">'.e($row['phone_e164']).'</span><span>'.e($row['role']).'</span>'.
+                form_start('voice_caller_delete',$url,'class="inline-form"').'<input type="hidden" name="caller_id" value="'.(int)$row['id'].'"><button class="btn small danger">سحب الصلاحية</button></form></div>';
+        }
+        echo card('أرقام الموظفين والأدوار',$html);
+    }
+    echo '</details>';
+}
+
 function render_agents(array $a):void{
     require_once __DIR__.'/FlowTemplates.php';
     require_once __DIR__.'/AgentAnswerPolicy.php';
@@ -375,6 +433,7 @@ function render_agents(array $a):void{
     echo '<div class="section-line agents-toolbar"><div class="agents-heading"><span class="eyebrow">AGENT WORKSPACE</span><h2>الإيجنتات والسيناريوهات</h2><p>اختر موقعًا، افتح الإيجنت، ثم احفظ أو انشر إعداداته من محرر واحد.</p></div><div class="site-picker" aria-label="اختيار الموقع">';
     foreach($sites as $site)echo '<a class="chip-link '.($selected&&$site['id']==$selected['id']?'chosen':'').'" href="?tab=agents&site='.$site['id'].'">'.e($site['name']).'</a>';
     echo '</div></div>';
+    if($selected)render_voice_data_sources($a,$selected);
     if(!$sites){echo card('ابدأ بموقع','أنشئ موقعاً من قائمة المواقع قبل إضافة الإيجنت.');return;}
     $templateOptions=[];
     foreach(flow_template_catalog() as $key=>$tpl)$templateOptions[$key]=$tpl['category'].' — '.$tpl['title'];
