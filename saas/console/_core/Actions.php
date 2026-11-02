@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/StaffInvitations.php';
+require_once __DIR__.'/VoiceAccess.php';
 require_once __DIR__.'/DncGuard.php';
 require_once __DIR__.'/DevicePairing.php';
 require_once __DIR__.'/PublishedFlow.php';
@@ -33,10 +34,92 @@ function act():void {
     $action=(string)($_POST['action']??'');
     if($a['role']==='support_viewer' && $action!=='support_leave')deny(403,'وضع الدعم للقراءة فقط');
     $id=(int)$a['account_id'];$kind=$a['kind'];
+    if($action==='flow_ai_propose'){
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        try{
+            if(!allowed('agents.write'))throw new RuntimeException('لا تملك صلاحية تعديل الإيجنت');
+            $agentId=intfield('agent_id');
+            $now=time();
+            $history=array_values(array_filter((array)($_SESSION['flow_ai_requests']??[]),
+                static fn($t)=>is_int($t)&&$t>$now-600));
+            if(count($history)>=8)throw new RuntimeException('وصلت للحد المؤقت لمقترحات AI؛ جرّب لاحقًا.');
+            $history[]=$now;$_SESSION['flow_ai_requests']=$history;
+            require_once __DIR__.'/FlowAi.php';
+            $graph=flow_ai_generate($id,$agentId,field('description',2500));
+            echo json_encode(['ok'=>true,'graph'=>$graph,'saved'=>false,'published'=>false],
+                JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        }catch(Throwable $error){
+            http_response_code($error instanceof InvalidArgumentException?422:503);
+            echo json_encode(['ok'=>false,'error'=>$error instanceof InvalidArgumentException?
+                $error->getMessage():($error instanceof RuntimeException?
+                   $error->getMessage():'تعذر إنشاء المقترح؛ لم تتغير المسودة.')],
+                JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
     try {
         // Migrate DNC outside a transaction (MySQL CREATE TABLE auto-commits).
         if(in_array($action,['add_contact','edit_contact','delete_contact'],true))dnc_init_ledger();
         switch($action) {
+            case 'voice_knowledge_upload':
+                require_permission('agents.write');
+                $site=intfield('site_id');
+                $name=required('name',150);$file=$_FILES['knowledge_file']??null;
+                $content='';$kind='note';
+                if(is_array($file)&&($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
+                    if(($file['error']??-1)!==UPLOAD_ERR_OK||!is_uploaded_file((string)($file['tmp_name']??''))||
+                       (int)($file['size']??0)>180000||($file['size']??0)<=0)
+                        throw new InvalidArgumentException('ملف المعرفة غير صالح أو أكبر من 180KB');
+                    $filename=(string)($file['name']??'');$kind=strtolower(pathinfo($filename,PATHINFO_EXTENSION));
+                    if(!in_array($kind,['txt','md','csv','json'],true))
+                        throw new InvalidArgumentException('المسموح الآن TXT وMD وCSV وJSON فقط');
+                    $content=(string)file_get_contents((string)$file['tmp_name']);
+                }else{$content=field('knowledge_text',180000);}
+                require_once __DIR__.'/VoiceKnowledge.php';
+                $saved=voice_knowledge_add($id,$site,$name,$kind,$content,field('knowledge_visibility',20));
+                audit('voice.knowledge.created',$id,['source_id'=>$saved,'site_id'=>$site]);
+                break;
+            case 'voice_knowledge_delete':
+                require_permission('agents.write');
+                require_once __DIR__.'/VoiceKnowledge.php';
+                if(!voice_knowledge_delete($id,intfield('source_id')))deny(404);
+                audit('voice.knowledge.deleted',$id);break;
+            case 'voice_connector_add':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceConnectors.php';
+                $connector=voice_connector_add($id,intfield('site_id'),field('type',25),
+                    required('name',120),required('base_url',500),required('read_path',500),
+                    field('auth_mode',25),field('credential',2000));
+                audit('voice.connector.created',$id,['connector_id'=>$connector,'type'=>field('type',25)]);
+                break;
+            case 'voice_connector_test':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceConnectors.php';
+                $result=voice_connector_test($id,intfield('connector_id'));
+                audit('voice.connector.verified',$id,['type'=>$result['type']]);
+                flash('success','اتصال القراءة نجح؛ النوع '.e($result['type']).' (لم تُنفذ أي عملية كتابة)');
+                break;
+            case 'voice_connector_delete':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $connectorId=intfield('connector_id');
+                if(execute('DELETE FROM voice_data_connectors WHERE id=? AND account_id=?',[$connectorId,$id])!==1)deny(404);
+                audit('voice.connector.deleted',$id,['connector_id'=>$connectorId]);break;
+            case 'voice_caller_add':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceAccess.php';
+                $scopes=$_POST['scopes']??[];
+                if(!is_array($scopes))throw new InvalidArgumentException('الصلاحيات غير صالحة');
+                $principal=voice_staff_enroll($id,intfield('user_id'),
+                    required('phone_e164',20),field('pin',10),$scopes);
+                audit('voice.staff_phone.created',$id,['principal_id'=>$principal,'user_id'=>intfield('user_id')]);
+                break;
+            case 'voice_caller_delete':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceAccess.php';
+                $principal=intfield('caller_id');
+                if(!voice_staff_revoke($id,$principal))deny(404);
+                audit('voice.staff_phone.revoked',$id,['principal_id'=>$principal]);break;
             case 'set_view':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 $view=(string)($_POST['view']??'');
@@ -98,6 +181,21 @@ function act():void {
                 audit('staff.invitation.created',$id,['invitation_id'=>$inviteId,'role'=>$role]);
                 flash('success','الدعوة بانتظار قبول صاحب البريد بعد تسجيل دخوله. لم تُمنح أي صلاحيات بعد.');
                 break;
+            case 'voice_staff_enroll':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $scopes=$_POST['scopes']??[];
+                if(!is_array($scopes))throw new InvalidArgumentException('اختر صلاحيات من القائمة');
+                $numberId=voice_staff_enroll($id,intfield('user_id'),required('phone',32),
+                    required('pin',10),$scopes);
+                audit('voice.staff.number.enrolled',$id,['number_id'=>$numberId,'user_id'=>intfield('user_id')]);
+                flash('success','تم تسجيل الرقم. يُطلب رمز التحقق من خلال لوحة أرقام المكالمة قبل عرض البيانات الخاصة.');
+                break;
+            case 'voice_staff_revoke':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                if(!voice_staff_revoke($id,intfield('number_id')))
+                    throw new InvalidArgumentException('الرقم غير نشط أو لا يخص الحساب');
+                audit('voice.staff.number.revoked',$id,['number_id'=>intfield('number_id')]);
+                break;
             case 'cancel_staff_invitation':
                 require_permission('staff.manage');
                 if(active_support()||!in_array($a['role'],['owner','admin'],true))deny();
@@ -155,9 +253,11 @@ function act():void {
                     if(!is_array($n)||!preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',(string)($n['id']??''))||isset($ids[$n['id']]))throw new InvalidArgumentException('معرّف عقدة Flow مكرر أو غير صالح');
                     $ids[$n['id']]=true;
                     if(!in_array($n['type']??'',[
-                       'start','say','listen','ask','condition','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end'],true))
+                       'start','say','listen','ask','condition','instruction','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end'],true))
                        throw new InvalidArgumentException('نوع عقدة غير صالح');
                 }
+                // Use the exact same safety/branch contract as the simulator and publisher.
+                flow_preview_compile($decoded);
                 foreach($decoded['edges'] as $edge){
                     if(!is_array($edge)||!isset($ids[$edge['from']??''],$ids[$edge['to']??''])||
                        strlen((string)($edge['label']??''))>280)
@@ -210,14 +310,14 @@ function act():void {
                 execute("UPDATE api_keys SET status='revoked' WHERE id=? AND account_id=?",[intfield('key_id'),$id]);
                 audit('api_key.revoked',$id,['key'=>intfield('key_id')]);break;
             case 'new_integration':
-                if(!in_array($a['role'],['owner','admin'],true))deny();
-                $provider=field('provider',30);if(!in_array($provider,['whmcs','laravel','kashier','webhook'],true))throw new InvalidArgumentException('نوع تكامل غير مدعوم');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $provider=field('provider',30);if(!in_array($provider,['whmcs','laravel','wordpress','generic_rest','kashier','webhook'],true))throw new InvalidArgumentException('نوع تكامل غير مدعوم');
                 $token='otint_'.bin2hex(random_bytes(32));
                 insert("INSERT INTO integrations(account_id,name,provider,token_hash,token_prefix,status,created_at,secret_enc) VALUES (?,?,?,?,?,'active',?,?)",[$id,required('name',100),$provider,hash('sha256',$token),substr($token,0,12),now(),seal_secret($token)]);
                 audit('integration.created',$id,['provider'=>$provider]);
                 flash('secret','سر Webhook للتكامل: '.$token.' — انسخه مرة واحدة');break;
             case 'revoke_integration':
-                if(!in_array($a['role'],['owner','admin'],true))deny();
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 execute("UPDATE integrations SET status='revoked' WHERE id=? AND account_id=?",[intfield('integration_id'),$id]);
                 audit('integration.revoked',$id);break;
             case 'assign_plan':
@@ -427,7 +527,7 @@ function act():void {
             case 'edit_staff':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 $uid=intfield('user_id');$role=field('role',25);
-                if(!in_array($role,['manager','operator','finance','support','viewer'],true))deny();
+                if(!in_array($role,['manager','operator','reception','finance','support','viewer'],true))deny();
                 $target=one('SELECT id,role FROM memberships WHERE user_id=? AND account_id=?',[$uid,$id]);
                 if(!$target||in_array($target['role'],['owner','admin'],true))deny();
                 execute('UPDATE memberships SET role=? WHERE id=?',[$role,$target['id']]);

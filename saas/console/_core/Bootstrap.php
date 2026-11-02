@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -317,6 +317,7 @@ function allowed(string $permission,?array $account=null):bool {
     if($r==='owner'||$r==='admin')return true;
     $grants=[
         'manager'=>['read','sites.write','agents.write','campaigns.write','contacts.write','calls.read','staff.read','devices.read','integrations.read'],
+        'reception'=>['read','calls.read','contacts.read','devices.read'],
         'operator'=>['read','agents.read','campaigns.read','campaigns.write','calls.read','contacts.read','devices.read'],
         'support'=>['read','calls.read','staff.read','devices.read','integrations.read'],
         'finance'=>['read','billing.read','billing.write'],
@@ -475,5 +476,53 @@ function init_console_v12():void {
         scenario TEXT NOT NULL, contact_ids_json TEXT NOT NULL, status VARCHAR(20) NOT NULL,
         created_at VARCHAR(19) NOT NULL)";
     db()->exec($campaigns.(driver()==='mysql'?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4':''));
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+/** Isolated tenant knowledge, verified external sources, and caller role registry. */
+function init_console_v13():void {
+    $marker=private_path().'/schema.v13';
+    if(is_file($marker))return;
+    $mysql=driver()==='mysql';
+    $id=$mysql?'BIGINT AUTO_INCREMENT PRIMARY KEY':'INTEGER PRIMARY KEY AUTOINCREMENT';
+    $int=$mysql?'BIGINT':'INTEGER';
+    $engine=$mysql?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4':'';
+    $knowledgeText=$mysql?'MEDIUMTEXT':'TEXT';
+    db()->exec("CREATE TABLE IF NOT EXISTS voice_knowledge_sources (
+        id $id,account_id $int NOT NULL,site_id $int NOT NULL,
+        name VARCHAR(150) NOT NULL,kind VARCHAR(25) NOT NULL,
+        content $knowledgeText NOT NULL,visibility VARCHAR(20) NOT NULL DEFAULT 'public',
+        status VARCHAR(18) NOT NULL,
+        sha256 VARCHAR(64) NOT NULL,created_at VARCHAR(19) NOT NULL)".$engine);
+    db()->exec("CREATE TABLE IF NOT EXISTS voice_data_connectors (
+        id $id,account_id $int NOT NULL,site_id $int NOT NULL,
+        type VARCHAR(25) NOT NULL,name VARCHAR(120) NOT NULL,
+        base_url VARCHAR(500) NOT NULL,read_path VARCHAR(500) NOT NULL,
+        auth_mode VARCHAR(25) NOT NULL,secret_enc TEXT NULL,
+        status VARCHAR(20) NOT NULL,last_tested_at VARCHAR(19) NULL,
+        created_at VARCHAR(19) NOT NULL)".$engine);
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+/** Additive staff authorization and fact registry; independent of KB/connector v13. */
+function init_console_v14():void {
+    $marker=private_path().'/schema.v14';
+    if(is_file($marker))return;
+    $mysql=driver()==='mysql';
+    $id=$mysql?'BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY':'INTEGER PRIMARY KEY AUTOINCREMENT';
+    $int=$mysql?'BIGINT':'INTEGER';
+    $engine=$mysql?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci':'';
+    db()->exec("CREATE TABLE IF NOT EXISTS voice_staff_numbers (
+        id $id,account_id $int NOT NULL,user_id $int NOT NULL,
+        phone_e164 VARCHAR(20) NOT NULL,pin_hash VARCHAR(255) NOT NULL,
+        scopes_json TEXT NOT NULL,status VARCHAR(20) NOT NULL,
+        failed_attempts $int NOT NULL DEFAULT 0,locked_until VARCHAR(19) NULL,
+        created_at VARCHAR(19) NOT NULL,updated_at VARCHAR(19) NOT NULL,
+        UNIQUE(account_id,phone_e164))".$engine);
+    db()->exec("CREATE TABLE IF NOT EXISTS integration_facts (
+        id $id,account_id $int NOT NULL,integration_id $int NOT NULL,
+        category VARCHAR(30) NOT NULL,fact_key VARCHAR(80) NOT NULL,
+        fact_value TEXT NOT NULL,updated_at VARCHAR(19) NOT NULL,
+        UNIQUE(account_id,integration_id,category,fact_key))".$engine);
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }

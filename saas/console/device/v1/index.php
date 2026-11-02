@@ -5,6 +5,7 @@ require __DIR__.'/../../_core/DevicePairing.php';
 require __DIR__.'/../../_core/TenantVoiceSession.php';
 require __DIR__.'/../../_core/TenantWorkspace.php';
 require __DIR__.'/../../_core/TenantFileParser.php';
+require __DIR__.'/../../_core/VoiceAccess.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -37,7 +38,7 @@ try{
         );
         device_answer(201,['ok'=>true,'binding'=>$bound,'state'=>'paired_control_plane_only']);
     }
-    if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session','voice_preflight',
+    if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session','voice_preflight','caller_identify','caller_verify',
         'workspace_contacts','workspace_contact_dnc','workspace_import','workspace_calls',
         'workspace_call_event','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_file_import'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
@@ -82,6 +83,33 @@ try{
             if($operation==='workspace_campaign_action')device_answer(200,['ok'=>true]+tenant_workspace_campaign_action($binding,$data));
         }
         $profile=device_binding_heartbeat($binding);
+        if($operation==='caller_identify'){
+            // Paired SIM is the only account resolver. Caller ID alone never discloses data.
+            $phone=voice_phone_normalize((string)($data['phone']??''));
+            $match=one("SELECT v.id FROM voice_staff_numbers v
+                JOIN memberships m ON m.account_id=v.account_id AND m.user_id=v.user_id
+                JOIN users u ON u.id=v.user_id AND u.status='active'
+                WHERE v.account_id=? AND v.phone_e164=? AND v.status='active'",
+                [(int)$binding['account_id'],$phone]);
+            device_answer(200,['ok'=>true,'recognized'=>$match!==null,
+                'pin_required'=>true,'facts'=>[],'authenticated'=>false]);
+        }
+        if($operation==='caller_verify'){
+            // PIN must come from private DTMF device input, never from Gemini transcript.
+            $pin=$data['pin']??null;
+            if(!is_string($pin)||strlen($pin)>10)device_answer(422,['ok'=>false,'error'=>'invalid_pin']);
+            $principal=voice_staff_authenticate((int)$binding['account_id'],(string)($data['phone']??''),$pin);
+            if(!$principal)device_answer(403,['ok'=>false,'error'=>'caller_not_verified','facts'=>[]]);
+            // Never return the credential or raw PIN; only bounded facts in authorized categories.
+            $facts=voice_visible_facts($principal,45);
+            insert('INSERT INTO audit_events(actor_user_id,account_id,action,detail,created_at) VALUES (?,?,?,?,?)',
+                [$principal['user_id'],$principal['account_id'],'voice.caller.verified',
+                 json_encode(['device_binding_id'=>$binding['id']??null,'categories'=>$principal['scopes']],JSON_THROW_ON_ERROR),now()]);
+            device_answer(200,['ok'=>true,'authenticated'=>true,
+                'principal'=>['name'=>$principal['name'],'role'=>$principal['role'],'scopes'=>$principal['scopes']],
+                'facts'=>$facts,'actions_enabled'=>false]);
+        }
+
         if($operation==='voice_preflight'){
             try{$ready=tenant_voice_preflight($binding);}
             catch(RuntimeException $problem){

@@ -350,3 +350,37 @@ table code{direction:ltr;unicode-bidi:plaintext}
  .plan-editor>summary span{font-size:11px}
  table td:last-child{min-width:160px}
 }
+
+
+/* Agent Flow Studio: true fullscreen graph and reviewable AI drafts. */
+.graph-shell:fullscreen,.graph-shell.graph-maximized{
+ position:fixed!important;inset:0!important;z-index:2000;width:100vw;height:100dvh;
+ border-radius:0;display:flex;flex-direction:column;overflow:hidden;
+ background:var(--panel2);margin:0!important;
+}
+body.graph-editor-maximized{overflow:hidden}
+.graph-shell:fullscreen .graph-layout,.graph-shell.graph-maximized .graph-layout{
+ flex:1;min-height:0;max-height:none;overflow:hidden
+}
+.graph-shell:fullscreen .graph-viewport,.graph-shell.graph-maximized .graph-viewport{height:100%;min-height:0}
+.graph-shell:fullscreen .graph-inspector,.graph-shell.graph-maximized .graph-inspector{overflow:auto;max-height:none}
+.graph-shell:fullscreen .graph-toolbar,.graph-shell.graph-maximized .graph-toolbar{flex:none}
+.graph-shell:fullscreen .graph-ai-panel,.graph-shell.graph-maximized .graph-ai-panel{flex:none;max-height:33vh;overflow:auto}
+.graph-ai-panel{padding:15px 18px;border-top:1px solid var(--border);background:var(--panel);direction:rtl}
+.graph-ai-panel h3{font-size:14px;margin:0 0 6px}
+.graph-ai-panel p{font-size:12px;color:var(--muted);margin:0 0 10px}
+.graph-ai-panel textarea{width:100%;resize:vertical;min-height:72px;max-height:180px;
+ border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--panel2);color:var(--text)}
+.graph-ai-actions{display:flex;gap:9px;flex-wrap:wrap;margin:10px 0}
+.graph-ai-actions .graph-btn[hidden]{display:none}
+.graph-ai-status{min-height:20px}
+.graph-ai-preview{max-height:260px;overflow-y:auto;margin-top:10px}
+.graph-ai-preview strong{display:block;margin-bottom:8px}
+.graph-ai-list{list-style:decimal;margin:0;padding-inline-start:25px;display:grid;gap:5px}
+.graph-ai-list li{border:1px solid var(--border);border-radius:9px;padding:8px;display:flex;flex-direction:column;gap:4px;font-size:12px}
+.graph-ai-list li span{color:var(--muted);white-space:pre-wrap}
+@media(max-width:620px){
+.graph-shell:fullscreen .graph-layout,.graph-shell.graph-maximized .graph-layout{grid-template-columns:1fr;overflow:auto}
+.graph-shell:fullscreen .graph-viewport,.graph-shell.graph-maximized .graph-viewport{height:55vh;min-height:55vh}
+.graph-shell:fullscreen .graph-inspector,.graph-shell.graph-maximized .graph-inspector{max-height:25vh}
+}
