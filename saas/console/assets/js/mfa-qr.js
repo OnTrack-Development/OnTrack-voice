@@ -14,6 +14,6 @@
    panel.innerHTML=qr.createSvgTag({cellSize:5,margin:10,scalable:true});
  }catch(_){panel.textContent="تعذر رسم QR. استخدم مفتاح الإدخال اليدوي أدناه.";}
  };
- window.ontrackMountMfaQR=mount;
+ if(typeof window!=='undefined')window.ontrackMountMfaQR=mount;
  mount();
 })();
