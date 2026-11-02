@@ -66,7 +66,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
     const candidate=templates.find(t=>t.id===templateSelect.value);
     if(!candidate)return;
     if(!await window.ontrackConfirm('استبدال التصميم الحالي بننسخة من السيناريو المختار؟',{title:'تغيير السيناريو',confirmText:'استخدام السيناريو'}))return;
-    data=JSON.parse(JSON.stringify(candidate.graph));selected=data.nodes[0]?.id||null;
+    data=JSON.parse(JSON.stringify(candidate.graph));selected=data.nodes[0]?.id||null;hovered=null;
     arrange();notice.textContent='تم تحميل '+candidate.title+'؛ عدله أو اختبره ثم احفظ مسودة أو انشر مباشرة.';
   },'primary');
   tools.prepend(templateSelect,applyTemplate);
@@ -332,7 +332,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
      });
      if(proposal)await chatRequest('flow_ai_applied',{graph_json:JSON.stringify(proposal)});
      if(profileProposal)applyProfileToForm(profileProposal);
-     if(proposal){data=JSON.parse(JSON.stringify(proposal));selected=data.nodes[0]?.id||null;render();store()}
+     if(proposal){data=JSON.parse(JSON.stringify(proposal));selected=data.nodes[0]?.id||null;hovered=null;arrange();store()}
      aiMessage('assistant','تم تطبيق المقترح كمسودة. تقدر تطلب تعديلات إضافية من نفس المحادثة.');
      clearAiProposal();
      const draft=[...form.querySelectorAll('button[type=submit]')].find(b=>!b.hasAttribute('name')||b.name!=='publish_now');
@@ -477,7 +477,9 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  function nodes(){
    cards.replaceChildren();
    data.nodes.forEach(n=>{
-     const box=make('button','graph-node'+(n.id===selected?' selected':''));box.type='button';box.style.left=n.x+'px';box.style.top=n.y+'px';
+     const box=make('button','graph-node'+(n.id===selected?' selected':''));box.type='button';
+     box.dataset.nodeId=n.id;box.style.left=n.x+'px';box.style.top=n.y+'px';
+     box.setAttribute('aria-label',(TYPES[n.type]||n.type)+': '+String(n.text||'').slice(0,100));
      box.append(make('strong','',TYPES[n.type]),make('p','',n.text||'اكتب نص الخطوة'));
      box.append(make('small','','● '+String(n.id).slice(-6)));
      box.addEventListener('pointerdown',evt=>{
@@ -488,17 +490,20 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
          connecting=false;connect.classList.remove('selected-tool');store();
        }
        selected=n.id;drag={id:n.id,x:evt.clientX,y:evt.clientY,ox:n.x,oy:n.y};
-       box.setPointerCapture(evt.pointerId);inspect();edges();
+       box.setPointerCapture(evt.pointerId);inspect();edges();refreshNodeFocus();
      });
      box.addEventListener('pointermove',evt=>{
        if(!drag||drag.id!==n.id)return;
-       n.x=Math.max(0,Math.min(2250,drag.ox+(evt.clientX-drag.x)/scale));
-       n.y=Math.max(0,Math.min(2750,drag.oy+(evt.clientY-drag.y)/scale));
+       n.x=Math.max(0,Math.min(sceneWidth-routing.WIDTH-30,drag.ox+(evt.clientX-drag.x)/scale));
+       n.y=Math.max(0,Math.min(sceneHeight-routing.HEIGHT-30,drag.oy+(evt.clientY-drag.y)/scale));
        box.style.left=n.x+'px';box.style.top=n.y+'px';edges();
      });
-     box.addEventListener('pointerup',()=>{drag=null;store();nodes();edges()});
+     box.addEventListener('pointerup',()=>{drag=null;data.layout_version=2;store();nodes();edges()});
+     box.addEventListener('pointerenter',()=>{if(drag)return;hovered=n.id;edges();refreshNodeFocus()});
+     box.addEventListener('pointerleave',()=>{if(drag)return;hovered=null;edges();refreshNodeFocus()});
      cards.append(box);
    });
+   refreshNodeFocus();
  }
  function field(label,input){const wrap=make('label','graph-field');wrap.append(make('span','',label),input);inspector.append(wrap);return input}
  function inspect(){
@@ -524,40 +529,21 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
      selected=data.nodes[0]?.id||null;render();
    },'danger'));
  }
- function render(){store();transform();edges();nodes();inspect()}
+ function render(){store();transform();edges();nodes();inspect();refreshNodeFocus()}
  function addNode(){
    if(data.nodes.length>=100){window.ontrackToast('100 خطوة كحد أقصى',{error:true});return;}
    const a=focus(),n={id:uuid(),type:type.value,text:'',x:a?a.x+250:1050,y:a?a.y+230:100};
    data.nodes.push(n);if(a)data.edges.push({from:a.id,to:n.id,label:''});selected=n.id;render();
  }
  function arrange(){
-   // Bounded visual grid: 32 proposal nodes fit in the 2500x3000 world.
-   // Breadth-first ordering respects the start and groups related branches;
-   // cycles do not cause endless traversal. Linked nodes remain editable.
-   const index=new Map(data.nodes.map(n=>[n.id,n]));
-   const next=new Map(),indegree=new Map();
-   data.edges.forEach(edge=>{
-     if(!next.has(edge.from))next.set(edge.from,[]);
-     next.get(edge.from).push(edge.to);
-     indegree.set(edge.to,(indegree.get(edge.to)||0)+1);
+   const result=routing.layout(data.nodes,data.edges);
+   data.nodes.forEach(node=>{
+     const position=result.positions[node.id];
+     if(position){node.x=position.x;node.y=position.y}
    });
-   const queue=data.nodes.filter(n=>n.type==='start').map(n=>n.id);
-   const seen=new Set(),ordered=[];
-   while(queue.length){
-     const id=queue.shift();
-     if(seen.has(id)||!index.has(id))continue;
-     seen.add(id);ordered.push(index.get(id));
-     (next.get(id)||[]).forEach(target=>{if(!seen.has(target))queue.push(target)});
-   }
-   data.nodes.forEach(n=>{if(!seen.has(n.id))ordered.push(n)});
-   const maxCols=4,stepX=525,stepY=318;
-   ordered.forEach((n,i)=>{
-     const row=Math.floor(i/maxCols),col=i%maxCols;
-     n.x=250+col*stepX;
-     n.y=95+row*stepY;
-   });
-   scale=data.nodes.length>=20?.68:.85;x=data.nodes.length>=20?-200:-760;y=30;
-   render();
+   data.layout_version=2;
+   setSceneSize(result.width,result.height);
+   render();fitGraph();
  }
  viewport.addEventListener('pointerdown',evt=>{
    if(evt.target.closest('.graph-node'))return;pan={cx:evt.clientX,cy:evt.clientY,ox:x,oy:y};viewport.setPointerCapture(evt.pointerId)
@@ -567,7 +553,12 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  viewport.addEventListener('wheel',evt=>{if(!evt.ctrlKey)return;evt.preventDefault();scale=Math.max(.4,Math.min(1.5,scale+(evt.deltaY<0?.08:-.08)));transform()},{passive:false});
  source.addEventListener('change',()=>{if(source.hidden)return;try{const value=JSON.parse(source.value);if(!Array.isArray(value.nodes)||!Array.isArray(value.edges))throw Error();data=value;render()}catch{window.ontrackToast('JSON غير صالح',{error:true})}});
  if(!data.nodes.length){data.nodes=[{id:'start',type:'start',text:'أهلاً بك',x:1000,y:100},{id:'end',type:'end',text:'شكراً لتواصلك',x:1000,y:350}];data.edges=[{from:'start',to:'end',label:''}]}
- arrange();
+ if(data.layout_version!==2)arrange();
+ else{
+   setSceneSize(Math.max(...data.nodes.map(n=>n.x+routing.WIDTH+310),2500),
+     Math.max(...data.nodes.map(n=>n.y+routing.HEIGHT+470),1900));
+   render();fitGraph();
+ }
  const editorForm=root.closest('form');
  if(editorForm)editorForm.addEventListener('submit',async event=>{
    event.preventDefault();event.stopPropagation();
