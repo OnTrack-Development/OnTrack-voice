@@ -666,3 +666,22 @@ body:not(.light) .wa-manual-notice{background:#15243d;border-color:#38557e;color
 .wa-relay-toggle input{accent-color:var(--accent);width:16px;height:16px}
 @media(min-width:920px){.wa-mode-picker{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:560px){.wa-mode-picker{grid-template-columns:1fr 1fr}.wa-mode-button{padding:11px 9px}.wa-mode-button strong{font-size:12px}}
+
+
+/* Platform and reseller owner workspace preview; always reachable from sidebar. */
+.workspace-switcher{flex:none;margin:9px 1px 0;padding:11px;border:1px solid var(--border);border-radius:13px;background:var(--panel2);display:flex;flex-direction:column;gap:8px;min-width:0}
+.workspace-switcher-title{font-size:10px;font-weight:750;color:var(--muted);line-height:1.55}
+.workspace-switch-form{display:block!important;width:100%;margin:0!important}
+.workspace-switch-button{width:100%;min-height:42px;border:1px solid color-mix(in srgb,var(--accent) 48%,var(--border));border-radius:10px;background:color-mix(in srgb,var(--accent) 10%,var(--panel));color:var(--text);font-family:inherit;font-size:12px;font-weight:800;line-height:1.5;cursor:pointer;padding:8px;white-space:normal;text-align:center}
+.workspace-switch-button:hover,.workspace-switch-button:focus-visible{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 17%,var(--panel));outline-offset:3px}
+.workspace-return-top>.btn{font-weight:800}
+.sidebar>.nav-list{min-height:0;flex:1;overflow-y:auto}
+@media(max-width:810px){
+ .sidebar .workspace-switcher{display:flex;min-height:0;padding:9px;margin:8px 5px 0}
+ .sidebar .workspace-switch-button{min-height:44px;font-size:12px}
+ .workspace-return-top{display:flex!important;flex:0 0 auto;max-width:100%}
+ .workspace-return-top .btn{font-size:11px;white-space:normal}
+}
+@media(max-width:540px){
+ .workspace-return-top>.btn{max-width:135px;min-height:35px;padding:6px 8px}
+}
