@@ -15,6 +15,7 @@ on:
       - 'tools/test_ai_agent_profile.php'
       - 'tools/test_flow_ai_stress.php'
       - 'tools/test_graph_routing.cjs'
+      - 'tools/test_whatsapp_inbox.php'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
@@ -79,3 +80,5 @@ jobs:
         run: php tools/test_ai_agent_profile.php
       - name: Extreme AI graph quality, safe exits and no shallow-tree regression
         run: php tools/test_flow_ai_stress.php
+      - name: Official Meta WhatsApp webhook, Inbox and human takeover
+        run: php tools/test_whatsapp_inbox.php
