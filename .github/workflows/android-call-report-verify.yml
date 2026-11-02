@@ -1,0 +1,47 @@
+name: Android Call Report Compile and Unit Tests
+on:
+  push:
+    branches: [fix/flow-ai-live-text-bridge-20261103]
+    paths:
+      - 'saas/mobile/audio-proof/overlay/**'
+      - 'saas/mobile/audio-proof/prepare.py'
+      - '.github/workflows/android-call-report-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: jemcik/JemRec
+          ref: f011062adfb3a2154c4d5a9cc4394032fb4345f2
+          path: .build/jemrec
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+      - name: Android SDK pinned platforms
+        run: |
+          sdkmanager --install "platforms;android-37" || sdkmanager --install "platforms;android-37.0"
+          sdkmanager --install "platforms;android-36" || sdkmanager --install "platforms;android-36.0"
+          sdkmanager --install "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Apply OnTrack overlay including encrypted report queue
+        run: python3 saas/mobile/audio-proof/prepare.py .build/jemrec
+      - name: Verify compiled Android sources and unit tests
+        working-directory: .build/jemrec
+        run: |
+          ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest
+      - name: Record unsigned QA build
+        uses: actions/upload-artifact@v5
+        with:
+          name: ontrack-call-report-android-qa
+          path: .build/jemrec/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
