@@ -56,6 +56,12 @@ function flow_ai_extract_graph(string $providerBody):array {
     return flow_ai_validate_proposal($graph);
 }
 
+/** Display the effective model, not just a hardcoded default label. */
+function flow_ai_model():string {
+    $model=flow_ai_model();
+    return $model;
+}
+
 function flow_ai_generate(int $accountId,int $agentId,string $idea,array $history=[],?array $currentGraph=null):array {
     $idea=trim($idea);
     if(mb_strlen($idea)<($history?3:15)||mb_strlen($idea)>2500)
