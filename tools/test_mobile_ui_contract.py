@@ -24,6 +24,17 @@ assert '.put("input_channel","mix")' in service, 'Tenant must use the same MIX v
 assert 'LinkPcm(settings.optString("input_channel","right"))' in session, 'Do not replace established PCM engine'
 assert 'audio.setMicrophoneMute(true)' in bridge and 'audio.setMicrophoneMute(wasMuted)' in bridge, 'Must preserve mute/takeover'
 assert 'session.optString("agent_name"' in session, 'Greeting must use agent display name'
+# Persistent voice backlog and fake server-disconnection regressions.
+model=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/OverlayUiModel.kt').read_text()
+overlay=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/CallOverlay.kt').read_text()
+assert 'enum class OverlayIndicator { GREEN, RED, GRAY }' in model
+assert 'OverlayIndicator.GRAY->gray' in overlay and 'OverlayIndicator.GREEN->green' in overlay
+assert 'val running=indicator==OverlayIndicator.GREEN' in model, 'An idle Live socket must not turn the on button red'
+assert 'Channel<Pair<Int,ByteArray>>(24)' in session, 'Do not accumulate stale speech beyond ~600 ms'
+assert 'عاد اتصال المكالمة بعد ضعف الشبكة؛ اعتذر' not in session, 'Reconnect must not trigger an unsolicited second model turn'
+assert 'generation++' in session and 'while(playback.tryReceive().isSuccess)' in session, 'Interrupted speech must clear stale playback'
+assert 'setMicrophoneMute(true)' in bridge, 'Preserve original proven GSM mute/handoff path'
+
 
 
 assert 'id="key"' not in embedded and 'id="tenantWorkspaceSlot"' in embedded, 'Old Pilot UI bundled into Android APK'
