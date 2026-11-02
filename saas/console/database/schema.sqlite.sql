@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS plans (
   staff_limit INTEGER DEFAULT 3,
   reseller_customers INTEGER DEFAULT 0,
   price_minor INTEGER DEFAULT 0,
+  overage_minor INTEGER DEFAULT 0,
   status TEXT DEFAULT 'active',
   created_at TEXT
 );
