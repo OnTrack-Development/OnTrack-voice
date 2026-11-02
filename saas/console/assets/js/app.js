@@ -300,8 +300,9 @@
 
   // Same-origin, progressive AJAX navigation. Existing PHP authorization,
   // server-side validation, CSRF and redirect destinations remain authoritative.
-  // Special auth/payment/account-switch endpoints deliberately keep native flows.
-  const excludes=new Set(['logout','login','register','switch','support_enter',
+  // Auth, view changes, support and account transitions ALWAYS use native
+  // POST + PHP 303 redirect so the entire sidebar, permissions and state reload.
+  const excludes=new Set(['logout','login','register','switch','set_view','support_enter',
     'support_leave','checkout_plan','manual_approve','manual_payment_approve']);
   let activeRequest=false;
   const allowedUrl=url=>url.origin===location.origin &&
