@@ -1,0 +1,13 @@
+{
+  "job_id": "flow-chat-live-smoke-20261102-1820",
+  "target": "appontrack-server11",
+  "job_sha256": "6b8577428cb74fb617a17c6e6990d32f7684c6a167836532a2682587666e515a",
+  "started_at": "2026-11-02T18:21:02.694462+00:00",
+  "status": "failed",
+  "exit_code": 2,
+  "output_truncated": false,
+  "stdout": "{\"ok\":false,\"error\":\"\\u0645\\u0633\\u0627\\u0639\\u062f Live \\u0644\\u0645 \\u064a\\u064f\\u0631\\u062c\\u0639 \\u0645\\u0642\\u062a\\u0631\\u062d\\u064b\\u0627 \\u0645\\u0646\\u0638\\u0651\\u0645\\u064b\\u0627\\u061b \\u0644\\u0645 \\u064a\\u062a\\u0645 \\u062a\\u0639\\u062f\\u064a\\u0644 \\u0627\\u0644\\u0645\\u0633\\u0648\\u062f\\u0629.\"}",
+  "stderr": "",
+  "finished_at": "2026-11-02T18:21:10.198609+00:00",
+  "duration_ms": 7504
+}
