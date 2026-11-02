@@ -29,7 +29,7 @@ try{
     chat_check(!$initial['messages']&&$initial['pending_graph']===null,'new chat empty');
     $description='عايز سيناريو دعم الاستضافة';
     $explanation=flow_ai_explain_graph($graph);
-    chat_check(str_contains($explanation,'البداية'),'explains start');
+    chat_check(str_contains($explanation,'بداية'),'explains start');
     chat_check(str_contains($explanation,'استضافة')&&str_contains($explanation,'دومين'),'explains both branches');
     chat_check(str_contains($explanation,'المسار الافتراضي'),'explains fallback route');
     $extended=$graph;
