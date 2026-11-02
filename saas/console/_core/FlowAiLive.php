@@ -151,7 +151,7 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText):arr
 function flow_ai_live_proposal(string $system,string $prompt,array $schema,?callable $transport=null):array {
     $setup=flow_ai_live_setup($system."\nOnly answer by calling submit_editor_proposal with every required field. Never produce spoken text or claim you executed changes.",$schema);
     if($transport!==null){
-        $event=$transport($setup,['clientContent'=>['turns'=>[['role'=>'user','parts'=>[['text'=>$prompt]]]],'turnComplete'=>true]]);
+        $event=$transport($setup,['realtimeInput'=>['text'=>$prompt]]);
         if(!is_array($event))throw new RuntimeException('ai_live_mock_invalid');
         $args=flow_ai_live_extract($event);
         if($args===null)throw new RuntimeException('مساعد Live لم يُنشئ المقترح المطلوب.');
