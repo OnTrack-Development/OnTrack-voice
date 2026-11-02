@@ -2,7 +2,8 @@
  * No external QR service, tracking, or network request receives the secret. */
 (function () {
   "use strict";
-  const panels = document.querySelectorAll("[data-pair-code][data-pair-slot]");
+  const mount = (scope=document) => {
+  const panels = scope.querySelectorAll("[data-pair-code][data-pair-slot]");
   for (const panel of panels) {
     const code = panel.getAttribute("data-pair-code") || "";
     const slot = panel.getAttribute("data-pair-slot");
@@ -38,4 +39,7 @@
       panel.textContent = "تعذر إنشاء QR؛ أدخل الرمز يدويًا في Android";
     }
   }
+  };
+  window.ontrackMountPairingQR=mount;
+  mount();
 }());
