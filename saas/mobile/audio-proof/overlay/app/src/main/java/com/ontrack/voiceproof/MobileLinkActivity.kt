@@ -727,9 +727,9 @@ class MobileLinkActivity:ComponentActivity(){
                 if(msg.optString("nonce")!=screenNonce)return@launch
                 if(raw.length>2048 && msg.optString("command")!="createCampaign")return@launch
                 val command=msg.getString("command")
-                if(tenantEnrollment.hasAny() && command in setOf(
-                    "start","copyKey"
-                )) error("وضع الشرائح المستقلة نشط؛ واجهات هاتف التجربة غير متاحة لحماية حسابات العملاء")
+                // A previously cached signed UI might still send "start".
+                // Treat it as the same tenant SIM enable operation, ignoring
+                // any old Pilot base/key fields. Never re-enable Pilot transport.
                 when(command){
                     "openConsole" -> openConsole()
                     "openScenario" -> showScenarioMenu()
@@ -751,9 +751,8 @@ class MobileLinkActivity:ComponentActivity(){
                         val initial=JSONObject().put("base","").put("key","")
                         web.evaluateJavascript("window.onTrackInit && window.onTrackInit($initial)",null)
                     }
-                    "start"->error("ربط Pilot القديم متوقف؛ اربط SIM بحسابك ثم اضغط تشغيل الإيجنت")
                     "stop","disable"->ContextCompat.startForegroundService(this@MobileLinkActivity,Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_DISABLE))
-                    "enable"->{
+                    "start","enable"->{
                         check(tenantEnrollment.hasAny()){ "لا توجد شريحة مربوطة بحساب SaaS على هذا الهاتف" }
                         check(!MobileLinkService.tenantPairingInProgress){ "اقتران الشريحة قيد التنفيذ؛ أعد المحاولة بعد اكتماله" }
                         check(ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.READ_PHONE_STATE)
