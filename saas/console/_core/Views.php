@@ -932,11 +932,23 @@ function render_whatsapp_platform_settings(array $a):void {
          '<p class="dim">إدارة طرق الربط المتاحة للعملاء. ربط رقمك أو صندوق واردك من مساحة المستخدم فقط.</p>'.
          '</div><a class="btn" href="/saas/console/?tab=settings">إعدادات المنصة</a></div>'.
          '<p class="info">الربط اليدوي وربط واتساب الموجود متاحان للمستخدمين دائمًا. الربط التلقائي وCoexistence لا يظهران للعملاء إلا بعد استكمال متطلبات Meta وتفعيلهما من هنا.</p></section>';
+    // The platform flags validate stored IDs only. The Facebook JavaScript
+    // Login SDK option is external Meta state and cannot be inferred from them.
+    echo '<section class="card wa-meta-jssdk-guide" role="region" aria-label="فحص Facebook Login for Business">'.
+        '<h3>مطلوب داخل Meta قبل اختبار الربط التلقائي</h3>'.
+        '<p><strong>JSSDK Option is Not Toggled</strong> معناها أن Facebook Login for Business لم يُفعّل تسجيل الدخول عبر JavaScript SDK للتطبيق، حتى لو كانت مفاتيح الربط محفوظة هنا.</p>'.
+        '<ol><li>افتح <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer">Meta for Developers</a> واختار التطبيق'.(!empty($meta['app_id'])?' رقم <code dir="ltr">'.e((string)$meta['app_id']).'</code>':'').'، ثم <strong>Facebook Login for Business ← Settings</strong>.</li>'.
+        '<li>من Client OAuth Settings فعّل <strong>Login with the JavaScript SDK = Yes</strong>، وراجع Client OAuth Login وWeb OAuth Login وEnforce HTTPS.</li>'.
+        '<li>أضف <code dir="ltr">app.ontrackegy.com</code> إلى <strong>Allowed Domains for the JavaScript SDK</strong>، واضبط Valid OAuth Redirect URIs المناسبة بحسب إعداد Meta.</li>'.
+        '<li>اضغط <strong>Save Changes</strong>، وارجع لمساحة المستخدم وأعد تجربة الربط.</li></ol>'.
+        '<p class="dim">مهم: ما بنقدرش نفعّل الخيار ده من API OnTrack؛ لازم صاحب التطبيق يغيّره في Meta. ظهور الحالة «متاح للعملاء» أدناه يعني اكتمال الإعدادات المحلية فقط، مش نجاح اختبار Meta الحي.</p>'.
+        '<a class="btn primary" target="_blank" rel="noopener noreferrer" href="https://developers.facebook.com/apps/">فتح إعدادات التطبيق في Meta</a>'.
+        '</section>';
     $signupReady=wa_onboarding_ready($meta,'signup');
     $coexistReady=wa_onboarding_ready($meta,'coexist');
     echo '<div class="wa-onboarding-status">'.
-         '<span class="pill '.($signupReady?'ok':'neutral').'">الربط التلقائي: '.($signupReady?'متاح للعملاء':'غير جاهز').'</span>'.
-         '<span class="pill '.($coexistReady?'ok':'neutral').'">Coexistence: '.($coexistReady?'متاح للعملاء':'غير جاهز').'</span>'.
+         '<span class="pill '.($signupReady?'ok':'neutral').'">الربط التلقائي: '.($signupReady?'الإعداد المحلي مكتمل · Meta لم تُختبر':'غير جاهز').'</span>'.
+         '<span class="pill '.($coexistReady?'ok':'neutral').'">Coexistence: '.($coexistReady?'الإعداد المحلي مكتمل · Meta لم تُختبر':'غير جاهز').'</span>'.
          '</div>';
         echo card('WhatsApp · طرق الربط المتاحة للعملاء',
             '<p class="dim">الربط اليدوي وربط واتساب الموجود متاحان لجميع الحسابات. الربط التلقائي وCoexistence لا يظهران إلا بعد تفعيلك إعدادات Meta الخاصة بالمنصة.</p>'.
@@ -1240,7 +1252,7 @@ function render_whatsapp(array $a):void {
             if(!wa_onboarding_ready($waPlatform,$mode))continue;
             $cfg=$mode==='signup'?$waPlatform['signup_config_id']:$waPlatform['coexist_config_id'];
             echo '<div data-wa-method-panel="'.e($mode).'" hidden>'.
-                '<div class="wa-manual-notice">'.e($heading).' — هتفتح نافذة Meta الرسمية للموافقة. الإعدادات والأسرار تفضل عند إدارة OnTrack، والعميل مايدخلش أي Access Token.</div>'.
+                '<div class="wa-manual-notice">'.e($heading).' — هتفتح نافذة Meta الرسمية للموافقة. الإعدادات والأسرار تفضل عند إدارة OnTrack، والعميل مايدخلش أي Access Token. <strong>لو ظهرت JSSDK Option is Not Toggled</strong>، لازم أدمن تطبيق Meta يفعّل Login with the JavaScript SDK من Facebook Login for Business → Settings، ويضيف app.ontrackegy.com إلى Allowed Domains. مش محتاج تغيّر Webhook الرسائل.</div>'.
                 form_start('wa_embedded_finish','/?tab=whatsapp',
                     'class="wa-embedded-form" data-wa-embedded-form="'.e($mode).'"').
                 '<input type="hidden" name="mode" value="'.e($mode).'">'.
