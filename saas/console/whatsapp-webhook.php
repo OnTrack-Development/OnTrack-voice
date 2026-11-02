@@ -46,11 +46,10 @@ try{
     http_response_code(200);
     echo json_encode(['ok'=>true,'accepted'=>$result['accepted'],'duplicates'=>$result['duplicates']],
         JSON_THROW_ON_ERROR);
-    // Acknowledge Meta before expensive native or optional external AI calls. Without a
+    // Acknowledge signed webhook before expensive native AI calls. Without a
     // supported flush primitive the durable queue remains for a scheduled worker.
     $native=!empty($connection['ai_enabled'])&&!empty($connection['ai_agent_id']);
-    $legacy=!$native&&empty($connection['ai_agent_id'])&&!empty($connection['whmcs_bridge_verified_at']);
-    if($result['accepted']>0 && ($native||$legacy) &&
+    if($result['accepted']>0 && $native &&
        $connection['state']==='verified'){
         $finished=false;
         if(function_exists('fastcgi_finish_request')){
@@ -61,13 +60,8 @@ try{
         if($finished){
             ignore_user_abort(true);
             try{
-                if($native){
-                    require_once __DIR__.'/_core/WhatsAppNativeAgent.php';
-                    wa_native_run_pending($connection,$result['conversation_ids']??[]);
-                }else{
-                    require_once __DIR__.'/_core/WhatsAppWhmcsBridge.php';
-                    wa_whmcs_run_pending($connection,$result['conversation_ids']??[]);
-                }
+                require_once __DIR__.'/_core/WhatsAppNativeAgent.php';
+                wa_native_run_pending($connection,$result['conversation_ids']??[]);
             }catch(Throwable){/* Audit/queued job owns any recoverable error; no leaked details. */}
         }
     }
