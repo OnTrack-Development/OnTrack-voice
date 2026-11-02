@@ -7,7 +7,7 @@ require_once __DIR__.'/FlowAi.php';
  * Never query by agent alone; this is editable business context, not public data.
  */
 function flow_ai_chat_read(int $accountId,int $userId,int $agentId):array {
-    $row=one('SELECT messages_json,pending_graph_json FROM flow_ai_chats WHERE account_id=? AND user_id=? AND agent_id=?',
+    $row=one('SELECT messages_json,pending_graph_json,pending_profile_json FROM flow_ai_chats WHERE account_id=? AND user_id=? AND agent_id=?',
         [$accountId,$userId,$agentId]);
     $list=$row?json_decode((string)$row['messages_json'],true):[];
     if(!is_array($list))$list=[];
@@ -25,9 +25,17 @@ function flow_ai_chat_read(int $accountId,int $userId,int $agentId):array {
             catch(Throwable){$pending=null;}
         }
     }
-    return ['messages'=>$messages,'pending_graph'=>$pending];
+    $profile=null;
+    if($row && is_string($row['pending_profile_json']??null)){
+        $candidate=json_decode($row['pending_profile_json'],true,32);
+        if(is_array($candidate)){
+            try{require_once __DIR__.'/FlowAiProfile.php';$profile=flow_ai_profile_validate($candidate);}
+            catch(Throwable){$profile=null;}
+        }
+    }
+    return ['messages'=>$messages,'pending_graph'=>$pending,'pending_profile'=>$profile];
 }
-function flow_ai_chat_write(int $accountId,int $userId,int $agentId,array $messages,?array $pending):void {
+function flow_ai_chat_write(int $accountId,int $userId,int $agentId,array $messages,?array $pending,?array $pendingProfile=null):void {
     $clean=[];
     foreach(array_slice($messages,-18) as $entry){
         if(!in_array($entry['role']??null,['user','assistant'],true))continue;
@@ -36,17 +44,25 @@ function flow_ai_chat_write(int $accountId,int $userId,int $agentId,array $messa
     $encoded=json_encode($clean,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
     $graph=$pending===null?null:json_encode(flow_ai_validate_proposal($pending),
         JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+    $profile=null;
+    if($pendingProfile!==null){
+        require_once __DIR__.'/FlowAiProfile.php';
+        $profile=json_encode(flow_ai_profile_validate($pendingProfile),
+            JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+    }
     if(driver()==='mysql'){
-        execute('INSERT INTO flow_ai_chats(account_id,user_id,agent_id,messages_json,pending_graph_json,updated_at)
-            VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
-            messages_json=VALUES(messages_json),pending_graph_json=VALUES(pending_graph_json),updated_at=VALUES(updated_at)',
-            [$accountId,$userId,$agentId,$encoded,$graph,now()]);
+        execute('INSERT INTO flow_ai_chats(account_id,user_id,agent_id,messages_json,pending_graph_json,pending_profile_json,updated_at)
+            VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
+            messages_json=VALUES(messages_json),pending_graph_json=VALUES(pending_graph_json),
+            pending_profile_json=VALUES(pending_profile_json),updated_at=VALUES(updated_at)',
+            [$accountId,$userId,$agentId,$encoded,$graph,$profile,now()]);
     }else{
-        execute('INSERT INTO flow_ai_chats(account_id,user_id,agent_id,messages_json,pending_graph_json,updated_at)
-            VALUES(?,?,?,?,?,?) ON CONFLICT(account_id,user_id,agent_id)
+        execute('INSERT INTO flow_ai_chats(account_id,user_id,agent_id,messages_json,pending_graph_json,pending_profile_json,updated_at)
+            VALUES(?,?,?,?,?,?,?) ON CONFLICT(account_id,user_id,agent_id)
             DO UPDATE SET messages_json=excluded.messages_json,
-                pending_graph_json=excluded.pending_graph_json,updated_at=excluded.updated_at',
-            [$accountId,$userId,$agentId,$encoded,$graph,now()]);
+                pending_graph_json=excluded.pending_graph_json,
+                pending_profile_json=excluded.pending_profile_json,updated_at=excluded.updated_at',
+            [$accountId,$userId,$agentId,$encoded,$graph,$profile,now()]);
     }
 }
 /** Explain the actual editor graph, including EVERY reachable branch, without AI guesses. */
