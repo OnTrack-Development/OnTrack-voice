@@ -13,6 +13,15 @@ $schema=['type'=>'OBJECT','properties'=>[
     'nodes'=>['type'=>'ARRAY','items'=>['type'=>'OBJECT']],
     'edges'=>['type'=>'ARRAY','items'=>['type'=>'OBJECT']]
 ],'required'=>['nodes','edges']];
+$binary=json_encode(['setupComplete'=>(object)[]],JSON_THROW_ON_ERROR);
+$length=strlen($binary);
+$socket=fopen('php://temp','w+b');
+fwrite($socket,chr(0x82).chr($length).$binary);
+rewind($socket);
+[$opcode,$body,$final]=flow_ai_ws_read($socket);
+fclose($socket);
+live_check($opcode===2 && $final===true && json_decode($body,true)===['setupComplete'=>[]],
+    'binary Live WebSocket JSON frame decoded');
 $setup=flow_ai_live_setup('Only return proposal',$schema);
 live_check($setup['setup']['model']==='models/gemini-3.8-live-extended-thinking','Google Live setup model');
 live_check($setup['setup']['generationConfig']['thinkingConfig']['thinkingLevel']==='MEDIUM','extended thinking enabled');
