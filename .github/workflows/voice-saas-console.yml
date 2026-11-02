@@ -1,7 +1,7 @@
 name: OnTrack Voice SaaS PHP Console
 on:
   push:
-    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102', 'fix/sim1-staging-ui-20261102']
+    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102', 'fix/console-pricing-connection-ui-20261102', 'fix/sim1-staging-ui-20261102']
     paths:
       - 'saas/console/**'
       - 'tools/test_voice_saas_console.php'
@@ -43,6 +43,7 @@ jobs:
           php tools/test_flow_templates.php
           php tools/test_answer_policy.php
           php tools/test_google_provider_config.php
+          php tools/test_console_pricing_ui.php
           php tools/test_voice_trial_and_ui.php
       - name: Database, roles, demo users, branding and isolation smoke
         run: php tools/test_voice_saas_console.php
