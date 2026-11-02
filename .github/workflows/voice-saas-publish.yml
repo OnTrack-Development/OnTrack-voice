@@ -37,6 +37,10 @@ jobs:
           php tools/test_flow_ai_chat.php
           node tools/test_console_ajax_ui.cjs
           python3 -m py_compile tools/deploy_saas_console.py tools/queue_saas_console.py
+          # Each PHP integration suite uses an isolated, ephemeral SQLite demo fixture.
+          # The chat memory suite seeds schema/DNC markers; starting SaaS smoke with
+          # its preexisting marker would invalidate the legacy backfill regression.
+          rm -rf /tmp/ontrack-saas-demo
           php tools/test_voice_saas_console.php
           php tools/test_console_pricing_ui.php
           php tools/test_tenant_workspace.php
