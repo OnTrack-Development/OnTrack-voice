@@ -940,7 +940,8 @@ function render_whatsapp(array $a):void {
     $id=(int)$a['account_id'];
     $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY id",[$id]);
     $connections=all('SELECT id,site_id,public_id,label,phone_number_id,state,ai_agent_id,ai_enabled,
-        whmcs_bridge_url,whmcs_bridge_verified_at,last_tested_at,last_webhook_at FROM wa_connections WHERE account_id=? ORDER BY id DESC',[$id]);
+        waba_id,meta_app_id,graph_version,whmcs_bridge_url,whmcs_bridge_verified_at,
+        last_tested_at,last_webhook_at FROM wa_connections WHERE account_id=? ORDER BY id DESC',[$id]);
     $agents=all("SELECT ag.id,ag.name,s.name site_name FROM agents ag
         JOIN sites s ON s.id=ag.site_id AND s.account_id=ag.account_id
         WHERE ag.account_id=? AND ag.status='published' AND s.status='active' ORDER BY ag.id DESC",[$id]);
@@ -1014,11 +1015,12 @@ function render_whatsapp(array $a):void {
         '<div class="wa-settings-grid"><section class="card"><h3>القنوات الموجودة</h3>';
     if(!$connections)echo '<p class="dim">لا توجد قناة مفعّلة.</p>';
     foreach($connections as $conn){
-        $webhook='https://app.ontrackegy.com/saas/console/whatsapp-webhook.php?id='.$conn['public_id'];
+        $webhook=wa_public_callback((string)$conn['public_id']);
         echo '<div class="wa-channel-row"><strong>'.e($conn['label']).'</strong> '.pill($conn['state']).
-            '<small>Phone Number ID: '.e($conn['phone_number_id']).'</small>'.
-            '<small>Callback URL (Meta)</small><code dir="ltr">'.e($webhook).'</code>'.
-            '<small>الـVerify Token هو نفس اللي أدخلته أثناء الربط؛ مش بيتعرض مرة تانية.</small>'.
+            '<small>Phone Number ID: '.e($conn['phone_number_id']).' · WABA ID: '.e((string)($conn['waba_id']??'غير محفوظ — اتصال قديم')).'</small>'.
+            '<small>Meta App ID: '.e((string)($conn['meta_app_id']??'غير محدد')).' · Graph API: '.e(wa_graph_version($conn)).'</small>'.
+            '<div class="wa-copy-strip wa-copy-strip-small"><span>Callback URL (Meta)</span><code id="wa-callback-'.(int)$conn['id'].'" dir="ltr">'.e($webhook).'</code><button type="button" class="btn small" data-wa-copy="wa-callback-'.(int)$conn['id'].'">نسخ</button></div>'.
+            '<small>Webhook Verify Token محفوظ كـHash فقط. استخدم النسخة التي نسختها أثناء إنشاء الاتصال؛ لا نعرض الأسرار مجددًا.</small>'.
             '<small>Webhook: '.e((string)($conn['last_webhook_at']??'لم يتم تأكيد استقبال رسالة')).'</small>'.
             '<small>OnTrack AI: '.(!empty($conn['ai_agent_id'])?('إيجنت #'.(int)$conn['ai_agent_id'].' · '.(!empty($conn['ai_enabled'])?'مفعّل':'معطّل')):'بدون إيجنت · الرد اليدوي متاح').'</small>'.
             ($conn['whmcs_bridge_url']?'<small>تكامل WHMCS الاختياري: '.($conn['whmcs_bridge_verified_at']?'مُختبر':'لم يُختبر').'</small>':'').
@@ -1035,25 +1037,38 @@ function render_whatsapp(array $a):void {
             '<button class="btn small" type="submit">اختبار الربط مع WHMCS AI Support Agent</button></form>':'').
             '</div>';
     }
-    echo '</section><section class="card"><h3>إضافة رقم Meta Cloud API</h3>';
+    echo '</section><section class="card wa-manual-card"><div class="wa-manual-heading"><div><span class="eyebrow">META CLOUD API · MANUAL SETUP</span><h3>ربط واتساب يدويًا</h3><p class="dim">البيانات تخص شركتك الحالية فقط؛ مش مطلوب أي ربط بموديول WHMCS.</p></div><span class="pill neutral">Manual Connection</span></div>';
     if(!$sites)echo '<p>أضف موقعًا نشطًا أولًا.</p>';
     else {
         $map=[];foreach($sites as $site)$map[(int)$site['id']]=$site['name'];
-        $agentOptions=[0=>'بدون AI — الرد البشري فقط'];
+        $agentOptions=[0=>'بدون AI — الربط فقط'];
         foreach($agents as $agent)$agentOptions[(int)$agent['id']]=$agent['site_name'].' · '.$agent['name'];
-        echo form_start('wa_connection_add','/?tab=whatsapp','class="wa-settings-form"').
-            select_html('مساحة الموقع','site_id',$map).
-            select_html('إيجنت دعم OnTrack (منشور على نفس الموقع)','ai_agent_id',$agentOptions).
-            field_html('اسم القناة','label','text','دعم العملاء',true).
-            '<label class="field">Phone Number ID<input name="phone_number_id" inputmode="numeric" pattern="[0-9]+" required></label>'.
-            '<label class="field">Meta Access Token<input name="access_token" type="password" autocomplete="new-password" required></label>'.
-            '<label class="field">Meta App Secret<input name="app_secret" type="password" autocomplete="new-password" required></label>'.
-            '<label class="field">Webhook Verify Token (12+ حرف)<input name="verify_token" minlength="12" type="password" autocomplete="new-password" required></label>'.
-            '<details><summary>تكامل خارجي قديم مع WHMCS (اختياري وغير مطلوب للتشغيل)</summary>'.
-            '<p class="dim">تكامل اختياري للحسابات القديمة فقط. إيجنت OnTrack المستقل يستخدم إعدادات AI الخاصة بالمنصة ولا يحتاج الموديول.</p>'.
-            '<label class="field">رابط Endpoint<input name="whmcs_bridge_url" type="url" placeholder="https://services.ontrackegy.com/modules/addons/ai_support_agent/...php"></label>'.
-            '<label class="field">Bridge Secret<input name="whmcs_bridge_token" type="password" autocomplete="new-password"></label></details>'.
-            '<button class="btn primary" type="submit">حفظ الاتصال كمسودة آمنة</button></form>';
+        // Generated fresh on the authenticated server. The callback is NOT active
+        // until POST succeeds. The verify token is never persisted in plaintext.
+        $publicId=bin2hex(random_bytes(18));
+        $verifyToken=bin2hex(random_bytes(24));
+        $webhook=wa_public_callback($publicId);
+        echo '<div class="wa-manual-notice">الربط اليدوي يحتاج بيانات Meta الخاصة برقمك. بعد الحفظ اختبر الربط، ثم انسخ Callback URL وVerify Token إلى إعدادات Webhook في تطبيق Meta. **التحقق من الرقم لا يعني تشغيل استقبال الرسائل تلقائيًا.**</div>';
+        echo form_start('wa_connection_add','/?tab=whatsapp','class="wa-settings-form wa-manual-form"').
+            '<input type="hidden" name="public_id" value="'.e($publicId).'">'.
+            '<div class="wa-manual-grid">'.
+            '<div class="wa-manual-cell third">'.select_html('الموقع / مساحة العمل','site_id',$map).'</div>'.
+            '<div class="wa-manual-cell third">'.select_html('الإيجنت الذي يرد على واتساب','ai_agent_id',$agentOptions).'</div>'.
+            '<div class="wa-manual-cell third"><label class="field">اسم الربط<input type="text" name="label" maxlength="120" placeholder="مبيعات / خدمة العملاء" required></label></div>'.
+            '<div class="wa-manual-cell half"><label class="field">Business Account ID (WABA ID)<input name="waba_id" inputmode="numeric" pattern="[0-9]+" maxlength="100" autocomplete="off" dir="ltr" placeholder="WABA ID" required></label></div>'.
+            '<div class="wa-manual-cell half"><label class="field">Phone Number ID<input name="phone_number_id" inputmode="numeric" pattern="[0-9]+" maxlength="100" autocomplete="off" dir="ltr" placeholder="Phone Number ID" required></label></div>'.
+            '<div class="wa-manual-cell third"><label class="field">Meta App ID<input name="meta_app_id" inputmode="numeric" pattern="[0-9]*" maxlength="100" autocomplete="off" dir="ltr" placeholder="اختياري"></label></div>'.
+            '<div class="wa-manual-cell third"><label class="field">App Secret<input name="app_secret" type="password" maxlength="1000" autocomplete="new-password" placeholder="يُحفظ مشفرًا" required></label></div>'.
+            '<div class="wa-manual-cell third"><label class="field">Access Token<input name="access_token" type="password" maxlength="2000" autocomplete="new-password" placeholder="يُحفظ مشفرًا" required></label></div>'.
+            '<div class="wa-manual-cell half"><label class="field">Graph API Version<input name="graph_version" value="v26.0" pattern="v[0-9]{1,2}\\.0" maxlength="8" dir="ltr" required></label></div>'.
+            '<div class="wa-manual-cell half"><label class="field">Webhook Verify Token<input name="verify_token" type="text" value="'.e($verifyToken).'" minlength="12" maxlength="200" readonly dir="ltr" autocomplete="off" spellcheck="false" required></label></div>'.
+            '</div>'.
+            '<div class="wa-manual-copy-group">'.
+            '<div class="wa-copy-strip"><span>Callback URL</span><code id="wa-new-callback" dir="ltr">'.e($webhook).'</code><button type="button" class="btn small" data-wa-copy="wa-new-callback">نسخ الرابط</button></div>'.
+            '<div class="wa-copy-strip"><span>Verify Token</span><code id="wa-new-token" dir="ltr">'.e($verifyToken).'</code><button type="button" class="btn small" data-wa-copy="wa-new-token">نسخ التوكن</button></div>'.
+            '</div>'.
+            '<div class="wa-manual-foot"><p>انسخ الرابط والتوكن **قبل الحفظ**؛ التوكن يتخزن Hash فقط ولن يظهر مرة تانية. لو حدّثت الصفحة قبل الحفظ هيتولد رابط وتوكن جديدين. الحالة تبدأ مسودة ولا يتم إرسال رسائل تلقائيًا.</p>'.
+            '<button class="btn primary" type="submit">حفظ إعدادات واتساب اليدوية</button></div></form>';
     }
     echo '</section></div></details>';
 }
