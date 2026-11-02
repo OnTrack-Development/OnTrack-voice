@@ -18,7 +18,7 @@ assert 'استلام من الإيجنت' in ui, 'Handoff must explicitly say th
 assert "el('callActions').style.display=call?'block':'none'" in ui, 'Controls must show while ringing'
 assert "el('speaker').disabled=!modern||!answered" in ui, 'No speaker action before call is answered'
 assert 'id="upgradeAndroid"' in ui, 'Do not remove separate native update controls'
-assert meta['revision'] >= 21 and meta['max_native'] >= 25, 'Native 25 OTA contract required'
+assert meta['revision'] >= 22 and meta['max_native'] >= 26, 'Native 26 OTA contract required'
 for element in ('id="openConsole"', 'id="openScenario"', 'id="copyKey"'):
     assert element in ui, 'OnTrack release shortcuts must remain available: '+element
 for command in ("send('openConsole')", "send('openScenario')", "send('copyKey')"):
@@ -35,3 +35,6 @@ print('PASS: OnTrack UI OTA compatible with installed v20, pull-to-refresh and J
 
 assert "Number(s.nativeCode)>=25" in ui, 'Tenant runtime must remain gated to new native version'
 assert "id=\"openAnswerSettings\"" in ui and "send('openAnswerSettings')" in ui, 'Answer settings bridge missing'
+
+assert 'id="tenantTest"' in ui and "send('tenantTest')" in ui, 'Missing actionable SIM+Live diagnostic'
+assert 'Number(s.nativeCode)<26' in ui, 'Native diagnostic must be unavailable in older Android releases'
