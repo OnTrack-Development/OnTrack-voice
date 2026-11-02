@@ -33,6 +33,9 @@ object TenantPairingContract {
         require(revision>0) { "إصدار الإيجنت غير متاح للمكالمة" }
         return revision
     }
+    /** A manually confirmed number is mandatory for a DNC call outcome. */
+    fun humanOptOutValid(outcome:String,phone:String,confirmed:Boolean):Boolean =
+        outcome!="do_not_call" || (confirmed && phone.filter { it.isDigit() }.length in 8..40)
     /** Fail closed for legacy pilot telephony while any tenant SIM is paired or pairing. */
     fun pilotAllowed(pairingInProgress:Boolean,hasTenantSim:Boolean):Boolean =
         !pairingInProgress && !hasTenantSim

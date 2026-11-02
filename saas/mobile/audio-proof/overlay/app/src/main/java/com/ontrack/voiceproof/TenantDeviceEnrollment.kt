@@ -177,7 +177,7 @@ class TenantDeviceEnrollment(private val context: Context) {
         }
         require(note.length<=1000) { "الملاحظة أطول من المسموح" }
         if(outcome=="do_not_call") {
-            require(optOutConfirmed && optOutPhone.filter { it.isDigit() }.length in 8..40) {
+            require(TenantPairingContract.humanOptOutValid(outcome,optOutPhone,optOutConfirmed)) {
                 "تأكيد طلب عدم الاتصال وإدخال الرقم مطلوبان"
             }
         }

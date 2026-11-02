@@ -47,6 +47,12 @@ class TenantPairingContractTest {
         assertFalse(changed.contains("17"))
         assertFalse(changed.contains("18"))
     }
+    @Test fun manualDoNotCallRequiresConfirmedNumber() {
+        assertFalse(TenantPairingContract.humanOptOutValid("do_not_call","01012345678",false))
+        assertFalse(TenantPairingContract.humanOptOutValid("do_not_call","123",true))
+        assertTrue(TenantPairingContract.humanOptOutValid("do_not_call","+20 1012345678",true))
+        assertTrue(TenantPairingContract.humanOptOutValid("follow_up","",false))
+    }
     @Test fun pilotTelephonyDeniedWhilePairingOrAnyTenantSlotActive() {
         assertTrue(TenantPairingContract.pilotAllowed(false,false))
         assertFalse(TenantPairingContract.pilotAllowed(true,false))

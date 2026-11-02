@@ -341,14 +341,17 @@ function render_contacts(array $a):void {
     $rows=all("SELECT c.*,s.name site_name FROM contacts c LEFT JOIN sites s ON s.id=c.site_id WHERE c.account_id=? ORDER BY c.id DESC LIMIT 300",[$id]);
     $cells=[];
     foreach($rows as $r){
+        // DNC is account-wide and append-only; a call opt-out may exist even
+        // when the legacy contacts.dnc flag has not been updated.
+        $isDnc=(int)$r['dnc']===1 || dnc_ledger_contains($id,dnc_phone_key((string)$r['phone']));
         $action=form_start('edit_contact','/?tab=contacts','class="inline-form"').
           '<input type="hidden" name="contact_id" value="'.$r['id'].'">'.
           '<input name="name" class="tiny-input" value="'.e($r['name']).'" required>'.
           '<input name="phone" class="tiny-input" value="'.e($r['phone']).'" required>'.
-          '<label class="field"><input type="checkbox" name="dnc" '.((int)$r['dnc']===1?'checked':'').'>عدم الاتصال</label>'.
+          '<label class="field"><input type="checkbox" name="dnc" '.($isDnc?'checked':'').'>عدم الاتصال</label>'.
           '<button class="btn small">حفظ</button></form>';
         $action.=form_start('delete_contact','/?tab=contacts','class="inline-form"').'<input type="hidden" name="contact_id" value="'.$r['id'].'"><button class="btn small danger" onclick="return confirm(\'حذف جهة الاتصال؟\')">حذف</button></form>';
-        $cells[]=[e($r['name']),e($r['phone']),e($r['site_name']),$r['dnc']?pill('DNC'):pill('active'),$action];
+        $cells[]=[e($r['name']),e($r['phone']),e($r['site_name']),$isDnc?pill('DNC'):pill('active'),$action];
     }
     echo card('جهات اتصال كل موقع',tbl(['الاسم','الهاتف','الموقع','الخصوصية','الإجراءات'],$cells));
     echo '<div class="info">أرقام عدم الاتصال (DNC) محمية على مستوى الحساب بالكامل، بما في ذلك مواقع الحساب الأخرى والتكاملات. لا يمكن إلغاء الحظر بتعديل عادي أو حذف السجل؛ يتطلب ذلك مسار موافقة موثق مستقل (قيد التطوير).</div>';

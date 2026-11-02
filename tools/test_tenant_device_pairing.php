@@ -180,6 +180,13 @@ function test_tenant_device_pairing():void {
         [4,dnc_phone_key('01012345678')])['n']===1,
         'repeat call opt-out is idempotent');
     tenant_call_report_save(4,(int)$a['device_id'],$callA,'satisfied','','web',$actor);
+    $dncContact=insert('INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at) VALUES (?,?,?,?,?,?)',
+        [4,1,'عميل طلب الحظر','01012345678',0,now()]);
+    require_once __DIR__.'/../saas/console/_core/Views.php';
+    ob_start();render_contacts(['account_id'=>4,'role'=>'owner','kind'=>'customer']);
+    $contactHtml=(string)ob_get_clean();
+    ok(str_contains($contactHtml,'عميل طلب الحظر') && str_contains($contactHtml,'DNC'),
+        'contact UI reflects call-derived DNC ledger even if old contact flag is zero');
     ok(dnc_is_suppressed(4,'01012345678'),
         'later report changes cannot erase an existing DNC suppression');
     $missedReport=tenant_call_report_save(4,(int)$a['device_id'],$missedId,
