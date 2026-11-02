@@ -7,6 +7,13 @@ on:
       - 'saas/console/_core/FlowAi.php'
       - 'saas/console/_core/FlowAiProfile.php'
       - 'tools/test_flow_ai_live_thinking.php'
+      - 'saas/console/_core/DevicePairing.php'
+      - 'saas/console/_core/TenantWorkspace.php'
+      - 'saas/console/_core/Bootstrap.php'
+      - 'saas/console/_core/Views.php'
+      - 'saas/console/_core/Actions.php'
+      - 'saas/console/device/v1/index.php'
+      - 'tools/test_sim_agent_call_reports.php'
       - '.github/workflows/flow-live-text-bridge-tests.yml'
   workflow_dispatch:
 permissions:
@@ -30,3 +37,19 @@ jobs:
           php -l saas/console/_core/FlowAiProfile.php
           php tools/test_flow_ai_live_thinking.php
           php tools/test_flow_ai_chat.php
+
+      - name: SIM agent switching and real call report regression
+        run: |
+          set -eu
+          php -l saas/console/_core/Bootstrap.php
+          php -l saas/console/_core/DevicePairing.php
+          php -l saas/console/_core/TenantWorkspace.php
+          php -l saas/console/_core/Views.php
+          php -l saas/console/_core/Actions.php
+          php -l saas/console/device/v1/index.php
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_sim_agent_call_reports.php
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_tenant_workspace.php
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_console_shell.php
