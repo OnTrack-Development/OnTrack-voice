@@ -40,6 +40,24 @@ try{
     http_response_code(200);
     echo json_encode(['ok'=>true,'accepted'=>$result['accepted'],'duplicates'=>$result['duplicates']],
         JSON_THROW_ON_ERROR);
+    // Acknowledge Meta before any expensive WHMCS AI provider call. Without a
+    // supported flush primitive the durable queue remains for a scheduled worker.
+    if($result['accepted']>0 && !empty($connection['whmcs_bridge_verified_at']) &&
+       $connection['state']==='verified'){
+        $finished=false;
+        if(function_exists('fastcgi_finish_request')){
+            fastcgi_finish_request();$finished=true;
+        }elseif(function_exists('litespeed_finish_request')){
+            litespeed_finish_request();$finished=true;
+        }
+        if($finished){
+            ignore_user_abort(true);
+            try{
+                require_once __DIR__.'/_core/WhatsAppWhmcsBridge.php';
+                wa_whmcs_run_pending($connection,$result['conversation_ids']??[]);
+            }catch(Throwable){/* Audit/queued job owns any recoverable error; no leaked details. */}
+        }
+    }
 }catch(Throwable){
     // Real DB/provider errors must cause Meta retry rather than dropping events.
     http_response_code(503);echo '{"ok":false}';
