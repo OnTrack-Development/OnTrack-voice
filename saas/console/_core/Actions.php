@@ -247,18 +247,18 @@ function act():void {
                 if(!voice_staff_revoke($id,$principal))deny(404);
                 audit('voice.staff_phone.revoked',$id,['principal_id'=>$principal]);break;
             case 'set_view':
-                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                if(!console_can_switch_view($a))deny();
                 $view=(string)($_POST['view']??'');
                 if(!in_array($view,['admin','user'],true))throw new InvalidArgumentException('وضع عرض غير صالح');
                 $_SESSION['console_view']=$view;
-                audit('console.view.changed',$id,['view'=>$view]);
+                audit('console.view.changed',$id,['view'=>$view,'kind'=>$kind,'actor_user_id'=>(int)me()['id']]);
                 session_regenerate_id(true);
-                go($view==='user'?'/?tab=agents':'/');
+                go($view==='user'?'/?tab=overview':'/?tab=overview');
             case 'switch':
                 $target=intfield('account_id');$valid=false;
                 foreach(memberships((int)me()['id']) as $m)if((int)$m['account_id']===$target)$valid=true;
                 if(!$valid)deny();
-                unset($_SESSION['support']);
+                unset($_SESSION['support'],$_SESSION['console_view']);
                 $_SESSION['account_id']=$target;unset($_SESSION['site_id']);
                 session_regenerate_id(true);go('/');
             case 'support_enter':
@@ -267,12 +267,21 @@ function act():void {
                 $reason=field('reason',200);if($reason==='')$reason='طلب دعم من لوحة الإدارة';
                 $expiry=gmdate('Y-m-d H:i:s',time()+900);
                 insert("INSERT INTO support_grants(actor_user_id,target_account_id,reason,expires_at,created_at) VALUES (?,?,?,?,?)",[me()['id'],$target,$reason,$expiry,now()]);
-                $_SESSION['support']=['account_id'=>$target,'origin_id'=>$id,'expires'=>time()+1800];
+                $_SESSION['support']=['account_id'=>$target,'origin_id'=>$id,
+                    'origin_view'=>console_view_mode($a),'expires'=>time()+1800];
                 audit('support.start',$target,['from'=>$id,'reason'=>$reason]);
                 session_regenerate_id(true);go('/');
             case 'support_leave':
-                if(!empty($_SESSION['support']))audit('support.end',(int)$_SESSION['support']['account_id']);
-                unset($_SESSION['support']);session_regenerate_id(true);go('/');
+                $supportSession=$_SESSION['support']??null;
+                if(is_array($supportSession)){
+                    audit('support.end',(int)($supportSession['account_id']??0),[
+                        'origin_id'=>(int)($supportSession['origin_id']??0)
+                    ]);
+                    $_SESSION['console_view']=
+                        ($supportSession['origin_view']??'admin')==='user'?'user':'admin';
+                }
+                unset($_SESSION['support']);
+                session_regenerate_id(true);go('/?tab=overview');
             case 'create_account':
                 if(!in_array($kind,['platform','reseller'],true)||!in_array($a['role'],['owner','admin'],true))deny();
                 $type=field('kind',20);if($kind==='reseller')$type='customer';
