@@ -324,3 +324,28 @@ function tenant_call_report_save(int $accountId,int $deviceId,string $callId,
     return ['call_id'=>$callId,'outcome'=>$outcome,'note'=>$note,
         'source'=>$source,'updated_at'=>$at,'dnc_suppressed'=>$optOutKey!==''];
 }
+
+/**
+ * Browse a bounded, read-only contact directory for this authenticated SIM.
+ * The device never receives contacts from a different tenant or site. This
+ * does not authorize outbound dialing or bypass the account DNC ledger.
+ */
+function device_contact_list(array $binding,string $query=''):array {
+    if(mb_strlen($query,'UTF-8')>60 ||
+       !preg_match('/^[\\p{L}\\p{N} +()\\-]*$/uD',$query))
+        throw new InvalidArgumentException('device_contacts_invalid_search');
+    $current=device_binding_heartbeat($binding);
+    $term='%'.$query.'%';
+    $rows=all('SELECT id,name,phone,dnc FROM contacts
+        WHERE account_id=? AND site_id=? AND (name LIKE ? OR phone LIKE ?)
+        ORDER BY id DESC LIMIT 50',
+        [$current['account_id'],$current['site_id'],$term,$term]);
+    $items=[];
+    foreach($rows as $row){
+        $items[]=['id'=>(int)$row['id'],'name'=>(string)$row['name'],
+            'phone'=>(string)$row['phone'],
+            'do_not_call'=>((int)$row['dnc']===1 ||
+                dnc_is_suppressed((int)$current['account_id'],(string)$row['phone']))];
+    }
+    return $items;
+}
