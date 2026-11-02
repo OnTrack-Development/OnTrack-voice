@@ -57,8 +57,10 @@ function flow_ai_ws_exact($socket,int $length):string {
     $data='';
     while(strlen($data)<$length){
         $part=fread($socket,$length-strlen($data));
-        if(!is_string($part)||$part===''||feof($socket))
-            throw new RuntimeException('ai_live_connection_lost');
+        if(!is_string($part)||$part===''||feof($socket)){
+            $meta=stream_get_meta_data($socket);
+            throw new RuntimeException(!empty($meta['timed_out'])?'ai_live_read_timeout':'ai_live_connection_lost');
+        }
         $data.=$part;
     }
     return $data;
@@ -113,9 +115,12 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText):arr
             throw new RuntimeException('Google Live WebSocket handshake غير صالح.');
         flow_ai_ws_write($socket,$setup);
         $initialized=false;$started=false;$frames=0;$startedAt=microtime(true);
-        $toolResponse=null;
+        $lastEvent='handshake';$toolResponse=null;
         while($frames++<120 && microtime(true)-$startedAt<27){
-            [$opcode,$body,$last]=flow_ai_ws_read($socket);
+            try{[$opcode,$body,$last]=flow_ai_ws_read($socket);}
+            catch(RuntimeException $error){
+                throw new RuntimeException($error->getMessage().' [last='. $lastEvent.',frames='.$frames.']');
+            }
             if($opcode===8)throw new RuntimeException('Google Live أغلق الجلسة قبل إنشاء المقترح.');
             if($opcode===9){ // ping -> masked pong
                 $mask=random_bytes(4);$size=strlen($body);
@@ -128,12 +133,13 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText):arr
             if(!is_array($event))continue;
             if(isset($event['setupComplete'])&&!$started){
                 $initialized=true;$started=true;
-                flow_ai_ws_write($socket,['clientContent'=>[
-                    'turns'=>[['role'=>'user','parts'=>[['text'=>$userText]]]],
-                    'turnComplete'=>true
-                ]]);continue;
+                // The raw Live API's documented text-input message.
+                flow_ai_ws_write($socket,['realtimeInput'=>['text'=>$userText]]);
+                $lastEvent='text_sent';continue;
             }
             if(!$initialized)continue;
+            $lastEvent=isset($event['serverContent'])?'server_content':
+                (isset($event['toolCall'])?'tool_call':(isset($event['goAway'])?'go_away':'other'));
             $toolResponse=flow_ai_live_extract($event);
             if($toolResponse!==null)return $toolResponse;
             $state=(string)($event['interactionStatus']??$event['serverContent']['interactionStatus']??'');
