@@ -36,28 +36,150 @@
     else if(status)status.textContent='تم تحديد المفتاح؛ اختر نسخ من قائمة النص.';
   }));
   document.querySelectorAll('[data-copy-source]').forEach(field=>field.addEventListener('click',()=>field.select()));
-  // Tenant-owned Meta callbacks/verify tokens are text-only, never copied into
-  // logs or analytics and never sent to the browser after initial setup.
-  document.querySelectorAll('[data-wa-copy]').forEach(button=>button.addEventListener('click',async()=>{
-    const id=button.getAttribute('data-wa-copy')||'';
-    const source=id&&document.getElementById(id);
-    if(!source)return;
-    const value=(source.textContent||'').trim();
+  // Dynamic onboarding elements are re-rendered on soft navigation.
+  document.addEventListener('click',async event=>{
+    const button=event.target.closest?.('[data-wa-copy]');
+    if(!button)return;
+    const source=document.getElementById(button.getAttribute('data-wa-copy')||'');
+    const value=(source?.textContent||'').trim();
     if(!value)return;
     let copied=false;
     try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(value);copied=true;}}catch(_){}
     if(!copied){
       const field=document.createElement('textarea');
-      field.value=value;field.setAttribute('readonly','');field.style.position='fixed';
-      field.style.top='-9999px';document.body.append(field);field.select();
+      field.value=value;field.setAttribute('readonly','');
+      field.style.position='fixed';field.style.top='-9999px';
+      document.body.append(field);field.select();
       try{copied=document.execCommand('copy')===true;}catch(_){}
       field.remove();
     }
-    if(copied){const original=button.textContent;button.textContent='تم النسخ ✓';
-      window.setTimeout(()=>{if(button.isConnected)button.textContent=original;},1800);}
-    else window.ontrackToast?.('تعذر النسخ تلقائيًا. حدّد النص وانسخه يدويًا.',{error:true});
-  }));
+    if(copied){
+      const original=button.textContent;button.textContent='تم النسخ ✓';
+      window.setTimeout(()=>{if(button.isConnected)button.textContent=original;},1600);
+    }else window.ontrackToast?.('تعذر النسخ؛ حدّد النص وانسخه يدويًا.',{error:true});
+  });
 
+  // Two basic methods are always visible; Meta Embedded Signup and Coexistence
+  // are rendered only when the PLATFORM admin enabled a complete configuration.
+  document.addEventListener('click',event=>{
+    const choice=event.target.closest?.('[data-wa-method]');
+    if(!choice)return;
+    const root=choice.closest('.wa-manual-card');if(!root)return;
+    const mode=choice.getAttribute('data-wa-method');
+    root.querySelectorAll('[data-wa-method]').forEach(item=>{
+      const selected=item.getAttribute('data-wa-method')===mode;
+      item.classList.toggle('active',selected);
+      item.setAttribute('aria-pressed',String(selected));
+    });
+    root.querySelectorAll('[data-wa-method-panel]').forEach(panel=>{
+      panel.hidden=panel.getAttribute('data-wa-method-panel')!==mode;
+    });
+  });
+  document.addEventListener('input',event=>{
+    const input=event.target;
+    if(input?.name!=='meta_app_id')return;
+    const id=String(input.value||'').trim();
+    const direct=/^[0-9]{5,100}$/.test(id)
+      ?'https://developers.facebook.com/apps/'+id+'/settings/basic/'
+      :'https://developers.facebook.com/apps/';
+    input.closest('form')?.querySelectorAll('[data-wa-meta-app-link]').forEach(link=>{
+      link.href=direct;
+    });
+  });
+
+  let metaSdkRequested=false;
+  const prefetchMetaSdk=(scope=document)=>{
+    if(!scope.querySelector?.('[data-wa-embedded-form]')||metaSdkRequested)return;
+    metaSdkRequested=true;
+    const sdk=document.createElement('script');
+    sdk.src='https://connect.facebook.net/en_US/sdk.js';
+    sdk.async=true;sdk.defer=true;sdk.crossOrigin='anonymous';
+    sdk.onerror=()=>{
+      metaSdkRequested=false;
+      window.ontrackToast?.('تعذر تحميل Meta SDK؛ تحقق من الاتصال وحاجب الإعلانات.',{error:true});
+    };
+    document.head.append(sdk);
+  };
+  window.ontrackMountWhatsApp=prefetchMetaSdk;
+  prefetchMetaSdk(document);
+
+  let currentMetaLogin=null;
+  const reportMeta=status=>{
+    const node=currentMetaLogin?.form?.querySelector('[data-wa-embedded-status]');
+    if(node)node.textContent=status;
+  };
+  const submitMetaResult=()=>{
+    const pending=currentMetaLogin;
+    if(!pending||pending.submitted||!pending.code||!pending.wabaId)return;
+    const form=pending.form;
+    if(!form?.isConnected)return;
+    if(!form.elements.site_id?.value){reportMeta('حدد الموقع أولاً');return;}
+    form.elements.code.value=pending.code;
+    form.elements.waba_id.value=pending.wabaId;
+    form.elements.phone_number_id.value=pending.phoneId||'';
+    pending.submitted=true;
+    reportMeta('Meta وافقت؛ بنثبت ملكية الرقم من السيرفر قبل حفظ الاتصال...');
+    form.requestSubmit();
+  };
+  window.addEventListener('message',event=>{
+    let parsed;
+    try{
+      const origin=new URL(event.origin);
+      if(origin.protocol!=='https:'||
+        !(origin.hostname==='facebook.com'||origin.hostname.endsWith('.facebook.com')))return;
+      parsed=typeof event.data==='string'?JSON.parse(event.data):event.data;
+    }catch{return;}
+    if(!currentMetaLogin||!parsed||parsed.type!=='WA_EMBEDDED_SIGNUP')return;
+    if(parsed.event==='CANCEL'||parsed.event==='ERROR'){
+      reportMeta('تم إلغاء الربط أو رفضه من Meta. لم يتم حفظ رقم.');
+      currentMetaLogin=null;return;
+    }
+    if(!['FINISH','FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'].includes(parsed.event))return;
+    const data=parsed.data||{};
+    const id=String(data.waba_id||'').trim();
+    const phone=String(data.phone_number_id||'').trim();
+    if(!/^[0-9]{5,100}$/.test(id)||phone&&!/^[0-9]{5,100}$/.test(phone))return;
+    currentMetaLogin.wabaId=id;currentMetaLogin.phoneId=phone;
+    submitMetaResult();
+  });
+  document.addEventListener('click',event=>{
+    const button=event.target.closest?.('[data-wa-embedded-start]');
+    if(!button)return;
+    const form=button.closest('form[data-wa-embedded-form]');
+    if(!form)return;
+    const appId=button.dataset.waAppId||'';
+    const configId=button.dataset.waConfigId||'';
+    const version=button.dataset.waGraphVersion||'v26.0';
+    const mode=button.dataset.waEmbeddedMode||'';
+    if(!/^[0-9]{5,100}$/.test(appId)||!/^[0-9]{5,100}$/.test(configId)||
+       !['signup','coexist'].includes(mode))return;
+    if(!window.FB?.login||!window.FB?.init){
+      prefetchMetaSdk(document);
+      window.ontrackToast?.('Meta SDK بيتم تحميله؛ اضغط مرة تانية بعد التحميل.',{error:true});
+      return;
+    }
+    currentMetaLogin={form,mode,code:'',wabaId:'',phoneId:'',submitted:false};
+    reportMeta('استكمل الموافقة داخل نافذة Meta الرسمية.');
+    try{
+      window.FB.init({appId,version,xfbml:false,cookie:false});
+      const extras={setup:{},sessionInfoVersion:'3'};
+      if(mode==='coexist')extras.featureType='whatsapp_business_app_onboarding';
+      window.FB.login(response=>{
+        if(currentMetaLogin?.form!==form)return;
+        const code=response?.authResponse?.code;
+        if(typeof code!=='string'||!/^[A-Za-z0-9._~-]{10,1600}$/.test(code)){
+          reportMeta('Meta لم تُرجع رمز الموافقة؛ لم يتم حفظ اتصال.');
+          currentMetaLogin=null;return;
+        }
+        currentMetaLogin.code=code;
+        submitMetaResult();
+      },{config_id:configId,response_type:'code',
+         override_default_response_type:true,extras});
+    }catch(_){
+      reportMeta('فشل فتح نافذة Meta؛ راجع إعدادات التطبيق لدى الإدارة.');
+      currentMetaLogin=null;
+    }
+  });
   // Responsive WEB navigation: an accessible drawer only below the tablet breakpoint.
   const navToggle=document.getElementById('navToggle');
   const navClose=document.getElementById('navClose');
@@ -208,6 +330,7 @@
     if(replace)history.replaceState({otAjax:true},'',nextUrl.pathname+nextUrl.search+nextUrl.hash);
     else history.pushState({otAjax:true},'',nextUrl.pathname+nextUrl.search+nextUrl.hash);
     window.ontrackMountFlowEditors?.(main);
+    window.ontrackMountWhatsApp?.(main);
     window.ontrackMountPairingQR?.(main);
     window.ontrackMountMfaQR?.(main);
     if(main.querySelector('[data-copy-secret]'))main.querySelectorAll('[data-copy-source]').forEach(field=>{
