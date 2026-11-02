@@ -757,6 +757,36 @@ function act():void {
                     ?'تم اختبار Google API وإصدار رمز Live مؤقت وحفظ المفتاح مشفرًا. الاختبار الصوتي على الشريحة لسه مطلوب.'
                     :'المفتاح اتقبل من Google واتحفظ مشفرًا. اختبار Gemini Live لم ينجح بعد؛ راجع صلاحية Live والموديل، مش لازم يكون المفتاح غلط.';
                 break;
+            case 'wa_platform_onboarding_save':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/WhatsAppOnboarding.php';
+                wa_onboarding_save([
+                    'app_id'=>field('meta_app_id',100),
+                    'app_secret'=>field('meta_app_secret',1000),
+                    'signup_config_id'=>field('meta_signup_config_id',100),
+                    'coexist_config_id'=>field('meta_coexist_config_id',100),
+                    'graph_version'=>required('graph_version',8),
+                    'verify_token'=>field('meta_verify_token',200),
+                    'signup_enabled'=>field('signup_enabled',1)==='1',
+                    'coexist_enabled'=>field('coexist_enabled',1)==='1',
+                ]);
+                audit('whatsapp.onboarding.platform_updated',$id,[
+                    'signup_enabled'=>wa_onboarding_ready(wa_platform_onboarding(),'signup'),
+                    'coexist_enabled'=>wa_onboarding_ready(wa_platform_onboarding(),'coexist')
+                ]);
+                $success='تم حفظ إعدادات طرق ربط Meta وإتاحة الاختيارات المفعّلة للعملاء.';
+                break;
+            case 'wa_embedded_finish':
+                require_permission('agents.write');
+                require_once __DIR__.'/WhatsAppOnboarding.php';
+                $method=required('mode',12);
+                $result=wa_onboarding_finish($id,intfield('site_id'),intfield('ai_agent_id'),
+                    $method,required('code',1600),required('waba_id',100),field('phone_number_id',100));
+                audit('whatsapp.onboarding.tenant_pending',$id,[
+                    'connection_id'=>$result['connection_id'],'mode'=>$method
+                ]);
+                $success='تم استلام موافقة Meta وحفظ الرقم كاتصال ينتظر التحقق. اختبر وصول Webhook قبل تفعيل الرد الآلي.';
+                break;
             case 'wa_connection_add':
                 require_permission('agents.write');
                 require_once __DIR__.'/WhatsAppSupport.php';
