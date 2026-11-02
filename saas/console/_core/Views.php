@@ -1004,6 +1004,7 @@ function render_whatsapp(array $a):void {
         echo form_start('wa_manual_reply',$return,'class="wa-compose"').
            '<input type="hidden" name="conversation_id" value="'.$cid.'">'.
            '<label class="field">رد الموظف<textarea name="body" maxlength="4096" rows="3" required placeholder="اكتب ردك، هيُرسل من نفس رقم Meta الرسمي..."></textarea></label>'.
+           '<label class="field">أزرار رد سريعة (اختياري: زر في كل سطر، حتى 3 أزرار، 20 حرف للزر)<textarea name="quick_replies" maxlength="200" rows="2" placeholder="تفاصيل أكثر&#10;التحدث لموظف"></textarea></label>'.
            '<button class="btn primary" type="submit">إرسال عبر واتساب وإيقاف AI لمدة 15 دقيقة</button></form>'.
            '<p class="dim">الرد الحر متاح داخل نافذة 24 ساعة من رسالة العميل، وما بنعتبرش Meta Accepted = Delivered.</p></div>';
     }
