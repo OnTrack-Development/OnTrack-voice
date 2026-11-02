@@ -153,4 +153,116 @@
     finally{delete button.dataset.otApproved}
   },true);
 
+}
+  // Same-origin, progressive AJAX navigation. Existing PHP authorization,
+  // server-side validation, CSRF and redirect destinations remain authoritative.
+  // Special auth/payment/account-switch endpoints deliberately keep native flows.
+  const excludes=new Set(['logout','login','register','switch','support_enter',
+    'support_leave','checkout_plan','manual_approve','manual_payment_approve']);
+  let activeRequest=false;
+  const allowedUrl=url=>url.origin===location.origin &&
+    url.pathname.startsWith('/saas/console/') &&
+    !url.pathname.startsWith('/saas/console/api/') &&
+    !url.pathname.startsWith('/saas/console/device/') &&
+    !url.pathname.startsWith('/saas/console/hooks/');
+  const refreshSections=(html,requestedUrl,replace=false)=>{
+    const parsed=new DOMParser().parseFromString(html,'text/html');
+    const main=parsed.querySelector('main.content');
+    const existing=document.querySelector('main.content');
+    if(!main||!existing)throw Error('استجابة الصفحة ليست لوحة تحكم صالحة');
+    existing.replaceWith(main);
+    document.title=parsed.title||document.title;
+    const heading=parsed.querySelector('.topbar .headline');
+    const currentHeading=document.querySelector('.topbar .headline');
+    if(heading&&currentHeading)currentHeading.replaceWith(heading);
+    const selected=parsed.querySelector('.nav-link.selected')?.getAttribute('href');
+    document.querySelectorAll('.nav-link').forEach(link=>{
+      const active=link.getAttribute('href')===selected;
+      link.classList.toggle('selected',active);
+      if(active)link.setAttribute('aria-current','page');
+      else link.removeAttribute('aria-current');
+    });
+    const nextUrl=new URL(requestedUrl,location.href);
+    if(replace)history.replaceState({otAjax:true},'',nextUrl.pathname+nextUrl.search+nextUrl.hash);
+    else history.pushState({otAjax:true},'',nextUrl.pathname+nextUrl.search+nextUrl.hash);
+    window.ontrackMountFlowEditors?.(main);
+    window.ontrackMountPairingQR?.(main);
+    window.ontrackMountMfaQR?.(main);
+    if(main.querySelector('[data-copy-secret]'))main.querySelectorAll('[data-copy-source]').forEach(field=>{
+      field.addEventListener('click',()=>field.select());
+    });
+    closeNav();
+  };
+  window.ontrackSoftNavigate=async(target,{replace=false}={})=>{
+    const url=new URL(target,location.href);
+    if(!allowedUrl(url))return false;
+    if(activeRequest)return false;
+    activeRequest=true;body.classList.add('ot-ajax-loading');
+    try{
+      const response=await fetch(url.href,{
+        method:'GET',credentials:'same-origin',cache:'no-store',
+        headers:{'Accept':'text/html','X-Requested-With':'XMLHttpRequest'}});
+      if(!response.ok||!response.headers.get('content-type')?.includes('text/html'))
+        throw Error('تعذر تحميل الصفحة ('+response.status+')');
+      const finalUrl=new URL(response.url,location.href);
+      if(!allowedUrl(finalUrl))throw Error('الجلسة انتهت أو الصفحة تحتاج تسجيل الدخول');
+      refreshSections(await response.text(),finalUrl.href,replace);
+      return true;
+    }catch(error){window.ontrackToast(error.message||'تعذر تحديث الصفحة',{error:true});return false}
+    finally{activeRequest=false;body.classList.remove('ot-ajax-loading')}
+  };
+  document.addEventListener('click',event=>{
+    if(event.defaultPrevented||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+    const anchor=event.target.closest?.('a[href]');
+    if(!anchor||anchor.target||anchor.hasAttribute('download')||anchor.hasAttribute('data-no-ajax'))return;
+    const url=new URL(anchor.href,location.href);
+    if(!allowedUrl(url))return;
+    if(url.hash && url.pathname===location.pathname && url.search===location.search)return;
+    event.preventDefault();
+    void window.ontrackSoftNavigate(url.href);
+  });
+  document.addEventListener('popstate',()=>{
+    void window.ontrackSoftNavigate(location.href,{replace:true});
+  });
+  document.addEventListener('submit',async event=>{
+    if(event.defaultPrevented||!event.target.matches('form'))return;
+    const form=event.target;
+    if(!form.closest('.app-shell')||form.classList.contains('agent-form')||
+       form.hasAttribute('data-no-ajax'))return;
+    const data=new FormData(form,event.submitter||undefined);
+    const action=data.get('action');
+    if(typeof action==='string'&&excludes.has(action))return;
+    const endpoint=new URL(form.action||location.href,location.href);
+    if(!allowedUrl(endpoint))return;
+    event.preventDefault();
+    event.stopPropagation();
+    if(activeRequest)return;
+    if(form.method.toLowerCase()==='get'){
+      const url=new URL(form.action||location.href,location.href);
+      for(const [name,value] of data)if(typeof value==='string')url.searchParams.set(name,value);
+      void window.ontrackSoftNavigate(url.href);
+      return;
+    }
+    activeRequest=true;body.classList.add('ot-ajax-loading');
+    const submitter=event.submitter;
+    if(submitter)submitter.disabled=true;
+    try{
+      const response=await fetch(endpoint.href,{
+        method:'POST',body:data,credentials:'same-origin',cache:'no-store',
+        headers:{'Accept':'text/html','X-Requested-With':'XMLHttpRequest'}
+      });
+      if(!response.ok||!response.headers.get('content-type')?.includes('text/html'))
+        throw Error('تعذر تنفيذ العملية ('+response.status+')');
+      const finalUrl=new URL(response.url,location.href);
+      if(!allowedUrl(finalUrl))throw Error('الصفحة تحتاج تسجيل الدخول أو إجراء منفصل');
+      const html=await response.text();
+      refreshSections(html,finalUrl.href,true);
+      const msg=document.querySelector('main.content .alert.danger,main.content .alert.success');
+      if(msg)window.ontrackToast(msg.textContent?.trim().slice(0,210)||'تم تحديث البيانات',{
+        error:msg.classList.contains('danger')});
+      else window.ontrackToast('تم تحديث البيانات بدون إعادة تحميل');
+    }catch(error){window.ontrackToast(error.message||'تعذر تنفيذ العملية',{error:true})}
+    finally{activeRequest=false;body.classList.remove('ot-ajax-loading');if(submitter?.isConnected)submitter.disabled=false}
+  },true);
+
 })();
