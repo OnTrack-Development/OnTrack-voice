@@ -129,6 +129,7 @@ function layout_open(array $a,string $tab):void{
         }
         echo '</div></details>';
     }
+    echo '</nav>';
     if($support){
         $origin=account((int)($a['support_origin']??0));
         $backLabel=($origin['kind']??'')==='reseller'?'العودة لمساحة الريسيلر':'العودة للوحة مدير المنصة';
@@ -146,7 +147,7 @@ function layout_open(array $a,string $tab):void{
             '<input type="hidden" name="view" value="'.e($to).'">'.
             '<button type="submit" class="workspace-switch-button">⇄ '.e($toLabel).'</button></form></div>';
     }
-    echo '</nav><div class="side-footer"><span class="live-dot"></span> OnTrack Voice <small>Business communication platform</small></div></aside><button type="button" class="nav-backdrop" id="navBackdrop" aria-label="إغلاق القائمة" tabindex="-1"></button><div class="main-area">';
+    echo '<div class="side-footer"><span class="live-dot"></span> OnTrack Voice <small>Business communication platform</small></div></aside><button type="button" class="nav-backdrop" id="navBackdrop" aria-label="إغلاق القائمة" tabindex="-1"></button><div class="main-area">';
     echo '<header class="topbar"><button type="button" class="icon-button nav-toggle" id="navToggle" aria-controls="mainNavigation" aria-expanded="false" aria-label="فتح القائمة">☰</button><div class="headline"><span class="eyebrow">'.e($role).'</span><h1>'.e($heading).'</h1></div><div class="header-actions">';
     $members=memberships((int)$u['id']);
     if(count($members)>1&&!$support){
