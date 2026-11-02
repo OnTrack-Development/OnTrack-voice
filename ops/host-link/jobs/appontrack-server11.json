@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "legacy-agent-route-723714e77c",
+  "id": "voice-sim-audit-20261102-01",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-02T00:54:19.867Z",
-  "expires_at": "2026-11-02T01:54:19.867Z",
+  "created_at": "2026-11-02T00:58:28.229Z",
+  "expires_at": "2026-11-02T01:58:28.229Z",
   "cwd": "/home/appontrack/public_html",
-  "timeout_seconds": 20,
   "argv": [
     "/bin/python3",
     "-c",
-    "import os,pathlib,tempfile,subprocess,shutil,json\ntarget=pathlib.Path('/home/appontrack/public_html/index.php')\nif target.is_symlink() or not target.is_file(): raise RuntimeError('legacy index target invalid')\nsource=target.read_text(encoding='utf-8')\nanchor=\"<?php\\n\"\nmarker=\"Redirect legacy OnTrack agent deep links\"\ninject=\"// Redirect legacy OnTrack agent deep links to the authenticated SaaS console.\\n// Regular Call Desk URLs remain available. URL fragments are handled by browsers.\\nif (($_GET['tab'] ?? null) === 'agents') {\\n    $query = ['tab=agents'];\\n    foreach (['site', 'agent'] as $name) {\\n        $value = $_GET[$name] ?? null;\\n        if (is_string($value) && preg_match('/^[1-9][0-9]{0,9}$/D', $value)) {\\n            $query[] = $name . '=' . $value;\\n        }\\n    }\\n    header('Cache-Control: private, no-store');\\n    header('Location: /saas/console/?' . implode('&', $query), true, 302);\\n    exit;\\n}\\n\"\nif not source.startswith(anchor) or \"api/demo_config.php\" not in source[:350]: raise RuntimeError('legacy entrypoint has changed')\nif marker in source:\n print(json.dumps({'status':'already_patched','target':'/index.php'}))\nelse:\n new=anchor+inject+source[len(anchor):]\n private=pathlib.Path('/home/appontrack/.ontrack-saas')\n if not private.is_dir(): raise RuntimeError('private backup directory absent')\n backup=private/'legacy-index-before-agent-route-723714e77c.bak'\n if backup.exists(): raise RuntimeError('backup exists without installed marker; refuse overwrite')\n tmpfd,tmpname=tempfile.mkstemp(prefix='.index-agent-',suffix='.php',dir=str(target.parent))\n try:\n  with os.fdopen(tmpfd,'w',encoding='utf-8') as f: f.write(new)\n  os.chmod(tmpname,0o644)\n  php='/opt/cpanel/ea-php83/root/usr/bin/php'\n  test=subprocess.run([php,'-l',tmpname],capture_output=True,text=True,timeout=5)\n  if test.returncode!=0: raise RuntimeError('PHP syntax failed')\n  backup.write_text(source,encoding='utf-8')\n  backup.chmod(0o600)\n  os.replace(tmpname,target)\n  print(json.dumps({'status':'patched','target':'/index.php','backup':True,'php_lint':'pass'}))\n finally:\n  if os.path.exists(tmpname): os.unlink(tmpname)\n"
-  ]
+    "import sqlite3,pathlib,json,datetime,hashlib,os\nroot=pathlib.Path('/home/appontrack')\np=root/'.ontrack-saas/ontrack-console.sqlite'\nout={'db_present':p.is_file()}\nif p.is_file():\n db=sqlite3.connect('file:'+str(p)+'?mode=ro',uri=True,timeout=4)\n db.row_factory=sqlite3.Row\n try:\n  rows=db.execute(\"\"\"SELECT d.id,d.sim_slot,d.status,d.last_seen_at,d.created_at,\n  a.status account_status,s.status site_status,ag.status agent_status\n  FROM device_bindings d LEFT JOIN accounts a ON a.id=d.account_id\n  LEFT JOIN sites s ON s.id=d.site_id LEFT JOIN agents ag ON ag.id=d.agent_id\n  ORDER BY d.id DESC LIMIT 25\"\"\").fetchall()\n  out['bindings']=[dict(r) for r in rows]\n  out['counts']=[dict(r) for r in db.execute('SELECT sim_slot,status,COUNT(*) count FROM device_bindings GROUP BY sim_slot,status')]\n  out['platform_live_profiles']=db.execute(\"SELECT count(*) FROM integrations WHERE provider='google_live' AND status='active'\").fetchone()[0]\n except Exception as ex: out['database_error']=type(ex).__name__+': '+str(ex)[:90]\n finally: db.close()\nv=root/'public_html/saas/console/_core/DevicePairing.php'\nout['device_endpoint_php_present']=(root/'public_html/saas/console/device/v1/index.php').is_file()\nout['device_pairing_file_digest']=hashlib.sha256(v.read_bytes()).hexdigest()[:16] if v.is_file() else None\nout['utc']=datetime.datetime.now(datetime.timezone.utc).isoformat()\nprint(json.dumps(out,ensure_ascii=False))"
+  ],
+  "timeout_seconds": 20
 }
