@@ -73,17 +73,27 @@ jobs:
           python3 tools/prepare_mobile_native.py .build/artifact/OnTrack-Voice-0.3.8.apk .build/artifact/native
           java tools/SignMobileOta.java "$HOME/.android/debug.keystore" .build/artifact/native
           python3 -c "import sys;sys.path.insert(0,'tools');from queue_mobile_native import verify;from pathlib import Path;verify(Path('.build/artifact/native'));print('Native OTA signature validated')"
+      - name: Sign required matching UI OTA manifest
+        env:
+          GITHUB_SHA: 2595bce13727ce909dcf375eff933d85a8e233c6
+        run: |
+          set -euo pipefail
+          python3 tools/prepare_mobile_ota.py .build/artifact/ota
+          java tools/SignMobileOta.java "$HOME/.android/debug.keystore" .build/artifact/ota
+          python3 -c "import sys;sys.path.insert(0,'tools');from queue_mobile_ota import verify;from pathlib import Path;verify(Path('.build/artifact/ota'));print('UI OTA signature validated')"
       - uses: actions/upload-artifact@v5
         with:
-          name: OnTrack-Voice-CallReports-Signed
+          name: OnTrack-Voice-0.3.8
           path: |
             .build/artifact/OnTrack-Voice-0.3.8.apk
             .build/artifact/signature.txt
             .build/artifact/native/
+            .build/artifact/ota/
           if-no-files-found: error
-  publish:
+  publish_ui:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     permissions:
       contents: write
       actions: read
@@ -93,9 +103,29 @@ jobs:
           ref: 2595bce13727ce909dcf375eff933d85a8e233c6
       - uses: actions/download-artifact@v5
         with:
-          name: OnTrack-Voice-CallReports-Signed
+          name: OnTrack-Voice-0.3.8
           path: .build/artifact
-      - name: Send signed native OTA only after successful build and checks
+      - name: Publish verified UI release and queue host acknowledgement
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MOBILE_OTA_ARTIFACT_NAME: OnTrack-Voice-0.3.8
+        run: python3 tools/queue_mobile_ota.py .build/artifact/ota
+  publish_native:
+    needs: [build, publish_ui]
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: 2595bce13727ce909dcf375eff933d85a8e233c6
+      - uses: actions/download-artifact@v5
+        with:
+          name: OnTrack-Voice-0.3.8
+          path: .build/artifact
+      - name: Publish native APK only after exact signed UI host receipt
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 tools/queue_mobile_native.py .build/artifact/native
