@@ -39,8 +39,22 @@ function wa_bridge_url(string $url):string {
         throw new InvalidArgumentException('WHMCS bridge must be an authenticated OnTrack AI Support Agent addon endpoint');
     return $url;
 }
+function wa_graph_version(array $connection):string {
+    $version=trim((string)($connection['graph_version']??''));
+    if(!preg_match('/^v[0-9]{1,2}\\.0$/D',$version)){
+        $version=trim((string)getenv('ONTRACK_META_GRAPH_VERSION'));
+        if(!preg_match('/^v[0-9]{1,2}\\.0$/D',$version))$version='v26.0';
+    }
+    return $version;
+}
+function wa_public_callback(string $publicId):string {
+    if(!preg_match('/^[a-f0-9]{36}$/D',$publicId))
+        throw new InvalidArgumentException('callback_invalid');
+    return 'https://app.ontrackegy.com/saas/console/whatsapp-webhook.php?id='.$publicId;
+}
 function wa_create_connection(int $accountId,int $siteId,string $label,string $phoneId,
- string $token,string $appSecret,string $verifyToken,string $bridgeUrl='',string $bridgeToken='',int $aiAgentId=0):int {
+ string $token,string $appSecret,string $verifyToken,string $bridgeUrl='',string $bridgeToken='',int $aiAgentId=0,
+ string $wabaId='',string $metaAppId='',string $graphVersion='v26.0',string $publicId=''):int {
     if(!one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$siteId,$accountId]))
         throw new InvalidArgumentException('whatsapp_site_not_available');
     $label=trim($label);
@@ -51,6 +65,17 @@ function wa_create_connection(int $accountId,int $siteId,string $label,string $p
        strlen($verifyToken)<12||strlen($verifyToken)>200||
        preg_match('/[\\x00-\\x1f\\x7f]/',$token.$appSecret.$verifyToken.$bridgeToken))
         throw new InvalidArgumentException('whatsapp_connection_fields_invalid');
+    if($wabaId!==''&&!preg_match('/^[0-9]{5,100}$/D',$wabaId))
+        throw new InvalidArgumentException('WABA ID غير صالح');
+    if($metaAppId!==''&&!preg_match('/^[0-9]{5,100}$/D',$metaAppId))
+        throw new InvalidArgumentException('Meta App ID غير صالح');
+    if(!preg_match('/^v[0-9]{1,2}\\.0$/D',$graphVersion))
+        throw new InvalidArgumentException('Graph API Version غير صالح');
+    if(one('SELECT id FROM wa_connections WHERE phone_number_id=? LIMIT 1',[$phoneId]))
+        throw new InvalidArgumentException('Phone Number ID مرتبط بالفعل؛ راجع الاتصال الحالي.');
+    if($publicId!==''&&(!preg_match('/^[a-f0-9]{36}$/D',$publicId)||
+        one('SELECT id FROM wa_connections WHERE public_id=? LIMIT 1',[$publicId])))
+        throw new InvalidArgumentException('معرّف Callback URL غير صالح؛ حدّث الصفحة.');
     if($aiAgentId<0)throw new InvalidArgumentException('whatsapp_agent_invalid');
     if($aiAgentId>0){
         require_once __DIR__.'/PublishedFlow.php';
@@ -60,14 +85,16 @@ function wa_create_connection(int $accountId,int $siteId,string $label,string $p
     $bridge=wa_bridge_url($bridgeUrl);
     if(($bridge==='')!==($bridgeToken==='')||strlen($bridgeToken)>2000)
         throw new InvalidArgumentException('whmcs_bridge_url_and_token_required_together');
-    $public=bin2hex(random_bytes(18));
+    $public=$publicId!==''?$publicId:bin2hex(random_bytes(18));
     $id=insert("INSERT INTO wa_connections
       (account_id,site_id,public_id,label,phone_number_id,access_token_enc,app_secret_enc,
-       verify_token_hash,whmcs_bridge_url,whmcs_bridge_token_enc,state,created_at,updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,'draft',?,?)",[
+       verify_token_hash,whmcs_bridge_url,whmcs_bridge_token_enc,state,created_at,updated_at,
+       waba_id,meta_app_id,graph_version)
+       VALUES (?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?,?)",[
        $accountId,$siteId,$public,$label,$phoneId,seal_secret($token),
        seal_secret($appSecret),hash('sha256',$verifyToken),$bridge!==''?$bridge:null,
-       $bridgeToken!==''?seal_secret($bridgeToken):null,now(),now()
+       $bridgeToken!==''?seal_secret($bridgeToken):null,now(),now(),
+       $wabaId!==''?$wabaId:null,$metaAppId!==''?$metaAppId:null,$graphVersion
     ]);
     if($aiAgentId>0)
         execute('UPDATE wa_connections SET ai_agent_id=? WHERE id=? AND account_id=?',
@@ -220,8 +247,7 @@ function wa_meta_send(array $connection,string $destination,string $body,?callab
     $destination=wa_e164($destination);
     if(trim($body)===''||mb_strlen($body)>4096)
         throw new InvalidArgumentException('whatsapp_message_invalid');
-    $version=trim((string)getenv('ONTRACK_META_GRAPH_VERSION'));
-    if(!preg_match('/^v[0-9]{1,2}\.0$/D',$version))$version='v25.0';
+    $version=wa_graph_version($connection);
     $phoneId=(string)$connection['phone_number_id'];
     if(!preg_match('/^[0-9]{5,100}$/D',$phoneId))
         throw new InvalidArgumentException('whatsapp_sender_invalid');
@@ -296,8 +322,7 @@ function wa_test_meta_connection(array $connection,?callable $transport=null):ar
     $phoneId=(string)$connection['phone_number_id'];
     if(!$token||!preg_match('/^[0-9]{5,100}$/D',$phoneId))
         throw new InvalidArgumentException('whatsapp_test_configuration_invalid');
-    $version=trim((string)getenv('ONTRACK_META_GRAPH_VERSION'));
-    if(!preg_match('/^v[0-9]{1,2}\.0$/D',$version))$version='v25.0';
+    $version=wa_graph_version($connection);
     $endpoint='https://graph.facebook.com/'.$version.'/'.$phoneId.'?fields=id,display_phone_number';
     if($transport!==null)$response=$transport($endpoint,$token);
     else{
@@ -314,6 +339,30 @@ function wa_test_meta_connection(array $connection,?callable $transport=null):ar
     if((int)($response['status']??0)!==200||
        (string)($json['id']??'')!==$phoneId)
         throw new RuntimeException('Meta لم يؤكد ملكية Phone Number ID (HTTP '.(int)($response['status']??0).')');
+    $wabaId=trim((string)($connection['waba_id']??''));
+    if($wabaId!==''){
+        if(!preg_match('/^[0-9]{5,100}$/D',$wabaId))
+            throw new InvalidArgumentException('WABA ID غير صالح');
+        $wabaEndpoint='https://graph.facebook.com/'.$version.'/'.$wabaId.'/phone_numbers?fields=id&limit=100';
+        if($transport!==null)$wabaReply=$transport($wabaEndpoint,$token);
+        else{
+            $ch=curl_init($wabaEndpoint);
+            if(!$ch)throw new RuntimeException('whatsapp_curl_unavailable');
+            curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,
+                CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$token,'Accept: application/json'],
+                CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>11,CURLOPT_FOLLOWLOCATION=>false,
+                CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2]);
+            $raw=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
+            curl_close($ch);$wabaReply=['status'=>$status,'body'=>$raw];
+        }
+        $numbers=json_decode((string)($wabaReply['body']??''),true);
+        $matched=false;
+        foreach((array)($numbers['data']??[]) as $number){
+            if(is_array($number)&&(string)($number['id']??'')===$phoneId){$matched=true;break;}
+        }
+        if((int)($wabaReply['status']??0)!==200||!$matched)
+            throw new RuntimeException('لم يثبت تطابق WABA ID مع Phone Number ID (HTTP '.(int)($wabaReply['status']??0).').');
+    }
     execute("UPDATE wa_connections SET state='verified',last_tested_at=?,updated_at=? WHERE id=? AND account_id=?",
         [now(),now(),(int)$connection['id'],(int)$connection['account_id']]);
     wa_audit((int)$connection['account_id'],null,'whatsapp.meta.verified','phone_number_id confirmed, webhook pending');
