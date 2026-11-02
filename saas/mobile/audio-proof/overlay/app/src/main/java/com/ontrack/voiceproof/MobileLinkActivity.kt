@@ -700,6 +700,7 @@ class MobileLinkActivity:ComponentActivity(){
             .put("nativeInstallPermission",nativeUpdates.canInstallPackages())
             .put("tenantSim1",tenantStatusLines[0]).put("tenantSim2",tenantStatusLines[1])
             .put("tenantLinked",tenantEnrollment.hasAny())
+            .put("tenantServerVerified",MobileLinkService.tenantServerVerified)
             .put("tenantDesiredEnabled",getSharedPreferences("ontrack_tenant_voice",MODE_PRIVATE).getBoolean("enabled",false))
             .put("tenantServiceRunning",MobileLinkService.running)
             .put("tenantPairingInProgress",MobileLinkService.tenantPairingInProgress)
