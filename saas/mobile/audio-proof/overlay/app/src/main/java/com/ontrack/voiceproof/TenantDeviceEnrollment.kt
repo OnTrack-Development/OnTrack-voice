@@ -71,10 +71,10 @@ class TenantDeviceEnrollment(private val context: Context) {
         client.newCall(req).execute().use { response ->
             val raw=response.body?.string().orEmpty()
             check(raw.length<=maxResponse) { "استجابة السيرفر غير صالحة" }
-            val error=runCatching{JSONObject(raw).optString("error","")}.getOrDefault("")
+            val apiError=runCatching{JSONObject(raw).optString("error","")}.getOrDefault("")
             if(response.code==401)throw SecurityException("تسجيل ربط الشريحة اتلغى أو انتهت صلاحيته. افصل الشريحة وأعد الربط.")
             if(!response.isSuccessful){
-                val message=when(error){
+                val message=when(apiError){
                     "device_pairing_expired_or_used"->"رمز QR منتهي أو اتستخدم قبل كده؛ أنشئ رمز جديد من أجهزة الحساب."
                     "device_pairing_slot_mismatch"->"QR ده لشريحة مختلفة؛ تأكد من SIM 1 أو SIM 2."
                     "sim_slot_already_paired"->"الشريحة مربوطة بحساب آخر؛ لازم تفصل الربط القديم من لوحة الأجهزة."
@@ -83,7 +83,7 @@ class TenantDeviceEnrollment(private val context: Context) {
                     "voice_provider_not_configured"->"Google Live غير متصل؛ راجع إعدادات المزوّد في لوحة الأدمن."
                     "voice_provider_unavailable"->"Google Live لم يصدر جلسة صوت حاليًا؛ تحقق من صلاحيات Live والموديل."
                     "database_error"->"قاعدة بيانات الربط غير متاحة؛ راجع سجل السيرفر."
-                    else->"السيرفر أعاد HTTP ${response.code} ${error.take(80)}"
+                    else->"السيرفر أعاد HTTP ${response.code} ${apiError.take(80)}"
                 }
                 error(message)
             }
