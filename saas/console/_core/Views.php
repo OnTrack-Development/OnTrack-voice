@@ -688,7 +688,16 @@ function render_calls(array $a):void{
         $params[]=$term;$params[]=$term;
     }
     if($filter!=='all'){$where.=' AND status=?';$params[]=$filter;}
-    $list=all('SELECT id,name,phone,status,duration_seconds,is_demo,device_binding_id,external_call_id,created_at FROM calls WHERE '.$where.' ORDER BY id DESC LIMIT 200',$params);
+    $list=all('SELECT c.id,c.name,c.phone,c.status,c.duration_seconds,c.is_demo,c.device_binding_id,
+        c.external_call_id,c.sim_slot,c.site_id,c.created_at,
+        r.summary,r.customer_notes,r.outcome,r.handoff_status,r.handoff_reason,
+        r.source AS report_source,r.updated_at AS report_updated_at
+        FROM calls c LEFT JOIN tenant_call_reports r ON
+          r.account_id=c.account_id AND r.site_id=c.site_id
+          AND r.device_binding_id=c.device_binding_id AND r.call_id=c.external_call_id
+        WHERE '.str_replace(['account_id=?','name LIKE ?','phone LIKE ?','status=?'],
+            ['c.account_id=?','c.name LIKE ?','c.phone LIKE ?','c.status=?'],$where).
+        ' ORDER BY c.id DESC LIMIT 200',$params);
     $requestedId=max(0,(int)($_GET['call']??0));
     $selected=null;
     foreach($list as $item){if((int)$item['id']===$requestedId)$selected=$item;}
@@ -696,7 +705,7 @@ function render_calls(array $a):void{
     $stats=one('SELECT COUNT(*) n FROM calls WHERE account_id=?',[$id]);
     echo '<section class="calls-workspace" aria-label="صندوق المكالمات">';
     echo '<header class="calls-top"><div><span class="eyebrow">ONTRACK VOICE</span><h2>صندوق المكالمات</h2>'.
-        '<p>المكالمات الواردة والصادرة وسجل نتائجها. التسجيلات والتفريغ النصي يظهران فقط بعد وصولهما من الهاتف.</p></div>'.
+        '<p>المكالمات الواردة والصادرة، ملخصاتها، ملاحظات العملاء وطلبات تدخل الموظف. الاسم والرقم يظهران عند وصول تعريف موثوق من جهاز Android؛ بدون اختلاق بيانات.</p></div>'.
         '<span class="calls-total">'.(int)($stats['n']??0).' مكالمة مسجّلة</span></header>';
     echo '<form class="calls-filters" action="/saas/console/" method="get" role="search"><input type="hidden" name="tab" value="calls">'.
         '<label class="field">بحث بالاسم أو الرقم<input name="q" value="'.e($keyword).'" placeholder="اسم العميل أو الرقم" maxlength="80"></label>'.
@@ -711,18 +720,57 @@ function render_calls(array $a):void{
         $url='/saas/console/?tab=calls&call='.(int)$c['id'].'&status='.rawurlencode($filter).'&q='.rawurlencode($keyword);
         $letter=mb_substr((string)($c['name']?:$c['phone']),0,1);
         echo '<a class="call-contact'.($chosen?' active':'').'" href="'.e($url).'"'.($chosen?' aria-current="true"':'').'><span class="call-avatar">'.e($letter).'</span>'.
-            '<span class="call-contact-main"><strong>'.e((string)($c['name']?:'رقم غير مسجل')).'</strong><small dir="ltr">'.e((string)$c['phone']).'</small></span>'.
+            '<span class="call-contact-main"><strong>'.e((string)($c['name']?:($c['phone']!==''?'رقم غير مسجل':'هوية المتصل لم تصل بعد'))).'</strong>'.
+            '<small dir="ltr">'.e((string)($c['phone']?:'رقم غير متاح · راجع إذن سجل المكالمات')).'</small></span>'.
             '<span class="call-contact-meta"><time>'.e((string)$c['created_at']).'</time>'.pill((string)$c['status']).'</span></a>';
     }
     echo '</div><section class="call-detail" aria-label="تفاصيل المكالمة">';
     if($selected){
         echo '<div class="call-detail-header"><span class="call-avatar large">'.e(mb_substr((string)($selected['name']?:$selected['phone']),0,1)).'</span>'.
-            '<h3>'.e((string)($selected['name']?:'رقم غير مسجل')).'</h3><p dir="ltr">'.e((string)$selected['phone']).'</p></div>'.
+            '<h3>'.e((string)($selected['name']?:($selected['phone']!==''?'اسم غير مسجل':'هوية المتصل غير متاحة'))).'</h3>'.
+            '<p dir="ltr">'.e((string)($selected['phone']?:'لم يصل الرقم من Android')).'</p>'.
+            ($selected['phone']===''?'<p class="dim">لو الرقم ظاهر في سجل الهاتف ومش هنا، راجع تصريح READ_CALL_LOG ووصول حدث identified من التطبيق. الأرقام المخفية مش ممكن نستنتجها.</p>':'').
+            '</div>'.
             '<div class="call-facts"><div><span>الحالة</span>'.pill((string)$selected['status']).'</div>'.
             '<div><span>المدة</span><strong>'.e(fmt_duration((int)$selected['duration_seconds'])).'</strong></div>'.
             '<div><span>التاريخ</span><strong>'.e((string)$selected['created_at']).'</strong></div>'.
             '<div><span>المصدر</span><strong>'.(!empty($selected['external_call_id']) && !empty($selected['device_binding_id'])?'سجل من شريحة الهاتف':((int)$selected['is_demo']===1?'بيانات تجربة':'سجل الجهاز')).'</strong></div></div>'.
-            '<div class="call-transcript-empty"><strong>المحادثة والملخص</strong><p>لا يوجد تفريغ نصي أو تسجيل مرتبط بهذا السجل. مش هنعرض رسائل أو تسجيلات وهمية.</p></div>';
+            '<div class="call-transcript-empty"><strong>ملخص المكالمة</strong>'.
+                '<p>'.(!empty($selected['summary'])?nl2br(e((string)$selected['summary'])):'لم يُحفظ ملخص لهذه المكالمة بعد. مش هنعرض ملخص آلي وهمي.').'</p>'.
+                '<strong>ملاحظات العميل</strong><p>'.(!empty($selected['customer_notes'])?nl2br(e((string)$selected['customer_notes'])):'لا توجد ملاحظات بعد.').'</p>'.
+                '<strong>نتيجة المكالمة</strong><p>'.e(match($selected['outcome']??'unknown'){
+                    'interested'=>'مهتم','satisfied'=>'راضٍ','unsatisfied'=>'غير راضٍ',
+                    'follow_up'=>'يحتاج متابعة','do_not_call'=>'لا تتصل مجددًا',
+                    'not_interested'=>'غير مهتم',default=>'غير محددة'
+                }).'</p>'.
+                '<strong>التحويل لموظف</strong><p>'.e(match($selected['handoff_status']??'not_requested'){
+                    'requested'=>'تم طلب تدخل موظف — غير مؤكد التنفيذ',
+                    'completed'=>'تم تأكيد استلام الموظف يدويًا',
+                    default=>'لم يتم طلب تدخل موظف'
+                }).'</p>'.
+                (!empty($selected['handoff_reason'])?'<p>'.nl2br(e((string)$selected['handoff_reason'])).'</p>':'').
+                '<p class="dim">التسجيل والتفريغ الكامل لن يظهرا إلا لو تم رفع بيانات حقيقية من الهاتف.</p></div>';
+            if(allowed('calls.write')&&!empty($selected['device_binding_id'])&&!empty($selected['external_call_id'])){
+                echo '<section class="call-annotation-panel"><h3>تعديل تقرير المكالمة وملاحظات العميل</h3>'.
+                    '<p class="dim">دي بيانات المكالمة الحالية فقط. طلب التحويل لا يعني إن الموظف استلم، إلا لو تم تأكيده فعليًا.</p>'.
+                    form_start('save_call_report','/?tab=calls&call='.(int)$selected['id'],
+                        'class="call-annotation-form"').
+                    '<input type="hidden" name="call_record_id" value="'.(int)$selected['id'].'">'.
+                    '<input type="hidden" name="call_id" value="'.e((string)$selected['external_call_id']).'">'.
+                    '<label class="field">ملخص المكالمة<textarea name="summary" maxlength="4000" rows="4">'.e((string)($selected['summary']??'')).'</textarea></label>'.
+                    '<label class="field">ملاحظات العميل<textarea name="customer_notes" maxlength="4000" rows="3">'.e((string)($selected['customer_notes']??'')).'</textarea></label>'.
+                    select_html('نتيجة المكالمة','outcome',[
+                        'unknown'=>'غير محددة','interested'=>'مهتم','satisfied'=>'راضٍ',
+                        'unsatisfied'=>'غير راضٍ','follow_up'=>'يحتاج متابعة',
+                        'not_interested'=>'غير مهتم','do_not_call'=>'لا تتصل مجددًا'
+                    ],(string)($selected['outcome']??'unknown')).
+                    select_html('حالة التحويل لموظف','handoff_status',[
+                        'not_requested'=>'لم يُطلب','requested'=>'طلب تدخل موظف (لم يتم التنفيذ)',
+                        'completed'=>'تم تأكيد استلام موظف'
+                    ],(string)($selected['handoff_status']??'not_requested')).
+                    '<label class="field">سبب طلب الموظف وملاحظات المتابعة<textarea name="handoff_reason" maxlength="2000" rows="2">'.e((string)($selected['handoff_reason']??'')).'</textarea></label>'.
+                    '<button class="btn primary" type="submit">حفظ التقرير والملاحظات</button></form></section>';
+            }
     }else echo '<div class="calls-empty">اختار مكالمة لعرض التفاصيل بعد مزامنتها من الشريحة.</div>';
     echo '</section></div></section>';
 }
