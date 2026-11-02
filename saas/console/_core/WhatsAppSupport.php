@@ -214,7 +214,7 @@ function wa_ai_allowed(array $conversation):bool {
     return empty($conversation['human_locked_at']) &&
        (empty($conversation['ai_pause_until']) || strcmp((string)$conversation['ai_pause_until'],now())<=0);
 }
-function wa_meta_send(array $connection,string $destination,string $body,?callable $transport=null):array {
+function wa_meta_send(array $connection,string $destination,string $body,?callable $transport=null,array $buttons=[]):array {
     if(!in_array($connection['state'],['verified','active'],true))
         throw new RuntimeException('whatsapp_connection_not_verified');
     $destination=wa_e164($destination);
@@ -225,8 +225,22 @@ function wa_meta_send(array $connection,string $destination,string $body,?callab
     $phoneId=(string)$connection['phone_number_id'];
     if(!preg_match('/^[0-9]{5,100}$/D',$phoneId))
         throw new InvalidArgumentException('whatsapp_sender_invalid');
-    $payload=json_encode(['messaging_product'=>'whatsapp','recipient_type'=>'individual',
-        'to'=>$destination,'type'=>'text','text'=>['preview_url'=>false,'body'=>$body]],
+    $message=['messaging_product'=>'whatsapp','recipient_type'=>'individual',
+        'to'=>$destination,'type'=>'text','text'=>['preview_url'=>false,'body'=>$body]];
+    if($buttons!==[]){
+        if(count($buttons)>3||mb_strlen($body)>1024)throw new InvalidArgumentException('whatsapp_buttons_invalid');
+        $replies=[];
+        foreach(array_values($buttons) as $n=>$title){
+            if(!is_string($title)||trim($title)===''||mb_strlen($title)>20)
+                throw new InvalidArgumentException('whatsapp_button_title_invalid');
+            $replies[]=['type'=>'reply','reply'=>['id'=>'ot_option_'.($n+1),'title'=>trim($title)]];
+        }
+        $message['type']='interactive';
+        unset($message['text']);
+        $message['interactive']=['type'=>'button','body'=>['text'=>$body],
+            'action'=>['buttons'=>$replies]];
+    }
+    $payload=json_encode($message,
         JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
     $key=unseal_secret($connection['access_token_enc']??null);
     if(!$key)throw new RuntimeException('whatsapp_token_missing');
@@ -249,7 +263,7 @@ function wa_meta_send(array $connection,string $destination,string $body,?callab
         throw new RuntimeException('Meta لم يؤكد قبول الرسالة (HTTP '.(int)($response['status']??0).')');
     return ['provider_message_id'=>$msgId,'status'=>'accepted_not_delivered'];
 }
-function wa_manual_reply(int $accountId,int $conversationId,string $body,?callable $transport=null):array {
+function wa_manual_reply(int $accountId,int $conversationId,string $body,?callable $transport=null,array $buttons=[]):array {
     $conversation=wa_conversation($conversationId,$accountId);
     $connection=wa_connection((int)$conversation['connection_id'],$accountId);
     $body=trim($body);
@@ -261,7 +275,7 @@ function wa_manual_reply(int $accountId,int $conversationId,string $body,?callab
     // The human takes ownership BEFORE external send so an in-flight AI
     // response cannot be started after staff has intervened.
     wa_human_takeover($accountId,$conversationId,false);
-    try{$sent=wa_meta_send($connection,$conversation['contact'],$body,$transport);}
+    try{$sent=wa_meta_send($connection,$conversation['contact'],$body,$transport,$buttons);}
     catch(Throwable $e){
         wa_audit($accountId,$conversationId,'whatsapp.staff.send_failed','Meta rejected or unreachable');
         throw $e;
