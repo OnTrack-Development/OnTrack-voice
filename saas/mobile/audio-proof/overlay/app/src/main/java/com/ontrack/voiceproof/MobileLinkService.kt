@@ -489,6 +489,25 @@ class MobileLinkService:Service() {
                             if(message!=lastError){lastError=message;notice("تعذر تجهيز محرك الشركات قبل الرد: "+message)}
                         }
                     }
+                    // A manually dialed outbound call never enters RINGING locally.
+                    // Prepare exactly the published SIM agent after the user has
+                    // initiated that call; do not auto-dial or bridge a foreign SIM.
+                    if(current.state==TelephonyManager.CALL_STATE_OFFHOOK && !ringAttempted &&
+                        !answeredByAgent && tenantSession==null && !humanControl){
+                        ringAttempted=true
+                        try{
+                            val flow=enrollment.publishedFlow(current.slot)
+                            val answer=flow.optJSONObject("answer_policy")?:JSONObject()
+                            val session=enrollment.voiceSession(current.slot,flow)
+                            tenantFlow=flow;tenantSession=session;policy=answer
+                            answeredByAgent=true
+                            notice("شريحة ${current.slot+1}: المكالمة الصادرة جاهزة للإيجنت المنشور")
+                        }catch(problem:Exception){
+                            humanControl=true
+                            val message=problem.message.orEmpty().take(140)
+                            if(message!=lastError){lastError=message;notice("تعذر تجهيز الإيجنت للمكالمة الصادرة: "+message)}
+                        }
+                    }
                     if(current.state==TelephonyManager.CALL_STATE_RINGING && tenantSession!=null && !answeredByAgent && !humanControl){
                         val elapsed=SystemClock.elapsedRealtime()-ringingAt
                         val ms=policy.optInt("answer_delay_seconds",5).coerceIn(0,30)*1000L
