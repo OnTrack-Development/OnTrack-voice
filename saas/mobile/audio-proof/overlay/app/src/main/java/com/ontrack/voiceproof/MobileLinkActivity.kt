@@ -429,7 +429,8 @@ class MobileLinkActivity:ComponentActivity(){
             "تشغيل سجل مكالمات الشرائح (بدون صوت أو أرقام)",
             "إيقاف سجل مكالمات الشرائح",
             "عرض سجل مكالمات SIM 1","عرض سجل مكالمات SIM 2",
-            "تقييم مكالمة SIM 1 يدويًا","تقييم مكالمة SIM 2 يدويًا")
+            "تقييم مكالمة SIM 1 يدويًا","تقييم مكالمة SIM 2 يدويًا",
+            "جهات اتصال SIM 1","جهات اتصال SIM 2")
         AlertDialog.Builder(this).setTitle("إدارة شرائح الشركات")
             .setMessage("كل شريحة لها حساب وإيجنت مستقلان. هذا الربط لا يشغّل مكالمات AI تلقائيًا.")
             .setItems(items) { _,which ->
@@ -463,8 +464,43 @@ class MobileLinkActivity:ComponentActivity(){
                     }
                     8,9 -> showTenantCallHistory(slot)
                     10,11 -> showTenantCallReport(slot)
+                    12,13 -> showTenantContacts(slot)
                 }
             }.setNegativeButton("إغلاق",null).show()
+    }
+    /** Search only the contacts owned by this SIM's tenant and site. No call is placed. */
+    private fun showTenantContacts(slot:Int) {
+        val search=EditText(this).apply {
+            hint="ابحث بالاسم أو الرقم"
+            filters=arrayOf<android.text.InputFilter>(android.text.InputFilter.LengthFilter(60))
+            inputType=android.text.InputType.TYPE_CLASS_TEXT
+            setSingleLine(true)
+        }
+        AlertDialog.Builder(this).setTitle("SIM ${slot+1} — جهات الاتصال")
+            .setMessage("عرض من حساب الشريحة فقط. علامة عدم الاتصال تمنع استخدامها في حملات مستقبلية؛ لا يتم إجراء مكالمة.")
+            .setView(search)
+            .setPositiveButton("بحث") { _,_ ->
+                lifecycleScope.launch {
+                    try {
+                        val rows=withContext(Dispatchers.IO) {
+                            tenantEnrollment.contacts(slot,search.text.toString().trim())
+                        }
+                        val lines=(0 until rows.length()).map { index ->
+                            val row=rows.getJSONObject(index)
+                            val block=if(row.optBoolean("do_not_call"))"⛔ لا تتصل" else "جهة اتصال"
+                            "${index+1}. ${row.optString("name")} • ${row.optString("phone")} • $block"
+                        }
+                        AlertDialog.Builder(this@MobileLinkActivity)
+                            .setTitle("SIM ${slot+1} — ${rows.length()} جهة (حد أقصى 50)")
+                            .setMessage(if(lines.isEmpty())"لا توجد جهات مطابقة في حساب وموقع الشريحة" else lines.joinToString("\\n"))
+                            .setPositiveButton("إغلاق",null).show()
+                    } catch(e:CancellationException) { throw e }
+                      catch(e:Exception) {
+                        banner.text="تعذر تحميل جهات SIM ${slot+1}: "+(e.message?:"تحقق من الاتصال").take(100)
+                        banner.visibility=View.VISIBLE
+                    }
+                }
+            }.setNegativeButton("إلغاء",null).show()
     }
     private fun showTenantCallHistory(slot:Int) {
         lifecycleScope.launch {
