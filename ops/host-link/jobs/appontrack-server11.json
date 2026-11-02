@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "voice-sim-audit-20261102-01",
+  "id": "voice-sim-targets-20261102-02",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-02T00:58:28.229Z",
-  "expires_at": "2026-11-02T01:58:28.229Z",
+  "created_at": "2026-11-02T00:59:41.806Z",
+  "expires_at": "2026-11-02T01:59:41.806Z",
   "cwd": "/home/appontrack/public_html",
   "argv": [
     "/bin/python3",
     "-c",
-    "import sqlite3,pathlib,json,datetime,hashlib,os\nroot=pathlib.Path('/home/appontrack')\np=root/'.ontrack-saas/ontrack-console.sqlite'\nout={'db_present':p.is_file()}\nif p.is_file():\n db=sqlite3.connect('file:'+str(p)+'?mode=ro',uri=True,timeout=4)\n db.row_factory=sqlite3.Row\n try:\n  rows=db.execute(\"\"\"SELECT d.id,d.sim_slot,d.status,d.last_seen_at,d.created_at,\n  a.status account_status,s.status site_status,ag.status agent_status\n  FROM device_bindings d LEFT JOIN accounts a ON a.id=d.account_id\n  LEFT JOIN sites s ON s.id=d.site_id LEFT JOIN agents ag ON ag.id=d.agent_id\n  ORDER BY d.id DESC LIMIT 25\"\"\").fetchall()\n  out['bindings']=[dict(r) for r in rows]\n  out['counts']=[dict(r) for r in db.execute('SELECT sim_slot,status,COUNT(*) count FROM device_bindings GROUP BY sim_slot,status')]\n  out['platform_live_profiles']=db.execute(\"SELECT count(*) FROM integrations WHERE provider='google_live' AND status='active'\").fetchone()[0]\n except Exception as ex: out['database_error']=type(ex).__name__+': '+str(ex)[:90]\n finally: db.close()\nv=root/'public_html/saas/console/_core/DevicePairing.php'\nout['device_endpoint_php_present']=(root/'public_html/saas/console/device/v1/index.php').is_file()\nout['device_pairing_file_digest']=hashlib.sha256(v.read_bytes()).hexdigest()[:16] if v.is_file() else None\nout['utc']=datetime.datetime.now(datetime.timezone.utc).isoformat()\nprint(json.dumps(out,ensure_ascii=False))"
+    "import sqlite3,pathlib,json\np=pathlib.Path('/home/appontrack/.ontrack-saas/ontrack-console.sqlite')\ndb=sqlite3.connect('file:'+str(p)+'?mode=ro',uri=True)\ndb.row_factory=sqlite3.Row\nx=db.execute(\"SELECT account_id,site_id,agent_id FROM device_bindings WHERE id=1 AND sim_slot=0 AND status='active'\").fetchone()\nout={'current_binding':dict(x) if x else None}\nif x:\n q=\"\"\"SELECT ag.id,ag.name,ag.status,ag.site_id,COUNT(v.id) AS versions,MAX(v.revision) AS latest_revision\n  FROM agents ag LEFT JOIN agent_flow_versions v ON v.agent_id=ag.id AND v.account_id=ag.account_id AND v.site_id=ag.site_id\n  WHERE ag.account_id=? AND ag.site_id=? GROUP BY ag.id ORDER BY ag.id\"\"\"\n out['same_site_agents']=[dict(z) for z in db.execute(q,(x['account_id'],x['site_id']))]\n out['account_agents']=[dict(z) for z in db.execute('SELECT id,site_id,name,status FROM agents WHERE account_id=? ORDER BY id',(x['account_id'],))]\nprint(json.dumps(out,ensure_ascii=False))"
   ],
   "timeout_seconds": 20
 }
