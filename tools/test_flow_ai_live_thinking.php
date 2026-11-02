@@ -25,7 +25,7 @@ $graph=['nodes'=>[
 ], 'edges'=>[['from'=>'start','to'=>'end','label'=>'التالي']]];
 $transport=static function(array $configured,array $request)use($graph):array {
     live_check(($configured['setup']['model']??'')==='models/gemini-3.8-live-extended-thinking','runtime model');
-    live_check(($request['clientContent']['turnComplete']??false)===true,'text chat turn complete');
+    live_check(($request['realtimeInput']['text']??null)==='أهلا','text sent via Live realtimeInput');
     return ['toolCall'=>['functionCalls'=>[['name'=>'submit_editor_proposal','args'=>$graph]]]];
 };
 $result=flow_ai_live_proposal('Build a flow','أهلا',$schema,$transport);
