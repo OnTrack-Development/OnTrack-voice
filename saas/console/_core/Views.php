@@ -287,7 +287,7 @@ function render_plans(array $a):void{
                 '</div><div class="plan-actions"><button class="btn primary" type="submit">حفظ تغييرات الباقة</button></div></form>'.
                 form_start('archive_plan','/?tab=plans','class="plan-archive"').
                 '<input type="hidden" name="plan_id" value="'.(int)$plan['id'].'">'.
-                '<button class="btn small danger" type="submit" onclick="return confirm(\'إيقاف بيع الباقة؟ الاشتراكات الحالية ستظل محفوظة\')">إيقاف بيع الباقة</button></form>'.
+                '<button class="btn small danger" type="submit" data-confirm="إيقاف بيع الباقة؟ الاشتراكات الحالية ستظل محفوظة">إيقاف بيع الباقة</button></form>'.
                 '</div></details>';
         }
         echo '</div></section>';
@@ -321,7 +321,7 @@ function render_staff(array $a):void{
        if(!in_array($r['role'],['owner','admin'],true)&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
            $actions.=form_start('edit_staff','/?tab=staff','class="inline-form"').'<input type="hidden" name="user_id" value="'.$r['id'].'">'.
                 select_html('تغيير الدور','role',['manager'=>'مدير','operator'=>'مشغّل','reception'=>'استقبال','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).'<button class="btn small primary">حفظ</button></form></details>';
-           $actions.=form_start('remove_staff','/?tab=staff','class="inline-form"').'<input type="hidden" name="user_id" value="'.$r['id'].'"><button class="btn small danger" onclick="return confirm(\'إزالة الموظف من هذا الحساب؟\')">إزالة</button></form>';
+           $actions.=form_start('remove_staff','/?tab=staff','class="inline-form"').'<input type="hidden" name="user_id" value="'.$r['id'].'"><button class="btn small danger" data-confirm="إزالة الموظف من هذا الحساب؟">إزالة</button></form>';
        }
        $users[]=[e($r['name']),e($r['email']),$actions];
     }
@@ -360,7 +360,7 @@ function render_sites(array $a):void{
     $cells=[];
     foreach($sites as $s)$cells[]=[e($s['name']),'<span dir="ltr">'.e($s['domain']).'</span>',pill($s['status']),'<a class="btn small" href="/saas/console/?tab=agents&site='.$s['id'].'">الإيجنتات ←</a>'.
       '<details class="row-rename"><summary>تعديل بيانات الموقع</summary>'.form_start('update_site','/?tab=sites','class="row-rename-form"').'<input type="hidden" name="site_id" value="'.$s['id'].'"><label class="field">الاسم<input name="name" value="'.e($s['name']).'"></label><label class="field">الدومين<input name="domain" value="'.e($s['domain']).'"></label><button class="btn small primary">حفظ الموقع</button></form></details>'.
-      form_start('archive_site','/?tab=sites','class="inline-form"').'<input type="hidden" name="site_id" value="'.$s['id'].'"><button class="btn small danger" onclick="return confirm(\'أرشفة الموقع وإيجنتاته؟\')">أرشفة</button></form>'];
+      form_start('archive_site','/?tab=sites','class="inline-form"').'<input type="hidden" name="site_id" value="'.$s['id'].'"><button class="btn small danger" data-confirm="أرشفة الموقع وإيجنتاته؟">أرشفة</button></form>'];
     echo card('مواقعي',tbl(['الموقع','الدومين','الحالة','التشغيل'],$cells));
     if(allowed('sites.write'))echo card('موقع جديد',form_start('add_site','/?tab=sites').field_html('اسم الموقع','name','text','الصيدلية / الملابس / الدعم',true).field_html('الدومين','domain','text','store.example.com').submit_btn('إضافة موقع مستقل'));
     echo '</div>';
@@ -482,7 +482,7 @@ function render_agents(array $a):void{
            '<label class="field"><input type="checkbox" name="auto_answer"'.($answer['auto_answer']?' checked':'').'> الرد الآلي عند تفعيل محرك الاتصال الجديد</label>'.
            '<div class="flow-head" id="scenario-editor"><strong>Agent Flow Builder</strong><small>عقد وأسئلة وشروط متسلسلة</small></div><div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.$flow.'</textarea></div>'.
            '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">حفظ ونشر Flow مباشرة</button><button class="btn" type="submit">حفظ كمسودة</button></div></form>'.
-                    form_start('archive_agent','/?tab=agents&site='.$selected['id'],'class="inline-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'"><button class="btn small danger" onclick="return confirm(\'أرشفة الإيجنت؟\')">أرشفة الإيجنت</button></form>';
+                    form_start('archive_agent','/?tab=agents&site='.$selected['id'],'class="inline-form"').'<input type="hidden" name="agent_id" value="'.$agent['id'].'"><button class="btn small danger" data-confirm="أرشفة الإيجنت؟">أرشفة الإيجنت</button></form>';
         } else $body.='<p>'.e($agent['instructions']).'</p>';
         echo '<details class="agent-editor" id="agent-'.(int)$agent['id'].'"'.((string)($_GET['agent']??'')===(string)$agent['id']?' open':'').'><summary><strong>'.e($agent['name']).'</strong><span>'.pill((string)$agent['status']).'</span><span class="dim">فتح إعدادات الإيجنت والسيناريو</span></summary>'.card('إعدادات الإيجنت',$body).'</details>';
     }
@@ -545,7 +545,7 @@ function render_contacts(array $a):void {
           '<input name="phone" class="tiny-input" value="'.e($r['phone']).'" required>'.
           '<label class="field"><input type="checkbox" name="dnc" '.((int)$r['dnc']===1?'checked':'').'>عدم الاتصال</label>'.
           '<button class="btn small">حفظ</button></form>';
-        $action.=form_start('delete_contact','/?tab=contacts','class="inline-form"').'<input type="hidden" name="contact_id" value="'.$r['id'].'"><button class="btn small danger" onclick="return confirm(\'حذف جهة الاتصال؟\')">حذف</button></form>';
+        $action.=form_start('delete_contact','/?tab=contacts','class="inline-form"').'<input type="hidden" name="contact_id" value="'.$r['id'].'"><button class="btn small danger" data-confirm="حذف جهة الاتصال؟">حذف</button></form>';
         $cells[]=[e($r['name']),e($r['phone']),e($r['site_name']),$r['dnc']?pill('DNC'):pill('active'),$action];
     }
     echo card('جهات اتصال كل موقع',tbl(['الاسم','الهاتف','الموقع','الخصوصية','الإجراءات'],$cells));
@@ -624,7 +624,7 @@ function render_devices(array $a):void {
         $action=$manage && $d['status']==='active'
             ?form_start('revoke_device_binding','/?tab=devices','class="inline-form"').
                 '<input type="hidden" name="device_id" value="'.(int)$d['id'].'">'.
-                '<button class="btn small" onclick="return confirm(\'فصل هذا الجهاز وإلغاء توكن الشريحة فورًا؟\')">فصل الجهاز</button></form>'
+                '<button class="btn small" data-confirm="فصل هذا الجهاز وإلغاء توكن الشريحة فورًا؟">فصل الجهاز</button></form>'
             :'—';
         $rows[]=[e($d['device_name']),e($d['site_name']),e($d['agent_name']),
             e('SIM '.((int)$d['sim_slot']+1)),pill($d['status']),
@@ -674,7 +674,7 @@ function render_voices(array $a):void{
         $last='<span class="dim">'.(in_array($v['id'],$g)?'متاح':'غير مخصص').'</span>';
         if($a['kind']==='platform'){
             $last=form_start('toggle_voice','/?tab=voices','class="inline-form"').'<input type="hidden" name="voice_id" value="'.$v['id'].'"><button class="btn small">إظهار/إخفاء</button></form>';
-            $last.=form_start('set_voice_ready','/?tab=voices','class="inline-form"').'<input type="hidden" name="voice_id" value="'.$v['id'].'"><input type="hidden" name="ready" value="'.((int)$v['ready']===1?'0':'1').'"><input type="hidden" name="confirmed" value="1"><button class="btn small" onclick="return confirm(\'هل اختبرت الصوت بنجاح على مزود الاتصال؟\')">'.((int)$v['ready']===1?'إلغاء الجاهزية':'اعتماد صوت').'</button></form>';
+            $last.=form_start('set_voice_ready','/?tab=voices','class="inline-form"').'<input type="hidden" name="voice_id" value="'.$v['id'].'"><input type="hidden" name="ready" value="'.((int)$v['ready']===1?'0':'1').'"><input type="hidden" name="confirmed" value="1"><button class="btn small" data-confirm="هل اختبرت الصوت بنجاح على مزود الاتصال؟">'.((int)$v['ready']===1?'إلغاء الجاهزية':'اعتماد صوت').'</button></form>';
         }
         $rows[]=[e($v['name']),e($v['provider']),pill($v['tier']),(int)$v['ready']?pill('ready'):pill('not ready'),pill($v['status']),$last];
     }
@@ -702,10 +702,10 @@ function render_secret_controls(string $type,array $row,string $tab):string{
     $controls=pill((string)$row['status']);
     if($row['status']!=='active')return $controls;
     $controls.=form_start('reveal_secret',$return,'class="inline-form"').'<input type="hidden" name="secret_type" value="'.e($type).'"><input type="hidden" name="secret_id" value="'.$row['id'].'"><button class="btn small" type="submit">عرض ونسخ المفتاح</button></form>';
-    $controls.=form_start('rotate_secret',$return,'class="inline-form"').'<input type="hidden" name="secret_type" value="'.e($type).'"><input type="hidden" name="secret_id" value="'.$row['id'].'"><button class="btn small" onclick="return confirm(\'تغيير السر يلغي المفتاح القديم فوراً، هل تريد الاستمرار؟\')">تدوير</button></form>';
+    $controls.=form_start('rotate_secret',$return,'class="inline-form"').'<input type="hidden" name="secret_type" value="'.e($type).'"><input type="hidden" name="secret_id" value="'.$row['id'].'"><button class="btn small" data-confirm="تغيير السر يلغي المفتاح القديم فوراً، هل تريد الاستمرار؟">تدوير</button></form>';
     $action=$type==='api'?'revoke_key':'revoke_integration';
     $field=$type==='api'?'key_id':'integration_id';
-    $controls.=form_start($action,$return,'class="inline-form"').'<input type="hidden" name="'.$field.'" value="'.$row['id'].'"><button class="btn small danger" onclick="return confirm(\'إلغاء الاتصال نهائياً؟\')">إلغاء</button></form>';
+    $controls.=form_start($action,$return,'class="inline-form"').'<input type="hidden" name="'.$field.'" value="'.$row['id'].'"><button class="btn small danger" data-confirm="إلغاء الاتصال نهائياً؟">إلغاء</button></form>';
     return $controls;
 }
 function render_keys(array $a):void{
@@ -785,7 +785,7 @@ function render_billing(array $a):void{
         $rows=[];
         foreach($orders as $o){
             $act=pill($o['status']);
-            if($o['status']==='pending_manual_review')$act.=form_start('manual_approve','/?tab=billing','class="inline-form"').'<input type="hidden" name="order_id" value="'.$o['id'].'"><input name="payment_reference" class="tiny-input" required minlength="8" placeholder="مرجع إثبات الدفع"><button class="btn small primary" type="submit" onclick="return confirm(\'هل تحققت فعلياً من وصول الدفع؟\')">اعتماد الدفع</button></form>';
+            if($o['status']==='pending_manual_review')$act.=form_start('manual_approve','/?tab=billing','class="inline-form"').'<input type="hidden" name="order_id" value="'.$o['id'].'"><input name="payment_reference" class="tiny-input" required minlength="8" placeholder="مرجع إثبات الدفع"><button class="btn small primary" type="submit" data-confirm="هل تحققت فعلياً من وصول الدفع؟">اعتماد الدفع</button></form>';
             $rows[]=[e($o['account_name']),e($o['external_order_id']),$act,e($o['created_at'])];
         }
         echo card('طلبات الدفع والاعتماد',tbl(['العميل','رقم الطلب','الحالة/الإجراء','التاريخ'],$rows));
