@@ -491,7 +491,7 @@ class MobileLinkActivity:ComponentActivity(){
                             "${index+1}. ${row.optString("name")} • ${row.optString("phone")} • $block"
                         }
                         AlertDialog.Builder(this@MobileLinkActivity)
-                            .setTitle("SIM ${slot+1} — ${rows.length()} جهة (حد أقصى 50)")
+                            .setTitle("SIM ${slot+1} — ${rows.length()} جهة (حد أقصى 25)")
                             .setMessage(if(lines.isEmpty())"لا توجد جهات مطابقة في حساب وموقع الشريحة" else lines.joinToString("\n"))
                             .setPositiveButton("إغلاق",null).show()
                     } catch(e:CancellationException) { throw e }
