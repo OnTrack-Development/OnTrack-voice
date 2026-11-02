@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__.'/WhatsAppSupport.php';
 require_once __DIR__.'/PublishedFlow.php';
 require_once __DIR__.'/FlowAi.php';
+require_once __DIR__.'/TenantVoiceSession.php';
 
 /**
  * OnTrack's OWN WhatsApp support agent. WHMCS, the WHMCS addon and any
