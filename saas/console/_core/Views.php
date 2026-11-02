@@ -65,26 +65,33 @@ function nav_entries(string $type):array{
         'billing'=>['▣','الباقات والمدفوعات'],
         'settings'=>['⚙','الإعدادات']
     ];
+    // Administrative spaces manage tenants, plans and platform integrations.
+    // Operational tools belong ONLY to the separate User Workspace preview.
     if($type==='platform')return [
-        'overview'=>['⌂','نظرة عامة'],'accounts'=>['♧','الحسابات والريسيلرز'],
-        'plans'=>['◫','الخطط والحدود'],'voices'=>['♫','إدارة الأصوات'],
-        'staff'=>['♙','فريق المنصة'],'integrations'=>['⇄','التكاملات'],'keys'=>['⌘','مفاتيح API'],
-        'sites'=>['◈','مواقعنا'],'agents'=>['✧','Agent Studio'],
-        'answering'=>['☷','إعدادات الرد'],'whatsapp'=>['✉','WhatsApp Inbox'],
-        'devices'=>['▣','الأجهزة والشرائح'],'calls'=>['☏','سجل المكالمات'],
-        'contacts'=>['♧','جهات الاتصال'],'campaigns'=>['▤','الحملات'],
-        'billing'=>['▣','الفوترة'],'releases'=>['↓','تطبيق Android'],
+        'overview'=>['⌂','نظرة عامة'],
+        'accounts'=>['♧','الحسابات والريسيلرز'],
+        'plans'=>['◫','الخطط والحدود'],
+        'billing'=>['▣','الفوترة'],
+        'staff'=>['♙','فريق المنصة'],
+        'voices'=>['♫','إدارة الأصوات'],
+        'integrations'=>['⇄','تكاملات المنصة'],
+        'keys'=>['⌘','مفاتيح API'],
+        'whatsapp_admin'=>['✉','إعدادات ربط واتساب'],
+        'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات المنصة']
     ];
     if($type==='reseller')return [
-        'overview'=>['⌂','نظرة عامة'],'accounts'=>['♧','عملائي'],
-        'plans'=>['◫','باقات العملاء'],'voices'=>['♫','الأصوات المتاحة'],
-        'staff'=>['♙','الفريق والأدوار'],'domains'=>['◎','الدومينات والبراند'],
-        'sites'=>['◈','المواقع'],'agents'=>['✧','Agent Studio'],
-        'answering'=>['☷','إعدادات الرد'],'whatsapp'=>['✉','WhatsApp Inbox'], 'devices'=>['▣','الأجهزة'],
-        'integrations'=>['⇄','التكاملات الخارجية'],
-        'keys'=>['⌘','مفاتيح API'],'billing'=>['▣','الاشتراكات'],
-        'releases'=>['↓','تطبيق Android'],'settings'=>['⚙','هوية الريسيلر']
+        'overview'=>['⌂','نظرة عامة'],
+        'accounts'=>['♧','عملائي'],
+        'plans'=>['◫','باقات العملاء'],
+        'billing'=>['▣','الاشتراكات'],
+        'staff'=>['♙','الفريق والأدوار'],
+        'voices'=>['♫','الأصوات المتاحة'],
+        'domains'=>['◎','الدومينات والبراند'],
+        'integrations'=>['⇄','تكاملات الريسيلر'],
+        'keys'=>['⌘','مفاتيح API'],
+        'releases'=>['↓','تطبيق Android'],
+        'settings'=>['⚙','إعدادات الريسيلر']
     ];
     return [
         'overview'=>['⌂','الرئيسية'],'sites'=>['◈','مواقعي'],
@@ -112,11 +119,15 @@ function layout_open(array $a,string $tab):void{
     if(!empty($brand['logo'])) echo '<img src="/saas/console/brand-logo" alt="">';else echo '<b>'.e(mb_substr($brand['name'],0,1)).'</b>';
     echo '</span><span class="brand-lines"><strong>'.e($brand['name']).'</strong><small>'.e($role).'</small></span></a>';
     echo '<nav class="nav-list" aria-label="أقسام المنصة">';
-    $workspace=['overview','agents','flows','answering','whatsapp','calls','campaigns','contacts','devices','sites'];
+    $administrative=in_array($a['kind'],['platform','reseller'],true)&&
+        console_view_mode($a)==='admin'&&!$support;
+    $workspace=$administrative?['overview']:
+        ['overview','agents','flows','answering','whatsapp','calls','campaigns','contacts','devices','sites'];
     $platform=['accounts','plans','billing','staff','domains'];
-    $settings=['voices','integrations','keys','releases','settings'];
-    $groups=['workspace'=>['مساحة العمل',$workspace],'platform'=>['الحسابات والإدارة',$platform],
-        'system'=>['الإعدادات والتكاملات',$settings]];
+    $settings=['whatsapp_admin','voices','integrations','keys','releases','settings'];
+    $groups=['workspace'=>[$administrative?'لوحة الإدارة':'مساحة العمل',$workspace],
+        'platform'=>['الحسابات والإدارة',$platform],
+        'system'=>[$administrative?'إعدادات وإدارة المنصة':'الإعدادات والتكاملات',$settings]];
     foreach($groups as $group=>$groupData){
         $visible=array_intersect_key($items,array_flip($groupData[1]));
         if(!$visible)continue;
@@ -886,16 +897,26 @@ function render_releases(array $a):void{
     $brand=brand($a);
     echo card('تطبيق Android — '.e($brand['name']),'<p>تطبيق الاتصال بشريحة الهاتف، مع تفعيل الجهاز داخل الحساب. ملفات التطبيق والتحديثات مركزية على استضافة OnTrack.</p>'.($apk?'<a class="btn primary" href="'.e($apk).'">↓ تنزيل APK الموقّع</a>':'<div class="info">لم يتم العثور على رابط إصدار موثّق في السيرفر الحالي.</div>').'<p class="small dim">تحديثات الواجهة تتم عبر OTA بدون APK. تحديث أجزاء Android الأصلية يحتاج موافقة النظام على التثبيت.</p>');
 }
-function render_settings(array $a):void{
-    $brand=brand($a);
-    $mfaActive=mfa_gate_required((int)me()['id']);
-    echo card('التحقق بخطوتين',
-        $mfaActive
-        ?'<p>المصادقة مفعّلة لهذا الحساب. عند تسجيل الدخول ستحتاج كود تطبيق المصادقة.</p><span class="pill ok">مفعّل ومؤكد</span>'
-        :'<p>غير مفعّل. تسجيل الدخول يعمل بكلمة المرور، ويمكنك اختيار تفعيله بعد مسح QR وتأكيد كود من التطبيق.</p><a class="btn primary" href="/saas/console/mfa/setup">ربط تطبيق المصادقة وعرض QR</a>');
-    if($a['kind']==='platform'&&console_view_mode($a)==='admin'&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
-        require_once __DIR__.'/WhatsAppOnboarding.php';
-        $meta=wa_platform_onboarding();
+/** Centralized platform-only controls for Meta Tech Provider and Coexistence.
+ * Never display any tenant-facing inbox or connection form in this page.
+ */
+function render_whatsapp_platform_settings(array $a):void {
+    if($a['kind']!=='platform'||!in_array($a['role'],['owner','admin'],true)||
+       console_view_mode($a)!=='admin'||active_support())deny();
+    require_once __DIR__.'/WhatsAppOnboarding.php';
+    $meta=wa_platform_onboarding();
+    echo '<section class="card platform-whatsapp-intro">'.
+         '<div class="wa-manual-heading"><div><span class="eyebrow">PLATFORM / META ONBOARDING</span>'.
+         '<h2>إعدادات ربط واتساب — إدارة المنصة</h2>'.
+         '<p class="dim">إدارة طرق الربط المتاحة للعملاء. ربط رقمك أو صندوق واردك من مساحة المستخدم فقط.</p>'.
+         '</div><a class="btn" href="/saas/console/?tab=settings">إعدادات المنصة</a></div>'.
+         '<p class="info">الربط اليدوي وربط واتساب الموجود متاحان للمستخدمين دائمًا. الربط التلقائي وCoexistence لا يظهران للعملاء إلا بعد استكمال متطلبات Meta وتفعيلهما من هنا.</p></section>';
+    $signupReady=wa_onboarding_ready($meta,'signup');
+    $coexistReady=wa_onboarding_ready($meta,'coexist');
+    echo '<div class="wa-onboarding-status">'.
+         '<span class="pill '.($signupReady?'ok':'neutral').'">الربط التلقائي: '.($signupReady?'متاح للعملاء':'غير جاهز').'</span>'.
+         '<span class="pill '.($coexistReady?'ok':'neutral').'">Coexistence: '.($coexistReady?'متاح للعملاء':'غير جاهز').'</span>'.
+         '</div>';
         echo card('WhatsApp · طرق الربط المتاحة للعملاء',
             '<p class="dim">الربط اليدوي وربط واتساب الموجود متاحان لجميع الحسابات. الربط التلقائي وCoexistence لا يظهران إلا بعد تفعيلك إعدادات Meta الخاصة بالمنصة.</p>'.
             '<div class="wa-manual-notice">Embedded Signup v4 يتطلب إعداد Tech Provider أو Solution Partner وتصاريح Meta المناسبة. تفعيل الزر يتيح المسار للعميل، لكنه لا يضمن قبول Meta للرقم حتى إتمام اختبار حقيقي.</div>'.
@@ -911,6 +932,25 @@ function render_settings(array $a):void{
             '<label class="wa-relay-toggle"><input type="checkbox" name="signup_enabled" value="1" '.(!empty($meta['signup_enabled'])?'checked':'').'>إظهار وتفعيل الربط التلقائي للعملاء</label>'.
             '<label class="wa-relay-toggle"><input type="checkbox" name="coexist_enabled" value="1" '.(!empty($meta['coexist_enabled'])?'checked':'').'>إظهار وتفعيل Coexistence للعملاء</label>'.
             submit_btn('حفظ إعدادات طرق واتساب'));
+    echo '<section class="card"><h3>إرشادات الربط</h3>'.
+        '<p>الربط التلقائي وCoexistence يحتاجان Meta App وConfiguration ID وتصاريح Meta الحقيقية. عدم اكتمال الإعدادات يعني أن الخيارات لن تظهر للعملاء حتى لو كان مفتاح التفعيل محفوظًا من تجربة سابقة.</p>'.
+        '<p><a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer">فتح Meta Developers لإدارة التطبيق</a></p>'.
+        '<a class="btn" href="/saas/console/?tab=overview">العودة للوحة الإدارة</a></section>';
+}
+
+function render_settings(array $a):void{
+    $brand=brand($a);
+    $mfaActive=mfa_gate_required((int)me()['id']);
+    echo card('التحقق بخطوتين',
+        $mfaActive
+        ?'<p>المصادقة مفعّلة لهذا الحساب. عند تسجيل الدخول ستحتاج كود تطبيق المصادقة.</p><span class="pill ok">مفعّل ومؤكد</span>'
+        :'<p>غير مفعّل. تسجيل الدخول يعمل بكلمة المرور، ويمكنك اختيار تفعيله بعد مسح QR وتأكيد كود من التطبيق.</p><a class="btn primary" href="/saas/console/mfa/setup">ربط تطبيق المصادقة وعرض QR</a>');
+    if($a['kind']==='platform'&&console_view_mode($a)==='admin'&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
+        require_once __DIR__.'/WhatsAppOnboarding.php';
+        $meta=wa_platform_onboarding();
+        echo card('إعدادات واتساب للمنصة',
+            '<p>إدارة الربط التلقائي (Meta Embedded Signup)، وCoexistence، ومفاتيح وتكوينات Meta الخاصة بالمنصة في صفحة مستقلة عن صندوق وارد العميل.</p>'.
+            '<a class="btn primary" href="/saas/console/?tab=whatsapp_admin">فتح إعدادات ربط واتساب</a>');
         $provider=one("SELECT name FROM integrations WHERE account_id=? AND provider='google_live' AND status='active' ORDER BY id DESC LIMIT 1",[$a['account_id']]);
         echo card('محرك الصوت الجديد — Google Gemini Live',
             '<p>الربط الصوتي على الشريحة يعتمد على مفتاح Gemini Live ساري، ويُخزّن مشفرًا على السيرفر ولا يظهر داخل التطبيق. الاختبار الحالي يتأكد من إصدار رمز مؤقت حقيقي من Google.</p>'.
