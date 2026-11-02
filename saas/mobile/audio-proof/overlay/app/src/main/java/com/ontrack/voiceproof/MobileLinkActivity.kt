@@ -233,6 +233,21 @@ class MobileLinkActivity:ComponentActivity(){
         val layer=FrameLayout(this)
         layer.addView(root,FrameLayout.LayoutParams(-1,-1))
         tenantEnrollment=TenantDeviceEnrollment(this)
+        // Restore a previously enabled SIM monitor after activity/process restart.
+        // Never activate a SIM the user explicitly disabled.
+        val restore=TenantEngineRestorePolicy.shouldRestore(
+            tenantEnrollment.hasAny(),
+            getSharedPreferences("ontrack_tenant_voice",MODE_PRIVATE).getBoolean("enabled",false),
+            MobileLinkService.tenantPairingInProgress)
+        if(restore){
+            runCatching {
+                ContextCompat.startForegroundService(this,
+                    Intent(this,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_RESTORE))
+            }.onFailure {
+                banner.text="تعذر استعادة تشغيل الشرائح: "+(it.message?:"Android منع تشغيل الخدمة")
+                banner.visibility=View.VISIBLE
+            }
+        }
         // All tenant controls now live inside the signed OnTrack WebView shell.
         // No unstyled native Android buttons outside the main vertical scroll.
         setContentView(layer)
@@ -685,6 +700,9 @@ class MobileLinkActivity:ComponentActivity(){
             .put("nativeInstallPermission",nativeUpdates.canInstallPackages())
             .put("tenantSim1",tenantStatusLines[0]).put("tenantSim2",tenantStatusLines[1])
             .put("tenantLinked",tenantEnrollment.hasAny())
+            .put("tenantDesiredEnabled",getSharedPreferences("ontrack_tenant_voice",MODE_PRIVATE).getBoolean("enabled",false))
+            .put("tenantServiceRunning",MobileLinkService.running)
+            .put("tenantPairingInProgress",MobileLinkService.tenantPairingInProgress)
             .put("tenantPaired1",tenantEnrollment.paired(0))
             .put("tenantPaired2",tenantEnrollment.paired(1))
             .put("tenantWorkspaceSlot",getSharedPreferences("ontrack_tenant_workspace",MODE_PRIVATE).getInt("sim_slot",-1))
@@ -735,7 +753,22 @@ class MobileLinkActivity:ComponentActivity(){
                     }
                     "start"->error("ربط Pilot القديم متوقف؛ اربط SIM بحسابك ثم اضغط تشغيل الإيجنت")
                     "stop","disable"->ContextCompat.startForegroundService(this@MobileLinkActivity,Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_DISABLE))
-                    "enable"->ContextCompat.startForegroundService(this@MobileLinkActivity,Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_ENABLE))
+                    "enable"->{
+                        check(tenantEnrollment.hasAny()){ "لا توجد شريحة مربوطة بحساب SaaS على هذا الهاتف" }
+                        check(!MobileLinkService.tenantPairingInProgress){ "اقتران الشريحة قيد التنفيذ؛ أعد المحاولة بعد اكتماله" }
+                        check(ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.READ_PHONE_STATE)
+                            ==PackageManager.PERMISSION_GRANTED){
+                            "إذن حالة الهاتف غير مفعّل. اسمح به من إعدادات التطبيق لتشغيل مراقب الشريحة."
+                        }
+                        // Android may reject a foreground service launch. Surface that
+                        // actual error; never show an unverified successful start.
+                        ContextCompat.startForegroundService(this@MobileLinkActivity,
+                            Intent(this@MobileLinkActivity,MobileLinkService::class.java)
+                                .setAction(MobileLinkService.ACTION_ENABLE))
+                        banner.text="تم إرسال طلب تشغيل SIM لخدمة الهاتف — جاري تأكيد الحالة"
+                        banner.visibility=View.VISIBLE
+                        web.postDelayed({sendState()},700)
+                    }
                     "takeover"->startService(Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_TAKEOVER))
                     "speaker"->startService(Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_SPEAKER))
                     "overlayPermission"->{
@@ -826,7 +859,11 @@ class MobileLinkActivity:ComponentActivity(){
                     "admin"->openConsole()
                     else->error("أمر الواجهة غير مدعوم")
                 }
-            }.onFailure{banner.text=it.message?:"تعذر تنفيذ الطلب"}}}
+            }.onFailure{
+                banner.text=it.message?:"تعذر تنفيذ الطلب"
+                banner.visibility=View.VISIBLE
+                sendState()
+            }}}
         }
     }
     override fun onDestroy(){generation++;web.removeJavascriptInterface("OnTrack");web.destroy();super.onDestroy()}
