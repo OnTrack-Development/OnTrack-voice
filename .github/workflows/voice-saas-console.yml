@@ -5,6 +5,7 @@ on:
     paths:
       - 'saas/console/**'
       - 'tools/test_voice_saas_console.php'
+      - 'tools/test_tenant_workspace.php'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
