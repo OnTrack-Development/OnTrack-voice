@@ -22,6 +22,14 @@ try{
     verify(str_contains($html,'plan-editor'),'pricing forms are compact disclosures');
     ob_start();render_keys(mine());$keys=(string)ob_get_clean();
     verify(!str_contains($keys,'&lt;span class='),'card title does not expose escaped HTML');
+    // Even a platform administrator previewing the customer workspace must
+    // not expose the provider/engine configuration form.
+    $_SESSION['console_view']='user';
+    ob_start();render_settings(mine());$customerHtml=(string)ob_get_clean();
+    verify(!str_contains($customerHtml,'محرك الصوت الجديد — Google Gemini Live'),'customer workspace hides provider key settings');
+    $_SESSION['console_view']='admin';
+    ob_start();render_settings(mine());$adminHtml=(string)ob_get_clean();
+    verify(str_contains($adminHtml,'محرك الصوت الجديد — Google Gemini Live'),'admin workspace retains provider settings');
     $css=(string)file_get_contents(__DIR__.'/../saas/console/assets/css/app.css');
     verify(str_contains($css,'input[type="checkbox"]'),'checkbox styles explicitly scoped');
     $ui=(string)file_get_contents(__DIR__.'/../saas/mobile/ota/ui.html');
