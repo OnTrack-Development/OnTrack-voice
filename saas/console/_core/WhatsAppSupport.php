@@ -147,6 +147,41 @@ function wa_relay_normalize(array $connection,array $payload):array {
         ]]]
     ]]];
 }
+/**
+ * Keep the original Meta callback untouched. A previously connected module
+ * forwards signed original events to a DIFFERENT per-tenant OnTrack URL.
+ * Existing Meta token/App Secret are needed for sending AI replies.
+ */
+function wa_create_existing_connection(int $accountId,int $siteId,int $agentId,
+ string $label,string $sourceUrl,string $sourceVerify,string $phoneId,
+ string $wabaId,string $metaAppId,string $graphVersion,string $accessToken,string $appSecret,
+ string $publicId,string $relaySecret):int {
+    $sourceUrl=trim($sourceUrl);
+    $url=parse_url($sourceUrl);
+    if(!is_array($url)||($url['scheme']??'')!=='https'||
+       empty($url['host'])||isset($url['user'])||isset($url['pass'])||
+       isset($url['fragment'])||strlen($sourceUrl)>400||
+       !preg_match('/^[a-zA-Z0-9.-]+$/D',(string)($url['host']??''))||
+       !str_contains((string)$url['host'],'.'))
+        throw new InvalidArgumentException('رابط Webhook الحالي غير صالح؛ مطلوب HTTPS عام');
+    if(strlen($sourceVerify)<12||strlen($sourceVerify)>200)
+        throw new InvalidArgumentException('Verify Token الحالي غير صالح');
+    if(!preg_match('/^[a-f0-9]{64}$/D',$relaySecret))
+        throw new InvalidArgumentException('مفتاح التوقيع غير صالح');
+    // The original token is a reference only; Meta keeps the original callback.
+    $newVerify=bin2hex(random_bytes(24));
+    $id=wa_create_connection($accountId,$siteId,$label,$phoneId,$accessToken,
+        $appSecret,$newVerify,'','',$agentId,$wabaId,$metaAppId,$graphVersion,
+        $publicId,$relaySecret);
+    execute("UPDATE wa_connections SET onboarding_method='existing_webhook',
+        source_callback_url=?,source_verify_hash=?,updated_at=?
+        WHERE id=? AND account_id=?",[
+        $sourceUrl,hash('sha256',$sourceVerify),now(),$id,$accountId
+    ]);
+    wa_audit($accountId,null,'whatsapp.existing.setup',
+        'existing Meta webhook kept unchanged; awaiting signed message forwarding');
+    return $id;
+}
 function wa_webhook_challenge(array $connection,string $mode,string $token,string $challenge):?string {
     if($mode!=='subscribe'||$token===''||strlen($challenge)>300||
       !hash_equals((string)$connection['verify_token_hash'],hash('sha256',$token)))return null;
