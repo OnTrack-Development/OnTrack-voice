@@ -92,7 +92,7 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText):arr
     try{
         stream_set_timeout($socket,24);
         $key=base64_encode(random_bytes(16));
-        $path='/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent';
+        $path='/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key='.rawurlencode($apiKey);
         $request="GET ".$path." HTTP/1.1\r\nHost: ".$host."\r\n".
             "Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ".$key."\r\n".
             "Sec-WebSocket-Version: 13\r\nx-goog-api-key: ".$apiKey."\r\n\r\n";
