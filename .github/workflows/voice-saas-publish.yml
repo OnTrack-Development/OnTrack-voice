@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: 1dc662b19b9c6d1782a4c54e5ad39fa86fffb64a
+          ref: e4da231bb332238b9e5e75e06d1a42390432b46d
           persist-credentials: false
       - uses: shivammathur/setup-php@v2
         with:
@@ -26,7 +26,7 @@ jobs:
       - name: Validate pinned production console and user-isolated Agent Flows
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "1dc662b19b9c6d1782a4c54e5ad39fa86fffb64a"
+          test "$(git rev-parse HEAD)" = "e4da231bb332238b9e5e75e06d1a42390432b46d"
           find saas/console -name '*.php' -type f -print0 | xargs -0 -n1 php -l >/dev/null
           node --check saas/console/assets/js/app.js
           node --check saas/console/assets/js/flow-graph.js
@@ -51,6 +51,8 @@ jobs:
           php tools/test_voice_sso.php
           python3 tools/test_voice_sso_http.py
           php tools/test_agent_flow_preview.php
+          php tools/test_flow_ai_sources.php
+          php tools/test_voice_access.php
 
   publish:
     needs: check
@@ -62,12 +64,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: 1dc662b19b9c6d1782a4c54e5ad39fa86fffb64a
+          ref: e4da231bb332238b9e5e75e06d1a42390432b46d
           persist-credentials: false
       - name: Package pinned production console with rollback support
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "1dc662b19b9c6d1782a4c54e5ad39fa86fffb64a"
+          test "$(git rev-parse HEAD)" = "e4da231bb332238b9e5e75e06d1a42390432b46d"
           mkdir -p dist/saas-console
           tar --format=ustar -czf dist/saas-console/release.tar.gz -C saas console
           sha256sum dist/saas-console/release.tar.gz | awk '{print $1}' > dist/saas-console/release.sha256
@@ -80,4 +82,4 @@ jobs:
       - name: Queue signed-source console release after acknowledged host job
         env:
           GH_TOKEN: ${{ github.token }}
-        run: GITHUB_SHA=1dc662b19b9c6d1782a4c54e5ad39fa86fffb64a python3 tools/queue_saas_console.py
+        run: GITHUB_SHA=e4da231bb332238b9e5e75e06d1a42390432b46d python3 tools/queue_saas_console.py
