@@ -166,18 +166,8 @@ body.light .callQuickActions button.outline{background:#fafafa}
 <p class="small">لو حبيت تلغي الوضع، اتصل بالواي فاي أولًا واضغط إيقاف. لو المنفذ فضل مفتوح، أوقف USB debugging من إعدادات الهاتف. تشغيل البيانات لا يغني عن موافقة Android لإعداد ADB.</p>
 </section>
 <section class="card" data-panel="settings"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
-<section class="card" data-panel="settings"><h2>إعداد الهاتف</h2><p>ربط جهازك لأول مرة أو تصحيح Wireless debugging عند الحاجة. لا تختبارات تسجيل صوت قديمة في الواجهة الأساسية.</p>
-<div class="row"><button id="setup">الإعداد السريع</button><button class="outline" id="more">إعدادات متقدمة</button></div>
-<div id="advanced">
-<div id="legacyPilotConfig" aria-label="إعدادات محرك التجربة القديم">
-<label for="base">سيرفر OnTrack</label><input id="base" value="https://app.ontrackegy.com/" autocomplete="off">
-<label for="key">مفتاح الربط المحفوظ</label><input id="key" type="password" autocomplete="off">
-<div class="row" style="margin-top:10px"><button id="pair">حفظ وإعادة ربط</button><button id="showKey" class="outline">إظهار المفتاح</button></div>
-<button type="button" id="copyKey" class="outline" style="margin-top:9px">نسخ مفتاح الربط المحفوظ</button></div>
-<p class="small" id="accountLinkHint">اربط SIM بحسابك من زر إدارة الشرائح. بعد الربط، لا يحتاج محرك الشركات إلى مفتاح API يدوي.</p>
-<div class="divider"></div><button id="updates">فحص التحديثات</button>
-</div></section>
-
+<section class="card" data-panel="settings"><h2>إعداد الهاتف</h2><p>اربط الشرائح من حساب OnTrack؛ لا تحتاج إعداد المحرك أو مفتاح API.</p><div class="row"><button id="setup">فحص الهاتف</button><button id="updates" class="outline">فحص تحديث الواجهة</button></div></section>
+<section class="card" data-panel="dashboard"><label for="tenantWorkspaceSlot">شريحة المكالمات وجهات الاتصال والحملات</label><select id="tenantWorkspaceSlot"><option value="">اختار الشريحة</option></select><p id="tenantWorkspaceHelp" class="small">كل شريحة مرتبطة بحسابها فقط.</p></section>
 <section class="card" data-panel="calls">
 <div class="section-title"><h2>سجل المكالمات</h2><span class="chip good">تسجيل الأحداث</span></div>
 <p>سجل المكالمات الفعلي. أسماء جهات الاتصال تظهر بعد السماح بقراءة جهات الاتصال وسجل المكالمات؛ لا نخمن هوية المتصل.</p><button id="enableCallNames" class="outline" type="button">تفعيل عرض أسماء جهات الاتصال</button><p id="callNamesStatus" class="small" aria-live="polite"></p>
@@ -216,7 +206,7 @@ body.light .callQuickActions button.outline{background:#fafafa}
 <div class="divider"></div><h2>تشغيل الحملات من شريحة Android</h2>
 <p>التنفيذ لا يعمل إلا بعد تفعيلك من هذا الهاتف، ومنح إذن المكالمات، واعتماد حملة مسموح بها. قد تُحتسب رسوم مكالمات من شركة الاتصالات. المكالمات التي نتيجتها غير مؤكدة لا يعاد طلبها تلقائيًا.</p>
 <label style="display:flex;align-items:start;gap:9px"><input id="simCampaignConsent" type="checkbox" style="width:auto;margin-top:4px"><span>أؤكد أن جميع المستلمين وافقوا على الاتصال وأنني أسمح باستخدام شريحة الهاتف والرصيد، مع احترام قوائم عدم الاتصال.</span></label>
-<div class="row"><button id="campaignAutoEnable" class="primary">تفعيل اتصال SIM</button><button id="campaignAutoDisable" class="outline">إيقاف فورًا</button></div>
+<div class="row"><button id="campaignAutoEnable" class="primary" disabled>تشغيل الحملات قيد الاختبار</button><button id="campaignAutoDisable" class="outline">إيقاف فورًا</button></div>
 <p class="small" id="campaignAutoStatus">متوقف افتراضيًا. لا يمكن تفعيله إلا بموافقة صريحة.</p>
 <div class="divider"></div><h2>إنشاء حملة من التطبيق</h2>
 <p>مسودة قابلة للمراجعة والتعديل. لن تبدأ أي مكالمة تلقائيًا بمجرد الحفظ.</p>
@@ -277,13 +267,15 @@ function readUiTheme(){
  try{return document.cookie.split('; ').find(v=>v.startsWith('ontrack_voice_theme='))?.split('=')[1]==='light'?'light':'dark'}catch(e){return 'dark'}
 }
 
-window.onTrackInit=s=>{el('base').value=s.base;el('key').value=s.key;};
+window.onTrackInit=s=>{};
 window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  last=s;
- el('legacyPilotConfig').hidden=!!s.tenantLinked;
- el('accountLinkHint').textContent=s.tenantLinked?
-   'SIM مرتبطة بحساب OnTrack SaaS. التشغيل والاختبار باستخدام ربط الشريحة المحفوظ، بدون مفتاح API قديم.':
-   'اربط SIM بحسابك من زر إدارة الشرائح؛ المفتاح اليدوي للتجربة القديمة فقط.';
+ const slots=[...(s.tenantPaired1?[{slot:0,name:'SIM 1'}]:[]),...(s.tenantPaired2?[{slot:1,name:'SIM 2'}]:[])];
+ const list=el('tenantWorkspaceSlot'),selected=s.tenantWorkspaceSlot>=0?s.tenantWorkspaceSlot:slots.length===1?slots[0].slot:-1;
+ list.replaceChildren(new Option('اختار الشريحة',''));
+ slots.forEach(item=>list.add(new Option(item.name,item.slot)));
+ list.value=selected>=0?String(selected):'';
+ el('tenantWorkspaceHelp').textContent=slots.length>1?'اختار SIM لتحديد الحساب بدون خلط بيانات الشريحتين.':slots.length===1?'الشريحة مربوطة بحسابك من غير مفتاح إضافي.':'اربط SIM من إدارة الشرائح.';
  if(s.theme==='dark'||s.theme==='light')applyTheme(s.theme);const modern=typeof s.connected==='boolean' && typeof s.agentEnabled==='boolean';
  el('version').textContent='v'+s.native+' · OTA '+s.revision;
  el('status').textContent=s.status;
@@ -306,7 +298,7 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  const hasNativeConsole=Number(s.nativeCode)>=23;
  el('openConsole').disabled=!hasNativeConsole;
  el('openScenario').disabled=!hasNativeConsole;
- el('copyKey').disabled=!hasNativeConsole;
+ 
  const tenantOk=Number(s.nativeCode)>=24;
  el('openAnswerSettings').disabled=Number(s.nativeCode)<25;
  el('tenantMenu').disabled=!tenantOk||call;
@@ -349,20 +341,15 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
 };
 el('enable').onclick=()=>{
  el('message').textContent='';
- if(last.tenantLinked || last.running){send('enable');return;}
- const key=el('key').value.trim();
- if(!/^[A-Za-z0-9_-]{24,128}$/.test(key)){el('message').textContent='افتح الإعدادات المتقدمة وأضف مفتاح الربط أولاً';el('advanced').style.display='block';return;}
- send('start',{base:el('base').value,key});
+ if(!last.tenantLinked){el('message').textContent='اربط SIM بحساب OnTrack أولًا';return;}
+ send('enable');
 };
 el('disable').onclick=()=>send('disable');
 el('takeover').onclick=()=>send('takeover');el('speaker').onclick=()=>send('speaker');
 el('overlay').onclick=()=>send('overlayPermission');
 el('setup').onclick=()=>send('diagnostics');
 
-el('more').onclick=()=>el('advanced').style.display=el('advanced').style.display==='block'?'none':'block';
-el('pair').onclick=()=>{const key=el('key').value.trim();if(!/^[A-Za-z0-9_-]{24,128}$/.test(key)){el('message').textContent='مفتاح الربط غير صالح';return;}send('start',{base:el('base').value,key});};
-el('showKey').onclick=()=>el('key').type=el('key').type==='password'?'text':'password';
-el('copyKey').onclick=()=>send('copyKey');
+el('tenantWorkspaceSlot').onchange=()=>{const v=el('tenantWorkspaceSlot').value;if(v!=='')send('workspaceSlot',{sim_slot:Number(v)})};
 el('openConsole').onclick=()=>send('openConsole');
 el('openScenario').onclick=()=>send('openScenario');
 el('tenantMenu').onclick=()=>send('tenantMenu');
@@ -381,8 +368,8 @@ function setView(v){
   const selected=b.dataset.view===v;b.classList.toggle('active',selected);
   b.setAttribute('aria-current',selected?'page':'false');
  });
- if(v==='calls' && last.callsSupported===true)send('loadCallHistory');
- if(v==='campaigns' && Number(last.nativeCode)>=18)send('listCampaigns');
+ if(v==='calls' && last.callsSupported===true && Number(last.nativeCode)>=28)send('loadCallHistory');
+ if(v==='campaigns' && Number(last.nativeCode)>=28)send('listCampaigns');
  window.scrollTo({top:0,behavior:'auto'});
 }
 document.querySelectorAll('.otTabs button').forEach(b=>{
@@ -455,12 +442,7 @@ window.onTrackCampaigns=payload=>{
   }out.append(card);
  });
 };
-el('campaignAutoEnable').onclick=()=>{
- if(Number(last.nativeCode)<19){el('campaignAutoStatus').textContent='التحديث Android 0.2.8 مطلوب لتشغيل الشريحة';return}
- if(!el('simCampaignConsent').checked){el('campaignAutoStatus').textContent='يجب الموافقة أولًا';return}
- if(!confirm('تأكيد السماح بمكالمات صادرة تلقائية من شريحتك ضمن الحملات المعتمدة؟'))return;
- send('campaignAutoEnable',{confirmed:true});
-};
+el('campaignAutoEnable').onclick=()=>{el('campaignAutoStatus').textContent='اتصال الحملات متوقف لحين اختبار حدود الموافقة وDo Not Call.';};
 el('campaignAutoDisable').onclick=()=>send('campaignAutoDisable');
 el('saveMobileCampaign').onclick=()=>{
  if(Number(last.nativeCode)<18){el('campaignResult').textContent='يجب تحديث Android إلى الإصدار الذي يدعم إدارة الحملات أولًا';return;}
@@ -517,7 +499,7 @@ window.onTrackContactsList=payload=>{
   }
   if(/^[a-f0-9]{24}$/.test(String(c.id||''))){
    const btn=document.createElement('button');btn.style.cssText='width:auto;padding:9px;font-size:11px';
-   btn.textContent=c.do_not_call?'إلغاء منع الاتصال':'لا تتصل مجددًا';
+   btn.textContent=c.do_not_call?'محظور — يتطلب موافقة جديدة':'لا تتصل مجددًا';btn.disabled=!!c.do_not_call;
    btn.onclick=()=>{if(confirm('تأكيد تحديث حالة الرقم؟'))send('contactDnc',{id:c.id,blocked:!c.do_not_call,confirmed:true})};
    row.append(btn);
   }root.append(row)
