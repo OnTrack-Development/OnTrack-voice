@@ -120,3 +120,40 @@ function voice_connector_test(int $accountId,int $id):array {
         [now(),$id,$accountId]);
     return ['ok'=>true,'type'=>$connector['type'],'keys'=>array_slice(array_keys($response),0,12)];
 }
+
+/** Explicitly export only public catalogue/knowledge-like JSON fields to Gemini.
+ * No customer records, invoice identifiers, contact details, API keys or secrets.
+ */
+function voice_connector_public_content(mixed $data,int $limit=2600):string {
+    $allowed=['name','title','description','excerpt','content','rendered','text','summary',
+        'pages','posts','products','product','services','service','faq','faqs',
+        'availability','hours','category','categories','price','pricing','currency'];
+    $walk=function(mixed $value,int $depth) use (&$walk,$allowed):mixed {
+        if($depth>5)return null;
+        if(is_string($value))return mb_substr(trim(strip_tags($value)),0,600);
+        if(is_numeric($value)||is_bool($value))return $value;
+        if(!is_array($value))return null;
+        $result=[];
+        foreach(array_slice($value,0,35,true) as $key=>$inner){
+            if(is_int($key)){ $result[]=$walk($inner,$depth+1);continue; }
+            if(!in_array(strtolower((string)$key),$allowed,true))continue;
+            $result[$key]=$walk($inner,$depth+1);
+        }
+        return $result;
+    };
+    $safe=$walk($data,0);
+    return mb_substr(json_encode($safe,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE),0,$limit);
+}
+function voice_connector_context(int $accountId,int $siteId):string {
+    $rows=all("SELECT * FROM voice_data_connectors WHERE account_id=? AND site_id=?
+        AND status='verified' ORDER BY id DESC LIMIT 2",[$accountId,$siteId]);
+    $parts=[];
+    foreach($rows as $connector){
+        try{
+            $data=voice_connector_request($connector);$excerpt=voice_connector_public_content($data);
+            if($excerpt!=='[]'&&$excerpt!=='{}')
+                $parts[]='['.$connector['type'].': '.mb_substr($connector['name'],0,70).'] '.$excerpt;
+        }catch(Throwable){$parts[]='['.$connector['name'].'] المصدر الخارجي غير متاح حاليًا؛ لا تخمّن معلوماته.';}
+    }
+    return mb_substr(implode("\n",$parts),0,5000);
+}
