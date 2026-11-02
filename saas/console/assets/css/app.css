@@ -384,3 +384,69 @@ body.graph-editor-maximized{overflow:hidden}
 .graph-shell:fullscreen .graph-viewport,.graph-shell.graph-maximized .graph-viewport{height:55vh;min-height:55vh}
 .graph-shell:fullscreen .graph-inspector,.graph-shell.graph-maximized .graph-inspector{max-height:25vh}
 }
+
+
+/* Floating Flow AI: never consumes canvas height; panel overlays the studio on demand. */
+.graph-shell{position:relative;isolation:isolate}
+.graph-shell .graph-layout{height:clamp(590px,76vh,930px);min-height:590px;max-height:none}
+.graph-shell .graph-viewport{height:100%;min-height:0}
+.graph-ai-launcher{position:absolute;z-index:14;bottom:20px;right:267px;width:52px;height:52px;
+ display:grid;place-items:center;padding:0;border:1px solid #ff8092;border-radius:18px;
+ background:linear-gradient(140deg,#f53453,#b40d30);color:white;font-size:29px;line-height:1;
+ box-shadow:0 12px 35px #b20e4066;transition:transform .18s ease,box-shadow .18s ease}
+.graph-ai-launcher:hover{transform:translateY(-3px);box-shadow:0 16px 40px #b20e4088}
+.graph-ai-launcher:focus-visible,.graph-ai-close:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.graph-ai-panel[hidden]{display:none!important}
+.graph-ai-panel{position:absolute;z-index:15;right:12px;top:12px;bottom:12px;
+ width:min(410px,calc(100% - 24px));max-height:none;display:flex;flex-direction:column;
+ padding:0;overflow:hidden;direction:rtl;border:1px solid var(--border);border-radius:19px;
+ background:var(--panel);box-shadow:0 24px 70px #0009,0 0 0 1px #ffffff0d}
+.graph-ai-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+ padding:15px 17px 9px;background:var(--panel);flex:none}
+.graph-ai-head h3{margin:0;font-size:15px;font-weight:850}
+.graph-ai-close{width:34px;height:34px;min-height:34px;padding:0;border-radius:10px;
+ font-size:21px;background:var(--panel2)}
+.graph-ai-panel>p{margin:0;padding:0 17px 12px;font-size:11px;line-height:1.65;
+ color:var(--muted);border-bottom:1px solid var(--border);flex:none}
+.graph-ai-thread{flex:1;min-height:0;overflow:auto;padding:16px 14px;display:flex;
+ flex-direction:column;align-items:stretch;gap:13px;overscroll-behavior:contain}
+.graph-ai-message{max-width:94%;padding:11px 13px;border:1px solid var(--border);
+ border-radius:15px;line-height:1.7;font-size:12px;white-space:pre-wrap;
+ overflow-wrap:anywhere;align-self:flex-start;background:var(--panel2);color:var(--text)}
+.graph-ai-message.user{align-self:flex-end;border-color:#d5224855;
+ background:linear-gradient(145deg,#a91230,#e32146);color:white}
+.graph-ai-compose{flex:none;padding:12px 14px 14px;border-top:1px solid var(--border);
+ background:var(--panel)}
+.graph-ai-compose textarea{max-height:140px;min-height:74px;resize:vertical}
+.graph-ai-actions{margin:9px 0 2px;gap:6px}
+.graph-ai-actions .graph-btn{flex:1 1 auto}
+.graph-ai-status{min-height:0;margin:7px 0 0!important;font-size:11px!important}
+.graph-ai-status:empty{display:none}
+.graph-ai-preview{max-height:none;overflow:visible;margin:0;border:1px solid var(--border);
+ border-radius:14px;padding:11px 12px;background:var(--panel2)}
+.graph-ai-preview:empty{display:none}
+.graph-ai-preview strong{font-size:12px}
+.graph-ai-list{gap:6px}
+.graph-ai-list li{background:var(--panel);font-size:11px}
+.graph-shell:fullscreen .graph-layout,.graph-shell.graph-maximized .graph-layout{
+ flex:1 1 0;height:auto;min-height:0;max-height:none;overflow:hidden;
+ display:grid;grid-template-columns:minmax(0,1fr) 245px}
+.graph-shell:fullscreen .graph-viewport,.graph-shell.graph-maximized .graph-viewport{
+ height:100%;min-height:0}
+.graph-shell:fullscreen .graph-inspector,.graph-shell.graph-maximized .graph-inspector{
+ height:100%;max-height:none;min-height:0;overflow:auto}
+.graph-shell:fullscreen .graph-ai-panel,.graph-shell.graph-maximized .graph-ai-panel{
+ position:absolute;z-index:15;top:12px;bottom:12px;max-height:none;overflow:hidden;flex:none}
+@media(max-width:620px){
+ .graph-shell .graph-layout{display:flex;flex-direction:column;height:auto;min-height:0;max-height:none}
+ .graph-shell .graph-viewport{height:62dvh;min-height:360px;flex:none}
+ .graph-shell .graph-inspector{height:auto;max-height:230px;overflow:auto}
+ .graph-ai-launcher{right:14px;bottom:14px;width:48px;height:48px}
+ .graph-ai-panel{right:6px;top:6px;bottom:6px;width:calc(100% - 12px);border-radius:15px}
+ .graph-shell:fullscreen .graph-layout,.graph-shell.graph-maximized .graph-layout{
+   display:flex;flex-direction:column;height:auto;min-height:0;max-height:none}
+ .graph-shell:fullscreen .graph-viewport,.graph-shell.graph-maximized .graph-viewport{
+   flex:1 1 0;height:100%;min-height:0}
+ .graph-shell:fullscreen .graph-inspector,.graph-shell.graph-maximized .graph-inspector{
+   flex:none;height:180px;min-height:0;max-height:180px}
+}
