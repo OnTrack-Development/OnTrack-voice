@@ -33,11 +33,6 @@ internal class MobileLiveCall(
     private lateinit var liveUrl:String
     private var recovery:Job?=null
     private val writeLock=Any()
-    @Volatile private var liveInputTranscribed=false
-    private var sentAudioPackets=0
-    private var nonSilentPackets=0
-    val liveConnected:Boolean get()=socketReady && !stopped.get()
-    val inputSpeechVerified:Boolean get()=liveInputTranscribed
     private var worker:Job?=null
     suspend fun start() {
         val token=session.getString("token")
@@ -55,9 +50,9 @@ internal class MobileLiveCall(
         output=DataOutputStream(pipe!!.getOutputStream())
         ws?.send(JSONObject().put("clientContent",JSONObject()
             .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
-                .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ بتحية مصرية قصيرة وعرّف نفسك باسم "+session.optString("agent_name","مساعد OnTrack")+" فقط، لا تنطق رقم الإيجنت أو رقم النسخة، ثم استمع إلى المتصل.")))))
+                .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ المكالمة بتحية مصرية قصيرة باسم الإيجنت المخصص، ثم اسمع رد العميل.")))))
             .put("turnComplete",true)).toString())
-        val transform=LinkPcm(settings.optString("input_channel","auto"))
+        val transform=LinkPcm(settings.optString("input_channel","right"))
         worker=scope.launch {
             try {
                 coroutineScope {
@@ -72,14 +67,6 @@ internal class MobileLiveCall(
                         val bytes=ByteArray(size);input.readFully(bytes)
                         val mono=transform.input(bytes)
                         if(mono.isNotEmpty()) {
-                            sentAudioPackets++
-                            if(mono.indices.step(2).any { index ->
-                                index+1<mono.size && kotlin.math.abs(
-                                    ((mono[index].toInt() and 255) or (mono[index+1].toInt() shl 8)).toShort().toInt()
-                                )>240
-                            }) nonSilentPackets++
-                            if(sentAudioPackets==160 && nonSilentPackets==0)
-                                notice("مدخل PCM صامت؛ سماع صوت الإيجنت لا يعني وصول صوت المتصل")
                             val socket=ws
                             if(socketReady && socket!=null && socket.queueSize()<192*1024) {
                                 if(!socket.send(JSONObject().put("realtimeInput",JSONObject().put("audio",JSONObject()
@@ -144,12 +131,6 @@ internal class MobileLiveCall(
                     }
                     if(message.has("error")) error("Gemini error "+message.getJSONObject("error").optInt("code"))
                     val content=message.optJSONObject("serverContent")?:return
-                    val transcript=content.optJSONObject("inputTranscription")?.optString("text").orEmpty()
-                    if(transcript.isNotBlank() && !liveInputTranscribed){
-                        liveInputTranscribed=true
-                        // Never persist the caller's words or claim a GSM uplink without proof.
-                        notice("Google Live استقبل نصًا صوتيًا؛ تأكد أن مصدره كلام المتصل وليس صدى")
-                    }
                     if(content.optBoolean("interrupted")) {
                         generation++;while(playback.tryReceive().isSuccess) {}
                         synchronized(writeLock){output?.writeInt(-1);output?.flush()}
