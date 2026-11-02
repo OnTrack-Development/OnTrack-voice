@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -563,5 +563,45 @@ function init_console_v17():void {
     if(!in_array('pending_profile_json',$columns,true)){
         db()->exec('ALTER TABLE flow_ai_chats ADD COLUMN pending_profile_json '.(driver()==='mysql'?'MEDIUMTEXT':'TEXT').' NULL');
     }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+/** Official Meta WhatsApp transport and per-account human Inbox; no edits to existing WHMCS notification addon. */
+function init_console_v18():void {
+    $marker=private_path().'/schema.v18';
+    if(is_file($marker))return;
+    $mysql=driver()==='mysql';
+    $int=$mysql?'BIGINT':'INTEGER';
+    $pk=$mysql?'BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY':'INTEGER PRIMARY KEY AUTOINCREMENT';
+    $text=$mysql?'MEDIUMTEXT':'TEXT';
+    $engine=$mysql?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci':'';
+    db()->exec("CREATE TABLE IF NOT EXISTS wa_connections (
+        id $pk,account_id $int NOT NULL,site_id $int NOT NULL,
+        public_id VARCHAR(64) NOT NULL UNIQUE,label VARCHAR(120) NOT NULL,
+        phone_number_id VARCHAR(100) NOT NULL,
+        access_token_enc $text NOT NULL,app_secret_enc $text NOT NULL,verify_token_hash VARCHAR(64) NOT NULL,
+        whmcs_bridge_url VARCHAR(400) NULL,whmcs_bridge_token_enc $text NULL,
+        state VARCHAR(24) NOT NULL DEFAULT 'draft',
+        last_tested_at VARCHAR(19) NULL,last_webhook_at VARCHAR(19) NULL,
+        created_at VARCHAR(19) NOT NULL,updated_at VARCHAR(19) NOT NULL,
+        UNIQUE(account_id,phone_number_id))".$engine);
+    db()->exec("CREATE TABLE IF NOT EXISTS wa_conversations (
+        id $pk,account_id $int NOT NULL,site_id $int NOT NULL,connection_id $int NOT NULL,
+        contact VARCHAR(32) NOT NULL,contact_name VARCHAR(150) NULL,
+        status VARCHAR(24) NOT NULL DEFAULT 'open',
+        ai_pause_until VARCHAR(19) NULL,human_locked_at VARCHAR(19) NULL,
+        generation $int NOT NULL DEFAULT 0,last_customer_at VARCHAR(19) NULL,
+        last_message_at VARCHAR(19) NOT NULL,created_at VARCHAR(19) NOT NULL,
+        UNIQUE(connection_id,contact))".$engine);
+    db()->exec("CREATE TABLE IF NOT EXISTS wa_messages (
+        id $pk,account_id $int NOT NULL,conversation_id $int NOT NULL,
+        connection_id $int NOT NULL,provider_message_id VARCHAR(160) NULL,
+        role VARCHAR(20) NOT NULL,body $text NOT NULL,
+        delivery_status VARCHAR(26) NOT NULL,created_at VARCHAR(19) NOT NULL,
+        UNIQUE(connection_id,provider_message_id))".$engine);
+    db()->exec("CREATE TABLE IF NOT EXISTS wa_audit (
+        id $pk,account_id $int NOT NULL,conversation_id $int NULL,
+        event VARCHAR(55) NOT NULL,detail VARCHAR(180) NOT NULL,
+        created_at VARCHAR(19) NOT NULL)".$engine);
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
