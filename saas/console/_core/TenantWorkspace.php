@@ -48,8 +48,10 @@ function tenant_workspace_calls(array $b):array{
     $rows=all('SELECT external_call_id,phone,name,status,duration_seconds,created_at FROM calls WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? ORDER BY id DESC LIMIT 100',
         [$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']]);
     $calls=[];foreach($rows as $r)$calls[]=[
-        'call_id'=>$r['external_call_id'],'phone'=>$r['phone'],'name'=>$r['name'],
-        'status'=>$r['status'],'duration_seconds'=>(int)$r['duration_seconds'],'started_at'=>$r['created_at']];
+        'id'=>$r['external_call_id'],'call_id'=>$r['external_call_id'],
+        'phone'=>$r['phone'],'name'=>$r['name'],'status'=>$r['status'],
+        'duration'=>(int)$r['duration_seconds'],'duration_seconds'=>(int)$r['duration_seconds'],
+        'started'=>str_replace(' ','T',(string)$r['created_at']).'Z','started_at'=>$r['created_at']];
     return ['calls'=>$calls,'total'=>count($calls)];
 }
 function tenant_workspace_call_event(array $b,array $p):array{
