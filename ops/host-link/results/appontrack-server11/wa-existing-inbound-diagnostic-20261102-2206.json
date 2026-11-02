@@ -1,0 +1,13 @@
+{
+  "job_id": "wa-existing-inbound-diagnostic-20261102-2206",
+  "target": "appontrack-server11",
+  "job_sha256": "2d18709af6a6409fa5ae6cac41fb0def0d32a9edbfba6f314d5ddd82e9c820f8",
+  "started_at": "2026-11-02T22:07:02.452510+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"connections\":1,\"details\":[{\"kind\":\"existing_webhook\",\"state\":\"draft\",\"pending_phone\":true,\"relay_enabled\":true,\"source_host\":\"services.ontrackegy.com\",\"has_last_webhook\":false,\"conversation_count\":0,\"ai_enabled\":false,\"has_agent\":true}]}",
+  "stderr": "",
+  "finished_at": "2026-11-02T22:07:02.526363+00:00",
+  "duration_ms": 74
+}
