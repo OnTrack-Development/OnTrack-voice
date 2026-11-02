@@ -345,12 +345,16 @@ function act():void {
             case 'archive_site':
                 require_permission('sites.write');
                 $site=owned_site(intfield('site_id'),$id);if(!$site)deny(404);
+                if(one("SELECT id FROM device_bindings WHERE account_id=? AND site_id=? AND status='active' LIMIT 1",[$id,$site['id']]))
+                    throw new RuntimeException('الموقع مرتبط بشريحة Android نشطة؛ انقل أو افصل الربط قبل الأرشفة.');
                 execute("UPDATE sites SET status='archived' WHERE id=? AND account_id=?",[$site['id'],$id]);
                 execute("UPDATE agents SET status='archived' WHERE site_id=? AND account_id=?",[$site['id'],$id]);
                 audit('site.archived',$id,['site'=>$site['id']]);break;
             case 'archive_agent':
                 require_permission('agents.write');
                 $ag=one('SELECT id FROM agents WHERE id=? AND account_id=?',[intfield('agent_id'),$id]);if(!$ag)deny(404);
+                if(one("SELECT id FROM device_bindings WHERE account_id=? AND agent_id=? AND status='active' LIMIT 1",[$id,$ag['id']]))
+                    throw new RuntimeException('الإيجنت مرتبط بشريحة نشطة؛ انقل الشريحة لإيجنت منشور آخر قبل الأرشفة.');
                 execute("UPDATE agents SET status='archived' WHERE id=? AND account_id=?",[$ag['id'],$id]);
                 audit('agent.archived',$id,['agent'=>$ag['id']]);break;
             case 'add_contact':
