@@ -1,8 +1,19 @@
 <?php
 declare(strict_types=1);
-/** Configuration is scoped to one agent, and only published snapshots reach paired devices. */
+/**
+ * A published Agent Studio profile drives Gemini Live. Legacy graph snapshots
+ * remain stored for backward compatibility, never as conversation routing.
+ */
 function answer_policy_defaults():array {
-    return ['auto_answer'=>false,'answer_delay_seconds'=>5,'response_style'=>'egyptian_short','max_call_minutes'=>10,'fallback'=>'human'];
+    return [
+        'auto_answer'=>false,'answer_delay_seconds'=>5,
+        'response_style'=>'egyptian_short','max_call_minutes'=>10,'fallback'=>'human',
+        'conversation_mode'=>'dynamic',
+        'goal'=>'افهم طلب المتصل وساعده بوضوح وبأقل عدد أسئلة ممكن.',
+        'guardrails'=>'لا تخمّن بيانات أو أسعار أو نتائج عمليات خارجية. تحقق من الصلاحيات وصعّد عند اللزوم.',
+        'use_knowledge'=>true,'use_signed_facts'=>true,
+        'human_handoff'=>true
+    ];
 }
 function answer_policy_normalize(array $input):array {
     $v=array_replace(answer_policy_defaults(),$input);
@@ -11,6 +22,15 @@ function answer_policy_normalize(array $input):array {
     if(!is_int($v['max_call_minutes'])||$v['max_call_minutes']<1||$v['max_call_minutes']>30)throw new InvalidArgumentException('invalid_call_duration');
     if(!in_array($v['response_style'],['egyptian_short','formal_ar','english','bilingual'],true))throw new InvalidArgumentException('invalid_style');
     if(!in_array($v['fallback'],['human','end'],true))throw new InvalidArgumentException('invalid_fallback');
+    // The legacy graph remains metadata only. New conversations are always dynamic.
+    if($v['conversation_mode']!=='dynamic')throw new InvalidArgumentException('invalid_conversation_mode');
+    foreach(['goal'=>1800,'guardrails'=>1800] as $name=>$length){
+        if(!is_string($v[$name])||mb_strlen($v[$name])>$length||!mb_check_encoding($v[$name],'UTF-8'))
+            throw new InvalidArgumentException('invalid_agent_'.$name);
+        $v[$name]=trim($v[$name]);
+    }
+    foreach(['use_knowledge','use_signed_facts','human_handoff'] as $key)
+        if(!is_bool($v[$key]))throw new InvalidArgumentException('invalid_agent_capability');
     return $v;
 }
 function answer_policy_for_agent(int $accountId,int $agentId):array {
@@ -21,7 +41,7 @@ function answer_policy_for_agent(int $accountId,int $agentId):array {
 }
 function save_answer_policy(int $accountId,int $agentId,array $policy):void {
     $normalized=answer_policy_normalize($policy);
-    $json=json_encode($normalized,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+    $json=json_encode($normalized,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
     if(one('SELECT agent_id FROM agent_answer_policies WHERE account_id=? AND agent_id=?',[$accountId,$agentId]))
         execute('UPDATE agent_answer_policies SET policy_json=?,updated_at=? WHERE account_id=? AND agent_id=?',[$json,now(),$accountId,$agentId]);
     else insert('INSERT INTO agent_answer_policies(account_id,agent_id,policy_json,updated_at) VALUES (?,?,?,?)',[$accountId,$agentId,$json,now()]);
@@ -32,6 +52,12 @@ function answer_policy_form(array $form):array {
         'answer_delay_seconds'=>(int)($form['answer_delay_seconds']??5),
         'response_style'=>(string)($form['response_style']??'egyptian_short'),
         'max_call_minutes'=>(int)($form['max_call_minutes']??10),
-        'fallback'=>(string)($form['fallback']??'human')
+        'fallback'=>(string)($form['fallback']??'human'),
+        'conversation_mode'=>'dynamic',
+        'goal'=>(string)($form['agent_goal']??answer_policy_defaults()['goal']),
+        'guardrails'=>(string)($form['agent_guardrails']??answer_policy_defaults()['guardrails']),
+        'use_knowledge'=>isset($form['use_knowledge']),
+        'use_signed_facts'=>isset($form['use_signed_facts']),
+        'human_handoff'=>isset($form['human_handoff'])
     ]);
 }
