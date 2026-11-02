@@ -34,7 +34,7 @@ function act():void {
     $action=(string)($_POST['action']??'');
     if($a['role']==='support_viewer' && $action!=='support_leave')deny(403,'وضع الدعم للقراءة فقط');
     $id=(int)$a['account_id'];$kind=$a['kind'];
-    if(in_array($action,['flow_ai_history','flow_ai_propose','flow_ai_applied','flow_ai_reset'],true)){
+    if(in_array($action,['flow_ai_history','flow_ai_propose','flow_ai_applied','flow_ai_discard','flow_ai_reset'],true)){
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: private,no-store');
         try{
@@ -58,6 +58,13 @@ function act():void {
                 execute('DELETE FROM flow_ai_chats WHERE account_id=? AND user_id=? AND agent_id=?',
                     [$id,$userId,$agentId]);
                 echo '{"ok":true,"cleared":true}';
+                exit;
+            }
+            if($action==='flow_ai_discard'){
+                $messages=$chat['messages'];
+                $messages[]=['role'=>'assistant','text'=>'تم إلغاء الاقتراح الأخير. محادثتنا محفوظة والمخطط المنشور لم يتغير.'];
+                flow_ai_chat_write($id,$userId,$agentId,$messages,null);
+                echo '{"ok":true,"published":false}';
                 exit;
             }
             if($action==='flow_ai_applied'){
