@@ -929,8 +929,8 @@ function render_whatsapp_platform_settings(array $a):void {
             '<div class="wa-manual-cell half"><label class="field">Meta Graph API Version<input name="graph_version" dir="ltr" maxlength="8" value="'.e((string)$meta['graph_version']).'" required></label></div>'.
             '<div class="wa-manual-cell half"><label class="field">Platform Webhook Verify Token<input type="password" name="meta_verify_token" maxlength="200" autocomplete="new-password" placeholder="'.(!empty($meta['verify_token_hash'])?'محفوظ كـHash · سيبها فارغة للاحتفاظ به':'توكن تختاره من الإدارة').'" ></label><small class="wa-field-help">Callback منصة Meta: <code>https://app.ontrackegy.com/saas/console/whatsapp-platform-webhook.php</code>. مختلف عن الروابط اليدوية.</small></div>'.
             '</div>'.
-            '<label class="wa-relay-toggle"><input type="checkbox" name="signup_enabled" value="1" '.(!empty($meta['signup_enabled'])?'checked':'').'>إظهار وتفعيل الربط التلقائي للعملاء</label>'.
-            '<label class="wa-relay-toggle"><input type="checkbox" name="coexist_enabled" value="1" '.(!empty($meta['coexist_enabled'])?'checked':'').'>إظهار وتفعيل Coexistence للعملاء</label>'.
+            '<label class="wa-relay-toggle"><input type="checkbox" name="signup_enabled" value="1" '.($signupReady?'checked':'').'>إظهار وتفعيل الربط التلقائي للعملاء</label>'.
+            '<label class="wa-relay-toggle"><input type="checkbox" name="coexist_enabled" value="1" '.($coexistReady?'checked':'').'>إظهار وتفعيل Coexistence للعملاء</label>'.
             submit_btn('حفظ إعدادات طرق واتساب'));
     echo '<section class="card"><h3>إرشادات الربط</h3>'.
         '<p>الربط التلقائي وCoexistence يحتاجان Meta App وConfiguration ID وتصاريح Meta الحقيقية. عدم اكتمال الإعدادات يعني أن الخيارات لن تظهر للعملاء حتى لو كان مفتاح التفعيل محفوظًا من تجربة سابقة.</p>'.
