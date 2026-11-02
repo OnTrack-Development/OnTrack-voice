@@ -19,8 +19,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal class MobileLiveCall(
     private val context:Context, private val client:OkHttpClient, private val scope:CoroutineScope,
     private val session:JSONObject, private val settings:JSONObject, private val notice:(String)->Unit,
+    private val outgoingCall:Boolean=false,
 ) {
     private val stopped=AtomicBoolean(false)
+    @Volatile private var remoteSpeechConfirmed=!outgoingCall
     private val ready=CompletableDeferred<Unit>()
     private val playback=Channel<Pair<Int,ByteArray>>(72)
     @Volatile private var generation=0
@@ -49,16 +51,26 @@ internal class MobileLiveCall(
         check(input.readInt()==0x4f545631 && input.readInt()==48000 && input.readInt()==2){"invalid shell PCM format"}
         output=DataOutputStream(pipe!!.getOutputStream())
         val agentName=session.optString("agent_name","مساعد OnTrack").trim().ifBlank{"مساعد OnTrack"}
-        ws?.send(JSONObject().put("clientContent",JSONObject()
-            .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
-                .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ المكالمة بتحية مصرية قصيرة باسم "+agentName+" فقط، ولا تنطق رقم الإيجنت أو نسخة السيناريو. ثم اسمع رد العميل.")))))
-            .put("turnComplete",true)).toString())
+        if(OutboundFirstTurn.sendInitialGreeting(outgoingCall)) {
+            ws?.send(JSONObject().put("clientContent",JSONObject()
+                .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
+                    .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ المكالمة بتحية مصرية قصيرة باسم "+agentName+" فقط، ولا تنطق رقم الإيجنت أو نسخة السيناريو. ثم اسمع رد العميل.")))))
+                .put("turnComplete",true)).toString())
+        }
+        // Outbound: no synthetic conversation turn. The remote person must
+        // speak first; OFFHOOK alone can mean dialing/ringback.
         val transform=LinkPcm(settings.optString("input_channel","right"))
         worker=scope.launch {
             try {
                 coroutineScope {
                     launch(Dispatchers.IO) {
-                        for((g,bytes) in playback) if(g==generation) synchronized(writeLock){output?.writeInt(bytes.size);output?.write(bytes);output?.flush()}
+                        for((g,bytes) in playback) {
+                            // Gemini can react to dialing tones, or synthesize early audio.
+                            // Never let any of it reach the telephone before remote speech.
+                            while(isActive && !stopped.get() && outgoingCall && !remoteSpeechConfirmed) delay(40)
+                            if(!stopped.get() && g==generation && (!outgoingCall || remoteSpeechConfirmed))
+                                synchronized(writeLock){output?.writeInt(bytes.size);output?.write(bytes);output?.flush()}
+                        }
                     }
                     launch(Dispatchers.IO) {
                         while(isActive && !stopped.get()) {delay(5000);synchronized(writeLock){output?.writeInt(0);output?.flush()}}
@@ -99,7 +111,8 @@ internal class MobileLiveCall(
                 }
                 val policy=session.getString("system_instruction")+"\\n\\n"+style+
                     " استخدم سؤالًا واحدًا في كل دور ثم استمع للعميل، ولا تكرر التحية أو الأسئلة."+
-                    " توقف عند المقاطعة ولا تختلق أي حجز أو دفع أو تكامل لم يتم فعلياً."
+                    " توقف عند المقاطعة ولا تختلق أي حجز أو دفع أو تكامل لم يتم فعلياً."+
+                    if(outgoingCall) " هذه مكالمة صادرة. لا تبدأ التحية ولا الكلام أثناء طلب الرقم أو الرنين؛ انتظر أول كلام واضح من الطرف الآخر ثم أجب." else ""
                 val setup=JSONObject().put("model","models/"+session.getString("model").removePrefix("models/"))
                     .put("generationConfig",JSONObject().put("responseModalities",org.json.JSONArray(listOf("AUDIO")))
                         .put("speechConfig",JSONObject().put("voiceConfig",JSONObject().put("prebuiltVoiceConfig",JSONObject().put("voiceName",settings.optString("voice","Aoede"))))))
@@ -121,7 +134,7 @@ internal class MobileLiveCall(
                         val wasReady=ready.isCompleted
                         socketReady=true
                         ready.complete(Unit)
-                        if(wasReady && handle.isNullOrBlank()) {
+                        if(wasReady && handle.isNullOrBlank() && (!outgoingCall || remoteSpeechConfirmed)) {
                             webSocket.send(JSONObject().put("clientContent",JSONObject()
                                 .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
                                     .put("parts",org.json.JSONArray().put(JSONObject().put("text",
@@ -132,6 +145,16 @@ internal class MobileLiveCall(
                     }
                     if(message.has("error")) error("Gemini error "+message.getJSONObject("error").optInt("code"))
                     val content=message.optJSONObject("serverContent")?:return
+                    // The model reports what it heard via live input transcription.
+                    // Ignore anything that looks like ringing, silence or a sound label.
+                    // Do not rely on local OFFHOOK or network setup completion.
+                    if(outgoingCall && !remoteSpeechConfirmed){
+                        val transcript=content.optJSONObject("inputTranscription")?.optString("text").orEmpty()
+                        if(OutboundFirstTurn.remoteSpeechTranscribed(transcript)){
+                            remoteSpeechConfirmed=true
+                            notice("تم سماع رد الطرف الآخر؛ الإيجنت يبدأ الحوار")
+                        }
+                    }
                     if(content.optBoolean("interrupted")) {
                         generation++;while(playback.tryReceive().isSuccess) {}
                         synchronized(writeLock){output?.writeInt(-1);output?.flush()}
