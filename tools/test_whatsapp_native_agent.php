@@ -51,13 +51,16 @@ try {
         wa_native_assert(isset($request['systemInstruction']['parts'][0]['text']),
             'server-owned instructions used');
         return $calls===1
-          ? '{"decision":"reply","reply_text":"المتجر مفتوح حسب المعلومات المنشورة."}'
-          : '{"decision":"reply","reply_text":"المتجر مفتوح حسب المعلومات المنشورة.","approved":true}';
+          ? '{"decision":"reply","reply_text":"المتجر مفتوح حسب المعلومات المنشورة.","buttons":["التفاصيل","موظف"]}'
+          : '{"decision":"reply","reply_text":"المتجر مفتوح حسب المعلومات المنشورة.","buttons":["التفاصيل","موظف"],"approved":true}';
     };
     $meta=static function(string $url,string $token,string $body)use(&$sent):array{
         $sent++;
         wa_native_assert(str_starts_with($url,'https://graph.facebook.com/'),'official Meta only');
         wa_native_assert(!str_contains($body,'WHMCS'),'no addon data dependency');
+        $p=json_decode($body,true,20,JSON_THROW_ON_ERROR);
+        wa_native_assert(($p['type']??'')==='interactive'&&count($p['interactive']['action']['buttons']??[])===2,
+            'AI quick reply buttons sent through official Meta format');
         return ['status'=>200,'body'=>'{"messages":[{"id":"wamid.native_out_001"}]}'];
     };
     $out=wa_native_run_job((int)$job['id'],$generator,$meta);
@@ -70,6 +73,15 @@ try {
     wa_native_assert($row['role']==='ai'&&$row['delivery_status']==='accepted',
         'AI attributed; not falsely marked delivered');
 
+    // A tapped button is another customer turn, not a hardcoded WHMCS action.
+    $payload['entry'][0]['changes'][0]['value']['messages'][0]=[
+        'id'=>'wamid.native_button_002','from'=>'201002223344','type'=>'interactive',
+        'interactive'=>['type'=>'button_reply','button_reply'=>['id'=>'ot_option_1','title'=>'التفاصيل']]];
+    $buttonIncoming=wa_webhook_ingest(wa_connection($channel,4),$payload);
+    wa_native_assert($buttonIncoming['accepted']===1,'tapped button saved as inbound message');
+    $pendingButton=one("SELECT id FROM wa_ai_jobs WHERE connection_id=? AND source_message_id='wamid.native_button_002'",
+        [$channel]);
+    wa_native_assert($pendingButton!==null,'button press routed to native AI job');
     $buttonsSent=0;
     wa_manual_reply(4,$conversationId,'اختار المناسب',static function($url,$token,$body)use(&$buttonsSent):array{
         $p=json_decode($body,true,20,JSON_THROW_ON_ERROR);
@@ -81,13 +93,15 @@ try {
     wa_native_assert($buttonsSent===1,'human buttons sent to Meta mock');
     wa_native_assert(!wa_ai_allowed(wa_conversation($conversationId,4)),
         'manual reply pauses native agent');
+    wa_native_assert(wa_native_run_job((int)$pendingButton['id'],$generator,$meta)['status']==='skipped',
+        'staff takeover cancels queued button AI reply');
 
     wa_native_toggle($accountId,$channel,false);
     wa_native_assert((int)wa_connection($channel,4)['ai_enabled']===0,'native AI can be disabled per number');
     $payload['entry'][0]['changes'][0]['value']['messages'][0]['id']='wamid.native_002';
     $res=wa_webhook_ingest(wa_connection($channel,4),$payload);
     wa_native_assert($res['accepted']===1,'inbound remains available with AI disabled');
-    wa_native_assert((int)one('SELECT COUNT(*) n FROM wa_ai_jobs WHERE connection_id=?',[$channel])['n']===1,
+    wa_native_assert((int)one('SELECT COUNT(*) n FROM wa_ai_jobs WHERE connection_id=?',[$channel])['n']===2,
         'disabled agent queues no second reply');
     echo "WHATSAPP_NATIVE_INDEPENDENT_AGENT_REVIEW_AND_BUTTONS_PASS\n";
 }finally{
