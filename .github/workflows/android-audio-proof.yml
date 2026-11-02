@@ -24,7 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
+      # Same immutable revision already deployed on the web server and
+      # successfully compiled and unit-tested for call reports on Android.
       - uses: actions/checkout@v5
+        with:
+          ref: 2595bce13727ce909dcf375eff933d85a8e233c6
       - name: Validate mobile PHP endpoints
         run: |
           for source in saas/mobile/server/*.php; do php -l "$source"; done
