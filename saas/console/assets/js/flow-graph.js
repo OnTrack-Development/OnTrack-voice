@@ -85,14 +85,17 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  const aiInput=make('textarea');aiInput.rows=3;aiInput.maxLength=2500;
  aiInput.placeholder='اكتب اللي عايز الإيجنت يعمله…';
  aiInput.setAttribute('aria-label','رسالة إلى مساعد المخطط');
- const aiSubmit=button('اقترح مخطط',()=>requestAiProposal(),'primary');
+ const aiMode=make('select','graph-ai-mode');
+ aiMode.setAttribute('aria-label','المطلوب من مساعد البناء');
+ [['both','المخطط + خصائص الإيجنت'],['graph','المخطط البصري فقط'],['profile','خصائص الإيجنت فقط']].forEach(([value,label])=>aiMode.append(new Option(label,value)));
+ const aiSubmit=button('اقترح تطوير الإيجنت',()=>requestAiProposal(),'primary');
  const aiStatus=make('p','graph-ai-status','');
  aiStatus.setAttribute('role','status');
  const aiPreview=make('div','graph-ai-preview');
  const aiApply=button('نفّذ المقترح كمسودة',()=>applyAiProposal(),'primary');aiApply.hidden=true;
  const aiCancel=button('إلغاء المقترح',()=>discardAiProposal());aiCancel.hidden=true;
  const aiActions=make('div','graph-ai-actions');aiActions.append(aiSubmit,aiApply,aiCancel);
- const aiCompose=make('div','graph-ai-compose');aiCompose.append(aiInput,aiActions,aiStatus);
+ const aiCompose=make('div','graph-ai-compose');aiCompose.append(aiMode,aiInput,aiActions,aiStatus);
  aiThread.append(make('div','graph-ai-message assistant','أهلاً! اشرحلي السيناريو، هجهزلك مخطط تراجعه قبل ما تضغط «نفّذ».'));
  aiThread.append(aiPreview);
  aiPanel.append(aiHead,aiDescription,aiThread,aiCompose);
@@ -111,7 +114,58 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    aiThread.insertBefore(make('div','graph-ai-message '+kind,message),aiPreview);
    aiThread.scrollTop=aiThread.scrollHeight;
  }
- let proposal=null,busy=false,hasHistory=false;
+ let proposal=null,profileProposal=null,busy=false,hasHistory=false;
+ function profileSnapshot(){
+   const form=root.closest('form');
+   const string=name=>form?.querySelector('[name="'+name+'"]')?.value||'';
+   const checked=name=>!!form?.querySelector('[name="'+name+'"]')?.checked;
+   return {instructions:string('instructions'),goal:string('agent_goal'),
+      guardrails:string('agent_guardrails'),knowledge:string('knowledge'),
+      use_knowledge:checked('use_knowledge'),use_signed_facts:checked('use_signed_facts'),
+      human_handoff:checked('human_handoff')};
+ }
+ function showProfile(p){
+   if(!p||typeof p!=='object')throw Error('اقتراح إعدادات غير صالح');
+   profileProposal=p;
+   const section=make('div','graph-ai-profile-preview');
+   section.append(make('strong','','خصائص الإيجنت المقترحة'));
+   for(const [key,label] of [['goal','الهدف'],['instructions','الشخصية والتعليمات'],
+       ['guardrails','ضوابط الإيجنت'],['knowledge_append','معرفة جديدة']]){
+     if(typeof p[key]==='string'&&p[key].trim())
+       section.append(make('p','',label+': '+p[key].slice(0,350)));
+   }
+   for(const [key,label] of [['use_knowledge','البحث في المعرفة'],
+       ['use_signed_facts','مصادر التكامل'],['human_handoff','التصعيد البشري']]){
+     if(p[key]&&p[key]!=='keep')section.append(make('p','',label+': '+(p[key]==='on'?'تفعيل':'تعطيل')));
+   }
+   if(Array.isArray(p.integration_suggestions)&&p.integration_suggestions.length)
+     section.append(make('p','','تكاملات مقترحة (لا تُربط تلقائيًا): '+p.integration_suggestions.join('، ')));
+   aiPreview.append(section);
+   aiApply.hidden=false;aiCancel.hidden=false;
+ }
+ function applyProfileToForm(p){
+   const form=root.closest('form');
+   if(!form)return;
+   for(const [name,key] of [['instructions','instructions'],['agent_goal','goal'],
+       ['agent_guardrails','guardrails']]){
+     if(typeof p[key]==='string'&&p[key].trim()){
+       const field=form.querySelector('[name="'+name+'"]');
+       if(field){field.value=p[key];field.dispatchEvent(new Event('input',{bubbles:true}))}
+     }
+   }
+   if(typeof p.knowledge_append==='string'&&p.knowledge_append.trim()){
+     const field=form.querySelector('[name="knowledge"]');
+     if(field){
+       const combined=[field.value.trim(),p.knowledge_append.trim()].filter(Boolean).join('\n\n');
+       if(combined.length>20000)throw Error('المعرفة أكبر من الحد المسموح؛ راجع محتوى الملف');
+       field.value=combined;
+     }
+   }
+   for(const key of ['use_knowledge','use_signed_facts','human_handoff']){
+     const field=form.querySelector('[name="'+key+'"]');
+     if(field&&p[key]!=='keep')field.checked=p[key]==='on';
+   }
+ }
  function chatIdentity(){
    const form=root.closest('form');
    const csrf=form?.querySelector('[name=csrf]')?.value;
@@ -164,6 +218,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
        showProposal(payload.pending_graph);
        aiStatus.textContent='آخر اقتراح لسه معروض للمراجعة. تقدر تطلب تعديله أو تنفّذه كمسودة.';
      }
+     if(payload.pending_profile)showProfile(payload.pending_profile);
    }catch(error){
      aiStatus.textContent=error.message||'تعذر تحميل المحادثة القديمة.';
    }
@@ -178,10 +233,10 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    }catch(error){aiStatus.textContent=error.message||'تعذر مسح المحادثة'}
  }
  function clearAiProposal(){
-   proposal=null;aiPreview.replaceChildren();aiStatus.textContent='';aiApply.hidden=true;aiCancel.hidden=true;
+   proposal=null;profileProposal=null;aiPreview.replaceChildren();aiStatus.textContent='';aiApply.hidden=true;aiCancel.hidden=true;
  }
  async function discardAiProposal(){
-   if(!proposal||busy)return;
+   if((!proposal&&!profileProposal)||busy)return;
    try{
      await chatRequest('flow_ai_discard');
      clearAiProposal();
