@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../saas/console/database/Seed.php';
 require __DIR__.'/../saas/console/_core/Views.php';
+require __DIR__.'/../saas/console/_core/AdminMfa.php';
 function verify(bool $ok,string $message):void {if(!$ok)throw new RuntimeException($message);}
 seed_console();
 $columns=driver()==='sqlite'?array_column(all('PRAGMA table_info(plans)'),'name'):
