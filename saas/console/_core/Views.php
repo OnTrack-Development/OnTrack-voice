@@ -1048,7 +1048,7 @@ function render_whatsapp(array $a):void {
         $publicId=bin2hex(random_bytes(18));
         $verifyToken=bin2hex(random_bytes(24));
         $webhook=wa_public_callback($publicId);
-        echo '<div class="wa-manual-notice">الربط اليدوي يحتاج بيانات Meta الخاصة برقمك. بعد الحفظ اختبر الربط، ثم انسخ Callback URL وVerify Token إلى إعدادات Webhook في تطبيق Meta. **التحقق من الرقم لا يعني تشغيل استقبال الرسائل تلقائيًا.**</div>';
+        echo '<div class="wa-manual-notice">الربط اليدوي يحتاج بيانات Meta الخاصة برقمك. بعد الحفظ اختبر الربط، ثم انسخ Callback URL وVerify Token إلى إعدادات Webhook في تطبيق Meta. <strong>التحقق من الرقم لا يعني تشغيل استقبال الرسائل تلقائيًا.</strong></div>';
         echo form_start('wa_connection_add','/?tab=whatsapp','class="wa-settings-form wa-manual-form"').
             '<input type="hidden" name="public_id" value="'.e($publicId).'">'.
             '<div class="wa-manual-grid">'.
@@ -1067,7 +1067,7 @@ function render_whatsapp(array $a):void {
             '<div class="wa-copy-strip"><span>Callback URL</span><code id="wa-new-callback" dir="ltr">'.e($webhook).'</code><button type="button" class="btn small" data-wa-copy="wa-new-callback">نسخ الرابط</button></div>'.
             '<div class="wa-copy-strip"><span>Verify Token</span><code id="wa-new-token" dir="ltr">'.e($verifyToken).'</code><button type="button" class="btn small" data-wa-copy="wa-new-token">نسخ التوكن</button></div>'.
             '</div>'.
-            '<div class="wa-manual-foot"><p>انسخ الرابط والتوكن **قبل الحفظ**؛ التوكن يتخزن Hash فقط ولن يظهر مرة تانية. لو حدّثت الصفحة قبل الحفظ هيتولد رابط وتوكن جديدين. الحالة تبدأ مسودة ولا يتم إرسال رسائل تلقائيًا.</p>'.
+            '<div class="wa-manual-foot"><p>انسخ الرابط والتوكن <strong>قبل الحفظ</strong>؛ التوكن يتخزن Hash فقط ولن يظهر مرة تانية. لو حدّثت الصفحة قبل الحفظ هيتولد رابط وتوكن جديدين. الحالة تبدأ مسودة ولا يتم إرسال رسائل تلقائيًا.</p>'.
             '<button class="btn primary" type="submit">حفظ إعدادات واتساب اليدوية</button></div></form>';
     }
     echo '</section></div></details>';
