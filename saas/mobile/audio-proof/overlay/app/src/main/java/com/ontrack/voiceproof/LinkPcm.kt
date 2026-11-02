@@ -8,9 +8,22 @@ internal class LinkPcm(private val channel: String) {
     fun input(pcm: ByteArray): ByteArray {
         require(pcm.size % 4 == 0)
         val out = ByteArrayOutputStream()
+        // The older forced "right" channel can be silent on mono call captures.
+        // Auto chooses an energetic stereo channel per block without assuming
+        // the captured signal is the remote GSM caller's voice.
+        var leftEnergy=0L;var rightEnergy=0L
+        if(channel=="auto")for(i in pcm.indices step 4){
+            leftEnergy+=kotlin.math.abs(sample(pcm,i).toLong())
+            rightEnergy+=kotlin.math.abs(sample(pcm,i+2).toLong())
+        }
+        val selected=if(channel=="auto") {
+            if(leftEnergy>rightEnergy*2) "left"
+            else if(rightEnergy>leftEnergy*2) "right"
+            else "mix"
+        } else channel
         for (i in pcm.indices step 4) {
             val left = sample(pcm, i); val right = sample(pcm, i+2)
-            sum += when(channel) { "left" -> left; "mix" -> (left+right)/2; else -> right }
+            sum += when(selected) { "left" -> left; "mix" -> (left+right)/2; else -> right }
             frames++
             if (frames == 3) { val v=sum/3; out.write(v and 255);out.write((v shr 8) and 255);sum=0;frames=0 }
         }
