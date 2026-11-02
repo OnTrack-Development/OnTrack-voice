@@ -111,6 +111,45 @@ function device_binding_heartbeat(array $binding):array {
     if(!$current)throw new RuntimeException('device_binding_revoked');
     return device_binding_profile($current);
 }
+/**
+ * Switch the agent running on an already-paired physical SIM slot.
+ * The binding, slot claim and bearer stay exactly the same; only the owner-
+ * scoped, same-site agent changes. A current call keeps its issued session
+ * snapshot; the next heartbeat / new voice session receives the new agent.
+ */
+function device_binding_change_agent(int $accountId,int $deviceId,int $newAgentId):array {
+    if($accountId<1||$deviceId<1||$newAgentId<1)
+        throw new InvalidArgumentException('device_agent_invalid_target');
+    $db=db();
+    $db->beginTransaction();
+    try {
+        $binding=one('SELECT * FROM device_bindings WHERE id=? AND account_id=? AND status=?',
+            [$deviceId,$accountId,'active']);
+        if(!$binding)throw new InvalidArgumentException('الشريحة غير مربوطة بحسابك أو تم فصلها');
+        $agent=one("SELECT id,name FROM agents
+            WHERE id=? AND account_id=? AND site_id=? AND status!='archived'",
+            [$newAgentId,$accountId,(int)$binding['site_id']]);
+        if(!$agent)throw new InvalidArgumentException('اختار إيجنت من نفس الشركة والموقع');
+        $published=published_agent_flow($accountId,(int)$binding['site_id'],$newAgentId);
+        if(!$published)throw new InvalidArgumentException('لازم تنشر إعدادات الإيجنت الجديد قبل ربطه بالشريحة');
+        $previous=(int)$binding['agent_id'];
+        if($previous!==$newAgentId){
+            $changed=execute('UPDATE device_bindings SET agent_id=?
+                WHERE id=? AND account_id=? AND site_id=? AND sim_slot=? AND status=? AND agent_id=?',[
+                    $newAgentId,$deviceId,$accountId,(int)$binding['site_id'],
+                    (int)$binding['sim_slot'],'active',$previous]);
+            if($changed!==1)throw new RuntimeException('اتغير ربط الشريحة بالتزامن؛ حدّث الصفحة وأعد المحاولة');
+        }
+        $db->commit();
+        return ['device_id'=>$deviceId,'site_id'=>(int)$binding['site_id'],
+            'sim_slot'=>(int)$binding['sim_slot'],'previous_agent_id'=>$previous,
+            'agent_id'=>$newAgentId,'agent_name'=>(string)$agent['name'],
+            'changed'=>$previous!==$newAgentId];
+    }catch(Throwable $e){
+        if($db->inTransaction())$db->rollBack();
+        throw $e;
+    }
+}
 function device_binding_revoke(int $accountId,int $deviceId):bool {
     $changed=execute("UPDATE device_bindings SET status='revoked',slot_claim=NULL,revoked_at=? WHERE id=? AND account_id=? AND status='active'",
         [now(),$deviceId,$accountId]);
