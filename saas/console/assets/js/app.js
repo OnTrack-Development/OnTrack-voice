@@ -153,7 +153,6 @@
     finally{delete button.dataset.otApproved}
   },true);
 
-}
   // Same-origin, progressive AJAX navigation. Existing PHP authorization,
   // server-side validation, CSRF and redirect destinations remain authoritative.
   // Special auth/payment/account-switch endpoints deliberately keep native flows.
