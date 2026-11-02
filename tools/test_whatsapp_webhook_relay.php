@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/../saas/console/database/Seed.php';
 require_once __DIR__.'/../saas/console/_core/WhatsAppSupport.php';
+require_once __DIR__.'/../integrations/whatsapp-webhook-relay/forwarder.php';
 
 function relay_test(bool $ok,string $why):void {
     if(!$ok)throw new RuntimeException('WHATSAPP_RELAY_FAILED: '.$why);
@@ -56,6 +57,14 @@ try{
     $providerPayload=$normalized;
     relay_test(wa_relay_normalize($conn,$providerPayload)===$providerPayload,
         'raw Meta payload can be forwarded unchanged by trusted provider');
+    $rawMeta=json_encode($normalized,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    $forwarded=ontrack_forward_whatsapp_meta_event($rawMeta,wa_public_callback($public),$secret,
+        static function(string $url,string $signature,string $body)use($conn):array{
+            relay_test($url===wa_public_callback((string)$conn['public_id']),'callback pinned');
+            relay_test(wa_relay_signature_valid($conn,$signature,$body),'forwarder emits valid HMAC');
+            return ['status'=>200,'body'=>'{"ok":true,"accepted":0,"duplicates":1}'];
+        });
+    relay_test($forwarded,'drop-in WhatsApp receiver adapter forwards exact signed body');
     // No AI activation without a published agent or Meta phone verification.
     relay_test((int)$conn['ai_enabled']===0,'AI disabled on new connection');
     echo "WHATSAPP_SIGNED_WEBHOOK_RELAY_PASS\n";
