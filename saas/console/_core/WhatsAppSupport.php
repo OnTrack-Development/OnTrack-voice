@@ -148,14 +148,26 @@ function wa_relay_normalize(array $connection,array $payload):array {
     ]]];
 }
 /**
- * Keep the original Meta callback untouched. A previously connected module
- * forwards signed original events to a DIFFERENT per-tenant OnTrack URL.
- * Existing Meta token/App Secret are needed for sending AI replies.
+ * Register a connection that Meta already sends to another WhatsApp module.
+ *
+ * Source Callback and Verify Token are references, NOT a valid authorization
+ * for reading/sending WhatsApp messages. No duplicate Meta API credentials
+ * are collected here. The source module must forward verified events and
+ * eventually implement the outgoing delivery connector.
  */
 function wa_create_existing_connection(int $accountId,int $siteId,int $agentId,
- string $label,string $sourceUrl,string $sourceVerify,string $phoneId,
- string $wabaId,string $metaAppId,string $graphVersion,string $accessToken,string $appSecret,
- string $publicId,string $relaySecret):int {
+ string $label,string $sourceUrl,string $sourceVerify,string $publicId,string $relaySecret):int {
+    if(!one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$siteId,$accountId]))
+        throw new InvalidArgumentException('الموقع غير تابع للحساب الحالي');
+    $label=trim($label);
+    if(mb_strlen($label)<2||mb_strlen($label)>120)
+        throw new InvalidArgumentException('اسم الاتصال غير صالح');
+    if($agentId<0)throw new InvalidArgumentException('الإيجنت غير صالح');
+    if($agentId>0){
+        require_once __DIR__.'/PublishedFlow.php';
+        if(!published_agent_flow($accountId,$siteId,$agentId))
+            throw new InvalidArgumentException('اختار إيجنت منشور تابع لنفس الموقع');
+    }
     $sourceUrl=trim($sourceUrl);
     $url=parse_url($sourceUrl);
     if(!is_array($url)||($url['scheme']??'')!=='https'||
@@ -164,23 +176,72 @@ function wa_create_existing_connection(int $accountId,int $siteId,int $agentId,
        !preg_match('/^[a-zA-Z0-9.-]+$/D',(string)($url['host']??''))||
        !str_contains((string)$url['host'],'.'))
         throw new InvalidArgumentException('رابط Webhook الحالي غير صالح؛ مطلوب HTTPS عام');
-    if(strlen($sourceVerify)<12||strlen($sourceVerify)>200)
+    if(strlen($sourceVerify)<12||strlen($sourceVerify)>200||
+       preg_match('/[\\x00-\\x1f\\x7f]/',$sourceVerify))
         throw new InvalidArgumentException('Verify Token الحالي غير صالح');
+    if(!preg_match('/^[a-f0-9]{36}$/D',$publicId)||
+       one('SELECT id FROM wa_connections WHERE public_id=?',[$publicId]))
+        throw new InvalidArgumentException('رابط OnTrack اتغير؛ حدّث الصفحة');
     if(!preg_match('/^[a-f0-9]{64}$/D',$relaySecret))
-        throw new InvalidArgumentException('مفتاح التوقيع غير صالح');
-    // The original token is a reference only; Meta keeps the original callback.
-    $newVerify=bin2hex(random_bytes(24));
-    $id=wa_create_connection($accountId,$siteId,$label,$phoneId,$accessToken,
-        $appSecret,$newVerify,'','',$agentId,$wabaId,$metaAppId,$graphVersion,
-        $publicId,$relaySecret);
-    execute("UPDATE wa_connections SET onboarding_method='existing_webhook',
-        source_callback_url=?,source_verify_hash=?,updated_at=?
-        WHERE id=? AND account_id=?",[
-        $sourceUrl,hash('sha256',$sourceVerify),now(),$id,$accountId
+        throw new InvalidArgumentException('مفتاح Forwarding غير صالح');
+
+    // Placeholder is never presented as a Meta Phone Number ID. The FIRST
+    // correctly HMAC-signed event supplies the real asset ID to the tenant.
+    $pendingPhone='pending_'.$publicId;
+    $id=insert("INSERT INTO wa_connections
+        (account_id,site_id,public_id,label,phone_number_id,access_token_enc,
+         app_secret_enc,verify_token_hash,state,created_at,updated_at,
+         onboarding_method,source_callback_url,source_verify_hash,
+         webhook_relay_enabled,webhook_relay_secret_enc,graph_version)
+         VALUES (?,?,?,?,?,?,?,?,'draft',?,?,?,?,?,1,?,?)",[
+         $accountId,$siteId,$publicId,$label,$pendingPhone,
+         seal_secret(''),seal_secret(''),hash('sha256',bin2hex(random_bytes(24))),
+         now(),now(),'existing_webhook',$sourceUrl,hash('sha256',$sourceVerify),
+         seal_secret($relaySecret),'v26.0'
     ]);
-    wa_audit($accountId,null,'whatsapp.existing.setup',
-        'existing Meta webhook kept unchanged; awaiting signed message forwarding');
+    if($agentId>0)execute('UPDATE wa_connections SET ai_agent_id=? WHERE id=? AND account_id=?',
+        [$agentId,$id,$accountId]);
+    wa_audit($accountId,null,'whatsapp.existing.created',
+        'source callback unchanged; no Meta API credentials; outbound not configured');
     return $id;
+}
+
+/**
+ * Source HMAC is independently checked before this is called. Claim the
+ * connection's phone once (from signed source event) and never take over an
+ * ID already assigned to any other account/connection.
+ */
+function wa_relay_bind_existing_phone(array $connection,array $payload):array {
+    if(($connection['onboarding_method']??'')!=='existing_webhook'||
+        !str_starts_with((string)$connection['phone_number_id'],'pending_'))
+        return $connection;
+    $phones=[];
+    if(($payload['object']??null)==='whatsapp_business_account'){
+        foreach((array)($payload['entry']??[]) as $entry){
+            foreach((array)($entry['changes']??[]) as $change){
+                $value=$change['value']??[];
+                if(is_array($value))$phones[]=(string)($value['metadata']['phone_number_id']??'');
+            }
+        }
+    }else{
+        $phones[]=(string)($payload['phone_number_id']??'');
+    }
+    $phones=array_values(array_unique($phones));
+    if(count($phones)!==1||!preg_match('/^[0-9]{5,100}$/D',$phones[0]))
+        throw new InvalidArgumentException('تعذر تحديد رقم WhatsApp من الحدث الموقّع');
+    $phone=$phones[0];
+    $assigned=one('SELECT id FROM wa_connections WHERE phone_number_id=? LIMIT 1',[$phone]);
+    if($assigned&& (int)$assigned['id']!==(int)$connection['id'])
+        throw new InvalidArgumentException('الرقم مرتبط باتصال آخر، لا يمكن نقله تلقائيًا');
+    $changed=execute("UPDATE wa_connections SET phone_number_id=?,state='relay_receiving',
+        updated_at=? WHERE id=? AND account_id=? AND phone_number_id=?",[
+        $phone,now(),(int)$connection['id'],(int)$connection['account_id'],
+        (string)$connection['phone_number_id']
+    ]);
+    if($changed!==1)throw new RuntimeException('تعذر تثبيت رقم الموديول؛ أعد المحاولة');
+    wa_audit((int)$connection['account_id'],null,'whatsapp.existing.receiving',
+        'signed source event identified phone asset, outbound still pending');
+    return wa_connection((int)$connection['id'],(int)$connection['account_id']);
 }
 function wa_webhook_challenge(array $connection,string $mode,string $token,string $challenge):?string {
     if($mode!=='subscribe'||$token===''||strlen($challenge)>300||
@@ -320,6 +381,8 @@ function wa_ai_allowed(array $conversation):bool {
        (empty($conversation['ai_pause_until']) || strcmp((string)$conversation['ai_pause_until'],now())<=0);
 }
 function wa_meta_send(array $connection,string $destination,string $body,?callable $transport=null,array $buttons=[]):array {
+    if(($connection['onboarding_method']??'')==='existing_webhook')
+        throw new RuntimeException('الرقم مربوط بموديول خارجي؛ يجب تفعيل موصل إرسال الموديول قبل إرسال الرسائل، ولن نطلب مفاتيح Meta مكررة');
     if(!in_array($connection['state'],['verified','active'],true))
         throw new RuntimeException('whatsapp_connection_not_verified');
     $destination=wa_e164($destination);
@@ -396,6 +459,8 @@ function wa_manual_reply(int $accountId,int $conversationId,string $body,?callab
 
 /** Provider metadata check, no outbound customer message. */
 function wa_test_meta_connection(array $connection,?callable $transport=null):array {
+    if(($connection['onboarding_method']??'')==='existing_webhook')
+        throw new RuntimeException('الاتصال الحالي يُختبر برسالة موقّعة من الموديول، مش بمفتاح Meta مكرر');
     $token=unseal_secret($connection['access_token_enc']??null);
     $phoneId=(string)$connection['phone_number_id'];
     if(!$token||!preg_match('/^[0-9]{5,100}$/D',$phoneId))
