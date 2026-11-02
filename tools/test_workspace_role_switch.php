@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/../saas/console/database/Seed.php';
+require_once __DIR__.'/../saas/console/_core/StaffInvitations.php';
 require_once __DIR__.'/../saas/console/_core/Views.php';
 function workspace_assert(bool $condition,string $message):void{
     if(!$condition)throw new RuntimeException('WORKSPACE_ROLE_SWITCH_FAIL: '.$message);
