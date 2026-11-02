@@ -233,9 +233,7 @@ function wa_webhook_ingest(array $connection,array $payload):array {
                         [now(),now(),(string)($profiles[$from]??''),(string)($profiles[$from]??''),$convId,$accountId]);
                     wa_audit($accountId,$convId,'whatsapp.inbound',mb_substr($providerId,0,120));
                     $native=((int)($connection['ai_enabled']??0)===1 && (int)($connection['ai_agent_id']??0)>0);
-                    $legacy=(!$native && (int)($connection['ai_agent_id']??0)===0
-                        && !empty($connection['whmcs_bridge_verified_at']));
-                    if(($native&&in_array($type,['text','button','interactive'],true))||($legacy&&$type==='text')){
+                    if($native&&in_array($type,['text','button','interactive'],true)){
                         $current=one('SELECT generation,ai_pause_until,human_locked_at FROM wa_conversations WHERE id=? AND account_id=?',
                             [$convId,$accountId]);
                         if($current&&wa_ai_allowed($current)){
