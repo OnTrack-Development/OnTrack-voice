@@ -16,6 +16,9 @@ $sid=(int)$site['id'];
 $sourceId=voice_knowledge_add(4,$sid,'ساعات العمل','note','الحجز بالمكالمة من التاسعة إلى الخامسة.');
 verify_flow_source(str_contains(voice_knowledge_context(4,$sid),'التاسعة'),'site knowledge visible');
 verify_flow_source(voice_knowledge_context(5,$sid)==='','foreign account knowledge invisible');
+$internal=voice_knowledge_add(4,$sid,'مستند داخلي','note','تفاصيل مالية خاصة لا تُذكر للعميل','staff');
+verify_flow_source(!str_contains(voice_knowledge_context(4,$sid),'تفاصيل مالية خاصة'),
+    'staff-only knowledge must never reach caller or public flow AI');
 $notLocal=false;
 try{voice_connector_add(4,$sid,'wordpress','Local WP','https://127.0.0.1','/wp-json/wp/v2/pages','none');}
 catch(InvalidArgumentException){$notLocal=true;}
@@ -55,6 +58,7 @@ $proposal=flow_ai_validate_proposal(['nodes'=>[
 verify_flow_source(count($proposal['nodes'])===3,'instruction node valid in AI draft');
 verify_flow_source(voice_action_ready(['role'=>'owner','scopes'=>['operations']],'website.disable')===false,
     'system mutation remains impossible until approved runner');
+execute('DELETE FROM voice_knowledge_sources WHERE id=? AND account_id=4',[$internal]);
 execute('DELETE FROM voice_knowledge_sources WHERE id=? AND account_id=4',[$sourceId]);
 execute('DELETE FROM voice_data_connectors WHERE id=? AND account_id=4',[$allowed]);
 echo "FLOW_AI_SOURCES_AND_PERMISSIONS_PASS\n";
