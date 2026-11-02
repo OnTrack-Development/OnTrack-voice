@@ -77,8 +77,9 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  aiReset.setAttribute('title','امسح ذاكرة هذا الإيجنت فقط بعد التأكيد');
  aiClose.setAttribute('aria-label','إغلاق شات المساعد');
  const aiHead=make('div','graph-ai-head'),aiHeadActions=make('div','graph-ai-head-actions');
- aiHeadActions.append(aiReset,aiClose);aiHead.append(aiTitle,aiHeadActions);
- const aiDescription=make('p','','اشرح السيناريو بالمصري. المساعد يقترح مخططًا للمراجعة، ولن يُعدّل المسودة أو ينشرها بدون موافقتك.');
+ const aiModel=make('small','graph-ai-model','Google Gemini');aiModel.setAttribute('title','الموديل الفعلي لمساعد تصميم المخطط');
+ aiHeadActions.append(aiModel,aiReset,aiClose);aiHead.append(aiTitle,aiHeadActions);
+ const aiDescription=make('p','','المساعد بيقرأ المخطط المفتوح، ويشرح مساراته، ويضيف عليه حسب طلبك من غير ما يستبدله إلا بموافقتك.');
  const aiThread=make('div','graph-ai-thread');
  aiThread.setAttribute('role','log');aiThread.setAttribute('aria-live','polite');
  const aiInput=make('textarea');aiInput.rows=3;aiInput.maxLength=2500;
@@ -145,14 +146,20 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  }
  async function loadAiChat(){
    try{
-     const payload=await chatRequest('flow_ai_history');
+     const payload=await chatRequest('flow_ai_history',{current_graph_json:JSON.stringify(data)});
      if(busy)return;
      aiThread.replaceChildren(aiPreview);
      (payload.messages||[]).forEach(msg=>{
        if(msg?.role==='user'||msg?.role==='assistant')aiMessage(msg.role,String(msg.text||''));
      });
-     hasHistory=(payload.messages||[]).length>0;
-     if(!hasHistory)aiMessage('assistant','أهلاً! احكيلي عايز تغير إيه في المخطط، وهشرحلك كل مسار قبل ما توافق على المسودة.');
+     hasHistory=(payload.messages||[]).length>0||payload.current_graph_read===true;
+     if(payload.model)aiModel.textContent=payload.model;
+     // Explain exactly what exists in the open editor BEFORE any new AI request.
+     // Initial reading requires no model call, and never overwrites a draft.
+     aiMessage('assistant',String(payload.current_explanation||
+       'المخطط الحالي مش متاح للقراءة؛ ممكن تراجع العقد وروابطها.'));
+     if(!(payload.messages||[]).length)
+       aiMessage('assistant','قرأت الفلو الموجود. قولّي تضيف أو تعدل إيه، وهشتغل عليه بدل ما أبدأ من الصفر.');
      if(payload.pending_graph){
        showProposal(payload.pending_graph);
        aiStatus.textContent='آخر اقتراح لسه معروض للمراجعة. تقدر تطلب تعديله أو تنفّذه كمسودة.';
@@ -196,6 +203,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
      });
      hasHistory=true;aiInput.value='';
      const g=payload.graph;
+     if(payload.model)aiModel.textContent=payload.model;
      if(g)showProposal(g);
      const explanation=String(payload.explanation||'');
      if(explanation)aiMessage('assistant',explanation);
