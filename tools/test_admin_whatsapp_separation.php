@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/../saas/console/database/Seed.php';
 require_once __DIR__.'/../saas/console/_core/StaffInvitations.php';
+require_once __DIR__.'/../saas/console/_core/AdminMfa.php';
 require_once __DIR__.'/../saas/console/_core/Views.php';
 
 function check_admin_wa(bool $yes,string $what):void {
