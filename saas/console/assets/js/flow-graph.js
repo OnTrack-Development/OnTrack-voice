@@ -28,7 +28,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  const button=(txt,action,klass)=>{const b=make('button','graph-btn '+(klass||''),txt);b.type='button';b.addEventListener('click',action);return b};
  const fullscreen=button('⛶ ملء الشاشة',()=>toggleFullscreen());
  const add=button('+ خطوة',()=>addNode(),'primary'),connect=button('ربط',()=>{connecting=!connecting;connect.classList.toggle('selected-tool',connecting);notice.textContent=connecting?'اختار العقدة التي تريد الربط بها':'اسحب العقد أو اضغط لتعديلها'}),auto=button('ترتيب',()=>arrange());
- const zoomIn=button('+',()=>{scale=Math.min(1.6,scale+.1);transform()}),zoomOut=button('−',()=>{scale=Math.max(.25,scale-.1);transform()});
+ const zoomIn=button('+',()=>{scale=Math.min(1.6,scale+.1);transform()}),zoomOut=button('−',()=>{scale=Math.max(.08,scale-.1);transform()});
  const fit=button('⊡ احتواء',()=>fitGraph());
  const edgeToggle=button('◉ تركيز',()=>{
    edgeFocus=!edgeFocus;
