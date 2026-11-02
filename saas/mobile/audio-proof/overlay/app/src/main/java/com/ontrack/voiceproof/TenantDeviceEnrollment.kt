@@ -219,6 +219,17 @@ class TenantDeviceEnrollment(private val context: Context) {
         }
         return "SIM ${slot+1}: الربط صحيح • Flow v${revision} منشور • اختبار Google Live ناجح. لم تحدث مكالمة صوتية بعد."
     }
+    /** Reuses the encrypted per-SIM SaaS enrollment. No second key or pilot URL. */
+    fun workspace(slot:Int,operation:String,payload:JSONObject=JSONObject(),maxResponse:Int=65536):JSONObject {
+        val allowed=setOf("workspace_contacts","workspace_import","workspace_contact_dnc",
+            "workspace_calls","workspace_call_event","workspace_campaigns",
+            "workspace_campaign_create","workspace_campaign_action","workspace_file_import")
+        require(operation in allowed){ "عملية حساب غير مدعومة" }
+        heartbeat(slot) // hardware identity and tenant membership checked before each operation
+        val localBinding=local(slot)
+        val body=JSONObject(payload.toString()).put("operation",operation)
+        return request(body,localBinding.getString("token"),maxResponse)
+    }
     fun disconnect(slot:Int) {
         val saved=local(slot)
         try {
