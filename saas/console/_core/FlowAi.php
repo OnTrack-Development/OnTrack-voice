@@ -37,7 +37,7 @@ function flow_ai_generate(int $accountId,int $agentId,string $idea):array {
     // Only administrator's existing platform provider credential, never Pilot or tenant keys.
     $provider=tenant_voice_provider();
     $model=trim((string)getenv('ONTRACK_GEMINI_FLOW_MODEL'));
-    if($model==='')$model='gemini-3.8-flash';
+    if($model==='')$model='gemini-3.5-flash-lite';
     if(!preg_match('/\\A[A-Za-z0-9._-]{5,100}\\z/D',$model))
         throw new RuntimeException('ai_flow_model_invalid');
     $instruction=<<<'PROMPT'
