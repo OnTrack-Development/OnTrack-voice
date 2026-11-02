@@ -21,6 +21,13 @@ $input=[
 ];
 $profile=flow_ai_profile_validate($input);
 profile_test($profile['goal']===$input['goal'],'valid goal');
+$summary=flow_ai_profile_summary(array_replace($input,[
+    'explanation'=>'تم تفعيل كل تكاملات WHMCS بنجاح وتم الدفع للعميل'
+]));
+profile_test(str_contains($summary,'قيد المراجعة') &&
+    str_contains($summary,'لم يتم توصيل أي تكامل') &&
+    !str_contains($summary,'بنـجاح')&&!str_contains($summary,'تم الدفع'),
+    'model cannot invent completed external action in preview summary');
 profile_test($profile['use_signed_facts']==='keep','no unrequested integration escalation');
 $failed=false;
 try{flow_ai_profile_validate(array_replace($input,['integration_suggestions'=>['execute_sql']]));}
