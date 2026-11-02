@@ -55,7 +55,7 @@ function nav_entries(string $type):array{
         'staff'=>['♙','فريق المنصة'],'integrations'=>['⇄','التكاملات'],'keys'=>['⌘','مفاتيح API'],
         'sites'=>['◈','مواقعنا'],'agents'=>['✧','إيجنتاتنا'],
         'flows'=>['◇','السيناريوهات'],'answering'=>['☷','إعدادات الرد'],
-        'devices'=>['▣','مركز الهاتف'],'calls'=>['☏','سجل المكالمات'],
+        'devices'=>['▣','الأجهزة والشرائح'],'calls'=>['☏','سجل المكالمات'],
         'contacts'=>['♧','جهات الاتصال'],'campaigns'=>['▤','الحملات'],
         'billing'=>['▣','الفوترة'],'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات المنصة']
@@ -93,12 +93,25 @@ function layout_open(array $a,string $tab):void{
     echo '<div class="app-shell"><aside class="sidebar" id="mainNavigation" aria-label="القائمة الرئيسية"><button type="button" class="nav-close" id="navClose" aria-label="إغلاق القائمة">×</button><a href="/saas/console/" class="brand"><span class="brand-logo">';
     if(!empty($brand['logo'])) echo '<img src="/saas/console/brand-logo" alt="">';else echo '<b>'.e(mb_substr($brand['name'],0,1)).'</b>';
     echo '</span><span class="brand-lines"><strong>'.e($brand['name']).'</strong><small>'.e($role).'</small></span></a>';
-    echo '<div class="nav-caption">مساحة العمل</div><nav class="nav-list">';
-    foreach($items as $key=>$v){
-        $active=$tab===$key?' selected':'';
-        echo '<a href="/saas/console/?tab='.e($key).'" class="nav-link'.$active.'"><span class="nav-icon">'.e($v[0]).'</span><span>'.e($v[1]).'</span></a>';
+    echo '<nav class="nav-list" aria-label="أقسام المنصة">';
+    $workspace=['overview','agents','flows','answering','calls','campaigns','contacts','devices','sites'];
+    $platform=['accounts','plans','billing','staff','domains'];
+    $settings=['voices','integrations','keys','releases','settings'];
+    $groups=['workspace'=>['مساحة العمل',$workspace],'platform'=>['الحسابات والإدارة',$platform],
+        'system'=>['الإعدادات والتكاملات',$settings]];
+    foreach($groups as $group=>$groupData){
+        $visible=array_intersect_key($items,array_flip($groupData[1]));
+        if(!$visible)continue;
+        $isCurrent=array_key_exists($tab,$visible);
+        echo '<details class="nav-group"'.($isCurrent?' open':'').'><summary class="nav-group-title">'.e($groupData[0]).'<span aria-hidden="true">⌄</span></summary><div class="nav-group-links">';
+        foreach($groupData[1] as $key){
+            if(!isset($visible[$key]))continue;
+            $entry=$items[$key];$active=$tab===$key?' selected':'';
+            echo '<a href="/saas/console/?tab='.e($key).'" class="nav-link'.$active.'"'.($active?' aria-current="page"':'').'><span class="nav-icon">'.e($entry[0]).'</span><span>'.e($entry[1]).'</span></a>';
+        }
+        echo '</div></details>';
     }
-    echo '</nav><div class="side-footer"><span class="live-dot"></span> مركز إدارة الاتصال الذكي <small>OnTrack Voice SaaS · Demo</small></div></aside><button type="button" class="nav-backdrop" id="navBackdrop" aria-label="إغلاق القائمة" tabindex="-1"></button><div class="main-area">';
+    echo '</nav><div class="side-footer"><span class="live-dot"></span> OnTrack Voice <small>Business communication platform</small></div></aside><button type="button" class="nav-backdrop" id="navBackdrop" aria-label="إغلاق القائمة" tabindex="-1"></button><div class="main-area">';
     echo '<header class="topbar"><button type="button" class="icon-button nav-toggle" id="navToggle" aria-controls="mainNavigation" aria-expanded="false" aria-label="فتح القائمة">☰</button><div class="headline"><span class="eyebrow">'.e($role).'</span><h1>'.e($heading).'</h1></div><div class="header-actions">';
     $members=memberships((int)$u['id']);
     if(count($members)>1&&!$support){
@@ -430,9 +443,57 @@ function render_contacts(array $a):void {
           submit_btn('إضافة إلى جهات الاتصال'));
 }
 function render_calls(array $a):void{
-    $id=(int)$a['account_id'];$rows=all('SELECT * FROM calls WHERE account_id=? ORDER BY id DESC LIMIT 100',[$id]);
-    echo card('سجل المكالمات',tbl(['العميل','الرقم','المدة','الحالة','النوع','التوقيت'],array_map(fn($v)=>[e($v['name']),e($v['phone']),e(fmt_duration((int)$v['duration_seconds'])),pill($v['status']),(int)$v['is_demo']?'DEMO':'فعلي',e($v['created_at'])],$rows)));
-    echo '<div class="info">البيانات الموسومة DEMO غير حقيقية ولا توجد تسجيلات صوتية مزيفة. الربط مع Call Ledger للموبايل يتطلب ترحيل tenant-scoped آمن.</div>';
+    $id=(int)$a['account_id'];
+    $keyword=trim((string)($_GET['q']??''));
+    if(mb_strlen($keyword)>80)$keyword=mb_substr($keyword,0,80);
+    $requestedStatus=(string)($_GET['status']??'all');
+    $statuses=['all','answered','missed','failed','completed','busy','no_answer'];
+    $filter=in_array($requestedStatus,$statuses,true)?$requestedStatus:'all';
+    $params=[$id];
+    $where='account_id=?';
+    if($keyword!==''){
+        $where.=" AND (name LIKE ? OR phone LIKE ?)";
+        $term='%'.str_replace(['%','_'],['\\%','\\_'],$keyword).'%';
+        $params[]=$term;$params[]=$term;
+    }
+    if($filter!=='all'){$where.=' AND status=?';$params[]=$filter;}
+    $list=all('SELECT id,name,phone,status,duration_seconds,is_demo,created_at FROM calls WHERE '.$where.' ORDER BY id DESC LIMIT 200',$params);
+    $requestedId=max(0,(int)($_GET['call']??0));
+    $selected=null;
+    foreach($list as $item){if((int)$item['id']===$requestedId)$selected=$item;}
+    if($selected===null)$selected=$list[0]??null;
+    $stats=one('SELECT COUNT(*) n FROM calls WHERE account_id=?',[$id]);
+    echo '<section class="calls-workspace" aria-label="صندوق المكالمات">';
+    echo '<header class="calls-top"><div><span class="eyebrow">ONTRACK VOICE</span><h2>صندوق المكالمات</h2>'.
+        '<p>المكالمات الواردة والصادرة وسجل نتائجها. التسجيلات والتفريغ النصي يظهران فقط بعد وصولهما من الهاتف.</p></div>'.
+        '<span class="calls-total">'.(int)($stats['n']??0).' مكالمة مسجّلة</span></header>';
+    echo '<form class="calls-filters" action="/saas/console/" method="get" role="search"><input type="hidden" name="tab" value="calls">'.
+        '<label class="field">بحث بالاسم أو الرقم<input name="q" value="'.e($keyword).'" placeholder="اسم العميل أو الرقم" maxlength="80"></label>'.
+        '<label class="field">الحالة<select name="status">';
+    $labels=['all'=>'كل الحالات','answered'=>'تم الرد','missed'=>'فائتة','failed'=>'فشلت','completed'=>'مكتملة','busy'=>'مشغول','no_answer'=>'لم يرد'];
+    foreach($labels as $key=>$name)echo '<option value="'.e($key).'"'.($filter===$key?' selected':'').'>'.e($name).'</option>';
+    echo '</select></label><button class="btn primary" type="submit">بحث</button></form>';
+    echo '<div class="calls-inbox"><div class="calls-list" aria-label="سجل المكالمات">';
+    if(!$list)echo '<div class="calls-empty">لا توجد مكالمات مطابقة للبحث. البيانات هتظهر هنا بعد وصول سجل مكالمات حقيقي من الجهاز.</div>';
+    foreach($list as $c){
+        $chosen=$selected&&(int)$selected['id']===(int)$c['id'];
+        $url='/?tab=calls&call='.(int)$c['id'].'&status='.rawurlencode($filter).'&q='.rawurlencode($keyword);
+        $letter=mb_substr((string)($c['name']?:$c['phone']),0,1);
+        echo '<a class="call-contact'.($chosen?' active':'').'" href="'.e($url).'"'.($chosen?' aria-current="true"':'').'><span class="call-avatar">'.e($letter).'</span>'.
+            '<span class="call-contact-main"><strong>'.e((string)($c['name']?:'رقم غير مسجل')).'</strong><small dir="ltr">'.e((string)$c['phone']).'</small></span>'.
+            '<span class="call-contact-meta"><time>'.e((string)$c['created_at']).'</time>'.pill((string)$c['status']).'</span></a>';
+    }
+    echo '</div><section class="call-detail" aria-label="تفاصيل المكالمة">';
+    if($selected){
+        echo '<div class="call-detail-header"><span class="call-avatar large">'.e(mb_substr((string)($selected['name']?:$selected['phone']),0,1)).'</span>'.
+            '<h3>'.e((string)($selected['name']?:'رقم غير مسجل')).'</h3><p dir="ltr">'.e((string)$selected['phone']).'</p></div>'.
+            '<div class="call-facts"><div><span>الحالة</span>'.pill((string)$selected['status']).'</div>'.
+            '<div><span>المدة</span><strong>'.e(fmt_duration((int)$selected['duration_seconds'])).'</strong></div>'.
+            '<div><span>التاريخ</span><strong>'.e((string)$selected['created_at']).'</strong></div>'.
+            '<div><span>المصدر</span><strong>'.((int)$selected['is_demo']===1?'بيانات تجربة':'سجل الجهاز').'</strong></div></div>'.
+            '<div class="call-transcript-empty"><strong>المحادثة والملخص</strong><p>لا يوجد تفريغ نصي أو تسجيل مرتبط بهذا السجل. مش هنعرض رسائل أو تسجيلات وهمية.</p></div>';
+    }else echo '<div class="calls-empty">اختار مكالمة لعرض التفاصيل بعد مزامنتها من الشريحة.</div>';
+    echo '</section></div></section>';
 }
 function render_devices(array $a):void {
     $id=(int)$a['account_id'];
@@ -486,35 +547,7 @@ function render_devices(array $a):void {
             echo card('ربط Android','<p>أضف موقعًا وإيجنت أولًا ثم أنشئ رمز ربط للشريحة.</p>');
         }
     }
-    if($a['kind']!=='platform'){
-        echo '<p class="info">تجهيز الربط على السيرفر متاح، لكن التطبيق المثبت حاليًا ما زال على هوية التجربة القديمة؛ لا تتوقع مزامنة الجهاز الجديد قبل تحديث Android واختبار الشريحة.</p>';
-        return;
-    }
-    require_once __DIR__.'/MobilePilot.php';
-    $settings=pilot_settings();
-    $state=pilot_json('call-status.json');
-    $seen=!empty($state['seen_at'])?strtotime((string)$state['seen_at']):0;
-    $fresh=$seen&&time()-$seen<45;
-    $phase=$fresh?(string)($state['phase']??'unknown'):'offline';
-    echo '<div class="metric-grid">'.
-        counter('هاتف التجربة',$fresh?'متصل':'غير متصل','◉').
-        counter('مرحلة المكالمة',$phase,'☏').
-        counter('الإيجنت',!empty($settings['enabled'])?'مفعّل':'متوقف','✧').
-        counter('Revision',(string)$settings['revision'],'↻').
-        '</div>';
-    echo card('حالة الجهاز الحقيقية','<p>آخر حالة مستلمة: '.e((string)($state['seen_at']??'لا توجد حالة')).'</p><p class="dim">حفظ سياسة التشغيل لا يعني أن الهاتف نفّذها قبل وصول إقرار المزامنة.</p>');
-    if(in_array($a['role'],['owner','admin'],true)&&!active_support()){
-        echo card('التحكم الفعلي في سياسة هاتف التجربة',
-            form_start('pilot_settings','/?tab=devices').
-            '<label class="field">اسم الإيجنت<input name="agent_name" value="'.e((string)$settings['agent_name']).'" required maxlength="120"></label>'.
-            '<label class="field">الصوت<input name="voice" value="'.e((string)$settings['voice']).'" required maxlength="40"></label>'.
-            '<label class="field">تأخير الرد بالثواني<input type="number" name="answer_delay_seconds" min="0" max="30" value="'.(int)$settings['answer_delay_seconds'].'"></label>'.
-            '<label class="field">تعليمات الإيجنت<textarea name="instruction" rows="5" maxlength="5000">'.e((string)$settings['instruction']).'</textarea></label>'.
-            '<label class="field"><input type="checkbox" name="auto_answer" '.(!empty($settings['auto_answer'])?'checked':'').'> الرد التلقائي</label>'.
-            '<label class="field"><input type="checkbox" name="enabled" '.(!empty($settings['enabled'])?'checked':'').'> تشغيل الإيجنت</label>'.
-            submit_btn('حفظ الإعدادات ومزامنتها'));
-    }
-    echo '<p class="info">هذا الربط خاص بمنصة OnTrack فقط. لن يظهر هاتف الأدمن لدى عملاء الريسيلر بدون Pairing مستقل.</p>';
+    echo '<div class="info">الربط الجديد لكل شريحة على حدة: اختر الشركة والإيجنت، أنشئ QR، ثم راقب آخر اتصال للجهاز. جلسة Google Live تحتاج مزوّدًا معتمدًا واختبار صوت فعلي.</div>';
 }
 function render_voices(array $a):void{
     $id=(int)$a['account_id'];$list=all('SELECT * FROM voices ORDER BY tier, id');

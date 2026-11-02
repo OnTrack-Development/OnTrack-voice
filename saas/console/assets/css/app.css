@@ -166,3 +166,49 @@ html,body{max-width:100%;overflow-x:clip}
 .pair-qr-card{display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px;border:1px solid var(--border,#444);border-radius:16px;max-width:240px;background:var(--surface,#fff)}
 .pair-qr-code svg{width:180px;height:180px;max-width:100%;display:block;border-radius:10px}
 .pair-qr-panel{overflow-wrap:anywhere}
+
+/* Console navigation: reduce more than a dozen competing tabs into three purposeful groups. */
+.nav-list{gap:9px;padding:0 1px 10px}
+.nav-group{border:1px solid var(--border);border-radius:15px;overflow:hidden;flex-shrink:0;background:color-mix(in srgb,var(--panel2) 42%,transparent)}
+.nav-group-title{padding:12px 14px;font-size:12px;font-weight:800;color:var(--text);cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between}
+.nav-group-title::-webkit-details-marker{display:none}
+.nav-group-title span{transition:transform .18s;color:var(--muted)}
+.nav-group[open]>.nav-group-title span{transform:rotate(180deg)}
+.nav-group-links{padding:0 5px 7px;display:flex;flex-direction:column;gap:2px}
+.nav-group:not([open]) .nav-group-links{display:none}
+.nav-group .nav-link{padding:9px 11px;font-size:12px}
+.nav-group .nav-icon{width:21px;font-size:17px}
+/* Working calls inbox: no invented chat bubbles, genuine call-ledger records only. */
+.calls-workspace{background:var(--panel);border:1px solid var(--border);border-radius:22px;overflow:hidden;box-shadow:var(--shadow)}
+.calls-top{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:24px 27px 18px}
+.calls-top h2{font-size:23px;margin:1px 0 5px}
+.calls-top p{margin:0;color:var(--muted);font-size:12px;max-width:590px}
+.calls-total{font-size:12px;font-weight:800;padding:9px 14px;background:var(--panel2);border:1px solid var(--border);border-radius:100px;white-space:nowrap}
+.calls-filters{display:flex;align-items:flex-end;gap:12px;padding:16px 25px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.calls-filters .field:first-of-type{flex:1}
+.calls-filters .field:nth-of-type(2){min-width:175px}
+.calls-filters .btn{min-height:44px}
+.calls-inbox{display:grid;grid-template-columns:minmax(260px,36%) minmax(0,1fr);min-height:470px}
+.calls-list{max-height:690px;overflow:auto;border-inline-end:1px solid var(--border)}
+.call-contact{display:flex;align-items:center;gap:11px;padding:15px;border-bottom:1px solid var(--border);transition:background .15s}
+.call-contact:hover,.call-contact.active{background:var(--panel2)}
+.call-contact.active{box-shadow:inset -3px 0 var(--accent)}
+.call-avatar{height:42px;width:42px;border-radius:15px;background:linear-gradient(140deg,#4e1726,#a51d38);color:#fff;display:grid;place-items:center;flex:none;font-weight:900}
+.call-avatar.large{height:64px;width:64px;font-size:24px;margin:auto}
+.call-contact-main{display:flex;flex-direction:column;min-width:0;gap:3px;flex:1}
+.call-contact-main strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.call-contact-main small{font-size:11px;color:var(--muted);text-align:right}
+.call-contact-meta{display:flex;align-items:flex-end;flex-direction:column;gap:5px}
+.call-contact-meta time{color:var(--muted);font-size:10px;white-space:nowrap}
+.call-detail{padding:32px;min-width:0}
+.call-detail-header{text-align:center;padding-bottom:25px;border-bottom:1px solid var(--border)}
+.call-detail-header h3{margin:11px 0 3px;font-size:20px}
+.call-detail-header p{margin:0;color:var(--muted)}
+.call-facts{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:22px 0}
+.call-facts>div{padding:15px;background:var(--panel2);border:1px solid var(--border);border-radius:14px}
+.call-facts span:first-child{font-size:11px;display:block;color:var(--muted)}
+.call-facts strong{display:block;margin-top:5px}
+.call-transcript-empty,.calls-empty{margin:18px 0;padding:22px;border:1px dashed var(--border);border-radius:16px;text-align:center}
+.call-transcript-empty p,.calls-empty{color:var(--muted)}
+@media(max-width:900px){.calls-inbox{grid-template-columns:1fr}.calls-list{max-height:390px;border-inline-end:0;border-bottom:1px solid var(--border)}}
+@media(max-width:600px){.calls-top{padding:18px;align-items:flex-start;flex-direction:column}.calls-filters{padding:14px;flex-wrap:wrap}.calls-filters .field:first-of-type{flex:1 0 100%}.calls-filters .field:nth-of-type(2){flex:1}.call-detail{padding:20px}.call-contact{padding:12px}.call-contact-meta time{font-size:9px}}
