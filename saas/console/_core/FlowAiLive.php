@@ -51,9 +51,9 @@ function flow_ai_live_parse_text_graph(string $text):?array {
     catch(JsonException){return null;}
     return is_array($graph)&&!array_is_list($graph)?$graph:null;
 }
-function flow_ai_live_extract(array $message):?array {
+function flow_ai_live_extract(array $message,string $toolName='submit_editor_proposal'):?array {
     foreach((array)($message['toolCall']['functionCalls']??[]) as $call){
-        if(!is_array($call)||($call['name']??null)!=='submit_editor_proposal')continue;
+        if(!is_array($call)||($call['name']??null)!==$toolName)continue;
         $args=$call['args']??null;
         if(!is_array($args)||array_is_list($args))
             throw new RuntimeException('مساعد AI رجّع مقترحًا غير صالح.');
@@ -107,7 +107,7 @@ function flow_ai_ws_read($socket):array {
     if($masked)for($i=0;$i<$length;$i++)$body[$i]=$body[$i]^$mask[$i%4];
     return [$opcode,$body,($first&0x80)!==0];
 }
-function flow_ai_live_exchange(string $apiKey,array $setup,string $userText):array {
+function flow_ai_live_exchange(string $apiKey,array $setup,string $userText,string $toolName='submit_editor_proposal'):array {
     if(!preg_match('/\A[A-Za-z0-9._~-]{4,256}\z/D',$apiKey))
         throw new RuntimeException('مفتاح منصة AI غير مهيأ.');
     $host='generativelanguage.googleapis.com';
@@ -168,7 +168,7 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText):arr
             if(!$initialized)continue;
             $lastEvent=isset($event['serverContent'])?'server_content':
                 (isset($event['toolCall'])?'tool_call':(isset($event['goAway'])?'go_away':'other'));
-            $toolResponse=flow_ai_live_extract($event);
+            $toolResponse=flow_ai_live_extract($event,$toolName);
             if($toolResponse!==null)return $toolResponse;
             $transcriptChunk=flow_ai_live_transcribed_chunk($event);
             if($transcriptChunk!=='' && strlen($transcript)<38000)
