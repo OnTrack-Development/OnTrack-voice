@@ -15,7 +15,7 @@ function voice_phone_normalize(string $raw):string {
 function voice_role_scopes(string $role):array {
     return match($role) {
         'owner','admin'=>['general','tickets','bookings','finance','websites','operations'],
-        'manager'=>['general','tickets','bookings','websites','operations'],
+        'manager'=>['general','tickets','bookings','finance','websites','operations'],
         'operator','reception'=>['general','bookings','tickets'],
         'finance'=>['general','finance'],
         'support'=>['general','tickets'],
