@@ -153,9 +153,13 @@ function wa_webhook_ingest(array $connection,array $payload):array {
 function wa_human_takeover(int $accountId,int $conversationId,bool $permanent):array {
     $conversation=wa_conversation($conversationId,$accountId);
     $expiry=gmdate('Y-m-d H:i:s',time()+15*60);
-    execute('UPDATE wa_conversations SET ai_pause_until=?,human_locked_at=CASE WHEN ?=1 THEN ? ELSE human_locked_at END,
-        generation=generation+1 WHERE id=? AND account_id=?',
-        [$expiry,$permanent?1:0,now(),$conversationId,$accountId]);
+    if($permanent){
+        execute('UPDATE wa_conversations SET ai_pause_until=?,human_locked_at=?,generation=generation+1 WHERE id=? AND account_id=?',
+            [$expiry,now(),$conversationId,$accountId]);
+    }else{
+        execute('UPDATE wa_conversations SET ai_pause_until=?,generation=generation+1 WHERE id=? AND account_id=?',
+            [$expiry,$conversationId,$accountId]);
+    }
     wa_audit($accountId,$conversationId,$permanent?'whatsapp.human.lock':'whatsapp.human.pause',
         $permanent?'until_staff_release':'15_minutes');
     return wa_conversation($conversationId,$accountId);
