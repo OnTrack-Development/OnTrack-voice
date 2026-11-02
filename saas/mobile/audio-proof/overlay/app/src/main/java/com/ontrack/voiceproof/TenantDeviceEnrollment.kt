@@ -168,7 +168,7 @@ class TenantDeviceEnrollment(private val context: Context) {
     }
     /** Read-only directory for the current tenant + site, never a dial command. */
     fun contacts(slot:Int,query:String=""):org.json.JSONArray {
-        require(query.length<=60) { "البحث طويل جدًا" }
+        require(TenantPairingContract.contactSearchValid(query)) { "بحث جهات الاتصال غير صالح" }
         heartbeat(slot)
         val saved=local(slot)
         return request(JSONObject().put("operation","contacts")
