@@ -11,5 +11,5 @@
     "-r",
     "require '/home/appontrack/public_html/saas/console/_core/Bootstrap.php';init_schema();require '/home/appontrack/public_html/saas/console/_core/FlowAi.php';$out=['schema_v13'=>is_file(private_path().'/schema.v13'),'schema_v14'=>is_file(private_path().'/schema.v14'),'knowledge_table'=>(bool)one(\"SELECT name FROM sqlite_master WHERE type='table' AND name='voice_knowledge_sources'\"),'staff_table'=>(bool)one(\"SELECT name FROM sqlite_master WHERE type='table' AND name='voice_staff_numbers'\")];try{$g=flow_ai_generate(1,7,'صمم لي سيناريو استقبال لعيادة اسنان في مصر يسأل عن نوع الحجز ويرد على الاسئلة ثم ينهي المحادثة بأدب دون تأكيد أي حجز.');$out['ai']=['ok'=>true,'nodes'=>count($g['nodes']),'edges'=>count($g['edges'])];}catch(Throwable $e){$out['ai']=['ok'=>false,'error'=>preg_replace('/[^A-Za-z0-9_ء-ي ]/u','',mb_substr($e->getMessage(),0,95))];}echo json_encode($out,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);"
   ],
-  "timeout_seconds": 48
+  "timeout_seconds": 30
 }
