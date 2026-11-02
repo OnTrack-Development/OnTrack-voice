@@ -458,3 +458,21 @@ body.graph-editor-maximized{overflow:hidden}
 .graph-ai-reset:hover{color:var(--text);border-color:var(--accent)}
 .graph-ai-message{line-height:1.85;white-space:pre-wrap;overflow-wrap:anywhere}
 .graph-ai-thread{scrollbar-width:thin}
+
+/* Platform-wide AJAX feedback and confirmation; fullscreen keeps its top layer. */
+.ot-confirm-overlay{position:fixed;inset:0;z-index:99999;background:#06070cba;
+ backdrop-filter:blur(7px);display:grid;place-items:center;padding:18px;direction:rtl}
+.ot-confirm-dialog{width:min(100%,430px);border-radius:22px;border:1px solid var(--border);
+ background:var(--panel);box-shadow:0 30px 90px #000a;padding:25px;color:var(--text)}
+.ot-confirm-dialog h3{font-size:18px;font-weight:850;margin-bottom:12px}
+.ot-confirm-dialog p{font-size:13px;color:var(--muted);line-height:1.85;white-space:pre-wrap;margin-bottom:22px}
+.ot-confirm-actions{display:flex;gap:10px;justify-content:flex-start}
+.ot-confirm-actions .btn{min-width:115px}
+.ot-ui-toast{position:fixed;z-index:100000;bottom:25px;inset-inline-start:22px;
+ width:min(420px,calc(100% - 44px));border:1px solid #38be7d77;
+ background:var(--panel);color:var(--text);border-radius:15px;padding:15px 18px;
+ box-shadow:0 20px 45px #0009;font-size:13px;font-weight:650;direction:rtl}
+.ot-ui-toast.error{border-color:#ef3b5b;color:#ff7b90}
+.ot-ajax-loading .content{opacity:.7;transition:opacity .16s ease}
+@media(max-width:620px){.ot-confirm-dialog{padding:21px}.ot-confirm-actions .btn{flex:1}
+ .ot-ui-toast{bottom:90px;inset-inline-start:12px;width:calc(100% - 24px)}}
