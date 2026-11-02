@@ -311,11 +311,18 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('tenantStateBadge').className='chip '+(s.tenantLinked?'good':'warn');
  if(tenantOk&&s.tenantLinked){
   const engine=Number(s.nativeCode)>=25;
-  el('badge').textContent=engine?(s.connected?'محرك الشركات · متصل':'محرك الشركات · يتحقق من الجاهزية'):'الشرائح مرتبطة · يلزم تحديث Android';
-  el('badge').className='chip '+(engine&&s.connected?'good':'warn');
-  el('mode').textContent=engine?(s.agentEnabled?'مراقبة الشرائح المستقلة':'محرك الشركات متوقف'):'يلزم Android 0.3.4';
+  const monitoring=!!s.agentEnabled && (s.tenantServiceRunning===undefined || !!s.tenantServiceRunning);
+  const starting=!!s.tenantDesiredEnabled && !monitoring;
+  el('badge').textContent=!engine?'يلزم تحديث Android':
+    monitoring?(s.connected?'Google Live · مكالمة متصلة':'مراقب SIM · يعمل وينتظر المكالمة'):
+    starting?'جاري استعادة خدمة الهاتف':'مراقب SIM · متوقف';
+  el('badge').className='chip '+(monitoring?'good':'warn');
+  el('mode').textContent=!engine?'يلزم Android 0.3.4':
+    monitoring?'المحرك مفعّل؛ Google Live يتصل وقت المكالمة':
+    starting?'طلب التشغيل محفوظ؛ جاري التحقق من خدمة Android':'المراقبة متوقفة؛ اضغط تشغيل';
+  if(s.tenantPairingInProgress)el('mode').textContent='جاري ربط الشريحة؛ التشغيل متوقف مؤقتًا';
   el('status').textContent=engine?(s.status||'يلزم اعتماد المزوّد واختبار الهاتف قبل الرد'):'حدّث Android لمراقب الشرائح الجديد';
-  el('enable').disabled=!engine||s.agentEnabled||call||!!s.updating;
+  el('enable').disabled=!engine||monitoring||call||!!s.updating||!!s.tenantPairingInProgress;
   el('disable').disabled=!engine||!s.agentEnabled||!!s.updating;
  }
  el('nativeUpdateStatus').textContent=s.nativeUpdateStatus||'جاري فحص تحديث Android…';
@@ -342,6 +349,8 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
 el('enable').onclick=()=>{
  el('message').textContent='';
  if(!last.tenantLinked){el('message').textContent='اربط SIM بحساب OnTrack أولًا';return;}
+ if(last.tenantPairingInProgress){el('message').textContent='جاري استكمال ربط الشريحة';return;}
+ el('message').textContent='جاري إرسال أمر التشغيل للهاتف…';
  send('enable');
 };
 el('disable').onclick=()=>send('disable');
