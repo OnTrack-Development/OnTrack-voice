@@ -1,4 +1,18 @@
 <?php
+// Redirect legacy OnTrack agent deep links to the authenticated SaaS console.
+// Regular Call Desk URLs remain available. URL fragments are handled by browsers.
+if (($_GET['tab'] ?? null) === 'agents') {
+    $query = ['tab=agents'];
+    foreach (['site', 'agent'] as $name) {
+        $value = $_GET[$name] ?? null;
+        if (is_string($value) && preg_match('/^[1-9][0-9]{0,9}$/D', $value)) {
+            $query[] = $name . '=' . $value;
+        }
+    }
+    header('Cache-Control: private, no-store');
+    header('Location: /saas/console/?' . implode('&', $query), true, 302);
+    exit;
+}
 $config = require __DIR__ . '/api/demo_config.php';
 ?>
 <!doctype html>
