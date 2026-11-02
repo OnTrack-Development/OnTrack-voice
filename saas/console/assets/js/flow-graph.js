@@ -59,18 +59,52 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
  world.append(lines,cards);viewport.append(world);layout.append(viewport,inspector);shell.append(layout);
  const footer=make('div','graph-footer'),counter=make('span','',''),notice=make('span','','اسحب العقد أو اضغط لتعديلها');
  // AI is a draft advisor: suggestions never mutate the graph until an explicit user command.
- const aiPanel=make('section','graph-ai-panel'),aiTitle=make('h3','','مساعد AI للمخطط');
- const aiDescription=make('p','','اكتب السيناريو بالمصري. يُرسل الوصف فقط إلى مزوّد المنصة. راجع الاقتراح قبل تنفيذ المسودة؛ لا يتم النشر تلقائيًا.');
+ const aiPanel=make('aside','graph-ai-panel');
+ aiPanel.id='flow-ai-drawer-'+Math.random().toString(36).slice(2,10);
+ aiPanel.hidden=true;
+ aiPanel.setAttribute('role','dialog');
+ aiPanel.setAttribute('aria-label','شات مساعد AI للمخطط');
+ const aiLauncher=button('✦',()=>toggleAi(true),'graph-ai-launcher');
+ aiLauncher.setAttribute('aria-label','فتح شات مساعد AI للمخطط');
+ aiLauncher.setAttribute('title','مساعد AI للمخطط');
+ aiLauncher.setAttribute('aria-controls',aiPanel.id);
+ aiLauncher.setAttribute('aria-expanded','false');
+ const aiTitle=make('h3','','مساعد AI للمخطط');
+ const aiClose=button('×',()=>toggleAi(false),'graph-ai-close');
+ aiClose.setAttribute('aria-label','إغلاق شات المساعد');
+ const aiHead=make('div','graph-ai-head');aiHead.append(aiTitle,aiClose);
+ const aiDescription=make('p','','اشرح السيناريو بالمصري. المساعد يقترح مخططًا للمراجعة، ولن يُعدّل المسودة أو ينشرها بدون موافقتك.');
+ const aiThread=make('div','graph-ai-thread');
+ aiThread.setAttribute('role','log');aiThread.setAttribute('aria-live','polite');
  const aiInput=make('textarea');aiInput.rows=3;aiInput.maxLength=2500;
- aiInput.placeholder='مثلاً: عميل عقارات يسأل عن السعر والموقع، وبعد الاعتراض اقترح متابعة بشرية…';
+ aiInput.placeholder='اكتب اللي عايز الإيجنت يعمله…';
+ aiInput.setAttribute('aria-label','رسالة إلى مساعد المخطط');
  const aiSubmit=button('اقترح مخطط',()=>requestAiProposal(),'primary');
  const aiStatus=make('p','graph-ai-status','');
+ aiStatus.setAttribute('role','status');
  const aiPreview=make('div','graph-ai-preview');
  const aiApply=button('نفّذ المقترح كمسودة',()=>applyAiProposal(),'primary');aiApply.hidden=true;
  const aiCancel=button('إلغاء المقترح',()=>clearAiProposal());aiCancel.hidden=true;
  const aiActions=make('div','graph-ai-actions');aiActions.append(aiSubmit,aiApply,aiCancel);
- aiPanel.append(aiTitle,aiDescription,aiInput,aiActions,aiStatus,aiPreview);
- shell.append(aiPanel);
+ const aiCompose=make('div','graph-ai-compose');aiCompose.append(aiInput,aiActions,aiStatus);
+ aiThread.append(make('div','graph-ai-message assistant','أهلاً! اشرحلي السيناريو، هجهزلك مخطط تراجعه قبل ما تضغط «نفّذ».'));
+ aiThread.append(aiPreview);
+ aiPanel.append(aiHead,aiDescription,aiThread,aiCompose);
+ shell.append(aiLauncher,aiPanel);
+ function toggleAi(open){
+   aiPanel.hidden=!open;
+   aiLauncher.setAttribute('aria-expanded',String(open));
+   aiLauncher.setAttribute('aria-label',open?'شات المساعد مفتوح':'فتح شات مساعد AI للمخطط');
+   if(open){aiInput.focus();aiThread.scrollTop=aiThread.scrollHeight}
+   else aiLauncher.focus();
+ }
+ aiPanel.addEventListener('keydown',event=>{
+   if(event.key==='Escape'){event.stopPropagation();toggleAi(false)}
+ });
+ function aiMessage(kind,message){
+   aiThread.insertBefore(make('div','graph-ai-message '+kind,message),aiPreview);
+   aiThread.scrollTop=aiThread.scrollHeight;
+ }
  let proposal=null,busy=false;
  function clearAiProposal(){
    proposal=null;aiPreview.replaceChildren();aiStatus.textContent='';aiApply.hidden=true;aiCancel.hidden=true;
@@ -85,7 +119,7 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
    const csrf=form.querySelector('[name=csrf]')?.value;
    const agentId=form.querySelector('[name=agent_id]')?.value;
    if(!csrf||!agentId){aiStatus.textContent='لا توجد جلسة تعديل معتمدة.';return;}
-   busy=true;clearAiProposal();aiSubmit.disabled=true;aiStatus.textContent='جارٍ بناء مخطط مقترح…';
+   busy=true;clearAiProposal();aiMessage('user',prompt);aiSubmit.disabled=true;aiStatus.textContent='جارٍ بناء مخطط مقترح…';
    try {
      const params=new URLSearchParams({csrf,agent_id:agentId,action:'flow_ai_propose',description:prompt});
      const res=await fetch(form.action,{method:'POST',credentials:'same-origin',
@@ -104,10 +138,11 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
        item.append(make('b','',TYPES[n.type]||n.type),make('span','',String(n.text||'').slice(0,180)));
        list.append(item);
      });
+     aiMessage('assistant','جهزت مقترح من '+g.nodes.length+' خطوات و'+g.edges.length+' روابط. راجعه وبعدها نفّذه كمسودة لو مناسب.');
      aiPreview.replaceChildren(title,list);
      aiApply.hidden=false;aiCancel.hidden=false;
      aiStatus.textContent='للمراجعة فقط. قل «نفّذ» أو اضغط «نفّذ المقترح» لحفظه كمسودة. النشر منفصل.';
-   }catch(error){aiStatus.textContent=error.message||'تعذر إنشاء المقترح؛ لم تتغير المسودة.'}
+   }catch(error){const message=error.message||'تعذر إنشاء المقترح؛ لم تتغير المسودة.';aiMessage('assistant',message);aiStatus.textContent=message}
    finally{busy=false;aiSubmit.disabled=false;}
  }
  function applyAiProposal(){
@@ -115,6 +150,7 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
    const form=root.closest('form');
    if(!form){aiStatus.textContent='لا توجد استمارة حفظ.';return;}
    if(!confirm('استبدال مسودة المخطط الحالية بالمقترح وحفظها؟ لن يتم نشره على المكالمات.'))return;
+   aiMessage('assistant','تم اعتماد المقترح كمسودة فقط؛ النشر خطوة منفصلة.');
    data=JSON.parse(JSON.stringify(proposal));proposal=null;selected=data.nodes[0]?.id||null;
    render();store();clearAiProposal();
    const draft=[...form.querySelectorAll('button[type=submit]')].find(b=>!b.hasAttribute('name')||b.name!=='publish_now');
