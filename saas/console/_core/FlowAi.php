@@ -4,7 +4,6 @@ require_once __DIR__.'/FlowPreview.php';
 require_once __DIR__.'/TenantVoiceSession.php';
 require_once __DIR__.'/VoiceAccess.php';
 require_once __DIR__.'/FlowAiQuality.php';
-require_once __DIR__.'/FlowAiLive.php';
 
 /** Preview-only planning. No DB update, publish, phone action or external webhook. */
 function flow_ai_validate_proposal(array $candidate):array {
@@ -60,7 +59,9 @@ function flow_ai_extract_graph(string $providerBody):array {
 
 /** Display the effective model, not just a hardcoded default label. */
 function flow_ai_model():string {
-    return flow_ai_live_model();
+    // Dedicated 3.8 text-thinking model for structured Flow Builder proposals.
+    // Never inherit the legacy 3.5 value or mutate the phone's Live model.
+    return 'gemini-3.8-flash';
 }
 
 function flow_ai_generate(int $accountId,int $agentId,string $idea,array $history=[],?array $currentGraph=null):array {
@@ -69,7 +70,9 @@ function flow_ai_generate(int $accountId,int $agentId,string $idea,array $histor
         throw new InvalidArgumentException('وصف السيناريو لازم يكون بين 15 و2500 حرف.');
     $agent=flow_preview_agent_for_account($accountId,$agentId);
     if(!$agent)throw new InvalidArgumentException('agent_not_available');
-    // Live requests resolve the platform credential server-side only.
+    // Only administrator's existing platform provider credential, never Pilot or tenant keys.
+    $provider=tenant_voice_provider();
+    $model=flow_ai_model();
     $instruction=<<<'PROMPT'
 You are a graph designer for an Egyptian Arabic telephone AI agent. Return only a JSON object
 with keys "nodes" and "edges". Each node has id, type, text, x, y. Each edge has from, to, label.
@@ -171,11 +174,41 @@ PROMPT;
             ?"\nPREVIOUS INSUFFICIENT GRAPH (improve substantially, preserve its valid nodes and IDs):\n".json_encode($retryCandidate,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)
             :'';
         $targetPrompt=$instruction.$qualityInstruction.$compact;
-        // 3.8 Live Extended Thinking is WebSocket-only and has no structured
-        // responseMimeType. The NON_BLOCKING function call supplies typed args.
-        $response=flow_ai_live_proposal($targetPrompt,$userText.$failedGraph,$schema);
+        $payload=['systemInstruction'=>['parts'=>[['text'=>$targetPrompt]]],
+            'contents'=>[['role'=>'user','parts'=>[['text'=>$userText.$failedGraph]]]],
+            'generationConfig'=>[
+                'responseMimeType'=>'application/json',
+                'responseSchema'=>$schema,
+                'thinkingConfig'=>['thinkingLevel'=>'MEDIUM'],
+                'maxOutputTokens'=>$stress?14000:9000]];
+        $body=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        $url='https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent';
+        $curl=curl_init($url);
+        if(!$curl)throw new RuntimeException('ai_flow_provider_unavailable');
+        curl_setopt_array($curl,[
+            CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$body,CURLOPT_RETURNTRANSFER=>true,
+            CURLOPT_HTTPHEADER=>['Content-Type: application/json','x-goog-api-key: '.$provider['key']],
+            CURLOPT_CONNECTTIMEOUT=>7,CURLOPT_TIMEOUT=>26,
+            CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,
+            CURLOPT_FOLLOWLOCATION=>false,CURLOPT_MAXREDIRS=>0,
+            CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,
+        ]);
+        $result=curl_exec($curl);
+        $status=(int)curl_getinfo($curl,CURLINFO_HTTP_CODE);
+        $curlError=curl_errno($curl);
+        curl_close($curl);
+        if(!is_string($result)||$status!==200||strlen($result)>160000){
+            $detail=match($status){
+                401=>'مفتاح API غير صالح أو مرفوض',
+                403=>'مفتاح API ليس له صلاحية استخدام الموديل',
+                404=>'الموديل غير متاح لحساب Google؛ اختر موديلًا مدعومًا',
+                429=>'تم تجاوز حد الاستخدام لدى Google',
+                default=>$curlError===28?'انتهت مهلة اتصال Google':'استجابة غير ناجحة من مزود AI'
+            };
+            throw new RuntimeException('تعذر إنشاء مقترح AI (HTTP '.$status.'): '.$detail);
+        }
         try{
-            $graph=flow_ai_validate_proposal($response);
+            $graph=flow_ai_extract_graph($result);
             if(!$stress)return $graph;
             $report=flow_ai_stress_verify($graph,$currentGraph);
             if($report['ok'])return $graph;
