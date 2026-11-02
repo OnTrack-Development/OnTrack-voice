@@ -54,7 +54,7 @@ def main():
         assert source_run.isdecimal() and int(source_run)>0, 'Invalid pinned Android release run'
         artifact=request('actions/runs/'+source_run+'/artifacts?per_page=100')['artifacts']
         artifact_name=os.environ.get('MOBILE_OTA_ARTIFACT_NAME','OnTrack-Voice-0.3.5')
-        assert artifact_name in ('OnTrack-Voice-0.3.9','OnTrack-Voice-UI-OTA'), 'Unexpected OTA artifact name'
+        assert artifact_name in ('OnTrack-Voice-0.3.9','OnTrack-Voice-0.3.10','OnTrack-Voice-UI-OTA'), 'Unexpected OTA artifact name'
         matches=[x for x in artifact if x['name']==artifact_name and not x['expired']]
         assert len(matches)==1,'Signed Android artifact missing or ambiguous'
         url=download_url(matches[0]['id'])
