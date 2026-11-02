@@ -36,8 +36,11 @@ class MobileUiInstrumentedTest {
     }
     @Test fun localMainDocumentRendersAndNativeBridgeInitializes(){
         val context=InstrumentationRegistry.getInstrumentation().targetContext
-        // The customer workspace now relies only on the encrypted per-SIM SaaS
-        // enrollment. The legacy Pilot API key must not be entered or displayed.
+        // Seed a retired Pilot key to prove the upgraded app erases its global
+        // credential without clearing the independent SaaS SIM enrollment.
+        context.getSharedPreferences("ontrack_link",0).edit()
+            .putString("key","instrumentation_only_key_12345678")
+            .putString("base","https://app.ontrackegy.com/").commit()
         // Model the failed 0.1.6 OTA remembered on the owner phone.
         val cache=File(context.filesDir,"mobile-ota").apply{mkdirs()}
         File(cache,"state.json").writeText("{\"highest\":3,\"rejected\":3,\"pending\":false}")
@@ -49,6 +52,10 @@ class MobileUiInstrumentedTest {
             js(scenario,"document.getElementById('enable').disabled=false;document.getElementById('enable').click();true")
             await(scenario,"document.getElementById('message').textContent.includes('SIM')")
             assertEquals("true",js(scenario,"!document.getElementById('key') && !document.getElementById('copyKey') && !document.getElementById('pair')"))
+            assertNull("Old Pilot bearer must be erased",
+                context.getSharedPreferences("ontrack_link",0).getString("key",null))
+            assertNull("Old Pilot endpoint must be erased",
+                context.getSharedPreferences("ontrack_link",0).getString("base",null))
             assertFalse(MobileLinkService.running)
             val state=JSONObject(File(cache,"state.json").readText())
             assertEquals(context.packageManager.getPackageInfo(context.packageName,0).longVersionCode,state.getLong("native_version"))
