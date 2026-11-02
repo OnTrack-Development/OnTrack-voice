@@ -53,6 +53,18 @@ for(const r of routed){
     const p=r.points[i-1],q=r.points[i];
     assert(p[0]===q[0]||p[1]===q[1],'non-orthogonal line');
   }
+  // Long routes must not cut through any unrelated node rectangle.
+  for(let i=1;i<r.points.length;i++){
+    const p=r.points[i-1],q=r.points[i];
+    for(const n of laid){
+      if(n.id===r.edge.from||n.id===r.edge.to)continue;
+      const left=n.x,top=n.y,right=n.x+route.WIDTH,bottom=n.y+route.HEIGHT;
+      const crosses=p[0]===q[0]
+        ?p[0]>left&&p[0]<right&&Math.max(p[1],q[1])>top&&Math.min(p[1],q[1])<bottom
+        :p[1]>top&&p[1]<bottom&&Math.max(p[0],q[0])>left&&Math.min(p[0],q[0])<right;
+      assert(!crosses,'edge '+r.edge.from+'->'+r.edge.to+' crosses node '+n.id);
+    }
+  }
   if(r.kind==='rail'){
     const rail=r.points[2][1];
     assert(rail<Math.min(...laid.map(n=>n.y))||
