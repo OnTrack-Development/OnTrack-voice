@@ -95,7 +95,7 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText):arr
         $path='/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key='.rawurlencode($apiKey);
         $request="GET ".$path." HTTP/1.1\r\nHost: ".$host."\r\n".
             "Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ".$key."\r\n".
-            "Sec-WebSocket-Version: 13\r\nx-goog-api-key: ".$apiKey."\r\n\r\n";
+            "Sec-WebSocket-Version: 13\r\n\r\n";
         if(fwrite($socket,$request)!==strlen($request))
             throw new RuntimeException('ai_live_handshake_failed');
         $status=fgets($socket,512);
