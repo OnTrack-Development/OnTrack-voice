@@ -581,6 +581,7 @@ function init_console_v18():void {
         phone_number_id VARCHAR(100) NOT NULL,
         access_token_enc $text NOT NULL,app_secret_enc $text NOT NULL,verify_token_hash VARCHAR(64) NOT NULL,
         whmcs_bridge_url VARCHAR(400) NULL,whmcs_bridge_token_enc $text NULL,
+        whmcs_bridge_verified_at VARCHAR(19) NULL,
         state VARCHAR(24) NOT NULL DEFAULT 'draft',
         last_tested_at VARCHAR(19) NULL,last_webhook_at VARCHAR(19) NULL,
         created_at VARCHAR(19) NOT NULL,updated_at VARCHAR(19) NOT NULL,
@@ -603,5 +604,12 @@ function init_console_v18():void {
         id $pk,account_id $int NOT NULL,conversation_id $int NULL,
         event VARCHAR(55) NOT NULL,detail VARCHAR(180) NOT NULL,
         created_at VARCHAR(19) NOT NULL)".$engine);
+    db()->exec("CREATE TABLE IF NOT EXISTS wa_ai_jobs (
+        id $pk,account_id $int NOT NULL,conversation_id $int NOT NULL,
+        connection_id $int NOT NULL,source_message_id VARCHAR(160) NOT NULL,
+        generation $int NOT NULL,status VARCHAR(22) NOT NULL DEFAULT 'pending',
+        attempts $int NOT NULL DEFAULT 0,
+        created_at VARCHAR(19) NOT NULL,updated_at VARCHAR(19) NOT NULL,
+        UNIQUE(connection_id,source_message_id))".$engine);
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
