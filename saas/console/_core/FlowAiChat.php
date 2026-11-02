@@ -49,42 +49,44 @@ function flow_ai_chat_write(int $accountId,int $userId,int $agentId,array $messa
             [$accountId,$userId,$agentId,$encoded,$graph,now()]);
     }
 }
-/** Explanation is computed from the validated graph, not invented by an LLM. */
+/** Explain the actual editor graph, including EVERY reachable branch, without AI guesses. */
 function flow_ai_explain_graph(array $graph):string {
-    $graph=flow_ai_validate_proposal($graph);
-    $edges=[];$nodes=[];
-    foreach($graph['nodes'] as $n)$nodes[(string)$n['id']]=$n;
-    foreach($graph['edges'] as $e)$edges[(string)$e['from']][]=$e;
+    if(!isset($graph['nodes'],$graph['edges'])||!is_array($graph['nodes'])||
+        !is_array($graph['edges'])||count($graph['nodes'])>100||count($graph['edges'])>250)
+        throw new InvalidArgumentException('مخطط غير صالح للشرح');
+    flow_preview_compile($graph);
+    $nodes=[];$outgoing=[];
+    foreach($graph['nodes'] as $node)$nodes[(string)$node['id']]=$node;
+    foreach($graph['edges'] as $edge)$outgoing[(string)$edge['from']][]=$edge;
     $start=null;
-    foreach($graph['nodes'] as $n)if($n['type']==='start'){$start=$n;break;}
-    $parts=['ده شرح المخطط المقترح:'];
-    if($start!==null)$parts[]='• البداية: '.mb_substr(trim((string)$start['text']),0,140);
-    $visited=[];$id=$start['id']??null;$steps=0;
+    foreach($graph['nodes'] as $n)if(($n['type']??'')==='start'){$start=$n;break;}
     $types=['start'=>'بداية','say'=>'رد أو معلومة','listen'=>'استماع للعميل',
         'ask'=>'سؤال للعميل','instruction'=>'تعليمات داخلية للإيجنت',
-        'condition'=>'تفرّع حسب الإجابة','end'=>'إنهاء المحادثة'];
-    while(is_string($id) && isset($nodes[$id]) && !isset($visited[$id]) && $steps<14){
-        $visited[$id]=true;$steps++;
-        $node=$nodes[$id];$type=(string)$node['type'];
-        if($type!=='start'){
-            $line='• '.($types[$type]??'خطوة').': '.mb_substr(trim((string)$node['text']),0,140);
-            $parts[]=$line;
-        }
-        $options=$edges[$id]??[];
-        if(count($options)>1){
-            foreach(array_slice($options,0,5) as $edge){
-                $label=trim((string)$edge['label']);
-                $destination=$nodes[$edge['to']]??null;
-                $parts[]='  ↳ '.($label!==''?'لو الرد «'.mb_substr($label,0,55).'»':'المسار الافتراضي').
-                    ' ← '.($destination?($types[$destination['type']]??'خطوة').' — '.mb_substr((string)$destination['text'],0,90):'خطوة تالية');
+        'condition'=>'تفرّع حسب الإجابة','end'=>'إنهاء المحادثة',
+        'knowledge_lookup'=>'بحث في المعرفة','collect_field'=>'جمع بيانات',
+        'crm_lookup'=>'قراءة معلومات من CRM','crm_write'=>'طلب تحديث CRM',
+        'schedule'=>'طلب حجز موعد','handoff'=>'تحويل لموظف'];
+    $parts=['قرأت المخطط الحالي: '.count($nodes).' خطوة و'.count($graph['edges']).' رابط.'];
+    $queue=$start!==null?[(string)$start['id']]:[];
+    $seen=[];$steps=0;
+    while($queue&&$steps<100){
+        $id=array_shift($queue);
+        if(isset($seen[$id])||!isset($nodes[$id]))continue;
+        $seen[$id]=true;$steps++;
+        $node=$nodes[$id];
+        $type=(string)$node['type'];
+        $parts[]='• '.($types[$type]??'خطوة').': '.mb_substr(trim((string)$node['text']),0,115);
+        foreach($outgoing[$id]??[] as $edge){
+            $label=trim((string)($edge['label']??''));
+            $target=$nodes[$edge['to']]??null;
+            if($target!==null){
+                $parts[]='  ↳ '.($label!==''?'لو «'.mb_substr($label,0,45).'»':'المسار الافتراضي').
+                    ' → '.($types[$target['type']]??'خطوة').': '.mb_substr(trim((string)$target['text']),0,70);
+                if(!isset($seen[$edge['to']]))$queue[]=(string)$edge['to'];
             }
         }
-        if(!$options)break;
-        $next=null;
-        foreach($options as $e)if(trim((string)$e['label'])===''){$next=$e['to'];break;}
-        $id=$next??$options[0]['to'];
     }
-    if(count($visited)<count($nodes))$parts[]='• توجد مسارات فرعية أخرى في المخطط، تقدر تفتح العقدة لمراجعتها.';
-    $parts[]='المخطط مسودة محادثة فقط؛ أي حجز أو تغيير على نظام خارجي يحتاج تكاملًا وتنفيذًا مؤكدًا.';
-    return mb_substr(implode("\n",$parts),0,2700);
+    if(count($seen)<count($nodes))$parts[]='• فيه عقد مش متصلة بالمسار الأساسي؛ محتاجة مراجعة قبل النشر.';
+    $parts[]='أي حجز أو تعديل على نظام خارجي لا يتم لمجرد وجود عقدة؛ لازم تكامل فعلي وصلاحيات وتنفيذ مؤكد.';
+    return mb_substr(implode("\n",$parts),0,3800);
 }
