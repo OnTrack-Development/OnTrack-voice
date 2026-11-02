@@ -187,7 +187,13 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    if(!g||!Array.isArray(g.nodes)||!Array.isArray(g.edges)||g.nodes.length>32)
      throw Error('مخطط غير صالح من المساعد');
    proposal=g;
-   const title=make('strong','','مخطط مقترح: '+g.nodes.length+' خطوات و'+g.edges.length+' روابط');
+   const indegree=new Map(),outdegree=new Map();
+   g.edges.forEach(e=>{indegree.set(e.to,(indegree.get(e.to)||0)+1);
+     outdegree.set(e.from,(outdegree.get(e.from)||0)+1)});
+   const forks=[...outdegree.values()].filter(n=>n>=2).length;
+   const merges=[...indegree.values()].filter(n=>n>=2).length;
+   const title=make('strong','','شبكة مقترحة: '+g.nodes.length+' عقدة · '+g.edges.length+
+     ' رابط · '+forks+' تشعبات · '+merges+' نقاط التقاء');
    const list=make('ol','graph-ai-list');
    g.nodes.forEach(n=>{
      const item=make('li');
@@ -466,14 +472,33 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    data.nodes.push(n);if(a)data.edges.push({from:a.id,to:n.id,label:''});selected=n.id;render();
  }
  function arrange(){
-   const processed=new Set(),levels=new Map(),queue=[];
-   data.nodes.forEach(n=>{if(n.type==='start'||!data.edges.some(e=>e.to===n.id))queue.push([n.id,0])});
-   while(queue.length){const [id,level]=queue.shift();if(processed.has(id))continue;processed.add(id);levels.set(id,Math.min(12,level));
-     data.edges.filter(e=>e.from===id).forEach(e=>queue.push([e.to,level+1]))}
-   const grouped=new Map();
-   data.nodes.forEach((n,i)=>{const level=levels.get(n.id)??i;if(!grouped.has(level))grouped.set(level,[]);grouped.get(level).push(n)});
-   grouped.forEach((group,level)=>group.forEach((n,i)=>{n.x=1100+(i-(group.length-1)/2)*320;n.y=100+level*235}));
-   scale=.85;x=-760;y=30;render();
+   // Bounded visual grid: 32 proposal nodes fit in the 2500x3000 world.
+   // Breadth-first ordering respects the start and groups related branches;
+   // cycles do not cause endless traversal. Linked nodes remain editable.
+   const index=new Map(data.nodes.map(n=>[n.id,n]));
+   const next=new Map(),indegree=new Map();
+   data.edges.forEach(edge=>{
+     if(!next.has(edge.from))next.set(edge.from,[]);
+     next.get(edge.from).push(edge.to);
+     indegree.set(edge.to,(indegree.get(edge.to)||0)+1);
+   });
+   const queue=data.nodes.filter(n=>n.type==='start').map(n=>n.id);
+   const seen=new Set(),ordered=[];
+   while(queue.length){
+     const id=queue.shift();
+     if(seen.has(id)||!index.has(id))continue;
+     seen.add(id);ordered.push(index.get(id));
+     (next.get(id)||[]).forEach(target=>{if(!seen.has(target))queue.push(target)});
+   }
+   data.nodes.forEach(n=>{if(!seen.has(n.id))ordered.push(n)});
+   const maxCols=4,stepX=525,stepY=318;
+   ordered.forEach((n,i)=>{
+     const row=Math.floor(i/maxCols),col=i%maxCols;
+     n.x=250+col*stepX;
+     n.y=95+row*stepY;
+   });
+   scale=data.nodes.length>=20?.68:.85;x=data.nodes.length>=20?-200:-760;y=30;
+   render();
  }
  viewport.addEventListener('pointerdown',evt=>{
    if(evt.target.closest('.graph-node'))return;pan={cx:evt.clientX,cy:evt.clientY,ox:x,oy:y};viewport.setPointerCapture(evt.pointerId)
