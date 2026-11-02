@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit
 class MobileLinkService:Service() {
     companion object {
         const val ACTION_ENABLE="com.ontrack.voiceproof.ENABLE"
+        const val ACTION_RESTORE="com.ontrack.voiceproof.RESTORE_PREVIOUS_ENABLE"
         const val ACTION_DISABLE="com.ontrack.voiceproof.DISABLE"
         const val ACTION_TAKEOVER="com.ontrack.voiceproof.TAKEOVER"
         const val ACTION_SPEAKER="com.ontrack.voiceproof.SPEAKER"
@@ -132,9 +133,19 @@ class MobileLinkService:Service() {
                     notice("إيقاف محرك الشركات على هذا الجهاز")
                 }
                 ACTION_ENABLE->{
-                    tenantPrefs().edit().putBoolean("enabled",true).commit()
+                    check(tenantPrefs().edit().putBoolean("enabled",true).commit()){
+                        "تعذر حفظ حالة تشغيل محرك الشركات"
+                    }
                     agentEnabled=true
-                    notice("تشغيل مراقب الشرائح المستقلة — بانتظار اعتماد المحرك المنشور")
+                    notice("مراقبة الشريحة مفعّلة؛ جلسة Google Live تبدأ عند المكالمة")
+                }
+                ACTION_RESTORE->{
+                    // Honor the last explicit user selection after process death/update.
+                    // Never auto-enable a SIM the user deliberately switched off.
+                    agentEnabled=tenantPrefs().getBoolean("enabled",false)
+                    notice(if(agentEnabled)
+                        "استُعيد تشغيل مراقبة الشرائح بعد فتح التطبيق"
+                    else "الرد الآلي متوقف بقرار المستخدم؛ اضغط تشغيل لتفعيله")
                 }
                 ACTION_TAKEOVER->{
                     humanControl=true;call?.stop();call=null
