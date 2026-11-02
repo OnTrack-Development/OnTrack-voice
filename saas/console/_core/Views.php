@@ -700,7 +700,7 @@ function render_settings(array $a):void{
             '<p>الربط الصوتي على الشريحة يعتمد على مفتاح Gemini Live ساري، ويُخزّن مشفرًا على السيرفر ولا يظهر داخل التطبيق. الاختبار الحالي يتأكد من إصدار رمز مؤقت حقيقي من Google.</p>'.
             '<p class="info">حالة المزوّد: '.($provider?'محفوظ — '.e($provider['name']):'غير مربوط').'. ربط المزوّد لا يشغّل المكالمات قبل فحص الصوت ثنائي الاتجاه على الهاتف.</p>'.
             form_start('save_live_provider','/?tab=settings').
-            '<label class="field">معرف موديل Gemini Live<input name="model" dir="ltr" required maxlength="120" value="'.e((string)($provider['name']??'gemini-2.5-flash-native-audio-preview-12-2025')).'"></label>'.
+            '<label class="field">موديل Gemini Live<input name="model" dir="ltr" list="google-live-models" required maxlength="120" value="'.e((string)($provider['name']??'gemini-3.8-live')).'"><datalist id="google-live-models"><option value="gemini-3.8-live"><option value="gemini-3.8-live-extended-thinking"><option value="gemini-3.1-flash-live-preview"></datalist></label>'.
             '<label class="field">Google API Key<input type="password" name="google_key" autocomplete="new-password" required minlength="16" maxlength="256"></label>'.
             '<p class="dim">هنتحقق من صلاحية المفتاح عبر Google API، وبعدين نعرض نتيجة اختبار Live بشكل منفصل.</p>'.
             submit_btn('تحقق واحفظ مفتاح Google'));
