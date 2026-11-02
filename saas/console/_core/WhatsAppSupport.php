@@ -1,0 +1,233 @@
+<?php
+declare(strict_types=1);
+/**
+ * Meta Cloud API WhatsApp Inbox with a strictly external WHMCS AI Support Agent
+ * bridge. Existing WHMCS notification module is untouched and never called.
+ * A bridge must be explicitly configured and must return reviewer-approved text.
+ */
+function wa_e164(string $phone):string {
+    $digits=preg_replace('/[^0-9]/','',$phone);
+    if(!is_string($digits)||strlen($digits)<8||strlen($digits)>15)
+        throw new InvalidArgumentException('whatsapp_phone_invalid');
+    return $digits;
+}
+function wa_audit(int $accountId,?int $conversationId,string $event,string $detail=''):void {
+    insert('INSERT INTO wa_audit(account_id,conversation_id,event,detail,created_at) VALUES(?,?,?,?,?)',
+        [$accountId,$conversationId,mb_substr($event,0,55),mb_substr($detail,0,180),now()]);
+}
+function wa_connection(int $id,int $accountId):array {
+    $row=one('SELECT * FROM wa_connections WHERE id=? AND account_id=?',[$id,$accountId]);
+    if(!$row)throw new InvalidArgumentException('whatsapp_connection_not_found');
+    return $row;
+}
+function wa_conversation(int $id,int $accountId):array {
+    $row=one('SELECT * FROM wa_conversations WHERE id=? AND account_id=?',[$id,$accountId]);
+    if(!$row)throw new InvalidArgumentException('whatsapp_conversation_not_found');
+    return $row;
+}
+function wa_bridge_url(string $url):string {
+    $url=trim($url);
+    if($url==='')return '';
+    $p=parse_url($url);
+    // The existing WHMCS AI Support Agent is at OnTrack's WHMCS hostname.
+    // No user-specified hosts, embedded secrets, arbitrary query or redirects.
+    if(!is_array($p)||($p['scheme']??'')!=='https'||
+        strtolower((string)($p['host']??''))!=='services.ontrackegy.com'||
+        isset($p['port'])||isset($p['user'])||isset($p['pass'])||
+        isset($p['query'])||isset($p['fragment'])||
+        !preg_match('~^/modules/addons/ai_support_agent/[a-zA-Z0-9/_-]+\.php$~D',
+            (string)($p['path']??''))||strlen($url)>350)
+        throw new InvalidArgumentException('WHMCS bridge must be an authenticated OnTrack AI Support Agent addon endpoint');
+    return $url;
+}
+function wa_create_connection(int $accountId,int $siteId,string $label,string $phoneId,
+ string $token,string $appSecret,string $verifyToken,string $bridgeUrl='',string $bridgeToken=''):int {
+    if(!one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$siteId,$accountId]))
+        throw new InvalidArgumentException('whatsapp_site_not_available');
+    $label=trim($label);
+    if(mb_strlen($label)<2||mb_strlen($label)>120||
+       !preg_match('/^[0-9]{5,100}$/D',$phoneId)||
+       strlen($token)<8||strlen($token)>2000||
+       strlen($appSecret)<8||strlen($appSecret)>1000||
+       strlen($verifyToken)<12||strlen($verifyToken)>200)
+        throw new InvalidArgumentException('whatsapp_connection_fields_invalid');
+    $bridge=wa_bridge_url($bridgeUrl);
+    if(($bridge==='')!==($bridgeToken==='')||strlen($bridgeToken)>2000)
+        throw new InvalidArgumentException('whmcs_bridge_url_and_token_required_together');
+    $public=bin2hex(random_bytes(18));
+    $id=insert("INSERT INTO wa_connections
+      (account_id,site_id,public_id,label,phone_number_id,access_token_enc,app_secret_enc,
+       verify_token_hash,whmcs_bridge_url,whmcs_bridge_token_enc,state,created_at,updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,'draft',?,?)",[
+       $accountId,$siteId,$public,$label,$phoneId,seal_secret($token),
+       seal_secret($appSecret),hash('sha256',$verifyToken),$bridge!==''?$bridge:null,
+       $bridgeToken!==''?seal_secret($bridgeToken):null,now(),now()
+    ]);
+    wa_audit($accountId,null,'whatsapp.connection.created','draft, no live verified delivery');
+    return $id;
+}
+function wa_webhook_challenge(array $connection,string $mode,string $token,string $challenge):?string {
+    if($mode!=='subscribe'||$token===''||strlen($challenge)>300||
+      !hash_equals((string)$connection['verify_token_hash'],hash('sha256',$token)))return null;
+    return $challenge;
+}
+function wa_signature_valid(array $connection,string $header,string $raw):bool {
+    $secret=unseal_secret($connection['app_secret_enc']??null);
+    if(!$secret||!preg_match('/^sha256=[a-f0-9]{64}$/D',$header))return false;
+    return hash_equals('sha256='.hash_hmac('sha256',$raw,$secret),$header);
+}
+function wa_webhook_ingest(array $connection,array $payload):array {
+    if(($payload['object']??'')!=='whatsapp_business_account')return ['accepted'=>0,'duplicates'=>0];
+    $accepted=0;$duplicate=0;
+    foreach((array)($payload['entry']??[]) as $entry){
+        foreach((array)($entry['changes']??[]) as $change){
+            $value=$change['value']??null;
+            if(!is_array($value)||($value['metadata']['phone_number_id']??null)!==(string)$connection['phone_number_id'])
+                continue; // fail closed on cross-connection callbacks
+            $profiles=[];
+            foreach((array)($value['contacts']??[]) as $profile){
+                if(is_array($profile)&&is_string($profile['wa_id']??null))
+                    $profiles[$profile['wa_id']]=mb_substr((string)($profile['profile']['name']??''),0,150);
+            }
+            foreach((array)($value['messages']??[]) as $message){
+                if(!is_array($message))continue;
+                $providerId=(string)($message['id']??'');
+                $from=(string)($message['from']??'');
+                if(!preg_match('/^[A-Za-z0-9._:-]{5,160}$/D',$providerId))continue;
+                try{$from=wa_e164($from);}catch(InvalidArgumentException){continue;}
+                $type=(string)($message['type']??'');
+                $body=match($type){
+                    'text'=>(string)($message['text']['body']??''),
+                    'button'=>(string)($message['button']['text']??''),
+                    'interactive'=>(string)($message['interactive']['button_reply']['title']??$message['interactive']['list_reply']['title']??''),
+                    default=>'[رسالة '.mb_substr($type,0,20).' غير نصية؛ تنتظر موظف]'
+                };
+                $body=mb_substr(trim($body),0,4096);
+                if($body==='')$body='[محتوى غير متاح؛ ينتظر مراجعة موظف]';
+                $accountId=(int)$connection['account_id'];$id=(int)$connection['id'];
+                try{
+                    db()->beginTransaction();
+                    $conv=one('SELECT * FROM wa_conversations WHERE connection_id=? AND contact=?',[$id,$from]);
+                    if(!$conv){
+                        try{
+                            $convId=insert("INSERT INTO wa_conversations
+                                (account_id,site_id,connection_id,contact,contact_name,status,generation,
+                                 last_customer_at,last_message_at,created_at)
+                                VALUES (?,?,?,?,?,'open',0,?,?,?)",[
+                                $accountId,(int)$connection['site_id'],$id,$from,$profiles[$from]??null,
+                                now(),now(),now()]);
+                        }catch(PDOException $e){
+                            $conv=one('SELECT * FROM wa_conversations WHERE connection_id=? AND contact=?',[$id,$from]);
+                            if(!$conv)throw $e;
+                            $convId=(int)$conv['id'];
+                        }
+                    }else $convId=(int)$conv['id'];
+                    if(one('SELECT id FROM wa_messages WHERE connection_id=? AND provider_message_id=?',[$id,$providerId])){
+                        $duplicate++;db()->commit();continue;
+                    }
+                    insert("INSERT INTO wa_messages(account_id,conversation_id,connection_id,provider_message_id,
+                        role,body,delivery_status,created_at) VALUES (?,?,?,?,'customer',?,'received',?)",
+                        [$accountId,$convId,$id,$providerId,$body,now()]);
+                    execute('UPDATE wa_conversations SET last_customer_at=?,last_message_at=?,
+                        contact_name=CASE WHEN ?<>\'\' THEN ? ELSE contact_name END,
+                        generation=generation+1 WHERE id=? AND account_id=?',
+                        [now(),now(),(string)($profiles[$from]??''),(string)($profiles[$from]??''),$convId,$accountId]);
+                    wa_audit($accountId,$convId,'whatsapp.inbound',mb_substr($providerId,0,120));
+                    db()->commit();$accepted++;
+                }catch(Throwable $e){
+                    if(db()->inTransaction())db()->rollBack();
+                    if($e instanceof PDOException && str_contains(strtolower($e->getMessage()),'unique')){
+                        $duplicate++;continue;
+                    }
+                    throw $e;
+                }
+            }
+        }
+    }
+    if($accepted){
+        execute('UPDATE wa_connections SET last_webhook_at=?,updated_at=? WHERE id=? AND account_id=?',
+            [now(),now(),(int)$connection['id'],(int)$connection['account_id']]);
+    }
+    return ['accepted'=>$accepted,'duplicates'=>$duplicate];
+}
+function wa_human_takeover(int $accountId,int $conversationId,bool $permanent):array {
+    $conversation=wa_conversation($conversationId,$accountId);
+    $expiry=gmdate('Y-m-d H:i:s',time()+15*60);
+    execute('UPDATE wa_conversations SET ai_pause_until=?,human_locked_at=CASE WHEN ?=1 THEN ? ELSE human_locked_at END,
+        generation=generation+1 WHERE id=? AND account_id=?',
+        [$expiry,$permanent?1:0,now(),$conversationId,$accountId]);
+    wa_audit($accountId,$conversationId,$permanent?'whatsapp.human.lock':'whatsapp.human.pause',
+        $permanent?'until_staff_release':'15_minutes');
+    return wa_conversation($conversationId,$accountId);
+}
+function wa_release_human(int $accountId,int $conversationId):void {
+    wa_conversation($conversationId,$accountId);
+    execute('UPDATE wa_conversations SET human_locked_at=NULL,generation=generation+1 WHERE id=? AND account_id=?',
+        [$conversationId,$accountId]);
+    wa_audit($accountId,$conversationId,'whatsapp.human.release','manual_release');
+}
+function wa_ai_allowed(array $conversation):bool {
+    return empty($conversation['human_locked_at']) &&
+       (empty($conversation['ai_pause_until']) || strcmp((string)$conversation['ai_pause_until'],now())<=0);
+}
+function wa_meta_send(array $connection,string $destination,string $body,?callable $transport=null):array {
+    if(!in_array($connection['state'],['verified','active'],true))
+        throw new RuntimeException('whatsapp_connection_not_verified');
+    $destination=wa_e164($destination);
+    if(trim($body)===''||mb_strlen($body)>4096)
+        throw new InvalidArgumentException('whatsapp_message_invalid');
+    $version=trim((string)getenv('ONTRACK_META_GRAPH_VERSION'));
+    if(!preg_match('/^v[0-9]{1,2}\.0$/D',$version))$version='v25.0';
+    $phoneId=(string)$connection['phone_number_id'];
+    if(!preg_match('/^[0-9]{5,100}$/D',$phoneId))
+        throw new InvalidArgumentException('whatsapp_sender_invalid');
+    $payload=json_encode(['messaging_product'=>'whatsapp','recipient_type'=>'individual',
+        'to'=>$destination,'type'=>'text','text'=>['preview_url'=>false,'body'=>$body]],
+        JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+    $key=unseal_secret($connection['access_token_enc']??null);
+    if(!$key)throw new RuntimeException('whatsapp_token_missing');
+    $endpoint='https://graph.facebook.com/'.$version.'/'.$phoneId.'/messages';
+    if($transport!==null){
+        $response=$transport($endpoint,$key,$payload);
+    }else{
+        if(!function_exists('curl_init'))throw new RuntimeException('whatsapp_curl_unavailable');
+        $ch=curl_init($endpoint);
+        curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$payload,CURLOPT_RETURNTRANSFER=>true,
+            CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$key,'Content-Type: application/json'],
+            CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>12,CURLOPT_FOLLOWLOCATION=>false,
+            CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2]);
+        $raw=curl_exec($ch);$http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
+        $response=['status'=>$http,'body'=>$raw];
+    }
+    $parsed=json_decode((string)($response['body']??''),true);
+    $msgId=(string)($parsed['messages'][0]['id']??'');
+    if((int)($response['status']??0)!==200||$msgId==='')
+        throw new RuntimeException('Meta لم يؤكد قبول الرسالة (HTTP '.(int)($response['status']??0).')');
+    return ['provider_message_id'=>$msgId,'status'=>'accepted_not_delivered'];
+}
+function wa_manual_reply(int $accountId,int $conversationId,string $body,?callable $transport=null):array {
+    $conversation=wa_conversation($conversationId,$accountId);
+    $connection=wa_connection((int)$conversation['connection_id'],$accountId);
+    $body=trim($body);
+    if($body===''||mb_strlen($body)>4096)
+        throw new InvalidArgumentException('اكتب رسالة حتى 4096 حرف');
+    if(empty($conversation['last_customer_at'])||
+        strtotime((string)$conversation['last_customer_at'])<time()-86400)
+        throw new RuntimeException('خارج نافذة واتساب 24 ساعة؛ يلزم قالب معتمد بدل رسالة نصية.');
+    // The human takes ownership BEFORE external send so an in-flight AI
+    // response cannot be started after staff has intervened.
+    wa_human_takeover($accountId,$conversationId,false);
+    try{$sent=wa_meta_send($connection,$conversation['contact'],$body,$transport);}
+    catch(Throwable $e){
+        wa_audit($accountId,$conversationId,'whatsapp.staff.send_failed','Meta rejected or unreachable');
+        throw $e;
+    }
+    $mid=insert("INSERT INTO wa_messages(account_id,conversation_id,connection_id,provider_message_id,
+        role,body,delivery_status,created_at) VALUES (?,?,?,?,?,?,?,?)",[
+        $accountId,$conversationId,(int)$connection['id'],$sent['provider_message_id'],'staff',
+        $body,'accepted',now()]);
+    execute('UPDATE wa_conversations SET last_message_at=? WHERE id=? AND account_id=?',
+        [now(),$conversationId,$accountId]);
+    wa_audit($accountId,$conversationId,'whatsapp.staff.sent','meta_accepted_not_delivered');
+    return ['message_id'=>$mid,'status'=>'accepted_not_delivered','paused_minutes'=>15];
+}
