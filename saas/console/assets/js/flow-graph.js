@@ -421,17 +421,56 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  const store=()=>{source.value=JSON.stringify(data);counter.textContent=data.nodes.length+' خطوات · '+data.edges.length+' روابط'};
  const focus=()=>data.nodes.find(n=>n.id===selected)||null;
  const transform=()=>{world.style.transform='translate('+x+'px,'+y+'px) scale('+scale+')'};
+ function setSceneSize(w,h){
+   sceneWidth=Math.max(2500,Math.ceil(w));sceneHeight=Math.max(1900,Math.ceil(h));
+   world.style.width=sceneWidth+'px';world.style.height=sceneHeight+'px';
+   cards.style.width=sceneWidth+'px';cards.style.height=sceneHeight+'px';
+   lines.setAttribute('width',String(sceneWidth));
+   lines.setAttribute('height',String(sceneHeight));
+   lines.setAttribute('viewBox','0 0 '+sceneWidth+' '+sceneHeight);
+   lines.style.width=sceneWidth+'px';lines.style.height=sceneHeight+'px';
+ }
+ function fitGraph(){
+   if(!data.nodes.length)return;
+   const width=viewport.clientWidth||830,height=viewport.clientHeight||600;
+   const xMin=Math.min(...data.nodes.map(n=>n.x))-90;
+   const xMax=Math.max(...data.nodes.map(n=>n.x+routing.WIDTH))+90;
+   const yMin=Math.min(...data.nodes.map(n=>n.y))-80;
+   const yMax=Math.max(...data.nodes.map(n=>n.y+routing.HEIGHT))+80;
+   scale=Math.max(.25,Math.min(1.04,(width-35)/(xMax-xMin),(height-40)/(yMax-yMin)));
+   x=(width-scale*(xMax-xMin))/2-scale*xMin;
+   y=(height-scale*(yMax-yMin))/2-scale*yMin;
+   transform();
+ }
+ function refreshNodeFocus(){
+   const relation=routing.focusRelation(data.edges,selected,hovered);
+   cards.querySelectorAll('.graph-node').forEach(box=>{
+     const id=box.dataset.nodeId;
+     box.classList.toggle('selected',id===selected);
+     box.classList.toggle('is-neighbor',edgeFocus&&relation.related.has(id)&&id!==selected);
+     box.classList.toggle('is-muted',edgeFocus&&relation.active&&
+       !relation.related.has(id)&&id!==selected);
+   });
+ }
  function edges(){
-   lines.replaceChildren();
-   data.edges.forEach(edge=>{
-     const a=data.nodes.find(n=>n.id===edge.from),b=data.nodes.find(n=>n.id===edge.to);if(!a||!b)return;
-     const x1=a.x+110,y1=a.y+112,x2=b.x+110,y2=b.y,m=Math.max(45,Math.abs(y2-y1)*.45);
-     lines.append(S('path',{d:'M'+x1+' '+y1+' C'+x1+' '+(y1+m)+','+x2+' '+(y2-m)+','+x2+' '+y2,class:'graph-connector'}));
-     lines.append(S('path',{d:'M'+(x2-5)+' '+(y2-8)+' L'+x2+' '+y2+' L'+(x2+5)+' '+(y2-8),class:'graph-arrow'}));
-     if(edge.label){
-       const mx=(x1+x2)/2,my=(y1+y2)/2,v=String(edge.label).slice(0,55),w=Math.min(220,v.length*8+28),g=S('g',{class:'graph-edge-pill'});
-       g.append(S('rect',{x:mx-w/2,y:my-14,width:w,height:28,rx:14}));
-       const t=S('text',{x:mx,y:my+4,'text-anchor':'middle'});t.textContent=v;g.append(t);lines.append(g);
+   lines.replaceChildren(defs);
+   const relation=routing.focusRelation(data.edges,selected,hovered);
+   const tracks=routing.geometry(data.nodes,data.edges,{bottom:sceneHeight-320});
+   tracks.forEach(track=>{
+     const e=track.edge,active=relation.focused.has(track.index);
+     const muted=edgeFocus&&!active;
+     const route=S('path',{d:track.d,
+       class:'graph-connector'+(active?' is-focused':'')+(muted?' is-muted':''),
+       'marker-end':'url(#'+arrowId+')'});
+     const tip=S('title');tip.textContent=(e.label||'مسار')+': '+e.from+' ← '+e.to;
+     route.append(tip);lines.append(route);
+     if(e.label&&active&&String(e.label).length){
+       const mx=track.label[0],my=track.label[1],v=String(e.label).slice(0,37),
+         width=Math.min(178,Math.max(52,v.length*6.7+22));
+       const pill=S('g',{class:'graph-edge-pill is-focused'});
+       pill.append(S('rect',{x:mx-width/2,y:my-12,width,height:24,rx:12}));
+       const label=S('text',{x:mx,y:my+4,'text-anchor':'middle'});
+       label.textContent=v;pill.append(label);lines.append(pill);
      }
    });
  }
