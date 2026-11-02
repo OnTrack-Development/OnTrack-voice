@@ -5,9 +5,9 @@ require_once __DIR__.'/../saas/console/_core/FlowAi.php';
 function live_check(bool $condition,string $reason):void {
     if(!$condition)throw new RuntimeException('LIVE_THINKING_TEST_FAIL: '.$reason);
 }
-live_check(flow_ai_model()==='gemini-3.8-live-extended-thinking','exact requested model');
+live_check(flow_ai_model()==='gemini-3.8-flash','editor uses stable 3.8 Thinking text model');
 putenv('ONTRACK_GEMINI_FLOW_MODEL=gemini-3.5-flash-lite');
-live_check(flow_ai_model()==='gemini-3.8-live-extended-thinking','legacy setting never overrides model');
+live_check(flow_ai_model()==='gemini-3.8-flash','legacy setting never overrides editor model');
 putenv('ONTRACK_GEMINI_FLOW_MODEL');
 $schema=['type'=>'OBJECT','properties'=>[
     'nodes'=>['type'=>'ARRAY','items'=>['type'=>'OBJECT']],
