@@ -302,9 +302,14 @@ function act():void {
                 $v=one("SELECT * FROM voices WHERE code=? AND ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)",[$voice,$id]);
                 if(!$v && $kind!=='platform')throw new RuntimeException('الصوت غير متاح لهذه الباقة');
                 if(!$v && $kind==='platform')$voice='google.aoede';
-                $template=(string)($_POST['flow_template']??'appointment_general');
-                $templateGraph=flow_template_graph($template);
+                // Compatibility metadata for older clients only. Never used by
+                // Gemini Live: goals, knowledge and policy drive the dialogue.
+                $templateGraph=['nodes'=>[
+                    ['id'=>'start','type'=>'start','text'=>'Dynamic AI Agent','x'=>1000,'y'=>100],
+                    ['id'=>'end','type'=>'end','text'=>'Conversation complete','x'=>1000,'y'=>340]
+                ],'edges'=>[['from'=>'start','to'=>'end','label'=>'']]];
                 $flow=json_encode($templateGraph,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+                $newPolicy=answer_policy_form($_POST);
                 $publishNew=($_POST['publish_now']??'')==='1';
                 if($publishNew)flow_preview_compile($templateGraph);
                 $started=false;
@@ -312,14 +317,15 @@ function act():void {
                     if($publishNew){db()->beginTransaction();$started=true;}
                     $newAgent=insert("INSERT INTO agents(account_id,site_id,name,voice,instructions,knowledge,flow_json,status,created_at) VALUES (?,?,?,?,?,?,?,'draft',?)",
                         [$id,$sid,$name,$voice,field('instructions',5000),field('knowledge',20000),$flow,now()]);
+                    save_answer_policy($id,$newAgent,$newPolicy);
                     if($publishNew){
                         $published=publish_agent_flow($id,$newAgent,(int)me()['id']);
                         db()->commit();$started=false;
-                        audit('agent.flow.published',$id,['agent_id'=>$newAgent,'revision'=>$published['revision'],'template'=>$template]);
-                        $success='تم إنشاء الإيجنت ونشر السيناريو v'.$published['revision'].' مباشرة.';
+                        audit('agent.profile.published',$id,['agent_id'=>$newAgent,'revision'=>$published['revision'],'mode'=>'dynamic']);
+                        $success='تم إنشاء ونشر إعدادات الإيجنت الذكي v'.$published['revision'].' بدون سيناريو ثابت.';
                     }
                 }catch(Throwable $ex){if($started&&db()->inTransaction())db()->rollBack();throw $ex;}
-                audit('agent.created',$id,['site'=>$sid,'name'=>$name,'template'=>$template]);break;
+                audit('agent.created',$id,['site'=>$sid,'name'=>$name,'mode'=>'dynamic']);break;
             case 'update_agent':
                 require_permission('agents.write');
                 $ag=one('SELECT * FROM agents WHERE id=? AND account_id=?',[intfield('agent_id'),$id]);if(!$ag)deny(404);
@@ -362,11 +368,11 @@ function act():void {
                         $result=publish_agent_flow($id,(int)$ag['id'],(int)me()['id']);
                         db()->commit();$started=false;
                         audit('agent.flow.published',$id,['agent_id'=>$ag['id'],'revision'=>$result['revision'],'duplicate'=>$result['duplicate']]);
-                        $success='تم حفظ ونشر Flow v'.(int)$result['revision'].' مباشرة. الأجهزة تتلقى النسخة المنشورة عند المزامنة.';
+                        $success='تم حفظ ونشر إعدادات AI Agent v'.(int)$result['revision'].'؛ الجهاز يستلمها عند المزامنة.';
                     }
                 }catch(Throwable $ex){if($started&&db()->inTransaction())db()->rollBack();throw $ex;}
                 audit('agent.updated',$id,['agent'=>$ag['id'],'published'=>$publishNow]);
-                if(!$publishNow)$success='تم حفظ المسودة بدون تحديث الصفحة.';
+                if(!$publishNow)$success='تم حفظ إعدادات الإيجنت كمسودة بدون تحديث الصفحة.';
                 break;
             case 'publish_agent_flow':
                 require_permission('agents.write');
@@ -374,7 +380,7 @@ function act():void {
                 $result=publish_agent_flow($id,$agentId,(int)me()['id']);
                 audit('agent.flow.published',$id,['agent_id'=>$agentId,'revision'=>$result['revision'],
                     'duplicate'=>$result['duplicate']]);
-                flash('success','تم نشر Flow نسخة '.(int)$result['revision'].' — الاتصال الصوتي يحتاج تفعيل محرك الهاتف واختباره.');
+                flash('success','تم نشر إعدادات AI Agent نسخة '.(int)$result['revision'].' — اختبار المكالمة الفعلي ما زال مطلوبًا.');
                 break;
             case 'add_campaign':
                 require_permission('campaigns.write');$sid=intfield('site_id');if(!owned_site($sid,$id))deny();
