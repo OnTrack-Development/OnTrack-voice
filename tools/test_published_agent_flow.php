@@ -59,6 +59,11 @@ function test_published_agent_flow():void {
         'published SIM receives current per-agent answer policy');
     require_once dirname(__DIR__).'/saas/console/_core/TenantVoiceSession.php';
     $definition=tenant_voice_definition($binding);
+    $name=one('SELECT name FROM agents WHERE account_id=? AND site_id=? AND id=?',[$account,$site,$id])['name'];
+    ok($definition['agent_name']===$name,'live persona uses assigned SaaS agent display name');
+    ok(str_contains($definition['instruction'],'اسمك في هذه المكالمة: '.$name) &&
+       !str_contains($definition['instruction'],'الإيجنت: '.$id),
+       'Google prompt does not tell AI to pronounce internal numeric agent ID');
     ok($definition['revision']===3 &&
        $definition['account_id']===$account &&
        $definition['site_id']===$site &&
