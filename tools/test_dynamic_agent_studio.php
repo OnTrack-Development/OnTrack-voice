@@ -67,8 +67,12 @@ try{
     dynamic_test(str_contains($html,'agent_goal') && str_contains($html,'agent_guardrails'),
         'Agent Studio renders goals and safeguards');
     dynamic_test(str_contains($html,'agent-studio-form'),'Agent Studio AJAX form rendered');
-    dynamic_test(!str_contains($html,'data-flow-editor') && !str_contains($html,'flow_template'),
-        'no forced scenario template or graph builder');
+    dynamic_test(str_contains($html,'data-flow-editor') && str_contains($html,'graph-ai-launcher')===false,
+        'visual builder restored as a real canvas that JS mounts');
+    dynamic_test(str_contains($html,'data-builder-tab="intelligence"') && str_contains($html,'data-builder-pane="knowledge"'),
+        'new intelligence, knowledge and integration panels alongside visual builder');
+    dynamic_test(!str_contains($html,'flow_template'),
+        'no mandatory old scenario template on agent');
     echo "DYNAMIC_AGENT_STUDIO_RUNTIME_PASS\n";
 }finally{
     voice_knowledge_delete(4,$knowledge);
