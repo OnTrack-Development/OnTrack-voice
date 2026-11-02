@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-live-preflight-20261102-04",
+  "target": "appontrack-server11",
+  "job_sha256": "208019ceea3cf2579c77ec140f00d7003e7920140026297ffec85407825f076f",
+  "started_at": "2026-11-02T01:04:02.514800+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"preflight\":true,\"agent_id\":7,\"revision\":4,\"model\":\"gemini-3.8-live\",\"slot\":0,\"server_launch_flag\":false}",
+  "stderr": "",
+  "finished_at": "2026-11-02T01:04:02.836168+00:00",
+  "duration_ms": 321
+}
