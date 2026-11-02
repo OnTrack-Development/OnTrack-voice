@@ -1,0 +1,39 @@
+name: OnTrack Flow AI Gemini 3.8 Live Thinking
+on:
+  push:
+    branches: [fix/flow-chat-3-8-live-thinking-20261102]
+    paths:
+      - 'saas/console/_core/FlowAi*.php'
+      - 'saas/console/assets/js/flow-graph.js'
+      - 'tools/test_flow_ai_*.php'
+      - '.github/workflows/flow-live-thinking-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,pdo_mysql,mbstring,openssl,curl
+          coverage: none
+      - name: PHP syntax and JS syntax
+        run: |
+          set -eu
+          php -l saas/console/_core/FlowAiLive.php
+          php -l saas/console/_core/FlowAi.php
+          php -l saas/console/_core/FlowAiProfile.php
+          php -l tools/test_flow_ai_live_thinking.php
+          php -l tools/test_flow_ai_chat.php
+          node --check saas/console/assets/js/flow-graph.js
+      - name: Live thinking protocol and text editor regression
+        run: |
+          set -eu
+          php tools/test_flow_ai_live_thinking.php
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_flow_ai_chat.php
+          node tools/test_console_ajax_ui.cjs
