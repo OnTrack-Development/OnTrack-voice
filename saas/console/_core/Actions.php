@@ -47,7 +47,24 @@ function act():void {
             require_once __DIR__.'/FlowAiChat.php';
             $chat=flow_ai_chat_read($id,$userId,$agentId);
             if($action==='flow_ai_history'){
+                $currentGraph=null;
+                $rawGraph=(string)($_POST['current_graph_json']??'');
+                $currentExplanation='المخطط الحالي غير متاح للقراءة.';
+                if($rawGraph!=='' && strlen($rawGraph)<=16000){
+                    try{
+                        $decoded=json_decode($rawGraph,true,32,JSON_THROW_ON_ERROR);
+                        if(is_array($decoded)){
+                            $currentExplanation=flow_ai_explain_graph($decoded);
+                            $currentGraph=$decoded;
+                        }
+                    }catch(Throwable){
+                        $currentExplanation='المخطط الحالي فيه مشكلة في العقد أو الروابط؛ راجعه قبل طلب تعديلات جديدة.';
+                    }
+                }
                 echo json_encode(['ok'=>true,'messages'=>$chat['messages'],
+                    'model'=>flow_ai_model(),
+                    'current_explanation'=>$currentExplanation,
+                    'current_graph_read'=>$currentGraph!==null,
                     'pending_graph'=>$chat['pending_graph'],
                     'pending_explanation'=>$chat['pending_graph']!==null
                         ?flow_ai_explain_graph($chat['pending_graph']):null],
@@ -116,7 +133,7 @@ function act():void {
             $messages[]=['role'=>'assistant','text'=>$explanation];
             flow_ai_chat_write($id,$userId,$agentId,$messages,$graph);
             echo json_encode(['ok'=>true,'graph'=>$graph,'explanation'=>$explanation,
-                'saved'=>false,'published'=>false],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+                'model'=>flow_ai_model(),'saved'=>false,'published'=>false],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
         }catch(Throwable $error){
             http_response_code($error instanceof InvalidArgumentException?422:503);
             echo json_encode(['ok'=>false,'error'=>$error instanceof InvalidArgumentException?
