@@ -24,9 +24,9 @@ function field_html(string $label,string $name,string $type='text',string $place
     return '<label class="field">'.e($label).'<input name="'.e($name).'" type="'.e($type).'" placeholder="'.e($placeholder).'" '.($required?'required':'').' maxlength="190"></label>';
 }
 function submit_btn(string $label):string{return '<button type="submit" class="btn primary">'.e($label).'</button></form>';}
-function select_html(string $label,string $key,array $options):string{
+function select_html(string $label,string $key,array $options,string $selected=''):string{
     $html='<label class="field">'.e($label).'<select name="'.e($key).'">';
-    foreach($options as $val=>$desc)$html.='<option value="'.e((string)$val).'">'.e((string)$desc).'</option>';
+    foreach($options as $val=>$desc)$html.='<option value="'.e((string)$val).'"'.((string)$val===$selected?' selected':'').'>'.e((string)$desc).'</option>';
     return $html.'</select></label>';
 }
 function card(string $title,string $body,string $meta=''):string{
@@ -502,7 +502,7 @@ function render_agents(array $a):void{
                 'class="stack agent-form agent-studio-form"').
                 '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
                 '<div class="form-grid"><label class="field">اسم الإيجنت<input name="name" maxlength="140" required value="'.e($agent['name']).'"></label>'.
-                select_html('الصوت','voice',$options).'</div>'.
+                select_html('الصوت','voice',$options,(string)$agent['voice']).'</div>'.
                 '<label class="field">الشخصية والتعليمات<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label>'.
                 '<label class="field">معرفة الإيجنت<textarea name="knowledge" rows="4" maxlength="20000">'.e($agent['knowledge']).'</textarea></label>'.
                 agent_studio_policy_fields($policy).
