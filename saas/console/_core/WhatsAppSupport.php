@@ -54,7 +54,7 @@ function wa_public_callback(string $publicId):string {
 }
 function wa_create_connection(int $accountId,int $siteId,string $label,string $phoneId,
  string $token,string $appSecret,string $verifyToken,string $bridgeUrl='',string $bridgeToken='',int $aiAgentId=0,
- string $wabaId='',string $metaAppId='',string $graphVersion='v26.0',string $publicId=''):int {
+ string $wabaId='',string $metaAppId='',string $graphVersion='v26.0',string $publicId='',string $relaySecret=''):int {
     if(!one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$siteId,$accountId]))
         throw new InvalidArgumentException('whatsapp_site_not_available');
     $label=trim($label);
@@ -76,6 +76,8 @@ function wa_create_connection(int $accountId,int $siteId,string $label,string $p
     if($publicId!==''&&(!preg_match('/^[a-f0-9]{36}$/D',$publicId)||
         one('SELECT id FROM wa_connections WHERE public_id=? LIMIT 1',[$publicId])))
         throw new InvalidArgumentException('معرّف Callback URL غير صالح؛ حدّث الصفحة.');
+    if($relaySecret!==''&&!preg_match('/^[a-f0-9]{64}$/D',$relaySecret))
+        throw new InvalidArgumentException('Webhook relay secret غير صالح');
     if($aiAgentId<0)throw new InvalidArgumentException('whatsapp_agent_invalid');
     if($aiAgentId>0){
         require_once __DIR__.'/PublishedFlow.php';
@@ -99,8 +101,51 @@ function wa_create_connection(int $accountId,int $siteId,string $label,string $p
     if($aiAgentId>0)
         execute('UPDATE wa_connections SET ai_agent_id=? WHERE id=? AND account_id=?',
             [$aiAgentId,$id,$accountId]);
+    if($relaySecret!=='')execute('UPDATE wa_connections SET webhook_relay_enabled=1,webhook_relay_secret_enc=? WHERE id=? AND account_id=?',
+        [seal_secret($relaySecret),$id,$accountId]);
     wa_audit($accountId,null,'whatsapp.connection.created','draft, independent agent disabled');
     return $id;
+}
+/**
+ * Signed provider-to-OnTrack forwarding. The webhook of the user's existing
+ * WhatsApp Notifications module may forward the original Meta JSON OR this
+ * minimal normalized event contract. This does NOT call arbitrary remote URLs.
+ * A URL that only receives Meta callbacks cannot be used as a reply API.
+ */
+function wa_relay_signature_valid(array $connection,string $header,string $raw):bool {
+    if(empty($connection['webhook_relay_enabled']))return false;
+    $secret=unseal_secret($connection['webhook_relay_secret_enc']??null);
+    if(!is_string($secret)||!preg_match('/^[a-f0-9]{64}$/D',$secret))return false;
+    if(!preg_match('/^sha256=[a-f0-9]{64}$/D',$header))return false;
+    return hash_equals('sha256='.hash_hmac('sha256',$raw,$secret),$header);
+}
+function wa_relay_normalize(array $connection,array $payload):array {
+    if(($payload['object']??null)==='whatsapp_business_account')return $payload;
+    if(($payload['version']??null)!==1||
+        ($payload['channel']??null)!=='whatsapp'||
+        ($payload['event']??null)!=='message.received'||
+        !is_array($payload['message']??null))
+        throw new InvalidArgumentException('unsupported_webhook_payload');
+    $expected=(string)$connection['phone_number_id'];
+    if((string)($payload['phone_number_id']??'')!==$expected)
+        throw new InvalidArgumentException('relay_phone_mismatch');
+    $message=$payload['message'];
+    $id=(string)($message['id']??'');
+    if(!preg_match('/^[A-Za-z0-9._:-]{8,150}$/D',$id))
+        throw new InvalidArgumentException('relay_message_id_invalid');
+    $from=wa_e164((string)($message['from']??''));
+    $text=trim((string)($message['text']??''));
+    if($text===''||mb_strlen($text)>4096)
+        throw new InvalidArgumentException('relay_message_text_invalid');
+    $name=trim((string)($message['name']??''));
+    if(mb_strlen($name)>150)throw new InvalidArgumentException('relay_contact_name_invalid');
+    return ['object'=>'whatsapp_business_account','entry'=>[[
+        'changes'=>[['field'=>'messages','value'=>[
+            'metadata'=>['phone_number_id'=>$expected],
+            'contacts'=>[['wa_id'=>$from,'profile'=>['name'=>$name]]],
+            'messages'=>[['id'=>$id,'from'=>$from,'type'=>'text','text'=>['body'=>$text]]]
+        ]]]
+    ]]];
 }
 function wa_webhook_challenge(array $connection,string $mode,string $token,string $challenge):?string {
     if($mode!=='subscribe'||$token===''||strlen($challenge)>300||
