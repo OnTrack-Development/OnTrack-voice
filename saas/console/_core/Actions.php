@@ -190,11 +190,12 @@ function act():void {
                 flash('success','تم نشر Flow نسخة '.(int)$result['revision'].' — الاتصال الصوتي يحتاج تفعيل محرك الهاتف واختباره.');
                 break;
             case 'add_campaign':
+                if($kind!=='platform'||console_view_mode($a)!=='admin')deny();
                 require_permission('campaigns.write');$sid=intfield('site_id');if(!owned_site($sid,$id))deny();
                 insert("INSERT INTO campaigns(account_id,site_id,name,status,created_at) VALUES (?,?,?,'draft',?)",[$id,$sid,required('name',140),now()]);
                 audit('campaign.draft_created',$id);break;
             case 'create_key':
-                if(!allowed('integrations.manage')&&$kind!=='platform')deny();
+                if($kind!=='platform'||console_view_mode($a)!=='admin'||!allowed('integrations.manage'))deny();
                 $sid=intfield('site_id');if($sid&&!owned_site($sid,$id))deny();
                 $name=required('name',90);$scope=field('scopes',150);
                 $allowedScopes=['agents:invoke','knowledge:read','leads:write','customers:create','plans:read','appointments:write'];
@@ -206,18 +207,18 @@ function act():void {
                 audit('api_key.created',$id,['name'=>$name,'scopes'=>$scope,'site'=>$sid]);
                 flash('secret','API Key: '.$token.' — سيظهر مرة واحدة فقط');break;
             case 'revoke_key':
-                if(!allowed('integrations.manage')&&$kind!=='platform')deny();
+                if($kind!=='platform'||console_view_mode($a)!=='admin'||!allowed('integrations.manage'))deny();
                 execute("UPDATE api_keys SET status='revoked' WHERE id=? AND account_id=?",[intfield('key_id'),$id]);
                 audit('api_key.revoked',$id,['key'=>intfield('key_id')]);break;
             case 'new_integration':
-                if(!in_array($a['role'],['owner','admin'],true))deny();
+                if($kind!=='platform'||console_view_mode($a)!=='admin'||!in_array($a['role'],['owner','admin'],true))deny();
                 $provider=field('provider',30);if(!in_array($provider,['whmcs','laravel','kashier','webhook'],true))throw new InvalidArgumentException('نوع تكامل غير مدعوم');
                 $token='otint_'.bin2hex(random_bytes(32));
                 insert("INSERT INTO integrations(account_id,name,provider,token_hash,token_prefix,status,created_at,secret_enc) VALUES (?,?,?,?,?,'active',?,?)",[$id,required('name',100),$provider,hash('sha256',$token),substr($token,0,12),now(),seal_secret($token)]);
                 audit('integration.created',$id,['provider'=>$provider]);
                 flash('secret','سر Webhook للتكامل: '.$token.' — انسخه مرة واحدة');break;
             case 'revoke_integration':
-                if(!in_array($a['role'],['owner','admin'],true))deny();
+                if($kind!=='platform'||console_view_mode($a)!=='admin'||!in_array($a['role'],['owner','admin'],true))deny();
                 execute("UPDATE integrations SET status='revoked' WHERE id=? AND account_id=?",[intfield('integration_id'),$id]);
                 audit('integration.revoked',$id);break;
             case 'assign_plan':
@@ -268,6 +269,7 @@ function act():void {
                 }
                 audit('brand.updated',$id);break;
             case 'add_domain':
+                if($kind!=='platform')deny();
                 if($kind!=='reseller'||!in_array($a['role'],['owner','admin'],true))deny();
                 $host=strtolower(required('hostname',190));
                 if(!preg_match('/^(?=.{4,190}$)([a-z0-9-]+\.)+[a-z]{2,}$/D',$host))throw new InvalidArgumentException('دومين غير صالح');
@@ -310,7 +312,7 @@ function act():void {
                 else insert('INSERT INTO support_policies(account_id,access_mode) VALUES (?,?)',[$target,$mode]);
                 audit('support.policy.updated',$target,['mode'=>$mode]);break;
             case 'reveal_secret':
-                if(!in_array($a['role'],['owner','admin'],true) || active_support())deny();
+                if($kind!=='platform'||console_view_mode($a)!=='admin'||!in_array($a['role'],['owner','admin'],true) || active_support())deny();
                 $kindKey=field('secret_type',20);
                 $tbl=$kindKey==='api'?'api_keys':($kindKey==='integration'?'integrations':null);
                 if(!$tbl)deny();
@@ -322,7 +324,7 @@ function act():void {
                 audit('secret.viewed',$id,['type'=>$kindKey,'id'=>$keyRow['id']]);
                 flash('secret','المفتاح المطلوب: '.$plain);break;
             case 'rotate_secret':
-                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                if($kind!=='platform'||console_view_mode($a)!=='admin'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 $kindKey=field('secret_type',20);
                 $tbl=$kindKey==='api'?'api_keys':($kindKey==='integration'?'integrations':null);
                 if(!$tbl)deny();
@@ -335,7 +337,7 @@ function act():void {
                 audit('secret.rotated',$id,['type'=>$kindKey,'id'=>$row['id']]);
                 flash('secret','تم إلغاء المفتاح السابق، المفتاح الجديد: '.$token);break;
             case 'rename_secret':
-                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                if($kind!=='platform'||console_view_mode($a)!=='admin'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 $tbl=field('secret_type',20)==='api'?'api_keys':'integrations';
                 execute('UPDATE '.$tbl.' SET name=? WHERE id=? AND account_id=?',[required('name',100),intfield('secret_id'),$id]);
                 audit('secret.renamed',$id,['type'=>$tbl]);break;
@@ -392,6 +394,7 @@ function act():void {
                 execute('DELETE FROM contacts WHERE id=? AND account_id=?',[$row['id'],$id]);
                 audit('contact.deleted',$id,['contact'=>$row['id']]);break;
             case 'update_campaign':
+                if($kind!=='platform'||console_view_mode($a)!=='admin')deny();
                 require_permission('campaigns.write');
                 $camp=one('SELECT id FROM campaigns WHERE id=? AND account_id=?',[intfield('campaign_id'),$id]);if(!$camp)deny(404);
                 $status=field('status',20);
