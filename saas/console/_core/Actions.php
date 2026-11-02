@@ -718,6 +718,32 @@ function act():void {
                    throw new InvalidArgumentException('يجب إثبات صلاحية الصوت على مزود الاتصال أولاً');
                 execute('UPDATE voices SET ready=? WHERE id=?',[$ready,$voice['id']]);
                 audit('voice.ready.updated',$id,['voice'=>$voice['id'],'ready'=>$ready]);break;
+            case 'save_call_report':
+                require_permission('calls.write');
+                require_once __DIR__.'/TenantWorkspace.php';
+                $callId=required('call_id',64);
+                $row=one('SELECT c.id,c.account_id,c.site_id,c.device_binding_id,c.sim_slot,c.external_call_id
+                    FROM calls c WHERE c.id=? AND c.account_id=?',[
+                    intfield('call_record_id'),$id]);
+                if(!$row||!is_string($row['external_call_id'])||$row['external_call_id']!==$callId||
+                   !$row['device_binding_id'])
+                    throw new InvalidArgumentException('المكالمة غير متاحة أو غير مرتبطة بالشريحة');
+                $binding=['id'=>(int)$row['device_binding_id'],
+                    'account_id'=>$id,'site_id'=>(int)$row['site_id'],
+                    'sim_slot'=>(int)$row['sim_slot']];
+                $result=tenant_call_report_save($binding,[
+                    'call_id'=>$callId,'summary'=>field('summary',4000),
+                    'customer_notes'=>field('customer_notes',4000),
+                    'outcome'=>required('outcome',32),
+                    'handoff_status'=>required('handoff_status',24),
+                    'handoff_reason'=>field('handoff_reason',2000)
+                ],'manual');
+                audit('call.report.updated',$id,['call_record_id'=>(int)$row['id'],
+                    'sim_slot'=>(int)$row['sim_slot'],'report_revision'=>
+                    (int)($result['report']['revision']??0),
+                    'handoff_status'=>(string)$result['report']['handoff_status']]);
+                $success='تم حفظ ملخص المكالمة وملاحظات العميل وحالة طلب الموظف.';
+                break;
             case 'create_device_pairing':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 $siteId=intfield('site_id');$agentId=intfield('agent_id');
