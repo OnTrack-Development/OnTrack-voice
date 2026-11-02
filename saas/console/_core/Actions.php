@@ -348,7 +348,9 @@ function act():void {
                         $success='تم حفظ ونشر Flow v'.(int)$result['revision'].' مباشرة. الأجهزة تتلقى النسخة المنشورة عند المزامنة.';
                     }
                 }catch(Throwable $ex){if($started&&db()->inTransaction())db()->rollBack();throw $ex;}
-                audit('agent.updated',$id,['agent'=>$ag['id'],'published'=>$publishNow]);break;
+                audit('agent.updated',$id,['agent'=>$ag['id'],'published'=>$publishNow]);
+                if(!$publishNow)$success='تم حفظ المسودة بدون تحديث الصفحة.';
+                break;
             case 'publish_agent_flow':
                 require_permission('agents.write');
                 $agentId=intfield('agent_id');
@@ -706,9 +708,24 @@ function act():void {
                 flash('success','تم إرسال سياسة الهاتف إلى ملف المزامنة، Revision '.$revision.'؛ ظهورها على الجهاز يحتاج تأكيد ACK');break;
             default:throw new InvalidArgumentException('عملية غير معروفة');
         }
-        flash('success',$success??'تم حفظ العملية بنجاح');
+        $message=$success??'تم حفظ العملية بنجاح';
+        if($action==='update_agent'&&($_SERVER['HTTP_X_REQUESTED_WITH']??'')==='XMLHttpRequest'){
+            header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
+            echo json_encode(['ok'=>true,'message'=>$message,
+                'published'=>(($_POST['publish_now']??'')==='1')],
+                JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+            exit;
+        }
+        flash('success',$message);
     }catch(Throwable $e){
-        flash('error',$e instanceof InvalidArgumentException?$e->getMessage():'تعذر تنفيذ العملية: '.$e->getMessage());
+        $message=$e instanceof InvalidArgumentException?$e->getMessage():'تعذر تنفيذ العملية: '.$e->getMessage();
+        if($action==='update_agent'&&($_SERVER['HTTP_X_REQUESTED_WITH']??'')==='XMLHttpRequest'){
+            http_response_code($e instanceof InvalidArgumentException?422:500);
+            header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
+            echo json_encode(['ok'=>false,'error'=>$message],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+            exit;
+        }
+        flash('error',$message);
     }
     $return=(string)($_POST['return']??'/');
     if(!preg_match('~^/(?:\?tab=[a-z]+(?:&site=[0-9]+)?)?$~D',$return))$return='/';
