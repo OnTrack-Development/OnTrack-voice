@@ -11,6 +11,7 @@ on:
       - 'tools/test_floating_flow_ui.cjs'
       - 'tools/test_console_ajax_ui.cjs'
       - 'tools/test_flow_ai_chat.php'
+      - 'tools/test_dynamic_agent_studio.php'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
@@ -67,3 +68,5 @@ jobs:
         run: |
           php tools/test_voice_sso.php
           python3 tools/test_voice_sso_http.py
+      - name: Dynamic Agent Studio published session and no-scenarios regression
+        run: php tools/test_dynamic_agent_studio.php
