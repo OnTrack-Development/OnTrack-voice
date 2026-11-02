@@ -769,6 +769,26 @@ function act():void {
                     field('use_webhook_relay',1)==='1'?required('relay_secret',64):'');
                 $success='اتحفظ واتساب كمسودة مستقلة. اختبر Meta، وبعدها فعّل إيجنت OnTrack المنشور من نفس الصفحة.';
                 break;
+            case 'wa_relay_rotate':
+                require_permission('agents.write');
+                require_once __DIR__.'/WhatsAppSupport.php';
+                $conn=wa_connection(intfield('connection_id'),$id);
+                $secret=bin2hex(random_bytes(32));
+                execute('UPDATE wa_connections SET webhook_relay_enabled=1,webhook_relay_secret_enc=?,updated_at=? WHERE id=? AND account_id=?',
+                    [seal_secret($secret),now(),(int)$conn['id'],$id]);
+                wa_audit($id,null,'whatsapp.webhook_relay.rotated','external Webhook signing key rotated for tenant');
+                $_SESSION['wa_relay_secret_once']=['account_id'=>$id,'connection_id'=>(int)$conn['id'],'secret'=>$secret];
+                $success='تم تفعيل Webhook الخارجي. انسخ مفتاح التوقيع المعروض الآن؛ القديم توقف عن العمل.';
+                break;
+            case 'wa_relay_disable':
+                require_permission('agents.write');
+                require_once __DIR__.'/WhatsAppSupport.php';
+                $conn=wa_connection(intfield('connection_id'),$id);
+                execute('UPDATE wa_connections SET webhook_relay_enabled=0,updated_at=? WHERE id=? AND account_id=?',
+                    [now(),(int)$conn['id'],$id]);
+                wa_audit($id,null,'whatsapp.webhook_relay.disabled','provider forwarding stopped');
+                $success='تم تعطيل استقبال أحداث Webhook الخارجية لهذا الرقم.';
+                break;
             case 'wa_native_toggle':
                 require_permission('agents.write');
                 require_once __DIR__.'/WhatsAppNativeAgent.php';
