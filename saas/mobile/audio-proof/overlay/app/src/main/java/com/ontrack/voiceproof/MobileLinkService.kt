@@ -63,8 +63,6 @@ class MobileLinkService:Service() {
     private var call:MobileLiveCall?=null
     private var loop:Job?=null
     private var callEventFlush:Job?=null
-    private lateinit var callEventOutbox:CallEventOutbox
-    private lateinit var campaignDialer:CampaignDialer
     private var connectivity:ConnectivityManager?=null
     private var networkListener:ConnectivityManager.NetworkCallback?=null
     @Volatile private var takeoverRequested=false
@@ -156,12 +154,12 @@ class MobileLinkService:Service() {
         }
         // Native release 0.3.4: never start the global, legacy phone pilot for
         // an unpaired device. A SIM-specific verified tenant binding is required.
-        prefs().edit().putBoolean("campaign_opt_in",false).commit()
         agentEnabled=false;connected=false
         call?.stop();call=null
-        notice("اربط شريحة SIM بشركتك وإيجنت منشور قبل تشغيل المحرك الجديد")
+        notice("اربط شريحة SIM بحساب OnTrack وإيجنت منشور قبل تشغيل المكالمات")
         stopSelf()
         return START_NOT_STICKY
+    }
     private fun tenantPrefs()=getSharedPreferences("ontrack_tenant_voice",MODE_PRIVATE)
     /** Hardware call state is per subscription (API 31+), not aggregate getCallState().
      * If both SIMs are active/ambiguous, we NEVER bridge their audio to an agent.
