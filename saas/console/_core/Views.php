@@ -373,16 +373,17 @@ function render_voice_data_sources(array $a,array $site):void {
     if(!allowed('agents.write'))return;
     $url='/?tab=agents&site='.$siteId;
     echo '<details class="agent-create voice-data-workspace"><summary class="btn">مصادر المعرفة والتكاملات وأرقام الموظفين</summary>';
-    $rows=all('SELECT id,name,kind,status FROM voice_knowledge_sources WHERE account_id=? AND site_id=? ORDER BY id DESC LIMIT 30',[$id,$siteId]);
+    $rows=all('SELECT id,name,kind,status,visibility FROM voice_knowledge_sources WHERE account_id=? AND site_id=? ORDER BY id DESC LIMIT 30',[$id,$siteId]);
     $html='<p class="info">مصادر المعرفة التي تخص الموقع الحالي فقط. تُستخدم في اقتراحات Flow وإجابات الإيجنت بعد النشر.</p>';
     $html.=form_start('voice_knowledge_upload',$url,'enctype="multipart/form-data"').
         '<input type="hidden" name="site_id" value="'.$siteId.'">'.
         field_html('اسم مصدر المعرفة','name','text','مثلاً سياسات الحجوزات',true).
+        select_html('إتاحة المعرفة','knowledge_visibility',['public'=>'معلومات عامة للإيجنت والمتصلين','staff'=>'داخلية — لا تُستخدم في مكالمات العملاء']).
         '<label class="field">ملف TXT أو MD أو CSV أو JSON بحد 180KB<input type="file" name="knowledge_file" accept=".txt,.md,.csv,.json"></label>'.
         '<label class="field">أو محتوى نصي<textarea name="knowledge_text" maxlength="180000" rows="4" placeholder="يمكنك كتابة المعلومات بدل رفع ملف"></textarea></label>'.
         '<button class="btn primary" type="submit">إضافة إلى قاعدة المعرفة</button></form>';
     foreach($rows as $row){
-        $html.='<div class="voice-data-row"><strong>'.e($row['name']).'</strong><span>'.e($row['kind']).'</span>'.
+        $html.='<div class="voice-data-row"><strong>'.e($row['name']).'</strong><span>'.e($row['kind']).' · '.($row['visibility']==='public'?'عام':'داخلي').'</span>'.
             form_start('voice_knowledge_delete',$url,'class="inline-form"').
             '<input type="hidden" name="source_id" value="'.(int)$row['id'].'"><button class="btn small danger" type="submit">إزالة المصدر</button></form></div>';
     }
