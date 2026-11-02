@@ -9,6 +9,9 @@ on:
       - 'saas/console/_core/Views.php'
       - 'saas/console/_core/FlowAi.php'
       - 'saas/console/hooks/index.php'
+      - 'saas/console/device/v1/index.php'
+      - 'saas/console/_core/VoiceKnowledge.php'
+      - 'saas/console/_core/VoiceConnectors.php'
       - 'tools/test_voice_access.php'
       - '.github/workflows/voice-caller-connectors.yml'
   pull_request:
@@ -40,5 +43,12 @@ jobs:
           php -l saas/console/_core/FlowAi.php
           php -l saas/console/hooks/index.php
           php -l tools/test_voice_access.php
+          find saas/console -type f -name '*.php' -print0 | xargs -0 -n1 php -l >/dev/null
       - name: PIN, role downgrades, account isolation, connector facts
         run: php tools/test_voice_access.php
+      - name: Existing SaaS, Flow and tenant compatibility
+        run: |
+          php tools/test_voice_saas_console.php
+          php tools/test_flow_templates.php
+          php tools/test_agent_flow_preview.php
+          php tools/test_voice_trial_and_ui.php
