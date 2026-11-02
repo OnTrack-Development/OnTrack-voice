@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: c877628e433da92189608c1d5d46e077f9603cc6
+          ref: 38e558274ab354061939a9c53bd73c1ddf963000
       - uses: actions/checkout@v5
         with:
           repository: jemcik/JemRec
@@ -75,7 +75,7 @@ jobs:
           python3 -c "import sys;sys.path.insert(0,'tools');from queue_mobile_native import verify;from pathlib import Path;verify(Path('.build/artifact/native'));print('Native OTA signature validated')"
       - name: Sign required matching UI OTA manifest
         env:
-          GITHUB_SHA: c877628e433da92189608c1d5d46e077f9603cc6
+          GITHUB_SHA: 38e558274ab354061939a9c53bd73c1ddf963000
         run: |
           set -euo pipefail
           python3 tools/prepare_mobile_ota.py .build/artifact/ota
@@ -100,7 +100,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: c877628e433da92189608c1d5d46e077f9603cc6
+          ref: 38e558274ab354061939a9c53bd73c1ddf963000
       - uses: actions/download-artifact@v5
         with:
           name: OnTrack-Voice-0.3.9
@@ -120,7 +120,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: c877628e433da92189608c1d5d46e077f9603cc6
+          ref: 38e558274ab354061939a9c53bd73c1ddf963000
       - uses: actions/download-artifact@v5
         with:
           name: OnTrack-Voice-0.3.9
