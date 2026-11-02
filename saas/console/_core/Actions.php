@@ -155,9 +155,11 @@ function act():void {
                     if(!is_array($n)||!preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',(string)($n['id']??''))||isset($ids[$n['id']]))throw new InvalidArgumentException('معرّف عقدة Flow مكرر أو غير صالح');
                     $ids[$n['id']]=true;
                     if(!in_array($n['type']??'',[
-                       'start','say','listen','ask','condition','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end'],true))
+                       'start','say','listen','ask','condition','instruction','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end'],true))
                        throw new InvalidArgumentException('نوع عقدة غير صالح');
                 }
+                // Use the exact same safety/branch contract as the simulator and publisher.
+                flow_preview_compile($decoded);
                 foreach($decoded['edges'] as $edge){
                     if(!is_array($edge)||!isset($ids[$edge['from']??''],$ids[$edge['to']??''])||
                        strlen((string)($edge['label']??''))>280)
