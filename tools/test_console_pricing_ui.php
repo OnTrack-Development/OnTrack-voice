@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../saas/console/database/Seed.php';
 require __DIR__.'/../saas/console/_core/Views.php';
+require __DIR__.'/../saas/console/_core/AdminMfa.php';
 function verify(bool $ok,string $message):void {if(!$ok)throw new RuntimeException($message);}
 seed_console();
 $columns=driver()==='sqlite'?array_column(all('PRAGMA table_info(plans)'),'name'):
@@ -22,10 +23,18 @@ try{
     verify(str_contains($html,'plan-editor'),'pricing forms are compact disclosures');
     ob_start();render_keys(mine());$keys=(string)ob_get_clean();
     verify(!str_contains($keys,'&lt;span class='),'card title does not expose escaped HTML');
+    // Even a platform administrator previewing the customer workspace must
+    // not expose the provider/engine configuration form.
+    $_SESSION['console_view']='user';
+    ob_start();render_settings(mine());$customerHtml=(string)ob_get_clean();
+    verify(!str_contains($customerHtml,'محرك الصوت الجديد — Google Gemini Live'),'customer workspace hides provider key settings');
+    $_SESSION['console_view']='admin';
+    ob_start();render_settings(mine());$adminHtml=(string)ob_get_clean();
+    verify(str_contains($adminHtml,'محرك الصوت الجديد — Google Gemini Live'),'admin workspace retains provider settings');
     $css=(string)file_get_contents(__DIR__.'/../saas/console/assets/css/app.css');
     verify(str_contains($css,'input[type="checkbox"]'),'checkbox styles explicitly scoped');
     $ui=(string)file_get_contents(__DIR__.'/../saas/mobile/ota/ui.html');
-    verify(str_contains($ui,"last.tenantLinked || last.running"),'linked SIM activation never asks for pilot key');
+    verify(!str_contains($ui,'id="key"') && str_contains($ui,"if(!last.tenantLinked)"),'SaaS SIM activation never asks for pilot key');
 }finally{
     execute('UPDATE plans SET price_minor=?,overage_minor=? WHERE id=?',[$previousPrice,$previousRate,$plan['id']]);
 }

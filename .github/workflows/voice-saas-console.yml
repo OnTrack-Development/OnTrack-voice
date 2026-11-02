@@ -1,10 +1,13 @@
 name: OnTrack Voice SaaS PHP Console
 on:
   push:
-    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102', 'fix/console-pricing-connection-ui-20261102', 'fix/sim1-staging-ui-20261102']
+    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102', 'fix/console-pricing-connection-ui-20261102', 'fix/sim1-staging-ui-20261102', 'feat/tenant-only-mobile-workspace-20261102', 'fix/tenant-mix-session-parity-20261102', 'fix/flow-editor-ai-20261102']
     paths:
       - 'saas/console/**'
       - 'tools/test_voice_saas_console.php'
+      - 'tools/test_tenant_workspace.php'
+      - 'tools/test_console_pricing_ui.php'
+      - 'tools/test_flow_ai_sources.php'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
@@ -37,6 +40,7 @@ jobs:
       - name: Validate JavaScript and local QR rendering
         run: |
           node --check saas/console/assets/js/app.js
+          node --check saas/console/assets/js/flow-graph.js
           node --check saas/console/assets/js/pairing-qr.js
           node --check saas/console/assets/js/mfa-qr.js
           node tools/test_voice_qr.cjs
@@ -48,6 +52,10 @@ jobs:
         run: php tools/test_voice_saas_console.php
       - name: Additional pricing, mobile keyless UX and migration regressions
         run: php tools/test_console_pricing_ui.php
+      - name: Tenant workspace isolation and call history
+        run: php tools/test_tenant_workspace.php
+      - name: AI flow knowledge, connector security, tenant isolation and RBAC
+        run: php tools/test_flow_ai_sources.php
       - name: External SSO regression in isolated second test phase
         run: |
           php tools/test_voice_sso.php

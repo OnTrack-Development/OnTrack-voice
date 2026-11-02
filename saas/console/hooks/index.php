@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/../_core/Bootstrap.php';
 require __DIR__.'/../_core/OrderClaim.php';
 require __DIR__.'/../_core/DncGuard.php';
+require __DIR__.'/../_core/VoiceAccess.php';
 function respond(int $code,array $body):never {
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
@@ -26,15 +27,17 @@ try{
     init_schema();
     $integration=one("SELECT * FROM integrations WHERE token_hash=? AND status='active'",[hash('sha256',$token)]);
     if(!$integration)respond(401,['ok'=>false,'error'=>'integration_not_found']);
-    if(!in_array($integration['provider'],['whmcs','laravel','webhook'],true))
+    if(!in_array($integration['provider'],['whmcs','laravel','wordpress','generic_rest','webhook'],true))
         respond(403,['ok'=>false,'error'=>'provider_not_authorized']);
     $data=json_decode($raw,true);
     if(!is_array($data))respond(422,['ok'=>false,'error'=>'json']);
     $eventId=(string)($data['event_id']??'');
     $kind=(string)($data['type']??'');
     if(!preg_match('/^[a-zA-Z0-9_.:-]{8,128}$/D',$eventId))respond(422,['ok'=>false,'error'=>'event_id']);
-    if(!in_array($kind,['order.created','payment.confirmed','registration.created','booking.created'],true))
+    if(!in_array($kind,['order.created','payment.confirmed','registration.created','booking.created','knowledge.snapshot'],true))
         respond(422,['ok'=>false,'error'=>'event_type']);
+    if(in_array($integration['provider'],['wordpress','generic_rest'],true) && $kind!=='knowledge.snapshot')
+        respond(403,['ok'=>false,'error'=>'read_only_connector']);
     $payload=$data['data']??null;
     if(!is_array($payload))respond(422,['ok'=>false,'error'=>'payload']);
     $reseller=(int)$integration['account_id'];
@@ -53,7 +56,11 @@ try{
         }
         $event=insert("INSERT INTO events(integration_id,external_id,event_type,payload,status,created_at) VALUES (?,?,?,?,'received',?)",[$integration['id'],$eventId,$kind,$raw,now()]);
         $result=['ok'=>true,'event_id'=>$eventId,'duplicate'=>false,'status'=>'received'];
-        if(in_array($kind,['order.created','registration.created'],true)){
+        if($kind==='knowledge.snapshot'){
+            $count=voice_ingest_facts($integration,$payload);
+            $result['status']='facts_updated';
+            $result['count']=$count;
+        }elseif(in_array($kind,['order.created','registration.created'],true)){
             $order=(string)($payload['external_order_id']??$eventId);
             $email=strtolower(trim((string)($payload['email']??'')));
             $name=trim((string)($payload['name']??''));

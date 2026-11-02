@@ -22,7 +22,8 @@ internal class MobileLiveCall(
 ) {
     private val stopped=AtomicBoolean(false)
     private val ready=CompletableDeferred<Unit>()
-    private val playback=Channel<Pair<Int,ByteArray>>(72)
+    // 24 * 2400 bytes of 48 kHz mono PCM ~= 600 ms, not 1.8 seconds of stale speech.
+    private val playback=Channel<Pair<Int,ByteArray>>(24)
     @Volatile private var generation=0
     @Volatile private var pipe:Socket?=null
     @Volatile private var output:DataOutputStream?=null
@@ -34,6 +35,8 @@ internal class MobileLiveCall(
     private var recovery:Job?=null
     private val writeLock=Any()
     private var worker:Job?=null
+    val liveConnected:Boolean get()=socketReady && !stopped.get()
+    val reconnecting:Boolean get()=ready.isCompleted && !socketReady && !stopped.get()
     suspend fun start() {
         val token=session.getString("token")
         require(token.startsWith("auth_tokens/")) { "server did not return an ephemeral token" }
@@ -48,9 +51,10 @@ internal class MobileLiveCall(
         val input=DataInputStream(pipe!!.getInputStream())
         check(input.readInt()==0x4f545631 && input.readInt()==48000 && input.readInt()==2){"invalid shell PCM format"}
         output=DataOutputStream(pipe!!.getOutputStream())
+        val agentName=session.optString("agent_name","مساعد OnTrack").trim().ifBlank{"مساعد OnTrack"}
         ws?.send(JSONObject().put("clientContent",JSONObject()
             .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
-                .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ المكالمة بتحية مصرية قصيرة باسم الإيجنت المخصص، ثم اسمع رد العميل.")))))
+                .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ المكالمة بتحية مصرية قصيرة باسم "+agentName+" فقط، ولا تنطق رقم الإيجنت أو نسخة السيناريو. ثم اسمع رد العميل.")))))
             .put("turnComplete",true)).toString())
         val transform=LinkPcm(settings.optString("input_channel","right"))
         worker=scope.launch {
@@ -98,6 +102,7 @@ internal class MobileLiveCall(
                 }
                 val policy=session.getString("system_instruction")+"\\n\\n"+style+
                     " استخدم سؤالًا واحدًا في كل دور ثم استمع للعميل، ولا تكرر التحية أو الأسئلة."+
+                    " بعد التحية لا ترسل ردًا آخر قبل سماع كلام جديد واضح من المتصل. تجاهل صدى صوتك المسموع ولا تتحدث إلى نفسك."+
                     " توقف عند المقاطعة ولا تختلق أي حجز أو دفع أو تكامل لم يتم فعلياً."
                 val setup=JSONObject().put("model","models/"+session.getString("model").removePrefix("models/"))
                     .put("generationConfig",JSONObject().put("responseModalities",org.json.JSONArray(listOf("AUDIO")))
@@ -120,14 +125,10 @@ internal class MobileLiveCall(
                         val wasReady=ready.isCompleted
                         socketReady=true
                         ready.complete(Unit)
-                        if(wasReady && handle.isNullOrBlank()) {
-                            webSocket.send(JSONObject().put("clientContent",JSONObject()
-                                .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
-                                    .put("parts",org.json.JSONArray().put(JSONObject().put("text",
-                                        "عاد اتصال المكالمة بعد ضعف الشبكة؛ اعتذر باختصار واطلب من العميل إعادة آخر سؤال دون بدء ترحيب جديد.")))))
-                                .put("turnComplete",true)).toString())
-                        }
-                        if(wasReady)notice("عاد صوت الإيجنت بعد انقطاع الشبكة")
+                        // Do not inject a new user turn on reconnection:
+                        // it used to trigger an unsolicited second response while
+                        // live PCM and the original conversation resumed.
+                        if(wasReady)notice("عاد اتصال الصوت؛ الإيجنت ينتظر المتصل")
                     }
                     if(message.has("error")) error("Gemini error "+message.getJSONObject("error").optInt("code"))
                     val content=message.optJSONObject("serverContent")?:return
@@ -146,6 +147,8 @@ internal class MobileLiveCall(
                         for(at in bytes.indices step 2400) {
                             val packet=generation to bytes.copyOfRange(at,minOf(at+2400,bytes.size))
                             if(!playback.trySend(packet).isSuccess){
+                                // Drop the oldest audio, never let a delayed
+                                // response build an ever-growing spoken backlog.
                                 playback.tryReceive()
                                 playback.trySend(packet)
                             }
@@ -162,6 +165,11 @@ internal class MobileLiveCall(
     private fun onTransportLost(failed:WebSocket,reason:String) {
         if(stopped.get() || failed!==ws)return
         socketReady=false
+        // A disconnected socket's queued speech must never play after the
+        // resumed conversation; preserve the legacy PCM bridge and GSM mute.
+        generation++
+        while(playback.tryReceive().isSuccess) {}
+        synchronized(writeLock){runCatching{output?.writeInt(-1);output?.flush()}}
         if(recovery?.isActive==true)return
         recovery=scope.launch(Dispatchers.IO) {
             notice("$reason — إعادة اتصال صوت الإيجنت")

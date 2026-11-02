@@ -5,6 +5,39 @@ import subprocess
 from pathlib import Path
 
 ui=Path('saas/mobile/ota/ui.html').read_text()
+embedded=Path('saas/mobile/audio-proof/overlay/app/src/main/assets/ontrack-ui.html').read_text()
+assert embedded == ui, 'APK embedded HTML differs from signed OTA UI; emulator will run old Pilot UI'
+native=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkActivity.kt').read_text()
+assert '"start","enable"->{' in native, 'Cached UI start must enable bound SaaS SIM without Pilot key'
+assert 'واجهات هاتف التجربة غير متاحة لحماية حسابات العملاء' not in native, 'Do not mislabel demo SIM as a customer block'
+assert 'tenantDesiredEnabled' in native and 'TenantEngineRestorePolicy.shouldRestore' in native, 'Native startup status/restore missing'
+assert 'tenantServiceRunning' in ui, 'UI must distinguish running SIM monitor from call-only Google connection'
+# Transport parity with the previously working Pilot must never regress.
+import hashlib
+service=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkService.kt').read_text()
+session=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLiveCall.kt').read_text()
+bridge=Path('saas/mobile/audio-proof/overlay/shellserver/src/com/jemcik/jemrec/shell/LivePcm.java').read_text()
+pcm=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/LinkPcm.kt').read_text()
+pilot=Path('saas/mobile/server/common.php').read_text()
+assert "'input_channel'=>'mix'" in pilot, 'Unexpected changed old Pilot input source'
+assert '.put("input_channel","mix")' in service, 'Tenant must use the same MIX voice input as proven Pilot'
+assert 'LinkPcm(settings.optString("input_channel","right"))' in session, 'Do not replace established PCM engine'
+assert 'audio.setMicrophoneMute(true)' in bridge and 'audio.setMicrophoneMute(wasMuted)' in bridge, 'Must preserve mute/takeover'
+assert 'session.optString("agent_name"' in session, 'Greeting must use agent display name'
+# Persistent voice backlog and fake server-disconnection regressions.
+model=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/OverlayUiModel.kt').read_text()
+overlay=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/CallOverlay.kt').read_text()
+assert 'enum class OverlayIndicator { GREEN, RED, GRAY }' in model
+assert 'OverlayIndicator.GRAY->gray' in overlay and 'OverlayIndicator.GREEN->green' in overlay
+assert 'val running=indicator==OverlayIndicator.GREEN' in model, 'An idle Live socket must not turn the on button red'
+assert 'Channel<Pair<Int,ByteArray>>(24)' in session, 'Do not accumulate stale speech beyond ~600 ms'
+assert 'عاد اتصال المكالمة بعد ضعف الشبكة؛ اعتذر' not in session, 'Reconnect must not trigger an unsolicited second model turn'
+assert 'generation++' in session and 'while(playback.tryReceive().isSuccess)' in session, 'Interrupted speech must clear stale playback'
+assert 'setMicrophoneMute(true)' in bridge, 'Preserve original proven GSM mute/handoff path'
+
+
+
+assert 'id="key"' not in embedded and 'id="tenantWorkspaceSlot"' in embedded, 'Old Pilot UI bundled into Android APK'
 meta=json.loads(Path('saas/mobile/ota/release.json').read_text())
 assert meta['revision']>=18, 'A signed OTA revision must advance'
 assert meta['min_native']<=20<=meta['max_native'], 'Existing Android 0.2.9 must accept this OTA without APK'
@@ -19,9 +52,9 @@ assert "el('callActions').style.display=call?'block':'none'" in ui, 'Controls mu
 assert "el('speaker').disabled=!modern||!answered" in ui, 'No speaker action before call is answered'
 assert 'id="upgradeAndroid"' in ui, 'Do not remove separate native update controls'
 assert meta['revision'] >= 22 and meta['max_native'] >= 26, 'Native 26 OTA contract required'
-for element in ('id="openConsole"', 'id="openScenario"', 'id="copyKey"'):
+for element in ('id="openConsole"', 'id="openScenario"', 'id="tenantWorkspaceSlot"'):
     assert element in ui, 'OnTrack release shortcuts must remain available: '+element
-for command in ("send('openConsole')", "send('openScenario')", "send('copyKey')"):
+for command in ("send('openConsole')", "send('openScenario')", "send('workspaceSlot'"):
     assert command in ui, 'Native Android bridge command not wired: '+command
 assert "Number(s.nativeCode)>=23" in ui, 'Do not enable new native commands on older APKs'
 assert "Number(s.nativeCode)>=24" in ui, 'SIM controls must require Android 0.3.3'
