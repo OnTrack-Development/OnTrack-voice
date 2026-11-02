@@ -1,0 +1,41 @@
+name: WhatsApp Manual and Provider Webhook Integration
+on:
+  push:
+    branches: [feat/whatsapp-manual-credentials-ui-20261102]
+    paths:
+      - 'saas/console/**'
+      - 'tools/test_whatsapp_*.php'
+      - '.github/workflows/whatsapp-webhook-relay-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,curl,openssl
+          coverage: none
+      - name: Syntax PHP and JavaScript
+        run: |
+          set -eu
+          php -l saas/console/_core/Bootstrap.php
+          php -l saas/console/_core/WhatsAppSupport.php
+          php -l saas/console/_core/Views.php
+          php -l saas/console/_core/Actions.php
+          php -l saas/console/whatsapp-webhook.php
+          php -l tools/test_whatsapp_webhook_relay.php
+          node --check saas/console/assets/js/app.js
+      - name: Signed provider webhook and Inbox regression
+        run: |
+          set -eu
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_whatsapp_webhook_relay.php
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_whatsapp_inbox.php
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_whatsapp_native_agent.php
