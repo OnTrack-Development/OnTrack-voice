@@ -20,7 +20,8 @@ role_assert(str_contains($src,"case 'create_key':\n                if(\$kind!=='
 $voice=file_get_contents(__DIR__.'/../saas/console/_core/Views.php');
 role_assert(str_contains($voice,"v.status='active' AND v.ready=1"),'show only active ready voices');
 $mobile=file_get_contents(__DIR__.'/../saas/mobile/audio-proof/overlay/shellserver/src/com/jemcik/jemrec/shell/LivePcm.java');
-role_assert(!str_contains($mobile,'setMicrophoneMute(true)'),'never mute GSM caller uplink during AI playback');
+role_assert(str_contains($mobile,'audio.setMicrophoneMute(true)'),'retain proven GSM AI mute behavior');
+role_assert(str_contains($mobile,'audio.setMicrophoneMute(wasMuted)'),'restore original microphone state after AI takeover');
 $live=file_get_contents(__DIR__.'/../saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLiveCall.kt');
 role_assert(str_contains($live,'inputTranscription'),'ask Google for uplink transcription evidence');
 echo "VOICE_ROLE_SURFACE_PASS\n";
