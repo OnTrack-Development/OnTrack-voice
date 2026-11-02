@@ -139,7 +139,8 @@
   document.addEventListener('submit',async event=>{
     const button=event.submitter;
     if(!button?.hasAttribute('data-confirm')||button.dataset.otApproved==='1')return;
-    event.preventDefault();event.stopPropagation();
+    // Block BOTH native submit and later AJAX capture listeners until approved.
+    event.preventDefault();event.stopImmediatePropagation();
     const form=button.form;
     if(!form)return;
     const accepted=await window.ontrackConfirm(button.getAttribute('data-confirm'),{
