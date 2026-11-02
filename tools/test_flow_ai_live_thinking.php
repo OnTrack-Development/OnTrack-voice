@@ -27,6 +27,7 @@ live_check($setup['setup']['model']==='models/gemini-3.8-live-extended-thinking'
 live_check($setup['setup']['generationConfig']['thinkingConfig']['thinkingLevel']==='MEDIUM','extended thinking enabled');
 live_check($setup['setup']['generationConfig']['responseModalities']===['AUDIO'],'official Live modality');
 live_check(!isset($setup['setup']['generationConfig']['responseSchema']),'no unsupported response schema');
+live_check(isset($setup['setup']['generationConfig']['outputAudioTranscription']),'Live returns text transcription alongside ignored audio');
 live_check($setup['setup']['tools'][0]['functionDeclarations'][0]['behavior']==='NON_BLOCKING','async-only tool');
 $graph=['nodes'=>[
  ['id'=>'start','type'=>'start','text'=>'أهلاً','x'=>200,'y'=>80],
@@ -34,7 +35,7 @@ $graph=['nodes'=>[
 ], 'edges'=>[['from'=>'start','to'=>'end','label'=>'التالي']]];
 $transport=static function(array $configured,array $request)use($graph):array {
     live_check(($configured['setup']['model']??'')==='models/gemini-3.8-live-extended-thinking','runtime model');
-    live_check(($request['realtimeInput']['text']??null)==='أهلا','text sent via Live realtimeInput');
+    live_check(($request['clientContent']['turns'][0]['parts'][0]['text']??null)==='أهلا' && ($request['clientContent']['turnComplete']??false)===true,'text sent as explicit completed Live turn');
     return ['toolCall'=>['functionCalls'=>[['name'=>'submit_editor_proposal','args'=>$graph]]]];
 };
 $result=flow_ai_live_proposal('Build a flow','أهلا',$schema,$transport);
@@ -48,4 +49,13 @@ $failed=false;
 try{flow_ai_live_extract(['toolCall'=>['functionCalls'=>[['name'=>'submit_editor_proposal','args'=>['bad']]]]]);}
 catch(RuntimeException){$failed=true;}
 live_check($failed,'malformed tool args rejected');
+live_check(flow_ai_live_transcribed_chunk(['serverContent'=>['outputTranscription'=>['text'=>'رسالة من المساعد']]])==='رسالة من المساعد',
+    'audio output transcript captured as assistant text');
+live_check(flow_ai_live_transcribed_chunk(['serverContent'=>['inputTranscription'=>['text'=>'صوت المستخدم']]])==='',
+    'do not mistake user transcript for assistant result');
+live_check(flow_ai_live_parse_text_graph(json_encode($graph,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR))===$graph,
+    'strict structured JSON can be extracted from output transcription');
+live_check(flow_ai_live_parse_text_graph('رد عام غير منظم')===null,'ordinary speech is not accepted as a graph');
+live_check(($setup['setup']['generationConfig']['responseModalities']??[])===['AUDIO'],
+    'do not request unsupported TEXT response modality');
 echo "FLOW_CHAT_GEMINI_3_8_LIVE_THINKING_TOOL_PROTOCOL_PASS\n";
