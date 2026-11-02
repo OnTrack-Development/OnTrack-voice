@@ -35,6 +35,10 @@ foreach($cases as $role=>$info){
         ob_start();layout_open($a,'overview');$html=(string)ob_get_clean();
         check_admin_wa(str_contains($html,'?tab=whatsapp_admin'),'admin WhatsApp direct nav link visible');
         check_admin_wa(!str_contains($html,'?tab=whatsapp"'),'user inbox link absent');
+        ob_start();render_overview($a);$overview=(string)ob_get_clean();
+        check_admin_wa(str_contains($overview,'?tab=whatsapp_admin'),'dashboard links to platform WhatsApp settings');
+        check_admin_wa(!str_contains($overview,'?tab=agents"')&&!str_contains($overview,'?tab=sites"'),
+            'platform admin dashboard has no customer operations');
         ob_start();render_whatsapp_platform_settings($a);$settings=(string)ob_get_clean();
         check_admin_wa(str_contains($settings,'wa_platform_onboarding_save'),'Meta controls rendered only admin');
         check_admin_wa(str_contains($settings,'Embedded Signup v4 Configuration ID'),'Embedded config rendered');
@@ -52,6 +56,9 @@ foreach($cases as $role=>$info){
     }elseif($role==='reseller'){
         check_admin_wa(!isset($links['whatsapp_admin']),'reseller cannot configure platform Meta');
         check_admin_wa(isset($links['accounts']),'reseller account management retained');
+        ob_start();render_overview($a);$overview=(string)ob_get_clean();
+        check_admin_wa(!str_contains($overview,'?tab=agents"')&&!str_contains($overview,'?tab=sites"'),
+            'reseller dashboard has management-only actions');
         $_SESSION['console_view']='user';
         check_admin_wa(isset(nav_entries($a['kind'])['whatsapp']),'reseller user workspace gets Inbox');
     }else{
