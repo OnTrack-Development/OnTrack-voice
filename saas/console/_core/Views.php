@@ -244,7 +244,14 @@ function render_overview(array $a):void{
         $n4=(int)one('SELECT COUNT(*) n FROM calls WHERE account_id=?',[$id])['n'];
         $title='مساحة عملك الذكية';$sub='اختار الموقع المناسب، وابنِ الإيجنت، وتابع حملاتك واستهلاكك.';
     }
-    echo '<section class="welcome"><div><span class="eyebrow">SMART VOICE CONTROL</span><h2>'.e($title).'</h2><p>'.e($sub).'</p><div class="welcome-actions"><a class="btn light" href="/saas/console/?tab='.($kind==='reseller'?'accounts':'agents').'">إدارة '.($kind==='reseller'?'العملاء':'الإيجنتات').' ←</a><a class="btn ghost-light" href="/saas/console/?tab=releases">تطبيق Android</a></div></div><div class="orb-art"><span></span><b>OT</b></div></section>';
+    $primaryAction=$kind==='platform'?'accounts':($kind==='reseller'?'accounts':'agents');
+    $primaryLabel=$kind==='platform'?'إدارة الحسابات والريسيلرز':($kind==='reseller'?'إدارة العملاء':'إدارة الإيجنتات');
+    $secondaryAction=$kind==='platform'?'whatsapp_admin':($kind==='reseller'?'plans':'releases');
+    $secondaryLabel=$kind==='platform'?'إعدادات ربط واتساب':($kind==='reseller'?'باقات العملاء':'تطبيق Android');
+    echo '<section class="welcome"><div><span class="eyebrow">SMART VOICE CONTROL</span><h2>'.e($title).'</h2><p>'.e($sub).'</p><div class="welcome-actions">'.
+        '<a class="btn light" href="/saas/console/?tab='.e($primaryAction).'">'.e($primaryLabel).' ←</a>'.
+        '<a class="btn ghost-light" href="/saas/console/?tab='.e($secondaryAction).'">'.e($secondaryLabel).'</a>'.
+        '</div></div><div class="orb-art"><span></span><b>OT</b></div></section>';
     echo '<div class="metric-grid">';
     if($kind==='platform'){
         echo counter('الريسيلرز',$n1,'♧').counter('العملاء',$n2,'♙').counter('الإيجنتات',$n3,'✧').counter('سجلات المكالمات',$n4,'☏');
@@ -254,7 +261,21 @@ function render_overview(array $a):void{
         echo counter('المواقع',$n1,'◎').counter('الإيجنتات',$n2,'✧').counter('مكالمات الخطة الشهرية',$n3,'☏').counter('سجلات تجريبية',$n4,'▤');
     }
     echo '</div><div class="cols two">';
-    $tips='<div class="quick-grid"><a href="/saas/console/?tab=sites"><b>◈</b><span>مواقع مستقلة</span><small>إيجنت ومعرفة لكل موقع</small></a><a href="/saas/console/?tab=agents"><b>✧</b><span>Agent Flow Builder</span><small>السيناريو والشخصية والصوت</small></a><a href="/saas/console/?tab=keys"><b>⌘</b><span>API Keys</span><small>مفاتيح مسمّاة وقابلة للإلغاء</small></a><a href="/saas/console/?tab=staff"><b>♙</b><span>إدارة الموظفين</span><small>أدوار وصلاحيات لكل حساب</small></a></div>';
+    if($kind==='platform'){
+        $tips='<div class="quick-grid">'.
+            '<a href="/saas/console/?tab=accounts"><b>♧</b><span>الحسابات والريسيلرز</span><small>إدارة العملاء والشركات</small></a>'.
+            '<a href="/saas/console/?tab=plans"><b>◫</b><span>الخطط والحدود</span><small>إدارة باقات المنصة</small></a>'.
+            '<a href="/saas/console/?tab=whatsapp_admin"><b>✉</b><span>إعدادات ربط واتساب</span><small>Embedded Signup وCoexistence</small></a>'.
+            '<a href="/saas/console/?tab=settings"><b>⚙</b><span>إعدادات المنصة</span><small>الهوية والتكاملات المركزية</small></a></div>';
+    }elseif($kind==='reseller'){
+        $tips='<div class="quick-grid">'.
+            '<a href="/saas/console/?tab=accounts"><b>♧</b><span>عملائي</span><small>إدارة حسابات العملاء</small></a>'.
+            '<a href="/saas/console/?tab=plans"><b>◫</b><span>باقات العملاء</span><small>الحدود والاشتراكات</small></a>'.
+            '<a href="/saas/console/?tab=domains"><b>◎</b><span>الدومينات والهوية</span><small>البراند الخاص بالريسيلر</small></a>'.
+            '<a href="/saas/console/?tab=settings"><b>⚙</b><span>إعدادات الريسيلر</span><small>إدارة العلامة التجارية</small></a></div>';
+    }else{
+        $tips='<div class="quick-grid"><a href="/saas/console/?tab=sites"><b>◈</b><span>مواقع مستقلة</span><small>إيجنت ومعرفة لكل موقع</small></a><a href="/saas/console/?tab=agents"><b>✧</b><span>Agent Flow Builder</span><small>السيناريو والشخصية والصوت</small></a><a href="/saas/console/?tab=keys"><b>⌘</b><span>API Keys</span><small>مفاتيح مسمّاة وقابلة للإلغاء</small></a><a href="/saas/console/?tab=staff"><b>♙</b><span>إدارة الموظفين</span><small>أدوار وصلاحيات لكل حساب</small></a></div>';
+    }
     echo card('ابدأ من هنا',$tips,'إجراءات سريعة');
     $items=$kind==='platform'?all('SELECT action,created_at FROM audit_events ORDER BY id DESC LIMIT 5'):all('SELECT action,created_at FROM audit_events WHERE account_id=? ORDER BY id DESC LIMIT 5',[$id]);
     echo card('آخر الأحداث',tbl(['الحدث','التاريخ'],array_map(fn($x)=>[e($x['action']),e($x['created_at'])],$items)),'سجل تدقيق حقيقي');
