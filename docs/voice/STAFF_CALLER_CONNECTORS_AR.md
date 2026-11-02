@@ -4,7 +4,7 @@
 ## Implemented on feature branch
 - Additive database migration v13: account/site Knowledge and read-only REST connector tables. Independent migration v14: tenant-isolated voice_staff_numbers and integration_facts.
 - Account staff page: owner/admin can register several international E.164 numbers per accepted employee, select data scopes, set private 6–10 digit PIN (hashed), revoke numbers independently.
-- Role scopes: owner/admin all; manager tickets, bookings, website, operations, general; receptionist and operator tickets, bookings, general; finance finance/general; support tickets/general. Current role is checked on each request even if it was later downgraded.
+- Role scopes: owner/admin all; manager all business read categories (including finance); receptionist and operator tickets, bookings, general; finance finance/general; support tickets/general. Current role is checked on each request even if it was later downgraded.
 - Paired-SIM device API: POST /saas/console/device/v1 with operation=caller_identify returns recognized and pin_required but no private facts. operation=caller_verify only returns caller role and authorized facts after PIN. Bad PIN attempts lock for 15 minutes after five failures. The private DTMF PIN collection on Android is NOT connected yet.
 - External connector providers: WordPress/WooCommerce and Generic REST/Webhook (plus Laravel and WHMCS) can submit signed knowledge.snapshot aggregates via the existing HMAC webhook endpoint. Newly added provider types are read-only.
 - Flow AI can ground its suggested graphs in current tenant's signed, role-filtered fact summaries and agent knowledge. Reference material is untrusted data, not an instruction to execute.
