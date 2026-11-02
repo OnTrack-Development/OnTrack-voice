@@ -105,9 +105,9 @@ try{
     onboarding_check(str_starts_with((string)$existing['phone_number_id'],'pending_'),
         'real Phone Number ID not asked for or invented');
     onboarding_check(($existing['waba_id']??null)===null,'no redundant WABA ID requested');
-    onboarding_check(unseal_secret($existing['access_token_enc'])==='',
+    onboarding_check(empty(unseal_secret($existing['access_token_enc'])),
         'no duplicate Meta access token stored');
-    onboarding_check(unseal_secret($existing['app_secret_enc'])==='',
+    onboarding_check(empty(unseal_secret($existing['app_secret_enc'])),
         'no duplicate Meta app secret stored');
     onboarding_check($existing['state']==='draft'&&empty($existing['ai_enabled']),
         'existing connection not falsely activated for sending');
