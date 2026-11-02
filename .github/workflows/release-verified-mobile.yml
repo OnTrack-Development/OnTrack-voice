@@ -1,4 +1,4 @@
-name: Release verified OnTrack Voice 0.3.4 to the installed app
+name: Release verified OnTrack Voice 0.3.5 to the installed app
 on:
   push:
     branches: [main]
@@ -23,8 +23,8 @@ jobs:
           python3 - <<'PY'
           import json,os,time,urllib.request
           repo="OnTrack-Development/OnTrack-voice"
-          source_run=41358830774
-          source_sha="7ef6975a0fd060ca9bdba39bc317bc2cd8e2cf69"
+          source_run=41367339124
+          source_sha="c9cce68e897a9f2afea9ce84575f3a98879d7038"
           url=f"https://api.github.com/repos/{repo}/actions/runs/{source_run}"
           for attempt in range(75):
               req=urllib.request.Request(url,headers={
@@ -52,16 +52,16 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: 7ef6975a0fd060ca9bdba39bc317bc2cd8e2cf69
+          ref: c9cce68e897a9f2afea9ce84575f3a98879d7038
           persist-credentials: false
       - uses: actions/download-artifact@v5
         with:
-          name: OnTrack-Voice-0.3.4
+          name: OnTrack-Voice-0.3.5
           repository: OnTrack-Development/OnTrack-voice
-          run-id: 41358830774
+          run-id: 41367339124
           github-token: ${{ github.token }}
           path: .build/downloaded
-      - name: Verify signed revision 21 / native version 25 before host queue
+      - name: Verify signed revision 21 / native version 26 before host queue
         run: |
           python3 -m py_compile tools/queue_mobile_ota.py tools/queue_mobile_native.py saas/mobile/ota/deploy.py saas/mobile/ota/native_deploy.py
           python3 tools/test_mobile_release_gate.py
@@ -74,15 +74,15 @@ jobs:
           from queue_mobile_native import verify as verify_native
           _,_,ui=verify_ui(Path(".build/downloaded/ota"))
           _,_,apk=verify_native(Path(".build/downloaded/native"))
-          assert ui["revision"]==21 and ui["max_native"]>=25
-          assert apk["version_code"]==25 and apk["version_name"]=="0.3.4-ota"
-          print("SIGNED_OTA_21_AND_NATIVE_25_VERIFIED")
+          assert ui["revision"]==22 and ui["max_native"]>=26
+          assert apk["version_code"]==26 and apk["version_name"]=="0.3.5-ota"
+          print("SIGNED_OTA_22_AND_NATIVE_26_VERIFIED")
           PY
-      - name: Queue verified signed UI OTA 21 (host receipt required before native 25)
+      - name: Queue verified signed UI OTA 22 (host receipt required before native 25)
         env:
           GH_TOKEN: ${{ github.token }}
-          MOBILE_RELEASE_SOURCE_RUN_ID: '41358830774'
-          MOBILE_OTA_ARTIFACT_NAME: OnTrack-Voice-0.3.4
+          MOBILE_RELEASE_SOURCE_RUN_ID: '41367339124'
+          MOBILE_OTA_ARTIFACT_NAME: OnTrack-Voice-0.3.5
         run: python3 tools/queue_mobile_ota.py .build/downloaded/ota
 
   publish_native:
@@ -92,17 +92,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: 7ef6975a0fd060ca9bdba39bc317bc2cd8e2cf69
+          ref: c9cce68e897a9f2afea9ce84575f3a98879d7038
           persist-credentials: false
       - uses: actions/download-artifact@v5
         with:
-          name: OnTrack-Voice-0.3.4
+          name: OnTrack-Voice-0.3.5
           repository: OnTrack-Development/OnTrack-voice
-          run-id: 41358830774
+          run-id: 41367339124
           github-token: ${{ github.token }}
           path: .build/downloaded
       - name: Require actual signed UI 21 host success and queue native 25
         env:
           GH_TOKEN: ${{ github.token }}
-          MOBILE_RELEASE_SOURCE_RUN_ID: '41358830774'
+          MOBILE_RELEASE_SOURCE_RUN_ID: '41367339124'
         run: python3 tools/queue_mobile_native.py .build/downloaded/native
