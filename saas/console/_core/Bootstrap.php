@@ -613,3 +613,17 @@ function init_console_v18():void {
         UNIQUE(connection_id,source_message_id))".$engine);
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
+
+
+/** Native OnTrack WhatsApp agent is opt-in, per channel and per published agent. */
+function init_console_v19():void {
+    $marker=private_path().'/schema.v19';
+    if(is_file($marker))return;
+    $columns=driver()==='mysql'?array_column(all('SHOW COLUMNS FROM wa_connections'),'Field'):
+        array_column(all('PRAGMA table_info(wa_connections)'),'name');
+    if(!in_array('ai_agent_id',$columns,true))
+        db()->exec('ALTER TABLE wa_connections ADD COLUMN ai_agent_id BIGINT NULL');
+    if(!in_array('ai_enabled',$columns,true))
+        db()->exec('ALTER TABLE wa_connections ADD COLUMN ai_enabled INTEGER NOT NULL DEFAULT 0');
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
