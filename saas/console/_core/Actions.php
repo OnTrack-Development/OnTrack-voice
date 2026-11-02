@@ -772,6 +772,12 @@ function act():void {
                 $result=wa_test_meta_connection(wa_connection(intfield('connection_id'),$id));
                 $success='Meta أكد رقم الإرسال '.($result['phone_display']?:'').'. التحقق من استقبال Webhook والرد الفعلي لسه مستقل.';
                 break;
+            case 'wa_whmcs_bridge_test':
+                require_permission('agents.write');
+                require_once __DIR__.'/WhatsAppWhmcsBridge.php';
+                wa_whmcs_probe(wa_connection(intfield('connection_id'),$id));
+                $success='تم تأكيد Bridge الحقيقي لموديول WHMCS AI Support Agent ومراجعة الردود. كل رسالة تظل مرتبطة بمحادثتها وصلاحياتها.';
+                break;
             case 'wa_manual_reply':
                 require_permission('read');
                 require_once __DIR__.'/WhatsAppSupport.php';
