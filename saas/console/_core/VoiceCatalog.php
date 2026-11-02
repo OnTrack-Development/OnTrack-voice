@@ -40,8 +40,8 @@ function sync_google_live_voices():int{
  * Caller supplies an API key for this one operation. Do not save or log it.
  */
 function fetch_google_provider_voices(string $apiKey):int {
-    if(!preg_match('/^[A-Za-z0-9_-]{12,256}$/D',$apiKey))
-        throw new InvalidArgumentException('مفتاح Google غير صالح');
+    if(!google_key_looks_valid($apiKey))
+        throw new InvalidArgumentException('أدخل Gemini API Key كاملًا بدل بيانات حساب Google أو OAuth.');
     if(!function_exists('curl_init'))throw new RuntimeException('cURL غير متاح على الاستضافة');
     $seen=[];$pageToken='';$count=0;
     for($page=0;$page<15;$page++){
@@ -55,7 +55,7 @@ function fetch_google_provider_voices(string $apiKey):int {
         try{
             $body=curl_exec($h);$status=(int)curl_getinfo($h,CURLINFO_HTTP_CODE);
         }finally{curl_close($h);}
-        if(!is_string($body)||$status!==200)throw new RuntimeException('تعذر جلب الكتالوج من Google (HTTP '.$status.')');
+        if(!is_string($body)||$status!==200)throw new RuntimeException(google_api_failure($status));
         $response=json_decode($body,true);
         if(!is_array($response)||!is_array($response['voices']??null))
             throw new RuntimeException('استجابة Google لا تحتوي على كتالوج أصوات');

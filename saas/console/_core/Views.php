@@ -568,9 +568,9 @@ function render_voices(array $a):void{
             submit_btn('مزامنة 30 صوت Google')).
         card('جلب الأصوات مباشرة من حساب Google',
           form_start('fetch_google_voices','/?tab=voices').
-          '<label class="field">Google API Key (لا يُحفظ بعد الفحص)<input type="password" name="google_api_key" required autocomplete="off" minlength="12"></label>'.
-          '<p class="dim">يستخدم Google Gemini Voices API لجلب الأصوات المتاحة لحسابك؛ كل صوت مستورد يبقى غير مفعل إلى أن تختبره وتسمح به.</p>'.
-          submit_btn('جلب الأصوات الحقيقية من Google'));
+          '<label class="field">Google API Key (اختياري لو متسجّل في إعدادات الأدمن)<input type="password" name="google_api_key" autocomplete="off" minlength="16" placeholder="سيُستخدم مفتاح Google المحفوظ إن وجد"></label>'.
+          '<p class="dim">استيراد الأصوات الحقيقية هيستخدم المفتاح المحفوظ. لو حساب Google لا يسمح بالـVoices API، هيظهر الكتالوج الأساسي مع توضيح المشكلة؛ مش هنقول المفتاح خاطئ.</p>'.
+          submit_btn('مزامنة أصوات Google المتاحة'));
     echo '<div class="info">أصوات AYO Premium لم يتم إثبات تشغيلها بعد؛ لن تُباع أو تُفعل قبل اختبار المحرك.</div>';
     if($a['kind']==='platform'||$a['kind']==='reseller'){
         $targets=$a['kind']==='platform'?all("SELECT id,name FROM accounts WHERE kind!='platform'"):all('SELECT id,name FROM accounts WHERE parent_id=?',[$id]);

@@ -440,9 +440,24 @@ function act():void {
             case 'fetch_google_voices':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 require_once __DIR__.'/VoiceCatalog.php';
-                $count=fetch_google_provider_voices(required('google_api_key',256));
-                audit('voices.google_api.synced',$id,['count'=>$count]);
-                flash('success','تمت مزامنة '.$count.' صوتاً من Google API؛ استخدم الاعتماد لتحديد المتاح');
+                $supplied=field('google_api_key',256);
+                if($supplied===''){
+                    $profile=one("SELECT secret_enc FROM integrations WHERE account_id=? AND provider='google_live' AND status='active' ORDER BY id DESC LIMIT 1",[$id]);
+                    $supplied=$profile?(string)(unseal_secret($profile['secret_enc']??null)??''):'';
+                }
+                if($supplied===''){
+                    $count=sync_google_live_voices();
+                    $success='اتعرض '.$count.' صوتًا من الكتالوج الرسمي المدمج. جلب الأصوات الخاصة بحسابك يحتاج ربط Google من الإعدادات.';
+                }else{
+                    try{
+                        $count=fetch_google_provider_voices($supplied);
+                        $success='تم جلب '.$count.' صوتًا من Google. تقدر تختار المتاح وتختبره قبل منحه للعملاء.';
+                    }catch(RuntimeException $voiceError){
+                        $count=sync_google_live_voices();
+                        $success='تعذر جلب كتالوج الأصوات عبر Google: '.$voiceError->getMessage().' تم إظهار '.$count.' صوتًا مدمجًا بدلًا منه. ده لا يعني بالضرورة إن المفتاح غلط.';
+                    }
+                }
+                audit('voices.catalog_synced',$id,['count'=>$count,'used_live_api'=>$supplied!=='']);
                 break;
             case 'set_voice_ready':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
