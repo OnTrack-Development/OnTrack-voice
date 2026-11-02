@@ -2,7 +2,7 @@
 2026-11-02 · Development/demo only; not production telephony acceptance.
 
 ## Implemented on feature branch
-- Additive database migration v13: tenant-isolated voice_staff_numbers and integration_facts.
+- Additive database migration v13: account/site Knowledge and read-only REST connector tables. Independent migration v14: tenant-isolated voice_staff_numbers and integration_facts.
 - Account staff page: owner/admin can register several international E.164 numbers per accepted employee, select data scopes, set private 6–10 digit PIN (hashed), revoke numbers independently.
 - Role scopes: owner/admin all; manager tickets, bookings, website, operations, general; receptionist and operator tickets, bookings, general; finance finance/general; support tickets/general. Current role is checked on each request even if it was later downgraded.
 - Paired-SIM device API: POST /saas/console/device/v1 with operation=caller_identify returns recognized and pin_required but no private facts. operation=caller_verify only returns caller role and authorized facts after PIN. Bad PIN attempts lock for 15 minutes after five failures. The private DTMF PIN collection on Android is NOT connected yet.
@@ -30,10 +30,10 @@ Connector creation alone does NOT install a WordPress plugin, WHMCS addon, Larav
 ## Remaining OPEN gates
 1. Verified Android GSM caller number and bound SIM; private DTMF PIN entry; live authorized read-only answer, spoken Arabic, without PIN appearing in transcript or AI prompt.
 2. Real WP/WooCommerce, Laravel, WHMCS and generic adapters, each configured with source-side permissions, mapping, test results and data freshness. No unrestricted remote crawling or code execution.
-3. Uploaded file Knowledge Base: PDF/DOCX/TXT/CSV indexing, deletion, privacy and scoped retrieval. Current plain-text agent knowledge is not equivalent to uploaded-file ingestion.
+3. File Knowledge Base currently supports basic text upload (TXT, MD, CSV, JSON) or text entry with tenant/site scope and deletion. PDF/DOCX extraction, chunk-level search, richer versioning, and confidential document access policies are OPEN.
 4. Connector action catalog and tested execution gateway, per-resource roles, audit, human confirmation, idempotency, dry-run, and safe rollback. The current voice_action_ready function fails closed for every operation.
 5. Real device, API and deployment E2E verification, including signed APK and production host receipt. Current accounts and phone data remain internal demos.
 
 ## Security regression tests
 tools/test_voice_access.php checks PIN hashing, lockout, tenant isolation, finance/reception separation, permission downgrade, revocation, signed fact storage filtering and default-deny actions.
-.github/workflows/voice-caller-connectors.yml runs PHP 8.3 lint and test on the feature branch. Publishing remains a separate tested pinned-source workflow.
+.github/workflows/voice-caller-connectors.yml runs PHP 8.3 lint, new caller/fact tests and isolated legacy SaaS/Flow regressions on the feature branch. Publishing remains a separate tested pinned-source workflow.
