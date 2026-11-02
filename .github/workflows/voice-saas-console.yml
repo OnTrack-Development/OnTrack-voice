@@ -13,6 +13,7 @@ on:
       - 'tools/test_flow_ai_chat.php'
       - 'tools/test_dynamic_agent_studio.php'
       - 'tools/test_ai_agent_profile.php'
+      - 'tools/test_flow_ai_stress.php'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
@@ -73,3 +74,5 @@ jobs:
         run: php tools/test_dynamic_agent_studio.php
       - name: Visual builder AI profile proposal and durable per-agent memory
         run: php tools/test_ai_agent_profile.php
+      - name: Extreme AI graph quality, safe exits and no shallow-tree regression
+        run: php tools/test_flow_ai_stress.php
