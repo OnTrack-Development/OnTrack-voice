@@ -8,6 +8,8 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  if(root.dataset.otFlowMounted==='1')return;
  root.dataset.otFlowMounted='1';
  const source=root.querySelector('[name=flow_json]');if(!source)return;
+ const routing=window.OnTrackGraphRouting;
+ if(!routing){root.insertAdjacentText('afterbegin','تعذر تشغيل محرك رسم الوصلات. حدّث الصفحة.');return;}
  let data;try{data=JSON.parse(source.value)}catch{data={nodes:[],edges:[]}};
  if(!Array.isArray(data.nodes))data.nodes=[];if(!Array.isArray(data.edges))data.edges=[];
  const uuid=()=>('n'+Math.random().toString(16).slice(2,11));
@@ -18,6 +20,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    if(!Number.isFinite(+n.x))n.x=750;if(!Number.isFinite(+n.y))n.y=90+i*180;
  });
  let selected=data.nodes[0]?.id||null,connecting=false,scale=1,x=-420,y=22,pan=null,drag=null;
+ let hovered=null,edgeFocus=data.edges.length>=12,sceneWidth=3100,sceneHeight=3300;
  const shell=make('div','graph-shell'),toolbar=make('div','graph-toolbar');
  toolbar.append(make('div','graph-heading','Flow Builder · تصميم مسار المحادثة'));
  const tools=make('div','graph-tools'),type=make('select','graph-type');
@@ -25,9 +28,19 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  const button=(txt,action,klass)=>{const b=make('button','graph-btn '+(klass||''),txt);b.type='button';b.addEventListener('click',action);return b};
  const fullscreen=button('⛶ ملء الشاشة',()=>toggleFullscreen());
  const add=button('+ خطوة',()=>addNode(),'primary'),connect=button('ربط',()=>{connecting=!connecting;connect.classList.toggle('selected-tool',connecting);notice.textContent=connecting?'اختار العقدة التي تريد الربط بها':'اسحب العقد أو اضغط لتعديلها'}),auto=button('ترتيب',()=>arrange());
- const zoomIn=button('+',()=>{scale=Math.min(1.5,scale+.1);transform()}),zoomOut=button('−',()=>{scale=Math.max(.4,scale-.1);transform()});
+ const zoomIn=button('+',()=>{scale=Math.min(1.6,scale+.1);transform()}),zoomOut=button('−',()=>{scale=Math.max(.25,scale-.1);transform()});
+ const fit=button('⊡ احتواء',()=>fitGraph());
+ const edgeToggle=button('◉ تركيز',()=>{
+   edgeFocus=!edgeFocus;
+   edgeToggle.textContent=edgeFocus?'◉ تركيز':'◎ كل الوصلات';
+   edgeToggle.setAttribute('aria-pressed',String(edgeFocus));
+   edges();refreshNodeFocus();
+ });
+ edgeToggle.setAttribute('aria-pressed',String(edgeFocus));
+ edgeToggle.title='تركيز على وصلات العقدة المختارة أو إظهار كل الروابط';
+ auto.textContent='↔ ترتيب تلقائي';
  const raw=button('{}',()=>{source.hidden=!source.hidden;raw.classList.toggle('selected-tool',!source.hidden)});
- tools.append(type,add,connect,auto,zoomIn,zoomOut,raw,fullscreen);toolbar.append(tools);shell.append(toolbar);
+ tools.append(type,add,connect,auto,fit,edgeToggle,zoomIn,zoomOut,raw,fullscreen);toolbar.append(tools);shell.append(toolbar);
  async function toggleFullscreen(){
    try {
      if(document.fullscreenElement===shell){await document.exitFullscreen()}
@@ -57,7 +70,14 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
     arrange();notice.textContent='تم تحميل '+candidate.title+'؛ عدله أو اختبره ثم احفظ مسودة أو انشر مباشرة.';
   },'primary');
   tools.prepend(templateSelect,applyTemplate);
- const layout=make('div','graph-layout'),viewport=make('div','graph-viewport'),world=make('div','graph-world'),lines=S('svg',{class:'graph-edges',width:2500,height:3000,viewBox:'0 0 2500 3000'}),cards=make('div','graph-nodes'),inspector=make('aside','graph-inspector');
+ const layout=make('div','graph-layout'),viewport=make('div','graph-viewport'),world=make('div','graph-world'),
+   lines=S('svg',{class:'graph-edges',width:sceneWidth,height:sceneHeight,viewBox:'0 0 '+sceneWidth+' '+sceneHeight}),
+   cards=make('div','graph-nodes'),inspector=make('aside','graph-inspector');
+ const arrowId='ot-flow-arrow-'+Math.random().toString(36).slice(2,11);
+ const defs=S('defs'),marker=S('marker',{id:arrowId,markerWidth:11,markerHeight:11,
+   refX:9,refY:5,orient:'auto',markerUnits:'userSpaceOnUse'});
+ marker.append(S('path',{d:'M 1 1 L 9 5 L 1 9 Z',class:'graph-arrow-tip'}));
+ defs.append(marker);
  world.append(lines,cards);viewport.append(world);layout.append(viewport,inspector);shell.append(layout);
  const footer=make('div','graph-footer'),counter=make('span','',''),notice=make('span','','اسحب العقد أو اضغط لتعديلها');
  // AI is a draft advisor: suggestions never mutate the graph until an explicit user command.
