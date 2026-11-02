@@ -62,8 +62,14 @@ def require_successful_ui_release(current, report, run_id, ui_envelope):
     is authoritative; require the same run, target, exit status, revision and
     signed-artifact hash before any native publication is queued.
     """
-    if current.get("id") != "mobile-ota-" + str(run_id):
-        raise RuntimeError("UI_OTA_HOST_ACK_MISSING: expected this build's UI job")
+    # A signed UI-only release may already be installed with the identical HTML
+    # hash and revision. Reuse its exact host receipt to avoid a same-revision
+    # manifest conflict; never trust an arbitrary or unverified UI rollout.
+    ui_run=os.environ.get("MOBILE_UI_ALREADY_PUBLISHED_RUN_ID",str(run_id))
+    if not ui_run.isdecimal() or int(ui_run)<=0:
+        raise RuntimeError("UI_OTA_PROOF_SOURCE_INVALID")
+    if current.get("id") != "mobile-ota-" + ui_run:
+        raise RuntimeError("UI_OTA_HOST_ACK_MISSING: exact installed UI job required")
     if report.get("job_id") != current["id"] or report.get("target") != TARGET:
         raise RuntimeError("UI_OTA_HOST_ACK_MISMATCH")
     if report.get("status") != "success" or report.get("exit_code") != 0:
