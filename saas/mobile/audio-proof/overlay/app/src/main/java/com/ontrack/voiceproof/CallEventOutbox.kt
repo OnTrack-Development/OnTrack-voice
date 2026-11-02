@@ -16,6 +16,15 @@ import java.util.UUID
 internal class CallEventOutbox(private val context: Context,storeName:String="ontrack_call_events") {
     private val prefs=context.getSharedPreferences(storeName,Context.MODE_PRIVATE)
 
+    /** The same UUID used by the existing durable event outbox.
+     * Read it BEFORE resetting idle state; never generate a second call ID.
+     */
+    @Synchronized fun currentCallId(slot:Int):String? {
+        if(slot !in 0..1 || prefs.getInt("active_sim_slot",-1)!=slot)return null
+        val id=prefs.getString("active_id","").orEmpty()
+        return id.takeIf{it.matches(Regex("[a-f0-9-]{36}"))}
+    }
+
     @Synchronized fun observe(state:Int,slot:Int=-1) {
         if(state !in 0..2)return
         val previous=prefs.getInt("last_state",0)
