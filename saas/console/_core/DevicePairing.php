@@ -337,7 +337,7 @@ function device_contact_list(array $binding,string $query=''):array {
     $term='%'.$query.'%';
     $rows=all('SELECT id,name,phone,dnc FROM contacts
         WHERE account_id=? AND site_id=? AND (name LIKE ? OR phone LIKE ?)
-        ORDER BY id DESC LIMIT 50',
+        ORDER BY id DESC LIMIT 25',
         [$current['account_id'],$current['site_id'],$term,$term]);
     $items=[];
     foreach($rows as $row){
