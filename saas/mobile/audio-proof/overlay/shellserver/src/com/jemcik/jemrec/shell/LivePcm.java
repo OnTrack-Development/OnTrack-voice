@@ -19,7 +19,8 @@ final class LivePcm {
         if (!owned.compareAndSet(false, true)) throw new IOException("live bridge already active");
         AtomicBoolean active = new AtomicBoolean(true);
         AudioTrack track = null;
-        boolean wasMuted = audio.isMicrophoneMute();
+        // Never mute the device microphone: it is also the call's GSM uplink.
+        // A captured playback/submix stream does not prove remote caller audio.
         try {
             socket.setSoTimeout(30_000);
             DataInputStream in = new DataInputStream(socket.getInputStream());
@@ -27,8 +28,8 @@ final class LivePcm {
             track = route == 'S' ? GreetingPlayer.screeningTrack(audio) : GreetingPlayer.musicTrack(audio);
             capture.checkCompatibility();
             capture.start();
-            audio.setMicrophoneMute(true);
-            if (!audio.isMicrophoneMute()) throw new IOException("microphone did not mute");
+            // Deliberately preserve the caller uplink. Muting it made the AI audible
+            // but prevented the handset from transmitting caller speech.
             track.play();
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
             out.writeInt(0x4f545631); out.writeInt(48000); out.writeInt(2); out.flush();
@@ -68,7 +69,6 @@ final class LivePcm {
             try { socket.close(); } catch (IOException ignored) { }
             try { capture.stop(); } catch (Throwable ignored) { }
             if (track != null) { try { track.pause(); track.flush(); track.release(); } catch (Throwable ignored) { } }
-            try { audio.setMicrophoneMute(wasMuted); } catch (Throwable ignored) { }
             owned.set(false);
         }
     }
