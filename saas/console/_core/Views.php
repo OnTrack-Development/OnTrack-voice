@@ -10,6 +10,15 @@ function form_start(string $action,string $return='/',string $extra=''):string{
     }
     return '<form method="post" class="'.e(trim($classes)).'" '.trim($attrs).'><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="action" value="'.e($action).'"><input type="hidden" name="return" value="'.e($return).'">';
 }
+/** Small intentional edit disclosure; never render an editable input over a row title. */
+function row_rename(string $action,string $return,string $field,int $id,string $name,string $secretType=''):string{
+    $hidden='<input type="hidden" name="'.e($field).'" value="'.$id.'">';
+    if($secretType!=='')$hidden.='<input type="hidden" name="secret_type" value="'.e($secretType).'">';
+    return '<details class="row-rename"><summary>تعديل الاسم</summary>'.
+        form_start($action,$return,'class="row-rename-form"').$hidden.
+        '<label class="field">الاسم<input name="name" value="'.e($name).'" maxlength="120" required></label>'.
+        '<button class="btn small primary" type="submit">حفظ الاسم</button></form></details>';
+}
 function field_html(string $label,string $name,string $type='text',string $placeholder='',bool $required=false):string{
     return '<label class="field">'.e($label).'<input name="'.e($name).'" type="'.e($type).'" placeholder="'.e($placeholder).'" '.($required?'required':'').' maxlength="190"></label>';
 }
@@ -235,45 +244,71 @@ function render_accounts(array $a):void{
     $cells=[];
     foreach($rows as $r){
         $support=form_start('support_enter','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><button class="btn small" type="submit">الدخول للحساب</button></form>';
-        $support.=form_start('edit_account','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><input class="tiny-input" name="name" value="'.e($r['name']).'"><button class="btn small">تعديل</button></form>';
+        $support.=row_rename('edit_account','/?tab=accounts','account_id',(int)$r['id'],(string)$r['name']);
         $support.=form_start('set_account_status','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><input type="hidden" name="status" value="'.($r['status']==='active'?'suspended':'active').'"><button class="btn small danger">'.($r['status']==='active'?'تعليق':'تفعيل').'</button></form>';
         $cells[]=[e($r['name']).'<small class="block dim">'.e($r['slug']).'</small>',pill((string)$r['kind']),e((string)($r['parent_id']??'مباشر')),e((string)$r['seats']),pill((string)$r['status']),$support];
     }
     echo card('الحسابات التابعة',tbl(['الاسم','النوع','الريسيلر','الأعضاء','الحالة','إدارة'],$cells));
 }
 function render_plans(array $a):void{
-    $type=$a['kind'];$id=(int)$a['account_id'];
+    $type=(string)$a['kind'];$id=(int)$a['account_id'];
     $list=$type==='platform'?all('SELECT * FROM plans ORDER BY kind,id'):all("SELECT * FROM plans WHERE kind='user' AND status='active' ORDER BY id");
     $rows=[];
-    foreach($list as $p)$rows[]=[e($p['name']),pill($p['kind']),e((string)$p['call_quota']),e((string)$p['site_limit']),e((string)$p['agent_limit']),e((string)$p['staff_limit']),e((string)$p['price_minor']).' قرش'];
-    echo card('كتالوج الخطط',tbl(['الباقة','النوع','مكالمات شهرياً','مواقع','AI','موظفون','سعر تجريبي'],$rows));
-    if($type==='platform'){
-        foreach($list as $plan){
-          if($plan['status']==='archived')continue;
-          echo card('تعديل '.e($plan['name']),
-              form_start('edit_plan','/?tab=plans','class="form-grid"').'<input type="hidden" name="plan_id" value="'.$plan['id'].'">'.
-              '<label class="field">الاسم<input name="name" value="'.e($plan['name']).'" required></label>'.
-              '<label class="field">مكالمات<input name="calls" type="number" min="0" value="'.$plan['call_quota'].'"></label>'.
-              '<label class="field">المواقع<input name="sites" type="number" min="0" value="'.$plan['site_limit'].'"></label>'.
-              '<label class="field">AI<input name="agents" type="number" min="0" value="'.$plan['agent_limit'].'"></label>'.
-              '<label class="field">الموظفون<input name="staff" type="number" min="0" value="'.$plan['staff_limit'].'"></label>'.
-              '<button class="btn small primary">حفظ الباقة</button></form>'.
-              form_start('archive_plan','/?tab=plans','class="inline-form"').'<input type="hidden" name="plan_id" value="'.$plan['id'].'"><button class="btn small danger" onclick="return confirm(\'إيقاف بيع الباقة؟ الاشتراكات الحالية ستظل محفوظة\')">إيقاف بيع الباقة</button></form>');
-        }
+    foreach($list as $p){
+        $rows[]=[
+            '<strong>'.e((string)$p['name']).'</strong>',
+            pill((string)$p['kind']),
+            e((string)$p['call_quota']),
+            e((string)$p['site_limit']).' / '.e((string)$p['agent_limit']),
+            number_format((int)$p['price_minor']/100,2).' ج.م',
+            number_format((int)($p['overage_minor']??0)/100,2).' ج.م / مكالمة',
+            pill((string)$p['status'])
+        ];
     }
+    echo card('الباقات والأسعار',
+        '<p class="dim">الأسعار بالجنيه المصري. كل باقة تحتوي عدد مكالمات شهريًا، وبعد تجاوز العدد يظهر سعر المكالمة الإضافية. لا يتم تحصيل أي مبلغ تلقائيًا قبل اعتماد نظام قياس وفوترة فعلي.</p>'.
+        tbl(['الباقة','النوع','المكالمات/شهر','مواقع / AI','سعر الباقة','سعر المكالمة الزائدة','الحالة'],$rows));
     if($type==='platform'){
-        echo card('إنشاء باقة',form_start('create_plan','/?tab=plans').'<div class="form-grid">'.
-            select_html('النوع','kind',['reseller'=>'ريسيلر','user'=>'مستخدم']).field_html('اسم الخطة','name','text','باقة جديدة',true).
-            field_html('مكالمات/شهر','calls','number','1000').field_html('المواقع','sites','number','1').
-            field_html('AI Agents','agents','number','1').field_html('الموظفون','staff','number','3').
-            field_html('أقصى عدد عملاء للريسيلر','customers','number','10').field_html('السعر بالقروش','price','number','0').
-            '</div>'.submit_btn('حفظ الخطة'));
+        echo '<section class="card"><div class="card-head"><h3>إدارة الباقات</h3></div><p class="dim">افتح الباقة التي تريد تعديلها، بدلًا من عرض نماذج طويلة لكل الباقات.</p><div class="plan-editors">';
+        foreach($list as $plan){
+            if($plan['status']==='archived')continue;
+            echo '<details class="plan-editor"><summary><strong>'.e((string)$plan['name']).'</strong><span>'.number_format((int)$plan['price_minor']/100,2).' ج.م / 30 يوم</span><span class="edit-chevron" aria-hidden="true">⌄</span></summary><div class="plan-editor-body">'.
+                form_start('edit_plan','/?tab=plans','class="plan-form"').
+                '<input type="hidden" name="plan_id" value="'.(int)$plan['id'].'"><div class="form-grid">'.
+                '<label class="field">اسم الباقة<input name="name" maxlength="120" value="'.e((string)$plan['name']).'" required></label>'.
+                '<label class="field">المكالمات الشهرية<input name="calls" type="number" min="0" value="'.(int)$plan['call_quota'].'" required></label>'.
+                '<label class="field">المواقع<input name="sites" type="number" min="0" value="'.(int)$plan['site_limit'].'" required></label>'.
+                '<label class="field">الإيجنتات<input name="agents" type="number" min="0" value="'.(int)$plan['agent_limit'].'" required></label>'.
+                '<label class="field">الموظفون<input name="staff" type="number" min="0" value="'.(int)$plan['staff_limit'].'" required></label>'.
+                '<label class="field">حد عملاء الريسيلر<input name="customers" type="number" min="0" value="'.(int)$plan['reseller_customers'].'" required></label>'.
+                '<label class="field">سعر الباقة (قرش)<input name="price" type="number" min="0" max="1000000000" step="1" value="'.(int)$plan['price_minor'].'" required><small>100 قرش = 1 جنيه</small></label>'.
+                '<label class="field">سعر كل مكالمة بعد الحد (قرش)<input name="overage" type="number" min="0" max="10000000" step="1" value="'.(int)($plan['overage_minor']??0).'" required><small>0 = بدون تكلفة إضافية</small></label>'.
+                '</div><div class="plan-actions"><button class="btn primary" type="submit">حفظ تغييرات الباقة</button></div></form>'.
+                form_start('archive_plan','/?tab=plans','class="plan-archive"').
+                '<input type="hidden" name="plan_id" value="'.(int)$plan['id'].'">'.
+                '<button class="btn small danger" type="submit" onclick="return confirm(\'إيقاف بيع الباقة؟ الاشتراكات الحالية ستظل محفوظة\')">إيقاف بيع الباقة</button></form>'.
+                '</div></details>';
+        }
+        echo '</div></section>';
+        echo card('إضافة باقة جديدة',
+            form_start('create_plan','/?tab=plans').
+            '<div class="form-grid">'.
+            select_html('نوع الباقة','kind',['reseller'=>'ريسيلر','user'=>'مستخدم']).
+            field_html('اسم الباقة','name','text','اسم الباقة',true).
+            field_html('المكالمات الشهرية','calls','number','1000',true).
+            field_html('المواقع','sites','number','1',true).
+            field_html('الإيجنتات','agents','number','1',true).
+            field_html('الموظفون','staff','number','3',true).
+            field_html('حد عملاء الريسيلر','customers','number','10',true).
+            '<label class="field">سعر الباقة (قرش)<input name="price" type="number" min="0" max="1000000000" step="1" value="0" required></label>'.
+            '<label class="field">سعر المكالمة الزائدة (قرش)<input name="overage" type="number" min="0" max="10000000" step="1" value="0" required></label>'.
+            '</div>'.submit_btn('إنشاء الباقة'));
     }elseif($type==='reseller'){
         $customers=all("SELECT id,name FROM accounts WHERE parent_id=? AND kind='customer'",[$id]);
         $co=[];$po=[];
         foreach($customers as $c)$co[$c['id']]=$c['name'];
         foreach($list as $p)$po[$p['id']]=$p['name'].' — '.$p['call_quota'].' مكالمة';
-        if($co&&$po)echo card('تخصيص باقة لعميل',form_start('assign_plan','/?tab=plans').select_html('العميل','customer_id',$co).select_html('الباقة','plan_id',$po).submit_btn('تعيين مع التحقق من رصيد الريسيلر'));
+        if($co&&$po)echo card('تخصيص باقة',form_start('assign_plan','/?tab=plans').select_html('الحساب','customer_id',$co).select_html('الباقة','plan_id',$po).submit_btn('تعيين الباقة'));
     }
 }
 function render_staff(array $a):void{
@@ -284,7 +319,7 @@ function render_staff(array $a):void{
        $actions=pill($r['role']);
        if(!in_array($r['role'],['owner','admin'],true)&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
            $actions.=form_start('edit_staff','/?tab=staff','class="inline-form"').'<input type="hidden" name="user_id" value="'.$r['id'].'">'.
-                select_html('تغيير الدور','role',['manager'=>'مدير','operator'=>'مشغّل','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).'<button class="btn small">حفظ</button></form>';
+                select_html('تغيير الدور','role',['manager'=>'مدير','operator'=>'مشغّل','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).'<button class="btn small primary">حفظ</button></form></details>';
            $actions.=form_start('remove_staff','/?tab=staff','class="inline-form"').'<input type="hidden" name="user_id" value="'.$r['id'].'"><button class="btn small danger" onclick="return confirm(\'إزالة الموظف من هذا الحساب؟\')">إزالة</button></form>';
        }
        $users[]=[e($r['name']),e($r['email']),$actions];
@@ -322,7 +357,7 @@ function render_sites(array $a):void{
     echo '<div class="cols two">';
     $cells=[];
     foreach($sites as $s)$cells[]=[e($s['name']),'<span dir="ltr">'.e($s['domain']).'</span>',pill($s['status']),'<a class="btn small" href="/saas/console/?tab=agents&site='.$s['id'].'">الإيجنتات ←</a>'.
-      form_start('update_site','/?tab=sites','class="inline-form"').'<input type="hidden" name="site_id" value="'.$s['id'].'"><input class="tiny-input" name="name" value="'.e($s['name']).'"><input class="tiny-input" name="domain" value="'.e($s['domain']).'"><button class="btn small">تعديل</button></form>'.
+      '<details class="row-rename"><summary>تعديل بيانات الموقع</summary>'.form_start('update_site','/?tab=sites','class="row-rename-form"').'<input type="hidden" name="site_id" value="'.$s['id'].'"><label class="field">الاسم<input name="name" value="'.e($s['name']).'"></label><label class="field">الدومين<input name="domain" value="'.e($s['domain']).'"></label><button class="btn small primary">حفظ الموقع</button></form></details>'.
       form_start('archive_site','/?tab=sites','class="inline-form"').'<input type="hidden" name="site_id" value="'.$s['id'].'"><button class="btn small danger" onclick="return confirm(\'أرشفة الموقع وإيجنتاته؟\')">أرشفة</button></form>'];
     echo card('مواقعي',tbl(['الموقع','الدومين','الحالة','التشغيل'],$cells));
     if(allowed('sites.write'))echo card('موقع جديد',form_start('add_site','/?tab=sites').field_html('اسم الموقع','name','text','الصيدلية / الملابس / الدعم',true).field_html('الدومين','domain','text','store.example.com').submit_btn('إضافة موقع مستقل'));
@@ -430,7 +465,7 @@ function render_contacts(array $a):void {
     $rows=all("SELECT c.*,s.name site_name FROM contacts c LEFT JOIN sites s ON s.id=c.site_id WHERE c.account_id=? ORDER BY c.id DESC LIMIT 300",[$id]);
     $cells=[];
     foreach($rows as $r){
-        $action=form_start('edit_contact','/?tab=contacts','class="inline-form"').
+        $action='<details class="row-rename"><summary>تعديل جهة الاتصال</summary>'.form_start('edit_contact','/?tab=contacts','class="row-rename-form"').
           '<input type="hidden" name="contact_id" value="'.$r['id'].'">'.
           '<input name="name" class="tiny-input" value="'.e($r['name']).'" required>'.
           '<input name="phone" class="tiny-input" value="'.e($r['phone']).'" required>'.
@@ -607,10 +642,10 @@ function render_keys(array $a):void{
     foreach($list as $k){
         $name=e($k['name']);
         if(in_array($a['role'],['owner','admin'],true) && !active_support())
-           $name.=form_start('rename_secret','/?tab=keys','class="inline-form"').'<input type="hidden" name="secret_type" value="api"><input type="hidden" name="secret_id" value="'.$k['id'].'"><input class="tiny-input" name="name" value="'.e($k['name']).'"><button class="btn small">تعديل الاسم</button></form>';
+           $name.=row_rename('rename_secret','/?tab=keys','secret_id',(int)$k['id'],(string)$k['name'],'api');
         $rows[]=[$name,'<code>'.e($k['prefix']).'•••</code>',e($k['site_name']??'الحساب'),e($k['scopes']),render_secret_controls('api',$k,'keys')];
     }
-    echo card('API Keys · <span class="dim">مفتاح لكل موقع</span>',
+    echo card('مفاتيح API',
         '<p class="dim">المفاتيح الجديدة مشفرة بمفتاح خاص خارج موقع الويب. عرضها مجددًا متاح للمالك أو الأدمن المسجّل، مع تسجيل كل عرض في سجل التدقيق. المفاتيح القديمة قبل هذه الإضافة تحتاج تدويرًا لأنها محفوظة Hash فقط.</p>'.
         '<p><a class="btn small" href="?tab=keys'.($include?'':'&archived=1').'">'.($include?'عرض المفاتيح النشطة':'عرض سجل المفاتيح الملغاة').'</a></p>'.
         tbl(['الاسم','المعرّف','الموقع','الصلاحيات','الإجراءات'],$rows));
@@ -630,7 +665,7 @@ function render_integrations(array $a):void{
     foreach($entries as $row){
       $name=e($row['name']);
       if(in_array($a['role'],['owner','admin'],true)&&!active_support())
-        $name.=form_start('rename_secret','/?tab=integrations','class="inline-form"').'<input type="hidden" name="secret_type" value="integration"><input type="hidden" name="secret_id" value="'.$row['id'].'"><input class="tiny-input" name="name" value="'.e($row['name']).'"><button class="btn small">تعديل الاسم</button></form>';
+        $name.=row_rename('rename_secret','/?tab=integrations','secret_id',(int)$row['id'],(string)$row['name'],'integration');
       $rows[]=[$name,e($row['provider']),'<code>'.e($row['token_prefix']).'•••</code>',render_secret_controls('integration',$row,'integrations')];
     }
     echo card('التكاملات',

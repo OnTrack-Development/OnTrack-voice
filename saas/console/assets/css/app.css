@@ -289,3 +289,64 @@ html,body{max-width:100%;overflow-x:clip}
   .agent-publish-actions{flex-direction:column}
   .agent-publish-actions>.btn{flex:none;width:100%}
 }
+
+
+/* UI repair: table actions, native checkboxes, visible edit controls, plan pricing. */
+.field:has(> input[type="checkbox"]){display:inline-flex;flex-direction:row;align-items:center;gap:10px;min-height:28px;line-height:1.45;cursor:pointer}
+.field input[type="checkbox"],.agent-form input[type="checkbox"],input[type="checkbox"]{
+  appearance:auto!important;-webkit-appearance:checkbox!important;
+  display:inline-block!important;flex:0 0 18px!important;
+  width:18px!important;height:18px!important;min-height:18px!important;max-width:18px!important;
+  margin:0 3px!important;padding:0!important;border-radius:4px!important;
+  accent-color:var(--accent);box-shadow:none!important;vertical-align:middle
+}
+table{table-layout:auto}
+table td{min-width:0;overflow-wrap:break-word;line-height:1.65}
+table td:last-child{min-width:170px}
+table .inline-form{display:inline-flex!important;vertical-align:middle;margin:3px!important;align-items:center}
+table .inline-form .btn{min-height:34px;white-space:nowrap}
+.table-wrap{max-width:100%;overscroll-behavior-inline:contain}
+.row-rename{display:block;position:relative;max-width:min(280px,100%);margin:7px 0 3px}
+.row-rename>summary{display:inline-flex;align-items:center;gap:5px;
+  background:var(--panel2);border:1px solid var(--border);border-radius:9px;
+  color:var(--muted);font-size:11px;padding:6px 11px;cursor:pointer;list-style:none}
+.row-rename>summary::marker{content:''}.row-rename>summary::-webkit-details-marker{display:none}
+.row-rename>summary:hover{color:var(--text);border-color:var(--accent)}
+.row-rename[open]{max-width:300px}
+.row-rename[open]>summary{color:var(--text);border-color:var(--accent)}
+.row-rename-form{display:flex!important;flex-direction:column!important;gap:8px!important;
+  margin-top:9px!important;padding:12px;border:1px solid var(--border);
+  border-radius:12px;background:var(--panel2);width:100%;max-width:300px}
+.row-rename-form .field{width:100%;min-width:0}
+.row-rename-form .field input{width:100%;font-size:12px;min-width:0}
+.row-rename-form .btn{width:max-content;max-width:100%}
+.plan-editors{display:grid;gap:9px}
+.plan-editor{background:var(--panel2);border:1px solid var(--border);border-radius:14px;overflow:hidden;min-width:0}
+.plan-editor>summary{display:flex;align-items:center;gap:12px;cursor:pointer;
+  min-height:58px;padding:13px 17px;list-style:none}
+.plan-editor>summary::-webkit-details-marker{display:none}
+.plan-editor>summary strong{font-size:13px;flex:1;min-width:0;overflow-wrap:anywhere}
+.plan-editor>summary span{font-size:12px;color:var(--muted)}
+.plan-editor>summary .edit-chevron{font-size:17px}
+.plan-editor[open] .edit-chevron{transform:rotate(180deg)}
+.plan-editor[open]>summary{border-bottom:1px solid var(--border)}
+.plan-editor-body{padding:17px;display:flex;flex-direction:column;gap:10px}
+.plan-form{display:flex;flex-direction:column;gap:15px}
+.plan-form .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.plan-form .field{min-width:0}
+.plan-form .field small{font-weight:450}
+.plan-actions{display:flex;justify-content:flex-start;flex-wrap:wrap}
+.plan-archive{align-self:flex-end}
+.plan-editor>summary:focus-visible,.row-rename>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+table code{direction:ltr;unicode-bidi:plaintext}
+@media(max-width:850px){
+ .plan-form .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .row-rename-form{padding:10px}
+}
+@media(max-width:600px){
+ .plan-form .form-grid{grid-template-columns:1fr}
+ .plan-editor-body{padding:12px}
+ .plan-editor>summary{padding:11px}
+ .plan-editor>summary span{font-size:11px}
+ table td:last-child{min-width:160px}
+}

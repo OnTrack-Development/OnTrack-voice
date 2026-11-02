@@ -234,7 +234,9 @@ function act():void {
             case 'create_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 $type=field('kind',20);if(!in_array($type,['reseller','user'],true))deny();
-                insert("INSERT INTO plans(kind,name,call_quota,site_limit,agent_limit,staff_limit,reseller_customers,price_minor,status,created_at) VALUES (?,?,?,?,?,?,?,?,'active',?)",[$type,required('name'),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),intfield('customers'),intfield('price'),now()]);
+                $price=intfield('price');$overage=intfield('overage');
+                if($price>1000000000||$overage>10000000)throw new InvalidArgumentException('السعر أكبر من الحد المسموح');
+                insert("INSERT INTO plans(kind,name,call_quota,site_limit,agent_limit,staff_limit,reseller_customers,price_minor,overage_minor,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,'active',?)",[$type,required('name'),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),intfield('customers'),$price,$overage,now()]);
                 audit('plan.created',$id);break;
             case 'toggle_voice':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
@@ -413,8 +415,10 @@ function act():void {
             case 'edit_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 $plan=one('SELECT id FROM plans WHERE id=?',[intfield('plan_id')]);if(!$plan)deny();
-                execute('UPDATE plans SET name=?,call_quota=?,site_limit=?,agent_limit=?,staff_limit=? WHERE id=?',
-                   [required('name',120),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),$plan['id']]);
+                $price=intfield('price');$overage=intfield('overage');
+                if($price>1000000000||$overage>10000000)throw new InvalidArgumentException('السعر أكبر من الحد المسموح');
+                execute('UPDATE plans SET name=?,call_quota=?,site_limit=?,agent_limit=?,staff_limit=?,reseller_customers=?,price_minor=?,overage_minor=? WHERE id=?',
+                   [required('name',120),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),intfield('customers'),$price,$overage,$plan['id']]);
                 audit('plan.updated',$id,['plan'=>$plan['id']]);break;
             case 'archive_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
