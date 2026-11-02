@@ -77,7 +77,7 @@ function act():void {
                     $content=(string)file_get_contents((string)$file['tmp_name']);
                 }else{$content=field('knowledge_text',180000);}
                 require_once __DIR__.'/VoiceKnowledge.php';
-                $saved=voice_knowledge_add($id,$site,$name,$kind,$content);
+                $saved=voice_knowledge_add($id,$site,$name,$kind,$content,field('knowledge_visibility',20));
                 audit('voice.knowledge.created',$id,['source_id'=>$saved,'site_id'=>$site]);
                 break;
             case 'voice_knowledge_delete':
