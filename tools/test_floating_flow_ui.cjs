@@ -15,7 +15,7 @@ for(const key of [
   "aiMessage('user',prompt)",
   "aiMessage('assistant'",
   "aiApply.hidden=true",
-  "chatRequest('flow_ai_history')",
+  "chatRequest('flow_ai_history',{current_graph_json:JSON.stringify(data)})",
   "chatRequest('flow_ai_propose'",
   "chatRequest('flow_ai_applied'",
   "chatRequest('flow_ai_discard')",
