@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: 9335751e229be6bcfb7a99e86d70a1135f9b52a7
+          ref: c2e451f760f0ffdea6254a3fe73a8177ef2ce3b0
           persist-credentials: false
       - uses: shivammathur/setup-php@v2
         with:
@@ -26,7 +26,7 @@ jobs:
       - name: Validate pinned production console and user-isolated Agent Flows
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "9335751e229be6bcfb7a99e86d70a1135f9b52a7"
+          test "$(git rev-parse HEAD)" = "c2e451f760f0ffdea6254a3fe73a8177ef2ce3b0"
           find saas/console -name '*.php' -type f -print0 | xargs -0 -n1 php -l >/dev/null
           node --check saas/console/assets/js/app.js
           node --check saas/console/assets/js/flow-graph.js
@@ -35,6 +35,7 @@ jobs:
           node tools/test_voice_qr.cjs
           node tools/test_floating_flow_ui.cjs
           php tools/test_flow_ai_chat.php
+          node tools/test_console_ajax_ui.cjs
           python3 -m py_compile tools/deploy_saas_console.py tools/queue_saas_console.py
           php tools/test_voice_saas_console.php
           php tools/test_console_pricing_ui.php
@@ -66,12 +67,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: 9335751e229be6bcfb7a99e86d70a1135f9b52a7
+          ref: c2e451f760f0ffdea6254a3fe73a8177ef2ce3b0
           persist-credentials: false
       - name: Package pinned production console with rollback support
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "9335751e229be6bcfb7a99e86d70a1135f9b52a7"
+          test "$(git rev-parse HEAD)" = "c2e451f760f0ffdea6254a3fe73a8177ef2ce3b0"
           mkdir -p dist/saas-console
           tar --format=ustar -czf dist/saas-console/release.tar.gz -C saas console
           sha256sum dist/saas-console/release.tar.gz | awk '{print $1}' > dist/saas-console/release.sha256
@@ -84,4 +85,4 @@ jobs:
       - name: Queue signed-source console release after acknowledged host job
         env:
           GH_TOKEN: ${{ github.token }}
-        run: GITHUB_SHA=9335751e229be6bcfb7a99e86d70a1135f9b52a7 python3 tools/queue_saas_console.py
+        run: GITHUB_SHA=c2e451f760f0ffdea6254a3fe73a8177ef2ce3b0 python3 tools/queue_saas_console.py
