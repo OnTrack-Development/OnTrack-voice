@@ -315,7 +315,7 @@ class MobileLinkService:Service() {
                         val voice=tenantFlow?.optString("voice","google.aoede").orEmpty().substringAfterLast('.')
                         val selectedVoice=voice.replaceFirstChar{it.uppercaseChar()}
                         val liveSettings=JSONObject().put("voice",selectedVoice)
-                            .put("input_channel","right")
+                            .put("input_channel","mix")
                             .put("response_style",policy.optString("response_style","egyptian_short"))
                         val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,sess,liveSettings,::notice)
                         call=currentCall;currentCall.start();startedAt=SystemClock.elapsedRealtime()

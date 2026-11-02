@@ -12,6 +12,19 @@ assert '"start","enable"->{' in native, 'Cached UI start must enable bound SaaS 
 assert 'واجهات هاتف التجربة غير متاحة لحماية حسابات العملاء' not in native, 'Do not mislabel demo SIM as a customer block'
 assert 'tenantDesiredEnabled' in native and 'TenantEngineRestorePolicy.shouldRestore' in native, 'Native startup status/restore missing'
 assert 'tenantServiceRunning' in ui, 'UI must distinguish running SIM monitor from call-only Google connection'
+# Transport parity with the previously working Pilot must never regress.
+import hashlib
+service=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkService.kt').read_text()
+session=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLiveCall.kt').read_text()
+bridge=Path('saas/mobile/audio-proof/overlay/shellserver/src/com/jemcik/jemrec/shell/LivePcm.java').read_text()
+pcm=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/LinkPcm.kt').read_text()
+pilot=Path('saas/mobile/server/common.php').read_text()
+assert "'input_channel'=>'mix'" in pilot, 'Unexpected changed old Pilot input source'
+assert '.put("input_channel","mix")' in service, 'Tenant must use the same MIX voice input as proven Pilot'
+assert 'LinkPcm(settings.optString("input_channel","right"))' in session, 'Do not replace established PCM engine'
+assert 'audio.setMicrophoneMute(true)' in bridge and 'audio.setMicrophoneMute(wasMuted)' in bridge, 'Must preserve mute/takeover'
+assert 'session.optString("agent_name"' in session, 'Greeting must use agent display name'
+
 
 assert 'id="key"' not in embedded and 'id="tenantWorkspaceSlot"' in embedded, 'Old Pilot UI bundled into Android APK'
 meta=json.loads(Path('saas/mobile/ota/release.json').read_text())
