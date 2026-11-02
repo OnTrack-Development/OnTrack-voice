@@ -36,6 +36,28 @@
     else if(status)status.textContent='تم تحديد المفتاح؛ اختر نسخ من قائمة النص.';
   }));
   document.querySelectorAll('[data-copy-source]').forEach(field=>field.addEventListener('click',()=>field.select()));
+  // Tenant-owned Meta callbacks/verify tokens are text-only, never copied into
+  // logs or analytics and never sent to the browser after initial setup.
+  document.querySelectorAll('[data-wa-copy]').forEach(button=>button.addEventListener('click',async()=>{
+    const id=button.getAttribute('data-wa-copy')||'';
+    const source=id&&document.getElementById(id);
+    if(!source)return;
+    const value=(source.textContent||'').trim();
+    if(!value)return;
+    let copied=false;
+    try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(value);copied=true;}}catch(_){}
+    if(!copied){
+      const field=document.createElement('textarea');
+      field.value=value;field.setAttribute('readonly','');field.style.position='fixed';
+      field.style.top='-9999px';document.body.append(field);field.select();
+      try{copied=document.execCommand('copy')===true;}catch(_){}
+      field.remove();
+    }
+    if(copied){const original=button.textContent;button.textContent='تم النسخ ✓';
+      window.setTimeout(()=>{if(button.isConnected)button.textContent=original;},1800);}
+    else window.ontrackToast?.('تعذر النسخ تلقائيًا. حدّد النص وانسخه يدويًا.',{error:true});
+  }));
+
   // Responsive WEB navigation: an accessible drawer only below the tablet breakpoint.
   const navToggle=document.getElementById('navToggle');
   const navClose=document.getElementById('navClose');
