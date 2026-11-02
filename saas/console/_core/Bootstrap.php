@@ -300,9 +300,18 @@ function mine():?array{
     foreach(memberships((int)$u['id']) as $m){if((int)$m['account_id']===$id){return array_merge(account($id)??[],$m);}}
     return null;
 }
-function console_view_mode(?array $context=null):string {
+/** The user workspace is a presentation mode for eligible account owners,
+ * not an escalation or impersonation mechanism. The real account remains
+ * unchanged, and support sessions take precedence over this preview.
+ */
+function console_can_switch_view(?array $context=null):bool {
     $a=$context??mine();
-    if(!$a||($a['kind']??'')!=='platform'||!in_array($a['role']??'',['owner','admin'],true)||active_support())return 'admin';
+    return $a!==null && in_array((string)($a['kind']??''),['platform','reseller'],true)
+        && in_array((string)($a['role']??''),['owner','admin'],true)
+        && active_support()===null;
+}
+function console_view_mode(?array $context=null):string {
+    if(!console_can_switch_view($context))return 'admin';
     return ($_SESSION['console_view']??'admin')==='user'?'user':'admin';
 }
 function has_platform():bool {
