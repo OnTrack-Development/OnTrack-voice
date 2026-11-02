@@ -43,10 +43,11 @@ jobs:
           php tools/test_flow_templates.php
           php tools/test_answer_policy.php
           php tools/test_google_provider_config.php
-          php tools/test_console_pricing_ui.php
           php tools/test_voice_trial_and_ui.php
       - name: Database, roles, demo users, branding and isolation smoke
         run: php tools/test_voice_saas_console.php
+      - name: Additional pricing, mobile keyless UX and migration regressions
+        run: php tools/test_console_pricing_ui.php
       - name: External SSO regression in isolated second test phase
         run: |
           php tools/test_voice_sso.php
