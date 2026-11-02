@@ -7,6 +7,12 @@ from pathlib import Path
 ui=Path('saas/mobile/ota/ui.html').read_text()
 embedded=Path('saas/mobile/audio-proof/overlay/app/src/main/assets/ontrack-ui.html').read_text()
 assert embedded == ui, 'APK embedded HTML differs from signed OTA UI; emulator will run old Pilot UI'
+native=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkActivity.kt').read_text()
+assert '"start","enable"->{' in native, 'Cached UI start must enable bound SaaS SIM without Pilot key'
+assert 'واجهات هاتف التجربة غير متاحة لحماية حسابات العملاء' not in native, 'Do not mislabel demo SIM as a customer block'
+assert 'tenantDesiredEnabled' in native and 'TenantEngineRestorePolicy.shouldRestore' in native, 'Native startup status/restore missing'
+assert 'tenantServiceRunning' in ui, 'UI must distinguish running SIM monitor from call-only Google connection'
+
 assert 'id="key"' not in embedded and 'id="tenantWorkspaceSlot"' in embedded, 'Old Pilot UI bundled into Android APK'
 meta=json.loads(Path('saas/mobile/ota/release.json').read_text())
 assert meta['revision']>=18, 'A signed OTA revision must advance'
