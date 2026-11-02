@@ -34,7 +34,7 @@ function act():void {
     $action=(string)($_POST['action']??'');
     if($a['role']==='support_viewer' && $action!=='support_leave')deny(403,'وضع الدعم للقراءة فقط');
     $id=(int)$a['account_id'];$kind=$a['kind'];
-    if(in_array($action,['flow_ai_history','flow_ai_propose','flow_ai_applied','flow_ai_discard','flow_ai_reset'],true)){
+    if(in_array($action,['flow_ai_history','flow_ai_propose','flow_ai_applied','flow_ai_profile_propose','flow_ai_profile_applied','flow_ai_discard','flow_ai_reset'],true)){
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: private,no-store');
         try{
@@ -65,6 +65,7 @@ function act():void {
                     'model'=>flow_ai_model(),
                     'current_explanation'=>$currentExplanation,
                     'current_graph_read'=>$currentGraph!==null,
+                    'pending_profile'=>$chat['pending_profile'],
                     'pending_graph'=>$chat['pending_graph'],
                     'pending_explanation'=>$chat['pending_graph']!==null
                         ?flow_ai_explain_graph($chat['pending_graph']):null],
@@ -80,8 +81,45 @@ function act():void {
             if($action==='flow_ai_discard'){
                 $messages=$chat['messages'];
                 $messages[]=['role'=>'assistant','text'=>'تم إلغاء الاقتراح الأخير. محادثتنا محفوظة والمخطط المنشور لم يتغير.'];
-                flow_ai_chat_write($id,$userId,$agentId,$messages,null);
+                flow_ai_chat_write($id,$userId,$agentId,$messages,null,null);
                 echo '{"ok":true,"published":false}';
+                exit;
+            }
+            if($action==='flow_ai_profile_applied'){
+                $pending=$chat['pending_profile'];
+                if($pending===null)throw new InvalidArgumentException('لا يوجد اقتراح لإعدادات الإيجنت');
+                require_once __DIR__.'/FlowAiProfile.php';
+                $json=(string)($_POST['profile_json']??'');
+                if(strlen($json)>12000)throw new InvalidArgumentException('اقتراح كبير جدًا');
+                $submitted=json_decode($json,true,32);
+                if(!is_array($submitted)||flow_ai_profile_validate($submitted)!==$pending)
+                    throw new InvalidArgumentException('الإعدادات المختارة تختلف عن الاقتراح المعروض');
+                $messages=$chat['messages'];
+                $messages[]=['role'=>'assistant','text'=>'تم اختيار خصائص الإيجنت للمسودة؛ أقدر أكمّل بناء وتطوير أي جزء منها. النشر منفصل.'];
+                flow_ai_chat_write($id,$userId,$agentId,$messages,$chat['pending_graph'],null);
+                echo '{"ok":true,"saved":false,"published":false}';
+                exit;
+            }
+            if($action==='flow_ai_profile_propose'){
+                $idea=field('description',2500);
+                $currentJson=(string)($_POST['current_profile_json']??'');
+                if(strlen($currentJson)>30000)throw new InvalidArgumentException('الإعدادات الحالية كبيرة جدًا');
+                $current=json_decode($currentJson,true,32);
+                if(!is_array($current))throw new InvalidArgumentException('لم يتم إرسال إعدادات الإيجنت الحالية');
+                $time=time();
+                $uses=array_values(array_filter((array)($_SESSION['flow_ai_requests']??[]),
+                    static fn($n)=>is_int($n)&&$n>$time-600));
+                if(count($uses)>=8)throw new RuntimeException('وصلت للحد المؤقت لطلبات المساعد');
+                $uses[]=$time;$_SESSION['flow_ai_requests']=$uses;
+                require_once __DIR__.'/FlowAiProfile.php';
+                $profile=flow_ai_profile_generate($id,$agentId,$idea,$current,$chat['messages']);
+                $messages=$chat['messages'];
+                $messages[]=['role'=>'user','text'=>$idea];
+                $messages[]=['role'=>'assistant','text'=>'اقترحت تعديل خصائص الإيجنت: '.$profile['explanation']];
+                flow_ai_chat_write($id,$userId,$agentId,$messages,$chat['pending_graph'],$profile);
+                echo json_encode(['ok'=>true,'profile'=>$profile,'explanation'=>$profile['explanation'],
+                    'model'=>flow_ai_model(),'saved'=>false,'published'=>false],
+                    JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
                 exit;
             }
             if($action==='flow_ai_applied'){
@@ -94,7 +132,7 @@ function act():void {
                     throw new InvalidArgumentException('المخطط الذي اخترته مختلف عن المقترح');
                 $messages=$chat['messages'];
                 $messages[]=['role'=>'assistant','text'=>'تم اختيار هذا المخطط للحفظ كمسودة. يمكننا متابعة التعديلات هنا، والنشر يحتاج تأكيدًا منفصلًا.'];
-                flow_ai_chat_write($id,$userId,$agentId,$messages,null);
+                flow_ai_chat_write($id,$userId,$agentId,$messages,null,$chat['pending_profile']);
                 echo '{"ok":true,"published":false}';
                 exit;
             }
@@ -116,7 +154,7 @@ function act():void {
                 $messages=$chat['messages'];
                 $messages[]=['role'=>'user','text'=>$description];
                 $messages[]=['role'=>'assistant','text'=>$explanation];
-                flow_ai_chat_write($id,$userId,$agentId,$messages,$chat['pending_graph']);
+                flow_ai_chat_write($id,$userId,$agentId,$messages,$chat['pending_graph'],$chat['pending_profile']);
                 echo json_encode(['ok'=>true,'explanation'=>$explanation,'graph'=>null,
                     'saved'=>false,'published'=>false],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
                 exit;
@@ -131,7 +169,7 @@ function act():void {
             $messages=$chat['messages'];
             $messages[]=['role'=>'user','text'=>$description];
             $messages[]=['role'=>'assistant','text'=>$explanation];
-            flow_ai_chat_write($id,$userId,$agentId,$messages,$graph);
+            flow_ai_chat_write($id,$userId,$agentId,$messages,$graph,$chat['pending_profile']);
             echo json_encode(['ok'=>true,'graph'=>$graph,'explanation'=>$explanation,
                 'model'=>flow_ai_model(),'saved'=>false,'published'=>false],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
         }catch(Throwable $error){
