@@ -8,6 +8,7 @@ on:
       - 'tools/test_tenant_workspace.php'
       - 'tools/test_console_pricing_ui.php'
       - 'tools/test_flow_ai_sources.php'
+      - 'tools/test_floating_flow_ui.cjs'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
@@ -44,6 +45,7 @@ jobs:
           node --check saas/console/assets/js/pairing-qr.js
           node --check saas/console/assets/js/mfa-qr.js
           node tools/test_voice_qr.cjs
+          node tools/test_floating_flow_ui.cjs
           php tools/test_flow_templates.php
           php tools/test_answer_policy.php
           php tools/test_google_provider_config.php
