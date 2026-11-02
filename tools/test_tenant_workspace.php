@@ -34,6 +34,11 @@ try{
     tw_check(tenant_workspace_call_event($b,$event)['duplicate'],'same event deduplicated');
     $history=tenant_workspace_calls($b);
     tw_check(count(array_filter($history['calls'],fn($c)=>$c['call_id']===$call))===1,'SIM call appears once');
+    $phoneCall=one('SELECT is_demo,device_binding_id,external_call_id FROM calls WHERE device_binding_id=? AND external_call_id=?',[$b['id'],$call]);
+    tw_check((int)$phoneCall['is_demo']===0 && (int)$phoneCall['device_binding_id']===$b['id'],
+        'genuine device call must never be tagged as demo');
+    tw_check($phoneCall['external_call_id']===$call,'device call ID survives write path');
+
     $otherHistory=tenant_workspace_calls($other);
     tw_check(!in_array($call,array_column($otherHistory['calls'],'call_id'),true),'SIM2 cannot see SIM1 call');
     $campaignData=['confirmed'=>true,'name'=>'اختبار حملة SaaS','starts'=>'2026-11-03T10:00','ends'=>'2026-11-03T11:00','scenario'=>'اختبار فقط','contact_ids'=>[$match[0]['id']]];
