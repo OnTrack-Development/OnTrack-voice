@@ -920,7 +920,7 @@ function render_whatsapp_platform_settings(array $a):void {
         echo card('WhatsApp · طرق الربط المتاحة للعملاء',
             '<p class="dim">الربط اليدوي وربط واتساب الموجود متاحان لجميع الحسابات. الربط التلقائي وCoexistence لا يظهران إلا بعد تفعيلك إعدادات Meta الخاصة بالمنصة.</p>'.
             '<div class="wa-manual-notice">Embedded Signup v4 يتطلب إعداد Tech Provider أو Solution Partner وتصاريح Meta المناسبة. تفعيل الزر يتيح المسار للعميل، لكنه لا يضمن قبول Meta للرقم حتى إتمام اختبار حقيقي.</div>'.
-            form_start('wa_platform_onboarding_save','/?tab=settings','class="wa-settings-form wa-manual-form"').
+            form_start('wa_platform_onboarding_save','/?tab=whatsapp_admin','class="wa-settings-form wa-manual-form"').
             '<div class="wa-manual-grid">'.
             '<div class="wa-manual-cell half"><label class="field">Meta Platform App ID<input name="meta_app_id" dir="ltr" inputmode="numeric" maxlength="100" value="'.e((string)$meta['app_id']).'" placeholder="من Meta Developers"></label><small class="wa-field-help"><a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer">التطبيق ← Settings ← Basic</a></small></div>'.
             '<div class="wa-manual-cell half"><label class="field">Meta Platform App Secret<input type="password" name="meta_app_secret" maxlength="1000" autocomplete="new-password" placeholder="'.(!empty($meta['app_secret_enc'])?'محفوظ مشفرًا · اتركه فارغًا للاحتفاظ به':'أدخل App Secret').'" ></label><small class="wa-field-help">السيرفر فقط؛ لا يظهر للعميل إطلاقًا.</small></div>'.
