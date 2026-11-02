@@ -15,6 +15,7 @@ function flow_ai_live_setup(string $instruction,array $schema):array {
         'systemInstruction'=>['parts'=>[['text'=>$instruction]]],
         'generationConfig'=>[
             'responseModalities'=>['AUDIO'],
+            'outputAudioTranscription'=>new stdClass(),
             'thinkingConfig'=>['thinkingLevel'=>'MEDIUM']
         ],
         'tools'=>[['functionDeclarations'=>[[
@@ -24,6 +25,31 @@ function flow_ai_live_setup(string $instruction,array $schema):array {
             'parameters'=>$schema
         ]]]]
     ]];
+}
+/** Proven text-turn input for Gemini Live. Realtime input is for a stream of
+ * media chunks and may never signal a completed text turn to the model.
+ */
+function flow_ai_live_text_turn(string $text):array {
+    return ['clientContent'=>['turns'=>[['role'=>'user','parts'=>[['text'=>$text]]]],
+        'turnComplete'=>true]];
+}
+/** Transcription is output of AUDIO response; audio payload is discarded.
+ * Never interpret the user's inputTranscription as a model reply.
+ */
+function flow_ai_live_transcribed_chunk(array $event):string {
+    $value=$event['serverContent']['outputTranscription']['text']??'';
+    return is_string($value)?$value:'';
+}
+/** A speaking model may return JSON as text/transcript rather than calling the
+ * proposal function. Only a complete structurally valid object is accepted.
+ */
+function flow_ai_live_parse_text_graph(string $text):?array {
+    $text=trim($text);
+    if($text===''||strlen($text)>38000)return null;
+    $text=preg_replace('/\\A```(?:json)?\\s*|\\s*```\\z/i','',$text);
+    try{$graph=json_decode($text,true,40,JSON_THROW_ON_ERROR);}
+    catch(JsonException){return null;}
+    return is_array($graph)&&!array_is_list($graph)?$graph:null;
 }
 function flow_ai_live_extract(array $message):?array {
     foreach((array)($message['toolCall']['functionCalls']??[]) as $call){
@@ -115,7 +141,7 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText):arr
             throw new RuntimeException('Google Live WebSocket handshake غير صالح.');
         flow_ai_ws_write($socket,$setup);
         $initialized=false;$started=false;$frames=0;$startedAt=microtime(true);
-        $lastEvent='handshake';$toolResponse=null;
+        $lastEvent='handshake';$transcript='';
         while($frames++<120 && microtime(true)-$startedAt<27){
             try{[$opcode,$body,$last]=flow_ai_ws_read($socket);}
             catch(RuntimeException $error){
@@ -134,8 +160,9 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText):arr
             if(!is_array($event))continue;
             if(isset($event['setupComplete'])&&!$started){
                 $initialized=true;$started=true;
-                // The raw Live API's documented text-input message.
-                flow_ai_ws_write($socket,['realtimeInput'=>['text'=>$userText]]);
+                // Discrete text turn with explicit completion; do not stream
+                // realtimeInput (the earlier editor adapter stalled here).
+                flow_ai_ws_write($socket,flow_ai_live_text_turn($userText));
                 $lastEvent='text_sent';continue;
             }
             if(!$initialized)continue;
@@ -143,16 +170,31 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText):arr
                 (isset($event['toolCall'])?'tool_call':(isset($event['goAway'])?'go_away':'other'));
             $toolResponse=flow_ai_live_extract($event);
             if($toolResponse!==null)return $toolResponse;
+            $transcriptChunk=flow_ai_live_transcribed_chunk($event);
+            if($transcriptChunk!=='' && strlen($transcript)<38000)
+                $transcript.=substr($transcriptChunk,0,38000-strlen($transcript));
+            // Rare text parts also arrive as modelTurn parts with no audio.
+            foreach((array)($event['serverContent']['modelTurn']['parts']??[]) as $part){
+                if(!is_array($part)||!is_string($part['text']??null))continue;
+                $candidate=flow_ai_live_parse_text_graph((string)$part['text']);
+                if($candidate!==null)return $candidate;
+            }
+            if(!empty($event['serverContent']['turnComplete'])){
+                $candidate=flow_ai_live_parse_text_graph($transcript);
+                if($candidate!==null)return $candidate;
+            }
             $state=(string)($event['interactionStatus']??$event['serverContent']['interactionStatus']??'');
             if($state==='IDLE')break;
         }
-        throw new RuntimeException('مساعد Live لم يُرجع مقترحًا منظّمًا؛ لم يتم تعديل المسودة.');
+        $candidate=flow_ai_live_parse_text_graph($transcript);
+        if($candidate!==null)return $candidate;
+        throw new RuntimeException('مساعد Live لم يُرجع مخططًا منظّمًا رغم اكتمال المحاولة؛ لم يتم تعديل المسودة.');
     }finally{fclose($socket);}
 }
 function flow_ai_live_proposal(string $system,string $prompt,array $schema,?callable $transport=null):array {
     $setup=flow_ai_live_setup($system."\nOnly answer by calling submit_editor_proposal with every required field. Never produce spoken text or claim you executed changes.",$schema);
     if($transport!==null){
-        $event=$transport($setup,['realtimeInput'=>['text'=>$prompt]]);
+        $event=$transport($setup,flow_ai_live_text_turn($prompt));
         if(!is_array($event))throw new RuntimeException('ai_live_mock_invalid');
         $args=flow_ai_live_extract($event);
         if($args===null)throw new RuntimeException('مساعد Live لم يُنشئ المقترح المطلوب.');
