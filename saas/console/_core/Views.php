@@ -940,7 +940,7 @@ function render_whatsapp(array $a):void {
     $id=(int)$a['account_id'];
     $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY id",[$id]);
     $connections=all('SELECT id,site_id,public_id,label,phone_number_id,state,ai_agent_id,ai_enabled,
-        waba_id,meta_app_id,graph_version,whmcs_bridge_url,whmcs_bridge_verified_at,
+        waba_id,meta_app_id,graph_version,webhook_relay_enabled,
         last_tested_at,last_webhook_at FROM wa_connections WHERE account_id=? ORDER BY id DESC',[$id]);
     $agents=all("SELECT ag.id,ag.name,s.name site_name FROM agents ag
         JOIN sites s ON s.id=ag.site_id AND s.account_id=ag.account_id
@@ -1023,7 +1023,8 @@ function render_whatsapp(array $a):void {
             '<small>Webhook Verify Token محفوظ كـHash فقط. استخدم النسخة التي نسختها أثناء إنشاء الاتصال؛ لا نعرض الأسرار مجددًا.</small>'.
             '<small>Webhook: '.e((string)($conn['last_webhook_at']??'لم يتم تأكيد استقبال رسالة')).'</small>'.
             '<small>OnTrack AI: '.(!empty($conn['ai_agent_id'])?('إيجنت #'.(int)$conn['ai_agent_id'].' · '.(!empty($conn['ai_enabled'])?'مفعّل':'معطّل')):'بدون إيجنت · الرد اليدوي متاح').'</small>'.
-            ($conn['whmcs_bridge_url']?'<small>تكامل WHMCS الاختياري: '.($conn['whmcs_bridge_verified_at']?'مُختبر':'لم يُختبر').'</small>':'').
+            (!empty($conn['webhook_relay_enabled'])?
+                '<small>Webhook من مزوّد واتساب خارجي: مفعّل · نفس رابط الاستقبال أعلاه · مخصص للشركة الحالية.</small>':'').
             form_start('wa_connection_test','/?tab=whatsapp','class="inline-form"').
             '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
             '<button class="btn small" type="submit">اختبار مفتاح Meta والرقم</button></form>'.
@@ -1032,9 +1033,7 @@ function render_whatsapp(array $a):void {
                 '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
                 '<input type="hidden" name="enabled" value="'.(!empty($conn['ai_enabled'])?'0':'1').'">'.
                 '<button class="btn small" type="submit">'.(!empty($conn['ai_enabled'])?'إيقاف رد OnTrack AI':'تفعيل رد OnTrack AI').'</button></form>':'').
-            ($conn['whmcs_bridge_url']?form_start('wa_whmcs_bridge_test','/?tab=whatsapp','class="inline-form"').
-            '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
-            '<button class="btn small" type="submit">اختبار الربط مع WHMCS AI Support Agent</button></form>':'').
+
             '</div>';
     }
     echo '</section><section class="card wa-manual-card"><div class="wa-manual-heading"><div><span class="eyebrow">META CLOUD API · MANUAL SETUP</span><h3>ربط واتساب يدويًا</h3><p class="dim">البيانات تخص شركتك الحالية فقط؛ مش مطلوب أي ربط بموديول WHMCS.</p></div><span class="pill neutral">Manual Connection</span></div>';
@@ -1047,6 +1046,7 @@ function render_whatsapp(array $a):void {
         // until POST succeeds. The verify token is never persisted in plaintext.
         $publicId=bin2hex(random_bytes(18));
         $verifyToken=bin2hex(random_bytes(24));
+        $relaySecret=bin2hex(random_bytes(32));
         $webhook=wa_public_callback($publicId);
         echo '<div class="wa-manual-notice">الربط اليدوي يحتاج بيانات Meta الخاصة برقمك. بعد الحفظ اختبر الربط، ثم انسخ Callback URL وVerify Token إلى إعدادات Webhook في تطبيق Meta. <strong>التحقق من الرقم لا يعني تشغيل استقبال الرسائل تلقائيًا.</strong></div>';
         echo form_start('wa_connection_add','/?tab=whatsapp','class="wa-settings-form wa-manual-form"').
@@ -1067,6 +1067,13 @@ function render_whatsapp(array $a):void {
             '<div class="wa-copy-strip"><span>Callback URL</span><code id="wa-new-callback" dir="ltr">'.e($webhook).'</code><button type="button" class="btn small" data-wa-copy="wa-new-callback">نسخ الرابط</button></div>'.
             '<div class="wa-copy-strip"><span>Verify Token</span><code id="wa-new-token" dir="ltr">'.e($verifyToken).'</code><button type="button" class="btn small" data-wa-copy="wa-new-token">نسخ التوكن</button></div>'.
             '</div>'.
+            '<details class="wa-relay-options"><summary>Webhook من موديول واتساب أو تكامل آخر (اختياري)</summary>'.
+            '<p class="dim">لو واتساب مربوط بالفعل بموديول WhatsApp Notifications أو أي تكامل يستقبل الرسائل، خلّي التكامل يرسل نفس أحداث Meta كما هي أو حدثًا منظّمًا إلى رابط OnTrack بالأعلى. <strong>مجرد وضع عنوان Webhook القديم هنا لا يربط الرسائل</strong>. الربط ده للأحداث الواردة فقط، والردود تخرج من بيانات Meta Cloud API المرتبطة بهذا الرقم.</p>'.
+            '<label class="wa-relay-toggle"><input type="checkbox" name="use_webhook_relay" value="1">تفعيل استقبال أحداث Webhook الموقّعة من التكامل الخارجي</label>'.
+            '<div class="wa-copy-strip"><span>Webhook Signing Secret</span><code id="wa-new-relay-secret" dir="ltr">'.e($relaySecret).'</code><button type="button" class="btn small" data-wa-copy="wa-new-relay-secret">نسخ المفتاح</button></div>'.
+            '<input type="hidden" name="relay_secret" value="'.e($relaySecret).'">'.
+            '<p class="dim">يوقّع التكامل جسم طلب POST الخام باستخدام HMAC-SHA256 بهذا المفتاح ويرسله في Header باسم <code>X-OnTrack-Webhook-Signature-256</code> وقيمة <code>sha256=&lt;hex&gt;</code>. استخدم نفس Callback URL للرقم. مفتاح توقيع منفصل عن Verify Token الخاص بـMeta.</p>'.
+            '</details>'.
             '<div class="wa-manual-foot"><p>انسخ الرابط والتوكن <strong>قبل الحفظ</strong>؛ التوكن يتخزن Hash فقط ولن يظهر مرة تانية. لو حدّثت الصفحة قبل الحفظ هيتولد رابط وتوكن جديدين. الحالة تبدأ مسودة ولا يتم إرسال رسائل تلقائيًا.</p>'.
             '<button class="btn primary" type="submit">حفظ إعدادات واتساب اليدوية</button></div></form>';
     }
