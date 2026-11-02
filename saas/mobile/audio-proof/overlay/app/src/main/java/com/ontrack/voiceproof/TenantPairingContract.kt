@@ -36,6 +36,9 @@ object TenantPairingContract {
     /** A manually confirmed number is mandatory for a DNC call outcome. */
     fun humanOptOutValid(outcome:String,phone:String,confirmed:Boolean):Boolean =
         outcome!="do_not_call" || (confirmed && phone.filter { it.isDigit() }.length in 8..40)
+    /** Search is deliberately bounded and excludes SQL wildcard characters. */
+    fun contactSearchValid(query:String):Boolean =
+        query.length<=60 && query.all { it.isLetterOrDigit() || it in " +()-" }
     /** Fail closed for legacy pilot telephony while any tenant SIM is paired or pairing. */
     fun pilotAllowed(pairingInProgress:Boolean,hasTenantSim:Boolean):Boolean =
         !pairingInProgress && !hasTenantSim
