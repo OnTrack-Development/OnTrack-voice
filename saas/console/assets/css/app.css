@@ -160,3 +160,15 @@ html,body{max-width:100%;overflow-x:clip}
 @media(prefers-reduced-motion:reduce){
  .sidebar{transition:none}
 }
+
+/* Compact agents workspace: progressive disclosure instead of stacked forms */
+.agent-create,.agent-editor{border:1px solid var(--border);border-radius:16px;background:var(--panel);margin:14px 0;overflow:hidden}
+.agent-create>summary,.agent-editor>summary{list-style:none;cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.agent-create>summary::-webkit-details-marker,.agent-editor>summary::-webkit-details-marker{display:none}
+.agent-editor>summary strong{font-size:16px;flex:1;min-width:140px}
+.agent-editor>summary .dim{font-size:12px}
+.agent-create[open]>summary,.agent-editor[open]>summary{border-bottom:1px solid var(--border)}
+.agent-create>.card,.agent-editor>.card{border:0;box-shadow:none;margin:0;border-radius:0}
+.agent-editor>summary:hover,.agent-create>summary:hover{background:var(--panel2)}
+.agent-editor:focus-within,.agent-create:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:700px){.agent-editor>summary,.agent-create>summary{padding:13px}.agent-editor>summary strong{min-width:100%}}
