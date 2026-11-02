@@ -121,10 +121,10 @@ function layout_open(array $a,string $tab):void{
     echo '<nav class="nav-list" aria-label="أقسام المنصة">';
     $administrative=in_array($a['kind'],['platform','reseller'],true)&&
         console_view_mode($a)==='admin'&&!$support;
-    $workspace=$administrative?['overview']:
+    $workspace=$administrative?($a['kind']==='platform'?['overview','whatsapp_admin']:['overview']):
         ['overview','agents','flows','answering','whatsapp','calls','campaigns','contacts','devices','sites'];
     $platform=['accounts','plans','billing','staff','domains'];
-    $settings=['whatsapp_admin','voices','integrations','keys','releases','settings'];
+    $settings=['voices','integrations','keys','releases','settings'];
     $groups=['workspace'=>[$administrative?'لوحة الإدارة':'مساحة العمل',$workspace],
         'platform'=>['الحسابات والإدارة',$platform],
         'system'=>[$administrative?'إعدادات وإدارة المنصة':'الإعدادات والتكاملات',$settings]];
