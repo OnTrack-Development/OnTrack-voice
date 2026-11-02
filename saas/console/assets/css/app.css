@@ -524,13 +524,13 @@ body.graph-editor-maximized{overflow:hidden}
 /* n8n-inspired operational graph: ports, orthogonal tracks, rounded corners.
    Never draw arbitrary cubic chords through unrelated nodes. */
 .graph-connector{
- fill:none;stroke:var(--muted);stroke-width:1.65;stroke-opacity:.5;
+ fill:none;stroke:var(--accent);stroke-width:1.85;stroke-opacity:.88;
  stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;
  transition:stroke .16s ease,stroke-opacity .16s ease
 }
-.graph-connector.is-focused{stroke:var(--accent);stroke-width:2.5;stroke-opacity:1;filter:drop-shadow(0 0 2px #e51e3a44)}
-.graph-connector.is-muted{stroke-opacity:.12;stroke-width:1.2}
-.graph-arrow-tip{fill:var(--muted);stroke:var(--muted);stroke-width:.65;stroke-linejoin:round}
+.graph-connector.is-focused{stroke:var(--accent);stroke-width:2.75;stroke-opacity:1;filter:drop-shadow(0 0 2px #e51e3a44)}
+.graph-connector.is-muted{opacity:.018;stroke-width:1.2}
+.graph-arrow-tip{fill:var(--accent);stroke:var(--accent);stroke-width:.65;stroke-linejoin:round}
 .graph-edge-pill.is-focused rect{fill:var(--panel);stroke:var(--accent);stroke-width:1.1;fill-opacity:.96}
 .graph-edge-pill.is-focused text{fill:var(--text);font-size:10px}
 .graph-node{transition:border-color .15s ease,opacity .15s ease,box-shadow .15s ease;z-index:1}
@@ -549,3 +549,8 @@ body.graph-editor-maximized{overflow:hidden}
 .graph-edges{z-index:0}
 .graph-nodes{z-index:1}
 .graph-btn[aria-pressed="true"]{border-color:var(--accent);color:var(--text)}
+
+/* Default: all connections red. Hover: show the hovered node's incoming and
+   outgoing links only; never dim the other boxes or depend on selection. */
+.graph-connector:not(.is-focused):not(.is-muted){stroke:var(--accent);stroke-opacity:.88}
+.graph-node.is-muted,.graph-node.is-neighbor{opacity:1}
