@@ -265,4 +265,43 @@
     finally{activeRequest=false;body.classList.remove('ot-ajax-loading');if(submitter?.isConnected)submitter.disabled=false}
   },true);
 
+  // Agent Studio stores the complete published policy as one atomic backend
+  // request; never reloads the screen, loses the current tab or exposes keys.
+  document.addEventListener('submit',async event=>{
+    const form=event.target;
+    if(!form?.matches('form.agent-studio-form'))return;
+    event.preventDefault();event.stopPropagation();
+    if(form.dataset.agentSaving==='1')return;
+    const submit=event.submitter;
+    const publish=submit?.name==='publish_now';
+    if(publish){
+      const accepted=await window.ontrackConfirm(
+        'نشر إعدادات AI Agent الجديدة يجعلها متاحة للمكالمات عند المزامنة. لا يتم إجراء أي مكالمة من هنا.',
+        {title:'نشر الإيجنت الذكي',confirmText:'نشر الإعدادات'});
+      if(!accepted)return;
+    }
+    const data=new FormData(form);
+    if(publish)data.set('publish_now','1');else data.delete('publish_now');
+    const status=form.querySelector('.agent-studio-status');
+    form.dataset.agentSaving='1';
+    if(submit)submit.disabled=true;
+    if(status)status.textContent='جارٍ '+(publish?'النشر':'الحفظ')+'…';
+    try{
+      const response=await fetch(form.action||location.pathname,{
+        method:'POST',body:data,credentials:'same-origin',cache:'no-store',redirect:'error',
+        headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}
+      });
+      const result=await response.json();
+      if(!response.ok||result.ok!==true)throw Error(result.error||'تعذر حفظ إعدادات الإيجنت');
+      if(status)status.textContent=result.message||'تم الحفظ';
+      window.ontrackToast(result.message||'تم حفظ إعدادات الإيجنت');
+    }catch(error){
+      if(status)status.textContent=error.message||'فشل حفظ الإعدادات';
+      window.ontrackToast(error.message||'فشل حفظ إعدادات الإيجنت',{error:true});
+    }finally{
+      delete form.dataset.agentSaving;
+      if(submit)submit.disabled=false;
+    }
+  });
+
 })();
