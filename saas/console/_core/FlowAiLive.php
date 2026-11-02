@@ -128,7 +128,8 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText):arr
                 $masked='';for($i=0;$i<$size;$i++)$masked.=$body[$i]^$mask[$i%4];
                 fwrite($socket,chr(0x8a).chr(0x80|$size).$mask.$masked);continue;
             }
-            if($opcode!==1||!$last)continue;
+            // Live servers may deliver JSON in either text or binary WebSocket frames.
+            if(!in_array($opcode,[1,2],true)||!$last)continue;
             $event=json_decode($body,true,32);
             if(!is_array($event))continue;
             if(isset($event['setupComplete'])&&!$started){
