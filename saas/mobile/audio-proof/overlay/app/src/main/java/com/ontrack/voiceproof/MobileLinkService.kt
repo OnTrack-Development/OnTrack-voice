@@ -209,6 +209,7 @@ class MobileLinkService:Service() {
         var lastState=TelephonyManager.CALL_STATE_IDLE
         var ringingAt=0L
         var answeredByAgent=false
+        var outgoingCall=false
         var ringAttempted=false
         var startedAt=0L
         var tenantFlow:JSONObject?=null
@@ -251,7 +252,7 @@ class MobileLinkService:Service() {
                     if(current==null){
                         if(selected!=null){
                             call?.stop();call=null;tenantSession=null;tenantFlow=null
-                            selected=null;answeredByAgent=false;ringAttempted=false;humanControl=false
+                            selected=null;answeredByAgent=false;outgoingCall=false;ringAttempted=false;humanControl=false
                             ringingAt=0L;startedAt=0L
                         }
                         inCall=false;callAnswered=false
@@ -268,7 +269,7 @@ class MobileLinkService:Service() {
                         delay(750);continue
                     }
                     if(selected!=current.slot){
-                        selected=current.slot;answeredByAgent=false;ringAttempted=false;tenantFlow=null;tenantSession=null
+                        selected=current.slot;answeredByAgent=false;outgoingCall=false;ringAttempted=false;tenantFlow=null;tenantSession=null
                         ringingAt=SystemClock.elapsedRealtime();startedAt=0L;humanControl=false
                     }
                     inCall=true;callAnswered=current.state==TelephonyManager.CALL_STATE_OFFHOOK
@@ -296,6 +297,9 @@ class MobileLinkService:Service() {
                     // initiated that call; do not auto-dial or bridge a foreign SIM.
                     if(current.state==TelephonyManager.CALL_STATE_OFFHOOK && !ringAttempted &&
                         !answeredByAgent && tenantSession==null && !humanControl){
+                        // Android may set OFFHOOK during dialing; only audio transcription
+                        // of the far end should permit the first audible AI response.
+                        outgoingCall=true
                         ringAttempted=true
                         try{
                             val flow=enrollment.publishedFlow(current.slot)
@@ -333,7 +337,7 @@ class MobileLinkService:Service() {
                         val liveSettings=JSONObject().put("voice",selectedVoice)
                             .put("input_channel","mix")
                             .put("response_style",policy.optString("response_style","egyptian_short"))
-                        val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,sess,liveSettings,::notice)
+                        val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,sess,liveSettings,::notice,outgoingCall=outgoingCall)
                         call=currentCall;currentCall.start();startedAt=SystemClock.elapsedRealtime()
                     }
                     if(call!=null && startedAt>0 &&
