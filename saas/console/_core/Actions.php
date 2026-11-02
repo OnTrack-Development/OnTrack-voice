@@ -34,21 +34,82 @@ function act():void {
     $action=(string)($_POST['action']??'');
     if($a['role']==='support_viewer' && $action!=='support_leave')deny(403,'وضع الدعم للقراءة فقط');
     $id=(int)$a['account_id'];$kind=$a['kind'];
-    if($action==='flow_ai_propose'){
+    if(in_array($action,['flow_ai_history','flow_ai_propose','flow_ai_applied','flow_ai_reset'],true)){
         header('Content-Type: application/json; charset=utf-8');
-        header('Cache-Control: no-store');
+        header('Cache-Control: private,no-store');
         try{
-            if(!allowed('agents.write'))throw new RuntimeException('لا تملك صلاحية تعديل الإيجنت');
+            if(!allowed('agents.write')||active_support())throw new RuntimeException('لا تملك صلاحية تعديل محادثة الإيجنت');
             $agentId=intfield('agent_id');
+            $user=me();
+            if(!$user||!flow_preview_agent_for_account($id,$agentId))
+                throw new InvalidArgumentException('agent_not_available');
+            $userId=(int)$user['id'];
+            require_once __DIR__.'/FlowAiChat.php';
+            $chat=flow_ai_chat_read($id,$userId,$agentId);
+            if($action==='flow_ai_history'){
+                echo json_encode(['ok'=>true,'messages'=>$chat['messages'],
+                    'pending_graph'=>$chat['pending_graph'],
+                    'pending_explanation'=>$chat['pending_graph']!==null
+                        ?flow_ai_explain_graph($chat['pending_graph']):null],
+                    JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+                exit;
+            }
+            if($action==='flow_ai_reset'){
+                execute('DELETE FROM flow_ai_chats WHERE account_id=? AND user_id=? AND agent_id=?',
+                    [$id,$userId,$agentId]);
+                echo '{"ok":true,"cleared":true}';
+                exit;
+            }
+            if($action==='flow_ai_applied'){
+                $value=(string)($_POST['graph_json']??'');
+                $pending=$chat['pending_graph'];
+                if($pending===null||strlen($value)>16000||strlen($value)<10)
+                    throw new InvalidArgumentException('لا يوجد مقترح قابل للتطبيق');
+                $submitted=json_decode($value,true,32);
+                if(!is_array($submitted)||$submitted!==$pending)
+                    throw new InvalidArgumentException('المخطط الذي اخترته مختلف عن المقترح');
+                $messages=$chat['messages'];
+                $messages[]=['role'=>'assistant','text'=>'تم اختيار هذا المخطط للحفظ كمسودة. يمكننا متابعة التعديلات هنا، والنشر يحتاج تأكيدًا منفصلًا.'];
+                flow_ai_chat_write($id,$userId,$agentId,$messages,null);
+                echo '{"ok":true,"published":false}';
+                exit;
+            }
+            $description=field('description',2500);
+            $editorGraph=null;
+            $graphText=(string)($_POST['current_graph_json']??'');
+            if($graphText!=='' && strlen($graphText)<=16000){
+                $parsed=json_decode($graphText,true,32);
+                if(is_array($parsed)){
+                    flow_preview_compile($parsed);
+                    $editorGraph=$parsed;
+                }
+            }
+            // If a proposal is still under review, subsequent messages refine
+            // THAT proposal, not the older editor state from before applying.
+            $current=$chat['pending_graph']??$editorGraph;
+            if($current!==null && preg_match('/^(?:اشرح|فهمني|وضح|شرح)(?:\\s|$)/u',trim($description))){
+                $explanation=flow_ai_explain_graph($current);
+                $messages=$chat['messages'];
+                $messages[]=['role'=>'user','text'=>$description];
+                $messages[]=['role'=>'assistant','text'=>$explanation];
+                flow_ai_chat_write($id,$userId,$agentId,$messages,$chat['pending_graph']);
+                echo json_encode(['ok'=>true,'explanation'=>$explanation,'graph'=>null,
+                    'saved'=>false,'published'=>false],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+                exit;
+            }
             $now=time();
             $history=array_values(array_filter((array)($_SESSION['flow_ai_requests']??[]),
                 static fn($t)=>is_int($t)&&$t>$now-600));
             if(count($history)>=8)throw new RuntimeException('وصلت للحد المؤقت لمقترحات AI؛ جرّب لاحقًا.');
             $history[]=$now;$_SESSION['flow_ai_requests']=$history;
-            require_once __DIR__.'/FlowAi.php';
-            $graph=flow_ai_generate($id,$agentId,field('description',2500));
-            echo json_encode(['ok'=>true,'graph'=>$graph,'saved'=>false,'published'=>false],
-                JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+            $graph=flow_ai_generate($id,$agentId,$description,$chat['messages'],$current);
+            $explanation=flow_ai_explain_graph($graph);
+            $messages=$chat['messages'];
+            $messages[]=['role'=>'user','text'=>$description];
+            $messages[]=['role'=>'assistant','text'=>$explanation];
+            flow_ai_chat_write($id,$userId,$agentId,$messages,$graph);
+            echo json_encode(['ok'=>true,'graph'=>$graph,'explanation'=>$explanation,
+                'saved'=>false,'published'=>false],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
         }catch(Throwable $error){
             http_response_code($error instanceof InvalidArgumentException?422:503);
             echo json_encode(['ok'=>false,'error'=>$error instanceof InvalidArgumentException?
