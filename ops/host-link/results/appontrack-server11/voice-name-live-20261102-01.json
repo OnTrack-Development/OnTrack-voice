@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-name-live-20261102-01",
+  "target": "appontrack-server11",
+  "job_sha256": "75542bf3ea049ef04a2a46f3febf380531dc24a4ae54456012833ece3f7e90ef",
+  "started_at": "2026-11-02T03:50:03.078562+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"sim_slot\":0,\"agent_id\":7,\"agent_name\":\"نور\",\"revision\":4,\"contains_spoken_agent_id\":false,\"name_in_instruction\":true}",
+  "stderr": "",
+  "finished_at": "2026-11-02T03:50:03.153760+00:00",
+  "duration_ms": 75
+}
