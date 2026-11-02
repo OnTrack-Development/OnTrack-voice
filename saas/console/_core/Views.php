@@ -10,6 +10,15 @@ function form_start(string $action,string $return='/',string $extra=''):string{
     }
     return '<form method="post" class="'.e(trim($classes)).'" '.trim($attrs).'><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="action" value="'.e($action).'"><input type="hidden" name="return" value="'.e($return).'">';
 }
+/** Small intentional edit disclosure; never render an editable input over a row title. */
+function row_rename(string $action,string $return,string $field,int $id,string $name,string $secretType=''):string{
+    $hidden='<input type="hidden" name="'.e($field).'" value="'.$id.'">';
+    if($secretType!=='')$hidden.='<input type="hidden" name="secret_type" value="'.e($secretType).'">';
+    return '<details class="row-rename"><summary>تعديل الاسم</summary>'.
+        form_start($action,$return,'class="row-rename-form"').$hidden.
+        '<label class="field">الاسم<input name="name" value="'.e($name).'" maxlength="120" required></label>'.
+        '<button class="btn small primary" type="submit">حفظ الاسم</button></form></details>';
+}
 function field_html(string $label,string $name,string $type='text',string $placeholder='',bool $required=false):string{
     return '<label class="field">'.e($label).'<input name="'.e($name).'" type="'.e($type).'" placeholder="'.e($placeholder).'" '.($required?'required':'').' maxlength="190"></label>';
 }
@@ -235,7 +244,7 @@ function render_accounts(array $a):void{
     $cells=[];
     foreach($rows as $r){
         $support=form_start('support_enter','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><button class="btn small" type="submit">الدخول للحساب</button></form>';
-        $support.=form_start('edit_account','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><input class="tiny-input" name="name" value="'.e($r['name']).'"><button class="btn small">تعديل</button></form>';
+        $support.=row_rename('edit_account','/?tab=accounts','account_id',(int)$r['id'],(string)$r['name']);
         $support.=form_start('set_account_status','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><input type="hidden" name="status" value="'.($r['status']==='active'?'suspended':'active').'"><button class="btn small danger">'.($r['status']==='active'?'تعليق':'تفعيل').'</button></form>';
         $cells[]=[e($r['name']).'<small class="block dim">'.e($r['slug']).'</small>',pill((string)$r['kind']),e((string)($r['parent_id']??'مباشر')),e((string)$r['seats']),pill((string)$r['status']),$support];
     }
@@ -310,7 +319,7 @@ function render_staff(array $a):void{
        $actions=pill($r['role']);
        if(!in_array($r['role'],['owner','admin'],true)&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
            $actions.=form_start('edit_staff','/?tab=staff','class="inline-form"').'<input type="hidden" name="user_id" value="'.$r['id'].'">'.
-                select_html('تغيير الدور','role',['manager'=>'مدير','operator'=>'مشغّل','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).'<button class="btn small">حفظ</button></form>';
+                select_html('تغيير الدور','role',['manager'=>'مدير','operator'=>'مشغّل','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).'<button class="btn small primary">حفظ</button></form></details>';
            $actions.=form_start('remove_staff','/?tab=staff','class="inline-form"').'<input type="hidden" name="user_id" value="'.$r['id'].'"><button class="btn small danger" onclick="return confirm(\'إزالة الموظف من هذا الحساب؟\')">إزالة</button></form>';
        }
        $users[]=[e($r['name']),e($r['email']),$actions];
@@ -348,7 +357,7 @@ function render_sites(array $a):void{
     echo '<div class="cols two">';
     $cells=[];
     foreach($sites as $s)$cells[]=[e($s['name']),'<span dir="ltr">'.e($s['domain']).'</span>',pill($s['status']),'<a class="btn small" href="/saas/console/?tab=agents&site='.$s['id'].'">الإيجنتات ←</a>'.
-      form_start('update_site','/?tab=sites','class="inline-form"').'<input type="hidden" name="site_id" value="'.$s['id'].'"><input class="tiny-input" name="name" value="'.e($s['name']).'"><input class="tiny-input" name="domain" value="'.e($s['domain']).'"><button class="btn small">تعديل</button></form>'.
+      '<details class="row-rename"><summary>تعديل بيانات الموقع</summary>'.form_start('update_site','/?tab=sites','class="row-rename-form"').'<input type="hidden" name="site_id" value="'.$s['id'].'"><label class="field">الاسم<input name="name" value="'.e($s['name']).'"></label><label class="field">الدومين<input name="domain" value="'.e($s['domain']).'"></label><button class="btn small primary">حفظ الموقع</button></form></details>'.
       form_start('archive_site','/?tab=sites','class="inline-form"').'<input type="hidden" name="site_id" value="'.$s['id'].'"><button class="btn small danger" onclick="return confirm(\'أرشفة الموقع وإيجنتاته؟\')">أرشفة</button></form>'];
     echo card('مواقعي',tbl(['الموقع','الدومين','الحالة','التشغيل'],$cells));
     if(allowed('sites.write'))echo card('موقع جديد',form_start('add_site','/?tab=sites').field_html('اسم الموقع','name','text','الصيدلية / الملابس / الدعم',true).field_html('الدومين','domain','text','store.example.com').submit_btn('إضافة موقع مستقل'));
@@ -456,7 +465,7 @@ function render_contacts(array $a):void {
     $rows=all("SELECT c.*,s.name site_name FROM contacts c LEFT JOIN sites s ON s.id=c.site_id WHERE c.account_id=? ORDER BY c.id DESC LIMIT 300",[$id]);
     $cells=[];
     foreach($rows as $r){
-        $action=form_start('edit_contact','/?tab=contacts','class="inline-form"').
+        $action='<details class="row-rename"><summary>تعديل جهة الاتصال</summary>'.form_start('edit_contact','/?tab=contacts','class="row-rename-form"').
           '<input type="hidden" name="contact_id" value="'.$r['id'].'">'.
           '<input name="name" class="tiny-input" value="'.e($r['name']).'" required>'.
           '<input name="phone" class="tiny-input" value="'.e($r['phone']).'" required>'.
@@ -633,7 +642,7 @@ function render_keys(array $a):void{
     foreach($list as $k){
         $name=e($k['name']);
         if(in_array($a['role'],['owner','admin'],true) && !active_support())
-           $name.=form_start('rename_secret','/?tab=keys','class="inline-form"').'<input type="hidden" name="secret_type" value="api"><input type="hidden" name="secret_id" value="'.$k['id'].'"><input class="tiny-input" name="name" value="'.e($k['name']).'"><button class="btn small">تعديل الاسم</button></form>';
+           $name.=row_rename('rename_secret','/?tab=keys','secret_id',(int)$k['id'],(string)$k['name'],'api');
         $rows[]=[$name,'<code>'.e($k['prefix']).'•••</code>',e($k['site_name']??'الحساب'),e($k['scopes']),render_secret_controls('api',$k,'keys')];
     }
     echo card('مفاتيح API',
@@ -656,7 +665,7 @@ function render_integrations(array $a):void{
     foreach($entries as $row){
       $name=e($row['name']);
       if(in_array($a['role'],['owner','admin'],true)&&!active_support())
-        $name.=form_start('rename_secret','/?tab=integrations','class="inline-form"').'<input type="hidden" name="secret_type" value="integration"><input type="hidden" name="secret_id" value="'.$row['id'].'"><input class="tiny-input" name="name" value="'.e($row['name']).'"><button class="btn small">تعديل الاسم</button></form>';
+        $name.=row_rename('rename_secret','/?tab=integrations','secret_id',(int)$row['id'],(string)$row['name'],'integration');
       $rows[]=[$name,e($row['provider']),'<code>'.e($row['token_prefix']).'•••</code>',render_secret_controls('integration',$row,'integrations')];
     }
     echo card('التكاملات',
