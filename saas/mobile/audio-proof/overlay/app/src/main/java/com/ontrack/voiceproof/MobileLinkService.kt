@@ -416,6 +416,7 @@ class MobileLinkService:Service() {
     }
     private suspend fun tenantMonitor(){
         val enrollment=TenantDeviceEnrollment(this)
+        val tenantEvents=CallEventOutbox(this,"ontrack_tenant_call_events")
         var selected:Int?=null
         var lastState=TelephonyManager.CALL_STATE_IDLE
         var ringingAt=0L
@@ -446,6 +447,19 @@ class MobileLinkService:Service() {
                         delay(900);continue
                     }
                     val current=active.singleOrNull()
+                    tenantEvents.observe(current?.state?:TelephonyManager.CALL_STATE_IDLE,current?.slot?:-1)
+                    runCatching{tenantEvents.enrichFromCallLog()}
+                    if(callEventFlush?.isActive!=true)callEventFlush=scope.launch {
+                        runCatching {
+                            val event=tenantEvents.peek()?:return@runCatching
+                            val slot=event.optInt("sim_slot",-1)
+                            if(slot !in 0..1 || !enrollment.paired(slot))return@runCatching
+                            val response=withContext(Dispatchers.IO){
+                                enrollment.workspace(slot,"workspace_call_event",event)
+                            }
+                            if(response.optBoolean("accepted"))tenantEvents.acknowledge(event)
+                        }.onFailure { notice("تعذر رفع حدث مكالمة SaaS؛ سيُعاد الإرسال دون تكرار") }
+                    }
                     if(current==null){
                         if(selected!=null){
                             call?.stop();call=null;tenantSession=null;tenantFlow=null
