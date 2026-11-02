@@ -592,19 +592,23 @@ function render_devices(array $a):void {
     echo '<div class="info">الربط الجديد لكل شريحة على حدة: اختر الشركة والإيجنت، أنشئ QR، ثم راقب آخر اتصال للجهاز. جلسة Google Live تحتاج مزوّدًا معتمدًا واختبار صوت فعلي.</div>';
 }
 function render_voices(array $a):void{
-    $id=(int)$a['account_id'];$list=all('SELECT * FROM voices ORDER BY tier, id');
+    $id=(int)$a['account_id'];
+    $adminView=$a['kind']==='platform' && console_view_mode($a)==='admin';
+    $list=$adminView?all('SELECT * FROM voices ORDER BY tier,id'):
+        all("SELECT v.* FROM voices v INNER JOIN voice_grants g ON g.voice_id=v.id WHERE g.account_id=? AND v.status='active' AND v.ready=1 ORDER BY v.tier,v.id",[$id]);
     $grants=all('SELECT voice_id FROM voice_grants WHERE account_id=?',[$id]);$g=array_column($grants,'voice_id');
     $rows=[];
     foreach($list as $v){
         $last='<span class="dim">'.(in_array($v['id'],$g)?'متاح':'غير مخصص').'</span>';
-        if($a['kind']==='platform'){
+        if($adminView){
             $last=form_start('toggle_voice','/?tab=voices','class="inline-form"').'<input type="hidden" name="voice_id" value="'.$v['id'].'"><button class="btn small">إظهار/إخفاء</button></form>';
             $last.=form_start('set_voice_ready','/?tab=voices','class="inline-form"').'<input type="hidden" name="voice_id" value="'.$v['id'].'"><input type="hidden" name="ready" value="'.((int)$v['ready']===1?'0':'1').'"><input type="hidden" name="confirmed" value="1"><button class="btn small" onclick="return confirm(\'هل اختبرت الصوت بنجاح على مزود الاتصال؟\')">'.((int)$v['ready']===1?'إلغاء الجاهزية':'اعتماد صوت').'</button></form>';
         }
         $rows[]=[e($v['name']),e($v['provider']),pill($v['tier']),(int)$v['ready']?pill('ready'):pill('not ready'),pill($v['status']),$last];
     }
-    echo card('Voice Catalog',tbl(['الصوت','المزود','الفئة','جاهزية فعلية','العرض','التحكم'],$rows));
-    if($a['kind']==='platform')
+    if(!$list)echo '<p class="info">الأصوات المخصصة للحساب غير جاهزة بعد؛ لا توجد أصوات إضافية قابلة للاختيار.</p>';
+    else echo card('Voice Catalog',tbl(['الصوت','المزود','الفئة','جاهزية فعلية','العرض','التحكم'],$rows));
+    if($adminView)
         echo card('Google Voice Discovery',form_start('sync_google_voices','/?tab=voices').
             '<p>استيراد كتالوج Google Gemini Live المنشور (30 صوتاً). كل صوت جديد يبقى غير مفعّل حتى التحقق من توافقه مع مزوّد الاتصال الفعلي.</p>'.
             submit_btn('مزامنة 30 صوت Google')).
@@ -613,8 +617,8 @@ function render_voices(array $a):void{
           '<label class="field">Google API Key (اختياري لو متسجّل في إعدادات الأدمن)<input type="password" name="google_api_key" autocomplete="off" minlength="16" placeholder="سيُستخدم مفتاح Google المحفوظ إن وجد"></label>'.
           '<p class="dim">استيراد الأصوات الحقيقية هيستخدم المفتاح المحفوظ. لو حساب Google لا يسمح بالـVoices API، هيظهر الكتالوج الأساسي مع توضيح المشكلة؛ مش هنقول المفتاح خاطئ.</p>'.
           submit_btn('مزامنة أصوات Google المتاحة'));
-    echo '<div class="info">أصوات AYO Premium لم يتم إثبات تشغيلها بعد؛ لن تُباع أو تُفعل قبل اختبار المحرك.</div>';
-    if($a['kind']==='platform'||$a['kind']==='reseller'){
+    if($adminView)echo '<div class="info">AYO Premium ما زال غير جاهز للاستخدام العام.</div>';
+    if($adminView||$a['kind']==='reseller'){
         $targets=$a['kind']==='platform'?all("SELECT id,name FROM accounts WHERE kind!='platform'"):all('SELECT id,name FROM accounts WHERE parent_id=?',[$id]);
         $opts=[];foreach($targets as $v)$opts[$v['id']]=$v['name'];
         $active=[];foreach($list as $v)if((int)$v['ready']===1)$active[$v['id']]=$v['name'];
