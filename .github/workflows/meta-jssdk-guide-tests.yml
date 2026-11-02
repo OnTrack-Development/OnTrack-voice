@@ -1,0 +1,31 @@
+name: Meta JavaScript SDK Setup Guidance
+on:
+  push:
+    branches: [fix/meta-jssdk-setup-guidance-20261103]
+    paths:
+      - 'saas/console/_core/Views.php'
+      - 'tools/test_admin_whatsapp_separation.php'
+      - '.github/workflows/meta-jssdk-guide-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,pdo_mysql,mbstring,openssl,curl
+          coverage: none
+      - name: Validate source and admin/user guidance
+        run: |
+          set -eu
+          php -l saas/console/_core/Views.php
+          php -l tools/test_admin_whatsapp_separation.php
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_admin_whatsapp_separation.php
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_whatsapp_four_onboarding.php
