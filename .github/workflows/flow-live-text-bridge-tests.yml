@@ -1,0 +1,32 @@
+name: Live Text Bridge for Flow Builder
+on:
+  push:
+    branches: [fix/flow-ai-live-text-bridge-20261103]
+    paths:
+      - 'saas/console/_core/FlowAiLive.php'
+      - 'saas/console/_core/FlowAi.php'
+      - 'saas/console/_core/FlowAiProfile.php'
+      - 'tools/test_flow_ai_live_thinking.php'
+      - '.github/workflows/flow-live-text-bridge-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,openssl,curl
+          coverage: none
+      - name: Syntax and Live protocol tests
+        run: |
+          set -eu
+          php -l saas/console/_core/FlowAiLive.php
+          php -l saas/console/_core/FlowAi.php
+          php -l saas/console/_core/FlowAiProfile.php
+          php tools/test_flow_ai_live_thinking.php
+          php tools/test_flow_ai_chat.php
