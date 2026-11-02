@@ -767,7 +767,8 @@ function act():void {
                     :'المفتاح اتقبل من Google واتحفظ مشفرًا. اختبار Gemini Live لم ينجح بعد؛ راجع صلاحية Live والموديل، مش لازم يكون المفتاح غلط.';
                 break;
             case 'wa_platform_onboarding_save':
-                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||
+                   console_view_mode($a)!=='admin'||active_support())deny();
                 require_once __DIR__.'/WhatsAppOnboarding.php';
                 wa_onboarding_save([
                     'app_id'=>field('meta_app_id',100),
