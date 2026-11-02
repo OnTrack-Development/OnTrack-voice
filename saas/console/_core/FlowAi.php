@@ -64,7 +64,7 @@ function flow_ai_model():string {
 
 function flow_ai_generate(int $accountId,int $agentId,string $idea,array $history=[],?array $currentGraph=null):array {
     $idea=trim($idea);
-    if(mb_strlen($idea)<($history?3:15)||mb_strlen($idea)>2500)
+    if(mb_strlen($idea)<(($history||$currentGraph!==null)?3:15)||mb_strlen($idea)>2500)
         throw new InvalidArgumentException('وصف السيناريو لازم يكون بين 15 و2500 حرف.');
     $agent=flow_preview_agent_for_account($accountId,$agentId);
     if(!$agent)throw new InvalidArgumentException('agent_not_available');
