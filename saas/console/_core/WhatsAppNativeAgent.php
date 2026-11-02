@@ -69,9 +69,19 @@ function wa_native_parse(string $json):array {
     $reply=trim((string)($v['reply_text']??''));
     if($v['decision']==='reply'&&($reply===''||mb_strlen($reply)>4096))
         throw new RuntimeException('native_ai_reply_invalid');
-    return ['decision'=>$v['decision'],'reply_text'=>$reply,'approved'=>($v['approved']??false)===true];
+    $buttons=$v['buttons']??[];
+    if(!is_array($buttons)||!array_is_list($buttons)||count($buttons)>3)
+        throw new RuntimeException('native_ai_buttons_invalid');
+    foreach($buttons as $i=>$title){
+        if(!is_string($title)||trim($title)===''||mb_strlen($title)>20)
+            throw new RuntimeException('native_ai_button_title_invalid');
+        $buttons[$i]=trim($title);
+    }
+    if($v['decision']!=='reply')$buttons=[];
+    return ['decision'=>$v['decision'],'reply_text'=>$reply,
+        'buttons'=>$buttons,'approved'=>($v['approved']??false)===true];
 }
-function wa_native_reviewed_draft(array $connection,array $conversation,?callable $transport=null):?string {
+function wa_native_reviewed_draft(array $connection,array $conversation,?callable $transport=null):?array {
     $published=wa_native_snapshot($connection);
     if(!$published)throw new RuntimeException('native_agent_not_published');
     $messages=all('SELECT role,body FROM wa_messages WHERE account_id=? AND conversation_id=? ORDER BY id DESC LIMIT 12',
@@ -87,20 +97,21 @@ function wa_native_reviewed_draft(array $connection,array $conversation,?callabl
       "لا تُنفذ أي إجراء خارجي. أي بيانات شخصية/فواتير أو تغيير حساس أو معلومة غير مؤكدة = handoff.\n".
       "تعليمات الوكيل: ".mb_substr((string)$published['instructions'],0,3800)."\n".
       "قاعدة المعرفة: ".mb_substr((string)$published['knowledge'],0,6000)."\n".
-      'ارجع JSON فقط: {"decision":"reply|handoff|no_reply","reply_text":"..."}';
+      'ارجع JSON فقط: {"decision":"reply|handoff|no_reply","reply_text":"...","buttons":["زر 1","زر 2"]}. الأزرار اختيارية بحد أقصى 3، وتعرض خيارات فعلية فقط دون ادعاء تنفيذها.';
     $draft=wa_native_parse(wa_native_generate($rules,$history,$transport));
     if($draft['decision']!=='reply')return null;
     // Distinct reviewing call: no LLM draft may be dispatched merely because
     // the writer produced it. Fail closed unless the reviewer approves EXACT text.
     $review="أنت مراجع مستقل لردود OnTrack Voice. راجع الرد مقارنةً بسياق المحادثة والمعرفة. ".
       "ارفض أي ادعاء وصول إلى WHMCS أو CRM أو حجز أو حالة خدمة غير موثقة، وأي طلب بيانات حساسة. ".
-      'ارجع JSON فقط: {"decision":"reply|handoff|no_reply","reply_text":"نفس النص الأصلي تمامًا","approved":true|false}. '.
+      'ارجع JSON فقط: {"decision":"reply|handoff|no_reply","reply_text":"نفس النص الأصلي تمامًا","buttons":["نفس الأزرار"],"approved":true|false}. '.
       "لا تعدل النص أثناء المراجعة. أي شك = handoff.";
     $evaluation=wa_native_parse(wa_native_generate($review,
-        ['history'=>$history,'draft'=>$draft['reply_text'],'knowledge'=>mb_substr((string)$published['knowledge'],0,3000)],$transport));
+        ['history'=>$history,'draft'=>$draft['reply_text'],'buttons'=>$draft['buttons'],'knowledge'=>mb_substr((string)$published['knowledge'],0,3000)],$transport));
     if($evaluation['decision']!=='reply'||!$evaluation['approved']||
-        !hash_equals($draft['reply_text'],$evaluation['reply_text']))return null;
-    return $draft['reply_text'];
+        !hash_equals($draft['reply_text'],$evaluation['reply_text'])||
+        $draft['buttons']!==$evaluation['buttons'])return null;
+    return $draft;
 }
 function wa_native_run_job(int $jobId,?callable $aiTransport=null,?callable $metaTransport=null):array {
     $job=one("SELECT * FROM wa_ai_jobs WHERE id=? AND status='pending'",[$jobId]);
@@ -117,8 +128,8 @@ function wa_native_run_job(int $jobId,?callable $aiTransport=null,?callable $met
     if(execute("UPDATE wa_ai_jobs SET status='processing',attempts=attempts+1,updated_at=?
         WHERE id=? AND status='pending'",[now(),$jobId])!==1)return ['status'=>'claimed_elsewhere'];
     try{
-        $text=wa_native_reviewed_draft($conn,$conv,$aiTransport);
-        if($text===null){
+        $draft=wa_native_reviewed_draft($conn,$conv,$aiTransport);
+        if($draft===null){
             execute("UPDATE wa_ai_jobs SET status='skipped',updated_at=? WHERE id=?",[now(),$jobId]);
             return ['status'=>'handoff_or_no_reply'];
         }
@@ -135,12 +146,12 @@ function wa_native_run_job(int $jobId,?callable $aiTransport=null,?callable $met
                 execute("UPDATE wa_ai_jobs SET status='skipped',updated_at=? WHERE id=?",[now(),$jobId]);
                 db()->commit();return ['status'=>'stale_or_human'];
             }
-            $sent=wa_meta_send($latest,(string)$current['contact'],$text,$metaTransport);
+            $sent=wa_meta_send($latest,(string)$current['contact'],$draft['reply_text'],$metaTransport,$draft['buttons']);
             $mid=insert("INSERT INTO wa_messages(account_id,conversation_id,connection_id,
                 provider_message_id,role,body,delivery_status,created_at)
                 VALUES (?,?,?,?,'ai',?,'accepted',?)",[
                 $accountId,(int)$current['id'],(int)$latest['id'],
-                $sent['provider_message_id'],$text,now()]);
+                $sent['provider_message_id'],$draft['reply_text'],now()]);
             execute('UPDATE wa_conversations SET last_message_at=? WHERE id=? AND account_id=?',
                 [now(),(int)$current['id'],$accountId]);
             execute("UPDATE wa_ai_jobs SET status='sent',updated_at=? WHERE id=?",[now(),$jobId]);
