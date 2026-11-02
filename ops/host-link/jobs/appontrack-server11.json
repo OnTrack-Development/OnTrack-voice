@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "tenant-pilot-counts-20261102-01",
+  "id": "tenant-legacy-endpoints-20261102-01",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-02T02:02:32.109Z",
-  "expires_at": "2026-11-02T03:02:32.109Z",
+  "created_at": "2026-11-02T02:06:51.933Z",
+  "expires_at": "2026-11-02T03:06:51.933Z",
   "cwd": "/home/appontrack/public_html",
   "argv": [
     "/bin/python3",
     "-c",
-    "import pathlib,json,os\np=pathlib.Path('/home/appontrack/.ontrack-mobile/pilot')\nout={'pilot_store_exists':p.exists(),'stats':{},'auth_file_exists':pathlib.Path('/home/appontrack/public_html/saas/mobile/server/auth.sha256').exists()}\nfor kind in ('contacts','campaigns','attempts','dnc'):\n f=p/(kind+'.json')\n try:\n  v=json.loads(f.read_text()) if f.is_file() else []\n  out['stats'][kind]={'count':len(v) if isinstance(v,list) else None,'bytes':f.stat().st_size if f.is_file() else 0}\n except Exception as e:out['stats'][kind]={'error':type(e).__name__}\nprint(json.dumps(out,ensure_ascii=False))"
+    "import pathlib,json\nroot=pathlib.Path('/home/appontrack/public_html')\npaths=['saas/mobile/server/common.php','saas/mobile/server/control.php','saas/mobile/server/session.php','saas/mobile/server/calls_feed.php','saas/mobile/server/contacts_api.php','saas/console/device/v1/index.php','saas/console/_core/TenantWorkspace.php','saas/mobile/updates/native/latest.json']\nprint(json.dumps({p:(root/p).is_file() for p in paths}))"
   ],
-  "timeout_seconds": 16
+  "timeout_seconds": 10
 }
