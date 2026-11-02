@@ -186,3 +186,8 @@ Owner screenshots show Play Protect sensitive-data/fraud installation block for0
 ## Owner OTA directive — 2026-10-30
 
 Owner requested Thndr-like OTA.0.1.6 adds a signed HTML/CSS/JS call-center UI with a fixed bounded native bridge, private cache and rollback; it is not arbitrary native code replacement. Preserve the existing APK signing identity, no package rename/uninstall/protection bypass. Native audio/permissions require a normal APK update. UI publish only updates saas/mobile/updates through the existing bounded host worker; queued is not deployed. Read docs/mobile/OTA_UPDATES_AR.md. Phone401 and AI/SIM duplex remain pending independently.
+
+
+## Owner correction (2026-11-02) — WhatsApp AI Support is STANDALONE
+The owner clarified "like the WHMCS AI Support Agent" means **matching UX, agent behavior, smart reply/buttons, conversation workflows and human handoff**; it expressly does NOT mean invoking, installing or depending on the WHMCS AI Support addon. The previous WHMCS-only WhatsApp auto-reply assumption is superseded. Native OnTrack support agents are primary and independent; Laravel/WHMCS/knowledge connections are optional external data sources with separate authorization. See docs/WHATSAPP_STANDALONE_AGENT_AR.md.
+Never mark the native path deployed, provider-connected or Meta-delivered on source CI alone. AI is off per new Meta channel until explicitly enabled against a published agent and verified Meta credentials; no unattended real customer outreach in this internal demo.
