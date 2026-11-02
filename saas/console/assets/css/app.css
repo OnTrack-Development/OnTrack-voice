@@ -450,3 +450,11 @@ body.graph-editor-maximized{overflow:hidden}
  .graph-shell:fullscreen .graph-inspector,.graph-shell.graph-maximized .graph-inspector{
    flex:none;height:180px;min-height:0;max-height:180px}
 }
+
+/* Agent-scoped chat continuity: compact reset action in the existing drawer header. */
+.graph-ai-head-actions{display:flex;align-items:center;gap:7px}
+.graph-ai-reset{min-height:34px;padding:7px 9px;font-size:10px;color:var(--muted);
+ background:var(--panel2);border-color:var(--border)}
+.graph-ai-reset:hover{color:var(--text);border-color:var(--accent)}
+.graph-ai-message{line-height:1.85;white-space:pre-wrap;overflow-wrap:anywhere}
+.graph-ai-thread{scrollbar-width:thin}
