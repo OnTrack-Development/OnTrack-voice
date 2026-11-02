@@ -32,6 +32,7 @@ ob_start();layout_open($original,'overview');$html=ob_get_clean();
 workspace_assert(str_contains($html,'workspace-switcher'),'desktop persistent switch exists');
 workspace_assert(str_contains($html,'الانتقال لمساحة المستخدم'),'platform to user button');
 workspace_assert(str_contains($html,'name="view" value="user"'),'server action target included');
+workspace_assert(substr_count($html,'data-no-ajax="1"')>=2,'both platform switch buttons force full reload');
 $_SESSION['console_view']='user';
 workspace_assert(console_view_mode($original)==='user','platform preview active');
 $nav=nav_entries('platform');
@@ -54,6 +55,7 @@ ob_start();layout_open($resellerContext,'overview');$html=ob_get_clean();
 workspace_assert(str_contains($html,'العودة لمساحة الريسيلر'),'reseller return in sidebar');
 workspace_assert(str_contains($html,'لوحة الريسيلر'),'reseller return in topbar');
 workspace_assert(str_contains($html,'name="view" value="admin"'),'reseller back action');
+workspace_assert(substr_count($html,'data-no-ajax="1"')>=2,'reseller switching forces native form submit');
 
 $_SESSION=['uid'=>(int)$reseller['uid'],'account_id'=>(int)$reseller['account_id'],
     'console_view'=>'user','support'=>[
@@ -67,6 +69,7 @@ ob_start();layout_open($supported,'overview');$html=ob_get_clean();
 workspace_assert(str_contains($html,'العودة لمساحة الريسيلر'),'support return in sidebar');
 workspace_assert(str_contains($html,'↩ لوحة الريسيلر'),'support return in header');
 workspace_assert(str_contains($html,'name="action" value="support_leave"'),'support leave is POST');
+workspace_assert(substr_count($html,'data-no-ajax="1"')>=2,'support leave forces full reload');
 workspace_assert(!str_contains($html,'name="action" value="set_view"'),'support cannot use preview action');
 
 $_SESSION=['uid'=>(int)$manager['uid'],'account_id'=>(int)$manager['account_id'],
