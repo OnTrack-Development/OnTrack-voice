@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-flow-provider-probe-20261102-01",
+  "target": "appontrack-server11",
+  "job_sha256": "c3fff31821dd373485da01aebaa4c56dbe9c78854af83fe7d068bce0f6bdaaae",
+  "started_at": "2026-11-02T05:09:02.603316+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"ok\":true,\"probes\":[{\"model\":\"gemini-3.8-flash\",\"http\":0,\"curl_errno\":28,\"ms\":9002,\"google_status\":null},{\"model\":\"gemini-3.5-flash-lite\",\"http\":200,\"curl_errno\":0,\"ms\":730,\"google_status\":null}]}",
+  "stderr": "",
+  "finished_at": "2026-11-02T05:09:12.403172+00:00",
+  "duration_ms": 9800
+}
