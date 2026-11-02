@@ -47,10 +47,10 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
   templateSelect.setAttribute('aria-label','مكتبة السيناريوهات');
   templateSelect.append(new Option('اختار سيناريو للتعديل',''));
   templates.forEach(t=>templateSelect.append(new Option(t.title,t.id)));
-  const applyTemplate=button('استخدام السيناريو',()=>{
+  const applyTemplate=button('استخدام السيناريو',async()=>{
     const candidate=templates.find(t=>t.id===templateSelect.value);
     if(!candidate)return;
-    if(!confirm('استبدال التصميم الحالي بنسخة من السيناريو المختار؟'))return;
+    if(!await window.ontrackConfirm('استبدال التصميم الحالي بننسخة من السيناريو المختار؟',{title:'تغيير السيناريو',confirmText:'استخدام السيناريو'}))return;
     data=JSON.parse(JSON.stringify(candidate.graph));selected=data.nodes[0]?.id||null;
     arrange();notice.textContent='تم تحميل '+candidate.title+'؛ عدله أو اختبره ثم احفظ مسودة أو انشر مباشرة.';
   },'primary');
@@ -160,7 +160,7 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
    }
  }
  async function resetAiChat(){
-   if(busy||!confirm('مسح محادثة هذا الإيجنت نهائيًا؟ المخطط المحفوظ أو المنشور لن يتغير.'))return;
+   if(busy||!await window.ontrackConfirm('مسح محادثة هذا الإيجنت نهائيًا؟ المخطط المحفوظ أو المنشور لن يتغير.',{title:'مسح ذاكرة المحادثة',confirmText:'مسح المحادثة',danger:true}))return;
    try{
      await chatRequest('flow_ai_reset');
      clearAiProposal();hasHistory=false;
@@ -206,7 +206,7 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
    if(!proposal||busy)return;
    const form=root.closest('form');
    if(!form){aiStatus.textContent='لا توجد استمارة حفظ.';return;}
-   if(!confirm('استبدال مسودة المخطط الحالية بالمقترح وحفظها؟ لن يتم نشره على المكالمات.'))return;
+   if(!await window.ontrackConfirm('استبدال مسودة المخطط الحالية بالمقترح وحفظها؟ لن يتم نشره على المكالمات.',{title:'اعتماد المخطط كمسودة',confirmText:'حفظ المسودة'}))return;
    busy=true;aiApply.disabled=true;
    try{
      await chatRequest('flow_ai_applied',{graph_json:JSON.stringify(proposal)});
@@ -357,15 +357,15 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
      inspector.append(row);
    });
    inspector.append(button('ربط بعقدة أخرى',()=>{connecting=true;connect.classList.add('selected-tool');notice.textContent='اختار العقدة المستهدفة'}));
-   inspector.append(button('حذف الخطوة',()=>{
-     if(!confirm('حذف الخطوة والروابط التابعة؟'))return;
+   inspector.append(button('حذف الخطوة',async()=>{
+     if(!await window.ontrackConfirm('حذف الخطوة والروابط التابعة؟',{title:'حذف عقدة من المخطط',confirmText:'حذف الخطوة',danger:true}))return;
      data.nodes=data.nodes.filter(t=>t.id!==n.id);data.edges=data.edges.filter(t=>t.from!==n.id&&t.to!==n.id);
      selected=data.nodes[0]?.id||null;render();
    },'danger'));
  }
  function render(){store();transform();edges();nodes();inspect()}
  function addNode(){
-   if(data.nodes.length>=100)return alert('100 خطوة كحد أقصى');
+   if(data.nodes.length>=100){window.ontrackToast('100 خطوة كحد أقصى',{error:true});return;}
    const a=focus(),n={id:uuid(),type:type.value,text:'',x:a?a.x+250:1050,y:a?a.y+230:100};
    data.nodes.push(n);if(a)data.edges.push({from:a.id,to:n.id,label:''});selected=n.id;render();
  }
@@ -385,7 +385,7 @@ document.querySelectorAll('[data-flow-editor]').forEach(root=>{
  viewport.addEventListener('pointermove',evt=>{if(pan){x=pan.ox+evt.clientX-pan.cx;y=pan.oy+evt.clientY-pan.cy;transform()}});
  viewport.addEventListener('pointerup',()=>pan=null);
  viewport.addEventListener('wheel',evt=>{if(!evt.ctrlKey)return;evt.preventDefault();scale=Math.max(.4,Math.min(1.5,scale+(evt.deltaY<0?.08:-.08)));transform()},{passive:false});
- source.addEventListener('change',()=>{if(source.hidden)return;try{const value=JSON.parse(source.value);if(!Array.isArray(value.nodes)||!Array.isArray(value.edges))throw Error();data=value;render()}catch{alert('JSON غير صالح')}});
+ source.addEventListener('change',()=>{if(source.hidden)return;try{const value=JSON.parse(source.value);if(!Array.isArray(value.nodes)||!Array.isArray(value.edges))throw Error();data=value;render()}catch{window.ontrackToast('JSON غير صالح',{error:true})}});
  if(!data.nodes.length){data.nodes=[{id:'start',type:'start',text:'أهلاً بك',x:1000,y:100},{id:'end',type:'end',text:'شكراً لتواصلك',x:1000,y:350}];data.edges=[{from:'start',to:'end',label:''}]}
  arrange();root.closest('form')?.addEventListener('submit',store);
 });
