@@ -787,6 +787,20 @@ function act():void {
                 ]);
                 $success='تم استلام موافقة Meta وحفظ الرقم كاتصال ينتظر التحقق. اختبر وصول Webhook قبل تفعيل الرد الآلي.';
                 break;
+            case 'wa_existing_connection_add':
+                require_permission('agents.write');
+                require_once __DIR__.'/WhatsAppSupport.php';
+                $connectionId=wa_create_existing_connection(
+                    $id,intfield('site_id'),(int)($_POST['ai_agent_id']??0),
+                    required('label',120),required('source_callback_url',400),
+                    required('source_verify_token',200),required('phone_number_id',100),
+                    required('waba_id',100),field('meta_app_id',100),
+                    required('graph_version',8),required('access_token',2000),
+                    required('app_secret',1000),required('public_id',36),
+                    required('relay_secret',64));
+                audit('whatsapp.existing.onboarding',$id,['connection_id'=>$connectionId]);
+                $success='تم حفظ الاتصال الموجود. لم نغيّر Callback Meta القديم؛ لازم تكامل واتساب الحالي يرسل الرسائل الموقّعة إلى OnTrack. اختبر الإرسال والوصول قبل تفعيل AI.';
+                break;
             case 'wa_connection_add':
                 require_permission('agents.write');
                 require_once __DIR__.'/WhatsAppSupport.php';
