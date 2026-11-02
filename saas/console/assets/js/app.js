@@ -265,6 +265,23 @@
     finally{activeRequest=false;body.classList.remove('ot-ajax-loading');if(submitter?.isConnected)submitter.disabled=false}
   },true);
 
+  // Keep the actual visual Builder mounted while switching intelligence,
+  // knowledge and voice panels. No page navigation or loss of AI chat memory.
+  document.addEventListener('click',event=>{
+    const button=event.target.closest?.('[data-builder-tab]');
+    if(!button)return;
+    const form=button.closest('form.agent-form');
+    if(!form)return;
+    const current=button.getAttribute('data-builder-tab');
+    form.querySelectorAll('[data-builder-tab]').forEach(tab=>{
+      const chosen=tab===button;
+      tab.classList.toggle('active',chosen);
+      tab.setAttribute('aria-selected',String(chosen));
+    });
+    form.querySelectorAll('[data-builder-pane]').forEach(pane=>{
+      pane.hidden=pane.getAttribute('data-builder-pane')!==current;
+    });
+  });
   // Agent Studio stores the complete published policy as one atomic backend
   // request; never reloads the screen, loses the current tab or exposes keys.
   document.addEventListener('submit',async event=>{
