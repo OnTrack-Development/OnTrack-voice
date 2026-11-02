@@ -459,7 +459,7 @@ function render_agents(array $a):void{
     $selected=selected_site($id);
     $map=[];foreach($sites as $site)$map[$site['id']]=$site['name'];
     echo '<div class="section-line agents-toolbar"><div class="agents-heading"><span class="eyebrow">DYNAMIC AI AGENT STUDIO</span>'.
-        '<h2>مساحة بناء الإيجنت الذكي</h2><p>حدّد الشخصية والهدف والقدرات؛ AI يدير المحادثة بشكل ديناميكي بدون سيناريوهات وعُقد ثابتة.</p>'.
+        '<h2>Agent Builder · بلدر الإيجنت الذكي</h2><p>البلدر البصري موجود مع إعدادات الشخصية والقدرات والمعرفة؛ AI يقدر يقترح تغيير كل جزء.</p>'.
         '</div><div class="site-picker" aria-label="اختيار الموقع">';
     foreach($sites as $site)
         echo '<a class="chip-link '.($selected&&(int)$site['id']===(int)$selected['id']?'chosen':'').
@@ -501,18 +501,30 @@ function render_agents(array $a):void{
             $editing=form_start('update_agent','/?tab=agents&site='.(int)$selected['id'],
                 'class="stack agent-form agent-studio-form"').
                 '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
+                '<div class="agent-builder-tabs" role="tablist" aria-label="أقسام البلدر">'.
+                '<button type="button" class="agent-builder-tab active" data-builder-tab="visual" aria-selected="true">✦ البلدر البصري</button>'.
+                '<button type="button" class="agent-builder-tab" data-builder-tab="intelligence" aria-selected="false">🧠 الشخصية والأهداف</button>'.
+                '<button type="button" class="agent-builder-tab" data-builder-tab="knowledge" aria-selected="false">📚 المعرفة والتكاملات</button>'.
+                '<button type="button" class="agent-builder-tab" data-builder-tab="voice" aria-selected="false">⚙️ الصوت والمكالمة</button></div>'.
+                '<div class="agent-builder-pane" data-builder-pane="visual">'.
+                '<div class="agent-builder-intro"><strong>Visual Agent Builder</strong><p>صمّم خريطة القدرات والمسارات بحرية، ومساعد AI يقدر يطور المخطط وكمان خصائص الإيجنت. الخريطة ليست مسار مكالمة إجباري.</p></div>'.
+                '<div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.e((string)$agent['flow_json']).'</textarea></div></div>'.
+                '<div class="agent-builder-pane" data-builder-pane="intelligence" hidden>'.
                 '<div class="form-grid"><label class="field">اسم الإيجنت<input name="name" maxlength="140" required value="'.e($agent['name']).'"></label>'.
                 select_html('الصوت','voice',$options,(string)$agent['voice']).'</div>'.
                 '<label class="field">الشخصية والتعليمات<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label>'.
-                '<label class="field">معرفة الإيجنت<textarea name="knowledge" rows="4" maxlength="20000">'.e($agent['knowledge']).'</textarea></label>'.
                 agent_studio_policy_fields($policy).
+                '</div><div class="agent-builder-pane" data-builder-pane="knowledge" hidden>'.
+                '<div class="agent-studio-section"><strong>المعرفة والتكاملات</strong><p class="info">اربط الملفات ومصادر WHMCS وLaravel وWordPress من مصادر بيانات الموقع. المساعد يقترح ما يلزم منها دون إنشاء صلاحيات أو مفاتيح تلقائيًا.</p>'.
+                '<label class="field">معرفة الإيجنت<textarea name="knowledge" rows="6" maxlength="20000">'.e($agent['knowledge']).'</textarea></label></div></div>'.
+                '<div class="agent-builder-pane" data-builder-pane="voice" hidden>'.
                 '<div class="agent-studio-section"><div class="agent-studio-section-title"><strong>الرد والمكالمة</strong></div>'.
                 '<div class="form-grid"><label class="field">مهلة الرد بالثواني<input name="answer_delay_seconds" type="number" min="0" max="30" value="'.(int)$policy['answer_delay_seconds'].'" required></label>'.
                 '<label class="field">المدة القصوى بالدقائق<input name="max_call_minutes" type="number" min="1" max="30" value="'.(int)$policy['max_call_minutes'].'" required></label>'.
                 select_html('الأسلوب','response_style',[
                     'egyptian_short'=>'مصري مختصر','formal_ar'=>'عربي رسمي','english'=>'إنجليزي','bilingual'=>'عربي وإنجليزي'],$policy['response_style']).
                 select_html('عند تعذر الاستكمال','fallback',['human'=>'عرض مساعدة موظف','end'=>'إنهاء بأدب'],$policy['fallback']).'</div>'.
-                '<label class="field"><input type="checkbox" name="auto_answer"'.($policy['auto_answer']?' checked':'').'> الرد الآلي عند تفعيل ربط الشريحة</label></div>'.
+                '<label class="field"><input type="checkbox" name="auto_answer"'.($policy['auto_answer']?' checked':'').'> الرد الآلي عند تفعيل ربط الشريحة</label></div></div>'.
                 '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">نشر إعدادات الإيجنت</button>'.
                 '<button class="btn" type="submit">حفظ مسودة بدون تحديث</button>'.
                 '<span class="agent-studio-status" role="status"></span></div></form>'.
