@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS plans (
   staff_limit BIGINT DEFAULT 3,
   reseller_customers BIGINT DEFAULT 0,
   price_minor BIGINT DEFAULT 0,
+  overage_minor BIGINT DEFAULT 0,
   status VARCHAR(80) DEFAULT 'active',
   created_at VARCHAR(190)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
