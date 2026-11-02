@@ -56,6 +56,24 @@ $proposal=flow_ai_validate_proposal(['nodes'=>[
   ['id'=>'n3','type'=>'end','text'=>'شكرًا','x'=>300,'y'=>400]],
   'edges'=>[['from'=>'n1','to'=>'n2','label'=>''],['from'=>'n2','to'=>'n3','label'=>'']]]);
 verify_flow_source(count($proposal['nodes'])===3,'instruction node valid in AI draft');
+
+$body=json_encode(['candidates'=>[['finishReason'=>'STOP','content'=>['parts'=>[
+    ['thought'=>true,'text'=>'Ignore reasoning text'],
+    ['text'=>json_encode($proposal,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]
+]]]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+$parsed=flow_ai_extract_graph($body);
+verify_flow_source(count($parsed['nodes'])===3,'structured Gemini response parsed; thought part excluded');
+$fenced=json_encode(['candidates'=>[['finishReason'=>'STOP','content'=>['parts'=>[
+    ['text'=>"```json\\n".json_encode($proposal,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)."\\n```"]
+]]]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+verify_flow_source(count(flow_ai_extract_graph($fenced)['edges'])===2,'safe fenced JSON parsed');
+$truncated=json_encode(['candidates'=>[['finishReason'=>'MAX_TOKENS','content'=>['parts'=>[
+    ['text'=>'{"nodes": [']
+]]]]],JSON_THROW_ON_ERROR);
+$refused=false;
+try{flow_ai_extract_graph($truncated);}catch(RuntimeException $e){$refused=str_contains($e->getMessage(),'MAX_TOKENS');}
+verify_flow_source($refused,'truncated Gemini output never becomes a saved graph');
+
 verify_flow_source(voice_action_ready(['role'=>'owner','scopes'=>['operations']],'website.disable')===false,
     'system mutation remains impossible until approved runner');
 execute('DELETE FROM voice_knowledge_sources WHERE id=? AND account_id=4',[$internal]);
