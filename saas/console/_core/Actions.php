@@ -764,7 +764,8 @@ function act():void {
                     required('phone_number_id',100),required('access_token',2000),
                     required('app_secret',1000),required('verify_token',200),
                     field('whmcs_bridge_url',350),field('whmcs_bridge_token',2000),
-                    (int)($_POST['ai_agent_id']??0));
+                    (int)($_POST['ai_agent_id']??0),required('waba_id',100),
+                    field('meta_app_id',100),required('graph_version',8),required('public_id',36));
                 $success='اتحفظ واتساب كمسودة مستقلة. اختبر Meta، وبعدها فعّل إيجنت OnTrack المنشور من نفس الصفحة.';
                 break;
             case 'wa_native_toggle':
