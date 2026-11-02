@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/StaffInvitations.php';
+require_once __DIR__.'/VoiceAccess.php';
 require_once __DIR__.'/DncGuard.php';
 require_once __DIR__.'/DevicePairing.php';
 require_once __DIR__.'/PublishedFlow.php';
@@ -122,6 +123,21 @@ function act():void {
                 audit('staff.invitation.created',$id,['invitation_id'=>$inviteId,'role'=>$role]);
                 flash('success','الدعوة بانتظار قبول صاحب البريد بعد تسجيل دخوله. لم تُمنح أي صلاحيات بعد.');
                 break;
+            case 'voice_staff_enroll':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $scopes=$_POST['scopes']??[];
+                if(!is_array($scopes))throw new InvalidArgumentException('اختر صلاحيات من القائمة');
+                $numberId=voice_staff_enroll($id,intfield('user_id'),required('phone',32),
+                    required('pin',10),$scopes);
+                audit('voice.staff.number.enrolled',$id,['number_id'=>$numberId,'user_id'=>intfield('user_id')]);
+                flash('success','تم تسجيل الرقم. يُطلب رمز التحقق من خلال لوحة أرقام المكالمة قبل عرض البيانات الخاصة.');
+                break;
+            case 'voice_staff_revoke':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                if(!voice_staff_revoke($id,intfield('number_id')))
+                    throw new InvalidArgumentException('الرقم غير نشط أو لا يخص الحساب');
+                audit('voice.staff.number.revoked',$id,['number_id'=>intfield('number_id')]);
+                break;
             case 'cancel_staff_invitation':
                 require_permission('staff.manage');
                 if(active_support()||!in_array($a['role'],['owner','admin'],true))deny();
@@ -236,14 +252,14 @@ function act():void {
                 execute("UPDATE api_keys SET status='revoked' WHERE id=? AND account_id=?",[intfield('key_id'),$id]);
                 audit('api_key.revoked',$id,['key'=>intfield('key_id')]);break;
             case 'new_integration':
-                if(!in_array($a['role'],['owner','admin'],true))deny();
-                $provider=field('provider',30);if(!in_array($provider,['whmcs','laravel','kashier','webhook'],true))throw new InvalidArgumentException('نوع تكامل غير مدعوم');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $provider=field('provider',30);if(!in_array($provider,['whmcs','laravel','wordpress','generic_rest','kashier','webhook'],true))throw new InvalidArgumentException('نوع تكامل غير مدعوم');
                 $token='otint_'.bin2hex(random_bytes(32));
                 insert("INSERT INTO integrations(account_id,name,provider,token_hash,token_prefix,status,created_at,secret_enc) VALUES (?,?,?,?,?,'active',?,?)",[$id,required('name',100),$provider,hash('sha256',$token),substr($token,0,12),now(),seal_secret($token)]);
                 audit('integration.created',$id,['provider'=>$provider]);
                 flash('secret','سر Webhook للتكامل: '.$token.' — انسخه مرة واحدة');break;
             case 'revoke_integration':
-                if(!in_array($a['role'],['owner','admin'],true))deny();
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 execute("UPDATE integrations SET status='revoked' WHERE id=? AND account_id=?",[intfield('integration_id'),$id]);
                 audit('integration.revoked',$id);break;
             case 'assign_plan':
@@ -453,7 +469,7 @@ function act():void {
             case 'edit_staff':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 $uid=intfield('user_id');$role=field('role',25);
-                if(!in_array($role,['manager','operator','finance','support','viewer'],true))deny();
+                if(!in_array($role,['manager','operator','reception','finance','support','viewer'],true))deny();
                 $target=one('SELECT id,role FROM memberships WHERE user_id=? AND account_id=?',[$uid,$id]);
                 if(!$target||in_array($target['role'],['owner','admin'],true))deny();
                 execute('UPDATE memberships SET role=? WHERE id=?',[$role,$target['id']]);
