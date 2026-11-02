@@ -245,44 +245,75 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  }
  async function requestAiProposal(){
    const prompt=aiInput.value.trim();
-   if(proposal&&/^(نفذ|نفّذ|طبق|اعتمد|execute)$/i.test(prompt)){applyAiProposal();return;}
+   if((proposal||profileProposal)&&/^(نفذ|نفّذ|طبق|اعتمد|execute)$/i.test(prompt)){
+     void applyAiProposal();return;
+   }
    if(prompt.length<(hasHistory?3:15)){
-     aiStatus.textContent=hasHistory?'اكتب طلبًا من 3 حروف على الأقل.':'اشرح المطلوب في 15 حرف على الأقل.';return;
+     aiStatus.textContent='اشرح المطلوب، أو اكتب تعديلًا واضحًا على الإيجنت الحالي.';return;
    }
    if(busy)return;
    if(!chatIdentity()){aiStatus.textContent='لا توجد جلسة تعديل معتمدة.';return;}
-   busy=true;clearAiProposal();aiMessage('user',prompt);aiSubmit.disabled=true;aiStatus.textContent='جارٍ بناء مخطط مقترح…';
+   const mode=aiMode.value;
+   busy=true;clearAiProposal();
+   aiMessage('user',prompt);aiSubmit.disabled=true;
+   aiStatus.textContent='جارٍ تصميم '+(mode==='both'?'المخطط والخصائص':mode==='graph'?'المخطط':'الخصائص')+'…';
+   const errors=[];
    try{
-     const payload=await chatRequest('flow_ai_propose',{
-       description:prompt,current_graph_json:JSON.stringify(data)
-     });
-     hasHistory=true;aiInput.value='';
-     const g=payload.graph;
-     if(payload.model)aiModel.textContent=payload.model;
-     if(g)showProposal(g);
-     const explanation=String(payload.explanation||'');
-     if(explanation)aiMessage('assistant',explanation);
-     if(g)aiStatus.textContent='اقرأ الشرح وراجع العقد. اطلب أي تعديل أو اضغط «نفّذ المقترح كمسودة». النشر خطوة منفصلة.';
-     else aiStatus.textContent='ده شرح المخطط الحالي، تقدر تطلب تعديله في نفس المحادثة.';
-   }catch(error){const message=error.message||'تعذر إنشاء المقترح؛ لم تتغير المسودة.';aiMessage('assistant',message);aiStatus.textContent=message}
-   finally{busy=false;aiSubmit.disabled=false;}
+     if(mode==='graph'||mode==='both'){
+       try{
+         const result=await chatRequest('flow_ai_propose',{
+           description:prompt,current_graph_json:JSON.stringify(data)
+         });
+         if(result.model)aiModel.textContent=result.model;
+         if(result.graph)showProposal(result.graph);
+         if(result.explanation)aiMessage('assistant',result.explanation);
+       }catch(error){errors.push('المخطط: '+(error.message||'تعذّر التوليد'))}
+     }
+     if(mode==='profile'||mode==='both'){
+       try{
+         const result=await chatRequest('flow_ai_profile_propose',{
+           description:prompt,current_profile_json:JSON.stringify(profileSnapshot())
+         });
+         if(result.model)aiModel.textContent=result.model;
+         if(result.profile)showProfile(result.profile);
+         if(result.explanation)aiMessage('assistant',result.explanation);
+       }catch(error){errors.push('الخصائص: '+(error.message||'تعذّر التوليد'))}
+     }
+     if(proposal||profileProposal){
+       hasHistory=true;aiInput.value='';
+       aiStatus.textContent='راجع كل اقتراح، ثم اضغط «نفّذ المقترح كمسودة». النشر يحتاج خطوة منفصلة.';
+     }
+     if(errors.length){
+       for(const error of errors)aiMessage('assistant',error);
+       aiStatus.textContent+=errors.join(' | ');
+     }
+   }finally{busy=false;aiSubmit.disabled=false}
  }
  async function applyAiProposal(){
-   if(!proposal||busy)return;
+   if((!proposal&&!profileProposal)||busy)return;
    const form=root.closest('form');
    if(!form){aiStatus.textContent='لا توجد استمارة حفظ.';return;}
-   if(!await window.ontrackConfirm('استبدال مسودة المخطط الحالية بالمقترح وحفظها؟ لن يتم نشره على المكالمات.',{title:'اعتماد المخطط كمسودة',confirmText:'حفظ المسودة'}))return;
+   const accepted=await window.ontrackConfirm(
+      'تطبيق التعديلات على البلدر وخصائص الإيجنت وحفظها كمسودة؟ لن يتم نشرها على المكالمات.',
+      {title:'اعتماد اقتراح AI',confirmText:'طبّق واحفظ المسودة'});
+   if(!accepted)return;
    busy=true;aiApply.disabled=true;
    try{
-     await chatRequest('flow_ai_applied',{graph_json:JSON.stringify(proposal)});
-     aiMessage('assistant','تم اختيار المقترح للحفظ كمسودة. محادثتنا محفوظة ونقدر نكمل بعد حفظ الصفحة.');
-     data=JSON.parse(JSON.stringify(proposal));selected=data.nodes[0]?.id||null;
-     render();store();clearAiProposal();
+     // Persist reviewed selections to the same tenant/user/agent conversation
+     // before making local changes, without performing external actions.
+     if(profileProposal)await chatRequest('flow_ai_profile_applied',{
+        profile_json:JSON.stringify(profileProposal)
+     });
+     if(proposal)await chatRequest('flow_ai_applied',{graph_json:JSON.stringify(proposal)});
+     if(profileProposal)applyProfileToForm(profileProposal);
+     if(proposal){data=JSON.parse(JSON.stringify(proposal));selected=data.nodes[0]?.id||null;render();store()}
+     aiMessage('assistant','تم تطبيق المقترح كمسودة. تقدر تطلب تعديلات إضافية من نفس المحادثة.');
+     clearAiProposal();
      const draft=[...form.querySelectorAll('button[type=submit]')].find(b=>!b.hasAttribute('name')||b.name!=='publish_now');
      if(draft)form.requestSubmit(draft);
-     else aiStatus.textContent='تم تطبيق المخطط بالمحرر. اضغط حفظ كمسودة.';
+     else aiStatus.textContent='راجع المسودة واضغط حفظ.';
    }catch(error){
-     aiStatus.textContent=error.message||'تعذر تسجيل اختيار المسودة';
+     aiStatus.textContent=error.message||'تعذر تطبيق مقترح AI';
    }finally{busy=false;aiApply.disabled=false;}
  }
  aiInput.addEventListener('keydown',e=>{
