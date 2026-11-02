@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -446,5 +446,34 @@ function init_console_v11():void {
         array_column(all('SHOW COLUMNS FROM plans'),'Field');
     if(!in_array('overage_minor',$cols,true))
         db()->exec('ALTER TABLE plans ADD COLUMN overage_minor BIGINT NOT NULL DEFAULT 0');
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+/** Tenant-native phone workspace; never reuses the retired pilot store. */
+function init_console_v12():void {
+    $marker=private_path().'/schema.v12';
+    if(is_file($marker))return;
+    $cols=driver()==='sqlite'?array_column(all('PRAGMA table_info(calls)'),'name'):
+        array_column(all('SHOW COLUMNS FROM calls'),'Field');
+    foreach(['external_call_id'=>'VARCHAR(64)','device_binding_id'=>'BIGINT','sim_slot'=>'BIGINT'] as $name=>$type){
+        if(!in_array($name,$cols,true))db()->exec("ALTER TABLE calls ADD COLUMN $name $type NULL");
+    }
+    if(driver()==='sqlite')db()->exec("CREATE UNIQUE INDEX IF NOT EXISTS tenant_calls_unique ON calls(device_binding_id,external_call_id)");
+    else{
+        $indexed=one("SELECT COUNT(*) n FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='calls' AND index_name='tenant_calls_unique'");
+        if((int)($indexed['n']??0)===0)db()->exec("CREATE UNIQUE INDEX tenant_calls_unique ON calls(device_binding_id,external_call_id)");
+    }
+    $int=driver()==='mysql'?'BIGINT':'INTEGER';
+    $sql="CREATE TABLE IF NOT EXISTS tenant_call_events (
+        device_binding_id $int NOT NULL, call_id VARCHAR(64) NOT NULL, sequence $int NOT NULL,
+        created_at VARCHAR(19) NOT NULL, PRIMARY KEY(device_binding_id,call_id,sequence))";
+    db()->exec($sql.(driver()==='mysql'?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4':''));
+    $campaigns="CREATE TABLE IF NOT EXISTS tenant_campaigns (
+        id VARCHAR(24) PRIMARY KEY, account_id $int NOT NULL, site_id $int NOT NULL,
+        device_binding_id $int NOT NULL, sim_slot $int NOT NULL, name VARCHAR(160) NOT NULL,
+        starts_at VARCHAR(19) NOT NULL, ends_at VARCHAR(19) NOT NULL,
+        scenario TEXT NOT NULL, contact_ids_json TEXT NOT NULL, status VARCHAR(20) NOT NULL,
+        created_at VARCHAR(19) NOT NULL)";
+    db()->exec($campaigns.(driver()==='mysql'?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4':''));
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
