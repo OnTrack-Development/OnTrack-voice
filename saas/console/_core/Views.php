@@ -955,6 +955,13 @@ function render_whatsapp(array $a):void {
         '<h2>WhatsApp · صندوق الوارد</h2><p>رسائل العملاء والرد البشري والأزرار الذكية، وإيجنت OnTrack مستقل لكل قناة. WHMCS أو Laravel تكاملات اختيارية فقط.</p></div></div>';
     if($message=flash('success'))echo '<p class="info" role="status">'.e($message).'</p>';
     if($message=flash('error'))echo '<p class="info" role="alert">'.e($message).'</p>';
+    $relayOnce=$_SESSION['wa_relay_secret_once']??null;
+    unset($_SESSION['wa_relay_secret_once']);
+    if(is_array($relayOnce)&&(int)($relayOnce['account_id']??0)===$id&&
+       preg_match('/^[a-f0-9]{64}$/D',(string)($relayOnce['secret']??''))){
+        echo '<div class="wa-manual-notice" role="status">مفتاح التوقيع الجديد للـWebhook الخارجي (رقم الاتصال #'.(int)$relayOnce['connection_id'].') — انسخه الآن. لن يظهر بعد تحديث الصفحة.</div>'.
+            '<div class="wa-copy-strip"><span>Webhook Signing Secret</span><code id="wa-relay-rotated-once" dir="ltr">'.e($relayOnce['secret']).'</code><button class="btn small" type="button" data-wa-copy="wa-relay-rotated-once">نسخ المفتاح</button></div>';
+    }
     echo '<div class="wa-system-status"><span><strong>قنوات Meta: </strong>'.count($connections).'</span>'.
         '<span><strong>محادثات: </strong>'.count($list).'</span>'.
         '<span><strong>محرّك الرد: </strong>OnTrack AI المستقل · يتفعّل بإيجنت منشور ومفتاح منصة</span></div>';
@@ -1024,7 +1031,14 @@ function render_whatsapp(array $a):void {
             '<small>Webhook: '.e((string)($conn['last_webhook_at']??'لم يتم تأكيد استقبال رسالة')).'</small>'.
             '<small>OnTrack AI: '.(!empty($conn['ai_agent_id'])?('إيجنت #'.(int)$conn['ai_agent_id'].' · '.(!empty($conn['ai_enabled'])?'مفعّل':'معطّل')):'بدون إيجنت · الرد اليدوي متاح').'</small>'.
             (!empty($conn['webhook_relay_enabled'])?
-                '<small>Webhook من مزوّد واتساب خارجي: مفعّل · نفس رابط الاستقبال أعلاه · مخصص للشركة الحالية.</small>':'').
+                '<small>Webhook من مزوّد واتساب خارجي: مفعّل · نفس رابط الاستقبال أعلاه · مخصص للشركة الحالية.</small>':'<small>Webhook خارجي: غير مفعّل · يمكن تفعيله لهذا الرقم.</small>').
+            form_start('wa_relay_rotate','/?tab=whatsapp','class="inline-form"').
+            '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
+            '<button class="btn small" type="submit">'.(!empty($conn['webhook_relay_enabled'])?'تغيير مفتاح Webhook':'تفعيل ربط Webhook خارجي').'</button></form>'.
+            (!empty($conn['webhook_relay_enabled'])?
+                form_start('wa_relay_disable','/?tab=whatsapp','class="inline-form"').
+                '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
+                '<button class="btn small" type="submit">إيقاف استقبال Webhook الخارجي</button></form>':'').
             form_start('wa_connection_test','/?tab=whatsapp','class="inline-form"').
             '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
             '<button class="btn small" type="submit">اختبار مفتاح Meta والرقم</button></form>'.
