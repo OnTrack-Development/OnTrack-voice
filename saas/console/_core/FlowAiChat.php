@@ -82,7 +82,10 @@ function flow_ai_explain_graph(array $graph):string {
         'knowledge_lookup'=>'بحث في المعرفة','collect_field'=>'جمع بيانات',
         'crm_lookup'=>'قراءة معلومات من CRM','crm_write'=>'طلب تحديث CRM',
         'schedule'=>'طلب حجز موعد','handoff'=>'تحويل لموظف'];
-    $parts=['قرأت المخطط الحالي: '.count($nodes).' خطوة و'.count($graph['edges']).' رابط.'];
+    require_once __DIR__.'/FlowAiQuality.php';
+    $metrics=flow_ai_graph_quality($graph);
+    $parts=['قرأت المخطط الحالي: '.count($nodes).' خطوة و'.count($graph['edges']).
+        ' رابط؛ '.$metrics['branch_points'].' تشعبات و'.$metrics['reconvergence_points'].' نقاط التقاء.'];
     $queue=$start!==null?[(string)$start['id']]:[];
     $seen=[];$steps=0;
     while($queue&&$steps<100){
@@ -104,5 +107,5 @@ function flow_ai_explain_graph(array $graph):string {
     }
     if(count($seen)<count($nodes))$parts[]='• فيه عقد مش متصلة بالمسار الأساسي؛ محتاجة مراجعة قبل النشر.';
     $parts[]='أي حجز أو تعديل على نظام خارجي لا يتم لمجرد وجود عقدة؛ لازم تكامل فعلي وصلاحيات وتنفيذ مؤكد.';
-    return mb_substr(implode("\n",$parts),0,3800);
+    return mb_substr(implode("\n",$parts),0,7000);
 }
