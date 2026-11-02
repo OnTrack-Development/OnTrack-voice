@@ -331,8 +331,7 @@ function tenant_call_report_save(int $accountId,int $deviceId,string $callId,
  * does not authorize outbound dialing or bypass the account DNC ledger.
  */
 function device_contact_list(array $binding,string $query=''):array {
-    if(mb_strlen($query,'UTF-8')>60 ||
-       !preg_match('/^[\\p{L}\\p{N} +()\\-]*$/uD',$query))
+    if(!preg_match('/^[\\p{L}\\p{N} +()\\-]{0,60}$/uD',$query))
         throw new InvalidArgumentException('device_contacts_invalid_search');
     $current=device_binding_heartbeat($binding);
     $term='%'.$query.'%';
