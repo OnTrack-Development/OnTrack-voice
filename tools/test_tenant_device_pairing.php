@@ -78,6 +78,31 @@ function test_tenant_device_pairing():void {
         (int)$profileB['agent_id']===(int)$sessionB['agent_id'] &&
         (int)$profileB['account_id']!== (int)$profile['account_id'],
         'SIM 2 receives a separate tenant and agent profile');
+    // Tenant SIM contact browsing uses the actual contact DB and durable DNC.
+    $contactA=insert('INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at) VALUES (?,?,?,?,?,?)',
+        [4,1,'SIM1 directory example','+201012345678',0,now()]);
+    $contactB=insert('INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at) VALUES (?,?,?,?,?,?)',
+        [5,3,'SIM2 directory example','+201099999999',0,now()]);
+    $aContacts=device_contact_list($session,'SIM1 directory');
+    ok(count($aContacts)===1 && $aContacts[0]['id']===$contactA &&
+       $aContacts[0]['phone']==='+201012345678',
+       'SIM1 reads only its own tenant and site contacts');
+    $bContacts=device_contact_list($sessionB,'SIM2 directory');
+    ok(count($bContacts)===1 && $bContacts[0]['id']===$contactB &&
+       $bContacts[0]['phone']==='+201099999999',
+       'SIM2 reads only its other tenant contact directory');
+    ok(count(device_contact_list($session,'SIM2 directory'))===0 &&
+       count(device_contact_list($sessionB,'SIM1 directory'))===0,
+       'SIM bearers cannot search another company directory');
+    dnc_record_suppression(4,'+201012345678');
+    ok(device_contact_list($session,'SIM1 directory')[0]['do_not_call']===true &&
+       device_contact_list($sessionB,'SIM2 directory')[0]['do_not_call']===false,
+       'DNC status reflects only the matching account durable ledger');
+    $invalidSearch=false;
+    try { device_contact_list($session,'%'); } catch(InvalidArgumentException $e) {
+        $invalidSearch=$e->getMessage()==='device_contacts_invalid_search';
+    }
+    ok($invalidSearch,'SIM contact search rejects wildcard patterns');
     // Actual Android telephony observations, without invented numbers or audio.
     $callA='01234567-89ab-4cde-8f01-23456789abcd';
     $callB='12345678-9abc-4def-8abc-123456789abc';
