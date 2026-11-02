@@ -20,7 +20,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    if(!Number.isFinite(+n.x))n.x=750;if(!Number.isFinite(+n.y))n.y=90+i*180;
  });
  let selected=data.nodes[0]?.id||null,connecting=false,scale=1,x=-420,y=22,pan=null,drag=null;
- let hovered=null,edgeFocus=data.edges.length>=12,sceneWidth=3100,sceneHeight=3300;
+ let hovered=null,sceneWidth=3100,sceneHeight=3300;
  const shell=make('div','graph-shell'),toolbar=make('div','graph-toolbar');
  toolbar.append(make('div','graph-heading','Flow Builder · تصميم مسار المحادثة'));
  const tools=make('div','graph-tools'),type=make('select','graph-type');
@@ -30,17 +30,9 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  const add=button('+ خطوة',()=>addNode(),'primary'),connect=button('ربط',()=>{connecting=!connecting;connect.classList.toggle('selected-tool',connecting);notice.textContent=connecting?'اختار العقدة التي تريد الربط بها':'اسحب العقد أو اضغط لتعديلها'}),auto=button('ترتيب',()=>arrange());
  const zoomIn=button('+',()=>{scale=Math.min(1.6,scale+.1);transform()}),zoomOut=button('−',()=>{scale=Math.max(.08,scale-.1);transform()});
  const fit=button('⊡ احتواء',()=>fitGraph());
- const edgeToggle=button('◉ تركيز',()=>{
-   edgeFocus=!edgeFocus;
-   edgeToggle.textContent=edgeFocus?'◉ تركيز':'◎ كل الوصلات';
-   edgeToggle.setAttribute('aria-pressed',String(edgeFocus));
-   edges();refreshNodeFocus();
- });
- edgeToggle.setAttribute('aria-pressed',String(edgeFocus));
- edgeToggle.title='تركيز على وصلات العقدة المختارة أو إظهار كل الروابط';
  auto.textContent='↔ ترتيب تلقائي';
  const raw=button('{}',()=>{source.hidden=!source.hidden;raw.classList.toggle('selected-tool',!source.hidden)});
- tools.append(type,add,connect,auto,fit,edgeToggle,zoomIn,zoomOut,raw,fullscreen);toolbar.append(tools);shell.append(toolbar);
+ tools.append(type,add,connect,auto,fit,zoomIn,zoomOut,raw,fullscreen);toolbar.append(tools);shell.append(toolbar);
  async function toggleFullscreen(){
    try {
      if(document.fullscreenElement===shell){await document.exitFullscreen()}
@@ -335,8 +327,6 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
      if(proposal){
        data=JSON.parse(JSON.stringify(proposal));
        selected=data.nodes[0]?.id||null;hovered=null;
-       if(data.edges.length>=12){edgeFocus=true;edgeToggle.textContent='◉ تركيز';
-         edgeToggle.setAttribute('aria-pressed','true')}
        arrange();store();
      }
      aiMessage('assistant','تم تطبيق المقترح كمسودة. تقدر تطلب تعديلات إضافية من نفس المحادثة.');
@@ -460,22 +450,19 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    transform();
  }
  function refreshNodeFocus(){
-   const relation=routing.focusRelation(data.edges,selected,hovered);
+   // Hover filters EDGES ONLY. Other nodes retain their original appearance.
    cards.querySelectorAll('.graph-node').forEach(box=>{
-     const id=box.dataset.nodeId;
-     box.classList.toggle('selected',id===selected);
-     box.classList.toggle('is-neighbor',edgeFocus&&relation.related.has(id)&&id!==selected);
-     box.classList.toggle('is-muted',edgeFocus&&relation.active&&
-       !relation.related.has(id)&&id!==selected);
+     box.classList.toggle('selected',box.dataset.nodeId===selected);
+     box.classList.remove('is-muted','is-neighbor');
    });
  }
  function edges(){
    lines.replaceChildren(defs);
-   const relation=routing.focusRelation(data.edges,selected,hovered);
+   const relation=routing.focusRelation(data.edges,null,hovered);
    const tracks=routing.geometry(data.nodes,data.edges,{bottom:sceneHeight-320});
    tracks.forEach(track=>{
-     const e=track.edge,active=relation.focused.has(track.index);
-     const muted=edgeFocus&&!active;
+     const e=track.edge,active=hovered!==null&&relation.focused.has(track.index);
+     const muted=hovered!==null&&!active;
      const route=S('path',{d:track.d,
        class:'graph-connector'+(active?' is-focused':'')+(muted?' is-muted':''),
        'marker-end':'url(#'+arrowId+')'});
@@ -515,7 +502,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
        n.y=Math.max(0,Math.min(sceneHeight-routing.HEIGHT-30,drag.oy+(evt.clientY-drag.y)/scale));
        box.style.left=n.x+'px';box.style.top=n.y+'px';edges();
      });
-     box.addEventListener('pointerup',()=>{drag=null;data.layout_version=2;store();nodes();edges()});
+     box.addEventListener('pointerup',()=>{drag=null;data.layout_version=3;store();nodes();edges()});
      box.addEventListener('pointerenter',()=>{if(drag)return;hovered=n.id;edges();refreshNodeFocus()});
      box.addEventListener('pointerleave',()=>{if(drag)return;hovered=null;edges();refreshNodeFocus()});
      cards.append(box);
@@ -558,7 +545,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
      const position=result.positions[node.id];
      if(position){node.x=position.x;node.y=position.y}
    });
-   data.layout_version=2;
+   data.layout_version=3;
    setSceneSize(result.width,result.height);
    render();if(data.nodes.length>15)focusStart();else fitGraph();
  }
@@ -570,7 +557,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  viewport.addEventListener('wheel',evt=>{if(!evt.ctrlKey)return;evt.preventDefault();scale=Math.max(.4,Math.min(1.5,scale+(evt.deltaY<0?.08:-.08)));transform()},{passive:false});
  source.addEventListener('change',()=>{if(source.hidden)return;try{const value=JSON.parse(source.value);if(!Array.isArray(value.nodes)||!Array.isArray(value.edges))throw Error();data=value;render()}catch{window.ontrackToast('JSON غير صالح',{error:true})}});
  if(!data.nodes.length){data.nodes=[{id:'start',type:'start',text:'أهلاً بك',x:1000,y:100},{id:'end',type:'end',text:'شكراً لتواصلك',x:1000,y:350}];data.edges=[{from:'start',to:'end',label:''}]}
- if(data.layout_version!==2)arrange();
+ if(data.layout_version!==3)arrange();
  else{
    setSceneSize(Math.max(...data.nodes.map(n=>n.x+routing.WIDTH+310),2500),
      Math.max(...data.nodes.map(n=>n.y+routing.HEIGHT+470),1900));
