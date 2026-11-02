@@ -57,6 +57,9 @@ try{
         $policyOff,'SECRET_PUBLIC_DATA','SECRET_INTEGRATION');
     dynamic_test(!str_contains($noFacts,'SECRET_PUBLIC_DATA')&&!str_contains($noFacts,'SECRET_INTEGRATION'),
         'disabled knowledge and external metadata not in voice session');
+    $owner=one("SELECT user_id FROM memberships WHERE account_id=4 AND role='owner' ORDER BY user_id LIMIT 1");
+    dynamic_test($owner!==null,'owner membership fixture');
+    $_SESSION=['uid'=>(int)$owner['user_id'],'account_id'=>4];
     $_GET=['tab'=>'agents','site'=>(string)$site];
     $admin=one('SELECT * FROM accounts WHERE id=4');
     ob_start();render_agents(array_merge($admin,['account_id'=>4,'role'=>'owner']));
