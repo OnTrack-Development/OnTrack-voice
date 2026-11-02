@@ -78,7 +78,7 @@ function wa_signature_valid(array $connection,string $header,string $raw):bool {
 }
 function wa_webhook_ingest(array $connection,array $payload):array {
     if(($payload['object']??'')!=='whatsapp_business_account')return ['accepted'=>0,'duplicates'=>0];
-    $accepted=0;$duplicate=0;
+    $accepted=0;$duplicate=0;$conversationIds=[];
     foreach((array)($payload['entry']??[]) as $entry){
         foreach((array)($entry['changes']??[]) as $change){
             $value=$change['value']??null;
@@ -133,7 +133,17 @@ function wa_webhook_ingest(array $connection,array $payload):array {
                         generation=generation+1 WHERE id=? AND account_id=?',
                         [now(),now(),(string)($profiles[$from]??''),(string)($profiles[$from]??''),$convId,$accountId]);
                     wa_audit($accountId,$convId,'whatsapp.inbound',mb_substr($providerId,0,120));
-                    db()->commit();$accepted++;
+                    if(!empty($connection['whmcs_bridge_verified_at'])&&$type==='text'){
+                        $current=one('SELECT generation,ai_pause_until,human_locked_at FROM wa_conversations WHERE id=? AND account_id=?',
+                            [$convId,$accountId]);
+                        if($current&&wa_ai_allowed($current)){
+                            insert("INSERT INTO wa_ai_jobs
+                              (account_id,conversation_id,connection_id,source_message_id,generation,status,created_at,updated_at)
+                              VALUES (?,?,?,?,?,'pending',?,?)",[
+                              $accountId,$convId,$id,$providerId,(int)$current['generation'],now(),now()]);
+                        }
+                    }
+                    db()->commit();$accepted++;$conversationIds[]=$convId;
                 }catch(Throwable $e){
                     if(db()->inTransaction())db()->rollBack();
                     if($e instanceof PDOException && str_contains(strtolower($e->getMessage()),'unique')){
@@ -148,7 +158,7 @@ function wa_webhook_ingest(array $connection,array $payload):array {
         execute('UPDATE wa_connections SET last_webhook_at=?,updated_at=? WHERE id=? AND account_id=?',
             [now(),now(),(int)$connection['id'],(int)$connection['account_id']]);
     }
-    return ['accepted'=>$accepted,'duplicates'=>$duplicate];
+    return ['accepted'=>$accepted,'duplicates'=>$duplicate,'conversation_ids'=>array_values(array_unique($conversationIds))];
 }
 function wa_human_takeover(int $accountId,int $conversationId,bool $permanent):array {
     $conversation=wa_conversation($conversationId,$accountId);
