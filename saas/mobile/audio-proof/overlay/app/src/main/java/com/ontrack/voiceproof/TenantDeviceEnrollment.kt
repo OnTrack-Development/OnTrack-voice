@@ -133,8 +133,10 @@ class TenantDeviceEnrollment(private val context: Context) {
         // replace an archived agent with another published agent *in the same site*.
         // Accept that one scoped change only after an authenticated HTTPS heartbeat;
         // never accept a different device, site or physical SIM under this bearer.
-        check(profile.getInt("sim_slot")==slot && profile.getInt("device_id")==saved.getInt("device_id")
-            && profile.getInt("site_id")==saved.getInt("site_id")) {
+        check(TenantAgentIdentity.canRefreshAgent(
+            saved.getInt("device_id"), saved.getInt("site_id"), slot,
+            profile.getInt("device_id"), profile.getInt("site_id"),
+            profile.getInt("sim_slot"), profile.getInt("agent_id"))) {
             "بيانات السيرفر لا تطابق هوية الشريحة أو الموقع المربوط"
         }
         val serverAgent=profile.getInt("agent_id")
