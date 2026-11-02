@@ -1,9 +1,8 @@
 <?php
 declare(strict_types=1);
 /**
- * Meta Cloud API WhatsApp Inbox with a strictly external WHMCS AI Support Agent
- * bridge. Existing WHMCS notification module is untouched and never called.
- * A bridge must be explicitly configured and must return reviewer-approved text.
+ * Meta Cloud API WhatsApp Inbox, owned by OnTrack Voice. Native OnTrack agents
+ * run independently; existing WHMCS addons are optional integrations only.
  */
 function wa_e164(string $phone):string {
     $digits=preg_replace('/[^0-9]/','',$phone);
@@ -41,7 +40,7 @@ function wa_bridge_url(string $url):string {
     return $url;
 }
 function wa_create_connection(int $accountId,int $siteId,string $label,string $phoneId,
- string $token,string $appSecret,string $verifyToken,string $bridgeUrl='',string $bridgeToken=''):int {
+ string $token,string $appSecret,string $verifyToken,string $bridgeUrl='',string $bridgeToken='',int $aiAgentId=0):int {
     if(!one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$siteId,$accountId]))
         throw new InvalidArgumentException('whatsapp_site_not_available');
     $label=trim($label);
@@ -52,6 +51,12 @@ function wa_create_connection(int $accountId,int $siteId,string $label,string $p
        strlen($verifyToken)<12||strlen($verifyToken)>200||
        preg_match('/[\\x00-\\x1f\\x7f]/',$token.$appSecret.$verifyToken.$bridgeToken))
         throw new InvalidArgumentException('whatsapp_connection_fields_invalid');
+    if($aiAgentId<0)throw new InvalidArgumentException('whatsapp_agent_invalid');
+    if($aiAgentId>0){
+        require_once __DIR__.'/PublishedFlow.php';
+        if(!published_agent_flow($accountId,$siteId,$aiAgentId))
+            throw new InvalidArgumentException('whatsapp_agent_must_be_published_on_this_site');
+    }
     $bridge=wa_bridge_url($bridgeUrl);
     if(($bridge==='')!==($bridgeToken==='')||strlen($bridgeToken)>2000)
         throw new InvalidArgumentException('whmcs_bridge_url_and_token_required_together');
@@ -64,7 +69,10 @@ function wa_create_connection(int $accountId,int $siteId,string $label,string $p
        seal_secret($appSecret),hash('sha256',$verifyToken),$bridge!==''?$bridge:null,
        $bridgeToken!==''?seal_secret($bridgeToken):null,now(),now()
     ]);
-    wa_audit($accountId,null,'whatsapp.connection.created','draft, no live verified delivery');
+    if($aiAgentId>0)
+        execute('UPDATE wa_connections SET ai_agent_id=? WHERE id=? AND account_id=?',
+            [$aiAgentId,$id,$accountId]);
+    wa_audit($accountId,null,'whatsapp.connection.created','draft, independent agent disabled');
     return $id;
 }
 function wa_webhook_challenge(array $connection,string $mode,string $token,string $challenge):?string {
@@ -152,7 +160,10 @@ function wa_webhook_ingest(array $connection,array $payload):array {
                         generation=generation+1 WHERE id=? AND account_id=?',
                         [now(),now(),(string)($profiles[$from]??''),(string)($profiles[$from]??''),$convId,$accountId]);
                     wa_audit($accountId,$convId,'whatsapp.inbound',mb_substr($providerId,0,120));
-                    if(!empty($connection['whmcs_bridge_verified_at'])&&$type==='text'){
+                    $native=((int)($connection['ai_enabled']??0)===1 && (int)($connection['ai_agent_id']??0)>0);
+                    $legacy=(!$native && (int)($connection['ai_agent_id']??0)===0
+                        && !empty($connection['whmcs_bridge_verified_at']));
+                    if(($native||$legacy)&&$type==='text'){
                         $current=one('SELECT generation,ai_pause_until,human_locked_at FROM wa_conversations WHERE id=? AND account_id=?',
                             [$convId,$accountId]);
                         if($current&&wa_ai_allowed($current)){
