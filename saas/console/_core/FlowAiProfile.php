@@ -45,6 +45,21 @@ function flow_ai_profile_extract(string $responseBody):array {
         throw new RuntimeException('اقتراح خصائص الإيجنت غير صالح.');
     return flow_ai_profile_validate($decoded);
 }
+/** Deterministic preview summary, never trust Gemini prose claiming action success. */
+function flow_ai_profile_summary(array $profile):string {
+    $p=flow_ai_profile_validate($profile);
+    $items=[];
+    foreach(['instructions'=>'تعليمات الشخصية','goal'=>'هدف الإيجنت',
+        'guardrails'=>'ضوابط الأمان','knowledge_append'=>'إضافة معرفة مرفوعة من وصفك'] as $key=>$title)
+        if($p[$key]!=='')$items[]=$title;
+    foreach(['use_knowledge'=>'البحث في المعرفة',
+        'use_signed_facts'=>'مصادر البيانات','human_handoff'=>'عرض التصعيد البشري'] as $key=>$title)
+        if($p[$key]!=='keep')$items[]=($p[$key]==='on'?'اقتراح تفعيل ':'اقتراح تعطيل ').$title;
+    if($p['integration_suggestions'])$items[]='اقتراح ربط لاحق: '.implode('، ',$p['integration_suggestions']);
+    return 'اقتراح قيد المراجعة فقط: '.($items?implode('؛ ',$items):'لا توجد تغييرات واضحة').
+        '. لم يتم حفظه أو نشره، ولم يتم توصيل أي تكامل أو تنفيذ عملية خارجية.';
+}
+
 /** Reads authorized current editor settings; returns PREVIEW only. */
 function flow_ai_profile_generate(int $accountId,int $agentId,string $idea,array $current,array $history):array {
     if(mb_strlen($idea)<3||mb_strlen($idea)>2500)
@@ -122,5 +137,8 @@ PROMPT;
     curl_close($curl);
     if(!is_string($body)||strlen($body)>90000||$status!==200)
         throw new RuntimeException('تعذر اقتراح إعدادات الإيجنت من Google (HTTP '.$status.').');
-    return flow_ai_profile_extract($body);
+    $proposal=flow_ai_profile_extract($body);
+    // Keep structural suggestions; replace untrusted model completion claims.
+    $proposal['explanation']=flow_ai_profile_summary($proposal);
+    return $proposal;
 }
