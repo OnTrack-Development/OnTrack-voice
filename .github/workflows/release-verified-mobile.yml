@@ -23,8 +23,8 @@ jobs:
           python3 - <<'PY'
           import json,os,time,urllib.request
           repo="OnTrack-Development/OnTrack-voice"
-          source_run=41391316314
-          source_sha="434b21184e71396f3c206fabe2d84e048c372e79"
+          source_run=41392198086
+          source_sha="5f3d682abf9253cd03e42af8137e96f6f166eb17"
           url=f"https://api.github.com/repos/{repo}/actions/runs/{source_run}"
           for attempt in range(75):
               req=urllib.request.Request(url,headers={
@@ -52,13 +52,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: 434b21184e71396f3c206fabe2d84e048c372e79
+          ref: 5f3d682abf9253cd03e42af8137e96f6f166eb17
           persist-credentials: false
       - uses: actions/download-artifact@v5
         with:
           name: OnTrack-Voice-0.3.10
           repository: OnTrack-Development/OnTrack-voice
-          run-id: 41391316314
+          run-id: 41392198086
           github-token: ${{ github.token }}
           path: .build/downloaded
       - name: Verify signed revision 28 / native version 31 before host queue
@@ -99,7 +99,7 @@ jobs:
       - name: Queue signed OTA 28 from the verified Android 0.3.10 artifact
         env:
           GH_TOKEN: ${{ github.token }}
-          MOBILE_RELEASE_SOURCE_RUN_ID: '41391316314'
+          MOBILE_RELEASE_SOURCE_RUN_ID: '41392198086'
           MOBILE_OTA_ARTIFACT_NAME: OnTrack-Voice-0.3.10
         run: python3 tools/queue_mobile_ota.py .build/downloaded/ota
 
@@ -110,19 +110,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: 434b21184e71396f3c206fabe2d84e048c372e79
+          ref: 5f3d682abf9253cd03e42af8137e96f6f166eb17
           persist-credentials: false
       - uses: actions/download-artifact@v5
         with:
           name: OnTrack-Voice-0.3.10
           repository: OnTrack-Development/OnTrack-voice
-          run-id: 41391316314
+          run-id: 41392198086
           github-token: ${{ github.token }}
           path: .build/downloaded
       - name: Wait for exact OTA 28 installation receipt before queuing signed native 31
         env:
           GH_TOKEN: ${{ github.token }}
-          MOBILE_RELEASE_SOURCE_RUN_ID: '41391316314'
+          MOBILE_RELEASE_SOURCE_RUN_ID: '41392198086'
         run: python3 tools/queue_mobile_native.py .build/downloaded/native
       - name: Verify native 31 installation acknowledgement on real host
         env:
