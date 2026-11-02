@@ -615,3 +615,32 @@ body.graph-editor-maximized{overflow:hidden}
  .wa-settings-grid{grid-template-columns:1fr}}
 @media(max-width:520px){.wa-compose{display:flex;flex-direction:column;align-items:stretch}
  .wa-bubble{max-width:94%}.wa-chat-header{flex-direction:column;align-items:flex-start}}
+
+
+/* WhatsApp manual Cloud API onboarding — tenant-scoped, screenshot-like layout. */
+.wa-settings-grid{grid-template-columns:minmax(0,1fr)}
+.wa-manual-card{min-width:0;overflow:hidden}
+.wa-manual-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.wa-manual-heading h3{margin:3px 0 5px;font-size:19px}
+.wa-manual-heading p{margin:0}
+.wa-manual-notice{padding:13px 16px;margin-bottom:18px;border-radius:13px;background:#eaf2ff;color:#143d82;border:1px solid #b9d7ff;font-weight:650;line-height:1.8}
+body:not(.light) .wa-manual-notice{background:#15243d;border-color:#38557e;color:#d7e6ff}
+.wa-manual-form{gap:17px;min-width:0}
+.wa-manual-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px 18px;min-width:0}
+.wa-manual-cell{min-width:0}.wa-manual-cell.third{grid-column:span 2}.wa-manual-cell.half{grid-column:span 3}
+.wa-manual-cell .field{display:flex;flex-direction:column;gap:7px;min-width:0;margin:0;font-weight:750;font-size:12px}
+.wa-manual-cell input,.wa-manual-cell select{width:100%;max-width:100%;min-width:0;min-height:46px;padding:10px 13px;border:1px solid var(--border);border-radius:11px;background:var(--panel2);color:var(--text);font-size:13px;outline-offset:2px}
+.wa-manual-cell input:focus,.wa-manual-cell select:focus{border-color:var(--accent);outline:2px solid color-mix(in srgb,var(--accent) 20%,transparent)}
+.wa-manual-cell input[readonly]{background:var(--bg);font-family:ui-monospace,Consolas,monospace}
+.wa-manual-copy-group{display:flex;flex-direction:column;gap:9px;min-width:0}
+.wa-copy-strip{display:grid;grid-template-columns:120px minmax(0,1fr) auto;align-items:center;gap:10px;background:#121b30;color:#f7faff;padding:11px 13px;border-radius:11px;min-width:0;border:1px solid #22334d;direction:rtl}
+.wa-copy-strip>span{font-size:11px;font-weight:800;color:#a9c9ff}
+.wa-copy-strip code{min-width:0;display:block;font-size:11px;white-space:normal;word-break:break-all;overflow-wrap:anywhere;color:inherit;direction:ltr;text-align:left}
+.wa-copy-strip button{white-space:nowrap;background:#fff;color:#172039!important;border-color:transparent;min-width:85px}
+.wa-copy-strip-small{grid-template-columns:110px minmax(0,1fr) auto;width:100%}
+.wa-copy-strip-small button{min-width:58px}
+.wa-manual-foot{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;margin-top:3px}
+.wa-manual-foot p{margin:0;flex:1 1 300px;color:var(--muted);font-size:12px;line-height:1.9}
+.wa-manual-foot button{min-height:44px}
+@media(max-width:800px){.wa-manual-cell.third{grid-column:span 3}.wa-manual-cell.third:first-child{grid-column:span 6}}
+@media(max-width:560px){.wa-manual-grid{gap:12px}.wa-manual-cell.third,.wa-manual-cell.half{grid-column:span 6}.wa-copy-strip,.wa-copy-strip-small{grid-template-columns:minmax(0,1fr) auto}.wa-copy-strip>span{grid-column:1/-1}.wa-copy-strip code{grid-column:1}.wa-copy-strip button{grid-column:2}.wa-manual-foot button{width:100%}}
