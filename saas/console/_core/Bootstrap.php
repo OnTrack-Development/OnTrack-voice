@@ -547,5 +547,19 @@ function init_console_v13():void {
             UNIQUE(account_id,integration_id,category,fact_key)
         )");
     }
+    // Existing voice call RBAC and signed integration fact ingestion share one
+    // membership-backed identity registry (multiple phones per employee).
+    db()->exec("CREATE TABLE IF NOT EXISTS voice_staff_numbers (
+        id $id,account_id $int NOT NULL,user_id $int NOT NULL,
+        phone_e164 VARCHAR(20) NOT NULL,pin_hash VARCHAR(255) NOT NULL,
+        scopes_json TEXT NOT NULL,status VARCHAR(20) NOT NULL,
+        failed_attempts $int NOT NULL DEFAULT 0,locked_until VARCHAR(19) NULL,
+        created_at VARCHAR(19) NOT NULL,updated_at VARCHAR(19) NOT NULL,
+        UNIQUE(account_id,phone_e164))".$engine);
+    db()->exec("CREATE TABLE IF NOT EXISTS integration_facts (
+        id $id,account_id $int NOT NULL,integration_id $int NOT NULL,
+        category VARCHAR(30) NOT NULL,fact_key VARCHAR(80) NOT NULL,
+        fact_value TEXT NOT NULL,updated_at VARCHAR(19) NOT NULL,
+        UNIQUE(account_id,integration_id,category,fact_key))".$engine);
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
