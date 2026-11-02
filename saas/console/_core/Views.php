@@ -1037,7 +1037,7 @@ function render_whatsapp(array $a):void {
     }
     echo '</section></div>';
     if(!allowed('agents.write'))return;
-    echo '<details class="wa-settings"><summary class="btn">إعدادات قنوات WhatsApp والإيجنتات</summary>'.
+    echo '<details class="wa-settings"'.(!$connections?' open':'').'><summary class="btn">ربط واتساب وإدارة القنوات</summary>'.
         '<div class="wa-settings-grid"><section class="card"><h3>القنوات الموجودة</h3>';
     if(!$connections)echo '<p class="dim">لا توجد قناة مفعّلة.</p>';
     foreach($connections as $conn){
