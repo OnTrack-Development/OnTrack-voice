@@ -48,7 +48,11 @@ jobs:
         run: php tools/test_voice_access.php
       - name: Existing SaaS, Flow and tenant compatibility
         run: |
+          rm -rf /tmp/ontrack-saas-demo
           php tools/test_voice_saas_console.php
+          rm -rf /tmp/ontrack-saas-demo
           php tools/test_flow_templates.php
+          rm -rf /tmp/ontrack-saas-demo
           php tools/test_agent_flow_preview.php
+          rm -rf /tmp/ontrack-saas-demo
           php tools/test_voice_trial_and_ui.php
