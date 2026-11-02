@@ -740,6 +740,17 @@ function render_devices(array $a):void {
                 '<input type="hidden" name="device_id" value="'.(int)$d['id'].'">'.
                 '<button class="btn small" data-confirm="فصل هذا الجهاز وإلغاء توكن الشريحة فورًا؟">فصل الجهاز</button></form>'
             :'—';
+        $published=all("SELECT ag.id,ag.name FROM agents ag
+            JOIN agent_flow_versions v ON v.agent_id=ag.id AND v.account_id=ag.account_id AND v.site_id=ag.site_id
+            WHERE ag.account_id=? AND ag.site_id=? AND ag.status!='archived'
+            GROUP BY ag.id,ag.name ORDER BY ag.name",[$id,$d['site_id']]);
+        if($manage&&$d['status']==='active'&&$published){
+            $choices=[];foreach($published as $candidate)$choices[(int)$candidate['id']]=$candidate['name'];
+            $action=form_start('change_device_agent','/?tab=devices','class="device-change-agent-form"').
+                '<input type="hidden" name="device_id" value="'.(int)$d['id'].'">'.
+                select_html('تغيير الإيجنت على نفس الشريحة','agent_id',$choices,(string)$d['agent_id']).
+                '<button class="btn small primary" type="submit">تغيير الإيجنت بدون إعادة ربط</button></form>'.$action;
+        }
         $rows[]=[e($d['device_name']),e($d['site_name']),e($d['agent_name']),
             e('SIM '.((int)$d['sim_slot']+1)),pill($d['status']),
             e($d['last_seen_at']?:'لم يتصل بعد'),$action];
