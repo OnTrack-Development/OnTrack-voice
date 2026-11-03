@@ -27,7 +27,7 @@ class OtaBoundaryTests(unittest.TestCase):
             with self.assertRaises(ValueError):install(2,'<head>old</head>')
             with self.assertRaises(ValueError):install(3,'<head>changed-same-revision</head>')
             self.assertEqual('UNCHANGED',original.read_text());self.assertEqual(0o755,(root/'updates').stat().st_mode&0o777)
-    def test_legacy_mobile_path_rejected_fail_closed(self):
+    def test_canonical_mobile_path_created_without_touching_legacy(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder=Path(tmp);private=folder/'private';private.mkdir(mode=0o700)
             legacy=folder/'saas/mobile';legacy.mkdir(parents=True)
@@ -37,11 +37,10 @@ class OtaBoundaryTests(unittest.TestCase):
             raw=json.dumps({'manifest':manifest,'html':html.decode()}).encode()
             def redirect(value):
                 return folder if value=='/home/appontrack/public_html' else private if value=='/home/appontrack/.ontrack-mobile' else Path(value)
-            with patch.object(deployer.os,'getuid',return_value=2379),patch.object(deployer,'Path',side_effect=redirect):
-                with self.assertRaisesRegex(ValueError,'Wrong target'):
-                    deployer.deploy(base64.b64encode(zlib.compress(raw)).decode(),hashlib.sha256(raw).hexdigest())
+            with patch.object(deployer.os,'getuid',return_value=2379),patch.object(deployer,'Path',side_effect=redirect),contextlib.redirect_stdout(io.StringIO()):
+                deployer.deploy(base64.b64encode(zlib.compress(raw)).decode(),hashlib.sha256(raw).hexdigest())
             self.assertFalse((legacy/'updates').exists())
-            self.assertFalse((folder/'mobile').exists())
+            self.assertTrue((folder/'mobile/updates/latest.json').is_file())
     def test_unknown_pending_queue_is_never_replaced(self):
         raw=json.dumps({'id':'other-task'},indent=2).encode();writes=[]
         def content(path):
