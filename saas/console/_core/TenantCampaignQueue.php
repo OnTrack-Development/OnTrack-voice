@@ -183,6 +183,10 @@ function tcq_finish(array $b,string $attemptId,string $result):array{
     }
     if(!in_array($a['status'],['leased','verified'],true))
         throw new InvalidArgumentException('attempt_not_active');
+    // A lease can fail/expire before Android verified eligibility. Never
+    // accept a fabricated "completed" or "no_answer" for a bare lease.
+    if($a['status']!=='verified' && in_array($result,['completed','busy','no_answer'],true))
+        throw new InvalidArgumentException('campaign_result_requires_verified_dial');
     $stored=$result==='unknown'?'unknown':'finished';
     execute("UPDATE tenant_campaign_attempts SET status=?,result=?,finished_at=?
       WHERE id=? AND account_id=? AND device_binding_id=? AND status IN ('leased','verified')",

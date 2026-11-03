@@ -84,6 +84,10 @@ try{
             'scoped single campaign lease created');
         tw_check(tenant_workspace_campaign_claim($b)['claim']===null,
             'active SIM lease cannot overlap');
+        $unverifiedResult=false;
+        try{tenant_workspace_campaign_finish($b,['attempt_id'=>$lease['claim']['id'],'result'=>'completed']);}
+        catch(InvalidArgumentException){$unverifiedResult=true;}
+        tw_check($unverifiedResult,'leased, not verified: cannot claim a completed call');
         $attemptId=$lease['claim']['id'];
         $forbidden=tenant_workspace_campaign_verify($other,['attempt_id'=>$attemptId]);
         tw_check($forbidden['verification']['allowed']===false,'cross tenant cannot verify');

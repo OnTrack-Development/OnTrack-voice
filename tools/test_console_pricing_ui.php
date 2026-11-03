@@ -35,6 +35,13 @@ try{
         'admin workspace retains both independent Relay pools');
     verify(str_contains($adminHtml,'relay_driver')&&str_contains($adminHtml,'relay-models-'),
         'provider selector and manual model picker available to platform admin');
+    ob_start();render_campaigns(mine());$campaignAdminHtml=(string)ob_get_clean();
+    verify(str_contains($campaignAdminHtml,'الحملات المجدولة على شرائح Android')
+        && str_contains($campaignAdminHtml,'sim_campaign_manage'),
+        'SaaS root renders SIM-scoped campaign management with real statuses');
+    ob_start();render_contacts(mine());$contactAdminHtml=(string)ob_get_clean();
+    verify(str_contains($contactAdminHtml,'موافقة التسويق'),
+        'contacts workspace exposes explicit consent evidence status');
     $css=(string)file_get_contents(__DIR__.'/../saas/console/assets/css/app.css');
     verify(str_contains($css,'input[type="checkbox"]'),'checkbox styles explicitly scoped');
     $ui=(string)file_get_contents(__DIR__.'/../saas/mobile/ota/ui.html');
