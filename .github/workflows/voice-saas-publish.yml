@@ -1,12 +1,15 @@
 name: Deploy OnTrack Voice SaaS Console
 on:
   push:
-    branches: [main]
+    branches: [main, 'feat/voice-production-gap-20261103']
     paths:
       - 'saas/console/**'
       - 'tools/deploy_saas_console.py'
       - 'tools/queue_saas_console.py'
       - 'tools/test_voice_saas_console.php'
+      - 'tools/test_tenant_call_ai_summary.php'
+      - 'tools/test_sim_agent_call_reports.php'
+      - 'tools/test_voice_restore_033.py'
       - '.github/workflows/voice-saas-publish.yml'
   workflow_dispatch:
 permissions:
@@ -27,6 +30,9 @@ jobs:
           set -eu
           find saas/console -name '*.php' -type f -print0 | xargs -0 -n1 php -l
           php tools/test_voice_saas_console.php
+          php tools/test_sim_agent_call_reports.php
+          php tools/test_tenant_call_ai_summary.php
+          python3 tools/test_voice_restore_033.py
           node --check saas/console/assets/js/app.js
           python3 -m py_compile tools/deploy_saas_console.py tools/queue_saas_console.py
   publish:
