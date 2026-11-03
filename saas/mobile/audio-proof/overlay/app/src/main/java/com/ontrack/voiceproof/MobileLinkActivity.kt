@@ -51,6 +51,8 @@ class MobileLinkActivity:ComponentActivity(){
     private lateinit var tenantEnrollment:TenantDeviceEnrollment
     private var tenantStatusLines=arrayOf("SIM 1 — جاري التحقق","SIM 2 — جاري التحقق")
     private var tenantStatusJob:Job?=null
+    /** The user's explicit Start command may continue once Phone permission is granted. */
+    private var startRequestedAfterPhonePermission=false
     private var splash:OnTrackLaunchScreen?=null
     private var ready=false
     private var generation=0
@@ -73,9 +75,19 @@ class MobileLinkActivity:ComponentActivity(){
         sendState()
     }
     private val tenantSimPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
-        banner.text=if(granted) "تم السماح بالتحقق من الشريحة؛ أعد تأكيد الربط من QR أو الرمز"
-            else "لم يُمنح إذن حالة الهاتف؛ ربط حسابات الشرائح متوقف لحماية عزل الشركات"
-        banner.visibility=View.VISIBLE
+        val continueStart=startRequestedAfterPhonePermission
+        startRequestedAfterPhonePermission=false
+        if(granted && continueStart){
+            runCatching { startTenantMonitor() }.onFailure { error ->
+                banner.text="تعذر تشغيل مراقب الشريحة: "+(error.message ?: "خطأ غير معروف")
+                banner.visibility=View.VISIBLE
+                sendState()
+            }
+        } else {
+            banner.text=if(granted) "تم تفعيل إذن حالة الهاتف؛ الشريحة الحالية ما زالت مربوطة بحسابك"
+                else "إذن حالة الهاتف غير مفعّل. فعّله من إعدادات التطبيق، ثم اضغط تشغيل الإيجنت"
+            banner.visibility=View.VISIBLE
+        }
         requestTenantStatusRefresh()
     }
     private val campaignPhonePermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
@@ -470,6 +482,31 @@ class MobileLinkActivity:ComponentActivity(){
             }
         }
     }
+    /** Continue only after a user-initiated Start; never re-enable a stopped agent on its own. */
+    private fun startTenantMonitor(){
+        check(tenantEnrollment.hasAny()){ "لا توجد شريحة مربوطة بحساب SaaS على هذا الهاتف" }
+        check(!MobileLinkService.tenantPairingInProgress){ "اقتران الشريحة قيد التنفيذ؛ أعد المحاولة بعد اكتماله" }
+        check(ContextCompat.checkSelfPermission(this,Manifest.permission.READ_PHONE_STATE)
+            ==PackageManager.PERMISSION_GRANTED) { "إذن حالة الهاتف غير مفعّل" }
+        ContextCompat.startForegroundService(this,
+            Intent(this,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_ENABLE))
+        banner.text="تم إرسال طلب تشغيل SIM لخدمة الهاتف — جاري تأكيد الحالة"
+        banner.visibility=View.VISIBLE
+        web.postDelayed({sendState()},700)
+    }
+    private fun requestStartTenantMonitor(){
+        check(tenantEnrollment.hasAny()){ "لا توجد شريحة مربوطة بحساب SaaS على هذا الهاتف" }
+        check(!MobileLinkService.tenantPairingInProgress){ "اقتران الشريحة قيد التنفيذ؛ أعد المحاولة بعد اكتماله" }
+        if(ContextCompat.checkSelfPermission(this,Manifest.permission.READ_PHONE_STATE)
+            !=PackageManager.PERMISSION_GRANTED) {
+            startRequestedAfterPhonePermission=true
+            banner.text="يلزم السماح بإذن حالة الهاتف لتشغيل مراقب SIM؛ لن تحتاج مفتاح API"
+            banner.visibility=View.VISIBLE
+            tenantSimPermission.launch(Manifest.permission.READ_PHONE_STATE)
+            return
+        }
+        startTenantMonitor()
+    }
     private fun testTenantReadiness(){
         lifecycleScope.launch {
             banner.text="بنفحص ربط الشرائح والـFlow وجلسة Google Live من غير إجراء مكالمة..."
@@ -759,22 +796,7 @@ class MobileLinkActivity:ComponentActivity(){
                         web.evaluateJavascript("window.onTrackInit && window.onTrackInit($initial)",null)
                     }
                     "stop","disable"->ContextCompat.startForegroundService(this@MobileLinkActivity,Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_DISABLE))
-                    "start","enable"->{
-                        check(tenantEnrollment.hasAny()){ "لا توجد شريحة مربوطة بحساب SaaS على هذا الهاتف" }
-                        check(!MobileLinkService.tenantPairingInProgress){ "اقتران الشريحة قيد التنفيذ؛ أعد المحاولة بعد اكتماله" }
-                        check(ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.READ_PHONE_STATE)
-                            ==PackageManager.PERMISSION_GRANTED){
-                            "إذن حالة الهاتف غير مفعّل. اسمح به من إعدادات التطبيق لتشغيل مراقب الشريحة."
-                        }
-                        // Android may reject a foreground service launch. Surface that
-                        // actual error; never show an unverified successful start.
-                        ContextCompat.startForegroundService(this@MobileLinkActivity,
-                            Intent(this@MobileLinkActivity,MobileLinkService::class.java)
-                                .setAction(MobileLinkService.ACTION_ENABLE))
-                        banner.text="تم إرسال طلب تشغيل SIM لخدمة الهاتف — جاري تأكيد الحالة"
-                        banner.visibility=View.VISIBLE
-                        web.postDelayed({sendState()},700)
-                    }
+                    "start","enable"-> requestStartTenantMonitor()
                     "takeover"->startService(Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_TAKEOVER))
                     "speaker"->startService(Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_SPEAKER))
                     "overlayPermission"->{
