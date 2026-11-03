@@ -65,6 +65,8 @@ class MobileLinkService:Service() {
     private var loop:Job?=null
     private var callEventFlush:Job?=null
     private var callReportFlush:Job?=null
+    private var tenantEventOutbox:CallEventOutbox?=null
+    @Volatile private var liveSimSlot:Int=-1
     private var connectivity:ConnectivityManager?=null
     private var networkListener:ConnectivityManager.NetworkCallback?=null
     @Volatile private var takeoverRequested=false
@@ -149,6 +151,13 @@ class MobileLinkService:Service() {
                     else "الرد الآلي متوقف بقرار المستخدم؛ اضغط تشغيل لتفعيله")
                 }
                 ACTION_TAKEOVER->{
+                    val slot=liveSimSlot
+                    if(slot in 0..1 && inCall){
+                        val bindingId=runCatching{TenantDeviceEnrollment(this).bindingId(slot)}.getOrNull()
+                        if(bindingId!=null)runCatching{
+                            tenantEventOutbox?.recordHumanTakeover(slot,bindingId)
+                        }.onFailure{notice("تعذر حفظ حدث الاستلام؛ تابع سجل المكالمة")}
+                    }
                     humanControl=true;call?.stop();call=null
                     notice("استلام بشري للمكالمة الحالية")
                 }
@@ -190,6 +199,7 @@ class MobileLinkService:Service() {
     private suspend fun tenantMonitor(){
         val enrollment=TenantDeviceEnrollment(this)
         val tenantEvents=CallEventOutbox(this,"ontrack_tenant_call_events")
+        tenantEventOutbox=tenantEvents
         val reportOutbox=CallReportOutbox(this)
         var lastReportAttempt=0L
         var selected:Int?=null
@@ -210,7 +220,7 @@ class MobileLinkService:Service() {
                     if(!agentEnabled){
                         call?.stop();call=null
                         connected=false;inCall=false;callAnswered=false
-                        selected=null;tenantFlow=null;tenantSession=null
+                        selected=null;liveSimSlot=-1;tenantFlow=null;tenantSession=null
                         lastState=TelephonyManager.CALL_STATE_IDLE
                         delay(800);continue
                     }
@@ -266,7 +276,7 @@ class MobileLinkService:Service() {
                     if(current==null){
                         if(selected!=null){
                             call?.stop();call=null;tenantSession=null;tenantFlow=null
-                            selected=null;answeredByAgent=false;ringAttempted=false;outgoingCall=false;humanControl=false
+                            selected=null;liveSimSlot=-1;answeredByAgent=false;ringAttempted=false;outgoingCall=false;humanControl=false
                             ringingAt=0L;startedAt=0L
                         }
                         inCall=false;callAnswered=false
@@ -283,7 +293,7 @@ class MobileLinkService:Service() {
                         delay(750);continue
                     }
                     if(selected!=current.slot){
-                        selected=current.slot;answeredByAgent=false;ringAttempted=false;outgoingCall=false;tenantFlow=null;tenantSession=null
+                        selected=current.slot;liveSimSlot=current.slot;answeredByAgent=false;ringAttempted=false;outgoingCall=false;tenantFlow=null;tenantSession=null
                         ringingAt=SystemClock.elapsedRealtime();startedAt=0L;humanControl=false
                     }
                     inCall=true;callAnswered=current.state==TelephonyManager.CALL_STATE_OFFHOOK
@@ -388,6 +398,7 @@ class MobileLinkService:Service() {
     override fun onDestroy(){
         networkListener?.let{runCatching{connectivity?.unregisterNetworkCallback(it)}}
         call?.stop();scope.cancel();running=false;connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false
+        liveSimSlot=-1;tenantEventOutbox=null
         overlay.remove();latestStatus="الربط متوقف"
         super.onDestroy()
     }
