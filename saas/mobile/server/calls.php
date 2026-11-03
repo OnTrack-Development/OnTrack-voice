@@ -75,11 +75,11 @@ code{font-size:11px;direction:ltr;display:inline-block;color:#b7c3d7}.empty{padd
 <td><?=ch((string)($row['contact_name']??'غير معروف'))?></td>
 <td dir="ltr"><?=ch((string)($row['phone_number']??'غير متاح'))?></td>
 <td>
-<?php $report=ontrack_report_read((string)$row['call_id'],MOBILE_STORE.'/calls');$entries=$report['entries']; ?>
+<?php $report=ontrack_report_read((string)$row['call_id'],MOBILE_STORE.'/calls');$entries=array_values(array_filter($report['entries'],static fn(array $e):bool=>($e['kind']??'')!=='finalize')); ?>
 <details class="report-details"><summary>التقرير (<?=count($entries)?>)</summary>
 <?php if(!$entries):?><p>لم يصل تفريغ أو ملخص بعد.</p><?php endif;?>
 <?php foreach($entries as $entry):?>
-<div class="report-note"><small><?=ch(match($entry['kind']){'transcript'=>'تفريغ • '.($entry['role']==='caller'?'العميل':'الإيجنت'),'handoff'=>'تحويل لموظف','summary'=>'ملخص','disposition'=>'النتيجة',default=>'ملاحظة للعميل'})?> · <?=ch((string)$entry['created_at_utc'])?></small><p><?=ch((string)$entry['text'])?></p></div>
+<div class="report-note"><small><?=ch(match($entry['kind']){'transcript'=>'تفريغ • '.($entry['role']==='caller'?'العميل':'الإيجنت'),'handoff'=>'تحويل لموظف','summary'=>(($entry['source']??'')==='ai'?'ملخص AI':'ملخص بشري'),'disposition'=>'النتيجة',default=>'ملاحظة للعميل'})?> · <?=ch((string)$entry['created_at_utc'])?></small><p><?=ch((string)$entry['text'])?></p></div>
 <?php endforeach;?>
 <form class="report-form" method="post"><input type="hidden" name="csrf" value="<?=ch($_SESSION['csrf'])?>"><input type="hidden" name="call_id" value="<?=ch((string)$row['call_id'])?>">
 <label>إضافة تقرير أو ملاحظة</label><select name="kind"><option value="customer_note">ملاحظة عن العميل</option><option value="handoff">سبب تحويل لموظف</option><option value="summary">ملخص بشري</option><option value="disposition">نتيجة المكالمة</option></select>
