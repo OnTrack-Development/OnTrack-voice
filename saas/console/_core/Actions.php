@@ -475,6 +475,36 @@ function act():void {
                    throw new InvalidArgumentException('يجب إثبات صلاحية الصوت على مزود الاتصال أولاً');
                 execute('UPDATE voices SET ready=? WHERE id=?',[$ready,$voice['id']]);
                 audit('voice.ready.updated',$id,['voice'=>$voice['id'],'ready'=>$ready]);break;
+            case 'save_call_report_entry':
+            case 'retry_call_ai_summary':
+                require_permission('calls.write');
+                require_once __DIR__.'/TenantCallReports.php';
+                $callPk=intfield('call_id');
+                $call=one('SELECT id,account_id,site_id,device_binding_id,sim_slot,external_call_id
+                    FROM calls WHERE id=? AND account_id=? AND device_binding_id IS NOT NULL',[$callPk,$id]);
+                if(!$call)throw new InvalidArgumentException('المكالمة غير متاحة داخل الحساب');
+                $binding=one('SELECT * FROM device_bindings WHERE id=? AND account_id=? AND site_id=? AND sim_slot=?',
+                    [$call['device_binding_id'],$id,$call['site_id'],$call['sim_slot']]);
+                if(!$binding||!is_string($call['external_call_id'])||$call['external_call_id']==='')
+                    throw new InvalidArgumentException('مكالمة غير مرتبطة بشريحة موثقة');
+                if($action==='retry_call_ai_summary'){
+                    $state=tenant_report_summarize($binding,$call['external_call_id'],
+                        static fn(string $transcript):string=>tenant_report_google_summary($transcript));
+                    if($state['summary_status']==='no_transcript')
+                        throw new InvalidArgumentException('لا يوجد نص حقيقي حتى يتم إنشاء الملخص');
+                    $success='تم حفظ ملخص AI من التفريغ الحقيقي';
+                    audit('call.ai_summary.generated',$id,['call_id'=>$callPk,'device_id'=>$binding['id']]);
+                }else{
+                    $kind=field('kind',24);
+                    if(!in_array($kind,['customer_note','handoff','summary','disposition'],true))
+                        throw new InvalidArgumentException('نوع ملاحظة غير مدعوم');
+                    $entry=['call_id'=>$call['external_call_id'],'entry_id'=>tenant_report_new_uuid(),
+                        'kind'=>$kind,'role'=>'employee','text'=>required('text',1500)];
+                    tenant_report_append($binding,$entry,'employee');
+                    audit('call.report.staff_note',$id,['call_id'=>$callPk,'kind'=>$kind]);
+                    $success='تمت إضافة الملاحظة إلى تقرير المكالمة';
+                }
+                break;
             case 'create_device_pairing':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 $siteId=intfield('site_id');$agentId=intfield('agent_id');
