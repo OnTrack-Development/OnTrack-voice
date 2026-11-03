@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/DncGuard.php';
 require_once __DIR__.'/TenantVoiceTranscript.php';
+require_once __DIR__.'/BillingUsage.php';
 require_once __DIR__.'/TenantCampaignQueue.php';
 /** No pilot bearer, no user-provided account/site identifiers. */
 function tenant_workspace_id(int $id):string{return str_pad(dechex($id),24,'0',STR_PAD_LEFT);}
@@ -79,6 +80,7 @@ function tenant_workspace_call_event(array $b,array $p):array{
        !in_array($phase,['ringing','active','missed','ended','identified','human_takeover'],true)||
        !is_int($duration)||$duration<0||$duration>172800)
         throw new InvalidArgumentException('invalid_call_event');
+    voice_usage_init(); // migration BEFORE DB transaction (MySQL DDL auto-commits)
     db()->beginTransaction();
     try{
         $exists=one('SELECT sequence FROM tenant_call_events WHERE device_binding_id=? AND call_id=? AND sequence=?',[$b['id'],$id,$seq]);
@@ -139,6 +141,7 @@ function tenant_workspace_call_event(array $b,array $p):array{
                 }
             }
             insert('INSERT INTO tenant_call_events(device_binding_id,call_id,sequence,created_at) VALUES (?,?,?,?)',[$b['id'],$id,$seq,now()]);
+            if(in_array($phase,['active','ended'],true))voice_usage_update($b,$id,$phase);
         }
         db()->commit();return ['accepted'=>true,'duplicate'=>(bool)$exists];
     }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
