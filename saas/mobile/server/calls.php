@@ -4,6 +4,7 @@ require __DIR__.'/common.php';
 require __DIR__.'/call_ledger.php';
 require __DIR__.'/call_report_store.php';
 require __DIR__.'/call_summary.php';
+require __DIR__.'/pilot_workspace.php';
 header('X-Frame-Options: DENY');
 session_name('ontrack_mobile_admin');
 session_set_cookie_params(['secure'=>true,'httponly'=>true,'samesite'=>'Lax','path'=>'/saas/mobile/']);
@@ -18,7 +19,17 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     try{
         $bytes=random_bytes(16);$bytes[6]=chr((ord($bytes[6])&15)|64);$bytes[8]=chr((ord($bytes[8])&63)|128);
         $hex=bin2hex($bytes);$eid=substr($hex,0,8).'-'.substr($hex,8,4).'-'.substr($hex,12,4).'-'.substr($hex,16,4).'-'.substr($hex,20);
-        if($kind==='generate_ai'){
+        if($kind==='suppress_contact'){
+            $recordPath=MOBILE_STORE.'/calls/'.$id.'.json';
+            $call=is_file($recordPath)?json_decode((string)file_get_contents($recordPath),true):null;
+            $phone=is_array($call)?($call['phone_number']??null):null;
+            if(!is_string($phone)||pilot_number($phone)===null)
+                throw new InvalidArgumentException('لا يوجد رقم متصل تم التحقق منه؛ لا يمكن إضافته لقائمة عدم الاتصال');
+            pilot_dnc_verified_phone($phone);
+            ontrack_report_append(['call_id'=>$id,'entry_id'=>$eid,'kind'=>'disposition',
+                'role'=>'employee','text'=>'عدم الاتصال مجددًا — سجله الموظف من طلب العميل بعد التحقق من رقم المكالمة'],
+                MOBILE_STORE.'/calls','admin');
+        }elseif($kind==='generate_ai'){
             require dirname(__DIR__,2).'/api/bootstrap.php';
             $key=(string)($config['gemini_api_key']??'');
             $model=(string)($config['gemini_summary_model']??'gemini-2.5-flash');
@@ -90,6 +101,12 @@ code{font-size:11px;direction:ltr;display:inline-block;color:#b7c3d7}.empty{padd
 <details class="report-details"><summary>التقرير (<?=count($entries)?>)</summary>
 <?php if(!$entries):?><p>لم يصل تفريغ أو ملخص بعد.</p><?php endif;?>
 <?php $hasAiSummary=(bool)array_filter($entries,static fn(array $e):bool=>($e['kind']??'')==='summary'&&($e['source']??'')==='ai'); ?>
+<?php if(is_string($row['phone_number']??null) && pilot_number((string)$row['phone_number'])!==null):?>
+<form class="report-form" method="post" onsubmit="return confirm('تأكيد منع جميع الاتصالات المستقبلية بهذا الرقم من حملات الهاتف؟')">
+<input type="hidden" name="csrf" value="<?=ch($_SESSION['csrf'])?>"><input type="hidden" name="call_id" value="<?=ch((string)$row['call_id'])?>">
+<input type="hidden" name="kind" value="suppress_contact">
+<button type="submit">منع الاتصال بهذا الرقم مجددًا (DNC)</button></form>
+<?php endif;?>
 <?php if(!$hasAiSummary && in_array($row['phase']??'', ['ended','missed'],true)):?>
 <form class="report-form" method="post"><input type="hidden" name="csrf" value="<?=ch($_SESSION['csrf'])?>"><input type="hidden" name="call_id" value="<?=ch((string)$row['call_id'])?>"><input type="hidden" name="kind" value="generate_ai">
 <button type="submit">توليد / إعادة محاولة ملخص AI من التفريغ الحقيقي</button></form>
