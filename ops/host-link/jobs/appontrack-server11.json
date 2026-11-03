@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "flow-ai-retry-real-e2e-result-20261103-0331",
+  "id": "flow-ai-retry-real-e2e-verify-cleanup-20261103-0332",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-03T03:30:44.606Z",
-  "expires_at": "2026-11-03T04:30:44.606Z",
+  "created_at": "2026-11-03T03:31:43.327Z",
+  "expires_at": "2026-11-03T04:31:43.327Z",
   "cwd": "/home/appontrack/public_html/saas",
-  "timeout_seconds": 29,
+  "timeout_seconds": 12,
   "argv": [
-    "/bin/python3",
-    "-c",
-    "import subprocess,time,json\nargs=['/opt/cpanel/ea-php83/root/usr/bin/php','-r',\"require '/home/appontrack/public_html/saas/console/_core/Bootstrap.php';init_schema();\\n$r=one('SELECT status,result_json,error_text FROM flow_ai_jobs WHERE job_id=?',['baf626a9e391b8f1001f4b249c03ab5d']);\\nif(!$r){echo json_encode(['status'=>'not_found']);exit;}\\n$doc=is_string($r['result_json'])?json_decode($r['result_json'],true):[];\\necho json_encode(['status'=>$r['status'],'model'=>$doc['model']??null,'nodes'=>isset($doc['graph']['nodes'])?count($doc['graph']['nodes']):null,'edges'=>isset($doc['graph']['edges'])?count($doc['graph']['edges']):null,'error'=>$r['status']==='failed'?mb_substr((string)$r['error_text'],0,300):null],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);\"]\nfor i in range(4):\n r=subprocess.run(args,capture_output=True,text=True,timeout=5)\n if r.returncode:raise RuntimeError('status_query_failed')\n state=json.loads(r.stdout)\n if state.get('status') not in ('pending','running') or i==3:\n  print(json.dumps(state,ensure_ascii=False));break\n time.sleep(6)\n"
+    "/opt/cpanel/ea-php83/root/usr/bin/php",
+    "-r",
+    "require '/home/appontrack/public_html/saas/console/_core/Bootstrap.php';init_schema();\n$r=one('SELECT status,result_json,error_text FROM flow_ai_jobs WHERE job_id=?',['baf626a9e391b8f1001f4b249c03ab5d']);\nif(!$r){echo json_encode(['status'=>'not_found']);exit;}\n$doc=is_string($r['result_json'])?json_decode($r['result_json'],true):[];\n$out=['status'=>$r['status'],'model'=>$doc['model']??null,'nodes'=>isset($doc['graph']['nodes'])?count($doc['graph']['nodes']):null,'edges'=>isset($doc['graph']['edges'])?count($doc['graph']['edges']):null,'error'=>$r['status']==='failed'?mb_substr((string)$r['error_text'],0,320):null];\nif(in_array($r['status'],['done','failed','cancelled'],true)){\n db()->beginTransaction();\n execute('DELETE FROM flow_ai_chats WHERE account_id=4 AND user_id IN (9000001,9000002,9000003)');\n execute('DELETE FROM flow_ai_jobs WHERE account_id=4 AND user_id IN (9000001,9000002,9000003)');\n db()->commit();$out['test_fixtures_cleaned']=true;\n}\necho json_encode($out,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR).\"\\n\";"
   ]
 }
