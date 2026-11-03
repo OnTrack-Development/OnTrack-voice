@@ -25,6 +25,9 @@ $graphTransport=static function(array $setup,array $turn)use($graph,&$seenGraph)
     live_editor_ok(($setup['setup']['model']??'')==='models/gemini-3.8-live-extended-thinking','graph model is 3.8 Live');
     live_editor_ok(($setup['setup']['generationConfig']['responseModalities']??null)===['AUDIO'],
         'Live audio modality used with text-turn input');
+    live_editor_ok(isset($setup['setup']['outputAudioTranscription']) &&
+        !isset($setup['setup']['generationConfig']['outputAudioTranscription']),
+        'text transcription must be at Live setup root per Bidi WebSocket protocol');
     live_editor_ok(!isset($setup['setup']['generationConfig']['responseMimeType']) &&
         !isset($setup['setup']['generationConfig']['responseSchema']),
         'unsupported REST-only JSON schema fields never sent to Live');
