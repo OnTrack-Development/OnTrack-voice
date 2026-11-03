@@ -11,6 +11,7 @@ require_once __DIR__.'/Checkout.php';
 require_once __DIR__.'/AiRelay.php';
 require_once __DIR__.'/RecycleBin.php';
 require_once __DIR__.'/DomainVerification.php';
+require_once __DIR__.'/ManualPayment.php';
 require_once __DIR__.'/CallHistory.php';
 
 function field(string $key,int $max=200):string{
@@ -548,6 +549,8 @@ function act():void {
                 $order=one("SELECT * FROM orders WHERE id=? AND status='pending_manual_review'",[intfield('order_id')]);
                 if(!$order)throw new RuntimeException('الطلب غير موجود أو ليس بانتظار المراجعة');
                 scoped_customer((int)$order['account_id']);
+                // Migration occurs before transaction on MySQL.
+                manual_payment_init();
                 db()->beginTransaction();
                 try{
                     // Each manual receipt can settle exactly one eligible order.
@@ -559,6 +562,8 @@ function act():void {
                         $plan['kind']!==($target['kind']==='reseller'?'reseller':'user')||
                         (int)$plan['price_minor']!==(int)$order['amount_minor'])
                         throw new InvalidArgumentException('بيانات طلب الدفع أو الباقة تغيرت');
+                    manual_payment_claim((int)$order['id'],(int)$order['account_id'],
+                        (int)me()['id'],$proof);
                     if(execute("UPDATE orders SET status='approved',payment_reference=? WHERE id=? AND status='pending_manual_review'",
                         [$proof,$order['id']])!==1)
                         throw new RuntimeException('manual_payment_state_race');
