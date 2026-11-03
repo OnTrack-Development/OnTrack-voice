@@ -3,7 +3,7 @@ import base64,datetime,fcntl,hashlib,io,json,os,subprocess,tempfile,urllib.reque
 from pathlib import Path
 
 CERT="d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f"
-ROOT=Path("/home/appontrack/public_html/saas/mobile/updates/native")
+ROOT=Path("/home/appontrack/public_html/mobile/updates/native")
 PRIVATE=Path("/home/appontrack/.ontrack-mobile")
 
 def atomic(path,data):
@@ -52,7 +52,7 @@ def deploy(zip_url,manifest_b64,cert_b64,sha_expected):
                     if length>110*1024*1024:raise ValueError("archive too large")
                     out.write(chunk)
             with zipfile.ZipFile(tmp) as z:
-                candidates=[x for x in z.infolist() if x.filename=="OnTrack-Voice-0.3.8.apk"]
+                candidates=[x for x in z.infolist() if x.filename=="OnTrack-Voice-"+meta["version_name"]+".apk"]
                 assert len(candidates)==1 and candidates[0].file_size==meta["size"]
                 pkg=candidates[0]
                 assert not (pkg.external_attr>>16 & 0o170000)==0o120000
@@ -87,4 +87,4 @@ def deploy(zip_url,manifest_b64,cert_b64,sha_expected):
                     atomic(current,manifest)
     finally:
         if os.path.exists(tmp):os.unlink(tmp)
-    print(json.dumps({"status":"published","version":meta["version_code"],"sha256":sha_expected,"bytes":meta["size"],"path":"saas/mobile/updates/native/","credentials_accessed":False}))
+    print(json.dumps({"status":"published","version":meta["version_code"],"sha256":sha_expected,"bytes":meta["size"],"path":"mobile/updates/native/","credentials_accessed":False}))
