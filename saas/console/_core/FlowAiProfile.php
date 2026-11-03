@@ -61,7 +61,7 @@ function flow_ai_profile_summary(array $profile):string {
 }
 
 /** Reads authorized current editor settings; returns PREVIEW only. */
-function flow_ai_profile_generate(int $accountId,int $agentId,string $idea,array $current,array $history):array {
+function flow_ai_profile_generate(int $accountId,int $agentId,string $idea,array $current,array $history,?callable $liveTransport=null):array {
     if(mb_strlen($idea)<3||mb_strlen($idea)>2500)
         throw new InvalidArgumentException('اكتب التعديل المطلوب من المساعد.');
     $agent=flow_preview_agent_for_account($accountId,$agentId);
@@ -122,7 +122,7 @@ PROMPT;
     // completed TEXT turn and returns a structured NON_BLOCKING tool call.
     // Never call REST generateContent for editor chat.
     $proposal=flow_ai_profile_validate(
-        flow_ai_live_proposal($system,$context,$schema)
+        flow_ai_live_proposal($system,$context,$schema,$liveTransport)
     );
     // Keep structural suggestions; replace untrusted model completion claims.
     $proposal['explanation']=flow_ai_profile_summary($proposal);
