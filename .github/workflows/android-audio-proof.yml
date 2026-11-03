@@ -1,18 +1,6 @@
 name: Android SIM Audio Proof
+# SAFETY: legacy pipeline builds a fixed old SHA; manual only until an exact-HEAD signed release replaces it.
 on:
-  push:
-    branches: [main]
-    # Native builds only for Android/telephony/backend changes.
-    # Visual HTML OTA now has its own signed no-APK pipeline.
-    paths:
-      - 'saas/mobile/audio-proof/**'
-      # Server PHP has its own Voice P1 P2 backend regression. A backend-only
-      # change must NOT rebuild/publish an unrelated signed native Android APK.
-      - 'saas/mobile/patch_live_session.py'
-      - 'saas/mobile/ota/native_release.json'
-      - 'saas/mobile/ota/native_deploy.py'
-      # Release tooling changes are verified in mobile-release-gate.yml;
-      # they must not build or publish a new APK by themselves.
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,11 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      # Same immutable revision already deployed on the web server and
-      # successfully compiled and unit-tested for call reports on Android.
+      # Build the exact triggering ref; do not silently build an old SHA.
       - uses: actions/checkout@v5
-        with:
-          ref: 2595bce13727ce909dcf375eff933d85a8e233c6
       - name: Validate mobile PHP endpoints
         run: |
           for source in saas/mobile/server/*.php; do php -l "$source"; done
@@ -134,37 +119,3 @@ jobs:
             .build/jemrec/app/build/outputs/androidTest-results/
           if-no-files-found: ignore
 
-  publish_ota:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: read
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v5
-        with:
-          name: OnTrack-Voice-0.3.1
-          path: .build/downloaded
-      - name: Queue verified OTA files through existing host worker
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 tools/queue_mobile_ota.py .build/downloaded/ota
-
-  publish_native:
-    needs: [build, publish_ota]
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    permissions:
-      contents: write
-      actions: read
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v5
-        with:
-          name: OnTrack-Voice-0.3.1
-          path: .build/downloaded
-      - name: Queue signed native APK through OnTrack worker
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 tools/queue_mobile_native.py .build/downloaded/native
