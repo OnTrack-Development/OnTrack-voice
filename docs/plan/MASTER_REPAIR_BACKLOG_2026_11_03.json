@@ -734,7 +734,7 @@
       "verified_e2e": false,
       "completion_evidence": [],
       "updated_on": "2026-11-03",
-      "implementation_note": "OTA path guard patched in saas/mobile/ota/deploy.py to require canonical /home/appontrack/public_html/mobile/updates, not legacy /saas/mobile/updates, with fail-closed checks for symlinks/account/private dir. Commit 693339241348e6366116743d8a5b281ed8fa6a28. This is a code-only patch: no CI run or matching host deployment receipt yet; actual existence of canonical mobile directory on host unverified, native APK still not queued, and physical Xiaomi disconnect/reconnect event replay unverified. Do not mark DONE or advance R041.",
+      "implementation_note": "OTA path guard patched in saas/mobile/ota/deploy.py to require canonical /home/appontrack/public_html/mobile/updates, not legacy /saas/mobile/updates, with fail-closed checks for symlinks/account/private dir. Commit 693339241348e6366116743d8a5b281ed8fa6a28. This is a code-only patch: no CI run or matching host deployment receipt yet; actual existence of canonical mobile directory on host unverified, native APK still not queued, and physical Xiaomi disconnect/reconnect event replay unverified. Do not mark DONE or advance R041. Recheck at 2026-11-03 12:53 Africa/Cairo: latest Actions branch runs 41592208929 (root PASS) and 41592208970 (Android FAIL) both use bcb933d7, NOT OTA guard patch 69333924. No matching CI/host receipt for patch; therefore cannot deploy or close. Root/mobile target existence and physical Xiaomi proof still unverified.",
       "latest_feature_commit": "693339241348e6366116743d8a5b281ed8fa6a28",
       "ci_verification": {
         "run_id": 41592208929,
