@@ -118,8 +118,25 @@ function tenant_workspace_call_event(array $b,array $p):array{
                     execute('UPDATE calls SET phone=?,name=? WHERE device_binding_id=? AND external_call_id=?',[$phone,$name,$b['id'],$id]);
                 }
             }else{
-                execute('UPDATE calls SET status=?,duration_seconds=CASE WHEN duration_seconds>? THEN duration_seconds ELSE ? END WHERE device_binding_id=? AND external_call_id=?',[
-                    $phase,$duration,$duration,$b['id'],$id]);
+                // Outbox delivery can be reordered after a network outage. Keep
+                // the terminal outcome immutable and never regress active -> ringing.
+                // Duration is monotonic even when a stale event arrives late.
+                $call=one('SELECT status FROM calls WHERE account_id=? AND site_id=?
+                    AND device_binding_id=? AND sim_slot=? AND external_call_id=?',[
+                    $b['account_id'],$b['site_id'],$b['id'],$b['sim_slot'],$id]);
+                $current=(string)($call['status']??'ringing');
+                $terminal=in_array($current,['ended','missed','busy'],true);
+                $regression=($current==='active'&&$phase==='ringing');
+                if(!$terminal&&!$regression){
+                    execute('UPDATE calls SET status=?,
+                        duration_seconds=CASE WHEN duration_seconds>? THEN duration_seconds ELSE ? END
+                        WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? AND external_call_id=?',[
+                        $phase,$duration,$duration,$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot'],$id]);
+                }elseif($duration>0){
+                    execute('UPDATE calls SET duration_seconds=CASE WHEN duration_seconds>? THEN duration_seconds ELSE ? END
+                        WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? AND external_call_id=?',[
+                        $duration,$duration,$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot'],$id]);
+                }
             }
             insert('INSERT INTO tenant_call_events(device_binding_id,call_id,sequence,created_at) VALUES (?,?,?,?)',[$b['id'],$id,$seq,now()]);
         }
