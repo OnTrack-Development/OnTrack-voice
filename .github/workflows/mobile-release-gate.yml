@@ -13,6 +13,8 @@ on:
     paths:
       - 'tools/queue_mobile_native.py'
       - 'tools/test_mobile_release_gate.py'
+      - 'tools/test_mobile_ota.py'
+      - 'saas/mobile/ota/deploy.py'
       - '.github/workflows/android-audio-proof.yml'
       - '.github/workflows/mobile-release-gate.yml'
   workflow_dispatch:
