@@ -48,4 +48,8 @@ $legacyId=insert("INSERT INTO integrations(account_id,name,provider,token_hash,t
 relay_check(ai_relay_assistant_legacy_key()===$legacyKey,'assistant legacy independent from voice pool');
 execute('DELETE FROM integrations WHERE id=?',[$legacyId]);
 execute('DELETE FROM ai_relay_entries WHERE account_id=?',[$platform]);
+$ui=(string)file_get_contents(__DIR__.'/../saas/console/_core/Views.php');
+relay_check(str_contains($ui,'relay-models-')&&str_contains($ui,'list="relay-models-')&&
+  !str_contains($ui,"echo card('محرك الصوت الجديد — Google Gemini Live'"),
+  'model picker and no conflicting legacy key editor');
 echo "AI_RELAY_VOICE_ASSISTANT_COOLDOWN_SECURITY_PASS\n";

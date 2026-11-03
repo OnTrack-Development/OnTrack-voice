@@ -1049,12 +1049,16 @@ function render_ai_relay_settings(array $a):void {
         $options=$scope==='voice'
             ?'<option value="google_live">Google Gemini Live</option>'
             :'<option value="google_live">Google Live</option><option value="google_text">Google Text REST</option><option value="openai_compatible">Custom OpenAI-compatible</option>';
+        $modelChoices=$scope==='voice'
+            ?'<option value="gemini-3.8-live"><option value="gemini-3.8-live-extended-thinking"><option value="gemini-3.1-flash-live-preview">'
+            :'<option value="gemini-3.8-live-extended-thinking"><option value="gemini-3.8-flash"><option value="gemini-3.8-live">';
+        $modelList='<datalist id="relay-models-'.e($scope).'">'.$modelChoices.'</datalist>';
         $content='<p>إدارة داخلية كاملة: أضف أي عدد من المفاتيح، رتّب الأولوية، واختبر الاتصال. عند 429 أو 503 يتم تحويل الطلب للذي بعده مع إيقاف المفتاح المختنق 15 دقيقة. لا تظهر الأسرار بعد الحفظ.</p>'.
             form_start('relay_add','/?tab=settings').
             '<input type="hidden" name="scope" value="'.e($scope).'">'.
             '<div class="cols two"><label class="field">اسم المفتاح<input name="relay_label" maxlength="100" required placeholder="Primary / Backup"></label>'.
             '<label class="field">Provider<select name="relay_driver">'.$options.'</select></label>'.
-            '<label class="field">Model ID<input name="relay_model" dir="ltr" maxlength="120" required placeholder="gemini-3.8-live"></label>'.
+            '<label class="field">Model ID — اختَر من المقترحات أو اكتب أي موديل<input name="relay_model" list="relay-models-'.e($scope).'" dir="ltr" maxlength="120" required placeholder="gemini-3.8-live"></label>'.
             '<label class="field">API Key<input type="password" name="relay_api_key" maxlength="512" autocomplete="off" required></label></div>'.
             '<label class="field">Custom HTTPS Endpoint (للمزوّد المخصص فقط)<input name="relay_endpoint" dir="ltr" maxlength="600" placeholder="https://api.provider.example/v1/chat/completions"></label>'.
             submit_btn('إضافة مفتاح / مزوّد');
@@ -1079,7 +1083,7 @@ function render_ai_relay_settings(array $a):void {
                 form_start('relay_edit','/?tab=settings').
                 '<input type="hidden" name="relay_id" value="'.$id.'">'.
                 '<label class="field">اسم المزوّد<input name="relay_label" maxlength="100" required value="'.e($item['label']).'"></label>'.
-                '<label class="field">Model ID<input name="relay_model" dir="ltr" maxlength="120" required value="'.e($item['model']).'"></label>'.
+                '<label class="field">Model ID<input name="relay_model" list="relay-models-'.e($scope).'" dir="ltr" maxlength="120" required value="'.e($item['model']).'"></label>'.
                 '<label class="field">Endpoint<input name="relay_endpoint" dir="ltr" maxlength="600" value="'.e($item['endpoint']).'"></label>'.
                 '<label class="field">API Key جديد (اتركه فاضيًا للاحتفاظ بالموجود)<input type="password" name="relay_api_key" maxlength="512" autocomplete="off"></label>'.
                 submit_btn('حفظ تعديل المزوّد').'</details>';
@@ -1087,7 +1091,7 @@ function render_ai_relay_settings(array $a):void {
                 '<input type="hidden" name="relay_id" value="'.$id.'">'.
                 '<button type="submit" class="btn small primary">اختبار اتصال</button></form></div></div>';
         }
-        echo card($heading,$content);
+        echo card($heading,$content.$modelList);
     }
 }
 function render_settings(array $a):void{
@@ -1103,16 +1107,9 @@ function render_settings(array $a):void{
         echo card('إعدادات واتساب للمنصة',
             '<p>إدارة الربط التلقائي (Meta Embedded Signup)، وCoexistence، ومفاتيح وتكوينات Meta الخاصة بالمنصة في صفحة مستقلة عن صندوق وارد العميل.</p>'.
             '<a class="btn primary" href="/saas/console/?tab=whatsapp_admin">فتح إعدادات ربط واتساب</a>');
-        $provider=one("SELECT name FROM integrations WHERE account_id=? AND provider='google_live' AND status='active' ORDER BY id DESC LIMIT 1",[$a['account_id']]);
+        // Legacy key remains encrypted and auto-imports once into Voice Relay.
+        // Avoid showing a second Google editor that would not update Relay priority.
         render_ai_relay_settings($a);
-        echo card('محرك الصوت الجديد — Google Gemini Live',
-            '<p>الربط الصوتي على الشريحة يعتمد على مفتاح Gemini Live ساري، ويُخزّن مشفرًا على السيرفر ولا يظهر داخل التطبيق. الاختبار الحالي يتأكد من إصدار رمز مؤقت حقيقي من Google.</p>'.
-            '<p class="info">حالة المزوّد: '.($provider?'محفوظ — '.e($provider['name']):'غير مربوط').'. ربط المزوّد لا يشغّل المكالمات قبل فحص الصوت ثنائي الاتجاه على الهاتف.</p>'.
-            form_start('save_live_provider','/?tab=settings').
-            '<label class="field">موديل Gemini Live<input name="model" dir="ltr" list="google-live-models" required maxlength="120" value="'.e((string)($provider['name']??'gemini-3.8-live')).'"><datalist id="google-live-models"><option value="gemini-3.8-live"><option value="gemini-3.8-live-extended-thinking"><option value="gemini-3.1-flash-live-preview"></datalist></label>'.
-            '<label class="field">Google API Key<input type="password" name="google_key" autocomplete="new-password" required maxlength="256"></label>'.
-            '<p class="dim">هنتحقق من صلاحية المفتاح عبر Google API، وبعدين نعرض نتيجة اختبار Live بشكل منفصل.</p>'.
-            submit_btn('تحقق واحفظ مفتاح Google'));
     }
     echo '<div class="cols two">';
     $adminIdentity=in_array($a['kind'],['platform','reseller'],true)&&console_view_mode($a)==='admin';
