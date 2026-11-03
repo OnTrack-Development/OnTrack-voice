@@ -123,9 +123,12 @@ if($path==='/login') {
 }
 if($path==='/mfa')mfa_route();
 if($path==='/mfa/setup')mfa_route(true);
-if(!in_array($path,['/login','/logout','/mfa','/mfa/setup'],true) && me()
-   && mfa_gate_required((int)me()['id']) && empty($_SESSION['mfa_ok']))
-    go(mfa_record((int)me()['id'])?'/mfa':'/mfa/setup');
+if(!in_array($path,['/login','/logout','/mfa','/mfa/setup'],true) && me()){
+    $identity=(int)me()['id'];
+    $storedMfa=mfa_record($identity)!==null;
+    if(mfa_privileged($identity) && !$storedMfa)go('/mfa/setup');
+    if(mfa_gate_required($identity) && empty($_SESSION['mfa_ok']))go('/mfa');
+}
 if($path==='/brand-logo'){
     $a=mine();if(!$a)deny(404);
     $brand=brand($a);
