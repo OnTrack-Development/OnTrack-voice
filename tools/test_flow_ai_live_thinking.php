@@ -27,7 +27,9 @@ live_check($setup['setup']['model']==='models/gemini-3.8-live-extended-thinking'
 live_check($setup['setup']['generationConfig']['thinkingConfig']['thinkingLevel']==='MEDIUM','extended thinking enabled');
 live_check($setup['setup']['generationConfig']['responseModalities']===['AUDIO'],'official Live modality');
 live_check(!isset($setup['setup']['generationConfig']['responseSchema']),'no unsupported response schema');
-live_check(isset($setup['setup']['generationConfig']['outputAudioTranscription']),'Live returns text transcription alongside ignored audio');
+live_check(isset($setup['setup']['outputAudioTranscription']) &&
+    !isset($setup['setup']['generationConfig']['outputAudioTranscription']),
+    'transcription MUST be top-level BidiGenerateContentSetup, not generationConfig');
 live_check($setup['setup']['tools'][0]['functionDeclarations'][0]['behavior']==='NON_BLOCKING','async-only tool');
 $graph=['nodes'=>[
  ['id'=>'start','type'=>'start','text'=>'أهلاً','x'=>200,'y'=>80],
