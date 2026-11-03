@@ -15,4 +15,7 @@ $ontrackMobileInstruction=(string)$mobile['instruction']."\n\n".
 "وعُد للنقطة المنطقية التالية بعد آخر معلومة واضحة دون تكرار من البداية. ".
 "لا تختلق أسعارًا أو توافرًا أو بيانات عقار من غير مرجع. تجنب أي لغة غير العربية المصرية. ".
 "تجنب الحشو وامنح العميل فرصة للكلام.";
-require dirname(__DIR__,2).'/api/live_session.php';
+// New root layout keeps the legacy Pilot builder protected under /mobile.
+$pilotBuilder=__DIR__.'/pilot_api/live_session.php';
+if(is_file($pilotBuilder))require $pilotBuilder;
+else require dirname(__DIR__,2).'/api/live_session.php'; // pre-migration installations only

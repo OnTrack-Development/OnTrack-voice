@@ -19,3 +19,7 @@
 - Backup manifest is private: /home/appontrack/backup/ontrack-full-2026-11-03/status.json.
 - Never restore private database or move original root without a maintenance window and first verifying the active device sessions and current latest snapshot. Root release rollback can rename /home/appontrack/backup/releases/<release-sha> to /home/appontrack/public_html with a newly backed-up current root.
 - Keep mobile compatibility routes and scheduled Cron updates in every future release.
+
+## Root migration: historical mobile Pilot dependencies
+
+The original handset Pilot `/saas/mobile/session.php` depended on the previous root `/api/live_session.php`, `/lib/OutboundMission.php` and local demo/provider settings. When the old root was archived, that relative dependency broke. The deployed root now keeps its Pilot server builder in `/home/appontrack/public_html/mobile/pilot_api/` (HTTP denied by its .htaccess), with any legacy API credential file stored under `/home/appontrack/.ontrack-mobile/` mode 0600. The new source `saas/mobile/server/session.php` first uses this protected runtime with a fallback path for older installations. The root publisher copies the complete existing `/mobile/` runtime on every release, so the protected dependency is retained and no Android re-pairing is needed. Pilot producer API verification is distinct from real handset audio E2E; don't declare GSM audio proven solely from an HTTP/CLI smoke.
