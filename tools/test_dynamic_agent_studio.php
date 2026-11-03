@@ -22,9 +22,15 @@ dynamic_test($policy['conversation_mode']==='dynamic','dynamic mode default');
 dynamic_test($policy['goal']!=='','goal accepted');
 save_answer_policy(4,$id,$policy);
 $graph=['nodes'=>[
-    ['id'=>'start','type'=>'start','text'=>'OBSOLETE_FLOW_TEXT_NEVER_SPEAK','x'=>800,'y'=>100],
-    ['id'=>'end','type'=>'end','text'=>'Legacy graph only','x'=>800,'y'=>320]
-], 'edges'=>[['from'=>'start','to'=>'end','label'=>'']]];
+    ['id'=>'start','type'=>'start','text'=>'بدء','x'=>800,'y'=>100],
+    ['id'=>'intro','type'=>'say','text'=>'أهلاً بك في خدمة العملاء','x'=>800,'y'=>190],
+    ['id'=>'question','type'=>'ask','text'=>'ما نوع الخدمة المطلوبة؟','x'=>800,'y'=>300],
+    ['id'=>'end','type'=>'end','text'=>'تم تسجيل طلبك','x'=>800,'y'=>420]
+], 'edges'=>[
+    ['from'=>'start','to'=>'intro','label'=>''],
+    ['from'=>'intro','to'=>'question','label'=>''],
+    ['from'=>'question','to'=>'end','label'=>'الاستضافة']
+]];
 execute("UPDATE agents SET flow_json=? WHERE id=? AND account_id=?",[
     json_encode($graph,JSON_THROW_ON_ERROR),$id,4]);
 $release=publish_agent_flow(4,$id,1);
@@ -43,9 +49,16 @@ try{
         'public tenant/site-scoped knowledge included');
     dynamic_test(!str_contains($prompt,'DONT_LEAK_STAFF_KNOWLEDGE'),
         'staff-only knowledge excluded');
-    dynamic_test(!str_contains($prompt,'OBSOLETE_FLOW_TEXT_NEVER_SPEAK'),
-        'legacy scenario nodes never used to direct conversation');
-    dynamic_test(str_contains($prompt,'لا تتبع شجرة قرارات'),'dynamic conversation instead of fixed tree');
+    dynamic_test(str_contains($prompt,'مسارات المخطط المنشور')
+        && str_contains($prompt,'question [ask] ما نوع الخدمة المطلوبة؟')
+        && str_contains($prompt,'الاستضافة → end'),
+        'published graph routes and conditional labels guide the real Voice prompt');
+    dynamic_test(!str_contains($prompt,'لا تتبع شجرة قرارات'),
+        'obsolete instruction to ignore the published graph removed');
+    dynamic_test($live['routing_contract']==='published_graph_prompt_guidance',
+        'prompt-based graph guidance explicitly distinguished from deterministic execution');
+    dynamic_test(str_contains($prompt,'استأنف العقدة المعلقة'),
+        'side questions return to pending graph step');
     dynamic_test(str_contains($prompt,'المقاطعات'),'interruption handling');
     dynamic_test(str_contains($prompt,'ليس لديك أداة WHMCS'),'no imaginary CRUD tools');
     $otherDenied=false;

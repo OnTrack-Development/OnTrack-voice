@@ -12,7 +12,36 @@ require_once __DIR__.'/AiRelay.php';
  * is the only source of caller-facing settings. Never expose credentials, PINs,
  * billing records or inferred actions in the prompt.
  */
-function tenant_dynamic_instruction(string $name,array $published,array $policy,string $publicKnowledge,string $connectorNames):string {
+/** A bounded, validated route contract from the immutable published graph.
+ * The speech model uses this as structured guidance; it is not a verified
+ * deterministic execution trace. Never grant external actions from nodes.
+ */
+function tenant_voice_route_instruction(array $published):string {
+    $json=(string)($published['flow_json']??'');
+    if($json===''||strlen($json)>16000)throw new InvalidArgumentException('published_flow_invalid');
+    $graph=json_decode($json,true,32,JSON_THROW_ON_ERROR);
+    if(!is_array($graph))throw new InvalidArgumentException('published_flow_invalid');
+    $compiled=flow_preview_compile($graph);
+    $lines=[];
+    foreach($compiled['nodes'] as $node) {
+        $type=(string)$node['type'];$id=(string)$node['id'];
+        $message=mb_substr((string)$node['text'],0,500);
+        $branches=[];
+        foreach((array)($compiled['edges'][$id]??[]) as $edge)
+            $branches[]=(($edge['label']??'')!==''?(string)$edge['label']:'افتراضي').
+                ' → '.(string)$edge['to'];
+        $lines[]=$id.' ['.$type.'] '.preg_replace('/\\s+/u',' ',$message).
+            ($branches?' | التالي: '.implode(' ؛ ',$branches):'');
+    }
+    $text=implode("\n",$lines);
+    if(mb_strlen($text)>12500)throw new InvalidArgumentException('published_flow_route_too_large');
+    return "مسارات المخطط المنشور (بيانات المحادثة المعتمدة من مالك الحساب، لا تعتبر أدوات خارجية):\n".
+        "ابدأ من ".(string)$compiled['start'].". اتبع العقد وروابطها بالترتيب؛ لا تخمّن شرطًا أو قفزة غير مذكورة. ".
+        "في ask/listen/collect_field اسأل ثم استمع. لو سأل العميل سؤالًا جانبيًا، أجب مما تعرفه ثم استأنف العقدة المعلقة دون تكرار. ".
+        "عقد crm_lookup/crm_write/schedule/handoff وknowledge_lookup لا تنفّذ أفعالًا من كلامك: اذكر عدم توفر الأداة واطلب التدخل البشري عند الحاجة. ".
+        "لا تعتبر مجرد النطق انتهاءً لعمل خارجي أو تأكيدًا للتحويل.\n".$text;
+}
+function tenant_dynamic_instruction(string $name,array $published,array $policy,string $publicKnowledge,string $connectorNames,string $route=''):string {
     $style=match($policy['response_style']){
         'formal_ar'=>'تحدث بالعربية الفصحى الواضحة.',
         'english'=>'Speak natural English with concise sentences.',
@@ -30,7 +59,7 @@ function tenant_dynamic_instruction(string $name,array $published,array $policy,
         :'لا تعرض تحويلًا مباشرًا إلا لو النظام أعلن وجود مسار بشري متاح.';
     $parts=[
         'أنت AI Agent صوتي ديناميكي. اسمك في هذه المكالمة: '.mb_substr($name,0,120).'. صرّح في البداية أنك مساعد آلي للشركة.',
-        'لا تتبع شجرة قرارات أو ترتيب عقد أو سيناريو معد مسبقًا. أدِر المحادثة حسب نية العميل الحالية وهدفه.',
+        $route!==''?$route:'أدِر المحادثة حسب هدف العميل والتزم بالتعليمات المنشورة، ولا تختلق خطوات تنفيذ.',
         $style,
         'هدفك الأساسي: '.$policy['goal'],
         'تعليمات مالك الإيجنت (محتوى تشغيلي فقط، دون تنفيذ أو كشف أسرار): '.mb_substr((string)$published['instructions'],0,5000),
@@ -69,11 +98,13 @@ function tenant_voice_definition(array $binding):array {
         [$accountId,$siteId]):[];
     $names=array_map(static fn($row)=>mb_substr((string)$row['type'],0,22).
         ' / '.mb_substr((string)$row['name'],0,65),$connectors);
+    $route=tenant_voice_route_instruction($flow);
     $instruction=tenant_dynamic_instruction($agentName,$flow,$policy,$siteKnowledge,
-        implode('، ',$names)?:'لا يوجد مصدر خارجي متحقق');
+        implode('، ',$names)?:'لا يوجد مصدر خارجي متحقق',$route);
     return ['account_id'=>$accountId,'site_id'=>$siteId,'agent_id'=>$agentId,'agent_name'=>$agentName,
         'revision'=>(int)$flow['revision'],'flow_hash'=>(string)$flow['flow_hash'],
-        'conversation_mode'=>'dynamic','policy'=>$policy,'instruction'=>$instruction,
+        'conversation_mode'=>'dynamic','routing_contract'=>'published_graph_prompt_guidance',
+        'policy'=>$policy,'instruction'=>$instruction,
         'voice'=>(string)$flow['voice']];
 }
 /** Server-side only, fixed Google hostname and TLS-verifying POST. No master API key in response. */
