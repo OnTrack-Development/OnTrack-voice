@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: 38e558274ab354061939a9c53bd73c1ddf963000
+          ref: 59007a4ef00fe68738ee32a699e00f9e133d336b
       - uses: actions/checkout@v5
         with:
           repository: jemcik/JemRec
@@ -41,6 +41,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Apply verified OnTrack source overlay
         run: python3 saas/mobile/audio-proof/prepare.py .build/jemrec
+      - name: Verify Android native/UI release contract
+        run: python3 tools/test_native_039_contract.py
       - name: Build and run project-specific tests
         working-directory: .build/jemrec
         run: |
@@ -75,7 +77,7 @@ jobs:
           python3 -c "import sys;sys.path.insert(0,'tools');from queue_mobile_native import verify;from pathlib import Path;verify(Path('.build/artifact/native'));print('Native OTA signature validated')"
       - name: Sign required matching UI OTA manifest
         env:
-          GITHUB_SHA: 38e558274ab354061939a9c53bd73c1ddf963000
+          GITHUB_SHA: 59007a4ef00fe68738ee32a699e00f9e133d336b
         run: |
           set -euo pipefail
           python3 tools/prepare_mobile_ota.py .build/artifact/ota
@@ -100,7 +102,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: 38e558274ab354061939a9c53bd73c1ddf963000
+          ref: 59007a4ef00fe68738ee32a699e00f9e133d336b
       - uses: actions/download-artifact@v5
         with:
           name: OnTrack-Voice-0.3.9
@@ -120,7 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: 38e558274ab354061939a9c53bd73c1ddf963000
+          ref: 59007a4ef00fe68738ee32a699e00f9e133d336b
       - uses: actions/download-artifact@v5
         with:
           name: OnTrack-Voice-0.3.9
