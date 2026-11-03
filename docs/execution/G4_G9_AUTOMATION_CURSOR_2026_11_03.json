@@ -61,20 +61,16 @@
     "requirement": "R040",
     "date": "2026-11-03",
     "status": "PARTIAL",
-    "activity": "Checked authoritative branch, CI job and run timing; zero runner allocation confirmed; no code or deployment changes.",
+    "activity": "Requested retry of failed CI jobs on existing workflow run; GitHub accepted retry. Immediate jobs listing empty while scheduling; no green result verified, no code or deployment change.",
     "feature_commit": "f9901228c84330e1ecd53dbaae52c0d1b72442d8",
     "ci_runs": [
       41639628384
     ],
-    "ci_job_id": 125929529724,
-    "ci_status_at_check": "FAILED_ZERO_RUNNER_EXECUTION",
-    "runner_id": 0,
-    "steps_executed": 0,
-    "billable_ubuntu_ms": 0,
+    "ci_status_at_check": "RERUN_ACCEPTED_PENDING",
     "root_host_receipt": null,
     "android_ota_host_receipt": null,
     "device_e2e": false,
-    "blocker": "Runner was never allocated; root cause unknown. No green CI for current patch, no matching OTA host receipt, no real Xiaomi disconnect/reconnect call-history reconciliation evidence."
+    "blocker": "Await CI rerun execution/result, matching host deployment with rollback and source hash, and physical Xiaomi disconnect/reconnect reconciliation proof."
   },
   "run_history": [
     {
@@ -228,6 +224,21 @@
       "android_ota_host_receipt": null,
       "device_e2e": false,
       "blocker": "Runner was never allocated; root cause unknown. No green CI for current patch, no matching OTA host receipt, no real Xiaomi disconnect/reconnect call-history reconciliation evidence."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Requested retry of failed CI jobs on existing workflow run; GitHub accepted retry. Immediate jobs listing empty while scheduling; no green result verified, no code or deployment change.",
+      "feature_commit": "f9901228c84330e1ecd53dbaae52c0d1b72442d8",
+      "ci_runs": [
+        41639628384
+      ],
+      "ci_status_at_check": "RERUN_ACCEPTED_PENDING",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "Await CI rerun execution/result, matching host deployment with rollback and source hash, and physical Xiaomi disconnect/reconnect reconciliation proof."
     }
   ],
   "blocks": [],
