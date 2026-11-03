@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "voice-keyless-host-path-probe-20261103",
+  "id": "voice-ota-symlink-probe-20261103",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-03T19:58:29.929Z",
-  "expires_at": "2026-11-03T20:58:29.929Z",
+  "created_at": "2026-11-03T20:00:30.880Z",
+  "expires_at": "2026-11-03T21:00:30.880Z",
   "cwd": "/home/appontrack/public_html",
   "timeout_seconds": 20,
   "argv": [
     "/bin/python3",
     "-c",
-    "import os,json\nfrom pathlib import Path\nbase=Path('/home/appontrack/public_html')\nnames=['mobile/updates','mobile/updates/native','saas/mobile/updates','saas/mobile/updates/native']\nout={'uid':os.getuid(),'root':base.is_dir(),'dirs':{},'htaccess':(base/'.htaccess').is_file()}\nfor name in names:\n p=base/name\n item={'is_dir':p.is_dir(),'latest':(p/'latest.json').is_file()}\n if item['latest']:\n  try:\n   e=json.loads((p/'latest.json').read_text());m=json.loads(e.get('payload','{}'));item.update({'version':m.get('version_code'),'revision':m.get('revision'),'file':m.get('file','')[:90]})\n  except Exception as ex:item['manifest_error']=type(ex).__name__\n out['dirs'][name]=item\nprint(json.dumps(out,separators=(',',':')))\n"
+    "import os,json\nfrom pathlib import Path\nb=Path('/home/appontrack/public_html')\npaths=['mobile','mobile/updates','mobile/updates/native','saas','saas/mobile','saas/mobile/updates','saas/mobile/updates/native']\no={}\nfor s in paths:\n p=b/s\n o[s]={'exists':p.exists(),'symlink':p.is_symlink(),'resolve':str(p.resolve()) if p.exists() else None,'mode':oct(p.stat().st_mode&0o777) if p.exists() else None}\nh=b/'.htaccess'\no['htaccess_legacy_update_rewrite']=('saas/mobile/updates' in h.read_text()) if h.is_file() else None\nprint(json.dumps(o,separators=(',',':')))\n"
   ]
 }
