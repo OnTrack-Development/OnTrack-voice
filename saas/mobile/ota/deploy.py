@@ -25,10 +25,14 @@ def deploy(encoded,expected):
     root=webroot/'mobile'
     private=Path('/home/appontrack/.ontrack-mobile')
     if (not webroot.is_dir() or webroot.is_symlink()
-            or not root.is_dir() or root.is_symlink()
-            or not private.is_dir() or private.is_symlink()
-            or root.resolve().parent != webroot.resolve()):
+            or root.is_symlink() or not private.is_dir() or private.is_symlink()):
         raise ValueError('Wrong target')
+    # Canonical root/mobile may not exist after migration from /saas/mobile.
+    # Create this fixed public directory only; preserve the old Pilot tree.
+    root.mkdir(mode=0o755,exist_ok=True)
+    if (not root.is_dir() or root.resolve().parent != webroot.resolve()):
+        raise ValueError('Wrong target')
+    os.chmod(root,0o755)
     target=root/'updates'
     if target.is_symlink():raise ValueError('Target symlink')
     target.mkdir(mode=0o755,exist_ok=True)
