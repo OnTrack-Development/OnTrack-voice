@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "flow-ai-diagnostic-live-enqueue-20261103-0324",
+  "id": "flow-ai-diagnostic-live-status-20261103-0326",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-03T03:24:43.623Z",
-  "expires_at": "2026-11-03T04:24:43.623Z",
+  "created_at": "2026-11-03T03:25:38.122Z",
+  "expires_at": "2026-11-03T04:25:38.122Z",
   "cwd": "/home/appontrack/public_html/saas",
   "timeout_seconds": 12,
   "argv": [
     "/opt/cpanel/ea-php83/root/usr/bin/php",
     "-r",
-    "require '/home/appontrack/public_html/saas/console/_core/Bootstrap.php';\nrequire '/home/appontrack/public_html/saas/console/_core/FlowAiJobs.php';\ninit_schema();\n$id=flow_ai_job_enqueue(4,9000002,1,'graph','اعمل مخطط لخدمة العملاء بالعربية يشمل تحية وسؤال ثم مسارين واضحين ونهاية',[],[]);\necho json_encode(['status'=>'queued','job_id'=>$id,'isolated'=>true],JSON_THROW_ON_ERROR).\"\\n\";"
+    "require '/home/appontrack/public_html/saas/console/_core/Bootstrap.php';init_schema();\n$r=one('SELECT status,started_at,completed_at,error_text FROM flow_ai_jobs WHERE job_id=?',['2912c1eb5eb66cd87558d350c2070a55']);\nif(!$r)$r=['status'=>'not_found'];\necho json_encode($r,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR).\"\\n\";"
   ]
 }
