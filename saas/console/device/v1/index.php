@@ -39,7 +39,7 @@ try{
         device_answer(201,['ok'=>true,'binding'=>$bound,'state'=>'paired_control_plane_only']);
     }
     if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session','voice_preflight','caller_identify','caller_verify',
-        'workspace_contacts','workspace_contact_dnc','workspace_import','workspace_calls',
+        'workspace_contacts','workspace_contact_dnc','workspace_import','workspace_calls','workspace_call_transcript',
         'workspace_call_event','workspace_call_report','workspace_call_analysis','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_file_import'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
         if(!str_starts_with($auth,'Bearer '))device_answer(401,['ok'=>false,'error'=>'authorization_required']);
@@ -52,6 +52,7 @@ try{
         if(str_starts_with($operation,'workspace_')){
             if($operation==='workspace_contacts')device_answer(200,['ok'=>true]+tenant_workspace_contacts($binding));
             if($operation==='workspace_calls')device_answer(200,['ok'=>true]+tenant_workspace_calls($binding));
+            if($operation==='workspace_call_transcript')device_answer(200,['ok'=>true]+tenant_workspace_call_transcript($binding,$data));
             if($operation==='workspace_campaigns')device_answer(200,['ok'=>true]+tenant_workspace_campaigns($binding));
             if($operation==='workspace_call_event')device_answer(200,['ok'=>true]+tenant_workspace_call_event($binding,$data));
             if($operation==='workspace_call_report')device_answer(200,['ok'=>true]+tenant_workspace_call_report($binding,$data));
