@@ -4,7 +4,7 @@ require_once __DIR__.'/FlowPreview.php';
 require_once __DIR__.'/TenantVoiceSession.php';
 require_once __DIR__.'/VoiceAccess.php';
 require_once __DIR__.'/FlowAiQuality.php';
-require_once __DIR__.'/FlowAiTransport.php';
+require_once __DIR__.'/FlowAiLive.php';
 
 /** Preview-only planning. No DB update, publish, phone action or external webhook. */
 function flow_ai_validate_proposal(array $candidate):array {
@@ -58,11 +58,10 @@ function flow_ai_extract_graph(string $providerBody):array {
     return flow_ai_validate_proposal($graph);
 }
 
-/** Display the effective model, not just a hardcoded default label. */
+/** All editor proposals use the existing 3.8 Live text-turn adapter.
+ * This must never mutate the separate Android phone call model. */
 function flow_ai_model():string {
-    // Dedicated 3.8 text-thinking model for structured Flow Builder proposals.
-    // Never inherit the legacy 3.5 value or mutate the phone's Live model.
-    return 'gemini-3.8-flash';
+    return flow_ai_live_model();
 }
 
 function flow_ai_generate(int $accountId,int $agentId,string $idea,array $history=[],?array $currentGraph=null):array {
@@ -71,9 +70,8 @@ function flow_ai_generate(int $accountId,int $agentId,string $idea,array $histor
         throw new InvalidArgumentException('وصف السيناريو لازم يكون بين 15 و2500 حرف.');
     $agent=flow_preview_agent_for_account($accountId,$agentId);
     if(!$agent)throw new InvalidArgumentException('agent_not_available');
-    // Only administrator's existing platform provider credential, never Pilot or tenant keys.
-    $provider=tenant_voice_provider();
-    $model=flow_ai_model();
+    // The Live transport obtains the existing administrator provider key on the
+    // server; the browser and handset never receive that credential.
     $instruction=<<<'PROMPT'
 You are a graph designer for an Egyptian Arabic telephone AI agent. Return only a JSON object
 with keys "nodes" and "edges". Each node has id, type, text, x, y. Each edge has from, to, label.
@@ -175,18 +173,14 @@ PROMPT;
             ?"\nPREVIOUS INSUFFICIENT GRAPH (improve substantially, preserve its valid nodes and IDs):\n".json_encode($retryCandidate,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)
             :'';
         $targetPrompt=$instruction.$qualityInstruction.$compact;
-        $payload=['systemInstruction'=>['parts'=>[['text'=>$targetPrompt]]],
-            'contents'=>[['role'=>'user','parts'=>[['text'=>$userText.$failedGraph]]]],
-            'generationConfig'=>[
-                'responseMimeType'=>'application/json',
-                'responseSchema'=>$schema,
-                'thinkingConfig'=>['thinkingLevel'=>'MEDIUM'],
-                'maxOutputTokens'=>$stress?14000:9000]];
-        // Both the visual graph and the agent-profile editor share one
-        // bounded retry policy; 503/HTTP0 must not erase a saved graph.
-        $result=flow_ai_google_request($payload,$provider['key'],$model,160000);
+        // Gemini 3.8 Live Extended Thinking uses the verified WebSocket
+        // clientContent text turn + NON_BLOCKING submit_editor_proposal tool.
+        // No generateContent/responseMimeType/responseSchema fallback.
+        $graphDraft=flow_ai_live_proposal(
+            $targetPrompt,$userText.$failedGraph,$schema
+        );
         try{
-            $graph=flow_ai_extract_graph($result);
+            $graph=flow_ai_validate_proposal($graphDraft);
             if(!$stress)return $graph;
             $report=flow_ai_stress_verify($graph,$currentGraph);
             if($report['ok'])return $graph;
