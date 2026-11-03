@@ -146,14 +146,10 @@ body.light .callQuickActions button.outline{background:#fafafa}
 <p class="small">لو حبيت تلغي الوضع، اتصل بالواي فاي أولًا واضغط إيقاف. لو المنفذ فضل مفتوح، أوقف USB debugging من إعدادات الهاتف. تشغيل البيانات لا يغني عن موافقة Android لإعداد ADB.</p>
 </section>
 <section class="card" data-panel="settings"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
-<section class="card" data-panel="settings"><h2>إعداد الهاتف</h2><p>ربط جهازك لأول مرة أو تصحيح Wireless debugging عند الحاجة. لا تختبارات تسجيل صوت قديمة في الواجهة الأساسية.</p>
-<div class="row"><button id="setup">الإعداد السريع</button><button class="outline" id="more">إعدادات متقدمة</button></div>
-<div id="advanced">
-<label for="base">سيرفر OnTrack</label><input id="base" value="https://app.ontrackegy.com/" autocomplete="off">
-<label for="key">مفتاح الربط المحفوظ</label><input id="key" type="password" autocomplete="off">
-<div class="row" style="margin-top:10px"><button id="pair">حفظ وإعادة ربط</button><button id="showKey" class="outline">إظهار المفتاح</button></div>
-<div class="divider"></div><button id="updates">فحص التحديثات</button>
-</div></section>
+<section class="card" data-panel="settings"><h2>إعداد الهاتف</h2>
+<p>اربط الشريحة من حساب OnTrack؛ تشغيل الإيجنت لا يحتاج API Key ولا مفتاح Pilot. إذا كانت نسخة Android قديمة، حدّثها من قسم التحديثات.</p>
+<div class="row"><button id="setup">فحص الهاتف</button><button id="tenantMenu" class="outline" type="button">إدارة ربط الشرائح</button><button id="updates" class="outline">فحص التحديثات</button></div>
+</section>
 
 <section class="card" data-panel="calls">
 <div class="section-title"><h2>سجل المكالمات</h2><span class="chip good">تسجيل الأحداث</span></div>
@@ -254,7 +250,7 @@ function readUiTheme(){
  try{return document.cookie.split('; ').find(v=>v.startsWith('ontrack_voice_theme='))?.split('=')[1]==='light'?'light':'dark'}catch(e){return 'dark'}
 }
 
-window.onTrackInit=s=>{el('base').value=s.base;el('key').value=s.key;};
+window.onTrackInit=()=>{};
 window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  last=s;if(s.theme==='dark'||s.theme==='light')applyTheme(s.theme);const modern=typeof s.connected==='boolean' && typeof s.agentEnabled==='boolean';
  el('version').textContent='v'+s.native+' · OTA '+s.revision;
@@ -264,7 +260,9 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('badge').className='chip '+(online&&enabled&&!s.pendingSync?'good':'warn');
  el('dot').className='indicator '+(call?'call':online&&enabled&&!s.pendingSync?'good':'');
  el('mode').textContent=s.humanControl?'تحكم بشري':call&&!answered?'مكالمة واردة':call?'مكالمة جارية':s.pendingSync?'جاري تطبيق قرارك على السيرفر':!online?'إعادة الاتصال بالشبكة':enabled?'جاهز للمكالمات':'الهاتف متصل — الإيجنت متوقف';
- el('enable').disabled=modern?enabled||s.updating:false;
+ el('enable').disabled=!(s.tenantLinked===true)||!!s.tenantPairingInProgress||(modern?enabled||s.updating:false);
+ const pairingSupported=typeof s.tenantLinked==='boolean';
+ el('tenantMenu').disabled=!pairingSupported||!!s.tenantPairingInProgress;
  el('disable').disabled=modern?!enabled||s.updating:!online;
  el('callActions').style.display=call?'block':'none';
  el('callControlHint').textContent=!answered?'المكالمة قيد الرنين؛ استلام المكالمة وتبديل الصوت متاحان بعد الرد.':
@@ -298,19 +296,17 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
 };
 el('enable').onclick=()=>{
  el('message').textContent='';
- if(last.running){send('enable');return;}
- const key=el('key').value.trim();
- if(!/^[A-Za-z0-9_-]{24,128}$/.test(key)){el('message').textContent='افتح الإعدادات المتقدمة وأضف مفتاح الربط أولاً';el('advanced').style.display='block';return;}
- send('start',{base:el('base').value,key});
+ if(typeof last.tenantLinked!=='boolean'){el('message').textContent='يلزم تحديث محرك Android لربط الشريحة بحساب OnTrack؛ لا تدخل مفتاح API.';return;}
+ if(!last.tenantLinked){el('message').textContent='اربط SIM بحساب OnTrack أولًا من إدارة الشرائح.';return;}
+ if(last.tenantPairingInProgress){el('message').textContent='انتظر اكتمال ربط الشريحة';return;}
+ send('enable');
 };
 el('disable').onclick=()=>send('disable');
 el('takeover').onclick=()=>send('takeover');el('speaker').onclick=()=>send('speaker');
 el('overlay').onclick=()=>send('overlayPermission');
 el('setup').onclick=()=>send('diagnostics');
 
-el('more').onclick=()=>el('advanced').style.display=el('advanced').style.display==='block'?'none':'block';
-el('pair').onclick=()=>{const key=el('key').value.trim();if(!/^[A-Za-z0-9_-]{24,128}$/.test(key)){el('message').textContent='مفتاح الربط غير صالح';return;}send('start',{base:el('base').value,key});};
-el('showKey').onclick=()=>el('key').type=el('key').type==='password'?'text':'password';
+el('tenantMenu').onclick=()=>send('tenantMenu');
 el('wifiFreeConsent').onchange=()=>{el('wifiFreeToggle').disabled=!!last.inCall||(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)};
 el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)return;send(last.wifiFreeEnabled?'wifiFreeDisable':'wifiFreeEnable')};
 el('scanAndroid').onclick=()=>send('checkNativeUpdates');
