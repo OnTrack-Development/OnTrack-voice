@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_voice_agent_assignment_history(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_voice_agent_assignment_history();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -758,5 +758,32 @@ function init_voice_agent_assignment_history():void {
         FROM device_bindings d WHERE NOT EXISTS (
             SELECT 1 FROM device_agent_revisions r
             WHERE r.device_id=d.id AND r.agent_revision=d.agent_revision)");
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+
+/** Additive tenant/physical-SIM-bound transcript archive; no public files. */
+function init_console_voice_transcripts_v1():void {
+    $marker=private_path().'/schema.voice-transcripts.v1';
+    if(is_file($marker))return;
+    if(driver()==='mysql'){
+        db()->exec("CREATE TABLE IF NOT EXISTS tenant_call_transcripts (
+            account_id BIGINT NOT NULL,site_id BIGINT NOT NULL,
+            device_binding_id BIGINT NOT NULL,sim_slot INT NOT NULL,
+            call_id CHAR(36) NOT NULL,transcript TEXT NOT NULL,
+            source VARCHAR(32) NOT NULL,created_at VARCHAR(19) NOT NULL,
+            PRIMARY KEY(device_binding_id,call_id),
+            KEY ix_transcript_scope(account_id,site_id,device_binding_id,sim_slot)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }else{
+        db()->exec("CREATE TABLE IF NOT EXISTS tenant_call_transcripts (
+            account_id INTEGER NOT NULL,site_id INTEGER NOT NULL,
+            device_binding_id INTEGER NOT NULL,sim_slot INTEGER NOT NULL,
+            call_id TEXT NOT NULL,transcript TEXT NOT NULL,
+            source TEXT NOT NULL,created_at TEXT NOT NULL,
+            PRIMARY KEY(device_binding_id,call_id))");
+        db()->exec("CREATE INDEX IF NOT EXISTS ix_transcript_scope
+            ON tenant_call_transcripts(account_id,site_id,device_binding_id,sim_slot)");
+    }
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
