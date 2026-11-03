@@ -1,0 +1,215 @@
+<?php
+declare(strict_types=1);
+/** Private in-app platform relay. Independent Voice and Flow Builder pools. */
+function ai_relay_init():void {
+    $marker=private_path().'/.schema.ai-relay.v1';
+    if(is_file($marker))return;
+    $mysql=driver()==='mysql';
+    $pk=$mysql?'BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY':'INTEGER PRIMARY KEY AUTOINCREMENT';
+    $engine=$mysql?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci':'';
+    db()->exec("CREATE TABLE IF NOT EXISTS ai_relay_entries(
+      id $pk,account_id BIGINT NOT NULL,scope VARCHAR(12) NOT NULL,
+      driver VARCHAR(25) NOT NULL,label VARCHAR(100) NOT NULL,
+      model VARCHAR(120) NOT NULL,endpoint VARCHAR(600) NOT NULL DEFAULT '',
+      secret_enc TEXT NOT NULL,priority INTEGER NOT NULL,enabled INTEGER NOT NULL DEFAULT 1,
+      cooldown_until VARCHAR(19) NULL,last_status VARCHAR(32) NOT NULL DEFAULT 'new',
+      last_checked_at VARCHAR(19) NULL,created_at VARCHAR(19) NOT NULL
+    )".$engine);
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+function ai_relay_platform():int {
+    $row=one("SELECT id FROM accounts WHERE kind='platform' AND status='active' ORDER BY id LIMIT 1");
+    if(!$row)throw new RuntimeException('relay_platform_not_found');
+    return (int)$row['id'];
+}
+function ai_relay_rows(string $scope,bool $enabledOnly=false):array {
+    if(!in_array($scope,['voice','assistant'],true))throw new InvalidArgumentException('relay_scope');
+    ai_relay_init();
+    return all("SELECT id,account_id,scope,driver,label,model,endpoint,priority,enabled,
+        cooldown_until,last_status,last_checked_at FROM ai_relay_entries
+        WHERE account_id=? AND scope=? ".($enabledOnly?'AND enabled=1 ':'').
+        "ORDER BY priority ASC,id ASC",[ai_relay_platform(),$scope]);
+}
+function ai_relay_one(int $id):?array {
+    ai_relay_init();
+    return one('SELECT * FROM ai_relay_entries WHERE id=? AND account_id=?',
+        [$id,ai_relay_platform()]);
+}
+function ai_relay_has(string $scope):bool {return ai_relay_rows($scope)!==[];}
+function ai_relay_endpoint(string $url):string {
+    $u=parse_url($url);
+    if(!is_array($u)||strlen($url)>600||strtolower((string)($u['scheme']??''))!=='https'||
+       isset($u['user'])||isset($u['pass'])||isset($u['fragment'])||isset($u['query'])||
+       (isset($u['port'])&&(int)$u['port']!==443))
+        throw new InvalidArgumentException('المزوّد المخصص يحتاج HTTPS من غير مفاتيح في URL');
+    $host=strtolower((string)($u['host']??''));
+    if(!preg_match('/\A[a-z0-9-]+(?:\.[a-z0-9-]+)+\z/D',$host)||strlen($host)>253||
+        filter_var($host,FILTER_VALIDATE_IP)||!str_starts_with((string)($u['path']??''),'/')||
+        str_contains((string)$u['path'],'..'))
+        throw new InvalidArgumentException('عنوان المزوّد غير مسموح؛ استخدم دومين HTTPS عام');
+    return $url;
+}
+function ai_relay_add(int $account,string $scope,string $driver,string $name,string $model,string $endpoint,string $key):int {
+    ai_relay_init();
+    if($account!==ai_relay_platform())throw new RuntimeException('relay_denied');
+    if(!in_array($scope,['voice','assistant'],true)||
+       !in_array($driver,$scope==='voice'?['google_live']:['google_live','google_text','openai_compatible'],true))
+        throw new InvalidArgumentException('نوع مزوّد غير صالح');
+    if(mb_strlen($name)<2||mb_strlen($name)>100||
+       !preg_match('/\A[A-Za-z0-9._-]{4,120}\z/D',$model)||
+       strlen($key)<4||strlen($key)>512||preg_match('/[\r\n]/',$key))
+        throw new InvalidArgumentException('الاسم أو الموديل أو المفتاح غير صالح');
+    $endpoint=$driver==='openai_compatible'?ai_relay_endpoint($endpoint):'';
+    $maximum=one('SELECT COALESCE(MAX(priority),0) n FROM ai_relay_entries WHERE account_id=? AND scope=?',[$account,$scope]);
+    return insert('INSERT INTO ai_relay_entries(account_id,scope,driver,label,model,endpoint,secret_enc,priority,enabled,created_at)
+      VALUES(?,?,?,?,?,?,?,?,1,?)',[$account,$scope,$driver,trim($name),$model,$endpoint,seal_secret($key),(int)$maximum['n']+1,now()]);
+}
+function ai_relay_modify(int $id,string $action):void {
+    $item=ai_relay_one($id);
+    if(!$item)throw new InvalidArgumentException('المزوّد غير موجود');
+    if($action==='toggle'){
+        execute("UPDATE ai_relay_entries SET enabled=?,last_status='manual' WHERE id=?",
+            [1-(int)$item['enabled'],$id]);return;
+    }
+    if($action==='reset'){
+        execute("UPDATE ai_relay_entries SET cooldown_until=NULL,last_status='ready' WHERE id=?",[$id]);return;
+    }
+    if($action==='delete'){execute('DELETE FROM ai_relay_entries WHERE id=?',[$id]);return;}
+    if($action==='up'||$action==='down'){
+        $rows=ai_relay_rows((string)$item['scope']);
+        $ids=array_map('intval',array_column($rows,'id'));
+        $pos=array_search($id,$ids,true);
+        $other=$pos+($action==='up'?-1:1);
+        if($pos===false||$other<0||$other>=count($ids))return;
+        [$ids[$pos],$ids[$other]]=[$ids[$other],$ids[$pos]];
+        foreach($ids as $offset=>$entry)
+            execute('UPDATE ai_relay_entries SET priority=? WHERE id=?',[$offset+1,$entry]);
+        return;
+    }
+    throw new InvalidArgumentException('relay_action');
+}
+function ai_relay_error(Throwable $e):string {
+    $s=$e->getMessage();
+    if(preg_match('/(?:HTTP[_ ]?|http_)(429|500|502|503|504|401|403|404|400)\b/i',$s,$m))return $m[1];
+    if(preg_match('/quota|rate.?limit|RESOURCE_EXHAUSTED/i',$s))return '429';
+    if(preg_match('/timeout|read_failed|connection_lost/i',$s))return 'timeout';
+    return 'error';
+}
+function ai_relay_mark(int $id,string $code):void {
+    $cool=in_array($code,['429','503','timeout'],true)?gmdate('Y-m-d H:i:s',time()+900):null;
+    execute('UPDATE ai_relay_entries SET last_status=?,last_checked_at=?,cooldown_until=? WHERE id=?',
+        [$code,now(),$cool,$id]);
+}
+function ai_relay_run(string $scope,callable $callback):mixed {
+    $rows=ai_relay_rows($scope,true);
+    if(!$rows)throw new RuntimeException('ai_relay_no_entries');
+    $count=0;$last='not_available';
+    foreach($rows as $row){
+        if(!empty($row['cooldown_until'])&&$row['cooldown_until']>now())continue;
+        $count++;
+        $full=ai_relay_one((int)$row['id']);
+        $key=$full?unseal_secret($full['secret_enc']??null):null;
+        if(!is_string($key)||$key===''){ai_relay_mark((int)$row['id'],'key_unavailable');continue;}
+        try{$result=$callback($row,$key);ai_relay_mark((int)$row['id'],'ok');return $result;}
+        catch(Throwable $e){$last=ai_relay_error($e);ai_relay_mark((int)$row['id'],$last);}
+    }
+    throw new RuntimeException($count===0?'كل مفاتيح '.$scope.' في فترة تهدئة 15 دقيقة':
+        'كل مزوّدي '.$scope.' المتاحين فشلوا؛ آخر كود '.$last);
+}
+/** Public-DNS pinned HTTPS only: no localhost, private address, redirect or proxy. */
+function ai_relay_custom_request(string $url,string $key,array $body):array {
+    ai_relay_endpoint($url);
+    $host=(string)parse_url($url,PHP_URL_HOST);
+    $answers=@dns_get_record($host,DNS_A);
+    if(!is_array($answers)||$answers===[])throw new RuntimeException('relay_dns_failed');
+    $ip='';
+    foreach($answers as $answer){
+        $value=(string)($answer['ip']??'');
+        if(!filter_var($value,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4|FILTER_FLAG_NO_PRIV_RANGE|FILTER_FLAG_NO_RES_RANGE))
+            throw new RuntimeException('relay_private_dns_denied');
+        if($ip==='')$ip=$value;
+    }
+    $payload=json_encode($body,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+    if(strlen($payload)>110000)throw new RuntimeException('relay_request_size');
+    $ch=curl_init($url);
+    if(!$ch)throw new RuntimeException('relay_curl_failed');
+    curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$payload,CURLOPT_RETURNTRANSFER=>true,
+        CURLOPT_HTTPHEADER=>['Content-Type: application/json','Authorization: Bearer '.$key],
+        CURLOPT_RESOLVE=>[$host.':443:'.$ip],CURLOPT_PROXY=>'',CURLOPT_TIMEOUT=>40,CURLOPT_CONNECTTIMEOUT=>7,
+        CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,CURLOPT_FOLLOWLOCATION=>false,
+        CURLOPT_MAXREDIRS=>0,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS]);
+    try{$reply=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);}finally{curl_close($ch);}
+    if($status!==200||!is_string($reply))throw new RuntimeException('relay_HTTP_'.$status);
+    if(strlen($reply)>120000)throw new RuntimeException('relay_response_size');
+    $doc=json_decode($reply,true,40);
+    if(!is_array($doc))throw new RuntimeException('relay_invalid_json');
+    return $doc;
+}
+function ai_relay_parse_object(string $raw):array {
+    $value=json_decode(trim($raw),true,40);
+    if(!is_array($value)||array_is_list($value))throw new RuntimeException('relay_invalid_structured_response');
+    return $value;
+}
+function ai_relay_proposal(string $system,string $prompt,array $schema):array {
+    if(!ai_relay_has('assistant'))return flow_ai_live_proposal($system,$prompt,$schema);
+    return ai_relay_run('assistant',static function(array $row,string $key)use($system,$prompt,$schema):array {
+        if($row['driver']==='google_live'){
+            $setup=flow_ai_live_setup($system."\nOnly submit the structured editor proposal.",$schema,(string)$row['model']);
+            return flow_ai_live_exchange($key,$setup,$prompt);
+        }
+        if($row['driver']==='google_text'){
+            require_once __DIR__.'/FlowAiTransport.php';
+            $payload=['systemInstruction'=>['parts'=>[['text'=>$system]]],
+                'contents'=>[['role'=>'user','parts'=>[['text'=>$prompt]]]],
+                'generationConfig'=>['responseMimeType'=>'application/json','responseSchema'=>$schema,'maxOutputTokens'=>7000]];
+            $raw=flow_ai_google_request($payload,$key,(string)$row['model'],120000);
+            $doc=json_decode($raw,true,40);
+            $text='';
+            foreach((array)($doc['candidates'][0]['content']['parts']??[]) as $part)
+                if(($part['thought']??false)!==true&&is_string($part['text']??null))$text.=$part['text'];
+            return ai_relay_parse_object($text);
+        }
+        $doc=ai_relay_custom_request((string)$row['endpoint'],$key,
+          ['model'=>$row['model'],'messages'=>[['role'=>'system','content'=>$system."\nOnly one JSON object, no prose."],
+             ['role'=>'user','content'=>$prompt]],'response_format'=>['type'=>'json_object']]);
+        $m=$doc['choices'][0]['message']??null;
+        if(!is_array($m))throw new RuntimeException('relay_missing_completion');
+        foreach((array)($m['tool_calls']??[]) as $call)
+            if(($call['function']['name']??'')==='submit_editor_proposal')
+                return ai_relay_parse_object((string)($call['function']['arguments']??''));
+        return ai_relay_parse_object((string)($m['content']??''));
+    });
+}
+function ai_relay_model():string {
+    foreach(ai_relay_rows('assistant',true) as $row)
+        if(empty($row['cooldown_until'])||$row['cooldown_until']<=now())return (string)$row['model'];
+    return flow_ai_live_model();
+}
+function ai_relay_voice_session(int $minutes):array {
+    return ai_relay_run('voice',static function(array $row,string $key)use($minutes){
+        return ['token'=>tenant_voice_ephemeral_token($key,$minutes),'model'=>$row['model']];
+    });
+}
+function ai_relay_test(int $id):string {
+    $row=ai_relay_one($id);
+    if(!$row)throw new InvalidArgumentException('المزوّد غير موجود');
+    $key=(string)(unseal_secret($row['secret_enc']??null)??'');
+    try{
+        if($row['driver']==='google_live'){
+            require_once __DIR__.'/TenantVoiceSession.php';
+            tenant_voice_ephemeral_token($key,1);
+        }elseif($row['driver']==='google_text'){
+            require_once __DIR__.'/VoiceCatalog.php';
+            google_api_probe($key);
+        }else{
+            $result=ai_relay_custom_request((string)$row['endpoint'],$key,
+                ['model'=>$row['model'],'messages'=>[['role'=>'user','content'=>'Return a JSON object: {"ok":true}']],
+                 'response_format'=>['type'=>'json_object'],'max_tokens'=>32]);
+            if(!isset($result['choices'][0]))throw new RuntimeException('relay_test_no_response');
+        }
+        ai_relay_mark($id,'ok');return 'اتصال المزود نجح.';
+    }catch(Throwable $e){
+        $code=ai_relay_error($e);ai_relay_mark($id,$code);
+        return 'فشل اختبار الاتصال ('.$code.'). راجع الموديل وصلاحيات API.';
+    }
+}
