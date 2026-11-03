@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal class MobileLiveCall(
     private val context:Context, private val client:OkHttpClient, private val scope:CoroutineScope,
     private val session:JSONObject, private val settings:JSONObject, private val notice:(String)->Unit,
+    private val onTranscript:(String,String)->Unit,
 ) {
     private val stopped=AtomicBoolean(false)
     private val ready=CompletableDeferred<Unit>()
@@ -135,6 +136,12 @@ internal class MobileLiveCall(
                         generation++;while(playback.tryReceive().isSuccess) {}
                         synchronized(writeLock){output?.writeInt(-1);output?.flush()}
                         return // Never enqueue stale audio from the interrupted server turn.
+                    }
+                    // These are Gemini Live's actual text transcripts, not invented call notes.
+                    for((field,role) in listOf("inputTranscription" to "caller","outputTranscription" to "agent")) {
+                        val messageText=content.optJSONObject(field)?.optString("text")?.trim().orEmpty()
+                        if(messageText.isNotBlank()) runCatching { onTranscript(role,messageText) }
+                            .onFailure { notice("تعذر حفظ جزء من تفريغ المكالمة") }
                     }
                     val parts=content.optJSONObject("modelTurn")?.optJSONArray("parts")?:return
                     for(i in 0 until parts.length()) {
