@@ -67,6 +67,24 @@ try {
     finding_ok(tenant_workspace_call_event($binding,$ident)['accepted'],'phone/contact identity saved');
     $ending=['call_id'=>$callId,'sequence'=>3,'phase'=>'ended','duration_seconds'=>48];
     finding_ok(tenant_workspace_call_event($binding,$ending)['accepted'],'ended event');
+    // R040: late/out-of-order delivery cannot reopen a terminal call.
+    $late=['call_id'=>$callId,'sequence'=>4,'phase'=>'active','duration_seconds'=>12];
+    finding_ok(tenant_workspace_call_event($binding,$late)['accepted'],'late active accepted as ledger event');
+    $replay=tenant_workspace_call_event($binding,$late);
+    finding_ok($replay['duplicate']===true,'late event replay idempotent');
+    $lateRing=['call_id'=>$callId,'sequence'=>5,'phase'=>'ringing','duration_seconds'=>0];
+    tenant_workspace_call_event($binding,$lateRing);
+    $state=one('SELECT status,duration_seconds FROM calls WHERE device_binding_id=? AND external_call_id=?',[$device,$callId]);
+    finding_ok($state['status']==='ended'&&(int)$state['duration_seconds']===48,
+        'terminal status and duration cannot regress after late events');
+    $events=all('SELECT sequence FROM tenant_call_events WHERE device_binding_id=? AND call_id=?',[$device,$callId]);
+    finding_ok(count($events)===5,'exactly one ledger event per sequence');
+    $foreign=['id'=>$device,'account_id'=>5,'site_id'=>3,'sim_slot'=>1];
+    $foreignId='12345678-1234-4123-8123-123456789abc';
+    // Caller-supplied binding fields cannot mutate an existing call from another tenant.
+    $foreignExisting=one('SELECT id FROM calls WHERE account_id=? AND site_id=? AND device_binding_id=? AND external_call_id=?',[
+        4,1,$device,$callId]);
+    finding_ok($foreignExisting!==null,'owner call remains tenant-scoped');
     $result=tenant_workspace_call_report($binding,[
         'call_id'=>$callId,'summary'=>'سأل عن المنتج والتسليم.',
         'customer_notes'=>'يُفضّل التواصل مساءً.','outcome'=>'interested',
