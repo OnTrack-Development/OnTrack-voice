@@ -14,6 +14,12 @@ try {
     tenant_workspace_call_event($binding,[
         'call_id'=>$callId,'sequence'=>2,'phase'=>'identified','duration_seconds'=>0,
         'phone_number'=>'+201001232323','contact_name'=>'عميل التجربة']);
+    tenant_workspace_call_event($binding,[
+        'call_id'=>$callId,'sequence'=>3,'phase'=>'human_takeover','duration_seconds'=>0]);
+    $manual=tenant_call_report_find($binding,$callId);
+    call_ai_ok($manual!==null && $manual['handoff_status']==='requested' &&
+        str_contains($manual['handoff_reason'],'زر الهاتف'),
+        'device takeover recorded with factual note, without external transfer claim');
     $transcript="المتصل: مساء الخير. مهتم بالاشتراك في الباقة الجديدة. ".
         "الإيجنت: أقدر أساعدك في اختيار الباقة. ".
         "المتصل: ممكن موظف يتواصل معايا بكرة؟";
@@ -38,6 +44,11 @@ try {
         'call_id'=>$callId,'transcript'=>$transcript],$transport);
     call_ai_ok($report['saved']===true&&!$report['duplicate'],'real transcript analyzed');
     call_ai_ok($report['report']['handoff_status']==='requested','handoff requested, never completed by AI');
+    call_ai_ok(str_contains($report['report']['handoff_reason'],'زر الهاتف'),
+        'model summary preserved previously recorded manual takeover');
+    $archived=tenant_voice_transcript_find($binding,$callId);
+    call_ai_ok($archived!==null && $archived['transcript']===$transcript &&
+        $archived['source']==='gemini_live_device','actual Live text archived after analysis');
     call_ai_ok($report['report']['customer_notes']==='يفضل الاتصال غدًا.','notes saved');
     call_ai_ok($called===1,'single Live invocation');
     $second=tenant_workspace_call_analysis($binding,[
@@ -58,6 +69,7 @@ try {
     call_ai_ok($denied,'empty transcript not summarized');
     echo "GEMINI_LIVE_REAL_CALL_SUMMARY_MOCK_PASS\n";
 }finally{
+    execute('DELETE FROM tenant_call_transcripts WHERE device_binding_id=? AND call_id=?',[$binding['id'],$callId]);
     execute('DELETE FROM tenant_call_reports WHERE device_binding_id=? AND call_id=?',[$binding['id'],$callId]);
     execute('DELETE FROM tenant_call_events WHERE device_binding_id=? AND call_id=?',[$binding['id'],$callId]);
     execute('DELETE FROM calls WHERE device_binding_id=? AND external_call_id=?',[$binding['id'],$callId]);
