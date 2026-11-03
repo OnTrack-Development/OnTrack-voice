@@ -37,7 +37,7 @@ require('TenantDeviceEnrollment(this)' in android and 'TenantEngineRestorePolicy
 require('session.optString("agent_name"' in src("saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLiveCall.kt"),
         "Published agent identity must be used for voice greeting")
 require('.put("input_channel","mix")' in service,"Previously proven duplex audio source changed")
-require('bindingId(slot)' in pair and 'peekEligible' in service,
+require('fun bindingId(slot:Int)' in pair and 'peekEligible' in service,
         "SIM-scoped encrypted queue must remain tied to the original pairing")
 require('originalDevice' in events and '.put("device_id",originalDevice)' in events,
         "CallLog history must retain its original account binding")
