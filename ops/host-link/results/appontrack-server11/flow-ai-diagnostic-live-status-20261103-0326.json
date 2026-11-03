@@ -1,0 +1,13 @@
+{
+  "job_id": "flow-ai-diagnostic-live-status-20261103-0326",
+  "target": "appontrack-server11",
+  "job_sha256": "d970ae403d3abd575f05097f59ef7a68dab069de4d764d776ba2af792585ad89",
+  "started_at": "2026-11-03T03:26:02.791009+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\":\"running\",\"started_at\":\"2026-11-03 03:26:02\",\"completed_at\":null,\"error_text\":null}\n",
+  "stderr": "",
+  "finished_at": "2026-11-03T03:26:02.847270+00:00",
+  "duration_ms": 56
+}
