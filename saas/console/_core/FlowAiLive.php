@@ -100,9 +100,11 @@ function flow_ai_ws_exact($socket,int $length,?float $deadline=null):string {
         $part=fread($socket,$length-strlen($data));
         if(!is_string($part)||$part===''||feof($socket)){
             if(feof($socket))throw new RuntimeException('ai_live_connection_lost');
-            $meta=stream_get_meta_data($socket);
-            if(!empty($meta['timed_out']) && microtime(true)<$deadline)continue;
-            throw new RuntimeException('ai_live_read_failed');
+            // A TLS stream may return an empty/false read without setting
+            // timed_out, even while the Live model is still reasoning.
+            // Retry with a bounded idle backoff until the absolute deadline.
+            usleep(30000);
+            continue;
         }
         $data.=$part;
     }
