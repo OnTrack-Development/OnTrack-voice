@@ -644,10 +644,48 @@ function render_campaigns(array $a):void{
     }
     echo card('الحملات',tbl(['الحملة','الموقع','الحالة','وقت الإنشاء','الإدارة'],$cells));
     if($map && allowed('campaigns.write'))
-        echo card('إنشاء حملة مسودة',form_start('add_campaign','/?tab=campaigns').field_html('اسم الحملة','name','text','متابعة العملاء',true).select_html('الموقع','site_id',$map).'<p class="info">لا يمكن تشغيل حملة من الويب قبل ربط الجهاز والموافقات وجدول الاتصال.</p>'.submit_btn('إنشاء مسودة'));
+        echo card('إنشاء حملة مسودة',form_start('add_campaign','/?tab=campaigns').field_html('اسم الحملة','name','text','متابعة العملاء',true).select_html('الموقع','site_id',$map).'<p class="info">المسودة العامة لا تنفذ أي اتصال. الحملات المرتبطة فعلًا بشريحة Android تظهر في القسم التالي.</p>'.submit_btn('إنشاء مسودة'));
+    require_once __DIR__.'/TenantCampaignQueue.php';
+    tcq_init();
+    $simCampaigns=all("SELECT c.*,s.name AS site_name,d.device_name
+        FROM tenant_campaigns c JOIN device_bindings d ON d.id=c.device_binding_id
+        AND d.account_id=c.account_id AND d.site_id=c.site_id AND d.sim_slot=c.sim_slot
+        JOIN sites s ON s.id=c.site_id AND s.account_id=c.account_id
+        WHERE c.account_id=? ORDER BY c.created_at DESC LIMIT 80",[$id]);
+    $simRows=[];
+    foreach($simCampaigns as $campaign){
+        $action='—';
+        if(allowed('campaigns.write')){
+            $action='';
+            $choices=$campaign['status']==='cancelled'?[]:
+                ($campaign['status']==='paused'?['preview','resume','cancel']:
+                ($campaign['status']==='draft'?['preview','arm','pause','cancel']:
+                    ['preview','pause','cancel']));
+            foreach($choices as $op){
+                $action.=form_start('sim_campaign_manage','/?tab=campaigns','class="inline-form"').
+                    '<input type="hidden" name="device_binding_id" value="'.(int)$campaign['device_binding_id'].'">'.
+                    '<input type="hidden" name="sim_campaign_id" value="'.e($campaign['id']).'">'.
+                    '<input type="hidden" name="sim_campaign_operation" value="'.e($op).'">'.
+                    '<button class="btn small" type="submit">'.e(match($op){
+                       'preview'=>'معاينة الموافقة','arm'=>'اعتماد للجدولة',
+                       'resume'=>'استئناف','pause'=>'إيقاف',default=>'إلغاء'
+                    }).'</button></form>';
+            }
+        }
+        $simRows[]=[e($campaign['name']),e($campaign['site_name']),
+            'SIM '.((int)$campaign['sim_slot']+1).' · '.e($campaign['device_name']),
+            pill($campaign['status']),e($campaign['starts_at']).' → '.e($campaign['ends_at']),$action];
+    }
+    echo card('الحملات المجدولة على شرائح Android',
+        '<p class="dim">يجب توثيق الموافقة لكل رقم من جهات الاتصال؛ DNC يمنع الاتصال. الجدولة محفوظة لكن التنفيذ الآلي على SIM يظل معطلًا حتى اختبار الجهاز الحقيقي.</p>'.
+        tbl(['الحملة','الموقع','الجهاز والخط','الحالة','النافذة UTC','الإجراء'],$simRows));
 }
 function render_contacts(array $a):void {
     $id=(int)$a['account_id'];
+    require_once __DIR__.'/TenantCampaignQueue.php';
+    tcq_init();
+    $allConsents=all('SELECT id,contact_id,method,created_at FROM tenant_campaign_consents WHERE account_id=?',[$id]);
+    $consents=[];foreach($allConsents as $stored)$consents[(int)$stored['contact_id']]=$stored;
     $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active'",[$id]);
     $siteOptions=[];foreach($sites as $s)$siteOptions[$s['id']]=$s['name'];
     $rows=all("SELECT c.*,s.name site_name FROM contacts c LEFT JOIN sites s ON s.id=c.site_id WHERE c.account_id=? ORDER BY c.id DESC LIMIT 300",[$id]);
@@ -660,9 +698,22 @@ function render_contacts(array $a):void {
           '<label class="field"><input type="checkbox" name="dnc" '.((int)$r['dnc']===1?'checked':'').'>عدم الاتصال</label>'.
           '<button class="btn small">حفظ</button></form>';
         $action.=form_start('delete_contact','/?tab=contacts','class="inline-form"').'<input type="hidden" name="contact_id" value="'.$r['id'].'"><button class="btn small danger" data-confirm="حذف جهة الاتصال؟">حذف</button></form>';
-        $cells[]=[e($r['name']),e($r['phone']),e($r['site_name']),$r['dnc']?pill('DNC'):pill('active'),$action];
+        if((int)$r['dnc']!==1 && allowed('contacts.write')) {
+            $action.='<details class="row-rename"><summary>تسجيل موافقة الاتصال التسويقي</summary>'.
+                form_start('record_campaign_consent','/?tab=contacts','class="row-rename-form"').
+                '<input type="hidden" name="contact_id" value="'.(int)$r['id'].'">'.
+                select_html('نوع إثبات الموافقة','consent_method',[
+                    'verbal'=>'موافقة صوتية موثقة','form'=>'نموذج موافقة',
+                    'written'=>'موافقة كتابية','owner_test'=>'اختبار المالك الداخلي']).
+                '<label class="field">مرجع الإثبات (8–240 حرفًا؛ لن يُحفظ نصه)<input name="consent_evidence" minlength="8" maxlength="240" required placeholder="consent-ref / date"></label>'.
+                '<button class="btn small" type="submit">تسجيل الإثبات</button></form></details>';
+        }
+        $ack=$consents[(int)$r['id']]??null;
+        $consentLabel=(int)$r['dnc']===1?'محظور':($ack?'إقرار: '.e($ack['method']):'غير مثبت');
+        $cells[]=[e($r['name']),e($r['phone']),e($r['site_name']),
+            $r['dnc']?pill('DNC'):pill('active'),$consentLabel,$action];
     }
-    echo card('جهات اتصال كل موقع',tbl(['الاسم','الهاتف','الموقع','الخصوصية','الإجراءات'],$cells));
+    echo card('جهات اتصال كل موقع',tbl(['الاسم','الهاتف','الموقع','الخصوصية','موافقة التسويق','الإجراءات'],$cells));
     echo '<div class="info">أرقام عدم الاتصال (DNC) محمية على مستوى الحساب بالكامل، بما في ذلك مواقع الحساب الأخرى والتكاملات. لا يمكن إلغاء الحظر بتعديل عادي أو حذف السجل؛ يتطلب ذلك مسار موافقة موثق مستقل (قيد التطوير).</div>';
     if($siteOptions && allowed('contacts.write'))
       echo card('إضافة جهة اتصال',form_start('add_contact','/?tab=contacts').

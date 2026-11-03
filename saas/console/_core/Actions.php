@@ -612,6 +612,39 @@ function act():void {
                 insert('INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at) VALUES (?,?,?,?,?,?)',
                     [$id,$site['id'],$name,$phone,$dnc,now()]);
                 audit('contact.created',$id,['site'=>$site['id']]);break;
+            case 'record_campaign_consent':
+                require_permission('contacts.write');
+                require_once __DIR__.'/TenantWorkspace.php';
+                $target=one('SELECT id,site_id,phone,dnc FROM contacts WHERE id=? AND account_id=?',
+                    [intfield('contact_id'),$id]);
+                if(!$target)deny(404);
+                $method=required('consent_method',24);
+                $evidence=required('consent_evidence',240);
+                $authBinding=['account_id'=>$id,'site_id'=>(int)$target['site_id']];
+                $consent=tcq_consent($authBinding,tenant_workspace_id((int)$target['id']),$method,$evidence);
+                audit('campaign.consent.attested',$id,['contact_id'=>(int)$target['id'],
+                    'method'=>$method,'site_id'=>(int)$target['site_id'],'evidence_stored_as_hash'=>true]);
+                $success='تم حفظ إثبات الموافقة في مجموعة هذه الشركة. لا يبدأ اتصال بدون تفعيل الحملة والتحقق من DNC.';
+                break;
+            case 'sim_campaign_manage':
+                require_permission('campaigns.write');
+                require_once __DIR__.'/TenantWorkspace.php';
+                $binding=one("SELECT * FROM device_bindings WHERE id=? AND account_id=? AND status='active'",
+                    [intfield('device_binding_id'),$id]);
+                if(!$binding)deny(404);
+                $operation=required('sim_campaign_operation',12);
+                if(!in_array($operation,['preview','arm','resume','pause','cancel'],true))
+                    throw new InvalidArgumentException('invalid_campaign_action');
+                $result=tenant_workspace_campaign_action($binding,[
+                    'id'=>required('sim_campaign_id',24),'action'=>$operation,'confirmed'=>true]);
+                if($operation==='preview'){
+                    $preview=$result['preview'];
+                    $success='المؤهلون: '.count($preview['eligible']).'، المستبعدون بسبب DNC أو غياب الموافقة: '.$preview['excluded'].'. لا يبدأ أي اتصال بهذه المعاينة.';
+                }else $success='تم تحديث حملة الشريحة إلى '.($result['campaign']['status']??'unknown').
+                    '. بدء مكالمات SIM الفعلية لا يعمل قبل تفعيل بوابة الجهاز واختبارها.';
+                audit('campaign.sim.managed',$id,['device_binding_id'=>(int)$binding['id'],
+                    'action'=>$operation]);
+                break;
             case 'edit_contact':
                 require_permission('contacts.write');
                 $contact=one('SELECT id,phone,dnc FROM contacts WHERE id=? AND account_id=?',[intfield('contact_id'),$id]);if(!$contact)deny(404);
