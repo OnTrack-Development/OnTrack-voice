@@ -1,6 +1,9 @@
 Options -Indexes
 <IfModule mod_rewrite.c>
 RewriteEngine On
+# Internal rewrite only: old Android clients disable HTTP redirects.
+# Keep update downloads working without restoring the retired Pilot API.
+RewriteRule ^saas/mobile/updates/(.*)$ mobile/updates/$1 [L,NC]
 RewriteCond %{HTTPS} !=on
 RewriteCond %{HTTP_HOST} ^app\.ontrackegy\.com$ [NC]
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
