@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/DncGuard.php';
+require_once __DIR__.'/TenantCallReports.php';
 /** No pilot bearer, no user-provided account/site identifiers. */
 function tenant_workspace_id(int $id):string{return str_pad(dechex($id),24,'0',STR_PAD_LEFT);}
 function tenant_workspace_parse_id(mixed $id):int{
@@ -47,11 +48,31 @@ function tenant_workspace_dnc(array $b,mixed $id,bool $blocked):array{
 function tenant_workspace_calls(array $b):array{
     $rows=all('SELECT external_call_id,phone,name,status,duration_seconds,created_at FROM calls WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? ORDER BY id DESC LIMIT 100',
         [$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']]);
-    $calls=[];foreach($rows as $r)$calls[]=[
-        'id'=>$r['external_call_id'],'call_id'=>$r['external_call_id'],
-        'phone'=>$r['phone'],'name'=>$r['name'],'status'=>$r['status'],
-        'duration'=>(int)$r['duration_seconds'],'duration_seconds'=>(int)$r['duration_seconds'],
-        'started'=>str_replace(' ','T',(string)$r['created_at']).'Z','started_at'=>$r['created_at']];
+    $calls=[];foreach($rows as $r){
+        $report=['transcript_count'=>0,'summary'=>null,'summary_source'=>null,
+            'handoff'=>null,'customer_note'=>null,'disposition'=>null];
+        if(is_string($r['external_call_id'])&&$r['external_call_id']!==''){
+            foreach(tenant_report_entries($b,$r['external_call_id']) as $entry){
+                $kind=(string)$entry['kind'];
+                if($kind==='transcript'){$report['transcript_count']++;continue;}
+                if($kind==='summary'){
+                    if($entry['source']==='ai'||$report['summary']===null){
+                        $report['summary']=mb_substr((string)$entry['text'],0,1200);
+                        $report['summary_source']=$entry['source'];
+                    }
+                }
+                if($kind==='handoff')$report['handoff']=mb_substr((string)$entry['text'],0,350);
+                if($kind==='customer_note')$report['customer_note']=mb_substr((string)$entry['text'],0,350);
+                if($kind==='disposition')$report['disposition']=mb_substr((string)$entry['text'],0,250);
+            }
+        }
+        $calls[]=[
+            'id'=>$r['external_call_id'],'call_id'=>$r['external_call_id'],
+            'phone'=>$r['phone'],'name'=>$r['name'],'status'=>$r['status'],
+            'duration'=>(int)$r['duration_seconds'],'duration_seconds'=>(int)$r['duration_seconds'],
+            'started'=>str_replace(' ','T',(string)$r['created_at']).'Z',
+            'started_at'=>$r['created_at'],'report'=>$report];
+    }
     return ['calls'=>$calls,'total'=>count($calls)];
 }
 function tenant_workspace_call_event(array $b,array $p):array{
