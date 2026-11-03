@@ -9,9 +9,9 @@ declare(strict_types=1);
  */
 function flow_ai_live_model():string { return 'gemini-3.8-live-extended-thinking'; }
 
-function flow_ai_live_setup(string $instruction,array $schema):array {
+function flow_ai_live_setup(string $instruction,array $schema,?string $overrideModel=null):array {
     return ['setup'=>[
-        'model'=>'models/'.flow_ai_live_model(),
+        'model'=>'models/'.($overrideModel??flow_ai_live_model()),
         'systemInstruction'=>['parts'=>[['text'=>$instruction]]],
         'generationConfig'=>[
             'responseModalities'=>['AUDIO'],

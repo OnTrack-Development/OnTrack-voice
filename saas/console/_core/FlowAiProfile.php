@@ -122,7 +122,8 @@ PROMPT;
     // completed TEXT turn and returns a structured NON_BLOCKING tool call.
     // Never call REST generateContent for editor chat.
     $proposal=flow_ai_profile_validate(
-        flow_ai_live_proposal($system,$context,$schema,$liveTransport)
+        $liveTransport!==null?flow_ai_live_proposal($system,$context,$schema,$liveTransport)
+            :ai_relay_proposal($system,$context,$schema)
     );
     // Keep structural suggestions; replace untrusted model completion claims.
     $proposal['explanation']=flow_ai_profile_summary($proposal);

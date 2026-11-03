@@ -5,6 +5,7 @@ require_once __DIR__.'/TenantVoiceSession.php';
 require_once __DIR__.'/VoiceAccess.php';
 require_once __DIR__.'/FlowAiQuality.php';
 require_once __DIR__.'/FlowAiLive.php';
+require_once __DIR__.'/AiRelay.php';
 
 /** Preview-only planning. No DB update, publish, phone action or external webhook. */
 function flow_ai_validate_proposal(array $candidate):array {
@@ -61,7 +62,7 @@ function flow_ai_extract_graph(string $providerBody):array {
 /** All editor proposals use the existing 3.8 Live text-turn adapter.
  * This must never mutate the separate Android phone call model. */
 function flow_ai_model():string {
-    return flow_ai_live_model();
+    return ai_relay_model();
 }
 
 function flow_ai_generate(int $accountId,int $agentId,string $idea,array $history=[],?array $currentGraph=null,?callable $liveTransport=null):array {
@@ -176,9 +177,9 @@ PROMPT;
         // Gemini 3.8 Live Extended Thinking uses the verified WebSocket
         // clientContent text turn + NON_BLOCKING submit_editor_proposal tool.
         // No generateContent/responseMimeType/responseSchema fallback.
-        $graphDraft=flow_ai_live_proposal(
-            $targetPrompt,$userText.$failedGraph,$schema,$liveTransport
-        );
+        $graphDraft=$liveTransport!==null
+            ?flow_ai_live_proposal($targetPrompt,$userText.$failedGraph,$schema,$liveTransport)
+            :ai_relay_proposal($targetPrompt,$userText.$failedGraph,$schema);
         try{
             $graph=flow_ai_validate_proposal($graphDraft);
             if(!$stress)return $graph;

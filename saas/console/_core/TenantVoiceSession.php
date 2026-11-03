@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/PublishedFlow.php';
+require_once __DIR__.'/AiRelay.php';
 /**
  * Tenant-native Gemini Live session: no legacy global pilot bearer or pilot policy.
  * User must be paired to one SIM, and the Flow & answer policy must be published.
@@ -95,7 +96,7 @@ function tenant_voice_ephemeral_token(string $apiKey,int $minutes=10):string {
         $response=curl_exec($curl);$status=(int)curl_getinfo($curl,CURLINFO_RESPONSE_CODE);
     }finally{curl_close($curl);}
     if(!is_string($response)||strlen($response)>16000||$status!==200)
-        throw new RuntimeException('voice_provider_token_failed');
+        throw new RuntimeException('voice_provider_http_'.$status);
     $data=json_decode($response,true);
     $token=(string)($data['name']??'');
     if(!preg_match('~^auth_tokens/[A-Za-z0-9_-]{12,512}$~D',$token))
@@ -104,6 +105,14 @@ function tenant_voice_ephemeral_token(string $apiKey,int $minutes=10):string {
 }
 /** Resolve the platform's encrypted Live provider, with no legacy pilot fallback. */
 function tenant_voice_provider():array {
+    $relay=ai_relay_rows('voice',true);
+    foreach($relay as $entry){
+        if(!empty($entry['cooldown_until'])&&$entry['cooldown_until']>now())continue;
+        $full=ai_relay_one((int)$entry['id']);
+        $key=$full?unseal_secret($full['secret_enc']??null):null;
+        if(is_string($key)&&$key!=='')return ['model'=>$entry['model'],'key'=>$key];
+    }
+    if($relay)throw new RuntimeException('voice_all_keys_in_cooldown');
     $model=trim((string)getenv('ONTRACK_GEMINI_LIVE_MODEL'));
     $key=trim((string)getenv('ONTRACK_GEMINI_API_KEY'));
     if($key===''||$model===''){
@@ -123,12 +132,14 @@ function tenant_voice_provider():array {
  * a call and without making production telephony active or returning a bearer. */
 function tenant_voice_preflight(array $binding):array {
     $definition=tenant_voice_definition($binding);
-    $provider=tenant_voice_provider();
-    $ephemeral=tenant_voice_ephemeral_token($provider['key'],1);
+    if(ai_relay_has('voice'))$session=ai_relay_voice_session(1);
+    else{$provider=tenant_voice_provider();$session=['model'=>$provider['model'],
+        'token'=>tenant_voice_ephemeral_token($provider['key'],1)];}
+    $ephemeral=$session['token'];
     if(!str_starts_with($ephemeral,'auth_tokens/'))throw new RuntimeException('voice_provider_token_invalid');
     return ['ready'=>true,'revision'=>$definition['revision'],'conversation_mode'=>'dynamic',
         'agent_id'=>$definition['agent_id'],'agent_name'=>$definition['agent_name'],'site_id'=>$definition['site_id'],
-        'sim_slot'=>(int)$binding['sim_slot'],'model'=>$provider['model']];
+        'sim_slot'=>(int)$binding['sim_slot'],'model'=>$session['model']];
 }
 /**
  * Time-limited, exact-scope owner device trial. This private config is outside
@@ -152,14 +163,14 @@ function tenant_voice_owner_trial_enabled(array $binding):bool {
 }
 function tenant_voice_session(array $binding):array {
     $definition=tenant_voice_definition($binding);
-    $provider=tenant_voice_provider();
-    $model=$provider['model'];$key=$provider['key'];
     // Keep the endpoint disabled until the actual per-SIM call + PCM E2E is certified.
     if(getenv('ONTRACK_TENANT_VOICE_ENABLED')!=='1' &&
        !tenant_voice_owner_trial_enabled($binding))
         throw new RuntimeException('tenant_voice_not_launched');
-    $token=tenant_voice_ephemeral_token($key,$definition['policy']['max_call_minutes']);
-    return ['token'=>$token,'model'=>$model,'system_instruction'=>$definition['instruction'],
+    if(ai_relay_has('voice'))$session=ai_relay_voice_session($definition['policy']['max_call_minutes']);
+    else{$provider=tenant_voice_provider();$session=['model'=>$provider['model'],
+         'token'=>tenant_voice_ephemeral_token($provider['key'],$definition['policy']['max_call_minutes'])];}
+    return ['token'=>$session['token'],'model'=>$session['model'],'system_instruction'=>$definition['instruction'],
         'voice'=>$definition['voice'],'answer_policy'=>$definition['policy'],
         'revision'=>$definition['revision'],'hash'=>$definition['flow_hash'],
         'conversation_mode'=>'dynamic',

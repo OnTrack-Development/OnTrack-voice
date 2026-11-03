@@ -13,6 +13,7 @@ on:
       - 'tools/test_flow_ai_live_text_editor.php'
       - 'tools/test_flow_ai_live_thinking.php'
       - 'tools/test_flow_ai_chat.php'
+      - 'tools/test_ai_relay.php'
       - 'tools/test_voice_saas_console.php'
       - 'tools/test_tenant_call_ai_summary.php'
       - 'tools/test_sim_agent_call_reports.php'
@@ -44,6 +45,7 @@ jobs:
           php tools/test_tenant_call_ai_summary.php
           python3 tools/test_voice_restore_033.py
           php tools/test_flow_ai_chat.php
+          php tools/test_ai_relay.php
           php tools/test_ai_agent_profile.php
           php tools/test_flow_ai_live_thinking.php
           php tools/test_flow_ai_live_text_editor.php

@@ -8,6 +8,7 @@ require_once __DIR__.'/PublishedFlow.php';
 require_once __DIR__.'/FlowTemplates.php';
 require_once __DIR__.'/AgentAnswerPolicy.php';
 require_once __DIR__.'/Checkout.php';
+require_once __DIR__.'/AiRelay.php';
 
 function field(string $key,int $max=200):string{
     $v=trim((string)($_POST[$key]??''));
@@ -775,6 +776,27 @@ function act():void {
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 if(!device_binding_revoke($id,intfield('device_id')))throw new InvalidArgumentException('الجهاز غير موجود أو مفصول مسبقًا');
                 audit('device.binding.revoked',$id,['device_id'=>intfield('device_id')]);
+                break;
+            case 'relay_add':
+            case 'relay_manage':
+            case 'relay_test':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||
+                   console_view_mode($a)!=='admin'||active_support())deny();
+                if($action==='relay_add'){
+                    $item=ai_relay_add($id,required('scope',12),required('relay_driver',25),
+                        required('relay_label',100),required('relay_model',120),
+                        field('relay_endpoint',600),required('relay_api_key',512));
+                    audit('ai.relay.added',$id,['provider_id'=>$item,'scope'=>field('scope',12)]);
+                    $success='اتضاف المزوّد للـRelay. اختبر اتصاله من إعدادات الأدمن.';
+                }elseif($action==='relay_test'){
+                    $providerId=intfield('relay_id');$success=ai_relay_test($providerId);
+                    audit('ai.relay.tested',$id,['provider_id'=>$providerId]);
+                }else{
+                    $providerId=intfield('relay_id');$operation=required('relay_operation',12);
+                    ai_relay_modify($providerId,$operation);
+                    audit('ai.relay.updated',$id,['provider_id'=>$providerId,'operation'=>$operation]);
+                    $success='تم تحديث إعدادات الـRelay.';
+                }
                 break;
             case 'save_live_provider':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
