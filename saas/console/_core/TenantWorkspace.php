@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/DncGuard.php';
 require_once __DIR__.'/TenantVoiceTranscript.php';
+require_once __DIR__.'/TenantCampaignQueue.php';
 /** No pilot bearer, no user-provided account/site identifiers. */
 function tenant_workspace_id(int $id):string{return str_pad(dechex($id),24,'0',STR_PAD_LEFT);}
 function tenant_workspace_parse_id(mixed $id):int{
@@ -295,8 +296,9 @@ function tenant_workspace_call_analysis(array $binding,array $data,?callable $tr
 }
 
 function tenant_workspace_campaigns(array $b):array{
+    tcq_init();
     return ['campaigns'=>all('SELECT id,name,starts_at,ends_at,status FROM tenant_campaigns WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? ORDER BY created_at DESC LIMIT 60',
-        [$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']]),'attempts'=>[]];
+        [$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']]),'attempts'=>all('SELECT id,campaign_id,status,result,finished_at FROM tenant_campaign_attempts WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? ORDER BY leased_epoch DESC LIMIT 80',[$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']])];
 }
 function tenant_workspace_create_campaign(array $b,array $p):array{
     if(($p['confirmed']??false)!==true)throw new InvalidArgumentException('confirmation_required');
@@ -307,6 +309,9 @@ function tenant_workspace_create_campaign(array $b,array $p):array{
     if(!preg_match('/^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$/D',$starts)||
        !preg_match('/^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$/D',$ends)||
        $ends<=$starts)throw new InvalidArgumentException('invalid_campaign_schedule');
+    $utcStart=tcq_utc($starts);$utcEnd=tcq_utc($ends);
+    if(strtotime($utcEnd)-strtotime($utcStart)>31*86400)
+        throw new InvalidArgumentException('campaign_window_too_long');
     foreach($ids as $id){
         $uid=tenant_workspace_parse_id($id);
         if(!one('SELECT id FROM contacts WHERE id=? AND account_id=? AND site_id=?',
@@ -314,7 +319,7 @@ function tenant_workspace_create_campaign(array $b,array $p):array{
     }
     $id=bin2hex(random_bytes(12));
     insert('INSERT INTO tenant_campaigns(id,account_id,site_id,device_binding_id,sim_slot,name,starts_at,ends_at,scenario,contact_ids_json,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',[
-        $id,$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot'],$name,$starts,$ends,$scenario,json_encode($ids),'draft',now()]);
+        $id,$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot'],$name,$utcStart,$utcEnd,$scenario,json_encode($ids),'draft',now()]);
     return ['campaign'=>['id'=>$id,'name'=>$name,'status'=>'draft'],'calls_started'=>0];
 }
 function tenant_workspace_campaign_action(array $b,array $p):array{
@@ -324,22 +329,25 @@ function tenant_workspace_campaign_action(array $b,array $p):array{
     $params=[$id,$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']];
     $row=one('SELECT * FROM tenant_campaigns WHERE id=? AND account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=?',$params);
     if(!$row)throw new InvalidArgumentException('campaign_unavailable');
-    if($action==='preview'){
-        $ids=json_decode((string)$row['contact_ids_json'],true)?:[];
-        $eligible=[];$excluded=0;
-        foreach($ids as $opaque){
-            $contact=one('SELECT phone,dnc FROM contacts WHERE id=? AND account_id=? AND site_id=?',
-                [tenant_workspace_parse_id($opaque),$b['account_id'],$b['site_id']]);
-            if(!$contact||(int)$contact['dnc']===1||
-               dnc_is_suppressed((int)$b['account_id'],(string)$contact['phone'])){++$excluded;continue;}
-            $eligible[]=['id'=>$opaque];
-        }
-        return ['preview'=>['eligible'=>$eligible,'excluded'=>$excluded,'dialed'=>false]];
-    }
-    // No new campaign may dial until SIM-aware consent/lease enforcement is tested.
-    if(!in_array($action,['pause','cancel'],true))throw new InvalidArgumentException('campaign_dialing_not_ready');
+    if($action==='preview')return ['preview'=>tcq_preview($b,$row)];
+    if($action==='arm'||$action==='resume')return tcq_arm($b,$row);
+    if(!in_array($action,['pause','cancel'],true))
+        throw new InvalidArgumentException('campaign_action_denied');
+    if($action==='pause'&&!in_array($row['status'],['ready','draft'],true))
+        throw new InvalidArgumentException('campaign_not_pausable');
+    if($action==='cancel'&&$row['status']==='cancelled')
+        return ['campaign'=>['id'=>$id,'status'=>'cancelled'],'calls_started'=>0];
     $status=$action==='pause'?'paused':'cancelled';
     execute('UPDATE tenant_campaigns SET status=? WHERE id=? AND account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=?',
        array_merge([$status],$params));
     return ['campaign'=>['id'=>$id,'status'=>$status],'calls_started'=>0];
+}
+
+/** Device endpoints never dial on the server. Explicit consent and twice-checked DNC required. */
+function tenant_workspace_campaign_claim(array $b):array{return tcq_claim($b);}
+function tenant_workspace_campaign_verify(array $b,array $p):array{
+    return ['verification'=>tcq_verify($b,(string)($p['attempt_id']??''))];
+}
+function tenant_workspace_campaign_finish(array $b,array $p):array{
+    return ['attempt'=>tcq_finish($b,(string)($p['attempt_id']??''),(string)($p['result']??''))];
 }

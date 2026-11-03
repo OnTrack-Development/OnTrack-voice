@@ -49,14 +49,72 @@ try{
     $armed=false;
     try{tenant_workspace_campaign_action($b,['confirmed'=>true,'id'=>$campaign,'action'=>'arm']);}
     catch(InvalidArgumentException){$armed=true;}
-    tw_check($armed,'unverified auto dial denied');
+    tw_check($armed,'unconsented target cannot be armed');
+    // A second, owner-controlled consented number must never bypass server gating.
+    $consentRejected=false;
+    try{tcq_consent($b,$match[0]['id'],'owner_test','owner fixture consent');}
+    catch(InvalidArgumentException){$consentRejected=true;}
+    tw_check($consentRejected,'existing DNC cannot be overridden by consent');
+    $approved='01077778888';
+    tenant_workspace_import($b,[['name'=>'رقم اختبار بموافقة','phone'=>$approved]]);
+    $approvedRows=tenant_workspace_contacts($b);
+    $approvedContact=array_values(array_filter($approvedRows['contacts'],
+        fn($c)=>$c['phone']===$approved))[0];
+    $approvedId=tenant_workspace_parse_id($approvedContact['id']);
+    $stored=tcq_consent($b,$approvedContact['id'],'owner_test','explicit consent owner fixture');
+    tw_check($stored['recorded']===true,'explicit marketing consent persisted');
+    $localNow=new DateTimeImmutable('now',new DateTimeZone('Africa/Cairo'));
+    $start=$localNow->modify('-5 minutes')->format('Y-m-d\TH:i');
+    $end=$localNow->modify('+65 minutes')->format('Y-m-d\TH:i');
+    $ready=tenant_workspace_create_campaign($b,['confirmed'=>true,
+        'name'=>'حملة ذات موافقة','starts'=>$start,'ends'=>$end,
+        'scenario'=>'اتصال بموافقة مسبقة','contact_ids'=>[$approvedContact['id']]]);
+    $campaign2=$ready['campaign']['id'];
+    $armedResult=tenant_workspace_campaign_action($b,['confirmed'=>true,
+        'id'=>$campaign2,'action'=>'arm']);
+    tw_check($armedResult['campaign']['status']==='ready','explicit consented campaign armed');
+    putenv('ONTRACK_TENANT_CAMPAIGN_DIAL_ENABLED');
+    $disabled=false;
+    try{tenant_workspace_campaign_claim($b);}catch(RuntimeException){$disabled=true;}
+    tw_check($disabled,'real SIM dispatch must remain disabled by default');
+    putenv('ONTRACK_TENANT_CAMPAIGN_DIAL_ENABLED=1');
+    try{
+        $lease=tenant_workspace_campaign_claim($b);
+        tw_check(is_array($lease['claim']) && $lease['claim']['phone']===$approved,
+            'scoped single campaign lease created');
+        tw_check(tenant_workspace_campaign_claim($b)['claim']===null,
+            'active SIM lease cannot overlap');
+        $attemptId=$lease['claim']['id'];
+        $forbidden=tenant_workspace_campaign_verify($other,['attempt_id'=>$attemptId]);
+        tw_check($forbidden['verification']['allowed']===false,'cross tenant cannot verify');
+        tenant_workspace_dnc($b,$approvedContact['id'],true);
+        $verify=tenant_workspace_campaign_verify($b,['attempt_id'=>$attemptId]);
+        tw_check($verify['verification']['allowed']===false,
+            'DNC update after lease prevents the phone call');
+        $endAttempt=tenant_workspace_campaign_finish($b,['attempt_id'=>$attemptId,'result'=>'unknown']);
+        tw_check($endAttempt['attempt']['saved']===true,
+            'unknown outcome persisted without redial');
+        tw_check(tenant_workspace_campaign_claim($b)['claim']===null,
+            'unknown attempt is not repeated');
+    }finally{putenv('ONTRACK_TENANT_CAMPAIGN_DIAL_ENABLED');}
+    $cross=false;
+    try{tcq_consent($other,$approvedContact['id'],'owner_test','cross account cannot authorize');}
+    catch(InvalidArgumentException){$cross=true;}
+    tw_check($cross,'other tenant cannot create campaign consent');
     $cross=false;
     try{tenant_workspace_campaign_action($other,['confirmed'=>true,'id'=>$campaign,'action'=>'preview']);}
     catch(InvalidArgumentException){$cross=true;}
     tw_check($cross,'other tenant cannot access campaign');
     echo "TENANT_WORKSPACE_PASS\n";
 } finally {
+    putenv('ONTRACK_TENANT_CAMPAIGN_DIAL_ENABLED');
+    if(isset($campaign2))execute('DELETE FROM tenant_campaign_attempts WHERE campaign_id=?',[$campaign2]);
+    if(isset($campaign2))execute('DELETE FROM tenant_campaigns WHERE id=? AND account_id=?',[$campaign2,$b['account_id']]);
     if($campaign!==null)execute('DELETE FROM tenant_campaigns WHERE id=? AND account_id=?',[$campaign,$b['account_id']]);
+    if(isset($approvedId)){
+        execute('DELETE FROM tenant_campaign_consents WHERE contact_id=? AND account_id=?',[$approvedId,$b['account_id']]);
+        execute('DELETE FROM contacts WHERE id=? AND account_id=?',[$approvedId,$b['account_id']]);
+    }
     execute('DELETE FROM tenant_call_events WHERE device_binding_id=? AND call_id=?',[$b['id'],$call]);
     execute('DELETE FROM calls WHERE device_binding_id=? AND external_call_id=?',[$b['id'],$call]);
     if($contact!==null)execute('DELETE FROM contacts WHERE id=? AND account_id=?',[$contact,$b['account_id']]);

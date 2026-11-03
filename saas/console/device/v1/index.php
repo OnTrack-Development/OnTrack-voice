@@ -40,7 +40,9 @@ try{
     }
     if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session','voice_preflight','caller_identify','caller_verify',
         'workspace_contacts','workspace_contact_dnc','workspace_import','workspace_calls','workspace_call_transcript',
-        'workspace_call_event','workspace_call_report','workspace_call_analysis','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_file_import'],true)){
+        'workspace_call_event','workspace_call_report','workspace_call_analysis','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_campaign_claim',
+        'workspace_campaign_verify','workspace_campaign_finish','workspace_contact_consent',
+        'workspace_file_import'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
         if(!str_starts_with($auth,'Bearer '))device_answer(401,['ok'=>false,'error'=>'authorization_required']);
         $binding=device_binding_authorize(substr($auth,7));
@@ -54,6 +56,9 @@ try{
             if($operation==='workspace_calls')device_answer(200,['ok'=>true]+tenant_workspace_calls($binding));
             if($operation==='workspace_call_transcript')device_answer(200,['ok'=>true]+tenant_workspace_call_transcript($binding,$data));
             if($operation==='workspace_campaigns')device_answer(200,['ok'=>true]+tenant_workspace_campaigns($binding));
+            if($operation==='workspace_campaign_claim')device_answer(200,['ok'=>true]+tenant_workspace_campaign_claim($binding));
+            if($operation==='workspace_campaign_verify')device_answer(200,['ok'=>true]+tenant_workspace_campaign_verify($binding,$data));
+            if($operation==='workspace_campaign_finish')device_answer(200,['ok'=>true]+tenant_workspace_campaign_finish($binding,$data));
             if($operation==='workspace_call_event')device_answer(200,['ok'=>true]+tenant_workspace_call_event($binding,$data));
             if($operation==='workspace_call_report')device_answer(200,['ok'=>true]+tenant_workspace_call_report($binding,$data));
             if($operation==='workspace_call_analysis')device_answer(200,['ok'=>true]+tenant_workspace_call_analysis($binding,$data));
@@ -82,6 +87,9 @@ try{
                 if(!is_bool($data['blocked']??null))device_answer(422,['ok'=>false,'error'=>'invalid_blocked']);
                 device_answer(200,['ok'=>true]+tenant_workspace_dnc($binding,$data['id']??null,$data['blocked']));
             }
+            if($operation==='workspace_contact_consent')device_answer(200,['ok'=>true]+tcq_consent(
+                $binding,(string)($data['id']??''),(string)($data['method']??''),
+                (string)($data['evidence']??'')));
             if($operation==='workspace_campaign_create')device_answer(200,['ok'=>true]+tenant_workspace_create_campaign($binding,$data));
             if($operation==='workspace_campaign_action')device_answer(200,['ok'=>true]+tenant_workspace_campaign_action($binding,$data));
         }
