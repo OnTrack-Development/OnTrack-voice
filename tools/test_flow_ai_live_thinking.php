@@ -30,7 +30,7 @@ live_check(!isset($setup['setup']['generationConfig']['responseSchema']),'no uns
 live_check(isset($setup['setup']['outputAudioTranscription']) &&
     !isset($setup['setup']['generationConfig']['outputAudioTranscription']),
     'transcription MUST be top-level BidiGenerateContentSetup, not generationConfig');
-live_check($setup['setup']['tools'][0]['functionDeclarations'][0]['behavior']==='NON_BLOCKING','async-only tool');
+live_check($setup['setup']['tools'][0]['functionDeclarations'][0]['behavior']==='BLOCKING','editor proposal tool explicitly blocks audio continuation');
 $graph=['nodes'=>[
  ['id'=>'start','type'=>'start','text'=>'أهلاً','x'=>200,'y'=>80],
  ['id'=>'end','type'=>'end','text'=>'شكرًا','x'=>200,'y'=>300]
