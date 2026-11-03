@@ -733,7 +733,9 @@
       "evidence_or_pointer": "_core/TenantWorkspace.php + CallEventOutbox.kt",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Server call event state now resists terminal-state regression on out-of-order replay and keeps max duration; integration test covers ended→late active/ringing and duplicate sequence. Real Xiaomi SIM/device-server reconciliation and latest CI+host receipt not yet verified; do not mark DONE.",
+      "latest_feature_commit": "bcb933d7b9d88a007f48280575152a023e0da872"
     },
     {
       "id": "R041",

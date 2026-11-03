@@ -57,8 +57,48 @@
   "final_reassessment_after": "R092",
   "final_report": "docs/execution/G0_G9_FINAL_REASSESSMENT_AR.md",
   "end_action": "disable_hourly_automation_after_verified_final_review",
-  "last_run": null,
-  "run_history": [],
+  "last_run": {
+    "requirement": "R040",
+    "date": "2026-11-03",
+    "status": "PARTIAL",
+    "feature_commit": "bcb933d7b9d88a007f48280575152a023e0da872",
+    "code_changes": [
+      "saas/console/_core/TenantWorkspace.php",
+      "tools/test_sim_agent_call_reports.php"
+    ],
+    "ci_runs": [
+      41592181504,
+      41592193642,
+      41592208929,
+      41592208970
+    ],
+    "ci_status_at_check": "queued/in_progress",
+    "host_receipt": null,
+    "device_e2e": false,
+    "blocker": "Pending green CI, matching host receipt, and real paired Xiaomi call event/reconnect E2E."
+  },
+  "run_history": [
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "feature_commit": "bcb933d7b9d88a007f48280575152a023e0da872",
+      "code_changes": [
+        "saas/console/_core/TenantWorkspace.php",
+        "tools/test_sim_agent_call_reports.php"
+      ],
+      "ci_runs": [
+        41592181504,
+        41592193642,
+        41592208929,
+        41592208970
+      ],
+      "ci_status_at_check": "queued/in_progress",
+      "host_receipt": null,
+      "device_e2e": false,
+      "blocker": "Pending green CI, matching host receipt, and real paired Xiaomi call event/reconnect E2E."
+    }
+  ],
   "blocks": [],
   "safety": [
     "Only demo/internal test accounts; never place unsolicited calls, send real customer messages, or charge live cards",
