@@ -1,0 +1,13 @@
+{
+  "job_id": "g456-staging-prepare-202611031603",
+  "target": "appontrack-server11",
+  "job_sha256": "967e61074f5422580f6015117a90706bab9ab1ce7cbdb237f3e9735c97f764c2",
+  "started_at": "2026-11-03T16:04:02.809299+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\": \"isolated_staging_ready\", \"source_sha\": \"f1ac959faf51\", \"source_files\": 9, \"php_lint\": \"passed\", \"private_database_isolation\": true, \"production_root_mutated\": false, \"stage\": \"/home/appontrack/.ontrack-g456-verify-20261103\"}\n",
+  "stderr": "",
+  "finished_at": "2026-11-03T16:04:07.126766+00:00",
+  "duration_ms": 4317
+}
