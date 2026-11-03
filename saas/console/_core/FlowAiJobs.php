@@ -96,7 +96,7 @@ function flow_ai_job_run(string $id,?callable $liveTransport=null):array {
         $idea=(string)$payload['idea'];$current=$payload['current'];
         $history=$payload['history'];
         if($job['kind']==='graph'){
-            $graph=flow_ai_generate($account,$agent,$idea,$history,$current,$liveTransport);
+            $graph=flow_ai_generate($account,$agent,$idea,$history,$current===[]?null:$current,$liveTransport);
             $explanation=flow_ai_explain_graph($graph);
             $result=['ok'=>true,'graph'=>$graph,'explanation'=>$explanation,'model'=>flow_ai_model(),
                 'metrics'=>flow_ai_graph_quality($graph),'saved'=>false,'published'=>false];

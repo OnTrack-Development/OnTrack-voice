@@ -8,7 +8,7 @@ seed_console();
 flow_ai_jobs_init();
 function job_assert(bool $ok,string $why):void{if(!$ok)throw new RuntimeException('ASYNC_JOB_FAIL: '.$why);}
 $agent=one("SELECT id FROM agents WHERE account_id=4 AND status!='archived' ORDER BY id LIMIT 1");
-$user=one("SELECT id FROM users WHERE account_id=4 LIMIT 1");
+$user=one("SELECT user_id AS id FROM memberships WHERE account_id=4 LIMIT 1");
 job_assert(is_array($agent)&&is_array($user),'seeded account and agent');
 $aid=(int)$agent['id'];$uid=(int)$user['id'];
 $graph=['nodes'=>[
