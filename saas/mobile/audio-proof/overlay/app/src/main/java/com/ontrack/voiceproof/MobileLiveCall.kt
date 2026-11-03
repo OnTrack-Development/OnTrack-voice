@@ -20,6 +20,7 @@ internal class MobileLiveCall(
     private val context:Context, private val client:OkHttpClient, private val scope:CoroutineScope,
     private val session:JSONObject, private val settings:JSONObject, private val notice:(String)->Unit,
     private val outgoingCall:Boolean=false,
+    private val onTranscript:(String,String)->Unit={_,_->},
 ) {
     private val stopped=AtomicBoolean(false)
     @Volatile private var remoteSpeechConfirmed=!outgoingCall
@@ -142,6 +143,13 @@ internal class MobileLiveCall(
                     }
                     if(message.has("error")) error("Gemini error "+message.getJSONObject("error").optInt("code"))
                     val content=message.optJSONObject("serverContent")?:return
+                    // Gemini-provided text only. Never fabricate a transcript from PCM
+                    // or label a synthesized summary as the customer's actual words.
+                    for((field,speaker) in listOf("inputTranscription" to "caller","outputTranscription" to "agent")){
+                        val actualText=content.optJSONObject(field)?.optString("text")?.trim().orEmpty()
+                        if(actualText.isNotBlank())runCatching{onTranscript(speaker,actualText)}
+                            .onFailure{notice("تعذر حفظ جزء من تفريغ الصوت للمكالمة الحالية")}
+                    }
                     if(outgoingCall && !remoteSpeechConfirmed){
                         val transcript=content.optJSONObject("inputTranscription")?.optString("text").orEmpty()
                         if(OutboundFirstTurn.remoteSpeechTranscribed(transcript)){
