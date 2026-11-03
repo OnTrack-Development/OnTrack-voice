@@ -79,6 +79,12 @@ try {
         'terminal status and duration cannot regress after late events');
     $events=all('SELECT sequence FROM tenant_call_events WHERE device_binding_id=? AND call_id=?',[$device,$callId]);
     finding_ok(count($events)===5,'exactly one ledger event per sequence');
+    $usageRef='voice-'.hash('sha256','4:1:'.$device.':0:'.$callId);
+    $counted=all("SELECT id,units FROM usage_ledger
+        WHERE account_id=4 AND kind='connected_call' AND reference=?",[$usageRef]);
+    finding_ok(count($counted)===1&&(int)$counted[0]['units']===1,
+        'real answered and ended GSM call metered once despite replay');
+
     // Verify the call remains attached to the authorized tenant and SIM.
     $scoped=one('SELECT id FROM calls WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? AND external_call_id=?',[
         4,1,$device,0,$callId]);
@@ -131,6 +137,11 @@ try {
         str_contains($html,'تم تأكيد استلام الموظف يدويًا'),'summary/notes/handoff on call details UI');
     echo "SIM_AGENT_SWITCH_AND_CALL_REPORTS_PASS\n";
 }finally{
+    if($device){
+        $usageRef='voice-'.hash('sha256','4:1:'.$device.':0:'.$callId);
+        execute('DELETE FROM usage_ledger WHERE reference=?',[$usageRef]);
+        execute('DELETE FROM voice_call_answer_evidence WHERE device_binding_id=?',[$device]);
+    }
     execute('DELETE FROM tenant_call_reports WHERE device_binding_id=?',[$device??-1]);
     execute('DELETE FROM tenant_call_events WHERE device_binding_id=?',[$device??-1]);
     execute('DELETE FROM calls WHERE device_binding_id=?',[$device??-1]);
