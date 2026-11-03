@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "flow-blocking-real-e2e-202611030543",
+  "id": "flow-blocking-state-202611030545",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-03T05:43:45.304Z",
-  "expires_at": "2026-11-03T06:43:45.304Z",
+  "created_at": "2026-11-03T05:45:26.191Z",
+  "expires_at": "2026-11-03T06:45:26.191Z",
   "cwd": "/home/appontrack",
-  "timeout_seconds": 18,
+  "timeout_seconds": 15,
   "argv": [
-    "/opt/cpanel/ea-php83/root/usr/bin/php",
-    "-r",
-    "require '/home/appontrack/public_html/_core/Bootstrap.php';\nrequire '/home/appontrack/public_html/_core/FlowAiJobs.php';\n$account=4;$user=900111031;$agent=(int)(one(\"SELECT id FROM agents WHERE account_id=? AND status!='archived' ORDER BY id LIMIT 1\",[$account])['id']??0);\nif(!$agent)throw new RuntimeException('demo_agent_unavailable');\n$left=one('SELECT COUNT(*) n FROM flow_ai_jobs WHERE account_id=? AND user_id=?',[$account,$user]);\nif((int)($left['n']??0)!==0)throw new RuntimeException('test_user_existing_job');\n$id=flow_ai_job_enqueue($account,$user,$agent,'graph','اصنع مخطط تدريب خدمة عملاء صغير: بداية، ترحيب، سؤال واحد عن نوع الخدمة، نهايتان حسب الإجابة، بدون تنفيذ أي إجراء خارجي.',[],[]);\necho json_encode(['scope'=>'demo_only','user_id'=>$user,'agent_id'=>$agent,'job_id'=>$id,'status'=>'pending','model'=>'gemini-3.8-live-extended-thinking','published_agent_changed'=>false],JSON_THROW_ON_ERROR);"
+    "/bin/python3",
+    "-c",
+    "import subprocess,json\nphp=r\"\"\"require '/home/appontrack/public_html/_core/Bootstrap.php';\n$row=one(\"SELECT status,attempts,error_text,created_at,started_at,completed_at FROM flow_ai_jobs WHERE job_id=? AND account_id=? AND user_id=?\",['48e747c152a399f5d6e1b4155bd2e283',4,900111031]);\n$chat=one(\"SELECT pending_graph_json FROM flow_ai_chats WHERE account_id=? AND user_id=?\", [4,900111031]);\n$graph=$chat?json_decode((string)$chat['pending_graph_json'],true):null;\necho json_encode(['found'=>$row!==null,'status'=>$row['status']??null,'attempts'=>$row['attempts']??null,\n 'started_at'=>$row['started_at']??null,'completed_at'=>$row['completed_at']??null,\n 'error_kind'=>($row['status']??'')==='failed'?mb_substr((string)$row['error_text'],0,220):null,\n 'draft_nodes'=>is_array($graph)?count($graph['nodes']??[]):0,'draft_edges'=>is_array($graph)?count($graph['edges']??[]):0,\n 'published_agent_changed'=>false],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);\"\"\"\np=subprocess.run(['/opt/cpanel/ea-php83/root/usr/bin/php','-r',php],capture_output=True,text=True,timeout=10)\nif p.returncode!=0:raise RuntimeError('demo_job_status_read_failed')\nprint(p.stdout)"
   ]
 }
