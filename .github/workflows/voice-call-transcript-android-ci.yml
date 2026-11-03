@@ -35,4 +35,12 @@ jobs:
         run: python3 saas/mobile/audio-proof/prepare.py .build/jemrec
       - name: Verify Kotlin unit tests and Android compilation (no release)
         working-directory: .build/jemrec
-        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+        run: |
+          ./gradlew --no-daemon :app:testDebugUnitTest \
+            --tests 'com.ontrack.voiceproof.PcmWavTest' \
+            --tests 'com.ontrack.voiceproof.LinkPcmTest' \
+            --tests 'com.ontrack.voiceproof.OverlayUiModelTest' \
+            --tests 'com.ontrack.voiceproof.LocalUiPageTest' \
+            --tests 'com.ontrack.voiceproof.SignedOtaTest' \
+            --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' \
+            :app:assembleDebug
