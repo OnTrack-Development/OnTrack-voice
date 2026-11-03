@@ -1,3 +1,5 @@
+> **Current execution source of truth (2026-11-03):** [Master Repair Roadmap](docs/plan/MASTER_REPAIR_ROADMAP_2026_11_03_AR.md) + [machine gap backlog](docs/plan/MASTER_REPAIR_BACKLOG_2026_11_03.json), reflecting all approved owner Q01–Q24, updated root deployment, failed CI gate, and remaining real device/billing checks. Do NOT restart the owner-stopped hourly development schedule. Older paths and OPEN Q references below are historical.
+
 # OnTrack Voice — session entry
 
 > **Authoritative 2026-11-01 owner contract:** [Approved master decisions](docs/discovery/OWNER_APPROVED_MASTER_DECISIONS_2026_11_01_AR.md). Q01–Q24 are answered, Q07/Q13 delegated options resolved. This overrides earlier pending-approval notes. Before production features, read the checkpoint and show evidence for CI, host, auth UI, device E2E separately. The signed hook payment path intentionally stages an unclaimed paid order, not identity by email; verified account claim/SSO is still required before activation.\n\n
