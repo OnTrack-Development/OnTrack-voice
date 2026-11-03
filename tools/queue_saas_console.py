@@ -65,7 +65,7 @@ def main():
     now=datetime.datetime.now(datetime.timezone.utc)
     job={"schema":1,"id":job_id,"target":TARGET,"action":"exec","created_at":now.isoformat(),
          "expires_at":(now+datetime.timedelta(hours=3)).isoformat(),
-         "cwd":"/home/appontrack/public_html/saas","timeout_seconds":30,
+         "cwd":"/home/appontrack","timeout_seconds":30,
          "argv":["/bin/python3","-c",script,url,sha,os.environ["GITHUB_SHA"]]}
     body=json.dumps(job,indent=2).encode()
     if len(body)>16384:raise ValueError("Host job payload too large")

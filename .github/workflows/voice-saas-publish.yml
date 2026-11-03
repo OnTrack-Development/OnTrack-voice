@@ -1,4 +1,4 @@
-name: Deploy OnTrack Voice SaaS Console
+name: Deploy OnTrack Voice Root SaaS
 on:
   push:
     branches: [main, 'feat/voice-production-gap-20261103']
