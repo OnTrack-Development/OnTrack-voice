@@ -20,11 +20,13 @@ function ontrack_report_append(array $event,string $store,string $actor): array 
     $entryId=(string)($event['entry_id']??'');
     if(!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D',$entryId))throw new InvalidArgumentException('invalid_entry_id');
     $kind=(string)($event['kind']??'');
-    $allowed=$actor==='device'?['transcript','handoff']:['customer_note','handoff','summary','disposition'];
+    $allowed=$actor==='device'?['transcript','handoff','finalize']:($actor==='ai'?['summary']:['customer_note','handoff','summary','disposition']);
     if(!in_array($kind,$allowed,true))throw new InvalidArgumentException('invalid_report_kind');
     $role=(string)($event['role']??'system');
     if(!in_array($role,['caller','agent','system','employee'],true))throw new InvalidArgumentException('invalid_role');
     if($kind==='transcript'&&!in_array($role,['caller','agent'],true))throw new InvalidArgumentException('invalid_transcript_role');
+    if($kind==='finalize'&&($actor!=='device'||$role!=='system'))throw new InvalidArgumentException('invalid_finalization');
+    if($actor==='ai'&&$role!=='agent')throw new InvalidArgumentException('invalid_ai_role');
     $value=trim((string)($event['text']??''));
     if($value===''||mb_strlen($value,'UTF-8')>1500||preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f]/',$value))throw new InvalidArgumentException('invalid_report_text');
     // A device may only append model-observed text or a factual handoff event.
