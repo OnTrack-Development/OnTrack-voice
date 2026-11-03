@@ -76,7 +76,32 @@ function test_tenant_device_pairing():void {
     ok(device_binding_authorize($a['device_token'])['account_id']!==$sessionB['account_id'],
         'SIM token cannot cross into another tenant');
     ok(device_binding_revoke(5,$a['device_id'])===false,'cross-tenant device revoke denied');
+    // A queued campaign belongs only to this SIM. Revocation pauses it and
+    // makes its in-flight attempt forever uncertain, never reassignable.
+    require_once __DIR__.'/../saas/console/_core/TenantCampaignQueue.php';
+    tcq_init();
+    $campaignKey=bin2hex(random_bytes(12));
+    insert("INSERT INTO tenant_campaigns(id,account_id,site_id,device_binding_id,sim_slot,
+        name,starts_at,ends_at,scenario,contact_ids_json,status,created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",[
+        $campaignKey,4,1,$a['device_id'],0,'هاتف قيد الفصل',
+        gmdate('Y-m-d H:i:s',time()-60),gmdate('Y-m-d H:i:s',time()+3600),
+        'demo','[]','ready',now()
+    ]);
+    $attemptKey=bin2hex(random_bytes(16));
+    insert("INSERT INTO tenant_campaign_attempts(id,campaign_id,account_id,site_id,
+        device_binding_id,sim_slot,contact_id,phone_key,status,leased_epoch)
+        VALUES(?,?,?,?,?,?,?,?,?,?)",[
+        $attemptKey,$campaignKey,4,1,$a['device_id'],0,12345,'01099999999','leased',time()
+    ]);
     ok(device_binding_revoke(4,$a['device_id'])===true,'owner scope revokes active SIM token');
+    $oldCampaign=one('SELECT status FROM tenant_campaigns WHERE id=?',[$campaignKey]);
+    $uncertain=one('SELECT status,result FROM tenant_campaign_attempts WHERE id=?',[$attemptKey]);
+    ok($oldCampaign['status']==='paused' && $uncertain['status']==='unknown' &&
+        $uncertain['result']==='device_revoked',
+        'G1: SIM revoke halts campaign and invalidates in-flight GSM lease');
+    execute('DELETE FROM tenant_campaign_attempts WHERE id=?',[$attemptKey]);
+    execute('DELETE FROM tenant_campaigns WHERE id=?',[$campaignKey]);
     ok(device_binding_authorize($a['device_token'])===null,'revoked SIM token immediately denied');
     $staleHeartbeatDenied=false;
     try{device_binding_heartbeat($session);}

@@ -155,6 +155,12 @@ function tcq_verify(array $b,string $attemptId):array{
     if(!tcq_enabled())return ['allowed'=>false,'reason'=>'device_e2e_gate_disabled'];
     $a=tcq_attempt($b,$attemptId);
     if(!$a||$a['status']!=='leased')return ['allowed'=>false,'reason'=>'lease_not_active'];
+    // A device may be revoked after HTTP bearer authentication but before
+    // the final pre-dial confirmation. Stale requests must fail closed.
+    $physical=one("SELECT id FROM device_bindings WHERE id=? AND account_id=?
+        AND site_id=? AND sim_slot=? AND status='active'",[
+        $b['id'],$b['account_id'],$b['site_id'],$b['sim_slot']]);
+    if(!$physical)return ['allowed'=>false,'reason'=>'device_revoked_or_unverified'];
     if(time()-(int)$a['leased_epoch']>30)return ['allowed'=>false,'reason'=>'lease_expired'];
     $campaign=one('SELECT * FROM tenant_campaigns WHERE id=? AND account_id=? AND site_id=?
       AND device_binding_id=? AND sim_slot=?',

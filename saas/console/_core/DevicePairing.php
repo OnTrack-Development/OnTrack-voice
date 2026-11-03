@@ -166,9 +166,22 @@ function device_binding_change_agent(int $accountId,int $deviceId,int $newAgentI
         throw $e;
     }
 }
+/** Revoke all pending automated operations on this exact device/SIM.
+ * Never silently reassign an outstanding campaign to a replacement phone. */
+function device_binding_halt_campaigns(int $accountId,int $deviceId):void {
+    require_once __DIR__.'/TenantCampaignQueue.php';
+    tcq_init();
+    execute("UPDATE tenant_campaigns SET status='paused'
+      WHERE account_id=? AND device_binding_id=? AND status='ready'",[$accountId,$deviceId]);
+    execute("UPDATE tenant_campaign_attempts SET status='unknown',
+        result='device_revoked',finished_at=?
+        WHERE account_id=? AND device_binding_id=? AND status IN ('leased','verified')",
+        [now(),$accountId,$deviceId]);
+}
 function device_binding_revoke(int $accountId,int $deviceId):bool {
     $changed=execute("UPDATE device_bindings SET status='revoked',slot_claim=NULL,revoked_at=? WHERE id=? AND account_id=? AND status='active'",
         [now(),$deviceId,$accountId]);
+    if($changed===1)device_binding_halt_campaigns($accountId,$deviceId);
     return $changed===1;
 }
 function device_pairing_cancel(int $accountId,int $pairingId):bool {
@@ -178,6 +191,8 @@ function device_pairing_cancel(int $accountId,int $pairingId):bool {
 
 /** Device-owner initiated disconnect. Revokes only the authenticated SIM binding. */
 function device_binding_disconnect(array $binding):bool {
-    return execute("UPDATE device_bindings SET status='revoked',slot_claim=NULL,revoked_at=? WHERE id=? AND account_id=? AND sim_slot=? AND status='active'",
-        [now(),$binding['id'],$binding['account_id'],$binding['sim_slot']])===1;
+    $changed=execute("UPDATE device_bindings SET status='revoked',slot_claim=NULL,revoked_at=? WHERE id=? AND account_id=? AND sim_slot=? AND status='active'",
+        [now(),$binding['id'],$binding['account_id'],$binding['sim_slot']]);
+    if($changed===1)device_binding_halt_campaigns((int)$binding['account_id'],(int)$binding['id']);
+    return $changed===1;
 }
