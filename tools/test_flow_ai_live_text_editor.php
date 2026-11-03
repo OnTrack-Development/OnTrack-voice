@@ -36,8 +36,8 @@ $graphTransport=static function(array $setup,array $turn)use($graph,&$seenGraph)
     $text=(string)($turn['clientContent']['turns'][0]['parts'][0]['text']??'');
     live_editor_ok(str_contains($text,'خدمة العملاء') && str_contains($text,'CURRENT EDITOR DRAFT'),
         'previous graph and chat are sent as the real text input');
-    live_editor_ok(($setup['setup']['tools'][0]['functionDeclarations'][0]['behavior']??null)==='BLOCKING',
-        'structured editor proposal pauses speech but never executes phone/CRM actions');
+    live_editor_ok(($setup['setup']['tools'][0]['functionDeclarations'][0]['behavior']??null)==='NON_BLOCKING',
+        'extended thinking tool stays non-blocking and never executes phone/CRM actions');
     return ['toolCall'=>['functionCalls'=>[
         ['name'=>'submit_editor_proposal','args'=>$graph]
     ]]];

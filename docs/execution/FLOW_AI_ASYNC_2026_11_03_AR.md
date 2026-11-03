@@ -16,3 +16,9 @@
 - A further retry experiment also ended without a verified graph, with a TLS stream read interruption. Client-side TLS idle read is now bounded and tolerant; provider E2E MUST be reverified. No user agent flow or published snapshot was changed; synthetic demo job/chat rows removed.
 - Public bug reports show the same model sometimes speaks without emitting required NON_BLOCKING tool calls. A bounded same-session re-prompt is implemented; it is a mitigation, not a guarantee. Do not auto-fallback to another model or mark editor proposals as successful without validated tool output.
 - Broad standalone WHMCS/WhatsApp workflow currently fails in its existing unrelated bridge fixture; the dedicated console publish workflow passes. WhatsApp is not part of this repair.
+
+## 2026-11-03 after real BLOCKING experiment (important correction)
+
+- One real owner-configured `gemini-3.8-live-extended-thinking` demo-only Flow Builder job returned **failed**, WebSocket **1007 during setup/handshake**, zero nodes and zero tool proposals; job `48e747c152a399f5d6e1b4155bd2e283`, synthetic user 900111031, account 4. This confirms **BLOCKING was incompatible with this particular Extended Thinking session** even though baseline Google 3.8 Live generally supports it. No published graph or phone session changed.
+- Google maintained `google-gemini/gemini-skills` model-specific guidance explicitly says `gemini-3.8-live-extended-thinking` requires `behavior: NON_BLOCKING`; revert the experimental BLOCKING change and keep bounded same-session retries plus validation. Source: https://github.com/google-gemini/gemini-skills/blob/main/skills/gemini-live-api-dev/SKILL.md .
+- A green CI tool-shape assertion did not predict real provider compatibility; **G2/R021 remains E2E_FAILED** until a real valid `submit_editor_proposal` returns. Do not silently switch the user's chosen Live model or claim that audio transcript is a graph.

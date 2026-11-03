@@ -4,9 +4,10 @@ declare(strict_types=1);
 /**
  * Server-side Gemini 3.8 Live Extended Thinking adapter for a TEXT editor.
  * Live 3.8 does not support responseMimeType/responseSchema. Use an explicitly
- * BLOCKING tool call as a structured PROPOSAL (never run external actions).
- * Google 3.8 Live accepts BLOCKING tools; the editor wants a single atomic
- * schema-constrained result and must not stream an audio reply ahead of it.
+ * NON_BLOCKING tool call as a structured PROPOSAL (never run external actions).
+ * gemini-3.8-live-extended-thinking requires NON_BLOCKING function calls.
+ * A live 2026-11-03 test proved BLOCKING gets rejected at setup with WS 1007;
+ * never force BLOCKING for this model. Validate proposal after tool output.
  * The model and API credential never reach the browser.
  */
 function flow_ai_live_model():string { return 'gemini-3.8-live-extended-thinking'; }
@@ -27,9 +28,10 @@ function flow_ai_live_setup(string $instruction,array $schema,?string $overrideM
         'tools'=>[['functionDeclarations'=>[[
             'name'=>'submit_editor_proposal',
             'description'=>'Return the complete proposed editor graph or settings as structured arguments. Do not execute any change; the user must review and apply the draft.',
-            // BLOCKING is intentional here, unlike the phone's live dialogue.
-            // It requests a structured editor result before speech continues.
-            'behavior'=>'BLOCKING',
+            // 3.8 Live Extended Thinking rejects BLOCKING at WebSocket setup.
+            // NON_BLOCKING is required by the upstream model; structured data
+            // still must arrive through submit_editor_proposal, never audio.
+            'behavior'=>'NON_BLOCKING',
             'parameters'=>$schema
         ]]]]
     ]];

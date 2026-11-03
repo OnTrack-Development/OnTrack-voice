@@ -424,7 +424,7 @@
       "phase": "G2",
       "priority": "P0",
       "roles": "Admin/User",
-      "status": "PARTIAL",
+      "status": "E2E_FAILED",
       "description": "إصلاح Gemini 3.8 Live Extended Thinking في Assistant text proposal بالـasync jobs، واحترام tool calls وfallback",
       "acceptance": "إنشاء مخطط صالح في Live E2E وليس مجرد WS connected؛ fallback عند 429/503/timeout",
       "source_requirements": [
@@ -435,9 +435,10 @@
       "verified_e2e": false,
       "completion_evidence": [],
       "updated_on": "2026-11-03",
-      "implementation_note": "Flow Builder BLOCKING submit_editor_proposal setup and async queue built; Google real live tool-call still unverified after change.",
+      "implementation_note": "Real gemini-3.8-live-extended-thinking with BLOCKING setup returned WebSocket 1007 and no tool; reverted to required NON_BLOCKING. Prior NON_BLOCKING session connected but emitted audio not submit_editor_proposal; genuine graph still unverified.",
       "evidence_source_branch": "feat/voice-production-gap-20261103",
-      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4",
+      "latest_real_provider_evidence": "ops/host-link/results/appontrack-server11/flow-blocking-state-202611030545.json"
     },
     {
       "id": "R022",
