@@ -47,17 +47,19 @@ internal class CallReportOutbox(context:Context) {
         return String(cipher.doFinal(bytes.copyOfRange(12,bytes.size)),Charsets.UTF_8)
     }
 
-    @Synchronized fun enqueue(slot:Int,callId:String,transcript:String) {
+    @Synchronized fun enqueue(slot:Int,deviceId:Int,callId:String,transcript:String) {
+        require(deviceId>0){"missing SIM binding identity"}
         require(slot in 0..1){"invalid report SIM slot"}
         require(callId.matches(Regex("[a-f0-9-]{36}"))){"invalid report call ID"}
         if(transcript.length<18)return // no content = no generated report
         val text=transcript.take(12000)
         val queue=JSONArray(prefs.getString("pending","[]")?:"[]")
         for(i in 0 until queue.length()){
-            if(queue.optJSONObject(i)?.optString("call_id")==callId)return
+            if(queue.optJSONObject(i)?.optString("call_id")==callId &&
+                queue.optJSONObject(i)?.optInt("device_id",-1)==deviceId)return
         }
         check(queue.length()<30){"Call report queue full — retry before accepting more"}
-        val envelope=JSONObject().put("call_id",callId).put("slot",slot)
+        val envelope=JSONObject().put("call_id",callId).put("slot",slot).put("device_id",deviceId)
             .put("queued_at",System.currentTimeMillis())
             .put("ciphertext",encrypt(text))
         queue.put(envelope)
@@ -66,23 +68,35 @@ internal class CallReportOutbox(context:Context) {
         }
     }
 
-    /** Peek decrypts in memory only; callers must not log the returned payload. */
-    @Synchronized fun peek():JSONObject? {
+
+    /** Legacy queued reports without a trusted binding ID stay encrypted locally,
+     * not uploaded to whichever account is now paired to the same SIM slot. */
+    @Synchronized fun peekEligible(bindingId:(Int)->Int?):JSONObject? {
         val queue=JSONArray(prefs.getString("pending","[]")?:"[]")
-        val row=queue.optJSONObject(0)?:return null
-        return JSONObject().put("call_id",row.getString("call_id"))
-            .put("sim_slot",row.getInt("slot"))
-            .put("transcript",decrypt(row.getString("ciphertext")))
+        for(i in 0 until queue.length()){
+            val row=queue.optJSONObject(i)?:continue
+            val slot=row.optInt("slot",-1)
+            val originalId=row.optInt("device_id",-1)
+            if(slot !in 0..1 || originalId<=0 || bindingId(slot)!=originalId)continue
+            return JSONObject().put("call_id",row.getString("call_id"))
+                .put("sim_slot",slot).put("device_id",originalId)
+                .put("transcript",decrypt(row.getString("ciphertext")))
+        }
+        return null
     }
 
     @Synchronized fun acknowledge(sent:JSONObject) {
         val queue=JSONArray(prefs.getString("pending","[]")?:"[]")
-        val row=queue.optJSONObject(0)?:return
-        if(row.optString("call_id")!=sent.optString("call_id")||
-            row.optInt("slot",-1)!=sent.optInt("sim_slot",-1))return
         val rest=JSONArray()
-        for(i in 1 until queue.length())rest.put(queue.get(i))
-        check(prefs.edit().putString("pending",rest.toString()).commit()){
+        var removed=false
+        for(i in 0 until queue.length()){
+            val row=queue.optJSONObject(i)?:continue
+            val match=!removed && row.optString("call_id")==sent.optString("call_id") &&
+                row.optInt("slot",-1)==sent.optInt("sim_slot",-1) &&
+                row.optInt("device_id",-1)==sent.optInt("device_id",-1)
+            if(match)removed=true else rest.put(row)
+        }
+        if(removed)check(prefs.edit().putString("pending",rest.toString()).commit()){
             "Could not acknowledge call report"
         }
     }
