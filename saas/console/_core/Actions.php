@@ -779,6 +779,7 @@ function act():void {
                 break;
             case 'relay_add':
             case 'relay_manage':
+            case 'relay_edit':
             case 'relay_test':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||
                    console_view_mode($a)!=='admin'||active_support())deny();
@@ -788,6 +789,13 @@ function act():void {
                         field('relay_endpoint',600),required('relay_api_key',512));
                     audit('ai.relay.added',$id,['provider_id'=>$item,'scope'=>field('scope',12)]);
                     $success='اتضاف المزوّد للـRelay. اختبر اتصاله من إعدادات الأدمن.';
+                }elseif($action==='relay_edit'){
+                    $providerId=intfield('relay_id');
+                    ai_relay_edit($providerId,required('relay_label',100),
+                        required('relay_model',120),field('relay_endpoint',600),
+                        field('relay_api_key',512));
+                    audit('ai.relay.edited',$id,['provider_id'=>$providerId]);
+                    $success='تم تعديل بيانات المزوّد. اختبر الاتصال للتحقق من المفتاح الجديد.';
                 }elseif($action==='relay_test'){
                     $providerId=intfield('relay_id');$success=ai_relay_test($providerId);
                     audit('ai.relay.tested',$id,['provider_id'=>$providerId]);

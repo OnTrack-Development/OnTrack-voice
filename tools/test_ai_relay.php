@@ -25,6 +25,10 @@ $next=[];ai_relay_run('voice',static function(array $entry)use(&$next){$next[]=$
 relay_check($next===[$b],'skip cooldown');
 ai_relay_modify($a,'reset');
 relay_check(ai_relay_one($a)['cooldown_until']===null,'reset cooldown');
+$oldSecret=ai_relay_one($a)['secret_enc'];
+ai_relay_edit($a,'Google Updated','gemini-3.8-live-preview','','');
+relay_check(ai_relay_one($a)['model']==='gemini-3.8-live-preview'&&
+    ai_relay_one($a)['secret_enc']===$oldSecret,'edit without rotating stored key');
 ai_relay_modify($b,'up');
 relay_check((int)ai_relay_rows('voice')[0]['id']===$b,'priority reorder');
 foreach(['http://example.com/v1/chat/completions','https://127.0.0.1/v1/chat/completions',

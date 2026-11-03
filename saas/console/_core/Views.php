@@ -1075,6 +1075,14 @@ function render_ai_relay_settings(array $a):void {
                     '<input type="hidden" name="relay_operation" value="'.e($operation).'">'.
                     '<button type="submit" class="btn small">'.e($label).'</button></form>';
             }
+            $content.='<details style="width:100%;margin:8px 0"><summary>تعديل الاسم والموديل والمفتاح</summary>'.
+                form_start('relay_edit','/?tab=settings').
+                '<input type="hidden" name="relay_id" value="'.$id.'">'.
+                '<label class="field">اسم المزوّد<input name="relay_label" maxlength="100" required value="'.e($item['label']).'"></label>'.
+                '<label class="field">Model ID<input name="relay_model" dir="ltr" maxlength="120" required value="'.e($item['model']).'"></label>'.
+                '<label class="field">Endpoint<input name="relay_endpoint" dir="ltr" maxlength="600" value="'.e($item['endpoint']).'"></label>'.
+                '<label class="field">API Key جديد (اتركه فاضيًا للاحتفاظ بالموجود)<input type="password" name="relay_api_key" maxlength="512" autocomplete="off"></label>'.
+                submit_btn('حفظ تعديل المزوّد').'</details>';
             $content.=form_start('relay_test','/?tab=settings','class="inline-form"').
                 '<input type="hidden" name="relay_id" value="'.$id.'">'.
                 '<button type="submit" class="btn small primary">اختبار اتصال</button></form></div></div>';

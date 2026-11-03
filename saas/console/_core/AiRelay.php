@@ -22,9 +22,30 @@ function ai_relay_platform():int {
     if(!$row)throw new RuntimeException('relay_platform_not_found');
     return (int)$row['id'];
 }
+/** One-time adoption of an existing encrypted Google Live platform credential.
+ * No plaintext is read or exported. Never re-import after a manual deletion. */
+function ai_relay_legacy_voice_once():void {
+    $mark=private_path().'/.schema.ai-relay-voice-import.v1';
+    if(is_file($mark))return;
+    $platform=ai_relay_platform();
+    $existing=one("SELECT COUNT(*) n FROM ai_relay_entries WHERE account_id=? AND scope='voice'",[$platform]);
+    if((int)($existing['n']??0)===0){
+        $legacy=one("SELECT name,secret_enc FROM integrations WHERE account_id=? AND provider='google_live'
+            AND status='active' ORDER BY id DESC LIMIT 1",[$platform]);
+        if($legacy&&is_string($legacy['secret_enc']??null)&&
+            unseal_secret($legacy['secret_enc'])!==null){
+            insert("INSERT INTO ai_relay_entries(account_id,scope,driver,label,model,endpoint,
+                secret_enc,priority,enabled,last_status,created_at)
+                VALUES(?,'voice','google_live','Google Live (existing)',?,'',?,1,1,'imported',?)",
+                [$platform,(string)$legacy['name'],(string)$legacy['secret_enc'],now()]);
+        }
+    }
+    file_put_contents($mark,now(),LOCK_EX);@chmod($mark,0600);
+}
 function ai_relay_rows(string $scope,bool $enabledOnly=false):array {
     if(!in_array($scope,['voice','assistant'],true))throw new InvalidArgumentException('relay_scope');
     ai_relay_init();
+    if($scope==='voice')ai_relay_legacy_voice_once();
     return all("SELECT id,account_id,scope,driver,label,model,endpoint,priority,enabled,
         cooldown_until,last_status,last_checked_at FROM ai_relay_entries
         WHERE account_id=? AND scope=? ".($enabledOnly?'AND enabled=1 ':'').
@@ -63,6 +84,19 @@ function ai_relay_add(int $account,string $scope,string $driver,string $name,str
     $maximum=one('SELECT COALESCE(MAX(priority),0) n FROM ai_relay_entries WHERE account_id=? AND scope=?',[$account,$scope]);
     return insert('INSERT INTO ai_relay_entries(account_id,scope,driver,label,model,endpoint,secret_enc,priority,enabled,created_at)
       VALUES(?,?,?,?,?,?,?,?,1,?)',[$account,$scope,$driver,trim($name),$model,$endpoint,seal_secret($key),(int)$maximum['n']+1,now()]);
+}
+function ai_relay_edit(int $id,string $name,string $model,string $endpoint,string $key):void {
+    $row=ai_relay_one($id);
+    if(!$row)throw new InvalidArgumentException('المزوّد غير موجود');
+    if(mb_strlen(trim($name))<2||mb_strlen($name)>100||
+       !preg_match('/\A[A-Za-z0-9._-]{4,120}\z/D',$model)||
+       strlen($key)>512||preg_match('/[\r\n]/',$key))
+        throw new InvalidArgumentException('اسم أو موديل أو مفتاح غير صالح');
+    $url=$row['driver']==='openai_compatible'?ai_relay_endpoint($endpoint):'';
+    $encrypted=$key!==''?seal_secret($key):$row['secret_enc'];
+    execute("UPDATE ai_relay_entries SET label=?,model=?,endpoint=?,secret_enc=?,
+        cooldown_until=NULL,last_status='edited' WHERE id=? AND account_id=?",
+        [trim($name),$model,$url,$encrypted,$id,$row['account_id']]);
 }
 function ai_relay_modify(int $id,string $action):void {
     $item=ai_relay_one($id);
