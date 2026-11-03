@@ -66,8 +66,8 @@ function flow_ai_profile_generate(int $accountId,int $agentId,string $idea,array
         throw new InvalidArgumentException('اكتب التعديل المطلوب من المساعد.');
     $agent=flow_preview_agent_for_account($accountId,$agentId);
     if(!$agent)throw new InvalidArgumentException('agent_not_available');
-    $provider=tenant_voice_provider();
-    $model=flow_ai_model();
+    // Existing server-side Google credential is loaded only by the shared
+    // Gemini 3.8 Live text-turn adapter, not returned to the browser.
     $snapshot=[
         'instructions'=>mb_substr((string)($current['instructions']??''),0,2800),
         'goal'=>mb_substr((string)($current['goal']??''),0,1400),
@@ -118,14 +118,12 @@ PROMPT;
         'integration_suggestions'=>['type'=>'ARRAY','items'=>['type'=>'STRING','enum'=>['whmcs','laravel','wordpress','files']]]
     ],'required'=>['instructions','goal','guardrails','knowledge_append','explanation',
         'use_knowledge','use_signed_facts','human_handoff','integration_suggestions']];
-    $payload=['systemInstruction'=>['parts'=>[['text'=>$system]]],
-        'contents'=>[['role'=>'user','parts'=>[['text'=>$context]]]],
-        'generationConfig'=>['responseMimeType'=>'application/json','responseSchema'=>$schema,
-            'thinkingConfig'=>['thinkingLevel'=>'MEDIUM'],'maxOutputTokens'=>6000]];
-    // Google transport errors (HTTP 503, HTTP 0) share the same bounded
-    // safe retry policy as the flow graph. Never touch phone Live settings.
-    $body=flow_ai_google_request($payload,$provider['key'],$model,90000);
-    $proposal=flow_ai_profile_extract($body);
+    // Match graph mode: Gemini 3.8 Live Extended Thinking accepts a
+    // completed TEXT turn and returns a structured NON_BLOCKING tool call.
+    // Never call REST generateContent for editor chat.
+    $proposal=flow_ai_profile_validate(
+        flow_ai_live_proposal($system,$context,$schema)
+    );
     // Keep structural suggestions; replace untrusted model completion claims.
     $proposal['explanation']=flow_ai_profile_summary($proposal);
     return $proposal;
