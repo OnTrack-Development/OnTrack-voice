@@ -734,8 +734,8 @@
       "verified_e2e": false,
       "completion_evidence": [],
       "updated_on": "2026-11-03",
-      "implementation_note": "Verified Android workflow run 41592208970: build SUCCESS, publish_ota queue SUCCESS, publish_native FAILURE. Host mobile-ota-41592208970 receipt actually FAILED exit_code=1, ValueError Wrong target in saas/mobile/ota/deploy.py; guard requires /home/appontrack/public_html/saas/mobile while canonical app release is root /. Native job was never queued. This corrects earlier inaccurate attribution of Wrong target to native APK. No physical Xiaomi event replay proof. Do not advance.",
-      "latest_feature_commit": "bcb933d7b9d88a007f48280575152a023e0da872",
+      "implementation_note": "OTA path guard patched in saas/mobile/ota/deploy.py to require canonical /home/appontrack/public_html/mobile/updates, not legacy /saas/mobile/updates, with fail-closed checks for symlinks/account/private dir. Commit 693339241348e6366116743d8a5b281ed8fa6a28. This is a code-only patch: no CI run or matching host deployment receipt yet; actual existence of canonical mobile directory on host unverified, native APK still not queued, and physical Xiaomi disconnect/reconnect event replay unverified. Do not mark DONE or advance R041.",
+      "latest_feature_commit": "693339241348e6366116743d8a5b281ed8fa6a28",
       "ci_verification": {
         "run_id": 41592208929,
         "conclusion": "success",
