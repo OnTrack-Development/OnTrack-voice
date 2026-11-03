@@ -726,49 +726,66 @@ function render_contacts(array $a):void {
 }
 function render_calls(array $a):void{
     $id=(int)$a['account_id'];
-    $keyword=trim((string)($_GET['q']??''));
-    if(mb_strlen($keyword)>80)$keyword=mb_substr($keyword,0,80);
-    $requestedStatus=(string)($_GET['status']??'all');
-    $statuses=['all','active','ended','ringing','answered','missed','failed','completed','busy','no_answer'];
-    $filter=in_array($requestedStatus,$statuses,true)?$requestedStatus:'all';
-    $params=[$id];
-    $where='account_id=?';
-    if($keyword!==''){
-        $where.=" AND (name LIKE ? OR phone LIKE ?)";
-        $term='%'.str_replace(['%','_'],['\\%','\\_'],$keyword).'%';
-        $params[]=$term;$params[]=$term;
-    }
-    if($filter!=='all'){$where.=' AND status=?';$params[]=$filter;}
-    $list=all('SELECT c.id,c.name,c.phone,c.status,c.duration_seconds,c.is_demo,c.device_binding_id,
-        c.external_call_id,c.sim_slot,c.site_id,c.created_at,
-        r.summary,r.customer_notes,r.outcome,r.handoff_status,r.handoff_reason,
-        r.source AS report_source,r.updated_at AS report_updated_at
-        FROM calls c LEFT JOIN tenant_call_reports r ON
-          r.account_id=c.account_id AND r.site_id=c.site_id
-          AND r.device_binding_id=c.device_binding_id AND r.call_id=c.external_call_id
-        WHERE '.str_replace(['account_id=?','name LIKE ?','phone LIKE ?','status=?'],
-            ['c.account_id=?','c.name LIKE ?','c.phone LIKE ?','c.status=?'],$where).
-        ' ORDER BY c.id DESC LIMIT 200',$params);
+    require_once __DIR__.'/CallHistory.php';
+    $history=call_history_filters($id,$_GET);
+    $keyword=$history['q'];$filter=$history['status'];
+    $page=min(10000,max(1,(int)($_GET['page']??1)));
+    $total=call_history_count($history);
+    $list=call_history_rows($history,100,($page-1)*100);
     $requestedId=max(0,(int)($_GET['call']??0));
     $selected=null;
-    foreach($list as $item){if((int)$item['id']===$requestedId)$selected=$item;}
+    foreach($list as $item)if((int)$item['id']===$requestedId)$selected=$item;
     if($selected===null)$selected=$list[0]??null;
-    $stats=one('SELECT COUNT(*) n FROM calls WHERE account_id=?',[$id]);
+    $stats=['n'=>$total];
+    $siteOptions=['0'=>'كل المواقع'];
+    foreach(all('SELECT id,name FROM sites WHERE account_id=? ORDER BY id',[$id]) as $site)
+        $siteOptions[(string)$site['id']]=$site['name'];
+    $filterQuery=http_build_query(array_filter([
+        'tab'=>'calls','q'=>$keyword,'status'=>$filter,
+        'sim_slot'=>$history['sim'],'site_id'=>$history['site'],
+        'from'=>$history['from'],'to'=>$history['to']
+    ],static fn($value)=>$value!==''));
     echo '<section class="calls-workspace" aria-label="صندوق المكالمات">';
     echo '<header class="calls-top"><div><span class="eyebrow">ONTRACK VOICE</span><h2>صندوق المكالمات</h2>'.
         '<p>المكالمات الواردة والصادرة، ملخصاتها، ملاحظات العملاء وطلبات تدخل الموظف. الاسم والرقم يظهران عند وصول تعريف موثوق من جهاز Android؛ بدون اختلاق بيانات.</p></div>'.
         '<span class="calls-total">'.(int)($stats['n']??0).' مكالمة مسجّلة</span></header>';
-    echo '<form class="calls-filters" action="/saas/console/" method="get" role="search"><input type="hidden" name="tab" value="calls">'.
-        '<label class="field">بحث بالاسم أو الرقم<input name="q" value="'.e($keyword).'" placeholder="اسم العميل أو الرقم" maxlength="80"></label>'.
+    echo '<form class="calls-filters" action="/" method="get" role="search"><input type="hidden" name="tab" value="calls">'.
+        '<label class="field">بحث بالاسم أو الرقم أو Call ID<input name="q" value="'.e($keyword).'" maxlength="80"></label>'.
         '<label class="field">الحالة<select name="status">';
-    $labels=['all'=>'كل الحالات','active'=>'مكالمة جارية','ended'=>'انتهت','ringing'=>'جاري الاتصال','answered'=>'تم الرد','missed'=>'فائتة','failed'=>'فشلت','completed'=>'مكتملة','busy'=>'مشغول','no_answer'=>'لم يرد'];
+    $labels=['all'=>'كل الحالات','active'=>'مكالمة جارية','ended'=>'انتهت',
+        'ringing'=>'رنين','answered'=>'تم الرد','missed'=>'فائتة',
+        'failed'=>'فشلت','completed'=>'مكتملة','busy'=>'مشغول','no_answer'=>'لم يرد'];
     foreach($labels as $key=>$name)echo '<option value="'.e($key).'"'.($filter===$key?' selected':'').'>'.e($name).'</option>';
-    echo '</select></label><button class="btn primary" type="submit">بحث</button></form>';
+    echo '</select></label>'.
+        select_html('الشريحة','sim_slot',['all'=>'كل الشرائح','0'=>'SIM 1','1'=>'SIM 2'],$history['sim']).
+        select_html('الموقع','site_id',$siteOptions,$history['site']).
+        '<label class="field">من تاريخ<input type="date" name="from" value="'.e($history['from']).'"></label>'.
+        '<label class="field">إلى تاريخ<input type="date" name="to" value="'.e($history['to']).'"></label>'.
+        '<button class="btn primary" type="submit">تصفية</button></form>';
+    if(allowed('calls.read')) {
+        echo form_start('export_call_history','/?tab=calls','class="inline-form"');
+        foreach(['q','status','sim_slot','site_id','from','to'] as $filterName) {
+            $filterValue=match($filterName) {
+                'q'=>$keyword,'status'=>$filter,'sim_slot'=>$history['sim'],
+                'site_id'=>$history['site'],'from'=>$history['from'],
+                default=>$history['to']
+            };
+            echo '<input type="hidden" name="'.e($filterName).'" value="'.e($filterValue).'">';
+        }
+        echo '<button class="btn small" type="submit">تصدير CSV (حتى 5000)</button></form>';
+    }
+    if($total>100){
+        echo '<nav class="calls-pagination" aria-label="صفحات سجل المكالمات">';
+        if($page>1)echo '<a href="/?'.e($filterQuery).'&page='.($page-1).'">السابق</a>';
+        echo ' صفحة '.(int)$page.' من '.(int)ceil($total/100).' ';
+        if($page*100<$total)echo '<a href="/?'.e($filterQuery).'&page='.($page+1).'">التالي</a>';
+        echo '</nav>';
+    }
     echo '<div class="calls-inbox"><div class="calls-list" aria-label="سجل المكالمات">';
     if(!$list)echo '<div class="calls-empty">لا توجد مكالمات مطابقة للبحث. البيانات هتظهر هنا بعد وصول سجل مكالمات حقيقي من الجهاز.</div>';
     foreach($list as $c){
         $chosen=$selected&&(int)$selected['id']===(int)$c['id'];
-        $url='/saas/console/?tab=calls&call='.(int)$c['id'].'&status='.rawurlencode($filter).'&q='.rawurlencode($keyword);
+        $url='/?'. $filterQuery .'&page='.(int)$page.'&call='.(int)$c['id'];
         $letter=mb_substr((string)($c['name']?:$c['phone']),0,1);
         echo '<a class="call-contact'.($chosen?' active':'').'" href="'.e($url).'"'.($chosen?' aria-current="true"':'').'><span class="call-avatar">'.e($letter).'</span>'.
             '<span class="call-contact-main"><strong>'.e((string)($c['name']?:($c['phone']!==''?'رقم غير مسجل':'هوية المتصل لم تصل بعد'))).'</strong>'.

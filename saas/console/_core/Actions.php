@@ -9,6 +9,7 @@ require_once __DIR__.'/FlowTemplates.php';
 require_once __DIR__.'/AgentAnswerPolicy.php';
 require_once __DIR__.'/Checkout.php';
 require_once __DIR__.'/AiRelay.php';
+require_once __DIR__.'/CallHistory.php';
 
 function field(string $key,int $max=200):string{
     $v=trim((string)($_POST[$key]??''));
@@ -767,6 +768,16 @@ function act():void {
                    throw new InvalidArgumentException('يجب إثبات صلاحية الصوت على مزود الاتصال أولاً');
                 execute('UPDATE voices SET ready=? WHERE id=?',[$ready,$voice['id']]);
                 audit('voice.ready.updated',$id,['voice'=>$voice['id'],'ready'=>$ready]);break;
+            case 'export_call_history':
+                require_permission('calls.read');
+                if(active_support()&&$a['role']==='support_viewer')deny();
+                $filters=[];
+                foreach(['q','status','sim_slot','site_id','from','to'] as $field)
+                    $filters[$field]=(string)($_POST[$field]??'');
+                $parsed=call_history_filters($id,$filters);
+                audit('calls.history.export',$id,['count'=>call_history_count($parsed)]);
+                call_history_csv($id,$filters);
+                exit;
             case 'save_call_report':
                 require_permission('calls.write');
                 require_once __DIR__.'/TenantWorkspace.php';

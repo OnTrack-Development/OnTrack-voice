@@ -172,7 +172,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     if($path==='/logout'||($_POST['action']??'')==='logout'){
         require_csrf();audit('logout',mine()?(int)mine()['account_id']:null);
         $_SESSION=[];
-        if(ini_get('session.use_cookies'))setcookie(session_name(),'',time()-3600,'/saas/console','',true,true);
+        if(ini_get('session.use_cookies'))setcookie(session_name(),'',time()-3600,'/','',true,true);
         session_destroy();go('/login');
     }
     act();
