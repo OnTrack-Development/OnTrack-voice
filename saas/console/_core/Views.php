@@ -415,6 +415,7 @@ function render_invitations():void {
     else echo '<form method="post" action="/saas/console/logout"><input type="hidden" name="csrf" value="'.e(csrf()).'"><button type="submit" class="btn small">تسجيل الخروج</button></form>';
 }
 function render_sites(array $a):void{
+    require_once __DIR__.'/RecycleBin.php';
     $id=(int)$a['account_id'];$sites=all("SELECT * FROM sites WHERE account_id=? AND status!='archived' ORDER BY id DESC",[$id]);
     echo '<div class="cols two">';
     $cells=[];
@@ -424,6 +425,27 @@ function render_sites(array $a):void{
     echo card('مواقعي',tbl(['الموقع','الدومين','الحالة','التشغيل'],$cells));
     if(allowed('sites.write'))echo card('موقع جديد',form_start('add_site','/?tab=sites').field_html('اسم الموقع','name','text','الصيدلية / الملابس / الدعم',true).field_html('الدومين','domain','text','store.example.com').submit_btn('إضافة موقع مستقل'));
     echo '</div>';
+    if(in_array($a['role'],['owner','admin'],true) && !active_support()){
+        $recycleRows=[];
+        foreach(recycle_entries($id) as $entry){
+            $kind=$entry['kind'];
+            $restore=form_start('restore_archived','/?tab=sites','class="inline-form"').
+                '<input type="hidden" name="recycle_kind" value="'.e($kind).'">'.
+                '<input type="hidden" name="recycle_id" value="'.(int)$entry['id'].'">'.
+                '<button type="submit" class="btn small">استعادة</button></form>';
+            $recycleRows[]=[e($entry['name']),$kind==='site'?'موقع':'إيجنت',
+                e((string)($entry['archived_at']??'أرشيف قديم')),$restore];
+        }
+        echo card('سلة المحذوفات — المواقع والإيجنتات',
+            '<p class="dim">الاستعادة لا تعيد تشغيل الإيجنت تلقائيًا ولا تلمس السجلات المالية أو سجل المكالمات.</p>'.
+            tbl(['العنصر','النوع','تاريخ الأرشفة','إجراء'],$recycleRows));
+        echo card('سياسة الاحتفاظ بالأرشيف',
+            form_start('recycle_policy','/?tab=sites').
+            '<label class="field">مدة الاحتفاظ بالأيام (7–3650)'.
+            '<input name="retention_days" type="number" min="7" max="3650" value="'.(int)recycle_retention($id).'" required>'.
+            '</label><p class="dim">مدة الاحتفاظ لا تنفذ حذفًا نهائيًا تلقائيًا. الحذف النهائي يحتاج تدقيق التبعيات والموافقات.</p>'.
+            submit_btn('حفظ سياسة الاحتفاظ'));
+    }
 }
 /** Only operational controls: stored text and tested read-only sources.
  * Caller-based privileges are registered here but NOT yet trusted by voice runtime.
