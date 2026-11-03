@@ -795,7 +795,12 @@ class MobileLinkActivity:ComponentActivity(){
                         val initial=JSONObject().put("base","").put("key","")
                         web.evaluateJavascript("window.onTrackInit && window.onTrackInit($initial)",null)
                     }
-                    "stop","disable"->ContextCompat.startForegroundService(this@MobileLinkActivity,Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_DISABLE))
+                    "stop","disable"->{
+                        startRequestedAfterPhonePermission=false
+                        ContextCompat.startForegroundService(this@MobileLinkActivity,
+                            Intent(this@MobileLinkActivity,MobileLinkService::class.java)
+                                .setAction(MobileLinkService.ACTION_DISABLE))
+                    }
                     "start","enable"-> requestStartTenantMonitor()
                     "takeover"->startService(Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_TAKEOVER))
                     "speaker"->startService(Intent(this@MobileLinkActivity,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_SPEAKER))
