@@ -328,8 +328,16 @@ function wa_webhook_ingest(array $connection,array $payload):array {
                         generation=generation+1 WHERE id=? AND account_id=?',
                         [now(),now(),(string)($profiles[$from]??''),(string)($profiles[$from]??''),$convId,$accountId]);
                     wa_audit($accountId,$convId,'whatsapp.inbound',mb_substr($providerId,0,120));
-                    $native=((int)($connection['ai_enabled']??0)===1 && (int)($connection['ai_agent_id']??0)>0);
-                    if($native&&in_array($type,['text','button','interactive'],true)){
+                    // The existing WHMCS AI Support Agent bridge is a separate
+                    // channel worker; unlike the native agent it doesn't require
+                    // ai_enabled or a site-specific native ai_agent_id.
+                    // Only enqueue after verified Meta connection + signed WHMCS
+                    // capability handshake, while respecting human takeover.
+                    $native=((int)($connection['ai_enabled']??0)===1 &&
+                        (int)($connection['ai_agent_id']??0)>0);
+                    $whmcs=!empty($connection['whmcs_bridge_verified_at']) &&
+                        ($connection['state']??'')==='verified';
+                    if(($native||$whmcs)&&in_array($type,['text','button','interactive'],true)){
                         $current=one('SELECT generation,ai_pause_until,human_locked_at FROM wa_conversations WHERE id=? AND account_id=?',
                             [$convId,$accountId]);
                         if($current&&wa_ai_allowed($current)){

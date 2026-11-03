@@ -30,7 +30,11 @@ try{
     verify(!str_contains($customerHtml,'محرك الصوت الجديد — Google Gemini Live'),'customer workspace hides provider key settings');
     $_SESSION['console_view']='admin';
     ob_start();render_settings(mine());$adminHtml=(string)ob_get_clean();
-    verify(str_contains($adminHtml,'محرك الصوت الجديد — Google Gemini Live'),'admin workspace retains provider settings');
+    verify(str_contains($adminHtml,'Voice Relay — مفاتيح Google للمكالمات')
+        && str_contains($adminHtml,'AI Assistant Relay — المزوّدون والموديلات'),
+        'admin workspace retains both independent Relay pools');
+    verify(str_contains($adminHtml,'relay_driver')&&str_contains($adminHtml,'relay-models-'),
+        'provider selector and manual model picker available to platform admin');
     $css=(string)file_get_contents(__DIR__.'/../saas/console/assets/css/app.css');
     verify(str_contains($css,'input[type="checkbox"]'),'checkbox styles explicitly scoped');
     $ui=(string)file_get_contents(__DIR__.'/../saas/mobile/ota/ui.html');

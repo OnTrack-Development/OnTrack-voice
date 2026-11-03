@@ -46,6 +46,26 @@ jobs:
           python3 tools/test_voice_restore_033.py
           php tools/test_flow_ai_chat.php
           php tools/test_ai_relay.php
+          # Release gating must match the required console regressions.
+          # A green root publisher is not allowed while the full console suite is red.
+          php tools/test_admin_mfa.php
+          php tools/test_console_kashier_webhook.php
+          php tools/test_console_pricing_ui.php
+          php tools/test_tenant_workspace.php
+          php tools/test_tenant_voice_transcript_archive.php
+          php tools/test_flow_ai_sources.php
+          php tools/test_dynamic_agent_studio.php
+          php tools/test_flow_ai_stress.php
+          php tools/test_whatsapp_inbox.php
+          php tools/test_whatsapp_whmcs_bridge.php
+          php tools/test_voice_trial_and_ui.php
+          php tools/test_flow_templates.php
+          php tools/test_answer_policy.php
+          php tools/test_google_provider_config.php
+          node tools/test_voice_qr.cjs
+          node tools/test_floating_flow_ui.cjs
+          node tools/test_graph_routing.cjs
+          node tools/test_console_ajax_ui.cjs
           php tools/test_ai_agent_profile.php
           php tools/test_flow_ai_live_thinking.php
           php tools/test_flow_ai_live_text_editor.php
