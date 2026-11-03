@@ -197,6 +197,7 @@ class MobileLinkService:Service() {
         var ringingAt=0L
         var answeredByAgent=false
         var ringAttempted=false
+        var outgoingCall=false
         var startedAt=0L
         var tenantFlow:JSONObject?=null
         var tenantSession:JSONObject?=null
@@ -265,7 +266,7 @@ class MobileLinkService:Service() {
                     if(current==null){
                         if(selected!=null){
                             call?.stop();call=null;tenantSession=null;tenantFlow=null
-                            selected=null;answeredByAgent=false;ringAttempted=false;humanControl=false
+                            selected=null;answeredByAgent=false;ringAttempted=false;outgoingCall=false;humanControl=false
                             ringingAt=0L;startedAt=0L
                         }
                         inCall=false;callAnswered=false
@@ -282,12 +283,13 @@ class MobileLinkService:Service() {
                         delay(750);continue
                     }
                     if(selected!=current.slot){
-                        selected=current.slot;answeredByAgent=false;ringAttempted=false;tenantFlow=null;tenantSession=null
+                        selected=current.slot;answeredByAgent=false;ringAttempted=false;outgoingCall=false;tenantFlow=null;tenantSession=null
                         ringingAt=SystemClock.elapsedRealtime();startedAt=0L;humanControl=false
                     }
                     inCall=true;callAnswered=current.state==TelephonyManager.CALL_STATE_OFFHOOK
                     if(current.state==TelephonyManager.CALL_STATE_RINGING && !ringAttempted){
                         ringAttempted=true
+                        outgoingCall=false
                         try{
                             val flow=enrollment.publishedFlow(current.slot)
                             val answer=flow.optJSONObject("answer_policy")?:JSONObject()
@@ -311,6 +313,7 @@ class MobileLinkService:Service() {
                     if(current.state==TelephonyManager.CALL_STATE_OFFHOOK && !ringAttempted &&
                         !answeredByAgent && tenantSession==null && !humanControl){
                         ringAttempted=true
+                        outgoingCall=true
                         try{
                             val flow=enrollment.publishedFlow(current.slot)
                             val answer=flow.optJSONObject("answer_policy")?:JSONObject()
@@ -353,7 +356,7 @@ class MobileLinkService:Service() {
                         val reportSlot=current.slot
                         val reportBinding=enrollment.bindingId(reportSlot)
                         val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,
-                            sess,liveSettings,::notice) { realTranscript ->
+                            sess,liveSettings,::notice,outgoingCall=outgoingCall) { realTranscript ->
                             if(reportCallId!=null)
                                 reportOutbox.enqueue(reportSlot,reportBinding,reportCallId,realTranscript)
                         }
