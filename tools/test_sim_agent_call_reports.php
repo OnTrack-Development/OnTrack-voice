@@ -79,12 +79,10 @@ try {
         'terminal status and duration cannot regress after late events');
     $events=all('SELECT sequence FROM tenant_call_events WHERE device_binding_id=? AND call_id=?',[$device,$callId]);
     finding_ok(count($events)===5,'exactly one ledger event per sequence');
-    $foreign=['id'=>$device,'account_id'=>5,'site_id'=>3,'sim_slot'=>1];
-    $foreignId='12345678-1234-4123-8123-123456789abc';
-    // Caller-supplied binding fields cannot mutate an existing call from another tenant.
-    $foreignExisting=one('SELECT id FROM calls WHERE account_id=? AND site_id=? AND device_binding_id=? AND external_call_id=?',[
-        4,1,$device,$callId]);
-    finding_ok($foreignExisting!==null,'owner call remains tenant-scoped');
+    // Verify the call remains attached to the authorized tenant and SIM.
+    $scoped=one('SELECT id FROM calls WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? AND external_call_id=?',[
+        4,1,$device,0,$callId]);
+    finding_ok($scoped!==null,'call remains scoped to tenant and paired SIM');
     $result=tenant_workspace_call_report($binding,[
         'call_id'=>$callId,'summary'=>'سأل عن المنتج والتسليم.',
         'customer_notes'=>'يُفضّل التواصل مساءً.','outcome'=>'interested',
