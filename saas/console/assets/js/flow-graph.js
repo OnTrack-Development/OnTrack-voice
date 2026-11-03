@@ -188,9 +188,14 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    const id=chatIdentity();
    if(!id)throw Error('لم يتم تحديد الإيجنت أو جلسة التعديل');
    const params=new URLSearchParams({csrf:id.csrf,agent_id:id.agentId,action,...fields});
-   const res=await fetch(id.form.action,{method:'POST',credentials:'same-origin',cache:'no-store',
-     headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','Accept':'application/json'},
-     body:params.toString()});
+   let res;
+   try{
+     res=await fetch(id.form.action,{method:'POST',credentials:'same-origin',cache:'no-store',
+       headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','Accept':'application/json'},
+       body:params.toString()});
+   }catch{
+     throw Error('تعذر الوصول لسيرفر OnTrack. مسودتك محفوظة؛ تحقق من الاتصال وحاول مرة أخرى.');
+   }
    const contentType=(res.headers.get('content-type')||'').toLowerCase();
    const raw=await res.text();
    if(!contentType.includes('application/json')){
@@ -283,7 +288,12 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    if(busy)return;
    if(!chatIdentity()){aiStatus.textContent='لا توجد جلسة تعديل معتمدة.';return;}
    const mode=aiMode.value;
-   busy=true;clearAiProposal();
+   // Keep the old reviewed preview if both new network requests fail.
+   // Never mix an older profile with a new graph or vice versa.
+   const oldGraph=proposal,oldProfile=profileProposal;
+   const oldPreview=[...aiPreview.childNodes].map(node=>node.cloneNode(true));
+   busy=true;proposal=null;profileProposal=null;
+   aiPreview.replaceChildren();aiApply.hidden=true;aiCancel.hidden=true;
    aiMessage('user',prompt);aiSubmit.disabled=true;
    aiStatus.textContent='جارٍ تصميم '+(mode==='both'?'المخطط والخصائص':mode==='graph'?'المخطط':'الخصائص')+'…';
    const errors=[];
@@ -310,7 +320,13 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
      }
      if(proposal||profileProposal){
        hasHistory=true;aiInput.value='';
-       aiStatus.textContent='راجع كل اقتراح، ثم اضغط «نفّذ المقترح كمسودة». النشر يحتاج خطوة منفصلة.';
+       aiStatus.textContent='راجع الاقتراح الجديد ثم اضغط «نفّذ المقترح كمسودة». النشر يحتاج خطوة منفصلة.';
+     }else if(oldGraph||oldProfile){
+       // No new result: restore last valid preview without applying changes.
+       proposal=oldGraph;profileProposal=oldProfile;
+       aiPreview.replaceChildren(...oldPreview);
+       aiApply.hidden=false;aiCancel.hidden=false;
+       aiStatus.textContent='لم يتم إنشاء اقتراح جديد؛ المقترح السابق محفوظ كما هو. ';
      }
      if(errors.length){
        for(const error of errors)aiMessage('assistant',error);
