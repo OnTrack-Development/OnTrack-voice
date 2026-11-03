@@ -78,7 +78,7 @@ def require_successful_ui_release(current, report, run_id, ui_envelope):
         expected = json.loads(ui_envelope["payload"])
         receipt = json.loads(report["stdout"])
         if (receipt.get("status") != "installed"
-                or receipt.get("scope") != "saas/mobile/updates"
+                or receipt.get("scope") != "mobile/updates"
                 or type(receipt.get("revision")) is not int
                 or receipt["revision"] != expected["revision"]
                 or receipt.get("sha256") != expected["sha256"]):
@@ -125,7 +125,7 @@ def main():
     now=datetime.datetime.now(datetime.timezone.utc)
     task={"schema":1,"id":job_id,"target":TARGET,"action":"exec","created_at":now.isoformat(),
           "expires_at":(now+datetime.timedelta(hours=3)).isoformat(),
-          "cwd":"/home/appontrack/public_html/saas","timeout_seconds":30,
+          "cwd":"/home/appontrack/public_html","timeout_seconds":30,
           "argv":["/bin/python3","-c",script,url,base64.b64encode(envelope).decode(),base64.b64encode(cert).decode(),meta["sha256"]]}
     body=json.dumps(task,ensure_ascii=False,indent=2).encode()
     assert len(body)<=16384,f"host queue payload exceeds limit: {len(body)}"
