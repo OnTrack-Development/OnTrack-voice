@@ -75,7 +75,7 @@ function tenant_workspace_calls(array $b):array{
 function tenant_workspace_call_event(array $b,array $p):array{
     $id=$p['call_id']??null;$seq=$p['sequence']??null;$phase=$p['phase']??null;$duration=$p['duration_seconds']??0;
     if(!is_string($id)||!preg_match('/^[a-f0-9-]{36}$/D',$id)||!is_int($seq)||$seq<1||$seq>100||
-       !in_array($phase,['ringing','active','missed','ended','identified'],true)||
+       !in_array($phase,['ringing','active','missed','ended','identified','human_takeover'],true)||
        !is_int($duration)||$duration<0||$duration>172800)
         throw new InvalidArgumentException('invalid_call_event');
     db()->beginTransaction();
@@ -85,7 +85,26 @@ function tenant_workspace_call_event(array $b,array $p):array{
             if(!one('SELECT id FROM calls WHERE device_binding_id=? AND external_call_id=?',[$b['id'],$id]))
                 insert('INSERT INTO calls(account_id,site_id,phone,name,duration_seconds,status,is_demo,created_at,external_call_id,device_binding_id,sim_slot) VALUES (?,?,?,?,?,?,0,?,?,?,?)',[
                     $b['account_id'],$b['site_id'],'','',0,'ringing',now(),$id,$b['id'],$b['sim_slot']]);
-            if($phase==='identified'){
+            if($phase==='human_takeover'){
+                // A handset takeover stops the AI. It is NOT proof of an
+                // external phone transfer or a staff member answering.
+                $reason='تم استلام التحكم من الإيجنت يدويًا عبر زر الهاتف؛ لا يوجد تحويل خارجي مؤكد.';
+                $report=tenant_call_report_find($b,$id);
+                if(!$report){
+                    insert('INSERT INTO tenant_call_reports
+                        (account_id,site_id,device_binding_id,call_id,summary,customer_notes,
+                         outcome,handoff_status,handoff_reason,source,revision,created_at,updated_at)
+                        VALUES (?,?,?,? ,?,? ,?,?,?,? ,1,?,?)',
+                        [$b['account_id'],$b['site_id'],$b['id'],$id,'','',
+                         'unknown','requested',$reason,'device_handoff',now(),now()]);
+                }elseif(($report['handoff_status']??'')!=='completed'){
+                    execute("UPDATE tenant_call_reports SET handoff_status='requested',
+                        handoff_reason=CASE WHEN handoff_reason='' THEN ? ELSE handoff_reason END,
+                        revision=revision+1,updated_at=?
+                        WHERE account_id=? AND site_id=? AND device_binding_id=? AND call_id=?",[
+                        $reason,now(),$b['account_id'],$b['site_id'],$b['id'],$id]);
+                }
+            }elseif($phase==='identified'){
                 $phone=(string)($p['phone_number']??'');$name=trim((string)($p['contact_name']??''));
                 if($phone!==''&&mb_strlen($name)<=100&&preg_match('/^\\+?[0-9 ()-]{8,30}$/D',$phone)){
                     // A contact name may be absent from Android contacts; only use
@@ -212,7 +231,12 @@ function tenant_workspace_call_analysis(array $binding,array $data,?callable $tr
     // Preserve genuine model text before contacting a fallible AI summarizer.
     tenant_voice_transcript_store($binding,$callId,$transcript);
     $previous=tenant_call_report_find($binding,$callId);
-    if($previous)return ['saved'=>true,'duplicate'=>true,'report'=>$previous];
+    // Human takeover may have been reported before the model summary arrived.
+    // Keep its reason and do not discard the real transcript/AI analysis.
+    if($previous && trim((string)$previous['summary'])!=='')
+        return ['saved'=>true,'duplicate'=>true,'report'=>$previous];
+    if($previous && ($previous['handoff_status']??'')==='completed')
+        return ['saved'=>true,'duplicate'=>true,'report'=>$previous];
     $schema=[
         'type'=>'OBJECT','properties'=>[
             'summary'=>['type'=>'STRING'],
@@ -261,9 +285,12 @@ function tenant_workspace_call_analysis(array $binding,array $data,?callable $tr
     if($requested&&$reason==='')$reason='يحتاج تدخل موظف؛ لم يؤكد تنفيذ التحويل';
     return tenant_call_report_save($binding,[
         'call_id'=>$callId,'summary'=>trim(mb_substr($result['summary'],0,1200)),
-        'customer_notes'=>$note,'outcome'=>$result['outcome'],
-        'handoff_status'=>$requested?'requested':'not_requested',
-        'handoff_reason'=>$requested?$reason:''
+        'customer_notes'=>trim((string)($previous['customer_notes']??''))?:$note,
+        'outcome'=>(($previous['outcome']??'unknown')==='unknown')?$result['outcome']:$previous['outcome'],
+        'handoff_status'=>($previous['handoff_status']??'not_requested')!=='not_requested'
+            ?$previous['handoff_status']:($requested?'requested':'not_requested'),
+        'handoff_reason'=>trim((string)($previous['handoff_reason']??''))?:
+            ($requested?$reason:'')
     ],'device');
 }
 
