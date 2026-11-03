@@ -538,7 +538,18 @@ function act():void {
                 scoped_customer((int)$order['account_id']);
                 db()->beginTransaction();
                 try{
-                    execute("UPDATE orders SET status='approved',payment_reference=? WHERE id=? AND status='pending_manual_review'",[$proof,$order['id']]);
+                    // Each manual receipt can settle exactly one eligible order.
+                    if(one('SELECT id FROM orders WHERE payment_reference=? AND id<>?',[$proof,$order['id']]))
+                        throw new InvalidArgumentException('مرجع الدفع مستخدم لطلب آخر');
+                    $plan=one("SELECT id,kind,price_minor FROM plans WHERE id=? AND status='active'",[$order['plan_id']]);
+                    $target=account((int)$order['account_id']);
+                    if(!$plan||!$target||$target['status']!=='active'||
+                        $plan['kind']!==($target['kind']==='reseller'?'reseller':'user')||
+                        (int)$plan['price_minor']!==(int)$order['amount_minor'])
+                        throw new InvalidArgumentException('بيانات طلب الدفع أو الباقة تغيرت');
+                    if(execute("UPDATE orders SET status='approved',payment_reference=? WHERE id=? AND status='pending_manual_review'",
+                        [$proof,$order['id']])!==1)
+                        throw new RuntimeException('manual_payment_state_race');
                     $active=one("SELECT id FROM subscriptions WHERE account_id=? AND status='active'
                         AND starts_at<=? AND ends_at>? ORDER BY id DESC LIMIT 1",
                         [$order['account_id'],now(),now()]);
