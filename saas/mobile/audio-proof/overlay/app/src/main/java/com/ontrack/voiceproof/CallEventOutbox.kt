@@ -71,6 +71,41 @@ internal class CallEventOutbox(private val context: Context) {
     }
 
 
+    @Synchronized fun activeCallId(): String? =
+        prefs.getString("active_id", null)?.takeIf { it.isNotBlank() }
+
+    /** Model transcription and handoff signals are queued separately from telephony phases. */
+    @Synchronized fun appendReport(callId: String, kind: String, role: String, text: String) {
+        require(kind in listOf("transcript","handoff")) { "unsupported report event" }
+        require(role in listOf("caller","agent","system")) { "unsupported report author" }
+        require(kind != "transcript" || role != "system") { "transcript must identify the speaker" }
+        val clean = text.trim().take(1500)
+        if(clean.isBlank()) return
+        require(UUID.fromString(callId).toString() == callId) { "invalid call id" }
+        val queue = JSONArray(prefs.getString("pending_report","[]") ?: "[]")
+        check(queue.length() < 350) { "Call transcript queue is full" }
+        queue.put(JSONObject().put("call_id",callId).put("entry_id",UUID.randomUUID().toString())
+            .put("kind",kind).put("role",role).put("text",clean))
+        check(prefs.edit().putString("pending_report",queue.toString()).commit()) {
+            "Transcript persistence failed"
+        }
+    }
+
+    @Synchronized fun peekReport(): JSONObject? =
+        runCatching { JSONArray(prefs.getString("pending_report","[]") ?: "[]").optJSONObject(0) }.getOrNull()
+
+    @Synchronized fun acknowledgeReport(sent: JSONObject) {
+        val queue = JSONArray(prefs.getString("pending_report","[]") ?: "[]")
+        val first = queue.optJSONObject(0) ?: return
+        if(first.optString("entry_id") != sent.optString("entry_id") ||
+            first.optString("call_id") != sent.optString("call_id")) return
+        val rest = JSONArray()
+        for(i in 1 until queue.length()) rest.put(queue.get(i))
+        check(prefs.edit().putString("pending_report",rest.toString()).commit()) {
+            "Report acknowledgment failed"
+        }
+    }
+
     /** Retry for eventual CallLog consistency; never guess from unrelated saved contacts. */
     @Synchronized fun enrichFromCallLog() {
         if(ContextCompat.checkSelfPermission(context,Manifest.permission.READ_CALL_LOG)!=PackageManager.PERMISSION_GRANTED)return
