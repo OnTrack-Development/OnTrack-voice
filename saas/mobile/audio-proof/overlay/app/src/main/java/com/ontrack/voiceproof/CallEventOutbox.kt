@@ -58,7 +58,15 @@ internal class CallEventOutbox(private val context: Context) {
                 .put("started",beganWall).put("ended",System.currentTimeMillis())
                 .put("duration",duration))
         }
+        val reports=JSONArray(prefs.getString("pending_report","[]") ?: "[]")
+        if(state==0 && answered>0L){
+            check(reports.length()<350) { "Call reports full; finalization not queued" }
+            // Enqueued after all previously observed transcripts; the server only summarizes genuine text.
+            reports.put(JSONObject().put("call_id",id).put("entry_id",UUID.randomUUID().toString())
+                .put("kind","finalize").put("role","system").put("text","end_of_call"))
+        }
         check(prefs.edit().putString("pending",pending.toString())
+            .putString("pending_report",reports.toString())
             .putString("pending_lookup",lookups.toString())
             .putInt("last_state",state)
             .putString("active_id",if(state==0)"" else id)
@@ -70,6 +78,41 @@ internal class CallEventOutbox(private val context: Context) {
             }
     }
 
+
+    @Synchronized fun activeCallId(): String? =
+        prefs.getString("active_id", null)?.takeIf { it.isNotBlank() }
+
+    /** Model transcription and handoff signals are queued separately from telephony phases. */
+    @Synchronized fun appendReport(callId: String, kind: String, role: String, text: String) {
+        require(kind in listOf("transcript","handoff")) { "unsupported report event" }
+        require(role in listOf("caller","agent","system")) { "unsupported report author" }
+        require(kind != "transcript" || role != "system") { "transcript must identify the speaker" }
+        val clean = text.trim().take(1500)
+        if(clean.isBlank()) return
+        require(UUID.fromString(callId).toString() == callId) { "invalid call id" }
+        val queue = JSONArray(prefs.getString("pending_report","[]") ?: "[]")
+        check(queue.length() < 350) { "Call transcript queue is full" }
+        queue.put(JSONObject().put("call_id",callId).put("entry_id",UUID.randomUUID().toString())
+            .put("kind",kind).put("role",role).put("text",clean))
+        check(prefs.edit().putString("pending_report",queue.toString()).commit()) {
+            "Transcript persistence failed"
+        }
+    }
+
+    @Synchronized fun peekReport(): JSONObject? =
+        runCatching { JSONArray(prefs.getString("pending_report","[]") ?: "[]").optJSONObject(0) }.getOrNull()
+
+    @Synchronized fun acknowledgeReport(sent: JSONObject) {
+        val queue = JSONArray(prefs.getString("pending_report","[]") ?: "[]")
+        val first = queue.optJSONObject(0) ?: return
+        if(first.optString("entry_id") != sent.optString("entry_id") ||
+            first.optString("call_id") != sent.optString("call_id")) return
+        val rest = JSONArray()
+        for(i in 1 until queue.length()) rest.put(queue.get(i))
+        check(prefs.edit().putString("pending_report",rest.toString()).commit()) {
+            "Report acknowledgment failed"
+        }
+    }
 
     /** Retry for eventual CallLog consistency; never guess from unrelated saved contacts. */
     @Synchronized fun enrichFromCallLog() {

@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_voice_agent_revision(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5();
+    init_console_v4(); init_console_v5(); init_console_voice_agent_revision();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -307,5 +307,40 @@ function init_console_v5():void {
             created_at TEXT NOT NULL,last_seen_at TEXT,revoked_at TEXT
         )");
     }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+/**
+ * Additive hot-swap history; does not change a paired SIM token or cross-tenant claim.
+ * Older calls cannot be reconstructed retroactively. Keep this compatible with
+ * the existing historical v9/v10 branch migrations.
+ */
+function init_console_voice_agent_revision():void {
+    $marker=private_path().'/schema.voice-agent-switch.v1';
+    if(is_file($marker))return;
+    $columns=driver()==='mysql'
+        ?array_column(all('SHOW COLUMNS FROM device_bindings'),'Field')
+        :array_column(all('PRAGMA table_info(device_bindings)'),'name');
+    if(!in_array('agent_revision',$columns,true))
+        db()->exec('ALTER TABLE device_bindings ADD COLUMN agent_revision INTEGER NOT NULL DEFAULT 1');
+    if(driver()==='mysql'){
+        db()->exec("CREATE TABLE IF NOT EXISTS device_agent_revisions (
+            device_id BIGINT NOT NULL,account_id BIGINT NOT NULL,site_id BIGINT NOT NULL,
+            agent_id BIGINT NOT NULL,agent_revision INTEGER NOT NULL,created_at VARCHAR(19) NOT NULL,
+            PRIMARY KEY(device_id,agent_revision)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }else{
+        db()->exec("CREATE TABLE IF NOT EXISTS device_agent_revisions (
+            device_id INTEGER NOT NULL,account_id INTEGER NOT NULL,site_id INTEGER NOT NULL,
+            agent_id INTEGER NOT NULL,agent_revision INTEGER NOT NULL,created_at TEXT NOT NULL,
+            PRIMARY KEY(device_id,agent_revision)
+        )");
+    }
+    db()->exec("INSERT INTO device_agent_revisions
+        (device_id,account_id,site_id,agent_id,agent_revision,created_at)
+        SELECT d.id,d.account_id,d.site_id,d.agent_id,d.agent_revision,d.created_at
+        FROM device_bindings d
+        WHERE NOT EXISTS (SELECT 1 FROM device_agent_revisions h
+            WHERE h.device_id=d.id AND h.agent_revision=d.agent_revision)");
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }

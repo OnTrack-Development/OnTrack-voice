@@ -63,6 +63,11 @@ try {
     try{pilot_dnc($live['id'],false);}
     catch(InvalidArgumentException $e){$unblocked=$e->getMessage()==='verified_reconsent_required';}
     expect($unblocked,'unverified_opt_out_reversal_rejected');
+    expect(pilot_dnc_verified_phone('01255566677')===true,'verified caller opt-out works without saved contact');
+    expect(pilot_dnc_verified_phone('+201255566677')===false,'verified phone DNC idempotent on repeat');
+    $invalidCaller=false;
+    try{pilot_dnc_verified_phone('unknown');}catch(InvalidArgumentException $e){$invalidCaller=true;}
+    expect($invalidCaller,'cannot suppress invalid or unknown phone identity');
     $suppressed=pilot_read('dnc');
     expect(in_array('+201012345678',$suppressed,true)&&in_array('+201112345678',$suppressed,true),
         'durable_ledger_contains_both_opt_outs');

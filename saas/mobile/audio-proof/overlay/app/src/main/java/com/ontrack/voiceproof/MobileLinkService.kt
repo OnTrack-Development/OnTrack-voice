@@ -59,6 +59,7 @@ class MobileLinkService:Service() {
     private var call:MobileLiveCall?=null
     private var loop:Job?=null
     private var callEventFlush:Job?=null
+    private var callReportFlush:Job?=null
     private lateinit var callEventOutbox:CallEventOutbox
     private lateinit var campaignDialer:CampaignDialer
     private var connectivity:ConnectivityManager?=null
@@ -157,6 +158,11 @@ class MobileLinkService:Service() {
             ACTION_TAKEOVER->{
                 if(callAnswered && !humanControl){
                     takeoverRequested=true;humanControl=true
+                    callEventOutbox.activeCallId()?.let { id ->
+                        runCatching { callEventOutbox.appendReport(
+                            id,"handoff","system","الموظف استلم التحكم في المكالمة الحالية يدويًا من الإيجنت."
+                        ) }
+                    }
                     // The shell socket returns the microphone mute to its original state.
                     call?.stop();call=null
                     notice("استلمت المكالمة من الإيجنت • التحكم بشري الآن، والمكالمة القادمة للـAI")
@@ -248,6 +254,14 @@ class MobileLinkService:Service() {
                             callEventOutbox.acknowledge(event)
                         }
                     }
+                    // A separate queue preserves transcripts when phone status calls retry.
+                    if(callReportFlush?.isActive!=true)callReportFlush=scope.launch {
+                        runCatching {
+                            val report=callEventOutbox.peekReport()?:return@runCatching
+                            request(base+"saas/mobile/call_report_event.php",key,report)
+                            callEventOutbox.acknowledgeReport(report)
+                        }
+                    }
                     connected=true
                     inCall=state==1||state==2
                     callAnswered=state==2
@@ -297,7 +311,11 @@ class MobileLinkService:Service() {
                                     }
                                 }
                                 if(!takeoverRequested && agentEnabled){
-                                    val newCall=MobileLiveCall(this@MobileLinkService,client,scope,session,settings,::notice)
+                                    val observedCallId=callEventOutbox.activeCallId()
+                                    val newCall=MobileLiveCall(this@MobileLinkService,client,scope,session,settings,::notice,
+                                        {role,text->observedCallId?.let { id ->
+                                            callEventOutbox.appendReport(id,"transcript",role,text)
+                                        }})
                                     call=newCall;newCall.start()
                                     if(takeoverRequested || !agentEnabled){newCall.stop();call=null}
                                 }

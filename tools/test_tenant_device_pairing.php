@@ -23,6 +23,37 @@ function test_tenant_device_pairing():void {
         'heartbeat serves correct account and agent policy');
     ok(!isset($profile['device_token'])&&!isset($profile['token_hash']),
         'heartbeat never returns token or hash');
+    $replacementAgent=insert("INSERT INTO agents(account_id,site_id,name,voice,instructions,knowledge,flow_json,status,created_at)
+        VALUES (?,?,?,?,?,?,?,'draft',?)",
+        [4,1,'إيجنت مكالمات بديل','google.aoede','رد مختصر على المكالمة','', '{}',now()]);
+    $assigned=device_binding_assign_agent(4,$a['device_id'],$replacementAgent);
+    ok($assigned['agent_id']===$replacementAgent && $assigned['agent_revision']===2,
+        'switch agent for same physical SIM without re-pairing');
+    ok($assigned['sim_slot']===0 && $assigned['account_id']===4 && $assigned['site_id']===1,
+        'SIM assignment must never move tenant site or slot');
+    $freshProfile=device_binding_heartbeat($session);
+    ok($freshProfile['agent_id']===$replacementAgent && $freshProfile['agent_revision']===2,
+        'same old bearer refreshes changed agent revision');
+    $history=all('SELECT agent_id,agent_revision FROM device_agent_revisions WHERE device_id=? ORDER BY agent_revision',
+        [$a['device_id']]);
+    ok(count($history)===2 && (int)$history[0]['agent_id']===1 && (int)$history[1]['agent_id']===$replacementAgent,
+        'retain past agent versions for attribution without rewriting older sessions');
+    $foreignSwitch=false;
+    try{device_binding_assign_agent(5,$a['device_id'],$replacementAgent);}
+    catch(InvalidArgumentException $e){$foreignSwitch=true;}
+    ok($foreignSwitch,'cross-tenant agent switch rejected');
+    $foreignAgent=false;
+    try{device_binding_assign_agent(4,$a['device_id'],3);}
+    catch(InvalidArgumentException $e){$foreignAgent=true;}
+    ok($foreignAgent,'cross-site or cross-account agent rejected');
+    $same=device_binding_assign_agent(4,$a['device_id'],$replacementAgent);
+    ok($same['agent_revision']===2,'idempotent reselect does not increment revision');
+    $restored=device_binding_assign_agent(4,$a['device_id'],1);
+    ok($restored['agent_revision']===3 && $restored['agent_id']===1,
+        'reverting agent updates next call but preserves original bearer');
+    ok(device_binding_authorize($a['device_token'])!==null,
+        'agent switch does not revoke active SIM bearer');
+
     $used=false;
     try{device_pairing_redeem($codeA,'other-install-00000000001',1,'Replay');}
     catch(InvalidArgumentException $e){$used=$e->getMessage()==='device_pairing_expired_or_used';}

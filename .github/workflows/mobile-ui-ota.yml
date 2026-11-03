@@ -1,12 +1,6 @@
 name: Publish OnTrack UI OTA — no APK
+# SAFETY: legacy pipeline builds a fixed old SHA; manual only until an exact-HEAD signed release replaces it.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'saas/mobile/ota/ui.html'
-      - 'saas/mobile/ota/release.json'
-      - 'tools/test_mobile_ui_contract.py'
-      - '.github/workflows/mobile-ui-ota.yml'
   workflow_dispatch:
 permissions:
   contents: write
@@ -16,6 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish_ui:
+    if: ${{ false }} # Legacy pinned UI release retired; see exact-HEAD release pipeline.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
