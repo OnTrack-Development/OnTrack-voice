@@ -25,8 +25,8 @@ function call_history_filters(int $accountId,array $input):array {
         throw new InvalidArgumentException('invalid_history_range');
     $clauses=['c.account_id=?'];$params=[$accountId];
     if($q!==''){
-        $term='%'.str_replace(['\\','%','_'],['\\\\','\\%','\\_'],$q).'%';
-        $clauses[]="(c.name LIKE ? ESCAPE '\\' OR c.phone LIKE ? ESCAPE '\\' OR c.external_call_id LIKE ? ESCAPE '\\')";
+        $term='%'.str_replace(['!','%','_'],['!!','!%','!_'],$q).'%';
+        $clauses[]="(c.name LIKE ? ESCAPE '!' OR c.phone LIKE ? ESCAPE '!' OR c.external_call_id LIKE ? ESCAPE '!')";
         array_push($params,$term,$term,$term);
     }
     if($status!=='all'){$clauses[]='c.status=?';$params[]=$status;}
