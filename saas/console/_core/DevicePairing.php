@@ -88,6 +88,7 @@ function device_binding_profile(array $binding):array {
         'account_name'=>(string)$tenant['name'],
         'site_id'=>(int)$site['id'],'site_name'=>$site['name'],
         'agent_id'=>(int)$agent['id'],'agent_name'=>$agent['name'],
+        'agent_revision'=>(int)($binding['agent_revision']??1),
         // Draft agent changes must never leak through a bound SIM heartbeat.
         // Only a specifically published immutable revision can supply instructions.
         'voice'=>$published?(string)$published['voice']:null,
@@ -133,17 +134,25 @@ function device_binding_change_agent(int $accountId,int $deviceId,int $newAgentI
         $published=published_agent_flow($accountId,(int)$binding['site_id'],$newAgentId);
         if(!$published)throw new InvalidArgumentException('لازم تنشر إعدادات الإيجنت الجديد قبل ربطه بالشريحة');
         $previous=(int)$binding['agent_id'];
+        $revision=(int)($binding['agent_revision']??1);
         if($previous!==$newAgentId){
-            $changed=execute('UPDATE device_bindings SET agent_id=?
-                WHERE id=? AND account_id=? AND site_id=? AND sim_slot=? AND status=? AND agent_id=?',[
+            $changed=execute('UPDATE device_bindings SET agent_id=?,agent_revision=agent_revision+1
+                WHERE id=? AND account_id=? AND site_id=? AND sim_slot=?
+                  AND status=? AND agent_id=? AND agent_revision=?',[
                     $newAgentId,$deviceId,$accountId,(int)$binding['site_id'],
-                    (int)$binding['sim_slot'],'active',$previous]);
+                    (int)$binding['sim_slot'],'active',$previous,$revision]);
             if($changed!==1)throw new RuntimeException('اتغير ربط الشريحة بالتزامن؛ حدّث الصفحة وأعد المحاولة');
+            insert('INSERT INTO device_agent_revisions
+                (device_id,account_id,site_id,agent_id,agent_revision,created_at)
+                VALUES (?,?,?,?,?,?)',[
+                $deviceId,$accountId,(int)$binding['site_id'],$newAgentId,$revision+1,now()]);
+            ++$revision;
         }
         $db->commit();
         return ['device_id'=>$deviceId,'site_id'=>(int)$binding['site_id'],
             'sim_slot'=>(int)$binding['sim_slot'],'previous_agent_id'=>$previous,
             'agent_id'=>$newAgentId,'agent_name'=>(string)$agent['name'],
+            'agent_revision'=>$revision,
             'changed'=>$previous!==$newAgentId];
     }catch(Throwable $e){
         if($db->inTransaction())$db->rollBack();
