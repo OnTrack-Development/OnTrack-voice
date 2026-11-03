@@ -4,10 +4,12 @@ on:
     paths:
       - 'tools/queue_mobile_native.py'
       - 'tools/test_mobile_release_gate.py'
+      - 'tools/test_mobile_ota.py'
+      - 'saas/mobile/ota/deploy.py'
       - '.github/workflows/android-audio-proof.yml'
       - '.github/workflows/mobile-release-gate.yml'
   push:
-    branches: [main]
+    branches: [main, 'feat/voice-production-gap-20261103']
     paths:
       - 'tools/queue_mobile_native.py'
       - 'tools/test_mobile_release_gate.py'
@@ -27,6 +29,7 @@ jobs:
           set -euo pipefail
           python3 -m py_compile tools/queue_mobile_native.py tools/test_mobile_release_gate.py
           python3 tools/test_mobile_release_gate.py
+          python3 tools/test_mobile_ota.py
       - name: Release trigger isolation
         run: |
           python3 - <<'PY'
