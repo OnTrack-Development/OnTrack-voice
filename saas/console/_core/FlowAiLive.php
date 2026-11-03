@@ -150,7 +150,10 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText,stri
         $initialized=false;$started=false;$frames=0;$deadline=microtime(true)+140;
         stream_set_timeout($socket,6);
         $lastEvent='handshake';$transcript='';$modelText='';
-        while($frames++<900 && microtime(true)<$deadline){
+        $fragmentBody='';$fragmentOp=null;
+        $serverEvents=0;$audioChunks=0;$transcriptionBytes=0;$partialTextBytes=0;
+        $turns=0;$toolsSeen=0;$lastStatus='UNKNOWN';
+        while($frames++<12000 && microtime(true)<$deadline){
             try{[$opcode,$body,$last]=flow_ai_ws_read($socket,$deadline);}
             catch(RuntimeException $error){
                 throw new RuntimeException($error->getMessage().' [last='. $lastEvent.',frames='.$frames.']');
@@ -172,6 +175,20 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText,stri
                 $masked='';for($i=0;$i<$size;$i++)$masked.=$body[$i]^$mask[$i%4];
                 fwrite($socket,chr(0x8a).chr(0x80|$size).$mask.$masked);continue;
             }
+            // RFC6455 continuation frames carry the rest of a JSON event.
+            // Never drop a multi-frame function call or decode partial JSON.
+            if(($opcode===1||$opcode===2)&&!$last){
+                $fragmentBody=$body;$fragmentOp=$opcode;
+                continue;
+            }
+            if($opcode===0){
+                if($fragmentOp===null)continue;
+                $fragmentBody.=$body;
+                if(strlen($fragmentBody)>150000)throw new RuntimeException('ai_live_fragment_too_large');
+                if(!$last)continue;
+                $body=$fragmentBody;$opcode=$fragmentOp;
+                $fragmentBody='';$fragmentOp=null;
+            }
             // Live servers may deliver JSON in either text or binary WebSocket frames.
             if(!in_array($opcode,[1,2],true)||!$last)continue;
             $event=json_decode($body,true,32);
@@ -184,30 +201,40 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText,stri
                 $lastEvent='text_sent';continue;
             }
             if(!$initialized)continue;
+            if(isset($event['serverContent']))$serverEvents++;
+            if(isset($event['toolCall']))$toolsSeen+=count((array)($event['toolCall']['functionCalls']??[]));
             $lastEvent=isset($event['serverContent'])?'server_content':
                 (isset($event['toolCall'])?'tool_call':(isset($event['goAway'])?'go_away':'other'));
             $toolResponse=flow_ai_live_extract($event,$toolName);
             if($toolResponse!==null)return $toolResponse;
             $transcriptChunk=flow_ai_live_transcribed_chunk($event);
+            if($transcriptChunk!=='')$transcriptionBytes+=strlen($transcriptChunk);
             if($transcriptChunk!=='' && strlen($transcript)<38000)
                 $transcript.=substr($transcriptChunk,0,38000-strlen($transcript));
             // Rare text parts also arrive as modelTurn parts with no audio.
             foreach((array)($event['serverContent']['modelTurn']['parts']??[]) as $part){
+                if(is_array($part)&&isset($part['inlineData']))$audioChunks++;
                 if(!is_array($part)||!is_string($part['text']??null))continue;
+                $partialTextBytes+=strlen((string)$part['text']);
                 $modelText.=substr((string)$part['text'],0,max(0,38000-strlen($modelText)));
                 $candidate=flow_ai_live_parse_text_graph($modelText);
                 if($candidate!==null)return $candidate;
             }
             if(!empty($event['serverContent']['turnComplete'])){
+                $turns++;
                 $candidate=flow_ai_live_parse_text_graph($modelText!==''?$modelText:$transcript);
                 if($candidate!==null)return $candidate;
             }
             $state=(string)($event['interactionStatus']??$event['serverContent']['interactionStatus']??'');
+            if($state!=='')$lastStatus=$state;
             if($state==='IDLE')break;
         }
         $candidate=flow_ai_live_parse_text_graph($transcript);
         if($candidate!==null)return $candidate;
-        throw new RuntimeException('انتهت مهلة معالجة Gemini Live دون اقتراح منظّم؛ لم يتم تعديل المسودة.');
+        throw new RuntimeException('Live لم يُرجع مقترحًا منظّمًا [events='.$serverEvents.
+            ',frames='.$frames.',tools='.$toolsSeen.',audio='.$audioChunks.
+            ',transcriptBytes='.$transcriptionBytes.',textBytes='.$partialTextBytes.
+            ',turns='.$turns.',state='.$lastStatus.']. المسودة لم تتغير.');
     }finally{fclose($socket);}
 }
 function flow_ai_live_proposal(string $system,string $prompt,array $schema,?callable $transport=null):array {
