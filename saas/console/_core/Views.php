@@ -486,6 +486,7 @@ function render_contacts(array $a):void {
           submit_btn('إضافة إلى جهات الاتصال'));
 }
 function render_calls(array $a):void{
+    require_once __DIR__.'/TenantCallReports.php';
     $id=(int)$a['account_id'];
     $keyword=trim((string)($_GET['q']??''));
     if(mb_strlen($keyword)>80)$keyword=mb_substr($keyword,0,80);
@@ -500,7 +501,7 @@ function render_calls(array $a):void{
         $params[]=$term;$params[]=$term;
     }
     if($filter!=='all'){$where.=' AND status=?';$params[]=$filter;}
-    $list=all('SELECT id,name,phone,status,duration_seconds,is_demo,created_at FROM calls WHERE '.$where.' ORDER BY id DESC LIMIT 200',$params);
+    $list=all('SELECT id,name,phone,status,duration_seconds,is_demo,created_at,site_id,external_call_id,device_binding_id,sim_slot FROM calls WHERE '.$where.' ORDER BY id DESC LIMIT 200',$params);
     $requestedId=max(0,(int)($_GET['call']??0));
     $selected=null;
     foreach($list as $item){if((int)$item['id']===$requestedId)$selected=$item;}
@@ -534,7 +535,50 @@ function render_calls(array $a):void{
             '<div><span>المدة</span><strong>'.e(fmt_duration((int)$selected['duration_seconds'])).'</strong></div>'.
             '<div><span>التاريخ</span><strong>'.e((string)$selected['created_at']).'</strong></div>'.
             '<div><span>المصدر</span><strong>'.((int)$selected['is_demo']===1?'بيانات تجربة':'سجل الجهاز').'</strong></div></div>'.
-            '<div class="call-transcript-empty"><strong>المحادثة والملخص</strong><p>لا يوجد تفريغ نصي أو تسجيل مرتبط بهذا السجل. مش هنعرض رسائل أو تسجيلات وهمية.</p></div>';
+            '</div>';
+        $entries=[];$binding=null;
+        if(is_string($selected['external_call_id']??null) &&
+           $selected['external_call_id']!=='' && (int)($selected['device_binding_id']??0)>0){
+            $binding=one('SELECT * FROM device_bindings WHERE id=? AND account_id=? AND site_id=? AND sim_slot=?',
+                [$selected['device_binding_id'],$id,$selected['site_id'],$selected['sim_slot']]);
+            if($binding)$entries=tenant_report_entries($binding,(string)$selected['external_call_id']);
+        }
+        echo '<div class="call-report-list" style="display:grid;gap:12px;margin-top:18px"><strong>المحادثة والملخص والملاحظات</strong>';
+        $transcripts=0;$hasSummary=false;
+        foreach($entries as $entry){
+            $kind=(string)$entry['kind'];
+            if($kind==='finalize')continue;
+            if($kind==='transcript')$transcripts++;
+            if($kind==='summary'&&$entry['source']==='ai')$hasSummary=true;
+            $title=match($kind){
+                'transcript'=>$entry['role']==='caller'?'العميل':'الإيجنت',
+                'summary'=>$entry['source']==='ai'?'ملخص AI من التفريغ الحقيقي':'ملخص موظف',
+                'handoff'=>'تحويل لموظف',
+                'disposition'=>'نتيجة المكالمة',
+                default=>'ملاحظة عن العميل'
+            };
+            echo '<article class="call-report-entry" style="padding:12px;border:1px solid #343f53;border-radius:12px">'.
+                '<small>'.e($title).' · '.e((string)$entry['created_at']).' · '.e((string)$entry['source']).'</small>'.
+                '<p style="white-space:pre-wrap;overflow-wrap:anywhere">'.e((string)$entry['text']).'</p></article>';
+        }
+        if(!$entries || (count($entries)===1&&$entries[0]['kind']==='finalize'))
+            echo '<div class="call-transcript-empty">لم يصل تفريغ نصي حقيقي أو ملاحظة لهذه المكالمة بعد.</div>';
+        if($binding && allowed('calls.write')){
+            echo form_start('save_call_report_entry','/?tab=calls').
+                '<input type="hidden" name="call_id" value="'.(int)$selected['id'].'">'.
+                select_html('نوع الملاحظة','kind',[
+                    'customer_note'=>'ملاحظة عن العميل',
+                    'handoff'=>'سبب تحويل لموظف',
+                    'summary'=>'ملخص بشري',
+                    'disposition'=>'نتيجة المكالمة']).
+                '<label class="field">اكتب تفاصيل حقيقية<textarea name="text" rows="3" maxlength="1500" required></textarea></label>'.
+                submit_btn('حفظ الملاحظة');
+            if(!$hasSummary&&$transcripts>0&&in_array($selected['status'],['ended','missed'],true))
+                echo form_start('retry_call_ai_summary','/?tab=calls').
+                    '<input type="hidden" name="call_id" value="'.(int)$selected['id'].'">'.
+                    submit_btn('توليد ملخص AI من التفريغ الحقيقي');
+        }
+        echo '</div>';
     }else echo '<div class="calls-empty">اختار مكالمة لعرض التفاصيل بعد مزامنتها من الشريحة.</div>';
     echo '</section></div></section>';
 }
