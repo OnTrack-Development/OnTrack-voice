@@ -135,6 +135,27 @@ function pilot_dnc(string $id,bool $blocked): bool {
         return false;
     });
 }
+/** Durable caller-requested opt-out, keyed by a genuinely verified call-log number. */
+function pilot_dnc_verified_phone(string $callerNumber):bool {
+    $phone=pilot_number($callerNumber);
+    if($phone===null)throw new InvalidArgumentException('invalid_verified_caller_phone');
+    return pilot_transaction(static function()use($phone):bool{
+        $keys=pilot_suppression_keys();
+        $previous=isset($keys[$phone]);
+        $keys[$phone]=true;
+        pilot_sync_suppressions($keys); // hard suppression FIRST
+        $rows=pilot_read('contacts');
+        $changed=false;
+        foreach($rows as &$row){
+            if(pilot_number((string)($row['phone']??''))===$phone){
+                $row['do_not_call']=true;$row['consented']=false;$changed=true;
+            }
+        }
+        unset($row);
+        if($changed)pilot_atomic('contacts',$rows);
+        return !$previous;
+    });
+}
 function pilot_campaign_create(string $name,string $starts,string $ends,string $scenario,array $contactIds=[]): array {
     $name=trim($name);$scenario=trim($scenario);
     if(count($contactIds)>2000)throw new InvalidArgumentException('too_many_targets');
