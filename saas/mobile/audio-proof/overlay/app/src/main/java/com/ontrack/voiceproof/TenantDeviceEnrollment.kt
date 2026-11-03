@@ -53,6 +53,9 @@ class TenantDeviceEnrollment(private val context: Context) {
     private fun field(slot:Int)="sim_${TenantPairingContract.slot(slot)}"
     fun hasAny():Boolean = prefs.contains(field(0)) || prefs.contains(field(1))
     fun paired(slot:Int):Boolean = prefs.contains(field(slot))
+    /** Immutable identity of the original paired device/SIM. A heartbeat may refresh
+     * the agent, never the device binding ID or SIM slot. Never expose the bearer. */
+    fun bindingId(slot:Int):Int = local(slot).getInt("device_id")
     private fun local(slot:Int):JSONObject {
         val ciphertext=prefs.getString(field(slot),null)?:error("الشريحة غير مربوطة")
         return JSONObject(unseal(ciphertext))
