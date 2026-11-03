@@ -17,6 +17,7 @@ on:
       - 'saas/mobile/patch_live_session.py'
       - 'saas/mobile/ota/native_release.json'
       - 'saas/mobile/ota/native_deploy.py'
+      - 'tools/prepare_mobile_native.py'
       # Release tooling changes are verified in mobile-release-gate.yml;
       # they must not build or publish a new APK by themselves.
   pull_request:
