@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "g456-staging-git-probe-202611031558",
+  "id": "g456-staging-prepare-202611031603",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-03T15:58:32.325Z",
-  "expires_at": "2026-11-03T16:58:32.325Z",
+  "created_at": "2026-11-03T16:03:31.552Z",
+  "expires_at": "2026-11-03T17:03:31.552Z",
   "cwd": "/home/appontrack",
-  "timeout_seconds": 18,
+  "timeout_seconds": 29,
   "argv": [
     "/bin/python3",
     "-c",
-    "import os,subprocess,json,pathlib\nenv=os.environ.copy();env['GIT_TERMINAL_PROMPT']='0';env['GIT_SSH_COMMAND']='ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=5'\ntry:\n p=subprocess.run(['/usr/bin/git','ls-remote','git@github.com:OnTrack-Development/OnTrack-voice.git','refs/heads/feat/voice-production-gap-20261103'],capture_output=True,text=True,env=env,timeout=11)\n print(json.dumps({'git_private_remote_reachable':p.returncode==0,'git_exit':p.returncode,'has_ref':bool(p.stdout.strip()),'php83':pathlib.Path('/opt/cpanel/ea-php83/root/usr/bin/php').is_file(),'home_writable':os.access('/home/appontrack',os.W_OK)}))\nexcept Exception as e:print(json.dumps({'git_private_remote_reachable':False,'exception_type':type(e).__name__}))\n"
+    "import pathlib,shutil,json,base64,importlib.util,urllib.parse,subprocess,os\nHOME=pathlib.Path('/home/appontrack')\nSTAGE=HOME/'.ontrack-g456-verify-20261103'\nSRC=HOME/'public_html'\nWORKER=HOME/'ontrack-voice-link/worker.py'\nCONFIG=WORKER.with_name('config.json')\nSHA='f1ac959faf51e8b916f4c3233d0a22a808755ce3'\nif STAGE.exists():raise RuntimeError('stage_already_exists')\nif not WORKER.is_file() or not CONFIG.is_file():raise RuntimeError('host_link_agent_missing')\nspec=importlib.util.spec_from_file_location('host_link_worker',WORKER)\nmodule=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)\ncfg=json.loads(CONFIG.read_text())\napi=module.API(cfg['token'])\nSTAGE.mkdir(mode=0o700)\ndef ignore(path,names):\n return set(n for n in names if n in ['mobile','saas','.well-known','pilot_api','node_modules','.git'])\nshutil.copytree(SRC,STAGE/'saas/console',symlinks=False,ignore=ignore)\n(STAGE/'tools').mkdir()\npaths=['saas/console/_core/Bootstrap.php','saas/console/_core/Actions.php',\n 'saas/console/_core/Views.php','saas/console/_core/AdminMfa.php',\n 'saas/console/_core/Checkout.php','saas/console/index.php',\n 'saas/console/_core/CallHistory.php','saas/console/_core/BillingUsage.php',\n 'saas/console/_core/TenantWorkspace.php']\nupdated=[]\nfor item in paths:\n remote=api.request('contents/'+urllib.parse.quote(item,safe='/')+'?ref='+SHA)\n if not isinstance(remote,dict) or remote.get('type')!='file':raise RuntimeError('source_unavailable_'+item.rsplit('/',1)[-1])\n raw=base64.b64decode(remote['content'])\n dst=STAGE/item;dst.parent.mkdir(parents=True,exist_ok=True);dst.write_bytes(raw)\n updated.append(item)\nboot=STAGE/'saas/console/_core/Bootstrap.php'\ns=boot.read_text()\nanchor=\"const SAAS_PRIVATE = '/home/appontrack/.ontrack-saas';\"\nif anchor not in s:raise RuntimeError('unknown_bootstrap_private_root')\ns=s.replace(anchor,\"const SAAS_PRIVATE = '/home/appontrack/.ontrack-g456-verify-20261103/private';\")\nboot.write_text(s)\n(STAGE/'private').mkdir(mode=0o700)\nassert '/home/appontrack/.ontrack-saas' not in boot.read_text()\nphp='/opt/cpanel/ea-php83/root/usr/bin/php'\nfor item in updated:\n proc=subprocess.run([php,'-l',str(STAGE/item)],capture_output=True,text=True,timeout=3)\n if proc.returncode!=0:raise RuntimeError('lint_failed_'+item.rsplit('/',1)[-1])\nprint(json.dumps({'status':'isolated_staging_ready','source_sha':SHA[:12],\n 'source_files':len(updated),'php_lint':'passed','private_database_isolation':True,\n 'production_root_mutated':False,'stage':str(STAGE)},ensure_ascii=False))\n"
   ]
 }
