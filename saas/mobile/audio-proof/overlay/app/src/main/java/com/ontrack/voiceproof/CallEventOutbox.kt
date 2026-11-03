@@ -61,7 +61,15 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
                 .put("started",beganWall).put("ended",System.currentTimeMillis())
                 .put("duration",duration).put("sim_slot",simSlot))
         }
+        val reports=JSONArray(prefs.getString("pending_report","[]")?:"[]")
+        if(state==0 && answered>0L && simSlot in 0..1){
+            check(reports.length()<350) { "Call report queue full" }
+            reports.put(JSONObject().put("call_id",id).put("entry_id",UUID.randomUUID().toString())
+                .put("kind","finalize").put("role","system").put("text","end_of_call")
+                .put("sim_slot",simSlot))
+        }
         check(prefs.edit().putString("pending",pending.toString())
+            .putString("pending_report",reports.toString())
             .putString("pending_lookup",lookups.toString())
             .putInt("last_state",state)
             .putString("active_id",if(state==0)"" else id)
@@ -74,6 +82,44 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
             }
     }
 
+
+    @Synchronized fun activeCallId(slot:Int):String? {
+        val paired=prefs.getInt("active_sim_slot",-1)==slot
+        return prefs.getString("active_id",null)?.takeIf { paired && it.isNotBlank() }
+    }
+
+    /** Real voice text and human takeover, queued independently of phone phase delivery. */
+    @Synchronized fun appendReport(slot:Int,callId:String,kind:String,role:String,text:String) {
+        require(slot in 0..1 && kind in listOf("transcript","handoff")) { "invalid report type" }
+        require(role in listOf("caller","agent","system")) { "invalid report author" }
+        require(kind!="transcript" || role!="system") { "transcript speaker required" }
+        require(UUID.fromString(callId).toString()==callId) { "invalid call identifier" }
+        val value=text.trim().take(1500)
+        if(value.isBlank())return
+        val pending=JSONArray(prefs.getString("pending_report","[]")?:"[]")
+        check(pending.length()<350) { "Call report outbox full; no events discarded" }
+        pending.put(JSONObject().put("call_id",callId).put("entry_id",UUID.randomUUID().toString())
+            .put("kind",kind).put("role",role).put("text",value).put("sim_slot",slot))
+        check(prefs.edit().putString("pending_report",pending.toString()).commit()) {
+            "Call report durability failed"
+        }
+    }
+
+    @Synchronized fun peekReport():JSONObject?=runCatching{
+        JSONArray(prefs.getString("pending_report","[]")?:"[]").optJSONObject(0)
+    }.getOrNull()
+
+    @Synchronized fun acknowledgeReport(sent:JSONObject) {
+        val entries=JSONArray(prefs.getString("pending_report","[]")?:"[]")
+        val first=entries.optJSONObject(0)?:return
+        if(first.optString("call_id")!=sent.optString("call_id") ||
+           first.optString("entry_id")!=sent.optString("entry_id"))return
+        val rest=JSONArray()
+        for(i in 1 until entries.length())rest.put(entries.get(i))
+        check(prefs.edit().putString("pending_report",rest.toString()).commit()){
+            "Call report acknowledgement failed"
+        }
+    }
 
     /** Retry for eventual CallLog consistency; never guess from unrelated saved contacts. */
     @Synchronized fun enrichFromCallLog() {
