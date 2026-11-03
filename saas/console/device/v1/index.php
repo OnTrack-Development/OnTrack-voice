@@ -4,6 +4,7 @@ require __DIR__.'/../../_core/Bootstrap.php';
 require __DIR__.'/../../_core/DevicePairing.php';
 require __DIR__.'/../../_core/TenantVoiceSession.php';
 require __DIR__.'/../../_core/TenantWorkspace.php';
+require __DIR__.'/../../_core/TenantCallReports.php';
 require __DIR__.'/../../_core/TenantFileParser.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -39,7 +40,7 @@ try{
     }
     if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session','voice_preflight',
         'workspace_contacts','workspace_contact_dnc','workspace_import','workspace_calls',
-        'workspace_call_event','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_file_import'],true)){
+        'workspace_call_event','workspace_report_event','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_file_import'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
         if(!str_starts_with($auth,'Bearer '))device_answer(401,['ok'=>false,'error'=>'authorization_required']);
         $binding=device_binding_authorize(substr($auth,7));
@@ -53,6 +54,28 @@ try{
             if($operation==='workspace_calls')device_answer(200,['ok'=>true]+tenant_workspace_calls($binding));
             if($operation==='workspace_campaigns')device_answer(200,['ok'=>true]+tenant_workspace_campaigns($binding));
             if($operation==='workspace_call_event')device_answer(200,['ok'=>true]+tenant_workspace_call_event($binding,$data));
+            if($operation==='workspace_report_event'){
+                if(!is_int($data['sim_slot']??null) || $data['sim_slot']!==(int)$binding['sim_slot'] ||
+                    !is_int($data['device_id']??null) || $data['device_id']!==(int)$binding['id'])
+                    device_answer(422,['ok'=>false,'error'=>'report_binding_mismatch']);
+                device_binding_heartbeat($binding);
+                $stored=tenant_report_append($binding,$data,'device');
+                if(($data['kind']??'')==='finalize'){
+                    try {
+                        $summary=tenant_report_summarize($binding,(string)$data['call_id'],
+                            static fn(string $transcript):string=>tenant_report_google_summary($transcript));
+                        device_answer(200,['ok'=>true,'report'=>$stored,'summary'=>$summary]);
+                    }catch(InvalidArgumentException $e){
+                        // No premature summary: keep the ordered end marker to retry.
+                        device_answer(409,['ok'=>false,'error'=>$e->getMessage()]);
+                    }catch(Throwable $e){
+                        error_log('tenant voice summary failed: '.$e->getMessage());
+                        device_answer(200,['ok'=>true,'report'=>$stored,
+                            'summary_status'=>'retry_required']);
+                    }
+                }
+                device_answer(200,['ok'=>true,'report'=>$stored]);
+            }
             if(($data['confirmed']??false)!==true)device_answer(422,['ok'=>false,'error'=>'confirmation_required']);
             if($operation==='workspace_import'){
                 if(!is_array($data['contacts']??null))device_answer(422,['ok'=>false,'error'=>'invalid_contact_list']);
