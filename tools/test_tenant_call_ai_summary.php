@@ -54,6 +54,23 @@ try {
     $second=tenant_workspace_call_analysis($binding,[
         'call_id'=>$callId,'transcript'=>$transcript],$transport);
     call_ai_ok($second['duplicate']===true&&$called===1,'duplicate avoids extra model cost');
+    $stored=one('SELECT transcript FROM tenant_call_transcripts WHERE device_binding_id=? AND call_id=?',
+        [$binding['id'],$callId]);
+    call_ai_ok(is_array($stored)&&str_starts_with((string)$stored['transcript'],'enc:v1:') &&
+        !str_contains((string)$stored['transcript'],$transcript),
+        'real transcript encrypted at rest on tenant server');
+    $visible=tenant_voice_transcript_find($binding,$callId);
+    call_ai_ok(($visible['transcript']??'')===$transcript,'authorized owner receives exact true transcript');
+    $foreignTranscript=tenant_voice_transcript_find(['id'=>$binding['id'],'account_id'=>5,
+        'site_id'=>3,'sim_slot'=>1],$callId);
+    call_ai_ok($foreignTranscript===null,'other account cannot retrieve protected transcript');
+    execute('UPDATE tenant_call_transcripts SET transcript=? WHERE device_binding_id=? AND call_id=?',
+        [$transcript,$binding['id'],$callId]);
+    $migrated=tenant_voice_transcript_find($binding,$callId);
+    call_ai_ok(($migrated['transcript']??'')===$transcript &&
+        str_starts_with((string)one('SELECT transcript FROM tenant_call_transcripts WHERE device_binding_id=? AND call_id=?',
+            [$binding['id'],$callId])['transcript'],'enc:v1:'),
+        'legacy plaintext transcript encrypted in-place on scoped read');
     $record=one('SELECT * FROM tenant_call_reports WHERE device_binding_id=? AND call_id=?',[
         $binding['id'],$callId]);
     call_ai_ok(!str_contains(json_encode($record,JSON_UNESCAPED_UNICODE),$transcript),
