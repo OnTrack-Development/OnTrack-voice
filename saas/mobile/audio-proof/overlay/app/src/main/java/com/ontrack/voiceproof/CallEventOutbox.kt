@@ -16,20 +16,23 @@ import java.util.UUID
 internal class CallEventOutbox(private val context: Context,storeName:String="ontrack_call_events") {
     private val prefs=context.getSharedPreferences(storeName,Context.MODE_PRIVATE)
 
-    @Synchronized fun observe(state:Int,slot:Int=-1) {
+    @Synchronized fun observe(state:Int,slot:Int=-1,deviceId:Int=-1) {
         if(state !in 0..2)return
         val previous=prefs.getInt("last_state",0)
         if(state==previous)return
         var id=prefs.getString("active_id","").orEmpty()
         var sequence=prefs.getInt("sequence",0)
         var simSlot=prefs.getInt("active_sim_slot",-1)
+        var originalDevice=prefs.getInt("active_device_id",-1)
         var began=prefs.getLong("started_elapsed",0L)
         var answered=prefs.getLong("answered_elapsed",0L)
         var beganWall=prefs.getLong("started_wall_ms",0L)
         val pending=JSONArray(prefs.getString("pending","[]")?:"[]")
         check(pending.length()<1000){"Call event queue full; cannot discard events"}
         if(state!=0 && id.isEmpty()){
+            require(slot in 0..1 && deviceId>0) { "Verified SIM binding required to begin call" }
             simSlot=slot
+            originalDevice=deviceId
             id=UUID.randomUUID().toString()
             sequence=0
             began=SystemClock.elapsedRealtime()
@@ -51,7 +54,7 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
             else 0
         val entry=JSONObject().put("call_id",id).put("sequence",sequence+1)
             .put("phase",phase).put("duration_seconds",duration)
-            .put("sim_slot",simSlot)
+            .put("sim_slot",simSlot).put("device_id",originalDevice)
         pending.put(entry)
         val lookups=JSONArray(prefs.getString("pending_lookup","[]")?:"[]")
         if(state==0 && beganWall>0L){
@@ -59,14 +62,14 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
             if(lookups.length()<40)lookups.put(JSONObject()
                 .put("call_id",id).put("sequence",sequence+2)
                 .put("started",beganWall).put("ended",System.currentTimeMillis())
-                .put("duration",duration).put("sim_slot",simSlot))
+                .put("duration",duration).put("sim_slot",simSlot).put("device_id",originalDevice))
         }
         val reports=JSONArray(prefs.getString("pending_report","[]")?:"[]")
         if(state==0 && answered>0L && simSlot in 0..1){
             check(reports.length()<350) { "Call report queue full" }
             reports.put(JSONObject().put("call_id",id).put("entry_id",UUID.randomUUID().toString())
                 .put("kind","finalize").put("role","system").put("text","end_of_call")
-                .put("sim_slot",simSlot))
+                .put("sim_slot",simSlot).put("device_id",originalDevice))
         }
         check(prefs.edit().putString("pending",pending.toString())
             .putString("pending_report",reports.toString())
@@ -75,6 +78,7 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
             .putString("active_id",if(state==0)"" else id)
             .putInt("sequence",if(state==0)0 else sequence+1)
             .putInt("active_sim_slot",if(state==0)-1 else simSlot)
+            .putInt("active_device_id",if(state==0)-1 else originalDevice)
             .putLong("started_elapsed",if(state==0)0L else began)
             .putLong("answered_elapsed",if(state==0)0L else answered)
             .putLong("started_wall_ms",if(state==0)0L else beganWall).commit()){
@@ -89,8 +93,8 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
     }
 
     /** Real voice text and human takeover, queued independently of phone phase delivery. */
-    @Synchronized fun appendReport(slot:Int,callId:String,kind:String,role:String,text:String) {
-        require(slot in 0..1 && kind in listOf("transcript","handoff")) { "invalid report type" }
+    @Synchronized fun appendReport(slot:Int,deviceId:Int,callId:String,kind:String,role:String,text:String) {
+        require(slot in 0..1 && deviceId>0 && kind in listOf("transcript","handoff")) { "invalid report type" }
         require(role in listOf("caller","agent","system")) { "invalid report author" }
         require(kind!="transcript" || role!="system") { "transcript speaker required" }
         require(UUID.fromString(callId).toString()==callId) { "invalid call identifier" }
@@ -99,7 +103,8 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
         val pending=JSONArray(prefs.getString("pending_report","[]")?:"[]")
         check(pending.length()<350) { "Call report outbox full; no events discarded" }
         pending.put(JSONObject().put("call_id",callId).put("entry_id",UUID.randomUUID().toString())
-            .put("kind",kind).put("role",role).put("text",value).put("sim_slot",slot))
+            .put("kind",kind).put("role",role).put("text",value).put("sim_slot",slot)
+            .put("device_id",deviceId))
         check(prefs.edit().putString("pending_report",pending.toString()).commit()) {
             "Call report durability failed"
         }
@@ -143,6 +148,7 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
                     .put("phase","identified")
                     .put("duration_seconds",item.getInt("duration"))
                     .put("sim_slot",item.optInt("sim_slot",-1))
+                    .put("device_id",item.optInt("device_id",-1))
                     .put("phone_number",identified.first)
                     .put("contact_name",identified.second)
                 pending.put(event)
