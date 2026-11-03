@@ -1,0 +1,13 @@
+{
+  "job_id": "saas-console-41583355130",
+  "target": "appontrack-server11",
+  "job_sha256": "57d2fd79a0d5ceaa7c48ab1a531b3fffa141cb60d96758ab1cf77969374207c8",
+  "started_at": "2026-11-03T05:21:02.738421+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"result\": \"deployed\", \"source\": \"6fae2ded3b55\", \"target\": \"/\", \"files\": 64, \"rewritten\": 9, \"php\": \"8.3\", \"seed\": {\"status\": \"already_seeded\", \"users\": 9}, \"private_rollback\": \"/home/appontrack/backup/releases/6fae2ded3b55\", \"android_compat\": true}\n",
+  "stderr": "",
+  "finished_at": "2026-11-03T05:21:13.345547+00:00",
+  "duration_ms": 10607
+}
