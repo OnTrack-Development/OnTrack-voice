@@ -40,6 +40,16 @@ function flow_ai_live_text_turn(string $text):array {
 /** Transcription is output of AUDIO response; audio payload is discarded.
  * Never interpret the user's inputTranscription as a model reply.
  */
+/** On Extended Thinking, a completed audio reply may be IDLE without any tool
+ * call. Continue the SAME Live text conversation at most twice; no external
+ * actions, no model substitution, no repeating while IN_PROGRESS. */
+function flow_ai_live_retry_turn(int $attempt):array {
+    if(!in_array($attempt,[1,2],true))throw new InvalidArgumentException('ai_live_invalid_retry');
+    $message=$attempt===1
+        ? 'You finished speaking without invoking submit_editor_proposal. The editor needs the STRUCTURED FUNCTION CALL, not audio. Using the exact editor request and context above, call submit_editor_proposal now with every required field. Do not announce the call.'
+        : 'Final chance: Do not speak, apologize, or summarize. Immediately CALL the declared submit_editor_proposal function with one complete valid arguments object based on the request above. If you do not call it, the editor cannot display the proposal.';
+    return flow_ai_live_text_turn($message);
+}
 function flow_ai_live_transcribed_chunk(array $event):string {
     $value=$event['serverContent']['outputTranscription']['text']??'';
     return is_string($value)?$value:'';
@@ -152,7 +162,7 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText,stri
         $lastEvent='handshake';$transcript='';$modelText='';
         $fragmentBody='';$fragmentOp=null;
         $serverEvents=0;$audioChunks=0;$transcriptionBytes=0;$partialTextBytes=0;
-        $turns=0;$toolsSeen=0;$lastStatus='UNKNOWN';
+        $turns=0;$toolsSeen=0;$lastStatus='UNKNOWN';$retryTurns=0;
         while($frames++<12000 && microtime(true)<$deadline){
             try{[$opcode,$body,$last]=flow_ai_ws_read($socket,$deadline);}
             catch(RuntimeException $error){
@@ -227,14 +237,26 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText,stri
             }
             $state=(string)($event['interactionStatus']??$event['serverContent']['interactionStatus']??'');
             if($state!=='')$lastStatus=$state;
-            if($state==='IDLE')break;
+            if($state==='IDLE'){
+                // An audio completion is NOT a structured editor proposal.
+                // Google may skip NON_BLOCKING tools despite acknowledging them.
+                // After IDLE only, nudge the same text session (bounded 2 times).
+                if($toolsSeen===0 && $retryTurns<2 && microtime(true)<$deadline-8){
+                    $retryTurns++;
+                    flow_ai_ws_write($socket,flow_ai_live_retry_turn($retryTurns));
+                    $transcript='';$modelText='';
+                    $lastStatus='RETRY_PENDING';$lastEvent='retry_text_sent';
+                    continue;
+                }
+                break;
+            }
         }
         $candidate=flow_ai_live_parse_text_graph($transcript);
         if($candidate!==null)return $candidate;
         throw new RuntimeException('Live لم يُرجع مقترحًا منظّمًا [events='.$serverEvents.
             ',frames='.$frames.',tools='.$toolsSeen.',audio='.$audioChunks.
             ',transcriptBytes='.$transcriptionBytes.',textBytes='.$partialTextBytes.
-            ',turns='.$turns.',state='.$lastStatus.']. المسودة لم تتغير.');
+            ',turns='.$turns.',retries='.$retryTurns.',state='.$lastStatus.']. المسودة لم تتغير.');
     }finally{fclose($socket);}
 }
 function flow_ai_live_proposal(string $system,string $prompt,array $schema,?callable $transport=null):array {

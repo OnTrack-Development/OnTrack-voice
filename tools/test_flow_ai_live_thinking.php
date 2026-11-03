@@ -51,6 +51,15 @@ $failed=false;
 try{flow_ai_live_extract(['toolCall'=>['functionCalls'=>[['name'=>'submit_editor_proposal','args'=>['bad']]]]]);}
 catch(RuntimeException){$failed=true;}
 live_check($failed,'malformed tool args rejected');
+for($attempt=1;$attempt<=2;$attempt++){
+    $retry=flow_ai_live_retry_turn($attempt);
+    live_check(($retry['clientContent']['turnComplete']??null)===true &&
+        str_contains((string)($retry['clientContent']['turns'][0]['parts'][0]['text']??''),'submit_editor_proposal'),
+        'a no-tool IDLE re-prompts the same Live TEXT session with bounded tool-only request');
+}
+$badRetry=false;
+try{flow_ai_live_retry_turn(3);}catch(InvalidArgumentException){$badRetry=true;}
+live_check($badRetry,'live tool retry is limited to two turns');
 live_check(flow_ai_live_transcribed_chunk(['serverContent'=>['outputTranscription'=>['text'=>'رسالة من المساعد']]])==='رسالة من المساعد',
     'audio output transcript captured as assistant text');
 live_check(flow_ai_live_transcribed_chunk(['serverContent'=>['inputTranscription'=>['text'=>'صوت المستخدم']]])==='',
