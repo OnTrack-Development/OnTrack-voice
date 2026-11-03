@@ -108,8 +108,8 @@ function record_verified_internal_checkout(array $order,string $reference):array
         if(!$reseller||$reseller['status']!=='active')throw new InvalidArgumentException('reseller_unavailable');
         $used=(int)one("SELECT COALESCE(SUM(p.call_quota),0) n FROM subscriptions s
             JOIN plans p ON p.id=s.plan_id JOIN accounts a ON a.id=s.account_id
-            WHERE a.parent_id=? AND a.id!=? AND s.status='active'",[
-            $reseller['id'],$account['id']])['n'];
+            WHERE a.parent_id=? AND a.id!=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?",[
+            $reseller['id'],$account['id'],now(),now()])['n'];
         if($used+(int)$plan['call_quota']>site_limit((int)$reseller['id'],'call_quota'))
             throw new InvalidArgumentException('reseller_quota_exceeded');
     }

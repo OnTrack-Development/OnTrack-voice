@@ -266,7 +266,7 @@ function startsession():void {
     if(PHP_SAPI==='cli')return;
     ini_set('session.use_strict_mode','1');
     session_name('OTVOICESESSION');
-    session_set_cookie_params(['lifetime'=>0,'path'=>'/saas/console','secure'=>!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off','httponly'=>true,'samesite'=>'Lax']);
+    session_set_cookie_params(['lifetime'=>0,'path'=>'/','secure'=>!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off','httponly'=>true,'samesite'=>'Lax']);
     session_start();
 }
 function me():?array {
@@ -364,7 +364,9 @@ function audit(string $action,?int $accountId=null,array $details=[]):void{
     insert('INSERT INTO audit_events(actor_user_id,account_id,action,detail,created_at) VALUES (?,?,?,?,?)',[$actor['id'],$accountId,$action,$info,now()]);
 }
 function site_limit(int $accountId,string $key):int{
-    $row=one("SELECT p.* FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.account_id=? AND s.status='active' ORDER BY s.id DESC LIMIT 1",[$accountId]);
+    $row=one("SELECT p.* FROM subscriptions s JOIN plans p ON p.id=s.plan_id
+        WHERE s.account_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
+        ORDER BY s.id DESC LIMIT 1",[$accountId,now(),now()]);
     return (int)($row[$key]??0);
 }
 function can_create(int $accountId,string $kind):bool{

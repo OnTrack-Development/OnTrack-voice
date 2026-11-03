@@ -39,7 +39,9 @@ function mfa_record(int $uid):?array {
 /** A second factor can only be required after an actual, code-verified enrollment.
  * No privileged role or unverified setup draft implicitly activates MFA. */
 function mfa_gate_required(int $uid):bool {
-    return mfa_record($uid)!==null;
+    // Every active owner/admin must enroll TOTP before privileged dashboard.
+    // Existing enrolled staff continue to use MFA even if their role changed.
+    return mfa_privileged($uid) || mfa_record($uid)!==null;
 }
 function mfa_check(int $uid,string $code):bool {
     $row=mfa_record($uid);if(!$row)return false;
@@ -56,14 +58,14 @@ function mfa_page(?string $problem=null,bool $setup=false):never {
     header('Referrer-Policy: no-referrer');
     header('X-Frame-Options: DENY');
     header('X-Content-Type-Options: nosniff');
-    $actionUrl=$setup?'/saas/console/mfa/setup':'/saas/console/mfa';
+    $actionUrl=$setup?'/mfa/setup':'/mfa';
     echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
     echo '<title>المصادقة بخطوتين | OnTrack Voice</title><link rel="stylesheet" href="/saas/console/assets/css/app.css">';
     if($setup&&!$existing)echo '<script src="/saas/console/assets/js/qrcode.js" defer></script><script src="/saas/console/assets/js/mfa-qr.js" defer></script>';
     echo '</head><body class="login-body"><main class="login-panel" style="width:min(100%,540px)"><h1>'.($setup?'ربط تطبيق المصادقة':'تأكيد تسجيل الدخول').'</h1>';
     echo $existing
         ?'<p>التحقق بخطوتين مفعّل بالفعل لهذا الحساب. أدخل الرمز الحالي من تطبيق المصادقة. لن نعيد ضبطه بدون إثبات ملكية الحساب.</p>'
-        :'<p>التحقق بخطوتين غير مفعّل حاليًا. التفعيل اختياري ولا يتم إلا بعد مسح QR أو إدخال المفتاح ثم تأكيد رمز صحيح.</p>';
+        :'<p>إعداد المصادقة بخطوتين إلزامي لحسابات الإدارة. لن يتم منح صلاحيات الإدارة إلا بعد تأكيد رمز صحيح من التطبيق.</p>';
     if($problem)echo '<div class="alert danger">'.e($problem).'</div>';
     echo '<form method="post" action="'.e($actionUrl).'" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'">';
     if(!$existing){
@@ -88,17 +90,20 @@ function mfa_page(?string $problem=null,bool $setup=false):never {
     if($existing||($valid??false))
         echo '<label class="field">كود التطبيق المكوّن من 6 أرقام<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>';
     echo '<button class="btn primary" type="submit">'.(!$existing&&!($valid??false)?'عرض QR وإعداد المصادقة':($setup?'تأكيد وتفعيل الحماية':'التحقق والدخول')).'</button></form>';
-    if($setup&&!$existing)echo '<p><a href="/saas/console/?tab=settings">ليس الآن — العودة للحساب بدون تفعيل</a></p>';
+    // No privileged MFA bypass link is shown during required enrollment.
     echo '<form method="post" action="/saas/console/logout"><input type="hidden" name="csrf" value="'.e(csrf()).'"><button class="btn" type="submit">تسجيل الخروج</button></form></main></body></html>';exit;
 }
 function mfa_route(bool $setup=false):never {
     $user=require_login();$uid=(int)$user['id'];
-    $enrolled=mfa_gate_required($uid);
-    if($setup && $enrolled){
+    $stored=mfa_record($uid)!==null;
+    $required=mfa_gate_required($uid);
+    // Incomplete privileged setup is not a verified second factor.
+    if(!$stored&&$required&&!$setup)go('/mfa/setup');
+    if($setup && $stored){
         if(empty($_SESSION['mfa_ok']))go('/mfa');
         go('/?tab=settings');
     }
-    if(!$setup&&!$enrolled){$_SESSION['mfa_ok']=true;go('/');}
+    if(!$setup&&!$required){$_SESSION['mfa_ok']=true;go('/');}
     if(!$setup&&!empty($_SESSION['mfa_ok']))go('/');
     $error=null;
     if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){

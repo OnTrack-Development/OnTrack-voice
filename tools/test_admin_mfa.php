@@ -30,9 +30,9 @@ function execute(string $sql,array $args=[]):int {
 }
 $uid=1;
 valid(mfa_privileged($uid),'owner is privileged');
-valid(!mfa_gate_required($uid),'unenrolled admin logs in without TOTP');
+valid(mfa_gate_required($uid),'unenrolled admin must complete MFA setup before entering console');
 $_SESSION=['mfa_pending'=>mfa_secret(),'mfa_pending_uid'=>$uid,'mfa_pending_at'=>time()];
-valid(!mfa_gate_required($uid),'QR draft does not activate MFA');
+valid(mfa_gate_required($uid),'QR draft still blocks admin before a verified TOTP');
 $enrolled=mfa_secret();
 $GLOBALS['mfa_test_row']=['secret_enc'=>'test-encrypted:'.$enrolled,'last_step'=>-1];
 valid(mfa_gate_required($uid),'verified stored MFA enrollment requires login code');
@@ -40,5 +40,5 @@ $code=mfa_totp($enrolled,intdiv(time(),30));
 valid(mfa_check($uid,$code),'enrolled TOTP accepts correct code');
 valid(!mfa_check($uid,$code),'enrolled TOTP blocks code replay');
 $GLOBALS['mfa_test_row']=null;
-valid(!mfa_gate_required($uid),'gate off without enrollment record');
+valid(mfa_gate_required($uid),'privileged gate remains required without stored enrollment');
 echo "MFA_ENROLLMENT_GATE_PASS\n";

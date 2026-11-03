@@ -300,9 +300,11 @@ function act():void {
                 $temp='OT-'.bin2hex(random_bytes(9));
                 $uid=insert("INSERT INTO users(name,email,password_hash,status,created_at) VALUES (?,?,?,'active',?)",[$name.' - مالك',$email,hash_password($temp),now()]);
                 insert('INSERT INTO memberships(user_id,account_id,role,created_at) VALUES (?,?,?,?)',[$uid,$new,'owner',now()]);
-                $plans=plans_for($type==='reseller'?'reseller':'user');
-                if($plans)insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at) VALUES (?,?,'active',?,?)",[$new,$plans[0]['id'],now(),gmdate('Y-m-d H:i:s',time()+30*86400)]);
-                audit('account.created',$new,['kind'=>$type,'parent'=>$parent]);
+                // Creating a login is NOT a verified payment, free trial or entitlement.
+                // Explicit Demo/Trial provisioning and signed paid settlement are separate
+                // operations. Never activate the first paid plan implicitly.
+                audit('account.created',$new,['kind'=>$type,'parent'=>$parent,
+                    'subscription'=>'none_pending_verified_payment']);
                 flash('secret','حساب جديد: '.$email.' | كلمة مرور مؤقتة: '.$temp.' — انسخها الآن');
                 break;
             case 'add_employee':
@@ -469,8 +471,12 @@ function act():void {
                 $plan=one("SELECT * FROM plans WHERE id=? AND kind=? AND status='active'",[intfield('plan_id'),$target['kind']==='reseller'?'reseller':'user']);
                 if(!$plan)deny();
                 if($kind==='reseller'&&$target['kind']!=='customer')deny();
-                $spent=(int)one("SELECT COALESCE(SUM(p.call_quota),0) n FROM subscriptions s JOIN plans p ON p.id=s.plan_id JOIN accounts a ON a.id=s.account_id WHERE a.parent_id=? AND s.status='active' AND a.id!=?",[$id,$customer])['n'];
+                $spent=(int)one("SELECT COALESCE(SUM(p.call_quota),0) n FROM subscriptions s JOIN plans p ON p.id=s.plan_id JOIN accounts a ON a.id=s.account_id WHERE a.parent_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>? AND a.id!=?",[$id,now(),now(),$customer])['n'];
                 if($kind==='reseller' && ($spent+(int)$plan['call_quota'])>site_limit($id,'call_quota'))throw new RuntimeException('سعة الباقة تتجاوز حصة الريسيلر');
+                // Manual assignment is a demo operation, not an alternative
+                // to verified payment for a priced commercial subscription.
+                if((int)$plan['price_minor']>0 && !is_demo())
+                    throw new InvalidArgumentException('الباقة المدفوعة تحتاج طلب دفع معتمد أو بيئة Demo');
                 execute("UPDATE subscriptions SET status='replaced' WHERE account_id=? AND status='active'",[$customer]);
                 insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at) VALUES (?,?,'active',?,?)",[$customer,$plan['id'],now(),gmdate('Y-m-d H:i:s',time()+30*86400)]);
                 audit('plan.assigned',$customer,['plan'=>$plan['id']]);break;
@@ -532,9 +538,19 @@ function act():void {
                 db()->beginTransaction();
                 try{
                     execute("UPDATE orders SET status='approved',payment_reference=? WHERE id=? AND status='pending_manual_review'",[$proof,$order['id']]);
-                    $existing=one("SELECT id FROM subscriptions WHERE account_id=? AND plan_id=? AND status='active'",[$order['account_id'],$order['plan_id']]);
-                    if(!$existing)insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at) VALUES (?,?,'active',?,?)",[$order['account_id'],$order['plan_id'],now(),gmdate('Y-m-d H:i:s',time()+30*86400)]);
-                    insert("INSERT INTO outbox(account_id,kind,payload,status,created_at) VALUES (?,?,?,'pending',?)",[$order['account_id'],'subscription.activated',json_encode(['order'=>$order['id'],'source'=>'manual_review']),now()]);
+                    $active=one("SELECT id FROM subscriptions WHERE account_id=? AND status='active'
+                        AND starts_at<=? AND ends_at>? ORDER BY id DESC LIMIT 1",
+                        [$order['account_id'],now(),now()]);
+                    if($active)execute("UPDATE subscriptions SET status='replaced'
+                        WHERE account_id=? AND status='active'",[$order['account_id']]);
+                    insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at)
+                        VALUES (?,?,'active',?,?)",
+                        [$order['account_id'],$order['plan_id'],now(),
+                         gmdate('Y-m-d H:i:s',time()+30*86400)]);
+                    insert("INSERT INTO outbox(account_id,kind,payload,status,created_at)
+                        VALUES (?,?,?,'pending',?)",
+                        [$order['account_id'],'subscription.activated',
+                         json_encode(['order'=>$order['id'],'source'=>'manual_review']),now()]);
                     db()->commit();
                 }catch(Throwable $ex){db()->rollBack();throw $ex;}
                 audit('manual_payment.approved',(int)$order['account_id'],['order'=>$order['id'],'proof_ref'=>$proof]);break;
