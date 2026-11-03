@@ -11,6 +11,16 @@ $contact=null;
 $call='12345678-1234-4234-9234-123456789012';
 $campaign=null;
 try{
+    // Real DB binding fixture so pre-dial checks cannot pass merely because
+    // there was no physical SIM row to authorize the attempt.
+    $b['id']=insert("INSERT INTO device_bindings
+       (account_id,site_id,agent_id,installation_id,sim_slot,slot_claim,
+        device_name,token_hash,status,created_at)
+       VALUES (?,?,?,?,?,?,?,?,'active',?)",[
+       4,1,1,'tcq-fixture-install-00001',0,
+       hash('sha256','tcq-fixture-install-00001|0'),
+       'Fixture SIM',hash('sha256','tcq-device-token'),now()
+    ]);
     $result=tenant_workspace_import($b,[['name'=>'اختبار مساحة العمل','phone'=>$phone]]);
     tw_check($result['added']===1,'contact import');
     $again=tenant_workspace_import($b,[['name'=>'duplicate','phone'=>$phone]]);
@@ -105,15 +115,31 @@ try{
         $attemptId=$lease['claim']['id'];
         $forbidden=tenant_workspace_campaign_verify($other,['attempt_id'=>$attemptId]);
         tw_check($forbidden['verification']['allowed']===false,'cross tenant cannot verify');
+        $authorized=tenant_workspace_campaign_verify($b,['attempt_id'=>$attemptId]);
+        tw_check($authorized['verification']['allowed']===true &&
+            $authorized['verification']['must_dial_within_seconds']===10,
+            'valid authenticated physical SIM and explicit consent allow only short pre-dial window');
+        $finished=tenant_workspace_campaign_finish($b,['attempt_id'=>$attemptId,'result'=>'completed']);
+        tw_check($finished['attempt']['saved']===true,
+            'completed result only after real binding pre-dial validation');
+        $repeatFinish=tenant_workspace_campaign_finish($b,['attempt_id'=>$attemptId,'result'=>'completed']);
+        tw_check($repeatFinish['attempt']['duplicate']===true,'terminal callback is idempotent');
+        $second=tenant_workspace_campaign_claim($b);
+        tw_check(is_array($second['claim']) && $second['claim']['id']!==$attemptId,
+            'second reviewed campaign has unique attempt');
+        $nextId=$second['claim']['id'];
         tenant_workspace_dnc($b,$approvedContact['id'],true);
-        $verify=tenant_workspace_campaign_verify($b,['attempt_id'=>$attemptId]);
-        tw_check($verify['verification']['allowed']===false,
-            'DNC update after lease prevents the phone call');
-        $endAttempt=tenant_workspace_campaign_finish($b,['attempt_id'=>$attemptId,'result'=>'unknown']);
+        $verify=tenant_workspace_campaign_verify($b,['attempt_id'=>$nextId]);
+        tw_check($verify['verification']['allowed']===false &&
+            $verify['verification']['reason']==='consent_or_dnc_changed',
+            'DNC update after lease really blocks the pre-dial check on a valid SIM');
+        $endAttempt=tenant_workspace_campaign_finish($b,['attempt_id'=>$nextId,'result'=>'unknown']);
         tw_check($endAttempt['attempt']['saved']===true,
-            'unknown outcome persisted without redial');
-        tw_check(tenant_workspace_campaign_claim($b)['claim']===null,
-            'unknown attempt is not repeated');
+            'uncertain result persisted without fake completion');
+        $blocked=tenant_workspace_campaign_claim($b);
+        tw_check($blocked['claim']===null &&
+            $blocked['reason']==='uncertain_call_requires_review',
+            'uncertain SIM attempt blocks automatic continuation or repeat');
     }finally{putenv('ONTRACK_TENANT_CAMPAIGN_DIAL_ENABLED');}
     $cross=false;
     try{tcq_consent($other,$approvedContact['id'],'owner_test','cross account cannot authorize');}
@@ -140,4 +166,6 @@ try{
     execute('DELETE FROM tenant_call_events WHERE device_binding_id=? AND call_id=?',[$b['id'],$call]);
     execute('DELETE FROM calls WHERE device_binding_id=? AND external_call_id=?',[$b['id'],$call]);
     if($contact!==null)execute('DELETE FROM contacts WHERE id=? AND account_id=?',[$contact,$b['account_id']]);
+    // If the fixture insert succeeded, release only its own active binding.
+    if($b['id']!==90001)execute('DELETE FROM device_bindings WHERE id=? AND account_id=?',[$b['id'],$b['account_id']]);
 }
