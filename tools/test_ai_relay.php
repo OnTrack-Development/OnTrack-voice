@@ -40,5 +40,12 @@ foreach(['http://example.com/v1/chat/completions','https://127.0.0.1/v1/chat/com
 relay_check(ai_relay_endpoint('https://provider.example/v1/chat/completions')==='https://provider.example/v1/chat/completions','valid HTTPS');
 relay_check(ai_relay_parse_object('{"nodes":[],"edges":[]}')===['nodes'=>[],'edges'=>[]],'JSON parser');
 ai_relay_modify($b,'delete');relay_check(count(ai_relay_rows('voice'))===1,'remove individual entry');
+$legacyKey='test-assistant-legacy-only';
+$legacyId=insert("INSERT INTO integrations(account_id,name,provider,token_hash,token_prefix,status,created_at,secret_enc)
+    VALUES(?,?,'google_live',?,?,'active',?,?)",
+    [$platform,'gemini-3.8-live',hash('sha256',$legacyKey),substr(hash('sha256',$legacyKey),0,12),
+     now(),seal_secret($legacyKey)]);
+relay_check(ai_relay_assistant_legacy_key()===$legacyKey,'assistant legacy independent from voice pool');
+execute('DELETE FROM integrations WHERE id=?',[$legacyId]);
 execute('DELETE FROM ai_relay_entries WHERE account_id=?',[$platform]);
 echo "AI_RELAY_VOICE_ASSISTANT_COOLDOWN_SECURITY_PASS\n";

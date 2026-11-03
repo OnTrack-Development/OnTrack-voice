@@ -184,8 +184,22 @@ function ai_relay_parse_object(string $raw):array {
     if(!is_array($value)||array_is_list($value))throw new RuntimeException('relay_invalid_structured_response');
     return $value;
 }
+/** Assistant legacy continuity is independent of the Voice Relay pool.
+ * Once Assistant providers exist, their own credentials and cooldown apply. */
+function ai_relay_assistant_legacy_key():string {
+    $env=trim((string)getenv('ONTRACK_GEMINI_API_KEY'));
+    if($env!=='')return $env;
+    $legacy=one("SELECT secret_enc FROM integrations WHERE account_id=? AND provider='google_live'
+        AND status='active' ORDER BY id DESC LIMIT 1",[ai_relay_platform()]);
+    $key=$legacy?unseal_secret($legacy['secret_enc']??null):null;
+    if(!is_string($key)||$key==='')throw new RuntimeException('assistant_provider_not_configured');
+    return $key;
+}
 function ai_relay_proposal(string $system,string $prompt,array $schema):array {
-    if(!ai_relay_has('assistant'))return flow_ai_live_proposal($system,$prompt,$schema);
+    if(!ai_relay_has('assistant')){
+        $setup=flow_ai_live_setup($system."\nOnly call submit_editor_proposal; never speak or execute actions.",$schema);
+        return flow_ai_live_exchange(ai_relay_assistant_legacy_key(),$setup,$prompt);
+    }
     return ai_relay_run('assistant',static function(array $row,string $key)use($system,$prompt,$schema):array {
         if($row['driver']==='google_live'){
             $setup=flow_ai_live_setup($system."\nOnly submit the structured editor proposal.",$schema,(string)$row['model']);
