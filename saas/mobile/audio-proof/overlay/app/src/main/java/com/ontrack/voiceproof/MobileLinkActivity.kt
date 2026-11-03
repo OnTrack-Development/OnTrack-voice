@@ -183,6 +183,13 @@ class MobileLinkActivity:ComponentActivity(){
         val result=tenantWorkspace("workspace_calls")
         web.evaluateJavascript("window.onTrackCalls && window.onTrackCalls("+result.toString()+")",null)
     }
+    private suspend fun loadCallTranscript(callId:String) {
+        require(callId.matches(Regex("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"))) {
+            "معرّف المكالمة غير صالح"
+        }
+        val result=tenantWorkspace("workspace_call_transcript",JSONObject().put("call_id",callId))
+        web.evaluateJavascript("window.onTrackCallTranscript && window.onTrackCallTranscript("+result.toString()+")",null)
+    }
     private suspend fun contactsRequest(payload:JSONObject?) {
         check(!MobileLinkService.inCall){"إدارة الأرقام بعد انتهاء المكالمة"}
         val operation=if(payload==null)"workspace_contacts" else "workspace_contact_dnc"
@@ -776,6 +783,7 @@ class MobileLinkActivity:ComponentActivity(){
                         }else banner.text="إذن النافذة العائمة مفعل"
                     }
                     "loadCallHistory"->loadCallHistory()
+                    "loadCallTranscript"->loadCallTranscript(msg.optString("call_id"))
                     "enableCallNames"->{
                         val missing=listOf(Manifest.permission.READ_CALL_LOG,Manifest.permission.READ_CONTACTS)
                             .filter{ContextCompat.checkSelfPermission(this@MobileLinkActivity,it)!=PackageManager.PERMISSION_GRANTED}
