@@ -8,7 +8,11 @@ ui=Path('saas/mobile/ota/ui.html').read_text()
 embedded=Path('saas/mobile/audio-proof/overlay/app/src/main/assets/ontrack-ui.html').read_text()
 assert embedded == ui, 'APK embedded HTML differs from signed OTA UI; emulator will run old Pilot UI'
 native=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkActivity.kt').read_text()
-assert '"start","enable"->{' in native, 'Cached UI start must enable bound SaaS SIM without Pilot key'
+assert '"start","enable"-> requestStartTenantMonitor()' in native, 'Start must run tenant-only action without Pilot key'
+assert 'startRequestedAfterPhonePermission=true' in native, 'A missing READ_PHONE_STATE must open the Android permission prompt'
+assert 'tenantSimPermission.launch(Manifest.permission.READ_PHONE_STATE)' in native, 'Native permission launcher missing'
+assert 'if(granted && continueStart)' in native and 'startTenantMonitor()' in native, 'Monitoring must resume after a direct Start permission grant'
+assert 'if(!MobileLinkService.tenantPairingInProgress)' not in native or 'tenantPairingInProgress' in native, 'Do not bypass in-progress pairing safety'
 assert 'واجهات هاتف التجربة غير متاحة لحماية حسابات العملاء' not in native, 'Do not mislabel demo SIM as a customer block'
 assert 'tenantDesiredEnabled' in native and 'TenantEngineRestorePolicy.shouldRestore' in native, 'Native startup status/restore missing'
 assert 'tenantServiceRunning' in ui, 'UI must distinguish running SIM monitor from call-only Google connection'
