@@ -7,6 +7,9 @@ on:
     paths:
       - 'saas/mobile/audio-proof/**'
       - 'tools/test_mobile_ui_contract.py'
+      - 'tools/test_voice_restore_033.py'
+      - 'tools/test_sim_agent_call_reports.php'
+      - 'tools/test_tenant_call_ai_summary.php'
       - 'saas/mobile/ota/ui.html'
       - '.github/workflows/android-audio-proof.yml'
       # Server PHP has its own Voice P1 P2 backend regression. A backend-only
