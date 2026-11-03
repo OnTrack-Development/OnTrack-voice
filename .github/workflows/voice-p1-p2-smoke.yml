@@ -6,6 +6,9 @@ on:
       - 'saas/mobile/server/**'
       - 'tools/test_mobile_call_ledger.php'
       - 'tools/test_mobile_call_reports.php'
+      - 'tools/test_voice_call_history_ui.cjs'
+      - 'saas/mobile/ota/ui.html'
+      - 'saas/mobile/audio-proof/overlay/app/src/main/assets/ontrack-ui.html'
       - 'tools/test_pilot_workspace.php'
       - '.github/workflows/voice-p1-p2-smoke.yml'
   pull_request:
@@ -13,6 +16,9 @@ on:
       - 'saas/mobile/server/**'
       - 'tools/test_mobile_call_ledger.php'
       - 'tools/test_mobile_call_reports.php'
+      - 'tools/test_voice_call_history_ui.cjs'
+      - 'saas/mobile/ota/ui.html'
+      - 'saas/mobile/audio-proof/overlay/app/src/main/assets/ontrack-ui.html'
       - 'tools/test_pilot_workspace.php'
       - '.github/workflows/voice-p1-p2-smoke.yml'
   workflow_dispatch:
@@ -31,6 +37,8 @@ jobs:
           php tools/test_mobile_call_ledger.php
           php tools/test_mobile_call_reports.php
           php tools/test_pilot_workspace.php
+      - name: Check Android WebView report UI and JS parse
+        run: node tools/test_voice_call_history_ui.cjs
       - name: Verify opt-in and no-redial safety guards
         run: |
           set -euo pipefail
