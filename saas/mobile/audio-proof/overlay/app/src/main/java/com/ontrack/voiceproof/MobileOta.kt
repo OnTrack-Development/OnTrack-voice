@@ -58,7 +58,7 @@ class MobileOta(private val context: Context) {
         return Screen(context.assets.open("ontrack-ui.html").bufferedReader().use{it.readText()},1)
     }
     private fun fetch(path:String,limit:Int):ByteArray {
-        client.newCall(Request.Builder().url("https://app.ontrackegy.com/saas/mobile/updates/$path").build()).execute().use { r ->
+        client.newCall(Request.Builder().url("https://app.ontrackegy.com/mobile/updates/$path").build()).execute().use { r ->
             check(r.isSuccessful){"تحديثات الموقع HTTP ${r.code}"}
             val bytes=r.body?.byteStream()?.use{input->
                 val out=ByteArrayOutputStream();val buffer=ByteArray(8192)
