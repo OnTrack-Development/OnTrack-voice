@@ -1175,11 +1175,12 @@ function render_ai_relay_settings(array $a):void {
 }
 function render_settings(array $a):void{
     $brand=brand($a);
-    $mfaActive=mfa_gate_required((int)me()['id']);
+    $mfaUser=(int)me()['id'];
+    $mfaEnrolled=mfa_record($mfaUser)!==null;
     echo card('التحقق بخطوتين',
-        $mfaActive
-        ?'<p>المصادقة مفعّلة لهذا الحساب. عند تسجيل الدخول ستحتاج كود تطبيق المصادقة.</p><span class="pill ok">مفعّل ومؤكد</span>'
-        :'<p>غير مفعّل. تسجيل الدخول يعمل بكلمة المرور، ويمكنك اختيار تفعيله بعد مسح QR وتأكيد كود من التطبيق.</p><a class="btn primary" href="/saas/console/mfa/setup">ربط تطبيق المصادقة وعرض QR</a>');
+        $mfaEnrolled
+        ?'<p>تم تأكيد المصادقة بخطوتين. يُطلب رمز TOTP عند تسجيل الدخول.</p><span class="pill ok">مفعّل ومؤكد</span>'
+        :'<p>يلزم تأكيد المصادقة بخطوتين لحسابات الإدارة قبل استخدام اللوحة. لا يُعتبر إعداد QR غير المؤكد تفعيلًا.</p><a class="btn primary" href="/mfa/setup">تأكيد حماية الإدارة</a>');
     if($a['kind']==='platform'&&console_view_mode($a)==='admin'&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
         require_once __DIR__.'/WhatsAppOnboarding.php';
         $meta=wa_platform_onboarding();
