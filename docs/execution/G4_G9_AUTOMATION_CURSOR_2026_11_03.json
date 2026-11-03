@@ -62,20 +62,20 @@
     "date": "2026-11-03",
     "status": "PARTIAL",
     "feature_commit": "bcb933d7b9d88a007f48280575152a023e0da872",
-    "code_changes": [
-      "saas/console/_core/TenantWorkspace.php",
-      "tools/test_sim_agent_call_reports.php"
-    ],
     "ci_runs": [
-      41592181504,
-      41592193642,
       41592208929,
       41592208970
     ],
-    "ci_status_at_check": "queued/in_progress",
-    "host_receipt": null,
+    "ci_results": {
+      "root_deploy": "success",
+      "android_sim_audio_proof": "failure"
+    },
+    "host_receipt": "ops/host-link/results/appontrack-server11/saas-console-41592208929.json",
+    "host_exit_code": 0,
+    "host_source": "bcb933d7b9d8",
+    "rollback": "/home/appontrack/backup/releases/bcb933d7b9d8",
     "device_e2e": false,
-    "blocker": "Pending green CI, matching host receipt, and real paired Xiaomi call event/reconnect E2E."
+    "blocker": "Android SIM Audio Proof native APK queue failed: ValueError Wrong target. No physical Xiaomi disconnect/reconnect event replay evidence; do not advance R041."
   },
   "run_history": [
     {
@@ -97,6 +97,26 @@
       "host_receipt": null,
       "device_e2e": false,
       "blocker": "Pending green CI, matching host receipt, and real paired Xiaomi call event/reconnect E2E."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "feature_commit": "bcb933d7b9d88a007f48280575152a023e0da872",
+      "ci_runs": [
+        41592208929,
+        41592208970
+      ],
+      "ci_results": {
+        "root_deploy": "success",
+        "android_sim_audio_proof": "failure"
+      },
+      "host_receipt": "ops/host-link/results/appontrack-server11/saas-console-41592208929.json",
+      "host_exit_code": 0,
+      "host_source": "bcb933d7b9d8",
+      "rollback": "/home/appontrack/backup/releases/bcb933d7b9d8",
+      "device_e2e": false,
+      "blocker": "Android SIM Audio Proof native APK queue failed: ValueError Wrong target. No physical Xiaomi disconnect/reconnect event replay evidence; do not advance R041."
     }
   ],
   "blocks": [],
