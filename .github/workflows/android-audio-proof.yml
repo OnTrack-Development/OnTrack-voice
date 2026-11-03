@@ -39,6 +39,9 @@ jobs:
           python3 -m py_compile saas/mobile/patch_live_session.py
           python3 tools/test_mobile_ota.py
           python3 tools/test_mobile_ui_contract.py
+          python3 tools/test_voice_restore_033.py
+          php tools/test_sim_agent_call_reports.php
+          php tools/test_tenant_call_ai_summary.php
           php tools/test_mobile_call_ledger.php
           php tools/test_pilot_workspace.php
           php tools/test_kashier_signature.php
