@@ -73,7 +73,7 @@ live_editor_ok($seenProfile===1 && $profileResult['goal']==='تسجيل استف
 $missing=false;
 try{
     flow_ai_generate(4,$id,'اعمل سيناريو خدمة العملاء للعقارات',[],$graph,
-        static fn():array=>['serverContent'=>['outputTranscription'=>['text'=>'وعد عام بدون مخطط']]]]);
+        static fn():array=>['serverContent'=>['outputTranscription'=>['text'=>'وعد عام بدون مخطط']]]);
 }catch(RuntimeException $error){$missing=true;}
 live_editor_ok($missing,'no false success if Live did not return structured tool args');
 $flowSource=(string)file_get_contents(__DIR__.'/../saas/console/_core/FlowAi.php');
