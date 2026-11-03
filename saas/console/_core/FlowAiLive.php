@@ -15,9 +15,13 @@ function flow_ai_live_setup(string $instruction,array $schema):array {
         'systemInstruction'=>['parts'=>[['text'=>$instruction]]],
         'generationConfig'=>[
             'responseModalities'=>['AUDIO'],
-            'outputAudioTranscription'=>new stdClass(),
             'thinkingConfig'=>['thinkingLevel'=>'MEDIUM']
         ],
+        // BidiGenerateContentSetup.outputAudioTranscription is a TOP-LEVEL
+        // setup field, NOT generationConfig.outputAudioTranscription.
+        // Sending it in generationConfig causes an invalid Live setup and
+        // the peer closes the session without a structured proposal.
+        'outputAudioTranscription'=>new stdClass(),
         'tools'=>[['functionDeclarations'=>[[
             'name'=>'submit_editor_proposal',
             'description'=>'Return the complete proposed editor graph or settings as structured arguments. Do not execute any change; the user must review and apply the draft.',
@@ -147,7 +151,17 @@ function flow_ai_live_exchange(string $apiKey,array $setup,string $userText,stri
             catch(RuntimeException $error){
                 throw new RuntimeException($error->getMessage().' [last='. $lastEvent.',frames='.$frames.']');
             }
-            if($opcode===8)throw new RuntimeException('Google Live أغلق الجلسة قبل إنشاء المقترح.');
+            if($opcode===8){
+                // A close frame contains a two-byte RFC6455 code followed by
+                // optional UTF-8 reason. Never expose the full provider text:
+                // it may echo request data. The code and stage are sufficient.
+                $closeCode=strlen($body)>=2?unpack('n',substr($body,0,2))[1]:1005;
+                $step=$initialized?'بعد إرسال طلب المقترح':'أثناء إعداد جلسة Live';
+                throw new RuntimeException(
+                    'Google Live أغلق الاتصال '.$step.' (WebSocket '.$closeCode.
+                    '؛ last='.$lastEvent.'). لم يتم تعديل المخطط أو الخصائص.'
+                );
+            }
             if($opcode===9){ // ping -> masked pong
                 $mask=random_bytes(4);$size=strlen($body);
                 if($size>125)throw new RuntimeException('ai_live_ping_invalid');
