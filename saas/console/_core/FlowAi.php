@@ -64,7 +64,7 @@ function flow_ai_model():string {
     return flow_ai_live_model();
 }
 
-function flow_ai_generate(int $accountId,int $agentId,string $idea,array $history=[],?array $currentGraph=null):array {
+function flow_ai_generate(int $accountId,int $agentId,string $idea,array $history=[],?array $currentGraph=null,?callable $liveTransport=null):array {
     $idea=trim($idea);
     if(mb_strlen($idea)<(($history||$currentGraph!==null)?3:15)||mb_strlen($idea)>2500)
         throw new InvalidArgumentException('وصف السيناريو لازم يكون بين 15 و2500 حرف.');
@@ -177,7 +177,7 @@ PROMPT;
         // clientContent text turn + NON_BLOCKING submit_editor_proposal tool.
         // No generateContent/responseMimeType/responseSchema fallback.
         $graphDraft=flow_ai_live_proposal(
-            $targetPrompt,$userText.$failedGraph,$schema
+            $targetPrompt,$userText.$failedGraph,$schema,$liveTransport
         );
         try{
             $graph=flow_ai_validate_proposal($graphDraft);
