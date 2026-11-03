@@ -7,6 +7,8 @@ on:
       - 'tools/deploy_saas_console.py'
       - 'tools/queue_saas_console.py'
       - 'tools/test_flow_ai_transport.php'
+      - 'tools/test_flow_ai_live_thinking.php'
+      - 'tools/test_flow_ai_live_text_editor.php'
       - 'tools/test_flow_ai_live_text_editor.php'
       - 'tools/test_flow_ai_live_thinking.php'
       - 'tools/test_flow_ai_chat.php'
