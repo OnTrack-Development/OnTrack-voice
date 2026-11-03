@@ -37,7 +37,7 @@ try{
         'provider selector and manual model picker available to platform admin');
     ob_start();render_campaigns(mine());$campaignAdminHtml=(string)ob_get_clean();
     verify(str_contains($campaignAdminHtml,'الحملات المجدولة على شرائح Android')
-        && str_contains($campaignAdminHtml,'sim_campaign_manage'),
+        && str_contains($campaignAdminHtml,'الجدولة محفوظة'),
         'SaaS root renders SIM-scoped campaign management with real statuses');
     ob_start();render_contacts(mine());$contactAdminHtml=(string)ob_get_clean();
     verify(str_contains($contactAdminHtml,'موافقة التسويق'),
