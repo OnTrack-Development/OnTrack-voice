@@ -1,0 +1,13 @@
+{
+  "job_id": "legacy-root-diag-20261103-202611030420",
+  "target": "appontrack-server11",
+  "job_sha256": "ff59e6c9d18b94d8bf59b9eb66d5e99d2fce02aab3d06e6b6a88935637413fcc",
+  "started_at": "2026-11-03T04:21:03.085208+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"htaccess_rewrites\": [\"RewriteEngine On\", \"RewriteRule ^saas/console/?(.*)$ /$1 [L,QSA]\", \"RewriteRule ^saas/mobile/(.*)$ /mobile/$1 [L,QSA]\", \"RewriteCond %{REQUEST_FILENAME} !-f\", \"RewriteCond %{REQUEST_FILENAME} !-d\", \"RewriteRule ^ index.php [L,QSA]\"], \"bootstrap_has_old_prefix\": true, \"bootstrap_has_legacy_route\": true, \"present_paths\": {\"legacy_root_dir\": false, \"saas_dir\": true, \"index\": true}, \"requests\": {\"/\": {\"code\": 200, \"path\": \"/login\"}, \"/login\": {\"code\": 200, \"path\": \"/login\"}, \"/saas/console/\": {\"code\": 200, \"path\": \"/login\"}, \"/saas/console/login\": {\"code\": 404, \"path\": \"/saas/console/login\"}, \"/saas/console/?tab=settings\": {\"code\": 200, \"path\": \"/login\"}, \"/saas/mobile/session.php\": {\"code\": 401, \"path\": \"/saas/mobile/session.php\"}, \"/mobile/session.php\": {\"code\": 401, \"path\": \"/mobile/session.php\"}}}\n",
+  "stderr": "",
+  "finished_at": "2026-11-03T04:21:03.484912+00:00",
+  "duration_ms": 400
+}
