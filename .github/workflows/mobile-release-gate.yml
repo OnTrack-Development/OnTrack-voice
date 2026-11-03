@@ -51,6 +51,9 @@ jobs:
           workflow = Path('.github/workflows/android-audio-proof.yml').read_text()
           assert "      - 'tools/queue_mobile_native.py'" not in workflow
           assert "      - 'saas/mobile/server/**'" not in workflow
-          assert "      - 'saas/mobile/audio-proof/**'" in workflow
-          print("Native build trigger isolation PASS")
+          manual_only = "on:\n  workflow_dispatch:\n" in workflow and "  push:" not in workflow
+          native_paths = "      - 'saas/mobile/audio-proof/**'" in workflow
+          assert manual_only or native_paths, "Native source must be tested or legacy publisher quarantined"
+          assert "  publish_ota:" not in workflow and "  publish_native:" not in workflow, "Legacy publisher must not publish stale SHA"
+          print("Native release safety isolation PASS")
           PY
