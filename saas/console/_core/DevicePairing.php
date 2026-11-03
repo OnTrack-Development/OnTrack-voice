@@ -56,6 +56,13 @@ function device_pairing_redeem(string $code,string $installationId,int $simSlot,
                 $pair['account_id'],$pair['site_id'],$pair['agent_id'],$installationId,$simSlot,
                 $claim,$label,hash('sha256',$token),now()
             ]);
+        // Existing bindings are backfilled by migration; newly enrolled SIMs
+        // also need the immutable initial assignment before later hot swaps.
+        insert('INSERT INTO device_agent_revisions
+            (device_id,account_id,site_id,agent_id,agent_revision,created_at)
+            VALUES (?,?,?,?,?,?)',[
+            $deviceId,(int)$pair['account_id'],(int)$pair['site_id'],
+            (int)$pair['agent_id'],1,now()]);
         $changed=execute("UPDATE device_pairings SET status='redeemed',device_id=?,redeemed_at=? WHERE id=? AND status=? AND expires_at>?",
             [$deviceId,now(),$pair['id'],'pending_sim'.$simSlot,now()]);
         if($changed!==1)throw new RuntimeException('device_pairing_race');
