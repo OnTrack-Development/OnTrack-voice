@@ -4,6 +4,7 @@ require_once __DIR__.'/FlowPreview.php';
 require_once __DIR__.'/TenantVoiceSession.php';
 require_once __DIR__.'/VoiceAccess.php';
 require_once __DIR__.'/FlowAiQuality.php';
+require_once __DIR__.'/FlowAiTransport.php';
 
 /** Preview-only planning. No DB update, publish, phone action or external webhook. */
 function flow_ai_validate_proposal(array $candidate):array {
@@ -181,32 +182,9 @@ PROMPT;
                 'responseSchema'=>$schema,
                 'thinkingConfig'=>['thinkingLevel'=>'MEDIUM'],
                 'maxOutputTokens'=>$stress?14000:9000]];
-        $body=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
-        $url='https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent';
-        $curl=curl_init($url);
-        if(!$curl)throw new RuntimeException('ai_flow_provider_unavailable');
-        curl_setopt_array($curl,[
-            CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$body,CURLOPT_RETURNTRANSFER=>true,
-            CURLOPT_HTTPHEADER=>['Content-Type: application/json','x-goog-api-key: '.$provider['key']],
-            CURLOPT_CONNECTTIMEOUT=>7,CURLOPT_TIMEOUT=>26,
-            CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,
-            CURLOPT_FOLLOWLOCATION=>false,CURLOPT_MAXREDIRS=>0,
-            CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,
-        ]);
-        $result=curl_exec($curl);
-        $status=(int)curl_getinfo($curl,CURLINFO_HTTP_CODE);
-        $curlError=curl_errno($curl);
-        curl_close($curl);
-        if(!is_string($result)||$status!==200||strlen($result)>160000){
-            $detail=match($status){
-                401=>'مفتاح API غير صالح أو مرفوض',
-                403=>'مفتاح API ليس له صلاحية استخدام الموديل',
-                404=>'الموديل غير متاح لحساب Google؛ اختر موديلًا مدعومًا',
-                429=>'تم تجاوز حد الاستخدام لدى Google',
-                default=>$curlError===28?'انتهت مهلة اتصال Google':'استجابة غير ناجحة من مزود AI'
-            };
-            throw new RuntimeException('تعذر إنشاء مقترح AI (HTTP '.$status.'): '.$detail);
-        }
+        // Both the visual graph and the agent-profile editor share one
+        // bounded retry policy; 503/HTTP0 must not erase a saved graph.
+        $result=flow_ai_google_request($payload,$provider['key'],$model,160000);
         try{
             $graph=flow_ai_extract_graph($result);
             if(!$stress)return $graph;
