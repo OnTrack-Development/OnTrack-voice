@@ -28,6 +28,7 @@ try {
     finding_ok((int)$original['agent_id']===1,'initial SIM agent');
     $updated=device_binding_change_agent(4,$device,$addedAgent);
     finding_ok($updated['changed']&&$updated['previous_agent_id']===1,'old agent correctly replaced');
+    finding_ok($updated['agent_revision']===2,'first SIM agent revision increment');
     $current=device_binding_authorize($secret);
     finding_ok($current!==null && (int)$current['agent_id']===$addedAgent,'same token sees new agent');
     finding_ok((int)$current['id']===$device&&(int)$current['sim_slot']===0 &&
@@ -37,8 +38,10 @@ try {
     $profile=device_binding_heartbeat($current);
     finding_ok($profile['agent_id']===$addedAgent&&$profile['flow_ready']===true,
         'new published agent reaches next heartbeat');
+    finding_ok($profile['agent_revision']===2,'heartbeat exposes changed agent revision');
     $unchanged=device_binding_change_agent(4,$device,$addedAgent);
-    finding_ok(!$unchanged['changed'],'repeat agent selection idempotent');
+    finding_ok(!$unchanged['changed']&&$unchanged['agent_revision']===2,
+        'repeat agent selection idempotent; revision unchanged');
     $reject=false;
     try{device_binding_change_agent(5,$device,3);}catch(InvalidArgumentException){$reject=true;}
     finding_ok($reject,'other tenant cannot modify SIM agent');
@@ -49,6 +52,13 @@ try {
     try{device_binding_change_agent(4,$device,1);}catch(InvalidArgumentException){$reject=true;}
     finding_ok(!$reject,'previous published agent remains selectable');
     finding_ok((int)device_binding_authorize($secret)['agent_id']===1,'restore original without re-pair');
+    $history=all('SELECT agent_id,agent_revision FROM device_agent_revisions WHERE device_id=? ORDER BY agent_revision',[$device]);
+    finding_ok(count($history)===3 &&
+        (int)$history[0]['agent_id']===1 &&
+        (int)$history[1]['agent_id']===$addedAgent &&
+        (int)$history[2]['agent_id']===1 &&
+        (int)$history[2]['agent_revision']===3,
+        'original agent, replacement and revert retain immutable history');
     $binding=device_binding_authorize($secret);
     $ring=['call_id'=>$callId,'sequence'=>1,'phase'=>'ringing','duration_seconds'=>0];
     finding_ok(tenant_workspace_call_event($binding,$ring)['accepted'],'call event');
