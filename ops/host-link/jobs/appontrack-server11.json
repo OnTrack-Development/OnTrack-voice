@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "pilot-runtime-diag-20261103-202611030417",
+  "id": "pilot-live-check-20261103-202611030418",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-03T04:17:16.303Z",
-  "expires_at": "2026-11-03T05:17:16.303Z",
+  "created_at": "2026-11-03T04:18:55.763Z",
+  "expires_at": "2026-11-03T05:18:55.763Z",
   "cwd": "/home/appontrack",
-  "timeout_seconds": 25,
+  "timeout_seconds": 29,
   "argv": [
     "/bin/python3",
     "-c",
-    "import pathlib,subprocess,json,re\nr=pathlib.Path('/home/appontrack/public_html/mobile')\ns=r/'session.php'\np=r/'pilot_api'\nphp='/opt/cpanel/ea-php83/root/usr/bin/php'\ncases=[\n [\"test_api\",[\"-r\",\"$_SERVER['REQUEST_METHOD']='POST'; require '/home/appontrack/public_html/mobile/pilot_api/live_session.php';\"]],\n [\"lint_session\",[\"-l\",str(s)]],\n [\"lint_live\",[\"-l\",str(p/'live_session.php')]]\n]\nresults=[]\nfor tag,args in cases:\n o=subprocess.run([php]+args,capture_output=True,text=True,timeout=8)\n out=o.stdout.strip();err=o.stderr.strip()\n results.append({'case':tag,'code':o.returncode,'stdout_start':out[:250] if not re.search('key|token|secret|password',out,re.I) else '[redacted]','stderr_kind':(err[:180] if not re.search('key|token|secret|password',err,re.I) else '[redacted]')})\nprint(json.dumps({'files':{k:(p/k).is_file() for k in ['live_session.php','bootstrap.php','demo_config.php','lib/OutboundMission.php','data/knowledge.json']},\n 'session_new_target':\"__DIR__.'/pilot_api/live_session.php'\" in s.read_text(),\n 'private_config_exists':pathlib.Path('/home/appontrack/.ontrack-mobile/legacy-demo-config.php').is_file(),\n 'results':results},ensure_ascii=False))\n"
+    "import subprocess,json,urllib.request,urllib.error\nphp='/opt/cpanel/ea-php83/root/usr/bin/php'\ncode=\"\"\"$_SERVER['REQUEST_METHOD']='POST'; require '/home/appontrack/public_html/mobile/pilot_api/live_session.php';\"\"\"\np=subprocess.run([php,'-r',code],capture_output=True,text=True,timeout=22)\ntry:\n d=json.loads(p.stdout)\n summary={'json':True,'ok':d.get('ok') is True,'token_present':bool(d.get('token')),\n          'model':str(d.get('model',''))[:80], 'error':str(d.get('error',''))[:60],\n          'http_from_google':d.get('status',None),'php_exit':p.returncode}\nexcept Exception:\n summary={'json':False,'php_exit':p.returncode,'stderr_present':bool(p.stderr),'stdout_bytes':len(p.stdout)}\nchecks={}\nfor path in ['/login','/assets/css/app.css','/mobile/pilot_api/live_session.php','/saas/mobile/session.php','/saas/console/login']:\n req=urllib.request.Request('https://app.ontrackegy.com'+path,headers={'User-Agent':'OnTrack-migration-smoke'})\n try:\n  with urllib.request.urlopen(req,timeout=6) as res:checks[path]=res.status\n except urllib.error.HTTPError as err:checks[path]=err.code\n except Exception:checks[path]='network_error'\nprint(json.dumps({'pilot_provider':summary,'http':checks},ensure_ascii=False))\n"
   ]
 }
