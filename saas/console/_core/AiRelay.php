@@ -181,6 +181,8 @@ function ai_relay_proposal(string $system,string $prompt,array $schema):array {
     });
 }
 function ai_relay_model():string {
+    // Lightweight protocol tests intentionally run without database bootstrap.
+    if(!function_exists('private_path')||!function_exists('db'))return flow_ai_live_model();
     foreach(ai_relay_rows('assistant',true) as $row)
         if(empty($row['cooldown_until'])||$row['cooldown_until']<=now())return (string)$row['model'];
     return flow_ai_live_model();
