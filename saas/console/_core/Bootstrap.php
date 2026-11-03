@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_voice_reports_v1(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_voice_reports_v1();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -475,5 +475,33 @@ function init_console_v12():void {
         scenario TEXT NOT NULL, contact_ids_json TEXT NOT NULL, status VARCHAR(20) NOT NULL,
         created_at VARCHAR(19) NOT NULL)";
     db()->exec($campaigns.(driver()==='mysql'?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4':''));
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+/** New tenant-only transcript storage, scoped by the authenticated SIM binding. */
+function init_console_voice_reports_v1():void {
+    $marker=private_path().'/schema.tenant-voice-reports.v1';
+    if(is_file($marker))return;
+    if(driver()==='mysql'){
+        db()->exec("CREATE TABLE IF NOT EXISTS tenant_voice_report_entries (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            account_id BIGINT NOT NULL,site_id BIGINT NOT NULL,device_binding_id BIGINT NOT NULL,
+            sim_slot INT NOT NULL,call_id VARCHAR(36) NOT NULL,
+            entry_id CHAR(36) NOT NULL,kind VARCHAR(20) NOT NULL,role VARCHAR(20) NOT NULL,
+            source VARCHAR(20) NOT NULL,text TEXT NOT NULL,created_at VARCHAR(19) NOT NULL,
+            UNIQUE KEY uq_voice_report_event(device_binding_id,entry_id),
+            KEY ix_voice_report_call(account_id,site_id,device_binding_id,sim_slot,call_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }else{
+        db()->exec("CREATE TABLE IF NOT EXISTS tenant_voice_report_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL,site_id INTEGER NOT NULL,device_binding_id INTEGER NOT NULL,
+            sim_slot INTEGER NOT NULL,call_id TEXT NOT NULL,entry_id TEXT NOT NULL,
+            kind TEXT NOT NULL,role TEXT NOT NULL,source TEXT NOT NULL,text TEXT NOT NULL,
+            created_at TEXT NOT NULL,UNIQUE(device_binding_id,entry_id)
+        )");
+        db()->exec("CREATE INDEX IF NOT EXISTS ix_voice_report_call
+            ON tenant_voice_report_entries(account_id,site_id,device_binding_id,sim_slot,call_id)");
+    }
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
