@@ -10,6 +10,7 @@ require_once __DIR__.'/AgentAnswerPolicy.php';
 require_once __DIR__.'/Checkout.php';
 require_once __DIR__.'/AiRelay.php';
 require_once __DIR__.'/RecycleBin.php';
+require_once __DIR__.'/DomainVerification.php';
 require_once __DIR__.'/CallHistory.php';
 
 function field(string $key,int $max=200):string{
@@ -518,6 +519,16 @@ function act():void {
                     execute('UPDATE accounts SET logo_path=? WHERE id=?',[basename($dst),$id]);
                 }
                 audit('brand.updated',$id);break;
+            case 'verify_domain_dns':
+                if($kind!=='reseller'||!in_array($a['role'],['owner','admin'],true)||
+                    active_support())deny();
+                $verified=domain_dns_verify($id,intfield('domain_id'));
+                audit('domain.dns_checked',$id,['domain_id'=>intfield('domain_id'),
+                    'verified'=>$verified['verified']]);
+                $success=$verified['verified']
+                    ?'تم تأكيد ملكية الدومين عبر DNS. لم يتم ربط الاستضافة أو إصدار SSL بعد.'
+                    :'لم يظهر سجل TXT المطلوب بعد؛ تأكد من السجل وانتشار DNS.';
+                break;
             case 'add_domain':
                 if($kind!=='reseller'||!in_array($a['role'],['owner','admin'],true))deny();
                 $host=strtolower(required('hostname',190));
