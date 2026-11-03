@@ -5,12 +5,14 @@ on:
     paths:
       - 'saas/mobile/server/**'
       - 'tools/test_mobile_call_ledger.php'
+      - 'tools/test_mobile_call_reports.php'
       - 'tools/test_pilot_workspace.php'
       - '.github/workflows/voice-p1-p2-smoke.yml'
   pull_request:
     paths:
       - 'saas/mobile/server/**'
       - 'tools/test_mobile_call_ledger.php'
+      - 'tools/test_mobile_call_reports.php'
       - 'tools/test_pilot_workspace.php'
       - '.github/workflows/voice-p1-p2-smoke.yml'
   workflow_dispatch:
@@ -27,6 +29,7 @@ jobs:
           set -euo pipefail
           for file in saas/mobile/server/*.php; do php -l "$file"; done
           php tools/test_mobile_call_ledger.php
+          php tools/test_mobile_call_reports.php
           php tools/test_pilot_workspace.php
       - name: Verify opt-in and no-redial safety guards
         run: |
