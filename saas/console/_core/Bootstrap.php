@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_voice_agent_assignment_history(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_voice_agent_assignment_history();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -722,5 +722,41 @@ function init_console_v23():void {
         created_at VARCHAR(19) NOT NULL,updated_at VARCHAR(19) NOT NULL,
         PRIMARY KEY (device_binding_id,call_id)
     )".$engine);
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+
+/**
+ * Additive per-physical-SIM agent generation. Historical generation 1 is
+ * backfilled only for the agent currently known on that device: never fabricate
+ * assignments that predate this migration.
+ */
+function init_voice_agent_assignment_history():void {
+    $marker=private_path().'/schema.voice-agent-generation.v1';
+    if(is_file($marker))return;
+    $columns=driver()==='mysql'?array_column(all('SHOW COLUMNS FROM device_bindings'),'Field'):
+        array_column(all('PRAGMA table_info(device_bindings)'),'name');
+    if(!in_array('agent_revision',$columns,true))
+        db()->exec('ALTER TABLE device_bindings ADD COLUMN agent_revision INTEGER NOT NULL DEFAULT 1');
+    if(driver()==='mysql'){
+        db()->exec("CREATE TABLE IF NOT EXISTS device_agent_revisions (
+            device_id BIGINT NOT NULL,account_id BIGINT NOT NULL,site_id BIGINT NOT NULL,
+            agent_id BIGINT NOT NULL,agent_revision INTEGER NOT NULL,
+            created_at VARCHAR(19) NOT NULL,
+            PRIMARY KEY(device_id,agent_revision)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }else{
+        db()->exec("CREATE TABLE IF NOT EXISTS device_agent_revisions (
+            device_id INTEGER NOT NULL,account_id INTEGER NOT NULL,site_id INTEGER NOT NULL,
+            agent_id INTEGER NOT NULL,agent_revision INTEGER NOT NULL,
+            created_at TEXT NOT NULL,PRIMARY KEY(device_id,agent_revision)
+        )");
+    }
+    db()->exec("INSERT INTO device_agent_revisions
+        (device_id,account_id,site_id,agent_id,agent_revision,created_at)
+        SELECT d.id,d.account_id,d.site_id,d.agent_id,d.agent_revision,d.created_at
+        FROM device_bindings d WHERE NOT EXISTS (
+            SELECT 1 FROM device_agent_revisions r
+            WHERE r.device_id=d.id AND r.agent_revision=d.agent_revision)");
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
