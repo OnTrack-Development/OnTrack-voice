@@ -6,6 +6,7 @@ on:
       - 'saas/console/**'
       - 'tools/deploy_saas_console.py'
       - 'tools/queue_saas_console.py'
+      - 'tools/test_flow_ai_transport.php'
       - 'tools/test_voice_saas_console.php'
       - 'tools/test_tenant_call_ai_summary.php'
       - 'tools/test_sim_agent_call_reports.php'
@@ -29,6 +30,10 @@ jobs:
         run: |
           set -eu
           find saas/console -name '*.php' -type f -print0 | xargs -0 -n1 php -l
+          php tools/test_flow_ai_transport.php
+          php tools/test_flow_ai_chat.php
+          php tools/test_ai_agent_profile.php
+          node --check saas/console/assets/js/flow-graph.js
           php tools/test_voice_saas_console.php
           php tools/test_sim_agent_call_reports.php
           php tools/test_tenant_call_ai_summary.php
