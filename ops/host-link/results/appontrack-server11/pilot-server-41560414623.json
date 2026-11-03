@@ -1,0 +1,13 @@
+{
+  "job_id": "pilot-server-41560414623",
+  "target": "appontrack-server11",
+  "job_sha256": "1a45c458dee8e7be752e0f590e794015f848579a1672a21b15559371f2e19050",
+  "started_at": "2026-11-03T01:34:03.062177+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"auth_hash_preserved\": true, \"backup\": \"/home/appontrack/.ontrack-mobile/pilot-server-backups/d298b7d759f9\", \"php_files\": 23, \"sha256\": \"c7c4b1027535a73ca7ee65243b62251a663ac819e3af7b862d6c5b037ca11f24\", \"source\": \"d298b7d759f9a30b1ef24e58232f63c2edf34bc9\", \"status\": \"deployed\", \"target\": \"/saas/mobile/\", \"unrelated_files_untouched\": true}\n",
+  "stderr": "",
+  "finished_at": "2026-11-03T01:34:05.099543+00:00",
+  "duration_ms": 2037
+}
