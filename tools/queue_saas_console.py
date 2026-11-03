@@ -47,7 +47,8 @@ def artifact_url(artifact_id):
         raise RuntimeError("Artifact redirect domain rejected")
     raise RuntimeError("Expected GitHub artifact redirect")
 def main():
-    if os.environ["GITHUB_REF"]!="refs/heads/main":raise ValueError("Main branch only")
+    if os.environ["GITHUB_REF"]!="refs/heads/feat/voice-production-gap-20261103":
+        raise ValueError("Voice 0.3.10 reviewed release branch only")
     folder=pathlib.Path("dist/saas-console")
     sha=hashlib.sha256((folder/"release.tar.gz").read_bytes()).hexdigest()
     assert sha==(folder/"release.sha256").read_text().strip()
