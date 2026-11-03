@@ -118,7 +118,10 @@ try {
     execute('DELETE FROM tenant_call_reports WHERE device_binding_id=?',[$device??-1]);
     execute('DELETE FROM tenant_call_events WHERE device_binding_id=?',[$device??-1]);
     execute('DELETE FROM calls WHERE device_binding_id=?',[$device??-1]);
-    if($device)execute('DELETE FROM device_bindings WHERE id=?',[$device]);
+    if($device){
+        execute('DELETE FROM device_agent_revisions WHERE device_id=?',[$device]);
+        execute('DELETE FROM device_bindings WHERE id=?',[$device]);
+    }
     if($addedAgent){
         execute('DELETE FROM agent_flow_versions WHERE agent_id=?',[$addedAgent]);
         execute('DELETE FROM agents WHERE id=?',[$addedAgent]);
