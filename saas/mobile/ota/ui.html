@@ -409,10 +409,39 @@ function renderCallHistory(){
   const parsed=call.started?new Date(call.started):null;
   const stamp=parsed&&!Number.isNaN(parsed.valueOf())?parsed.toLocaleString('ar-EG'):'وقت غير متاح';
   sub.textContent=[call.name&&call.phone?call.phone:null,stamp,formatCallDuration(call.duration),String(call.id||'').slice(0,8)].filter(Boolean).join(' · ');
-  block.appendChild(label);block.appendChild(sub);card.appendChild(block);root.appendChild(card);
+  block.appendChild(label);block.appendChild(sub);
+  // All model/staff text uses textContent: never interpret transcripts as markup.
+  const reportFields=[['ملخص المكالمة',call.summary],['ملاحظات العميل',call.customer_notes],
+   ['سبب طلب الموظف',call.handoff_reason],['النتيجة',call.outcome&&call.outcome!=='unknown'?call.outcome:null]];
+  if(reportFields.some(([,v])=>typeof v==='string'&&v.trim())||call.has_transcript){
+   const details=document.createElement('details');
+   const summary=document.createElement('summary');summary.textContent='التفريغ والتقرير';details.appendChild(summary);
+   for(const [caption,value] of reportFields){
+    if(typeof value!=='string'||!value.trim())continue;
+    const note=document.createElement('p');note.textContent=caption+': '+value;note.style.whiteSpace='pre-wrap';details.appendChild(note);
+   }
+   if(call.has_transcript){
+    const text=document.createElement('p');text.textContent=String(call.transcript_excerpt||'');
+    text.dataset.callId=String(call.call_id||'');text.style.whiteSpace='pre-wrap';
+    details.appendChild(text);
+    const button=document.createElement('button');button.type='button';button.className='outline';
+    button.textContent='عرض التفريغ النصي الكامل';
+    button.onclick=()=>send('loadCallTranscript',{call_id:String(call.call_id||'')});
+    details.appendChild(button);
+   }
+   block.appendChild(details);
+  }
+  card.appendChild(block);root.appendChild(card);
  }
 }
 window.onTrackCalls=history=>{callHistoryRows=Array.isArray(history.calls)?history.calls:[];renderCallHistory();};
+window.onTrackCallTranscript=result=>{
+ const callId=String(result.call_id||'');
+ for(const item of el('callsList').querySelectorAll('[data-call-id]')){
+  if(item.dataset.callId!==callId)continue;
+  item.textContent=typeof result.transcript==='string'?result.transcript:'لم يصل نص حقيقي للمكالمة';
+ }
+};
 el('callsSearch').oninput=renderCallHistory;el('callsStatus').onchange=renderCallHistory;
 el('refreshCalls').onclick=()=>{if(last.callsSupported===true)send('loadCallHistory')};
 el('enableCallNames').onclick=()=>send('enableCallNames');
