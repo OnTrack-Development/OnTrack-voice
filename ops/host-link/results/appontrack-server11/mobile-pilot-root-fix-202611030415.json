@@ -1,0 +1,13 @@
+{
+  "job_id": "mobile-pilot-root-fix-202611030415",
+  "target": "appontrack-server11",
+  "job_sha256": "9940f3a16d51205c6782db49a6dc28713e8498f95c2f2c1df122b9dbe0886532",
+  "started_at": "2026-11-03T04:16:02.281150+00:00",
+  "status": "failed",
+  "exit_code": 1,
+  "output_truncated": false,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 62, in <module>\nRuntimeError: pilot_session_dependency_smoke_failed\n",
+  "finished_at": "2026-11-03T04:16:02.935982+00:00",
+  "duration_ms": 655
+}
