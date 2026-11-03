@@ -70,6 +70,20 @@ try{
         'name'=>'حملة ذات موافقة','starts'=>$start,'ends'=>$end,
         'scenario'=>'اتصال بموافقة مسبقة','contact_ids'=>[$approvedContact['id']]]);
     $campaign2=$ready['campaign']['id'];
+    // An empty selection intentionally covers all (and ONLY) this site's
+    // consented contacts, not the empty list or other tenant's contacts.
+    $whole=tenant_workspace_create_campaign($b,['confirmed'=>true,
+        'name'=>'حملة كل جهات الاتصال','starts'=>$start,'ends'=>$end,
+        'scenario'=>'اتصال بعد موافقة موثقة','contact_ids'=>[]]);
+    $allCampaign=$whole['campaign']['id'];
+    $wholePreview=tenant_workspace_campaign_action($b,['confirmed'=>true,
+        'id'=>$allCampaign,'action'=>'preview']);
+    tw_check(count($wholePreview['preview']['eligible'])===1 &&
+        $wholePreview['preview']['excluded']>=1,
+        'empty target selection includes only explicitly consented site contacts');
+    $allArmed=tenant_workspace_campaign_action($b,['confirmed'=>true,
+        'id'=>$allCampaign,'action'=>'arm']);
+    tw_check($allArmed['campaign']['status']==='ready','whole-site campaign can arm safely');
     $armedResult=tenant_workspace_campaign_action($b,['confirmed'=>true,
         'id'=>$campaign2,'action'=>'arm']);
     tw_check($armedResult['campaign']['status']==='ready','explicit consented campaign armed');
@@ -112,6 +126,10 @@ try{
     echo "TENANT_WORKSPACE_PASS\n";
 } finally {
     putenv('ONTRACK_TENANT_CAMPAIGN_DIAL_ENABLED');
+    if(isset($allCampaign)){
+        execute('DELETE FROM tenant_campaign_attempts WHERE campaign_id=?',[$allCampaign]);
+        execute('DELETE FROM tenant_campaigns WHERE id=? AND account_id=?',[$allCampaign,$b['account_id']]);
+    }
     if(isset($campaign2))execute('DELETE FROM tenant_campaign_attempts WHERE campaign_id=?',[$campaign2]);
     if(isset($campaign2))execute('DELETE FROM tenant_campaigns WHERE id=? AND account_id=?',[$campaign2,$b['account_id']]);
     if($campaign!==null)execute('DELETE FROM tenant_campaigns WHERE id=? AND account_id=?',[$campaign,$b['account_id']]);

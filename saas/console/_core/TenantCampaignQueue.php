@@ -74,8 +74,19 @@ function tcq_allowed(array $b,int $contactId):bool{
     return $consent!==null && hash_equals((string)$consent['phone_key'],$key) &&
         !dnc_is_suppressed((int)$b['account_id'],(string)$r['phone']);
 }
+/** Empty contact selection means every contact in this exact tenant/site,
+ * never across another site's CRM. Bounded to 2k as current import contract.
+ * Larger batches need streaming pagination before the commercial rollout. */
+function tcq_targets(array $b,array $campaign):array {
+    $list=json_decode((string)$campaign['contact_ids_json'],true);
+    if(!is_array($list)||!array_is_list($list))throw new InvalidArgumentException('invalid_campaign_targets');
+    if($list!==[])return $list;
+    $rows=all('SELECT id FROM contacts WHERE account_id=? AND site_id=? ORDER BY id ASC LIMIT 2000',
+        [$b['account_id'],$b['site_id']]);
+    return array_map(static fn($row)=>tenant_workspace_id((int)$row['id']),$rows);
+}
 function tcq_preview(array $b,array $campaign):array{
-    tcq_init();$list=json_decode((string)$campaign['contact_ids_json'],true)?:[];
+    tcq_init();$list=tcq_targets($b,$campaign);
     $eligible=[];$excluded=0;
     foreach($list as $opaque){
         try{$id=tenant_workspace_parse_id($opaque);}catch(InvalidArgumentException){$excluded++;continue;}
@@ -116,10 +127,17 @@ function tcq_claim(array $b):array{
             if(time()-(int)$row['leased_epoch']<=60){
                 $db->commit();return ['claim'=>null,'reason'=>'active_lease','dial_requested'=>false];
             }
-            // Unknown != safe to repeat. Only this attempt is marked uncertain;
-            // next distinct contact can be claimed after verified device idle.
+            // Do not proceed to ANY number until the physical SIM state and
+            // uncertain attempt have been reconciled by an authorized actor.
             execute("UPDATE tenant_campaign_attempts SET status='unknown',result='expired',
                 finished_at=? WHERE id=? AND status IN ('leased','verified')",[now(),$row['id']]);
+        }
+        $uncertain=one("SELECT id FROM tenant_campaign_attempts WHERE
+            account_id=? AND device_binding_id=? AND sim_slot=? AND status='unknown' LIMIT 1",
+            [$b['account_id'],$b['id'],$b['sim_slot']]);
+        if($uncertain){
+            $db->commit();return ['claim'=>null,'reason'=>'uncertain_call_requires_review',
+                'dial_requested'=>false];
         }
         $campaigns=all("SELECT * FROM tenant_campaigns WHERE account_id=? AND
             site_id=? AND device_binding_id=? AND sim_slot=? AND status='ready'
@@ -127,7 +145,7 @@ function tcq_claim(array $b):array{
             [$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']]);
         foreach($campaigns as $campaign){
             if(!tcq_window($campaign,time()))continue;
-            foreach((array)(json_decode((string)$campaign['contact_ids_json'],true)?:[]) as $opaque){
+            foreach(tcq_targets($b,$campaign) as $opaque){
                 try{$contactId=tenant_workspace_parse_id($opaque);}catch(InvalidArgumentException){continue;}
                 if(one('SELECT id FROM tenant_campaign_attempts WHERE campaign_id=? AND contact_id=?',
                     [$campaign['id'],$contactId]))continue;
