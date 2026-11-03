@@ -25,6 +25,28 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
         return id.takeIf{it.matches(Regex("[a-f0-9-]{36}"))}
     }
 
+    /** User explicitly took the current AI call; keep this event through network loss. */
+    @Synchronized fun recordHumanTakeover(slot:Int,deviceId:Int):Boolean {
+        if(slot !in 0..1 || deviceId<=0 ||
+           prefs.getInt("active_sim_slot",-1)!=slot ||
+           prefs.getInt("active_device_id",-1)!=deviceId ||
+           prefs.getInt("last_state",0)!=2)return false
+        val callId=prefs.getString("active_id","").orEmpty()
+        if(!callId.matches(Regex("[a-f0-9-]{36}")) ||
+            prefs.getString("handoff_recorded_id","")==callId)return false
+        val pending=JSONArray(prefs.getString("pending","[]")?:"[]")
+        check(pending.length()<1000){"Call event queue full; human takeover not recorded"}
+        val sequence=prefs.getInt("sequence",0)+1
+        pending.put(JSONObject().put("call_id",callId).put("sequence",sequence)
+            .put("phase","human_takeover").put("duration_seconds",0)
+            .put("sim_slot",slot).put("device_id",deviceId))
+        check(prefs.edit().putString("pending",pending.toString())
+            .putInt("sequence",sequence).putString("handoff_recorded_id",callId).commit()){
+            "Human takeover event persistence failed"
+        }
+        return true
+    }
+
     @Synchronized fun observe(state:Int,slot:Int=-1,deviceId:Int=-1) {
         if(state !in 0..2)return
         val previous=prefs.getInt("last_state",0)
