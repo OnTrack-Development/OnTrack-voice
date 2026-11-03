@@ -1,11 +1,12 @@
 name: OnTrack Voice SaaS PHP Console
 on:
   push:
-    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102', 'fix/console-pricing-connection-ui-20261102', 'fix/sim1-staging-ui-20261102', 'feat/tenant-only-mobile-workspace-20261102', 'fix/tenant-mix-session-parity-20261102']
+    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102', 'fix/console-pricing-connection-ui-20261102', 'fix/sim1-staging-ui-20261102', 'feat/tenant-only-mobile-workspace-20261102', 'fix/tenant-mix-session-parity-20261102', 'feat/tenant-voice-transcripts-reports-20261103']
     paths:
       - 'saas/console/**'
       - 'tools/test_voice_saas_console.php'
       - 'tools/test_tenant_workspace.php'
+      - 'tools/test_tenant_voice_reports.php'
       - 'tools/test_console_pricing_ui.php'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
@@ -52,6 +53,8 @@ jobs:
         run: php tools/test_console_pricing_ui.php
       - name: Tenant workspace isolation and call history
         run: php tools/test_tenant_workspace.php
+      - name: Tenant voice transcript, AI provenance and per-SIM isolation regression
+        run: php tools/test_tenant_voice_reports.php
       - name: External SSO regression in isolated second test phase
         run: |
           php tools/test_voice_sso.php
