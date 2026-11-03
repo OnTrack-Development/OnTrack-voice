@@ -18,7 +18,7 @@
     "root_deploy_result": "success",
     "meaning": "CI publish mismatch is a release gate defect"
   },
-  "continuous_development_schedule": "DISABLED_BY_OWNER_2026_11_02_NO_RESTART",
+  "continuous_development_schedule": "REAUTHORIZED_OWNER_2026_11_03_HOURLY_G4_TO_G9_FINAL_REASSESSMENT",
   "status_semantics": {
     "PARTIAL": "جزئي/الكود موجود",
     "CONFIRMED_GAP": "فجوة مؤكدة بالكود",
@@ -1389,5 +1389,8 @@
   "last_implementation_update": "2026-11-03",
   "latest_feature_branch_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4",
   "implementation_progress_report": "docs/execution/G0_G3_REPAIR_IMPLEMENTATION_STATUS_2026_11_03_AR.md",
-  "note": "Updated statuses are implementation evidence, NOT a full G0-G3 completion or physical call proof."
+  "note": "Updated statuses are implementation evidence, NOT a full G0-G3 completion or physical call proof.",
+  "automation_scope": "Only requirements R040..R092 in G4..G9 sequentially; one Rxxx per run; only mark DONE with accepted CI+deployment receipt+relevant real E2E. Existing G0-G3 remain partial/failed until their own gates pass, not silently overwritten.",
+  "automation_cursor": "docs/execution/G4_G9_AUTOMATION_CURSOR_2026_11_03.json",
+  "automation_last_owner_instruction": "2026-11-03: begin at G4, run exactly one requirement per hour and verify & publish; no off-scope fixes, do not skip blocked task; full G0-G9 reevaluation after G9."
 }
