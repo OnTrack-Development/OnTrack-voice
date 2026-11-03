@@ -1030,10 +1030,30 @@ function render_integrations(array $a):void{
 }
 function render_domains(array $a):void{
     if($a['kind']!=='reseller')deny();
+    require_once __DIR__.'/DomainVerification.php';
     $id=(int)$a['account_id'];
     $d=all('SELECT * FROM domains WHERE account_id=? ORDER BY id DESC',[$id]);
-    echo card('النطاقات المرتبطة',tbl(['الدومين','TXT verification','الحالة'],array_map(fn($v)=>[e($v['hostname']),'<code>'.e($v['verification_token']).'</code>',pill($v['status'])],$d)));
-    echo card('طلب ربط دومين',form_start('add_domain','/?tab=domains').field_html('الدومين أو Subdomain','hostname','text','voice.reseller.com',true).'<p class="info">يتطلب إثبات DNS وربط VirtualHost وشهادة TLS على سيرفر OnTrack. إضافة الدومين لا تفعّله تلقائيًا ولا يحتاج رفع ملفات عند الريسيلر.</p>'.submit_btn('إنشاء طلب الربط'));
+    $rows=[];
+    foreach($d as $v){
+        $action='—';
+        if(in_array($a['role'],['owner','admin'],true)&&!active_support()&&$v['status']!=='active'){
+            $action=form_start('verify_domain_dns','/?tab=domains','class="inline-form"').
+                '<input type="hidden" name="domain_id" value="'.(int)$v['id'].'">'.
+                '<button class="btn small" type="submit">التحقق من DNS</button></form>';
+        }
+        $rows[]=[e($v['hostname']),
+            '<code>'.e(domain_dns_name((string)$v['hostname'])).'</code>',
+            '<code>'.e('ontrack-verify='.$v['verification_token']).'</code>',
+            pill((string)$v['status']),$action];
+    }
+    echo card('النطاقات المرتبطة',
+        '<p class="dim">أضف سجل TXT بالاسم والقيمة الموضحين. نجاح التحقق يثبت ملكية DNS فقط؛ لا يتم تفعيل الرابط قبل إعداد VirtualHost وشهادة TLS صحيحة.</p>'.
+        tbl(['الدومين','اسم TXT','قيمة TXT','الحالة','التحقق'],$rows));
+    echo card('طلب ربط دومين',
+        form_start('add_domain','/?tab=domains').
+        field_html('الدومين أو Subdomain','hostname','text','voice.reseller.com',true).
+        '<p class="info">إضافة الدومين لا تفعّله تلقائيًا ولا تتطلب رفع ملفات عند الريسيلر.</p>'.
+        submit_btn('إنشاء طلب الربط'));
 }
 function render_billing(array $a):void{
     $id=(int)$a['account_id'];
