@@ -12,7 +12,7 @@ assert '"start","enable"-> requestStartTenantMonitor()' in native, 'Start must r
 assert 'startRequestedAfterPhonePermission=true' in native, 'A missing READ_PHONE_STATE must open the Android permission prompt'
 assert 'tenantSimPermission.launch(Manifest.permission.READ_PHONE_STATE)' in native, 'Native permission launcher missing'
 assert 'if(granted && continueStart)' in native and 'startTenantMonitor()' in native, 'Monitoring must resume after a direct Start permission grant'
-assert 'if(!MobileLinkService.tenantPairingInProgress)' not in native or 'tenantPairingInProgress' in native, 'Do not bypass in-progress pairing safety'
+assert 'check(!MobileLinkService.tenantPairingInProgress)' in native, 'Starting SIM monitor must refuse a concurrent pairing operation'
 assert 'واجهات هاتف التجربة غير متاحة لحماية حسابات العملاء' not in native, 'Do not mislabel demo SIM as a customer block'
 assert 'tenantDesiredEnabled' in native and 'TenantEngineRestorePolicy.shouldRestore' in native, 'Native startup status/restore missing'
 assert 'tenantServiceRunning' in ui, 'UI must distinguish running SIM monitor from call-only Google connection'
