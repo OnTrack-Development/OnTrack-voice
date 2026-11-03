@@ -215,12 +215,12 @@ class MobileLinkActivity:ComponentActivity(){
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState:Bundle?){
         super.onCreate(savedInstanceState)
-        // Retire the previous global Pilot credentials, never touch encrypted
-        // per-SIM SaaS enrollment, UI theme or native OTA installation state.
-        check(getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
-            .remove("key").remove("base").putBoolean("campaign_opt_in",false).commit()) {
-            "تعذر إنهاء اعتماد Pilot القديم؛ المكالمات متوقفة حتى تتم إزالة المفتاح"
-        }
+        // Never erase an existing device link during an in-place signed OTA.
+        // Legacy Pilot cannot launch in tenant mode, but its credential remains
+        // intact for explicit, audited migration/rollback. The encrypted per-SIM
+        // SaaS binding, theme, existing OTA and contacts are never touched here.
+        // No silent re-pairing and no credential is exposed to the WebView.
+
         ota=MobileOta(this);nativeUpdates=NativeUpdates(this)
         window.statusBarColor=Color.rgb(11,16,27);window.navigationBarColor=Color.rgb(11,16,27)
         val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(11,16,27))}
