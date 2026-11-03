@@ -19,11 +19,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal class MobileLiveCall(
     private val context:Context, private val client:OkHttpClient, private val scope:CoroutineScope,
     private val session:JSONObject, private val settings:JSONObject, private val notice:(String)->Unit,
+    private val outgoingCall:Boolean=false,
     private val onFinished:(String)->Unit = {},
 ) {
     private val stopped=AtomicBoolean(false)
+    @Volatile private var remoteSpeechConfirmed=!outgoingCall
     private val ready=CompletableDeferred<Unit>()
-    private val playback=Channel<Pair<Int,ByteArray>>(72)
+    // Cap stale speech to ~600 ms, not several seconds after interruption.
+    private val playback=Channel<Pair<Int,ByteArray>>(24)
     @Volatile private var generation=0
     @Volatile private var pipe:Socket?=null
     @Volatile private var output:DataOutputStream?=null
@@ -62,16 +65,22 @@ internal class MobileLiveCall(
         check(input.readInt()==0x4f545631 && input.readInt()==48000 && input.readInt()==2){"invalid shell PCM format"}
         output=DataOutputStream(pipe!!.getOutputStream())
         val agentName=session.optString("agent_name","مساعد OnTrack").trim().ifBlank{"مساعد OnTrack"}
-        ws?.send(JSONObject().put("clientContent",JSONObject()
-            .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
-                .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ المكالمة بتحية مصرية قصيرة باسم "+agentName+" فقط، ولا تنطق رقم الإيجنت أو نسخة السيناريو. ثم اسمع رد العميل.")))))
-            .put("turnComplete",true)).toString())
+        if(OutboundFirstTurn.sendInitialGreeting(outgoingCall)) {
+            ws?.send(JSONObject().put("clientContent",JSONObject()
+                .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
+                    .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ المكالمة بتحية مصرية قصيرة باسم "+agentName+" فقط، ولا تنطق رقم الإيجنت أو نسخة السيناريو. ثم اسمع رد العميل.")))))
+                .put("turnComplete",true)).toString())
+        }
         val transform=LinkPcm(settings.optString("input_channel","right"))
         worker=scope.launch {
             try {
                 coroutineScope {
                     launch(Dispatchers.IO) {
-                        for((g,bytes) in playback) if(g==generation) synchronized(writeLock){output?.writeInt(bytes.size);output?.write(bytes);output?.flush()}
+                        for((g,bytes) in playback) {
+                            while(isActive && !stopped.get() && outgoingCall && !remoteSpeechConfirmed) delay(40)
+                            if(!stopped.get() && g==generation && (!outgoingCall || remoteSpeechConfirmed))
+                                synchronized(writeLock){output?.writeInt(bytes.size);output?.write(bytes);output?.flush()}
+                        }
                     }
                     launch(Dispatchers.IO) {
                         while(isActive && !stopped.get()) {delay(5000);synchronized(writeLock){output?.writeInt(0);output?.flush()}}
@@ -134,7 +143,7 @@ internal class MobileLiveCall(
                         val wasReady=ready.isCompleted
                         socketReady=true
                         ready.complete(Unit)
-                        if(wasReady && handle.isNullOrBlank()) {
+                        if(wasReady && handle.isNullOrBlank() && !outgoingCall) {
                             webSocket.send(JSONObject().put("clientContent",JSONObject()
                                 .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
                                     .put("parts",org.json.JSONArray().put(JSONObject().put("text",
@@ -149,7 +158,14 @@ internal class MobileLiveCall(
                     // independently from PCM. Do not attempt speech recognition from
                     // the Android microphone or infer text from audio payload bytes.
                     content.optJSONObject("inputTranscription")
-                        ?.optString("text","")?.let{appendLiveTranscription("المتصل",it)}
+                        ?.optString("text","")?.let { spoken ->
+                            appendLiveTranscription("المتصل",spoken)
+                            if(outgoingCall && !remoteSpeechConfirmed &&
+                               OutboundFirstTurn.remoteSpeechTranscribed(spoken)){
+                                remoteSpeechConfirmed=true
+                                notice("تم سماع رد الطرف الآخر؛ الإيجنت يبدأ الحوار")
+                            }
+                        }
                     content.optJSONObject("outputTranscription")
                         ?.optString("text","")?.let{appendLiveTranscription("الإيجنت",it)}
                     if(content.optBoolean("interrupted")) {
@@ -183,6 +199,9 @@ internal class MobileLiveCall(
     private fun onTransportLost(failed:WebSocket,reason:String) {
         if(stopped.get() || failed!==ws)return
         socketReady=false
+        generation++
+        while(playback.tryReceive().isSuccess) {}
+        synchronized(writeLock){runCatching{output?.writeInt(-1);output?.flush()}}
         if(recovery?.isActive==true)return
         recovery=scope.launch(Dispatchers.IO) {
             notice("$reason — إعادة اتصال صوت الإيجنت")
