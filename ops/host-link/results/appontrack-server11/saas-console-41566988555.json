@@ -1,0 +1,13 @@
+{
+  "job_id": "saas-console-41566988555",
+  "target": "appontrack-server11",
+  "job_sha256": "68f70560dd88e5e0aea318b0cd7075ec371ea0f2906af07f7fb089735b3632ca",
+  "started_at": "2026-11-03T02:36:03.143944+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"result\": \"deployed\", \"source\": \"55b223a35ce0\", \"files\": 61, \"target\": \"/saas/console/\", \"php\": \"8.3\", \"seed\": {\"status\": \"already_seeded\", \"users\": 9}, \"backup\": true}\n",
+  "stderr": "",
+  "finished_at": "2026-11-03T02:36:04.503163+00:00",
+  "duration_ms": 1359
+}
