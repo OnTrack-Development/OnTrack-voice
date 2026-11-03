@@ -61,20 +61,22 @@
     "requirement": "R040",
     "date": "2026-11-03",
     "status": "PARTIAL",
-    "activity": "Verified latest known root and SaaS CI jobs: root run 41672301463 check job 126043578862 FAILED with steps=[], publish skipped; SaaS run 41672301305 smoke job 126043578766 FAILED with steps=[]. No executed tests or deploy receipt; no device evidence. No source change.",
+    "activity": "Rechecked current branch Actions: latest root deploy run 41707957548 (14ed4cfed) check failed, publish skipped; latest SaaS run 41707872978 (16945297f) smoke failed; latest Android audio run 41710317061 (a5e7a1eae) build failed and publish jobs skipped. No verified green CI, matching host receipt or physical Xiaomi event reconciliation. No source change.",
     "ci_runs": [
-      41672301463,
-      41672301305
+      41707957548,
+      41707872978,
+      41710317061
     ],
     "ci_job_ids": [
-      126043578862,
-      126043578766
+      126168179512,
+      126167885624,
+      126176366074
     ],
-    "ci_status_at_check": "FAILED_ZERO_STEPS",
+    "ci_status_at_check": "FAILED",
     "root_host_receipt": null,
     "android_ota_host_receipt": null,
     "device_e2e": false,
-    "blocker": "Both latest known CI jobs failed before any recorded steps; cannot prove CI PASS. Missing matching host deployment receipt/rollback and Xiaomi disconnect/reconnect E2E."
+    "blocker": "Current Actions gates failed; no matching source-hash/exit_code=0 host receipt and rollback or Xiaomi disconnect/reconnect E2E. R040 acceptance not met."
   },
   "run_history": [
     {
@@ -278,6 +280,27 @@
       "android_ota_host_receipt": null,
       "device_e2e": false,
       "blocker": "Both latest known CI jobs failed before any recorded steps; cannot prove CI PASS. Missing matching host deployment receipt/rollback and Xiaomi disconnect/reconnect E2E."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Rechecked current branch Actions: latest root deploy run 41707957548 (14ed4cfed) check failed, publish skipped; latest SaaS run 41707872978 (16945297f) smoke failed; latest Android audio run 41710317061 (a5e7a1eae) build failed and publish jobs skipped. No verified green CI, matching host receipt or physical Xiaomi event reconciliation. No source change.",
+      "ci_runs": [
+        41707957548,
+        41707872978,
+        41710317061
+      ],
+      "ci_job_ids": [
+        126168179512,
+        126167885624,
+        126176366074
+      ],
+      "ci_status_at_check": "FAILED",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "Current Actions gates failed; no matching source-hash/exit_code=0 host receipt and rollback or Xiaomi disconnect/reconnect E2E. R040 acceptance not met."
     }
   ],
   "blocks": [],
