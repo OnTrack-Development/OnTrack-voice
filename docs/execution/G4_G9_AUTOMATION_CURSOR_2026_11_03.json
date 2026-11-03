@@ -61,15 +61,17 @@
     "requirement": "R040",
     "date": "2026-11-03",
     "status": "PARTIAL",
-    "activity": "Repaired stale OTA regression test fixture to canonical root and added legacy path negative test; enabled dedicated release gate workflow for feature branch and OTA deploy path without native APK publishing.",
-    "feature_commit": "a5a3c0276a6422b2f7765aed066893d09cf79ddb",
-    "test_commit": "8d9a25f001edc647ab60bdf60c7c059c980a1f57",
-    "ci_runs": [],
-    "ci_status_at_check": "NO_NEW_RUN_OBSERVED",
+    "activity": "Investigated new GitHub Actions release gate failure with zero executed steps; corrected push paths for OTA deploy/test files only.",
+    "feature_commit": "f9901228c84330e1ecd53dbaae52c0d1b72442d8",
+    "ci_runs": [
+      41631532243
+    ],
+    "ci_status_at_check": "FAILED_BEFORE_STEPS",
+    "ci_failure_classification": "Runner unavailable/unstarted (runner_name empty, no steps); root cause unproven",
     "root_host_receipt": null,
     "android_ota_host_receipt": null,
     "device_e2e": false,
-    "blocker": "New workflow run not visible in Actions; no CI success or host deployment receipt for OTA fix; canonical target existence unverified and physical Xiaomi disconnect/reconnect proof absent."
+    "blocker": "No green CI for current OTA patch; latest gate job failed before steps, no root/OTA host receipt, and no physical Xiaomi disconnect/reconnect proof."
   },
   "run_history": [
     {
@@ -173,6 +175,22 @@
       "android_ota_host_receipt": null,
       "device_e2e": false,
       "blocker": "New workflow run not visible in Actions; no CI success or host deployment receipt for OTA fix; canonical target existence unverified and physical Xiaomi disconnect/reconnect proof absent."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Investigated new GitHub Actions release gate failure with zero executed steps; corrected push paths for OTA deploy/test files only.",
+      "feature_commit": "f9901228c84330e1ecd53dbaae52c0d1b72442d8",
+      "ci_runs": [
+        41631532243
+      ],
+      "ci_status_at_check": "FAILED_BEFORE_STEPS",
+      "ci_failure_classification": "Runner unavailable/unstarted (runner_name empty, no steps); root cause unproven",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "No green CI for current OTA patch; latest gate job failed before steps, no root/OTA host receipt, and no physical Xiaomi disconnect/reconnect proof."
     }
   ],
   "blocks": [],
