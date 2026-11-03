@@ -61,17 +61,20 @@
     "requirement": "R040",
     "date": "2026-11-03",
     "status": "PARTIAL",
-    "activity": "Verified rerun of GitHub Actions 41639628384: job 126031398043 completed failure with zero steps. Job logs 404 BlobNotFound; cannot establish runner failure root cause or source test result. No code/deployment change.",
-    "feature_commit": "f9901228c84330e1ecd53dbaae52c0d1b72442d8",
+    "activity": "Verified latest known root and SaaS CI jobs: root run 41672301463 check job 126043578862 FAILED with steps=[], publish skipped; SaaS run 41672301305 smoke job 126043578766 FAILED with steps=[]. No executed tests or deploy receipt; no device evidence. No source change.",
     "ci_runs": [
-      41639628384
+      41672301463,
+      41672301305
     ],
-    "ci_job_id": 126031398043,
-    "ci_status_at_check": "RERUN_FAILED_ZERO_STEPS",
+    "ci_job_ids": [
+      126043578862,
+      126043578766
+    ],
+    "ci_status_at_check": "FAILED_ZERO_STEPS",
     "root_host_receipt": null,
     "android_ota_host_receipt": null,
     "device_e2e": false,
-    "blocker": "CI rerun did not execute any test steps; job logs unavailable. Missing green CI, matching root/OTA receipt with source hash and rollback, and physical Xiaomi disconnect/reconnect reconciliation proof."
+    "blocker": "Both latest known CI jobs failed before any recorded steps; cannot prove CI PASS. Missing matching host deployment receipt/rollback and Xiaomi disconnect/reconnect E2E."
   },
   "run_history": [
     {
@@ -256,6 +259,25 @@
       "android_ota_host_receipt": null,
       "device_e2e": false,
       "blocker": "CI rerun did not execute any test steps; job logs unavailable. Missing green CI, matching root/OTA receipt with source hash and rollback, and physical Xiaomi disconnect/reconnect reconciliation proof."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Verified latest known root and SaaS CI jobs: root run 41672301463 check job 126043578862 FAILED with steps=[], publish skipped; SaaS run 41672301305 smoke job 126043578766 FAILED with steps=[]. No executed tests or deploy receipt; no device evidence. No source change.",
+      "ci_runs": [
+        41672301463,
+        41672301305
+      ],
+      "ci_job_ids": [
+        126043578862,
+        126043578766
+      ],
+      "ci_status_at_check": "FAILED_ZERO_STEPS",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "Both latest known CI jobs failed before any recorded steps; cannot prove CI PASS. Missing matching host deployment receipt/rollback and Xiaomi disconnect/reconnect E2E."
     }
   ],
   "blocks": [],
