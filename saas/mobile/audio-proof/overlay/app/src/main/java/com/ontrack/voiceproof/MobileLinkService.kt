@@ -65,6 +65,9 @@ class MobileLinkService:Service() {
     private var call:MobileLiveCall?=null
     private var loop:Job?=null
     private var callEventFlush:Job?=null
+    private var callReportFlush:Job?=null
+    private val tenantEvents by lazy { CallEventOutbox(this,"ontrack_tenant_call_events") }
+    @Volatile private var liveSimSlot:Int=-1
     private var connectivity:ConnectivityManager?=null
     private var networkListener:ConnectivityManager.NetworkCallback?=null
     @Volatile private var takeoverRequested=false
@@ -164,6 +167,14 @@ class MobileLinkService:Service() {
                     else "الرد الآلي متوقف بقرار المستخدم؛ اضغط تشغيل لتفعيله")
                 }
                 ACTION_TAKEOVER->{
+                    val slot=liveSimSlot
+                    if(slot in 0..1) {
+                        val activeId=tenantEvents.activeCallId(slot)
+                        if(activeId!=null)runCatching {
+                            tenantEvents.appendReport(slot,TenantDeviceEnrollment(this).bindingId(slot),
+                                activeId,"handoff","system","استلم موظف المكالمة الحالية يدويًا من الإيجنت")
+                        }
+                    }
                     humanControl=true;call?.stop();call=null
                     notice("استلام بشري للمكالمة الحالية")
                 }
@@ -204,7 +215,6 @@ class MobileLinkService:Service() {
     }
     private suspend fun tenantMonitor(){
         val enrollment=TenantDeviceEnrollment(this)
-        val tenantEvents=CallEventOutbox(this,"ontrack_tenant_call_events")
         var selected:Int?=null
         var lastState=TelephonyManager.CALL_STATE_IDLE
         var ringingAt=0L
@@ -236,7 +246,11 @@ class MobileLinkService:Service() {
                         delay(900);continue
                     }
                     val current=active.singleOrNull()
-                    tenantEvents.observe(current?.state?:TelephonyManager.CALL_STATE_IDLE,current?.slot?:-1)
+                    // Only a verified, paired physical SIM can originate a tenant event.
+                    val verifiedDeviceId=if(current!=null && enrollment.paired(current.slot))
+                        enrollment.bindingId(current.slot) else -1
+                    tenantEvents.observe(if(verifiedDeviceId>0)current!!.state else TelephonyManager.CALL_STATE_IDLE,
+                        if(verifiedDeviceId>0)current!!.slot else -1,verifiedDeviceId)
                     runCatching{tenantEvents.enrichFromCallLog()}
                     if(callEventFlush?.isActive!=true)callEventFlush=scope.launch {
                         runCatching {
@@ -249,10 +263,24 @@ class MobileLinkService:Service() {
                             if(response.optBoolean("accepted"))tenantEvents.acknowledge(event)
                         }.onFailure { notice("تعذر رفع حدث مكالمة SaaS؛ سيُعاد الإرسال دون تكرار") }
                     }
+                    if(callReportFlush?.isActive!=true && callEventFlush?.isActive!=true &&
+                        tenantEvents.peek()==null)callReportFlush=scope.launch {
+                        runCatching {
+                            val event=tenantEvents.peekReport()?:return@runCatching
+                            val slot=event.optInt("sim_slot",-1)
+                            val originalDevice=event.optInt("device_id",-1)
+                            if(slot !in 0..1||!enrollment.paired(slot)||
+                                enrollment.bindingId(slot)!=originalDevice)return@runCatching
+                            val reply=withContext(Dispatchers.IO){
+                                enrollment.workspace(slot,"workspace_report_event",event)
+                            }
+                            if(reply.optBoolean("ok"))tenantEvents.acknowledgeReport(event)
+                        }.onFailure { notice("تقرير المكالمة محفوظ محليًا؛ سيُعاد إرساله عند عودة الاتصال") }
+                    }
                     if(current==null){
                         if(selected!=null){
                             call?.stop();call=null;tenantSession=null;tenantFlow=null
-                            selected=null;answeredByAgent=false;outgoingCall=false;ringAttempted=false;humanControl=false
+                            selected=null;liveSimSlot=-1;answeredByAgent=false;outgoingCall=false;ringAttempted=false;humanControl=false
                             ringingAt=0L;startedAt=0L
                         }
                         inCall=false;callAnswered=false
@@ -269,7 +297,7 @@ class MobileLinkService:Service() {
                         delay(750);continue
                     }
                     if(selected!=current.slot){
-                        selected=current.slot;answeredByAgent=false;outgoingCall=false;ringAttempted=false;tenantFlow=null;tenantSession=null
+                        selected=current.slot;liveSimSlot=current.slot;answeredByAgent=false;outgoingCall=false;ringAttempted=false;tenantFlow=null;tenantSession=null
                         ringingAt=SystemClock.elapsedRealtime();startedAt=0L;humanControl=false
                     }
                     inCall=true;callAnswered=current.state==TelephonyManager.CALL_STATE_OFFHOOK
@@ -337,7 +365,15 @@ class MobileLinkService:Service() {
                         val liveSettings=JSONObject().put("voice",selectedVoice)
                             .put("input_channel","mix")
                             .put("response_style",policy.optString("response_style","egyptian_short"))
-                        val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,sess,liveSettings,::notice,outgoingCall=outgoingCall)
+                        val capturedSlot=current.slot
+                        val capturedDeviceId=enrollment.bindingId(capturedSlot)
+                        val capturedCallId=tenantEvents.activeCallId(capturedSlot)
+                        val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,sess,liveSettings,::notice,
+                            outgoingCall=outgoingCall,onTranscript={role,text->
+                                capturedCallId?.let { callId ->
+                                    tenantEvents.appendReport(capturedSlot,capturedDeviceId,callId,"transcript",role,text)
+                                }
+                            })
                         call=currentCall;currentCall.start();startedAt=SystemClock.elapsedRealtime()
                     }
                     if(call!=null && startedAt>0 &&
