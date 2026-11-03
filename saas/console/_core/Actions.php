@@ -652,7 +652,7 @@ function act():void {
                 $linkedAgents=all("SELECT id FROM agents WHERE site_id=? AND account_id=? AND status!='archived'",
                     [$site['id'],$id]);
                 foreach($linkedAgents as $linked)recycle_archive_note($id,'agent',(int)$linked['id']);
-                execute("UPDATE sites SET status='archived' WHERE id=? AND account_id=?[$site['id'],$id]);
+                execute("UPDATE sites SET status='archived' WHERE id=? AND account_id=?",[$site['id'],$id]);
                 execute("UPDATE agents SET status='archived' WHERE site_id=? AND account_id=?",[$site['id'],$id]);
                 audit('site.archived',$id,['site'=>$site['id']]);break;
             case 'archive_agent':
@@ -661,7 +661,7 @@ function act():void {
                 if(one("SELECT id FROM device_bindings WHERE account_id=? AND agent_id=? AND status='active' LIMIT 1",[$id,$ag['id']]))
                     throw new RuntimeException('الإيجنت مرتبط بشريحة نشطة؛ انقل الشريحة لإيجنت منشور آخر قبل الأرشفة.');
                 recycle_archive_note($id,'agent',(int)$ag['id']);
-                execute("UPDATE agents SET status='archived' WHERE id=? AND account_id=?[$ag['id'],$id]);
+                execute("UPDATE agents SET status='archived' WHERE id=? AND account_id=?",[$ag['id'],$id]);
                 audit('agent.archived',$id,['agent'=>$ag['id']]);break;
             case 'add_contact':
                 require_permission('contacts.write');
