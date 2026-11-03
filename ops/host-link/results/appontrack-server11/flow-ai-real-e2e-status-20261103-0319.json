@@ -1,0 +1,13 @@
+{
+  "job_id": "flow-ai-real-e2e-status-20261103-0319",
+  "target": "appontrack-server11",
+  "job_sha256": "90979947eeb11dbf9026112031d2dfd5eba35085099e522336b920e97b82bc80",
+  "started_at": "2026-11-03T03:19:03.036730+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\":\"running\",\"kind\":\"graph\",\"model\":null,\"nodes\":null,\"edges\":null,\"error\":null}\n",
+  "stderr": "",
+  "finished_at": "2026-11-03T03:19:03.107269+00:00",
+  "duration_ms": 71
+}
