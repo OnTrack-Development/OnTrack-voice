@@ -36,8 +36,9 @@ class MobileUiInstrumentedTest {
     }
     @Test fun localMainDocumentRendersAndNativeBridgeInitializes(){
         val context=InstrumentationRegistry.getInstrumentation().targetContext
-        // Seed a retired Pilot key to prove the upgraded app erases its global
-        // credential without clearing the independent SaaS SIM enrollment.
+        // Seed a historical link solely to verify that an in-place update
+        // preserves private app data. The old bearer is not used by tenant voice.
+        // Never force re-enrollment merely because an APK update was installed.
         context.getSharedPreferences("ontrack_link",0).edit()
             .putString("key","instrumentation_only_key_12345678")
             .putString("base","https://app.ontrackegy.com/").commit()
@@ -52,10 +53,14 @@ class MobileUiInstrumentedTest {
             js(scenario,"document.getElementById('enable').disabled=false;document.getElementById('enable').click();true")
             await(scenario,"document.getElementById('message').textContent.includes('SIM')")
             assertEquals("true",js(scenario,"!document.getElementById('key') && !document.getElementById('copyKey') && !document.getElementById('pair')"))
-            assertNull("Old Pilot bearer must be erased",
+            assertEquals("Update must not erase the saved device data",
+                "instrumentation_only_key_12345678",
                 context.getSharedPreferences("ontrack_link",0).getString("key",null))
-            assertNull("Old Pilot endpoint must be erased",
+            assertEquals("Update must not erase saved endpoint data",
+                "https://app.ontrackegy.com/",
                 context.getSharedPreferences("ontrack_link",0).getString("base",null))
+            // The old link remains dormant: no Pilot fields or buttons exist
+            // and an unpaired SIM cannot run the Android AI service.
             assertFalse(MobileLinkService.running)
             val state=JSONObject(File(cache,"state.json").readText())
             assertEquals(context.packageManager.getPackageInfo(context.packageName,0).longVersionCode,state.getLong("native_version"))
