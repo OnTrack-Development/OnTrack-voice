@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/common.php';
 require __DIR__.'/call_ledger.php';
 require __DIR__.'/call_report_store.php';
+require __DIR__.'/call_summary.php';
 header('X-Frame-Options: DENY');
 session_name('ontrack_mobile_admin');
 session_set_cookie_params(['secure'=>true,'httponly'=>true,'samesite'=>'Lax','path'=>'/saas/mobile/']);
@@ -17,7 +18,17 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     try{
         $bytes=random_bytes(16);$bytes[6]=chr((ord($bytes[6])&15)|64);$bytes[8]=chr((ord($bytes[8])&63)|128);
         $hex=bin2hex($bytes);$eid=substr($hex,0,8).'-'.substr($hex,8,4).'-'.substr($hex,12,4).'-'.substr($hex,16,4).'-'.substr($hex,20);
-        ontrack_report_append(['call_id'=>$id,'entry_id'=>$eid,'kind'=>$kind,'role'=>'employee','text'=>$value],MOBILE_STORE.'/calls','admin');
+        if($kind==='generate_ai'){
+            require dirname(__DIR__,2).'/api/bootstrap.php';
+            $key=(string)($config['gemini_api_key']??'');
+            $model=(string)($config['gemini_summary_model']??'gemini-2.5-flash');
+            $state=ontrack_generate_call_summary($id,MOBILE_STORE.'/calls',
+                static fn(string $transcript):string=>ontrack_google_summary($transcript,$key,$model));
+            if($state['summary_status']==='no_transcript')
+                throw new InvalidArgumentException('لا يوجد تفريغ صوتي حقيقي لتوليد ملخص');
+        }else{
+            ontrack_report_append(['call_id'=>$id,'entry_id'=>$eid,'kind'=>$kind,'role'=>'employee','text'=>$value],MOBILE_STORE.'/calls','admin');
+        }
         header('Location: /saas/mobile/calls.php?saved=1',true,303);exit;
     }catch(InvalidArgumentException $e){
         http_response_code(422);$reportError='تعذر حفظ التقرير: '.$e->getMessage();
@@ -78,6 +89,11 @@ code{font-size:11px;direction:ltr;display:inline-block;color:#b7c3d7}.empty{padd
 <?php $report=ontrack_report_read((string)$row['call_id'],MOBILE_STORE.'/calls');$entries=array_values(array_filter($report['entries'],static fn(array $e):bool=>($e['kind']??'')!=='finalize')); ?>
 <details class="report-details"><summary>التقرير (<?=count($entries)?>)</summary>
 <?php if(!$entries):?><p>لم يصل تفريغ أو ملخص بعد.</p><?php endif;?>
+<?php $hasAiSummary=(bool)array_filter($entries,static fn(array $e):bool=>($e['kind']??'')==='summary'&&($e['source']??'')==='ai'); ?>
+<?php if(!$hasAiSummary && in_array($row['phase']??'', ['ended','missed'],true)):?>
+<form class="report-form" method="post"><input type="hidden" name="csrf" value="<?=ch($_SESSION['csrf'])?>"><input type="hidden" name="call_id" value="<?=ch((string)$row['call_id'])?>"><input type="hidden" name="kind" value="generate_ai">
+<button type="submit">توليد / إعادة محاولة ملخص AI من التفريغ الحقيقي</button></form>
+<?php endif;?>
 <?php foreach($entries as $entry):?>
 <div class="report-note"><small><?=ch(match($entry['kind']){'transcript'=>'تفريغ • '.($entry['role']==='caller'?'العميل':'الإيجنت'),'handoff'=>'تحويل لموظف','summary'=>(($entry['source']??'')==='ai'?'ملخص AI':'ملخص بشري'),'disposition'=>'النتيجة',default=>'ملاحظة للعميل'})?> · <?=ch((string)$entry['created_at_utc'])?></small><p><?=ch((string)$entry['text'])?></p></div>
 <?php endforeach;?>
