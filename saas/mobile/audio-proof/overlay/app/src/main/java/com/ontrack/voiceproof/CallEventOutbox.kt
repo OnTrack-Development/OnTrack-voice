@@ -25,20 +25,24 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
         return id.takeIf{it.matches(Regex("[a-f0-9-]{36}"))}
     }
 
-    @Synchronized fun observe(state:Int,slot:Int=-1) {
+    @Synchronized fun observe(state:Int,slot:Int=-1,deviceId:Int=-1) {
         if(state !in 0..2)return
         val previous=prefs.getInt("last_state",0)
         if(state==previous)return
         var id=prefs.getString("active_id","").orEmpty()
         var sequence=prefs.getInt("sequence",0)
         var simSlot=prefs.getInt("active_sim_slot",-1)
+        var originalDevice=prefs.getInt("active_device_id",-1)
         var began=prefs.getLong("started_elapsed",0L)
         var answered=prefs.getLong("answered_elapsed",0L)
         var beganWall=prefs.getLong("started_wall_ms",0L)
         val pending=JSONArray(prefs.getString("pending","[]")?:"[]")
         check(pending.length()<1000){"Call event queue full; cannot discard events"}
         if(state!=0 && id.isEmpty()){
+            // Ignore a call from any unpaired SIM, never assign its events later.
+            if(slot !in 0..1 || deviceId<=0)return
             simSlot=slot
+            originalDevice=deviceId
             id=UUID.randomUUID().toString()
             sequence=0
             began=SystemClock.elapsedRealtime()
@@ -60,7 +64,7 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
             else 0
         val entry=JSONObject().put("call_id",id).put("sequence",sequence+1)
             .put("phase",phase).put("duration_seconds",duration)
-            .put("sim_slot",simSlot)
+            .put("sim_slot",simSlot).put("device_id",originalDevice)
         pending.put(entry)
         val lookups=JSONArray(prefs.getString("pending_lookup","[]")?:"[]")
         if(state==0 && beganWall>0L){
@@ -68,7 +72,8 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
             if(lookups.length()<40)lookups.put(JSONObject()
                 .put("call_id",id).put("sequence",sequence+2)
                 .put("started",beganWall).put("ended",System.currentTimeMillis())
-                .put("duration",duration).put("sim_slot",simSlot))
+                .put("duration",duration).put("sim_slot",simSlot)
+                .put("device_id",originalDevice))
         }
         check(prefs.edit().putString("pending",pending.toString())
             .putString("pending_lookup",lookups.toString())
@@ -76,6 +81,7 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
             .putString("active_id",if(state==0)"" else id)
             .putInt("sequence",if(state==0)0 else sequence+1)
             .putInt("active_sim_slot",if(state==0)-1 else simSlot)
+            .putInt("active_device_id",if(state==0)-1 else originalDevice)
             .putLong("started_elapsed",if(state==0)0L else began)
             .putLong("answered_elapsed",if(state==0)0L else answered)
             .putLong("started_wall_ms",if(state==0)0L else beganWall).commit()){
@@ -106,6 +112,7 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
                     .put("phase","identified")
                     .put("duration_seconds",item.getInt("duration"))
                     .put("sim_slot",item.optInt("sim_slot",-1))
+                    .put("device_id",item.optInt("device_id",-1))
                     .put("phone_number",identified.first)
                     .put("contact_name",identified.second)
                 pending.put(event)
@@ -155,18 +162,32 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
         return null
     }
 
-    @Synchronized fun peek():JSONObject?=runCatching{
-        JSONArray(prefs.getString("pending","[]")?:"[]").optJSONObject(0)
-    }.getOrNull()
+
+    /** Skip legacy or foreign-binding records without deleting their local evidence.
+     * An in-place APK update and re-pair must never upload them under a new tenant. */
+    @Synchronized fun peekEligible(bindingId:(Int)->Int?):JSONObject? {
+        val pending=JSONArray(prefs.getString("pending","[]")?:"[]")
+        for(i in 0 until pending.length()){
+            val row=pending.optJSONObject(i)?:continue
+            val slot=row.optInt("sim_slot",-1)
+            val original=row.optInt("device_id",-1)
+            if(slot in 0..1 && original>0 && bindingId(slot)==original)return row
+        }
+        return null
+    }
 
     @Synchronized fun acknowledge(sent:JSONObject) {
         val pending=JSONArray(prefs.getString("pending","[]")?:"[]")
-        val first=pending.optJSONObject(0)?:return
-        if(first.optString("call_id")!=sent.optString("call_id") ||
-            first.optInt("sequence")!=sent.optInt("sequence"))return
         val rest=JSONArray()
-        for(i in 1 until pending.length())rest.put(pending.get(i))
-        check(prefs.edit().putString("pending",rest.toString()).commit()){
+        var removed=false
+        for(i in 0 until pending.length()){
+            val first=pending.optJSONObject(i)?:continue
+            val match=!removed && first.optString("call_id")==sent.optString("call_id") &&
+                first.optInt("sequence")==sent.optInt("sequence") &&
+                first.optInt("device_id",-1)==sent.optInt("device_id",-1)
+            if(match)removed=true else rest.put(first)
+        }
+        if(removed)check(prefs.edit().putString("pending",rest.toString()).commit()){
             "Call event acknowledgment failed"
         }
     }
