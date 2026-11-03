@@ -45,6 +45,7 @@ jobs:
           python3 tools/test_voice_restore_033.py
           php tools/test_sim_agent_call_reports.php
           php tools/test_tenant_call_ai_summary.php
+          php tools/test_tenant_voice_transcript_archive.php
           php tools/test_mobile_call_ledger.php
           php tools/test_pilot_workspace.php
           php tools/test_kashier_signature.php
@@ -77,7 +78,7 @@ jobs:
         run: python3 saas/mobile/audio-proof/prepare.py .build/jemrec
       - name: Test audio import and daemon state logic
         working-directory: .build/jemrec
-        run: ./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.PcmWavTest' --tests 'com.ontrack.voiceproof.SetupDiagnosticFormatTest' --tests 'com.ontrack.voiceproof.ProofExportTest' --tests 'com.ontrack.voiceproof.LinkPcmTest' --tests 'com.ontrack.voiceproof.SignedOtaTest' --tests 'com.ontrack.voiceproof.LocalUiPageTest' --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' --tests 'com.ontrack.voiceproof.OverlayUiModelTest' --tests 'com.ontrack.voiceproof.TenantPairingContractTest' --tests 'com.ontrack.voiceproof.TenantAgentIdentityTest' :daemon-tests:test
+        run: ./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.PcmWavTest' --tests 'com.ontrack.voiceproof.SetupDiagnosticFormatTest' --tests 'com.ontrack.voiceproof.ProofExportTest' --tests 'com.ontrack.voiceproof.LinkPcmTest' --tests 'com.ontrack.voiceproof.SignedOtaTest' --tests 'com.ontrack.voiceproof.LocalUiPageTest' --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' --tests 'com.ontrack.voiceproof.OverlayUiModelTest' --tests 'com.ontrack.voiceproof.TenantPairingContractTest' --tests 'com.ontrack.voiceproof.TenantAgentIdentityTest' --tests 'com.ontrack.voiceproof.OutboundFirstTurnTest' :daemon-tests:test
       - name: Assert previously-installed Android signing identity
         run: |
           set -euo pipefail
