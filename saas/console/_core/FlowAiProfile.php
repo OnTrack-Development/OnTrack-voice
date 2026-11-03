@@ -122,21 +122,9 @@ PROMPT;
         'contents'=>[['role'=>'user','parts'=>[['text'=>$context]]]],
         'generationConfig'=>['responseMimeType'=>'application/json','responseSchema'=>$schema,
             'thinkingConfig'=>['thinkingLevel'=>'MEDIUM'],'maxOutputTokens'=>6000]];
-    $curl=curl_init('https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent');
-    if(!$curl)throw new RuntimeException('ai_profile_provider_unavailable');
-    curl_setopt_array($curl,[
-        CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
-        CURLOPT_RETURNTRANSFER=>true,
-        CURLOPT_HTTPHEADER=>['Content-Type: application/json','x-goog-api-key: '.$provider['key']],
-        CURLOPT_CONNECTTIMEOUT=>7,CURLOPT_TIMEOUT=>27,
-        CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,
-        CURLOPT_FOLLOWLOCATION=>false,CURLOPT_MAXREDIRS=>0,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS
-    ]);
-    $body=curl_exec($curl);
-    $status=(int)curl_getinfo($curl,CURLINFO_HTTP_CODE);
-    curl_close($curl);
-    if(!is_string($body)||strlen($body)>90000||$status!==200)
-        throw new RuntimeException('تعذر اقتراح إعدادات الإيجنت من Google (HTTP '.$status.').');
+    // Google transport errors (HTTP 503, HTTP 0) share the same bounded
+    // safe retry policy as the flow graph. Never touch phone Live settings.
+    $body=flow_ai_google_request($payload,$provider['key'],$model,90000);
     $proposal=flow_ai_profile_extract($body);
     // Keep structural suggestions; replace untrusted model completion claims.
     $proposal['explanation']=flow_ai_profile_summary($proposal);
