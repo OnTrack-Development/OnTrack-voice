@@ -1,0 +1,1340 @@
+{
+  "schema_version": 1,
+  "title": "OnTrack Voice authoritative repair backlog",
+  "as_of_date": "2026-11-03",
+  "timezone": "Africa/Cairo",
+  "app_url": "https://app.ontrackegy.com/",
+  "stage": "INTERNAL_OWNER_ONLY",
+  "authoritative_roadmap": "docs/plan/MASTER_REPAIR_ROADMAP_2026_11_03_AR.md",
+  "owner_decisions": "docs/discovery/OWNER_APPROVED_MASTER_DECISIONS_2026_11_01_AR.md",
+  "repository": "OnTrack-Development/OnTrack-voice",
+  "main_baseline": "d298b7d759f9a30b1ef24e58232f63c2edf34bc9",
+  "root_release_branch": "feat/voice-production-gap-20261103",
+  "root_release_sha": "5d0de134925a4703c78ca47da06601ff7ddd7b29",
+  "release_audit": {
+    "console_ci_run": 41577865384,
+    "console_ci_result": "failure",
+    "root_deploy_run": 41577865411,
+    "root_deploy_result": "success",
+    "meaning": "CI publish mismatch is a release gate defect"
+  },
+  "continuous_development_schedule": "DISABLED_BY_OWNER_2026_11_02_NO_RESTART",
+  "status_semantics": {
+    "PARTIAL": "جزئي/الكود موجود",
+    "CONFIRMED_GAP": "فجوة مؤكدة بالكود",
+    "DEVICE_E2E_REQUIRED": "بانتظار اختبار هاتف حقيقي",
+    "E2E_FAILED": "فشل E2E حقيقي",
+    "NOT_COMPLETE": "غير مكتمل",
+    "UNVERIFIED": "غير متحقق",
+    "RISK_UNVERIFIED": "مخاطرة غير مقاسة",
+    "NOT_IMPLEMENTED": "غير منفذ",
+    "DEFERRED": "مؤجل معتمد"
+  },
+  "phases": [
+    {
+      "id": "G0",
+      "priority": "P0",
+      "title": "تثبيت مصدر الحقيقة والنشر والبيانات",
+      "exit_gate": "لا يُسمح بالتقدم إلى تجربة مستخدمين خارجية إذا فشل CI أو لم يُعرف الإصدار المثبت"
+    },
+    {
+      "id": "G1",
+      "priority": "P0",
+      "title": "الخطوط والتطبيق والمكالمات الحقيقية",
+      "exit_gate": "إثبات صوت الوارد والصادر على Xiaomi، SIM1/SIM2 وعزل الحسابات، ثم مصفوفة أجهزة تدريجية"
+    },
+    {
+      "id": "G2",
+      "priority": "P0",
+      "title": "AI Runtime وFlow Builder وProvider Relay",
+      "exit_gate": "مسودة مبنية بالذكاء الاصطناعي ومراجَعة ونسخة منشورة تعمل في مكالمة حقيقية"
+    },
+    {
+      "id": "G3",
+      "priority": "P0",
+      "title": "الحملات وقوائم الأرقام والجدولة",
+      "exit_gate": "اتصال آلي آمن من شريحة حقيقية مع موافقة وDNC وطابور مسترد لا يكرر الاتصال"
+    },
+    {
+      "id": "G4",
+      "priority": "P0",
+      "title": "السجلات والتقارير والتصعيد والتسجيل",
+      "exit_gate": "كل مكالمة تُسجَّل كواقعة واحدة، والتفريغ/التقرير/التصعيد/التسجيل له أدلة وصلاحيات"
+    },
+    {
+      "id": "G5",
+      "priority": "P0",
+      "title": "حسابات Admin/Reseller/User وواجهة المنتج",
+      "exit_gate": "صلاحيات وعزل وواجهة عربية موحّدة وWhite-label ومركز عمليات تعمل لا مجرد روابط"
+    },
+    {
+      "id": "G6",
+      "priority": "P0",
+      "title": "الفوترة والاشتراكات والهوية والتكامل التجاري",
+      "exit_gate": "دورة Order → Verified Payment → Claim/SSO → Entitlement → Renewal/Refund بلا تكرار"
+    },
+    {
+      "id": "G7",
+      "priority": "P1",
+      "title": "القنوات والتكاملات والمعرفة",
+      "exit_gate": "WhatsApp وWHMCS وLaravel وWordPress وGoogle Drive مع تمكين تدريجي وE2E"
+    },
+    {
+      "id": "G8",
+      "priority": "P1",
+      "title": "الجاهزية والأمن والتحقق والانتشار",
+      "exit_gate": "اختبارات تشغيل ومراقبة واحتفاظ ونسخ دورية واعتماد الإصدار قبل أي عملاء حقيقيين"
+    },
+    {
+      "id": "G9",
+      "priority": "P2",
+      "title": "الميزات المؤجلة المعتمدة",
+      "exit_gate": "دعم شبكات ضعيفة أكثر، مصادر اجتماعية إضافية، أوامر المدير الصوتية وiOS حسب القيود"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "R001",
+      "phase": "G0",
+      "priority": "P0",
+      "roles": "Ops",
+      "status": "PARTIAL",
+      "description": "توحيد main وفرع root المنشور وتحديد SHA واحد قانوني للإصدار؛ منع فرعين يشيران لمنتجين مختلفين",
+      "acceptance": "Branch/release manifest متطابق مع هوست وأصول Android وrollback",
+      "source_requirements": [
+        "Q23",
+        "Q24",
+        "OV-005"
+      ],
+      "evidence_or_pointer": "main وfeat/voice-production-gap-20261103",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R002",
+      "phase": "G0",
+      "priority": "P0",
+      "roles": "Ops",
+      "status": "CONFIRMED_GAP",
+      "description": "إصلاح CI الأحمر واختبار خطة الأسعار بعد إزالة نموذج Google القديم، وربط Deployment بجميع gates الإلزامية",
+      "acceptance": "لا نشر على أحمر؛ test_console_pricing_ui وWhatsApp/WHMCS وAndroid gate ناجحة",
+      "source_requirements": [
+        "Q24"
+      ],
+      "evidence_or_pointer": "GitHub Actions 41577865384 failed و41577865411 deployed",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R003",
+      "phase": "G0",
+      "priority": "P0",
+      "roles": "Ops",
+      "status": "PARTIAL",
+      "description": "تأكيد canonical root app.ontrackegy.com ونقل كل روابط API/SSO/webhooks/mobile والـCron من المسارات التاريخية",
+      "acceptance": "مسارات root + legacy smoke مع authenticated flows؛ لا تكرار console",
+      "source_requirements": [
+        "OV-005"
+      ],
+      "evidence_or_pointer": "docs/execution/ROOT_AI_RELAY_RELEASE_2026_11_03_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R004",
+      "phase": "G0",
+      "priority": "P0",
+      "roles": "Ops",
+      "status": "PARTIAL",
+      "description": "مراجعة نسخة الباك أب الخاصة، خطة restore لكل نسخة، SQLite/MySQL migrations، تشفير الأسرار والأذونات",
+      "acceptance": "restore معزول DB+files، integrity، no plaintext، زمن تعافٍ مقاس",
+      "source_requirements": [
+        "Q23",
+        "Q24"
+      ],
+      "evidence_or_pointer": "/home/appontrack/backup/ + docs/operations/HOST_LINK_RUNBOOK_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R005",
+      "phase": "G0",
+      "priority": "P0",
+      "roles": "Ops",
+      "status": "UNVERIFIED",
+      "description": "إنشاء بيئة اختبار منفصلة ومعايرة Dev/Demo/Internal Prod؛ إبقاء بيانات العملاء التجريبية منفصلة وعدم مسح حالة الهاتف",
+      "acceptance": "DB/keys/callbacks معزولة، migrations/rollback على نسخة لا الإنتاج",
+      "source_requirements": [
+        "Q23",
+        "OV-006"
+      ],
+      "evidence_or_pointer": "AGENTS.md stage override 2026-11-02",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R006",
+      "phase": "G0",
+      "priority": "P1",
+      "roles": "Ops",
+      "status": "NOT_COMPLETE",
+      "description": "مراقبة صحة Queue/Cron وerror traces وAI quotas وHTTP وevent outbox والتنبيه والتشخيص",
+      "acceptance": "health dashboard/alerts مع test failure وmanual recovery وتعقيم السجلات",
+      "source_requirements": [
+        "Q24"
+      ],
+      "evidence_or_pointer": "docs/memory/CRON_WORKER_HEALTH_2026_10_31_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R007",
+      "phase": "G0",
+      "priority": "P1",
+      "roles": "Ops",
+      "status": "PARTIAL",
+      "description": "توحيد الحالة الآلية: المتطلبات ↔ الكود ↔ CI ↔ host receipt ↔ AUTH_UI ↔ DEVICE_E2E في ملف واحد",
+      "acceptance": "لا انتقال إلى DONE بلا دليل link/commit/run وجهاز/حساب",
+      "source_requirements": [
+        "Q24"
+      ],
+      "evidence_or_pointer": "docs/project/acceptance-matrix.json قديم",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R010",
+      "phase": "G1",
+      "priority": "P0",
+      "roles": "Android/User",
+      "status": "DEVICE_E2E_REQUIRED",
+      "description": "إثبات GSM inbound تلقائي: رنين → delay 5s → answer → صوت AI والمُتصل ثنائي الاتجاه → end",
+      "acceptance": "مكالمات فعلية مع call_id وAudio A/B وحالة واضحة، no silent answered call",
+      "source_requirements": [
+        "V-001",
+        "V-005",
+        "Q07"
+      ],
+      "evidence_or_pointer": "MobileLinkService.kt وMobileLiveCall.kt",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R011",
+      "phase": "G1",
+      "priority": "P0",
+      "roles": "Android/User",
+      "status": "DEVICE_E2E_REQUIRED",
+      "description": "إثبات GSM outbound من الشريحة مع استشعار رد الطرف الآخر ومنع التحية قبل الإجابة",
+      "acceptance": "20 مكالمة اختبار مصرح بها busy/no-answer/answered ثم تقرير صحيح",
+      "source_requirements": [
+        "V-002",
+        "Q07"
+      ],
+      "evidence_or_pointer": "PR #34 ما زال مفتوحًا + MobileLinkService.kt",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R012",
+      "phase": "G1",
+      "priority": "P0",
+      "roles": "Android/User",
+      "status": "PARTIAL",
+      "description": "شريحتان بحسابين، QR + كود مؤقت، إلغاء الربط، تبديل الإيجنت على نفس SIM بلا إعادة ربط",
+      "acceptance": "2 tenants/2 SIM، عدم تسرب token/KB/reports، إعادة الربط بعد revoke ممنوعة",
+      "source_requirements": [
+        "Q05",
+        "Q06",
+        "Q09",
+        "OV-005"
+      ],
+      "evidence_or_pointer": "_core/DevicePairing.php وTenantSimHardware.kt",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R013",
+      "phase": "G1",
+      "priority": "P0",
+      "roles": "Android/Ops",
+      "status": "DEVICE_E2E_REQUIRED",
+      "description": "إقلاع واستعادة تلقائية بعد reboot/OTA/انقطاع شبكة، دون تشغيل خط أوقفه المستخدم",
+      "acceptance": "reboot وfirst-unlock وbattery saver و4G/5G وWi-Fi transitions دون auto-enable غير مقصود",
+      "source_requirements": [
+        "V-006",
+        "Q07"
+      ],
+      "evidence_or_pointer": "MobileLinkService.kt + docs/mobile/VOICE_CALL_FEATURE_GAP_AUDIT_2026_10_31_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R014",
+      "phase": "G1",
+      "priority": "P0",
+      "roles": "Android/Ops",
+      "status": "RISK_UNVERIFIED",
+      "description": "تقييم وتعطيل فتح ADB/TCP 5555 غير الآمن افتراضيًا، وفحص امتيازات OEM والتوافق بدون root/Shizuku/Accessibility",
+      "acceptance": "security scan لمنافذ الشبكة؛ دعم فقط للأجهزة المعتمدة؛ لا تغيير لهوية الحزمة",
+      "source_requirements": [
+        "OV-007",
+        "Q07"
+      ],
+      "evidence_or_pointer": "MobileLinkActivity.kt: setWifiFreeMode",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R015",
+      "phase": "G1",
+      "priority": "P1",
+      "roles": "Android/User",
+      "status": "PARTIAL",
+      "description": "Phone Control Center: start/stop sync، الرد الآلي 5 ثوانٍ، agent per line، Emergency Stop، أولوية الوارد أثناء الحملة",
+      "acceptance": "save → publish → device ACK، cancel ringing إذا انتهى أو ردّ بشري، لكل SIM سياسة",
+      "source_requirements": [
+        "Q08",
+        "Q09",
+        "OV-004"
+      ],
+      "evidence_or_pointer": "docs/architecture/PHONE_CONTROL_CENTER_SPEC_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R016",
+      "phase": "G1",
+      "priority": "P1",
+      "roles": "Android/User",
+      "status": "PARTIAL",
+      "description": "Floating Overlay فوق المكالمة: مدة mm:ss، اسم/رقم، mute، AI/إنسان takeover للحالية فقط، ألوان وأيقونات واضحة",
+      "acceptance": "اختبار على Xiaomi مع foreground/background وقفل الشاشة دون Accessibility",
+      "source_requirements": [
+        "OV-001",
+        "V-001"
+      ],
+      "evidence_or_pointer": "CallOverlay.kt وMobileLinkService.kt",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R017",
+      "phase": "G1",
+      "priority": "P1",
+      "roles": "Android/User",
+      "status": "PARTIAL",
+      "description": "زر تفعيل الإعدادات المطلوبة وتشخيص الأذونات والـSIM ودعم بيانات الهاتف ومواءمة الجهاز",
+      "acceptance": "تشخيص Ready/Degraded/Unsupported لكل ميزة مع أخطاء قابلة للعمل",
+      "source_requirements": [
+        "Q07"
+      ],
+      "evidence_or_pointer": "OnTrackSetupDiagnostics.kt + MobileLinkActivity.kt",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R018",
+      "phase": "G1",
+      "priority": "P1",
+      "roles": "Android/Ops",
+      "status": "PARTIAL",
+      "description": "OTA الواجهة الموقّع بلا APK، وNative APK بسند توقيع واحد وحفظ ربط الهاتف وموافقة Android",
+      "acceptance": "signed manifest/hash، retry، rollback، لا تكرار install، لا silent-native claim",
+      "source_requirements": [
+        "OV-013",
+        "Q07"
+      ],
+      "evidence_or_pointer": "MobileOta.kt + NativeUpdates.kt",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R019",
+      "phase": "G1",
+      "priority": "P2",
+      "roles": "Android/Ops",
+      "status": "DEFERRED",
+      "description": "توسيع توافق Android تدريجيًا Xiaomi ثم Samsung/OPPO/Realme، وiOS فقط كمشروع مستقل لاحق",
+      "acceptance": "device/OEM/carrier capability matrix + accepted audio evidence per class",
+      "source_requirements": [
+        "Q07"
+      ],
+      "evidence_or_pointer": "OWNER_APPROVED_MASTER_DECISIONS",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R020",
+      "phase": "G2",
+      "priority": "P0",
+      "roles": "Admin/User",
+      "status": "PARTIAL",
+      "description": "Flow Builder فعلي بمخطط n8n-like مرتب وروابط مستقيمة/منحنية، وصلات حمراء افتراضيًا وhover موضعي وشاشة كاملة",
+      "acceptance": "graph editing + validation + undo/delete + responsive visual browser check",
+      "source_requirements": [
+        "OV-004",
+        "Q15"
+      ],
+      "evidence_or_pointer": "assets/js/flow-graph.js",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R021",
+      "phase": "G2",
+      "priority": "P0",
+      "roles": "Admin/User",
+      "status": "E2E_FAILED",
+      "description": "إصلاح Gemini 3.8 Live Extended Thinking في Assistant text proposal بالـasync jobs، واحترام tool calls وfallback",
+      "acceptance": "إنشاء مخطط صالح في Live E2E وليس مجرد WS connected؛ fallback عند 429/503/timeout",
+      "source_requirements": [
+        "Q14",
+        "Q15"
+      ],
+      "evidence_or_pointer": "docs/execution/FLOW_AI_ASYNC_2026_11_03_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R022",
+      "phase": "G2",
+      "priority": "P0",
+      "roles": "Admin",
+      "status": "PARTIAL",
+      "description": "Relay صوت وAssistant منفصلان داخل Admin، مفاتيح وموديلات Google/Custom غير محدودة وأولوية و15m cooldown",
+      "acceptance": "2 keys + 2 providers real test، تحريك الدور وتبريد 900s، عدم تسرب secret، اختبار model توليد حقيقي",
+      "source_requirements": [
+        "Q14"
+      ],
+      "evidence_or_pointer": "_core/AiRelay.php + tools/test_ai_relay.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R023",
+      "phase": "G2",
+      "priority": "P0",
+      "roles": "User/Android",
+      "status": "UNVERIFIED",
+      "description": "محرك Flow أثناء المكالمة: شروط/خطوات/أسئلة ومتغيرات وحالات branch؛ يجيب الجانبي ويعود لنقطة التوقف",
+      "acceptance": "call trace node-by-node، مقاطعات 5 مرات، لا يعيد الترحيب ولا يقفز للأسئلة",
+      "source_requirements": [
+        "OV-004",
+        "Q15",
+        "V-007"
+      ],
+      "evidence_or_pointer": "_core/PublishedFlow.php وMobileLiveCall.kt",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R024",
+      "phase": "G2",
+      "priority": "P0",
+      "roles": "User",
+      "status": "PARTIAL",
+      "description": "Draft → Test → Publish → Rollback + إصدارات Immutable وAgent per SIM، عدم تبديل مكالمة جارية",
+      "acceptance": "rollback/activate verified + pinned revision حتى end + Browser/Android ACK",
+      "source_requirements": [
+        "Q09",
+        "Q15"
+      ],
+      "evidence_or_pointer": "_core/PublishedFlow.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R025",
+      "phase": "G2",
+      "priority": "P1",
+      "roles": "User/Admin",
+      "status": "PARTIAL",
+      "description": "المساعد داخل Builder يقرأ المخطط ويبنيه ويعدله بالأوامر ويقترح لكن لا ينشر دون تأكيد",
+      "acceptance": "chat generates verified graph, diff preview/reject/approve، لا overwrite على stale job",
+      "source_requirements": [
+        "OV-004",
+        "Q15"
+      ],
+      "evidence_or_pointer": "_core/FlowAi.php/FlowAiJobs.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R026",
+      "phase": "G2",
+      "priority": "P1",
+      "roles": "User",
+      "status": "PARTIAL",
+      "description": "قوالب سيناريو مبيعات عقارية وغيرها، متغير اسم العميل، إرشادات مهام متعددة، policy عربي مصري/EN",
+      "acceptance": "dynamic placeholders validated + natural barge-in/turn taking + no invented facts",
+      "source_requirements": [
+        "V-005",
+        "V-007",
+        "Q13"
+      ],
+      "evidence_or_pointer": "_core/FlowTemplates.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R027",
+      "phase": "G2",
+      "priority": "P1",
+      "roles": "Admin",
+      "status": "NOT_COMPLETE",
+      "description": "اختيار Provider/Model لكل وظيفة ودور والـreviewer/writer وسياسات fallback/usage/latency/expenses دون كشف مفاتيح AI للمستخدم",
+      "acceptance": "real test per model, role routing, cost counters, quota exhausted, audit",
+      "source_requirements": [
+        "Q14"
+      ],
+      "evidence_or_pointer": "_core/AiRelay.php (global pools فقط)",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R028",
+      "phase": "G2",
+      "priority": "P2",
+      "roles": "Admin/Reseller/User",
+      "status": "UNVERIFIED",
+      "description": "كتالوج أصوات Google الكاملة + توزيع الجاهز، وأصوات AYO Premium بعد حقوق ومحرك Chatterbox فعلي",
+      "acceptance": "Live voice sample + TTS WAV + Arabic quality E2E قبل ready/grant/billing",
+      "source_requirements": [
+        "OV-011",
+        "Q12"
+      ],
+      "evidence_or_pointer": "docs/voice/PREMIUM_ASSETS_AND_BILLING_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R030",
+      "phase": "G3",
+      "priority": "P0",
+      "roles": "Android/User",
+      "status": "NOT_COMPLETE",
+      "description": "عامل اتصال campaign على SIM من قائمة وlease موثوق، تنفيذ dial الفعلي بعد فحص DNC/consent",
+      "acceptance": "حملة 10 أرقام تبدأ آليًا واحدة تلو الأخرى دون طلب تدخل UI أو Accessibility",
+      "source_requirements": [
+        "V-002",
+        "V-006",
+        "Q17"
+      ],
+      "evidence_or_pointer": "TenantWorkspace.php campaign_dialing_not_ready",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R031",
+      "phase": "G3",
+      "priority": "P0",
+      "roles": "User",
+      "status": "PARTIAL",
+      "description": "استيراد الهاتف كامل/محدد مرة واحدة + CSV/XLSX/XLS/TXT/ألصق، أسماء وحقول وأرقام موحّدة دون تلف Excel",
+      "acceptance": "preview/mapping/errors/dupes/2k batches/resume، importer لا يكرر ولا يفتح DNC",
+      "source_requirements": [
+        "OV-009",
+        "Q18"
+      ],
+      "evidence_or_pointer": "_core/TenantWorkspace.php + TenantFileParser.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R032",
+      "phase": "G3",
+      "priority": "P0",
+      "roles": "Android/User",
+      "status": "PARTIAL",
+      "description": "DNC ledger عبر المواقع والقنوات وConsent مع opt-out فوري قبل كل Dial ومحاولات لاحقة",
+      "acceptance": "DNC from call report stops all future numbers; no silent re-consent/delete bypass",
+      "source_requirements": [
+        "OV-009",
+        "Q17"
+      ],
+      "evidence_or_pointer": "_core/DncLedger.php + DncGuard.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R033",
+      "phase": "G3",
+      "priority": "P0",
+      "roles": "Android/User",
+      "status": "NOT_COMPLETE",
+      "description": "جدولة حسب المنطقة الزمنية، فترات الدوام المتعددة، الإجازات، العطلات، استثناءات، سرعة وعدد محاولات",
+      "acceptance": "before lease/pre-dial gate تحت تعارض، daylight saving، paus/resume، max attempts",
+      "source_requirements": [
+        "V-006",
+        "Q17"
+      ],
+      "evidence_or_pointer": "docs/project/REQUIREMENTS_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R034",
+      "phase": "G3",
+      "priority": "P0",
+      "roles": "Android/User",
+      "status": "NOT_COMPLETE",
+      "description": "delay بعد نهاية حقيقية، busy/no_answer/retry/followup/backoff/next؛ recovery بلا إعادة اتصال مجهولة",
+      "acceptance": "device survives process death; unique idempotency, uncertain call reconcile, no blind redial",
+      "source_requirements": [
+        "V-002",
+        "Q17"
+      ],
+      "evidence_or_pointer": "docs/architecture/MOBILE_EXECUTOR_CONTRACT_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R035",
+      "phase": "G3",
+      "priority": "P1",
+      "roles": "Android/User",
+      "status": "NOT_COMPLETE",
+      "description": "سياسة incoming أثناء campaign لكل خط وتوقف حجز الصادر عند الرنين والعودة بعد فحص",
+      "acceptance": "SIM1/SIM2 simultaneous calls isolated؛ cancellation rules documented and tested",
+      "source_requirements": [
+        "Q08"
+      ],
+      "evidence_or_pointer": "OWNER_APPROVED_MASTER_DECISIONS",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R036",
+      "phase": "G3",
+      "priority": "P1",
+      "roles": "User",
+      "status": "NOT_COMPLETE",
+      "description": "تخصيص الإيجنت والحملة بالاسم والمتغيرات وتقرير نتيجة لكل رقم وجدولة المتابعة المصرّح بها",
+      "acceptance": "DNC/conflict consent gating, per-target outcome and optional next followup",
+      "source_requirements": [
+        "Q13",
+        "V-007"
+      ],
+      "evidence_or_pointer": "docs/project/REQUIREMENTS_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R037",
+      "phase": "G3",
+      "priority": "P2",
+      "roles": "Ops/User",
+      "status": "NOT_COMPLETE",
+      "description": "اختبارات سعة آمنة من 10 حتى قوائم ضخمة (مليون رقم هدف سعة لا تصريح بإجراء مليون مكالمة)",
+      "acceptance": "import streaming, pagination, job fairness, back-pressure، قيود التكاليف والمشغل",
+      "source_requirements": [
+        "Q17"
+      ],
+      "evidence_or_pointer": "Initial owner requirements Oct 30",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R040",
+      "phase": "G4",
+      "priority": "P0",
+      "roles": "User/Android",
+      "status": "PARTIAL",
+      "description": "Call History: call_id واحد، states/timestamps start/end، answered/missed/busy، مدة ودقة الرقم والاسم",
+      "acceptance": "idempotent event retry/ordering، device vs server reconciled، لا duplicate على انقطاع",
+      "source_requirements": [
+        "OV-010",
+        "Q13"
+      ],
+      "evidence_or_pointer": "_core/TenantWorkspace.php + CallEventOutbox.kt",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R041",
+      "phase": "G4",
+      "priority": "P0",
+      "roles": "User",
+      "status": "PARTIAL",
+      "description": "AI call summary + notes + satisfaction/outcome/DNC + request for human, مع تعديل موظف وإثبات المصدر",
+      "acceptance": "speech transcript → real model structured report → audit، لا report وهمي، retries بلا إعادة call",
+      "source_requirements": [
+        "OV-010",
+        "Q13"
+      ],
+      "evidence_or_pointer": "_core/TenantWorkspace.php + TenantVoiceTranscript.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R042",
+      "phase": "G4",
+      "priority": "P0",
+      "roles": "Android/User",
+      "status": "NOT_COMPLETE",
+      "description": "تسجيل صوت المكالمة الفعلي مع consent/notice، حفظ وتشفير وسياسة retention وتصدير وصلاحيات",
+      "acceptance": "dual-channel recording E2E، consent proof، encryption and restore/delete policies",
+      "source_requirements": [
+        "Q12",
+        "OV-010"
+      ],
+      "evidence_or_pointer": "PcmWav.kt لا يثبت recordings in SaaS",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R043",
+      "phase": "G4",
+      "priority": "P1",
+      "roles": "User",
+      "status": "PARTIAL",
+      "description": "تصعيد للمسؤول: AI يوقف، الهاتف يُستلم للحالية فقط؛ تحويل خارجي إن أثبتت القدرة؛ لا يدعي تمّ",
+      "acceptance": "handoff_requested ≠ completed، UI/timestamp staff acceptance، external transfer gated",
+      "source_requirements": [
+        "Q10",
+        "Q11"
+      ],
+      "evidence_or_pointer": "_core/TenantWorkspace.php handoff state",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R044",
+      "phase": "G4",
+      "priority": "P1",
+      "roles": "Admin/Reseller/User",
+      "status": "PARTIAL",
+      "description": "سجل بحث وفلترة رقم/اسم/حالة/تاريخ/خط/إيجنت وحملات + XLSX/CSV exports مرخصة",
+      "acceptance": "correct pagination, filters, privacy masking, same tenant",
+      "source_requirements": [
+        "OV-010",
+        "Q13"
+      ],
+      "evidence_or_pointer": "_core/Views.php render_calls: status/search only",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R045",
+      "phase": "G4",
+      "priority": "P1",
+      "roles": "Admin/User",
+      "status": "NOT_COMPLETE",
+      "description": "مراقبة جودة الصوت/الكمون والردود المنقطعة واللغة والمقاطعات ورضا العملاء",
+      "acceptance": "call QoS metrics with opt-in redacted traces, no recording claim",
+      "source_requirements": [
+        "OV-004",
+        "Q13"
+      ],
+      "evidence_or_pointer": "MobileLiveCall.kt",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R050",
+      "phase": "G5",
+      "priority": "P0",
+      "roles": "Admin/Reseller/User",
+      "status": "PARTIAL",
+      "description": "مصفوفة RBAC شاملة، دعم كامل عدا الأسرار الحساسة، سياسات موافقة حسب الشركة وaudit actor",
+      "acceptance": "negative cross-tenant across admin/reseller/user/support + sensitive ops audit",
+      "source_requirements": [
+        "Q03",
+        "OV-002"
+      ],
+      "evidence_or_pointer": "_core/Bootstrap.php / Actions.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R051",
+      "phase": "G5",
+      "priority": "P0",
+      "roles": "Admin/Reseller/User",
+      "status": "PARTIAL",
+      "description": "2FA إلزامي للإدارة، تسجيل ذاتي مؤكد البريد، دعوات الموظفين وإلغاءها",
+      "acceptance": "no privileged login before TOTP enrollment، recovery secure, real email delivery",
+      "source_requirements": [
+        "Q02"
+      ],
+      "evidence_or_pointer": "_core/AdminMfa.php (currently optional once enrolled)",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R052",
+      "phase": "G5",
+      "priority": "P0",
+      "roles": "Admin/Reseller/User",
+      "status": "NOT_COMPLETE",
+      "description": "Recycle Bin لكل العناصر والحذف النهائي والمدة وصلاحيات granular، مع إبقاء المالي والتدقيق",
+      "acceptance": "trash→restore→retention purge with legal hold and audit; no direct irreversible UI",
+      "source_requirements": [
+        "Q04",
+        "OV-003"
+      ],
+      "evidence_or_pointer": "_core/Actions.php archives لبعض العناصر فقط",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R053",
+      "phase": "G5",
+      "priority": "P0",
+      "roles": "Admin/Reseller/User",
+      "status": "PARTIAL",
+      "description": "واجهة RTL عربية Responsive بشكل Desktop مع Sidebar موبايل، Light/Dark icons، بدون القديمة أو شاشات متضاربة",
+      "acceptance": "Android phone/desktop 3-role screenshots + functional full-screen flow",
+      "source_requirements": [
+        "OV-001"
+      ],
+      "evidence_or_pointer": "assets/css/app.css + assets/js/app.js",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R054",
+      "phase": "G5",
+      "priority": "P1",
+      "roles": "Admin",
+      "status": "PARTIAL",
+      "description": "لوحة إحصاءات صحيحة للأجهزة/الريسيلرز/المكالمات/الأرصدة؛ إدارة الحسابات/الخطط/التكاملات/الأصوات/التحديثات",
+      "acceptance": "KPIs reconcile ledgers and device evidence; suspend propagates to new sessions",
+      "source_requirements": [
+        "Q01"
+      ],
+      "evidence_or_pointer": "_core/Views.php / Bootstrap.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R055",
+      "phase": "G5",
+      "priority": "P1",
+      "roles": "Reseller",
+      "status": "PARTIAL",
+      "description": "White-label في الويب وAndroid: شعار/اسم متعدد السمات، تخصيص هوية البريد والرسائل وروابط التنزيل",
+      "acceptance": "linked reseller tenant app shows no OnTrack except legally mandated notices; role scope verified",
+      "source_requirements": [
+        "OV-008",
+        "Q21"
+      ],
+      "evidence_or_pointer": "_core/Views.php / brand()",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R056",
+      "phase": "G5",
+      "priority": "P1",
+      "roles": "Reseller",
+      "status": "NOT_COMPLETE",
+      "description": "Custom-domain mapped DNS TXT + virtual host/TLS + cookies/SSO بدون رفع ملفات لدى الريسيلر",
+      "acceptance": "domain active only after TXT + certificate + HTTPS working; tenant isolation",
+      "source_requirements": [
+        "OV-008"
+      ],
+      "evidence_or_pointer": "_core/Views.php: request pending only",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R057",
+      "phase": "G5",
+      "priority": "P1",
+      "roles": "User",
+      "status": "PARTIAL",
+      "description": "إدارة خطوط متعددة ومواقع وإيجنتات وفريق وAPI والحملات/المكالمات من Workspace واحد",
+      "acceptance": "line-based permission/agent switch, no pilot/console split, auth E2E",
+      "source_requirements": [
+        "Q06",
+        "Q09",
+        "OV-008"
+      ],
+      "evidence_or_pointer": "nav_entries / device/v1/index.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R058",
+      "phase": "G5",
+      "priority": "P1",
+      "roles": "Admin/Reseller/User",
+      "status": "PARTIAL",
+      "description": "API keys قابلة للنسخ المتأخر/الدوران/الإلغاء؛ رسائل واضحة وخالية من طلب كلمة مرور وهمية؛ Audit",
+      "acceptance": "verify key cryptography & access after rotation; no session secrets in client logs",
+      "source_requirements": [
+        "OV-002",
+        "Q14"
+      ],
+      "evidence_or_pointer": "Actions.php reveal_secret/rotate_secret",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R060",
+      "phase": "G6",
+      "priority": "P0",
+      "roles": "Admin/Reseller/User",
+      "status": "CONFIRMED_GAP",
+      "description": "تصحيح إنشاء حساب باشتراك نشط تلقائيًا دون تحقق payment/trial، وفصل pending vs demo vs paid",
+      "acceptance": "new account no unverified paid entitlement; explicit trial policy and denial tests",
+      "source_requirements": [
+        "Q19",
+        "Q20"
+      ],
+      "evidence_or_pointer": "Actions.php create_account inserts active subscription",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R061",
+      "phase": "G6",
+      "priority": "P0",
+      "roles": "Admin/Reseller/User",
+      "status": "PARTIAL",
+      "description": "محاسبة usage: answered connected calls idempotent per customer + reseller pool، overage/reservations/no_answer policy",
+      "acceptance": "reconcile usage_ledger vs calls real, replay, concurrency, period boundary, exhaustion stop",
+      "source_requirements": [
+        "Q19"
+      ],
+      "evidence_or_pointer": "schema.sqlite.sql usage_ledger + Views.php billing note",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R062",
+      "phase": "G6",
+      "priority": "P0",
+      "roles": "Admin/Reseller/User",
+      "status": "NOT_COMPLETE",
+      "description": "عملات متعددة، شهري/سنوي/تجريبي، تواريخ بداية/نهاية، renewal grace/expired, suspension",
+      "acceptance": "no expired subscription treated active، timezone monthly reset، rollover rules explicit",
+      "source_requirements": [
+        "Q19"
+      ],
+      "evidence_or_pointer": "_core/Bootstrap.php site_limit ignores ends_at",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R063",
+      "phase": "G6",
+      "priority": "P0",
+      "roles": "Admin/Reseller/User",
+      "status": "PARTIAL",
+      "description": "Kashier sandbox → signed paid webhook → idempotent provisioning، اختبار مدفوعات حقيقية في TEST فقط",
+      "acceptance": "sandbox charge/timeout/replay/amount mismatch/refund E2E, no success-url activation",
+      "source_requirements": [
+        "Q20",
+        "Q22"
+      ],
+      "evidence_or_pointer": "Checkout.php + KashierWebhook.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R064",
+      "phase": "G6",
+      "priority": "P0",
+      "roles": "Admin/Reseller",
+      "status": "NOT_COMPLETE",
+      "description": "Manual/Instapay/Wallet proof+review مع مسار Refund/Chargeback/Cancel وتسوية وإشعارات",
+      "acceptance": "maker-checker approval, duplicate reference blocked, reversal tested",
+      "source_requirements": [
+        "Q20",
+        "Q21"
+      ],
+      "evidence_or_pointer": "Actions.php manual_approve is basic",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R065",
+      "phase": "G6",
+      "priority": "P0",
+      "roles": "Admin/Reseller",
+      "status": "NOT_COMPLETE",
+      "description": "ريسيلر Merchant-of-record OnTrack أو مباشر/عمولة، خططه وأسعاره الخاصة وفواتيره/أرباحه",
+      "acceptance": "merchant ownership and settlement immutable per order, approval/accounting E2E",
+      "source_requirements": [
+        "Q21"
+      ],
+      "evidence_or_pointer": "OWNER_APPROVED_MASTER_DECISIONS",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R066",
+      "phase": "G6",
+      "priority": "P0",
+      "roles": "Admin/Reseller/User",
+      "status": "PARTIAL",
+      "description": "Orders من WHMCS/Laravel/Reseller/OnTrack مع pending_claim وemail proof وsigned SSO",
+      "acceptance": "existing email collision/forged subject/replayed jti denied; no duplicate account/service",
+      "source_requirements": [
+        "Q02",
+        "Q22"
+      ],
+      "evidence_or_pointer": "_core/ExternalSso.php + OrderClaim.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R067",
+      "phase": "G6",
+      "priority": "P1",
+      "roles": "Ops/Reseller",
+      "status": "PARTIAL",
+      "description": "outbox retry والتغذية الراجعة نحو WHMCS/Laravel والاستحقاقات والاشتراكات/الفواتير المتسقة",
+      "acceptance": "provider ack + retries/dedup/poison queue، source-of-truth per integration",
+      "source_requirements": [
+        "Q22"
+      ],
+      "evidence_or_pointer": "hooks/index.php + schema outbox",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R068",
+      "phase": "G6",
+      "priority": "P1",
+      "roles": "Admin/Reseller/User",
+      "status": "NOT_COMPLETE",
+      "description": "التجديدات والإشعارات والفواتير وحالات التأخر والامتثال والضريبة حسب السوق",
+      "acceptance": "subscription lifecycle tests, customer visible accurate balance/invoices",
+      "source_requirements": [
+        "Q19",
+        "Q20"
+      ],
+      "evidence_or_pointer": "_core/Views.php render_billing",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R070",
+      "phase": "G7",
+      "priority": "P0",
+      "roles": "Admin/User",
+      "status": "PARTIAL",
+      "description": "WhatsApp Meta Platform Admin config: manual, embedded signup, coexistence, existing number relay، صلاحيات وتشخيص",
+      "acceptance": "actual inbound webhook + outbound reply + no duplicate callback + owner verified",
+      "source_requirements": [
+        "Q01",
+        "OV-008"
+      ],
+      "evidence_or_pointer": "WhatsAppOnboarding.php / WhatsAppSupport.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R071",
+      "phase": "G7",
+      "priority": "P1",
+      "roles": "User",
+      "status": "PARTIAL",
+      "description": "WhatsApp Inbox حقيقي، AI Agent حسب القناة، موظف يرد فتتوقف AI 15 دقيقة، حالات delivery",
+      "acceptance": "two real msgs, human lock, official 24h window, visible non-delivery, dedup",
+      "source_requirements": [
+        "OV-008"
+      ],
+      "evidence_or_pointer": "WhatsAppNativeAgent.php / Views.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R072",
+      "phase": "G7",
+      "priority": "P1",
+      "roles": "Admin/User",
+      "status": "PARTIAL",
+      "description": "WHMCS AI Support Agent reviewed replies، ربط حساب العميل بعد تحقق، human escalation/note",
+      "acceptance": "E2E WHMCS ticket context, reviewer approved, outgoing Meta delivery, no secret leak",
+      "source_requirements": [
+        "Q22"
+      ],
+      "evidence_or_pointer": "WhatsAppWhmcsBridge.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R073",
+      "phase": "G7",
+      "priority": "P1",
+      "roles": "User",
+      "status": "PARTIAL",
+      "description": "Connector معرفة read-only لـWHMCS/Laravel/WordPress/REST + signed facts وأفعال بعد تحقق/تصريح فقط",
+      "acceptance": "tenant permission, real integration test, API timeouts & truthful unavailable responses",
+      "source_requirements": [
+        "Q16",
+        "Q22"
+      ],
+      "evidence_or_pointer": "VoiceConnectors.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R074",
+      "phase": "G7",
+      "priority": "P1",
+      "roles": "User",
+      "status": "NOT_COMPLETE",
+      "description": "Knowledge Base متعددة المصادر TXT/PDF/DOCX/URLs/Google Drive OAuth, versions/sync/delete",
+      "acceptance": "sync/revoke/refresh E2E with cross-site ACL, parse error and source citations",
+      "source_requirements": [
+        "Q16"
+      ],
+      "evidence_or_pointer": "VoiceKnowledge.php / TenantFileParser.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R075",
+      "phase": "G7",
+      "priority": "P1",
+      "roles": "Admin/User",
+      "status": "NOT_COMPLETE",
+      "description": "Web chat/Website widget وTelegram وFacebook/Instagram/other official-channel connectors حسب القدرات",
+      "acceptance": "per-channel connect/ownership/scope/message/handoff/callback E2E؛ لا دعم منصات مزعوم",
+      "source_requirements": [
+        "OV-008"
+      ],
+      "evidence_or_pointer": "docs/project/SOCIAL_CHANNELS_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R076",
+      "phase": "G7",
+      "priority": "P1",
+      "roles": "User",
+      "status": "NOT_COMPLETE",
+      "description": "Dynamic contextual tool actions CRM lookup/write, booking, ticket, approvals, verified caller identity",
+      "acceptance": "never run voice-requested sensitive action without auth/confirmed preview/audit",
+      "source_requirements": [
+        "Q16",
+        "V-003"
+      ],
+      "evidence_or_pointer": "_core/VoiceConnectors.php (read-only)",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R080",
+      "phase": "G8",
+      "priority": "P0",
+      "roles": "Ops",
+      "status": "NOT_COMPLETE",
+      "description": "Auth UI E2E لكل Role وصلاحيات ضد IDOR والـCSRF وXSS، browser/tablet/mobile matrix",
+      "acceptance": "automated tests with isolated accounts; no privileged action from forged/foreign role",
+      "source_requirements": [
+        "Q24"
+      ],
+      "evidence_or_pointer": "tests workflows + Bootstrap.php",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R081",
+      "phase": "G8",
+      "priority": "P0",
+      "roles": "Ops",
+      "status": "NOT_COMPLETE",
+      "description": "حزمة E2E من التسجيل/الدفع/الربط/الوارد/الصادر/التقرير/الحملة/WhatsApp",
+      "acceptance": "checklist with run id / account / SIM / time / result / failure and replay",
+      "source_requirements": [
+        "Q01",
+        "Q24"
+      ],
+      "evidence_or_pointer": "docs/plan/IMPLEMENTATION_PLAN_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R082",
+      "phase": "G8",
+      "priority": "P0",
+      "roles": "Ops",
+      "status": "NOT_COMPLETE",
+      "description": "تدقيق أمان إتاحة الصوت والملفات وأسرار Google والـADB وموافقة الاتصال والاحتفاظ",
+      "acceptance": "no public private files, no cross-tenant bearer, consent & OTP, external pentest before release",
+      "source_requirements": [
+        "Q12",
+        "Q23"
+      ],
+      "evidence_or_pointer": "AiRelay.php and Android PCM",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R083",
+      "phase": "G8",
+      "priority": "P1",
+      "roles": "Ops",
+      "status": "NOT_COMPLETE",
+      "description": "Metric/alert: success by SIM/provider, duration, network drops, queue lag, payment fails, backup age",
+      "acceptance": "alerts tested with injected failure and on-call recovery playbook",
+      "source_requirements": [
+        "Q24"
+      ],
+      "evidence_or_pointer": "docs/memory/CRON_WORKER_HEALTH",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R084",
+      "phase": "G8",
+      "priority": "P1",
+      "roles": "Ops",
+      "status": "NOT_COMPLETE",
+      "description": "اختبار rollout على هوست Production داخليًا ثم Beta خارجي مصرح به فقط ثم Live",
+      "acceptance": "signed internal signoff checklist, migration restore, support SOP, abuse protection",
+      "source_requirements": [
+        "Q01",
+        "Q23",
+        "Q24"
+      ],
+      "evidence_or_pointer": "AGENTS.md internal-only testing",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R085",
+      "phase": "G8",
+      "priority": "P1",
+      "roles": "Ops",
+      "status": "NOT_COMPLETE",
+      "description": "الحدود والخصوصية: DNC re-consent approval وTrash retention وaudio/data deletion مع audit",
+      "acceptance": "documented policy configuration and negative access tests",
+      "source_requirements": [
+        "Q04",
+        "Q12",
+        "Q17"
+      ],
+      "evidence_or_pointer": "DncLedger.php / OWNER_APPROVED_MASTER_DECISIONS",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R090",
+      "phase": "G9",
+      "priority": "P2",
+      "roles": "Android/Ops",
+      "status": "DEFERRED",
+      "description": "شبكات 4G/5G ضعيفة: reconnect/sessionResumption/drop handling وQoS benchmarking أوسع",
+      "acceptance": "measure interruption rates and recover without false transcript or re-dial",
+      "source_requirements": [
+        "PHASE-2-NETWORK-STABILITY"
+      ],
+      "evidence_or_pointer": "docs/plan/VOICE_DEMO_DELIVERY_CHECKLIST_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R091",
+      "phase": "G9",
+      "priority": "P2",
+      "roles": "User",
+      "status": "DEFERRED",
+      "description": "متصل المدير: تحقق هوية يتجاوز Caller ID، قراءة بيانات مصرح بها وأوامر آمنة مع Audit",
+      "acceptance": "verified authenticated voice actions tested; high-risk writes disabled without confirmation",
+      "source_requirements": [
+        "V-003"
+      ],
+      "evidence_or_pointer": "docs/project/REQUIREMENTS_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    },
+    {
+      "id": "R092",
+      "phase": "G9",
+      "priority": "P2",
+      "roles": "Admin/User",
+      "status": "DEFERRED",
+      "description": "أصوات Premium AYO Live وiOS وقنوات اجتماعية إضافية بعد فحص الأهلية والحقوق",
+      "acceptance": "controlled research/PoC before product listing or pricing",
+      "source_requirements": [
+        "Q07",
+        "OV-011"
+      ],
+      "evidence_or_pointer": "docs/voice/PREMIUM_ASSETS_AND_BILLING_AR.md",
+      "verified_e2e": false,
+      "completion_evidence": [],
+      "updated_on": "2026-11-03"
+    }
+  ]
+}
