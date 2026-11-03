@@ -222,13 +222,19 @@ class MobileLinkService:Service() {
                         delay(900);continue
                     }
                     val current=active.singleOrNull()
-                    tenantEvents.observe(current?.state?:TelephonyManager.CALL_STATE_IDLE,current?.slot?:-1)
+                    val observedBinding=current?.slot?.takeIf { enrollment.paired(it) }
+                        ?.let { runCatching { enrollment.bindingId(it) }.getOrNull() }
+                    tenantEvents.observe(if(observedBinding!=null)current!!.state else TelephonyManager.CALL_STATE_IDLE,
+                        if(observedBinding!=null)current!!.slot else -1,observedBinding?:-1)
                     runCatching{tenantEvents.enrichFromCallLog()}
                     if(callEventFlush?.isActive!=true)callEventFlush=scope.launch {
                         runCatching {
-                            val event=tenantEvents.peek()?:return@runCatching
+                            val event=tenantEvents.peekEligible { slot ->
+                                if(enrollment.paired(slot))runCatching { enrollment.bindingId(slot) }.getOrNull() else null
+                            }?:return@runCatching
                             val slot=event.optInt("sim_slot",-1)
-                            if(slot !in 0..1 || !enrollment.paired(slot))return@runCatching
+                            if(slot !in 0..1 || !enrollment.paired(slot) ||
+                                event.optInt("device_id",-1)!=enrollment.bindingId(slot))return@runCatching
                             val response=withContext(Dispatchers.IO){
                                 enrollment.workspace(slot,"workspace_call_event",event)
                             }
@@ -243,9 +249,12 @@ class MobileLinkService:Service() {
                         lastReportAttempt=SystemClock.elapsedRealtime()
                         callReportFlush=scope.launch {
                             runCatching {
-                                val report=reportOutbox.peek()?:return@runCatching
+                                val report=reportOutbox.peekEligible { slot ->
+                                    if(enrollment.paired(slot))runCatching { enrollment.bindingId(slot) }.getOrNull() else null
+                                }?:return@runCatching
                                 val slot=report.optInt("sim_slot",-1)
-                                if(slot !in 0..1 || !enrollment.paired(slot))return@runCatching
+                                if(slot !in 0..1 || !enrollment.paired(slot) ||
+                                    report.optInt("device_id",-1)!=enrollment.bindingId(slot))return@runCatching
                                 val response=enrollment.workspace(slot,"workspace_call_analysis",report)
                                 if(response.optBoolean("saved"))reportOutbox.acknowledge(report)
                             }.onFailure {
@@ -342,10 +351,11 @@ class MobileLinkService:Service() {
                         // Bind immutable SIM+call ID before the Live session begins.
                         val reportCallId=tenantEvents.currentCallId(current.slot)
                         val reportSlot=current.slot
+                        val reportBinding=enrollment.bindingId(reportSlot)
                         val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,
                             sess,liveSettings,::notice) { realTranscript ->
                             if(reportCallId!=null)
-                                reportOutbox.enqueue(reportSlot,reportCallId,realTranscript)
+                                reportOutbox.enqueue(reportSlot,reportBinding,reportCallId,realTranscript)
                         }
                         call=currentCall;currentCall.start();startedAt=SystemClock.elapsedRealtime()
                     }
