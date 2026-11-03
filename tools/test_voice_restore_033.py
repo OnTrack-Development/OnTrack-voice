@@ -23,12 +23,12 @@ pair=src("saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voicepro
 events=src("saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/CallEventOutbox.kt")
 reports=src("saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/CallReportOutbox.kt")
 ui=src("saas/mobile/ota/ui.html")
-require(meta["version_code"]==33 and meta["version_name"]=="0.3.10",
+require(meta["version_code"]==34 and meta["version_name"]=="0.3.11",
         "New native version must be strictly greater than already-installed code32")
-require(ui_meta["revision"]==30,"UI release must be strictly greater than deployed OTA29")
-require(ui_meta["min_native"]==33 and ui_meta["max_native"]==33,
+require(ui_meta["revision"]==31,"UI release must be strictly greater than deployed OTA29")
+require(ui_meta["min_native"]==34 and ui_meta["max_native"]==34,
         "Advanced UI must never load on legacy Android32")
-require("'versionCode = 33'" in prepare and 'versionName = "0.3.10"' in prepare,
+require("'versionCode = 34'" in prepare and 'versionName = "0.3.11"' in prepare,
         "Actual Gradle overlay must match native release metadata")
 require('.remove("key")' not in android and '.remove("base")' not in android,
         "Signed OTA must not silently wipe the existing phone link")
@@ -68,4 +68,4 @@ for label in ('ملخص المكالمة','ملاحظات العميل','الت�
 require('customer_notes' in src("saas/console/_core/TenantWorkspace.php") and
         'handoff_reason' in src("saas/console/_core/TenantWorkspace.php"),
         "Customer notes and handoff were dropped")
-print("PASS: Android 0.3.10 / OTA30 keeps paired SIM, live voice and existing product features")
+print("PASS: Android 0.3.11 / OTA31 keeps paired SIM, live voice and existing product features")
