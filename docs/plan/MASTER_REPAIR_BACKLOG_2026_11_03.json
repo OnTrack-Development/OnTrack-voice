@@ -734,8 +734,29 @@
       "verified_e2e": false,
       "completion_evidence": [],
       "updated_on": "2026-11-03",
-      "implementation_note": "Server call event state now resists terminal-state regression on out-of-order replay and keeps max duration; integration test covers ended→late active/ringing and duplicate sequence. Real Xiaomi SIM/device-server reconciliation and latest CI+host receipt not yet verified; do not mark DONE.",
-      "latest_feature_commit": "bcb933d7b9d88a007f48280575152a023e0da872"
+      "implementation_note": "R040 server fix bcb933d7 deployed and CI green; verified matching host receipt and private rollback. Android SIM Audio Proof failed native queue with Wrong target; no real Xiaomi reconnect/event replay reconciliation. Remains PARTIAL, cursor stays R040.",
+      "latest_feature_commit": "bcb933d7b9d88a007f48280575152a023e0da872",
+      "ci_verification": {
+        "run_id": 41592208929,
+        "conclusion": "success",
+        "head_sha": "bcb933d7b9d88a007f48280575152a023e0da872"
+      },
+      "host_deployment": {
+        "receipt": "ops/host-link/results/appontrack-server11/saas-console-41592208929.json",
+        "status": "success",
+        "exit_code": 0,
+        "source": "bcb933d7b9d8",
+        "target": "/",
+        "private_rollback": "/home/appontrack/backup/releases/bcb933d7b9d8"
+      },
+      "android_proof": {
+        "run_id": 41592208970,
+        "conclusion": "failure",
+        "step": "Queue signed native APK through OnTrack worker",
+        "receipt": "ops/host-link/results/appontrack-server11/mobile-ota-41592208970.json",
+        "error": "ValueError: Wrong target",
+        "device_e2e": false
+      }
     },
     {
       "id": "R041",
