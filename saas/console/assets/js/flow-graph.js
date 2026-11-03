@@ -211,6 +211,22 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
      throw Error(typeof payload?.error==='string'?payload.error:'تعذر التواصل مع مساعد المخطط (HTTP '+res.status+').');
    return payload;
  }
+ async function waitAiJob(jobId){
+   if(!/^[a-f0-9]{32}$/.test(String(jobId||'')))throw Error('رقم مهمة Live غير صالح');
+   for(let i=0;i<95;i++){
+     await new Promise(resolve=>setTimeout(resolve,2000));
+     const status=await chatRequest('flow_ai_job_status',{job_id:jobId});
+     if(status.status==='done' && status.result?.ok===true)return status.result;
+     if(status.status==='failed'||status.status==='cancelled')
+       throw Error(status.error||(status.status==='cancelled'?'تم إلغاء مهمة Live.':'تعذر إنشاء المقترح؛ المسودة لم تتغير.'));
+     if(i%5===0)aiStatus.textContent='Gemini 3.8 Live ما زال يعالج الطلب؛ يمكنك متابعة نفس الجلسة…';
+   }
+   throw Error('المعالجة لسه جارية على السيرفر. افتح الشات تاني لمتابعة نفس المهمة؛ المسودة لم تتغير.');
+ }
+ async function requestLiveJob(action,fields){
+   const response=await chatRequest(action,fields);
+   return response.queued?waitAiJob(response.job_id):response;
+ }
  function showProposal(g){
    if(!g||!Array.isArray(g.nodes)||!Array.isArray(g.edges)||g.nodes.length>32)
      throw Error('مخطط غير صالح من المساعد');
@@ -253,6 +269,19 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
        aiStatus.textContent='آخر اقتراح لسه معروض للمراجعة. تقدر تطلب تعديله أو تنفّذه كمسودة.';
      }
      if(payload.pending_profile)showProfile(payload.pending_profile);
+     if(payload.active_job&&!busy){
+       busy=true;aiSubmit.disabled=true;
+       aiStatus.textContent='باستكمل مهمة Live السابقة بدون إعادة إرسال الطلب…';
+       try{
+         const result=await waitAiJob(payload.active_job.job_id);
+         if(result.model)aiModel.textContent=result.model;
+         if(result.graph)showProposal(result.graph);
+         if(result.profile)showProfile(result.profile);
+         if(result.explanation)aiMessage('assistant',result.explanation);
+         hasHistory=true;
+       }catch(error){aiStatus.textContent=error.message||'تعذر استكمال مهمة Live';}
+       finally{busy=false;aiSubmit.disabled=false;}
+     }
    }catch(error){
      aiStatus.textContent=error.message||'تعذر تحميل المحادثة القديمة.';
    }
@@ -300,7 +329,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    try{
      if(mode==='graph'||mode==='both'){
        try{
-         const result=await chatRequest('flow_ai_propose',{
+         const result=await requestLiveJob('flow_ai_propose',{
            description:prompt,current_graph_json:JSON.stringify(data)
          });
          if(result.model)aiModel.textContent=result.model;
@@ -310,7 +339,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
      }
      if(mode==='profile'||mode==='both'){
        try{
-         const result=await chatRequest('flow_ai_profile_propose',{
+         const result=await requestLiveJob('flow_ai_profile_propose',{
            description:prompt,current_profile_json:JSON.stringify(profileSnapshot())
          });
          if(result.model)aiModel.textContent=result.model;

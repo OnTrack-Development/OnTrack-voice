@@ -34,7 +34,7 @@ function act():void {
     $action=(string)($_POST['action']??'');
     if($a['role']==='support_viewer' && $action!=='support_leave')deny(403,'وضع الدعم للقراءة فقط');
     $id=(int)$a['account_id'];$kind=$a['kind'];
-    if(in_array($action,['flow_ai_history','flow_ai_propose','flow_ai_applied','flow_ai_profile_propose','flow_ai_profile_applied','flow_ai_discard','flow_ai_reset'],true)){
+    if(in_array($action,['flow_ai_history','flow_ai_propose','flow_ai_applied','flow_ai_profile_propose','flow_ai_profile_applied','flow_ai_discard','flow_ai_reset','flow_ai_job_status'],true)){
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: private,no-store');
         try{
@@ -46,6 +46,14 @@ function act():void {
             $userId=(int)$user['id'];
             require_once __DIR__.'/FlowAiChat.php';
             $chat=flow_ai_chat_read($id,$userId,$agentId);
+            require_once __DIR__.'/FlowAiJobs.php';
+            if($action==='flow_ai_job_status'){
+                $jobId=field('job_id',32);
+                $response=flow_ai_job_status($jobId,$id,$userId,$agentId);
+                echo json_encode($response,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+                if($response['status']==='pending')flow_ai_job_after_http($jobId);
+                exit;
+            }
             if($action==='flow_ai_history'){
                 $currentGraph=null;
                 $rawGraph=(string)($_POST['current_graph_json']??'');
@@ -63,6 +71,7 @@ function act():void {
                 }
                 echo json_encode(['ok'=>true,'messages'=>$chat['messages'],
                     'model'=>flow_ai_model(),
+                    'active_job'=>flow_ai_job_active($id,$userId,$agentId),
                     'current_explanation'=>$currentExplanation,
                     'current_graph_read'=>$currentGraph!==null,
                     'pending_profile'=>$chat['pending_profile'],
@@ -73,12 +82,14 @@ function act():void {
                 exit;
             }
             if($action==='flow_ai_reset'){
+                flow_ai_job_cancel_scope($id,$userId,$agentId);
                 execute('DELETE FROM flow_ai_chats WHERE account_id=? AND user_id=? AND agent_id=?',
                     [$id,$userId,$agentId]);
                 echo '{"ok":true,"cleared":true}';
                 exit;
             }
             if($action==='flow_ai_discard'){
+                flow_ai_job_cancel_scope($id,$userId,$agentId);
                 $messages=$chat['messages'];
                 $messages[]=['role'=>'assistant','text'=>'تم إلغاء الاقتراح الأخير. محادثتنا محفوظة والمخطط المنشور لم يتغير.'];
                 flow_ai_chat_write($id,$userId,$agentId,$messages,null,null);
@@ -111,15 +122,10 @@ function act():void {
                     static fn($n)=>is_int($n)&&$n>$time-600));
                 if(count($uses)>=8)throw new RuntimeException('وصلت للحد المؤقت لطلبات المساعد');
                 $uses[]=$time;$_SESSION['flow_ai_requests']=$uses;
-                require_once __DIR__.'/FlowAiProfile.php';
-                $profile=flow_ai_profile_generate($id,$agentId,$idea,$current,$chat['messages']);
-                $messages=$chat['messages'];
-                $messages[]=['role'=>'user','text'=>$idea];
-                $messages[]=['role'=>'assistant','text'=>'اقترحت تعديل خصائص الإيجنت: '.$profile['explanation']];
-                flow_ai_chat_write($id,$userId,$agentId,$messages,$chat['pending_graph'],$profile);
-                echo json_encode(['ok'=>true,'profile'=>$profile,'explanation'=>$profile['explanation'],
-                    'model'=>flow_ai_model(),'saved'=>false,'published'=>false],
+                $jobId=flow_ai_job_enqueue($id,$userId,$agentId,'profile',$idea,$current,$chat['messages']);
+                echo json_encode(['ok'=>true,'queued'=>true,'job_id'=>$jobId,'model'=>flow_ai_model()],
                     JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+                flow_ai_job_after_http($jobId);
                 exit;
             }
             if($action==='flow_ai_applied'){
@@ -164,17 +170,10 @@ function act():void {
                 static fn($t)=>is_int($t)&&$t>$now-600));
             if(count($history)>=8)throw new RuntimeException('وصلت للحد المؤقت لمقترحات AI؛ جرّب لاحقًا.');
             $history[]=$now;$_SESSION['flow_ai_requests']=$history;
-            $graph=flow_ai_generate($id,$agentId,$description,$chat['messages'],$current);
-            $explanation=flow_ai_explain_graph($graph);
-            $messages=$chat['messages'];
-            $messages[]=['role'=>'user','text'=>$description];
-            $messages[]=['role'=>'assistant','text'=>$explanation];
-            flow_ai_chat_write($id,$userId,$agentId,$messages,$graph,$chat['pending_profile']);
-            echo json_encode(['ok'=>true,'graph'=>$graph,'explanation'=>$explanation,
-                'model'=>flow_ai_model(),'metrics'=>flow_ai_graph_quality($graph),
-                'stress_mode'=>flow_ai_stress_requested($description)||
-                    (is_array($current)&&count($current['nodes']??[])>=24),
-                'saved'=>false,'published'=>false],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+            $jobId=flow_ai_job_enqueue($id,$userId,$agentId,'graph',$description,$current??[],$chat['messages']);
+            echo json_encode(['ok'=>true,'queued'=>true,'job_id'=>$jobId,'model'=>flow_ai_model()],
+                JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+            flow_ai_job_after_http($jobId);
         }catch(Throwable $error){
             http_response_code($error instanceof InvalidArgumentException?422:503);
             echo json_encode(['ok'=>false,'error'=>$error instanceof InvalidArgumentException?
