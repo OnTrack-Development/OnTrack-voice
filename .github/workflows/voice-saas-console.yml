@@ -1,11 +1,13 @@
 name: OnTrack Voice SaaS PHP Console
 on:
   push:
-    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102', 'fix/console-pricing-connection-ui-20261102', 'fix/sim1-staging-ui-20261102', 'feat/tenant-only-mobile-workspace-20261102', 'fix/tenant-mix-session-parity-20261102', 'fix/flow-editor-ai-20261102']
+    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102', 'fix/console-pricing-connection-ui-20261102', 'fix/sim1-staging-ui-20261102', 'feat/tenant-only-mobile-workspace-20261102', 'fix/tenant-mix-session-parity-20261102', 'fix/flow-editor-ai-20261102','feat/voice-production-gap-20261103']
     paths:
       - 'saas/console/**'
       - 'tools/test_voice_saas_console.php'
       - 'tools/test_tenant_workspace.php'
+      - 'tools/test_tenant_voice_transcript_archive.php'
+      - 'tools/test_tenant_call_ai_summary.php'
       - 'tools/test_console_pricing_ui.php'
       - 'tools/test_flow_ai_sources.php'
       - 'tools/test_floating_flow_ui.cjs'
@@ -67,6 +69,10 @@ jobs:
         run: php tools/test_console_pricing_ui.php
       - name: Tenant workspace isolation and call history
         run: php tools/test_tenant_workspace.php
+      - name: Per-SIM transcript, manual takeover and AI summary regression
+        run: |
+          php tools/test_tenant_voice_transcript_archive.php
+          php tools/test_tenant_call_ai_summary.php
       - name: AI flow knowledge, connector security, tenant isolation and RBAC
         run: php tools/test_flow_ai_sources.php
       - name: Persistent AI chat history, explanation and account/user isolation
