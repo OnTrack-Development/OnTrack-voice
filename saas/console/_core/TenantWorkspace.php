@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/DncGuard.php';
+require_once __DIR__.'/TenantVoiceTranscript.php';
 /** No pilot bearer, no user-provided account/site identifiers. */
 function tenant_workspace_id(int $id):string{return str_pad(dechex($id),24,'0',STR_PAD_LEFT);}
 function tenant_workspace_parse_id(mixed $id):int{
@@ -46,10 +47,15 @@ function tenant_workspace_dnc(array $b,mixed $id,bool $blocked):array{
 }
 function tenant_workspace_calls(array $b):array{
     $rows=all('SELECT c.external_call_id,c.phone,c.name,c.status,c.duration_seconds,c.created_at,
-        r.summary,r.customer_notes,r.outcome,r.handoff_status,r.handoff_reason
+        r.summary,r.customer_notes,r.outcome,r.handoff_status,r.handoff_reason,
+        CASE WHEN t.call_id IS NULL THEN 0 ELSE 1 END AS has_transcript,
+        substr(t.transcript,1,240) AS transcript_excerpt
         FROM calls c LEFT JOIN tenant_call_reports r
         ON r.device_binding_id=c.device_binding_id AND r.call_id=c.external_call_id
         AND r.account_id=c.account_id AND r.site_id=c.site_id
+        LEFT JOIN tenant_call_transcripts t
+          ON t.device_binding_id=c.device_binding_id AND t.call_id=c.external_call_id
+          AND t.account_id=c.account_id AND t.site_id=c.site_id AND t.sim_slot=c.sim_slot
         WHERE c.account_id=? AND c.site_id=? AND c.device_binding_id=? AND c.sim_slot=?
         ORDER BY c.id DESC LIMIT 100',
         [$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']]);
@@ -60,6 +66,8 @@ function tenant_workspace_calls(array $b):array{
         'started'=>str_replace(' ','T',(string)$r['created_at']).'Z','started_at'=>$r['created_at'],
         'identity_status'=>$r['phone']!==''?'available':'unverified',
         'summary'=>$r['summary']??null,'customer_notes'=>$r['customer_notes']??null,
+        'has_transcript'=>(int)($r['has_transcript']??0)===1,
+        'transcript_excerpt'=>$r['transcript_excerpt']??null,
         'outcome'=>$r['outcome']??'unknown','handoff_status'=>$r['handoff_status']??'not_requested',
         'handoff_reason'=>$r['handoff_reason']??''];
     return ['calls'=>$calls,'total'=>count($calls)];
@@ -201,6 +209,8 @@ function tenant_workspace_call_analysis(array $binding,array $data,?callable $tr
         AND device_binding_id=? AND sim_slot=? AND external_call_id=?',[
         $binding['account_id'],$binding['site_id'],$binding['id'],$binding['sim_slot'],$callId]);
     if(!$call)throw new InvalidArgumentException('call_not_found_for_sim');
+    // Preserve genuine model text before contacting a fallible AI summarizer.
+    tenant_voice_transcript_store($binding,$callId,$transcript);
     $previous=tenant_call_report_find($binding,$callId);
     if($previous)return ['saved'=>true,'duplicate'=>true,'report'=>$previous];
     $schema=[
