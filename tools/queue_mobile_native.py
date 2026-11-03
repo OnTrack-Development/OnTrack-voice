@@ -29,7 +29,7 @@ def verify(folder):
     assert hashlib.sha256(cert).hexdigest()==EXPECTED_CERT
     envelope=(folder/"latest.json").read_bytes()
     data=json.loads(envelope);payload=data["payload"];meta=json.loads(payload)
-    assert meta["schema"]==1 and meta["channel"]=="stable" and meta["version_code"]==29
+    assert meta["schema"]==1 and meta["channel"]=="stable" and meta["version_code"]==33
     assert meta["file"]==f"ontrack-voice-v{meta['version_code']}-{meta['sha256']}.apk"
     assert meta["package"]=="com.ontrack.voiceproof"
     with __import__("tempfile").TemporaryDirectory() as td:
@@ -106,7 +106,7 @@ def download_url(artifact_id):
 
 def main():
     folder=Path(sys.argv[1]);envelope,cert,meta=verify(folder)
-    assert os.environ.get("GITHUB_REF")=="refs/heads/main"
+    assert os.environ.get("GITHUB_REF")=="refs/heads/feat/voice-production-gap-20261103"
     obj,current,report=wait_queue()
     ui_manifest=folder.parent/"ota"/"latest.json"
     if not ui_manifest.is_file():
@@ -118,7 +118,7 @@ def main():
     source_run=os.environ.get("MOBILE_RELEASE_SOURCE_RUN_ID",os.environ["GITHUB_RUN_ID"])
     assert source_run.isdecimal() and int(source_run)>0,"Invalid pinned release source run"
     items=api("actions/runs/"+source_run+"/artifacts?per_page=100")["artifacts"]
-    matches=[x for x in items if x["name"]=="OnTrack-Voice-0.3.8" and not x["expired"]]
+    matches=[x for x in items if x["name"]=="OnTrack-Voice-0.3.10" and not x["expired"]]
     assert len(matches)==1,"Release artifact not found or duplicated"
     url=download_url(matches[0]["id"])
     script=(Path("saas/mobile/ota/native_deploy.py")).read_text()+"\nimport sys\ndeploy(*sys.argv[1:])\nROOT.chmod(0o755) # hosting worker has a private umask; public native release files need traversable directory\n"
