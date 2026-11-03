@@ -734,7 +734,7 @@
       "verified_e2e": false,
       "completion_evidence": [],
       "updated_on": "2026-11-03",
-      "implementation_note": "R040 server fix bcb933d7 deployed and CI green; verified matching host receipt and private rollback. Android SIM Audio Proof failed native queue with Wrong target; no real Xiaomi reconnect/event replay reconciliation. Remains PARTIAL, cursor stays R040.",
+      "implementation_note": "Verified Android workflow run 41592208970: build SUCCESS, publish_ota queue SUCCESS, publish_native FAILURE. Host mobile-ota-41592208970 receipt actually FAILED exit_code=1, ValueError Wrong target in saas/mobile/ota/deploy.py; guard requires /home/appontrack/public_html/saas/mobile while canonical app release is root /. Native job was never queued. This corrects earlier inaccurate attribution of Wrong target to native APK. No physical Xiaomi event replay proof. Do not advance.",
       "latest_feature_commit": "bcb933d7b9d88a007f48280575152a023e0da872",
       "ci_verification": {
         "run_id": 41592208929,
@@ -752,9 +752,14 @@
       "android_proof": {
         "run_id": 41592208970,
         "conclusion": "failure",
-        "step": "Queue signed native APK through OnTrack worker",
-        "receipt": "ops/host-link/results/appontrack-server11/mobile-ota-41592208970.json",
-        "error": "ValueError: Wrong target",
+        "build": "success",
+        "publish_ota_queue": "success_but_host_install_failed",
+        "publish_native": "failure",
+        "host_receipt": "ops/host-link/results/appontrack-server11/mobile-ota-41592208970.json",
+        "host_status": "failed",
+        "host_exit_code": 1,
+        "host_error": "ValueError: Wrong target",
+        "native_job_queued": false,
         "device_e2e": false
       }
     },
