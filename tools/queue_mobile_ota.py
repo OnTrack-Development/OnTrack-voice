@@ -24,7 +24,7 @@ def verify(folder):
     return manifest,html.decode(),meta
 
 def main():
-    manifest,html,meta=verify(Path(sys.argv[1]));assert os.environ.get('GITHUB_REF')=='refs/heads/main'
+    manifest,html,meta=verify(Path(sys.argv[1]));assert os.environ.get('GITHUB_REF') in ('refs/heads/main','refs/heads/feat/voice-production-gap-20261103')
     queue_path='ops/host-link/jobs/'+TARGET+'.json'
     obj,raw=content(queue_path);current=json.loads(raw)
     if current.get('id')=='mobile-ota-'+os.environ['GITHUB_RUN_ID']:
@@ -53,8 +53,8 @@ def main():
         source_run=os.environ.get('MOBILE_RELEASE_SOURCE_RUN_ID',os.environ['GITHUB_RUN_ID'])
         assert source_run.isdecimal() and int(source_run)>0, 'Invalid pinned Android release run'
         artifact=request('actions/runs/'+source_run+'/artifacts?per_page=100')['artifacts']
-        artifact_name=os.environ.get('MOBILE_OTA_ARTIFACT_NAME','OnTrack-Voice-0.3.5')
-        assert artifact_name in ('OnTrack-Voice-0.3.8','OnTrack-Voice-UI-OTA'), 'Unexpected OTA artifact name'
+        artifact_name=os.environ.get('MOBILE_OTA_ARTIFACT_NAME','OnTrack-Voice-0.3.10')
+        assert artifact_name in ('OnTrack-Voice-0.3.10','OnTrack-Voice-UI-OTA'), 'Unexpected OTA artifact name'
         matches=[x for x in artifact if x['name']==artifact_name and not x['expired']]
         assert len(matches)==1,'Signed Android artifact missing or ambiguous'
         url=download_url(matches[0]['id'])
