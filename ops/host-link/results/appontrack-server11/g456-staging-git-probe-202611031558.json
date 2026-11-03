@@ -1,0 +1,13 @@
+{
+  "job_id": "g456-staging-git-probe-202611031558",
+  "target": "appontrack-server11",
+  "job_sha256": "a234c0fc690e6cad730a4d9f6f9a332da13b8c62ef8007d983211b055b14677d",
+  "started_at": "2026-11-03T15:59:03.117213+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"git_private_remote_reachable\": false, \"git_exit\": 128, \"has_ref\": false, \"php83\": true, \"home_writable\": true}\n",
+  "stderr": "",
+  "finished_at": "2026-11-03T15:59:03.558566+00:00",
+  "duration_ms": 441
+}
