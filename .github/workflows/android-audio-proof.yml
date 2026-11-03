@@ -11,6 +11,7 @@ on:
       - 'tools/test_sim_agent_call_reports.php'
       - 'tools/test_tenant_call_ai_summary.php'
       - 'saas/mobile/ota/ui.html'
+      - 'saas/mobile/ota/release.json'
       - '.github/workflows/android-audio-proof.yml'
       # Server PHP has its own Voice P1 P2 backend regression. A backend-only
       # change must NOT rebuild/publish an unrelated signed native Android APK.
