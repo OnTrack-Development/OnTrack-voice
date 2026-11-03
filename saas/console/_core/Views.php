@@ -362,13 +362,29 @@ function render_devices(array $a):void {
         WHERE d.account_id=? ORDER BY d.id DESC LIMIT 100",[$id]);
     $rows=[];
     $manage=in_array($a['role'],['owner','admin'],true)&&!active_support();
+    $agentChoicesBySite=[];
+    if($manage){
+        foreach(all("SELECT id,name,site_id FROM agents WHERE account_id=? AND status!='archived' ORDER BY name",[$id]) as $candidate){
+            $agentChoicesBySite[(int)$candidate['site_id']][(int)$candidate['id']]=$candidate['name'];
+        }
+    }
     foreach($bindings as $d){
         $action=$manage && $d['status']==='active'
             ?form_start('revoke_device_binding','/?tab=devices','class="inline-form"').
                 '<input type="hidden" name="device_id" value="'.(int)$d['id'].'">'.
                 '<button class="btn small" onclick="return confirm(\'فصل هذا الجهاز وإلغاء توكن الشريحة فورًا؟\')">فصل الجهاز</button></form>'
             :'—';
-        $rows[]=[e($d['device_name']),e($d['site_name']),e($d['agent_name']),
+        if($manage && $d['status']==='active'){
+            $choices=$agentChoicesBySite[(int)$d['site_id']]??[];
+            $change=$choices?form_start('assign_device_agent','/?tab=devices').
+                '<input type="hidden" name="device_id" value="'.(int)$d['id'].'">'.
+                '<span class="dim">تغيير إيجنت SIM '.((int)$d['sim_slot']+1).' بدون فصل الجهاز</span>'.
+                select_html('الإيجنت الجديد','agent_id',$choices).
+                submit_btn('تطبيق على المكالمة القادمة'):'';
+            $action=$change.$action;
+        }
+        $rows[]=[e($d['device_name']),e($d['site_name']),e($d['agent_name']).
+            '<div class="dim">Revision '.(int)($d['agent_revision']??1).'</div>',
             e('SIM '.((int)$d['sim_slot']+1)),pill($d['status']),
             e($d['last_seen_at']?:'لم يتصل بعد'),$action];
     }
