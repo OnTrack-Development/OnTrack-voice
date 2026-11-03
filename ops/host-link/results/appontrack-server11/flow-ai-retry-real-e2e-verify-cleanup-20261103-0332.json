@@ -1,0 +1,13 @@
+{
+  "job_id": "flow-ai-retry-real-e2e-verify-cleanup-20261103-0332",
+  "target": "appontrack-server11",
+  "job_sha256": "3ddbd829fa6926db13a1d45ead1b86bda40426f2ce4855507cd2a2a412f69991",
+  "started_at": "2026-11-03T03:32:02.151356+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\":\"running\",\"model\":null,\"nodes\":null,\"edges\":null,\"error\":null}\n",
+  "stderr": "",
+  "finished_at": "2026-11-03T03:32:02.209913+00:00",
+  "duration_ms": 59
+}
