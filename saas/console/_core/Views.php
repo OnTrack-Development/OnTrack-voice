@@ -726,6 +726,13 @@ function render_calls(array $a):void{
     }
     echo '</div><section class="call-detail" aria-label="تفاصيل المكالمة">';
     if($selected){
+        require_once __DIR__.'/TenantVoiceTranscript.php';
+        $transcriptRecord=null;
+        if(!empty($selected['device_binding_id'])&&!empty($selected['external_call_id'])){
+            $callScope=['account_id'=>$id,'site_id'=>(int)$selected['site_id'],
+                'id'=>(int)$selected['device_binding_id'],'sim_slot'=>(int)$selected['sim_slot']];
+            $transcriptRecord=tenant_voice_transcript_find($callScope,(string)$selected['external_call_id']);
+        }
         echo '<div class="call-detail-header"><span class="call-avatar large">'.e(mb_substr((string)($selected['name']?:$selected['phone']),0,1)).'</span>'.
             '<h3>'.e((string)($selected['name']?:($selected['phone']!==''?'اسم غير مسجل':'هوية المتصل غير متاحة'))).'</h3>'.
             '<p dir="ltr">'.e((string)($selected['phone']?:'لم يصل الرقم من Android')).'</p>'.
@@ -749,7 +756,12 @@ function render_calls(array $a):void{
                     default=>'لم يتم طلب تدخل موظف'
                 }).'</p>'.
                 (!empty($selected['handoff_reason'])?'<p>'.nl2br(e((string)$selected['handoff_reason'])).'</p>':'').
-                '<p class="dim">التسجيل والتفريغ الكامل لن يظهرا إلا لو تم رفع بيانات حقيقية من الهاتف.</p></div>';
+                ($transcriptRecord
+                    ?'<details class="call-real-transcript"><summary>تفريغ صوت المكالمة الحقيقي (Gemini Live)</summary>'.
+                        '<p class="dim">مصدر التفريغ: '.e((string)$transcriptRecord['source']).' · '.e((string)$transcriptRecord['created_at']).'</p>'.
+                        '<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'.e((string)$transcriptRecord['transcript']).'</pre></details>'
+                    :'<p class="dim">لم يصل تفريغ صوتي موثّق لهذه المكالمة بعد.</p>').
+                '<p class="dim">ملف التسجيل الصوتي لا يظهر قبل رفع تسجيل حقيقي مصرح به.</p></div>';
             if(allowed('calls.write')&&!empty($selected['device_binding_id'])&&!empty($selected['external_call_id'])){
                 echo '<section class="call-annotation-panel"><h3>تعديل تقرير المكالمة وملاحظات العميل</h3>'.
                     '<p class="dim">دي بيانات المكالمة الحالية فقط. طلب التحويل لا يعني إن الموظف استلم، إلا لو تم تأكيده فعليًا.</p>'.
