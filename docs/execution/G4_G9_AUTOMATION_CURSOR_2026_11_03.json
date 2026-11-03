@@ -67,5 +67,9 @@
     "A green CI is not physical call or real provider proof",
     "Do not amend G0-G3 completion without passing missing real gates",
     "Use a PR/reconciliation branch for main-feature divergence; no force push"
-  ]
+  ],
+  "hourly_automation_id": "6ae9765d045c8191bba9d2054b598779",
+  "schedule": "FREQ=HOURLY",
+  "schedule_timezone": "Africa/Cairo",
+  "automation_confirmed_enabled_at": "2026-11-03"
 }
