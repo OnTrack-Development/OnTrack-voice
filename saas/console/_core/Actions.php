@@ -9,6 +9,7 @@ require_once __DIR__.'/FlowTemplates.php';
 require_once __DIR__.'/AgentAnswerPolicy.php';
 require_once __DIR__.'/Checkout.php';
 require_once __DIR__.'/AiRelay.php';
+require_once __DIR__.'/RecycleBin.php';
 require_once __DIR__.'/CallHistory.php';
 
 function field(string $key,int $max=200):string{
@@ -615,12 +616,32 @@ function act():void {
                 $site=owned_site(intfield('site_id'),$id);if(!$site)deny(404);
                 execute('UPDATE sites SET name=?,domain=? WHERE id=? AND account_id=?',[required('name',140),field('domain',190),$site['id'],$id]);
                 audit('site.updated',$id,['site'=>$site['id']]);break;
+            case 'restore_archived':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $kindName=required('recycle_kind',12);
+                require_permission($kindName==='site'?'sites.write':'agents.write');
+                $entityId=intfield('recycle_id');
+                if(!recycle_restore($id,$kindName,$entityId))
+                    throw new InvalidArgumentException('العنصر غير موجود في سلة المحذوفات');
+                audit('recycle.restored',$id,['kind'=>$kindName,'item_id'=>$entityId]);
+                $success='تمت استعادة العنصر. الإيجنت المستعاد يظل Draft حتى يتم نشره.';
+                break;
+            case 'recycle_policy':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                recycle_update_retention($id,intfield('retention_days'));
+                audit('recycle.policy.updated',$id,['retention_days'=>recycle_retention($id)]);
+                $success='تم حفظ مدة الاحتفاظ. لا يوجد حذف نهائي تلقائي للبيانات.';
+                break;
             case 'archive_site':
                 require_permission('sites.write');
                 $site=owned_site(intfield('site_id'),$id);if(!$site)deny(404);
                 if(one("SELECT id FROM device_bindings WHERE account_id=? AND site_id=? AND status='active' LIMIT 1",[$id,$site['id']]))
                     throw new RuntimeException('الموقع مرتبط بشريحة Android نشطة؛ انقل أو افصل الربط قبل الأرشفة.');
-                execute("UPDATE sites SET status='archived' WHERE id=? AND account_id=?",[$site['id'],$id]);
+                recycle_archive_note($id,'site',(int)$site['id']);
+                $linkedAgents=all("SELECT id FROM agents WHERE site_id=? AND account_id=? AND status!='archived'",
+                    [$site['id'],$id]);
+                foreach($linkedAgents as $linked)recycle_archive_note($id,'agent',(int)$linked['id']);
+                execute("UPDATE sites SET status='archived' WHERE id=? AND account_id=?[$site['id'],$id]);
                 execute("UPDATE agents SET status='archived' WHERE site_id=? AND account_id=?",[$site['id'],$id]);
                 audit('site.archived',$id,['site'=>$site['id']]);break;
             case 'archive_agent':
@@ -628,7 +649,8 @@ function act():void {
                 $ag=one('SELECT id FROM agents WHERE id=? AND account_id=?',[intfield('agent_id'),$id]);if(!$ag)deny(404);
                 if(one("SELECT id FROM device_bindings WHERE account_id=? AND agent_id=? AND status='active' LIMIT 1",[$id,$ag['id']]))
                     throw new RuntimeException('الإيجنت مرتبط بشريحة نشطة؛ انقل الشريحة لإيجنت منشور آخر قبل الأرشفة.');
-                execute("UPDATE agents SET status='archived' WHERE id=? AND account_id=?",[$ag['id'],$id]);
+                recycle_archive_note($id,'agent',(int)$ag['id']);
+                execute("UPDATE agents SET status='archived' WHERE id=? AND account_id=?[$ag['id'],$id]);
                 audit('agent.archived',$id,['agent'=>$ag['id']]);break;
             case 'add_contact':
                 require_permission('contacts.write');
