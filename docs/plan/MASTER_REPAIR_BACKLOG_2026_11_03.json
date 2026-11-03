@@ -28,7 +28,10 @@
     "UNVERIFIED": "غير متحقق",
     "RISK_UNVERIFIED": "مخاطرة غير مقاسة",
     "NOT_IMPLEMENTED": "غير منفذ",
-    "DEFERRED": "مؤجل معتمد"
+    "DEFERRED": "مؤجل معتمد",
+    "BLOCKED": "محجوب بعائق حقيقي",
+    "CI_PASS": "اجتاز اختبارات CI مع بقاء التحقق الشامل للمرحلة",
+    "HOST_DEPLOYED": "نشر موثق، اختبار E2E مستقل"
   },
   "phases": [
     {
@@ -98,7 +101,7 @@
       "phase": "G0",
       "priority": "P0",
       "roles": "Ops",
-      "status": "PARTIAL",
+      "status": "BLOCKED",
       "description": "توحيد main وفرع root المنشور وتحديد SHA واحد قانوني للإصدار؛ منع فرعين يشيران لمنتجين مختلفين",
       "acceptance": "Branch/release manifest متطابق مع هوست وأصول Android وrollback",
       "source_requirements": [
@@ -109,14 +112,17 @@
       "evidence_or_pointer": "main وfeat/voice-production-gap-20261103",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "main and deployed feature branch are divergent (603 ahead/71 behind at 2026-11-03); force-merge forbidden; release still from feature branch.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R002",
       "phase": "G0",
       "priority": "P0",
       "roles": "Ops",
-      "status": "CONFIRMED_GAP",
+      "status": "CI_PASS",
       "description": "إصلاح CI الأحمر واختبار خطة الأسعار بعد إزالة نموذج Google القديم، وربط Deployment بجميع gates الإلزامية",
       "acceptance": "لا نشر على أحمر؛ test_console_pricing_ui وWhatsApp/WHMCS وAndroid gate ناجحة",
       "source_requirements": [
@@ -125,14 +131,17 @@
       "evidence_or_pointer": "GitHub Actions 41577865384 failed و41577865411 deployed",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Full SaaS Console and Root Publisher on 7c9d440 succeed. Publisher also runs SSO HTTP and key console regressions; serialized per branch. Prior single pricing test failure fixed.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R003",
       "phase": "G0",
       "priority": "P0",
       "roles": "Ops",
-      "status": "PARTIAL",
+      "status": "HOST_DEPLOYED",
       "description": "تأكيد canonical root app.ontrackegy.com ونقل كل روابط API/SSO/webhooks/mobile والـCron من المسارات التاريخية",
       "acceptance": "مسارات root + legacy smoke مع authenticated flows؛ لا تكرار console",
       "source_requirements": [
@@ -141,7 +150,10 @@
       "evidence_or_pointer": "docs/execution/ROOT_AI_RELAY_RELEASE_2026_11_03_AR.md",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Canonical app.ontrackegy.com/ root and legacy mobile paths, GitHub receipts 3f5ba89, d6f3ef44; Android APK has NOT been republished in this repair.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R004",
@@ -225,7 +237,10 @@
       "evidence_or_pointer": "MobileLinkService.kt وMobileLiveCall.kt",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "No new physical inbound GSM recording/test; pairing and policy code exist but owner handset proof required.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R011",
@@ -242,14 +257,17 @@
       "evidence_or_pointer": "PR #34 ما زال مفتوحًا + MobileLinkService.kt",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Automated outbound phone dialer not yet implemented; no device E2E.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R012",
       "phase": "G1",
       "priority": "P0",
       "roles": "Android/User",
-      "status": "PARTIAL",
+      "status": "CI_PASS",
       "description": "شريحتان بحسابين، QR + كود مؤقت، إلغاء الربط، تبديل الإيجنت على نفس SIM بلا إعادة ربط",
       "acceptance": "2 tenants/2 SIM، عدم تسرب token/KB/reports، إعادة الربط بعد revoke ممنوعة",
       "source_requirements": [
@@ -261,7 +279,10 @@
       "evidence_or_pointer": "_core/DevicePairing.php وTenantSimHardware.kt",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Device revoke/disconnect pauses own active SIM campaigns and invalidates outstanding attempts; dedicated tenant pairing fixture verified on GitHub CI 41584935182.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R013",
@@ -403,7 +424,7 @@
       "phase": "G2",
       "priority": "P0",
       "roles": "Admin/User",
-      "status": "E2E_FAILED",
+      "status": "PARTIAL",
       "description": "إصلاح Gemini 3.8 Live Extended Thinking في Assistant text proposal بالـasync jobs، واحترام tool calls وfallback",
       "acceptance": "إنشاء مخطط صالح في Live E2E وليس مجرد WS connected؛ fallback عند 429/503/timeout",
       "source_requirements": [
@@ -413,7 +434,10 @@
       "evidence_or_pointer": "docs/execution/FLOW_AI_ASYNC_2026_11_03_AR.md",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Flow Builder BLOCKING submit_editor_proposal setup and async queue built; Google real live tool-call still unverified after change.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R022",
@@ -429,14 +453,17 @@
       "evidence_or_pointer": "_core/AiRelay.php + tools/test_ai_relay.php",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Independent encrypted Voice+Assistant provider pools with 15min cooldown; real multiple-key failover E2E pending.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R023",
       "phase": "G2",
       "priority": "P0",
       "roles": "User/Android",
-      "status": "UNVERIFIED",
+      "status": "PARTIAL",
       "description": "محرك Flow أثناء المكالمة: شروط/خطوات/أسئلة ومتغيرات وحالات branch؛ يجيب الجانبي ويعود لنقطة التوقف",
       "acceptance": "call trace node-by-node، مقاطعات 5 مرات، لا يعيد الترحيب ولا يقفز للأسئلة",
       "source_requirements": [
@@ -447,7 +474,10 @@
       "evidence_or_pointer": "_core/PublishedFlow.php وMobileLiveCall.kt",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Bounded published graph node/edge/branch guidance now included in immutable real Voice prompt; deterministic per-node voice execution/traces unverified.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R024",
@@ -539,7 +569,7 @@
       "phase": "G3",
       "priority": "P0",
       "roles": "Android/User",
-      "status": "NOT_COMPLETE",
+      "status": "PARTIAL",
       "description": "عامل اتصال campaign على SIM من قائمة وlease موثوق، تنفيذ dial الفعلي بعد فحص DNC/consent",
       "acceptance": "حملة 10 أرقام تبدأ آليًا واحدة تلو الأخرى دون طلب تدخل UI أو Accessibility",
       "source_requirements": [
@@ -550,7 +580,10 @@
       "evidence_or_pointer": "TenantWorkspace.php campaign_dialing_not_ready",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Consent-scoped SaaS campaign queue/lease/verify/finish; ONTRACK_TENANT_CAMPAIGN_DIAL_ENABLED remains off by default; native Android auto-dial not connected.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R031",
@@ -567,14 +600,17 @@
       "evidence_or_pointer": "_core/TenantWorkspace.php + TenantFileParser.php",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Empty target selection now expands to all site contacts up to 2000; streaming massive-list support remains open.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R032",
       "phase": "G3",
       "priority": "P0",
       "roles": "Android/User",
-      "status": "PARTIAL",
+      "status": "CI_PASS",
       "description": "DNC ledger عبر المواقع والقنوات وConsent مع opt-out فوري قبل كل Dial ومحاولات لاحقة",
       "acceptance": "DNC from call report stops all future numbers; no silent re-consent/delete bypass",
       "source_requirements": [
@@ -584,14 +620,17 @@
       "evidence_or_pointer": "_core/DncLedger.php + DncGuard.php",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Proof-hash consent + tenant/SIM-scope DNC checked before arming and rechecked after lease; test proves DNC rejection on valid fixture binding.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R033",
       "phase": "G3",
       "priority": "P0",
       "roles": "Android/User",
-      "status": "NOT_COMPLETE",
+      "status": "PARTIAL",
       "description": "جدولة حسب المنطقة الزمنية، فترات الدوام المتعددة، الإجازات، العطلات، استثناءات، سرعة وعدد محاولات",
       "acceptance": "before lease/pre-dial gate تحت تعارض، daylight saving، paus/resume، max attempts",
       "source_requirements": [
@@ -601,14 +640,17 @@
       "evidence_or_pointer": "docs/project/REQUIREMENTS_AR.md",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Cairo local datetime normalized UTC, arm/preview/pause/cancel; holidays/multiple work shifts not yet implemented.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R034",
       "phase": "G3",
       "priority": "P0",
       "roles": "Android/User",
-      "status": "NOT_COMPLETE",
+      "status": "PARTIAL",
       "description": "delay بعد نهاية حقيقية، busy/no_answer/retry/followup/backoff/next؛ recovery بلا إعادة اتصال مجهولة",
       "acceptance": "device survives process death; unique idempotency, uncertain call reconcile, no blind redial",
       "source_requirements": [
@@ -618,7 +660,10 @@
       "evidence_or_pointer": "docs/architecture/MOBILE_EXECUTOR_CONTRACT_AR.md",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Device/SIM-scoped idempotent leases, duplicate finish guard, uncertain-result quarantine and no blind retry; no Android executor/reconciliation UI.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R035",
@@ -634,7 +679,10 @@
       "evidence_or_pointer": "OWNER_APPROVED_MASTER_DECISIONS",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-03",
+      "implementation_note": "Per-line incoming-vs-campaign runtime policy still unimplemented on Android; no physical overlap E2E.",
+      "evidence_source_branch": "feat/voice-production-gap-20261103",
+      "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4"
     },
     {
       "id": "R036",
@@ -1336,5 +1384,9 @@
       "completion_evidence": [],
       "updated_on": "2026-11-03"
     }
-  ]
+  ],
+  "last_implementation_update": "2026-11-03",
+  "latest_feature_branch_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4",
+  "implementation_progress_report": "docs/execution/G0_G3_REPAIR_IMPLEMENTATION_STATUS_2026_11_03_AR.md",
+  "note": "Updated statuses are implementation evidence, NOT a full G0-G3 completion or physical call proof."
 }
