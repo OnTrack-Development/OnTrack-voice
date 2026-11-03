@@ -61,16 +61,15 @@
     "requirement": "R040",
     "date": "2026-11-03",
     "status": "PARTIAL",
-    "activity": "Rechecked authoritative branch, recent Actions runs and canonical OTA guard; no post-patch CI or host receipt exists in available evidence. Did not rerun old SHA because it would not test patched code.",
-    "feature_commit": "693339241348e6366116743d8a5b281ed8fa6a28",
+    "activity": "Repaired stale OTA regression test fixture to canonical root and added legacy path negative test; enabled dedicated release gate workflow for feature branch and OTA deploy path without native APK publishing.",
+    "feature_commit": "a5a3c0276a6422b2f7765aed066893d09cf79ddb",
+    "test_commit": "8d9a25f001edc647ab60bdf60c7c059c980a1f57",
     "ci_runs": [],
-    "ci_status_at_check": "NO_MATCHING_RUN",
-    "last_observed_ci_run": 41592208929,
-    "last_observed_ci_sha": "bcb933d7b9d88a007f48280575152a023e0da872",
+    "ci_status_at_check": "NO_NEW_RUN_OBSERVED",
     "root_host_receipt": null,
     "android_ota_host_receipt": null,
     "device_e2e": false,
-    "blocker": "No CI/deployment evidence for 69333924; root/mobile path existence unverified; OTA/native delivery and Xiaomi disconnect/reconnect event reconciliation unverified. GitHub Actions listing still shows only bcb933d7 as latest run for this branch."
+    "blocker": "New workflow run not visible in Actions; no CI success or host deployment receipt for OTA fix; canonical target existence unverified and physical Xiaomi disconnect/reconnect proof absent."
   },
   "run_history": [
     {
@@ -160,6 +159,20 @@
       "android_ota_host_receipt": null,
       "device_e2e": false,
       "blocker": "No CI/deployment evidence for 69333924; root/mobile path existence unverified; OTA/native delivery and Xiaomi disconnect/reconnect event reconciliation unverified. GitHub Actions listing still shows only bcb933d7 as latest run for this branch."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Repaired stale OTA regression test fixture to canonical root and added legacy path negative test; enabled dedicated release gate workflow for feature branch and OTA deploy path without native APK publishing.",
+      "feature_commit": "a5a3c0276a6422b2f7765aed066893d09cf79ddb",
+      "test_commit": "8d9a25f001edc647ab60bdf60c7c059c980a1f57",
+      "ci_runs": [],
+      "ci_status_at_check": "NO_NEW_RUN_OBSERVED",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "New workflow run not visible in Actions; no CI success or host deployment receipt for OTA fix; canonical target existence unverified and physical Xiaomi disconnect/reconnect proof absent."
     }
   ],
   "blocks": [],
