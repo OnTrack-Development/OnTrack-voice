@@ -61,19 +61,16 @@
     "requirement": "R040",
     "date": "2026-11-03",
     "status": "PARTIAL",
-    "activity": "verified actual host OTA failure root cause, no code or deployment change",
-    "feature_commit": "bcb933d7b9d88a007f48280575152a023e0da872",
-    "ci_runs": [
-      41592208929,
-      41592208970
-    ],
-    "root_host_receipt": "ops/host-link/results/appontrack-server11/saas-console-41592208929.json",
-    "root_host_exit_code": 0,
-    "android_ota_host_receipt": "ops/host-link/results/appontrack-server11/mobile-ota-41592208970.json",
-    "android_ota_host_exit_code": 1,
-    "android_ota_host_error": "Wrong target",
+    "activity": "patched OTA target guard only; no deployment or physical E2E verified",
+    "feature_commit": "693339241348e6366116743d8a5b281ed8fa6a28",
+    "ci_runs": [],
+    "ci_status_at_check": "NOT_VERIFIED",
+    "root_host_receipt": null,
+    "root_host_exit_code": null,
+    "android_ota_host_receipt": null,
+    "android_ota_host_exit_code": null,
     "device_e2e": false,
-    "blocker": "Verified Android workflow run 41592208970: build SUCCESS, publish_ota queue SUCCESS, publish_native FAILURE. Host mobile-ota-41592208970 receipt actually FAILED exit_code=1, ValueError Wrong target in saas/mobile/ota/deploy.py; guard requires /home/appontrack/public_html/saas/mobile while canonical app release is root /. Native job was never queued. This corrects earlier inaccurate attribution of Wrong target to native APK. No physical Xiaomi event replay proof. Do not advance."
+    "blocker": "Need validate /home/appontrack/public_html/mobile on host; CI PASS for new commit, OTA host receipt exit_code 0 with matching source, native APK queue, and physical Xiaomi event retry/disconnect E2E. Prior OTA run 41592208970 failed Wrong target."
   },
   "run_history": [
     {
@@ -133,6 +130,21 @@
       "android_ota_host_error": "Wrong target",
       "device_e2e": false,
       "blocker": "Verified Android workflow run 41592208970: build SUCCESS, publish_ota queue SUCCESS, publish_native FAILURE. Host mobile-ota-41592208970 receipt actually FAILED exit_code=1, ValueError Wrong target in saas/mobile/ota/deploy.py; guard requires /home/appontrack/public_html/saas/mobile while canonical app release is root /. Native job was never queued. This corrects earlier inaccurate attribution of Wrong target to native APK. No physical Xiaomi event replay proof. Do not advance."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "patched OTA target guard only; no deployment or physical E2E verified",
+      "feature_commit": "693339241348e6366116743d8a5b281ed8fa6a28",
+      "ci_runs": [],
+      "ci_status_at_check": "NOT_VERIFIED",
+      "root_host_receipt": null,
+      "root_host_exit_code": null,
+      "android_ota_host_receipt": null,
+      "android_ota_host_exit_code": null,
+      "device_e2e": false,
+      "blocker": "Need validate /home/appontrack/public_html/mobile on host; CI PASS for new commit, OTA host receipt exit_code 0 with matching source, native APK queue, and physical Xiaomi event retry/disconnect E2E. Prior OTA run 41592208970 failed Wrong target."
     }
   ],
   "blocks": [],
