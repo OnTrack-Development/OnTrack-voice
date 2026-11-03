@@ -16,9 +16,16 @@ try{
         require dirname(__DIR__,2).'/api/bootstrap.php';
         $key=(string)($config['gemini_api_key']??'');
         $model=(string)($config['gemini_summary_model']??'gemini-2.5-flash');
-        $summary=ontrack_generate_call_summary((string)$event['call_id'],MOBILE_STORE.'/calls',
-            static fn(string $transcript):string=>ontrack_google_summary($transcript,$key,$model));
-        mobile_json($summary);
+        try {
+            $summary=ontrack_generate_call_summary((string)$event['call_id'],MOBILE_STORE.'/calls',
+                static fn(string $transcript):string=>ontrack_google_summary($transcript,$key,$model));
+            mobile_json($summary);
+        }catch(Throwable $summaryError){
+            // A model outage must not poison the device's ordered transcript outbox.
+            // Keep the finalization event and allow a later authenticated manual retry.
+            error_log('ontrack call summary: '.$summaryError->getMessage());
+            mobile_json(['ok'=>true,'call_id'=>(string)$event['call_id'],'summary_status'=>'retry_required']);
+        }
     }
     mobile_json($stored);
 }catch(InvalidArgumentException $e){
