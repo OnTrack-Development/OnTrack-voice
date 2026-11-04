@@ -1,88 +1,192 @@
 package com.ontrack.voiceproof
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.app.Activity
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
-import android.view.animation.*
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 
 /**
- * An original OnTrack-branded motion screen while the local signed UI loads.
- * It never blocks the connection worker or interrupts a running phone call.
+ * Original OnTrack native motion: visible from the first Activity frame.
+ * Never invent download percentages. The progress line becomes determinate
+ * only while bytes from a signed UI OTA are actually arriving.
+ * Not a substitute for Android's OS-owned APK installer/Play Protect dialogs.
  */
 internal class OnTrackLaunchScreen(private val activity:Activity, private val parent:FrameLayout) {
-    private val px=activity.resources.displayMetrics.density
-    private fun dp(v:Int)=(v*px).toInt()
-    private val dark=Color.rgb(10,15,26)
-    private val crimson=Color.rgb(227,48,76)
-    private val root=FrameLayout(activity).apply{
-        setBackgroundColor(dark)
+    private val density=activity.resources.displayMetrics.density
+    private fun dp(v:Int)=(v*density).toInt()
+    private val bg=Color.rgb(8,9,12)
+    private val red=Color.rgb(220,17,44)
+    private val root=FrameLayout(activity).apply {
+        setBackgroundColor(bg)
         isClickable=true
         elevation=dp(26).toFloat()
     }
     private val mark=ImageView(activity).apply {
         setImageResource(R.drawable.ontrack_icon)
         scaleType=ImageView.ScaleType.FIT_CENTER
+        contentDescription="OnTrack Voice"
     }
-    private val ring=View(activity).apply{
-        background=GradientDrawable().apply{
-            shape=GradientDrawable.OVAL
-            setColor(Color.TRANSPARENT)
-            setStroke(dp(2),0x60E3304C)
+    private val glint=View(activity).apply {
+        background=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+            intArrayOf(Color.TRANSPARENT,red,Color.TRANSPARENT)).apply {
+            cornerRadius=dp(4).toFloat()
         }
     }
-    private val status=TextView(activity).apply{
-        text="جارٍ تجهيز مركز الاتصال…"
-        textSize=13f
-        setTextColor(0xFFABB9CF.toInt())
+    private val wordmark=TextView(activity).apply {
+        text="OnTrack"
+        textSize=30f
+        letterSpacing=.02f
+        typeface=Typeface.create("sans-serif-medium",Typeface.BOLD)
         gravity=Gravity.CENTER
+        setTextColor(Color.WHITE)
     }
-    private val spin=RotateAnimation(0f,360f,Animation.RELATIVE_TO_SELF,.5f,Animation.RELATIVE_TO_SELF,.5f).apply{
-        duration=1900;repeatCount=Animation.INFINITE;interpolator=LinearInterpolator()
+    private val caption=TextView(activity).apply {
+        text="VOICE INTELLIGENCE"
+        textSize=10f
+        letterSpacing=.24f
+        gravity=Gravity.CENTER
+        setTextColor(0xFFE86A7D.toInt())
     }
+    private val status=TextView(activity).apply {
+        text="جارٍ تجهيز OnTrack Voice…"
+        textSize=12f
+        setTextColor(0xFFC4C4C8.toInt())
+        gravity=Gravity.CENTER
+        maxLines=2
+    }
+    private val progressBar=ProgressBar(activity,null,android.R.attr.progressBarStyleHorizontal).apply {
+        isIndeterminate=true
+        max=100
+        progressTintList=ColorStateList.valueOf(red)
+        indeterminateTintList=ColorStateList.valueOf(red)
+        progressBackgroundTintList=ColorStateList.valueOf(0xFF303036.toInt())
+    }
+    private val motion=AnimatorSet()
+    private var closing=false
+
     init {
-        val content=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER}
-        val symbol=FrameLayout(activity)
-        symbol.addView(ring,FrameLayout.LayoutParams(dp(126),dp(126),Gravity.CENTER))
-        symbol.addView(mark,FrameLayout.LayoutParams(dp(86),dp(86),Gravity.CENTER))
-        content.addView(symbol,LinearLayout.LayoutParams(dp(152),dp(154)))
-        content.addView(TextView(activity).apply{
-            text="ONTRACK"
-            textSize=29f;letterSpacing=.16f
-            setTextColor(Color.WHITE)
+        val content=LinearLayout(activity).apply {
+            orientation=LinearLayout.VERTICAL
             gravity=Gravity.CENTER
-            typeface=Typeface.create("sans-serif-medium",Typeface.BOLD)
-        },LinearLayout.LayoutParams(-1,dp(47)))
-        content.addView(TextView(activity).apply{
-            text="V O I C E  ·  I N T E L L I G E N C E"
-            textSize=9.5f;letterSpacing=.06f
-            setTextColor(crimson);gravity=Gravity.CENTER
-        },LinearLayout.LayoutParams(-1,dp(37)))
-        content.addView(status,LinearLayout.LayoutParams(-1,dp(90)))
+            setPadding(dp(24),0,dp(24),0)
+        }
+        val artwork=FrameLayout(activity)
+        artwork.addView(mark,FrameLayout.LayoutParams(dp(108),dp(108),Gravity.CENTER))
+        artwork.addView(glint,FrameLayout.LayoutParams(dp(82),dp(3),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+            bottomMargin=dp(4)
+        })
+        content.addView(artwork,LinearLayout.LayoutParams(-1,dp(150)))
+        content.addView(wordmark,LinearLayout.LayoutParams(-1,dp(45)))
+        content.addView(caption,LinearLayout.LayoutParams(-1,dp(31)))
         root.addView(content,FrameLayout.LayoutParams(-1,-1,Gravity.CENTER))
+
+        val footer=LinearLayout(activity).apply {
+            orientation=LinearLayout.VERTICAL
+            gravity=Gravity.CENTER
+            setPadding(dp(38),0,dp(38),0)
+        }
+        footer.addView(status,LinearLayout.LayoutParams(-1,dp(40)))
+        footer.addView(progressBar,LinearLayout.LayoutParams(-1,dp(3)))
+        root.addView(footer,FrameLayout.LayoutParams(-1,dp(80),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+            bottomMargin=dp(82)
+        })
         parent.addView(root,FrameLayout.LayoutParams(-1,-1))
-        ring.startAnimation(spin)
+        startMotion()
+    }
+
+    private fun startMotion() {
+        closing=false
+        motion.cancel()
+        root.animate().cancel()
         root.alpha=1f
+        mark.alpha=0f
+        mark.scaleX=.76f
+        mark.scaleY=.76f
+        mark.translationY=dp(13).toFloat()
+        wordmark.alpha=0f
+        caption.alpha=0f
+        glint.alpha=0f
+        mark.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
+            .setDuration(720).setInterpolator(OvershootInterpolator(.75f)).start()
+        wordmark.animate().alpha(1f).setStartDelay(260).setDuration(420).start()
+        caption.animate().alpha(1f).setStartDelay(410).setDuration(400).start()
+        glint.animate().alpha(1f).setStartDelay(550).setDuration(350).start()
+
+        val x=ObjectAnimator.ofFloat(mark,"scaleX",1f,1.055f,1f).apply {
+            duration=2700
+            repeatCount=ObjectAnimator.INFINITE
+            interpolator=AccelerateDecelerateInterpolator()
+            startDelay=750
+        }
+        val y=ObjectAnimator.ofFloat(mark,"scaleY",1f,1.055f,1f).apply {
+            duration=2700
+            repeatCount=ObjectAnimator.INFINITE
+            interpolator=AccelerateDecelerateInterpolator()
+            startDelay=750
+        }
+        val shine=ObjectAnimator.ofFloat(glint,"translationX",-dp(24).toFloat(),dp(24).toFloat(),-dp(24).toFloat()).apply {
+            duration=3000
+            repeatCount=ObjectAnimator.INFINITE
+            interpolator=AccelerateDecelerateInterpolator()
+            startDelay=800
+        }
+        motion.playTogether(x,y,shine)
+        motion.start()
     }
-    fun message(value:String){status.text=value}
+
+    fun message(value:String) {
+        if (!closing) status.text=value
+    }
+
+    /** Called on UI thread with signed-payload byte counts, never with a timer. */
+    fun downloadProgress(downloaded:Int,total:Int) {
+        if (closing || total<=0) return
+        progressBar.isIndeterminate=false
+        progressBar.progress=((downloaded.toLong()*100)/total).toInt().coerceIn(0,100)
+        status.text="جارٍ تحميل تحديث الواجهة • ${progressBar.progress}%"
+    }
+
+    fun checking(value:String="جارٍ فحص تحديث الواجهة…") {
+        if (closing) return
+        progressBar.isIndeterminate=true
+        status.text=value
+    }
+
     fun hide() {
-        if(root.parent==null)return
-        root.animate().alpha(0f).setDuration(420).setInterpolator(DecelerateInterpolator()).withEndAction {
-            ring.clearAnimation()
-            (root.parent as? FrameLayout)?.removeView(root)
-        }.start()
+        if (closing || root.parent==null) return
+        closing=true
+        root.animate().cancel()
+        root.animate().alpha(0f).setDuration(320)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                motion.cancel()
+                mark.animate().cancel()
+                glint.animate().cancel()
+                wordmark.animate().cancel()
+                caption.animate().cancel()
+                (root.parent as? FrameLayout)?.removeView(root)
+            }.start()
     }
+
     fun reveal() {
         if(root.parent==null) {
             parent.addView(root,FrameLayout.LayoutParams(-1,-1))
         }
-        root.animate().cancel();root.alpha=1f
-        ring.startAnimation(spin)
+        progressBar.isIndeterminate=true
+        progressBar.progress=0
+        startMotion()
     }
 }
