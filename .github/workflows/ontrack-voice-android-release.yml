@@ -12,6 +12,7 @@ on:
       - 'saas/mobile/ota/release.json'
       - 'saas/mobile/ota/native_release.json'
       - 'tools/build_shellserver_windows.ps1'
+      - 'tools/verify_shell_jar_packaging.py'
       - 'tools/queue_mobile_ota.py'
       - 'tools/queue_mobile_native.py'
       - 'saas/mobile/ota/native_deploy.py'
@@ -235,7 +236,7 @@ jobs:
           Write-Host ('APK_LOCAL_PATH: ' + $signed)
           Write-Host ('APK_SHA256: ' + $hash)
           Write-Host 'SIGNED_APK_VERIFIED: PASS'
-      - name: Generate and verify signed OTA 42 and native versionCode 44
+      - name: Generate and verify signed OTA 43 and native versionCode 44
         run: |
           $ErrorActionPreference='Stop'
           $bin='C:\Program Files\Git\usr\bin'
@@ -265,7 +266,7 @@ jobs:
           path: .build/artifact/
           if-no-files-found: error
           retention-days: 14
-      - name: Queue signed UI revision 42 with the existing host worker
+      - name: Queue signed UI revision 43 with the existing host worker
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -289,5 +290,5 @@ jobs:
         run: |
           & python tools/verify_mobile_native_host_receipt.py .build/artifact/native
           if($LASTEXITCODE -ne 0){throw 'Native v44 host receipt missing or invalid'}
-          Write-Host 'ONTRACK_VOICE_0_3_20_FULL_RELEASE_VERIFIED: PASS'
+          Write-Host 'ONTRACK_VOICE_0_3_21_FULL_RELEASE_VERIFIED: PASS'
 
