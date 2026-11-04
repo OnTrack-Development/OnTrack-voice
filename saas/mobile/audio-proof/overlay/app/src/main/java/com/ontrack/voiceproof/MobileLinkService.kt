@@ -4,6 +4,7 @@ import android.app.*
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.IBinder
 import android.os.Handler
 import android.os.Looper
@@ -193,6 +194,27 @@ class MobileLinkService:Service() {
         return START_NOT_STICKY
     }
     private fun tenantPrefs()=getSharedPreferences("ontrack_tenant_voice",MODE_PRIVATE)
+    /** Internet validity refers to Google Live's DEFAULT data path, not
+     * the carrier call state. The SIM can be OFFHOOK while LTE data is
+     * suspended (especially with another SIM as the data subscription).
+     * Never use a Wi-Fi-only precondition for already answered SIM calls.
+     */
+    private fun internetValidated():Boolean = runCatching {
+        val cm=connectivity?:getSystemService(ConnectivityManager::class.java)
+        val network=cm?.activeNetwork?:return@runCatching false
+        cm.getNetworkCapabilities(network)?.hasCapability(
+            NetworkCapabilities.NET_CAPABILITY_VALIDATED)==true
+    }.getOrDefault(true)
+    private fun internetRoute():String = runCatching {
+        val cm=connectivity?:getSystemService(ConnectivityManager::class.java)
+        val caps=cm?.activeNetwork?.let(cm::getNetworkCapabilities)
+        when {
+            caps==null -> "offline"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "4G/5G"
+            else -> "network"
+        }
+    }.getOrDefault("unknown")
     /** 
      * Single-active-SIM devices use the established shell CALL Q source.
      * Q is global and cannot identify a SIM, so dual-active-SIM devices
@@ -256,6 +278,8 @@ class MobileLinkService:Service() {
         var flowLoad:Deferred<Result<JSONObject>>?=null
         var sessionLoad:Deferred<Result<Triple<JSONObject,JSONObject,JSONObject>>>?=null
         var audioStart:Deferred<Result<Unit>>?=null
+        var audioAttemptCount=0
+        var nextAudioRetryAt=0L
         var lastError=""
         // 2026-11-04 field regression: handset OFFHOOK alone is NOT evidence
         // that an agent answered, the microphone is muted, or Gemini receives
@@ -352,7 +376,7 @@ class MobileLinkService:Service() {
                         if(selected!=null){
                             call?.stop();call=null;tenantSession=null;tenantFlow=null
                             selected=null;liveSimSlot=-1;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;outgoingCall=false;humanControl=false;policy=JSONObject()
-                            ringingAt=0L;startedAt=0L
+                            ringingAt=0L;startedAt=0L;audioAttemptCount=0;nextAudioRetryAt=0L
                         }
                         inCall=false;callAnswered=false
                         // Running a monitor is not an authenticated voice connection.
@@ -375,6 +399,7 @@ class MobileLinkService:Service() {
                         audioReady=false;callProblem=""
                         selected=current.slot;liveSimSlot=current.slot;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;outgoingCall=false;tenantFlow=null;tenantSession=null
                         ringingAt=SystemClock.elapsedRealtime();startedAt=0L;humanControl=false;policy=JSONObject()
+                        audioAttemptCount=0;nextAudioRetryAt=0L
                     }
                     inCall=true;callAnswered=current.state==TelephonyManager.CALL_STATE_OFFHOOK
                     if(!agentEnabled){
@@ -454,10 +479,23 @@ class MobileLinkService:Service() {
                     // outgoing calls enter here ONLY after the bound SIM has
                     // moved to OFFHOOK. The original Pilot also issued its Live
                     // session after answering instead of delaying the answer.
+                    // A failed Gemini/PCM attempt on LTE must not permanently
+                    // latch the OFFHOOK call into silence. Only retry after
+                    // default internet VALIDATES, and never repeat phone A/Q.
+                    val now=SystemClock.elapsedRealtime()
+                    if(call==null && tenantSession==null && sessionLoad==null && audioStart==null &&
+                       TenantCallRouting.voiceRetryDue(
+                           current.state==TelephonyManager.CALL_STATE_OFFHOOK,
+                           agentEnabled,humanControl,audioReady,answeredByAgent,
+                           audioAttemptCount,3,internetValidated(),now,nextAudioRetryAt)){
+                        answeredByAgent=false
+                        notice("عاد الإنترنت (${internetRoute()})؛ إعادة ربط صوت AI للمكالمة الجارية")
+                    }
                     if(TenantCallRouting.attachAfterOffhook(
                             current.state==TelephonyManager.CALL_STATE_OFFHOOK,
                             agentEnabled,humanControl,answeredByAgent)){
-                        answeredByAgent=true // at most one authorization attempt per call
+                        answeredByAgent=true // one attempt until a bounded, validated recovery
+                        audioAttemptCount++
                         outgoingCall=!ringAttempted
                         val slot=current.slot
                         val preparedFlow=tenantFlow
@@ -486,8 +524,10 @@ class MobileLinkService:Service() {
                                 notice("الشريحة ${current.slot+1}: جلسة الإيجنت صالحة؛ توصيل صوت المكالمة")
                         }?.onFailure { problem ->
                             tenantSession=null
+                            nextAudioRetryAt=SystemClock.elapsedRealtime()+
+                                2500L*audioAttemptCount.coerceIn(1,3)
                             val message=problem.message.orEmpty().take(140)
-                            callProblem="تعذر تشغيل صوت الإيجنت: "+message
+                            callProblem="تعذر تشغيل صوت الإيجنت (${internetRoute()}): "+message
                             if(message!=lastError){lastError=message;notice(callProblem)}
                         }
                     }
@@ -540,14 +580,18 @@ class MobileLinkService:Service() {
                         }?.onFailure{problem->
                             call?.stop();call=null;tenantSession=null
                             audioReady=false;connected=false
-                            callProblem="فشل ربط صوت المكالمة: "+problem.message.orEmpty().take(110)
+                            nextAudioRetryAt=SystemClock.elapsedRealtime()+
+                                2500L*audioAttemptCount.coerceIn(1,3)
+                            callProblem="فشل ربط الصوت (${internetRoute()}): "+problem.message.orEmpty().take(110)
                             notice(callProblem)
                         }
                     }
                     if(call!=null && !call!!.active){
                         audioStart?.cancel();audioStart=null
-                        call=null;audioReady=false;connected=false
-                        callProblem="انقطعت جلسة صوت الإيجنت؛ المكالمة على الهاتف بدون AI"
+                        call=null;tenantSession=null;audioReady=false;connected=false
+                        nextAudioRetryAt=SystemClock.elapsedRealtime()+
+                            2500L*audioAttemptCount.coerceIn(1,3)
+                        callProblem="انقطعت جلسة الصوت (${internetRoute()})؛ المكالمة على الهاتف بدون AI"
                         notice(callProblem)
                     }
                     if(call!=null && startedAt>0 &&
@@ -567,8 +611,10 @@ class MobileLinkService:Service() {
                     // Preserve diagnostic UI while keeping human MIC available.
                     call?.stop();call=null;tenantSession=null
                     audioReady=false;connected=false
+                    nextAudioRetryAt=SystemClock.elapsedRealtime()+
+                        2500L*audioAttemptCount.coerceIn(1,3)
                     val msg=error.message.orEmpty().take(150)
-                    callProblem="تعذر اتصال صوت المكالمة: "+msg
+                    callProblem="تعذر اتصال صوت المكالمة (${internetRoute()}): "+msg
                     if(msg!=lastError){lastError=msg;notice(callProblem)}
                     showOverlay()
                     delay(1800)
