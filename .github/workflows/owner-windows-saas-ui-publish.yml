@@ -52,8 +52,22 @@ jobs:
           }
           $env:TEMP=Join-Path $env:RUNNER_TEMP ('web-auth-'+$env:GITHUB_RUN_ID)
           New-Item -Path $env:TEMP -ItemType Directory -Force | Out-Null
-          & php tools/test_voice_saas_console.php
-          if ($LASTEXITCODE -ne 0) { throw 'Registration/recovery/tenant smoke failed.' }
+          $runnerCode=@'
+          <?php
+          declare(strict_types=1);
+          require getcwd().'/saas/console/database/Seed.php';
+          function ok(bool $value,string $label):void {
+              if(!$value)throw new RuntimeException('FAIL '.$label);
+              echo 'PASS '.$label.PHP_EOL;
+          }
+          seed_console();
+          require getcwd().'/tools/test_verified_signup.php';
+          test_signup();
+          '@
+          $runnerPath=Join-Path $env:RUNNER_TEMP ('web-auth-suite-'+$env:GITHUB_RUN_ID+'.php')
+          [System.IO.File]::WriteAllText($runnerPath,$runnerCode,[System.Text.UTF8Encoding]::new($false))
+          & php $runnerPath
+          if ($LASTEXITCODE -ne 0) { throw 'Scoped registration/recovery test failed.' }
           Write-Host 'WEB_AUTH_TENANT_SQLITE_E2E: PASS'
   publish:
     if: github.actor == 'ahmedbedir' && github.ref == 'refs/heads/feat/voice-production-gap-20261103'
