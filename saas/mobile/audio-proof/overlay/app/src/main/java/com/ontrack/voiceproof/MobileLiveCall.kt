@@ -1,6 +1,8 @@
 package com.ontrack.voiceproof
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Base64
 import android.os.SystemClock
 import com.ontrack.voiceproof.capture.CaptureDaemon
@@ -36,6 +38,22 @@ internal class MobileLiveCall(
     @Volatile private var socketReady=false
     @Volatile private var resumeHandle:String?=null
     @Volatile private var lastWarning=0L
+    private val skippedUplinkPackets=AtomicLong(0)
+    private var lastLinkCheckAt=0L
+    private var cellularLink=false
+    private fun isCellularLink():Boolean {
+        val now=SystemClock.elapsedRealtime()
+        if(lastLinkCheckAt==0L || now-lastLinkCheckAt>=1000L) {
+            lastLinkCheckAt=now
+            cellularLink=runCatching {
+                val cm=context.getSystemService(ConnectivityManager::class.java)
+                val capabilities=cm?.getNetworkCapabilities(cm.activeNetwork)
+                capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)==true &&
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)!=true
+            }.getOrDefault(false)
+        }
+        return cellularLink
+    }
     private lateinit var liveUrl:String
     private var recovery:Job?=null
     private val writeLock=Any()
@@ -121,12 +139,14 @@ internal class MobileLiveCall(
                             if(!audibleCapture.get() && observedVoiceAudio(mono))
                                 audibleCapture.set(true)
                             val socket=ws
-                            if(socketReady && socket!=null && socket.queueSize()<192*1024) {
+                            if(socketReady && socket!=null &&
+                                LiveAudioQueuePolicy.canSend(isCellularLink(),socket.queueSize())) {
                                 if(!socket.send(JSONObject().put("realtimeInput",JSONObject().put("audio",JSONObject()
                                     .put("mimeType","audio/pcm;rate=16000").put("data",Base64.encodeToString(mono,Base64.NO_WRAP)))).toString())){
                                     onTransportLost(socket,"تعذر إرسال الصوت")
                                 }
                             }else if(socketReady){
+                                skippedUplinkPackets.incrementAndGet()
                                 val now=SystemClock.elapsedRealtime()
                                 if(now-lastWarning>=8000L){lastWarning=now;notice("الشبكة ضعيفة؛ يتم تجاوز الصوت المتأخر")}
                             }
@@ -145,7 +165,11 @@ internal class MobileLiveCall(
             // Report only aggregate stage counters after startup, never audio bytes.
             diagnostics=scope.launch(Dispatchers.IO) {
                 delay(10_000)
-                if(!stopped.get())onAudioDiagnostics(diagnosticMessage())
+                if(!stopped.get()){
+                    val dropped=skippedUplinkPackets.get()
+                    onAudioDiagnostics(diagnosticMessage()+
+                        if(dropped>0) "؛ تم تجاوز $dropped حزمة صوت متأخرة بسبب ازدحام الشبكة" else "")
+                }
             }
         val agentName=session.optString("agent_name","مساعد OnTrack").trim().ifBlank{"مساعد OnTrack"}
         if(OutboundFirstTurn.sendInitialGreeting(outgoingCall)) {
