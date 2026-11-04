@@ -10,6 +10,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.os.Build
 import android.telephony.TelephonyManager
+import android.telephony.SubscriptionManager
 import androidx.core.app.NotificationCompat
 import com.ontrack.voiceproof.capture.*
 import kotlinx.coroutines.*
@@ -184,39 +185,44 @@ class MobileLinkService:Service() {
         return START_NOT_STICKY
     }
     private fun tenantPrefs()=getSharedPreferences("ontrack_tenant_voice",MODE_PRIVATE)
-    /** Hardware call state is per subscription (API 31+), not aggregate getCallState().
-     * If both SIMs are active/ambiguous, we NEVER bridge their audio to an agent.
+    /** 
+     * Single-active-SIM devices use the established shell CALL Q source.
+     * Q is global and cannot identify a SIM, so dual-active-SIM devices
+     * continue to use subscription-scoped Android call states only.
      */
     private data class SlotCall(val slot:Int,val state:Int)
     private fun currentSlotCalls():List<SlotCall>{
         check(Build.VERSION.SDK_INT>=31){"Android 12 أو أحدث مطلوب لعزل حالة المكالمة لكل شريحة"}
+        val enrollment=TenantDeviceEnrollment(this)
+        val activeSlots=runCatching{
+            getSystemService(SubscriptionManager::class.java)
+                ?.activeSubscriptionInfoList.orEmpty().map{it.simSlotIndex}
+        }.getOrDefault(emptyList())
+        val boundSlots=(0..1).filter{enrollment.paired(it)}.toSet()
+        val nativeSlot=TenantCallRouting.nativeSingleSimSlot(activeSlots,boundSlots)
+        if(nativeSlot!=null){
+            val nativeState=runCatching{
+                CaptureDaemon.linkControl(this,'Q')?.trim()
+                    ?.let{Regex("^CALL ([012])$").matchEntire(it)?.groupValues?.get(1)?.toInt()}
+            }.getOrNull()
+            if(nativeState!=null)return listOf(SlotCall(nativeSlot,nativeState))
+        }
+        // If Q is unavailable, fall back to OS telephony with explicit errors.
         val telephony=getSystemService(TelephonyManager::class.java)
             ?:error("خدمة الاتصال غير متاحة")
-        val enrollment=TenantDeviceEnrollment(this)
-        // 0.3.17 silently treated a permission/subscription read failure as
-        // CALL_STATE_IDLE, so the UI showed 'ready' during an incoming ring.
-        // A paired SIM must never disappear from call-state monitoring quietly.
         return (0..1).mapNotNull{slot->
             val subscription=try{
                 TenantSimHardware.subscriptionId(this,slot)
             }catch(error:Exception){
-                if(enrollment.paired(slot)) {
-                    throw IllegalStateException(
-                        "لا يمكن قراءة حالة SIM ${slot+1}: "+error.message.orEmpty().take(85),
-                        error
-                    )
-                }
+                if(enrollment.paired(slot))throw IllegalStateException(
+                    "لا يمكن قراءة حالة SIM ${slot+1}: "+error.message.orEmpty().take(85),error)
                 return@mapNotNull null
             }
             val state=try{
                 telephony.createForSubscriptionId(subscription).callStateForSubscription
             }catch(error:Exception){
-                if(enrollment.paired(slot)){
-                    throw IllegalStateException(
-                        "حالة المكالمات غير متاحة لـ SIM ${slot+1}: "+error.message.orEmpty().take(85),
-                        error
-                    )
-                }
+                if(enrollment.paired(slot))throw IllegalStateException(
+                    "حالة المكالمات غير متاحة لـ SIM ${slot+1}: "+error.message.orEmpty().take(85),error)
                 return@mapNotNull null
             }
             SlotCall(slot,state)
@@ -239,6 +245,7 @@ class MobileLinkService:Service() {
         var tenantFlow:JSONObject?=null
         var tenantSession:JSONObject?=null
         var policy=JSONObject()
+        var flowLoad:Deferred<Result<JSONObject>>?=null
         var lastError=""
         // The working Pilot prepared and authenticated the local shell bridge
         // BEFORE a phone rang. Restoring that readiness avoids a slow ADB
@@ -259,11 +266,8 @@ class MobileLinkService:Service() {
                 try{
                     agentEnabled=tenantPrefs().getBoolean("enabled",false)
                     if(!agentEnabled){
-                        call?.stop();call=null
-                        connected=false;inCall=false;callAnswered=false
-                        selected=null;liveSimSlot=-1;tenantFlow=null;tenantSession=null
-                        lastState=TelephonyManager.CALL_STATE_IDLE
-                        delay(800);continue
+                        // Continue observing the SIM while the AI is disabled.
+                        call?.stop();call=null;tenantSession=null;connected=false
                     }
                     val states=currentSlotCalls()
                     val active=states.filter{it.state!=TelephonyManager.CALL_STATE_IDLE}
@@ -315,6 +319,7 @@ class MobileLinkService:Service() {
                         }
                     }
                     if(current==null){
+                        flowLoad?.cancel();flowLoad=null
                         if(selected!=null){
                             call?.stop();call=null;tenantSession=null;tenantFlow=null
                             selected=null;liveSimSlot=-1;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;outgoingCall=false;humanControl=false
@@ -334,34 +339,45 @@ class MobileLinkService:Service() {
                         delay(750);continue
                     }
                     if(selected!=current.slot){
+                        flowLoad?.cancel();flowLoad=null
                         selected=current.slot;liveSimSlot=current.slot;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;outgoingCall=false;tenantFlow=null;tenantSession=null
                         ringingAt=SystemClock.elapsedRealtime();startedAt=0L;humanControl=false
                     }
                     inCall=true;callAnswered=current.state==TelephonyManager.CALL_STATE_OFFHOOK
+                    if(!agentEnabled){
+                        humanControl=true
+                        tenantFlow=null;tenantSession=null
+                        if(lastState!=current.state)notice("تم رصد مكالمة على SIM ${current.slot+1} — الإيجنت متوقف")
+                        lastState=current.state
+                        delay(750);continue
+                    }
                     if(current.state==TelephonyManager.CALL_STATE_RINGING && !ringAttempted){
                         ringAttempted=true
                         outgoingCall=false
-                        try{
-                            // Fetch the signed per-SIM published policy, not a
-                            // short-lived Gemini token. Network token issuance
-                            // must NOT postpone the carrier's auto-answer timer.
-                            val flow=enrollment.publishedFlow(current.slot)
-                            val answer=flow.optJSONObject("answer_policy")?:JSONObject()
-                            tenantFlow=flow;policy=answer
-                            val auto=answer.optBoolean("auto_answer",false)
-                            notice(if(auto) "الشريحة ${current.slot+1}: سياسة الرد التلقائي مؤكدة؛ انتظار موعد الرد"
-                                else "الشريحة ${current.slot+1}: الرد التلقائي متوقف في إعدادات الإيجنت المنشور؛ الرد اليدوي سيوصل الإيجنت")
-                        }catch(problem:Exception){
-                            // Never auto-answer a call without a verified
-                            // account/SIM policy. A manual pickup can make one
-                            // bounded retry using the same tenant binding.
+                        val slot=current.slot
+                        // Load signed Flow/policy without pausing shell ring polling.
+                        flowLoad=scope.async(Dispatchers.IO){
+                            runCatching{enrollment.publishedFlow(slot)}
+                        }
+                        notice("الشريحة ${slot+1}: تم رصد الرنين؛ جاري تحميل سياسة الإيجنت")
+                    }
+                    if(flowLoad?.isCompleted==true){
+                        val result=flowLoad?.await()
+                        flowLoad=null
+                        result?.onSuccess { flow->
+                            tenantFlow=flow
+                            policy=flow.optJSONObject("answer_policy")?:JSONObject()
+                            val auto=policy.optBoolean("auto_answer",false)
+                            notice(if(auto) "سيتم الرد تلقائيًا على SIM ${current.slot+1} بعد المهلة المحددة"
+                                else "الرنين مرصود لكن الرد التلقائي مغلق في سياسة الإيجنت")
+                        }?.onFailure { problem->
                             val message=problem.message.orEmpty().take(140)
-                            if(message!=lastError){lastError=message;notice("تعذر التحقق من سياسة الشريحة: "+message)}
+                            if(message!=lastError){lastError=message;notice("تعذر تحميل سياسة الإيجنت: "+message)}
                         }
                     }
                     if(TenantCallRouting.autoAnswerDue(
                             current.state==TelephonyManager.CALL_STATE_RINGING,
-                            policy.optBoolean("auto_answer",false) && tenantFlow!=null,
+                            policy.optBoolean("auto_answer",false) && tenantFlow!=null && agentEnabled,
                             SystemClock.elapsedRealtime()-ringingAt,
                             policy.optInt("answer_delay_seconds",5),
                             autoAnswerRequested,humanControl)){
