@@ -363,7 +363,12 @@ class MobileLinkActivity:ComponentActivity(){
     }
     override fun onNewIntent(intent:Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         handleTenantLink(intent)
+        if(intent.getBooleanExtra("open_updates",false)){
+            openUpdatesOnReady=true
+            if(ready)openUpdatesInWeb()
+        }
     }
     private fun handleTenantLink(intent:Intent?) {
         val parsed=TenantPairingContract.qr(intent?.dataString.orEmpty()) ?: return
@@ -677,14 +682,6 @@ class MobileLinkActivity:ComponentActivity(){
                 banner.text="SIM ${slot+1}: "+(t.message?:"تعذر الاتصال")
                 banner.visibility=View.VISIBLE
             }
-        }
-    }
-    override fun onNewIntent(intent:Intent){
-        super.onNewIntent(intent)
-        setIntent(intent)
-        if(intent.getBooleanExtra("open_updates",false)){
-            openUpdatesOnReady=true
-            if(ready)openUpdatesInWeb()
         }
     }
     private fun openUpdatesInWeb(){
