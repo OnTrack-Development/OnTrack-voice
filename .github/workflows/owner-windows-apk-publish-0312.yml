@@ -52,11 +52,21 @@ jobs:
           }
           $uri = "https://api.github.com/repos/OnTrack-Development/OnTrack-voice/actions/runs/$env:SOURCE_RUN_ID"
           $sourceRun = Invoke-RestMethod -Uri $uri -Headers $headers
-          if ($sourceRun.conclusion -ne 'success' -or
+          # This is a reusable job inside the SAME workflow run: the full run
+          # cannot conclude until this publish job completes. Verify the
+          # independently completed build job rather than the overall run.
+          if ($sourceRun.status -notin @('in_progress','completed') -or
               $sourceRun.path -ne '.github/workflows/owner-windows-apk-0312.yml' -or
               $sourceRun.head_branch -ne 'feat/voice-production-gap-20261103' -or
               $sourceRun.head_repository.full_name -ne 'OnTrack-Development/OnTrack-voice') {
-            throw 'Source workflow is not an authorized successful Windows Android build.'
+            throw 'Source workflow is not the authorized Windows Android release.'
+          }
+          $jobUrl = "https://api.github.com/repos/OnTrack-Development/OnTrack-voice/actions/runs/$env:SOURCE_RUN_ID/jobs?per_page=100"
+          $allJobs = Invoke-RestMethod -Uri $jobUrl -Headers $headers
+          $buildJobs = @($allJobs.jobs | Where-Object { $_.name -eq 'build' })
+          if ($buildJobs.Count -ne 1 -or $buildJobs[0].status -ne 'completed' -or
+              $buildJobs[0].conclusion -ne 'success') {
+            throw 'Windows build job was not independently successful; no host publication permitted.'
           }
           $apk = Join-Path $env:GITHUB_WORKSPACE '.build\release\OnTrack-Voice-0.3.12.apk'
           $checksums = Join-Path $env:GITHUB_WORKSPACE '.build\release\SHA256SUMS.txt'
