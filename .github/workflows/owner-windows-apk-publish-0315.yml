@@ -12,6 +12,8 @@ concurrency:
   cancel-in-progress: false
 env:
   PYTHONUTF8: '1'
+  # Previous run 41810332123 has an authenticated successful UI 38 host receipt.
+  MOBILE_UI_ALREADY_PUBLISHED_RUN_ID: '41810332123'
 jobs:
   publish:
     if: github.actor == 'ahmedbedir'
@@ -86,12 +88,8 @@ jobs:
           path: .build/artifact/
           if-no-files-found: error
           retention-days: 14
-      - name: Publish signed UI revision 38 through existing host worker
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          & python tools/queue_mobile_ota.py .build/artifact/ota
-          if($LASTEXITCODE -ne 0){throw 'Signed UI 38 host queue blocked'}
+      # UI OTA 38 already installed and verified by host receipt 41810332123;
+      # queue_mobile_native.require_host_installed_ui verifies it before native release.
       - name: Publish signed native update through existing host worker
         env:
           GH_TOKEN: ${{ github.token }}

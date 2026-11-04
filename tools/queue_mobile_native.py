@@ -174,9 +174,17 @@ def main():
     assert source_run.isdecimal() and int(source_run)>0,"Invalid pinned release source run"
     items=api("actions/runs/"+source_run+"/artifacts?per_page=100")["artifacts"]
     artifact_name=f"OnTrack-Voice-{meta['version_name']}"
-    matches=[x for x in items if x["name"]==artifact_name and not x["expired"]]
-    assert len(matches)==1,"Release artifact not found or duplicated"
-    url=download_url(matches[0]["id"])
+    matches=[x for x in items if
+        x["name"]==artifact_name and not x["expired"]
+        and x.get("workflow_run",{}).get("id")==int(source_run)
+        and x.get("workflow_run",{}).get("head_branch")=="feat/voice-production-gap-20261103"
+        and x.get("workflow_run",{}).get("head_sha")==os.environ.get("GITHUB_SHA")]
+    assert matches,"Release artifact missing or source identity mismatch"
+    # A re-run may upload the same signed release under a second artifact ID.
+    # Select the latest artifact from this exact source commit, and the host
+    # still verifies the downloaded APK against the signed manifest hash.
+    chosen=max(matches,key=lambda x:(x.get("created_at",""),int(x["id"])))
+    url=download_url(chosen["id"])
     script=(Path("saas/mobile/ota/native_deploy.py")).read_text()+"\nimport sys\ndeploy(*sys.argv[1:])\nROOT.chmod(0o755) # hosting worker has a private umask; public native release files need traversable directory\n"
     now=datetime.datetime.now(datetime.timezone.utc)
     task={"schema":1,"id":job_id,"target":TARGET,"action":"exec","created_at":now.isoformat(),
@@ -185,9 +193,22 @@ def main():
           "argv":["/bin/python3","-c",script,url,base64.b64encode(envelope).decode(),base64.b64encode(cert).decode(),meta["sha256"]]}
     body=json.dumps(task,ensure_ascii=False,indent=2).encode()
     assert len(body)<=16384,f"host queue payload exceeds limit: {len(body)}"
-    api("contents/"+QUEUE,"PUT",{"branch":BRANCH,"sha":obj["sha"],
-        "message":f"deploy: signed OnTrack Android native update v{meta['version_code']}",
-        "content":base64.b64encode(body).decode()})
+    try:
+        api("contents/"+QUEUE,"PUT",{"branch":BRANCH,"sha":obj["sha"],
+            "message":f"deploy: signed OnTrack Android native update v{meta['version_code']}",
+            "content":base64.b64encode(body).decode()})
+    except urllib.error.HTTPError as exc:
+        # A 5xx can be returned even when GitHub committed the queue update.
+        # Confirm the exact bytes, never assume a successful deployment.
+        if exc.code < 500:
+            raise
+        try:
+            _, posted=read(QUEUE)
+            if posted != body:
+                raise RuntimeError("NATIVE_QUEUE_AMBIGUOUS_WRITE: posted bytes differ") from exc
+        except Exception as read_exc:
+            raise RuntimeError("NATIVE_QUEUE_UNCONFIRMED_WRITE") from read_exc
+        print("NATIVE_QUEUE_WRITE_RECOVERED_BY_EXACT_READBACK",flush=True)
     print(json.dumps({"status":"QUEUED_NOT_PUBLISHED","id":job_id,"bytes":len(body),
         "report":f"ops/host-link/results/{TARGET}/{job_id}.json"}))
 
