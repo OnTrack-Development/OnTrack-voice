@@ -43,7 +43,7 @@ pcm=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voicepro
 pilot=Path('saas/mobile/server/common.php').read_text()
 assert "'input_channel'=>'mix'" in pilot, 'Unexpected changed old Pilot input source'
 assert '.put("input_channel","mix")' in service, 'Tenant must use the same MIX voice input as proven Pilot'
-assert 'LinkPcm(settings.optString("input_channel","right"))' in session, 'Do not replace established PCM engine'
+assert 'LinkPcm(settings.optString("input_channel","mix"))' in session, 'Do not replace established PCM engine'
 assert 'audio.setMicrophoneMute(true)' in bridge and 'audio.setMicrophoneMute(wasMuted)' in bridge, 'Must preserve mute/takeover'
 assert 'session.optString("agent_name"' in session, 'Greeting must use agent display name'
 
