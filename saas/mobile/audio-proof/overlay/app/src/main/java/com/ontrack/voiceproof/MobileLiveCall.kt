@@ -68,16 +68,6 @@ internal class MobileLiveCall(
             val input=DataInputStream(pipe!!.getInputStream())
             check(input.readInt()==0x4f545631 && input.readInt()==48000 && input.readInt()==2){"invalid shell PCM format"}
             output=DataOutputStream(pipe!!.getOutputStream())
-            openSocket()
-            withTimeout(25000){ready.await()}
-            check(!stopped.get())
-        val agentName=session.optString("agent_name","مساعد OnTrack").trim().ifBlank{"مساعد OnTrack"}
-        if(OutboundFirstTurn.sendInitialGreeting(outgoingCall)) {
-            ws?.send(JSONObject().put("clientContent",JSONObject()
-                .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
-                    .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ المكالمة بتحية مصرية قصيرة باسم "+agentName+" فقط، ولا تنطق رقم الإيجنت أو نسخة السيناريو. ثم اسمع رد العميل.")))))
-                .put("turnComplete",true)).toString())
-        }
         val transform=LinkPcm(settings.optString("input_channel","mix"))
         worker=scope.launch {
             try {
@@ -103,7 +93,7 @@ internal class MobileLiveCall(
                                     .put("mimeType","audio/pcm;rate=16000").put("data",Base64.encodeToString(mono,Base64.NO_WRAP)))).toString())){
                                     onTransportLost(socket,"تعذر إرسال الصوت")
                                 }
-                            }else{
+                            }else if(socketReady){
                                 val now=SystemClock.elapsedRealtime()
                                 if(now-lastWarning>=8000L){lastWarning=now;notice("الشبكة ضعيفة؛ يتم تجاوز الصوت المتأخر")}
                             }
@@ -112,6 +102,20 @@ internal class MobileLiveCall(
                 }
             }catch(t:Throwable){if(t !is CancellationException)fail("تعذر تمرير صوت الشريحة: "+t.javaClass.simpleName)}
         }
+            // Start draining 48k PCM immediately after the shell's mute
+            // acknowledgement. Frames recorded while Google is connecting
+            // are discarded, never buffered and replayed as stale caller audio.
+            openSocket()
+            withTimeout(25000){ready.await()}
+            check(!stopped.get())
+        val agentName=session.optString("agent_name","مساعد OnTrack").trim().ifBlank{"مساعد OnTrack"}
+        if(OutboundFirstTurn.sendInitialGreeting(outgoingCall)) {
+            ws?.send(JSONObject().put("clientContent",JSONObject()
+                .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
+                    .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ المكالمة بتحية مصرية قصيرة باسم "+agentName+" فقط، ولا تنطق رقم الإيجنت أو نسخة السيناريو. ثم اسمع رد العميل.")))))
+                .put("turnComplete",true)).toString())
+        }
+            // The server setup must succeed before the overlay enables takeover.
             notice("قناة PCM متصلة والإيجنت جاهز — اختبار صوت الطرفين على الهاتف مطلوب")
         } catch(error:Throwable) {
             // Mandatory regression guard: a failed Google setup or PCM header
