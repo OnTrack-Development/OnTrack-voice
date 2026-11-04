@@ -255,7 +255,14 @@ class MobileLinkService:Service() {
         var policy=JSONObject()
         var flowLoad:Deferred<Result<JSONObject>>?=null
         var sessionLoad:Deferred<Result<Triple<JSONObject,JSONObject,JSONObject>>>?=null
+        var audioStart:Deferred<Result<Unit>>?=null
         var lastError=""
+        // 2026-11-04 field regression: handset OFFHOOK alone is NOT evidence
+        // that an agent answered, the microphone is muted, or Gemini receives
+        // caller PCM. Separately prove Q/A, signed per-SIM session, shell PCM
+        // header+mute and AI readiness. Never set humanControl on errors:
+        // only the explicit ACTION_TAKEOVER may record that user action.
+        //
         // The working Pilot prepared and authenticated the local shell bridge
         // BEFORE a phone rang. Restoring that readiness avoids a slow ADB
         // handshake when the first incoming call needs an immediate answer.
@@ -284,6 +291,7 @@ class MobileLinkService:Service() {
                     val states=currentSlotCalls()
                     val active=states.filter{it.state!=TelephonyManager.CALL_STATE_IDLE}
                     if(active.size>1){
+                        audioStart?.cancel();audioStart=null
                         // Vendor telephony APIs can report the same call on both
                         // subscriptions. Never guess the tenant/SIM or claim a
                         // manual takeover that the user did not request.
@@ -337,6 +345,7 @@ class MobileLinkService:Service() {
                         }
                     }
                     if(current==null){
+                        audioStart?.cancel();audioStart=null
                         flowLoad?.cancel();flowLoad=null
                         sessionLoad?.cancel();sessionLoad=null
                         audioReady=false;callProblem=""
@@ -354,11 +363,13 @@ class MobileLinkService:Service() {
                     }
                     // The observed SIM must be paired; other subscriptions remain human-only.
                     if(!enrollment.paired(current.slot)){
+                        audioStart?.cancel();audioStart=null
                         if(selected!=null){call?.stop();call=null}
                         selected=null;tenantSession=null;connected=false;audioReady=false
                         delay(750);continue
                     }
                     if(selected!=current.slot){
+                        audioStart?.cancel();audioStart=null
                         flowLoad?.cancel();flowLoad=null
                         sessionLoad?.cancel();sessionLoad=null
                         audioReady=false;callProblem=""
@@ -367,6 +378,7 @@ class MobileLinkService:Service() {
                     }
                     inCall=true;callAnswered=current.state==TelephonyManager.CALL_STATE_OFFHOOK
                     if(!agentEnabled){
+                        audioStart?.cancel();audioStart=null
                         // Agent-off is NOT the same as an explicit human takeover.
                         tenantFlow=null;tenantSession=null;audioReady=false;connected=false
                         sessionLoad?.cancel();sessionLoad=null
@@ -500,17 +512,47 @@ class MobileLinkService:Service() {
                             if(reportCallId!=null)
                                 reportOutbox.enqueue(reportSlot,reportBinding,reportCallId,realTranscript)
                         }
-                        call=currentCall;currentCall.start();startedAt=SystemClock.elapsedRealtime()
-                        audioReady=currentCall.active;connected=audioReady;callProblem=""
-                        notice(if(audioReady)"صوت الإيجنت يعمل على SIM ${current.slot+1}" else "صوت الإيجنت لم يبدأ")
+                        // Regression 2026-11-04: synchronous 25s Gemini setup
+                        // froze the SIM ring/OFFHOOK polling loop, so loss of a
+                        // call or manual handoff was not observed promptly.
+                        // A Session token is not PCM-ready and cannot enable
+                        // the human-takeover button until start() succeeds.
+                        call=currentCall
+                        audioReady=false;connected=false
+                        audioStart=scope.async(Dispatchers.IO){
+                            try{
+                                currentCall.start()
+                                Result.success(Unit)
+                            }catch(cancelled:CancellationException){throw cancelled}
+                            catch(problem:Exception){Result.failure(problem)}
+                        }
+                        startedAt=SystemClock.elapsedRealtime()
+                        notice("الشريحة ${current.slot+1}: توصيل PCM وكتم الميكروفون قبل تجهيز Google Live")
+                    }
+                    if(audioStart?.isCompleted==true){
+                        val result=audioStart?.await()
+                        audioStart=null
+                        result?.onSuccess{
+                            if(call?.active==true){
+                                audioReady=true;connected=true;callProblem=""
+                                notice("PCM وGoogle Live جاهزين على SIM ${current.slot+1}؛ اختبار صوت الجهاز مطلوب")
+                            }
+                        }?.onFailure{problem->
+                            call?.stop();call=null;tenantSession=null
+                            audioReady=false;connected=false
+                            callProblem="فشل ربط صوت المكالمة: "+problem.message.orEmpty().take(110)
+                            notice(callProblem)
+                        }
                     }
                     if(call!=null && !call!!.active){
+                        audioStart?.cancel();audioStart=null
                         call=null;audioReady=false;connected=false
                         callProblem="انقطعت جلسة صوت الإيجنت؛ المكالمة على الهاتف بدون AI"
                         notice(callProblem)
                     }
                     if(call!=null && startedAt>0 &&
                         SystemClock.elapsedRealtime()-startedAt>policy.optInt("max_call_minutes",10).coerceIn(1,30)*60000L){
+                        audioStart?.cancel();audioStart=null
                         call?.stop();call=null;audioReady=false;connected=false
                         callProblem="انتهى الوقت المحدد لصوت الإيجنت؛ الهاتف ما زال متصلًا"
                         notice(callProblem)
@@ -520,6 +562,7 @@ class MobileLinkService:Service() {
                     delay(750)
                 }catch(cancelled:CancellationException){throw cancelled}
                 catch(error:Exception){
+                    audioStart?.cancel();audioStart=null
                     // A transport/runtime failure is NOT an explicit takeover.
                     // Preserve diagnostic UI while keeping human MIC available.
                     call?.stop();call=null;tenantSession=null
