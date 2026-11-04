@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "voice-no-mfa-live-verify-20261104",
+  "id": "voice-no-mfa-live-verify-fixed-20261104",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-04T21:28:36.642Z",
-  "expires_at": "2026-11-04T22:08:36.642Z",
+  "created_at": "2026-11-04T21:29:24.181Z",
+  "expires_at": "2026-11-04T22:09:24.181Z",
   "cwd": "/home/appontrack/public_html",
   "timeout_seconds": 20,
   "argv": [
     "/bin/python3",
     "-c",
-    "from pathlib import Path\nimport json,re,subprocess\nroot=Path('/home/appontrack/public_html')\nfront=(root/'index.php').read_text()\nviews=(root/'_core/Views.php').read_text()\nassert \"require __DIR__.'/_core/AdminMfa.php'\" not in front\nassert not re.search(r'mfa_gate_required\\\\s*\\\\(|mfa_route\\\\s*\\\\(|mfa_privileged\\\\s*\\\\(',front)\nassert \"if(in_array($path,['/mfa','/mfa/setup'],true))\" in front\nassert \"password_verify($pass,\" in front and \"require_csrf();\" in front and '$bad>=8' in front\nassert \"verify_external_sso_ticket($ticket)\" in front\nassert \"echo card('التحقق بخطوتين'\" not in views\nphp='/opt/cpanel/ea-php83/root/usr/bin/php'\nres=[subprocess.run([php,'-l',str(p)],capture_output=True,text=True,timeout=6) for p in [root/'index.php',root/'_core/Views.php']]\nassert all(x.returncode==0 for x in res)\nprint(json.dumps({'status':'PASS','password_login':True,'sso_signature_required':True,'otp_gate_absent':True,'mfa_setup_retired':True,'settings_mfa_tile_absent':True,'php_lint':'PASS'},ensure_ascii=False))\n"
+    "from pathlib import Path\nimport json,subprocess\nroot=Path('/home/appontrack/public_html')\nfront=(root/'index.php').read_text()\nviews=(root/'_core/Views.php').read_text()\nassert \"require __DIR__.'/_core/AdminMfa.php'\" not in front,'mfa_library_still_loaded'\nassert 'mfa_gate_required(' not in front and 'mfa_route(' not in front and 'mfa_privileged(' not in front,'old_mfa_redirect'\nassert \"if(in_array($path,['/mfa','/mfa/setup'],true))\" in front,'legacy_mfa_route_missing'\nassert \"password_verify($pass,\" in front and \"require_csrf();\" in front and '$bad>=8' in front,'login_guard_missing'\nassert \"verify_external_sso_ticket($ticket)\" in front,'sso_signature_missing'\nassert \"echo card('التحقق بخطوتين'\" not in views,'settings_mfa_still_visible'\nphp='/opt/cpanel/ea-php83/root/usr/bin/php'\nps=[root/'index.php',root/'_core/Views.php']\nchecks=[subprocess.run([php,'-l',str(p)],capture_output=True,text=True,timeout=6) for p in ps]\nassert all(c.returncode==0 for c in checks),'php_lint_failure'\nprint(json.dumps({'status':'PASS','password_login':True,'sso_signature_required':True,'otp_gate_absent':True,'mfa_setup_retired':True,'settings_mfa_tile_absent':True,'php_lint':'PASS'}))\n"
   ]
 }
