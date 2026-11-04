@@ -40,4 +40,29 @@ class TenantCallRoutingTest {
         assertTrue(TenantCallRouting.attachAfterOffhook(true,true,false,false))
         assertFalse(TenantCallRouting.attachAfterOffhook(true,true,false,true))
     }
+    @Test fun temporaryCellularInternetLossRetriesOnlyAfterValidatedDataReturns() {
+        fun due(net:Boolean, now:Long, attempts:Int=1, next:Long=6000L)=
+            TenantCallRouting.voiceRetryDue(
+                true,true,false,false,true,attempts,3,net,now,next)
+        assertFalse(due(false,7000)) // no cellular internet: do not burn tokens
+        assertFalse(due(true,5999))
+        assertTrue(due(true,6000))
+        assertTrue(due(true,20000,2))
+        assertFalse(due(true,20000,3)) // bounded, no infinite call reconnects
+    }
+
+    @Test fun reconnectNeverBreaksUserTakeoverOrAnsweredSimOwnership() {
+        fun due(offhook:Boolean=true,enabled:Boolean=true,human:Boolean=false,
+                pcm:Boolean=false,attempted:Boolean=true,attempts:Int=1)=
+            TenantCallRouting.voiceRetryDue(
+                offhook,enabled,human,pcm,attempted,attempts,3,true,8000L,5000L)
+        assertFalse(due(offhook=false))
+        assertFalse(due(enabled=false))
+        assertFalse(due(human=true))
+        assertFalse(due(pcm=true))
+        assertFalse(due(attempted=false))
+        assertFalse(due(attempts=0))
+        assertTrue(due())
+    }
+
 }
