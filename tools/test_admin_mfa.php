@@ -33,4 +33,4 @@ valid(str_contains($front,'password_verify($pass,')&&str_contains($front,"requir
 valid(str_contains($front,'$bad>=8')&&str_contains($front,'session_regenerate_id(true)'),'login rate limit and session regeneration preserved');
 valid(str_contains($front,'verify_external_sso_ticket($ticket)')&&str_contains($front,'require_csrf();'),'signed SSO consent remains mandatory');
 valid(str_contains($front,"if(\$path==='/verify-email')signup_verify_route()"),'email ownership confirmation for NEW accounts unaffected');
-echo "SITE_PASSWORD_ONLY_LOGIN_NO_MFA_PASS\\n";
+echo "SITE_PASSWORD_ONLY_LOGIN_NO_MFA_PASS\n";
