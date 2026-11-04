@@ -294,7 +294,7 @@ internal class CallOverlay(private val context: Context) {
         lastAnswered=answered;lastHuman=human
         lastAudio=audioReady;lastCallProblem=callProblem
         val model=overlayUiModel(ready,enabled,inCall,answered,human,audioReady,callProblem)
-        val color=if(model.running)green else red
+        val color=if(model.running && callProblem.isBlank())green else red
         val changed=color!=currentColor
         currentColor=color
         orb?.background=shape(color,60,if(lightTheme)white else black,2)
