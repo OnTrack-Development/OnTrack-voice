@@ -207,7 +207,7 @@ class MobileLinkService:Service() {
     }.getOrDefault(true)
     private fun internetRoute():String = runCatching {
         val cm=connectivity?:getSystemService(ConnectivityManager::class.java)
-        val caps=cm?.activeNetwork?.let(cm::getNetworkCapabilities)
+        val caps=cm?.activeNetwork?.let { network -> cm.getNetworkCapabilities(network) }
         when {
             caps==null -> "offline"
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
