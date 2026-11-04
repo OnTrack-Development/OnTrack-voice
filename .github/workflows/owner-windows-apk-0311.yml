@@ -9,6 +9,7 @@ on:
       - feat/voice-production-gap-20261103
     paths:
       - .github/workflows/owner-windows-apk-0311.yml
+      - tools/build_shellserver_windows.ps1
   workflow_dispatch:
 permissions:
   contents: read
