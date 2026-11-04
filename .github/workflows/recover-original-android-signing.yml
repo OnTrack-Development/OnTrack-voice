@@ -46,63 +46,35 @@ jobs:
           key: ontrack-voiceproof-debug-signing-v1
           enableCrossOsArchive: true
           fail-on-cache-miss: true
-      - name: Find recovered Linux cache entry and verify its signing certificate
+        env:
+          # Rewrite the one Linux archive member into this Windows job workspace.
+          # GNU tar honors TAR_OPTIONS even when actions/cache passes -P.
+          TAR_OPTIONS: '--verbose --transform=s#^.*/debug.keystore$#debug.keystore#'
+      - name: Validate remapped original key and keep it local
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          $expected = 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'
-          $destination = Join-Path $env:USERPROFILE '.android\debug.keystore'
-          # Search only on the owner's workstation, for one file name.
-          # Do not transmit the private file, its contents, or its hash.
-          $roots = @(
-            (Join-Path $env:USERPROFILE '.android'),
-            $env:USERPROFILE,
-            $env:GITHUB_WORKSPACE,
-            (Join-Path $env:RUNNER_WORKSPACE '..'),
-            'C:\home',
-            'D:\home',
-            'C:\Program Files\Git',
-            'D:\ai',
-            'C:\Users'
-          ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } |
-            Sort-Object -Unique
-          $found = @()
-          foreach ($root in $roots) {
-            $files = @(Get-ChildItem -LiteralPath $root -Filter 'debug.keystore' -File -Force -Recurse -ErrorAction SilentlyContinue)
-            $found += $files
+          $candidate = Join-Path $env:GITHUB_WORKSPACE 'debug.keystore'
+          if (-not (Test-Path -LiteralPath $candidate)) {
+            throw 'Cache archive extraction did not yield a workspace key. No keys were replaced.'
           }
-          $found = @($found | Sort-Object FullName -Unique)
-          if ($found.Count -eq 0) {
-            Write-Host 'KEYSTORE_SEARCH_RESULT: NOT_FOUND'
-            Write-Host 'The archive restore says success, but no debug.keystore is present in the searched local roots.'
-            throw 'No signing key was found. The existing Android installation is unaffected.'
-          }
-          Write-Host ('KEYSTORE_CANDIDATES_LOCAL: ' + $found.Count)
-          $certificate = Join-Path $env:RUNNER_TEMP 'ontrack-signing-verify.der'
-          $matched = $null
+          $cert = Join-Path $env:RUNNER_TEMP 'ontrack-cert-check.der'
           try {
-            foreach ($candidate in $found) {
-              Remove-Item -LiteralPath $certificate -Force -ErrorAction SilentlyContinue
-              & keytool -exportcert -alias androiddebugkey -keystore $candidate.FullName -storepass android -file $certificate 2>$null | Out-Null
-              if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $certificate)) { continue }
-              $fingerprint = (Get-FileHash -LiteralPath $certificate -Algorithm SHA256).Hash.ToLowerInvariant()
-              if ($fingerprint -eq $expected) {
-                $matched = $candidate.FullName
-                break
-              }
+            & keytool -exportcert -alias androiddebugkey -keystore $candidate -storepass android -file $cert | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to read restored signing certificate.' }
+            $actual = (Get-FileHash -LiteralPath $cert -Algorithm SHA256).Hash.ToLowerInvariant()
+            $expected = 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'
+            if ($actual -ne $expected) {
+              throw 'Wrong Android signing identity; refusing to install or copy.'
             }
-          } finally {
-            Remove-Item -LiteralPath $certificate -Force -ErrorAction SilentlyContinue
-          }
-          if (-not $matched) {
-            throw 'Restored file(s) did not match the existing APK signing certificate. Refusing key replacement.'
-          }
-          if ($matched -ne $destination) {
+            $destination = Join-Path $env:USERPROFILE '.android\debug.keystore'
             if (Test-Path -LiteralPath $destination) {
-              throw 'Destination keystore already exists. Refusing overwrite.'
+              throw 'Existing keystore at destination: refusing to overwrite.'
             }
             New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null
-            Copy-Item -LiteralPath $matched -Destination $destination
+            Copy-Item -LiteralPath $candidate -Destination $destination -ErrorAction Stop
+            Write-Host 'SIGNING_IDENTITY_VERIFIED: PASS'
+            Write-Host 'Original Android signing key verified and stored on this Windows workstation.'
+          } finally {
+            Remove-Item -LiteralPath $cert -Force -ErrorAction SilentlyContinue
           }
-          Write-Host 'SIGNING_IDENTITY_VERIFIED: PASS'
-          Write-Host 'Original Android signing key verified and available on the local workstation.'
