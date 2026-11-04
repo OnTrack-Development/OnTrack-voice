@@ -138,7 +138,9 @@ try{
             try{$session=tenant_voice_session($binding);}
             catch(RuntimeException $problem){
                 $reason=$problem->getMessage();
-                if(in_array($reason,['tenant_voice_not_launched','voice_provider_not_configured'],true))
+                if($reason==='voice_subscription_inactive')
+                    device_answer(403,['ok'=>false,'error'=>$reason]);
+                if($reason==='voice_provider_not_configured')
                     device_answer(409,['ok'=>false,'error'=>$reason]);
                 device_answer(503,['ok'=>false,'error'=>'voice_provider_unavailable']);
             }
