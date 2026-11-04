@@ -71,7 +71,11 @@ class ConsoleWebActivity:ComponentActivity(){
       "devices"->"?tab=devices"
       else->""
    }
-   web.loadUrl("https://app.ontrackegy.com/saas/console/"+section)
+   val site=intent.getIntExtra("site_id",0)
+   val agent=intent.getIntExtra("agent_id",0)
+   val deepLink=if(section=="?tab=agents" && site in 1..1000000000 && agent in 1..1000000000)
+       "&site=$site&agent=$agent" else ""
+   web.loadUrl("https://app.ontrackegy.com/saas/console/"+section+deepLink)
  }
  override fun onDestroy(){web.stopLoading();web.destroy();super.onDestroy()}
 }
