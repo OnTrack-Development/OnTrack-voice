@@ -61,6 +61,8 @@ if($path==='/sso/confirm'){
             session_regenerate_id(true);
             $_SESSION['uid']=$result['user_id'];
             $_SESSION['account_id']=$result['account_id'];
+            $linked=one("SELECT auth_version FROM users WHERE id=? AND status='active'",[$result['user_id']]);
+            $_SESSION['auth_version']=(int)($linked['auth_version']??0);
             // Verified SSO still requires signed assertion and explicit consent.
             // Owner decision 2026-11-04: no second-factor or OTP login challenge.
             unset($_SESSION['mfa_ok'],$_SESSION['mfa_pending'],$_SESSION['mfa_pending_uid'],
@@ -91,6 +93,9 @@ if($path==='/sso/confirm'){
 
 if($path==='/register')signup_route();
 if($path==='/verify-email')signup_verify_route();
+if($path==='/forgot-password')password_forgot_route();
+if($path==='/reset-password')password_reset_route();
+if($path==='/change-password')password_change_route();
 if($path==='/login') {
     if($_SERVER['REQUEST_METHOD']==='POST'){
         require_csrf();
@@ -104,6 +109,7 @@ if($path==='/login') {
         if($u && password_verify($pass,$u['password_hash'])){
             session_regenerate_id(true);
             $_SESSION['uid']=(int)$u['id'];
+            $_SESSION['auth_version']=(int)($u['auth_version']??0);
             // Password + CSRF + rate limiting remain mandatory. An old
             // administrator TOTP enrollment must never challenge this login.
             unset($_SESSION['mfa_ok'],$_SESSION['mfa_pending'],$_SESSION['mfa_pending_uid'],
