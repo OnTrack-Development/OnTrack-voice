@@ -41,7 +41,7 @@ assert 'session.optString("agent_name"' in session, 'Greeting must use agent dis
 assert 'id="key"' not in embedded and 'id="tenantWorkspaceSlot"' in embedded, 'Old Pilot UI bundled into Android APK'
 meta=json.loads(Path('saas/mobile/ota/release.json').read_text())
 assert meta['revision']>=18, 'A signed OTA revision must advance'
-assert meta['min_native']==34 and meta['max_native']==36, 'Advanced UI must not auto-replace legacy 0.3.9 with unsupported commands'
+assert meta['min_native']==34 and meta['max_native']==37, 'Advanced UI must not auto-replace legacy 0.3.9 with unsupported commands'
 assert meta['runtime']==1
 for part in ('requestUiRefresh()', "send('checkUpdates')", "data-view=\"dashboard\"", 'body.light', "readUiTheme()"):
     assert part in ui, 'Missing UI-only capability: '+part
@@ -65,7 +65,7 @@ for command in ("send('tenantMenu')", "send('tenantQrScan')", "send('tenantRefre
     assert command in ui, 'Native Android SIM bridge not wired: '+command
 inline=ui.split('<script>',1)[1].split('</script>',1)[0]
 subprocess.run(['node','--check'],input=inline,text=True,check=True)
-print('PASS: OnTrack UI OTA v34 supports Android v34-v36, navigation, notification and JS syntax')
+print('PASS: OnTrack UI OTA v35 supports Android v34-v37, navigation, notification and JS syntax')
 
 assert "Number(s.nativeCode)>=25" in ui, 'Tenant runtime must remain gated to new native version'
 assert "id=\"openAnswerSettings\"" in ui and "send('openAnswerSettings')" in ui, 'Answer settings bridge missing'
