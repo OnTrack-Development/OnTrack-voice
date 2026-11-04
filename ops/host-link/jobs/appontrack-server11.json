@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "voice-auth-web-readiness-20261105",
+  "id": "voice-auth-mail-transport-20261105",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-04T23:48:01.066Z",
-  "expires_at": "2026-11-05T00:23:01.066Z",
+  "created_at": "2026-11-04T23:52:19.056Z",
+  "expires_at": "2026-11-05T00:27:19.056Z",
   "cwd": "/home/appontrack/public_html",
-  "timeout_seconds": 27,
+  "timeout_seconds": 23,
   "argv": [
     "/bin/python3",
     "-c",
-    "from pathlib import Path\nimport json,subprocess,shutil\nprivate=Path('/home/appontrack/.ontrack-saas')\ncfg=private/'email.json'\nemail={}\nif cfg.is_file():\n  try:\n    data=json.loads(cfg.read_text())\n    email={'exists':True,'from_configured':bool(data.get('from')),'config_keys':sorted([k for k in data.keys() if not any(v in k.lower() for v in ['pass','secret','token','key'])])}\n  except Exception:email={'exists':True,'parse_ok':False}\nelse:email={'exists':False}\nphp='/opt/cpanel/ea-php83/root/usr/bin/php'\np=subprocess.run([php,'-m'],capture_output=True,text=True,timeout=8)\ngit=shutil.which('git')\ntry:\n  g=subprocess.run([git,'ls-remote','-h','git@github.com:OnTrack-Development/OnTrack-voice.git','refs/heads/feat/web-auth-complete-20261105'],capture_output=True,text=True,timeout=8) if git else None\n  github={'available':bool(g and g.returncode==0),'status':g.returncode if g else 'missing'}\nexcept Exception:github={'available':False,'status':'timeout_or_error'}\nprint(json.dumps({'email':email,'php_ready':p.returncode==0,'pdo_sqlite':'pdo_sqlite' in p.stdout.lower(),'php_bin':php,'github_ssh':github},ensure_ascii=False))\n"
+    "import subprocess,os,shutil,json\nphp='/opt/cpanel/ea-php83/root/usr/bin/php'\nr=subprocess.run([php,'-r','echo (string)ini_get(\"sendmail_path\");'],capture_output=True,text=True,timeout=7)\nsendmail=r.stdout.strip()\nbinary=sendmail.split(' ')[0] if sendmail else ''\nprint(json.dumps({'php_mail_function':subprocess.run([php,'-r','echo function_exists(\"mail\")?\"yes\":\"no\";'],capture_output=True,text=True,timeout=7).stdout,'sendmail_configured':bool(sendmail),'sendmail_binary_exists':bool(binary and os.path.isfile(binary)),'sendmail_command':binary,'system_sendmail':shutil.which('sendmail') is not None}))\n"
   ]
 }
