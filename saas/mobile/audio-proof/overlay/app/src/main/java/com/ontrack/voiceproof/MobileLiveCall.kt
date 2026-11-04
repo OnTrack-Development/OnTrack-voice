@@ -71,7 +71,7 @@ internal class MobileLiveCall(
                     .put("parts",org.json.JSONArray().put(JSONObject().put("text","ابدأ المكالمة بتحية مصرية قصيرة باسم "+agentName+" فقط، ولا تنطق رقم الإيجنت أو نسخة السيناريو. ثم اسمع رد العميل.")))))
                 .put("turnComplete",true)).toString())
         }
-        val transform=LinkPcm(settings.optString("input_channel","right"))
+        val transform=LinkPcm(settings.optString("input_channel","mix"))
         worker=scope.launch {
             try {
                 coroutineScope {
