@@ -1,5 +1,5 @@
-name: Publish signed OnTrack Voice 0.3.15
-run-name: Host publish verified Android 0.3.15
+name: Publish signed OnTrack Voice 0.3.16
+run-name: Host publish verified Android 0.3.16
 on:
   push:
     branches: [feat/voice-production-gap-20261103]
@@ -12,7 +12,6 @@ concurrency:
   cancel-in-progress: false
 env:
   PYTHONUTF8: '1'
-  MOBILE_UI_ALREADY_PUBLISHED_RUN_ID: '41776368965'
 jobs:
   publish:
     if: github.actor == 'ahmedbedir'
@@ -28,33 +27,26 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           repository: OnTrack-Development/OnTrack-voice
-          run-id: '41776176983'
+          run-id: '41808485205'
           github-token: ${{ github.token }}
-          name: OnTrack-Voice-0.3.15-Windows-signed
+          name: OnTrack-Voice-0.3.16-Windows-signed
           path: .build/release
-      - uses: actions/download-artifact@v4
-        with:
-          repository: OnTrack-Development/OnTrack-voice
-          run-id: '41776368965'
-          github-token: ${{ github.token }}
-          name: OnTrack-Voice-UI-OTA
-          path: .build/ui
       - name: Verify source, SHA256, APK signature and native version
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference='Stop'
           $headers=@{Authorization="Bearer $env:GH_TOKEN";Accept='application/vnd.github+json';'User-Agent'='OnTrack-Voice-Release'}
-          $source=Invoke-RestMethod -Uri 'https://api.github.com/repos/OnTrack-Development/OnTrack-voice/actions/runs/41776176983' -Headers $headers
+          $source=Invoke-RestMethod -Uri 'https://api.github.com/repos/OnTrack-Development/OnTrack-voice/actions/runs/41808485205' -Headers $headers
           if($source.conclusion -ne 'success' -or $source.path -ne '.github/workflows/owner-windows-apk-0315.yml' -or
             $source.head_branch -ne 'feat/voice-production-gap-20261103' -or
-            $source.head_sha -ne '9450f1de6e034be3750e161ea4905a92c1fde07f') {throw 'Invalid signed build source'}
-          $apk='.build\release\OnTrack-Voice-0.3.15.apk'
+            $source.head_sha -ne '3d49e5d8571591f8079f7aa11a66b521650d1fde') {throw 'Invalid signed build source'}
+          $apk='.build\release\OnTrack-Voice-0.3.16.apk'
           $checksum='.build\release\SHA256SUMS.txt'
           if(!(Test-Path $apk) -or !(Test-Path $checksum)){throw 'Missing signed artifact'}
           $text=(Get-Content $checksum -Raw).Trim()
           if($text -notmatch '^SHA256 ([0-9a-f]{64})  OnTrack-Voice-0\.3\.15\.apk$'){throw 'Invalid checksum report'}
-          $expected='864039ebed327e958bad9c8ac57410c39de281e439259c52a1d10a9332871614'
+          $expected=$Matches[1]
           if($Matches[1] -ne $expected -or (Get-FileHash $apk -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected){throw 'APK checksum mismatch'}
           $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
           $signer=Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
@@ -65,9 +57,9 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'APK signature invalid'}
           $appId=(& $analyzer manifest application-id $apk|Out-String).Trim()
           $version=(& $analyzer manifest version-code $apk|Out-String).Trim()
-          if($appId -ne 'com.ontrack.voiceproof' -or $version -ne '38'){throw 'Wrong APK or version'}
+          if($appId -ne 'com.ontrack.voiceproof' -or $version -ne '39'){throw 'Wrong APK or version'}
           Write-Host 'SIGNED_0_3_15_APK_VERIFIED: PASS'
-      - name: Verify signed UI 37 and sign native update metadata
+      - name: Verify signed UI 38 and sign native update metadata
         run: |
           $ErrorActionPreference='Stop'
           $bin='C:\Program Files\Git\usr\bin'
@@ -75,22 +67,31 @@ jobs:
           $bin|Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           $env:PATH="$bin;$env:PATH"
           New-Item -ItemType Directory -Path '.build\artifact' -Force|Out-Null
-          Copy-Item '.build\release\OnTrack-Voice-0.3.15.apk' '.build\artifact\OnTrack-Voice-0.3.15.apk'
-          if(!(Test-Path '.build\ui\ota\latest.json')){throw 'Signed UI 37 missing'}
-          Copy-Item '.build\ui\ota' '.build\artifact\ota' -Recurse
-          & python tools/prepare_mobile_native.py .build/artifact/OnTrack-Voice-0.3.15.apk .build/artifact/native
+          Copy-Item '.build\release\OnTrack-Voice-0.3.16.apk' '.build\artifact\OnTrack-Voice-0.3.16.apk'
+          & python tools/prepare_mobile_ota.py .build/artifact/ota
+          if($LASTEXITCODE -ne 0){throw 'UI 38 preparation failed'}
+          $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
+          & java tools/SignMobileOta.java $key .build/artifact/ota
+          if($LASTEXITCODE -ne 0){throw 'UI 38 signing failed'}
+          & python tools/prepare_mobile_native.py .build/artifact/OnTrack-Voice-0.3.16.apk .build/artifact/native
           if($LASTEXITCODE -ne 0){throw 'Native manifest preparation failed'}
           $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
           & java tools/SignMobileOta.java $key .build/artifact/native
           if($LASTEXITCODE -ne 0){throw 'Native manifest signing failed'}
-          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_ota import verify as u;from queue_mobile_native import verify as n;_,_,ui=u(Path('.build/artifact/ota'));_,_,app=n(Path('.build/artifact/native'));assert ui['revision']==37 and ui['min_native']<=37<=ui['max_native'] and app['version_code']==38 and app['version_name']=='0.3.15';print('SIGNED_UI37_NATIVE38_VERIFIED')"
+          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_ota import verify as u;from queue_mobile_native import verify as n;_,_,ui=u(Path('.build/artifact/ota'));_,_,app=n(Path('.build/artifact/native'));assert ui['revision']==38 and ui['min_native']<=39<=ui['max_native'] and app['version_code']==39 and app['version_name']=='0.3.16';print('SIGNED_UI38_NATIVE38_VERIFIED')"
           if($LASTEXITCODE -ne 0){throw 'Manifest versions or signatures invalid'}
       - uses: actions/upload-artifact@v4
         with:
-          name: OnTrack-Voice-0.3.15
+          name: OnTrack-Voice-0.3.16
           path: .build/artifact/
           if-no-files-found: error
           retention-days: 14
+      - name: Publish signed UI revision 38 through existing host worker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & python tools/queue_mobile_ota.py .build/artifact/ota
+          if($LASTEXITCODE -ne 0){throw 'Signed UI 38 host queue blocked'}
       - name: Publish signed native update through existing host worker
         env:
           GH_TOKEN: ${{ github.token }}
