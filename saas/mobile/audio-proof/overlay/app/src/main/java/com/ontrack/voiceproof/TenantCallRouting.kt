@@ -5,6 +5,12 @@ package com.ontrack.voiceproof
  * incoming and outgoing SIM calls. An enabled monitor is not an answered call.
  */
 internal object TenantCallRouting {
+    // A global shell call-state has no SIM identity: only a single currently
+    // active, owner-paired subscription may safely use the legacy Q bridge.
+    fun nativeSingleSimSlot(activeSlots:List<Int>,pairedSlots:Set<Int>):Int? =
+        activeSlots.filter{it in 0..1}.distinct().singleOrNull()
+            ?.takeIf{it in pairedSlots}
+
     fun autoAnswerDue(
         ringing:Boolean, autoAnswerEnabled:Boolean, elapsedMs:Long,
         delaySeconds:Int, answerRequested:Boolean, humanControl:Boolean
