@@ -101,7 +101,12 @@ internal class MobileLiveCall(
                         for((g,bytes) in playback) {
                             while(isActive && !stopped.get() && outgoingCall && !remoteSpeechConfirmed) delay(40)
                             if(!stopped.get() && g==generation && (!outgoingCall || remoteSpeechConfirmed))
-                                synchronized(writeLock){output?.writeInt(bytes.size);output?.write(bytes);output?.flush()}
+                                synchronized(writeLock){
+                                    output?.let { channel ->
+                                        channel.writeInt(bytes.size);channel.write(bytes);channel.flush()
+                                        submittedToShell.addAndGet(bytes.size.toLong())
+                                    }
+                                }
                         }
                     }
                     launch(Dispatchers.IO) {
@@ -112,6 +117,9 @@ internal class MobileLiveCall(
                         val bytes=ByteArray(size);input.readFully(bytes)
                         val mono=transform.input(bytes)
                         if(mono.isNotEmpty()) {
+                            capturedPackets.incrementAndGet()
+                            if(!audibleCapture.get() && observedVoiceAudio(mono))
+                                audibleCapture.set(true)
                             val socket=ws
                             if(socketReady && socket!=null && socket.queueSize()<192*1024) {
                                 if(!socket.send(JSONObject().put("realtimeInput",JSONObject().put("audio",JSONObject()
@@ -133,6 +141,12 @@ internal class MobileLiveCall(
             openSocket()
             withTimeout(25000){ready.await()}
             check(!stopped.get())
+            // A WebSocket setup and PCM header do not prove VoLTE uplink audio.
+            // Report only aggregate stage counters after startup, never audio bytes.
+            diagnostics=scope.launch(Dispatchers.IO) {
+                delay(10_000)
+                if(!stopped.get())onAudioDiagnostics(diagnosticMessage())
+            }
         val agentName=session.optString("agent_name","مساعد OnTrack").trim().ifBlank{"مساعد OnTrack"}
         if(OutboundFirstTurn.sendInitialGreeting(outgoingCall)) {
             ws?.send(JSONObject().put("clientContent",JSONObject()
@@ -222,6 +236,7 @@ internal class MobileLiveCall(
                         if(!mime.startsWith("audio/pcm")) continue
                         val rate=Regex("rate=(\\d+)").find(mime)?.groupValues?.get(1)?.toInt()?:24000
                         val bytes=LinkPcm.output(Base64.decode(inline.getString("data"),Base64.DEFAULT),rate)
+                        modelAudioBytes.addAndGet(bytes.size.toLong())
                         for(at in bytes.indices step 2400) {
                             val packet=generation to bytes.copyOfRange(at,minOf(at+2400,bytes.size))
                             if(!playback.trySend(packet).isSuccess){
@@ -246,6 +261,7 @@ internal class MobileLiveCall(
         synchronized(writeLock){runCatching{output?.writeInt(-1);output?.flush()}}
         if(recovery?.isActive==true)return
         recovery=scope.launch(Dispatchers.IO) {
+            onAudioDiagnostics("اتصال Google Live اتقطع؛ محاولة رجوع الصوت تلقائيًا")
             notice("$reason — إعادة اتصال صوت الإيجنت")
             var attempt=0
             while(isActive && !stopped.get() && !socketReady && attempt<6) {
@@ -267,7 +283,7 @@ internal class MobileLiveCall(
             // if the Live service did not send enough transcription.
             if(transcription.length>=18)runCatching{onFinished(transcription)}
                 .onFailure{notice("تعذر حفظ نص المكالمة بأمان؛ التقرير غير متاح مؤقتًا")}
-            recovery?.cancel();runCatching{pipe?.close()};playback.close()
+            diagnostics?.cancel();recovery?.cancel();runCatching{pipe?.close()};playback.close()
             worker?.cancel();ws?.close(1000,"call ended");ws=null;output=null
         }
     }
