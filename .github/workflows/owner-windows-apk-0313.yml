@@ -9,6 +9,8 @@ on:
       - feat/voice-production-gap-20261103
     paths:
       - .github/workflows/owner-windows-apk-0313.yml
+      - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkActivity.kt
+      - saas/mobile/ota/ui.html
       - tools/build_shellserver_windows.ps1
   workflow_dispatch:
 permissions:
