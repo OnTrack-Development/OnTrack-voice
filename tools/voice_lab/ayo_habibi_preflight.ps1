@@ -20,6 +20,7 @@ $report.system.cpu=$cs.Model
 $report.system.gpu=@(Get-CimInstance Win32_VideoController | ForEach-Object { @{name=$_.Name;ram_bytes=$_.AdapterRAM}})
 foreach($d in Get-PSDrive -PSProvider FileSystem){
   if($d.Name -eq 'D'){$report.system.drive_D_free_gb=[math]::Round($d.Free/1GB,1)}
+  if($d.Name -eq 'C'){$report.system.drive_C_free_gb=[math]::Round($d.Free/1GB,1)}
 }
 foreach($file in @('AYO-calm.pt','AYO-excited.pt','AYO-sleepy.pt')){
   $path=Join-Path $Root $file
@@ -38,6 +39,16 @@ foreach($cmd in @('python','py','python3')){
   if($found){$pyCandidates+=@{name=$cmd;source=$found.Source}}
 }
 $report.python.commands=$pyCandidates
+try {
+  $report.python.installed_versions=(& py -0p 2>&1 | Out-String).Trim()
+} catch {
+  $report.python.installed_versions="py launcher unavailable"
+}
+try {
+  $report.tooling.docker_version=(& docker --version 2>&1 | Out-String).Trim()
+} catch {
+  $report.tooling.docker_version="not found"
+}
 foreach($cmd in @('python','py')){
   $found=Get-Command $cmd -ErrorAction SilentlyContinue
   if(-not $found){continue}
