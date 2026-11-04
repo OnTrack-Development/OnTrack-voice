@@ -26,7 +26,7 @@ permissions:
 concurrency:
   # Unique to this unified workflow; never share a lock with legacy runs.
   group: ontrack-voice-android-unified-0317-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 env:
   PYTHONUTF8: '1'
 jobs:
