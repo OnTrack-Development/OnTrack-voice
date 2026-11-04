@@ -73,7 +73,7 @@ jobs:
             throw 'Missing signed APK or SHA256SUMS.txt.'
           }
           $lines = @(Get-Content -LiteralPath $checksums)
-          if ($lines.Count -ne 1 -or $lines[0] -notmatch '^SHA256 ([0-9a-f]{64})  OnTrack-Voice-0\.3\.13\.apk$') {
+          if ($lines.Count -ne 1 -or $lines[0] -notmatch '^SHA256 ([0-9a-f]{64})  OnTrack-Voice-0\.3\.14\.apk$') {
             throw 'Invalid signed build checksum report.'
           }
           $expected = '2f8a93fbbd18c49403c4c90edbdeea7fd9f360270d0cc84cac91570b4fd41a4f'
