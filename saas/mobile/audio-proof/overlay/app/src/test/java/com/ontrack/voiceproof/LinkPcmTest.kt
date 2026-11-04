@@ -13,6 +13,15 @@ class LinkPcmTest {
         assertEquals(0,p.input(frame+frame).size)
         assertArrayEquals(byteArrayOf(30,0),p.input(frame))
     }
+    @Test fun cellularBacklogDropsStaleFramesWhileWifiKeepsExistingLimit() {
+        assertTrue(LiveAudioQueuePolicy.canSend(true, 0))
+        assertTrue(LiveAudioQueuePolicy.canSend(true, 48L * 1024 - 1))
+        assertFalse(LiveAudioQueuePolicy.canSend(true, 48L * 1024))
+        assertFalse(LiveAudioQueuePolicy.canSend(true, 192L * 1024))
+        assertTrue(LiveAudioQueuePolicy.canSend(false, 48L * 1024))
+        assertTrue(LiveAudioQueuePolicy.canSend(false, 192L * 1024 - 1))
+        assertFalse(LiveAudioQueuePolicy.canSend(false, 192L * 1024))
+    }
     @Test fun outputPreservesSignedSamplesAndDuration() {
         assertArrayEquals(byteArrayOf(-1,-1,-1,-1,2,0,2,0),LinkPcm.output(byteArrayOf(-1,-1,2,0),24000))
     }
