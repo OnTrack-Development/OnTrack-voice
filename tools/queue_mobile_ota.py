@@ -53,8 +53,8 @@ def main():
         source_run=os.environ.get('MOBILE_RELEASE_SOURCE_RUN_ID',os.environ['GITHUB_RUN_ID'])
         assert source_run.isdecimal() and int(source_run)>0, 'Invalid pinned Android release run'
         artifact=request('actions/runs/'+source_run+'/artifacts?per_page=100')['artifacts']
-        artifact_name=os.environ.get('MOBILE_OTA_ARTIFACT_NAME','OnTrack-Voice-0.3.16')
-        assert artifact_name in ('OnTrack-Voice-0.3.11','OnTrack-Voice-0.3.12','OnTrack-Voice-0.3.16','OnTrack-Voice-UI-OTA'), 'Unexpected OTA artifact name'
+        artifact_name=os.environ.get('MOBILE_OTA_ARTIFACT_NAME','OnTrack-Voice-0.3.17')
+        assert artifact_name in ('OnTrack-Voice-0.3.11','OnTrack-Voice-0.3.12','OnTrack-Voice-0.3.16','OnTrack-Voice-0.3.17','OnTrack-Voice-UI-OTA'), 'Unexpected OTA artifact name'
         matches=[x for x in artifact if x['name']==artifact_name and not x['expired']]
         assert len(matches)==1,'Signed Android artifact missing or ambiguous'
         url=download_url(matches[0]['id'])
@@ -65,6 +65,21 @@ def main():
         job['argv']=['/bin/python3','-c',script,url,meta['sha256'],str(meta['revision'])]
         encoded=json.dumps(job,ensure_ascii=False,indent=2).encode()
     assert len(encoded)<=16384,f'Host job exceeds installed worker limit ({len(encoded)} bytes)'
-    request('contents/'+queue_path,'PUT',{'branch':BRANCH,'sha':obj['sha'],'message':'deploy: signed mobile OTA revision'+str(meta['revision']),'content':base64.b64encode(encoded).decode()})
+    try:
+        request('contents/'+queue_path,'PUT',{'branch':BRANCH,'sha':obj['sha'],
+            'message':'deploy: signed mobile OTA revision'+str(meta['revision']),
+            'content':base64.b64encode(encoded).decode()})
+    except urllib.error.HTTPError as exc:
+        if exc.code < 500:
+            raise
+        # A transient 5xx may occur after GitHub has already committed the job.
+        # Require exact readback of the intended bytes. Never queue a duplicate.
+        try:
+            _,posted=content(queue_path)
+        except Exception as read_error:
+            raise RuntimeError('OTA_QUEUE_WRITE_UNCONFIRMED') from read_error
+        if posted!=encoded:
+            raise RuntimeError('OTA_QUEUE_WRITE_AMBIGUOUS') from exc
+        print('OTA_QUEUE_5XX_RECOVERED_BY_EXACT_READBACK',flush=True)
     print(json.dumps({'status':'QUEUED_NOT_DEPLOYED','job_id':job['id'],'revision':meta['revision'],'bytes':len(encoded),'result_path':'ops/host-link/results/'+TARGET+'/'+job['id']+'.json'}))
 if __name__=='__main__':main()
