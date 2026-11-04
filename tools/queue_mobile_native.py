@@ -271,9 +271,15 @@ def main():
     items=api("actions/runs/"+source_run+"/artifacts?per_page=100")["artifacts"]
     artifact_name=f"OnTrack-Voice-{meta['version_name']}"
     source=api("actions/runs/"+source_run)
-    expected_sha=("23181d90bc0133f472cae843652effa79d2175d9"
-                  if os.environ.get("MOBILE_NATIVE_RESCUE_MODE")=="1"
-                  else os.environ.get("GITHUB_SHA"))
+    # A publish-only workflow may reuse a previously signed artifact, but
+    # ONLY this exact already-built source run and commit are authorized.
+    if os.environ.get("MOBILE_SIGNED_REPUBLISH_MODE")=="1":
+        assert source_run=="41882060749" and meta["version_code"]==42 and meta["version_name"]=="0.3.19"
+        expected_sha="29e93a094b5baa4c3eddbb0475cf473a86d909e9"
+    else:
+        expected_sha=("23181d90bc0133f472cae843652effa79d2175d9"
+                      if os.environ.get("MOBILE_NATIVE_RESCUE_MODE")=="1"
+                      else os.environ.get("GITHUB_SHA"))
     assert source.get("head_sha")==expected_sha and source.get("head_branch")=="feat/voice-production-gap-20261103"
     matches=[x for x in items if
         x["name"]==artifact_name and not x["expired"]
