@@ -95,7 +95,7 @@ function nav_entries(string $type):array{
     ];
     return [
         'overview'=>['⌂','الرئيسية'],'sites'=>['◈','مواقعي'],
-        'agents'=>['✧','Agent Studio'],
+        'agents'=>['✧','استوديو المساعدين'],
         'answering'=>['☷','إعدادات الرد'],'whatsapp'=>['✉','WhatsApp Inbox'],'campaigns'=>['▤','الحملات'],
         'calls'=>['☏','سجل المكالمات'],'contacts'=>['♧','جهات الاتصال'],'devices'=>['▣','الأجهزة والخطوط'],
         'voices'=>['♫','الأصوات'],'staff'=>['♙','الموظفون'],
@@ -218,7 +218,7 @@ function login_page(?string $error=null):void{
     header('Content-Type: text/html; charset=utf-8');
     header('X-Frame-Options: DENY');header('Cache-Control: no-store');
     $brandName='OnTrack Voice';
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تسجيل الدخول | '.e($brandName).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script></head><body class="login-body"><div class="login-backdrop"></div><div class="login-panel"><div class="login-brand"><span class="brand-icon">OT</span><div><strong>OnTrack Voice</strong><small>INTELLIGENT CALLING PLATFORM</small></div></div><div class="login-intro"><span class="eyebrow">YOUR VOICE. YOUR BUSINESS.</span><h1>أهلاً برجوعك</h1><p>منصة واحدة لإدارة الإيجنتات والمكالمات والعملاء والباقات بأمان.</p></div>';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تسجيل الدخول | '.e($brandName).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script></head><body class="login-body"><div class="login-backdrop"></div><div class="login-panel"><div class="login-brand"><span class="brand-icon">OT</span><div><strong>OnTrack Voice</strong><small>INTELLIGENT CALLING PLATFORM</small></div></div><div class="login-intro"><span class="eyebrow">YOUR VOICE. YOUR BUSINESS.</span><h1>أهلاً برجوعك</h1><p>منصة واحدة لإدارة المساعدون والمكالمات والعملاء والباقات بأمان.</p></div>';
     if($error)echo '<div class="alert danger">'.e($error).'</div>';
     if($notice=flash('success'))echo '<div class="alert success">'.e($notice).'</div>';
     echo '<form method="post" action="/saas/console/login" class="stack">'.'<input type="hidden" name="csrf" value="'.e(csrf()).'"><label class="field">البريد الإلكتروني<input required type="email" name="email" autocomplete="username" placeholder="name@company.com"></label><label class="field">كلمة المرور<div class="password-wrap"><input required type="password" name="password" autocomplete="current-password" id="loginPassword" placeholder="••••••••••"><button type="button" class="password-toggle" data-toggle-password>إظهار</button></div></label><button class="btn primary wide" type="submit">تسجيل الدخول <span>←</span></button></form><p><a href="/saas/console/register">إنشاء حساب شركة جديد</a></p><p class="login-foot">تجربة أولية · يتم تحديد الصلاحيات حسب الحساب</p></div></body></html>';
@@ -231,7 +231,7 @@ function render_overview(array $a):void{
         $n2=(int)one("SELECT COUNT(*) n FROM accounts WHERE kind='customer'")['n'];
         $n3=(int)one('SELECT COUNT(*) n FROM agents')['n'];
         $n4=(int)one('SELECT COUNT(*) n FROM calls')['n'];
-        $title='منصة OnTrack';$sub='إدارة الحسابات والخطط والإيجنتات والتكاملات من نقطة واحدة.';
+        $title='منصة OnTrack';$sub='إدارة الحسابات والخطط والمساعدون والتكاملات من نقطة واحدة.';
     }elseif($kind==='reseller'){
         $n1=(int)one("SELECT COUNT(*) n FROM accounts WHERE parent_id=?",[$id])['n'];
         $n2=(int)one("SELECT COALESCE(SUM(p.call_quota),0) n FROM subscriptions s JOIN plans p ON s.plan_id=p.id JOIN accounts a ON a.id=s.account_id WHERE a.parent_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?",[$id,now(),now()])['n'];
@@ -242,10 +242,10 @@ function render_overview(array $a):void{
         $n2=(int)one('SELECT COUNT(*) n FROM agents WHERE account_id=?',[$id])['n'];
         $n3=site_limit($id,'call_quota');
         $n4=(int)one('SELECT COUNT(*) n FROM calls WHERE account_id=?',[$id])['n'];
-        $title='مساحة عملك الذكية';$sub='اختار الموقع المناسب، وابنِ الإيجنت، وتابع حملاتك واستهلاكك.';
+        $title='مساحة عملك الذكية';$sub='اختار الموقع المناسب، وابنِ المساعد، وتابع حملاتك واستهلاكك.';
     }
     $primaryAction=$kind==='platform'?'accounts':($kind==='reseller'?'accounts':'agents');
-    $primaryLabel=$kind==='platform'?'إدارة الحسابات والريسيلرز':($kind==='reseller'?'إدارة العملاء':'إدارة الإيجنتات');
+    $primaryLabel=$kind==='platform'?'إدارة الحسابات والريسيلرز':($kind==='reseller'?'إدارة العملاء':'إدارة المساعدون');
     $secondaryAction=$kind==='platform'?'whatsapp_admin':($kind==='reseller'?'plans':'releases');
     $secondaryLabel=$kind==='platform'?'إعدادات ربط واتساب':($kind==='reseller'?'باقات العملاء':'تطبيق Android');
     echo '<section class="welcome"><div><span class="eyebrow">SMART VOICE CONTROL</span><h2>'.e($title).'</h2><p>'.e($sub).'</p><div class="welcome-actions">'.
@@ -254,11 +254,11 @@ function render_overview(array $a):void{
         '</div></div><div class="orb-art"><span></span><b>OT</b></div></section>';
     echo '<div class="metric-grid">';
     if($kind==='platform'){
-        echo counter('الريسيلرز',$n1,'♧').counter('العملاء',$n2,'♙').counter('الإيجنتات',$n3,'✧').counter('سجلات المكالمات',$n4,'☏');
+        echo counter('الريسيلرز',$n1,'♧').counter('العملاء',$n2,'♙').counter('المساعدون',$n3,'✧').counter('سجلات المكالمات',$n4,'☏');
     }elseif($kind==='reseller'){
         echo counter('شركات العملاء',$n1,'♧').counter('حصص العملاء المحجوزة',$n2,'◫').counter('رصيد باقة الريسيلر',$n3,'▣').counter('تكاملات مرتبطة',$n4,'⇄');
     }else{
-        echo counter('المواقع',$n1,'◎').counter('الإيجنتات',$n2,'✧').counter('مكالمات الخطة الشهرية',$n3,'☏').counter('سجلات تجريبية',$n4,'▤');
+        echo counter('المواقع',$n1,'◎').counter('المساعدون',$n2,'✧').counter('مكالمات الخطة الشهرية',$n3,'☏').counter('سجلات تجريبية',$n4,'▤');
     }
     echo '</div><div class="cols two">';
     if($kind==='platform'){
@@ -274,7 +274,7 @@ function render_overview(array $a):void{
             '<a href="/saas/console/?tab=domains"><b>◎</b><span>الدومينات والهوية</span><small>البراند الخاص بالريسيلر</small></a>'.
             '<a href="/saas/console/?tab=settings"><b>⚙</b><span>إعدادات الريسيلر</span><small>إدارة العلامة التجارية</small></a></div>';
     }else{
-        $tips='<div class="quick-grid"><a href="/saas/console/?tab=sites"><b>◈</b><span>مواقع مستقلة</span><small>إيجنت ومعرفة لكل موقع</small></a><a href="/saas/console/?tab=agents"><b>✧</b><span>Agent Flow Builder</span><small>السيناريو والشخصية والصوت</small></a><a href="/saas/console/?tab=keys"><b>⌘</b><span>API Keys</span><small>مفاتيح مسمّاة وقابلة للإلغاء</small></a><a href="/saas/console/?tab=staff"><b>♙</b><span>إدارة الموظفين</span><small>أدوار وصلاحيات لكل حساب</small></a></div>';
+        $tips='<div class="quick-grid"><a href="/saas/console/?tab=sites"><b>◈</b><span>مواقع مستقلة</span><small>إيجنت ومعرفة لكل موقع</small></a><a href="/saas/console/?tab=agents"><b>✧</b><span>تصميم المحادثة</span><small>السيناريو والشخصية والصوت</small></a><a href="/saas/console/?tab=keys"><b>⌘</b><span>API Keys</span><small>مفاتيح مسمّاة وقابلة للإلغاء</small></a><a href="/saas/console/?tab=staff"><b>♙</b><span>إدارة الموظفين</span><small>أدوار وصلاحيات لكل حساب</small></a></div>';
     }
     echo card('ابدأ من هنا',$tips,'إجراءات سريعة');
     $items=$kind==='platform'?all('SELECT action,created_at FROM audit_events ORDER BY id DESC LIMIT 5'):all('SELECT action,created_at FROM audit_events WHERE account_id=? ORDER BY id DESC LIMIT 5',[$id]);
@@ -339,7 +339,7 @@ function render_plans(array $a):void{
                 '<label class="field">اسم الباقة<input name="name" maxlength="120" value="'.e((string)$plan['name']).'" required></label>'.
                 '<label class="field">المكالمات الشهرية<input name="calls" type="number" min="0" value="'.(int)$plan['call_quota'].'" required></label>'.
                 '<label class="field">المواقع<input name="sites" type="number" min="0" value="'.(int)$plan['site_limit'].'" required></label>'.
-                '<label class="field">الإيجنتات<input name="agents" type="number" min="0" value="'.(int)$plan['agent_limit'].'" required></label>'.
+                '<label class="field">المساعدون<input name="agents" type="number" min="0" value="'.(int)$plan['agent_limit'].'" required></label>'.
                 '<label class="field">الموظفون<input name="staff" type="number" min="0" value="'.(int)$plan['staff_limit'].'" required></label>'.
                 '<label class="field">حد عملاء الريسيلر<input name="customers" type="number" min="0" value="'.(int)$plan['reseller_customers'].'" required></label>'.
                 '<label class="field">سعر الباقة (قرش)<input name="price" type="number" min="0" max="1000000000" step="1" value="'.(int)$plan['price_minor'].'" required><small>100 قرش = 1 جنيه</small></label>'.
@@ -358,7 +358,7 @@ function render_plans(array $a):void{
             field_html('اسم الباقة','name','text','اسم الباقة',true).
             field_html('المكالمات الشهرية','calls','number','1000',true).
             field_html('المواقع','sites','number','1',true).
-            field_html('الإيجنتات','agents','number','1',true).
+            field_html('المساعدون','agents','number','1',true).
             field_html('الموظفون','staff','number','3',true).
             field_html('حد عملاء الريسيلر','customers','number','10',true).
             '<label class="field">سعر الباقة (قرش)<input name="price" type="number" min="0" max="1000000000" step="1" value="0" required></label>'.
@@ -419,7 +419,7 @@ function render_sites(array $a):void{
     $id=(int)$a['account_id'];$sites=all("SELECT * FROM sites WHERE account_id=? AND status!='archived' ORDER BY id DESC",[$id]);
     echo '<div class="cols two">';
     $cells=[];
-    foreach($sites as $s)$cells[]=[e($s['name']),'<span dir="ltr">'.e($s['domain']).'</span>',pill($s['status']),'<a class="btn small" href="/saas/console/?tab=agents&site='.$s['id'].'">الإيجنتات ←</a>'.
+    foreach($sites as $s)$cells[]=[e($s['name']),'<span dir="ltr">'.e($s['domain']).'</span>',pill($s['status']),'<a class="btn small" href="/saas/console/?tab=agents&site='.$s['id'].'">المساعدون ←</a>'.
       '<details class="row-rename"><summary>تعديل بيانات الموقع</summary>'.form_start('update_site','/?tab=sites','class="row-rename-form"').'<input type="hidden" name="site_id" value="'.$s['id'].'"><label class="field">الاسم<input name="name" value="'.e($s['name']).'"></label><label class="field">الدومين<input name="domain" value="'.e($s['domain']).'"></label><button class="btn small primary">حفظ الموقع</button></form></details>'.
       form_start('archive_site','/?tab=sites','class="inline-form"').'<input type="hidden" name="site_id" value="'.$s['id'].'"><button class="btn small danger" data-confirm="أرشفة الموقع وإيجنتاته؟">أرشفة</button></form>'];
     echo card('مواقعي',tbl(['الموقع','الدومين','الحالة','التشغيل'],$cells));
@@ -436,8 +436,8 @@ function render_sites(array $a):void{
             $recycleRows[]=[e($entry['name']),$kind==='site'?'موقع':'إيجنت',
                 e((string)($entry['archived_at']??'أرشيف قديم')),$restore];
         }
-        echo card('سلة المحذوفات — المواقع والإيجنتات',
-            '<p class="dim">الاستعادة لا تعيد تشغيل الإيجنت تلقائيًا ولا تلمس السجلات المالية أو سجل المكالمات.</p>'.
+        echo card('سلة المحذوفات — المواقع والمساعدون',
+            '<p class="dim">الاستعادة لا تعيد تشغيل المساعد تلقائيًا ولا تلمس السجلات المالية أو سجل المكالمات.</p>'.
             tbl(['العنصر','النوع','تاريخ الأرشفة','إجراء'],$recycleRows));
         echo card('سياسة الاحتفاظ بالأرشيف',
             form_start('recycle_policy','/?tab=sites').
@@ -456,7 +456,7 @@ function render_voice_data_sources(array $a,array $site):void {
     $url='/?tab=agents&site='.$siteId;
     echo '<details class="agent-create voice-data-workspace"><summary class="btn">مصادر المعرفة والتكاملات وأرقام الموظفين</summary>';
     $rows=all('SELECT id,name,kind,status,visibility FROM voice_knowledge_sources WHERE account_id=? AND site_id=? ORDER BY id DESC LIMIT 30',[$id,$siteId]);
-    $html='<p class="info">مصادر المعرفة التي تخص الموقع الحالي فقط. تُستخدم في اقتراحات Flow وإجابات الإيجنت بعد النشر.</p>';
+    $html='<p class="info">مصادر المعرفة التي تخص الموقع الحالي فقط. تُستخدم في اقتراحات Flow وإجابات المساعد بعد النشر.</p>';
     $html.=form_start('voice_knowledge_upload',$url,'enctype="multipart/form-data"').
         '<input type="hidden" name="site_id" value="'.$siteId.'">'.
         field_html('اسم مصدر المعرفة','name','text','مثلاً سياسات الحجوزات',true).
@@ -518,9 +518,9 @@ function render_voice_data_sources(array $a,array $site):void {
     echo '</details>';
 }
 
-/** Agent Studio replaces the obsolete branching-template UI. */
+/** استوديو المساعدين replaces the obsolete branching-template UI. */
 function agent_studio_policy_fields(array $policy):string{
-    $html='<div class="agent-studio-section"><div class="agent-studio-section-title"><strong>الهدف والسلوك</strong><small>الإيجنت يختار مسار المحادثة بنفسه</small></div>'.
+    $html='<div class="agent-studio-section"><div class="agent-studio-section-title"><strong>الهدف والسلوك</strong><small>المساعد يختار مسار المحادثة بنفسه</small></div>'.
         '<label class="field">الهدف الأساسي<textarea name="agent_goal" rows="3" maxlength="1800" required>'.e($policy['goal']).'</textarea></label>'.
         '<label class="field">الضوابط والحدود<textarea name="agent_guardrails" rows="3" maxlength="1800">'.e($policy['guardrails']).'</textarea></label></div>';
     $html.='<div class="agent-studio-section"><div class="agent-studio-section-title"><strong>القدرات المتاحة</strong><small>الصلاحيات لا تتجاوز ما يسمح به السيرفر</small></div><div class="agent-studio-capabilities">';
@@ -627,16 +627,16 @@ function render_flows(array $a):void{
     $id=(int)$a['account_id'];
     $agents=all("SELECT ag.id,ag.name,ag.site_id,s.name site_name FROM agents ag JOIN sites s ON s.id=ag.site_id
         WHERE ag.account_id=? AND ag.status!='archived' AND s.status='active' ORDER BY ag.id DESC",[$id]);
-    echo '<p class="info">تم استبدال السيناريوهات الثابتة بـ Agent Studio. المحادثة بتتبني حسب هدف الإيجنت والمعرفة والسياسات، مش بالانتقال بين عُقد.</p>';
+    echo '<p class="info">تم استبدال السيناريوهات الثابتة بـ استوديو المساعدين. المحادثة بتتبني حسب هدف المساعد والمعرفة والسياسات، مش بالانتقال بين عُقد.</p>';
     $rows=[];
     foreach($agents as $agent){
         $version=published_agent_flow($id,(int)$agent['site_id'],(int)$agent['id']);
         $url='/?tab=agents&site='.(int)$agent['site_id'].'&agent='.(int)$agent['id'];
         $rows[]=[e($agent['name']),e($agent['site_name']),
             $version?'v'.(int)$version['revision']:'مسودة',
-            '<a class="btn small primary" href="'.e($url).'">فتح Agent Studio</a>'];
+            '<a class="btn small primary" href="'.e($url).'">فتح استوديو المساعدين</a>'];
     }
-    echo card('الإيجنتات الديناميكية',tbl(['الإيجنت','الموقع','الإصدار','التعديل'],$rows));
+    echo card('المساعدون الديناميكية',tbl(['المساعد','الموقع','الإصدار','التعديل'],$rows));
 }
 
 function render_answering(array $a):void {
@@ -652,7 +652,7 @@ function render_answering(array $a):void {
             (int)$policy['answer_delay_seconds'].' ثوانٍ',
             '<a class="btn small primary" href="'.e($url).'">تعديل إعدادات الرد ←</a>'];
     }
-    echo card('إعدادات الرد بحسب الإيجنت',tbl(['الإيجنت','السياسة','التأخير','التعديل'],$rows));
+    echo card('إعدادات الرد بحسب المساعد',tbl(['المساعد','السياسة','التأخير','التعديل'],$rows));
 }
 function render_campaigns(array $a):void{
     $id=(int)$a['account_id'];$s=all('SELECT id,name FROM sites WHERE account_id=?',[$id]);$map=[];
@@ -898,14 +898,14 @@ function render_devices(array $a):void {
             $choices=[];foreach($published as $candidate)$choices[(int)$candidate['id']]=$candidate['name'];
             $action=form_start('change_device_agent','/?tab=devices','class="device-change-agent-form"').
                 '<input type="hidden" name="device_id" value="'.(int)$d['id'].'">'.
-                select_html('تغيير الإيجنت على نفس الشريحة','agent_id',$choices,(string)$d['agent_id']).
-                '<button class="btn small primary" type="submit">تغيير الإيجنت بدون إعادة ربط</button></form>'.$action;
+                select_html('تغيير المساعد على نفس الشريحة','agent_id',$choices,(string)$d['agent_id']).
+                '<button class="btn small primary" type="submit">تغيير المساعد بدون إعادة ربط</button></form>'.$action;
         }
         $rows[]=[e($d['device_name']),e($d['site_name']),e($d['agent_name']),
             e('SIM '.((int)$d['sim_slot']+1)),pill($d['status']),
             e($d['last_seen_at']?:'لم يتصل بعد'),$action];
     }
-    echo card('أجهزة Android المربوطة بالحساب',tbl(['الجهاز','الموقع','الإيجنت','الشريحة','الحالة','آخر اتصال','الإجراء'],$rows));
+    echo card('أجهزة Android المربوطة بالحساب',tbl(['الجهاز','الموقع','المساعد','الشريحة','الحالة','آخر اتصال','الإجراء'],$rows));
     $pairs=all("SELECT p.id,p.status,p.created_at,p.expires_at,s.name site_name,ag.name agent_name
         FROM device_pairings p JOIN sites s ON s.id=p.site_id JOIN agents ag ON ag.id=p.agent_id
         WHERE p.account_id=? AND p.status IN ('pending','pending_sim0','pending_sim1') AND p.expires_at>? ORDER BY p.id DESC LIMIT 5",
@@ -918,7 +918,7 @@ function render_devices(array $a):void {
         $simLabel=$p['status']==='pending_sim0'?'SIM 1':($p['status']==='pending_sim1'?'SIM 2':'رمز قديم — ألغِه وأنشئ جديدًا');
         $pending[]=[e($p['site_name']),e($p['agent_name']),e($simLabel),e($p['expires_at']).' UTC',$action];
     }
-    echo card('طلبات الاقتران المعلقة',tbl(['الموقع','الإيجنت','الشريحة','ينتهي في','الإجراء'],$pending));
+    echo card('طلبات الاقتران المعلقة',tbl(['الموقع','المساعد','الشريحة','ينتهي في','الإجراء'],$pending));
     if($manage){
         $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY name",[$id]);
         $agents=all("SELECT ag.id,ag.name,s.name site_name FROM agents ag JOIN sites s ON s.id=ag.site_id
@@ -931,7 +931,7 @@ function render_devices(array $a):void {
                 '<p>اختر SIM 1 أو SIM 2 أولًا. الرمز المؤقت مقيد بهذه الشريحة فقط ولا يمكن استخدامه لربط الأخرى. لكل شريحة حساب وإيجنت محددان، ولا يستخدم هذا الربط مفتاح هاتف التجربة القديم.</p>'.
                 form_start('create_device_pairing','/?tab=devices').
                 select_html('الموقع','site_id',$siteOptions).
-                select_html('الإيجنت','agent_id',$agentOptions).
+                select_html('المساعد','agent_id',$agentOptions).
                 select_html('الشريحة المقصودة','sim_slot',[0=>'SIM 1',1=>'SIM 2']).
                 submit_btn('إنشاء رمز اقتران لمدة 10 دقائق').
                 '<p class="dim">رمز الاقتران يُعرض مرة واحدة، ولا يتم حفظه كنص. استخدم QR داخل تطبيق Android أو أدخل الرمز يدويًا. يجب تأكيد الشريحة والحساب على الهاتف؛ الربط لا يثبت توافق SIM الصوتي بعد.</p>');
@@ -939,21 +939,37 @@ function render_devices(array $a):void {
             echo card('ربط Android','<p>أضف موقعًا وإيجنت أولًا ثم أنشئ رمز ربط للشريحة.</p>');
         }
     }
-    echo '<div class="info">الربط الجديد لكل شريحة على حدة: اختر الشركة والإيجنت، أنشئ QR، ثم راقب آخر اتصال للجهاز. جلسة Google Live تحتاج مزوّدًا معتمدًا واختبار صوت فعلي.</div>';
+    echo '<div class="info">الربط الجديد لكل شريحة على حدة: اختر الشركة والمساعد، أنشئ QR، ثم راقب آخر اتصال للجهاز. جلسة Google Live تحتاج مزوّدًا معتمدًا واختبار صوت فعلي.</div>';
 }
 function render_voices(array $a):void{
     $id=(int)$a['account_id'];$list=all('SELECT * FROM voices ORDER BY tier, id');
     $grants=all('SELECT voice_id FROM voice_grants WHERE account_id=?',[$id]);$g=array_column($grants,'voice_id');
     $rows=[];
+    $showProvider=$a['kind']==='platform';
     foreach($list as $v){
-        $last='<span class="dim">'.(in_array($v['id'],$g)?'متاح':'غير مخصص').'</span>';
-        if($a['kind']==='platform'){
-            $last=form_start('toggle_voice','/?tab=voices','class="inline-form"').'<input type="hidden" name="voice_id" value="'.$v['id'].'"><button class="btn small">إظهار/إخفاء</button></form>';
-            $last.=form_start('set_voice_ready','/?tab=voices','class="inline-form"').'<input type="hidden" name="voice_id" value="'.$v['id'].'"><input type="hidden" name="ready" value="'.((int)$v['ready']===1?'0':'1').'"><input type="hidden" name="confirmed" value="1"><button class="btn small" data-confirm="هل اختبرت الصوت بنجاح على مزود الاتصال؟">'.((int)$v['ready']===1?'إلغاء الجاهزية':'اعتماد صوت').'</button></form>';
+        // Customers see only genuinely ready and granted voices, not raw
+        // upstream provider IDs, development placeholders or technical diagnostics.
+        if(!$showProvider && (
+           (int)$v['ready']!==1 || (string)$v['status']!=='active' ||
+           !in_array($v['id'],$g)))continue;
+        if($showProvider){
+            $last=form_start('toggle_voice','/?tab=voices','class="inline-form"').
+                '<input type="hidden" name="voice_id" value="'.$v['id'].'"><button class="btn small">إظهار/إخفاء</button></form>';
+            $last.=form_start('set_voice_ready','/?tab=voices','class="inline-form"').
+                '<input type="hidden" name="voice_id" value="'.$v['id'].'">'.
+                '<input type="hidden" name="ready" value="'.((int)$v['ready']===1?'0':'1').'">'.
+                '<input type="hidden" name="confirmed" value="1">'.
+                '<button class="btn small" data-confirm="هل اختبرت الصوت بنجاح على مزود الاتصال؟">'.
+                ((int)$v['ready']===1?'إلغاء الجاهزية':'اعتماد صوت').'</button></form>';
+            $rows[]=[e($v['name']),e($v['provider']),pill($v['tier']),
+                (int)$v['ready']?pill('جاهز'):pill('قيد الإعداد'),pill($v['status']),$last];
+        }else{
+            $rows[]=[e($v['name']),e((string)$v['tier']),'متاح'];
         }
-        $rows[]=[e($v['name']),e($v['provider']),pill($v['tier']),(int)$v['ready']?pill('ready'):pill('not ready'),pill($v['status']),$last];
     }
-    echo card('Voice Catalog',tbl(['الصوت','المزود','الفئة','جاهزية فعلية','العرض','التحكم'],$rows));
+    if($showProvider) echo card('إدارة كتالوج الأصوات',tbl(
+       ['الصوت','المزوّد','الفئة','الجاهزية','العرض','التحكم'],$rows));
+    else echo card('الأصوات المتاحة لك',tbl(['الصوت','الفئة','الحالة'],$rows));
     if($a['kind']==='platform')
         echo card('Google Voice Discovery',form_start('sync_google_voices','/?tab=voices').
             '<p>استيراد كتالوج Google Gemini Live المنشور (30 صوتاً). كل صوت جديد يبقى غير مفعّل حتى التحقق من توافقه مع مزوّد الاتصال الفعلي.</p>'.
@@ -963,7 +979,7 @@ function render_voices(array $a):void{
           '<label class="field">Google API Key (اختياري لو متسجّل في إعدادات الأدمن)<input type="password" name="google_api_key" autocomplete="off" minlength="16" placeholder="سيُستخدم مفتاح Google المحفوظ إن وجد"></label>'.
           '<p class="dim">استيراد الأصوات الحقيقية هيستخدم المفتاح المحفوظ. لو حساب Google لا يسمح بالـVoices API، هيظهر الكتالوج الأساسي مع توضيح المشكلة؛ مش هنقول المفتاح خاطئ.</p>'.
           submit_btn('مزامنة أصوات Google المتاحة'));
-    echo '<div class="info">أصوات AYO Premium لم يتم إثبات تشغيلها بعد؛ لن تُباع أو تُفعل قبل اختبار المحرك.</div>';
+    if($a['kind']==='platform')echo '<div class="info">الأصوات الجديدة لا تُفعّل قبل اختبارها واعتمادها.</div>';
     if($a['kind']==='platform'||$a['kind']==='reseller'){
         $targets=$a['kind']==='platform'?all("SELECT id,name FROM accounts WHERE kind!='platform'"):all('SELECT id,name FROM accounts WHERE parent_id=?',[$id]);
         $opts=[];foreach($targets as $v)$opts[$v['id']]=$v['name'];
@@ -1444,7 +1460,7 @@ function render_whatsapp(array $a):void {
             '<input type="hidden" name="public_id" value="'.e($publicId).'">'.
             '<div class="wa-manual-grid">'.
             '<div class="wa-manual-cell third">'.select_html('الموقع / مساحة العمل','site_id',$map).'<small class="wa-field-help">من <a href="/saas/console/?tab=sites">مواقعي داخل OnTrack</a>، ولو مش موجود أضفه هناك.</small></div>'.
-            '<div class="wa-manual-cell third">'.select_html('الإيجنت الذي يرد على واتساب','ai_agent_id',$agentOptions).'<small class="wa-field-help">من <a href="/saas/console/?tab=agents">Agent Studio</a>، اختار إيجنت منشور.</small></div>'.
+            '<div class="wa-manual-cell third">'.select_html('المساعد الذي يرد على واتساب','ai_agent_id',$agentOptions).'<small class="wa-field-help">من <a href="/saas/console/?tab=agents">استوديو المساعدين</a>، اختار إيجنت منشور.</small></div>'.
             '<div class="wa-manual-cell third"><label class="field">اسم الربط<input type="text" name="label" maxlength="120" placeholder="مبيعات / خدمة العملاء" required></label><small class="wa-field-help">اسم تختاره أنت للتنظيم، زي مبيعات أو خدمة عملاء. مش هتجيبه من Meta.</small></div>'.
             '<div class="wa-manual-cell half"><label class="field">Business Account ID (WABA ID)<input name="waba_id" inputmode="numeric" pattern="[0-9]+" maxlength="100" autocomplete="off" dir="ltr" placeholder="WABA ID" required></label><small class="wa-field-help">من <a href="https://business.facebook.com/settings/whatsapp-business-accounts" target="_blank" rel="noopener noreferrer">Meta Business Settings ← WhatsApp Accounts</a> ثم اختار حسابك وانسخ WABA ID.</small></div>'.
             '<div class="wa-manual-cell half"><label class="field">Phone Number ID<input name="phone_number_id" inputmode="numeric" pattern="[0-9]+" maxlength="100" autocomplete="off" dir="ltr" placeholder="Phone Number ID" required></label><small class="wa-field-help">من <a href="https://business.facebook.com/wa/manage/phone-numbers/" target="_blank" rel="noopener noreferrer">WhatsApp Manager ← Phone Numbers</a>؛ انسخ Phone Number ID مش رقم الموبايل.</small></div>'.
@@ -1478,7 +1494,7 @@ function render_whatsapp(array $a):void {
             '<input type="hidden" name="relay_secret" value="'.e($existingRelaySecret).'">'.
             '<div class="wa-manual-grid">'.
             '<div class="wa-manual-cell third">'.select_html('الموقع','site_id',$map).'</div>'.
-            '<div class="wa-manual-cell third">'.select_html('الإيجنت المنشور','ai_agent_id',$agentOptions).'</div>'.
+            '<div class="wa-manual-cell third">'.select_html('المساعد المنشور','ai_agent_id',$agentOptions).'</div>'.
             '<div class="wa-manual-cell third"><label class="field">اسم الاتصال<input name="label" required maxlength="120" placeholder="واتساب الموجود"></label></div>'.
             '<div class="wa-manual-cell half"><label class="field">Callback URL القديم<input name="source_callback_url" dir="ltr" type="url" placeholder="https://example.com/whatsapp/webhook.php" maxlength="400" required></label><small class="wa-field-help">هات الرابط من إعدادات <strong>الموديول الحالي</strong>، مش من OnTrack. <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer">تأكد منه في Meta ← WhatsApp ← Configuration</a>.</small></div>'.
             '<div class="wa-manual-cell half"><label class="field">Verify Token القديم<input name="source_verify_token" type="password" maxlength="200" autocomplete="off" required></label><small class="wa-field-help">التوكن الموجود بالفعل في إعدادات الموديول وMeta؛ مش هيتغير أو يُستخدم لإرسال الرسائل.</small></div>'.
@@ -1499,7 +1515,7 @@ function render_whatsapp(array $a):void {
                 '<input type="hidden" name="waba_id" value="">'.
                 '<input type="hidden" name="phone_number_id" value="">'.
                 '<div class="wa-manual-grid"><div class="wa-manual-cell half">'.select_html('الموقع','site_id',$map).'</div>'.
-                '<div class="wa-manual-cell half">'.select_html('الإيجنت المنشور','ai_agent_id',$agentOptions).'</div></div>'.
+                '<div class="wa-manual-cell half">'.select_html('المساعد المنشور','ai_agent_id',$agentOptions).'</div></div>'.
                 '<div class="wa-embedded-button-row"><button type="button" class="btn primary" data-wa-embedded-start
                     data-wa-app-id="'.e((string)$waPlatform['app_id']).'"
                     data-wa-graph-version="'.e((string)$waPlatform['graph_version']).'"
