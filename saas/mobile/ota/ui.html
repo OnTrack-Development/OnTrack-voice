@@ -397,7 +397,7 @@ let lastAgentsSnapshot='';
 function renderSimAgents(s){
  const structured=Array.isArray(s.tenantAgents)?s.tenantAgents.filter(v=>v&&typeof v==='object'):[];
  const legacy=[s.tenantPaired1?s.tenantSim1:null,s.tenantPaired2?s.tenantSim2:null]
-  .map((line,slot)=>{if(!line)return null;const text=String(line),valid=text.match(/^SIM [12] — (.+?) • Flow (v\\d+|غير منشور)$/);
+  .map((line,slot)=>{if(!line)return null;const text=String(line),valid=text.match(/^SIM [12] — (.+?) • Flow (v\d+|غير منشور)$/);
     if(!valid)return {sim_slot:slot,paired:true,state:'unverified',error:text};
     const parts=valid[1].split(' / ');
     return {sim_slot:slot,paired:true,state:'online',account_name:parts[0]||'',
