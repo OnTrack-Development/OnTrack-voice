@@ -6,7 +6,7 @@ declare(strict_types=1);
  */
 // Auto-answer is deliberate opt-in (false for a new agent), not proof that
 // the phone listener is broken. To enable an owner-approved SIM auto-answer,
-// save the policy and PUBLISH a new signed Flow snapshot; Android reads that
+// save the policy and PUBLISH a new immutable Flow snapshot; Android reads that
 // published snapshot, not unsaved admin form state. Regression 2026-11-04:
 // separate RINGING detection, ADB 'A' command, and AI/PCM readiness.
 function answer_policy_defaults():array {
