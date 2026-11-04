@@ -1,0 +1,59 @@
+name: AYO six MP3 Habibi TTS runtime check
+on:
+  push:
+    branches: [voice-lab/ayo-six-mp3-20261104]
+    paths: [.github/workflows/ayo-six-runtime-check.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 10
+    steps:
+      - name: Check available inference runtime, model and audio assets
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $root='D:\AI'
+          $p=Join-Path $root 'AYO Voice Demo'
+          $v=@(Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name })
+          $ram=[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB,2)
+          $d=Get-PSDrive D
+          $report=[ordered]@{root_exists=(Test-Path -LiteralPath $root);demo_exists=(Test-Path -LiteralPath $p); mp3_count=0;ram_gb=$ram;drive_d_free_gb=[math]::Round($d.Free/1GB,2);gpu=$v;python_runtime=@{};cli_available=$false;note='Only checks prerequisites; does not train, install, or synthesize'}
+          if ($report.demo_exists) { $report.mp3_count=@(Get-ChildItem -LiteralPath $p -Recurse -File -Filter '*.mp3').Count }
+          $cli=Get-Command habibi-tts_infer-cli -ErrorAction SilentlyContinue
+          if($cli){$report.cli_available=$true}
+          $command=Get-Command py -ErrorAction SilentlyContinue
+          if(-not $command){$command=Get-Command python -ErrorAction SilentlyContinue}
+          if($command){
+            $script=@'
+          import sys, json, importlib.util, shutil
+          names=("torch","habibi_tts","f5_tts","torchaudio","soundfile","whisper","faster_whisper","transformers","huggingface_hub")
+          obj={"python":sys.version.split()[0],"executable":sys.executable,"modules":{n:bool(importlib.util.find_spec(n)) for n in names}}
+          if obj["modules"]["torch"]:
+            import torch
+            obj["torch_version"]=torch.__version__
+            obj["cuda_available"]=torch.cuda.is_available()
+            obj["torch_cuda_version"]=torch.version.cuda
+          print(json.dumps(obj,ensure_ascii=False))
+          '@
+            try {
+              if($command.Name -eq 'py.exe'){$result=($script | & $command.Source -3 - 2>&1 | Out-String).Trim()}
+              else{$result=($script | & $command.Source - 2>&1 | Out-String).Trim()}
+              $report.python_runtime=$result
+            } catch {$report.python_runtime=@{error=$_.Exception.Message}}
+          }
+          $out=Join-Path $env:RUNNER_TEMP 'ayo-six-runtime-check'
+          New-Item -ItemType Directory -Path $out -Force | Out-Null
+          $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $out 'check.json') -Encoding utf8
+          Write-Host "Demo folder found: $($report.demo_exists), MP3 count: $($report.mp3_count)"
+          Write-Host "RAM: $($report.ram_gb) GB; D free: $($report.drive_d_free_gb) GB; GPU: $($v -join ', ')"
+          Write-Host "Habibi CLI installed: $($report.cli_available); Python: $($report.python_runtime)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ayo-six-runtime-check
+          path: ${{ runner.temp }}/ayo-six-runtime-check/check.json
+          retention-days: 5
+          if-no-files-found: ignore
