@@ -1,0 +1,13 @@
+{
+  "job_id": "mobile-native-41864984892",
+  "target": "appontrack-server11",
+  "job_sha256": "c529f82aa9d682c70f9a224b8970c8133bb876509b2a5a656fbef95b86a24e35",
+  "started_at": "2026-11-04T16:26:03.010038+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\": \"published\", \"version\": 40, \"sha256\": \"9904bebf28ef74b640b0f15f52ab84d36ef46faabd03de720f6ba2711640ca45\", \"bytes\": 10935844, \"path\": \"mobile/updates/native/\", \"credentials_accessed\": false}\n",
+  "stderr": "",
+  "finished_at": "2026-11-04T16:26:05.772764+00:00",
+  "duration_ms": 2763
+}
