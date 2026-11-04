@@ -219,13 +219,13 @@ function password_reset_confirm(string $token,string $password):int {
             WHERE r.token_hash=? AND r.status='pending' AND r.expires_at>?
               AND u.status='active'",[$hash,now()]);
         if(!$reset)throw new InvalidArgumentException('رابط الاسترجاع منتهي أو مستخدم');
-        $claimed=execute("UPDATE password_reset_requests SET status='used',token_hash=NULL
+        $claimed=execute("UPDATE password_reset_requests SET status='used'
             WHERE id=? AND token_hash=? AND status='pending' AND expires_at>?",
             [$reset['id'],$hash,now()]);
         if($claimed!==1)throw new InvalidArgumentException('رابط الاسترجاع مستخدم بالفعل');
         execute("UPDATE users SET password_hash=?,auth_version=auth_version+1 WHERE id=? AND status='active'",
             [hash_password($password),$reset['user_id']]);
-        execute("UPDATE password_reset_requests SET status='used',token_hash=NULL
+        execute("UPDATE password_reset_requests SET status='used'
             WHERE user_id=? AND status='pending'",[$reset['user_id']]);
         db()->commit();
         return (int)$reset['user_id'];
@@ -242,7 +242,7 @@ function password_change(int $userId,string $current,string $next):int {
         WHERE id=? AND auth_version=? AND status='active'",
         [hash_password($next),$userId,(int)$u['auth_version']]);
     if($changed!==1)throw new RuntimeException('تغيرت بيانات الجلسة؛ سجّل الدخول مجددًا');
-    execute("UPDATE password_reset_requests SET status='used',token_hash=NULL
+    execute("UPDATE password_reset_requests SET status='used'
         WHERE user_id=? AND status='pending'",[$userId]);
     return (int)$u['auth_version']+1;
 }
