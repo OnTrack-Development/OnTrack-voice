@@ -36,7 +36,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Java 17-compatible shellserver compilation fai
 $classFiles = @(Get-ChildItem -LiteralPath $classes -Recurse -File -Filter '*.class')
 if ($classFiles.Count -lt 10) { throw 'Compiled shellserver classes missing.' }
 $classArgs = Join-Path $build 'classes.txt'
-@($classFiles | ForEach-Object { '"' + $_.FullName.Replace('\','/') + '"' }) |
+@($classFiles | ForEach-Object { $_.FullName.Replace('\','/') }) |
   Set-Content -LiteralPath $classArgs -Encoding utf8
 & $d8 --lib $androidJar --min-api 31 --output $jar "@$classArgs"
 if ($LASTEXITCODE -ne 0) { throw 'D8 shellserver dex compilation failed.' }
