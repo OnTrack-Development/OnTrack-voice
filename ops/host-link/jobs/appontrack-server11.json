@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "voice-site-no-mfa-signup-20261104",
+  "id": "voice-auth-web-readiness-20261105",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-04T21:31:00.858Z",
-  "expires_at": "2026-11-04T22:06:00.858Z",
+  "created_at": "2026-11-04T23:48:01.066Z",
+  "expires_at": "2026-11-05T00:23:01.066Z",
   "cwd": "/home/appontrack/public_html",
-  "timeout_seconds": 25,
+  "timeout_seconds": 27,
   "argv": [
     "/bin/python3",
     "-c",
-    "from pathlib import Path\nimport hashlib,json,os,shutil,subprocess,tempfile\nroot=Path(\"/home/appontrack/public_html\")\np=root/\"_core/Signup.php\"\nold=\"تم تأكيد البريد وإنشاء حساب شركتك. سجل الدخول لإعداد المصادقة الثنائية.\"\nnew=\"تم تأكيد البريد وإنشاء حساب شركتك. سجّل الدخول ببريدك وكلمة المرور.\"\nassert p.is_file() and not p.is_symlink()\nbefore=p.read_text()\nassert before.count(old)==1 or (before.count(new)==1 and old not in before),\"unexpected_signup_source\"\nchanged=old in before\nif changed:\n    backup_root=Path(\"/home/appontrack/backup\")\n    assert backup_root.is_dir() and not backup_root.is_symlink()\n    archive=Path(tempfile.mkdtemp(prefix=\"voice-no-mfa-signup-\",dir=backup_root))\n    os.chmod(archive,0o700)\n    shutil.copy2(p,archive/\"Signup.php\")\n    fd,temp=tempfile.mkstemp(prefix=\".signup-nomfa-\",suffix=\".php\",dir=p.parent)\n    try:\n        with os.fdopen(fd,\"w\",encoding=\"utf-8\") as output:output.write(before.replace(old,new))\n        shutil.copymode(p,temp)\n        result=subprocess.run([\"/opt/cpanel/ea-php83/root/usr/bin/php\",\"-l\",temp],capture_output=True,text=True,timeout=8)\n        assert result.returncode==0,\"php_lint_failed\"\n        os.replace(temp,p)\n    finally:\n        if os.path.exists(temp):os.remove(temp)\nfront=(root/\"index.php\").read_text();views=(root/\"_core/Views.php\").read_text()\nassert \"require __DIR__.'/_core/AdminMfa.php'\" not in front\nassert \"mfa_gate_required(\" not in front and \"mfa_route(\" not in front\nassert \"if(in_array($path,['/mfa','/mfa/setup'],true))\" in front\nassert \"password_verify($pass,\" in front and \"require_csrf();\" in front and \"$bad>=8\" in front\nassert \"verify_external_sso_ticket($ticket)\" in front\nassert \"echo card('التحقق بخطوتين'\" not in views\nassert new in p.read_text() and old not in p.read_text()\nphp=\"/opt/cpanel/ea-php83/root/usr/bin/php\"\nfor file in [root/\"index.php\",root/\"_core/Views.php\",p]:\n    c=subprocess.run([php,\"-l\",str(file)],capture_output=True,text=True,timeout=8)\n    assert c.returncode==0,\"php_lint_\"+file.name\nprint(json.dumps({\"status\":\"deployed\",\"signup_message_updated\":changed,\"site_login_otp_removed\":True,\"password_csrf_throttle_preserved\":True,\"sso_signature_preserved\":True,\"php_lint\":\"PASS\",\"signup_sha256\":hashlib.sha256(p.read_bytes()).hexdigest()},ensure_ascii=False))"
+    "from pathlib import Path\nimport json,subprocess,shutil\nprivate=Path('/home/appontrack/.ontrack-saas')\ncfg=private/'email.json'\nemail={}\nif cfg.is_file():\n  try:\n    data=json.loads(cfg.read_text())\n    email={'exists':True,'from_configured':bool(data.get('from')),'config_keys':sorted([k for k in data.keys() if not any(v in k.lower() for v in ['pass','secret','token','key'])])}\n  except Exception:email={'exists':True,'parse_ok':False}\nelse:email={'exists':False}\nphp='/opt/cpanel/ea-php83/root/usr/bin/php'\np=subprocess.run([php,'-m'],capture_output=True,text=True,timeout=8)\ngit=shutil.which('git')\ntry:\n  g=subprocess.run([git,'ls-remote','-h','git@github.com:OnTrack-Development/OnTrack-voice.git','refs/heads/feat/web-auth-complete-20261105'],capture_output=True,text=True,timeout=8) if git else None\n  github={'available':bool(g and g.returncode==0),'status':g.returncode if g else 'missing'}\nexcept Exception:github={'available':False,'status':'timeout_or_error'}\nprint(json.dumps({'email':email,'php_ready':p.returncode==0,'pdo_sqlite':'pdo_sqlite' in p.stdout.lower(),'php_bin':php,'github_ssh':github},ensure_ascii=False))\n"
   ]
 }
