@@ -36,12 +36,16 @@ function mfa_privileged(int $uid):bool {
 function mfa_record(int $uid):?array {
     return one('SELECT secret_enc,last_step FROM admin_mfa WHERE user_id=?',[$uid]);
 }
-/** A second factor can only be required after an actual, code-verified enrollment.
- * No privileged role or unverified setup draft implicitly activates MFA. */
+/**
+ * Owner decision 2026-11-04: NO second-factor verification on this website.
+ * Earlier versions forced TOTP setup for all owners/admins and challenged
+ * enrolled users on every new session. That was explicitly revoked.
+ * Existing TOTP records are retained only for non-destructive rollback;
+ * they never activate a login or SSO gate. Password verification, login
+ * throttling, CSRF, session rotation and tenant membership checks stay on.
+ */
 function mfa_gate_required(int $uid):bool {
-    // Every active owner/admin must enroll TOTP before privileged dashboard.
-    // Existing enrolled staff continue to use MFA even if their role changed.
-    return mfa_privileged($uid) || mfa_record($uid)!==null;
+    return false;
 }
 function mfa_check(int $uid,string $code):bool {
     $row=mfa_record($uid);if(!$row)return false;
