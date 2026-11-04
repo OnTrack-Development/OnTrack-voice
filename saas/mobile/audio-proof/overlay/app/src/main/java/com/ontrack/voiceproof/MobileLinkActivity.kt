@@ -51,6 +51,10 @@ class MobileLinkActivity:ComponentActivity(){
     private lateinit var banner:TextView
     private lateinit var tenantEnrollment:TenantDeviceEnrollment
     private var tenantStatusLines=arrayOf("SIM 1 — جاري التحقق","SIM 2 — جاري التحقق")
+    // Separately measured SaaS heartbeat status. Google Live stays disconnected
+    // while idle by design, and must never be called a server outage.
+    private var tenantServerState="checking"
+    private var tenantAgentCards=JSONArray()
     private var tenantStatusJob:Job?=null
     /** The user's explicit Start command may continue once Phone permission is granted. */
     private var startRequestedAfterPhonePermission=false
@@ -376,42 +380,86 @@ class MobileLinkActivity:ComponentActivity(){
                 banner.visibility=View.VISIBLE
             }
     }
-    /** Server-verified, per-SIM tenant status. Offline never appears as verified. */
+    /** Authenticated, scoped SIM heartbeats. No device bearer reaches WebView. */
     private fun requestTenantStatusRefresh() {
         if(tenantStatusJob?.isActive==true)return
         tenantStatusJob=lifecycleScope.launch {
-            val lines=withContext(Dispatchers.IO) {
-                (0..1).map { slot ->
+            val report=withContext(Dispatchers.IO) {
+                val cards=JSONArray()
+                var checked=0
+                var ok=0
+                var hardwareFailures=0
+                val lines=(0..1).map { slot ->
                     val paired=tenantEnrollment.paired(slot)
+                    val card=JSONObject().put("sim_slot",slot).put("paired",paired)
                     val hardwareIssue=if(paired)TenantSimHardware.problem(this@MobileLinkActivity,slot) else null
-                    if(!paired)
+                    val label=if(!paired){
+                        card.put("state","unlinked")
                         TenantPairingContract.statusLine(slot,false)
-                    else if(hardwareIssue!=null)
+                    }else if(hardwareIssue!=null){
+                        hardwareFailures++
+                        card.put("state","hardware").put("error",hardwareIssue.take(120))
                         TenantPairingContract.statusLine(slot,true,error=hardwareIssue)
-                    else try {
-                        val p=tenantEnrollment.heartbeat(slot)
+                    }else try {
+                        checked++
+                        val profile=tenantEnrollment.heartbeat(slot)
+                        ok++
+                        // Only published instructions are returned by the SaaS profile;
+                        // never leak full flow, device token or private identifiers.
+                        val purpose=profile.optString("instruction","")
+                            .replace(Regex("\\s+")," ").trim().take(170)
+                        card.put("state","online")
+                            .put("agent_id",profile.optInt("agent_id",-1))
+                            .put("site_id",profile.optInt("site_id",-1))
+                            .put("agent_name",profile.optString("agent_name","").take(140))
+                            .put("site_name",profile.optString("site_name","").take(140))
+                            .put("account_name",profile.optString("account_name","").take(140))
+                            .put("purpose",purpose)
+                            .put("flow_ready",profile.optBoolean("flow_ready",false))
+                            .put("flow_revision",profile.optInt("flow_revision",0))
                         TenantPairingContract.statusLine(slot,true,
-                            p.optString("account_name"),p.optString("site_name"),p.optString("agent_name")) +
-                            if(p.optBoolean("flow_ready",false)) " • Flow v"+p.optInt("flow_revision") else " • Flow غير منشور"
-                    } catch(e:SecurityException) {
+                            profile.optString("account_name"),profile.optString("site_name"),
+                            profile.optString("agent_name")) +
+                            if(profile.optBoolean("flow_ready",false))
+                                " • Flow v"+profile.optInt("flow_revision") else " • Flow غير منشور"
+                    }catch(e:SecurityException){
+                        card.put("state","revoked").put("error","اعتماد الشريحة ملغي أو منتهي")
                         TenantPairingContract.statusLine(slot,true,error="تم إلغاء الاعتماد من السيرفر")
-                    } catch(e:CancellationException) {
-                        throw e
-                    } catch(e:IllegalStateException) {
-                        TenantPairingContract.statusLine(slot,true,
-                            error=e.message?.take(120) ?: "تعذر التحقق من الاشتراك")
-                    } catch(e:Exception) {
-                        TenantPairingContract.statusLine(slot,true,error="تعذر التحقق؛ الربط غير مؤكد")
+                    }catch(e:CancellationException){throw e}
+                    catch(e:IllegalStateException){
+                        val msg=e.message?.take(120) ?: "تعذر التحقق من الاشتراك"
+                        card.put("state","error").put("error",msg)
+                        TenantPairingContract.statusLine(slot,true,error=msg)
+                    }catch(e:Exception){
+                        card.put("state","unavailable").put("error",
+                            (e.message?:"تعذر الاتصال").replace(Regex("[\\r\\n\\t]")," ").take(120))
+                        TenantPairingContract.statusLine(slot,true,error="تعذر التحقق من السيرفر؛ راجع اتصال الشريحة")
                     }
+                    cards.put(card)
+                    label
                 }
+                val health=when{
+                    checked==0 && hardwareFailures==0 -> "unlinked"
+                    checked==0 -> "device"
+                    ok==checked && hardwareFailures==0 -> "online"
+                    ok>0 -> "partial"
+                    else -> "unreachable"
+                }
+                Triple(lines,cards,health)
             }
-            tenantStatusLines=lines.toTypedArray()
+            tenantStatusLines=report.first.toTypedArray()
+            tenantAgentCards=report.second
+            tenantServerState=report.third
             sendState()
         }
     }
-    private fun openConsole(section:String=""){
+    private fun openConsole(section:String="",siteId:Int=0,agentId:Int=0){
         startActivity(Intent(this,ConsoleWebActivity::class.java).apply{
-            if(section=="agents")putExtra("section","agents")
+            if(section in setOf("agents","flows","answering","devices"))putExtra("section",section)
+            if(section=="agents" && siteId>0 && agentId>0){
+                putExtra("site_id",siteId)
+                putExtra("agent_id",agentId)
+            }
         })
     }
     private fun showScenarioMenu(){
@@ -476,7 +524,8 @@ class MobileLinkActivity:ComponentActivity(){
                 AlertDialog.Builder(this@MobileLinkActivity)
                     .setTitle("SIM ${slot+1} · سيناريو v${flow.getInt("revision")}")
                     .setView(scroll)
-                    .setPositiveButton("تعديل في الموقع"){_,_->openConsole("agents")}
+                    .setPositiveButton("فتح Flow Builder"){_,_->
+                         openConsole("agents",flow.optInt("site_id"),flow.optInt("agent_id"))}
                     .setNegativeButton("إغلاق",null).show()
             }catch(t:Throwable) {
                 if(t is CancellationException)throw t
@@ -752,6 +801,8 @@ class MobileLinkActivity:ComponentActivity(){
             .put("nativeInstallPermission",nativeUpdates.canInstallPackages())
             .put("tenantSim1",tenantStatusLines[0]).put("tenantSim2",tenantStatusLines[1])
             .put("tenantLinked",tenantEnrollment.hasAny())
+            .put("tenantServerState",tenantServerState)
+            .put("tenantAgents",tenantAgentCards)
             .put("tenantDesiredEnabled",getSharedPreferences("ontrack_tenant_voice",MODE_PRIVATE).getBoolean("enabled",false))
             .put("tenantServiceRunning",MobileLinkService.running)
             .put("tenantPairingInProgress",MobileLinkService.tenantPairingInProgress)
@@ -784,6 +835,20 @@ class MobileLinkActivity:ComponentActivity(){
                 // any old Pilot base/key fields. Never re-enable Pilot transport.
                 when(command){
                     "openConsole" -> openConsole()
+                    "openAgents" -> openConsole("agents")
+                    "openFlowBuilder" -> openConsole("flows")
+                    "showTenantFlow" -> {
+                        val slot=msg.getInt("sim_slot")
+                        check(slot in 0..1 && tenantEnrollment.paired(slot)){"الشريحة غير مربوطة"}
+                        showTenantPublishedFlow(slot)
+                    }
+                    "editTenantAgent" -> {
+                        val slot=msg.getInt("sim_slot")
+                        check(slot in 0..1 && tenantEnrollment.paired(slot)){"الشريحة غير مربوطة"}
+                        val card=tenantAgentCards.optJSONObject(slot) ?: error("حدّث بيانات الإيجنت")
+                        check(card.optString("state")=="online"){"تحقق من اتصال الشريحة أولًا"}
+                        openConsole("agents",card.optInt("site_id"),card.optInt("agent_id"))
+                    }
                     "openScenario" -> showScenarioMenu()
                     "openAnswerSettings" -> openConsole("answering")
                     "tenantMenu" -> showTenantMenu()
