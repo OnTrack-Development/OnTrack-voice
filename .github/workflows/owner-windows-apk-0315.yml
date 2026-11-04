@@ -10,6 +10,7 @@ on:
     paths:
       - .github/workflows/owner-windows-apk-0315.yml
       - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkActivity.kt
+      - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/ConsoleWebActivity.kt
       - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileOta.kt
       - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/OnTrackLaunchScreen.kt
       - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/NativeInstallResultReceiver.kt
