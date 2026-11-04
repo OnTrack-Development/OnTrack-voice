@@ -14,6 +14,23 @@ internal object TenantCallRouting {
         activeSlots.filter{it in 0..1}.distinct().singleOrNull()
             ?.takeIf{it in pairedSlots}
 
+    /**
+     * 2026-11-04 LTE regression: a carrier OFFHOOK may survive a temporary
+     * loss of the phone's DEFAULT internet network during IMS/VoLTE setup.
+     * When Gemini auth/WebSocket/PCM startup fails, the older monitor latched
+     * attempted=true for the whole call and never retried even after data
+     * returned. Limit retries, preserve the same bound SIM, and never retry a
+     * deliberate human takeover or an already live PCM session.
+     */
+    fun voiceRetryDue(
+        offhook:Boolean, enabled:Boolean, humanControl:Boolean, pcmActive:Boolean,
+        initialAttempted:Boolean, attempts:Int, maxAttempts:Int, internetValidated:Boolean,
+        nowMs:Long, nextRetryAtMs:Long
+    ):Boolean =
+        offhook && enabled && !humanControl && !pcmActive && initialAttempted &&
+        attempts in 1 until maxAttempts &&
+        internetValidated && nowMs>=nextRetryAtMs
+
     fun autoAnswerDue(
         ringing:Boolean, autoAnswerEnabled:Boolean, elapsedMs:Long,
         delaySeconds:Int, answerRequested:Boolean, humanControl:Boolean
