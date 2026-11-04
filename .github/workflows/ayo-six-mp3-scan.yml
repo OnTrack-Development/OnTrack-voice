@@ -1,0 +1,52 @@
+name: Locate six AYO Voice Demo MP3 references on owner PC
+on:
+  push:
+    branches: [voice-lab/ayo-six-mp3-20261104]
+    paths: [.github/workflows/ayo-six-mp3-scan.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scan:
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 12
+    steps:
+      - name: Inspect MP3 references on local D drive (no file upload)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $root='D:\AI'
+          $target=Join-Path $root 'AYO Voice Demo'
+          if (-not (Test-Path -LiteralPath $target -PathType Container)) {
+            $matches=@(Get-ChildItem -LiteralPath $root -Directory -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '(?i)^AYO[ _-]*Voice[ _-]*Demo$' } | Select-Object -First 5)
+            if ($matches.Count -gt 0) { $target=$matches[0].FullName }
+          }
+          $report=[ordered]@{ scanned_at_utc=(Get-Date).ToUniversalTime().ToString('o'); target=$target; folder_exists=(Test-Path -LiteralPath $target -PathType Container); mp3_count=0; mp3_files=@(); ffprobe_available=([bool](Get-Command ffprobe -ErrorAction SilentlyContinue)); synthesis_performed=$false }
+          if ($report.folder_exists) {
+            $files=@(Get-ChildItem -LiteralPath $target -File -Recurse -ErrorAction Stop | Where-Object { $_.Extension -ieq '.mp3' } | Sort-Object FullName)
+            $report.mp3_count=$files.Count
+            foreach ($f in $files) {
+              $entry=[ordered]@{name=$f.Name; relative_path=$f.FullName.Substring($target.Length).TrimStart('\'); size_bytes=$f.Length; sha256=(Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash; matching_txt_exists=(Test-Path -LiteralPath ([IO.Path]::ChangeExtension($f.FullName,'.txt')) -PathType Leaf)}
+              if ($report.ffprobe_available) {
+                try { $raw=(& ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $f.FullName 2>$null | Out-String).Trim(); $entry.duration_seconds=$raw } catch { $entry.duration_error=$_.Exception.Message }
+              }
+              $report.mp3_files+= $entry
+            }
+          }
+          $out=Join-Path $env:RUNNER_TEMP 'ayo-six-mp3-report'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $out 'report.json') -Encoding utf8
+          Write-Host "Folder exists: $($report.folder_exists); MP3 files found: $($report.mp3_count); ffprobe: $($report.ffprobe_available)"
+          foreach ($f in $report.mp3_files) { Write-Host "MP3: $($f.relative_path) | bytes=$($f.size_bytes) | transcript=$($f.matching_txt_exists) | duration=$($f.duration_seconds)" }
+          if($env:GITHUB_STEP_SUMMARY){
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "### AYO Voice Demo: $($report.mp3_count) MP3 files; folder found=$($report.folder_exists)"
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "Read-only inventory; no inference or audio uploaded."
+          }
+      - name: Upload metadata inventory (not audio)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ayo-six-mp3-inventory
+          path: ${{ runner.temp }}/ayo-six-mp3-report/report.json
+          retention-days: 5
+          if-no-files-found: ignore
