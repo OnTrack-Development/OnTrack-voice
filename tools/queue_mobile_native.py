@@ -285,9 +285,18 @@ def main():
     # Select the latest artifact from this exact source commit, and the host
     # still verifies the downloaded APK against the signed manifest hash.
     chosen=max(matches,key=lambda x:(x.get("created_at",""),int(x["id"])))
-    url=(release_asset_url(folder,meta)
-         if os.environ.get("MOBILE_NATIVE_RESCUE_MODE")=="1"
-         else download_url(chosen["id"]))
+    if os.environ.get("MOBILE_NATIVE_RESCUE_MODE")=="1":
+        try:
+            url=release_asset_url(folder,meta)
+        except urllib.error.HTTPError as e:
+            if e.code not in (403,404):raise
+            # This repository's GITHUB_TOKEN cannot create Release assets.
+            # Retry the immutable, signed Actions artifact using a fresh
+            # short-lived URL. The host still checks APK size and SHA256.
+            print("RELEASE_ASSET_WRITE_NOT_ALLOWED: using verified artifact URL",flush=True)
+            url=download_url(chosen["id"])
+    else:
+        url=download_url(chosen["id"])
     script=(Path("saas/mobile/ota/native_deploy.py")).read_text()+"\nimport sys\ndeploy(*sys.argv[1:])\nROOT.chmod(0o755) # hosting worker has a private umask; public native release files need traversable directory\n"
     now=datetime.datetime.now(datetime.timezone.utc)
     task={"schema":1,"id":job_id,"target":TARGET,"action":"exec","created_at":now.isoformat(),
