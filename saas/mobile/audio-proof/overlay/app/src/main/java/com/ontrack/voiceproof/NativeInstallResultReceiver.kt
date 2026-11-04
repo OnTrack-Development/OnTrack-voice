@@ -30,7 +30,7 @@ class NativeInstallResultReceiver:BroadcastReceiver(){
                     try {
                         consent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         context.startActivity(consent)
-                        store.edit().putString("last_native_install","بانتظار موافقة تثبيت Android").apply()
+                        store.edit().putString("last_native_install","بانتظار موافقة Android. إذا ظهر Play Protect اختر Scan app لفحص النسخة؛ لا تعطّل الحماية.").apply()
                     }catch(_:Exception){
                         store.edit().putString("last_native_install","تعذر فتح موافقة التثبيت؛ افتح إعدادات تحديث التطبيق").apply()
                     }
