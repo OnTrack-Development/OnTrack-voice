@@ -1,7 +1,6 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/_core/Bootstrap.php';
-require __DIR__.'/_core/AdminMfa.php';
 require __DIR__.'/_core/Signup.php';
 require __DIR__.'/_core/ExternalSso.php';
 require __DIR__.'/_core/Actions.php';
@@ -51,7 +50,6 @@ if($path==='/sso/confirm'){
         exit;
     }
     $local=me();
-    if($local && mfa_gate_required((int)$local['id']) && empty($_SESSION['mfa_ok']))go('/mfa');
     $linkedUid=$preview['linked_user_id'];
     if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
         require_csrf();
@@ -63,12 +61,13 @@ if($path==='/sso/confirm'){
             session_regenerate_id(true);
             $_SESSION['uid']=$result['user_id'];
             $_SESSION['account_id']=$result['account_id'];
-            // Signed federation is not a bypass for administrator second-factor.
-            $_SESSION['mfa_ok']=false;
-            unset($_SESSION['mfa_pending'],$_SESSION['mfa_pending_uid'],$_SESSION['mfa_pending_at']);
+            // Verified SSO still requires signed assertion and explicit consent.
+            // Owner decision 2026-11-04: no second-factor or OTP login challenge.
+            unset($_SESSION['mfa_ok'],$_SESSION['mfa_pending'],$_SESSION['mfa_pending_uid'],
+                $_SESSION['mfa_pending_at'],$_SESSION['mfa_failures'],$_SESSION['mfa_block_until']);
             audit($result['new_link']?'sso.identity.linked':'sso.login',
                 $result['account_id'],['integration_id'=>$result['integration_id']]);
-            go(mfa_gate_required((int)$result['user_id'])?'/mfa':'/');
+            go('/');
         }catch(Throwable $e){
             // No ticket or signature detail is ever reflected to the browser.
             http_response_code(403);
@@ -105,8 +104,10 @@ if($path==='/login') {
         if($u && password_verify($pass,$u['password_hash'])){
             session_regenerate_id(true);
             $_SESSION['uid']=(int)$u['id'];
-            $_SESSION['mfa_ok']=false;
-            unset($_SESSION['mfa_pending'],$_SESSION['mfa_pending_uid'],$_SESSION['mfa_pending_at'],$_SESSION['mfa_failures'],$_SESSION['mfa_block_until']);
+            // Password + CSRF + rate limiting remain mandatory. An old
+            // administrator TOTP enrollment must never challenge this login.
+            unset($_SESSION['mfa_ok'],$_SESSION['mfa_pending'],$_SESSION['mfa_pending_uid'],
+                $_SESSION['mfa_pending_at'],$_SESSION['mfa_failures'],$_SESSION['mfa_block_until']);
             $m=memberships((int)$u['id']);
             $_SESSION['account_id']=$m[0]['account_id']??null;
             $_SESSION['bad_logins']=0;
@@ -121,13 +122,12 @@ if($path==='/login') {
     if(me())go(!empty($_SESSION['sso_pending'])?'/sso/confirm':(memberships((int)me()['id'])?'/':'/invitations'));
     login_page();exit;
 }
-if($path==='/mfa')mfa_route();
-if($path==='/mfa/setup')mfa_route(true);
-if(!in_array($path,['/login','/logout','/mfa','/mfa/setup'],true) && me()){
-    $identity=(int)me()['id'];
-    $storedMfa=mfa_record($identity)!==null;
-    if(mfa_privileged($identity) && !$storedMfa)go('/mfa/setup');
-    if(mfa_gate_required($identity) && empty($_SESSION['mfa_ok']))go('/mfa');
+// MFA enrollment and 6-digit login codes are disabled by owner decision
+// 2026-11-04. Redirect old bookmarks without exposing an OTP form;
+// unauthenticated browsers still must pass the normal password login.
+if(in_array($path,['/mfa','/mfa/setup'],true)){
+    require_login();
+    go('/');
 }
 if($path==='/brand-logo'){
     $a=mine();if(!$a)deny(404);
