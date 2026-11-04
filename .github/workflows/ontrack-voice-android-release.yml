@@ -26,8 +26,9 @@ permissions:
   contents: write
   actions: write
 concurrency:
-  # Unique to this unified workflow; never share a lock with legacy runs.
-  group: ontrack-voice-android-unified-0321-${{ github.ref }}
+  # Same lock as pre-fix 0.3.20: cancel its queued broken APK rather
+  # than let it publish after the corrected 0.3.21 release.
+  group: ontrack-voice-android-unified-0320-${{ github.ref }}
   cancel-in-progress: true
 env:
   PYTHONUTF8: '1'
