@@ -622,6 +622,18 @@ class MobileLinkService:Service() {
                     lastState=current.state
                     showOverlay()
                     delay(750)
+                }catch(timeout:TimeoutCancellationException){
+                    // An LTE/ADB timeout must not terminate the SIM observer.
+                    // Continue monitoring the physical call and allow bounded
+                    // voice reconnect when the default internet route returns.
+                    audioStart?.cancel();audioStart=null
+                    call?.stop();call=null;tenantSession=null
+                    audioReady=false;connected=false
+                    nextAudioRetryAt=SystemClock.elapsedRealtime()+
+                        2500L*audioAttemptCount.coerceIn(1,3)
+                    callProblem="انتهت مهلة ربط الصوت (${internetRoute()})؛ محاولة استعادة"
+                    notice(callProblem)
+                    delay(1800)
                 }catch(cancelled:CancellationException){throw cancelled}
                 catch(error:Exception){
                     audioStart?.cancel();audioStart=null
