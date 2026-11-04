@@ -518,45 +518,99 @@ class MobileLinkActivity:ComponentActivity(){
             }.setNegativeButton("إغلاق",null).show()
     }
 
+    /** On-device graph preview. No remote browser and no raw JSON/text dump. */
     private fun showTenantPublishedFlow(slot:Int) {
         lifecycleScope.launch {
             try {
-                check(!MobileLinkService.inCall) { "اعرض Flow بعد انتهاء المكالمة" }
+                check(!MobileLinkService.inCall) { "افتح المخطط بعد انتهاء المكالمة" }
                 val flow=withContext(Dispatchers.IO) { tenantEnrollment.publishedFlow(slot) }
-                val flowData=flow.getJSONObject("flow")
-                val nodes=flowData.getJSONArray("nodes");val edges=flowData.getJSONArray("edges")
-                val text=StringBuilder("الصوت: ").append(flow.optString("voice"))
-                    .append("\nالتعليمات: ").append(flow.optString("instructions").take(3000))
-                    .append("\n\nخطوات السيناريو:\n")
-                for(i in 0 until nodes.length()){
-                    val n=nodes.getJSONObject(i)
-                    text.append("\n").append(i+1).append(" · ").append(n.optString("type"))
-                        .append(" [").append(n.optString("id")).append("]\n")
-                        .append(n.optString("text").take(1000)).append("\n")
+                val graph=flow.getJSONObject("flow")
+                val nodes=graph.getJSONArray("nodes")
+                val edges=graph.getJSONArray("edges")
+                val points=LinkedHashMap<String,Pair<Int,Int>>()
+                val labelMap=mapOf("start" to "بداية", "say" to "رسالة", "ask" to "سؤال",
+                    "listen" to "استماع", "condition" to "شرط", "instruction" to "تعليمات",
+                    "knowledge_lookup" to "بحث في المعرفة", "handoff" to "تحويل لموظف",
+                    "schedule" to "موعد", "end" to "نهاية")
+                val entries=ArrayList<org.json.JSONObject>()
+                for(i in 0 until minOf(nodes.length(),90)){
+                    val n=nodes.optJSONObject(i)?:continue
+                    val id=n.optString("id").take(80)
+                    if(id.isBlank()||points.containsKey(id))continue
+                    entries.add(n)
+                    points[id]=Pair(n.optInt("x",1000+(i%3)*250),n.optInt("y",100+i*175))
                 }
-                text.append("\nالروابط والشروط:\n")
-                for(i in 0 until edges.length()){
-                    val e=edges.getJSONObject(i)
-                    text.append("• ").append(e.optString("from")).append(" → ")
-                        .append(e.optString("to"))
-                    if(e.optString("label").isNotBlank())
-                        text.append(" (").append(e.optString("label").take(160)).append(")")
-                    text.append("\n")
+                val minX=points.values.minOfOrNull{it.first}?:0
+                val minY=points.values.minOfOrNull{it.second}?:0
+                val translated=points.mapValues { (_,v) ->
+                    Pair(34+((v.first-minX).coerceIn(0,10000)*0.82).toInt(),
+                         35+((v.second-minY).coerceIn(0,10000)*0.82).toInt())
                 }
-                val scroll=ScrollView(this@MobileLinkActivity)
-                scroll.addView(TextView(this@MobileLinkActivity).apply{
-                    this.text=text.toString();textSize=15f;setTextIsSelectable(true)
-                    setPadding(25,20,25,20)
-                })
+                val canvasWidth=maxOf(390,(translated.values.maxOfOrNull{it.first}?:0)+250)
+                val canvasHeight=maxOf(470,(translated.values.maxOfOrNull{it.second}?:0)+175)
+                val escape:(String)->String={android.text.TextUtils.htmlEncode(it)}
+                val html=StringBuilder()
+                html.append("<!doctype html><html lang='ar' dir='rtl'><meta charset='utf-8'>")
+                    .append("<meta name='viewport' content='width=device-width,initial-scale=1'>")
+                    .append("<style>*{box-sizing:border-box}body{margin:0;background:#101014;color:#fff;font:14px system-ui}")
+                    .append("header{padding:17px}h2{margin:0 0 5px;font-size:18px}header small{color:#ababbb}")
+                    .append(".scroller{overflow:auto;height:70vh;direction:ltr}.scene{position:relative;background:radial-gradient(circle,#363642 1px,transparent 1px) 0 0/19px 19px}")
+                    .append("svg{position:absolute;inset:0;pointer-events:none}svg path.edge{stroke:#ed2140;fill:none;stroke-width:2.7;marker-end:url(#tip)}")
+                    .append(".node{position:absolute;direction:rtl;width:205px;min-height:112px;max-height:140px;padding:14px;border-radius:17px;border:1px solid #484853;border-top:3px solid #ef2345;background:#1d1d25;box-shadow:0 9px 25px #0007;overflow:hidden}")
+                    .append(".node b{display:block;font-size:13px;margin-bottom:7px}.node span{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.6;color:#d2d2d9;font-size:12px;white-space:pre-wrap}</style>")
+                    .append("<header><h2>مخطط المحادثة</h2><small>اسحب المخطط لاستعراض الخطوات والوصلات</small></header>")
+                    .append("<div class='scroller'><div class='scene' style='width:").append(canvasWidth)
+                    .append("px;height:").append(canvasHeight).append("px'><svg width='").append(canvasWidth)
+                    .append("' height='").append(canvasHeight).append("' viewBox='0 0 ")
+                    .append(canvasWidth).append(' ').append(canvasHeight)
+                    .append("'><defs><marker id='tip' markerWidth='8' markerHeight='8' refX='7' refY='4' orient='auto'><path d='M0 0 L8 4 L0 8 z' fill='#ed2140'/></marker></defs>")
+                for(i in 0 until minOf(edges.length(),250)){
+                    val e=edges.optJSONObject(i)?:continue
+                    val from=translated[e.optString("from")]?:continue
+                    val to=translated[e.optString("to")]?:continue
+                    val sx=from.first+103;val sy=from.second+113
+                    val tx=to.first+103;val ty=to.second
+                    val mid=(sy+ty)/2
+                    html.append("<path class='edge' d='M ").append(sx).append(' ').append(sy)
+                        .append(" C ").append(sx).append(' ').append(mid).append(' ')
+                        .append(tx).append(' ').append(mid).append(' ').append(tx)
+                        .append(' ').append(ty).append("'/>")
+                }
+                html.append("</svg>")
+                for(n in entries){
+                    val xy=translated[n.optString("id")]?:continue
+                    val title=labelMap[n.optString("type")]?:"خطوة"
+                    html.append("<div class='node' style='left:").append(xy.first)
+                        .append("px;top:").append(xy.second).append("px'><b>")
+                        .append(escape(title)).append("</b><span>")
+                        .append(escape(n.optString("text").take(230).ifBlank{"خطوة في المحادثة"}))
+                        .append("</span></div>")
+                }
+                html.append("</div></div></html>")
+                val preview=WebView(this@MobileLinkActivity).apply {
+                    settings.javaScriptEnabled=false
+                    settings.allowFileAccess=false
+                    settings.allowContentAccess=false
+                    settings.blockNetworkLoads=true
+                    settings.builtInZoomControls=true
+                    settings.displayZoomControls=false
+                    loadDataWithBaseURL(null,html.toString(),"text/html","UTF-8",null)
+                }
+                val holder=LinearLayout(this@MobileLinkActivity).apply {
+                    orientation=LinearLayout.VERTICAL
+                    addView(preview,LinearLayout.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.76).toInt()))
+                }
                 AlertDialog.Builder(this@MobileLinkActivity)
-                    .setTitle("SIM ${slot+1} · سيناريو v${flow.getInt("revision")}")
-                    .setView(scroll)
-                    .setPositiveButton("فتح Flow Builder"){_,_->
-                         openConsole("agents",flow.optInt("site_id"),flow.optInt("agent_id"))}
-                    .setNegativeButton("إغلاق",null).show()
+                    .setTitle("الشريحة "+(slot+1)+" · المسار المنشور")
+                    .setView(holder)
+                    .setPositiveButton("تعديل المخطط"){_,_->
+                        openConsole("agents",flow.optInt("site_id"),flow.optInt("agent_id"))}
+                    .setNegativeButton("إغلاق",null)
+                    .setOnDismissListener{preview.destroy()}
+                    .show()
             }catch(t:Throwable) {
                 if(t is CancellationException)throw t
-                banner.text="Flow SIM ${slot+1}: "+(t.message?:"تعذر جلب النسخة المنشورة")
+                banner.text="تعذر عرض مخطط الشريحة "+(slot+1)+": "+(t.message?:"حاول مجددًا")
                 banner.visibility=View.VISIBLE
             }
         }
