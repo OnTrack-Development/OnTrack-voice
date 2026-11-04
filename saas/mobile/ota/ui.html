@@ -20,6 +20,8 @@ footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details su
 /* OnTrack Launch — premium motion, reduced-motion aware, never blocks the UI. */
 #otSplash{position:fixed;inset:0;z-index:9999;background:radial-gradient(circle at 50% 44%,#211b2f 0%,#0b101b 52%,#060912 100%);display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity .55s ease,visibility .55s ease}
 #otSplash.exit{opacity:0;visibility:hidden;pointer-events:none}
+/* Android already owns an animated, progress-aware splash. Never show a second HTML spinner. */
+#otSplash{display:none!important}
 .otHalo{width:156px;height:156px;border-radius:100%;position:relative;display:grid;place-items:center;margin-bottom:25px}
 .otHalo:before{content:"";position:absolute;inset:0;border-radius:50%;border:1px solid #e3304c50;border-top:3px solid #e3304c;animation:otOrbit 2.3s linear infinite;box-shadow:0 0 50px #e3304c12}
 .otHalo:after{content:"";position:absolute;inset:16px;border-radius:50%;border:1px solid #d0d7e028;animation:otOrbit 3.5s linear infinite reverse}
