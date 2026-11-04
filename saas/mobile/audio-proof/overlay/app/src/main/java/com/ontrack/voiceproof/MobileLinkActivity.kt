@@ -42,6 +42,7 @@ class MobileLinkActivity:ComponentActivity(){
     private lateinit var ota:MobileOta
     private lateinit var nativeUpdates:NativeUpdates
     private var nativeRelease:NativeUpdates.Release?=null
+    private var lastNativeCheckMs=0L
     private var nativeBusy=false
     private var nativeStatus="جاري فحص تحديث Android"
     private var lastNativeInstallResult=""
@@ -336,6 +337,8 @@ class MobileLinkActivity:ComponentActivity(){
                 }
                 sendState()
                 if(polls%10==1)requestTenantStatusRefresh()
+                // Foreground-only periodic release check; never downloads without consent.
+                if(polls>0 && polls%900==0 && hasWindowFocus())checkNativeUpdates()
                 if(pending!=null && !MobileLinkService.inCall){val next=pending!!;pending=null;activate(next)}
                 delay(1000)
             }
@@ -618,6 +621,10 @@ class MobileLinkActivity:ComponentActivity(){
         super.onResume()
         val result=getSharedPreferences("ontrack_link",MODE_PRIVATE)
             .getString("last_native_install","").orEmpty()
+        if(::nativeUpdates.isInitialized && lastNativeCheckMs>0L &&
+            android.os.SystemClock.elapsedRealtime()-lastNativeCheckMs>300000L) {
+            lifecycleScope.launch { checkNativeUpdates() }
+        }
         if(result.isNotBlank() && result!=lastNativeInstallResult) {
             lastNativeInstallResult=result
             nativeStatus=result
@@ -657,6 +664,7 @@ class MobileLinkActivity:ComponentActivity(){
     private suspend fun checkNativeUpdates() {
         if(nativeBusy)return
         nativeBusy=true
+        lastNativeCheckMs=android.os.SystemClock.elapsedRealtime()
         nativeStatus="جاري فحص نسخة Android…";sendState()
         try {
             nativeRelease=withContext(Dispatchers.IO){nativeUpdates.check()}
