@@ -106,14 +106,55 @@ body.light .callQuickActions button.outline{background:#fafafa}
 .tenant-sim span{font-size:12px;line-height:1.6;color:var(--muted);text-align:start;overflow-wrap:anywhere}
 #tenantDeviceCenter .row{margin-top:9px}
 .subtle-button{background:transparent;border:1px dashed var(--border);color:var(--muted);font-size:12px;margin-top:9px;padding:9px 12px;min-height:42px}
+
+/* 0.3.12 • consolidated navigation, compact hierarchy and update announcement */
+[hidden]{display:none!important}
+.otEyebrow{display:block;font-size:10px;font-weight:850;letter-spacing:.16em;color:var(--accent);margin:0 0 6px}
+.otWelcome{margin:0 0 12px;padding:15px 17px;border-radius:19px;min-height:98px}
+.otWelcome strong{display:block;font-size:19px}.otWelcome small{max-width:260px;line-height:1.6}
+.otPageIntro{padding:8px 3px 4px;margin:0 0 9px}.otPageIntro h2{font-size:22px;margin-bottom:3px}.otPageIntro p{margin:0 0 10px}
+.card{margin:10px 0;padding:17px 16px;border-radius:19px}
+.section-title{margin-bottom:4px}.section-title h2{font-size:17px;letter-spacing:-.25px}
+.otActionGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:13px}
+.otActionGrid .otAction{display:flex;gap:10px;align-items:center;justify-content:flex-start;text-align:start;min-height:55px;padding:11px 14px;border:1px solid var(--border);background:var(--raised);border-radius:14px;font-size:19px;color:var(--accent)}
+.otActionGrid .otAction span{font-size:13px;color:var(--text)}
+.otTabs{width:min(100%,780px);grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid var(--border);padding-top:8px;gap:3px}
+.otTabs button{position:relative;min-height:60px;border-radius:13px!important;line-height:1.2;gap:5px}
+.otTabs button.active{background:color-mix(in srgb,var(--accent) 11%,transparent)!important}
+.otTabs .navIcon{font-size:22px;line-height:22px}
+.otNotifyDot{position:absolute;width:7px;height:7px;top:7px;right:calc(50% - 16px);background:#ff4057;border-radius:50%;box-shadow:0 0 0 3px var(--panel)}
+.otUpdateNotice{width:100%;display:flex;text-align:start;gap:13px;align-items:center;background:linear-gradient(115deg,#56131d,#2b171b)!important;border:1px solid #a9334b!important;padding:15px 14px;border-radius:18px;box-shadow:0 12px 24px #d8123021;margin:0 0 12px;color:#fff}
+.otUpdateBell{width:44px;height:44px;display:grid;place-items:center;flex:none;background:#ff48632e;border-radius:13px;color:#ff9ba9;font-size:24px;font-weight:900}
+.otUpdateCopy{flex:1;min-width:0}.otUpdateCopy strong{display:block;font-size:14px;font-weight:850;margin-bottom:3px}.otUpdateCopy small{display:block;font-size:11px;line-height:1.6;color:#eed6dc}.otUpdateCopy b{color:#fff}
+.otUpdateArrow{font-size:27px;color:#ff9ba9}
+.otUpdateBellButton{width:42px;height:42px;min-height:42px;flex:none;border:1px solid var(--border);border-radius:12px;background:var(--control);color:var(--accent);font-size:24px;position:relative;padding:0}
+.otHeaderTools .minor{font-size:10px;padding:7px 8px;white-space:nowrap}
+#versionUpdates{scroll-margin-top:16px}
+#campaignContacts .divider:first-child{display:none}
+body.light .otUpdateNotice{background:linear-gradient(115deg,#fff0f3,#ffe5ea)!important;border-color:#ed9fad!important;color:#751424}
+body.light .otUpdateCopy small{color:#7c3443}body.light .otUpdateCopy b{color:#631324}
+@media(max-width:380px){.otTabs button{font-size:9px}.otActionGrid{gap:7px}.otHeaderTools{gap:5px}.otWelcome strong{font-size:17px}.otUpdateCopy strong{font-size:13px}}
 </style></head><body>
 <div id="uiPullStatus" hidden role="status" aria-live="polite">↻ فحص تحديث الواجهة…</div>
 <div id="otSplash" role="status" aria-live="polite"><div class="otHalo"><div class="otMonogram">OT</div></div><div class="otTitle">ONTRACK</div><div class="otSubtitle">VOICE INTELLIGENCE</div><div class="otProgress"><span class="otPulse"></span>يرجى الانتظار · جارٍ تجهيز الاتصال</div></div>
 <div class="otTopline">ONTRACK DEVELOPMENT / VOICE INTELLIGENCE</div>
-<header><div class="brand"><span class="logo">OT</span><div><h1>OnTrack Voice</h1><div class="sub">OnTrack Development · مركز الاتصال</div></div></div><div class="otHeaderTools"><button id="themeToggle" type="button" class="otThemeButton" aria-label="تبديل المظهر">☀</button><div class="minor" id="version">—</div></div></header>
-<div class="otWelcome"><div><strong>مساحة المستخدم · OnTrack Voice</strong><small>المكالمات والحملات والإيجنت في مكان واحد</small></div><div class="otSpark">✦</div></div>
+<header><div class="brand"><span class="logo">OT</span><div><h1>OnTrack Voice</h1><div class="sub">OnTrack Development · مركز الاتصال</div></div></div><div class="otHeaderTools"><button id="updateBell" type="button" class="otUpdateBellButton" hidden aria-label="تحديث جديد — فتح شاشة التحديث">↑<span class="otNotifyDot"></span></button><button id="themeToggle" type="button" class="otThemeButton" aria-label="تبديل المظهر">☀</button><div class="minor" id="version">—</div></div></header>
+<div class="otWelcome" data-panel="dashboard"><div><span class="otEyebrow">لوحة التحكم</span><strong>مركز تشغيل المكالمات</strong><small>راقب الإيجنت والشرائح من مكان واحد من غير مفاتيح إضافية.</small></div><div class="otSpark">✦</div></div>
 
-<nav class="otTabs" aria-label="التنقل"><button class="active" data-view="dashboard"><span class="navIcon">⌂</span>الرئيسية</button><button data-view="calls"><span class="navIcon">☎</span>المكالمات</button><button data-view="campaigns"><span class="navIcon">▤</span>الحملات</button><button data-view="voices"><span class="navIcon">◉</span>الأصوات</button><button data-view="settings"><span class="navIcon">⚙</span>الإعدادات</button></nav>
+<nav class="otTabs" aria-label="أقسام التطبيق">
+ <button class="active" data-view="dashboard"><span class="navIcon" aria-hidden="true">⌂</span><span>الرئيسية</span></button>
+ <button data-view="calls"><span class="navIcon" aria-hidden="true">☎</span><span>المكالمات</span></button>
+ <button data-view="campaigns"><span class="navIcon" aria-hidden="true">▦</span><span>الحملات</span></button>
+ <button data-view="device"><span class="navIcon" aria-hidden="true">▣</span><span>الجهاز</span></button>
+ <button data-view="settings"><span class="navIcon" aria-hidden="true">⚙</span><span>الإعدادات</span><span id="updateTabDot" class="otNotifyDot" hidden></span></button>
+</nav>
+<section class="otPageIntro" data-panel="device"><span class="otEyebrow">إدارة الجهاز</span><h2>الشرائح والربط</h2><p>كل شريحة والإيجنت المرتبط بها، من غير إعادة ربط الحساب.</p></section>
+<section class="otPageIntro" data-panel="settings"><span class="otEyebrow">التفضيلات</span><h2>التحديثات والإعدادات</h2><p>تحديثات التطبيق والأصوات والصلاحيات والاتصال.</p></section>
+<button id="updateNotice" type="button" class="otUpdateNotice" data-panel="dashboard" hidden aria-live="polite">
+ <span class="otUpdateBell" aria-hidden="true">↑</span>
+ <span class="otUpdateCopy"><strong>تحديث جديد جاهز</strong><small>الإصدار <b id="updateNoticeVersion">الجديد</b> · اضغط للانتقال إلى شاشة التحديث</small></span>
+ <span class="otUpdateArrow" aria-hidden="true">‹</span>
+</button>
 <section class="card" data-panel="dashboard">
 <div class="section-title"><h2>حالة الإيجنت</h2><span id="badge" class="chip">جاري الاتصال</span></div>
 <div class="status" aria-live="polite"><span class="indicator" id="dot"></span><div><strong id="mode">جاري التحميل…</strong><span class="small" id="status">التحقق من حالة الهاتف والسيرفر</span></div></div>
@@ -136,8 +177,8 @@ body.light .callQuickActions button.outline{background:#fafafa}
 </div>
 <p id="message" role="alert"></p>
 </section>
-<section class="card" data-panel="dashboard"><div class="section-title"><h2>إجراءات سريعة</h2><span class="chip">حساب المستخدم</span></div><div class="row"><button type="button" data-go="calls" class="outline">سجل المكالمات</button><button type="button" data-go="campaigns" class="primary">الحملات</button></div></section>
-<section class="card" data-panel="dashboard" id="tenantDeviceCenter">
+<section class="card" data-panel="dashboard"><div class="section-title"><h2>الوصول السريع</h2><span class="chip">الأكثر استخدامًا</span></div><div class="otActionGrid"><button type="button" data-go="calls" class="otAction">☎ <span>سجل المكالمات</span></button><button type="button" data-go="campaigns" class="otAction">▦ <span>الحملات</span></button><button type="button" data-go="device" class="otAction">▣ <span>الشرائح</span></button><button type="button" data-go="settings" class="otAction">⚙ <span>الإعدادات</span></button></div></section>
+<section class="card" data-panel="device" id="tenantDeviceCenter">
 <div class="section-title"><h2>الجهاز والسيناريو</h2><span class="chip warn" id="tenantStateBadge">التحقق من الشرائح</span></div>
 <p>اربط كل شريحة بالشركة والإيجنت من QR مستقل. عند تفعيل محرك الشركات الجديد، يستخدم كل رقم السيناريو المنشور الخاص بالشريحة. يلزم إعداد المزوّد واختبار الصوت أولًا.</p>
 <div class="tenant-sim-list" role="status" aria-live="polite">
@@ -167,11 +208,11 @@ body.light .callQuickActions button.outline{background:#fafafa}
 </section>
 <section class="card" data-panel="settings"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
 <section class="card" data-panel="settings"><h2>إعداد الهاتف</h2><p>اربط الشرائح من حساب OnTrack؛ لا تحتاج إعداد المحرك أو مفتاح API.</p><div class="row"><button id="setup">فحص الهاتف</button><button id="updates" class="outline">فحص تحديث الواجهة</button></div></section>
-<section class="card" data-panel="dashboard"><label for="tenantWorkspaceSlot">شريحة المكالمات وجهات الاتصال والحملات</label><select id="tenantWorkspaceSlot"><option value="">اختار الشريحة</option></select><p id="tenantWorkspaceHelp" class="small">كل شريحة مرتبطة بحسابها فقط.</p></section>
+<section class="card" data-panel="device"><label for="tenantWorkspaceSlot">شريحة المكالمات وجهات الاتصال والحملات</label><select id="tenantWorkspaceSlot"><option value="">اختار الشريحة</option></select><p id="tenantWorkspaceHelp" class="small">كل شريحة مرتبطة بحسابها فقط.</p></section>
 <section class="card" data-panel="calls">
 <div class="section-title"><h2>سجل المكالمات</h2><span class="chip good">تسجيل الأحداث</span></div>
 <p>سجل المكالمات الفعلي. أسماء جهات الاتصال تظهر بعد السماح بقراءة جهات الاتصال وسجل المكالمات؛ لا نخمن هوية المتصل.</p><button id="enableCallNames" class="outline" type="button">تفعيل عرض أسماء جهات الاتصال</button><p id="callNamesStatus" class="small" aria-live="polite"></p>
-<div class="otMetrics"><div class="otMetric"><span class="symbol">◷</span><strong>Call History</strong><small>الأحداث من الهاتف إلى السيرفر</small></div><div class="otMetric"><span class="symbol">≡</span><strong>التقارير</strong><small>بيانات غير متاحة بعد حتى اكتمال الربط</small></div></div>
+
 <div class="divider"></div>
 <label for="callsSearch">بحث بالاسم أو الرقم أو المعرف</label><input id="callsSearch" placeholder="اسم العميل أو رقم الهاتف" dir="auto">
 <label for="callsStatus">الحالة</label><select id="callsStatus" style="width:100%;padding:12px;background:#0d1523;color:#fff;border:1px solid #43516b;border-radius:12px"><option value="">كل الحالات</option><option value="ringing">رنين</option><option value="active">تم الرد</option><option value="ended">انتهت</option><option value="missed">لم يرد</option></select>
@@ -182,7 +223,9 @@ body.light .callQuickActions button.outline{background:#fafafa}
 <section class="card" data-panel="campaigns">
 <div class="section-title"><h2>الجدولة والحملات</h2><span class="chip warn">تشغيل تدريجي</span></div>
 <p>إضافة الأرقام والأسماء، استيراد CSV/TXT/XLSX من مركز الويب، تحديد السيناريو ووقت البدء. التنفيذ على الشريحة لا يبدأ إلا بعد اعتماد منفذ الاتصال.</p>
-<div class="otMetrics"><div class="otMetric"><span class="symbol">▦</span><strong>جهات الاتصال</strong><small>استيراد مع موافقة المستخدم</small></div><div class="otMetric"><span class="symbol">◴</span><strong>الجدولة</strong><small>مسودات آمنة قبل التشغيل</small></div></div>
+
+</section>
+<section class="card" data-panel="campaigns" id="campaignContacts"><div class="section-title"><h2>جهات الاتصال</h2><span class="chip">بموافقة المستخدم</span></div>
 <div id="nativeContactPanel" style="display:none">
 <div class="divider"></div><h2>رفع جهات الاتصال من الهاتف</h2>
 <p>اختار جهة واحدة من هاتفك، أو اسمح بقراءة دفتر الأرقام كله لمرة الاستيراد دي فقط. مش هنرفع أي رقم إلا لما تراجع العدد وتوافق.</p>
@@ -203,12 +246,14 @@ body.light .callQuickActions button.outline{background:#fafafa}
 <button id="refreshStoredContacts" class="outline">عرض قائمة الأرقام</button>
 <p class="small" id="campaignSelectedCount">لم يتم اختيار أرقام محددة؛ الحملة تستخدم كل الأرقام المؤهلة.</p>
 <div id="storedContactList" aria-live="polite"></div>
-<div class="divider"></div><h2>تشغيل الحملات من شريحة Android</h2>
+</section>
+<section class="card" data-panel="campaigns" id="campaignExecution"><div class="section-title"><h2>تشغيل الحملات من شريحة Android</h2><span class="chip warn">موافقة صريحة</span></div>
 <p>التنفيذ لا يعمل إلا بعد تفعيلك من هذا الهاتف، ومنح إذن المكالمات، واعتماد حملة مسموح بها. قد تُحتسب رسوم مكالمات من شركة الاتصالات. المكالمات التي نتيجتها غير مؤكدة لا يعاد طلبها تلقائيًا.</p>
 <label style="display:flex;align-items:start;gap:9px"><input id="simCampaignConsent" type="checkbox" style="width:auto;margin-top:4px"><span>أؤكد أن جميع المستلمين وافقوا على الاتصال وأنني أسمح باستخدام شريحة الهاتف والرصيد، مع احترام قوائم عدم الاتصال.</span></label>
 <div class="row"><button id="campaignAutoEnable" class="primary" disabled>تشغيل الحملات قيد الاختبار</button><button id="campaignAutoDisable" class="outline">إيقاف فورًا</button></div>
 <p class="small" id="campaignAutoStatus">متوقف افتراضيًا. لا يمكن تفعيله إلا بموافقة صريحة.</p>
-<div class="divider"></div><h2>إنشاء حملة من التطبيق</h2>
+</section>
+<section class="card" data-panel="campaigns" id="campaignCreate"><h2>إنشاء حملة من التطبيق</h2>
 <p>مسودة قابلة للمراجعة والتعديل. لن تبدأ أي مكالمة تلقائيًا بمجرد الحفظ.</p>
 <label for="mobileCampaignName">اسم الحملة</label><input id="mobileCampaignName" maxlength="160" placeholder="حملة العملاء الجدد" dir="auto">
 <label for="mobileCampaignStart">وقت البداية (القاهرة)</label><input id="mobileCampaignStart" type="datetime-local">
@@ -219,11 +264,12 @@ body.light .callQuickActions button.outline{background:#fafafa}
 <p id="campaignResult" class="small" role="status">الحملات المحفوظة متاحة على الهاتف والموقع.</p>
 <button id="refreshCampaigns" class="outline">تحديث الحملات</button>
 <div id="mobileCampaignList" aria-live="polite"></div>
-<div class="divider"></div><h2>تقرير المحاولات الفعلية</h2><p>الحالة مسجلة من محرك Android؛ لا تعني أن العميل رد إلا إذا وُجد إثبات مستقل.</p><div id="mobileAttemptList" aria-live="polite"></div>
+</section>
+<section class="card" data-panel="campaigns" id="campaignAttempts"><h2>تقرير المحاولات الفعلية</h2><p>الحالة مسجلة من محرك Android؛ لا تعني أن العميل رد إلا إذا وُجد إثبات مستقل.</p><div id="mobileAttemptList" aria-live="polite"></div>
 <div class="divider"></div>
 
 </section>
-<section class="card" data-panel="voices">
+<section class="card" data-panel="settings" id="voiceLibrary">
 <div class="section-title"><h2>مكتبة الأصوات</h2><span class="chip">Basic / Premium</span></div>
 <p>الأصوات الأساسية متاحة عبر جلسات Gemini الحالية. الأصوات الخاصة تحتاج اشتراكًا يتيحها ومحرك TTS متوافقًا؛ لا يُشغَّل ملف PT كأنه صوت PCM.</p>
 <div class="otMiniCard"><div><strong><span class="otDot"></span> Gemini Live</strong><small>Aoede · Kore · Puck · Charon · Fenrir — حسب إعداد الخادم</small></div><span class="chip good">أساسي</span></div>
@@ -326,6 +372,11 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
   el('disable').disabled=!engine||!s.agentEnabled||!!s.updating;
  }
  el('nativeUpdateStatus').textContent=s.nativeUpdateStatus||'جاري فحص تحديث Android…';
+  const available=!!s.nativeUpdateAvailable;
+  el('updateNotice').hidden=!available;
+  el('updateBell').hidden=!available;
+  el('updateTabDot').hidden=!available;
+  if(available)el('updateNoticeVersion').textContent=s.nativeUpdateVersion||'الجديد';
  el('upgradeAndroid').disabled=!s.nativeUpdateAvailable||s.nativeUpdateBusy||call||!!s.nativeInstallPending;
  el('upgradeAndroid').textContent=s.nativeInstallPending?'بانتظار موافقة تثبيت Android':
    s.nativeUpdateBusy?'جاري تجهيز التحديث…':
@@ -370,8 +421,15 @@ el('wifiFreeConsent').onchange=()=>{el('wifiFreeToggle').disabled=!!last.inCall|
 el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)return;send(last.wifiFreeEnabled?'wifiFreeDisable':'wifiFreeEnable')};
 el('scanAndroid').onclick=()=>send('checkNativeUpdates');
 el('upgradeAndroid').onclick=()=>send('installNativeUpdate');
+function openUpdateCenter(){
+  setView('settings');
+  el('versionUpdates').scrollIntoView({behavior:'smooth',block:'start'});
+}
+el('updateNotice').onclick=openUpdateCenter;
+el('updateBell').onclick=openUpdateCenter;
 el('updates').onclick=requestUiRefresh;
 function setView(v){
+ if(!['dashboard','calls','campaigns','device','settings'].includes(v))v='dashboard';
  document.querySelectorAll('[data-panel]').forEach(p=>p.classList.toggle('hidden-panel',p.dataset.panel!==v));
  document.querySelectorAll('.otTabs button').forEach(b=>{
   const selected=b.dataset.view===v;b.classList.toggle('active',selected);
