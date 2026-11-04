@@ -8,13 +8,14 @@ function signup_scope(string $kind='customer',?string $resellerSlug=null):array 
     if($resellerSlug!==null && $resellerSlug!==''){
         if($kind!=='customer'||!preg_match('/^[a-zA-Z0-9-]{1,100}$/D',$resellerSlug))
             throw new InvalidArgumentException('رابط الريسيلر غير صالح');
-        $reseller=one("SELECT id,name,brand_name,slug FROM accounts WHERE kind='reseller' AND slug=? AND status='active'",[$resellerSlug]);
+        $reseller=one("SELECT id,name,brand_name,slug,logo_path FROM accounts WHERE kind='reseller' AND slug=? AND status='active'",[$resellerSlug]);
         if(!$reseller)throw new InvalidArgumentException('رابط تسجيل الريسيلر غير متاح');
         return ['kind'=>'customer','parent_id'=>(int)$reseller['id'],'slug'=>(string)$reseller['slug'],
-            'brand'=>(string)($reseller['brand_name']?:$reseller['name'])];
+            'brand'=>(string)($reseller['brand_name']?:$reseller['name']),
+            'logo'=>(string)($reseller['logo_path']??'')];
     }
     return ['kind'=>$kind,'parent_id'=>(int)$platform['id'],'slug'=>'',
-        'brand'=>'OnTrack Voice'];
+        'brand'=>'OnTrack Voice','logo'=>''];
 }
 function auth_password_validate(string $password):void {
     if(strlen($password)<12||strlen($password)>128
@@ -118,7 +119,10 @@ function signup_page(?string $warning=null):never {
     $brand=$scope['brand']??'OnTrack Voice';
     $title=$kind==='reseller'?'إنشاء حساب ريسيلر':'إنشاء حساب شركة';
     if($scope && $scope['slug']!=='')$title='سجّل شركتك لدى '.(string)$scope['brand'];
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.e($title).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"></head><body class="login-body"><div class="login-backdrop"></div><main class="login-panel" style="max-width:540px;margin:5vh auto"><div class="login-brand"><span class="brand-icon">OT</span><strong>'.e($brand).'</strong></div><h1>'.e($title).'</h1><p>إنشاء حسابك يتطلب تأكيد البريد مرة واحدة. الباقات المدفوعة لا تتفعل تلقائيًا.</p>';
+    $brandIcon=$scope && $scope['slug']!=='' && $scope['logo']!==''
+        ?'<img src="/saas/console/register-logo?reseller='.rawurlencode((string)$scope['slug']).'" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:12px">'
+        :'<span class="brand-icon">OT</span>';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.e($title).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"></head><body class="login-body"><div class="login-backdrop"></div><main class="login-panel" style="max-width:540px;margin:5vh auto"><div class="login-brand">'.$brandIcon.'<strong>'.e($brand).'</strong></div><h1>'.e($title).'</h1><p>إنشاء حسابك يتطلب تأكيد البريد مرة واحدة. الباقات المدفوعة لا تتفعل تلقائيًا.</p>';
     if($warning)echo '<div class="alert danger">'.e($warning).'</div>';
     if($msg=flash('success'))echo '<div class="alert success">'.e($msg).'</div>';
     if($scope){
@@ -334,4 +338,21 @@ function password_change_page(?string $warning=null):never {
         '<label class="field">تأكيد كلمة المرور<input name="new_password_confirm" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label>'.
         '<button class="btn primary wide" type="submit">تغيير كلمة المرور</button></form>';
     auth_public_page('تغيير كلمة المرور',$body,$warning);
+}
+
+/** Public image is scoped to the active reseller and a locally stored safe logo file. */
+function signup_logo_route():never {
+    $scope=signup_scope('customer',trim((string)($_GET['reseller']??'')));
+    if($scope['slug']==='')deny(404,'الصورة غير متاحة');
+    $logo=(string)$scope['logo'];
+    if(!$logo||$logo!==basename($logo)||
+       !preg_match('/^logo-[0-9]+-[a-f0-9]{12}\.(png|jpg|webp)$/D',$logo))
+        deny(404,'الصورة غير متاحة');
+    $path=private_path().'/'.$logo;
+    if(!is_file($path)||is_link($path))deny(404,'الصورة غير متاحة');
+    $ext=strtolower(pathinfo($path,PATHINFO_EXTENSION));
+    header('Content-Type: '.(['png'=>'image/png','jpg'=>'image/jpeg','webp'=>'image/webp'][$ext]));
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: public,max-age=300');
+    readfile($path);exit;
 }
