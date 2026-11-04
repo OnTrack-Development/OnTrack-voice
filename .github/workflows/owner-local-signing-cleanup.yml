@@ -1,0 +1,43 @@
+# One-time cleanup of the temporary signing key copy under the local Actions workspace.
+# Only the owner's Windows runner is allowed; no files are uploaded.
+name: Clean temporary Android signing key from local runner workspace
+on:
+  push:
+    branches:
+      - feat/voice-production-gap-20261103
+    paths:
+      - .github/workflows/owner-local-signing-cleanup.yml
+permissions:
+  contents: read
+jobs:
+  clean:
+    if: github.actor == 'ahmedbedir'
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 5
+    steps:
+      - name: Verify recovered original certificate and delete workspace duplicate
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $keystore = Join-Path $env:USERPROFILE '.android\debug.keystore'
+          $workspaceCopy = Join-Path $env:GITHUB_WORKSPACE 'debug.keystore'
+          if (-not (Test-Path -LiteralPath $keystore)) {
+            throw 'Original key not present in the private local Android directory. Nothing deleted.'
+          }
+          $cert = Join-Path $env:RUNNER_TEMP 'owner-signing-cleanup-cert.der'
+          try {
+            & keytool -exportcert -alias androiddebugkey -keystore $keystore -storepass android -file $cert | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Could not verify original signing certificate.' }
+            $actual = (Get-FileHash -LiteralPath $cert -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f') {
+              throw 'Unexpected certificate. Nothing deleted.'
+            }
+          } finally {
+            Remove-Item -LiteralPath $cert -Force -ErrorAction SilentlyContinue
+          }
+          if (Test-Path -LiteralPath $workspaceCopy) {
+            Remove-Item -LiteralPath $workspaceCopy -Force -ErrorAction Stop
+          }
+          Write-Host 'SIGNING_IDENTITY_VERIFIED: PASS'
+          Write-Host 'WORKSPACE_SIGNING_DUPLICATE_REMOVED: PASS'
+          Write-Host 'Original private keystore remains in the local Android directory.'
