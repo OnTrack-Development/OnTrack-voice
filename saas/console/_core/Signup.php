@@ -120,7 +120,7 @@ function signup_verify_route():never {
     require_csrf();
     try{
         signup_confirm((string)($_POST['token']??''));
-        flash('success','تم تأكيد البريد وإنشاء حساب شركتك. سجل الدخول لإعداد المصادقة الثنائية.');
+        flash('success','تم تأكيد البريد وإنشاء حساب شركتك. سجّل الدخول ببريدك وكلمة المرور.');
         go('/login');
     }catch(InvalidArgumentException|RuntimeException $e){signup_verify_page($e->getMessage());}
 }
