@@ -178,6 +178,10 @@ class TenantDeviceEnrollment(private val context: Context) {
         return reply
     }
     /** New tenant voice-session authorization. Never uses a legacy pilot key.
+     * Incident 2026-11-04: a carrier OFFHOOK call must not be mistaken for
+     * an issued Gemini token. A failed SaaS authorization MUST surface its
+     * actual error and leave the user's phone under manual control; it must
+     * never record an ACTION_TAKEOVER that was not pressed.
      * One session is bound to the exact published agent, revision, SIM and site.
      * This only issues a short-lived token; it never answers a call itself.
      */
