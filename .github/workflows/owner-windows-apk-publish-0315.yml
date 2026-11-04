@@ -45,9 +45,9 @@ jobs:
           $checksum='.build\release\SHA256SUMS.txt'
           if(!(Test-Path $apk) -or !(Test-Path $checksum)){throw 'Missing signed artifact'}
           $text=(Get-Content $checksum -Raw).Trim()
-          if($text -notmatch '^SHA256 ([0-9a-f]{64})  OnTrack-Voice-0\.3\.15\.apk$'){throw 'Invalid checksum report'}
+          if($text -notmatch '^SHA256 ([0-9a-f]{64})  OnTrack-Voice-0\.3\.16\.apk$'){throw 'Invalid checksum report'}
           $expected=$Matches[1]
-          if($Matches[1] -ne $expected -or (Get-FileHash $apk -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected){throw 'APK checksum mismatch'}
+          if((Get-FileHash $apk -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected){throw 'APK checksum mismatch'}
           $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
           $signer=Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
           $analyzer=Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
@@ -58,7 +58,7 @@ jobs:
           $appId=(& $analyzer manifest application-id $apk|Out-String).Trim()
           $version=(& $analyzer manifest version-code $apk|Out-String).Trim()
           if($appId -ne 'com.ontrack.voiceproof' -or $version -ne '39'){throw 'Wrong APK or version'}
-          Write-Host 'SIGNED_0_3_15_APK_VERIFIED: PASS'
+          Write-Host 'SIGNED_0_3_16_APK_VERIFIED: PASS'
       - name: Verify signed UI 38 and sign native update metadata
         run: |
           $ErrorActionPreference='Stop'
@@ -78,7 +78,7 @@ jobs:
           $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
           & java tools/SignMobileOta.java $key .build/artifact/native
           if($LASTEXITCODE -ne 0){throw 'Native manifest signing failed'}
-          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_ota import verify as u;from queue_mobile_native import verify as n;_,_,ui=u(Path('.build/artifact/ota'));_,_,app=n(Path('.build/artifact/native'));assert ui['revision']==38 and ui['min_native']<=39<=ui['max_native'] and app['version_code']==39 and app['version_name']=='0.3.16';print('SIGNED_UI38_NATIVE38_VERIFIED')"
+          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_ota import verify as u;from queue_mobile_native import verify as n;_,_,ui=u(Path('.build/artifact/ota'));_,_,app=n(Path('.build/artifact/native'));assert ui['revision']==38 and ui['min_native']<=39<=ui['max_native'] and app['version_code']==39 and app['version_name']=='0.3.16';print('SIGNED_UI38_NATIVE39_VERIFIED')"
           if($LASTEXITCODE -ne 0){throw 'Manifest versions or signatures invalid'}
       - uses: actions/upload-artifact@v4
         with:
@@ -104,4 +104,4 @@ jobs:
         run: |
           & python tools/verify_mobile_native_host_receipt.py .build/artifact/native
           if($LASTEXITCODE -ne 0){throw 'Native host receipt missing or invalid'}
-          Write-Host 'SIGNED_ANDROID_0315_HOST_PUBLISHED: PASS'
+          Write-Host 'SIGNED_ANDROID_0316_HOST_PUBLISHED: PASS'
