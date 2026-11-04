@@ -99,4 +99,14 @@ assert 'else if(socketReady)' in session, 'Do not describe expected Google setup
 assert 'catch(error:Throwable)' in session and 'stop()' in session.split('catch(error:Throwable)',1)[1].split('private fun openSocket',1)[0], 'Audio setup failures must close pipe and restore microphone'
 assert 'audio.setMicrophoneMute(true)' in bridge and 'if (!audio.isMicrophoneMute())' in bridge and 'audio.setMicrophoneMute(wasMuted)' in bridge, 'Shell must confirm mute before PCM header and restore prior state'
 assert 'voiceproof/LinkPcm.kt' not in bridge, 'No cross-runtime PCM dependency'
+# Regression 2026-11-04: Windows built jemrec-capture.jar but Kotlin and
+# Gradle expected ontrack-voiceproof-capture.jar, yielding a signed APK
+# without the shell recorder. This static guard complements APK ZIP checking.
+windows_builder=Path('tools/build_shellserver_windows.ps1').read_text()
+android_overlay=Path('saas/mobile/audio-proof/prepare.py').read_text()
+release_workflow=Path('.github/workflows/ontrack-voice-android-release.yml').read_text()
+assert "$jar = Join-Path $dir 'ontrack-voiceproof-capture.jar'" in windows_builder, 'Windows D8 output MUST match renamed asset'
+assert "text.replace(OLD, NEW)" in android_overlay and ".replace('jemrec-', 'ontrack-voiceproof-')" in android_overlay, 'Upstream overlay no longer renames shell daemon asset'
+assert "verify_shell_jar_packaging.py .build/jemrec/app/build/outputs/apk/release/app-release-unsigned.apk" in release_workflow, 'Release APK must be inspected for actual shell daemon prior to signing'
+assert "verify_shell_jar_packaging.py $signed" in release_workflow, 'Signed APK must preserve exact D8 shell asset bytes'
 print('PASS: Android UI/telephony/PCM source contracts validated; physical phone E2E remains UNVERIFIED')
