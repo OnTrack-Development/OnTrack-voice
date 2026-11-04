@@ -1,6 +1,6 @@
 # Owner-only local Windows build of OnTrack Voice 0.3.11.
 # No Android signing keystore is committed, cached, or uploaded.
-# Builds from the exact triggering revision, using the pinned upstream commit.
+# Legacy 0.3.13 was already published. Stop redundant push builds; v0.3.14 has a separate verified release.
 name: Build and verify size-optimized OnTrack Voice 0.3.13
 run-name: Signed Android v0.3.13 R8 build and tests
 on:
@@ -20,10 +20,10 @@ env:
   PYTHONUTF8: '1'
 concurrency:
   group: owner-windows-apk-0313
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   build:
-    if: github.actor == 'ahmedbedir'
+    if: github.actor == 'ahmedbedir' && github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 110
     defaults:
