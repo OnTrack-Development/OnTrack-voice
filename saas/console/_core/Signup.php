@@ -17,7 +17,9 @@ function signup_scope(string $kind='customer',?string $resellerSlug=null):array 
         'brand'=>'OnTrack Voice'];
 }
 function auth_password_validate(string $password):void {
-    auth_password_validate($password);
+    if(strlen($password)<12||strlen($password)>128
+       ||!preg_match('/[a-zA-Z]/',$password)||!preg_match('/[0-9]/',$password))
+        throw new InvalidArgumentException('كلمة المرور تتطلب 12 حرفًا على الأقل مع حروف وأرقام');
 }
 
 function signup_validate(string $name,string $company,string $email,string $password):array {
@@ -26,9 +28,7 @@ function signup_validate(string $name,string $company,string $email,string $pass
         throw new InvalidArgumentException('الاسم واسم الشركة مطلوبان (120 حرفًا كحد أقصى)');
     if(strlen($email)>190 || !filter_var($email,FILTER_VALIDATE_EMAIL))
         throw new InvalidArgumentException('البريد الإلكتروني غير صالح');
-    if(strlen($password)<12||strlen($password)>128
-       ||!preg_match('/[a-zA-Z]/',$password)||!preg_match('/[0-9]/',$password))
-        throw new InvalidArgumentException('كلمة المرور تتطلب 12 حرفًا على الأقل مع حروف وأرقام');
+    auth_password_validate($password);
     return [$name,$company,$email];
 }
 function signup_send_email(string $email,string $token):bool {
