@@ -27,6 +27,17 @@ def duration_wav(p):
 
 print("References available:",[(p,(INPUT/p).exists()) for p in FILES],flush=True)
 from faster_whisper import WhisperModel
+import av
+# faster-whisper 1.2.1 still passes metadata_errors, removed from PyAV 19.
+# A small in-process compatibility shim reuses already installed packages
+# rather than downloading/reinstalling PyAV or the Whisper model.
+if int(av.__version__.split(".")[0]) >= 19:
+    _av_open = av.open
+    def _compatible_av_open(*args, **kwargs):
+        kwargs.pop("metadata_errors", None)
+        return _av_open(*args, **kwargs)
+    av.open = _compatible_av_open
+    print("Applied PyAV 19/faster-whisper decoder compatibility shim", flush=True)
 from faster_whisper.audio import decode_audio
 import numpy as np
 import soundfile as sf
@@ -100,3 +111,6 @@ for group in ("1",):
     if result["status"]!="generated":break
 print("FIRST_VOICE_PROOF_RESULT:",json.dumps({"samples":len(report["samples"]),"generated":sum(x.get("status")=="generated" for x in report["generations"]),"results":report["generations"]},ensure_ascii=False)[-3200:],flush=True)
 save()
+if not any(g.get("status") == "generated" for g in report["generations"]):
+    print("ERROR: No generated WAV; workflow must not be reported as successful", flush=True)
+    sys.exit(1)
