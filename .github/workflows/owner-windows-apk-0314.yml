@@ -1,4 +1,4 @@
-# Owner-only 0.3.14 Windows build: original signing identity and minified APK.
+# Owner-only immutable 0.3.14 release already built and deployed. Disable redundant push rebuilds.
 # No Android signing keystore is committed, cached, or uploaded.
 # Builds from the exact triggering revision, using the pinned upstream commit.
 name: Build and verify size-optimized OnTrack Voice 0.3.14
@@ -24,10 +24,10 @@ env:
   PYTHONUTF8: '1'
 concurrency:
   group: owner-windows-apk-0314
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   build:
-    if: github.actor == 'ahmedbedir'
+    if: github.actor == 'ahmedbedir' && github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 110
     defaults:
