@@ -14,12 +14,14 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /** One live Gemini session joined to authenticated shell PCM, no phone mic API. */
 internal class MobileLiveCall(
     private val context:Context, private val client:OkHttpClient, private val scope:CoroutineScope,
     private val session:JSONObject, private val settings:JSONObject, private val notice:(String)->Unit,
     private val outgoingCall:Boolean=false,
+    private val onAudioDiagnostics:(String)->Unit = {},
     private val onFinished:(String)->Unit = {},
 ) {
     private val stopped=AtomicBoolean(false)
@@ -49,7 +51,30 @@ internal class MobileLiveCall(
             reportTranscript.append(part)
         }
     }
+    // Never persist or upload PCM. A successful shell socket write cannot
+    // establish that the VoLTE modem/HAL delivered audio to the caller.
+    private val capturedPackets=AtomicLong(0)
+    private val audibleCapture=AtomicBoolean(false)
+    private val modelAudioBytes=AtomicLong(0)
+    private val submittedToShell=AtomicLong(0)
+    private var diagnostics:Job?=null
     private var worker:Job?=null
+    private fun observedVoiceAudio(bytes:ByteArray):Boolean {
+        if(bytes.size<2)return false
+        for(i in 0 until bytes.size-1 step 2){
+            val sample=((bytes[i].toInt() and 255) or (bytes[i+1].toInt() shl 8)).toShort().toInt()
+            if(kotlin.math.abs(sample.toLong())>=400L)return true
+        }
+        return false
+    }
+    private fun diagnosticMessage():String = when {
+        !socketReady -> "Google Live مش متصل؛ افحص الإنترنت أثناء مكالمة SIM"
+        capturedPackets.get()==0L -> "Google متصل لكن مفيش PCM من المكالمة؛ افحص التقاط VoLTE"
+        !audibleCapture.get() -> "PCM واصل لكن الصوت صامت؛ مسار VoLTE محتاج اختبار"
+        modelAudioBytes.get()==0L -> "صوت المكالمة واصل لـGoogle لكن مفيش رد صوتي من AI لسه"
+        submittedToShell.get()==0L -> "Google أرسل صوت لكنه لم يُسلّم لجسر المكالمة"
+        else -> "AI أرسل صوت للجسر؛ سماع الطرف التاني على VoLTE مش مؤكد"
+    }
     suspend fun start() {
         val token=session.getString("token")
         require(token.startsWith("auth_tokens/")) { "server did not return an ephemeral token" }
