@@ -444,6 +444,12 @@ class MobileLinkActivity:ComponentActivity(){
                             .put("purpose",purpose)
                             .put("flow_ready",profile.optBoolean("flow_ready",false))
                             .put("flow_revision",profile.optInt("flow_revision",0))
+                            // Surface the actual published auto-answer policy. A
+                            // green monitor switch is not an auto-answer grant.
+                            .put("auto_answer_enabled",
+                                profile.optJSONObject("answer_policy")?.optBoolean("auto_answer",false)?:false)
+                            .put("answer_delay_seconds",
+                                profile.optJSONObject("answer_policy")?.optInt("answer_delay_seconds",5)?:5)
                         TenantPairingContract.statusLine(slot,true,
                             profile.optString("account_name"),profile.optString("site_name"),
                             profile.optString("agent_name")) +

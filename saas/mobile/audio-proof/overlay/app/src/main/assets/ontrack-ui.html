@@ -468,6 +468,13 @@ function renderSimAgents(s){
    const purpose=document.createElement('p');purpose.className='otAgentPurpose';
    const mission=String(info.purpose||'').trim();
    if(info.state==='online'&&mission){purpose.textContent=mission.slice(0,170);card.append(purpose);}
+   if(info.state==='online'&&info.flow_ready&&typeof info.auto_answer_enabled==='boolean'){
+    const policyHint=document.createElement('p');policyHint.className='small';
+    policyHint.textContent=info.auto_answer_enabled?
+     'الرد التلقائي مفعّل · انتظار '+Math.max(0,Number(info.answer_delay_seconds)||0)+' ثانية':
+     'الرد التلقائي غير مفعّل في الإيجنت المنشور. فعّله من إعدادات الرد وانشر التغيير. الرد اليدوي ممكن.';
+    card.append(policyHint);
+   }
    const actions=document.createElement('div');actions.className='otAgentButtons';
    const flow=document.createElement('button');flow.type='button';flow.className='outline';
    flow.textContent='عرض المخطط';flow.disabled=info.state!=='online'||!info.flow_ready;
