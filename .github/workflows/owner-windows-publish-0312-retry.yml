@@ -1,0 +1,19 @@
+# One-time recovery of an already successful Android build artifact.
+# This does not rebuild, resign or install on devices; the reusable host publisher
+# verifies the original build job, checksum, package and signing identity first.
+name: Publish previously signed OnTrack Voice 0.3.12
+on:
+  push:
+    branches:
+      - feat/voice-production-gap-20261103
+    paths:
+      - .github/workflows/owner-windows-publish-0312-retry.yml
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    if: github.actor == 'ahmedbedir'
+    uses: ./.github/workflows/owner-windows-apk-publish-0312.yml
+    with:
+      source_run_id: "41756530712"
