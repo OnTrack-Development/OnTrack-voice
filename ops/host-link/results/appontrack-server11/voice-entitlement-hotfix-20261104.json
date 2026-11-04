@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-entitlement-hotfix-20261104",
+  "target": "appontrack-server11",
+  "job_sha256": "0876c279761702ac74d7cb2065619431bba84f8a457d0dbeb11aa5071818d9e9",
+  "started_at": "2026-11-04T20:05:03.952282+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"backup\": \"/home/appontrack/backup/voice-entitlement-5t11o3mo\", \"files\": [{\"path\": \"_core/TenantVoiceSession.php\", \"sha256\": \"b87b2ab8c126449d745c2a166395d30da2e9a7b0440efe9b0fc3894cfaa3a7ac\"}, {\"path\": \"device/v1/index.php\", \"sha256\": \"d90f31974fbb5c7cb2e00112c7f9bb5384b90f6ddfc475cf264d1ee7ec3e0417\"}], \"php_lint\": \"PASS\", \"runtime_smoke\": \"PASS\", \"status\": \"deployed\"}\n",
+  "stderr": "",
+  "finished_at": "2026-11-04T20:05:04.320057+00:00",
+  "duration_ms": 368
+}
