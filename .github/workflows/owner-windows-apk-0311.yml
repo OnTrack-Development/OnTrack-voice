@@ -80,6 +80,12 @@ jobs:
           $prepared = '.build/jemrec/ontrack-build-source.json'
           if (-not (Test-Path -LiteralPath $prepared)) { throw 'No source provenance produced.' }
           Write-Host 'ONTRACK_SOURCE_OVERLAY: PASS'
+      - name: Compile Android shell-side daemon with native Windows Java and D8
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
+          if (-not $?) { throw 'Windows shellserver compilation failed.' }
       - name: Run Android unit and daemon tests
         working-directory: .build/jemrec
         run: |
