@@ -53,9 +53,21 @@ def main():
         source_run=os.environ.get('MOBILE_RELEASE_SOURCE_RUN_ID',os.environ['GITHUB_RUN_ID'])
         assert source_run.isdecimal() and int(source_run)>0, 'Invalid pinned Android release run'
         artifact=request('actions/runs/'+source_run+'/artifacts?per_page=100')['artifacts']
-        artifact_name=os.environ.get('MOBILE_OTA_ARTIFACT_NAME','OnTrack-Voice-0.3.18')
+        # Regression 2026-11-04: v43 build passed but deployment selected
+        # historical v0.3.18 as its default signed artifact, causing 404.
+        # Derive the ONLY expected release name from the checked-in native
+        # version, then validate the exact source-run identity below.
+        declared=json.loads(Path('saas/mobile/ota/native_release.json').read_text())
+        artifact_name=os.environ.get('MOBILE_OTA_ARTIFACT_NAME',
+            'OnTrack-Voice-'+declared['version_name'])
         assert artifact_name in ('OnTrack-Voice-0.3.11','OnTrack-Voice-0.3.12','OnTrack-Voice-0.3.16','OnTrack-Voice-0.3.17','OnTrack-Voice-0.3.18','OnTrack-Voice-0.3.19','OnTrack-Voice-0.3.20','OnTrack-Voice-UI-OTA'), 'Unexpected OTA artifact name'
-        matches=[x for x in artifact if x['name']==artifact_name and not x['expired']]
+        source=request('actions/runs/'+source_run)
+        expected_sha=os.environ.get('MOBILE_RELEASE_SOURCE_SHA',os.environ.get('GITHUB_SHA'))
+        assert expected_sha and source.get('head_sha')==expected_sha and source.get('head_branch')=='feat/voice-production-gap-20261103', 'OTA release source mismatch'
+        matches=[x for x in artifact if
+            x['name']==artifact_name and not x['expired']
+            and x.get('workflow_run',{}).get('id')==int(source_run)
+            and x.get('workflow_run',{}).get('head_sha')==expected_sha]
         assert len(matches)==1,'Signed Android artifact missing or ambiguous'
         url=download_url(matches[0]['id'])
         program=(Path('saas/mobile/ota/deploy.py')).read_text()+'\n'+(Path('saas/mobile/ota/remote_deploy.py')).read_text()+'\nimport sys\nremote_install(sys.argv[1],sys.argv[2],sys.argv[3])\n'
