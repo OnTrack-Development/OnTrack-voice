@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-no-mfa-live-verify-20261104",
+  "target": "appontrack-server11",
+  "job_sha256": "d6d8a3c9a073587666821621314d16b56b13d38c0d0846a71701c98acc06ee3f",
+  "started_at": "2026-11-04T21:29:03.294337+00:00",
+  "status": "failed",
+  "exit_code": 1,
+  "output_truncated": false,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 7, in <module>\n  File \"/usr/lib64/python3.9/re.py\", line 201, in search\n    return _compile(pattern, flags).search(string)\n  File \"/usr/lib64/python3.9/re.py\", line 304, in _compile\n    p = sre_compile.compile(pattern, flags)\n  File \"/usr/lib64/python3.9/sre_compile.py\", line 788, in compile\n    p = sre_parse.parse(p, flags)\n  File \"/usr/lib64/python3.9/sre_parse.py\", line 955, in parse\n    p = _parse_sub(source, state, flags & SRE_FLAG_VERBOSE, 0)\n  File \"/usr/lib64/python3.9/sre_parse.py\", line 444, in _parse_sub\n    itemsappend(_parse(source, state, verbose, nested + 1,\n  File \"/usr/lib64/python3.9/sre_parse.py\", line 841, in _parse\n    p = _parse_sub(source, state, sub_verbose, nested + 1)\n  File \"/usr/lib64/python3.9/sre_parse.py\", line 444, in _parse_sub\n    itemsappend(_parse(source, state, verbose, nested + 1,\n  File \"/usr/lib64/python3.9/sre_parse.py\", line 841, in _parse\n    p = _parse_sub(source, state, sub_verbose, nested + 1)\n  File \"/usr/lib64/python3.9/sre_parse.py\", line 444, in _parse_sub\n    itemsappend(_parse(source, state, verbose, nested + 1,\n  File \"/usr/lib64/python3.9/sre_parse.py\", line 843, in _parse\n    raise source.error(\"missing ), unterminated subpattern\",\nre.error: missing ), unterminated subpattern at position 62\n",
+  "finished_at": "2026-11-04T21:29:03.343826+00:00",
+  "duration_ms": 50
+}
