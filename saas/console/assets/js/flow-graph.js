@@ -22,16 +22,16 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  let selected=data.nodes[0]?.id||null,connecting=false,scale=1,x=-420,y=22,pan=null,drag=null;
  let hovered=null,sceneWidth=3100,sceneHeight=3300;
  const shell=make('div','graph-shell'),toolbar=make('div','graph-toolbar');
- toolbar.append(make('div','graph-heading','Flow Builder · تصميم مسار المحادثة'));
+ toolbar.append(make('div','graph-heading','تصميم مسار المحادثة'));
  const tools=make('div','graph-tools'),type=make('select','graph-type');
  Object.entries(TYPES).forEach(([k,v])=>type.add(new Option(v,k)));type.value='ask';
  const button=(txt,action,klass)=>{const b=make('button','graph-btn '+(klass||''),txt);b.type='button';b.addEventListener('click',action);return b};
- const fullscreen=button('⛶ ملء الشاشة',()=>toggleFullscreen());
+ const fullscreen=button('⛶ عرض كامل',()=>toggleFullscreen());
  const add=button('+ خطوة',()=>addNode(),'primary'),connect=button('ربط',()=>{connecting=!connecting;connect.classList.toggle('selected-tool',connecting);notice.textContent=connecting?'اختار العقدة التي تريد الربط بها':'اسحب العقد أو اضغط لتعديلها'}),auto=button('ترتيب',()=>arrange());
  const zoomIn=button('+',()=>{scale=Math.min(1.6,scale+.1);transform()}),zoomOut=button('−',()=>{scale=Math.max(.08,scale-.1);transform()});
- const fit=button('⊡ احتواء',()=>fitGraph());
- auto.textContent='↔ ترتيب تلقائي';
- const raw=button('{}',()=>{source.hidden=!source.hidden;raw.classList.toggle('selected-tool',!source.hidden)});
+ const fit=button('⊡ إظهار الكل',()=>fitGraph());
+ auto.textContent='تنظيم';
+ const raw=button('عرض البيانات الفنية',()=>{source.hidden=!source.hidden;raw.classList.toggle('selected-tool',!source.hidden)});raw.hidden=true;
  tools.append(type,add,connect,auto,fit,zoomIn,zoomOut,raw,fullscreen);toolbar.append(tools);shell.append(toolbar);
  async function toggleFullscreen(){
    try {
@@ -89,7 +89,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  aiReset.setAttribute('title','امسح ذاكرة هذا الإيجنت فقط بعد التأكيد');
  aiClose.setAttribute('aria-label','إغلاق شات المساعد');
  const aiHead=make('div','graph-ai-head'),aiHeadActions=make('div','graph-ai-head-actions');
- const aiModel=make('small','graph-ai-model','Google Gemini');aiModel.setAttribute('title','الموديل الفعلي لمساعد تصميم المخطط');
+ const aiModel=make('small','graph-ai-model','مساعد التصميم');aiModel.setAttribute('title','الموديل الفعلي لمساعد تصميم المخطط');
  aiHeadActions.append(aiModel,aiReset,aiClose);aiHead.append(aiTitle,aiHeadActions);
  const aiDescription=make('p','','المساعد بيقرأ المخطط المفتوح، ويشرح مساراته، ويضيف عليه حسب طلبك من غير ما يستبدله إلا بموافقتك.');
  const aiThread=make('div','graph-ai-thread');
@@ -400,9 +400,9 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
 
  footer.append(counter,notice);shell.append(footer);
  // Real graph traversal with deterministic text input; no external AI/CRM/voice actions.
- const previewButton=button('▶ اختبار Flow نصيًا',()=>openPreview(),'primary');
+ const previewButton=button('▶ تجربة المحادثة',()=>openPreview(),'primary');
  tools.append(previewButton);
- const preview=make('section','flow-preview'),previewTitle=make('strong','','اختبار السيناريو — محاكاة نصية فقط');
+ const preview=make('section','flow-preview'),previewTitle=make('strong','','تجربة المحادثة');
  const previewClose=button('إغلاق',()=>{preview.hidden=true});
  const previewHeader=make('div','flow-preview-header');
  previewHeader.append(previewTitle,previewClose);
@@ -570,9 +570,9 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    inspector.replaceChildren(make('h3','','خصائص الخطوة'));
    const n=focus();if(!n){inspector.append(make('p','','اختار خطوة من اللوحة'));return}
    const sel=make('select');Object.entries(TYPES).forEach(([k,v])=>sel.add(new Option(v,k)));sel.value=n.type;
-   field('نوع العقدة',sel).addEventListener('change',()=>{n.type=sel.value;store();nodes()});
+   field('نوع الخطوة',sel).addEventListener('change',()=>{n.type=sel.value;store();nodes()});
    const area=make('textarea');area.rows=5;area.maxLength=900;area.value=n.text;
-   field('رسالة أو سؤال الإيجنت',area).addEventListener('input',()=>{n.text=area.value;store();nodes()});
+   field('رسالة المساعد أو سؤاله',area).addEventListener('input',()=>{n.text=area.value;store();nodes()});
    inspector.append(make('h4','','مسارات الانتقال'));
    data.edges.filter(e=>e.from===n.id).forEach(edge=>{
      const row=make('div','graph-outgoing-row'),target=data.nodes.find(t=>t.id===edge.to);
@@ -619,6 +619,21 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
      Math.max(...data.nodes.map(n=>n.y+routing.HEIGHT+470),1900));
    render();if(data.nodes.length>15)focusStart();else fitGraph();
  }
+ // The editor is initially inside a closed <details> for most agents.
+ // Measuring a hidden canvas gives width=0 and can leave the graph off-screen.
+ // Refit after opening or viewport resizing; never alter draft graph nodes.
+ const editorDetails=root.closest('details.agent-editor');
+ const refitVisible=()=>{
+   if(editorDetails&&!editorDetails.open)return;
+   if(viewport.getBoundingClientRect().width<120)return;
+   requestAnimationFrame(()=>{if(data.nodes.length>15)focusStart();else fitGraph();});
+ };
+ if(editorDetails)editorDetails.addEventListener('toggle',refitVisible);
+ if(typeof ResizeObserver!=='undefined'){
+   const sizing=new ResizeObserver(()=>{if(!root.isConnected){sizing.disconnect();return;}refitVisible();});
+   sizing.observe(viewport);
+ }
+ setTimeout(refitVisible,90);
  const editorForm=root.closest('form');
  if(editorForm)editorForm.addEventListener('submit',async event=>{
    event.preventDefault();event.stopPropagation();
