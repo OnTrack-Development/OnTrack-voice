@@ -12,6 +12,8 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  PYTHONUTF8: '1'
 concurrency:
   group: owner-windows-apk-0311
   cancel-in-progress: false
