@@ -109,9 +109,18 @@ def require_host_installed_ui(current, report, run_id, ui_envelope):
     # A separate job may have run since the UI was deployed. The current
     # job must be terminal and authenticated by the existing wait_queue gate.
     source=api("actions/runs/"+ui_run)
-    if (source.get("status")!="completed" or source.get("conclusion")!="success"
-            or source.get("head_branch")!="feat/voice-production-gap-20261103"
-            or source.get("path")!=".github/workflows/owner-windows-ui-ota-037.yml"):
+    if (source.get("status")!="completed"
+            or source.get("head_branch")!="feat/voice-production-gap-20261103"):
+        raise RuntimeError("UI_OTA_SOURCE_NOT_AUTHORIZED")
+    if source.get("path")==".github/workflows/ontrack-voice-android-release.yml":
+        # A release may fail *after* its signed UI already passed the host
+        # receipt gate. Require that exact gate to have succeeded on GitHub.
+        jobs=api("actions/runs/"+ui_run+"/jobs?per_page=100").get("jobs",[])
+        assert any(step.get("name")=="Confirm UI OTA is installed on host, not just queued"
+                   and step.get("conclusion")=="success"
+                   for job in jobs for step in job.get("steps",[])), "UI_OTA_GATE_WAS_NOT_SUCCESSFUL"
+    elif (source.get("path")!=".github/workflows/owner-windows-ui-ota-037.yml"
+          or source.get("conclusion")!="success"):
         raise RuntimeError("UI_OTA_SOURCE_NOT_AUTHORIZED")
     _, prior_bytes=read(f"ops/host-link/results/{TARGET}/{ui_job}.json")
     prior=json.loads(prior_bytes)
@@ -159,6 +168,93 @@ def download_url(artifact_id):
         return url
     raise ValueError("Expected signed artifact download redirect")
 
+def release_asset_url(folder,meta):
+    """Upload EXACT signed APK as a private GitHub Release asset.
+
+    This bypasses an Azure artifact ZIP URL that the host downloaded as
+    non-ZIP data. The worker still authenticates the signed native manifest
+    and validates SHA256/size before writing any public release file.
+    """
+    apk=folder.parent/("OnTrack-Voice-"+meta["version_name"]+".apk")
+    assert apk.is_file(),"PINNED_NATIVE_APK_MISSING"
+    apk_bytes=apk.read_bytes()
+    assert len(apk_bytes)==meta["size"] and hashlib.sha256(apk_bytes).hexdigest()==meta["sha256"],"PINNED_NATIVE_APK_HASH_MISMATCH"
+    tag="ontrack-native-v"+str(meta["version_code"])
+    try:
+        release=api("releases/tags/"+tag)
+    except urllib.error.HTTPError as e:
+        if e.code!=404:raise
+        original=api("actions/runs/"+os.environ["MOBILE_RELEASE_SOURCE_RUN_ID"])
+        assert original.get("head_sha")=="23181d90bc0133f472cae843652effa79d2175d9","Release provenance changed"
+        release=api("releases","POST",{
+            "tag_name":tag,"target_commitish":original["head_sha"],
+            "name":"OnTrack Voice "+meta["version_name"]+" - signed native delivery",
+            "body":"Private signed APK delivery only. SHA256 is verified against the signed OTA manifest before host publication.",
+            "draft":False,"prerelease":True,"make_latest":"false"})
+    assert release.get("tag_name")==tag and not release.get("draft")
+    name=apk.name
+    assets=[asset for asset in release.get("assets",[]) if asset.get("name")==name]
+    if not assets:
+        query=urllib.parse.urlencode({"name":name})
+        url=f"https://uploads.github.com/repos/{REPO}/releases/{release['id']}/assets?"+query
+        req=urllib.request.Request(url,method="POST",data=apk_bytes,headers={
+            "Authorization":"Bearer "+os.environ["GH_TOKEN"],
+            "Accept":"application/vnd.github+json",
+            "Content-Type":"application/vnd.android.package-archive",
+            "Content-Length":str(len(apk_bytes)),
+            "User-Agent":"OnTrack-Signed-Native-Release-Transport"})
+        try:
+            with urllib.request.urlopen(req,timeout=80) as response:
+                asset=json.load(response)
+        except urllib.error.HTTPError:
+            # Unknown HTTP response: confirm asset identity, never silently
+            # replace an existing release asset.
+            refreshed=api("releases/tags/"+tag)
+            candidates=[x for x in refreshed.get("assets",[]) if x.get("name")==name]
+            if len(candidates)!=1:raise
+            asset=candidates[0]
+    else:
+        assert len(assets)==1,"RELEASE_ASSET_DUPLICATE"
+        asset=assets[0]
+    assert asset.get("name")==name and asset.get("size")==len(apk_bytes)
+    if asset.get("digest"):
+        assert asset["digest"]=="sha256:"+meta["sha256"],"RELEASE_ASSET_DIGEST_MISMATCH"
+
+    # GitHub's REST API returns a short-lived authenticated redirect to the
+    # release-asset CDN. Never pass GH_TOKEN into the host job.
+    request=urllib.request.Request(API+f"releases/assets/{asset['id']}",
+        headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],
+                 "Accept":"application/octet-stream",
+                 "X-GitHub-Api-Version":"2022-11-28",
+                 "User-Agent":"OnTrack-Native-OTA-Asset"})
+    try:
+        with urllib.request.build_opener(NoRedirect()).open(request,timeout=15) as response:
+            raise RuntimeError("GITHUB_RELEASE_ASSET_REDIRECT_NOT_AVAILABLE: HTTP "+str(response.status))
+    except urllib.error.HTTPError as e:
+        if e.code not in (302,303):raise
+        location=e.headers.get("Location","")
+    parsed=urllib.parse.urlsplit(location)
+    assert parsed.scheme=="https" and parsed.hostname and (
+        parsed.hostname=="release-assets.githubusercontent.com"
+        or parsed.hostname.endswith(".blob.core.windows.net")
+        or parsed.hostname=="objects.githubusercontent.com"),"UNEXPECTED_RELEASE_ASSET_CDN"
+    # Confirm the actual CDN returns the exact signed APK, not HTML or a bad
+    # archive. Keep the URL secret: it is a short-lived private download grant.
+    digest=hashlib.sha256();size=0
+    req=urllib.request.Request(location,headers={"User-Agent":"OnTrack-Native-Asset-Verify"})
+    with urllib.request.urlopen(req,timeout=30) as response:
+        assert response.status==200,"SIGNED_RELEASE_ASSET_HTTP_NOT_200"
+        while True:
+            part=response.read(262144)
+            if not part:break
+            size+=len(part)
+            assert size<=meta["size"],"SIGNED_RELEASE_ASSET_TOO_LARGE"
+            digest.update(part)
+    assert size==meta["size"] and digest.hexdigest()==meta["sha256"],"SIGNED_RELEASE_ASSET_HASH_MISMATCH"
+    print("PRIVATE_RELEASE_ASSET_SHA256_VERIFIED",tag,flush=True)
+    return location
+
+
 def main():
     folder=Path(sys.argv[1]);envelope,cert,meta=verify(folder)
     assert os.environ.get("GITHUB_REF")=="refs/heads/feat/voice-production-gap-20261103"
@@ -174,17 +270,24 @@ def main():
     assert source_run.isdecimal() and int(source_run)>0,"Invalid pinned release source run"
     items=api("actions/runs/"+source_run+"/artifacts?per_page=100")["artifacts"]
     artifact_name=f"OnTrack-Voice-{meta['version_name']}"
+    source=api("actions/runs/"+source_run)
+    expected_sha=("23181d90bc0133f472cae843652effa79d2175d9"
+                  if os.environ.get("MOBILE_NATIVE_RESCUE_MODE")=="1"
+                  else os.environ.get("GITHUB_SHA"))
+    assert source.get("head_sha")==expected_sha and source.get("head_branch")=="feat/voice-production-gap-20261103"
     matches=[x for x in items if
         x["name"]==artifact_name and not x["expired"]
         and x.get("workflow_run",{}).get("id")==int(source_run)
         and x.get("workflow_run",{}).get("head_branch")=="feat/voice-production-gap-20261103"
-        and x.get("workflow_run",{}).get("head_sha")==os.environ.get("GITHUB_SHA")]
+        and x.get("workflow_run",{}).get("head_sha")==expected_sha]
     assert matches,"Release artifact missing or source identity mismatch"
     # A re-run may upload the same signed release under a second artifact ID.
     # Select the latest artifact from this exact source commit, and the host
     # still verifies the downloaded APK against the signed manifest hash.
     chosen=max(matches,key=lambda x:(x.get("created_at",""),int(x["id"])))
-    url=download_url(chosen["id"])
+    url=(release_asset_url(folder,meta)
+         if os.environ.get("MOBILE_NATIVE_RESCUE_MODE")=="1"
+         else download_url(chosen["id"]))
     script=(Path("saas/mobile/ota/native_deploy.py")).read_text()+"\nimport sys\ndeploy(*sys.argv[1:])\nROOT.chmod(0o755) # hosting worker has a private umask; public native release files need traversable directory\n"
     now=datetime.datetime.now(datetime.timezone.utc)
     task={"schema":1,"id":job_id,"target":TARGET,"action":"exec","created_at":now.isoformat(),
