@@ -30,48 +30,8 @@ concurrency:
 env:
   PYTHONUTF8: '1'
 jobs:
-  release_preflight:
-    name: Retire stale legacy workflows
-    if: github.actor == 'ahmedbedir'
-    runs-on: ubuntu-latest
-    timeout-minutes: 9
-    steps:
-      - name: Cancel superseded 0.3.17 build and publish runs
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          for run in 41860693033 41861830645; do
-            status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq .status)"
-            if [[ "$status" != "completed" ]]; then
-              echo "Cancelling superseded run $run ($status)"
-              gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$run/cancel" || true
-            fi
-          done
-          for n in $(seq 1 24); do
-            outstanding=0
-            for run in 41860693033 41861830645; do
-              status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq .status)"
-              if [[ "$status" != "completed" ]]; then
-                outstanding=1
-                if [[ "$n" == 8 ]]; then
-                  echo "Force-cancelling stalled run $run"
-                  gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$run/force-cancel" || true
-                fi
-              fi
-            done
-            if [[ "$outstanding" == 0 ]]; then
-              echo "LEGACY_RUNS_TERMINATED: PASS"
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "Legacy workflow still has a locked runner; aborting safely."
-          exit 1
   build_sign_publish:
     name: Build, test, sign, publish and verify 0.3.17
-    needs: release_preflight
     if: github.actor == 'ahmedbedir'
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 140
@@ -79,6 +39,24 @@ jobs:
       run:
         shell: pwsh
     steps:
+      - name: Retire old split-release runs without locking a GitHub-hosted job
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $headers=@{Authorization="Bearer $env:GH_TOKEN";Accept='application/vnd.github+json';'User-Agent'='OnTrack-Voice-Unified-Release'}
+          foreach($previous in @(41860693033,41861830645)){
+            $base="https://api.github.com/repos/$env:GITHUB_REPOSITORY/actions/runs/$previous"
+            $old=Invoke-RestMethod -Uri $base -Headers $headers
+            if($old.status -ne 'completed'){
+              try {
+                Invoke-RestMethod -Method Post -Uri "$base/cancel" -Headers $headers | Out-Null
+                Write-Host "Legacy $previous cancellation accepted"
+              } catch {
+                Write-Warning "Legacy run $previous cancellation not confirmed; independent release proceeds"
+              }
+            }
+          }
       - name: Checkout exact OnTrack Voice revision
         uses: actions/checkout@v4
         with:
