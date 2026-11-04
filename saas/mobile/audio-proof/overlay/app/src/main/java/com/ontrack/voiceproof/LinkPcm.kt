@@ -9,6 +9,21 @@ import java.io.ByteArrayOutputStream
  * (left+right)/2 until physical SIM/VoWiFi duplex tests prove otherwise.
  * This arithmetic test does not establish carrier audio availability.
  */
+/** Limit queued 16 kHz audio on unstable cellular uplinks.
+ *  A full WebSocket send queue means the caller's old PCM would reach Gemini
+ *  late; skip delayed samples instead of producing an ever-later conversation.
+ *  Wi-Fi retains its previously working 192 KiB cap.
+ */
+internal object LiveAudioQueuePolicy {
+    const val CELLULAR_MAX_PENDING_BYTES = 48L * 1024
+    const val OTHER_MAX_PENDING_BYTES = 192L * 1024
+
+    fun canSend(cellular: Boolean, pendingBytes: Long): Boolean {
+        require(pendingBytes >= 0)
+        return pendingBytes < if (cellular) CELLULAR_MAX_PENDING_BYTES else OTHER_MAX_PENDING_BYTES
+    }
+}
+
 internal class LinkPcm(private val channel: String) {
     private var sum = 0
     private var frames = 0
