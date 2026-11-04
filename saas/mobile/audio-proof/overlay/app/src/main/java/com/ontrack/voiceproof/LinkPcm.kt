@@ -2,6 +2,13 @@ package com.ontrack.voiceproof
 
 import java.io.ByteArrayOutputStream
 
+/**
+ * PCM contract: native shell emits 48kHz signed stereo 16-bit interleaved.
+ * Every 3 stereo frames -> one 16kHz mono sample for Gemini Live.
+ * Owner-confirmed Pilot input was "mix", NOT default "right": preserve
+ * (left+right)/2 until physical SIM/VoWiFi duplex tests prove otherwise.
+ * This arithmetic test does not establish carrier audio availability.
+ */
 internal class LinkPcm(private val channel: String) {
     private var sum = 0
     private var frames = 0
