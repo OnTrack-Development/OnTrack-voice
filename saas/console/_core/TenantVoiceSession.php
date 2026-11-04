@@ -6,6 +6,10 @@ require_once __DIR__.'/AiRelay.php';
  * Tenant-native Gemini Live session: no legacy global pilot bearer or pilot policy.
  * User must be paired to one SIM, and the Flow & answer policy must be published.
  * No ephemeral token is issued if the launch provider is unavailable.
+ * 2026-11-04 voice regression: a connected carrier call is NOT evidence
+ * of successful per-SIM voice_session, Google auth, PCM capture or mute.
+ * The authorized trial gate below must be diagnosed, never silently bypassed
+ * or misreported as a manual human takeover. Device E2E remains mandatory.
  */
 /**
  * Live runtime is goal-driven, not node-driven. The immutable published profile
