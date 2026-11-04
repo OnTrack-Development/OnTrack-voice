@@ -92,6 +92,7 @@ if($path==='/sso/confirm'){
 }
 
 if($path==='/register')signup_route();
+if($path==='/register-logo')signup_logo_route();
 if($path==='/verify-email')signup_verify_route();
 if($path==='/forgot-password')password_forgot_route();
 if($path==='/reset-password')password_reset_route();
