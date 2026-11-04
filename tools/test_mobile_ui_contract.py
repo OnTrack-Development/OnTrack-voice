@@ -82,7 +82,7 @@ assert 'id="tenantTest"' in ui and "send('tenantTest')" in ui, 'Missing actionab
 assert 'Number(s.nativeCode)<26' in ui, 'Native diagnostic must be unavailable in older Android releases'
 
 assert 'humanControl=true\n' in service and 'tenantSession=null;humanControl=true' not in service, 'Transport failure must not fake human takeover'
-assert 'audioReady=currentCall.active' in service and 'sessionLoad=scope.async' in service, 'PCM and SaaS readiness must be separate from phone OFFHOOK'
+assert 'audioStart=scope.async(Dispatchers.IO)' in service and 'if(audioStart?.isCompleted==true)' in service and 'audioReady=true;connected=true' in service and 'sessionLoad=scope.async' in service, 'PCM and SaaS readiness must only be true after async shell+Google setup'
 assert 'callProblem' in native, 'Native UI must show call/session faults'
 
 # Regression Evals are enforced at source/contract level alongside JVM tests.
