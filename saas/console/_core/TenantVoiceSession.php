@@ -163,9 +163,34 @@ function tenant_voice_provider():array {
         throw new RuntimeException('voice_provider_not_configured');
     return ['model'=>$model,'key'=>$key];
 }
+/**
+ * Permanent voice entitlement: account must be active, not a 24h test pass.
+ * Platform-admin devices belong to an active platform account and have no
+ * subscription/expiry gate. Tenant/reseller devices follow their account's
+ * CURRENT active paid subscription (not the elapsed age of the device or
+ * session); SIM/site/agent binding is separately validated by DevicePairing.
+ */
+function tenant_voice_entitlement_allows(?array $account,bool $subscriptionActive):bool {
+    if(!$account || ($account['status']??null)!=='active')return false;
+    return ($account['kind']??null)==='platform' || $subscriptionActive;
+}
+function tenant_voice_entitled(array $binding):bool {
+    $accountId=(int)($binding['account_id']??0);
+    if($accountId<1)return false;
+    $acct=account($accountId);
+    if(!$acct || ($acct['status']??null)!=='active')return false;
+    if(($acct['kind']??null)==='platform')return true;
+    $stamp=now();
+    $active=one("SELECT s.id FROM subscriptions s
+        JOIN plans p ON p.id=s.plan_id AND p.status='active'
+        WHERE s.account_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
+        ORDER BY s.id DESC LIMIT 1",[$accountId,$stamp,$stamp]);
+    return tenant_voice_entitlement_allows($acct,$active!==null);
+}
 /** Validate Google Live access for an authenticated paired SIM, without placing
  * a call and without making production telephony active or returning a bearer. */
 function tenant_voice_preflight(array $binding):array {
+    if(!tenant_voice_entitled($binding))throw new RuntimeException('voice_subscription_inactive');
     $definition=tenant_voice_definition($binding);
     if(ai_relay_has('voice'))$session=ai_relay_voice_session(1);
     else{$provider=tenant_voice_provider();$session=['model'=>$provider['model'],
@@ -176,32 +201,13 @@ function tenant_voice_preflight(array $binding):array {
         'agent_id'=>$definition['agent_id'],'agent_name'=>$definition['agent_name'],'site_id'=>$definition['site_id'],
         'sim_slot'=>(int)$binding['sim_slot'],'model'=>$session['model']];
 }
-/**
- * Time-limited, exact-scope owner device trial. This private config is outside
- * the webroot, is not included in releases, and cannot authorize a foreign SIM.
- * Production enablement remains a separate explicit setting.
- */
-function tenant_voice_owner_trial_enabled(array $binding):bool {
-    $file=private_path().'/tenant-voice-owner-trial.json';
-    if(!is_file($file) || filesize($file)>1024)return false;
-    $settings=json_decode((string)file_get_contents($file),true);
-    if(!is_array($settings) || ($settings['enabled']??null)!==true)return false;
-    $until=(string)($settings['expires_utc']??'');
-    if(!preg_match('/^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/D',$until))return false;
-    $expires=strtotime($until);
-    if($expires===false || $expires<=time() || $expires>time()+172800)return false;
-    foreach(['account_id','site_id','agent_id','sim_slot'] as $name){
-        if(!isset($settings[$name]) || !is_int($settings[$name]) ||
-           (int)($binding[$name]??-1)!==$settings[$name])return false;
-    }
-    return true;
-}
 function tenant_voice_session(array $binding):array {
+    // Owner decision 2026-11-04: NO time-limited 24h test/launch gate.
+    // Active platform account = admin unrestricted; all other account kinds
+    // require an active unexpired subscription. Suspended/expired are denied.
+    // Caller must still have an authenticated, active per-SIM device binding.
+    if(!tenant_voice_entitled($binding))throw new RuntimeException('voice_subscription_inactive');
     $definition=tenant_voice_definition($binding);
-    // Keep the endpoint disabled until the actual per-SIM call + PCM E2E is certified.
-    if(getenv('ONTRACK_TENANT_VOICE_ENABLED')!=='1' &&
-       !tenant_voice_owner_trial_enabled($binding))
-        throw new RuntimeException('tenant_voice_not_launched');
     if(ai_relay_has('voice'))$session=ai_relay_voice_session($definition['policy']['max_call_minutes']);
     else{$provider=tenant_voice_provider();$session=['model'=>$provider['model'],
          'token'=>tenant_voice_ephemeral_token($provider['key'],$definition['policy']['max_call_minutes'])];}
