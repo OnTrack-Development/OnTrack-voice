@@ -8,9 +8,13 @@ ui=Path('saas/mobile/ota/ui.html').read_text()
 embedded=Path('saas/mobile/audio-proof/overlay/app/src/main/assets/ontrack-ui.html').read_text()
 assert embedded == ui, 'APK embedded HTML differs from signed OTA UI; emulator will run old Pilot UI'
 native=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkActivity.kt').read_text()
+assert 'id="homeAgentCards"' in ui and 'id="agentCards"' in ui and 'id="openFlowStudio"' in ui, 'Native agent workspace not visible'
+assert 'id="serverHealth"' in ui and 'tenantServerState' in ui and 'updateConnectionHealth(s)' in ui, 'SaaS connection must not reuse voice live status'
+assert 'svg class="navIcon"' in ui and 'data-view="agents"' in ui, 'Branded vector bottom navigation missing'
+assert 'window.onTrackOpenUpdates=openUpdateCenter' in ui and 'enableUpdateNotice' in ui, 'Update notification tap not wired'
 assert 'id="updateNotice"' in ui and 'id="updateBell"' in ui and 'id="updateTabDot"' in ui, 'Native update notification controls missing'
 assert "el('updateNotice').onclick=openUpdateCenter" in ui and "setView('settings')" in ui, 'Update prompt must open the install screen'
-assert 'data-view="device"' in ui and 'data-panel="device"' in ui, 'SIM device navigation missing'
+assert 'data-view="agents"' in ui and 'data-panel="agents"' in ui, 'SIM device navigation missing'
 assert 'data-view="voices"' not in ui and 'id="voiceLibrary"' in ui, 'Voices must live under settings'
 assert '"start","enable"-> requestStartTenantMonitor()' in native, 'Start must run tenant-only action without Pilot key'
 assert 'startRequestedAfterPhonePermission=true' in native, 'A missing READ_PHONE_STATE must open the Android permission prompt'
@@ -37,7 +41,7 @@ assert 'session.optString("agent_name"' in session, 'Greeting must use agent dis
 assert 'id="key"' not in embedded and 'id="tenantWorkspaceSlot"' in embedded, 'Old Pilot UI bundled into Android APK'
 meta=json.loads(Path('saas/mobile/ota/release.json').read_text())
 assert meta['revision']>=18, 'A signed OTA revision must advance'
-assert meta['min_native']==34 and meta['max_native']==35, 'Advanced UI must not auto-replace legacy 0.3.9 with unsupported commands'
+assert meta['min_native']==34 and meta['max_native']==36, 'Advanced UI must not auto-replace legacy 0.3.9 with unsupported commands'
 assert meta['runtime']==1
 for part in ('requestUiRefresh()', "send('checkUpdates')", "data-view=\"dashboard\"", 'body.light', "readUiTheme()"):
     assert part in ui, 'Missing UI-only capability: '+part
@@ -61,7 +65,7 @@ for command in ("send('tenantMenu')", "send('tenantQrScan')", "send('tenantRefre
     assert command in ui, 'Native Android SIM bridge not wired: '+command
 inline=ui.split('<script>',1)[1].split('</script>',1)[0]
 subprocess.run(['node','--check'],input=inline,text=True,check=True)
-print('PASS: OnTrack UI OTA v32 supports Android v34-v35, navigation, notification and JS syntax')
+print('PASS: OnTrack UI OTA v33 supports Android v34-v36, navigation, notification and JS syntax')
 
 assert "Number(s.nativeCode)>=25" in ui, 'Tenant runtime must remain gated to new native version'
 assert "id=\"openAnswerSettings\"" in ui and "send('openAnswerSettings')" in ui, 'Answer settings bridge missing'
