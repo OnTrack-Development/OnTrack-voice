@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Build
+import androidx.core.app.NotificationCompat
 import android.net.Uri
 import android.provider.Settings
 import android.provider.ContactsContract
@@ -45,6 +47,7 @@ class MobileLinkActivity:ComponentActivity(){
     private var lastNativeCheckMs=0L
     private var nativeBusy=false
     private var nativeStatus="جاري فحص تحديث Android"
+    private var openUpdatesOnReady=false
     private var lastNativeInstallResult=""
     @Volatile private var wifiFreeEnabledState=false
     @Volatile private var wifiFreeReadyState=false
@@ -68,6 +71,11 @@ class MobileLinkActivity:ComponentActivity(){
     private var pendingContacts=JSONArray()
     private var pendingImportUri:Uri?=null
     private var pendingImportName=""
+    private val updateNotificationPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
+        banner.text=if(granted)"تم تفعيل إشعارات تحديث Android" else "إشعارات Android غير مفعّلة؛ يظهر التنبيه داخل التطبيق"
+        banner.visibility=View.VISIBLE
+        sendState()
+    }
     private val contactsPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
         if(granted)lifecycleScope.launch{loadAllContacts()}
         else {banner.text="لم يتم منح إذن قراءة جهات الاتصال؛ لم تُرفع أي بيانات";banner.visibility=View.VISIBLE}
@@ -239,6 +247,11 @@ class MobileLinkActivity:ComponentActivity(){
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState:Bundle?){
         super.onCreate(savedInstanceState)
+        openUpdatesOnReady=intent?.getBooleanExtra("open_updates",false)==true
+        getSystemService(android.app.NotificationManager::class.java)
+            .createNotificationChannel(android.app.NotificationChannel(
+                "ontrack_voice_updates","تحديثات OnTrack Voice",
+                android.app.NotificationManager.IMPORTANCE_DEFAULT))
         // Never erase an existing device link during an in-place signed OTA.
         // Legacy Pilot cannot launch in tenant mode, but its credential remains
         // intact for explicit, audited migration/rollback. The encrypted per-SIM
@@ -666,6 +679,39 @@ class MobileLinkActivity:ComponentActivity(){
             }
         }
     }
+    override fun onNewIntent(intent:Intent){
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if(intent.getBooleanExtra("open_updates",false)){
+            openUpdatesOnReady=true
+            if(ready)openUpdatesInWeb()
+        }
+    }
+    private fun openUpdatesInWeb(){
+        if(!ready)return
+        openUpdatesOnReady=false
+        web.evaluateJavascript("window.onTrackOpenUpdates && window.onTrackOpenUpdates()",null)
+    }
+    private fun notifyAvailableUpdate(release:NativeUpdates.Release){
+        if(Build.VERSION.SDK_INT>=33 &&
+            ContextCompat.checkSelfPermission(this,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
+            return
+        val prefs=getSharedPreferences("ontrack_native_update_alerts",MODE_PRIVATE)
+        if(prefs.getLong("last_version",-1L)>=release.versionCode)return
+        val open=Intent(this,MobileLinkActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra("open_updates",true)
+        val pending=android.app.PendingIntent.getActivity(this,1200,open,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
+        val alert=NotificationCompat.Builder(this,"ontrack_voice_updates")
+            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setContentTitle("تحديث OnTrack Voice متاح")
+            .setContentText("الإصدار "+release.versionName+" جاهز. اضغط لفتح شاشة التحديث.")
+            .setContentIntent(pending).setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT).build()
+        getSystemService(android.app.NotificationManager::class.java).notify(1200,alert)
+        prefs.edit().putLong("last_version",release.versionCode).apply()
+    }
     override fun onResume() {
         super.onResume()
         val result=getSharedPreferences("ontrack_link",MODE_PRIVATE)
@@ -719,6 +765,7 @@ class MobileLinkActivity:ComponentActivity(){
             nativeRelease=withContext(Dispatchers.IO){nativeUpdates.check()}
             nativeStatus=if(nativeRelease==null)"تطبيق Android محدّث" else
                 "إصدار Android جديد: "+nativeRelease!!.versionName
+            nativeRelease?.let { notifyAvailableUpdate(it) }
         }catch(t:Throwable){
             if(t is CancellationException)throw t
             nativeStatus="تعذر فحص تحديث Android؛ جرّب مرة أخرى"
@@ -799,6 +846,8 @@ class MobileLinkActivity:ComponentActivity(){
             .put("nativeUpdateStatus",nativeStatus)
             .put("nativeInstallPending",nativeUpdates.installPending())
             .put("nativeInstallPermission",nativeUpdates.canInstallPackages())
+            .put("nativeUpdateNotificationsEnabled",Build.VERSION.SDK_INT<33 ||
+                ContextCompat.checkSelfPermission(this,Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED)
             .put("tenantSim1",tenantStatusLines[0]).put("tenantSim2",tenantStatusLines[1])
             .put("tenantLinked",tenantEnrollment.hasAny())
             .put("tenantServerState",tenantServerState)
@@ -867,6 +916,7 @@ class MobileLinkActivity:ComponentActivity(){
                         web.postDelayed({splash?.hide();banner.visibility=View.GONE},550)
                         val initial=JSONObject().put("base","").put("key","")
                         web.evaluateJavascript("window.onTrackInit && window.onTrackInit($initial)",null)
+                        if(openUpdatesOnReady)openUpdatesInWeb()
                     }
                     "stop","disable"->{
                         startRequestedAfterPhonePermission=false
@@ -959,6 +1009,15 @@ class MobileLinkActivity:ComponentActivity(){
                     "checkUpdates"->checkUpdates()
                     "checkNativeUpdates"->checkNativeUpdates()
                     "installNativeUpdate"->installNativeUpdate()
+                    "enableUpdateNotifications"->{
+                        if(Build.VERSION.SDK_INT>=33 &&
+                            ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
+                            updateNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        else {
+                            banner.text="إشعارات تحديث Android مفعّلة"
+                            banner.visibility=View.VISIBLE
+                        }
+                    }
                     "wifiFreeEnable"->setWifiFreeMode(true)
                     "wifiFreeDisable"->setWifiFreeMode(false)
                     "rollback"->{check(!MobileLinkService.inCall){"انتظر نهاية المكالمة"};show(withContext(Dispatchers.IO){ota.rollback(false)});banner.text="تم الرجوع للواجهة السابقة"}
