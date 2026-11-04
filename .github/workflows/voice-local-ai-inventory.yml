@@ -1,0 +1,38 @@
+name: OnTrack Voice - inspect local AI voice files
+
+on:
+  workflow_dispatch:
+    inputs:
+      folder_path:
+        description: 'Optional exact AI folder path on the Windows runner (e.g. D:\AI). Leave blank to search common AI locations.'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    name: Inspect voice assets on owner PC (read-only)
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Inspect local files
+        shell: pwsh
+        env:
+          AI_FOLDER_PATH: ${{ inputs.folder_path }}
+        run: |
+          ./tools/voice_lab/inspect_local_audio.ps1 -FolderPath "$env:AI_FOLDER_PATH" -OutputDirectory (Join-Path $env:RUNNER_TEMP 'ontrack-voice-audio-inventory')
+
+      - name: Upload file inventory only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-ai-voice-file-inventory
+          path: ${{ runner.temp }}/ontrack-voice-audio-inventory/
+          if-no-files-found: ignore
+          retention-days: 7
