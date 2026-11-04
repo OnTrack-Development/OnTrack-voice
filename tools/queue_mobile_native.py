@@ -89,6 +89,59 @@ def require_successful_ui_release(current, report, run_id, ui_envelope):
         raise RuntimeError("UI_OTA_HOST_PROOF_INVALID: native release blocked") from exc
 
 
+
+def require_host_installed_ui(current, report, run_id, ui_envelope):
+    """Prove that the exact signed UI is STILL served by the real host.
+
+    The signed UI and native workflows may be separated by a successful SaaS
+    host job. The queue is single-slot, so it is wrong to require a completed
+    UI publication to remain the *most recent* queue entry forever. Preserve
+    the strict current-job proof whenever possible; otherwise require BOTH
+    its immutable host success receipt and the byte-identical live manifest.
+    """
+    ui_run=os.environ.get("MOBILE_UI_ALREADY_PUBLISHED_RUN_ID",str(run_id))
+    if not ui_run.isdecimal() or int(ui_run)<=0:
+        raise RuntimeError("SIGNED_UI_PROVENANCE_INVALID")
+    ui_job="mobile-ota-"+ui_run
+    if current.get("id")==ui_job:
+        require_successful_ui_release(current,report,run_id,ui_envelope)
+        return
+    # A separate job may have run since the UI was deployed. The current
+    # job must be terminal and authenticated by the existing wait_queue gate.
+    source=api("actions/runs/"+ui_run)
+    if (source.get("status")!="completed" or source.get("conclusion")!="success"
+            or source.get("head_branch")!="feat/voice-production-gap-20261103"
+            or source.get("path")!=".github/workflows/owner-windows-ui-ota-037.yml"):
+        raise RuntimeError("UI_OTA_SOURCE_NOT_AUTHORIZED")
+    _, prior_bytes=read(f"ops/host-link/results/{TARGET}/{ui_job}.json")
+    prior=json.loads(prior_bytes)
+    if (prior.get("job_id")!=ui_job or prior.get("target")!=TARGET
+            or prior.get("status")!="success" or prior.get("exit_code")!=0
+            or not isinstance(prior.get("job_sha256"),str)
+            or len(prior["job_sha256"])!=64):
+        raise RuntimeError("UI_OTA_HISTORIC_RECEIPT_INVALID")
+    expected=json.loads(ui_envelope["payload"])
+    received=json.loads(prior.get("stdout") or "{}")
+    if (received.get("status")!="installed" or received.get("scope")!="mobile/updates"
+            or type(received.get("revision")) is not int
+            or received["revision"]!=expected["revision"]
+            or received.get("sha256")!=expected["sha256"]):
+        raise RuntimeError("UI_OTA_HISTORIC_RECEIPT_MISMATCH")
+    # The host's current signed manifest must be byte-identical to the
+    # just-verified signing artifact. Ignore caches, redirects, and HTML errors.
+    url="https://app.ontrackegy.com/mobile/updates/latest.json"
+    request=urllib.request.Request(url,headers={
+        "Cache-Control":"no-cache", "Pragma":"no-cache",
+        "User-Agent":"OnTrack-Voice-Native-UI-Proof"})
+    with urllib.request.build_opener(NoRedirect()).open(request,timeout=12) as response:
+        if response.status!=200:
+            raise RuntimeError("UI_OTA_HOST_HTTP_NOT_200")
+        raw=response.read(16385)
+    if len(raw)>16384 or json.loads(raw)!=ui_envelope:
+        raise RuntimeError("UI_OTA_HOST_MANIFEST_DIFFERENT: native release blocked")
+    print("SIGNED_UI_HISTORIC_RECEIPT_AND_LIVE_MANIFEST: PASS",ui_job,flush=True)
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,req,fp,code,msg,headers,newurl):return None
 
@@ -113,7 +166,7 @@ def main():
     ui_manifest=folder.parent/"ota"/"latest.json"
     if not ui_manifest.is_file():
         raise RuntimeError("UI_OTA_SIGNED_ARTIFACT_MISSING: native release blocked")
-    require_successful_ui_release(current,report,os.environ["GITHUB_RUN_ID"],json.loads(ui_manifest.read_text()))
+    require_host_installed_ui(current,report,os.environ["GITHUB_RUN_ID"],json.loads(ui_manifest.read_text()))
     job_id="mobile-native-"+os.environ["GITHUB_RUN_ID"]
     if current["id"]==job_id:
         print(json.dumps({"status":"ALREADY_QUEUED","id":job_id}));return
