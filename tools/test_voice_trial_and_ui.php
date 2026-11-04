@@ -6,7 +6,7 @@ require dirname(__DIR__).'/saas/console/_core/Views.php';
 function pass(bool $condition,string $why):void {
     if(!$condition)throw new RuntimeException('TEST_FAILURE: '.$why);
 }
-// Never write a staging trial during a test run on the actual host.
+// All CI checks run in isolated staging, never against the live host.
 if(is_dir('/home/appontrack'))throw new RuntimeException('Test must run in isolated CI, not on hosted production');
 $path=private_path().'/tenant-voice-owner-trial.json';
 if(is_file($path))throw new RuntimeException('Refusing to replace an existing private trial');
