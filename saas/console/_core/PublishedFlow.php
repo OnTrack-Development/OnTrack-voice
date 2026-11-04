@@ -2,7 +2,12 @@
 declare(strict_types=1);
 require_once __DIR__.'/FlowPreview.php';
 require_once __DIR__.'/AgentAnswerPolicy.php';
-/** Immutable, tenant-scoped agent versions. Publishing does not itself start SIM audio. */
+/**
+ * Immutable, tenant-scoped agent versions. Publishing does not start SIM audio.
+ * The snapshot hash deliberately includes answer_policy_json, so toggling
+ * auto_answer in an editor requires publish_agent_flow() again before the
+ * device's published_flow request can see it. No device reads draft policy.
+ */
 function published_agent_flow(int $accountId,int $siteId,int $agentId):?array {
     return one("SELECT v.* FROM agent_flow_versions v
         JOIN agents ag ON ag.id=v.agent_id AND ag.account_id=v.account_id
