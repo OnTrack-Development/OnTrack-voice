@@ -7,6 +7,7 @@ from pathlib import Path
 ui=Path('saas/mobile/ota/ui.html').read_text()
 embedded=Path('saas/mobile/audio-proof/overlay/app/src/main/assets/ontrack-ui.html').read_text()
 assert embedded == ui, 'APK embedded HTML differs from signed OTA UI; emulator will run old Pilot UI'
+assert '#otSplash{display:none!important}' in ui, 'Native splash must not be followed by a second WebView spinner'
 native=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkActivity.kt').read_text()
 assert 'id="homeAgentCards"' in ui and 'id="agentCards"' in ui and 'id="openFlowStudio"' in ui, 'Native agent workspace not visible'
 assert 'id="serverHealth"' in ui and 'tenantServerState' in ui and 'updateConnectionHealth(s)' in ui, 'SaaS connection must not reuse voice live status'
@@ -40,7 +41,7 @@ assert 'session.optString("agent_name"' in session, 'Greeting must use agent dis
 
 assert 'id="key"' not in embedded and 'id="tenantWorkspaceSlot"' in embedded, 'Old Pilot UI bundled into Android APK'
 meta=json.loads(Path('saas/mobile/ota/release.json').read_text())
-assert meta['revision']>=18, 'A signed OTA revision must advance'
+assert meta['revision']>=36, 'A signed OTA revision must advance'
 assert meta['min_native']==34 and meta['max_native']==37, 'Advanced UI must not auto-replace legacy 0.3.9 with unsupported commands'
 assert meta['runtime']==1
 for part in ('requestUiRefresh()', "send('checkUpdates')", "data-view=\"dashboard\"", 'body.light', "readUiTheme()"):
@@ -65,7 +66,7 @@ for command in ("send('tenantMenu')", "send('tenantQrScan')", "send('tenantRefre
     assert command in ui, 'Native Android SIM bridge not wired: '+command
 inline=ui.split('<script>',1)[1].split('</script>',1)[0]
 subprocess.run(['node','--check'],input=inline,text=True,check=True)
-print('PASS: OnTrack UI OTA v35 supports Android v34-v37, navigation, notification and JS syntax')
+print('PASS: OnTrack UI OTA v36 supports Android v34-v37, navigation, notification and JS syntax')
 
 assert "Number(s.nativeCode)>=25" in ui, 'Tenant runtime must remain gated to new native version'
 assert "id=\"openAnswerSettings\"" in ui and "send('openAnswerSettings')" in ui, 'Answer settings bridge missing'
