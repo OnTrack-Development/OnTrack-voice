@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - feat/voice-production-gap-20261103
+      - feat/web-auth-complete-20261105
     paths:
       - .github/workflows/owner-windows-saas-ui-publish.yml
       - saas/console/_core/Views.php
@@ -21,6 +22,39 @@ concurrency:
 env:
   PYTHONUTF8: '1'
 jobs:
+  web_auth_validate:
+    if: github.ref == 'refs/heads/feat/web-auth-complete-20261105'
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 18
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify web signup, password recovery PHP syntax and tenant fixtures
+        run: |
+          $ErrorActionPreference='Stop'
+          $php=Get-Command php -ErrorAction SilentlyContinue
+          if (-not $php) { throw 'PHP is unavailable on this self-hosted runner; cannot claim web-auth validation.' }
+          $ext=(& php -m | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw 'PHP module inventory failed.' }
+          Get-ChildItem -Path saas/console -Filter '*.php' -File -Recurse | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP syntax failed: '+$_.FullName) }
+          }
+          & php -l tools/test_verified_signup.php
+          if ($LASTEXITCODE -ne 0) { throw 'Web auth test syntax failed.' }
+          Write-Host 'WEB_AUTH_PHP_LINT: PASS'
+          if ($ext -notmatch 'pdo_sqlite' -or $ext -notmatch 'mbstring') {
+            throw 'PHP PDO SQLite/mbstring unavailable; isolated E2E not run.'
+          }
+          $env:TEMP=Join-Path $env:RUNNER_TEMP ('web-auth-'+$env:GITHUB_RUN_ID)
+          New-Item -Path $env:TEMP -ItemType Directory -Force | Out-Null
+          & php tools/test_voice_saas_console.php
+          if ($LASTEXITCODE -ne 0) { throw 'Registration/recovery/tenant smoke failed.' }
+          Write-Host 'WEB_AUTH_TENANT_SQLITE_E2E: PASS'
   publish:
     if: github.actor == 'ahmedbedir' && github.ref == 'refs/heads/feat/voice-production-gap-20261103'
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
