@@ -685,3 +685,29 @@ body:not(.light) .wa-manual-notice{background:#15243d;border-color:#38557e;color
 @media(max-width:540px){
  .workspace-return-top>.btn{max-width:135px;min-height:35px;padding:6px 8px}
 }
+
+
+/* 2026-11-04 UX: builder controls are a single scrollable rail, never overlapping cards. */
+.graph-shell{background:var(--panel);border-radius:20px}
+.graph-toolbar{flex-direction:column;align-items:stretch;gap:10px;padding:12px}
+.graph-heading{font-size:15px}
+.graph-tools{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:8px;width:100%;padding:3px 2px 8px;scrollbar-width:thin;scroll-snap-type:x proximity}
+.graph-tools>*{flex:0 0 auto;scroll-snap-align:start}
+.graph-type{min-width:150px;max-width:200px}
+.graph-btn{white-space:nowrap;min-height:42px;padding:10px 12px;font-size:12px}
+.graph-btn[hidden]{display:none!important}
+.graph-viewport{background-color:var(--bg);min-width:0;width:100%;contain:layout paint}
+.graph-inspector{min-width:0}
+.graph-node{overflow:hidden}
+.graph-shell .graph-layout{min-height:490px}
+.agent-builder-tabs{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:8px;scrollbar-width:thin}
+.agent-builder-tab{white-space:nowrap;flex:none}
+@media(max-width:620px){
+ .graph-toolbar{padding:10px}
+ .graph-tools{align-items:center;flex-direction:row!important}
+ .graph-layout,.graph-shell .graph-layout{display:flex;flex-direction:column;max-height:none}
+ .graph-viewport,.graph-shell .graph-viewport{height:59dvh;min-height:360px;flex:none}
+ .graph-inspector{max-height:240px;overflow:auto}
+ .graph-footer{align-items:flex-start}
+ .graph-btn{min-height:42px}
+}
