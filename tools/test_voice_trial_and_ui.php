@@ -8,26 +8,14 @@ function pass(bool $condition,string $why):void {
 }
 // All CI checks run in isolated staging, never against the live host.
 if(is_dir('/home/appontrack'))throw new RuntimeException('Test must run in isolated CI, not on hosted production');
-$path=private_path().'/tenant-voice-owner-trial.json';
-if(is_file($path))throw new RuntimeException('Refusing to replace an existing private trial');
-$b=['account_id'=>1,'site_id'=>6,'agent_id'=>7,'sim_slot'=>0];
-pass(!tenant_voice_owner_trial_enabled($b),'trial disabled by default');
-$settings=['enabled'=>true,'account_id'=>1,'site_id'=>6,'agent_id'=>7,'sim_slot'=>0,
-    'expires_utc'=>gmdate('Y-m-d\\TH:i:s\\Z',time()+3600)];
-try {
-    file_put_contents($path,json_encode($settings,JSON_THROW_ON_ERROR));
-    pass(tenant_voice_owner_trial_enabled($b),'explicit owner SIM 1 trial enabled');
-    foreach(['account_id','site_id','agent_id','sim_slot'] as $field) {
-        $foreign=$b;$foreign[$field]++;
-        pass(!tenant_voice_owner_trial_enabled($foreign),'foreign scope denied: '.$field);
-    }
-    $settings['expires_utc']=gmdate('Y-m-d\\TH:i:s\\Z',time()-5);
-    file_put_contents($path,json_encode($settings,JSON_THROW_ON_ERROR));
-    pass(!tenant_voice_owner_trial_enabled($b),'expired trial denied');
-    $settings['expires_utc']=gmdate('Y-m-d\\TH:i:s\\Z',time()+259200);
-    file_put_contents($path,json_encode($settings,JSON_THROW_ON_ERROR));
-    pass(!tenant_voice_owner_trial_enabled($b),'long-lived trial denied');
-} finally { @unlink($path); }
+// Rights come from account and subscription, never a daily owner test pass.
+$platform=['kind'=>'platform','status'=>'active'];
+$tenant=['kind'=>'customer','status'=>'active'];
+pass(tenant_voice_entitlement_allows($platform,false),'active platform account has permanent access');
+pass(tenant_voice_entitlement_allows($tenant,true),'active subscribed account has voice access');
+pass(!tenant_voice_entitlement_allows($tenant,false),'unsubscribed tenant denied');
+pass(!tenant_voice_entitlement_allows(['kind'=>'platform','status'=>'suspended'],true),'suspended admin denied');
+pass(!tenant_voice_entitlement_allows(null,true),'unknown account denied');
 $form=form_start('archive_agent','/?tab=agents','class="inline-form"');
 pass(substr_count($form,'class=')===1,'form generates exactly one CSS class attribute');
 pass(str_contains($form,'class="stack inline-form"'),'form retains inline and stack styling');
