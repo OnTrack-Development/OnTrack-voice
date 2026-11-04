@@ -22,6 +22,8 @@
 
 ## OnTrack Voice — current project-specific rules (2026-11-04)
 
+- **Latest owner authentication override (2026-11-04):** Website login uses account email + password ONLY, including platform admins, resellers, customers and signed-SSO entry. Never require Google Authenticator/TOTP/6-digit 2FA enrollment or code on `app.ontrackegy.com/saas/console`. This supersedes earlier Q02 mandatory-admin-2FA wording. Keep CSRF, password validation, session rotation, login throttling, SSO signed assertion/consent and role checks. **Do not remove SIM pairing QR, API tokens or first-time email ownership verification; those are NOT website login 2FA.** Source of truth: `saas/console/index.php`, `_core/Views.php`, `_core/Signup.php`, `tools/test_admin_mfa.php`.
+
 - **Owner stage:** internal/demo development and owner-controlled live tests only. No real paying customer accounts. Production infrastructure use is for verified internal testing, not proof of commercial release.
 - **Approved requirements:** [Q01–Q24 owner-approved decisions](docs/discovery/OWNER_APPROVED_MASTER_DECISIONS_2026_11_01_AR.md) are authoritative. Older documents calling these requirements OPEN or awaiting permission are obsolete. For remaining genuine gaps, check [master repair roadmap](docs/plan/MASTER_REPAIR_ROADMAP_2026_11_03_AR.md) against actual source and evidence.
 - **Read the actual implementation first:** Android tenant service, overlay and PCM in saas/mobile/audio-proof/overlay; version/OTA in saas/mobile/ota; account-scoped console and published Flow in saas/console; remote worker in ops/host-link. Preserve existing customer/SIM binding, secrets, auth, signing and source provenance.
