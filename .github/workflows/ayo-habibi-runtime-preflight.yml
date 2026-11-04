@@ -1,0 +1,27 @@
+name: AYO to Habibi - local runtime preflight
+on:
+  push:
+    branches: ['voice-lab/ayo-habibi-runtime-20261104']
+    paths: ['.github/workflows/ayo-habibi-runtime-preflight.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check local model runtimes and resources
+        shell: pwsh
+        run: ./tools/voice_lab/ayo_habibi_preflight.ps1
+      - name: Upload runtime metadata (no models or voices)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ayo-habibi-preflight
+          path: ${{ runner.temp }}/ontrack-ayo-runtime/
+          if-no-files-found: ignore
+          retention-days: 3
