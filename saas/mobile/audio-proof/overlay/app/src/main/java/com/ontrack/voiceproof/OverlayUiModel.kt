@@ -14,7 +14,7 @@ internal data class OverlayUiModel(
 internal fun overlayUiModel(
     serviceReady: Boolean, enabled: Boolean, inCall: Boolean,
     answered: Boolean, humanControl: Boolean,
-    audioActive: Boolean = false, callFailure: String = ""
+    audioActive: Boolean = false, callFailure: String = "", audioDiagnostic: String = ""
 ): OverlayUiModel {
     val running=serviceReady && enabled
     val canTakeover=inCall && answered && !humanControl && enabled && audioActive
@@ -23,7 +23,8 @@ internal fun overlayUiModel(
         inCall && humanControl -> "أنت استلمت المكالمة من الإيجنت"
         inCall && callFailure.isNotBlank() -> callFailure.take(110)
         inCall && !answered -> "المكالمة قيد الرنين أو الاتصال"
-        inCall && audioActive -> "صوت الإيجنت متصل — ميكروفون الهاتف مكتوم"
+        inCall && audioActive && audioDiagnostic.isNotBlank() -> audioDiagnostic.take(115)
+        inCall && audioActive -> "جلسة الصوت متصلة — سماع الطرف الآخر لم يُتحقق منه"
         inCall && !enabled -> "المكالمة تحت تحكم الهاتف — الإيجنت متوقف"
         inCall -> "المكالمة متصلة — جارٍ تجهيز صوت الإيجنت"
         !serviceReady -> "خدمة الهاتف غير نشطة — لم يتأكد التشغيل"
