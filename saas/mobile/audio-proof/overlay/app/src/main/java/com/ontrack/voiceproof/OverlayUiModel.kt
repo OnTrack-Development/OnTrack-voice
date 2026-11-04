@@ -1,6 +1,6 @@
 package com.ontrack.voiceproof
 
-/** The same truthful action rules power both collapsed and expanded native controls. */
+/** The overlay reports observed PCM audio, not just a requested AI session. */
 internal data class OverlayUiModel(
     val running: Boolean,
     val status: String,
@@ -13,16 +13,19 @@ internal data class OverlayUiModel(
 
 internal fun overlayUiModel(
     serviceReady: Boolean, enabled: Boolean, inCall: Boolean,
-    answered: Boolean, humanControl: Boolean
+    answered: Boolean, humanControl: Boolean,
+    audioActive: Boolean = false, callFailure: String = ""
 ): OverlayUiModel {
     val running=serviceReady && enabled
-    val canTakeover=inCall && answered && !humanControl && enabled
+    val canTakeover=inCall && answered && !humanControl && enabled && audioActive
     val canSwitchSpeaker=inCall && answered
     val status=when {
         inCall && humanControl -> "أنت استلمت المكالمة من الإيجنت"
+        inCall && callFailure.isNotBlank() -> callFailure.take(110)
         inCall && !answered -> "المكالمة قيد الرنين أو الاتصال"
-        inCall && enabled -> "المكالمة متصلة — الإيجنت قيد التشغيل"
-        inCall -> "المكالمة تحت تحكم الهاتف"
+        inCall && audioActive -> "صوت الإيجنت متصل بالمكالمة"
+        inCall && !enabled -> "المكالمة تحت تحكم الهاتف — الإيجنت متوقف"
+        inCall -> "المكالمة متصلة — جارٍ تجهيز صوت الإيجنت"
         !serviceReady -> "خدمة الهاتف غير نشطة — لم يتأكد التشغيل"
         enabled -> "الإيجنت نشط وجاهز"
         else -> "الإيجنت متوقف"
@@ -39,6 +42,7 @@ internal fun overlayUiModel(
             !inCall -> "عند وجود مكالمة"
             !answered -> "متاح بعد الرد"
             !enabled -> "الإيجنت متوقف"
+            !audioActive -> "بعد اتصال صوت الإيجنت"
             else -> "نقل المكالمة إليك"
         }
     )
