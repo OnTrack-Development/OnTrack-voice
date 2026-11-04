@@ -1,0 +1,13 @@
+{
+  "job_id": "mobile-native-041-live-verify-20261104-repair",
+  "target": "appontrack-server11",
+  "job_sha256": "24a125d32e257eb51e0e9f68726fa78a3fb66b5b066aeb7e6794958d95e42cc9",
+  "started_at": "2026-11-04T18:10:03.432057+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\": \"verified_on_host\", \"version_code\": 40, \"version_name\": \"0.3.17\", \"bytes\": 10935844, \"sha256\": \"9904bebf28ef74b640b0f15f52ab84d36ef46faabd03de720f6ba2711640ca45\", \"file_exists\": true, \"latest_manifest_exists\": true, \"path\": \"mobile/updates/native/\"}\n",
+  "stderr": "",
+  "finished_at": "2026-11-04T18:10:03.504269+00:00",
+  "duration_ms": 72
+}
