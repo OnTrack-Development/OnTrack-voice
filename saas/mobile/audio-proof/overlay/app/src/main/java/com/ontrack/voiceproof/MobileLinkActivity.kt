@@ -885,7 +885,7 @@ class MobileLinkActivity:ComponentActivity(){
                 when(command){
                     "openConsole" -> openConsole()
                     "openAgents" -> openConsole("agents")
-                    "openFlowBuilder" -> openConsole("flows")
+                    "openFlowBuilder" -> openConsole("agents")
                     "showTenantFlow" -> {
                         val slot=msg.getInt("sim_slot")
                         check(slot in 0..1 && tenantEnrollment.paired(slot)){"الشريحة غير مربوطة"}
