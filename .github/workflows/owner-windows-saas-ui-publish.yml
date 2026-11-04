@@ -1,0 +1,83 @@
+# Owner self-hosted fallback for GH-hosted Linux capacity failures.
+# Uses the existing audited, backup/rollback-capable OnTrack host worker.
+name: Verify and publish owner SaaS UI
+run-name: Owner Windows SaaS UI verified host deployment
+on:
+  push:
+    branches:
+      - feat/voice-production-gap-20261103
+    paths:
+      - .github/workflows/owner-windows-saas-ui-publish.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: ontrack-owner-saas-console-publisher
+  cancel-in-progress: false
+env:
+  PYTHONUTF8: '1'
+jobs:
+  publish:
+    if: github.actor == 'ahmedbedir' && github.ref == 'refs/heads/feat/voice-production-gap-20261103'
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout exact reviewed portal
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify interactive studio scripts and source consistency
+        run: |
+          $ErrorActionPreference='Stop'
+          & node --check saas/console/assets/js/flow-graph.js
+          if ($LASTEXITCODE -ne 0) { throw 'Flow Builder JavaScript invalid.' }
+          & node --check saas/console/assets/js/app.js
+          if ($LASTEXITCODE -ne 0) { throw 'Console JavaScript invalid.' }
+          & node tools/test_graph_routing.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Flow graph routing regression.' }
+          & node tools/test_floating_flow_ui.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Floating Flow UI regression.' }
+          & node tools/test_console_ajax_ui.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'AJAX save and actions regression.' }
+          & python -m py_compile tools/package_saas_console.py tools/queue_saas_console.py tools/verify_saas_console_host_receipt.py
+          if ($LASTEXITCODE -ne 0) { throw 'Publisher Python syntax invalid.' }
+          $php=Get-Command php -ErrorAction SilentlyContinue
+          if ($php) {
+            Get-ChildItem -Path saas/console -Recurse -Filter '*.php' -File | ForEach-Object {
+              & php -l $_.FullName | Out-Null
+              if ($LASTEXITCODE -ne 0) { throw ('PHP syntax failed: ' + $_.FullName) }
+            }
+            Write-Host 'WINDOWS_PHP_LINT: PASS'
+          } else {
+            Write-Host 'WINDOWS_PHP_NOT_PRESENT: host deployer must PHP-lint staged runtime before atomic swap; do not claim full PHP CI.'
+          }
+          Write-Host 'STUDIO_SCRIPT_REGRESSIONS: PASS'
+      - name: Package exact bounded SaaS release
+        run: |
+          & python tools/package_saas_console.py
+          if ($LASTEXITCODE -ne 0) { throw 'SaaS release packaging failed.' }
+      - name: Upload verified portal bundle for host worker
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnTrack-SaaS-Console
+          path: dist/saas-console/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Queue release with existing safe host worker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & python tools/queue_saas_console.py
+          if ($LASTEXITCODE -ne 0) { throw 'Host queue blocked; current site unchanged.' }
+          Write-Host 'SAAS_CONSOLE_QUEUED: PASS'
+      - name: Require exact host atomic deploy receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & python tools/verify_saas_console_host_receipt.py
+          if ($LASTEXITCODE -ne 0) { throw 'Host did not confirm safe SaaS deployment.' }
+          Write-Host 'SAAS_CONSOLE_DEPLOYED: PASS'
