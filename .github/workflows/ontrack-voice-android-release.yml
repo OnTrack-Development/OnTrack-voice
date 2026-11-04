@@ -1,7 +1,7 @@
 # One owner-controlled Android release pipeline: build, verify, sign, host publish.
 # Replaces obsolete owner-windows-apk-0315 and owner-windows-apk-publish-0315.
-name: OnTrack Voice Android 0.3.18 - Build Sign Publish
-run-name: OnTrack 0.3.18 full build and verified OTA deployment
+name: OnTrack Voice Android 0.3.19 - Build Sign Publish
+run-name: OnTrack 0.3.19 full build and verified OTA deployment
 on:
   push:
     branches: [feat/voice-production-gap-20261103]
@@ -26,14 +26,14 @@ permissions:
   actions: write
 concurrency:
   # Unique to this unified workflow; never share a lock with legacy runs.
-  group: ontrack-voice-android-unified-0318-${{ github.ref }}
+  group: ontrack-voice-android-unified-0319-${{ github.ref }}
   cancel-in-progress: true
 env:
   PYTHONUTF8: '1'
 jobs:
   build_sign_publish:
-    name: Build, test, sign, publish and verify 0.3.18
-    if: github.actor == 'ahmedbedir' && !contains(github.event.head_commit.message, '[native-repair-0318]')
+    name: Build, test, sign, publish and verify 0.3.19
+    if: github.actor == 'ahmedbedir' && !contains(github.event.head_commit.message, '[native-repair-0319]')
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 140
     defaults:
@@ -172,7 +172,7 @@ jobs:
           if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output -Recurse -Force }
           New-Item -Path $output -ItemType Directory -Force | Out-Null
           $unsigned = Join-Path $env:GITHUB_WORKSPACE '.build\jemrec\app\build\outputs\apk\release\app-release-unsigned.apk'
-          $signed = Join-Path $output 'OnTrack-Voice-0.3.18.apk'
+          $signed = Join-Path $output 'OnTrack-Voice-0.3.19.apk'
           if (Test-Path -LiteralPath $signed) {
             throw 'Signed APK already exists at destination: refusing to overwrite existing release.'
           }
@@ -188,7 +188,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'APK verification failed.' }
           $appId = (& $analyzer manifest application-id $signed | Out-String).Trim()
           $ver = (& $analyzer manifest version-code $signed | Out-String).Trim()
-          if ($appId -ne 'com.ontrack.voiceproof' -or $ver -ne '41') {
+          if ($appId -ne 'com.ontrack.voiceproof' -or $ver -ne '42') {
             throw 'Version Code 40 or package name missing from final APK. Refusing publication.'
           }
           $manifest = Join-Path $env:RUNNER_TEMP 'ontrack-final-android-manifest.xml'
@@ -197,7 +197,7 @@ jobs:
           & python tools/check_mobile_manifest.py $manifest
           if ($LASTEXITCODE -ne 0) { throw 'Final APK manifest safety contract failed.' }
           $hash = (Get-FileHash -LiteralPath $signed -Algorithm SHA256).Hash.ToLowerInvariant()
-          "SHA256 $hash  OnTrack-Voice-0.3.18.apk" | Out-File -LiteralPath (Join-Path $output 'SHA256SUMS.txt') -Encoding ascii
+          "SHA256 $hash  OnTrack-Voice-0.3.19.apk" | Out-File -LiteralPath (Join-Path $output 'SHA256SUMS.txt') -Encoding ascii
           Copy-Item -LiteralPath '.build\jemrec\ontrack-build-source.json' -Destination (Join-Path $output 'ontrack-build-source.json')
           $original = 'D:\ai\OnTrack-Voice-Builds\0.3.11\OnTrack-Voice-0.3.11.apk'
           if (-not (Test-Path -LiteralPath $original)) { throw 'Original 0.3.11 debug APK missing for size comparison.' }
@@ -206,7 +206,7 @@ jobs:
           $reduction = [math]::Round(100*(1 - $previewBytes/$originalBytes),2)
           $details = [ordered]@{
             source_build_run = $env:GITHUB_RUN_ID
-            release = '0.3.18'
+            release = '0.3.19'
             original_debug_bytes = $originalBytes
             minified_release_bytes = $previewBytes
             size_reduction_pct = $reduction
@@ -224,7 +224,7 @@ jobs:
           Write-Host ('APK_LOCAL_PATH: ' + $signed)
           Write-Host ('APK_SHA256: ' + $hash)
           Write-Host 'SIGNED_APK_VERIFIED: PASS'
-      - name: Generate and verify signed OTA 39 and native versionCode 41
+      - name: Generate and verify signed OTA 39 and native versionCode 42
         run: |
           $ErrorActionPreference='Stop'
           $bin='C:\Program Files\Git\usr\bin'
@@ -232,7 +232,7 @@ jobs:
           $bin|Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           $env:PATH="$bin;$env:PATH"
           New-Item -ItemType Directory -Path '.build\artifact' -Force | Out-Null
-          Copy-Item -LiteralPath '.build\release\OnTrack-Voice-0.3.18.apk' -Destination '.build\artifact\OnTrack-Voice-0.3.18.apk'
+          Copy-Item -LiteralPath '.build\release\OnTrack-Voice-0.3.19.apk' -Destination '.build\artifact\OnTrack-Voice-0.3.19.apk'
           Copy-Item -LiteralPath '.build\release\SHA256SUMS.txt' -Destination '.build\artifact\SHA256SUMS.txt'
           Copy-Item -LiteralPath '.build\release\size-report.json' -Destination '.build\artifact\size-report.json'
           Copy-Item -LiteralPath '.build\release\ontrack-build-source.json' -Destination '.build\artifact\ontrack-build-source.json'
@@ -241,16 +241,16 @@ jobs:
           $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
           & java tools/SignMobileOta.java $key .build/artifact/ota
           if($LASTEXITCODE -ne 0){throw 'UI OTA signature failed'}
-          & python tools/prepare_mobile_native.py .build/artifact/OnTrack-Voice-0.3.18.apk .build/artifact/native
+          & python tools/prepare_mobile_native.py .build/artifact/OnTrack-Voice-0.3.19.apk .build/artifact/native
           if($LASTEXITCODE -ne 0){throw 'Native manifest preparation failed'}
           & java tools/SignMobileOta.java $key .build/artifact/native
           if($LASTEXITCODE -ne 0){throw 'Native manifest signature failed'}
-          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_ota import verify as u;from queue_mobile_native import verify as n;_,_,ui=u(Path('.build/artifact/ota'));_,_,app=n(Path('.build/artifact/native'));assert ui['revision']==40 and ui['min_native']<=41<=ui['max_native'] and app['version_code']==41 and app['version_name']=='0.3.18';print('SIGNED_UI40_NATIVE41_VERIFIED')"
+          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_ota import verify as u;from queue_mobile_native import verify as n;_,_,ui=u(Path('.build/artifact/ota'));_,_,app=n(Path('.build/artifact/native'));assert ui['revision']==41 and ui['min_native']<=42<=ui['max_native'] and app['version_code']==42 and app['version_name']=='0.3.19';print('SIGNED_UI41_NATIVE42_VERIFIED')"
           if($LASTEXITCODE -ne 0){throw 'Signed OTA/native version or signature invalid'}
       - name: Upload complete release artifact before queuing host jobs
         uses: actions/upload-artifact@v4
         with:
-          name: OnTrack-Voice-0.3.18
+          name: OnTrack-Voice-0.3.19
           path: .build/artifact/
           if-no-files-found: error
           retention-days: 14
@@ -266,23 +266,23 @@ jobs:
         run: |
           & python tools/verify_mobile_ota_host_receipt.py .build/artifact/ota
           if($LASTEXITCODE -ne 0){throw 'UI 40 host receipt missing or invalid'}
-      - name: Queue signed versionCode 41 APK after UI receipt
+      - name: Queue signed versionCode 42 APK after UI receipt
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           & python tools/queue_mobile_native.py .build/artifact/native
-          if($LASTEXITCODE -ne 0){throw 'Native v41 host queue blocked'}
+          if($LASTEXITCODE -ne 0){throw 'Native v42 host queue blocked'}
       - name: Confirm native APK is published on the host
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           & python tools/verify_mobile_native_host_receipt.py .build/artifact/native
-          if($LASTEXITCODE -ne 0){throw 'Native v41 host receipt missing or invalid'}
+          if($LASTEXITCODE -ne 0){throw 'Native v42 host receipt missing or invalid'}
           Write-Host 'ONTRACK_VOICE_0_3_17_FULL_RELEASE_VERIFIED: PASS'
 
   repair_native_0318:
-    name: Publish verified existing APK 0.3.18 without rebuilding Android
-    if: github.actor == 'ahmedbedir' && contains(github.event.head_commit.message, '[native-repair-0318]')
+    name: Publish verified existing APK 0.3.19 without rebuilding Android
+    if: false # Historic signed 0.3.18 APK must not be used as a 0.3.19 repair
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 35
     defaults:
@@ -293,25 +293,25 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Download unchanged signed 0.3.18 artifacts from successful build
+      - name: Download unchanged signed 0.3.19 artifacts from successful build
         uses: actions/download-artifact@v4
         with:
-          name: OnTrack-Voice-0.3.18
+          name: OnTrack-Voice-0.3.19
           run-id: 41870140859
           path: .build/artifact
           github-token: ${{ github.token }}
-      - name: Verify signed UI 40 and native APK v41 with original certificate and SHA256
+      - name: Verify signed UI 40 and native APK v42 with original certificate and SHA256
         run: |
           $ErrorActionPreference='Stop'
           $bin='C:\Program Files\Git\usr\bin'
           if(!(Test-Path (Join-Path $bin 'openssl.exe'))){throw 'OpenSSL missing'}
           $bin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           $env:PATH="$bin;$env:PATH"
-          $apk='.build/artifact/OnTrack-Voice-0.3.18.apk'
-          if(!(Test-Path $apk)){throw 'Signed 0.3.18 APK missing'}
+          $apk='.build/artifact/OnTrack-Voice-0.3.19.apk'
+          if(!(Test-Path $apk)){throw 'Signed 0.3.19 APK missing'}
           & python -m py_compile tools/queue_mobile_native.py tools/verify_mobile_native_host_receipt.py saas/mobile/ota/native_deploy.py
           if($LASTEXITCODE -ne 0){throw 'Publisher source syntax failure'}
-          & python -c "import sys,hashlib;from pathlib import Path;sys.path.insert(0,'tools');from queue_mobile_native import verify as n;from queue_mobile_ota import verify as u;_,_,m=n(Path('.build/artifact/native'));_,_,ui=u(Path('.build/artifact/ota'));p=Path('.build/artifact/OnTrack-Voice-0.3.18.apk');assert m['version_code']==41 and m['version_name']=='0.3.18' and ui['revision']==40 and len(p.read_bytes())==m['size'] and hashlib.sha256(p.read_bytes()).hexdigest()==m['sha256'];print('PINNED_SIGNED_0_3_18_APK_VERIFIED')"
+          & python -c "import sys,hashlib;from pathlib import Path;sys.path.insert(0,'tools');from queue_mobile_native import verify as n;from queue_mobile_ota import verify as u;_,_,m=n(Path('.build/artifact/native'));_,_,ui=u(Path('.build/artifact/ota'));p=Path('.build/artifact/OnTrack-Voice-0.3.19.apk');assert m['version_code']==41 and m['version_name']=='0.3.19' and ui['revision']==40 and len(p.read_bytes())==m['size'] and hashlib.sha256(p.read_bytes()).hexdigest()==m['sha256'];print('PINNED_SIGNED_0_3_18_APK_VERIFIED')"
           if($LASTEXITCODE -ne 0){throw 'Signed APK checksum or UI signature mismatch'}
           $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
           $signer=Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
@@ -325,11 +325,11 @@ jobs:
           MOBILE_UI_ALREADY_PUBLISHED_RUN_ID: '41870140859'
         run: |
           & python tools/queue_mobile_native.py .build/artifact/native
-          if($LASTEXITCODE -ne 0){throw 'Native 0.3.18 host publication queue failed'}
-      - name: Verify host publishes versionCode 41 with matching signed SHA256
+          if($LASTEXITCODE -ne 0){throw 'Native 0.3.19 host publication queue failed'}
+      - name: Verify host publishes versionCode 42 with matching signed SHA256
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           & python tools/verify_mobile_native_host_receipt.py .build/artifact/native
-          if($LASTEXITCODE -ne 0){throw 'Native 0.3.18 deployment was not confirmed'}
+          if($LASTEXITCODE -ne 0){throw 'Native 0.3.19 deployment was not confirmed'}
           Write-Host 'ONTRACK_NATIVE_0_3_18_HOST_RECEIPT_VERIFIED: PASS'
