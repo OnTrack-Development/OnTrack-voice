@@ -87,6 +87,20 @@ jobs:
           $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
           & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
           if (-not $?) { throw 'Windows shellserver compilation failed.' }
+      - name: Use compatible AndroidX Fragment dependency for ActivityResult permission APIs
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $gradle = '.build\jemrec\app\build.gradle.kts'
+          $source = [System.IO.File]::ReadAllText((Resolve-Path $gradle).Path)
+          $anchor = '    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")'
+          if ($source.Split([string[]]@($anchor), [System.StringSplitOptions]::None).Length -ne 2) {
+            throw 'Android dependency patch anchor mismatch; refusing to modify unrelated build code.'
+          }
+          # The release Lint fatal checker requires Fragment >= 1.3.0 when using
+          # ActivityResultContracts to request phone/contact/file permissions.
+          $source = $source.Replace($anchor, '    implementation("androidx.fragment:fragment:1.6.2")' + [Environment]::NewLine + $anchor)
+          [System.IO.File]::WriteAllText((Resolve-Path $gradle).Path, $source, [System.Text.UTF8Encoding]::new($false))
+          Write-Host 'FRAGMENT_ACTIVITY_RESULT_COMPATIBILITY: PASS'
       - name: Run targeted OnTrack Android unit and daemon tests (matching Linux release gate)
         working-directory: .build/jemrec
         run: |
