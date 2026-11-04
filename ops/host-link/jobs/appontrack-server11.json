@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "owner-voice-expiry-check-20261104",
+  "id": "voice-live-source-probe-20261104",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-04T19:50:57.473Z",
-  "expires_at": "2026-11-04T20:30:57.474Z",
+  "created_at": "2026-11-04T20:00:59.361Z",
+  "expires_at": "2026-11-04T20:35:59.361Z",
   "cwd": "/home/appontrack/public_html",
-  "timeout_seconds": 15,
+  "timeout_seconds": 20,
   "argv": [
-    "/usr/bin/php",
-    "-r",
-    "require \"/home/appontrack/public_html/saas/console/_core/Bootstrap.php\";require \"/home/appontrack/public_html/saas/console/_core/TenantVoiceSession.php\";$b=one(\"SELECT id,account_id,site_id,agent_id,sim_slot FROM device_bindings WHERE account_id=? AND site_id=? AND sim_slot=? AND status=? ORDER BY id DESC LIMIT 1\",[1,6,0,\"active\"]);$p=private_path().\"/tenant-voice-owner-trial.json\";$c=is_file($p)?json_decode(file_get_contents($p),true):null;echo json_encode([\"scope_found\"=>(bool)$b,\"binding\"=>$b?[\"account_id\"=>(int)$b[\"account_id\"],\"site_id\"=>(int)$b[\"site_id\"],\"agent_id\"=>(int)$b[\"agent_id\"],\"sim_slot\"=>(int)$b[\"sim_slot\"]]:null,\"trial_exists\"=>is_file($p),\"trial_enabled\"=>$c[\"enabled\"]??false,\"trial_expires_utc\"=>$c[\"expires_utc\"]??null,\"trial_scope_match\"=>(bool)($b&&$c&&($c[\"account_id\"]??-1)==$b[\"account_id\"]&&($c[\"site_id\"]??-1)==$b[\"site_id\"]&&($c[\"agent_id\"]??-1)==$b[\"agent_id\"]&&($c[\"sim_slot\"]??-1)==$b[\"sim_slot\"]),\"owner_trial_allowed\"=>$b?tenant_voice_owner_trial_enabled($b):false,\"global_voice_env_enabled\"=>getenv(\"ONTRACK_TENANT_VOICE_ENABLED\")===\"1\"],JSON_UNESCAPED_SLASHES);"
+    "/bin/python3",
+    "-c",
+    "import json,pathlib,hashlib; r=pathlib.Path('/home/appontrack/public_html'); p=[r/'_core/TenantVoiceSession.php',r/'device/v1/index.php',r/'saas/console/_core/TenantVoiceSession.php']; print(json.dumps({'root_exists':r.is_dir(),'files':[{'path':str(x.relative_to(r)),'exists':x.is_file(),'sha256':hashlib.sha256(x.read_bytes()).hexdigest() if x.is_file() else None} for x in p]}))"
   ]
 }
