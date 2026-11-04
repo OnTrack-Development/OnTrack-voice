@@ -1,0 +1,27 @@
+name: Probe AYO to Habibi local synthesis readiness
+on:
+  push:
+    branches: [voice-lab/ayo-output-search-20261104]
+    paths: [.github/workflows/ayo-habibi-readiness.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Probe installed TTS engines and local models
+        shell: pwsh
+        run: ./tools/voice_lab/probe_ayo_habibi.ps1
+      - name: Upload readiness results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ayo-habibi-readiness
+          path: ${{ runner.temp }}/ayo-habibi-readiness/
+          retention-days: 5
+          if-no-files-found: ignore
