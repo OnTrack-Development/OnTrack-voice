@@ -35,9 +35,9 @@ function signup_validate(string $name,string $company,string $email,string $pass
 function signup_send_email(string $email,string $token):bool {
     // Email sender lives in a private config, not a public repo or query parameter.
     $configFile=private_path().'/email.json';
-    if(!is_file($configFile))return false;
-    $config=json_decode((string)file_get_contents($configFile),true);
-    $from=is_array($config)?($config['from']??null):null;
+    $config=is_file($configFile)?json_decode((string)file_get_contents($configFile),true):[];
+    // Existing owner domain is the default while private email.json is not installed.
+    $from=is_array($config)?($config['from']??'no-reply@ontrackegy.com'):'no-reply@ontrackegy.com';
     if(!is_string($from)||strlen($from)>190||!filter_var($from,FILTER_VALIDATE_EMAIL))return false;
     $url='https://app.ontrackegy.com/saas/console/verify-email?token='.$token;
     $body="Confirm your OnTrack Voice account using this secure link within 30 minutes:\n\n".$url."\n\nIf you did not request an account, ignore this email.\n";
@@ -180,9 +180,9 @@ function signup_verify_route():never {
 /** Password recovery is single-use email proof, never a login MFA prompt. */
 function password_reset_send_email(string $email,string $token):bool {
     $configFile=private_path().'/email.json';
-    if(!is_file($configFile))return false;
-    $config=json_decode((string)file_get_contents($configFile),true);
-    $from=is_array($config)?($config['from']??null):null;
+    $config=is_file($configFile)?json_decode((string)file_get_contents($configFile),true):[];
+    // Existing owner domain is the default while private email.json is not installed.
+    $from=is_array($config)?($config['from']??'no-reply@ontrackegy.com'):'no-reply@ontrackegy.com';
     if(!is_string($from)||!filter_var($from,FILTER_VALIDATE_EMAIL))return false;
     $url='https://app.ontrackegy.com/saas/console/reset-password?token='.$token;
     $body="To reset your OnTrack Voice password, use this link within 30 minutes:\n\n".$url.
@@ -342,7 +342,8 @@ function password_change_page(?string $warning=null):never {
 
 /** Public image is scoped to the active reseller and a locally stored safe logo file. */
 function signup_logo_route():never {
-    $scope=signup_scope('customer',trim((string)($_GET['reseller']??'')));
+    try{$scope=signup_scope('customer',trim((string)($_GET['reseller']??'')));}
+    catch(InvalidArgumentException|RuntimeException){deny(404,'الصورة غير متاحة');}
     if($scope['slug']==='')deny(404,'الصورة غير متاحة');
     $logo=(string)$scope['logo'];
     if(!$logo||$logo!==basename($logo)||
