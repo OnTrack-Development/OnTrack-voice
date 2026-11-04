@@ -366,8 +366,16 @@ function pullMessage(message,ms=13000){
 }
 function requestUiRefresh(){
  if(pullBusy)return;pullBusy=true;
- pullMessage('↻ جاري فحص تحديث واجهة OnTrack…');
+ pullMessage('جارٍ فحص تحديث الواجهة…',6000);
  send('checkUpdates');
+}
+function refreshVisibleData(){
+ if(pullBusy)return;pullBusy=true;
+ pullMessage('جارٍ تحديث البيانات…',2300);
+ const section=document.querySelector('.otTabs button.active')?.dataset.view||'dashboard';
+ if(section==='calls')send('loadCallHistory');
+ else if(section==='campaigns')el('refreshCampaigns')?.click();
+ else send('tenantRefresh');
 }
 document.addEventListener('touchstart',e=>{
  if(e.touches.length!==1||window.scrollY>3||pullBusy||e.target.closest('input,textarea,select,button')){pullArmed=false;return;}
@@ -376,7 +384,7 @@ document.addEventListener('touchstart',e=>{
 document.addEventListener('touchend',e=>{
  if(!pullArmed)return;pullArmed=false;
  const dy=e.changedTouches.length?e.changedTouches[0].clientY-pullStart:0;
- if(dy>=100&&window.scrollY<15)requestUiRefresh();
+ if(dy>=100&&window.scrollY<15)refreshVisibleData();
 },{passive:true});
 document.addEventListener('touchcancel',()=>{pullArmed=false},{passive:true});
 function readUiTheme(){
@@ -426,18 +434,18 @@ function renderSimAgents(s){
   if(!rows.length){
    const message=document.createElement('p');message.className='otAgentEmpty';
    message.textContent=s.tenantLinked?
-    'بيانات الإيجنتات موجودة في حساب SaaS. حدّث Android لعرض الاسم والهدف والـFlow مباشرة، أو افتح Agent Studio من قسم الإيجنتات.':
-    'مفيش شريحة مرتبطة حاليًا. اربط SIM بحساب OnTrack، وبعدها الإيجنت المخصص لها هيظهر هنا.';
+    'افتح استوديو المساعدين للاطلاع على المهام والمسارات.':
+    'لا توجد شريحة مرتبطة. اربط شريحتك من الإعدادات.';
    parent.append(message);
    const open=document.createElement('button');open.className='outline';open.type='button';
-   open.textContent='فتح Agent Studio';
+   open.textContent='فتح استوديو المساعدين';
    open.onclick=()=>send(Number(last.nativeCode)>=36?'openAgents':'openConsole');
    parent.append(open);
    continue;
   }
   const paired=rows.filter(x=>x.paired===true);
   if(!paired.length){const empty=document.createElement('p');empty.className='otAgentEmpty';
-   empty.textContent='لا توجد أي شريحة مربوطة بإيجنت. اربط SIM من إدارة الشرائح.';parent.append(empty);continue;}
+   empty.textContent='لا يوجد مساعد مرتبط بهذه الشريحة بعد.';parent.append(empty);continue;}
   for(const info of paired){
    const slot=Number(info.sim_slot);
    if(!Number.isInteger(slot)||slot<0||slot>1)continue;
@@ -445,23 +453,21 @@ function renderSimAgents(s){
    const head=document.createElement('div');head.className='otAgentHead';
    const avatar=document.createElement('span');avatar.className='otAgentAvatar';avatar.textContent='AI';
    const identity=document.createElement('div');identity.className='otAgentIdentity';
-   const title=document.createElement('strong');title.textContent=String(info.agent_name||'إيجنت لم يتم التحقق منه').slice(0,140);
-   const sub=document.createElement('small');sub.textContent='SIM '+(slot+1)+' · '+String(info.site_name||info.account_name||'الحساب').slice(0,140);
+   const title=document.createElement('strong');title.textContent=String(info.agent_name||'مساعد غير محدد').slice(0,140);
+   const sub=document.createElement('small');sub.textContent='الشريحة '+(slot+1)+(info.site_name?' · '+String(info.site_name).slice(0,95):'');
    identity.append(title,sub);
    const tag=document.createElement('span');tag.className='otAgentBadge'+(info.flow_ready&&info.state==='online'?' ready':'');
-   tag.textContent=info.state!=='online'?'تحقق مطلوب':info.flow_ready?'Flow v'+Number(info.flow_revision||0):'Flow غير منشور';
+   tag.textContent=info.state!=='online'?'غير متصل':info.flow_ready?'جاهز':'لم يُنشر';
    head.append(avatar,identity,tag);card.append(head);
    const purpose=document.createElement('p');purpose.className='otAgentPurpose';
-   purpose.textContent=info.state!=='online'?'تعذر تحديث بيانات الإيجنت: '+String(info.error||'راجع اتصال SaaS').slice(0,120):
-    info.purpose?'الهدف: '+String(info.purpose).slice(0,170):
-    'لم يُرسل وصف المهمة للواجهة القديمة؛ افتح Agent Studio لقراءة الهدف وإعدادات الـFlow المنشور.';
-   card.append(purpose);
+   const mission=String(info.purpose||'').trim();
+   if(info.state==='online'&&mission){purpose.textContent=mission.slice(0,170);card.append(purpose);}
    const actions=document.createElement('div');actions.className='otAgentButtons';
    const flow=document.createElement('button');flow.type='button';flow.className='outline';
-   flow.textContent='عرض الـFlow';flow.disabled=info.state!=='online'||!info.flow_ready;
+   flow.textContent='عرض المخطط';flow.disabled=info.state!=='online'||!info.flow_ready;
    flow.onclick=()=>send(Number(last.nativeCode)>=36?'showTenantFlow':'openScenario',{sim_slot:slot});
    const edit=document.createElement('button');edit.type='button';edit.className='primary';
-   edit.textContent='فتح البلدر';edit.disabled=info.state!=='online';
+   edit.textContent='تعديل المساعد';edit.disabled=info.state!=='online';
    edit.onclick=()=>send(Number(last.nativeCode)>=36?'editTenantAgent':'openConsole',{sim_slot:slot});
    actions.append(flow,edit);card.append(actions);parent.append(card);
   }
@@ -517,14 +523,14 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
   const monitoring=!!s.agentEnabled && (s.tenantServiceRunning===undefined || !!s.tenantServiceRunning);
   const starting=!!s.tenantDesiredEnabled && !monitoring;
   el('badge').textContent=!engine?'يلزم تحديث Android':
-    monitoring?(s.connected?'Google Live · مكالمة متصلة':'مراقب SIM · يعمل وينتظر المكالمة'):
+    monitoring?(s.connected?'مكالمة جارية':'جاهز لاستقبال المكالمات'):
     starting?'جاري استعادة خدمة الهاتف':'مراقب SIM · متوقف';
   el('badge').className='chip '+(monitoring?'good':'warn');
   el('mode').textContent=!engine?'يلزم Android 0.3.4':
-    monitoring?'المحرك مفعّل؛ Google Live يتصل وقت المكالمة':
+    monitoring?'المساعد جاهز عند ورود مكالمة':
     starting?'طلب التشغيل محفوظ؛ جاري التحقق من خدمة Android':'المراقبة متوقفة؛ اضغط تشغيل';
   if(s.tenantPairingInProgress)el('mode').textContent='جاري ربط الشريحة؛ التشغيل متوقف مؤقتًا';
-  el('status').textContent=engine?(s.status||'مراقب SIM منفصل عن جلسة Google Live؛ حالة السيرفر بالأعلى'):'حدّث Android لمراقب الشرائح الجديد';
+  el('status').textContent=engine?(s.status||'حالة الاتصال تظهر بالأعلى'):'حدّث Android لمراقب الشرائح الجديد';
   el('enable').disabled=!engine||monitoring||call||!!s.updating||!!s.tenantPairingInProgress;
   el('disable').disabled=!engine||!s.agentEnabled||!!s.updating;
  }
