@@ -72,7 +72,7 @@ class MobileLinkService:Service() {
     @Volatile private var takeoverRequested=false
     @Volatile private var pendingDesired:Boolean?=null
     @Volatile private var recoveringActiveCall=false
-    private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(connected,agentEnabled,inCall,callAnswered,humanControl)}}
+    private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(running,agentEnabled,inCall,callAnswered,humanControl)}}
     private fun notice(value:String){
         latestStatus=value
         getSystemService(NotificationManager::class.java).notify(701,notification(value))
@@ -171,6 +171,8 @@ class MobileLinkService:Service() {
                 running=true
                 loop=scope.launch{tenantMonitor()}
             }
+            // Google Live stays idle until a call; show the confirmed SIM-monitor state.
+            showOverlay()
             return START_STICKY
         }
         // Native release 0.3.4: never start the global, legacy phone pilot for

@@ -920,6 +920,10 @@ class MobileLinkActivity:ComponentActivity(){
     }
     private fun sendState(){
         if(!ready)return
+        if(banner.text?.toString()?.startsWith("تم إرسال طلب تشغيل SIM")==true &&
+            MobileLinkService.running && MobileLinkService.agentEnabled){
+            banner.text="مراقبة الشريحة تعمل — بانتظار مكالمة"
+        }
         val state=JSONObject().put("status",MobileLinkService.latestStatus).put("running",MobileLinkService.running)
             .put("inCall",MobileLinkService.inCall).put("callAnswered",MobileLinkService.callAnswered).put("humanControl",MobileLinkService.humanControl)
             .put("agentEnabled",MobileLinkService.agentEnabled).put("connected",MobileLinkService.connected).put("pendingSync",MobileLinkService.pendingSync).put("serverRevision",MobileLinkService.serverRevision)

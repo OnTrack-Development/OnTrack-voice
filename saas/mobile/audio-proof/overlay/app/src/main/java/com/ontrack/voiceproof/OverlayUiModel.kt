@@ -12,10 +12,10 @@ internal data class OverlayUiModel(
 )
 
 internal fun overlayUiModel(
-    connected: Boolean, enabled: Boolean, inCall: Boolean,
+    serviceReady: Boolean, enabled: Boolean, inCall: Boolean,
     answered: Boolean, humanControl: Boolean
 ): OverlayUiModel {
-    val running=connected && enabled
+    val running=serviceReady && enabled
     val canTakeover=inCall && answered && !humanControl && enabled
     val canSwitchSpeaker=inCall && answered
     val status=when {
@@ -23,7 +23,7 @@ internal fun overlayUiModel(
         inCall && !answered -> "المكالمة قيد الرنين أو الاتصال"
         inCall && enabled -> "المكالمة متصلة — الإيجنت قيد التشغيل"
         inCall -> "المكالمة تحت تحكم الهاتف"
-        !connected -> "اتصال السيرفر غير متاح"
+        !serviceReady -> "خدمة الهاتف غير نشطة — لم يتأكد التشغيل"
         enabled -> "الإيجنت نشط وجاهز"
         else -> "الإيجنت متوقف"
     }

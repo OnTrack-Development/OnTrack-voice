@@ -188,7 +188,7 @@ body.light .otTabs button.active{background:#d20d28!important;color:#fff!importa
 <div id="uiPullStatus" hidden role="status" aria-live="polite">↻ جارٍ تحديث البيانات…</div>
 <div id="otSplash" role="status" aria-live="polite"><div class="otHalo"><div class="otMonogram">OT</div></div><div class="otTitle">ONTRACK</div><div class="otSubtitle">VOICE INTELLIGENCE</div><div class="otProgress"><span class="otPulse"></span>يرجى الانتظار · جارٍ تجهيز الاتصال</div></div>
 
-<header><div class="brand"><span class="logo">OT</span><div><h1>OnTrack Voice</h1><div class="sub">OnTrack Development · مركز الاتصال</div></div></div><div class="otHeaderTools"><button id="updateBell" type="button" class="otUpdateBellButton" hidden aria-label="تحديث جديد — فتح شاشة التحديث">↑<span class="otNotifyDot"></span></button><button id="themeToggle" type="button" class="otThemeButton" aria-label="تبديل المظهر">☀</button><div class="minor" id="version" hidden>—</div></div></header>
+<header><div class="brand"><span class="logo">OT</span><div><h1>OnTrack Voice</h1><div class="sub">OnTrack Development · مركز الاتصال</div></div></div><div class="otHeaderTools"><button id="updateBell" type="button" class="otUpdateBellButton" hidden aria-label="تحديث جديد — فتح شاشة التحديث">↑<span class="otNotifyDot"></span></button><button id="themeToggle" type="button" class="otThemeButton" aria-label="تبديل المظهر">☀</button><div class="minor" id="version" aria-label="إصدار التطبيق">جاري قراءة الإصدار…</div></div></header>
 <div class="otWelcome" data-panel="dashboard"><div><span class="otEyebrow">لوحة التحكم</span><strong>مركز تشغيل المكالمات</strong><small>تابع المكالمات والمساعدين والشرائح بسهولة.</small></div><div class="otSpark">✦</div></div>
 
 <nav class="otTabs" aria-label="أقسام التطبيق" role="navigation">
@@ -416,7 +416,7 @@ function updateConnectionHealth(s){
    server==='unreachable'?'فحص HTTPS فشل؛ راجع الاتصال والربط':
    server==='unlinked'?'اربط شريحة من تبويب الإيجنتات':
    server==='device'?'راجع هوية الشريحة والصلاحيات':'فحص السيرفر منفصل عن Google Live';
- el('simHealth').textContent=s.tenantServiceRunning&&s.agentEnabled?'يعمل':s.tenantDesiredEnabled?'جارٍ التشغيل':'متوقف';
+ el('simHealth').textContent=s.tenantServiceRunning&&s.agentEnabled&&!s.tenantPairingInProgress?'يعمل':s.tenantDesiredEnabled?'جارٍ التشغيل':'متوقف';
  el('voiceHealth').textContent=s.inCall?(s.connected?'متصل بالمكالمة':'تجهيز الجلسة'):'بانتظار مكالمة';
 }
 let lastAgentsSnapshot='';
@@ -526,14 +526,14 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('tenantStateBadge').className='chip '+(s.tenantLinked?'good':'warn');
  if(tenantOk&&s.tenantLinked){
   const engine=Number(s.nativeCode)>=25;
-  const monitoring=!!s.agentEnabled && (s.tenantServiceRunning===undefined || !!s.tenantServiceRunning);
+  const monitoring=!!s.agentEnabled && s.tenantServiceRunning===true && !s.tenantPairingInProgress;
   const starting=!!s.tenantDesiredEnabled && !monitoring;
   el('badge').textContent=!engine?'يلزم تحديث Android':
-    monitoring?(s.connected?'مكالمة جارية':'جاهز لاستقبال المكالمات'):
+    monitoring?(s.connected?'مكالمة جارية':'مراقب SIM نشط'):
     starting?'جاري استعادة خدمة الهاتف':'مراقب SIM · متوقف';
   el('badge').className='chip '+(monitoring?'good':'warn');
   el('mode').textContent=!engine?'يلزم Android 0.3.4':
-    monitoring?'المساعد جاهز عند ورود مكالمة':
+    monitoring?'مراقب الشريحة يعمل — الصوت يبدأ عند الاتصال':
     starting?'طلب التشغيل محفوظ؛ جاري التحقق من خدمة Android':'المراقبة متوقفة؛ اضغط تشغيل';
   if(s.tenantPairingInProgress)el('mode').textContent='جاري ربط الشريحة؛ التشغيل متوقف مؤقتًا';
   el('status').textContent=engine?(s.status||'حالة الاتصال تظهر بالأعلى'):'حدّث Android لمراقب الشرائح الجديد';
@@ -542,12 +542,13 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  }
 
  // Display only confirmed SIM-monitor state; do not mistake desired state for active.
- const confirmedActive=enabled && s.tenantServiceRunning===true;
+ const confirmedActive=enabled && s.tenantServiceRunning===true && !s.tenantPairingInProgress;
  const isStarting=!!s.pendingSync || (!!s.tenantDesiredEnabled && !confirmedActive);
  el('enable').classList.toggle('agent-on',confirmedActive && !isStarting);
  el('disable').classList.toggle('agent-off',!enabled && !isStarting);
  el('enable').textContent=isStarting?'جاري تشغيل المساعد…':confirmedActive?'المساعد شغّال':'تشغيل المساعد';
  el('disable').textContent=!enabled&&!isStarting?'المساعد متوقف':'إيقاف المساعد';
+ if(confirmedActive&&!isStarting || (!enabled&&!s.tenantDesiredEnabled))el('message').textContent='';
  el('enable').setAttribute('aria-pressed',String(confirmedActive&&!isStarting));
  el('disable').setAttribute('aria-pressed',String(!enabled&&!isStarting));
  el('nativeUpdateStatus').textContent=s.nativeUpdateStatus||'جاري فحص تحديث Android…';

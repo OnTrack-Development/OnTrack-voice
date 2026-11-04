@@ -204,7 +204,9 @@ internal class CallOverlay(private val context: Context) {
         val lp=WindowManager.LayoutParams(-2,-2,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT).apply{
-            gravity=Gravity.TOP or Gravity.END;x=px(14);y=px(110)
+            gravity=Gravity.TOP or Gravity.END;x=px(14)
+            // Default near bottom, not over the header/hero. Still freely draggable.
+            y=(context.resources.displayMetrics.heightPixels-px(240)).coerceAtLeast(px(170))
         }
         var startX=0;var startY=0;var touchX=0f;var touchY=0f
         circle.setOnTouchListener {_,event->

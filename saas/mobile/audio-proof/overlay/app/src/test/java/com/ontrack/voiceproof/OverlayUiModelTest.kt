@@ -15,7 +15,16 @@ class OverlayUiModelTest {
         assertTrue(stopped.status.contains("متوقف"))
         val disconnected=overlayUiModel(false,true,false,false,false)
         assertFalse(disconnected.running)
-        assertTrue(disconnected.status.contains("السيرفر"))
+        assertTrue(disconnected.status.contains("خدمة الهاتف"))
+    }
+
+    @Test fun idleGoogleLiveDoesNotMakeRunningSimMonitorRed(){
+        val monitor=overlayUiModel(true,true,false,false,false)
+        assertTrue(monitor.running)
+        assertTrue(monitor.status.contains("جاهز"))
+        val notStarted=overlayUiModel(false,true,false,false,false)
+        assertFalse(notStarted.running)
+        assertTrue(notStarted.status.contains("لم يتأكد"))
     }
 
     @Test fun ringingCannotClaimOrSwitchAudioBeforeAnswer(){
