@@ -375,7 +375,13 @@ function readUiTheme(){
 /* A SIM may be reachable while Live audio is intentionally idle. Never infer
    SaaS health from s.connected, which indicates a live voice session only. */
 function updateConnectionHealth(s){
- const server=typeof s.tenantServerState==='string'?s.tenantServerState:'checking';
+ let server=typeof s.tenantServerState==='string'?s.tenantServerState:'checking';
+ if(typeof s.tenantServerState!=='string'){
+  const lines=[s.tenantPaired1?s.tenantSim1:null,s.tenantPaired2?s.tenantSim2:null].filter(Boolean).map(String);
+  const successful=lines.filter(v=>v.includes(' • Flow v')||v.includes(' • Flow غير منشور')).length;
+  const failed=lines.filter(v=>/تعذر|غير مؤكد|إلغاء الاعتماد|انتهت صلاحيته/.test(v)).length;
+  server=!s.tenantLinked?'unlinked':successful&&failed?'partial':successful?'online':failed?'unreachable':'checking';
+ }
  const names={checking:'جارٍ التحقق',online:'متصل',partial:'اتصال جزئي',unreachable:'تعذّر التحقق',unlinked:'غير مربوط',device:'مشكلة بالشريحة'};
  el('serverHealth').textContent=names[server]||'لم يتم التحقق';
  el('serverHealth').dataset.state=server;
@@ -389,13 +395,23 @@ function updateConnectionHealth(s){
 }
 let lastAgentsSnapshot='';
 function renderSimAgents(s){
- const rows=Array.isArray(s.tenantAgents)?s.tenantAgents.filter(v=>v&&typeof v==='object'):[];
+ const structured=Array.isArray(s.tenantAgents)?s.tenantAgents.filter(v=>v&&typeof v==='object'):[];
+ const legacy=[s.tenantPaired1?s.tenantSim1:null,s.tenantPaired2?s.tenantSim2:null]
+  .map((line,slot)=>{if(!line)return null;const text=String(line),valid=text.match(/^SIM [12] — (.+?) • Flow (v\d+|غير منشور)$/);
+    if(!valid)return {sim_slot:slot,paired:true,state:'unverified',error:text};
+    const parts=valid[1].split(' / ');
+    return {sim_slot:slot,paired:true,state:'online',account_name:parts[0]||'',
+      site_name:parts[1]||'',agent_name:parts.slice(2).join(' / ')||'إيجنت',
+      flow_ready:valid[2]!=='غير منشور',flow_revision:Number(valid[2].slice(1))||0,
+      purpose:''};
+  }).filter(Boolean);
+ const rows=structured.length?structured:legacy;
  const snapshot=JSON.stringify([rows,!!s.tenantLinked,Number(s.nativeCode)]);
  if(snapshot===lastAgentsSnapshot)return;
  lastAgentsSnapshot=snapshot;
  for(const targetId of ['homeAgentCards','agentCards']){
   const parent=el(targetId);parent.replaceChildren();
-  if(!rows.length || Number(s.nativeCode)<36){
+  if(!rows.length){
    const message=document.createElement('p');message.className='otAgentEmpty';
    message.textContent=s.tenantLinked?
     'بيانات الإيجنتات موجودة في حساب SaaS. حدّث Android لعرض الاسم والهدف والـFlow مباشرة، أو افتح Agent Studio من قسم الإيجنتات.':
@@ -426,15 +442,15 @@ function renderSimAgents(s){
    const purpose=document.createElement('p');purpose.className='otAgentPurpose';
    purpose.textContent=info.state!=='online'?'تعذر تحديث بيانات الإيجنت: '+String(info.error||'راجع اتصال SaaS').slice(0,120):
     info.purpose?'الهدف: '+String(info.purpose).slice(0,170):
-    'وظيفة الإيجنت يحددها السيناريو المنشور وإعدادات الحساب.';
+    'لم يُرسل وصف المهمة للواجهة القديمة؛ افتح Agent Studio لقراءة الهدف وإعدادات الـFlow المنشور.';
    card.append(purpose);
    const actions=document.createElement('div');actions.className='otAgentButtons';
    const flow=document.createElement('button');flow.type='button';flow.className='outline';
    flow.textContent='عرض الـFlow';flow.disabled=info.state!=='online'||!info.flow_ready;
-   flow.onclick=()=>send('showTenantFlow',{sim_slot:slot});
+   flow.onclick=()=>send(Number(last.nativeCode)>=36?'showTenantFlow':'openScenario',{sim_slot:slot});
    const edit=document.createElement('button');edit.type='button';edit.className='primary';
    edit.textContent='فتح البلدر';edit.disabled=info.state!=='online';
-   edit.onclick=()=>send('editTenantAgent',{sim_slot:slot});
+   edit.onclick=()=>send(Number(last.nativeCode)>=36?'editTenantAgent':'openConsole',{sim_slot:slot});
    actions.append(flow,edit);card.append(actions);parent.append(card);
   }
  }
