@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Confirm local GNU tar and zstd support
-        shell: pwsh
+        shell: powershell
         run: |
           $gnuTar = "C:\Program Files\Git\usr\bin"
           if (-not (Test-Path (Join-Path $gnuTar 'tar.exe'))) {
@@ -42,7 +42,7 @@ jobs:
           enableCrossOsArchive: true
           fail-on-cache-miss: true
       - name: Check original Android certificate without printing private data
-        shell: pwsh
+        shell: powershell
         run: |
           $key = Join-Path $env:USERPROFILE '.android\debug.keystore'
           if (-not (Test-Path $key)) { throw "Cache restore did not place the original keystore at the expected path." }
