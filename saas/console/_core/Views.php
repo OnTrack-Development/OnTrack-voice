@@ -627,16 +627,16 @@ function render_flows(array $a):void{
     $id=(int)$a['account_id'];
     $agents=all("SELECT ag.id,ag.name,ag.site_id,s.name site_name FROM agents ag JOIN sites s ON s.id=ag.site_id
         WHERE ag.account_id=? AND ag.status!='archived' AND s.status='active' ORDER BY ag.id DESC",[$id]);
-    echo '<p class="info">تم استبدال السيناريوهات الثابتة بـ استوديو المساعدين. المحادثة بتتبني حسب هدف المساعد والمعرفة والسياسات، مش بالانتقال بين عُقد.</p>';
+    echo '<p class="info">اختر المساعد لعرض مخطط المحادثة وتعديله بصريًا، ثم احفظ مسودة أو انشر التغييرات.</p>';
     $rows=[];
     foreach($agents as $agent){
         $version=published_agent_flow($id,(int)$agent['site_id'],(int)$agent['id']);
         $url='/?tab=agents&site='.(int)$agent['site_id'].'&agent='.(int)$agent['id'];
         $rows[]=[e($agent['name']),e($agent['site_name']),
             $version?'v'.(int)$version['revision']:'مسودة',
-            '<a class="btn small primary" href="'.e($url).'">فتح استوديو المساعدين</a>'];
+            '<a class="btn small primary" href="'.e($url).'">فتح المخطط</a>'];
     }
-    echo card('المساعدون الديناميكية',tbl(['المساعد','الموقع','الإصدار','التعديل'],$rows));
+    echo card('مخططات المحادثة',tbl(['المساعد','الموقع','النسخة','الإجراء'],$rows));
 }
 
 function render_answering(array $a):void {
@@ -647,7 +647,7 @@ function render_answering(array $a):void {
     $rows=[];
     foreach($agents as $agent){
         $policy=answer_policy_for_agent($id,(int)$agent['id']);
-        $url='/?tab=agents&site='.(int)$agent['site_id'].'#agent-'.(int)$agent['id'];
+        $url='/?tab=agents&site='.(int)$agent['site_id'].'&agent='.(int)$agent['id'].'#agent-'.(int)$agent['id'];
         $rows[]=[e($agent['name']),$policy['auto_answer']?'مُعدّ للرد الآلي':'يدوي',
             (int)$policy['answer_delay_seconds'].' ثوانٍ',
             '<a class="btn small primary" href="'.e($url).'">تعديل إعدادات الرد ←</a>'];
