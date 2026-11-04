@@ -1,0 +1,13 @@
+{
+  "job_id": "mobile-native-41876698769",
+  "target": "appontrack-server11",
+  "job_sha256": "0b105b2c1905b684cdc24e2ac720b81fad45496f21a6d4bb01393913e5a909e2",
+  "started_at": "2026-11-04T17:22:03.144115+00:00",
+  "status": "failed",
+  "exit_code": 1,
+  "output_truncated": false,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 109, in <module>\n  File \"<string>\", line 66, in deploy\nValueError: NATIVE_DOWNLOAD_INVALID_FORMAT content_type=application/zip bytes=5243846\n",
+  "finished_at": "2026-11-04T17:22:05.820517+00:00",
+  "duration_ms": 2676
+}
