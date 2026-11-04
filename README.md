@@ -1,3 +1,8 @@
+<!-- OnTrack Voice website authentication override — owner decision 2026-11-04:
+No second-factor prompts or TOTP codes at sign-in for any platform, admin,
+reseller or customer account. Password + CSRF + rate limits + signed SSO
+remain. SIM binding QR, API keys, and new-account email confirmation
+are separate security flows and are not disabled. Supersedes old Q02 MFA. -->
 <!-- ONTRACK_AI_AGENT_EXECUTION_POLICY_START -->
 > **قاعدة إلزامية — اقرأ أولًا قبل البحث أو كتابة أي كود (4 نوفمبر 2026):** هذه تعليمات المالك الدائمة لوكلاء البرمجة في OnTrack Voice، ومعيار العمل المطلوب في جميع مشاريع OnTrack اللاحقة. **لا تعتبر كتابة الكود، ولا نجاح Build، ولا نجاح Deploy وحدها إنجازًا؛ اعرض دليل الاختبار الفعلي والنتائج.** المرجع التنفيذي للجلسات: [CLAUDE.md](CLAUDE.md) ثم [AGENTS.md](AGENTS.md). لا تُعد تشغيل أي جدولة أوقفها المالك.
 
