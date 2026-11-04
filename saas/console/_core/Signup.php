@@ -171,3 +171,167 @@ function signup_verify_route():never {
         go('/login');
     }catch(InvalidArgumentException|RuntimeException $e){signup_verify_page($e->getMessage());}
 }
+
+
+/** Password recovery is single-use email proof, never a login MFA prompt. */
+function password_reset_send_email(string $email,string $token):bool {
+    $configFile=private_path().'/email.json';
+    if(!is_file($configFile))return false;
+    $config=json_decode((string)file_get_contents($configFile),true);
+    $from=is_array($config)?($config['from']??null):null;
+    if(!is_string($from)||!filter_var($from,FILTER_VALIDATE_EMAIL))return false;
+    $url='https://app.ontrackegy.com/saas/console/reset-password?token='.$token;
+    $body="To reset your OnTrack Voice password, use this link within 30 minutes:\n\n".$url.
+        "\n\nIf you did not request a reset, ignore this email.\n";
+    return mail($email,'OnTrack Voice - Reset your password',$body,
+        ['From'=>$from,'Content-Type'=>'text/plain; charset=UTF-8']);
+}
+/** Returns no account existence information to the public endpoint. */
+function password_reset_stage(string $email,?callable $send=null):void {
+    $email=strtolower(trim($email));
+    if(strlen($email)>190||!filter_var($email,FILTER_VALIDATE_EMAIL))
+        throw new InvalidArgumentException('البريد الإلكتروني غير صالح');
+    $user=one("SELECT id,email FROM users WHERE email=? AND status='active'",[$email]);
+    if(!$user)return;
+    // Limit mail per account, independently of a browser's session throttling.
+    $recent=one("SELECT id FROM password_reset_requests WHERE user_id=? AND created_at>? ORDER BY id DESC LIMIT 1",
+        [$user['id'],gmdate('Y-m-d H:i:s',time()-60)]);
+    if($recent)return;
+    $token=bin2hex(random_bytes(32));
+    $hash=hash('sha256',$token);
+    $id=insert("INSERT INTO password_reset_requests(user_id,token_hash,expires_at,status,created_at)
+        VALUES (?,?,?,'pending',?)",
+        [$user['id'],$hash,gmdate('Y-m-d H:i:s',time()+1800),now()]);
+    try{$sent=($send??'password_reset_send_email')($email,$token);}
+    catch(Throwable){$sent=false;}
+    if($sent!==true)execute("DELETE FROM password_reset_requests WHERE id=? AND status='pending'",[$id]);
+}
+/** Changes the password only after claiming an unexpired token atomically. */
+function password_reset_confirm(string $token,string $password):int {
+    if(!preg_match('/^[a-f0-9]{64}$/D',$token))
+        throw new InvalidArgumentException('رابط الاسترجاع غير صالح');
+    auth_password_validate($password);
+    $hash=hash('sha256',$token);
+    db()->beginTransaction();
+    try{
+        $reset=one("SELECT r.id,r.user_id FROM password_reset_requests r
+            JOIN users u ON u.id=r.user_id
+            WHERE r.token_hash=? AND r.status='pending' AND r.expires_at>?
+              AND u.status='active'",[$hash,now()]);
+        if(!$reset)throw new InvalidArgumentException('رابط الاسترجاع منتهي أو مستخدم');
+        $claimed=execute("UPDATE password_reset_requests SET status='used',token_hash=NULL
+            WHERE id=? AND token_hash=? AND status='pending' AND expires_at>?",
+            [$reset['id'],$hash,now()]);
+        if($claimed!==1)throw new InvalidArgumentException('رابط الاسترجاع مستخدم بالفعل');
+        execute("UPDATE users SET password_hash=?,auth_version=auth_version+1 WHERE id=? AND status='active'",
+            [hash_password($password),$reset['user_id']]);
+        execute("UPDATE password_reset_requests SET status='used',token_hash=NULL
+            WHERE user_id=? AND status='pending'",[$reset['user_id']]);
+        db()->commit();
+        return (int)$reset['user_id'];
+    }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
+}
+function password_change(int $userId,string $current,string $next):int {
+    auth_password_validate($next);
+    $u=one("SELECT password_hash,auth_version FROM users WHERE id=? AND status='active'",[$userId]);
+    if(!$u||!password_verify($current,(string)$u['password_hash']))
+        throw new InvalidArgumentException('كلمة المرور الحالية غير صحيحة');
+    if(password_verify($next,(string)$u['password_hash']))
+        throw new InvalidArgumentException('اختر كلمة مرور جديدة مختلفة');
+    $changed=execute("UPDATE users SET password_hash=?,auth_version=auth_version+1
+        WHERE id=? AND auth_version=? AND status='active'",
+        [hash_password($next),$userId,(int)$u['auth_version']]);
+    if($changed!==1)throw new RuntimeException('تغيرت بيانات الجلسة؛ سجّل الدخول مجددًا');
+    execute("UPDATE password_reset_requests SET status='used',token_hash=NULL
+        WHERE user_id=? AND status='pending'",[$userId]);
+    return (int)$u['auth_version']+1;
+}
+function auth_public_page(string $title,string $body,?string $warning=null):never {
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: private,no-store');
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.e($title).' | OnTrack Voice</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"></head><body class="login-body"><div class="login-backdrop"></div><main class="login-panel" style="max-width:550px;margin:6vh auto"><div class="login-brand"><span class="brand-icon">OT</span><strong>OnTrack Voice</strong></div><h1>'.e($title).'</h1>';
+    if($warning)echo '<div class="alert danger">'.e($warning).'</div>';
+    if($notice=flash('success'))echo '<div class="alert success">'.e($notice).'</div>';
+    echo $body.'<p><a href="/saas/console/login">العودة إلى تسجيل الدخول</a></p></main></body></html>';
+    exit;
+}
+function password_forgot_route():never {
+    if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
+        require_csrf();
+        $started=(int)($_SESSION['reset_started']??0);
+        if(time()-$started>3600){$_SESSION['reset_started']=time();$_SESSION['reset_count']=0;}
+        $count=(int)($_SESSION['reset_count']??0);
+        if($count>=5)password_forgot_page('محاولات كثيرة؛ حاول مرة أخرى لاحقًا.');
+        $_SESSION['reset_count']=$count+1;
+        try{
+            password_reset_stage((string)($_POST['email']??''));
+            flash('success','لو البريد موجود عندنا، هيوصلك رابط استرجاع كلمة المرور.');
+            go('/forgot-password');
+        }catch(InvalidArgumentException $e){password_forgot_page($e->getMessage());}
+    }
+    password_forgot_page();
+}
+function password_forgot_page(?string $warning=null):never {
+    $body='<p>اكتب البريد المرتبط بحسابك لاستلام رابط تغيير كلمة المرور. مش مطلوب كود مصادقة ثنائية.</p>'.
+        '<form method="post" action="/saas/console/forgot-password" class="stack">'.
+        '<input type="hidden" name="csrf" value="'.e(csrf()).'">'.
+        '<label class="field">البريد الإلكتروني<input name="email" type="email" maxlength="190" autocomplete="email" required></label>'.
+        '<button class="btn primary wide" type="submit">إرسال رابط الاسترجاع</button></form>';
+    auth_public_page('نسيت كلمة المرور',$body,$warning);
+}
+function password_reset_route():never {
+    $token=(string)($_POST['token']??$_GET['token']??'');
+    if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
+        require_csrf();
+        $password=(string)($_POST['password']??'');
+        if(!hash_equals($password,(string)($_POST['password_confirm']??'')))
+            password_reset_page($token,'تأكيد كلمة المرور غير مطابق');
+        try{
+            password_reset_confirm($token,$password);
+            // A previous browser session remains invalid after password version bump.
+            unset($_SESSION['uid'],$_SESSION['account_id'],$_SESSION['auth_version'],$_SESSION['support']);
+            session_regenerate_id(true);
+            flash('success','تم تحديث كلمة المرور. سجّل الدخول بكلمة المرور الجديدة.');
+            go('/login');
+        }catch(InvalidArgumentException|RuntimeException $e){password_reset_page($token,$e->getMessage());}
+    }
+    password_reset_page($token);
+}
+function password_reset_page(string $token,?string $warning=null):never {
+    if(!preg_match('/^[a-f0-9]{64}$/D',$token))
+        auth_public_page('رابط الاسترجاع غير صالح','<p>اطلب رابطًا جديدًا من صفحة استرجاع كلمة المرور.</p><p><a href="/saas/console/forgot-password">طلب رابط جديد</a></p>');
+    $body='<p>حدد كلمة مرور جديدة للحساب. الرابط صالح لمدة 30 دقيقة ولمرة واحدة.</p>'.
+        '<form method="post" action="/saas/console/reset-password" class="stack">'.
+        '<input type="hidden" name="csrf" value="'.e(csrf()).'">'.
+        '<input type="hidden" name="token" value="'.e($token).'">'.
+        '<label class="field">كلمة المرور الجديدة<input name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label>'.
+        '<label class="field">تأكيد كلمة المرور<input name="password_confirm" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label>'.
+        '<button class="btn primary wide" type="submit">حفظ كلمة المرور الجديدة</button></form>';
+    auth_public_page('تغيير كلمة المرور',$body,$warning);
+}
+function password_change_route():never {
+    $user=require_login();
+    if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
+        require_csrf();
+        $next=(string)($_POST['new_password']??'');
+        if(!hash_equals($next,(string)($_POST['new_password_confirm']??'')))
+            password_change_page('تأكيد كلمة المرور غير مطابق');
+        try{
+            $version=password_change((int)$user['id'],(string)($_POST['current_password']??''),$next);
+            $_SESSION['auth_version']=$version;
+            session_regenerate_id(true);
+            flash('success','تم تغيير كلمة المرور وإغلاق الجلسات القديمة.');
+            go('/?tab=settings');
+        }catch(InvalidArgumentException|RuntimeException $e){password_change_page($e->getMessage());}
+    }
+    password_change_page();
+}
+function password_change_page(?string $warning=null):never {
+    $body='<form method="post" action="/saas/console/change-password" class="stack">'.
+        '<input type="hidden" name="csrf" value="'.e(csrf()).'">'.
+        '<label class="field">كلمة المرور الحالية<input name="current_password" type="password" autocomplete="current-password" required></label>'.
+        '<label class="field">كلمة المرور الجديدة<input name="new_password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label>'.
+        '<label class="field">تأكيد كلمة المرور<input name="new_password_confirm" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label>'.
+        '<button class="btn primary wide" type="submit">تغيير كلمة المرور</button></form>';
+    auth_public_page('تغيير كلمة المرور',$body,$warning);
+}
