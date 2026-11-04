@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 110
     defaults:
       run:
-        shell: powershell
+        shell: pwsh
     steps:
       - name: Checkout exact OnTrack Voice revision
         uses: actions/checkout@v4
