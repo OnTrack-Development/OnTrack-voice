@@ -540,8 +540,8 @@ function render_agents(array $a):void{
     $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY id",[$id]);
     $selected=selected_site($id);
     $map=[];foreach($sites as $site)$map[$site['id']]=$site['name'];
-    echo '<div class="section-line agents-toolbar"><div class="agents-heading"><span class="eyebrow">DYNAMIC AI AGENT STUDIO</span>'.
-        '<h2>Agent Builder · بلدر الإيجنت الذكي</h2><p>البلدر البصري موجود مع إعدادات الشخصية والقدرات والمعرفة؛ AI يقدر يقترح تغيير كل جزء.</p>'.
+    echo '<div class="section-line agents-toolbar"><div class="agents-heading"><span class="eyebrow">مساحة المساعدين</span>'.
+        '<h2>المساعدون</h2><p>صمّم مساعدك وعدّل مهمته وصوته ومخطط المحادثة.</p>'.
         '</div><div class="site-picker" aria-label="اختيار الموقع">';
     foreach($sites as $site)
         echo '<a class="chip-link '.($selected&&(int)$site['id']===(int)$selected['id']?'chosen':'').
@@ -549,8 +549,8 @@ function render_agents(array $a):void{
     echo '</div></div>';
     if(!$sites){echo card('إنشاء مساحة عمل','أضف موقعًا أولًا من قسم المواقع.');return;}
     if($selected)render_voice_data_sources($a,$selected);
-    echo '<div class="agent-studio-banner"><strong>المحادثة الذكية هي الأساس</strong>'.
-        '<p>يتعامل الإيجنت مع تغيير النية والأسئلة الجانبية ويحتفظ بسياق المكالمة. التكاملات الحالية مصادر معلومات للقراءة فقط؛ لا توجد أوامر دفع أو تعديل خدمات أو تحويل مكالمة تلقائي مؤكّد.</p></div>';
+    echo '<div class="agent-studio-banner"><strong>مساعدك، بطريقتك</strong>'.
+        '<p>حدّد هدف المساعد وطريقة كلامه، ثم صمّم المحادثة التي تناسب شغلك.</p></div>';
     $voices=[];
     foreach(all("SELECT code,name FROM voices WHERE ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?) ORDER BY name",[$id]) as $voice)
         $voices[$voice['code']]=$voice['name'];
@@ -558,24 +558,24 @@ function render_agents(array $a):void{
     if(allowed('agents.write')){
         $defaults=answer_policy_defaults();
         $create=form_start('add_agent','/?tab=agents&site='.(int)$selected['id'],'class="agent-studio-form-create"').
-            '<div class="form-grid">'.field_html('اسم الإيجنت','name','text','مساعد خدمة العملاء',true).
-            select_html('موقع الإيجنت','site_id',$map).
+            '<div class="form-grid">'.field_html('اسم المساعد','name','text','مساعد خدمة العملاء',true).
+            select_html('الموقع','site_id',$map).
             select_html('الصوت','voice',$voices).'</div>'.
-            '<label class="field">الشخصية والتعليمات<textarea name="instructions" rows="4" maxlength="5000" placeholder="اتكلم بالمصري وبأسلوب مهني..."></textarea></label>'.
-            '<label class="field">المعرفة الخاصة بالإيجنت<textarea name="knowledge" rows="4" maxlength="20000" placeholder="المنتجات، الخدمات والسياسات المعتمدة"></textarea></label>'.
+            '<label class="field">التعليمات وأسلوب الحديث<textarea name="instructions" rows="4" maxlength="5000" placeholder="اتكلم بالمصري وبأسلوب مهني..."></textarea></label>'.
+            '<label class="field">معرفة المساعد<textarea name="knowledge" rows="4" maxlength="20000" placeholder="المنتجات، الخدمات والسياسات المعتمدة"></textarea></label>'.
             agent_studio_policy_fields($defaults).
-            '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">إنشاء ونشر الإيجنت</button>'.
+            '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">إنشاء ونشر المساعد</button>'.
             '<button class="btn" type="submit">إنشاء مسودة</button></div></form>';
-        echo '<details class="agent-create"><summary class="btn primary">+ إنشاء AI Agent</summary>'.
-            card('إنشاء إيجنت ديناميكي',$create).'</details>';
+        echo '<details class="agent-create"><summary class="btn primary">+ إنشاء مساعد</summary>'.
+            card('إنشاء مساعد جديد',$create).'</details>';
     }
     $agents=$selected?all("SELECT * FROM agents WHERE account_id=? AND site_id=? AND status!='archived' ORDER BY id DESC",
         [$id,$selected['id']]):[];
     foreach($agents as $agent){
         $policy=answer_policy_for_agent($id,(int)$agent['id']);
         $version=published_agent_flow($id,(int)$selected['id'],(int)$agent['id']);
-        $summary='<div class="agent-summary"><span class="pill neutral">AI ديناميكي</span>'.
-            pill((string)$agent['status']).'<span class="dim">صوت: '.e($agent['voice']).'</span>'.
+        $summary='<div class="agent-summary"><span class="pill neutral">مساعد ذكي</span>'.
+            pill((string)$agent['status']).'<span class="dim">صوت: '.e($voices[$agent['voice']]??'الصوت المختار').'</span>'.
             ($version?'<span class="pill neutral">المنشور v'.(int)$version['revision'].'</span>':'<span class="pill neutral">غير منشور</span>').'</div>';
         if(allowed('agents.write')){
             $options=$voices;
@@ -584,21 +584,21 @@ function render_agents(array $a):void{
                 'class="stack agent-form agent-studio-form"').
                 '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
                 '<div class="agent-builder-tabs" role="tablist" aria-label="أقسام البلدر">'.
-                '<button type="button" class="agent-builder-tab active" data-builder-tab="visual" aria-selected="true">✦ البلدر البصري</button>'.
-                '<button type="button" class="agent-builder-tab" data-builder-tab="intelligence" aria-selected="false">🧠 الشخصية والأهداف</button>'.
+                '<button type="button" class="agent-builder-tab active" data-builder-tab="visual" aria-selected="true">✦ مخطط المحادثة</button>'.
+                '<button type="button" class="agent-builder-tab" data-builder-tab="intelligence" aria-selected="false">🧠 الشخصية والمهام</button>'.
                 '<button type="button" class="agent-builder-tab" data-builder-tab="knowledge" aria-selected="false">📚 المعرفة والتكاملات</button>'.
                 '<button type="button" class="agent-builder-tab" data-builder-tab="voice" aria-selected="false">⚙️ الصوت والمكالمة</button></div>'.
                 '<div class="agent-builder-pane" data-builder-pane="visual">'.
-                '<div class="agent-builder-intro"><strong>Visual Agent Builder</strong><p>صمّم خريطة القدرات والمسارات بحرية، ومساعد AI يقدر يطور المخطط وكمان خصائص الإيجنت. الخريطة ليست مسار مكالمة إجباري.</p></div>'.
+                '<div class="agent-builder-intro"><strong>تصميم المحادثة</strong><p>رتّب الخطوات والوصلات واسحبها بحرية. مساعد التصميم متاح للاقتراح والتعديل بعد موافقتك.</p></div>'.
                 '<div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.e((string)$agent['flow_json']).'</textarea></div></div>'.
                 '<div class="agent-builder-pane" data-builder-pane="intelligence" hidden>'.
-                '<div class="form-grid"><label class="field">اسم الإيجنت<input name="name" maxlength="140" required value="'.e($agent['name']).'"></label>'.
+                '<div class="form-grid"><label class="field">اسم المساعد<input name="name" maxlength="140" required value="'.e($agent['name']).'"></label>'.
                 select_html('الصوت','voice',$options,(string)$agent['voice']).'</div>'.
-                '<label class="field">الشخصية والتعليمات<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label>'.
+                '<label class="field">التعليمات وأسلوب الحديث<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label>'.
                 agent_studio_policy_fields($policy).
                 '</div><div class="agent-builder-pane" data-builder-pane="knowledge" hidden>'.
                 '<div class="agent-studio-section"><strong>المعرفة والتكاملات</strong><p class="info">اربط الملفات ومصادر WHMCS وLaravel وWordPress من مصادر بيانات الموقع. المساعد يقترح ما يلزم منها دون إنشاء صلاحيات أو مفاتيح تلقائيًا.</p>'.
-                '<label class="field">معرفة الإيجنت<textarea name="knowledge" rows="6" maxlength="20000">'.e($agent['knowledge']).'</textarea></label></div></div>'.
+                '<label class="field">معلومات المساعد<textarea name="knowledge" rows="6" maxlength="20000">'.e($agent['knowledge']).'</textarea></label></div></div>'.
                 '<div class="agent-builder-pane" data-builder-pane="voice" hidden>'.
                 '<div class="agent-studio-section"><div class="agent-studio-section-title"><strong>الرد والمكالمة</strong></div>'.
                 '<div class="form-grid"><label class="field">مهلة الرد بالثواني<input name="answer_delay_seconds" type="number" min="0" max="30" value="'.(int)$policy['answer_delay_seconds'].'" required></label>'.
@@ -607,21 +607,21 @@ function render_agents(array $a):void{
                     'egyptian_short'=>'مصري مختصر','formal_ar'=>'عربي رسمي','english'=>'إنجليزي','bilingual'=>'عربي وإنجليزي'],$policy['response_style']).
                 select_html('عند تعذر الاستكمال','fallback',['human'=>'عرض مساعدة موظف','end'=>'إنهاء بأدب'],$policy['fallback']).'</div>'.
                 '<label class="field"><input type="checkbox" name="auto_answer"'.($policy['auto_answer']?' checked':'').'> الرد الآلي عند تفعيل ربط الشريحة</label></div></div>'.
-                '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">نشر إعدادات الإيجنت</button>'.
+                '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">نشر إعدادات المساعد</button>'.
                 '<button class="btn" type="submit">حفظ مسودة بدون تحديث</button>'.
                 '<span class="agent-studio-status" role="status"></span></div></form>'.
                 form_start('archive_agent','/?tab=agents&site='.(int)$selected['id'],'class="inline-form"').
                 '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
-                '<button class="btn small danger" data-confirm="أرشفة الإيجنت؟">أرشفة الإيجنت</button></form>';
+                '<button class="btn small danger" data-confirm="أرشفة المساعد؟">أرشفة المساعد</button></form>';
             $summary.=$editing;
         }else $summary.='<p>'.e((string)$agent['instructions']).'</p>';
         echo '<details class="agent-editor" id="agent-'.(int)$agent['id'].'"'.
             ((string)($_GET['agent']??'')===(string)$agent['id']?' open':'').
             '><summary><strong>'.e($agent['name']).'</strong><span>'.pill((string)$agent['status']).
-            '</span><span class="dim">إدارة الشخصية والهدف والأدوات</span></summary>'.
-            card('Agent Studio · '.e($agent['name']),$summary).'</details>';
+            '</span><span class="dim">تعديل المهمة والمخطط والصوت</span></summary>'.
+            card('إعدادات المساعد · '.e($agent['name']),$summary).'</details>';
     }
-    if(!$agents)echo '<p class="info">لسه مفيش إيجنتات في الموقع ده؛ أنشئ أول AI Agent من الزر اللي فوق.</p>';
+    if(!$agents)echo '<p class="info">لا يوجد مساعدون للموقع الحالي. أنشئ مساعدك الأول من الأعلى.</p>';
 }
 function render_flows(array $a):void{
     $id=(int)$a['account_id'];
