@@ -252,7 +252,9 @@ body.light .otTabs button.active{background:#d20d28!important;color:#fff!importa
 <p>الواجهة والإعدادات تتحدث مباشرة. عند تحديث محرك Android، التطبيق ينزّل النسخة ويطلب موافقة Android على التثبيت مرة واحدة.</p>
 <div class="status"><span class="indicator good"></span><div><strong style="font-size:15px">Android &amp; UI OTA</strong><span class="small" id="nativeUpdateStatus">جاري البحث عن تحديث جديد…</span></div></div>
 <div class="row"><button class="primary" id="upgradeAndroid" disabled>تثبيت تحديث Android</button><button id="scanAndroid" class="outline">فحص الإصدار</button></div>
-<p class="small">التحديثات المتكررة لا تعيد تنزيل الملف المتحقق منه. إذا طلب Android إذن تثبيت، فالموافقة مطلوبة من النظام وليست جزءًا من تحديث الواجهة. لا يحدث تثبيت أثناء مكالمة.</p>
+<button type="button" class="outline" id="enableUpdateNotice">تفعيل إشعارات تحديث Android</button>
+<p class="small" id="updateNotificationHint">الإشعار يظهر داخل التطبيق، ويمكن تفعيل إشعار Android عند توفر إصدار جديد أثناء فحص التطبيق.</p>
+<p class="small">لا يعاد تنزيل ملف سبق التحقق منه. التثبيت يتطلب موافقة Android، ولا يبدأ أثناء مكالمة.</p>
 </section>
 <section class="card" id="mobileDataMode" data-panel="settings">
 <div class="section-title"><h2>الاتصال ببيانات الهاتف</h2><span class="chip warn">اختياري · تجريبي</span></div>
@@ -510,6 +512,13 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
    s.nativeInstallPermission===false?'إعداد إذن التثبيت لمرة واحدة':
    s.nativeUpdateAvailable?'فحص وتحميل أو استكمال تثبيت '+(s.nativeUpdateVersion||'الإصدار الجديد'):'Android محدّث';
  el('scanAndroid').disabled=s.nativeUpdateBusy||call;
+ const androidNotify=Number(s.nativeCode)>=36;
+ el('enableUpdateNotice').disabled=!androidNotify||!!s.nativeUpdateNotificationsEnabled;
+ el('enableUpdateNotice').textContent=!androidNotify?'إشعارات النظام تتطلب Android 0.3.13':
+   s.nativeUpdateNotificationsEnabled?'إشعارات النظام مفعّلة':'تفعيل إشعارات تحديث Android';
+ el('updateNotificationHint').textContent=s.nativeUpdateNotificationsEnabled?
+   'هتظهر رسالة داخل التطبيق وإشعار من Android عند اكتشاف تحديث جديد أثناء فحص التطبيق.':
+   'التنبيه داخل التطبيق متاح؛ إشعار Android يحتاج إذنك من هنا.';
  el('campaignAutoStatus').textContent=s.campaignAutoEnabled?'تفعيل SIM معتمد على الهاتف — الحملات المعتمدة فقط':'تنفيذ SIM متوقف؛ لا مكالمات مجدولة بدون تفعيل';
  const wifiSupported=typeof s.wifiFreeEnabled==='boolean';
  el('mobileDataMode').style.display=wifiSupported?'block':'none';
@@ -551,12 +560,14 @@ el('wifiFreeConsent').onchange=()=>{el('wifiFreeToggle').disabled=!!last.inCall|
 el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)return;send(last.wifiFreeEnabled?'wifiFreeDisable':'wifiFreeEnable')};
 el('scanAndroid').onclick=()=>send('checkNativeUpdates');
 el('upgradeAndroid').onclick=()=>send('installNativeUpdate');
+el('enableUpdateNotice').onclick=()=>{if(Number(last.nativeCode)>=36)send('enableUpdateNotifications')};
 function openUpdateCenter(){
   setView('settings');
   el('versionUpdates').scrollIntoView({behavior:'smooth',block:'start'});
 }
 el('updateNotice').onclick=openUpdateCenter;
 el('updateBell').onclick=openUpdateCenter;
+window.onTrackOpenUpdates=openUpdateCenter;
 el('updates').onclick=requestUiRefresh;
 function setView(v){
  if(!['dashboard','calls','campaigns','agents','settings'].includes(v))v='dashboard';
