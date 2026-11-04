@@ -50,6 +50,7 @@ class MobileLinkService:Service() {
         @Volatile var pendingSync=false
         @Volatile var humanControl=false
         @Volatile var audioReady=false
+        @Volatile var audioDiagnostic=""
         @Volatile var callProblem=""
         @Volatile var latestStatus="الربط متوقف"
         fun base(value:String):String {
@@ -76,7 +77,7 @@ class MobileLinkService:Service() {
     @Volatile private var takeoverRequested=false
     @Volatile private var pendingDesired:Boolean?=null
     @Volatile private var recoveringActiveCall=false
-    private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(running,agentEnabled,inCall,callAnswered,humanControl,audioReady,callProblem)}}
+    private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(running,agentEnabled,inCall,callAnswered,humanControl,audioReady,callProblem,audioDiagnostic)}}
     private fun notice(value:String){
         latestStatus=value
         getSystemService(NotificationManager::class.java).notify(701,notification(value))
@@ -372,7 +373,7 @@ class MobileLinkService:Service() {
                         audioStart?.cancel();audioStart=null
                         flowLoad?.cancel();flowLoad=null
                         sessionLoad?.cancel();sessionLoad=null
-                        audioReady=false;callProblem=""
+                        audioReady=false;callProblem="";audioDiagnostic=""
                         if(selected!=null){
                             call?.stop();call=null;tenantSession=null;tenantFlow=null
                             selected=null;liveSimSlot=-1;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;outgoingCall=false;humanControl=false;policy=JSONObject()
@@ -396,7 +397,7 @@ class MobileLinkService:Service() {
                         audioStart?.cancel();audioStart=null
                         flowLoad?.cancel();flowLoad=null
                         sessionLoad?.cancel();sessionLoad=null
-                        audioReady=false;callProblem=""
+                        audioReady=false;callProblem="";audioDiagnostic=""
                         selected=current.slot;liveSimSlot=current.slot;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;outgoingCall=false;tenantFlow=null;tenantSession=null
                         ringingAt=SystemClock.elapsedRealtime();startedAt=0L;humanControl=false;policy=JSONObject()
                         audioAttemptCount=0;nextAudioRetryAt=0L
@@ -548,7 +549,15 @@ class MobileLinkService:Service() {
                         val reportSlot=current.slot
                         val reportBinding=enrollment.bindingId(reportSlot)
                         val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,
-                            sess,liveSettings,::notice,outgoingCall=outgoingCall) { realTranscript ->
+                            sess,liveSettings,::notice,outgoingCall=outgoingCall,
+                            onAudioDiagnostics={ diagnostic ->
+                                // Gemini setup alone cannot prove the VoLTE modem
+                                // delivered audible PCM to the other party.
+                                if(inCall && liveSimSlot==reportSlot && !humanControl){
+                                    audioDiagnostic=diagnostic
+                                    showOverlay()
+                                }
+                            }) { realTranscript ->
                             if(reportCallId!=null)
                                 reportOutbox.enqueue(reportSlot,reportBinding,reportCallId,realTranscript)
                         }
@@ -558,7 +567,7 @@ class MobileLinkService:Service() {
                         // A Session token is not PCM-ready and cannot enable
                         // the human-takeover button until start() succeeds.
                         call=currentCall
-                        audioReady=false;connected=false
+                        audioReady=false;audioDiagnostic="";connected=false
                         audioStart=scope.async(Dispatchers.IO){
                             try{
                                 currentCall.start()
@@ -621,14 +630,14 @@ class MobileLinkService:Service() {
                 }
             }
         }finally{
-            call?.stop();call=null;running=false;connected=false;audioReady=false
+            call?.stop();call=null;running=false;connected=false;audioReady=false;audioDiagnostic=""
             inCall=false;callAnswered=false;agentEnabled=false;callProblem=""
         }
     }
     /** Never continue pilot AI/telephony after any tenant SIM starts enrollment. */
     override fun onDestroy(){
         networkListener?.let{runCatching{connectivity?.unregisterNetworkCallback(it)}}
-        call?.stop();scope.cancel();running=false;connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false;audioReady=false;callProblem=""
+        call?.stop();scope.cancel();running=false;connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false;audioReady=false;callProblem="";audioDiagnostic="";audioDiagnostic=""
         liveSimSlot=-1;tenantEventOutbox=null
         overlay.remove();latestStatus="الربط متوقف"
         super.onDestroy()
