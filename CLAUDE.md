@@ -20,16 +20,17 @@
 
 <!-- ONTRACK_MANDATORY_AGENT_RULES_END -->
 
-> **Current execution source of truth (2026-11-03):** [Master Repair Roadmap](docs/plan/MASTER_REPAIR_ROADMAP_2026_11_03_AR.md) + [machine gap backlog](docs/plan/MASTER_REPAIR_BACKLOG_2026_11_03.json), reflecting all approved owner Q01–Q24, updated root deployment, failed CI gate, and remaining real device/billing checks. Do NOT restart the owner-stopped hourly development schedule. Older paths and OPEN Q references below are historical.
+## OnTrack Voice — current project-specific rules (2026-11-04)
 
-# OnTrack Voice — session entry
+- **Owner stage:** internal/demo development and owner-controlled live tests only. No real paying customer accounts. Production infrastructure use is for verified internal testing, not proof of commercial release.
+- **Approved requirements:** [Q01–Q24 owner-approved decisions](docs/discovery/OWNER_APPROVED_MASTER_DECISIONS_2026_11_01_AR.md) are authoritative. Older documents calling these requirements OPEN or awaiting permission are obsolete. For remaining genuine gaps, check [master repair roadmap](docs/plan/MASTER_REPAIR_ROADMAP_2026_11_03_AR.md) against actual source and evidence.
+- **Read the actual implementation first:** Android tenant service, overlay and PCM in saas/mobile/audio-proof/overlay; version/OTA in saas/mobile/ota; account-scoped console and published Flow in saas/console; remote worker in ops/host-link. Preserve existing customer/SIM binding, secrets, auth, signing and source provenance.
+- **Call-path regression:** the signed Android 0.3.19 / native code 42 APK and UI OTA revision 41 had verified host receipts on 2026-11-04. The owner's phone screenshot showed connected carrier call but no proven AI takeover or microphone mute, with misleading "you took over" overlay. Therefore **device call audio, auto-answer, mute and MIX remain FAIL/UNVERIFIED**. The 0.3.20 call-state repair is a separate code branch and is not a verified signed/released device fix until tested and host-acknowledged.
+- **Mobile safety invariant:** carrier OFFHOOK is not proof of live AI PCM; a transport failure, unpaired SIM, ambiguous dual SIM or disabled agent must not be represented as explicit human takeover. Only a real user handoff action can record that event. Keep SIM-specific authorization and do not mix tenant audio. Native floating overlay changes require signed APK (not HTML-only OTA).
+- **Evidence gates:** treat Android unit tests, Kotlin compile/R8, APK signature, signed UI receipt, native APK host receipt and owner-device SIM-call E2E as distinct outcomes. Never label the last PASS using the previous five alone.
+- **Deployment scope:** inspect the current host path/allowlist rather than relying on historic paths. Do not place private working docs, credentials or GitHub job logs in public_html. Do not restart owner-cancelled hourly autonomous development schedules.
+- **Recovery discipline:** retain exact failing CI step, source SHA, test output and next action; retry only on a diagnosed fix. Continue from current repository head and existing authorized connection instead of requesting repeat API secrets.
 
-> **Authoritative 2026-11-01 owner contract:** [Approved master decisions](docs/discovery/OWNER_APPROVED_MASTER_DECISIONS_2026_11_01_AR.md). Q01–Q24 are answered, Q07/Q13 delegated options resolved. This overrides earlier pending-approval notes. Before production features, read the checkpoint and show evidence for CI, host, auth UI, device E2E separately. The signed hook payment path intentionally stages an unclaimed paid order, not identity by email; verified account claim/SSO is still required before activation.\n\n
-> **Read first:** [Owner decisions + pending questions (2026-11-01)](docs/discovery/OWNER_DECISIONS_AND_OPEN_QUESTIONS_2026_11_01_AR.md). Newer owner-approved decisions override contradictory legacy status notes. The Admin login works for the owner; separate assistant authenticated E2E verification remains open.\n\n
-Read [AGENTS.md](AGENTS.md), then [CURRENT_STATE_AR.md](docs/project/CURRENT_STATE_AR.md), before changing anything.
+## Mandatory final report for every development task
 
-This repository includes existing PHP voice demo code, a private GitHub host-control worker, and imported Agent Builder specifications. It is not a completed telephone SaaS. Continue from the verified checkpoint and preserve working host connectivity.
-
-Authoritative decisions: [DECISIONS_AR.md](docs/discovery/DECISIONS_AR.md). Current implementation roadmap: [IMPLEMENTATION_PLAN_AR.md](docs/plan/IMPLEMENTATION_PLAN_AR.md). Phone audio remains unverified; do not rebuild pairing/UI and present that as call success.
-
-Workspace directive: application code only in `saas/`; host target `/home/appontrack/public_html/saas`. Memory/logs/prompts stay on GitHub under `docs/`, never in the host application. Read `docs/memory/CHECKPOINT.md` and `docs/execution/MASTER_EXECUTION_PROMPT_AR.md`; current scope is preparation before the owner starts implementation.
+Give **task / changed paths / tests (command + PASS, FAIL, or NOT RUN) / regression evidence / commit SHA + branch / Build status / Deploy + host receipt / physical E2E result / remaining blockers**. An unresolved blocker is a reported partial result, never DONE.
