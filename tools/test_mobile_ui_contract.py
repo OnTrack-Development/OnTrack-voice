@@ -51,7 +51,7 @@ assert 'session.optString("agent_name"' in session, 'Greeting must use agent dis
 assert 'id="key"' not in embedded and 'id="tenantWorkspaceSlot"' in embedded, 'Old Pilot UI bundled into Android APK'
 meta=json.loads(Path('saas/mobile/ota/release.json').read_text())
 assert meta['revision']>=40, 'A signed OTA revision must advance'
-assert meta['min_native']==34 and meta['max_native']==42, 'Advanced UI must not auto-replace legacy 0.3.9 with unsupported commands'
+assert meta['min_native']==34 and meta['max_native']==43, 'Advanced UI must not auto-replace legacy 0.3.9 with unsupported commands'
 assert meta['runtime']==1
 for part in ('requestUiRefresh()', "send('checkUpdates')", "data-view=\"dashboard\"", 'body.light', "readUiTheme()"):
     assert part in ui, 'Missing UI-only capability: '+part
@@ -82,3 +82,7 @@ assert "id=\"openAnswerSettings\"" in ui and "send('openAnswerSettings')" in ui,
 
 assert 'id="tenantTest"' in ui and "send('tenantTest')" in ui, 'Missing actionable SIM+Live diagnostic'
 assert 'Number(s.nativeCode)<26' in ui, 'Native diagnostic must be unavailable in older Android releases'
+
+assert 'humanControl=true\n' in service and 'tenantSession=null;humanControl=true' not in service, 'Transport failure must not fake human takeover'
+assert 'audioReady=currentCall.active' in service and 'sessionLoad=scope.async' in service, 'PCM and SaaS readiness must be separate from phone OFFHOOK'
+assert 'callProblem' in native, 'Native UI must show call/session faults'
