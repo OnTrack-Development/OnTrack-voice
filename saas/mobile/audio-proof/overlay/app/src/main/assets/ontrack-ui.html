@@ -168,21 +168,31 @@ body.light .otTabs button.active{background:#d20d28!important;color:#fff!importa
 .otAgentButtons button{font-size:12px;min-height:40px;padding:8px}
 .otAgentEmpty{font-size:12px;line-height:1.8;color:var(--muted);padding:12px;border:1px dashed var(--border);border-radius:12px}
 @media(max-width:390px){.otTabs{gap:3px;padding-left:5px!important;padding-right:5px!important}.otTabs button{font-size:9px}.otTabs .navIcon{width:21px;height:21px}.otStatusGrid{gap:5px}.otConnection{padding:10px 6px}.otConnection strong{font-size:11px}}
+
+/* Customer-first surface: no duplicate builder actions or raw version badges. */
+#version[hidden],#openFlowStudio[hidden]{display:none!important}
+.otAgentCard{padding:16px;border-radius:20px;box-shadow:0 8px 26px #00000012}
+.otAgentCards{gap:12px}
+.otAgentButtons button{min-height:46px;border-radius:13px}
+.otConnection small{display:none}
+.otStatusGrid{gap:8px}
+.otConnection strong{font-size:13px}
+#agentBuilderHub .primary{min-height:48px}
 </style></head><body>
-<div id="uiPullStatus" hidden role="status" aria-live="polite">↻ فحص تحديث الواجهة…</div>
+<div id="uiPullStatus" hidden role="status" aria-live="polite">↻ جارٍ تحديث البيانات…</div>
 <div id="otSplash" role="status" aria-live="polite"><div class="otHalo"><div class="otMonogram">OT</div></div><div class="otTitle">ONTRACK</div><div class="otSubtitle">VOICE INTELLIGENCE</div><div class="otProgress"><span class="otPulse"></span>يرجى الانتظار · جارٍ تجهيز الاتصال</div></div>
-<div class="otTopline">ONTRACK DEVELOPMENT / VOICE INTELLIGENCE</div>
-<header><div class="brand"><span class="logo">OT</span><div><h1>OnTrack Voice</h1><div class="sub">OnTrack Development · مركز الاتصال</div></div></div><div class="otHeaderTools"><button id="updateBell" type="button" class="otUpdateBellButton" hidden aria-label="تحديث جديد — فتح شاشة التحديث">↑<span class="otNotifyDot"></span></button><button id="themeToggle" type="button" class="otThemeButton" aria-label="تبديل المظهر">☀</button><div class="minor" id="version">—</div></div></header>
-<div class="otWelcome" data-panel="dashboard"><div><span class="otEyebrow">لوحة التحكم</span><strong>مركز تشغيل المكالمات</strong><small>راقب الإيجنت والشرائح من مكان واحد من غير مفاتيح إضافية.</small></div><div class="otSpark">✦</div></div>
+
+<header><div class="brand"><span class="logo">OT</span><div><h1>OnTrack Voice</h1><div class="sub">OnTrack Development · مركز الاتصال</div></div></div><div class="otHeaderTools"><button id="updateBell" type="button" class="otUpdateBellButton" hidden aria-label="تحديث جديد — فتح شاشة التحديث">↑<span class="otNotifyDot"></span></button><button id="themeToggle" type="button" class="otThemeButton" aria-label="تبديل المظهر">☀</button><div class="minor" id="version" hidden>—</div></div></header>
+<div class="otWelcome" data-panel="dashboard"><div><span class="otEyebrow">لوحة التحكم</span><strong>مركز تشغيل المكالمات</strong><small>تابع المكالمات والمساعدين والشرائح بسهولة.</small></div><div class="otSpark">✦</div></div>
 
 <nav class="otTabs" aria-label="أقسام التطبيق" role="navigation">
  <button class="active" data-view="dashboard" aria-current="page"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg><span>الرئيسية</span></button>
  <button data-view="calls"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 3.5H5a2 2 0 0 0-2 2C3 14 10 21 18.5 21a2 2 0 0 0 2-2v-2.5l-5.3-2.3-2.2 2.2a17 17 0 0 1-5.4-5.4l2.2-2.2z"/></svg><span>المكالمات</span></button>
- <button data-view="agents"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M9 3h6M8 12h.01M16 12h.01M8 16c2.1 1.4 5.9 1.4 8 0"/></svg><span>الإيجنتات</span></button>
+ <button data-view="agents"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M9 3h6M8 12h.01M16 12h.01M8 16c2.1 1.4 5.9 1.4 8 0"/></svg><span>المساعدون</span></button>
  <button data-view="campaigns"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>الحملات</span></button>
  <button data-view="settings"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 1.2 1.2-2.4 2.4-1.3-1.2a8 8 0 0 1-2.1.9V21h-3.4v-2.7a8 8 0 0 1-2.1-.9L8 18.6l-2.4-2.4L6.8 15a8 8 0 0 1-.9-2H3.2V9.6h2.7a8 8 0 0 1 .9-2L5.6 6.4 8 4l1.3 1.2a8 8 0 0 1 2.1-.9V1.6h3.4v2.7a8 8 0 0 1 2.1.9L18.2 4l2.4 2.4-1.2 1.2a8 8 0 0 1 .9 2H23v3.4h-2.7a8 8 0 0 1-.9 2z"/></svg><span>الإعدادات</span><span id="updateTabDot" class="otNotifyDot" hidden></span></button>
 </nav>
-<section class="otPageIntro" data-panel="agents"><span class="otEyebrow">AGENT WORKSPACE</span><h2>الإيجنتات والـFlow Builder</h2><p>الإيجنتات المرتبطة بالشرائح، ووظيفة كل واحد والـFlow المنشور، مع الوصول للبلدر.</p></section>
+<section class="otPageIntro" data-panel="agents"><span class="otEyebrow">مساحة العمل</span><h2>المساعدون</h2><p>المساعدون المرتبطون بشرائحك، ومهامهم ومسارات محادثاتهم.</p></section>
 <section class="otPageIntro" data-panel="settings"><span class="otEyebrow">التفضيلات</span><h2>التحديثات والإعدادات</h2><p>تحديثات التطبيق والأصوات والصلاحيات والاتصال.</p></section>
 <button id="updateNotice" type="button" class="otUpdateNotice" data-panel="dashboard" hidden aria-live="polite">
  <span class="otUpdateBell" aria-hidden="true">↑</span>
@@ -190,22 +200,22 @@ body.light .otTabs button.active{background:#d20d28!important;color:#fff!importa
  <span class="otUpdateArrow" aria-hidden="true">‹</span>
 </button>
 <section class="card" data-panel="dashboard">
-<div class="section-title"><h2>حالة الإيجنت</h2><span id="badge" class="chip">جاري التحقق</span></div>
+<div class="section-title"><h2>حالة المساعد</h2><span id="badge" class="chip">جاري التحقق</span></div>
 <div class="otStatusGrid" aria-live="polite">
  <div class="otConnection"><span class="otConnectionLabel">اتصال السيرفر</span><strong id="serverHealth">جارٍ التحقق</strong><small id="serverHealthDetail">فحص ربط الشريحة</small></div>
- <div class="otConnection"><span class="otConnectionLabel">مراقب SIM</span><strong id="simHealth">متوقف</strong><small>جاهزية الهاتف</small></div>
- <div class="otConnection"><span class="otConnectionLabel">Google Live</span><strong id="voiceHealth">بانتظار مكالمة</strong><small>جلسة صوت أثناء المكالمة</small></div>
+ <div class="otConnection"><span class="otConnectionLabel">الشرائح</span><strong id="simHealth">متوقف</strong><small>جاهزية الهاتف</small></div>
+ <div class="otConnection"><span class="otConnectionLabel">الصوت</span><strong id="voiceHealth">بانتظار مكالمة</strong><small>جاهز عند الاتصال</small></div>
 </div>
 <div class="status" aria-live="polite"><span class="indicator" id="dot"></span><div><strong id="mode">جاري التحميل…</strong><span class="small" id="status">التحقق من حالة الهاتف والسيرفر</span></div></div>
 <div class="divider"></div>
-<div class="row"><button class="positive" id="enable">تشغيل الإيجنت</button><button class="outline" id="disable">إيقاف الإيجنت</button></div>
+<div class="row"><button class="positive" id="enable">تشغيل المساعد</button><button class="outline" id="disable">إيقاف المساعد</button></div>
 <div class="show-on-call" id="callActions">
  <div class="divider"></div>
  <h2 class="callControlHeading">التحكم أثناء المكالمة</h2>
  <div class="row callQuickActions">
   <button class="primary" id="takeover" type="button">
    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6.5" r="3"/><path d="M5 20v-2a7 7 0 0 1 14 0v2M4 11l2-2M4 11l2 2"/></svg>
-   <span>استلام من الإيجنت</span><small>التحكم البشري بالمكالمة</small>
+   <span>استلام المكالمة</span><small>التحكم البشري بالمكالمة</small>
   </button>
   <button class="outline" id="speaker" type="button">
    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM17 9a5 5 0 0 1 0 6M20 6a9 9 0 0 1 0 12"/></svg>
@@ -217,42 +227,42 @@ body.light .otTabs button.active{background:#d20d28!important;color:#fff!importa
 <p id="message" role="alert"></p>
 </section>
 <section class="card" data-panel="dashboard" id="homeAgentOverview">
- <div class="section-title"><h2>الإيجنتات المرتبطة</h2><button type="button" data-go="agents" class="otTextAction">عرض الكل</button></div>
- <p>كل إيجنت بيخدم على إيه وحالة الـFlow الخاص بالشريحة.</p>
+ <div class="section-title"><h2>المساعدون المتصلون</h2><button type="button" data-go="agents" class="otTextAction">عرض الكل</button></div>
+ 
  <div id="homeAgentCards" class="otAgentCards" aria-live="polite"><p>جارٍ التحقق من الشرائح...</p></div>
 </section>
 <section class="card" data-panel="dashboard"><div class="section-title"><h2>الوصول السريع</h2><span class="chip">الأكثر استخدامًا</span></div><div class="otActionGrid">
 <button type="button" data-go="calls" class="otAction"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 3.5H5a2 2 0 0 0-2 2C3 14 10 21 18.5 21a2 2 0 0 0 2-2v-2.5l-5.3-2.3-2.2 2.2a17 17 0 0 1-5.4-5.4l2.2-2.2z"/></svg><span>المكالمات</span></button>
-<button type="button" data-go="agents" class="otAction"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M9 3h6M8 12h.01M16 12h.01M8 16c2.1 1.4 5.9 1.4 8 0"/></svg><span>الإيجنتات وFlow</span></button>
+<button type="button" data-go="agents" class="otAction"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M9 3h6M8 12h.01M16 12h.01M8 16c2.1 1.4 5.9 1.4 8 0"/></svg><span>المساعدون</span></button>
 <button type="button" data-go="campaigns" class="otAction"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>الحملات</span></button>
 <button type="button" data-go="settings" class="otAction"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 1.2 1.2-2.4 2.4-1.3-1.2a8 8 0 0 1-2.1.9V21h-3.4v-2.7a8 8 0 0 1-2.1-.9L8 18.6l-2.4-2.4L6.8 15a8 8 0 0 1-.9-2H3.2V9.6h2.7a8 8 0 0 1 .9-2L5.6 6.4 8 4l1.3 1.2a8 8 0 0 1 2.1-.9V1.6h3.4v2.7a8 8 0 0 1 2.1.9L18.2 4l2.4 2.4-1.2 1.2a8 8 0 0 1 .9 2H23v3.4h-2.7a8 8 0 0 1-.9 2z"/></svg><span>الإعدادات</span></button>
 </div></section>
 <section class="card" data-panel="agents" id="agentBuilderHub">
- <div class="section-title"><h2>Agent Studio · Flow Builder</h2><span class="chip good">حساب SaaS</span></div>
- <p>افتح كل الإيجنتات ومخطط كل واحد من حسابك، بدون API Key إضافي.</p>
- <div class="row"><button type="button" class="primary" id="openAgentStudio">كل الإيجنتات</button><button type="button" class="outline" id="openFlowStudio">Flow Builder</button></div>
+ <div class="section-title"><h2>استوديو المساعدين</h2></div>
+ <p>صمّم مسار المحادثة، وعدّل التعليمات والمهام من مكان واحد.</p>
+ <div class="row"><button type="button" class="primary" id="openAgentStudio">إدارة المساعدين</button><button type="button" id="openFlowStudio" hidden>فتح المخطط</button></div>
 </section>
 <section class="card" data-panel="agents" id="agentAssignments">
- <div class="section-title"><h2>إيجنتات الشرائح</h2><button type="button" class="otTextAction" id="refreshAgentCards">تحديث</button></div>
- <div id="agentCards" class="otAgentCards" aria-live="polite"><p>جارٍ التحقق من الإيجنتات...</p></div>
+ <div class="section-title"><h2>مساعدو الشرائح</h2><button type="button" class="otTextAction" id="refreshAgentCards">تحديث</button></div>
+ <div id="agentCards" class="otAgentCards" aria-live="polite"><p>جارٍ تحميل المساعدين…</p></div>
 </section>
-<section class="card" data-panel="agents" id="tenantDeviceCenter">
-<div class="section-title"><h2>الجهاز والسيناريو</h2><span class="chip warn" id="tenantStateBadge">التحقق من الشرائح</span></div>
-<p>اربط كل شريحة بالشركة والإيجنت من QR مستقل. عند تفعيل محرك الشركات الجديد، يستخدم كل رقم السيناريو المنشور الخاص بالشريحة. يلزم إعداد المزوّد واختبار الصوت أولًا.</p>
+<section class="card" data-panel="settings" id="tenantDeviceCenter">
+<div class="section-title"><h2>إدارة الشرائح</h2><span class="chip warn" id="tenantStateBadge">التحقق من الشرائح</span></div>
+<p>اربط كل شريحة بالمساعد الذي يعمل عليها.</p>
 <div class="tenant-sim-list" role="status" aria-live="polite">
   <div class="tenant-sim"><strong>SIM 1</strong><span id="tenantSim1">جاري التحقق…</span></div>
   <div class="tenant-sim"><strong>SIM 2</strong><span id="tenantSim2">جاري التحقق…</span></div>
 </div>
 <div class="row"><button type="button" id="tenantMenu" class="primary">إدارة الشرائح</button><button type="button" id="tenantQr" class="outline">مسح QR</button></div>
-<div class="row"><button type="button" id="openConsole" class="outline">لوحة الموقع</button><button type="button" id="openScenario" class="outline">Flow المنشور للشرائح</button></div>
+<div class="row"><button type="button" id="openConsole" class="outline">لوحة الموقع</button><button type="button" id="openScenario" class="outline">المسارات المنشورة</button></div>
 <div class="row"><button type="button" id="openAnswerSettings" class="outline">إعدادات الرد واللغة</button></div>
-<div class="row"><button type="button" id="tenantTest" class="outline">اختبار ربط الشريحة وGoogle Live</button></div>
+<div class="row"><button type="button" id="tenantTest" class="outline">تشخيص اتصال الشريحة والصوت</button></div>
 <button type="button" id="tenantRefresh" class="subtle-button">تحديث حالة الشرائح</button>
 </section>
 <section class="card" id="versionUpdates" data-panel="settings">
 <div class="section-title"><h2>تحديثات OnTrack</h2><span class="chip good">تحديثات آمنة</span></div>
 <p>الواجهة والإعدادات تتحدث مباشرة. عند تحديث محرك Android، التطبيق ينزّل النسخة ويطلب موافقة Android على التثبيت مرة واحدة.</p>
-<div class="status"><span class="indicator good"></span><div><strong style="font-size:15px">Android &amp; UI OTA</strong><span class="small" id="nativeUpdateStatus">جاري البحث عن تحديث جديد…</span></div></div>
+<div class="status"><span class="indicator good"></span><div><strong style="font-size:15px">إصدار التطبيق</strong><span class="small" id="nativeUpdateStatus">جاري البحث عن تحديث جديد…</span></div></div>
 <div class="row"><button class="primary" id="upgradeAndroid" disabled>تثبيت تحديث Android</button><button id="scanAndroid" class="outline">فحص الإصدار</button></div>
 <button type="button" class="outline" id="enableUpdateNotice">تفعيل إشعارات تحديث Android</button>
 <p class="small" id="updateNotificationHint">الإشعار يظهر داخل التطبيق، ويمكن تفعيل إشعار Android عند توفر إصدار جديد أثناء فحص التطبيق.</p>
@@ -267,8 +277,8 @@ body.light .otTabs button.active{background:#d20d28!important;color:#fff!importa
 <p class="small">لو حبيت تلغي الوضع، اتصل بالواي فاي أولًا واضغط إيقاف. لو المنفذ فضل مفتوح، أوقف USB debugging من إعدادات الهاتف. تشغيل البيانات لا يغني عن موافقة Android لإعداد ADB.</p>
 </section>
 <section class="card" data-panel="settings"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
-<section class="card" data-panel="settings"><h2>إعداد الهاتف</h2><p>اربط الشرائح من حساب OnTrack؛ لا تحتاج إعداد المحرك أو مفتاح API.</p><div class="row"><button id="setup">فحص الهاتف</button><button id="updates" class="outline">فحص تحديث الواجهة</button></div></section>
-<section class="card" data-panel="agents"><label for="tenantWorkspaceSlot">شريحة المكالمات وجهات الاتصال والحملات</label><select id="tenantWorkspaceSlot"><option value="">اختار الشريحة</option></select><p id="tenantWorkspaceHelp" class="small">كل شريحة مرتبطة بحسابها فقط.</p></section>
+<section class="card" data-panel="settings"><h2>فحص الجهاز</h2><p>اربط الشرائح من حساب OnTrack؛ لا تحتاج إعداد المحرك أو مفتاح API.</p><div class="row"><button id="setup">فحص الهاتف</button><button id="updates" class="outline">فحص تحديث الواجهة</button></div></section>
+<section class="card" data-panel="settings"><label for="tenantWorkspaceSlot">شريحة المكالمات وجهات الاتصال والحملات</label><select id="tenantWorkspaceSlot"><option value="">اختار الشريحة</option></select><p id="tenantWorkspaceHelp" class="small">كل شريحة مرتبطة بحسابها فقط.</p></section>
 <section class="card" data-panel="calls">
 <div class="section-title"><h2>سجل المكالمات</h2><span class="chip good">تسجيل الأحداث</span></div>
 <p>سجل المكالمات الفعلي. أسماء جهات الاتصال تظهر بعد السماح بقراءة جهات الاتصال وسجل المكالمات؛ لا نخمن هوية المتصل.</p><button id="enableCallNames" class="outline" type="button">تفعيل عرض أسماء جهات الاتصال</button><p id="callNamesStatus" class="small" aria-live="polite"></p>
