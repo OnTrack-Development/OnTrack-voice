@@ -221,7 +221,7 @@ function login_page(?string $error=null):void{
     echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تسجيل الدخول | '.e($brandName).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script></head><body class="login-body"><div class="login-backdrop"></div><div class="login-panel"><div class="login-brand"><span class="brand-icon">OT</span><div><strong>OnTrack Voice</strong><small>INTELLIGENT CALLING PLATFORM</small></div></div><div class="login-intro"><span class="eyebrow">YOUR VOICE. YOUR BUSINESS.</span><h1>أهلاً برجوعك</h1><p>منصة واحدة لإدارة المساعدون والمكالمات والعملاء والباقات بأمان.</p></div>';
     if($error)echo '<div class="alert danger">'.e($error).'</div>';
     if($notice=flash('success'))echo '<div class="alert success">'.e($notice).'</div>';
-    echo '<form method="post" action="/saas/console/login" class="stack">'.'<input type="hidden" name="csrf" value="'.e(csrf()).'"><label class="field">البريد الإلكتروني<input required type="email" name="email" autocomplete="username" placeholder="name@company.com"></label><label class="field">كلمة المرور<div class="password-wrap"><input required type="password" name="password" autocomplete="current-password" id="loginPassword" placeholder="••••••••••"><button type="button" class="password-toggle" data-toggle-password>إظهار</button></div></label><button class="btn primary wide" type="submit">تسجيل الدخول <span>←</span></button></form><p><a href="/saas/console/register">إنشاء حساب شركة جديد</a></p><p class="login-foot">تجربة أولية · يتم تحديد الصلاحيات حسب الحساب</p></div></body></html>';
+    echo '<form method="post" action="/saas/console/login" class="stack">'.'<input type="hidden" name="csrf" value="'.e(csrf()).'"><label class="field">البريد الإلكتروني<input required type="email" name="email" autocomplete="username" placeholder="name@company.com"></label><label class="field">كلمة المرور<div class="password-wrap"><input required type="password" name="password" autocomplete="current-password" id="loginPassword" placeholder="••••••••••"><button type="button" class="password-toggle" data-toggle-password>إظهار</button></div></label><button class="btn primary wide" type="submit">تسجيل الدخول <span>←</span></button></form><p><a href="/saas/console/forgot-password">نسيت كلمة المرور؟</a></p><p><a href="/saas/console/register">إنشاء حساب شركة</a> · <a href="/saas/console/register?type=reseller">إنشاء حساب ريسيلر</a></p><p class="login-foot">تجربة أولية · يتم تحديد الصلاحيات حسب الحساب</p></div></body></html>';
 }
 function render_overview(array $a):void{
     $id=(int)$a['account_id'];$kind=$a['kind'];
@@ -288,6 +288,21 @@ function render_accounts(array $a):void{
         all("SELECT a.*, (SELECT COUNT(*) FROM memberships m WHERE m.account_id=a.id) seats FROM accounts a WHERE a.kind!='platform' ORDER BY a.id DESC"):
         all("SELECT a.*, (SELECT COUNT(*) FROM memberships m WHERE m.account_id=a.id) seats FROM accounts a WHERE a.parent_id=? ORDER BY a.id DESC",[$id]);
     echo '<div class="cols two">';
+    if(in_array($a['role'],['owner','admin'],true)&&!active_support()){
+        $base='/saas/console/register';
+        if($a['kind']==='platform'){
+            echo card('روابط التسجيل العامة',
+                '<p>شارك رابط تسجيل العملاء المباشرين، أو رابط تسجيل الريسيلرز.</p>'.
+                '<p><a class="btn" href="'.$base.'">تسجيل عميل مباشر</a> <a class="btn" href="'.$base.'?type=reseller">تسجيل ريسيلر</a></p>'.
+                '<p class="dim" dir="ltr">https://app.ontrackegy.com'.$base.'</p>');
+        }else{
+            $link=$base.'?reseller='.rawurlencode((string)$a['slug']);
+            echo card('رابط تسجيل عملائك',
+                '<p>الرابط مخصص لعلامتك، وأي شركة تسجّل من خلاله هتظهر ضمن عملائك فقط.</p>'.
+                '<p><a class="btn primary" href="'.e($link).'">فتح استمارة تسجيل العملاء</a></p>'.
+                '<p class="dim" dir="ltr">https://app.ontrackegy.com'.e($link).'</p>');
+        }
+    }
     echo card('إنشاء حساب جديد',form_start('create_account','/?tab=accounts').
         ($a['kind']==='platform'?select_html('نوع الحساب','kind',['reseller'=>'ريسيلر','customer'=>'عميل مباشر']):'').
         field_html('اسم الشركة','name','text','اسم المؤسسة',true).
@@ -1245,6 +1260,10 @@ function render_settings(array $a):void{
         // Avoid showing a second Google editor that would not update Relay priority.
         render_ai_relay_settings($a);
     }
+    echo card('كلمة المرور والحساب',
+        '<p>تقدر تغيّر كلمة المرور باستخدام الحالية، أو تسترجعها من البريد لو نسيتها. من غير مصادقة ثنائية أثناء التجارب.</p>'.
+        '<p><a class="btn primary" href="/saas/console/change-password">تغيير كلمة المرور</a> '.
+        '<a class="btn" href="/saas/console/forgot-password">استرجاع كلمة المرور</a></p>');
     echo '<div class="cols two">';
     $adminIdentity=in_array($a['kind'],['platform','reseller'],true)&&console_view_mode($a)==='admin';
     $identityTitle=$adminIdentity?($a['kind']==='platform'?'هوية المنصة':'هوية الريسيلر'):'هوية حسابك';

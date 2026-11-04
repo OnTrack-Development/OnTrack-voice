@@ -44,7 +44,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_console_v24(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -53,7 +53,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_console_v24(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -150,6 +150,47 @@ function init_console_v7():void {
     }
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
+
+/** Tenant-scoped public registration and one-time password reset (both database drivers). */
+function init_console_v24():void {
+    $marker=private_path().'/schema.v24';
+    if(is_file($marker))return;
+    $existing=driver()==='sqlite'
+        ?array_column(all('PRAGMA table_info(signup_requests)'),'name')
+        :array_column(all('SHOW COLUMNS FROM signup_requests'),'Field');
+    if(!in_array('registration_kind',$existing,true))
+        db()->exec("ALTER TABLE signup_requests ADD COLUMN registration_kind VARCHAR(12) NOT NULL DEFAULT 'customer'");
+    if(!in_array('parent_account_id',$existing,true))
+        db()->exec('ALTER TABLE signup_requests ADD COLUMN parent_account_id BIGINT NULL');
+    $users=driver()==='sqlite'
+        ?array_column(all('PRAGMA table_info(users)'),'name')
+        :array_column(all('SHOW COLUMNS FROM users'),'Field');
+    if(!in_array('auth_version',$users,true))
+        db()->exec('ALTER TABLE users ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0');
+    if(driver()==='mysql'){
+        db()->exec("CREATE TABLE IF NOT EXISTS password_reset_requests (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            token_hash CHAR(64) NOT NULL UNIQUE,
+            expires_at VARCHAR(19) NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            created_at VARCHAR(19) NOT NULL,
+            KEY ix_reset_user(user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }else{
+        db()->exec("CREATE TABLE IF NOT EXISTS password_reset_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token_hash TEXT NOT NULL UNIQUE,
+            expires_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL
+        )");
+        db()->exec('CREATE INDEX IF NOT EXISTS ix_reset_user ON password_reset_requests(user_id)');
+    }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
 /** Email proof pending table; no user exists before verification. */
 function init_console_v8():void {
     $marker=private_path().'/schema.v8';
@@ -271,7 +312,12 @@ function startsession():void {
 }
 function me():?array {
     if(empty($_SESSION['uid']))return null;
-    return one("SELECT id,name,email,status FROM users WHERE id=? AND status='active'",[(int)$_SESSION['uid']]);
+    $u=one("SELECT id,name,email,status,auth_version FROM users WHERE id=? AND status='active'",[(int)$_SESSION['uid']]);
+    if(!$u || (int)($u['auth_version']??0)!==(int)($_SESSION['auth_version']??0)){
+        unset($_SESSION['uid'],$_SESSION['account_id'],$_SESSION['support'],$_SESSION['auth_version']);
+        return null;
+    }
+    return $u;
 }
 function memberships(int $uid):array{
     return all("SELECT m.account_id,m.role,a.kind,a.name,a.slug,a.parent_id,a.status

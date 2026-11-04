@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - feat/voice-production-gap-20261103
+      - feat/web-auth-complete-20261105
     paths:
       - .github/workflows/owner-windows-saas-ui-publish.yml
       - saas/console/_core/Views.php
@@ -21,6 +22,53 @@ concurrency:
 env:
   PYTHONUTF8: '1'
 jobs:
+  web_auth_validate:
+    if: github.ref == 'refs/heads/feat/web-auth-complete-20261105'
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 18
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify web signup, password recovery PHP syntax and tenant fixtures
+        run: |
+          $ErrorActionPreference='Stop'
+          $php=Get-Command php -ErrorAction SilentlyContinue
+          if (-not $php) { throw 'PHP is unavailable on this self-hosted runner; cannot claim web-auth validation.' }
+          $ext=(& php -m | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw 'PHP module inventory failed.' }
+          Get-ChildItem -Path saas/console -Filter '*.php' -File -Recurse | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP syntax failed: '+$_.FullName) }
+          }
+          & php -l tools/test_verified_signup.php
+          if ($LASTEXITCODE -ne 0) { throw 'Web auth test syntax failed.' }
+          Write-Host 'WEB_AUTH_PHP_LINT: PASS'
+          if ($ext -notmatch 'pdo_sqlite' -or $ext -notmatch 'mbstring') {
+            throw 'PHP PDO SQLite/mbstring unavailable; isolated E2E not run.'
+          }
+          $env:TEMP=Join-Path $env:RUNNER_TEMP ('web-auth-'+$env:GITHUB_RUN_ID)
+          New-Item -Path $env:TEMP -ItemType Directory -Force | Out-Null
+          $runnerCode=@'
+          <?php
+          declare(strict_types=1);
+          require getcwd().'/saas/console/database/Seed.php';
+          function ok(bool $value,string $label):void {
+              if(!$value)throw new RuntimeException('FAIL '.$label);
+              echo 'PASS '.$label.PHP_EOL;
+          }
+          seed_console();
+          require getcwd().'/tools/test_verified_signup.php';
+          test_signup();
+          '@
+          $runnerPath=Join-Path $env:RUNNER_TEMP ('web-auth-suite-'+$env:GITHUB_RUN_ID+'.php')
+          [System.IO.File]::WriteAllText($runnerPath,$runnerCode,[System.Text.UTF8Encoding]::new($false))
+          & php $runnerPath
+          if ($LASTEXITCODE -ne 0) { throw 'Scoped registration/recovery test failed.' }
+          Write-Host 'WEB_AUTH_TENANT_SQLITE_E2E: PASS'
   publish:
     if: github.actor == 'ahmedbedir' && github.ref == 'refs/heads/feat/voice-production-gap-20261103'
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]

@@ -1,7 +1,7 @@
 name: OnTrack Voice SaaS PHP Console
 on:
   push:
-    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102', 'fix/console-pricing-connection-ui-20261102', 'fix/sim1-staging-ui-20261102', 'feat/tenant-only-mobile-workspace-20261102', 'fix/tenant-mix-session-parity-20261102', 'fix/flow-editor-ai-20261102','feat/voice-production-gap-20261103']
+    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102', 'fix/console-pricing-connection-ui-20261102', 'fix/sim1-staging-ui-20261102', 'feat/tenant-only-mobile-workspace-20261102', 'fix/tenant-mix-session-parity-20261102', 'fix/flow-editor-ai-20261102','feat/voice-production-gap-20261103', 'feat/web-auth-complete-20261105']
     paths:
       - 'saas/console/**'
       - 'tools/test_voice_saas_console.php'
