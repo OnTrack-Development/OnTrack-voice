@@ -191,7 +191,7 @@ class MobileLinkService:Service() {
      * continue to use subscription-scoped Android call states only.
      */
     private data class SlotCall(val slot:Int,val state:Int)
-    private fun currentSlotCalls():List<SlotCall>{
+    private suspend fun currentSlotCalls():List<SlotCall>{
         check(Build.VERSION.SDK_INT>=31){"Android 12 أو أحدث مطلوب لعزل حالة المكالمة لكل شريحة"}
         val enrollment=TenantDeviceEnrollment(this)
         val activeSlots=runCatching{
