@@ -75,8 +75,6 @@ for command in ("send('tenantMenu')", "send('tenantQrScan')", "send('tenantRefre
     assert command in ui, 'Native Android SIM bridge not wired: '+command
 inline=ui.split('<script>',1)[1].split('</script>',1)[0]
 subprocess.run(['node','--check'],input=inline,text=True,check=True)
-print('PASS: OnTrack UI OTA v40 supports Android v34-v41, navigation, notification and JS syntax')
-
 assert "Number(s.nativeCode)>=25" in ui, 'Tenant runtime must remain gated to new native version'
 assert "id=\"openAnswerSettings\"" in ui and "send('openAnswerSettings')" in ui, 'Answer settings bridge missing'
 
@@ -86,3 +84,19 @@ assert 'Number(s.nativeCode)<26' in ui, 'Native diagnostic must be unavailable i
 assert 'humanControl=true\n' in service and 'tenantSession=null;humanControl=true' not in service, 'Transport failure must not fake human takeover'
 assert 'audioReady=currentCall.active' in service and 'sessionLoad=scope.async' in service, 'PCM and SaaS readiness must be separate from phone OFFHOOK'
 assert 'callProblem' in native, 'Native UI must show call/session faults'
+
+# Regression Evals are enforced at source/contract level alongside JVM tests.
+# A green build is still NOT proof of mute or duplex on Xiaomi/VoWiFi.
+assert service.count('humanControl=true')==1, 'Only ACTION_TAKEOVER may record explicit human control'
+assert 'if(slot in 0..1 && inCall && callAnswered && audioReady && call?.active==true)' in service, 'Takeover button must require a live PCM session'
+assert 'sessionLoad=scope.async(Dispatchers.IO)' in service, 'Signed Google session must not pause the telephony polling loop'
+assert 'audioStart=scope.async(Dispatchers.IO)' in service, 'PCM/Google setup must not freeze call-state monitoring'
+assert 'if(audioStart?.isCompleted==true)' in service and 'audioReady=true;connected=true' in service, 'UI readiness requires actual PCM startup completion'
+assert 'audioStart?.cancel();audioStart=null' in service, 'Call end/disable must cancel pending PCM setup'
+assert 'try{' in service and 'تعذر اتصال صوت المكالمة' in service and 'callProblem' in service, 'Audio exceptions must be displayed, not disguised as human takeover'
+assert session.index('pipe=CaptureDaemon.livePcm') < session.index('worker=scope.launch') < session.index('openSocket()',session.index('worker=scope.launch')) < session.index('withTimeout(25000){ready.await()}'), 'Open, mute and drain PCM before waiting for Gemini Live'
+assert 'else if(socketReady)' in session, 'Do not describe expected Google setup delay as network failure'
+assert 'catch(error:Throwable)' in session and 'stop()' in session.split('catch(error:Throwable)',1)[1].split('private fun openSocket',1)[0], 'Audio setup failures must close pipe and restore microphone'
+assert 'audio.setMicrophoneMute(true)' in bridge and 'if (!audio.isMicrophoneMute())' in bridge and 'audio.setMicrophoneMute(wasMuted)' in bridge, 'Shell must confirm mute before PCM header and restore prior state'
+assert 'voiceproof/LinkPcm.kt' not in bridge, 'No cross-runtime PCM dependency'
+print('PASS: Android UI/telephony/PCM source contracts validated; physical phone E2E remains UNVERIFIED')
