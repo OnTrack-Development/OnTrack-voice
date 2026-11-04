@@ -1,6 +1,11 @@
 name: OnTrack Voice - inspect local AI voice files
 
 on:
+  push:
+    branches:
+      - 'voice-lab/ai-inventory-once-20261104'
+    paths:
+      - '.github/workflows/voice-local-ai-inventory.yml'
   workflow_dispatch:
     inputs:
       folder_path:
