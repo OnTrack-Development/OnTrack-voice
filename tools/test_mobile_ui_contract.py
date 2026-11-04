@@ -120,5 +120,5 @@ assert 'TenantCallRouting.voiceRetryDue(' in service and 'internetValidated()' i
 assert 'audioAttemptCount=0;nextAudioRetryAt=0L' in service, 'Reset retries per call or SIM identity'
 assert 'onAudioDiagnostics=' in service and 'audioDiagnostic=diagnostic' in service, 'Show audio stage without exposing PCM'
 assert 'capturedPackets.incrementAndGet()' in session and 'modelAudioBytes.addAndGet' in session and 'submittedToShell.addAndGet' in session, 'Capture/AI/shell stages must be separately observable'
-assert 'audioDiagnostic:String' in call_overlay and 'audioDiagnostic:String = ""' in overlay_model, 'Floating overlay must show which LTE audio leg failed'
+assert 'audioDiagnostic:String' in call_overlay and 'audioDiagnostic: String = ""' in overlay_model, 'Floating overlay must show which LTE audio leg failed'
 print('PASS: Android UI/telephony/PCM source contracts validated; physical phone E2E remains UNVERIFIED')
