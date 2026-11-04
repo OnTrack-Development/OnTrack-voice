@@ -4,6 +4,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class TenantCallRoutingTest {
+    @Test fun singleActivePairedSIMMayUseLegacyQButDualSIMCannot(){
+        assertEquals(0,TenantCallRouting.nativeSingleSimSlot(listOf(0),setOf(0)))
+        assertEquals(1,TenantCallRouting.nativeSingleSimSlot(listOf(1),setOf(1)))
+        assertNull(TenantCallRouting.nativeSingleSimSlot(listOf(0,1),setOf(0)))
+        assertNull(TenantCallRouting.nativeSingleSimSlot(listOf(0,1),setOf(0,1)))
+        assertNull(TenantCallRouting.nativeSingleSimSlot(listOf(1),setOf(0)))
+        assertNull(TenantCallRouting.nativeSingleSimSlot(emptyList(),setOf(0)))
+    }
+
     @Test fun incomingAutoAnswersAtConfiguredDelayWithoutWaitingForGemini() {
         assertFalse(TenantCallRouting.autoAnswerDue(true,true,4_999,5,false,false))
         assertTrue(TenantCallRouting.autoAnswerDue(true,true,5_000,5,false,false))
