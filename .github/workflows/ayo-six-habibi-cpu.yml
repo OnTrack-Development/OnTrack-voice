@@ -2,12 +2,29 @@ name: AYO six MP3 to Habibi EGY CPU voice benchmark
 on:
   push:
     branches: [voice-lab/ayo-six-mp3-20261104]
-    paths: [.github/workflows/ayo-six-habibi-cpu.yml]
+    paths:
+      - .github/workflows/ayo-six-habibi-cpu.yml
+      - tools/voice_lab/benchmark_ayo_habibi_cpu.py
   workflow_dispatch:
 permissions:
   contents: read
+  actions: write
 jobs:
+  release-stale-runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Cancel prior stalled or obsolete AYO attempts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          for id in 41792277527 41794982143; do
+            gh api --method POST "repos/$REPO/actions/runs/$id/cancel" || echo "Prior run $id already finished or cannot be canceled"
+          done
   synthesize:
+    needs: release-stale-runner
     runs-on: [self-hosted, Windows]
     timeout-minutes: 45
     env:
