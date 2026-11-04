@@ -4,6 +4,11 @@ name: Recover original Android signing key (local Windows only)
 run-name: Owner-only signing recovery
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/voice-production-gap-20261103
+    paths:
+      - .github/workflows/recover-original-android-signing.yml
 
 permissions:
   contents: read
@@ -41,54 +46,63 @@ jobs:
           key: ontrack-voiceproof-debug-signing-v1
           enableCrossOsArchive: true
           fail-on-cache-miss: true
-      - name: Locate restored archive entry and verify original certificate locally
+      - name: Find recovered Linux cache entry and verify its signing certificate
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          # The cache was created on Linux with an absolute home path.
-          # A Windows cross-OS extraction may not land under $env:USERPROFILE.
+          $expected = 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'
+          $destination = Join-Path $env:USERPROFILE '.android\debug.keystore'
+          # Search only on the owner's workstation, for one file name.
+          # Do not transmit the private file, its contents, or its hash.
           $roots = @(
-            $env:GITHUB_WORKSPACE,
-            $env:RUNNER_WORKSPACE,
-            $env:RUNNER_TEMP,
             (Join-Path $env:USERPROFILE '.android'),
-            'C:\home\runner\.android',
-            'D:\home\runner\.android',
-            'C:\Program Files\Git\home\runner\.android'
-          ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -Unique
+            $env:USERPROFILE,
+            $env:GITHUB_WORKSPACE,
+            (Join-Path $env:RUNNER_WORKSPACE '..'),
+            'C:\home',
+            'D:\home',
+            'C:\Program Files\Git',
+            'D:\ai',
+            'C:\Users'
+          ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } |
+            Sort-Object -Unique
           $found = @()
           foreach ($root in $roots) {
-            $found += @(Get-ChildItem -LiteralPath $root -File -Filter 'debug.keystore' -Recurse -Force -ErrorAction SilentlyContinue)
+            $files = @(Get-ChildItem -LiteralPath $root -Filter 'debug.keystore' -File -Force -Recurse -ErrorAction SilentlyContinue)
+            $found += $files
           }
           $found = @($found | Sort-Object FullName -Unique)
           if ($found.Count -eq 0) {
-            throw 'Cache restored, but Linux path did not map to a searchable Windows keystore path. Use local file search before retrying.'
+            Write-Host 'KEYSTORE_SEARCH_RESULT: NOT_FOUND'
+            Write-Host 'The archive restore says success, but no debug.keystore is present in the searched local roots.'
+            throw 'No signing key was found. The existing Android installation is unaffected.'
           }
-          $expected = 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'
-          $cert = Join-Path $env:RUNNER_TEMP 'ontrack-android-signing-cert.der'
-          $valid = $null
+          Write-Host ('KEYSTORE_CANDIDATES_LOCAL: ' + $found.Count)
+          $certificate = Join-Path $env:RUNNER_TEMP 'ontrack-signing-verify.der'
+          $matched = $null
           try {
-            foreach ($file in $found) {
-              Remove-Item -LiteralPath $cert -Force -ErrorAction SilentlyContinue
-              & keytool -exportcert -alias androiddebugkey -keystore $file.FullName -storepass android -file $cert 2>$null | Out-Null
-              if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $cert)) { continue }
-              $actual = (Get-FileHash -LiteralPath $cert -Algorithm SHA256).Hash.ToLowerInvariant()
-              if ($actual -eq $expected) { $valid = $file.FullName; break }
+            foreach ($candidate in $found) {
+              Remove-Item -LiteralPath $certificate -Force -ErrorAction SilentlyContinue
+              & keytool -exportcert -alias androiddebugkey -keystore $candidate.FullName -storepass android -file $certificate 2>$null | Out-Null
+              if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $certificate)) { continue }
+              $fingerprint = (Get-FileHash -LiteralPath $certificate -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($fingerprint -eq $expected) {
+                $matched = $candidate.FullName
+                break
+              }
             }
           } finally {
-            Remove-Item -LiteralPath $cert -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $certificate -Force -ErrorAction SilentlyContinue
           }
-          if (-not $valid) {
-            throw 'No restored candidate has the required original signing certificate. Do not use a newly generated key.'
+          if (-not $matched) {
+            throw 'Restored file(s) did not match the existing APK signing certificate. Refusing key replacement.'
           }
-          $dest = Join-Path $env:USERPROFILE '.android\debug.keystore'
-          if ($valid -ne $dest) {
-            if (Test-Path -LiteralPath $dest) {
-              throw 'A keystore already exists at the destination. Refusing to overwrite it.'
+          if ($matched -ne $destination) {
+            if (Test-Path -LiteralPath $destination) {
+              throw 'Destination keystore already exists. Refusing overwrite.'
             }
-            New-Item -ItemType Directory -Path (Split-Path $dest -Parent) -Force | Out-Null
-            Copy-Item -LiteralPath $valid -Destination $dest -ErrorAction Stop
+            New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null
+            Copy-Item -LiteralPath $matched -Destination $destination
           }
           Write-Host 'SIGNING_IDENTITY_VERIFIED: PASS'
-          Write-Host ('Verified Android signing key exists locally at: ' + $dest)
-          Write-Host 'Never commit, upload, or share the private keystore.'
+          Write-Host 'Original Android signing key verified and available on the local workstation.'
