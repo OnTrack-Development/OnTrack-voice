@@ -68,6 +68,11 @@ def main(root):
             return;
         }
         if (command == 'J') {
+            // 2026-11-04 regression: Q is the old verified carrier state,
+            // but on dual-SIM it carries NO SIM identity. Android must
+            // bind Q to exactly one active, paired subscription; otherwise
+            // refuse guessing. A returns observed CALL state, not a proof
+            // that Gemini/PCM or microphone mute has started.
             int operation = client.getInputStream().read();
             if (operation == 'A') {
                 onMain(() -> { if (telecom != null) telecom.acceptRingingCall(); return null; });
