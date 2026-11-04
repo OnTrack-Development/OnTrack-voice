@@ -57,13 +57,20 @@ internal class MobileLiveCall(
             .addPathSegments("ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained")
             .addQueryParameter("access_token",token).build().toString().replaceFirst("https:","wss:")
         liveUrl=url
-        openSocket()
-        withTimeout(25000){ready.await()}
-        check(!stopped.get())
-        pipe=CaptureDaemon.livePcm(context,AnsweringMachine.route(context)==AnsweringMachine.ROUTE_SCREENING)
-        val input=DataInputStream(pipe!!.getInputStream())
-        check(input.readInt()==0x4f545631 && input.readInt()==48000 && input.readInt()==2){"invalid shell PCM format"}
-        output=DataOutputStream(pipe!!.getOutputStream())
+        // Regression 2026-11-04: waiting up to 25s for Gemini BEFORE opening
+        // LivePcm left the handset microphone live on an answered SIM call.
+        // The shell bridge verifies AudioManager mute before it acknowledges
+        // PCM readiness. Open it first; stop() closes the pipe on every failure.
+        // This does not prove VoWiFi hardware mute: a real-device test is required.
+        try {
+            check(!stopped.get()){"voice call already stopped"}
+            pipe=CaptureDaemon.livePcm(context,AnsweringMachine.route(context)==AnsweringMachine.ROUTE_SCREENING)
+            val input=DataInputStream(pipe!!.getInputStream())
+            check(input.readInt()==0x4f545631 && input.readInt()==48000 && input.readInt()==2){"invalid shell PCM format"}
+            output=DataOutputStream(pipe!!.getOutputStream())
+            openSocket()
+            withTimeout(25000){ready.await()}
+            check(!stopped.get())
         val agentName=session.optString("agent_name","مساعد OnTrack").trim().ifBlank{"مساعد OnTrack"}
         if(OutboundFirstTurn.sendInitialGreeting(outgoingCall)) {
             ws?.send(JSONObject().put("clientContent",JSONObject()
@@ -105,7 +112,13 @@ internal class MobileLiveCall(
                 }
             }catch(t:Throwable){if(t !is CancellationException)fail("تعذر تمرير صوت الشريحة: "+t.javaClass.simpleName)}
         }
-        notice("المكالمة مرتبطة بالإيجنت — استقبال وإرسال الصوت جاريان")
+            notice("قناة PCM متصلة والإيجنت جاهز — اختبار صوت الطرفين على الهاتف مطلوب")
+        } catch(error:Throwable) {
+            // Mandatory regression guard: a failed Google setup or PCM header
+            // must close the shell socket so LivePcm restores the old mic state.
+            stop()
+            throw error
+        }
     }
     private fun openSocket() {
         if(stopped.get())return
