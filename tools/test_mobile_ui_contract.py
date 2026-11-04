@@ -109,4 +109,16 @@ assert "$jar = Join-Path $dir 'ontrack-voiceproof-capture.jar'" in windows_build
 assert "text.replace(OLD, NEW)" in android_overlay and ".replace('jemrec-', 'ontrack-voiceproof-')" in android_overlay, 'Upstream overlay no longer renames shell daemon asset'
 assert "verify_shell_jar_packaging.py .build/jemrec/app/build/outputs/apk/release/app-release-unsigned.apk" in release_workflow, 'Release APK must be inspected for actual shell daemon prior to signing'
 assert "verify_shell_jar_packaging.py $signed" in release_workflow, 'Signed APK must preserve exact D8 shell asset bytes'
+# Wi-Fi voice worked, LTE call answered but its sound did not.
+# A failed 4G/5G transport MUST allow bounded retry during the SAME
+# OFFHOOK call, and the UI must distinguish Google/PCM/shell stages.
+routing=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/TenantCallRouting.kt').read_text()
+call_overlay=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/CallOverlay.kt').read_text()
+overlay_model=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/OverlayUiModel.kt').read_text()
+assert 'fun voiceRetryDue(' in routing and 'attempts in 1 until maxAttempts' in routing, 'LTE reconnect must have a hard per-call bound'
+assert 'TenantCallRouting.voiceRetryDue(' in service and 'internetValidated()' in service, 'Retry only on validated mobile data'
+assert 'audioAttemptCount=0;nextAudioRetryAt=0L' in service, 'Reset retries per call or SIM identity'
+assert 'onAudioDiagnostics=' in service and 'audioDiagnostic=diagnostic' in service, 'Show audio stage without exposing PCM'
+assert 'capturedPackets.incrementAndGet()' in session and 'modelAudioBytes.addAndGet' in session and 'submittedToShell.addAndGet' in session, 'Capture/AI/shell stages must be separately observable'
+assert 'audioDiagnostic:String' in call_overlay and 'audioDiagnostic:String = ""' in overlay_model, 'Floating overlay must show which LTE audio leg failed'
 print('PASS: Android UI/telephony/PCM source contracts validated; physical phone E2E remains UNVERIFIED')
