@@ -5,6 +5,9 @@ package com.ontrack.voiceproof
  * incoming and outgoing SIM calls. An enabled monitor is not an answered call.
  */
 internal object TenantCallRouting {
+    // RCA 0.3.18/0.3.19 (2026-11-04): legacy shell 'Q' reliably
+    // reported CALL 0/1/2 on the owner's previous Pilot; newer per-slot
+    // Telephony reads can fail or be ambiguous on a dual-VoWiFi device.
     // A global shell call-state has no SIM identity: only a single currently
     // active, owner-paired subscription may safely use the legacy Q bridge.
     fun nativeSingleSimSlot(activeSlots:List<Int>,pairedSlots:Set<Int>):Int? =
