@@ -14,8 +14,12 @@ class ConsoleWebActivity:ComponentActivity(){
  private fun allowed(value:String):Boolean{
    val u=runCatching{android.net.Uri.parse(value)}.getOrNull()?:return false
    val p=u.encodedPath.orEmpty()
+   val portal=p=="/"||p in setOf("/login","/logout","/mfa","/workspace","/admin","/reseller",
+       "/brand-logo","/flow-preview.php","/sso","/sso/confirm")
+       ||p.startsWith("/assets/")||p.startsWith("/api/")
+       ||p=="/saas/console"||p.startsWith("/saas/console/")
    return u.scheme=="https"&&u.host=="app.ontrackegy.com"&&u.port in listOf(-1,443)&&
-      u.userInfo==null&&(p=="/saas/console"||p.startsWith("/saas/console/"))
+      u.userInfo==null&&portal
  }
  @SuppressLint("SetJavaScriptEnabled") override fun onCreate(savedInstanceState:Bundle?){
    super.onCreate(savedInstanceState)
@@ -113,7 +117,7 @@ class ConsoleWebActivity:ComponentActivity(){
    val agent=intent.getIntExtra("agent_id",0)
    val deepLink=if(section=="?tab=agents" && site in 1..1000000000 && agent in 1..1000000000)
        "&site=$site&agent=$agent" else ""
-   web.loadUrl("https://app.ontrackegy.com/saas/console/"+section+deepLink)
+   web.loadUrl("https://app.ontrackegy.com/"+section+deepLink)
  }
  override fun onDestroy(){web.stopLoading();web.destroy();super.onDestroy()}
 }
