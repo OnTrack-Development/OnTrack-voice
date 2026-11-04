@@ -2,7 +2,7 @@ name: AYO to Habibi - local runtime preflight
 on:
   push:
     branches: ['voice-lab/ayo-habibi-runtime-20261104']
-    paths: ['.github/workflows/ayo-habibi-runtime-preflight.yml']
+    paths: ['.github/workflows/ayo-habibi-runtime-preflight.yml', 'tools/voice_lab/ayo_habibi_preflight.ps1']
   workflow_dispatch:
 permissions:
   contents: read
