@@ -81,7 +81,7 @@ $lines = New-Object System.Collections.Generic.List[string]
 [void]$lines.Add("| --- | --- | ---: |")
 foreach ($item in @($data | Where-Object { $_.type -ne "other" } | Select-Object -First 200)) {
     $safeName = ($item.relative_path -replace '\|', '\/' -replace '[\r\n]', ' ')
-    [void]$lines.Add("| $($item.type) | `$safeName` | $($item.size_bytes) |")
+    [void]$lines.Add("| $($item.type) | $safeName | $($item.size_bytes) |")
 }
 if (($audio.Count + $models.Count) -gt 200) {
     [void]$lines.Add("Only first 200 audio/model filenames shown; all metadata in JSON artifact.")
