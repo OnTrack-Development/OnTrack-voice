@@ -65,7 +65,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OnTrack-Voice-UI-OTA
-          path: .build/artifact/ota/
+          path: .build/artifact/
           if-no-files-found: error
           retention-days: 14
       - name: Queue signed HTML update with existing OnTrack host worker
