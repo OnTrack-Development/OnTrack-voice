@@ -394,6 +394,19 @@ class MobileLinkService:Service() {
                             policy=flow.optJSONObject("answer_policy")?:JSONObject()
                             val auto=policy.optBoolean("auto_answer",false)
                             callProblem=if(auto) "" else "الرد التلقائي مغلق في إعدادات الإيجنت"
+                            if(auto && current.state==TelephonyManager.CALL_STATE_RINGING &&
+                                sessionLoad==null && tenantSession==null){
+                                // Warm the per-SIM authorized Gemini token during
+                                // ringing, so OFFHOOK doesn't wait on three HTTP
+                                // requests before the audio bridge can start.
+                                val slot=current.slot
+                                val snapshot=flow
+                                sessionLoad=scope.async(Dispatchers.IO){
+                                    runCatching{
+                                        Triple(snapshot,policy,enrollment.voiceSession(slot,snapshot))
+                                    }
+                                }
+                            }
                             notice(if(auto) "سيتم الرد تلقائيًا على SIM ${current.slot+1} بعد المهلة المحددة"
                                 else "الرنين مرصود لكن الرد التلقائي مغلق في سياسة الإيجنت")
                         }?.onFailure { problem->
@@ -438,12 +451,14 @@ class MobileLinkService:Service() {
                         val preparedFlow=tenantFlow
                         // Call-state polling must not block on SaaS, Gemini tokens
                         // or a slow published Flow response after OFFHOOK.
-                        sessionLoad=scope.async(Dispatchers.IO){
-                            runCatching {
-                                val flow=preparedFlow?:enrollment.publishedFlow(slot)
-                                val answer=flow.optJSONObject("answer_policy")?:JSONObject()
-                                val session=enrollment.voiceSession(slot,flow)
-                                Triple(flow,answer,session)
+                        if(sessionLoad==null && tenantSession==null){
+                            sessionLoad=scope.async(Dispatchers.IO){
+                                runCatching {
+                                    val flow=preparedFlow?:enrollment.publishedFlow(slot)
+                                    val answer=flow.optJSONObject("answer_policy")?:JSONObject()
+                                    val session=enrollment.voiceSession(slot,flow)
+                                    Triple(flow,answer,session)
+                                }
                             }
                         }
                         callProblem=""
@@ -455,7 +470,8 @@ class MobileLinkService:Service() {
                         result?.onSuccess { (flow,answer,session)->
                             tenantFlow=flow;tenantSession=session;policy=answer
                             callProblem=""
-                            notice("الشريحة ${current.slot+1}: جلسة الإيجنت صالحة؛ توصيل صوت المكالمة")
+                            if(current.state==TelephonyManager.CALL_STATE_OFFHOOK)
+                                notice("الشريحة ${current.slot+1}: جلسة الإيجنت صالحة؛ توصيل صوت المكالمة")
                         }?.onFailure { problem ->
                             tenantSession=null
                             val message=problem.message.orEmpty().take(140)
