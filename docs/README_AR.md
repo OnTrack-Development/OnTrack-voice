@@ -1,5 +1,7 @@
 # فهرس وثائق المشروع
 
+> **🔎 دراسة Dograh/Oskot لمحرك الصوت:** [الملف الفني المستقل](research/DOGRAH_OSKOT_VOICE_ENGINE_2026_11_04_AR.md) · [الثريد #37](https://github.com/OnTrack-Development/OnTrack-voice/issues/37). بحث تقني فقط دون تغيير مسار Android SIM.
+
 **خطة الإصلاح الشاملة المعتمدة بعد تدقيق 3 نوفمبر 2026:** [خارطة المراحل والمتطلبات](plan/MASTER_REPAIR_ROADMAP_2026_11_03_AR.md) · [المصفوفة الآلية بكل عناصر P0/P1/P2](plan/MASTER_REPAIR_BACKLOG_2026_11_03.json). تتقدم على قائمة القبول والحالة القديمة؛ لا تعيد تشغيل جدولة التطوير التي أوقفها المالك.
 
 ## التنفيذ والذاكرة
