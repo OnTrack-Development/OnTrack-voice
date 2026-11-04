@@ -112,15 +112,20 @@ internal class OnTrackLaunchScreen(private val activity:Activity, private val pa
         motion.cancel()
         root.animate().cancel()
         root.alpha=1f
+        root.translationX=0f
         mark.alpha=0f
-        mark.scaleX=.76f
-        mark.scaleY=.76f
-        mark.translationY=dp(13).toFloat()
+        mark.scaleX=.72f
+        mark.scaleY=.72f
+        mark.translationY=dp(12).toFloat()
+        mark.translationX=dp(92).toFloat()
+        mark.rotation=-14f
         wordmark.alpha=0f
         caption.alpha=0f
         glint.alpha=0f
-        mark.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
-            .setDuration(720).setInterpolator(OvershootInterpolator(.75f)).start()
+        // Logo sweeps from the right, levels out, then glides into place.
+        mark.animate().alpha(1f).scaleX(1f).scaleY(1f)
+            .translationY(0f).translationX(0f).rotation(0f)
+            .setDuration(850).setInterpolator(OvershootInterpolator(.58f)).start()
         wordmark.animate().alpha(1f).setStartDelay(260).setDuration(420).start()
         caption.animate().alpha(1f).setStartDelay(410).setDuration(400).start()
         glint.animate().alpha(1f).setStartDelay(550).setDuration(350).start()
@@ -143,7 +148,16 @@ internal class OnTrackLaunchScreen(private val activity:Activity, private val pa
             interpolator=AccelerateDecelerateInterpolator()
             startDelay=800
         }
-        motion.playTogether(x,y,shine)
+        // Gentle lateral sweep and tilt are original OnTrack motion, not borrowed Lottie assets.
+        val glide=ObjectAnimator.ofFloat(mark,"translationX",0f,-dp(13).toFloat(),0f,dp(7).toFloat(),0f).apply {
+            duration=3600;repeatCount=ObjectAnimator.INFINITE
+            interpolator=AccelerateDecelerateInterpolator();startDelay=980
+        }
+        val tilt=ObjectAnimator.ofFloat(mark,"rotation",0f,-6f,2f,0f).apply {
+            duration=3600;repeatCount=ObjectAnimator.INFINITE
+            interpolator=AccelerateDecelerateInterpolator();startDelay=980
+        }
+        motion.playTogether(x,y,shine,glide,tilt)
         motion.start()
     }
 
@@ -169,7 +183,7 @@ internal class OnTrackLaunchScreen(private val activity:Activity, private val pa
         if (closing || root.parent==null) return
         closing=true
         root.animate().cancel()
-        root.animate().alpha(0f).setDuration(320)
+        root.animate().alpha(0f).translationX(-dp(48).toFloat()).setDuration(360)
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
                 motion.cancel()
