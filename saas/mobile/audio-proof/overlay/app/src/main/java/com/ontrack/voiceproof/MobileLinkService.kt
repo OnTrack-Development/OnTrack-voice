@@ -572,6 +572,15 @@ class MobileLinkService:Service() {
                             try{
                                 currentCall.start()
                                 Result.success(Unit)
+                            }catch(timeout:TimeoutCancellationException){
+                                // A 25s Google setup timeout on LTE is a
+                                // recoverable media error, NOT cancellation of
+                                // this long-lived SIM monitor. Bubble it into
+                                // the bounded voiceRetryDue path after internet
+                                // revalidates. Only real job cancellation
+                                // should stop the coroutine.
+                                Result.failure(IllegalStateException(
+                                    "انتهت مهلة Google Live على ${internetRoute()}؛ إعادة محاولة الصوت",timeout))
                             }catch(cancelled:CancellationException){throw cancelled}
                             catch(problem:Exception){Result.failure(problem)}
                         }
