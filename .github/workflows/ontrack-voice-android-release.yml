@@ -1,36 +1,80 @@
-# Owner-only new 0.3.17 application release. Disable redundant push rebuilds.
-# No Android signing keystore is committed, cached, or uploaded.
-# Builds from the exact triggering revision, using the pinned upstream commit.
-name: Build and verify size-optimized OnTrack Voice 0.3.17
-run-name: Signed Android v0.3.17 R8 build and tests
+# One owner-controlled Android release pipeline: build, verify, sign, host publish.
+# Replaces obsolete owner-windows-apk-0315 and owner-windows-apk-publish-0315.
+name: OnTrack Voice Android 0.3.17 - Build Sign Publish
+run-name: OnTrack 0.3.17 full build and verified OTA deployment
 on:
   push:
-    branches:
-      - feat/voice-production-gap-20261103
+    branches: [feat/voice-production-gap-20261103]
     paths:
-      - .github/workflows/owner-windows-apk-0315.yml
-      - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkActivity.kt
-      - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/ConsoleWebActivity.kt
-      - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileOta.kt
-      - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/OnTrackLaunchScreen.kt
-      - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/NativeInstallResultReceiver.kt
-      - saas/mobile/audio-proof/prepare.py
-      - saas/mobile/ota/ui.html
-      - tools/build_shellserver_windows.ps1
+      - '.github/workflows/ontrack-voice-android-release.yml'
+      - 'saas/mobile/audio-proof/**'
+      - 'saas/mobile/ota/ui.html'
+      - 'saas/mobile/ota/release.json'
+      - 'saas/mobile/ota/native_release.json'
+      - 'tools/build_shellserver_windows.ps1'
+      - 'tools/queue_mobile_ota.py'
+      - 'tools/queue_mobile_native.py'
+      - 'tools/prepare_mobile_ota.py'
+      - 'tools/prepare_mobile_native.py'
+      - 'tools/verify_mobile_ota_host_receipt.py'
+      - 'tools/verify_mobile_native_host_receipt.py'
+      - 'tools/test_mobile_ui_contract.py'
   workflow_dispatch:
 permissions:
   contents: write
-  actions: read
+  actions: write
+concurrency:
+  # Unique to this unified workflow; never share a lock with legacy runs.
+  group: ontrack-voice-android-unified-0317-${{ github.ref }}
+  cancel-in-progress: false
 env:
   PYTHONUTF8: '1'
-concurrency:
-  group: owner-windows-apk-0317
-  cancel-in-progress: true
 jobs:
-  build:
+  release_preflight:
+    name: Retire stale legacy workflows
+    if: github.actor == 'ahmedbedir'
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - name: Cancel superseded 0.3.17 build and publish runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for run in 41860693033 41861830645; do
+            status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq .status)"
+            if [[ "$status" != "completed" ]]; then
+              echo "Cancelling superseded run $run ($status)"
+              gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$run/cancel" || true
+            fi
+          done
+          for n in $(seq 1 24); do
+            outstanding=0
+            for run in 41860693033 41861830645; do
+              status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq .status)"
+              if [[ "$status" != "completed" ]]; then
+                outstanding=1
+                if [[ "$n" == 8 ]]; then
+                  echo "Force-cancelling stalled run $run"
+                  gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$run/force-cancel" || true
+                fi
+              fi
+            done
+            if [[ "$outstanding" == 0 ]]; then
+              echo "LEGACY_RUNS_TERMINATED: PASS"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Legacy workflow still has a locked runner; aborting safely."
+          exit 1
+  build_sign_publish:
+    name: Build, test, sign, publish and verify 0.3.17
+    needs: release_preflight
     if: github.actor == 'ahmedbedir'
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
-    timeout-minutes: 110
+    timeout-minutes: 140
     defaults:
       run:
         shell: pwsh
@@ -118,7 +162,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Signed OTA acknowledgement regression.' }
           # Host deployment uses Linux-only fcntl; on Windows validate publisher
           # syntax and signed host acknowledgement gates instead.
-          & python -m py_compile tools/queue_mobile_ota.py tools/queue_mobile_native.py tools/verify_mobile_native_host_receipt.py
+          & python -m py_compile tools/queue_mobile_ota.py tools/queue_mobile_native.py tools/verify_mobile_ota_host_receipt.py tools/verify_mobile_native_host_receipt.py
           if ($LASTEXITCODE -ne 0) { throw 'Host publisher Python syntax failed.' }
           Write-Host 'UI_AND_SIGNED_OTA_CONTRACTS: PASS'
       - name: Run targeted OnTrack Android unit and daemon tests (matching Linux release gate)
@@ -145,7 +189,8 @@ jobs:
           $signer = Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
           $analyzer = Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
           $key = Join-Path $env:USERPROFILE '.android\debug.keystore'
-          $output = 'D:\ai\OnTrack-Voice-Builds\0.3.17'
+          $output = '.build\release'
+          if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output -Recurse -Force }
           New-Item -Path $output -ItemType Directory -Force | Out-Null
           $unsigned = Join-Path $env:GITHUB_WORKSPACE '.build\jemrec\app\build\outputs\apk\release\app-release-unsigned.apk'
           $signed = Join-Path $output 'OnTrack-Voice-0.3.17.apk'
@@ -200,15 +245,58 @@ jobs:
           Write-Host ('APK_LOCAL_PATH: ' + $signed)
           Write-Host ('APK_SHA256: ' + $hash)
           Write-Host 'SIGNED_APK_VERIFIED: PASS'
-      - name: Upload signed minified v0.3.17 Android APK and public provenance
+      - name: Generate and verify signed OTA 39 and native versionCode 40
+        run: |
+          $ErrorActionPreference='Stop'
+          $bin='C:\Program Files\Git\usr\bin'
+          if(!(Test-Path (Join-Path $bin 'openssl.exe'))){throw 'OpenSSL missing'}
+          $bin|Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          $env:PATH="$bin;$env:PATH"
+          New-Item -ItemType Directory -Path '.build\artifact' -Force | Out-Null
+          Copy-Item -LiteralPath '.build\release\OnTrack-Voice-0.3.17.apk' -Destination '.build\artifact\OnTrack-Voice-0.3.17.apk'
+          Copy-Item -LiteralPath '.build\release\SHA256SUMS.txt' -Destination '.build\artifact\SHA256SUMS.txt'
+          Copy-Item -LiteralPath '.build\release\size-report.json' -Destination '.build\artifact\size-report.json'
+          Copy-Item -LiteralPath '.build\release\ontrack-build-source.json' -Destination '.build\artifact\ontrack-build-source.json'
+          & python tools/prepare_mobile_ota.py .build/artifact/ota
+          if($LASTEXITCODE -ne 0){throw 'UI 39 preparation failed'}
+          $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
+          & java tools/SignMobileOta.java $key .build/artifact/ota
+          if($LASTEXITCODE -ne 0){throw 'UI OTA signature failed'}
+          & python tools/prepare_mobile_native.py .build/artifact/OnTrack-Voice-0.3.17.apk .build/artifact/native
+          if($LASTEXITCODE -ne 0){throw 'Native manifest preparation failed'}
+          & java tools/SignMobileOta.java $key .build/artifact/native
+          if($LASTEXITCODE -ne 0){throw 'Native manifest signature failed'}
+          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_ota import verify as u;from queue_mobile_native import verify as n;_,_,ui=u(Path('.build/artifact/ota'));_,_,app=n(Path('.build/artifact/native'));assert ui['revision']==39 and ui['min_native']<=40<=ui['max_native'] and app['version_code']==40 and app['version_name']=='0.3.17';print('SIGNED_UI39_NATIVE40_VERIFIED')"
+          if($LASTEXITCODE -ne 0){throw 'Signed OTA/native version or signature invalid'}
+      - name: Upload complete release artifact before queuing host jobs
         uses: actions/upload-artifact@v4
         with:
-          name: OnTrack-Voice-0.3.17-Windows-signed
-          path: |
-            D:\ai\OnTrack-Voice-Builds\0.3.17\OnTrack-Voice-0.3.17.apk
-            D:\ai\OnTrack-Voice-Builds\0.3.17\SHA256SUMS.txt
-            D:\ai\OnTrack-Voice-Builds\0.3.17\size-report.json
-            D:\ai\OnTrack-Voice-Builds\0.3.17\ontrack-build-source.json
+          name: OnTrack-Voice-0.3.17
+          path: .build/artifact/
           if-no-files-found: error
           retention-days: 14
-
+      - name: Queue signed UI revision 39 with the existing host worker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & python tools/queue_mobile_ota.py .build/artifact/ota
+          if($LASTEXITCODE -ne 0){throw 'UI 39 host queue blocked'}
+      - name: Confirm UI OTA is installed on host, not just queued
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & python tools/verify_mobile_ota_host_receipt.py .build/artifact/ota
+          if($LASTEXITCODE -ne 0){throw 'UI 39 host receipt missing or invalid'}
+      - name: Queue signed versionCode 40 APK after UI receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & python tools/queue_mobile_native.py .build/artifact/native
+          if($LASTEXITCODE -ne 0){throw 'Native v40 host queue blocked'}
+      - name: Confirm native APK is published on the host
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & python tools/verify_mobile_native_host_receipt.py .build/artifact/native
+          if($LASTEXITCODE -ne 0){throw 'Native v40 host receipt missing or invalid'}
+          Write-Host 'ONTRACK_VOICE_0_3_17_FULL_RELEASE_VERIFIED: PASS'
