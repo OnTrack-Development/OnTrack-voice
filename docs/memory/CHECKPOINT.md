@@ -1,3 +1,9 @@
+<!-- ONTRACK_AI_AGENT_EXECUTION_MEMORY_20261104_START -->
+> **قرار المالك الإلزامي — 2026-11-04، لكل مشاريع OnTrack:** قبل أي بحث أو تعديل، اقرأ [README.md — تعليمات AI Coding Agents](../../README.md#تعليمات-إلزامية-لتطوير-المشاريع-باستخدام-ai-coding-agents) و[CLAUDE.md](../../CLAUDE.md). دورة العمل الملزمة: **تشخيص ← تنفيذ ← Evals (نجاح/فشل/حواف) ← إصلاح ← إعادة اختبار ← Build/Deploy عند الطلب ← تحقق مستقل ← Commit وتقرير أدلة**. لا تَعِد بنتيجة مستقبلية ولا تعتبر كتابة الكود، نجاح CI أو نشر APK دليلًا على سلوك جهاز حقيقي. هذا القرار يتقدم على النصوص التاريخية الأدنى في الملف؛ لا تنشئ توثيقًا آخر مكررًا.
+>
+> **حالة OnTrack Voice المؤكدة عند تسجيل القرار:** APK موقّع 0.3.19 / code 42 وواجهة OTA 41 نُشرا مع إيصالات هوست ناجحة يوم 2026-11-04، لكن لقطة تجربة المالك أظهرت مكالمة متصلة بدون إثبات رد AI أو كتم الميكروفون، مع رسالة استلام بشري خاطئة. الإصلاح الجاري في الفرع `fix/voice-call-state-0320-20261104` يحتاج اختبارات بناء ونشر وتجربة مكالمة فعلية؛ **لا تسجل له PASS قبل الأدلة**. الجدولة الذاتية كل ساعة أوقفها المالك سابقًا ولا تُعاد.
+<!-- ONTRACK_AI_AGENT_EXECUTION_MEMORY_20261104_END -->
+
 ## 2026-11-01 — PR #19 continuation: active Android SIM subscription guard (CODED; NOT RELEASED)
 
 - **Product gap found:** Android previously checked only SIM_STATE_READY. Replacing a physical SIM in the same logical slot could leave an encrypted tenant token usable for heartbeat; slot readiness is not a subscription-change check.
