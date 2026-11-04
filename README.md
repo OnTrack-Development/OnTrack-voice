@@ -2,7 +2,7 @@
 
 > **🔎 بحث Dograh وOskot لمحرك الصوت — 4 نوفمبر 2026:** [اقرأ الدراسة التقنية المنفصلة](docs/research/DOGRAH_OSKOT_VOICE_ENGINE_2026_11_04_AR.md) · [ثريد GitHub للمتابعة (#37)](https://github.com/OnTrack-Development/OnTrack-voice/issues/37). **قرار ثابت:** شريحة Android وصوت المكالمة في الاتجاهين كما هما؛ البحث عن الـpipeline والمقاطعة والـWorkflow والأصوات المصرية المحلية، **بدون تحويل مكالمات**. هذا توثيق فقط ولا يعني دمجًا أو نشرًا.
 
-**خطوة التجربة التالية:** [دليل الاختبار المحلي Dograh + Habibi EGY](docs/research/DOGRAH_FIRST_LOCAL_TEST_2026_11_04_AR.md) — Docker على كمبيوتر منفصل، وقياس TTS مصري بدون لمس الشريحة؛ لم تُجرَ تجارب فعلية بعد.  
+**التجربة الحالية (4 نوفمبر 2026):** [فحص ملفات صوت AI على الكمبيوتر عبر GitHub Actions Runner](.github/workflows/voice-local-ai-inventory.yml) — تشغيل يدوي على Windows self-hosted، يجرد الملفات الصوتية وأوزان النماذج فقط، ويرجع النتائج في Artifact. ثم نختبر **Habibi-TTS EGY** وحده (نص ← صوت مصري). **Dograh مستبعد من الاختبار الحالي**؛ ملف [البحث السابق](docs/research/DOGRAH_FIRST_LOCAL_TEST_2026_11_04_AR.md) محفوظ للمرجعية التاريخية فقط. لم يُثبت أي تشغيل على كمبيوتر المالك بعد.  
 
 **آخر تحديث: 29 أكتوبر 2026 — Africa/Cairo. المستودع Private.**
 
