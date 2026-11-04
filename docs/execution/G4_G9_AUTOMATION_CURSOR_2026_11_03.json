@@ -59,24 +59,20 @@
   "end_action": "disable_hourly_automation_after_verified_final_review",
   "last_run": {
     "requirement": "R040",
-    "date": "2026-11-03",
+    "date": "2026-11-04",
     "status": "PARTIAL",
-    "activity": "Rechecked current branch Actions: latest root deploy run 41707957548 (14ed4cfed) check failed, publish skipped; latest SaaS run 41707872978 (16945297f) smoke failed; latest Android audio run 41710317061 (a5e7a1eae) build failed and publish jobs skipped. No verified green CI, matching host receipt or physical Xiaomi event reconciliation. No source change.",
+    "activity": "Checked latest 100 branch workflow runs. Local Windows signed APK 0.3.11 run 41749227359 succeeded at SHA 7d1b1f65db8add1f495c3a3e7623319ff59a4ac9, but this is a signing/build workflow, not R040 call-history E2E or canonical root deployment. Most recent observed Root SaaS deploy 41707957548, Android SIM Audio Proof 41710317061, and Native OTA acknowledgement 41708478712 remain failed. No R040 code or deploy performed.",
     "ci_runs": [
+      41749227359,
       41707957548,
-      41707872978,
-      41710317061
+      41710317061,
+      41708478712
     ],
-    "ci_job_ids": [
-      126168179512,
-      126167885624,
-      126176366074
-    ],
-    "ci_status_at_check": "FAILED",
+    "ci_status_at_check": "SIGNED_APK_WORKFLOW_PASS_ONLY; REQUIRED_GATES_NOT_PASS",
     "root_host_receipt": null,
     "android_ota_host_receipt": null,
     "device_e2e": false,
-    "blocker": "Current Actions gates failed; no matching source-hash/exit_code=0 host receipt and rollback or Xiaomi disconnect/reconnect E2E. R040 acceptance not met."
+    "blocker": "No R040-specific green CI and canonical host receipt with matching SHA/rollback; no Xiaomi disconnect/reconnect call-event reconciliation. Signed APK success alone does not meet acceptance."
   },
   "run_history": [
     {
@@ -301,6 +297,23 @@
       "android_ota_host_receipt": null,
       "device_e2e": false,
       "blocker": "Current Actions gates failed; no matching source-hash/exit_code=0 host receipt and rollback or Xiaomi disconnect/reconnect E2E. R040 acceptance not met."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-04",
+      "status": "PARTIAL",
+      "activity": "Checked latest 100 branch workflow runs. Local Windows signed APK 0.3.11 run 41749227359 succeeded at SHA 7d1b1f65db8add1f495c3a3e7623319ff59a4ac9, but this is a signing/build workflow, not R040 call-history E2E or canonical root deployment. Most recent observed Root SaaS deploy 41707957548, Android SIM Audio Proof 41710317061, and Native OTA acknowledgement 41708478712 remain failed. No R040 code or deploy performed.",
+      "ci_runs": [
+        41749227359,
+        41707957548,
+        41710317061,
+        41708478712
+      ],
+      "ci_status_at_check": "SIGNED_APK_WORKFLOW_PASS_ONLY; REQUIRED_GATES_NOT_PASS",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "No R040-specific green CI and canonical host receipt with matching SHA/rollback; no Xiaomi disconnect/reconnect call-event reconciliation. Signed APK success alone does not meet acceptance."
     }
   ],
   "blocks": [],
