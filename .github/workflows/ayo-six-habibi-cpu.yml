@@ -1,0 +1,78 @@
+name: AYO six MP3 to Habibi EGY CPU voice benchmark
+on:
+  push:
+    branches: [voice-lab/ayo-six-mp3-20261104]
+    paths: [.github/workflows/ayo-six-habibi-cpu.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthesize:
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 70
+    env:
+      LAB_ROOT: 'D:\AI\OnTrackHabibiLab'
+      HF_HOME: 'D:\AI\OnTrackHabibiLab\hf-cache'
+      HF_HUB_CACHE: 'D:\AI\OnTrackHabibiLab\hf-cache\hub'
+      TORCH_HOME: 'D:\AI\OnTrackHabibiLab\torch-cache'
+      XDG_CACHE_HOME: 'D:\AI\OnTrackHabibiLab\xdg-cache'
+      PIP_CACHE_DIR: 'D:\AI\OnTrackHabibiLab\pip-cache'
+      PYTHONUTF8: '1'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      HF_HUB_DISABLE_XET: '1'
+      OMP_NUM_THREADS: '4'
+      MKL_NUM_THREADS: '4'
+    steps:
+      - name: Verify lab folder and disk headroom
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $d=Get-PSDrive D
+          $c=Get-PSDrive C
+          Write-Host "D free: $([math]::Round($d.Free/1GB,2)) GB; C free: $([math]::Round($c.Free/1GB,2)) GB"
+          if($d.Free -lt 10GB -or $c.Free -lt 2GB){throw 'Not enough disk space for isolated CPU benchmark.'}
+          $p='D:\AI\AYO Voice Demo'
+          if(-not (Test-Path -LiteralPath $p -PathType Container)){throw "Missing reference folder: $p"}
+          $mp3=@(Get-ChildItem -LiteralPath $p -File -Filter '*.mp3')
+          if($mp3.Count -lt 6){throw "Expected six MP3 files, found $($mp3.Count)"}
+          New-Item -ItemType Directory -Force -Path $env:LAB_ROOT | Out-Null
+      - name: Checkout only benchmark scripts
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up isolated Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU PyTorch and Habibi dependencies into D drive
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $venv=Join-Path $env:LAB_ROOT '.venv'
+          $py=Join-Path $venv 'Scripts\python.exe'
+          New-Item -ItemType Directory -Force -Path $env:LAB_ROOT | Out-Null
+          if(-not (Test-Path -LiteralPath $py -PathType Leaf)) {python -m venv $venv}
+          if(-not (Test-Path -LiteralPath $py -PathType Leaf)){throw 'Isolated venv missing'}
+          & $py -m pip install --disable-pip-version-check --no-cache-dir --timeout 100 --retries 2 'torch==2.6.0+cpu' 'torchaudio==2.6.0+cpu' --index-url https://download.pytorch.org/whl/cpu
+          if($LASTEXITCODE -ne 0){throw 'CPU PyTorch install failed'}
+          & $py -m pip install --disable-pip-version-check --no-cache-dir --timeout 100 --retries 2 'habibi-tts==0.1.1' 'faster-whisper==1.2.1' 'soundfile>=0.12.1'
+          if($LASTEXITCODE -ne 0){throw 'Habibi / ASR dependency install failed'}
+          & $py -c 'import torch,habibi_tts,faster_whisper,soundfile; print("READY torch",torch.__version__,"cpu",not torch.cuda.is_available())'
+          if($LASTEXITCODE -ne 0){throw 'Post-install import check failed'}
+      - name: Transcribe six AYO samples and synthesize three Egyptian voice tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $py=Join-Path $env:LAB_ROOT '.venv\Scripts\python.exe'
+          & $py 'tools/voice_lab/benchmark_ayo_habibi_cpu.py'
+          if($LASTEXITCODE -ne 0){throw 'Benchmark runner exited with error'}
+      - name: Upload generated WAV samples and timing report (not the reference audios)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ayo-habibi-egy-cpu-generated
+          path: |
+            D:/AI/OnTrackHabibiLab/output/report.json
+            D:/AI/OnTrackHabibiLab/output/ayo_group_*_EGY.wav
+          retention-days: 7
+          if-no-files-found: warn
