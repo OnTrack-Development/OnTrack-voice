@@ -1,4 +1,4 @@
-"""Isolated AYO voice-reference CPU benchmark using official Habibi-TTS EGY Specialized.
+"""First-voice proof on CPU using official Habibi-TTS EGY Specialized.
 Reference MP3s stay on the owner's PC. Transcripts are machine-generated and require review.
 """
 import json
@@ -15,8 +15,8 @@ INPUT=ROOT/"AYO Voice Demo"
 LAB=ROOT/"OnTrackHabibiLab"
 OUT=LAB/"output"
 OUT.mkdir(parents=True,exist_ok=True)
-FILES=("1.mp3","1-1.mp3","2.mp3","2-2.mp3","3.mp3","3-3.mp3")
-TEXT=("أهلًا بيك في أون تراك. أنا المساعد الصوتي، وهنجرّب دلوقتي نطق عربي مصري واضح وطبيعي. لو عندك استفسار عن خدمات الاستضافة أو الدعم الفني، قولّي محتاج إيه، وهساعدك خطوة بخطوة من غير تعقيد.")
+FILES=("1.mp3","1-1.mp3")  # first audio proof: run remaining four on subsequent benchmark
+TEXT="أهلًا بيك في أون تراك. أنا المساعد الصوتي، عامل إيه النهارده؟"
 report={"reference_dir":str(INPUT),"model":"Habibi-TTS 0.1.1 Specialized EGY","device":"cpu",
 "nfe_step":16,"test_text":TEXT,"samples":[],"generations":[],"started_at":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime())}
 def save():
@@ -55,7 +55,7 @@ for name in FILES:
     report["samples"].append(entry)
     save()
 # Select strongest transcription/duration for each numbered voice group, preserving both references.
-for group in ("1","2","3"):
+for group in ("1",):
     samples=[v for v in report["samples"] if v["name"] in (f"{group}.mp3",f"{group}-{group}.mp3") and v.get("ref_text_auto")]
     if not samples:
         report["generations"].append({"group":group,"error":"No valid transcribed reference"})
@@ -98,5 +98,5 @@ for group in ("1","2","3"):
     save()
     # Stop after a failed first generation; avoid repeated large downloads/errors.
     if result["status"]!="generated":break
-print("BENCHMARK_RESULT:",json.dumps({"samples":len(report["samples"]),"generated":sum(x.get("status")=="generated" for x in report["generations"]),"results":report["generations"]},ensure_ascii=False)[-3200:],flush=True)
+print("FIRST_VOICE_PROOF_RESULT:",json.dumps({"samples":len(report["samples"]),"generated":sum(x.get("status")=="generated" for x in report["generations"]),"results":report["generations"]},ensure_ascii=False)[-3200:],flush=True)
 save()
