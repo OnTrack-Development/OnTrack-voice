@@ -23,7 +23,7 @@ internal fun overlayUiModel(
         inCall && humanControl -> "أنت استلمت المكالمة من الإيجنت"
         inCall && callFailure.isNotBlank() -> callFailure.take(110)
         inCall && !answered -> "المكالمة قيد الرنين أو الاتصال"
-        inCall && audioActive -> "صوت الإيجنت متصل بالمكالمة"
+        inCall && audioActive -> "صوت الإيجنت متصل — ميكروفون الهاتف مكتوم"
         inCall && !enabled -> "المكالمة تحت تحكم الهاتف — الإيجنت متوقف"
         inCall -> "المكالمة متصلة — جارٍ تجهيز صوت الإيجنت"
         !serviceReady -> "خدمة الهاتف غير نشطة — لم يتأكد التشغيل"
