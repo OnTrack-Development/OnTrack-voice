@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-auth-mail-transport-20261105",
+  "target": "appontrack-server11",
+  "job_sha256": "c53e72170aba94cfdc3ce60b63a76c82518f4d552768b12098a671e7a31b506e",
+  "started_at": "2026-11-04T23:53:02.868368+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"php_mail_function\": \"yes\", \"sendmail_configured\": true, \"sendmail_binary_exists\": true, \"sendmail_command\": \"/usr/sbin/sendmail\", \"system_sendmail\": false}\n",
+  "stderr": "",
+  "finished_at": "2026-11-04T23:53:03.021951+00:00",
+  "duration_ms": 154
+}
