@@ -1,0 +1,22 @@
+# One-time release recovery (2026-11-04).
+# The obsolete Windows R8 size-preview workflow was still running against
+# an older commit while a broken voice-proof APK fix was queued for signing.
+# GitHub concurrency is repository-wide; this run retires only that old
+# preview lock. The job is skipped: NO code, deployment, or secrets executed.
+name: Retire superseded Android preview
+on:
+  push:
+    branches: [feat/voice-production-gap-20261103]
+    paths:
+      - '.github/workflows/retire-superseded-android-preview.yml'
+permissions:
+  contents: read
+concurrency:
+  group: owner-windows-small-apk-preview
+  cancel-in-progress: true
+jobs:
+  retire:
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Old Windows preview retired; primary release workflow owns signing'
