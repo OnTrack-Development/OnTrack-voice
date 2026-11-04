@@ -26,9 +26,9 @@ permissions:
   contents: write
   actions: write
 concurrency:
-  # Same lock as pre-fix 0.3.20: cancel its queued broken APK rather
-  # than let it publish after the corrected 0.3.22 release.
-  group: ontrack-voice-android-unified-0322-${{ github.ref }}
+  # Keep the existing signing release lock: a cellular-audio candidate
+  # must cancel older runs so that an unverified APK never publishes later.
+  group: ontrack-voice-android-unified-0320-${{ github.ref }}
   cancel-in-progress: true
 env:
   PYTHONUTF8: '1'
