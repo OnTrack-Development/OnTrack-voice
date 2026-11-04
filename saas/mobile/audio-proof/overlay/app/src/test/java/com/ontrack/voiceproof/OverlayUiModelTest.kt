@@ -73,4 +73,23 @@ class OverlayUiModelTest {
         assertFalse(ambiguous.canTakeover)
     }
 
+    @Test fun cellularAudioTraceShowsObservedStageNotFakeEndToEndSuccess() {
+        val tracing=overlayUiModel(true,true,true,true,false,true,"",
+            "Google أرسل الصوت للجسر؛ سماع المتصل غير مؤكد")
+        assertTrue(tracing.status.contains("غير مؤكد"))
+        assertTrue(tracing.canTakeover)
+        val failure=overlayUiModel(true,true,true,true,false,true,
+            "فشل الاتصال على الداتا","Google أرسل الصوت")
+        assertTrue(failure.status.contains("فشل الاتصال"))
+        assertFalse(failure.status.contains("أرسل الصوت"))
+    }
+
+    @Test fun stoppedOrRingingCallCannotShowStaleCellularAudioTrace() {
+        val ringing=overlayUiModel(true,true,true,false,false,false,"","PCM جاهز")
+        assertTrue(ringing.status.contains("الرنين"))
+        val idle=overlayUiModel(true,true,false,false,false,false,"","PCM جاهز")
+        assertTrue(idle.status.contains("جاهز"))
+        assertFalse(idle.status.contains("PCM"))
+    }
+
 }
