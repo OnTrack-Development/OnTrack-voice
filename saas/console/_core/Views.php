@@ -1233,12 +1233,8 @@ function render_ai_relay_settings(array $a):void {
 }
 function render_settings(array $a):void{
     $brand=brand($a);
-    $mfaUser=(int)me()['id'];
-    $mfaEnrolled=mfa_record($mfaUser)!==null;
-    echo card('التحقق بخطوتين',
-        $mfaEnrolled
-        ?'<p>تم تأكيد المصادقة بخطوتين. يُطلب رمز TOTP عند تسجيل الدخول.</p><span class="pill ok">مفعّل ومؤكد</span>'
-        :'<p>يلزم تأكيد المصادقة بخطوتين لحسابات الإدارة قبل استخدام اللوحة. لا يُعتبر إعداد QR غير المؤكد تفعيلًا.</p><a class="btn primary" href="/mfa/setup">تأكيد حماية الإدارة</a>');
+    // Owner decision 2026-11-04: no administrator 2FA/QR setup tile.
+    // Auth uses password, session hardening and existing login rate limits.
     if($a['kind']==='platform'&&console_view_mode($a)==='admin'&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
         require_once __DIR__.'/WhatsAppOnboarding.php';
         $meta=wa_platform_onboarding();
