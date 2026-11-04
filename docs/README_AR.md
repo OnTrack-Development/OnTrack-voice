@@ -4,6 +4,11 @@
 
 **خطة الإصلاح الشاملة المعتمدة بعد تدقيق 3 نوفمبر 2026:** [خارطة المراحل والمتطلبات](plan/MASTER_REPAIR_ROADMAP_2026_11_03_AR.md) · [المصفوفة الآلية بكل عناصر P0/P1/P2](plan/MASTER_REPAIR_BACKLOG_2026_11_03.json). تتقدم على قائمة القبول والحالة القديمة؛ لا تعيد تشغيل جدولة التطوير التي أوقفها المالك.
 
+## بحث الصوت والتجربة المحلية
+
+- [بحث Dograh وOskot وتأثيره على محرك OnTrack](research/DOGRAH_OSKOT_VOICE_ENGINE_2026_11_04_AR.md).
+- [طريقة البدء بتجربة Dograh والصوت المصري Habibi EGY على الكمبيوتر](research/DOGRAH_FIRST_LOCAL_TEST_2026_11_04_AR.md).
+
 ## التنفيذ والذاكرة
 
 - [البرومبت الرئيسي الشامل](execution/MASTER_EXECUTION_PROMPT_AR.md).

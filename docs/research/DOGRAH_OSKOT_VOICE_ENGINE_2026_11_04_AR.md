@@ -2,6 +2,7 @@
 
 **آخر تحديث:** 4 نوفمبر 2026 — Africa/Cairo  
 **الحالة:** بحث تقني موثق، وليس دمجًا أو نشرًا أو اختبار مكالمة جديدة.  
+**طريقة بدء التجارب:** [دليل الاختبار المحلي Dograh + Habibi EGY](DOGRAH_FIRST_LOCAL_TEST_2026_11_04_AR.md) — لم تُنفَّذ التجارب بعد.  
 **ثريد GitHub للمتابعة:** [Issue #37 — Dograh/Oskot](https://github.com/OnTrack-Development/OnTrack-voice/issues/37)  
 **المصادر:** تحليل APK السابق من هذه المحادثة، وكود Dograh العام وملفات المشروع وروابطها أدناه.
 
