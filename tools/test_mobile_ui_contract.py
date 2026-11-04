@@ -25,6 +25,8 @@ assert 'check(!MobileLinkService.tenantPairingInProgress)' in native, 'Starting 
 assert 'واجهات هاتف التجربة غير متاحة لحماية حسابات العملاء' not in native, 'Do not mislabel demo SIM as a customer block'
 assert 'tenantDesiredEnabled' in native and 'TenantEngineRestorePolicy.shouldRestore' in native, 'Native startup status/restore missing'
 assert 'tenantServiceRunning' in ui, 'UI must distinguish running SIM monitor from call-only Google connection'
+assert "classList.toggle('agent-on',confirmedActive" in ui and 's.tenantServiceRunning===true' in ui, 'Green switch cannot be based on requested state alone'
+assert '#enable.agent-on' in ui and '#disable.agent-off' in ui and 'id="version"' in ui, 'Agent colors and visible version missing'
 # Transport parity with the previously working Pilot must never regress.
 import hashlib
 service=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkService.kt').read_text()
@@ -42,7 +44,7 @@ assert 'session.optString("agent_name"' in session, 'Greeting must use agent dis
 assert 'id="key"' not in embedded and 'id="tenantWorkspaceSlot"' in embedded, 'Old Pilot UI bundled into Android APK'
 meta=json.loads(Path('saas/mobile/ota/release.json').read_text())
 assert meta['revision']>=37, 'A signed OTA revision must advance'
-assert meta['min_native']==34 and meta['max_native']==38, 'Advanced UI must not auto-replace legacy 0.3.9 with unsupported commands'
+assert meta['min_native']==34 and meta['max_native']==39, 'Advanced UI must not auto-replace legacy 0.3.9 with unsupported commands'
 assert meta['runtime']==1
 for part in ('requestUiRefresh()', "send('checkUpdates')", "data-view=\"dashboard\"", 'body.light', "readUiTheme()"):
     assert part in ui, 'Missing UI-only capability: '+part
@@ -66,7 +68,7 @@ for command in ("send('tenantMenu')", "send('tenantQrScan')", "send('tenantRefre
     assert command in ui, 'Native Android SIM bridge not wired: '+command
 inline=ui.split('<script>',1)[1].split('</script>',1)[0]
 subprocess.run(['node','--check'],input=inline,text=True,check=True)
-print('PASS: OnTrack UI OTA v37 supports Android v34-v38, navigation, notification and JS syntax')
+print('PASS: OnTrack UI OTA v38 supports Android v34-v39, navigation, notification and JS syntax')
 
 assert "Number(s.nativeCode)>=25" in ui, 'Tenant runtime must remain gated to new native version'
 assert "id=\"openAnswerSettings\"" in ui and "send('openAnswerSettings')" in ui, 'Answer settings bridge missing'

@@ -178,6 +178,12 @@ body.light .otTabs button.active{background:#d20d28!important;color:#fff!importa
 .otStatusGrid{gap:8px}
 .otConnection strong{font-size:13px}
 #agentBuilderHub .primary{min-height:48px}
+
+/* Accurate agent switch colors: only verified native service can be green. */
+#enable,#disable{background:var(--control)!important;color:var(--text)!important;border:1px solid var(--border)!important;transition:background-color .18s ease,border-color .18s ease}
+#enable.agent-on{background:#147d47!important;border-color:#28a463!important;color:#fff!important;opacity:1!important;filter:none!important}
+#disable.agent-off{background:#b91c34!important;border-color:#e2384a!important;color:#fff!important;opacity:1!important;filter:none!important}
+#version{display:block!important;font-size:12px;font-weight:800;color:var(--text);white-space:nowrap}
 </style></head><body>
 <div id="uiPullStatus" hidden role="status" aria-live="polite">↻ جارٍ تحديث البيانات…</div>
 <div id="otSplash" role="status" aria-live="polite"><div class="otHalo"><div class="otMonogram">OT</div></div><div class="otTitle">ONTRACK</div><div class="otSubtitle">VOICE INTELLIGENCE</div><div class="otProgress"><span class="otPulse"></span>يرجى الانتظار · جارٍ تجهيز الاتصال</div></div>
@@ -534,6 +540,16 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
   el('enable').disabled=!engine||monitoring||call||!!s.updating||!!s.tenantPairingInProgress;
   el('disable').disabled=!engine||!s.agentEnabled||!!s.updating;
  }
+
+ // Display only confirmed SIM-monitor state; do not mistake desired state for active.
+ const confirmedActive=enabled && s.tenantServiceRunning===true;
+ const isStarting=!!s.pendingSync || (!!s.tenantDesiredEnabled && !confirmedActive);
+ el('enable').classList.toggle('agent-on',confirmedActive && !isStarting);
+ el('disable').classList.toggle('agent-off',!enabled && !isStarting);
+ el('enable').textContent=isStarting?'جاري تشغيل المساعد…':confirmedActive?'المساعد شغّال':'تشغيل المساعد';
+ el('disable').textContent=!enabled&&!isStarting?'المساعد متوقف':'إيقاف المساعد';
+ el('enable').setAttribute('aria-pressed',String(confirmedActive&&!isStarting));
+ el('disable').setAttribute('aria-pressed',String(!enabled&&!isStarting));
  el('nativeUpdateStatus').textContent=s.nativeUpdateStatus||'جاري فحص تحديث Android…';
   const available=!!s.nativeUpdateAvailable;
   el('updateNotice').hidden=!available;
