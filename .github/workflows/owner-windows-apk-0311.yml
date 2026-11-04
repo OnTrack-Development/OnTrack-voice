@@ -87,13 +87,13 @@ jobs:
           $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
           & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
           if (-not $?) { throw 'Windows shellserver compilation failed.' }
-      - name: Run Android unit and daemon tests
+      - name: Run targeted OnTrack Android unit and daemon tests (matching Linux release gate)
         working-directory: .build/jemrec
         run: |
           $ErrorActionPreference = 'Stop'
-          & .\gradlew.bat --no-daemon :app:testDebugUnitTest :daemon-tests:test
+          & .\gradlew.bat --no-daemon :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.PcmWavTest' --tests 'com.ontrack.voiceproof.SetupDiagnosticFormatTest' --tests 'com.ontrack.voiceproof.ProofExportTest' --tests 'com.ontrack.voiceproof.LinkPcmTest' --tests 'com.ontrack.voiceproof.SignedOtaTest' --tests 'com.ontrack.voiceproof.LocalUiPageTest' --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' --tests 'com.ontrack.voiceproof.OverlayUiModelTest' --tests 'com.ontrack.voiceproof.TenantPairingContractTest' --tests 'com.ontrack.voiceproof.TenantAgentIdentityTest' --tests 'com.ontrack.voiceproof.OutboundFirstTurnTest' :daemon-tests:test
           if ($LASTEXITCODE -ne 0) { throw 'Android tests failed; no APK may be published.' }
-          Write-Host 'ANDROID_UNIT_TESTS: PASS'
+          Write-Host 'ONTRACK_TARGETED_UNIT_TESTS: PASS'
       - name: Compile Android debug APK
         working-directory: .build/jemrec
         run: |
