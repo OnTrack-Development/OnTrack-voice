@@ -67,6 +67,9 @@ class MobileLinkActivity:ComponentActivity(){
     private var screenNonce=""
     @Volatile private var localPage:LocalUiPage?=null
     private var updateBusy=false
+    // Keep native motion visible until BOTH the cached screen is ready and
+    // the initial signed UI update check has completed or failed.
+    private var initialUiUpdateCheckPending=true
     private var pending:MobileOta.Bundle?=null
     private var pendingContacts=JSONArray()
     private var pendingImportUri:Uri?=null
@@ -340,7 +343,13 @@ class MobileLinkActivity:ComponentActivity(){
         web.addJavascriptInterface(Bridge(),"OnTrack")
         lifecycleScope.launch{
             show(withContext(Dispatchers.IO){ota.screen(recover=true)})
-            checkUpdates()
+            splash?.checking()
+            try {
+                checkUpdates()
+            } finally {
+                initialUiUpdateCheckPending=false
+                dismissLaunchIfReady()
+            }
             checkNativeUpdates()
             var polls=0
             while(isActive){
@@ -727,8 +736,17 @@ class MobileLinkActivity:ComponentActivity(){
             if(::web.isInitialized)sendState()
         }
     }
+    private fun dismissLaunchIfReady() {
+        if(!ready || initialUiUpdateCheckPending)return
+        web.postDelayed({
+            if(ready && !initialUiUpdateCheckPending){
+                splash?.hide()
+                banner.visibility=View.GONE
+            }
+        },320)
+    }
     private fun show(screen:MobileOta.Screen){
-        ready=false;splash?.reveal();splash?.message("جارٍ تحميل تجربة OnTrack…");val current=++generation
+        ready=false;splash?.reveal();splash?.message("جارٍ تجهيز واجهة OnTrack…");val current=++generation
         screenNonce=java.util.UUID.randomUUID().toString()
         require(screen.html.contains("<head>")){"صيغة واجهة التحديث غير صالحة"}
         val content=screen.html.replaceFirst("<head>","<head><script>window.OTA_NONCE="+JSONObject.quote(screenNonce)+";</script>")
@@ -748,8 +766,21 @@ class MobileLinkActivity:ComponentActivity(){
     private suspend fun checkUpdates(){
         if(updateBusy)return;updateBusy=true
         try{
-            val next=withContext(Dispatchers.IO){ota.check()}
-            if(next==null)banner.text="الواجهة محدثة • OTA ${ota.revision}" else activate(next)
+            val next=withContext(Dispatchers.IO){
+                ota.check {received,total ->
+                    // These are real downloaded bytes from a signed OTA manifest.
+                    runOnUiThread {
+                        if(initialUiUpdateCheckPending)splash?.downloadProgress(received,total)
+                    }
+                }
+            }
+            if(next==null){
+                banner.text="الواجهة محدثة • OTA ${ota.revision}"
+                if(initialUiUpdateCheckPending)splash?.message("الواجهة محدثة، جارٍ فتح OnTrack…")
+            } else {
+                if(initialUiUpdateCheckPending)splash?.message("تم التحقق من التحديث، جارٍ تشغيله…")
+                activate(next)
+            }
         }catch(t:Throwable){if(t is CancellationException)throw t;banner.text="الواجهة الحالية تعمل؛ تعذر جلب التحديث الآن"}
         finally{updateBusy=false}
     }
@@ -910,7 +941,7 @@ class MobileLinkActivity:ComponentActivity(){
                     }
                     "copyKey" -> error("مفتاح تجربة الهاتف القديم غير مستخدم")
                     "ready"->{ready=true;requestTenantStatusRefresh();withContext(Dispatchers.IO){ota.confirm()};banner.text="الواجهة جاهزة • OTA ${ota.revision}";sendState()
-                        web.postDelayed({splash?.hide();banner.visibility=View.GONE},550)
+                        dismissLaunchIfReady()
                         val initial=JSONObject().put("base","").put("key","")
                         web.evaluateJavascript("window.onTrackInit && window.onTrackInit($initial)",null)
                         if(openUpdatesOnReady)openUpdatesInWeb()
