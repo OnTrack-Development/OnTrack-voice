@@ -1,0 +1,13 @@
+# Register this one-time workflow on default branch.
+# The implementation lives on feat/voice-production-gap-20261103 and runs only on the owner's labeled Windows runner.
+name: Recover original Android signing key (local Windows only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  default-branch-disabled:
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Select the authorized feature branch to run the local recovery workflow."
