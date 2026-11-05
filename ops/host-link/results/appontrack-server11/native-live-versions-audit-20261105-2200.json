@@ -1,0 +1,13 @@
+{
+  "job_id": "native-live-versions-audit-20261105-2200",
+  "target": "appontrack-server11",
+  "job_sha256": "cb2c421aeeac2fb185a87b5025c0ecc9705dbbf10bebef1884cf282a03c45dfb",
+  "started_at": "2026-11-05T20:18:03.033150+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"latest.json\": {\"exists\": true, \"revision\": 45, \"version_code\": null, \"version_name\": null, \"sha256\": \"a2c31a7aec9a1e44d181d5eb424b67a362265b095a871ae7c64e9f37346e87f3\", \"file\": \"ui-a2c31a7aec9a1e44d181d5eb424b67a362265b095a871ae7c64e9f37346e87f3.html\"}, \"native/latest.json\": {\"exists\": true, \"revision\": null, \"version_code\": 46, \"version_name\": \"0.3.23\", \"sha256\": \"ae5e17436295928e41520f4eddf6fc97c38ab28f1dc44b871bba5da567bf9f95\", \"file\": \"ontrack-voice-v46-ae5e17436295928e41520f4eddf6fc97c38ab28f1dc44b871bba5da567bf9f95.apk\"}}\n",
+  "stderr": "",
+  "finished_at": "2026-11-05T20:18:03.078047+00:00",
+  "duration_ms": 45
+}
