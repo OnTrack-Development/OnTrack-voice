@@ -66,9 +66,10 @@ function llm_stream(array $c,array $messages): string {
  $p=llm_info($c);if($p['key']==='') throw new RuntimeException('اضبط مفتاح مزود التفكير المختار');
  $payload=json_encode(['model'=>$c['llmModel'],'messages'=>$messages,'stream'=>true,'max_tokens'=>250,'temperature'=>0.55],JSON_UNESCAPED_UNICODE);
  $ch=curl_base($p['url'],['Authorization: Bearer '.$p['key'],'Content-Type: application/json','Accept: text/event-stream'],(string)$payload);
- $buffer='';$whole='';$start=microtime(true);$first=false;$httpData='';
- curl_setopt($ch,CURLOPT_WRITEFUNCTION,function($handle,$chunk)use(&$buffer,&$whole,&$first,&$httpData,$start){
+ $buffer='';$whole='';$start=microtime(true);$first=false;$httpData='';$rawSuccess='';
+ curl_setopt($ch,CURLOPT_WRITEFUNCTION,function($handle,$chunk)use(&$buffer,&$whole,&$first,&$httpData,&$rawSuccess,$start){
   if(curl_getinfo($handle,CURLINFO_HTTP_CODE)>=400){$httpData.=substr($chunk,0,2000);return strlen($chunk);}
+  if(strlen($rawSuccess)<131072)$rawSuccess.=substr($chunk,0,131072-strlen($rawSuccess));
   $buffer.=$chunk;while(($pos=strpos($buffer,"\n"))!==false){$line=trim(substr($buffer,0,$pos));$buffer=substr($buffer,$pos+1);
    decodeSse($line,function($text)use(&$whole,&$first,$start){if(!$first){emit(['type'=>'latency','metric'=>'llmFirstTokenMs','value'=>round((microtime(true)-$start)*1000)]);$first=true;}$whole.=$text;emit(['type'=>'llm_delta','text'=>$text]);});
   }return strlen($chunk);
@@ -76,7 +77,12 @@ function llm_stream(array $c,array $messages): string {
  $ok=curl_exec($ch);$err=curl_error($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
  if($ok===false || $status>=400)throw new RuntimeException('LLM HTTP '.($status?:'network').' '.($err?'تعذر الاتصال':'تحقق من الموديل والحصة')); 
  if($buffer!=='')decodeSse(trim($buffer),function($x)use(&$whole){$whole.=$x;emit(['type'=>'llm_delta','text'=>$x]);});
- if(trim($whole)==='')throw new RuntimeException('لم يرجع الموديل نصًا قابلًا للنطق؛ جرّب موديلًا آخر يدعم Streaming');
+ if(trim($whole)===''){
+   $doc=json_decode(trim($rawSuccess),true);
+   $fallback=$doc['choices'][0]['message']['content']??null;
+   if(is_string($fallback)&&trim($fallback)!==''){$whole=trim($fallback);emit(['type'=>'latency','metric'=>'llmFirstTokenMs','value'=>round((microtime(true)-$start)*1000)]);emit(['type'=>'llm_delta','text'=>$whole]);}
+ }
+ if(trim($whole)==='')throw new RuntimeException('مزود التفكير لم يرجع محتوى نصيًا؛ جرّب موديلًا آخر وتأكد من دعم Chat Completions');
  emit(['type'=>'llm_done']); return trim($whole);
 }
 function tts_stream(string $text,array $c,string $callerText=''): void {
@@ -87,13 +93,19 @@ function tts_stream(string $text,array $c,string $callerText=''): void {
  if ($styled['synthesisContext']!==null) $payload['synthesisContext']=$styled['synthesisContext'];
  emit(['type'=>'voice_style','mode'=>$styled['mode'],'reasoningEnabled'=>$styled['reasoningEnabled'],'cue'=>$styled['nonverbalCue'],'model'=>$c['ttsModel']]);
  $ch=curl_base('https://api.inworld.ai/tts/v1/voice:stream',['Authorization: Basic '.$c['inworldKey'],'Content-Type: application/json','Accept: application/json'],(string)json_encode($payload,JSON_UNESCAPED_UNICODE));
- $buffer='';$started=microtime(true);$audio=false;$httpErr='';$processed=0;
- $handleLine=function(string $line)use(&$audio,&$processed,$started){$d=json_decode(trim($line),true);if(!is_array($d))return;
-  $r=$d['result']??[];if(isset($d['error']))throw new RuntimeException('Inworld رفض توليد الصوت');
+ $buffer='';$started=microtime(true);$audio=false;$httpErr='';$processed=0;$bytes=0;$chunks=0;$streamError=null;
+ $handleLine=function(string $line)use(&$audio,&$processed,&$bytes,&$chunks,&$streamError,$started){
+ $d=json_decode(trim($line),true);
+ if(!is_array($d)){if(trim($line)!=='')$streamError=['code'=>'INVALID_NDJSON'];return;}
+  $r=$d['result']??[];
+ if(isset($d['error'])){$e=$d['error'];$streamError=['code'=>is_array($e)?(int)($e['code']??0):0,'message'=>is_array($e)?char_sub((string)($e['message']??'Inworld stream error'),120):'Inworld stream error'];return;}
   if(!empty($r['reasoningInstruction'])&&is_string($r['reasoningInstruction']))emit(['type'=>'reasoning_instruction','instruction'=>char_sub($r['reasoningInstruction'],200)]);
   if(isset($r['usage']['processedCharactersCount']))$processed+=(int)$r['usage']['processedCharactersCount'];
   if(!empty($r['audioContent'])){if(!$audio){emit(['type'=>'latency','metric'=>'ttsFirstChunkMs','value'=>round((microtime(true)-$started)*1000)]);$audio=true;}
-   emit(['type'=>'audio','content'=>$r['audioContent'],'encoding'=>'PCM','sampleRate'=>24000]); }
+   $raw=base64_decode((string)$r['audioContent'],true);
+   if($raw===false||strlen($raw)%2!==0){$streamError=['code'=>'BAD_PCM_AUDIO'];return;}
+   $chunks++;$bytes+=strlen($raw);
+   emit(['type'=>'audio','content'=>$r['audioContent'],'encoding'=>'PCM','sampleRate'=>24000,'chunk'=>$chunks,'bytes'=>strlen($raw)]); }
  };
  curl_setopt($ch,CURLOPT_WRITEFUNCTION,function($handle,$chunk)use(&$buffer,&$httpErr,$handleLine){
   if(curl_getinfo($handle,CURLINFO_HTTP_CODE)>=400){$httpErr.=substr($chunk,0,1500);return strlen($chunk);}
@@ -102,8 +114,10 @@ function tts_stream(string $text,array $c,string $callerText=''): void {
  $ok=curl_exec($ch);$err=curl_error($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
  if($ok===false||$status>=400)throw new RuntimeException('Inworld HTTP '.($status?:'network').($err?' / اتصال غير متاح':''));
  if(trim($buffer)!=='')$handleLine($buffer);
- if(!$audio)throw new RuntimeException('Inworld لم يرجع أجزاء صوتية');
- $count=max($processed,char_len($text));emit(['type'=>'audio_done','chars'=>$count,'estimatedUsd'=>round($count*($c['ttsModel']==='inworld-tts-2'?25:15)/1000000,6)]);
+ if($streamError){emit(['type'=>'tts_diagnostic','status'=>'upstream_error','chunks'=>$chunks,'bytes'=>$bytes,'errorCode'=>$streamError['code']??'UNKNOWN']);throw new RuntimeException('Inworld أوقف التوليد (code '.($streamError['code']??'?').')'.(!empty($streamError['message'])?' · '.$streamError['message']:''));}
+ if(!$audio)throw new RuntimeException('Inworld لم يرجع أجزاء صوتية؛ راجع Voice ID والموديل وصيغة الصوت');
+ $count=max($processed,char_len($text));
+ emit(['type'=>'audio_done','chars'=>$count,'chunks'=>$chunks,'bytes'=>$bytes,'audioSeconds'=>round($bytes/48000,2),'estimatedUsd'=>round($count*($c['ttsModel']==='inworld-tts-2'?25:15)/1000000,6)]);
 }
 $action=(string)($_GET['action']??'status');
 if ($action==='status') {
@@ -169,12 +183,12 @@ if ($action==='preview'||$action==='turn') {
  $in=body();$text=trim((string)($in[$action==='preview'?'text':'question']??''));if($text===''||char_len($text)>1500)fail('النص مطلوب (بحد أقصى 1500 حرف)');
  $c=cfg();if($action==='turn'&&(!isset($_SESSION['ayo_deadline'])||$_SESSION['ayo_deadline']<time()))fail('انتهت جلسة الدقيقتين؛ ابدأ من جديد',408);
  $hist=$_SESSION['ayo_history']??[];if($action==='turn')$_SESSION['ayo_history']=array_slice([...$hist,['role'=>'user','content'=>$text]],-12);
- session_write_close();stream_headers();$start=microtime(true);
+ session_write_close();@set_time_limit(95);stream_headers();$start=microtime(true);
  try {
   if($action==='turn'){
    emit(['type'=>'started']);$messages=[['role'=>'system','content'=>prompt()]];foreach(array_slice($hist,-10) as $r)if(in_array($r['role'],['user','assistant'],true))$messages[]=$r;
    $messages[]=['role'=>'user','content'=>$text];$reply=llm_stream($c,$messages);$reply=preg_replace('/<think>.*?<\/think>/su','',$reply)??$reply;
-   tts_stream($reply,$c,$text);
+   if($c['inworldKey']!=='')tts_stream($reply,$c,$text);else emit(['type'=>'tts_notice','message'=>'تم توليد الرد النصي فقط: مفتاح Inworld غير محفوظ']);
   } else {emit(['type'=>'started']);tts_stream($text,$c);}
   emit(['type'=>'complete','totalMs'=>round((microtime(true)-$start)*1000)]);
  }catch(Throwable $e){emit(['type'=>'error','message'=>$e->getMessage()]);}
