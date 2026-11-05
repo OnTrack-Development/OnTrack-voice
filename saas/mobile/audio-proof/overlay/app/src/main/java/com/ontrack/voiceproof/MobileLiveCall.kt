@@ -316,6 +316,43 @@ internal class MobileLiveCall(
                         }
                         error("Gemini error "+provider.optInt("code",0))
                     }
+                    val toolCall=message.optJSONObject("toolCall")
+                    if(toolCall!=null){
+                        val calls=toolCall.optJSONArray("functionCalls")
+                        val responses=org.json.JSONArray()
+                        if(calls!=null)for(i in 0 until calls.length()){
+                            val item=calls.optJSONObject(i)?:continue
+                            val name=item.optString("name","")
+                            val args=item.optJSONObject("args")?:JSONObject()
+                            val saved=when(name){
+                                "request_human_employee"->{
+                                    val reason=args.optString("reason","").trim().take(350)
+                                        .ifBlank{"المتصل طلب التحدث مع موظف بشري"}
+                                    val note=args.optString("customer_notes","").trim().take(700)
+                                    if(humanRequestReported.get())true else
+                                        runCatching{onHumanRequested(reason,note)}.getOrDefault(false)
+                                            .also{if(it)humanRequestReported.set(true)}
+                                }
+                                "save_call_note"->runCatching{
+                                    onCallNote(args.optString("summary","").trim().take(1000),
+                                        args.optString("customer_notes","").trim().take(1000))
+                                }.getOrDefault(false)
+                                else->false
+                            }
+                            val result=JSONObject().put("name",name)
+                                .put("response",JSONObject().put("recorded",saved)
+                                    .put("live_transfer_completed",false))
+                            val id=item.optString("id","")
+                            if(id.isNotBlank())result.put("id",id)
+                            responses.put(result)
+                            if(name=="request_human_employee" && saved)
+                                notice("تم حفظ طلب موظف للمتابعة بعد نهاية المكالمة، وليس تحويلًا مباشرًا")
+                        }
+                        if(responses.length()>0 && !webSocket.send(JSONObject().put(
+                            "toolResponse",JSONObject().put("functionResponses",responses)).toString()))
+                            notice("تعذر إرسال تأكيد تسجيل ملاحظات المكالمة إلى Google Live")
+                        return@runCatching
+                    }
                     val content=message.optJSONObject("serverContent")?:return
                     // Gemini Live emits actual caller and agent speech transcriptions
                     // independently from PCM. Do not attempt speech recognition from
