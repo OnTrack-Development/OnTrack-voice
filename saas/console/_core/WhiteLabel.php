@@ -8,6 +8,10 @@ const WHITE_LABEL_PLATFORM_HOST='app.ontrackegy.com';
 function white_label_host():string {
     $raw=strtolower(trim((string)($_SERVER['HTTP_HOST']??'')));
     if($raw==='' && PHP_SAPI==='cli')return WHITE_LABEL_PLATFORM_HOST;
+    // Built-in loopback HTTP servers are used only by isolated PHP regressions.
+    if(PHP_SAPI==='cli-server' && in_array((string)($_SERVER['REMOTE_ADDR']??''),['127.0.0.1','::1'],true)
+        && preg_match('/^(localhost|127\.0\.0\.1)(:\d{1,5})?$/D',$raw))
+        return WHITE_LABEL_PLATFORM_HOST;
     if($raw===''||strlen($raw)>190||!preg_match('/^[a-z0-9.-]+$/D',$raw))
         throw new InvalidArgumentException('invalid_portal_host');
     return $raw;
