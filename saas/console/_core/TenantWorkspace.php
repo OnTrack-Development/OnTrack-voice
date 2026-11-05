@@ -132,9 +132,10 @@ function tenant_workspace_call_event(array $b,array $p):array{
                 }elseif(($report['handoff_status']??'')!=='completed'){
                     execute("UPDATE tenant_call_reports SET handoff_status='requested',
                         handoff_reason=CASE WHEN handoff_reason='' THEN ? ELSE handoff_reason END,
+                        customer_notes=CASE WHEN customer_notes='' THEN ? ELSE customer_notes END,
                         source='device',revision=revision+1,updated_at=?
                         WHERE account_id=? AND site_id=? AND device_binding_id=? AND call_id=?",[
-                        $reason,now(),$b['account_id'],$b['site_id'],$b['id'],$id]);
+                        $reason,$notes,now(),$b['account_id'],$b['site_id'],$b['id'],$id]);
                 }
             }elseif($phase==='agent_report'){
                 $summary=$p['summary']??'';
