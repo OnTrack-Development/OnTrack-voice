@@ -98,7 +98,7 @@ def deploy(url, digest, commit):
                     raise RuntimeError('Unsafe tar member: ' + item.name[:120])
                 seen.add(item.name)
                 data = tar.extractfile(item).read()
-                dst = target_stage / item.name.removeprefix('ayo/')
+                dst = target_stage / item.name[4:]
                 dst.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
                 dst.write_bytes(data)
                 dst.chmod(0o644)
