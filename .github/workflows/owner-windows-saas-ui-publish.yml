@@ -7,6 +7,7 @@ on:
     branches:
       - feat/voice-production-gap-20261103
       - feat/web-auth-complete-20261105
+      - fix/web-auth-root-routing-20261105
     paths:
       - .github/workflows/owner-windows-saas-ui-publish.yml
       - saas/console/_core/Views.php
@@ -23,7 +24,7 @@ env:
   PYTHONUTF8: '1'
 jobs:
   web_auth_validate:
-    if: github.ref == 'refs/heads/feat/web-auth-complete-20261105'
+    if: github.ref == 'refs/heads/feat/web-auth-complete-20261105' || github.ref == 'refs/heads/fix/web-auth-root-routing-20261105'
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 18
     defaults:
