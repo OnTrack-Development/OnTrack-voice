@@ -139,7 +139,7 @@ function signup_page(?string $warning=null):never {
     if($warning)echo '<div class="alert danger">'.e($warning).'</div>';
     if($msg=flash('success'))echo '<div class="alert success">'.e($msg).'</div>';
     if($scope){
-        echo '<form method="post" action="'.e(white_label_url('/register')).'" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="kind" value="'.e($scope['kind']).'"><input type="hidden" name="reseller" value="'.e($scope['slug']).'">';
+        echo '<form method="post" action="'.e(white_label_url('/register')).'" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="kind" value="'.e($scope['kind']).'">'.($portal?'':'<input type="hidden" name="reseller" value="'.e($scope['slug']).'">');
         echo '<label class="field">اسمك<input name="name" required maxlength="120" autocomplete="name"></label>';
         echo '<label class="field">اسم الشركة<input name="company" required maxlength="120" autocomplete="organization"></label>';
         echo '<label class="field">البريد الإلكتروني<input name="email" type="email" maxlength="190" required autocomplete="email"></label>';
