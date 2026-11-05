@@ -91,7 +91,7 @@ jobs:
               views=(root/'_core/Views.php').read_text()
               assert changes>=1,'source should rewrite at least the historic bootstrap prefix'
               assert "in_array($route,$public,true)?'':''" in bootstrap,'public auth must route to root'
-              assert "header('Location: '.$prefix.($path==='/'?'':$path),true,303);" in bootstrap,'root redirects must still work'
+              assert "header('Location: '.($path==='/'?($prefix===''?'/':$prefix):$prefix.$path),true,303);" in bootstrap,'root home and nested redirects must work'
               assert '/saas/console/register' not in signup
               assert 'action="/register"' in signup and 'action="/reset-password"' in signup
               assert 'href="/forgot-password"' in views
