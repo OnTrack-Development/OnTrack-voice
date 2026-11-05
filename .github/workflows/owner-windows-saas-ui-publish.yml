@@ -9,6 +9,7 @@ on:
       - feat/web-auth-complete-20261105
       - fix/web-auth-root-routing-20261105
       - fix/web-auth-root-publisher-20261105
+      - feat/white-label-reseller-portal-20261105
     paths:
       - .github/workflows/owner-windows-saas-ui-publish.yml
       - saas/console/_core/Views.php
@@ -26,7 +27,7 @@ env:
   PYTHONUTF8: '1'
 jobs:
   web_auth_validate:
-    if: github.ref == 'refs/heads/feat/web-auth-complete-20261105' || github.ref == 'refs/heads/fix/web-auth-root-routing-20261105' || github.ref == 'refs/heads/fix/web-auth-root-publisher-20261105'
+    if: github.ref == 'refs/heads/feat/web-auth-complete-20261105' || github.ref == 'refs/heads/fix/web-auth-root-routing-20261105' || github.ref == 'refs/heads/fix/web-auth-root-publisher-20261105' || github.ref == 'refs/heads/feat/white-label-reseller-portal-20261105'
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 18
     defaults:
@@ -72,6 +73,9 @@ jobs:
           & php $runnerPath
           if ($LASTEXITCODE -ne 0) { throw 'Scoped registration/recovery test failed.' }
           Write-Host 'WEB_AUTH_TENANT_SQLITE_E2E: PASS'
+          & php tools/test_white_label_portal.php
+          if ($LASTEXITCODE -ne 0) { throw 'White-label tenant/domain suite failed.' }
+          Write-Host 'WHITE_LABEL_TENANT_AND_DOMAIN: PASS'
           & python -m py_compile tools/deploy_saas_console.py
           if ($LASTEXITCODE -ne 0) { throw 'SaaS root publisher syntax failed.' }
           $rewriteTest=@'
@@ -93,8 +97,8 @@ jobs:
               assert "in_array($route,$public,true)?'':''" in bootstrap,'public auth must route to root'
               assert "header('Location: '.($path==='/'?($prefix===''?'/':$prefix):$prefix.$path),true,303);" in bootstrap,'root home and nested redirects must work'
               assert '/saas/console/register' not in signup
-              assert 'action="/register"' in signup and 'action="/reset-password"' in signup
-              assert 'href="/forgot-password"' in views
+              assert "white_label_url('/register')" in signup and "white_label_url('/reset-password')" in signup
+              assert "white_label_url('/forgot-password')" in views
           with tempfile.TemporaryDirectory() as t:
               root=pathlib.Path(t)
               (root/'_core').mkdir()
