@@ -1,6 +1,7 @@
-"""Install only the isolated /ayo PHP browser demo from pinned CI artifact.
-Copied into the host's existing GitHub/Cron worker process by an approved publish job.
-No credentials or user files are bundled; no existing SaaS or Android paths are changed.
+"""Safely install the complete standalone AYO voice lab via the pinned GitHub artifact.
+
+Only /home/appontrack/public_html/ayo is touched. The main SaaS and its
+authentication routes remain unchanged. The release contains no API keys.
 """
 import hashlib
 import io
@@ -12,13 +13,45 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
 
 DOCROOT = pathlib.Path('/home/appontrack/public_html')
 TARGET = DOCROOT / 'ayo'
-ALLOWED = {'ayo/index.php','ayo/api.php','ayo/app.js','ayo/style.css','ayo/audio-worklet.js','ayo/ontrack.json'}
+ALLOWED = {
+    'ayo/index.php', 'ayo/api.php', 'ayo/app.js', 'ayo/style.css',
+    'ayo/audio-worklet.js', 'ayo/ontrack.json', 'ayo/.htaccess',
+    'ayo/secure-vault.php', 'ayo/voice-expression.php',
+    'ayo/ayo-avatar.js', 'ayo/ayo-mic-stt.js',
+    'ayo/assets/ayo-character.webp',
+}
+PUBLIC_URL = 'https://app.ontrackegy.com/ayo/'
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, url):
+        return None
+
+
+def public_probe():
+    """Check the real URL without following redirects to the parent login."""
+    req = urllib.request.Request(PUBLIC_URL, headers={
+        'User-Agent': 'OnTrack-AYO-Release-Verify/1',
+        'Cache-Control': 'no-cache',
+    })
+    try:
+        with urllib.request.build_opener(NoRedirect()).open(req, timeout=12) as rsp:
+            html = rsp.read(220000).decode('utf-8', 'replace')
+            if rsp.status != 200 or 'AYO | OnTrack Voice Lab' not in html:
+                return {'pass': False, 'http': rsp.status, 'reason': 'AYO HTML missing'}
+            return {'pass': True, 'http': rsp.status, 'url': PUBLIC_URL}
+    except urllib.error.HTTPError as ex:
+        return {'pass': False, 'http': ex.code,
+                'redirect': (ex.headers.get('Location') or '')[:250]}
+    except Exception as ex:
+        return {'pass': False, 'reason': type(ex).__name__ + ': ' + str(ex)[:160]}
 
 
 def deploy(url, digest, commit):
@@ -32,76 +65,109 @@ def deploy(url, digest, commit):
         host.hostname.endswith('.actions.githubusercontent.com')
     ):
         raise RuntimeError('Artifact origin not allowlisted')
-    with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'OnTrack-AYO-Deploy/1'}),timeout=12) as response:
-        archive_zip = response.read(2*1024*1024+1)
-    if len(archive_zip) > 2*1024*1024:
+    with urllib.request.urlopen(
+        urllib.request.Request(url, headers={'User-Agent': 'OnTrack-AYO-Deploy/2'}),
+        timeout=16,
+    ) as response:
+        archive_zip = response.read(2 * 1024 * 1024 + 1)
+    if len(archive_zip) > 2 * 1024 * 1024:
         raise RuntimeError('Oversized artifact')
-    with zipfile.ZipFile(io.BytesIO(archive_zip)) as z:
-        if set(z.namelist()) != {'release.tar.gz','release.sha256'}:
+    with zipfile.ZipFile(io.BytesIO(archive_zip)) as archive_file:
+        if set(archive_file.namelist()) != {'release.tar.gz', 'release.sha256'}:
             raise RuntimeError('Unexpected artifact contents')
-        archive = z.read('release.tar.gz')
-        declared = z.read('release.sha256').decode().strip()
+        archive = archive_file.read('release.tar.gz')
+        declared = archive_file.read('release.sha256').decode().strip()
     if hashlib.sha256(archive).hexdigest() != digest or declared != digest:
         raise RuntimeError('Release sha256 mismatch')
+
     stage = pathlib.Path(tempfile.mkdtemp(prefix='.ayo-stage-', dir=str(DOCROOT)))
     backup = None
     try:
-        target_stage = stage/'ayo'
+        target_stage = stage / 'ayo'
         target_stage.mkdir(mode=0o755)
         seen = set()
         with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as tar:
             entries = tar.getmembers()
-            if len(entries)>10:
+            if len(entries) > 20:
                 raise RuntimeError('Unexpected tar entry count')
             for item in entries:
-                if item.isdir() and item.name.strip('/') == 'ayo':
+                if item.isdir() and item.name.strip('/') in ('ayo', 'ayo/assets'):
                     continue
-                if not item.isfile() or item.name not in ALLOWED or item.size>130000 or item.name in seen:
-                    raise RuntimeError('Unsafe tar member')
+                if (not item.isfile() or item.name not in ALLOWED
+                        or item.size > 400000 or item.name in seen):
+                    raise RuntimeError('Unsafe tar member: ' + item.name[:120])
                 seen.add(item.name)
                 data = tar.extractfile(item).read()
-                dst = target_stage/pathlib.Path(item.name).name
+                dst = target_stage / item.name.removeprefix('ayo/')
+                dst.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
                 dst.write_bytes(data)
                 dst.chmod(0o644)
         if seen != ALLOWED:
-            raise RuntimeError('Missing release file')
+            raise RuntimeError('Incomplete AYO release: ' + str(sorted(ALLOWED - seen)))
+        avatar = (target_stage / 'assets/ayo-character.webp').read_bytes()
+        if not (avatar.startswith(b'RIFF') and avatar[8:12] == b'WEBP'):
+            raise RuntimeError('Invalid AYO avatar format')
+        if 'DirectoryIndex index.php' not in (target_stage / '.htaccess').read_text():
+            raise RuntimeError('Standalone routing policy missing')
+        if not json.loads((target_stage / 'ontrack.json').read_text('utf8')).get('plans'):
+            raise RuntimeError('Knowledge dataset invalid')
         php = '/opt/cpanel/ea-php83/root/usr/bin/php'
         if not pathlib.Path(php).is_file():
             php = '/usr/bin/php'
-        for name in ('index.php','api.php'):
-            check = subprocess.run([php,'-l',str(target_stage/name)],capture_output=True,text=True,timeout=4)
-            if check.returncode != 0:
-                raise RuntimeError('Host PHP lint failed: '+name)
-        if not json.loads((target_stage/'ontrack.json').read_text('utf8')).get('plans'):
-            raise RuntimeError('Knowledge dataset invalid')
-        (target_stage/'.htaccess').write_text('Options -Indexes\nDirectoryIndex index.php\n')
-        (target_stage/'.htaccess').chmod(0o644)
-        (target_stage/'.ayo-release.json').write_text(json.dumps({'commit':commit,'files':len(seen)}))
-        (target_stage/'.ayo-release.json').chmod(0o644)
+        for name in ('index.php', 'api.php', 'secure-vault.php', 'voice-expression.php'):
+            result = subprocess.run(
+                [php, '-l', str(target_stage / name)],
+                capture_output=True, text=True, timeout=6,
+            )
+            if result.returncode:
+                raise RuntimeError('Host PHP lint failed: ' + name + ': ' + result.stderr[:250])
         target_stage.chmod(0o755)
+        (target_stage / 'assets').chmod(0o755)
+        (target_stage / '.ayo-release.json').write_text(
+            json.dumps({'commit': commit, 'files': len(seen)})
+        )
+        (target_stage / '.ayo-release.json').chmod(0o644)
+
         if TARGET.exists():
-            marker = TARGET/'.ayo-release.json'
-            if not TARGET.is_dir() or not marker.is_file():
-                raise RuntimeError('Existing unmanaged /ayo folder not modified')
-            old = json.loads(marker.read_text())
-            if not re.fullmatch('[0-9a-f]{40}',old.get('commit','')):
-                raise RuntimeError('Invalid previous release marker')
+            if not TARGET.is_dir():
+                raise RuntimeError('Existing /ayo is not a directory')
+            marker = TARGET / '.ayo-release.json'
+            if marker.is_file():
+                old = json.loads(marker.read_text())
+                old_sha = old.get('commit', '')
+                if not re.fullmatch('[0-9a-f]{40}', old_sha):
+                    raise RuntimeError('Invalid previous release marker')
+                backup_name = 'ayo-' + old_sha[:12]
+            else:
+                # Preserve an earlier standalone AYO prototype, but never replace
+                # arbitrary unrelated content that happens to live at /ayo.
+                index = TARGET / 'index.php'
+                if (not index.is_file() or index.is_symlink() or
+                        'AYO' not in index.read_text('utf8', errors='replace')[:10000]):
+                    raise RuntimeError('Unmanaged non-AYO directory: refusing overwrite')
+                backup_name = 'ayo-legacy-before-' + commit[:12]
             backups = pathlib.Path('/home/appontrack/.ayo-backups')
-            backups.mkdir(mode=0o700,exist_ok=True)
+            backups.mkdir(mode=0o700, exist_ok=True)
             backups.chmod(0o700)
-            backup = backups/('ayo-'+old['commit'][:12])
+            backup = backups / backup_name
             if backup.exists():
-                raise RuntimeError('Previous backup already exists')
-            os.replace(TARGET,backup)
+                raise RuntimeError('Existing release backup collision')
+            os.replace(TARGET, backup)
         try:
-            os.replace(target_stage,TARGET)
+            os.replace(target_stage, TARGET)
         except BaseException:
             if backup is not None and backup.exists():
-                os.replace(backup,TARGET)
+                os.replace(backup, TARGET)
             raise
-        print(json.dumps({'status':'deployed','target':'/ayo/','source':commit,
-                          'php_lint':'pass','files':len(seen),
-                          'api_sha256':hashlib.sha256((TARGET/'api.php').read_bytes()).hexdigest(),
-                          'backup':bool(backup)}))
+
+        health = public_probe()
+        print(json.dumps({
+            'status': 'deployed' if health['pass'] else 'deployed_http_unverified',
+            'target': '/ayo/', 'source': commit, 'php_lint': 'pass',
+            'files': len(seen), 'live_http': health, 'backup': bool(backup),
+            'api_sha256': hashlib.sha256((TARGET / 'api.php').read_bytes()).hexdigest(),
+        }))
+        if not health['pass']:
+            raise RuntimeError('AYO files installed but public URL check failed: ' + json.dumps(health))
     finally:
-        shutil.rmtree(stage,ignore_errors=True)
+        shutil.rmtree(stage, ignore_errors=True)
