@@ -2,6 +2,7 @@
 declare(strict_types=1);
 /* AYO Voice Lab: isolated PHP HTTP streaming demo. No credentials are committed. */
 require_once __DIR__.'/voice-expression.php';
+require_once __DIR__.'/secure-vault.php';
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 ini_set('session.use_strict_mode', '1');
@@ -24,10 +25,11 @@ function char_sub(string $s,int $length): string { if(function_exists('mb_substr
 function envkey(string $key): string { $v=getenv($key); return $v===false?'':trim($v); }
 function cfg(): array {
  $saved=$_SESSION['ayo_config'] ?? [];
+ $privateKeys=ayo_saved_keys();
  return array_merge(['voiceId'=>'silver-quail-7878__ayo','ttsModel'=>'inworld-tts-2','ttsDelivery'=>'BALANCED','ttsLocale'=>'ar-EG','emotionMode'=>'expressive','llmProvider'=>'apinex','llmModel'=>'free/gpt-6-luna'], $saved, [
-  'inworldKey'=>$_SESSION['ayo_keys']['inworld'] ?? envkey('INWORLD_API_KEY'),
-  'apinexKey'=>$_SESSION['ayo_keys']['apinex'] ?? envkey('APINEX_API_KEY'),
-  'omniraKey'=>$_SESSION['ayo_keys']['omnira'] ?? envkey('OMNIRA_API_KEY')
+  'inworldKey'=>ayo_is_owner() ? ($privateKeys['inworld'] ?? ($_SESSION['ayo_keys']['inworld'] ?? envkey('INWORLD_API_KEY'))) : '',
+  'apinexKey'=>ayo_is_owner() ? ($privateKeys['apinex'] ?? ($_SESSION['ayo_keys']['apinex'] ?? envkey('APINEX_API_KEY'))) : '',
+  'omniraKey'=>ayo_is_owner() ? ($privateKeys['omnira'] ?? ($_SESSION['ayo_keys']['omnira'] ?? envkey('OMNIRA_API_KEY'))) : ''
  ]);
 }
 function public_cfg(array $c): array {return ['voiceId'=>$c['voiceId'],'ttsModel'=>$c['ttsModel'],'ttsDelivery'=>$c['ttsDelivery'],'ttsLocale'=>$c['ttsLocale'],'emotionMode'=>$c['emotionMode'],'llmProvider'=>$c['llmProvider'],'llmModel'=>$c['llmModel'],'hasInworldKey'=>($c['inworldKey']!==''),'hasActiveLlmKey'=>($c[$c['llmProvider']==='apinex'?'apinexKey':'omniraKey']!==''),'hasOmniraKey'=>($c['omniraKey']!==''),'hasApinexKey'=>($c['apinexKey']!==''),'defaultSttMode'=>'browser','ttsPrice'=>$c['ttsModel']==='inworld-tts-2'?25:15,'maxSeconds'=>120]; }
@@ -104,15 +106,50 @@ function tts_stream(string $text,array $c,string $callerText=''): void {
  $count=max($processed,char_len($text));emit(['type'=>'audio_done','chars'=>$count,'estimatedUsd'=>round($count*($c['ttsModel']==='inworld-tts-2'?25:15)/1000000,6)]);
 }
 $action=(string)($_GET['action']??'status');
-if ($action==='status') json_out(['csrf'=>$_SESSION['ayo_csrf'],'config'=>public_cfg(cfg()),'running'=>isset($_SESSION['ayo_deadline'])&&$_SESSION['ayo_deadline']>time()]);
+if ($action==='status') {
+ $isOwner=ayo_is_owner();
+ if ($isOwner) ayo_migrate_legacy_keys();
+ json_out(['csrf'=>$_SESSION['ayo_csrf'],'ownerAuthorized'=>$isOwner,'config'=>public_cfg(cfg()),'running'=>isset($_SESSION['ayo_deadline'])&&$_SESSION['ayo_deadline']>time()]);
+}
 if ($action==='knowledge') { $k=json_decode((string)file_get_contents(__DIR__.'/ontrack.json'),true)?:[]; json_out($k); }
 require_post();
+if ($action==='auth') {
+ $in=body();
+ ayo_owner_login(is_string($in['ownerCode']??null) ? $in['ownerCode'] : '');
+ ayo_migrate_legacy_keys();
+ json_out(['ownerAuthorized'=>true, 'config'=>public_cfg(cfg())]);
+}
+ayo_require_owner();
+if ($action==='transcribe') {
+ $raw=file_get_contents('php://input', false, null, 0, 1500000);
+ if (!is_string($raw)||strlen($raw)>1100000) fail('التسجيل الصوتي كبير جدًا',413);
+ $in=json_decode($raw,true);
+ $audio=$in['audio']??null; $kind=$in['encoding']??'';
+ if (!is_string($audio)||strlen($audio)<1200||strlen($audio)>1000000||!in_array($kind,['WEBM','OGG_OPUS'],true)) fail('التسجيل غير صالح');
+ if (base64_decode($audio,true)===false) fail('ترميز التسجيل غير صالح');
+ $key=cfg()['inworldKey']??'';
+ if (!$key) fail('Inworld غير مضبوط للتفريغ الصوتي',400);
+ $payload=['transcribeConfig'=>['modelId'=>'inworld/inworld-stt-1','audioEncoding'=>$kind,'language'=>'ar'],'audioData'=>['content'=>$audio]];
+ $ch=curl_init('https://api.inworld.ai/stt/v1/transcribe');
+ curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($payload),CURLOPT_HTTPHEADER=>['Authorization: Basic '.$key,'Content-Type: application/json'],CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>25,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,CURLOPT_FOLLOWLOCATION=>false]);
+ $response=curl_exec($ch);$err=curl_error($ch);$http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
+ if(!is_string($response)||$http<200||$http>=300) fail('تعذر تحويل الصوت لنص · Inworld HTTP '.($http?:'network'),502);
+ $data=json_decode($response,true);$transcript=trim((string)($data['transcription']['transcript']??''));
+ json_out(['transcript'=>char_sub($transcript,1500),'engine'=>'Inworld STT','hasText'=>$transcript!=='']);
+}
 if ($action==='settings') {
  $in=body();$c=cfg();$allowed=['voiceId'=>96,'ttsModel'=>64,'ttsDelivery'=>20,'ttsLocale'=>16,'llmProvider'=>20,'llmModel'=>96,'emotionMode'=>20];
  foreach($allowed as $k=>$limit){if(isset($in[$k])&&is_string($in[$k])){if(strlen($in[$k])>$limit)fail('إعداد أطول من المطلوب');$_SESSION['ayo_config'][$k]=$in[$k];}}
  $c=cfg();if(!in_array($c['ttsModel'],['inworld-tts-2','inworld-tts-2-flash'],true)|| !in_array($c['llmProvider'],['apinex','omnira-a','omnira-b'],true)||!in_array($c['emotionMode'],['off','auto','expressive'],true)||!in_array($c['ttsDelivery'],['BALANCED','STABLE','CREATIVE'],true)||!in_array($c['ttsLocale'],['ar-EG','arz','AUTO'],true))fail('إعدادات غير صالحة');
- foreach(['inworldKey'=>'inworld','omniraKey'=>'omnira','apinexKey'=>'apinex'] as $inName=>$slot){if(!empty($in[$inName])){if(!is_string($in[$inName])||strlen($in[$inName])>2200)fail('مفتاح غير صالح');$_SESSION['ayo_keys'][$slot]=trim($in[$inName]);}}
- json_out(['config'=>public_cfg(cfg())]);
+ $newKeys=[];
+ foreach(['inworldKey'=>'inworld','omniraKey'=>'omnira','apinexKey'=>'apinex'] as $inName=>$slot){
+   if(!empty($in[$inName])) {
+     if(!is_string($in[$inName])||strlen($in[$inName])>2200) fail('مفتاح غير صالح');
+     $newKeys[$slot]=trim($in[$inName]);
+   }
+ }
+ if($newKeys) ayo_persist_keys($newKeys);
+ json_out(['config'=>public_cfg(cfg()),'keysStoredOnHost'=>true]);
 }
 if ($action==='start') {$_SESSION['ayo_deadline']=time()+120;$_SESSION['ayo_history']=[];json_out(['expiresIn'=>120]);}
 if ($action==='end') {unset($_SESSION['ayo_deadline'],$_SESSION['ayo_history']);json_out(['ended'=>true]);}
