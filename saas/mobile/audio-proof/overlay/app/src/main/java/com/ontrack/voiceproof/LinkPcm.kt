@@ -15,7 +15,7 @@ import java.io.ByteArrayOutputStream
  *  Wi-Fi retains its previously working 192 KiB cap.
  */
 internal object LiveAudioQueuePolicy {
-    const val CELLULAR_MAX_PENDING_BYTES = 48L * 1024
+    const val CELLULAR_MAX_PENDING_BYTES = 24L * 1024
     const val OTHER_MAX_PENDING_BYTES = 192L * 1024
 
     fun canSend(cellular: Boolean, pendingBytes: Long): Boolean {

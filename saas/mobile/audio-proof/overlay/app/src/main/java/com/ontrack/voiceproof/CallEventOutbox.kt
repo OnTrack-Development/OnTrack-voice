@@ -29,7 +29,7 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
      * Enqueue only a status flag, never the transcript or any phone number.
      * This is separate from handset takeover and survives a network outage.
      */
-    @Synchronized fun recordCustomerHumanRequest(slot:Int,deviceId:Int):Boolean {
+    @Synchronized fun recordCustomerHumanRequest(slot:Int,deviceId:Int,reason:String="",notes:String=""):Boolean {
         if(slot !in 0..1 || deviceId<=0 ||
             prefs.getInt("active_sim_slot",-1)!=slot ||
             prefs.getInt("active_device_id",-1)!=deviceId ||
@@ -42,12 +42,42 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
         val sequence=prefs.getInt("sequence",0)+1
         pending.put(JSONObject().put("call_id",callId).put("sequence",sequence)
             .put("phase","customer_human_request").put("duration_seconds",0)
+            .put("handoff_reason",reason.trim().take(350))
+            .put("customer_notes",notes.trim().take(700))
             .put("sim_slot",slot).put("device_id",deviceId))
         check(prefs.edit().putString("pending",pending.toString())
             .putInt("sequence",sequence)
             .putString("customer_human_request_id",callId).commit()){
             "Human request event persistence failed"
         }
+        return true
+    }
+
+    /**
+     * Gemini Live's structured call notes are stored through the normal
+     * durable device event outbox. Unlike inputTranscription, this can still
+     * work on a cellular call whose transcript stream is missing or partial.
+     * It is labelled an AI working note, NOT a verified recording.
+     */
+    @Synchronized fun recordAgentCallNote(slot:Int,deviceId:Int,summary:String,notes:String):Boolean {
+        val safeSummary=summary.trim().take(1000)
+        val safeNotes=notes.trim().take(1000)
+        if(safeSummary.isBlank() && safeNotes.isBlank())return false
+        if(slot !in 0..1||deviceId<=0 ||
+            prefs.getInt("active_sim_slot",-1)!=slot ||
+            prefs.getInt("active_device_id",-1)!=deviceId ||
+            prefs.getInt("last_state",0)!=2)return false
+        val callId=prefs.getString("active_id","").orEmpty()
+        if(!callId.matches(Regex("[a-f0-9-]{36}")))return false
+        val pending=JSONArray(prefs.getString("pending","[]")?:"[]")
+        check(pending.length()<1000){"Call event queue full"}
+        val sequence=prefs.getInt("sequence",0)+1
+        pending.put(JSONObject().put("call_id",callId).put("sequence",sequence)
+            .put("phase","agent_report").put("duration_seconds",0)
+            .put("summary",safeSummary).put("customer_notes",safeNotes)
+            .put("sim_slot",slot).put("device_id",deviceId))
+        check(prefs.edit().putString("pending",pending.toString())
+            .putInt("sequence",sequence).commit()){"Call note event persistence failed"}
         return true
     }
 

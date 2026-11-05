@@ -78,7 +78,7 @@ function tenant_workspace_calls(array $b):array{
 function tenant_workspace_call_event(array $b,array $p):array{
     $id=$p['call_id']??null;$seq=$p['sequence']??null;$phase=$p['phase']??null;$duration=$p['duration_seconds']??0;
     if(!is_string($id)||!preg_match('/^[a-f0-9-]{36}$/D',$id)||!is_int($seq)||$seq<1||$seq>100||
-       !in_array($phase,['ringing','active','missed','ended','identified','human_takeover','customer_human_request'],true)||
+       !in_array($phase,['ringing','active','missed','ended','identified','human_takeover','customer_human_request','agent_report'],true)||
        !is_int($duration)||$duration<0||$duration>172800)
         throw new InvalidArgumentException('invalid_call_event');
     voice_usage_init(); // migration BEFORE DB transaction (MySQL DDL auto-commits)
@@ -113,21 +113,58 @@ function tenant_workspace_call_event(array $b,array $p):array{
                 // Explicit caller speech observed by Google Live, not an AI
                 // summary or the manual handset takeover button. Record the
                 // request immediately; dialing remains post-call and route-scoped.
-                $reason='المتصل طلب التحدث مع موظف بشري أثناء المكالمة.';
+                $reason=$p['handoff_reason']??'';
+                $notes=$p['customer_notes']??'';
+                if(!is_string($reason)||!is_string($notes)||
+                   mb_strlen($reason)>350||mb_strlen($notes)>700)
+                    throw new InvalidArgumentException('invalid_handoff_details');
+                $reason=trim($reason);
+                if($reason==='')$reason='المتصل طلب التحدث مع موظف بشري أثناء المكالمة.';
+                $notes=trim($notes);
                 $report=tenant_call_report_find($b,$id);
                 if(!$report){
                     insert('INSERT INTO tenant_call_reports
                         (account_id,site_id,device_binding_id,call_id,summary,customer_notes,
                          outcome,handoff_status,handoff_reason,source,revision,created_at,updated_at)
                          VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?)',
-                        [$b['account_id'],$b['site_id'],$b['id'],$id,'','',
+                        [$b['account_id'],$b['site_id'],$b['id'],$id,'',$notes,
                          'unknown','requested',$reason,'device',now(),now()]);
                 }elseif(($report['handoff_status']??'')!=='completed'){
                     execute("UPDATE tenant_call_reports SET handoff_status='requested',
                         handoff_reason=CASE WHEN handoff_reason='' THEN ? ELSE handoff_reason END,
+                        customer_notes=CASE WHEN customer_notes='' THEN ? ELSE customer_notes END,
                         source='device',revision=revision+1,updated_at=?
                         WHERE account_id=? AND site_id=? AND device_binding_id=? AND call_id=?",[
-                        $reason,now(),$b['account_id'],$b['site_id'],$b['id'],$id]);
+                        $reason,$notes,now(),$b['account_id'],$b['site_id'],$b['id'],$id]);
+                }
+            }elseif($phase==='agent_report'){
+                $summary=$p['summary']??'';
+                $notes=$p['customer_notes']??'';
+                if(!is_string($summary)||!is_string($notes)||
+                   mb_strlen($summary)>1000||mb_strlen($notes)>1000)
+                    throw new InvalidArgumentException('invalid_live_report');
+                $summary=trim($summary);$notes=trim($notes);
+                if($summary!==''||$notes!==''){
+                    if($summary!=='')$summary='ملخص أولي غير مؤكد: '.$summary;
+                    $current=tenant_call_report_find($b,$id);
+                    if(!$current){
+                        insert('INSERT INTO tenant_call_reports
+                           (account_id,site_id,device_binding_id,call_id,summary,customer_notes,
+                            outcome,handoff_status,handoff_reason,source,revision,created_at,updated_at)
+                            VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?)',[
+                            $b['account_id'],$b['site_id'],$b['id'],$id,$summary,$notes,
+                            'unknown','not_requested','','device',now(),now()]);
+                    }else{
+                        $replaceSummary=$current['summary']===''||
+                            str_starts_with($current['summary'],'ملخص أولي غير مؤكد:');
+                        execute('UPDATE tenant_call_reports SET
+                            summary=CASE WHEN ?=1 AND ?<>\'\' THEN ? ELSE summary END,
+                            customer_notes=CASE WHEN ?<>\'\' THEN ? ELSE customer_notes END,
+                            revision=revision+1,updated_at=?
+                            WHERE account_id=? AND site_id=? AND device_binding_id=? AND call_id=?',[
+                            (int)$replaceSummary,$summary,$summary,$notes,$notes,now(),
+                            $b['account_id'],$b['site_id'],$b['id'],$id]);
+                    }
                 }
             }elseif($phase==='identified'){
                 $phone=(string)($p['phone_number']??'');$name=trim((string)($p['contact_name']??''));
@@ -299,7 +336,8 @@ function tenant_workspace_call_analysis(array $binding,array $data,?callable $tr
     $previous=tenant_call_report_find($binding,$callId);
     // Human takeover may have been reported before the model summary arrived.
     // Keep its reason and do not discard the real transcript/AI analysis.
-    if($previous && trim((string)$previous['summary'])!=='')
+    if($previous && trim((string)$previous['summary'])!=='' &&
+       !str_starts_with((string)$previous['summary'],'ملخص أولي غير مؤكد:'))
         return ['saved'=>true,'duplicate'=>true,'report'=>$previous];
     if($previous && ($previous['handoff_status']??'')==='completed')
         return ['saved'=>true,'duplicate'=>true,'report'=>$previous];

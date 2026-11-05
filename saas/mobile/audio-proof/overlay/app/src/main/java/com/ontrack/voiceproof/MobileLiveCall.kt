@@ -24,15 +24,16 @@ internal class MobileLiveCall(
     private val session:JSONObject, private val settings:JSONObject, private val notice:(String)->Unit,
     private val outgoingCall:Boolean=false,
     private val onAudioDiagnostics:(String)->Unit = {},
-    private val onHumanRequested:()->Unit = {},
+    private val onHumanRequested:(String,String)->Boolean = {_,_->false},
+    private val onCallNote:(String,String)->Boolean = {_,_->false},
     private val rotateVoiceToken:(suspend (JSONObject,String)->JSONObject)? = null,
     private val onFinished:(String)->Unit = {},
 ) {
     private val stopped=AtomicBoolean(false)
     @Volatile private var remoteSpeechConfirmed=!outgoingCall
     private val ready=CompletableDeferred<Unit>()
-    // Cap stale speech to ~600 ms, not several seconds after interruption.
-    private val playback=Channel<Pair<Int,ByteArray>>(24)
+    // Keep at most ~250ms of pending generated voice during 4G congestion.
+    private val playback=Channel<Pair<Int,ByteArray>>(10)
     @Volatile private var generation=0
     @Volatile private var pipe:Socket?=null
     @Volatile private var output:DataOutputStream?=null
@@ -91,9 +92,12 @@ internal class MobileLiveCall(
             val context=rolling.substring((match.range.first-16).coerceAtLeast(0),match.range.first)
             if(humanRequestNegation.containsMatchIn(context))continue
             if(humanRequestReported.compareAndSet(false,true)){
-                runCatching{onHumanRequested()}.onFailure{
+                val recorded=runCatching{
+                    onHumanRequested("المتصل طلب التحدث مع موظف بشري أثناء المكالمة.","")
+                }.getOrDefault(false)
+                if(!recorded){
                     humanRequestReported.set(false)
-                    notice("تعذر حفظ طلب الموظف محليًا، هيتم إعادة المحاولة")
+                    notice("طلب الموظف لم يتأكد حفظه بعد؛ هيتم إعادة المحاولة")
                 }
             }
             return
@@ -114,6 +118,8 @@ internal class MobileLiveCall(
     private val capturedPackets=AtomicLong(0)
     private val audibleCapture=AtomicBoolean(false)
     private val modelAudioBytes=AtomicLong(0)
+    private val lastAssistantAudioAt=AtomicLong(0)
+    private val lastLocalBargeAt=AtomicLong(0)
     private val submittedToShell=AtomicLong(0)
     private var diagnostics:Job?=null
     private var worker:Job?=null
@@ -250,9 +256,14 @@ internal class MobileLiveCall(
                     "\n\nتفاصيل الإبلاغ:\n" + manager
                 else session.getString("system_instruction")+"\n\n"+style+
                     " استخدم سؤالًا واحدًا في كل دور ثم استمع للعميل، ولا تكرر التحية أو الأسئلة."+
-                    " توقف عند المقاطعة ولا تختلق أي حجز أو دفع أو تكامل لم يتم فعلياً."
-                val instruction=if(switchedProvider)
-                    policy+"\n\n"+VoiceFailoverPolicy.restoredContext(contextBeforeSwitch)
+                    " توقف فورًا عند المقاطعة، ولا تعيد الجملة التي قاطعها العميل. " +
+                    "لما العميل يطلب موظف استخدم request_human_employee لتسجيل السبب والملاحظات، ثم قل إن طلب المتابعة اتسجل إذا نجحت الأداة فقط؛ لا تقل جاري تحويل أو تم تحويل المكالمة. " +
+                    "احفظ ملخصًا موجزًا وملاحظات العملاء باستخدام save_call_note بعد المعلومات المهمة، لأن التفريغ النصي على بيانات المحمول قد يتأخر."
+                val instruction=if(switchedProvider || ready.isCompleted)
+                    policy+"\n\n"+VoiceFailoverPolicy.restoredContext(
+                        if(switchedProvider)contextBeforeSwitch else synchronized(transcriptLock){
+                            reportTranscript.toString().takeLast(2800)
+                        })
                 else policy
                 val setup=JSONObject().put("model","models/"+session.getString("model").removePrefix("models/"))
                     .put("generationConfig",JSONObject().put("responseModalities",org.json.JSONArray(listOf("AUDIO")))
@@ -260,6 +271,25 @@ internal class MobileLiveCall(
                     .put("systemInstruction",JSONObject().put("parts",org.json.JSONArray().put(JSONObject().put("text",instruction))))
                     .put("inputAudioTranscription",JSONObject()).put("outputAudioTranscription",JSONObject())
                     .put("sessionResumption",if(handle.isNullOrBlank())JSONObject() else JSONObject().put("handle",handle))
+                if(manager.isBlank()){
+                    val tools=org.json.JSONArray()
+                    val handoff=JSONObject().put("name","request_human_employee")
+                        .put("description","Call ONLY after the caller explicitly requests a human. Records a FOLLOW-UP REQUEST; never transfers the live phone call.")
+                        .put("parameters",JSONObject().put("type","OBJECT")
+                            .put("properties",JSONObject()
+                                .put("reason",JSONObject().put("type","STRING"))
+                                .put("customer_notes",JSONObject().put("type","STRING")))
+                            .put("required",org.json.JSONArray().put("reason")))
+                    val note=JSONObject().put("name","save_call_note")
+                        .put("description","Save a short preliminary, factual summary and practical customer notes after meaningful exchanges or before saying goodbye. This does not end or transfer the phone call.")
+                        .put("parameters",JSONObject().put("type","OBJECT")
+                            .put("properties",JSONObject()
+                                .put("summary",JSONObject().put("type","STRING"))
+                                .put("customer_notes",JSONObject().put("type","STRING")))
+                            .put("required",org.json.JSONArray().put("summary")))
+                    setup.put("tools",tools.put(JSONObject()
+                        .put("functionDeclarations",org.json.JSONArray().put(handoff).put(note))))
+                }
                 if(!webSocket.send(JSONObject().put("setup",setup).toString()))onTransportLost(webSocket,"تعذر فتح الصوت")
             }
             override fun onMessage(webSocket:WebSocket,text:String) {
@@ -275,13 +305,9 @@ internal class MobileLiveCall(
                         val wasReady=ready.isCompleted
                         socketReady=true
                         ready.complete(Unit)
-                        if(wasReady && handle.isNullOrBlank() && !outgoingCall && !switchedProvider) {
-                            webSocket.send(JSONObject().put("clientContent",JSONObject()
-                                .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
-                                    .put("parts",org.json.JSONArray().put(JSONObject().put("text",
-                                        "عاد اتصال المكالمة بعد ضعف الشبكة؛ اعتذر باختصار واطلب من العميل إعادة آخر سؤال دون بدء ترحيب جديد.")))))
-                                .put("turnComplete",true)).toString())
-                        }
+                        // No synthetic user turn on LTE reconnect. Sending
+                        // one made the AI begin talking again and repeat its
+                        // last answer despite the caller saying nothing.
                         if(wasReady)notice("عاد صوت الإيجنت بعد انقطاع الشبكة")
                     }
                     if(message.has("error")) {
@@ -294,12 +320,58 @@ internal class MobileLiveCall(
                         }
                         error("Gemini error "+provider.optInt("code",0))
                     }
+                    val toolCall=message.optJSONObject("toolCall")
+                    if(toolCall!=null){
+                        val calls=toolCall.optJSONArray("functionCalls")
+                        val responses=org.json.JSONArray()
+                        if(calls!=null)for(i in 0 until calls.length()){
+                            val item=calls.optJSONObject(i)?:continue
+                            val name=item.optString("name","")
+                            val args=item.optJSONObject("args")?:JSONObject()
+                            val saved=when(name){
+                                "request_human_employee"->{
+                                    val reason=args.optString("reason","").trim().take(350)
+                                        .ifBlank{"المتصل طلب التحدث مع موظف بشري"}
+                                    val note=args.optString("customer_notes","").trim().take(700)
+                                    if(humanRequestReported.get())true else
+                                        runCatching{onHumanRequested(reason,note)}.getOrDefault(false)
+                                            .also{if(it)humanRequestReported.set(true)}
+                                }
+                                "save_call_note"->runCatching{
+                                    onCallNote(args.optString("summary","").trim().take(1000),
+                                        args.optString("customer_notes","").trim().take(1000))
+                                }.getOrDefault(false)
+                                else->false
+                            }
+                            val result=JSONObject().put("name",name)
+                                .put("response",JSONObject().put("recorded",saved)
+                                    .put("live_transfer_completed",false))
+                            val id=item.optString("id","")
+                            if(id.isNotBlank())result.put("id",id)
+                            responses.put(result)
+                            if(name=="request_human_employee" && saved)
+                                notice("تم حفظ طلب موظف للمتابعة بعد نهاية المكالمة، وليس تحويلًا مباشرًا")
+                        }
+                        if(responses.length()>0 && !webSocket.send(JSONObject().put(
+                            "toolResponse",JSONObject().put("functionResponses",responses)).toString()))
+                            notice("تعذر إرسال تأكيد تسجيل ملاحظات المكالمة إلى Google Live")
+                        return@runCatching
+                    }
                     val content=message.optJSONObject("serverContent")?:return
                     // Gemini Live emits actual caller and agent speech transcriptions
                     // independently from PCM. Do not attempt speech recognition from
                     // the Android microphone or infer text from audio payload bytes.
                     content.optJSONObject("inputTranscription")
                         ?.optString("text","")?.let { spoken ->
+                            val now=SystemClock.elapsedRealtime()
+                            if(LiveInterruptionPolicy.shouldCutPreviousSpeech(now,
+                                lastAssistantAudioAt.get(),lastLocalBargeAt.get(),spoken)){
+                                lastLocalBargeAt.set(now)
+                                lastAssistantAudioAt.set(0)
+                                generation++
+                                while(playback.tryReceive().isSuccess){}
+                                synchronized(writeLock){output?.writeInt(-1);output?.flush()}
+                            }
                             appendLiveTranscription("المتصل",spoken)
                             observeCallerIntent(spoken)
                             if(outgoingCall && !remoteSpeechConfirmed &&
@@ -323,6 +395,7 @@ internal class MobileLiveCall(
                         val rate=Regex("rate=(\\d+)").find(mime)?.groupValues?.get(1)?.toInt()?:24000
                         val bytes=LinkPcm.output(Base64.decode(inline.getString("data"),Base64.DEFAULT),rate)
                         modelAudioBytes.addAndGet(bytes.size.toLong())
+                        lastAssistantAudioAt.set(SystemClock.elapsedRealtime())
                         for(at in bytes.indices step 2400) {
                             val packet=generation to bytes.copyOfRange(at,minOf(at+2400,bytes.size))
                             if(!playback.trySend(packet).isSuccess){
