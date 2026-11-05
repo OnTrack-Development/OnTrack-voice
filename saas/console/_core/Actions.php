@@ -507,7 +507,8 @@ function act():void {
                     insert('INSERT INTO voice_grants(account_id,voice_id) VALUES (?,?)',[$target,$v['id']]);
                 audit('voice.granted',$target,['voice'=>$v['code']]);break;
             case 'brand':
-                if(!in_array($kind,['reseller','platform'],true)||!in_array($a['role'],['owner','admin'],true))deny();
+                if(!in_array($kind,['reseller','platform'],true)||!in_array($a['role'],['owner','admin'],true)||
+                    active_support())deny();
                 execute('UPDATE accounts SET brand_name=? WHERE id=?',[required('brand_name',100),$id]);
                 if(!empty($_FILES['logo']['tmp_name'])&&is_uploaded_file($_FILES['logo']['tmp_name'])){
                     $f=$_FILES['logo'];if($f['size']>1024*1024||$f['error']!==UPLOAD_ERR_OK)throw new RuntimeException('الصورة أكبر من 1MB');
@@ -520,6 +521,20 @@ function act():void {
                     execute('UPDATE accounts SET logo_path=? WHERE id=?',[basename($dst),$id]);
                 }
                 audit('brand.updated',$id);break;
+            case 'activate_domain_https':
+                if($kind!=='reseller'||!in_array($a['role'],['owner','admin'],true)||
+                    active_support())deny();
+                $status=domain_https_activate($id,intfield('domain_id'));
+                audit('domain.https_checked',$id,['domain_id'=>intfield('domain_id'),
+                    'active'=>$status['active'],'reason'=>$status['reason']]);
+                $success=$status['active']
+                    ?'تم تفعيل بوابة شركتك على الدومين بشهادة HTTPS صحيحة.'
+                    :match($status['reason']){
+                        'dns_txt_unverified'=>'سجل إثبات ملكية الدومين TXT غير جاهز.',
+                        'dns_target_unverified'=>'سجل DNS لا يشير إلى خادم البوابة المعتمد بعد.',
+                        default=>'الدومين لم يصبح جاهزًا بعد؛ تأكد من إضافته للاستضافة وإصدار شهادة SSL صالحة.'
+                    };
+                break;
             case 'verify_domain_dns':
                 if($kind!=='reseller'||!in_array($a['role'],['owner','admin'],true)||
                     active_support())deny();
@@ -531,7 +546,7 @@ function act():void {
                     :'لم يظهر سجل TXT المطلوب بعد؛ تأكد من السجل وانتشار DNS.';
                 break;
             case 'add_domain':
-                if($kind!=='reseller'||!in_array($a['role'],['owner','admin'],true))deny();
+                if($kind!=='reseller'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 $host=strtolower(required('hostname',190));
                 if(!preg_match('/^(?=.{4,190}$)([a-z0-9-]+\.)+[a-z]{2,}$/D',$host))throw new InvalidArgumentException('دومين غير صالح');
                 if(one('SELECT id FROM domains WHERE hostname=?',[$host]))throw new RuntimeException('الدومين مستخدم');

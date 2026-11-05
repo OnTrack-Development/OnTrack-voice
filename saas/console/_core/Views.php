@@ -87,11 +87,11 @@ function nav_entries(string $type):array{
         'billing'=>['▣','الاشتراكات'],
         'staff'=>['♙','الفريق والأدوار'],
         'voices'=>['♫','الأصوات المتاحة'],
-        'domains'=>['◎','الدومينات والبراند'],
-        'integrations'=>['⇄','تكاملات الريسيلر'],
+        'domains'=>['◎','دومين شركتي'],
+        'integrations'=>['⇄','تكاملات الشركة'],
         'keys'=>['⌘','مفاتيح API'],
         'releases'=>['↓','تطبيق Android'],
-        'settings'=>['⚙','إعدادات الريسيلر']
+        'settings'=>['⚙','إعدادات الشركة']
     ];
     return [
         'overview'=>['⌂','الرئيسية'],'sites'=>['◈','مواقعي'],
@@ -105,7 +105,9 @@ function nav_entries(string $type):array{
 }
 function layout_open(array $a,string $tab):void{
     $u=me();$brand=brand($a);$items=nav_entries((string)$a['kind']);$heading=$items[$tab][1]??'الرئيسية';
-    $role=console_view_mode($a)==='user'?'USER WORKSPACE':match($a['kind']){'platform'=>'ADMIN CONTROL','reseller'=>'RESELLER HUB',default=>'USER WORKSPACE'};
+    $role=white_label_context()
+        ?(console_view_mode($a)==='user'?'مساحة العمل':'لوحة الإدارة')
+        :(console_view_mode($a)==='user'?'USER WORKSPACE':match($a['kind']){'platform'=>'ADMIN CONTROL','reseller'=>'إدارة الشركة',default=>'USER WORKSPACE'});
     $support=active_support()!==null;
     header('Content-Type: text/html; charset=utf-8');
     header('Referrer-Policy: strict-origin-when-cross-origin');
@@ -143,7 +145,7 @@ function layout_open(array $a,string $tab):void{
     echo '</nav>';
     if($support){
         $origin=account((int)($a['support_origin']??0));
-        $backLabel=($origin['kind']??'')==='reseller'?'العودة لمساحة الريسيلر':'العودة للوحة مدير المنصة';
+        $backLabel=($origin['kind']??'')==='reseller'?'العودة إلى إدارة الشركة':'العودة للوحة مدير المنصة';
         echo '<div class="workspace-switcher" aria-label="تبديل مساحة العمل">'.
             '<span class="workspace-switcher-title">أنت داخل حساب عميل للدعم</span>'.
             form_start('support_leave','','class="workspace-switch-form" data-no-ajax="1"').
@@ -151,14 +153,14 @@ function layout_open(array $a,string $tab):void{
     }elseif(console_can_switch_view($a)){
         $to=console_view_mode($a)==='user'?'admin':'user';
         $toLabel=$to==='user'?'الانتقال لمساحة المستخدم':
-            (($a['kind']==='reseller')?'العودة لمساحة الريسيلر':'العودة للوحة مدير المنصة');
+            (($a['kind']==='reseller')?'العودة إلى إدارة الشركة':'العودة للوحة مدير المنصة');
         echo '<div class="workspace-switcher" aria-label="تبديل مساحة العمل">'.
             '<span class="workspace-switcher-title">المساحة الحالية · '.($to==='user'?'إدارة الحساب':'مساحة المستخدم').'</span>'.
             form_start('set_view','','class="workspace-switch-form" data-no-ajax="1"').
             '<input type="hidden" name="view" value="'.e($to).'">'.
             '<button type="submit" class="workspace-switch-button">⇄ '.e($toLabel).'</button></form></div>';
     }
-    echo '<div class="side-footer"><span class="live-dot"></span> OnTrack Voice <small>Business communication platform</small></div></aside><button type="button" class="nav-backdrop" id="navBackdrop" aria-label="إغلاق القائمة" tabindex="-1"></button><div class="main-area">';
+    echo '<div class="side-footer"><span class="live-dot"></span> '.e((string)$brand['name']).' <small>منصة إدارة أعمالك</small></div></aside><button type="button" class="nav-backdrop" id="navBackdrop" aria-label="إغلاق القائمة" tabindex="-1"></button><div class="main-area">';
     echo '<header class="topbar"><button type="button" class="icon-button nav-toggle" id="navToggle" aria-controls="mainNavigation" aria-expanded="false" aria-label="فتح القائمة">☰</button><div class="headline"><span class="eyebrow">'.e($role).'</span><h1>'.e($heading).'</h1></div><div class="header-actions">';
     $members=memberships((int)$u['id']);
     if(count($members)>1&&!$support){
@@ -170,12 +172,12 @@ function layout_open(array $a,string $tab):void{
         $origin=account((int)($a['support_origin']??0));
         echo form_start('support_leave','','class="inline-form workspace-return-top" data-no-ajax="1"').
             '<button type="submit" class="btn small primary">'.
-            (($origin['kind']??'')==='reseller'?'↩ لوحة الريسيلر':'↩ لوحة المدير').
+            (($origin['kind']??'')==='reseller'?'↩ إدارة الشركة':'↩ لوحة المدير').
             '</button></form>';
     }elseif(console_can_switch_view($a)){
         $targetView=console_view_mode($a)==='user'?'admin':'user';
         $switchText=$targetView==='user'?'مساحة المستخدم':
-            (($a['kind']==='reseller')?'لوحة الريسيلر':'لوحة المدير');
+            (($a['kind']==='reseller')?'إدارة الشركة':'لوحة المدير');
         echo form_start('set_view','','class="inline-form workspace-return-top" data-no-ajax="1"').
             '<input type="hidden" name="view" value="'.e($targetView).'">'.
             '<button type="submit" class="btn small primary">⇄ '.e($switchText).'</button></form>';
@@ -212,17 +214,27 @@ function layout_open(array $a,string $tab):void{
     // Synthetic rows retain explicit DEMO marks; no persistent warning bars.
 }
 function layout_close():void{
-    echo '</main><footer class="footer">© '.date('Y').' · منصة الاتصال الذكي · العزل والصلاحيات يفرضها السيرفر</footer></div></div></body></html>';
+    $context=mine();
+    $label=$context?brand($context)['name']:'';
+    echo '</main><footer class="footer">© '.date('Y').' · '.e((string)$label).' · جميع الحقوق محفوظة</footer></div></div></body></html>';
 }
 function login_page(?string $error=null):void{
     header('Content-Type: text/html; charset=utf-8');
     header('X-Frame-Options: DENY');header('Cache-Control: no-store');
-    $brandName='OnTrack Voice';
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تسجيل الدخول | '.e($brandName).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script></head><body class="login-body"><div class="login-backdrop"></div><div class="login-panel"><div class="login-brand"><span class="brand-icon">OT</span><div><strong>OnTrack Voice</strong><small>INTELLIGENT CALLING PLATFORM</small></div></div><div class="login-intro"><span class="eyebrow">YOUR VOICE. YOUR BUSINESS.</span><h1>أهلاً برجوعك</h1><p>منصة واحدة لإدارة المساعدون والمكالمات والعملاء والباقات بأمان.</p></div>';
+    $portal=white_label_context();
+    $brand=white_label_identity();
+    $name=(string)$brand['name'];
+    $signup=white_label_url('/register');
+    $login=white_label_url('/login');
+    $forgot=white_label_url('/forgot-password');
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تسجيل الدخول | '.e($name).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script></head><body class="login-body'.($portal?' white-label-auth':'').'"><div class="login-backdrop"></div><main class="login-panel wl-auth-panel"><div class="login-brand">'.white_label_logo_html().'<div><strong>'.e($name).'</strong><small>'.($portal?'منصتك لإدارة أعمالك':'منصة الأعمال الذكية').'</small></div></div><div class="login-intro"><span class="eyebrow">'.($portal?'مرحباً بك في '.e($name):'SMART VOICE PLATFORM').'</span><h1>أهلاً برجوعك</h1><p>أدر حسابك وخدماتك وفريقك بسهولة من مكان واحد.</p></div>';
     if($error)echo '<div class="alert danger">'.e($error).'</div>';
     if($notice=flash('success'))echo '<div class="alert success">'.e($notice).'</div>';
-    echo '<form method="post" action="/login" class="stack">'.'<input type="hidden" name="csrf" value="'.e(csrf()).'"><label class="field">البريد الإلكتروني<input required type="email" name="email" autocomplete="username" placeholder="name@company.com"></label><label class="field">كلمة المرور<div class="password-wrap"><input required type="password" name="password" autocomplete="current-password" id="loginPassword" placeholder="••••••••••"><button type="button" class="password-toggle" data-toggle-password>إظهار</button></div></label><button class="btn primary wide" type="submit">تسجيل الدخول <span>←</span></button></form><p><a href="/forgot-password">نسيت كلمة المرور؟</a></p><p><a href="/register">إنشاء حساب شركة</a> · <a href="/register?type=reseller">إنشاء حساب ريسيلر</a></p><p class="login-foot">تجربة أولية · يتم تحديد الصلاحيات حسب الحساب</p></div></body></html>';
+    echo '<form method="post" action="'.e($login).'" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><label class="field">البريد الإلكتروني<input required type="email" name="email" autocomplete="username" placeholder="name@company.com"></label><label class="field">كلمة المرور<div class="password-wrap"><input required type="password" name="password" autocomplete="current-password" id="loginPassword" placeholder="••••••••••"><button type="button" class="password-toggle" data-toggle-password>إظهار</button></div></label><button class="btn primary wide" type="submit">تسجيل الدخول</button></form><div class="wl-auth-links"><a href="'.e($forgot).'">نسيت كلمة المرور؟</a><a href="'.e($signup).'">إنشاء حساب جديد</a></div>';
+    if(!$portal)echo '<p class="login-foot"><a href="/register?type=reseller">إنشاء حساب مزوّد خدمات</a></p>';
+    echo '<p class="wl-copyright">© '.date('Y').' '.e($name).' · جميع الحقوق محفوظة</p></main></body></html>';
 }
+
 function render_overview(array $a):void{
     $id=(int)$a['account_id'];$kind=$a['kind'];
     if(in_array($kind,['platform','reseller'],true)&&console_view_mode($a)==='user')$kind='customer';
@@ -236,7 +248,7 @@ function render_overview(array $a):void{
         $n1=(int)one("SELECT COUNT(*) n FROM accounts WHERE parent_id=?",[$id])['n'];
         $n2=(int)one("SELECT COALESCE(SUM(p.call_quota),0) n FROM subscriptions s JOIN plans p ON s.plan_id=p.id JOIN accounts a ON a.id=s.account_id WHERE a.parent_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?",[$id,now(),now()])['n'];
         $n3=site_limit($id,'call_quota');$n4=(int)one('SELECT COUNT(*) n FROM integrations WHERE account_id=?',[$id])['n'];
-        $title='مساحة الريسيلر';$sub='إدارة العملاء والهوية والاشتراكات من مكان واحد دون رفع ملفات.';
+        $title='لوحة إدارة شركتك';$sub='تابع عملاءك وخدماتك وباقاتك وهويتك من مكان واحد.';
     }else{
         $n1=(int)one('SELECT COUNT(*) n FROM sites WHERE account_id=?',[$id])['n'];
         $n2=(int)one('SELECT COUNT(*) n FROM agents WHERE account_id=?',[$id])['n'];
@@ -256,7 +268,7 @@ function render_overview(array $a):void{
     if($kind==='platform'){
         echo counter('الريسيلرز',$n1,'♧').counter('العملاء',$n2,'♙').counter('المساعدون',$n3,'✧').counter('سجلات المكالمات',$n4,'☏');
     }elseif($kind==='reseller'){
-        echo counter('شركات العملاء',$n1,'♧').counter('حصص العملاء المحجوزة',$n2,'◫').counter('رصيد باقة الريسيلر',$n3,'▣').counter('تكاملات مرتبطة',$n4,'⇄');
+        echo counter('شركات العملاء',$n1,'♧').counter('حصص عملائك المحجوزة',$n2,'◫').counter('رصيد باقة شركتك',$n3,'▣').counter('تكاملات مرتبطة',$n4,'⇄');
     }else{
         echo counter('المواقع',$n1,'◎').counter('المساعدون',$n2,'✧').counter('مكالمات الخطة الشهرية',$n3,'☏').counter('سجلات تجريبية',$n4,'▤');
     }
@@ -296,11 +308,14 @@ function render_accounts(array $a):void{
                 '<p><a class="btn" href="'.$base.'">تسجيل عميل مباشر</a> <a class="btn" href="'.$base.'?type=reseller">تسجيل ريسيلر</a></p>'.
                 '<p class="dim" dir="ltr">https://app.ontrackegy.com'.$base.'</p>');
         }else{
-            $link=$base.'?reseller='.rawurlencode((string)$a['slug']);
-            echo card('رابط تسجيل عملائك',
-                '<p>الرابط مخصص لعلامتك، وأي شركة تسجّل من خلاله هتظهر ضمن عملائك فقط.</p>'.
-                '<p><a class="btn primary" href="'.e($link).'">فتح استمارة تسجيل العملاء</a></p>'.
-                '<p class="dim" dir="ltr">https://app.ontrackegy.com'.e($link).'</p>');
+            $verified=one("SELECT hostname FROM domains WHERE account_id=? AND status='active' ORDER BY id DESC LIMIT 1",[$id]);
+            $portalBase=$verified?'https://'.$verified['hostname']:'https://app.ontrackegy.com/portal/'.rawurlencode((string)$a['slug']);
+            echo card('رابط بوابة عملائك',
+                '<p>ده رابط شركتك باسمها وشعارها. العملاء هيشوفوا علامتك التجارية فقط، من غير اسم النظام الأساسي.</p>'.
+                '<p><a class="btn primary" href="'.e($portalBase.'/register').'">فتح صفحة إنشاء الحساب</a> '.
+                '<a class="btn" href="'.e($portalBase.'/login').'">فتح صفحة الدخول</a></p>'.
+                '<label class="field">رابط تسجيل عملائك<input dir="ltr" readonly onclick="this.select()" value="'.e($portalBase.'/register').'"></label>'.
+                '<label class="field">رابط دخول عملائك<input dir="ltr" readonly onclick="this.select()" value="'.e($portalBase.'/login').'"></label>');
         }
     }
     echo card('إنشاء حساب جديد',form_start('create_account','/?tab=accounts').
@@ -1063,29 +1078,58 @@ function render_domains(array $a):void{
     if($a['kind']!=='reseller')deny();
     require_once __DIR__.'/DomainVerification.php';
     $id=(int)$a['account_id'];
+    $brand=brand($a);
     $d=all('SELECT * FROM domains WHERE account_id=? ORDER BY id DESC',[$id]);
     $rows=[];
     foreach($d as $v){
+        $status=(string)$v['status'];
         $action='—';
-        if(in_array($a['role'],['owner','admin'],true)&&!active_support()&&$v['status']!=='active'){
+        if(in_array($a['role'],['owner','admin'],true)&&!active_support()&&$status!=='active'){
             $action=form_start('verify_domain_dns','/?tab=domains','class="inline-form"').
                 '<input type="hidden" name="domain_id" value="'.(int)$v['id'].'">'.
-                '<button class="btn small" type="submit">التحقق من DNS</button></form>';
+                '<button class="btn small" type="submit">تأكيد ملكية DNS</button></form>';
+            if($status==='dns_verified')
+                $action.=form_start('activate_domain_https','/?tab=domains','class="inline-form"').
+                    '<input type="hidden" name="domain_id" value="'.(int)$v['id'].'">'.
+                    '<button class="btn small primary" type="submit">فحص HTTPS وتفعيل البوابة</button></form>';
         }
-        $rows[]=[e($v['hostname']),
-            '<code>'.e(domain_dns_name((string)$v['hostname'])).'</code>',
-            '<code>'.e('ontrack-verify='.$v['verification_token']).'</code>',
-            pill((string)$v['status']),$action];
+        if($status==='active')
+            $action='<a class="btn small" href="https://'.e((string)$v['hostname']).'/login">فتح لوحة شركتك</a>'.
+                ' <a class="btn small" href="https://'.e((string)$v['hostname']).'/register">صفحة التسجيل</a>';
+        $description=match($status){
+            'active'=>'الدومين جاهز للعملاء',
+            'dns_verified'=>'الملكية مؤكدة · استكمل إعداد الاستضافة وSSL',
+            default=>'بانتظار إثبات ملكية الدومين'
+        };
+        $rows[]=['<strong dir="ltr">'.e((string)$v['hostname']).'</strong><small class="block dim">'.e($description).'</small>',
+            '<code dir="ltr">'.e(domain_dns_name((string)$v['hostname'])).'</code>',
+            '<code dir="ltr">'.e('ontrack-verify='.$v['verification_token']).'</code>',
+            pill($status),$action];
     }
-    echo card('النطاقات المرتبطة',
-        '<p class="dim">أضف سجل TXT بالاسم والقيمة الموضحين. نجاح التحقق يثبت ملكية DNS فقط؛ لا يتم تفعيل الرابط قبل إعداد VirtualHost وشهادة TLS صحيحة.</p>'.
-        tbl(['الدومين','اسم TXT','قيمة TXT','الحالة','التحقق'],$rows));
-    echo card('طلب ربط دومين',
-        form_start('add_domain','/?tab=domains').
-        field_html('الدومين أو Subdomain','hostname','text','voice.reseller.com',true).
-        '<p class="info">إضافة الدومين لا تفعّله تلقائيًا ولا تتطلب رفع ملفات عند الريسيلر.</p>'.
-        submit_btn('إنشاء طلب الربط'));
+    $slug=(string)$a['slug'];
+    $fallback='https://app.ontrackegy.com/portal/'.rawurlencode($slug);
+    echo card('بوابة شركتك',
+        '<div class="brand-preview"><div class="wl-fallback">'.e(mb_substr((string)$brand['name'],0,1)).'</div><div><h3>'.e((string)$brand['name']).'</h3>'.
+        '<p>العملاء يشوفوا اسم شركتك وشعارك فقط في التسجيل والدخول ولوحة الحساب، بدون علامة مزوّد النظام.</p></div></div>'.
+        '<p><strong>رابط معاينة بوابتك قبل ربط دومينك:</strong></p>'.
+        '<p><a class="btn primary" href="'.e($fallback.'/login').'">معاينة تسجيل الدخول</a> '.
+        '<a class="btn" href="'.e($fallback.'/register').'">معاينة التسجيل</a></p>'.
+        '<label class="field">الرابط الدائم المؤقت لعملائك<input readonly dir="ltr" onclick="this.select()" value="'.e($fallback.'/login').'"></label>');
+    echo card('ربط دومين شركتك',
+        '<p>مثال: <code dir="ltr">app.sog.com</code>. بعد ربطه، تسجيل الدخول والتسجيل ولوحة الحساب هيشتغلوا تحت الدومين بتاعك بنفس الهوية، من غير ظهور رابط المنصة.</p>'.
+        '<div class="stack"><p><strong>1.</strong> أنشئ سجل CNAME للاسم <code dir="ltr">app</code> يشير إلى <code dir="ltr">'.e(WHITE_LABEL_PLATFORM_HOST).'</code> (حسب إعداد DNS الخاص بدومينك).</p>'.
+        '<p><strong>2.</strong> أضف سجل TXT الموضح لكل دومين واضغط تأكيد ملكية DNS.</p>'.
+        '<p><strong>3.</strong> اربط الاسم بالاستضافة كـ Domain Alias / VirtualHost وأصدر شهادة SSL صالحة للدومين.</p>'.
+        '<p><strong>4.</strong> اضغط فحص HTTPS وتفعيل البوابة. التفعيل لن يتم قبل نجاح جميع الاختبارات.</p></div>'.
+        '<p class="dim">تأكيد DNS لا يضيف الدومين إلى استضافة cPanel ولا يصدر شهادة SSL تلقائياً. لا تشارك رابط الدومين الجديد قبل ظهور حالته نشط.</p>'.
+        tbl(['الدومين','سجل TXT','قيمة TXT','الحالة','الخطوة التالية'],$rows));
+    if(in_array($a['role'],['owner','admin'],true)&&!active_support())
+        echo card('إضافة دومين جديد',
+            form_start('add_domain','/?tab=domains').
+            '<label class="field">الدومين أو النطاق الفرعي<input name="hostname" maxlength="190" dir="ltr" placeholder="app.example.com" required></label>'.
+            submit_btn('إنشاء طلب الربط'));
 }
+
 function render_billing(array $a):void{
     $id=(int)$a['account_id'];
     require_once __DIR__.'/BillingUsage.php';
@@ -1266,13 +1310,20 @@ function render_settings(array $a):void{
         '<a class="btn" href="/forgot-password">استرجاع كلمة المرور</a></p>');
     echo '<div class="cols two">';
     $adminIdentity=in_array($a['kind'],['platform','reseller'],true)&&console_view_mode($a)==='admin';
-    $identityTitle=$adminIdentity?($a['kind']==='platform'?'هوية المنصة':'هوية الريسيلر'):'هوية حسابك';
+    $identityTitle=$adminIdentity?($a['kind']==='platform'?'هوية المنصة':'هوية شركتك'):'هوية حسابك';
     $identityDescription=$adminIdentity
         ?'هنا بتتحكم في هوية الإدارة والعلامة التجارية. إعدادات وبيانات المستخدم التشغيلية موجودة في مساحة المستخدم.'
-        :'المستخدم المباشر يرث OnTrack؛ المستخدم التابع يرث هوية الريسيلر بشكل آمن.';
-    echo card($identityTitle,'<div class="brand-preview"><div class="brand-icon">'.e(mb_substr($brand['name'],0,1)).'</div><div><h3>'.e($brand['name']).'</h3><p>ألوان الهوية الأساسية: أحمر / أسود / أبيض</p></div></div><p>'.e($identityDescription).'</p>');
+        :'بيانات الهوية والشعار بتظهر بشكل مناسب للبوابة الخاصة بشركتك.';
+    $logoPreview=!empty($brand['logo'])
+        ?'<img class="wl-mark" src="/saas/console/brand-logo" alt="'.e($brand['name']).'" width="64" height="64">'
+        :'<span class="wl-fallback">'.e(mb_substr((string)$brand['name'],0,1)).'</span>';
+    echo card($identityTitle,'<div class="brand-preview">'.$logoPreview.'<div><h3>'.e($brand['name']).'</h3><p>هوية شركتك تظهر في تسجيل الدخول وإنشاء الحساب ولوحة العملاء.</p></div></div><p>'.e($identityDescription).'</p>');
     if(in_array($a['kind'],['reseller','platform'],true)&&console_view_mode($a)==='admin'){
-        echo card('تعديل الاسم والشعار',form_start('brand','/?tab=settings','enctype="multipart/form-data"').field_html('الاسم التجاري الظاهر','brand_name','text',$brand['name'],true).'<label class="field">شعار PNG/JPEG/WEBP (حتى 1MB)<input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></label>'.submit_btn('حفظ الهوية'));
+        echo card('الاسم التجاري والشعار',form_start('brand','/?tab=settings','enctype="multipart/form-data"').
+            '<label class="field">اسم شركتك الظاهر للعملاء<input name="brand_name" type="text" maxlength="100" value="'.e($brand['name']).'" required></label>'.
+            '<label class="field">ارفع شعار شركتك (PNG/JPEG/WEBP، حتى 1MB)<input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></label>'.
+            '<p class="dim">يفضل شعار مربع بخلفية شفافة. تقدر تغير الاسم أو الشعار في أي وقت، وهيظهر مباشرة في صفحات البوابة.</p>'.
+            submit_btn('حفظ هوية شركتي'));
     }else{
         echo card('إعدادات المستخدم','<p>اسم وشعار البرنامج متاحان من علامة الريسيلر الذي تتبع له، أو علامة OnTrack إن كنت عميلاً مباشراً.</p>');
     }

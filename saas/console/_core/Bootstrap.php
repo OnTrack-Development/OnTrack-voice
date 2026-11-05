@@ -3,6 +3,7 @@ declare(strict_types=1);
 const SAAS_ROOT = __DIR__ . '/..';
 const SAAS_PRIVATE = '/home/appontrack/.ontrack-saas';
 date_default_timezone_set('UTC');
+require_once __DIR__.'/WhiteLabel.php';
 function private_path(): string {
     $path = is_dir('/home/appontrack') ? SAAS_PRIVATE : sys_get_temp_dir().'/ontrack-saas-demo';
     if (!is_dir($path)) {mkdir($path,0700,true);}
@@ -299,6 +300,8 @@ function route():string {
     $uri=parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH)?:'/';
     $prefix='/saas/console';
     if (str_starts_with($uri,$prefix)) $uri=substr($uri,strlen($prefix));
+    if(preg_match('#^/portal/[a-z0-9-]{1,100}(?:/|$)#',$uri,$match))
+        $uri=substr($uri,strlen(rtrim($match[0],'/')));
     $uri='/'.trim($uri,'/');
     return $uri==='/'?'/':$uri;
 }
@@ -309,6 +312,9 @@ function go(string $path):never {
     $public=['/register','/register-logo','/verify-email','/forgot-password',
         '/reset-password','/change-password'];
     $prefix=in_array($route,$public,true)?'':'/saas/console';
+    $portal=white_label_context();
+    if($portal && $portal['_portal_mode']==='path')
+        $prefix='/portal/'.rawurlencode((string)$portal['slug']);
     header('Location: '.($path==='/'?($prefix===''?'/':$prefix):$prefix.$path),true,303);
     exit;
 }
@@ -346,13 +352,17 @@ function mine():?array{
             if((int)$m['account_id']===$originId)$origin=$m;
         $subject=account($target);
         if((int)($sp['expires']??0)>time() && $origin && $subject &&
+            white_label_account_allowed($target) && white_label_account_allowed($originId) &&
             ($origin['kind']==='platform' || ($origin['kind']==='reseller'&&
                 is_reseller_child($originId,$target)))) {
             return array_merge($subject,['account_id'=>$target,'role'=>support_mode($originId)==='read_only'?'support_viewer':'owner','support_origin'=>$originId]);
         }
         unset($_SESSION['support']);
     }
-    foreach(memberships((int)$u['id']) as $m){if((int)$m['account_id']===$id){return array_merge(account($id)??[],$m);}}
+    foreach(memberships((int)$u['id']) as $m){
+        if((int)$m['account_id']===$id && white_label_account_allowed($id))
+            return array_merge(account($id)??[],$m);
+    }
     return null;
 }
 /** The user workspace is a presentation mode for eligible account owners,
@@ -371,6 +381,7 @@ function console_view_mode(?array $context=null):string {
 }
 function has_platform():bool {
     $u=me();if(!$u)return false;
+    if(white_label_context())return false;
     foreach(memberships((int)$u['id']) as $m)if($m['kind']==='platform' && in_array($m['role'],['owner','admin','support','finance'],true))return true;
     return false;
 }
@@ -393,7 +404,9 @@ function deny(int $code=403,string $message='لا تملك صلاحية لهذا
     http_response_code($code);echo '<div style="direction:rtl;font-family:system-ui;padding:40px">'.e($message).'</div>';exit;
 }
 function require_login():array{
-    $user=me();if(!$user)go('/login');
+    $user=me();
+    if(!$user || (white_label_context()&&!white_label_memberships((int)$user['id'])))
+        go('/login');
     return $user;
 }
 function require_permission(string $p):void {if(!allowed($p))deny();}
