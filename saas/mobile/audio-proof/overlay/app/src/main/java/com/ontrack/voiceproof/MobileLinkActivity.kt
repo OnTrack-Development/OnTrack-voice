@@ -84,7 +84,10 @@ class MobileLinkActivity:ComponentActivity(){
         else {banner.text="لم يتم منح إذن قراءة جهات الاتصال؛ لم تُرفع أي بيانات";banner.visibility=View.VISIBLE}
     }
     private val callNamesPermissions=registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){grants->
-        val allowed=grants[Manifest.permission.READ_CALL_LOG]==true&&grants[Manifest.permission.READ_CONTACTS]==true
+        // The permission launcher only returns the permissions requested *now*.
+        // READ_CONTACTS might already have been granted before this call.
+        val allowed=ContextCompat.checkSelfPermission(this,Manifest.permission.READ_CALL_LOG)==PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(this,Manifest.permission.READ_CONTACTS)==PackageManager.PERMISSION_GRANTED
         banner.text=if(allowed)"تم تفعيل مطابقة جهات الاتصال للمكالمات الجديدة"
             else "Android لم يمنح كل الصلاحيات؛ ستبقى الأسماء غير المعروفة بدون تخمين"
         banner.visibility=View.VISIBLE
@@ -113,6 +116,9 @@ class MobileLinkActivity:ComponentActivity(){
         banner.text=if(granted)"إذن الاتصال مفعّل؛ يمكن إبلاغ المدير بعد انتهاء المكالمة"
             else "إذن الاتصال غير مفعّل؛ المكالمات الواردة تعمل لكن إبلاغ المدير آليًا سيتوقف"
         banner.visibility=View.VISIBLE
+        // Permission requests must be serialized. Once the dial permission
+        // dialog has completed, request call-log access to identify callers.
+        requestCallNamesPermissions()
         sendState()
     }
     private val campaignPhonePermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
@@ -642,10 +648,20 @@ class MobileLinkActivity:ComponentActivity(){
         banner.visibility=View.VISIBLE
         web.postDelayed({sendState()},700)
     }
+    private fun requestCallNamesPermissions() {
+        val missing=listOf(Manifest.permission.READ_CALL_LOG,Manifest.permission.READ_CONTACTS)
+            .filter{ContextCompat.checkSelfPermission(this,it)!=PackageManager.PERMISSION_GRANTED}
+        if(missing.isNotEmpty()){
+            banner.text="سماح سجل المكالمات وجهات الاتصال مطلوب لظهور رقم المتصل واسمه؛ من غيره مش هنتخمن بيانات."
+            banner.visibility=View.VISIBLE
+            callNamesPermissions.launch(missing.toTypedArray())
+        }
+    }
     private fun requestManagerCallbackPhonePermission(){
         if(ContextCompat.checkSelfPermission(this,Manifest.permission.CALL_PHONE)
             !=PackageManager.PERMISSION_GRANTED)
             managerCallbackPermission.launch(Manifest.permission.CALL_PHONE)
+        else requestCallNamesPermissions()
     }
     private fun requestStartTenantMonitor(){
         check(tenantEnrollment.hasAny()){ "لا توجد شريحة مربوطة بحساب SaaS على هذا الهاتف" }
