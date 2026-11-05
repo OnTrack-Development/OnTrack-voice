@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#000000"/>
   <title>AYO | OnTrack Voice Lab</title>
-  <link rel="stylesheet" href="style.css?v=12"/>
+  <link rel="stylesheet" href="style.css?v=13"/>
 </head>
 <body>
 <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -17,18 +17,18 @@
   <div class="headline"><div><span class="eyebrow">VOICE CLONING × STREAMING</span><h1>خلّي آيو <em>تتكلم.</em></h1><p>اختبار مباشر لصوت AYO المستنسخ، وردود APInex أو Omnira، وتدفّق صوتي لحظي. كل حاجة هنا منفصلة عن النظام الأساسي.</p></div><div class="model-chip" id="modelChip">INWORLD TTS-2 <span>+</span> APINEX LLM</div></div>
   <main class="dashboard">
     <section class="stage-panel panel">
-      <div class="panel-head"><div><span class="dot-on" id="callLed"></span><span class="subheading" id="callStatus">جاهزة للتجربة</span></div><span class="subtitle" id="sessionLabel">جلسة اختبار مستقلة · حد أقصى دقيقتان</span></div>
+      <div class="panel-head"><div><span class="dot-on" id="callLed"></span><span class="subheading" id="callStatus">جاهزة للتجربة</span></div><span class="subtitle" id="sessionLabel">جلسة تجريبية · 15 دقيقة</span></div>
       <div class="stage-center">
         <div class="orb-wrap ayo-avatar" id="orbWrap">
           <div class="ayo-avatar-glow" aria-hidden="true"></div>
           <img id="ayoCharacterImage" class="ayo-avatar-image" src="assets/ayo-character.webp" alt="شخصية آيو الرسمية، وجه بشري مضيء بنقاط بيضاء وموجة صوت حمراء على الفم" width="512" height="512" fetchpriority="high"/>
           <canvas id="ayoCharacterCanvas" class="ayo-avatar-canvas" aria-hidden="true"></canvas>
         </div>
-        <div class="stage-persona"><h2>آيو <span>AYO</span></h2><p id="stageHint">الشخصية الرسمية · تفاعلية مع صوتك وصوت آيو</p></div>
+        <div class="stage-persona"><h2>آيو <span>AYO</span></h2><p id="stageHint">آيو السكرتيرة اللعوب · هزار ودلع وردود مصرية</p></div>
         <button type="button" id="enableMicBtn" class="ayo-enable-mic"><span aria-hidden="true">🎙</span> تفعيل الميكروفون <small>اضغط واسمح للمتصفح</small></button>
         <div class="ayo-mic-state" aria-live="polite"><span class="ayo-mic-dot" id="micIndicator"></span><span id="micState">الميكروفون غير متصل</span><div class="ayo-mic-track"><div id="micMeter" class="ayo-mic-meter"></div></div></div>
         <div class="visualizer" id="visualizer" aria-hidden="true"></div>
-        <div class="clock" id="clock">02:00</div><span class="clock-label">الوقت المتبقي</span>
+        <div class="clock" id="clock">15:00</div><span class="clock-label">الوقت المتبقي</span>
       </div>
       <div class="call-controls">
         <button class="round-control" id="muteBtn" title="كتم الميكروفون" disabled><span id="muteIcon">◉</span><small>كتم</small></button>
@@ -47,6 +47,22 @@
         <div class="gateway-bottom"><span class="gateway-url" id="gatewayEndpointDisplay" dir="ltr">—</span><span class="gateway-state" id="gatewayState" role="status" aria-live="polite">جاري تحميل الإعدادات</span><button type="button" class="gateway-settings" id="gatewaySettingsButton">مفاتيح API</button><button type="button" class="gateway-settings gateway-probe-btn" id="gatewayTestButton">اختبر البوابة</button></div>
       <div class="gateway-test-result" id="gatewayTestResult" role="status" aria-live="polite">المفتاح محفوظ ≠ اتصال شغال. اضغط «اختبر البوابة» للتحقق من الرد الفعلي.</div>
       </section>
+      <div class="ayo-persona-controls">
+        <label for="personaMode">شخصية آيو
+          <select id="personaMode" aria-label="اختيار شخصية آيو">
+            <option value="flirty">سكرتيرة لعوب · هزار وغزل</option>
+            <option value="casual">صاحبة مصرية · خفة دم</option>
+            <option value="business">سكرتيرة رسمية</option>
+          </select>
+        </label>
+        <label for="flirtIntensity">جرأة الشخصية
+          <select id="flirtIntensity" aria-label="درجة جرأة آيو">
+            <option value="soft">خفيفة</option>
+            <option value="playful">مرحة</option>
+            <option value="bold">جريئة في الهزار والغزل</option>
+          </select>
+        </label>
+      </div>
       <div class="emotion-selector">
         <label for="emotionMode">مشاعر وصوت آيو</label>
         <select id="emotionMode" aria-label="اختار طريقة تعبير آيو">
@@ -56,12 +72,13 @@
         </select>
         <small id="voiceStyleStatus" role="status" aria-live="polite">Inworld TTS-2 يحدد المشاعر تلقائيًا</small>
       </div>
+      <label class="switch-line"><input type="checkbox" id="confirmTranscript"><span class="check-visual"></span><span>راجع الكلام اللي سمعته آيو قبل ما تبعته — اختياري لو التفريغ مش دقيق</span></label>
       <label class="switch-line"><input type="checkbox" id="bargeIn"><span class="check-visual"></span><span>السماح بمقاطعة صوت آيو بالكلام (قد يلتقط صوت السماعة)</span></label>
       <div class="warn-banner" id="banner">الأصوات المستنسخة تحتاج مفتاح Inworld وVoice ID. المحاكاة لا تختبر جودة الصوت.</div>
     </section>
     <section class="conversation-panel panel">
       <div class="panel-head"><div class="panel-label"><span class="speech-icon">⌘</span><h3>المحادثة المباشرة</h3></div><button class="btn-quiet" id="clearBtn">مسح الشاشة</button></div>
-      <div class="conversation-scroll" id="transcript"><div class="empty-chat"><div class="empty-icon">◌</div><h3>ابدأ الحديث مع آيو</h3><p>اسأل عن باقات الاستضافة، الفرق بين الريسيلر والـVPS، أو أسعار الدومينات.</p></div></div>
+      <div class="conversation-scroll" id="transcript"><div class="empty-chat"><div class="empty-icon">◌</div><h3>ابدأ الحديث مع آيو</h3><p>اتكلم مع آيو بالمصري، اهزر معاها، أو اسألها عن أي حاجة.</p></div></div>
       <div class="interim" id="interim"></div>
       <form class="composer" id="composer"><button class="send-btn" aria-label="إرسال" type="submit">➤</button><input id="question" autocomplete="off" placeholder="أو اكتب سؤالك هنا..." maxlength="1500"/><span class="composer-caption">ENTER</span></form>
       <p class="ayo-chat-note">تقدر تبعت رسالة نصية حتى لو الميكروفون مش متفعّل. اختيار Omnira أو APInex فوق هو اللي هيحدد الرد.</p><div class="chat-footer"><span>AR-EG / مصري</span><span id="audioStatus">PCM 24 kHz · HTTP Streaming</span><button class="link-button" id="downloadLast" disabled>↓ تحميل آخر رد WAV</button></div>
@@ -150,6 +167,6 @@
     <button type="button" id="micShowGuide" class="ayo-mic-help-link">الموافقة مش بتظهر؟ شوف خطوات Chrome على الموبايل</button>
   </div>
 </div>
-<script type="module" src="app.js?v=12"></script>
+<script type="module" src="app.js?v=13"></script>
 </body>
 </html>
