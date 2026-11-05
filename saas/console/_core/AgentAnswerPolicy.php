@@ -76,7 +76,7 @@ function answer_policy_form(array $form):array {
         'scenario_text'=>(string)($form['scenario_text']??''),
         'api_connector_id'=>(int)($form['api_connector_id']??0),
         'api_language'=>(string)($form['api_language']??'auto'),
-        'goal'=>(string)($form['agent_goal'??answer_policy_defaults()['goal']),
+        'goal'=>(string)($form['agent_goal']??answer_policy_defaults()['goal']),
         'guardrails'=>(string)($form['agent_guardrails']??answer_policy_defaults()['guardrails']),
         'use_knowledge'=>isset($form['use_knowledge']),
         'use_signed_facts'=>isset($form['use_signed_facts']),
