@@ -1,15 +1,8 @@
 {
   "schema": 1,
-  "id": "voice-runtime-authorized-preflight-20261105-0910",
+  "id": "ontrack-worker-recovery-probe-20261105-1647",
   "target": "appontrack-server11",
-  "action": "exec",
-  "created_at": "2026-11-05T07:09:52.788Z",
-  "expires_at": "2026-11-05T07:34:52.788Z",
-  "cwd": "/home/appontrack/public_html",
-  "timeout_seconds": 40,
-  "argv": [
-    "/bin/python3",
-    "-c",
-    "import subprocess,json,shutil\nphp=\"require_once '/home/appontrack/public_html/_core/Bootstrap.php';\\ninit_schema();\\nrequire_once '/home/appontrack/public_html/_core/HumanEscalations.php';\\nrequire_once '/home/appontrack/public_html/_core/DevicePairing.php';\\nrequire_once '/home/appontrack/public_html/_core/TenantVoiceSession.php';\\n$out=['php'=>PHP_VERSION,'checks'=>[]];\\ntry{he_init();$out['checks']['handoff_schema']='ok';}catch(Throwable $e){$out['checks']['handoff_schema']='ERROR:'.get_class($e).':'.substr((string)$e->getCode(),0,15);}\\ntry{\\n  $bindings=all(\\\"SELECT d.* FROM device_bindings d JOIN accounts a ON a.id=d.account_id AND a.status='active' JOIN sites s ON s.id=d.site_id AND s.status='active' JOIN agents ag ON ag.id=d.agent_id AND ag.status!='archived' WHERE d.status='active' ORDER BY d.last_seen_at DESC LIMIT 3\\\");\\n  $out['checks']['active_bound_devices']=count($bindings);\\n  foreach($bindings as $b){\\n    $status=['has_flow'=>false,'entitled'=>false,'preflight'=>false];\\n    try{\\n      $def=tenant_voice_definition($b);\\n      $status['has_flow']=true;\\n      $status['entitled']=tenant_voice_entitled($b);\\n      if($status['entitled']){\\n       try{$ready=tenant_voice_preflight($b);$status['preflight']=($ready['ready']??false)===true;}\\n       catch(Throwable $e){$status['preflight_error']=preg_replace('/[^a-zA-Z_0-9-]/','',substr($e->getMessage(),0,70));}\\n      }\\n    }catch(Throwable $e){$status['flow_error']=preg_replace('/[^a-zA-Z_0-9-]/','',substr($e->getMessage(),0,70));}\\n    $out['checks']['binding_'.count($out['checks'])]=$status;\\n  }\\n}catch(Throwable $e){$out['checks']['binding_query_error']=get_class($e).':'.substr((string)$e->getCode(),0,12);}\\necho json_encode($out,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);\"\nexe=shutil.which('php') or '/usr/bin/php'\ntry:\n r=subprocess.run([exe,'-r',php],cwd='/home/appontrack/public_html',capture_output=True,text=True,timeout=32)\n o=r.stdout.strip()\n print(json.dumps({'exit':r.returncode,'results':o[:1800],'stderr_category':('php_error' if r.stderr else '')},ensure_ascii=False))\nexcept Exception as e:print(json.dumps({'error':type(e).__name__}))\n"
-  ]
+  "action": "probe",
+  "created_at": "2026-11-05T16:47:00Z",
+  "expires_at": "2026-11-05T17:17:00Z"
 }
