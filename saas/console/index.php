@@ -17,6 +17,7 @@ try {init_schema();} catch(Throwable $e){
     echo '<html lang="ar" dir="rtl"><body style="font-family:system-ui;padding:48px"><h2>تهيئة قاعدة بيانات لوحة OnTrack</h2><p>تحتاج قاعدة بيانات MySQL أو SQLite مفعلة على السيرفر.</p><code>'.e($e->getMessage()).'</code></body></html>';
     exit;
 }
+white_label_domain_health();
 white_label_guard();
 $path=route();
 if(white_label_context() && in_array($path,['/sso','/sso/confirm'],true))deny(404);
@@ -186,9 +187,10 @@ if($path==='/invitations'){
 if($_SERVER['REQUEST_METHOD']==='POST'){
     if($path==='/logout'||($_POST['action']??'')==='logout'){
         require_csrf();audit('logout',mine()?(int)mine()['account_id']:null);
+        $logoutUrl=white_label_url('/login');
         $_SESSION=[];
         if(ini_get('session.use_cookies'))setcookie(session_name(),'',time()-3600,'/','',true,true);
-        session_destroy();go('/login');
+        session_destroy();header('Location: '.$logoutUrl,true,303);exit;
     }
     act();
 }
