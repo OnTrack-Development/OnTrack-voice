@@ -1,0 +1,44 @@
+name: OnTrack SaaS Responsive Audit
+on:
+  push:
+    branches:
+      - fix/saas-responsive-all-panels-20261105
+    paths:
+      - saas/console/assets/css/app.css
+      - saas/console/assets/js/app.js
+      - tools/audit_saas_responsive.cjs
+      - .github/workflows/voice-saas-responsive-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  responsive-audit:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 16
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Detect available browsers and DOM test libraries
+        run: |
+          $ErrorActionPreference='Stop'
+          Write-Host ('NODE '+(& node --version))
+          Write-Host ('PYTHON '+(& python --version))
+          Write-Host ('PHP '+(& php --version | Select-Object -First 1))
+          foreach($b in @('chrome','msedge','chromium','firefox')) {
+            $c=Get-Command $b -ErrorAction SilentlyContinue
+            Write-Host ('BROWSER_COMMAND '+$b+' '+($c.Source ?? 'missing'))
+          }
+          foreach($b in @(
+            "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
+            "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe",
+            "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+          )) { if(Test-Path $b){Write-Host ('BROWSER_PATH '+$b)} }
+          foreach($lib in @('playwright','playwright-core','puppeteer','puppeteer-core','jsdom')) {
+            & node -e "try{console.log('NODE_LIB ${lib} '+require.resolve('${lib}'))}catch(e){console.log('NODE_LIB ${lib} missing')}"
+          }
+          & python -c "import importlib.util; print('PY_PLAYWRIGHT',bool(importlib.util.find_spec('playwright')))"
+          Write-Host 'BROWSER_PROBE_COMPLETE'
