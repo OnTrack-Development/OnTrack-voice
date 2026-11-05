@@ -25,6 +25,7 @@ internal class MobileLiveCall(
     private val outgoingCall:Boolean=false,
     private val onAudioDiagnostics:(String)->Unit = {},
     private val onHumanRequested:()->Unit = {},
+    private val rotateVoiceToken:(suspend (JSONObject,String)->JSONObject)? = null,
     private val onFinished:(String)->Unit = {},
 ) {
     private val stopped=AtomicBoolean(false)
@@ -38,6 +39,10 @@ internal class MobileLiveCall(
     @Volatile private var ws:WebSocket?=null
     @Volatile private var socketReady=false
     @Volatile private var resumeHandle:String?=null
+    // The same SIM call may continue through a NEW Google key, but the old
+    // session-resumption handle is never portable between different keys.
+    @Volatile private var switchedProvider=false
+    @Volatile private var contextBeforeSwitch=""
     @Volatile private var lastWarning=0L
     private val skippedUplinkPackets=AtomicLong(0)
     private var lastLinkCheckAt=0L
@@ -55,7 +60,13 @@ internal class MobileLiveCall(
         }
         return cellularLink
     }
-    private lateinit var liveUrl:String
+    @Volatile private lateinit var liveUrl:String
+    private fun googleLiveUrl(token:String):String {
+        require(token.startsWith("auth_tokens/")){"invalid Live token"}
+        return HttpUrl.Builder().scheme("https").host("generativelanguage.googleapis.com")
+            .addPathSegments("ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained")
+            .addQueryParameter("access_token",token).build().toString().replaceFirst("https:","wss:")
+    }
     private var recovery:Job?=null
     private val writeLock=Any()
     private val transcriptLock=Any()
@@ -123,12 +134,7 @@ internal class MobileLiveCall(
         else -> "AI أرسل صوت للجسر؛ سماع الطرف التاني على VoLTE مش مؤكد"
     }
     suspend fun start() {
-        val token=session.getString("token")
-        require(token.startsWith("auth_tokens/")) { "server did not return an ephemeral token" }
-        val url=HttpUrl.Builder().scheme("https").host("generativelanguage.googleapis.com")
-            .addPathSegments("ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained")
-            .addQueryParameter("access_token",token).build().toString().replaceFirst("https:","wss:")
-        liveUrl=url
+        liveUrl=googleLiveUrl(session.getString("token"))
         // Regression 2026-11-04: waiting up to 25s for Gemini BEFORE opening
         // LivePcm left the handset microphone live on an answered SIM call.
         // The shell bridge verifies AudioManager mute before it acknowledges
@@ -245,10 +251,13 @@ internal class MobileLiveCall(
                 else session.getString("system_instruction")+"\n\n"+style+
                     " استخدم سؤالًا واحدًا في كل دور ثم استمع للعميل، ولا تكرر التحية أو الأسئلة."+
                     " توقف عند المقاطعة ولا تختلق أي حجز أو دفع أو تكامل لم يتم فعلياً."
+                val instruction=if(switchedProvider)
+                    policy+"\n\n"+VoiceFailoverPolicy.restoredContext(contextBeforeSwitch)
+                else policy
                 val setup=JSONObject().put("model","models/"+session.getString("model").removePrefix("models/"))
                     .put("generationConfig",JSONObject().put("responseModalities",org.json.JSONArray(listOf("AUDIO")))
                         .put("speechConfig",JSONObject().put("voiceConfig",JSONObject().put("prebuiltVoiceConfig",JSONObject().put("voiceName",settings.optString("voice","Aoede"))))))
-                    .put("systemInstruction",JSONObject().put("parts",org.json.JSONArray().put(JSONObject().put("text",policy))))
+                    .put("systemInstruction",JSONObject().put("parts",org.json.JSONArray().put(JSONObject().put("text",instruction))))
                     .put("inputAudioTranscription",JSONObject()).put("outputAudioTranscription",JSONObject())
                     .put("sessionResumption",if(handle.isNullOrBlank())JSONObject() else JSONObject().put("handle",handle))
                 if(!webSocket.send(JSONObject().put("setup",setup).toString()))onTransportLost(webSocket,"تعذر فتح الصوت")
@@ -266,7 +275,7 @@ internal class MobileLiveCall(
                         val wasReady=ready.isCompleted
                         socketReady=true
                         ready.complete(Unit)
-                        if(wasReady && handle.isNullOrBlank() && !outgoingCall) {
+                        if(wasReady && handle.isNullOrBlank() && !outgoingCall && !switchedProvider) {
                             webSocket.send(JSONObject().put("clientContent",JSONObject()
                                 .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
                                     .put("parts",org.json.JSONArray().put(JSONObject().put("text",
@@ -275,7 +284,16 @@ internal class MobileLiveCall(
                         }
                         if(wasReady)notice("عاد صوت الإيجنت بعد انقطاع الشبكة")
                     }
-                    if(message.has("error")) error("Gemini error "+message.getJSONObject("error").optInt("code"))
+                    if(message.has("error")) {
+                        val provider=message.getJSONObject("error")
+                        val rotated=VoiceFailoverPolicy.failureCode(
+                            provider.optInt("code",0),provider.optString("status",""),provider.optString("message",""))
+                        if(rotated!=null){
+                            onTransportLost(webSocket,"مفتاح Google Live الحالي غير متاح",rotated)
+                            return@runCatching
+                        }
+                        error("Gemini error "+provider.optInt("code",0))
+                    }
                     val content=message.optJSONObject("serverContent")?:return
                     // Gemini Live emits actual caller and agent speech transcriptions
                     // independently from PCM. Do not attempt speech recognition from
@@ -316,12 +334,21 @@ internal class MobileLiveCall(
                 }.onFailure{fail(it.message?:"invalid live response")}
             }
             override fun onMessage(webSocket:WebSocket,bytes:ByteString){onMessage(webSocket,bytes.utf8())}
-            override fun onClosing(webSocket:WebSocket,code:Int,reason:String){webSocket.close(code,"");onTransportLost(webSocket,"جلسة الصوت أغلقت: $code")}
-            override fun onFailure(webSocket:WebSocket,t:Throwable,response:Response?){onTransportLost(webSocket,"انقطع اتصال خدمة الصوت"+(response?.code?.let{" HTTP $it"}?:""))}
-            override fun onClosed(webSocket:WebSocket,code:Int,reason:String){onTransportLost(webSocket,"جلسة الصوت أغلقت: $code")}
+            override fun onClosing(webSocket:WebSocket,code:Int,reason:String){
+                webSocket.close(code,"")
+                onTransportLost(webSocket,"جلسة الصوت أغلقت: $code",if(code==1013)"503" else null)
+            }
+            override fun onFailure(webSocket:WebSocket,t:Throwable,response:Response?){
+                val code=VoiceFailoverPolicy.failureCode(response?.code,null,
+                    if(t is java.net.SocketTimeoutException)"timeout" else t.javaClass.simpleName)
+                onTransportLost(webSocket,"انقطع اتصال خدمة الصوت",code)
+            }
+            override fun onClosed(webSocket:WebSocket,code:Int,reason:String){
+                onTransportLost(webSocket,"جلسة الصوت أغلقت: $code",if(code==1013)"503" else null)
+            }
         })
     }
-    private fun onTransportLost(failed:WebSocket,reason:String) {
+    private fun onTransportLost(failed:WebSocket,reason:String,failureCode:String?=null) {
         if(stopped.get() || failed!==ws)return
         socketReady=false
         generation++
@@ -331,6 +358,34 @@ internal class MobileLiveCall(
         recovery=scope.launch(Dispatchers.IO) {
             onAudioDiagnostics("اتصال Google Live اتقطع؛ محاولة رجوع الصوت تلقائيًا")
             notice("$reason — إعادة اتصال صوت الإيجنت")
+            if(failureCode!=null && rotateVoiceToken!=null &&
+                session.optString("failover_ticket","").isNotBlank()) {
+                // One recovery coroutine per active websocket. A server-side
+                // generation CAS prevents duplicate callbacks rotating twice.
+                val rotated=try {
+                    rotateVoiceToken.invoke(JSONObject(session.toString()),failureCode)
+                }catch(problem:Exception){
+                    fail("استنفدت مفاتيح Google Live المتاحة للمكالمة؛ استلم المكالمة يدويًا")
+                    return@launch
+                }
+                if(stopped.get())return@launch
+                val newToken=rotated.getString("token")
+                contextBeforeSwitch=synchronized(transcriptLock){reportTranscript.toString().takeLast(2800)}
+                synchronized(session) {
+                    session.put("token",newToken)
+                    session.put("model",rotated.getString("model"))
+                    session.put("failover_generation",rotated.getInt("failover_generation"))
+                }
+                resumeHandle=null // handle from old Google API key is not portable.
+                switchedProvider=true
+                liveUrl=googleLiveUrl(newToken)
+                notice("تم تغيير مفتاح Google Live داخل نفس مكالمة الشريحة")
+                openSocket()
+                delay(4500)
+                if(!stopped.get() && !socketReady)
+                    fail("Google Live لم يؤكد فتح الجلسة البديلة؛ استلم المكالمة يدويًا")
+                return@launch
+            }
             var attempt=0
             while(isActive && !stopped.get() && !socketReady && attempt<6) {
                 delay((1000L shl attempt).coerceAtMost(8000L))
