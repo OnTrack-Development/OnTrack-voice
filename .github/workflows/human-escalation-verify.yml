@@ -1,0 +1,49 @@
+name: Human Escalation and Call Summary Tests
+on:
+  push:
+    branches:
+      - feat/call-summaries-human-escalation-20261105
+    paths:
+      - saas/console/**
+      - tools/test_human_escalation.php
+      - .github/workflows/human-escalation-verify.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 13
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP syntax lint and SQLite human handoff regression
+        run: |
+          $ErrorActionPreference='Stop'
+          $files=@(
+            'saas/console/_core/HumanEscalations.php',
+            'saas/console/_core/TenantWorkspace.php',
+            'saas/console/_core/CallHistory.php',
+            'saas/console/_core/Actions.php',
+            'saas/console/_core/Views.php',
+            'saas/console/device/v1/index.php',
+            'tools/test_human_escalation.php'
+          )
+          foreach($f in $files) {
+            & php -l $f
+            if($LASTEXITCODE -ne 0) { throw ('PHP lint failed '+$f) }
+          }
+          Write-Host 'HUMAN_ESCALATION_PHP_LINT_PASS'
+          & php tools/test_human_escalation.php
+          if($LASTEXITCODE -ne 0) { throw 'HUMAN_ESCALATION_TEST_FAILED' }
+          Write-Host 'HUMAN_ESCALATION_SQLITE_PASS'
+          & php tools/test_tenant_call_ai_summary.php
+          if($LASTEXITCODE -ne 0) { throw 'LIVE_CALL_SUMMARY_TEST_FAILED' }
+          Write-Host 'LIVE_CALL_SUMMARY_SQLITE_PASS'
+          & php tools/test_sim_agent_call_reports.php
+          if($LASTEXITCODE -ne 0) { throw 'SIM_CALL_REPORTS_TEST_FAILED' }
+          Write-Host 'SIM_CALL_REPORTS_SQLITE_PASS'
