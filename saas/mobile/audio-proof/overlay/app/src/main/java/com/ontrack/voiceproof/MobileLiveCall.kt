@@ -24,6 +24,7 @@ internal class MobileLiveCall(
     private val session:JSONObject, private val settings:JSONObject, private val notice:(String)->Unit,
     private val outgoingCall:Boolean=false,
     private val onAudioDiagnostics:(String)->Unit = {},
+    private val onHumanRequested:()->Unit = {},
     private val onFinished:(String)->Unit = {},
 ) {
     private val stopped=AtomicBoolean(false)
@@ -59,6 +60,34 @@ internal class MobileLiveCall(
     private val writeLock=Any()
     private val transcriptLock=Any()
     private val reportTranscript=StringBuilder()
+    private val recentCallerText=StringBuilder()
+    private val humanRequestReported=AtomicBoolean(false)
+    // Conservative caller-only intent detector; final AI analysis can find
+    // requests missed here, but a negative phrase must never auto-dial staff.
+    private val humanRequestPattern=Regex(
+        """(?:عايز|عاوز|عاوزه|عايزة|عاوزة|محتاج|محتاجة|ممكن|اكلم|أكلم|كلموني|كلملي|حولني|حوّلني|وصلني).{0,35}(?:موظف|موظفة|خدمة\s*العملاء|خدمه\s*العملاء|مدير|انسان|إنسان|حد\s*حقيقي)|(?:speak|talk|transfer|connect).{0,28}(?:human|representative|customer\s*service|manager|person)""",
+        RegexOption.IGNORE_CASE)
+    private val humanRequestNegation=Regex(
+        """(?:مش|موش|ما|لا|not|no|don't|do\s+not)\s*$""",RegexOption.IGNORE_CASE)
+    private fun observeCallerIntent(text:String) {
+        if(text.isBlank()||humanRequestReported.get())return
+        val rolling=synchronized(transcriptLock){
+            recentCallerText.append(' ').append(text)
+            if(recentCallerText.length>420)recentCallerText.delete(0,recentCallerText.length-420)
+            recentCallerText.toString()
+        }
+        for(match in humanRequestPattern.findAll(rolling)){
+            val context=rolling.substring((match.range.first-16).coerceAtLeast(0),match.range.first)
+            if(humanRequestNegation.containsMatchIn(context))continue
+            if(humanRequestReported.compareAndSet(false,true)){
+                runCatching{onHumanRequested()}.onFailure{
+                    humanRequestReported.set(false)
+                    notice("تعذر حفظ طلب الموظف محليًا، هيتم إعادة المحاولة")
+                }
+            }
+            return
+        }
+    }
     private fun appendLiveTranscription(label:String,text:String) {
         val clean=text.trim()
         if(clean.isBlank())return
@@ -254,6 +283,7 @@ internal class MobileLiveCall(
                     content.optJSONObject("inputTranscription")
                         ?.optString("text","")?.let { spoken ->
                             appendLiveTranscription("المتصل",spoken)
+                            observeCallerIntent(spoken)
                             if(outgoingCall && !remoteSpeechConfirmed &&
                                OutboundFirstTurn.remoteSpeechTranscribed(spoken)){
                                 remoteSpeechConfirmed=true

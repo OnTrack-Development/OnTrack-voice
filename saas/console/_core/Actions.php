@@ -255,9 +255,9 @@ function act():void {
                 $agent=intfield('agent_id');
                 $contact=intfield('contact_id');
                 $enabled=($_POST['enabled']??'')==='1';
-                he_route_configure($id,$agent,$contact,$enabled);
+                he_route_configure($id,$agent,$contact,$enabled,intfield('handoff_delay_seconds')?:10);
                 audit('human.escalation.route_saved',$id,['agent_id'=>$agent,
-                    'contact_id'=>$contact,'enabled'=>$enabled]);
+                    'contact_id'=>$contact,'enabled'=>$enabled,'delay_seconds'=>intfield('handoff_delay_seconds')?:10]);
                 $success=$enabled?'تم تفعيل إشعار المدير بعد المكالمة لهذا المساعد.':'تم حفظ المسار مع إيقاف الاتصال التلقائي.';
                 break;
             case 'voice_caller_add':

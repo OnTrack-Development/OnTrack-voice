@@ -47,6 +47,60 @@ internal class CallReportOutbox(context:Context) {
         return String(cipher.doFinal(bytes.copyOfRange(12,bytes.size)),Charsets.UTF_8)
     }
 
+    /** Persist text produced by Google Live, even if the socket reconnects.
+     * Do not submit for summarization while the carrier call is still active.
+     */
+    @Synchronized fun appendLiveSegment(slot:Int,deviceId:Int,callId:String,text:String) {
+        require(slot in 0..1 && deviceId>0 && callId.matches(Regex("[a-f0-9-]{36}")))
+        if(text.length<18)return
+        val items=JSONArray(prefs.getString("inflight","[]")?:"[]")
+        val next=JSONArray()
+        var found=false
+        for(i in 0 until items.length()){
+            val row=items.optJSONObject(i)?:continue
+            if(row.optString("call_id")==callId && row.optInt("device_id",-1)==deviceId &&
+                row.optInt("slot",-1)==slot){
+                val existing=decrypt(row.getString("ciphertext"))
+                val merged=(existing+"\n"+text.trim()).trim().take(12000)
+                next.put(JSONObject().put("call_id",callId).put("slot",slot)
+                    .put("device_id",deviceId).put("ciphertext",encrypt(merged)))
+                found=true
+            }else next.put(row)
+        }
+        if(!found){
+            check(next.length()<30){"Too many unfinished voice reports"}
+            next.put(JSONObject().put("call_id",callId).put("slot",slot)
+                .put("device_id",deviceId).put("ciphertext",encrypt(text.trim().take(12000))))
+        }
+        check(prefs.edit().putString("inflight",next.toString()).commit()){
+            "Could not durably save live transcript"
+        }
+    }
+
+    /** Called only when no physical SIM call is active. Replay-safe on restart. */
+    @Synchronized fun finalizeAtIdle(bindingId:(Int)->Int?):Int {
+        val items=JSONArray(prefs.getString("inflight","[]")?:"[]")
+        val remaining=JSONArray()
+        var completed=0
+        for(i in 0 until items.length()){
+            val row=items.optJSONObject(i)?:continue
+            val slot=row.optInt("slot",-1)
+            val deviceId=row.optInt("device_id",-1)
+            val callId=row.optString("call_id","")
+            if(slot !in 0..1 || deviceId<=0 || bindingId(slot)!=deviceId){
+                remaining.put(row);continue
+            }
+            val moved=runCatching{
+                enqueue(slot,deviceId,callId,decrypt(row.getString("ciphertext")))
+            }.isSuccess
+            if(moved)completed++ else remaining.put(row)
+        }
+        check(prefs.edit().putString("inflight",remaining.toString()).commit()){
+            "Could not finalize live transcripts"
+        }
+        return completed
+    }
+
     @Synchronized fun enqueue(slot:Int,deviceId:Int,callId:String,transcript:String) {
         require(deviceId>0){"missing SIM binding identity"}
         require(slot in 0..1){"invalid report SIM slot"}

@@ -90,6 +90,31 @@ try{
     tenant_workspace_call_event($b,['call_id'=>$second,'sequence'=>2,'phase'=>'ended']);
     he_ok(one('SELECT status FROM human_escalation_jobs WHERE device_binding_id=? AND call_id=?',
         [$b['id'],$second])['status']==='pending','second customer request scheduled');
+    // An explicit human request is recorded WHILE Google Live is speaking,
+    // with no dependency on a later model-generated summary.
+    $live='c8e37392-90d0-44e4-97ae-791ed5e9cd7e';
+    he_route_configure($account,1,$staff,true,20);
+    tenant_workspace_call_event($b,['call_id'=>$live,'sequence'=>1,'phase'=>'ringing']);
+    tenant_workspace_call_event($b,['call_id'=>$live,'sequence'=>2,'phase'=>'active']);
+    tenant_workspace_call_event($b,['call_id'=>$live,'sequence'=>3,
+        'phase'=>'customer_human_request']);
+    $request=tenant_call_report_find($b,$live);
+    he_ok($request['handoff_status']==='requested'&&$request['source']==='device'&&
+        $request['summary']==='', 'caller staff request saved before summarizer runs');
+    he_ok(he_schedule($b,$live)['reason']==='call_still_open',
+        'request cannot dial manager before hangup');
+    tenant_workspace_call_event($b,['call_id'=>$live,'sequence'=>4,'phase'=>'ended']);
+    $liveJob=one('SELECT id,due_epoch FROM human_escalation_jobs
+        WHERE device_binding_id=? AND call_id=?',[$b['id'],$live]);
+    $endTime=one('SELECT ended_at FROM calls WHERE external_call_id=?',[$live])['ended_at'];
+    he_ok($liveJob!==null &&
+        (int)$liveJob['due_epoch']>=strtotime($endTime.' UTC')+20,
+        'per-agent callback delay 20 seconds after physical hangup');
+    tenant_workspace_call_event($b,['call_id'=>$live,'sequence'=>3,
+        'phase'=>'customer_human_request']);
+    he_ok(he_schedule($b,$live)['duplicate'],
+        'retried live human request cannot cause another manager callback');
+    he_route_configure($account,1,$staff,true);
     he_contact_disable($account,$staff);
     he_ok(one('SELECT status FROM human_escalation_jobs WHERE device_binding_id=? AND call_id=?',
         [$b['id'],$second])['status']==='cancelled','disabling number cancels unsent callback');
@@ -131,7 +156,8 @@ try{
     echo "HUMAN_ESCALATION_END_TO_END_PASS\n";
 }finally{
     $calls=[$call,'c8e37392-90d0-44e4-97ae-791ed5e9cd7b',
-      'c8e37392-90d0-44e4-97ae-791ed5e9cd7c','c8e37392-90d0-44e4-97ae-791ed5e9cd7d'];
+      'c8e37392-90d0-44e4-97ae-791ed5e9cd7c','c8e37392-90d0-44e4-97ae-791ed5e9cd7d',
+       'c8e37392-90d0-44e4-97ae-791ed5e9cd7e'];
     foreach($calls as $cid){
         execute('DELETE FROM human_escalation_jobs WHERE device_binding_id=? AND call_id=?',[$b['id'],$cid]);
         execute('DELETE FROM tenant_call_reports WHERE device_binding_id=? AND call_id=?',[$b['id'],$cid]);

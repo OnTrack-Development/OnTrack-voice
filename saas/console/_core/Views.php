@@ -460,7 +460,7 @@ function render_human_escalation_settings(array $a):void {
     }
     echo '<section id="human-escalation-settings" class="card">'.
         '<div class="card-head"><h3>التحويل البشري وإبلاغ المدير بعد المكالمة</h3></div>'.
-        '<p>سجّل أرقام المديرين والموظفين، وحدّد لكل مساعد الشخص المسؤول عن المكالمات التي يطلب فيها العميل موظفًا بشريًا. النظام يسجّل السبب والملخص، وبعد انتهاء المكالمة بـ10 ثوانٍ يصدر إشعار اتصال إلى الشريحة المرتبطة. لا يبدأ اتصال أثناء مكالمة العميل.</p>'.
+        '<p>سجّل أرقام المديرين والموظفين، وحدّد لكل مساعد الشخص المسؤول عن المكالمات التي يطلب فيها العميل موظفًا بشريًا. النظام يسجّل السبب والملخص، وبعد انتهاء المكالمة بالمهلة التي تحددها لكل مساعد يصدر إشعار اتصال إلى الشريحة المرتبطة. لا يبدأ اتصال أثناء مكالمة العميل.</p>'.
         '<p class="dim">الاتصال الآلي متوقف افتراضيًا حتى تفعّله وتختار رقمًا. بدء الاتصال لا يعني أن المدير استلم الرسالة؛ تتم متابعة حالة المحاولة بشكل مستقل.</p>'.
         tbl(['الاسم','رقم الهاتف','الصفة','الحالة','الإجراء'],$contactRows).'</section>';
     if(!$manage)return;
@@ -472,11 +472,12 @@ function render_human_escalation_settings(array $a):void {
         select_html('الصفة','recipient_role',['manager'=>'مدير','employee'=>'موظف']).
         '</div>'.submit_btn('حفظ رقم الاتصال'));
     $agents=all("SELECT ag.id,ag.name,ag.site_id,s.name site_name,
-        r.contact_id,r.enabled
+        r.contact_id,r.enabled,r.delay_seconds
         FROM agents ag JOIN sites s ON s.id=ag.site_id AND s.account_id=ag.account_id
         LEFT JOIN human_escalation_routes r ON r.agent_id=ag.id AND r.account_id=ag.account_id
         WHERE ag.account_id=? AND ag.status!='archived' ORDER BY ag.id DESC LIMIT 100",[$id]);
     $routes='';
+    $delayChoices=[10=>'10 ثوانٍ',20=>'20 ثانية',30=>'30 ثانية',60=>'دقيقة',120=>'دقيقتان'];
     foreach($agents as $ag){
         $routeOptions=$options;
         $selected=(int)($ag['contact_id']??0);
@@ -488,7 +489,8 @@ function render_human_escalation_settings(array $a):void {
             select_html('موظف التحويل','contact_id',$routeOptions,$selected).
             '<label class="field"><input type="checkbox" name="enabled" value="1"'.
                 (!empty($ag['enabled'])?' checked':'').'> تفعيل الاتصال التلقائي للمسؤول عند طلب العميل</label>'.
-            '<p class="dim">يبدأ الطلب بعد إنهاء العميل مكالمته، ولا يتم الاتصال قبل مرور 10 ثوانٍ.</p>'.
+            select_html('مهلة اتصال المدير بعد نهاية المكالمة','handoff_delay_seconds',$delayChoices,(int)($ag['delay_seconds']??10)).
+            '<p class="dim">لا يتصل بالمسؤول أثناء مكالمة العميل؛ المهلة تبدأ من وقت انتهائها.</p>'.
             submit_btn('حفظ مسار التحويل').'</form></div>';
     }
     echo card('تحديد المسؤول لكل AI Agent',
