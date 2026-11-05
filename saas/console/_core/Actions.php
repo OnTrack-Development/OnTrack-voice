@@ -13,6 +13,7 @@ require_once __DIR__.'/RecycleBin.php';
 require_once __DIR__.'/DomainVerification.php';
 require_once __DIR__.'/ManualPayment.php';
 require_once __DIR__.'/CallHistory.php';
+require_once __DIR__.'/HumanEscalations.php';
 
 function field(string $key,int $max=200):string{
     $v=trim((string)($_POST[$key]??''));
@@ -235,6 +236,30 @@ function act():void {
                 $connectorId=intfield('connector_id');
                 if(execute('DELETE FROM voice_data_connectors WHERE id=? AND account_id=?',[$connectorId,$id])!==1)deny(404);
                 audit('voice.connector.deleted',$id,['connector_id'=>$connectorId]);break;
+            case 'human_contact_add':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $contact=he_contact_add($id,required('contact_name',140),
+                    required('phone_e164',20),required('recipient_role',20));
+                audit('human.escalation.contact_saved',$id,['contact_id'=>$contact]);
+                $success='تم حفظ رقم المدير أو الموظف ضمن جهات التحويل الخاصة بالشركة.';
+                break;
+            case 'human_contact_disable':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $contact=intfield('contact_id');
+                he_contact_disable($id,$contact);
+                audit('human.escalation.contact_disabled',$id,['contact_id'=>$contact]);
+                $success='تم تعطيل الرقم وإيقاف أي تحويلات معلقة له.';
+                break;
+            case 'human_route_save':
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $agent=intfield('agent_id');
+                $contact=intfield('contact_id');
+                $enabled=($_POST['enabled']??'')==='1';
+                he_route_configure($id,$agent,$contact,$enabled);
+                audit('human.escalation.route_saved',$id,['agent_id'=>$agent,
+                    'contact_id'=>$contact,'enabled'=>$enabled]);
+                $success=$enabled?'تم تفعيل إشعار المدير بعد المكالمة لهذا المساعد.':'تم حفظ المسار مع إيقاف الاتصال التلقائي.';
+                break;
             case 'voice_caller_add':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 require_once __DIR__.'/VoiceAccess.php';
