@@ -256,8 +256,11 @@ internal class MobileLiveCall(
                     " توقف فورًا عند المقاطعة، ولا تعيد الجملة التي قاطعها العميل. " +
                     "لما العميل يطلب موظف استخدم request_human_employee لتسجيل السبب والملاحظات، ثم قل إن طلب المتابعة اتسجل إذا نجحت الأداة فقط؛ لا تقل جاري تحويل أو تم تحويل المكالمة. " +
                     "احفظ ملخصًا موجزًا وملاحظات العملاء باستخدام save_call_note بعد المعلومات المهمة، لأن التفريغ النصي على بيانات المحمول قد يتأخر."
-                val instruction=if(switchedProvider)
-                    policy+"\n\n"+VoiceFailoverPolicy.restoredContext(contextBeforeSwitch)
+                val instruction=if(switchedProvider || ready.isCompleted)
+                    policy+"\n\n"+VoiceFailoverPolicy.restoredContext(
+                        if(switchedProvider)contextBeforeSwitch else synchronized(transcriptLock){
+                            reportTranscript.toString().takeLast(2800)
+                        })
                 else policy
                 val setup=JSONObject().put("model","models/"+session.getString("model").removePrefix("models/"))
                     .put("generationConfig",JSONObject().put("responseModalities",org.json.JSONArray(listOf("AUDIO")))
@@ -299,13 +302,9 @@ internal class MobileLiveCall(
                         val wasReady=ready.isCompleted
                         socketReady=true
                         ready.complete(Unit)
-                        if(wasReady && handle.isNullOrBlank() && !outgoingCall && !switchedProvider) {
-                            webSocket.send(JSONObject().put("clientContent",JSONObject()
-                                .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
-                                    .put("parts",org.json.JSONArray().put(JSONObject().put("text",
-                                        "عاد اتصال المكالمة بعد ضعف الشبكة؛ اعتذر باختصار واطلب من العميل إعادة آخر سؤال دون بدء ترحيب جديد.")))))
-                                .put("turnComplete",true)).toString())
-                        }
+                        // No synthetic user turn on LTE reconnect. Sending
+                        // one made the AI begin talking again and repeat its
+                        // last answer despite the caller saying nothing.
                         if(wasReady)notice("عاد صوت الإيجنت بعد انقطاع الشبكة")
                     }
                     if(message.has("error")) {
