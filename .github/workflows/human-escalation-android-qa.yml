@@ -1,0 +1,54 @@
+name: Human Escalation Android Compile QA
+on:
+  push:
+    branches:
+      - feat/call-summaries-human-escalation-20261105
+    paths:
+      - saas/mobile/audio-proof/**
+      - .github/workflows/human-escalation-android-qa.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android_compile:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: jemcik/JemRec
+          ref: f011062adfb3a2154c4d5a9cc4394032fb4345f2
+          path: .build/jemrec
+          persist-credentials: false
+      - name: Validate Android SDK and prepare pinned overlay
+        run: |
+          $ErrorActionPreference='Stop'
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          if(-not(Test-Path (Join-Path $sdk 'platforms\android-36\android.jar'))) {throw 'Android API36 unavailable'}
+          "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & python saas/mobile/audio-proof/prepare.py .build/jemrec
+          if($LASTEXITCODE -ne 0){throw 'Overlay could not be prepared'}
+          Write-Host 'HUMAN_ESCALATION_ANDROID_OVERLAY_PASS'
+      - name: Patch existing upstream AndroidX Fragment ActivityResult compatibility
+        run: |
+          $ErrorActionPreference='Stop'
+          $gradle='.build\jemrec\app\build.gradle.kts'
+          $source=[IO.File]::ReadAllText((Resolve-Path $gradle).Path)
+          $anchor='    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")'
+          if($source.Split([string[]]@($anchor),[StringSplitOptions]::None).Length -ne 2){throw 'Gradle compat anchor mismatch'}
+          $source=$source.Replace($anchor,'    implementation("androidx.fragment:fragment:1.6.2")'+[Environment]::NewLine+$anchor)
+          [IO.File]::WriteAllText((Resolve-Path $gradle).Path,$source,[Text.UTF8Encoding]::new($false))
+      - name: Compile manager callback and original live voice components
+        working-directory: .build/jemrec
+        run: |
+          $ErrorActionPreference='Stop'
+          & .\gradlew.bat --no-daemon :app:compileDebugKotlin :app:testDebugUnitTest
+          if($LASTEXITCODE -ne 0){throw 'Android Kotlin compile or unit test failed. DO NOT PUBLISH.'}
+          Write-Host 'HUMAN_ESCALATION_ANDROID_COMPILE_PASS'
