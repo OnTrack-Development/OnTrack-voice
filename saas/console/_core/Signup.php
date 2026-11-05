@@ -2,6 +2,12 @@
 declare(strict_types=1);
 /** Tenant-scoped web registration. No user, membership or plan before email proof. */
 function signup_scope(string $kind='customer',?string $resellerSlug=null):array {
+    $portal=white_label_context();
+    if($portal){
+        if($kind!=='customer'||($resellerSlug!==null && $resellerSlug!=='' && $resellerSlug!==$portal['slug']))
+            throw new InvalidArgumentException('رابط التسجيل غير صالح');
+        $resellerSlug=(string)$portal['slug'];
+    }
     if(!in_array($kind,['customer','reseller'],true))throw new InvalidArgumentException('نوع التسجيل غير صالح');
     $platform=one("SELECT id,name FROM accounts WHERE kind='platform' AND status='active' ORDER BY id LIMIT 1");
     if(!$platform)throw new RuntimeException('تسجيل الحسابات غير متاح حاليًا');
@@ -39,9 +45,10 @@ function signup_send_email(string $email,string $token):bool {
     // Existing owner domain is the default while private email.json is not installed.
     $from=is_array($config)?($config['from']??'no-reply@ontrackegy.com'):'no-reply@ontrackegy.com';
     if(!is_string($from)||strlen($from)>190||!filter_var($from,FILTER_VALIDATE_EMAIL))return false;
-    $url='https://app.ontrackegy.com/verify-email?token='.$token;
-    $body="Confirm your OnTrack Voice account using this secure link within 30 minutes:\n\n".$url."\n\nIf you did not request an account, ignore this email.\n";
-    return mail($email,'OnTrack Voice - Verify your email',$body,
+    $url=white_label_absolute_url('/verify-email?token='.$token);
+    $body="Confirm your account using this secure link within 30 minutes:\n\n".$url."\n\nIf you did not request an account, ignore this email.\n";
+    $brand=white_label_identity();
+    return mail($email,$brand['name'].' - Confirm your email',$body,
         ['From'=>$from,'Content-Type'=>'text/plain; charset=UTF-8']);
 }
 /** Optional in-process mail transport is only for isolated regression tests. */
@@ -90,6 +97,9 @@ function signup_confirm(string $token):int {
         // Revalidate the owner tenant at activation, not just at public form display.
         $kind=(string)($request['registration_kind']??'customer');
         $parentId=(int)($request['parent_account_id']??0);
+        $portal=white_label_context();
+        if($portal && ($kind!=='customer'||$parentId!==(int)$portal['id']))
+            throw new InvalidArgumentException('رابط التسجيل غير مطابق للبوابة');
         if($parentId===0){$scope=signup_scope('customer');$parentId=$scope['parent_id'];}
         $parent=account($parentId);
         if(!$parent||$parent['status']!=='active'||
@@ -112,21 +122,24 @@ function signup_confirm(string $token):int {
 function signup_page(?string $warning=null):never {
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: private,no-store');
-    $kind=(string)($_POST['kind']??$_GET['type']??'customer');
+    $portal=white_label_context();
+    $kind=$portal?'customer':(string)($_POST['kind']??$_GET['type']??'customer');
     $slug=trim((string)($_POST['reseller']??$_GET['reseller']??''));
+    if($portal && $slug==='')$slug=(string)$portal['slug'];
     try{$scope=signup_scope($kind,$slug);}
     catch(InvalidArgumentException|RuntimeException $e){$scope=null;$warning=$e->getMessage();}
     $brand=$scope['brand']??'OnTrack Voice';
-    $title=$kind==='reseller'?'إنشاء حساب ريسيلر':'إنشاء حساب شركة';
-    if($scope && $scope['slug']!=='')$title='سجّل شركتك لدى '.(string)$scope['brand'];
-    $brandIcon=$scope && $scope['slug']!=='' && $scope['logo']!==''
-        ?'<img src="/register-logo?reseller='.rawurlencode((string)$scope['slug']).'" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:12px">'
-        :'<span class="brand-icon">OT</span>';
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.e($title).'</title><link rel="stylesheet" href="/assets/css/app.css"></head><body class="login-body"><div class="login-backdrop"></div><main class="login-panel" style="max-width:540px;margin:5vh auto"><div class="login-brand">'.$brandIcon.'<strong>'.e($brand).'</strong></div><h1>'.e($title).'</h1><p>إنشاء حسابك يتطلب تأكيد البريد مرة واحدة. الباقات المدفوعة لا تتفعل تلقائيًا.</p>';
+    $title=$kind==='reseller'?'إنشاء حساب مزوّد خدمات':'إنشاء حساب جديد';
+    if($scope && $scope['slug']!=='')$title='انضم إلى '.(string)$scope['brand'];
+    $brandIcon=$portal?white_label_logo_html():(
+        $scope && $scope['slug']!=='' && $scope['logo']!==''
+        ?'<img class="wl-mark" src="/register-logo?reseller='.rawurlencode((string)$scope['slug']).'" alt="" width="64" height="64">'
+        :'<span class="wl-fallback" aria-hidden="true">'.e(mb_substr((string)$brand,0,1)).'</span>');
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.e($title).' | '.e($brand).'</title><link rel="stylesheet" href="/assets/css/app.css"></head><body class="login-body'.($portal?' white-label-auth':'').'"><div class="login-backdrop"></div><main class="login-panel wl-auth-panel"><div class="login-brand">'.$brandIcon.'<strong>'.e($brand).'</strong></div><h1>'.e($title).'</h1><p>ابدأ بإضافة بياناتك لإنشاء حساب شركتك ومتابعة خدماتك من مكان واحد.</p>';
     if($warning)echo '<div class="alert danger">'.e($warning).'</div>';
     if($msg=flash('success'))echo '<div class="alert success">'.e($msg).'</div>';
     if($scope){
-        echo '<form method="post" action="/register" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="kind" value="'.e($scope['kind']).'"><input type="hidden" name="reseller" value="'.e($scope['slug']).'">';
+        echo '<form method="post" action="'.e(white_label_url('/register')).'" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="kind" value="'.e($scope['kind']).'"><input type="hidden" name="reseller" value="'.e($scope['slug']).'">';
         echo '<label class="field">اسمك<input name="name" required maxlength="120" autocomplete="name"></label>';
         echo '<label class="field">اسم الشركة<input name="company" required maxlength="120" autocomplete="organization"></label>';
         echo '<label class="field">البريد الإلكتروني<input name="email" type="email" maxlength="190" required autocomplete="email"></label>';
@@ -134,7 +147,7 @@ function signup_page(?string $warning=null):never {
         echo '<label class="field">تأكيد كلمة المرور<input name="password_confirm" type="password" minlength="12" maxlength="128" required autocomplete="new-password"></label>';
         echo '<button class="btn primary wide" type="submit">إرسال رابط تأكيد البريد</button></form>';
     }
-    echo '<p><a href="/login">عندي حساب بالفعل — تسجيل الدخول</a></p></main></body></html>';exit;
+    echo '<p><a href="'.e(white_label_url('/login')).'">لدي حساب بالفعل — تسجيل الدخول</a></p></main></body></html>';exit;
 }
 function signup_route():never {
     if(($_SERVER['REQUEST_METHOD']??'GET')!=='POST')signup_page();
@@ -161,10 +174,11 @@ function signup_route():never {
 function signup_verify_page(?string $error=null):never {
     header('Content-Type: text/html; charset=utf-8');header('Cache-Control: private,no-store');
     $token=(string)($_POST['token']??$_GET['token']??'');
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تأكيد البريد | OnTrack</title><link rel="stylesheet" href="/assets/css/app.css"></head><body class="login-body"><main class="login-panel" style="max-width:520px;margin:6vh auto"><h1>تأكيد البريد الإلكتروني</h1>';
+    $brand=white_label_identity();
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تأكيد البريد | '.e($brand['name']).'</title><link rel="stylesheet" href="/assets/css/app.css"></head><body class="login-body white-label-auth"><main class="login-panel wl-auth-panel"><div class="login-brand">'.white_label_logo_html().'<strong>'.e($brand['name']).'</strong></div><h1>تأكيد البريد الإلكتروني</h1>';
     if($error)echo '<div class="alert danger">'.e($error).'</div>';
     echo '<p>اضغط تأكيد لإنشاء الحساب بعد إثبات وصول رسالة البريد. الرابط صالح لمدة 30 دقيقة ولمرة واحدة.</p>';
-    echo '<form method="post" action="/verify-email"><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="token" value="'.e($token).'"><button type="submit" class="btn primary wide">تأكيد البريد وإنشاء حسابي</button></form></main></body></html>';exit;
+    echo '<form method="post" action="'.e(white_label_url('/verify-email')).'"><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="token" value="'.e($token).'"><button type="submit" class="btn primary wide">تأكيد البريد وإنشاء حسابي</button></form></main></body></html>';exit;
 }
 function signup_verify_route():never {
     if(($_SERVER['REQUEST_METHOD']??'GET')!=='POST')signup_verify_page();
@@ -184,10 +198,11 @@ function password_reset_send_email(string $email,string $token):bool {
     // Existing owner domain is the default while private email.json is not installed.
     $from=is_array($config)?($config['from']??'no-reply@ontrackegy.com'):'no-reply@ontrackegy.com';
     if(!is_string($from)||!filter_var($from,FILTER_VALIDATE_EMAIL))return false;
-    $url='https://app.ontrackegy.com/reset-password?token='.$token;
-    $body="To reset your OnTrack Voice password, use this link within 30 minutes:\n\n".$url.
+    $url=white_label_absolute_url('/reset-password?token='.$token);
+    $body="To reset your password, use this link within 30 minutes:\n\n".$url.
         "\n\nIf you did not request a reset, ignore this email.\n";
-    return mail($email,'OnTrack Voice - Reset your password',$body,
+    $brand=white_label_identity();
+    return mail($email,$brand['name'].' - Reset password',$body,
         ['From'=>$from,'Content-Type'=>'text/plain; charset=UTF-8']);
 }
 /** Returns no account existence information to the public endpoint. */
@@ -196,7 +211,7 @@ function password_reset_stage(string $email,?callable $send=null):void {
     if(strlen($email)>190||!filter_var($email,FILTER_VALIDATE_EMAIL))
         throw new InvalidArgumentException('البريد الإلكتروني غير صالح');
     $user=one("SELECT id,email FROM users WHERE email=? AND status='active'",[$email]);
-    if(!$user)return;
+    if(!$user || (white_label_context()&&!white_label_memberships((int)$user['id'])))return;
     // Limit mail per account, independently of a browser's session throttling.
     $recent=one("SELECT id FROM password_reset_requests WHERE user_id=? AND created_at>? ORDER BY id DESC LIMIT 1",
         [$user['id'],gmdate('Y-m-d H:i:s',time()-60)]);
@@ -222,7 +237,8 @@ function password_reset_confirm(string $token,string $password):int {
             JOIN users u ON u.id=r.user_id
             WHERE r.token_hash=? AND r.status='pending' AND r.expires_at>?
               AND u.status='active'",[$hash,now()]);
-        if(!$reset)throw new InvalidArgumentException('رابط الاسترجاع منتهي أو مستخدم');
+        if(!$reset || (white_label_context()&&!white_label_memberships((int)$reset['user_id'])))
+            throw new InvalidArgumentException('رابط الاسترجاع منتهي أو مستخدم');
         $claimed=execute("UPDATE password_reset_requests SET status='used'
             WHERE id=? AND token_hash=? AND status='pending' AND expires_at>?",
             [$reset['id'],$hash,now()]);
