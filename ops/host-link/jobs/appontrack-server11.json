@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "agent-publish-live-revision-readonly-20261105",
+  "id": "agent-publish-js-20261105-2151",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-05T19:44:48.804Z",
-  "expires_at": "2026-11-05T21:44:48.804Z",
+  "created_at": "2026-11-05T19:48:45.391Z",
+  "expires_at": "2026-11-05T21:48:45.391Z",
   "cwd": "/home/appontrack",
   "timeout_seconds": 18,
   "argv": [
-    "/opt/cpanel/ea-php83/root/usr/bin/php",
-    "-r",
-    "require '/home/appontrack/public_html/_core/Bootstrap.php';require '/home/appontrack/public_html/_core/PublishedFlow.php';$out=[];$a=all(\"SELECT id,site_id,status FROM agents WHERE account_id=1 AND site_id=6 AND status!='archived' ORDER BY id DESC LIMIT 5\");foreach($a as $row){$id=(int)$row['id'];$draft=answer_policy_for_agent(1,$id);$pub=published_agent_flow(1,6,$id);$published=$pub?json_decode((string)($pub['answer_policy_json']??'{}'),true):[];$out[]=['agent_id'=>$id,'state'=>$row['status'],'revision'=>$pub?(int)$pub['revision']:null,'published_at'=>$pub['published_at']??null,'draft_delay'=>$draft['answer_delay_seconds'],'published_delay'=>$published['answer_delay_seconds']??null,'draft_autoanswer'=>$draft['auto_answer'],'published_autoanswer'=>$published['auto_answer']??null];}echo json_encode(['agents'=>$out],JSON_UNESCAPED_UNICODE);"
+    "/bin/python3",
+    "-c",
+    "import json,hashlib,pathlib,shutil,os\nd=json.loads(\"{\\\"old\\\":\\\"      const result=await response.json();\\\\n      if(!response.ok||result.ok!==true)throw Error(result.error||'تعذر حفظ إعدادات الإيجنت');\\\",\\\"new\\\":\\\"      // Never parse an empty/HTML response as JSON: a stale session, failed\\\\n      // CSRF check or server-side fatal may otherwise surface only the opaque\\\\n      // \\\\\\\"Unexpected end of JSON input\\\\\\\" error on the owner's phone.\\\\n      if(response.redirected||response.status===401||response.status===419){\\\\n        throw Error('انتهت جلسة الدخول أو صلاحية الطلب. افتح الصفحة من جديد، وسجّل الدخول إذا لزم، ثم أعد النشر.');\\\\n      }\\\\n      const contentType=(response.headers.get('Content-Type')||'').toLowerCase();\\\\n      const raw=await response.text();\\\\n      if(!raw.trim())throw Error('السيرفر رجّع ردًا فارغًا (HTTP '+response.status+'). لم يتم تأكيد الحفظ أو النشر؛ راجع سجل الإصدارات قبل تكرار الطلب.');\\\\n      if(!contentType.includes('application/json'))throw Error(\\\\n        'السيرفر رجّع استجابة غير JSON (HTTP '+response.status+'). لم يتم تأكيد النشر؛ تحقق من جلسة الدخول أو سجل أخطاء السيرفر.');\\\\n      let result;\\\\n      try{result=JSON.parse(raw)}catch{\\\\n        throw Error('السيرفر رجّع JSON غير مكتمل (HTTP '+response.status+'). لم يتم تأكيد حفظ الإعدادات.');\\\\n      }\\\\n      if(!response.ok||result?.ok!==true)throw Error(result?.error||'تعذر حفظ إعدادات الإيجنت (HTTP '+response.status+')');\\\"}\")\np=pathlib.Path('/home/appontrack/public_html/assets/js/app.js')\nbackup=pathlib.Path('/home/appontrack/backup/agent-publish-json-appjs-20261105.bak')\ndata=p.read_bytes()\nif hashlib.sha256(data).hexdigest()!='bc58f55ac3117b4c1fe67a010c29da92533a074c0d07ece18eb12bbfbc844569':raise RuntimeError('source_changed')\ns=data.decode('utf-8')\nif s.count(d['old'])!=1:raise RuntimeError('js_anchor_mismatch')\nif backup.exists():raise RuntimeError('already_patched_backup_exists')\nstage=p.with_name('app.js.agent-publish-stage')\nif stage.exists():raise RuntimeError('stage_exists')\nstage.write_text(s.replace(d['old'],d['new'],1),encoding='utf-8')\nos.chmod(stage,p.stat().st_mode & 0o777)\nshutil.copy2(p,backup)\nos.replace(stage,p)\nprint(json.dumps({'status':'published','file':'assets/js/app.js','sha256':hashlib.sha256(p.read_bytes()).hexdigest()}))"
   ]
 }
