@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "agent-publish-index-20261105-2153",
+  "id": "agent-publish-live-http-smoke-20261105-2155",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-05T19:50:22.489Z",
-  "expires_at": "2026-11-05T21:50:22.489Z",
+  "created_at": "2026-11-05T19:51:57.375Z",
+  "expires_at": "2026-11-05T21:51:57.375Z",
   "cwd": "/home/appontrack",
-  "timeout_seconds": 19,
+  "timeout_seconds": 25,
   "argv": [
     "/bin/python3",
     "-c",
-    "import json,pathlib,hashlib,shutil,os,subprocess\nv=json.loads(\"{\\\"old\\\":\\\"try {init_schema();} catch(Throwable $e){\\\\n    http_response_code(503);\\\",\\\"new\\\":\\\"try {init_schema();} catch(Throwable $e){\\\\n    if(agent_studio_ajax_request())\\\\n        agent_studio_ajax_error(503,'خدمة حفظ إعدادات المساعد غير متاحة الآن بسبب خطأ في قاعدة البيانات. لم يتم تأكيد النشر.');\\\\n    http_response_code(503);\\\"}\")\np=pathlib.Path('/home/appontrack/public_html/index.php')\nbak=pathlib.Path('/home/appontrack/backup/agent-publish-json-index-20261105.bak')\nraw=p.read_bytes()\nif hashlib.sha256(raw).hexdigest()!='19a7da81beae00a002e544297710632fe234f13281eeac6800c78a6b92c4d55a':raise RuntimeError('source_changed')\ns=raw.decode('utf-8')\nif s.count(v['old'])!=1:raise RuntimeError('index_anchor_mismatch')\nstage=p.with_name('index.php.agentfix-staged')\nif stage.exists() or bak.exists():raise RuntimeError('staging_or_backup_exists')\nstage.write_text(s.replace(v['old'],v['new'],1),encoding='utf-8')\nos.chmod(stage,p.stat().st_mode & 0o777)\nt=subprocess.run(['/opt/cpanel/ea-php83/root/usr/bin/php','-l',str(stage)],capture_output=True,text=True,timeout=4)\nif t.returncode:stage.unlink();raise RuntimeError('php_lint_failed')\nshutil.copy2(p,bak);os.replace(stage,p)\nprint(json.dumps({'status':'published','file':'index.php','sha256':hashlib.sha256(p.read_bytes()).hexdigest()}))"
+    "import urllib.request,urllib.error,urllib.parse,json\nbase='https://app.ontrackegy.com'\nout={}\nreq=urllib.request.Request(base+'/assets/js/app.js?v=agent-ajax-20261105',headers={'Cache-Control':'no-cache','User-Agent':'OnTrack-Agent-Publish-Smoke'})\nwith urllib.request.urlopen(req,timeout=7) as resp:\n body=resp.read(120000).decode('utf-8','replace')\n out['javascript']={'status':resp.status,'safe_parser':\"const raw=await response.text();\" in body,'unsafe_parser':\"const result=await response.json();\" in body}\nform=urllib.parse.urlencode({'action':'update_agent','csrf':'expired','agent_id':'7'}).encode()\nreq=urllib.request.Request(base+'/?tab=agents&site=6',data=form,headers={'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json','X-Requested-With':'XMLHttpRequest','User-Agent':'OnTrack-Agent-Publish-Smoke'},method='POST')\ntry:\n with urllib.request.urlopen(req,timeout=9) as resp:status=resp.status;raw=resp.read(3000);ct=resp.headers.get('Content-Type','')\nexcept urllib.error.HTTPError as e:status=e.code;raw=e.read(3000);ct=e.headers.get('Content-Type','')\ntry:parsed=json.loads(raw)\nexcept Exception:parsed=None\nout['unauthenticated_publish']={'status':status,'json_response':isinstance(parsed,dict),'ok':parsed.get('ok') if isinstance(parsed,dict) else None,'content_type':ct.split(';')[0]}\nif out['javascript']['status']!=200 or not out['javascript']['safe_parser'] or out['javascript']['unsafe_parser'] or status!=401 or not isinstance(parsed,dict) or parsed.get('ok') is not False:raise RuntimeError('live_agent_publish_http_contract_failed')\nprint(json.dumps(out))"
   ]
 }
