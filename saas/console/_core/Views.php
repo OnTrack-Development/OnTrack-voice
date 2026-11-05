@@ -145,7 +145,7 @@ function layout_open(array $a,string $tab):void{
     echo '</nav>';
     if($support){
         $origin=account((int)($a['support_origin']??0));
-        $backLabel=($origin['kind']??'')==='reseller'?'العودة لمساحة الريسيلر':'العودة للوحة مدير المنصة';
+        $backLabel=($origin['kind']??'')==='reseller'?'العودة إلى إدارة الشركة':'العودة للوحة مدير المنصة';
         echo '<div class="workspace-switcher" aria-label="تبديل مساحة العمل">'.
             '<span class="workspace-switcher-title">أنت داخل حساب عميل للدعم</span>'.
             form_start('support_leave','','class="workspace-switch-form" data-no-ajax="1"').
@@ -153,14 +153,14 @@ function layout_open(array $a,string $tab):void{
     }elseif(console_can_switch_view($a)){
         $to=console_view_mode($a)==='user'?'admin':'user';
         $toLabel=$to==='user'?'الانتقال لمساحة المستخدم':
-            (($a['kind']==='reseller')?'العودة لمساحة الريسيلر':'العودة للوحة مدير المنصة');
+            (($a['kind']==='reseller')?'العودة إلى إدارة الشركة':'العودة للوحة مدير المنصة');
         echo '<div class="workspace-switcher" aria-label="تبديل مساحة العمل">'.
             '<span class="workspace-switcher-title">المساحة الحالية · '.($to==='user'?'إدارة الحساب':'مساحة المستخدم').'</span>'.
             form_start('set_view','','class="workspace-switch-form" data-no-ajax="1"').
             '<input type="hidden" name="view" value="'.e($to).'">'.
             '<button type="submit" class="workspace-switch-button">⇄ '.e($toLabel).'</button></form></div>';
     }
-    echo '<div class="side-footer"><span class="live-dot"></span> OnTrack Voice <small>Business communication platform</small></div></aside><button type="button" class="nav-backdrop" id="navBackdrop" aria-label="إغلاق القائمة" tabindex="-1"></button><div class="main-area">';
+    echo '<div class="side-footer"><span class="live-dot"></span> '.e((string)$brand['name']).' <small>منصة إدارة أعمالك</small></div></aside><button type="button" class="nav-backdrop" id="navBackdrop" aria-label="إغلاق القائمة" tabindex="-1"></button><div class="main-area">';
     echo '<header class="topbar"><button type="button" class="icon-button nav-toggle" id="navToggle" aria-controls="mainNavigation" aria-expanded="false" aria-label="فتح القائمة">☰</button><div class="headline"><span class="eyebrow">'.e($role).'</span><h1>'.e($heading).'</h1></div><div class="header-actions">';
     $members=memberships((int)$u['id']);
     if(count($members)>1&&!$support){
@@ -172,12 +172,12 @@ function layout_open(array $a,string $tab):void{
         $origin=account((int)($a['support_origin']??0));
         echo form_start('support_leave','','class="inline-form workspace-return-top" data-no-ajax="1"').
             '<button type="submit" class="btn small primary">'.
-            (($origin['kind']??'')==='reseller'?'↩ لوحة الريسيلر':'↩ لوحة المدير').
+            (($origin['kind']??'')==='reseller'?'↩ إدارة الشركة':'↩ لوحة المدير').
             '</button></form>';
     }elseif(console_can_switch_view($a)){
         $targetView=console_view_mode($a)==='user'?'admin':'user';
         $switchText=$targetView==='user'?'مساحة المستخدم':
-            (($a['kind']==='reseller')?'لوحة الريسيلر':'لوحة المدير');
+            (($a['kind']==='reseller')?'إدارة الشركة':'لوحة المدير');
         echo form_start('set_view','','class="inline-form workspace-return-top" data-no-ajax="1"').
             '<input type="hidden" name="view" value="'.e($targetView).'">'.
             '<button type="submit" class="btn small primary">⇄ '.e($switchText).'</button></form>';
@@ -268,7 +268,7 @@ function render_overview(array $a):void{
     if($kind==='platform'){
         echo counter('الريسيلرز',$n1,'♧').counter('العملاء',$n2,'♙').counter('المساعدون',$n3,'✧').counter('سجلات المكالمات',$n4,'☏');
     }elseif($kind==='reseller'){
-        echo counter('شركات العملاء',$n1,'♧').counter('حصص العملاء المحجوزة',$n2,'◫').counter('رصيد باقة الريسيلر',$n3,'▣').counter('تكاملات مرتبطة',$n4,'⇄');
+        echo counter('شركات العملاء',$n1,'♧').counter('حصص عملائك المحجوزة',$n2,'◫').counter('رصيد باقة شركتك',$n3,'▣').counter('تكاملات مرتبطة',$n4,'⇄');
     }else{
         echo counter('المواقع',$n1,'◎').counter('المساعدون',$n2,'✧').counter('مكالمات الخطة الشهرية',$n3,'☏').counter('سجلات تجريبية',$n4,'▤');
     }
@@ -1310,10 +1310,10 @@ function render_settings(array $a):void{
         '<a class="btn" href="/forgot-password">استرجاع كلمة المرور</a></p>');
     echo '<div class="cols two">';
     $adminIdentity=in_array($a['kind'],['platform','reseller'],true)&&console_view_mode($a)==='admin';
-    $identityTitle=$adminIdentity?($a['kind']==='platform'?'هوية المنصة':'هوية الريسيلر'):'هوية حسابك';
+    $identityTitle=$adminIdentity?($a['kind']==='platform'?'هوية المنصة':'هوية شركتك'):'هوية حسابك';
     $identityDescription=$adminIdentity
         ?'هنا بتتحكم في هوية الإدارة والعلامة التجارية. إعدادات وبيانات المستخدم التشغيلية موجودة في مساحة المستخدم.'
-        :'المستخدم المباشر يرث OnTrack؛ المستخدم التابع يرث هوية الريسيلر بشكل آمن.';
+        :'بيانات الهوية والشعار بتظهر بشكل مناسب للبوابة الخاصة بشركتك.';
     $logoPreview=!empty($brand['logo'])
         ?'<img class="wl-mark" src="/saas/console/brand-logo" alt="'.e($brand['name']).'" width="64" height="64">'
         :'<span class="wl-fallback">'.e(mb_substr((string)$brand['name'],0,1)).'</span>';
