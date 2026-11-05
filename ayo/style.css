@@ -41,3 +41,27 @@
 .emotion-examples button{padding:7px 10px;border-radius:8px;border:1px solid #59363e;background:#292026;color:#f5c4cd;font-size:10px}
 .emotion-examples button:focus-visible,.emotion-examples button:hover{border-color:#e85b6e;background:#49232c}
 @media(max-width:420px){.emotion-selector{margin:0 11px 12px;padding:10px}.emotion-examples{margin-inline:12px}.emotion-examples button{flex:1 1 auto}}
+
+/* Official AYO character: supplied portrait + live sound-driven canvas. */
+.stage-center{height:auto;min-height:414px;padding:10px 9px 8px;overflow:hidden}
+.orb-wrap.ayo-avatar{width:min(100%,310px);height:auto;aspect-ratio:1;position:relative;display:block;margin:0 auto;isolation:isolate;border-radius:50%}
+.ayo-avatar-image{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none;z-index:1;filter:contrast(1.05) brightness(1.03);mask-image:radial-gradient(ellipse 65% 71% at 50% 52%,#000 68%,transparent 99%);transition:filter .3s ease}
+.ayo-avatar-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;mix-blend-mode:screen}
+.ayo-avatar-glow{position:absolute;z-index:0;inset:8%;background:radial-gradient(circle at 50% 55%,rgba(248,36,57,.13),transparent 65%);filter:blur(25px);pointer-events:none;opacity:calc(.3 + var(--voice-level,0)*.85);transition:opacity 80ms linear}
+.orb-wrap.ayo-avatar.speaking .ayo-avatar-image{animation:ayoSpeakingAura 1.5s ease-in-out infinite alternate;filter:brightness(calc(1.02 + var(--voice-level,0)*.3))}
+.orb-wrap.ayo-avatar.listening .ayo-avatar-image{animation:ayoListeningAura 3.2s ease-in-out infinite alternate}
+.ayo-brand-mark{overflow:hidden;border-radius:14px;background:#050506!important}
+.ayo-brand-mark img{display:block;width:100%;height:100%;object-fit:cover;filter:contrast(1.15) brightness(1.2)}
+.ayo-avatar+.stage-persona{margin-top:-3px}
+.ayo-mic-state{margin:8px auto 0;padding:6px 10px;min-width:0;max-width:245px;display:flex;align-items:center;gap:7px;border:1px solid #32353d;background:#181a1f;border-radius:999px;color:#9ca2ad;font-size:10px}
+.ayo-mic-dot{display:block;width:7px;height:7px;flex:0 0 7px;border-radius:100%;background:#696f7e;box-shadow:none}
+.ayo-mic-state.active .ayo-mic-dot{background:#47d9ae;box-shadow:0 0 10px #47d9ae88}
+.ayo-mic-state.error .ayo-mic-dot{background:#fa5367;box-shadow:0 0 10px #fa536788}
+.ayo-mic-state>span:nth-child(2){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ayo-mic-track{height:3px;border-radius:7px;overflow:hidden;flex:1;min-width:28px;background:#373b47}
+.ayo-mic-meter{width:100%;height:100%;transform:scaleX(0);transform-origin:right;background:linear-gradient(90deg,#44a39d,#48e1ae);transition:transform 80ms linear}
+@keyframes ayoSpeakingAura{from{transform:scale(1);filter:brightness(1)}to{transform:scale(1.025);filter:brightness(1.14)}}
+@keyframes ayoListeningAura{from{transform:scale(1)}to{transform:scale(1.012)}}
+@media(max-width:800px){.stage-center{height:auto;min-height:420px}.orb-wrap.ayo-avatar{width:min(100%,315px)}}
+@media(max-width:420px){.stage-center{min-height:385px;padding:5px}.orb-wrap.ayo-avatar{width:min(100%,270px)}.stage-persona h2{font-size:20px}.ayo-mic-state{margin-top:6px}}
+@media(prefers-reduced-motion:reduce){.orb-wrap.ayo-avatar.speaking .ayo-avatar-image,.orb-wrap.ayo-avatar.listening .ayo-avatar-image{animation:none}.ayo-mic-meter{transition:none}}
