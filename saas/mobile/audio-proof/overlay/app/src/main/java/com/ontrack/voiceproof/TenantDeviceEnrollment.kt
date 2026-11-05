@@ -205,6 +205,37 @@ class TenantDeviceEnrollment(private val context: Context) {
         }
         return session
     }
+    /** Request the next key from the exact original device + tenant + SIM.
+     * No heartbeat or republish during an ongoing call: a human may switch the
+     * SIM's agent while this call keeps its original immutable revision.
+     * Never expose or store a master Google API key on Android.
+     */
+    fun rotateVoiceSession(slot:Int,previous:JSONObject,failureCode:String):JSONObject {
+        require(failureCode in setOf("429","503","timeout")) { "unsupported provider error" }
+        val ticket=previous.optString("failover_ticket","")
+        val generation=previous.optInt("failover_generation",-1)
+        require(ticket.matches(Regex("^[a-f0-9]{48}$")) && generation in 0..2) {
+            "المكالمة الحالية لا تدعم تبديل مفاتيح Google"
+        }
+        val saved=local(slot) // Do NOT rebind or retrieve a newer agent during a live call.
+        val body=JSONObject().put("operation","voice_failover")
+            .put("failover_ticket",ticket).put("failover_generation",generation)
+            .put("failure_code",failureCode)
+        val response=request(body,saved.getString("token"))
+        val rotated=response.getJSONObject("session")
+        check(rotated.optString("token","").startsWith("auth_tokens/") &&
+            rotated.optString("model","").isNotBlank() &&
+            rotated.optString("failover_ticket","")==ticket &&
+            rotated.optInt("failover_generation",-1)==generation+1 &&
+            rotated.optInt("site_id",-1)==previous.optInt("site_id",-2) &&
+            rotated.optInt("agent_id",-1)==previous.optInt("agent_id",-2) &&
+            rotated.optInt("sim_slot",-1)==slot &&
+            rotated.optInt("revision",-1)==previous.optInt("revision",-2) &&
+            rotated.optString("hash","")==previous.optString("hash","")) {
+            "جلسة التبديل غير مطابقة للمكالمة أو الشريحة"
+        }
+        return rotated
+    }
     /** Dry-run for binding + immutable published Flow + ephemeral Gemini session.
      * No GSM call, audio capture, or legacy pilot session is performed.
      */
