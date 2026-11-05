@@ -37,8 +37,8 @@ try{
     try{google_voice_key_set_customer_limit(3,5,1);}
     catch(InvalidArgumentException){$blocked=true;}
     google_key_assert($blocked,'foreign reseller cannot override customer key cap');
-    $old=one('SELECT google_key_limit FROM plans WHERE id=3')['google_key_limit'];
-    execute('UPDATE plans SET google_key_limit=3 WHERE id=3');
+    $old=one('SELECT google_key_limit FROM plans WHERE id=4')['google_key_limit'];
+    execute('UPDATE plans SET google_key_limit=3 WHERE id=4');
     try{
         google_voice_key_set_customer_limit(2,5,2);
         google_key_assert(google_voice_key_limit(5)===2,'reseller override below plan applied');
@@ -53,7 +53,7 @@ try{
         try{ai_relay_run('voice',static fn($r,$key)=>$key,5);}
         catch(RuntimeException){$blocked=true;}
         google_key_assert($blocked,'plan suspension blocks BYOK use without fallback');
-    }finally{execute('UPDATE plans SET google_key_limit=? WHERE id=3',[$old]);}
+    }finally{execute('UPDATE plans SET google_key_limit=? WHERE id=4',[$old]);}
     google_key_assert(google_voice_pool_owner(6)===2,'sibling customer without own key uses reseller');
     google_key_assert(ai_relay_run('voice',static fn($row,$key)=>$key,2)==='reseller-demo-key-1',
         'reseller pool may contain multiple keys');
