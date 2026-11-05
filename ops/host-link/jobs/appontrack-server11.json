@@ -1,15 +1,16 @@
 {
   "schema": 1,
-  "id": "ayo-chat-audio-mic-v10-smoke-20261105-01",
+  "id": "ayo-v11-inline-chat-errors-20261105-01",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-05T04:51:33.380Z",
-  "expires_at": "2026-11-05T05:31:33.380Z",
+  "created_at": "2026-11-05T04:53:37.170Z",
+  "expires_at": "2026-11-05T05:28:37.170Z",
   "cwd": "/home/appontrack/public_html",
-  "timeout_seconds": 28,
+  "timeout_seconds": 25,
   "argv": [
     "/bin/python3",
     "-c",
-    "import urllib.request,urllib.error,http.cookiejar,json\nbase='https://app.ontrackegy.com/ayo/'\nhttp=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))\nchecks=[]\nfor suffix,marker in [('',b'ayoPlayback'),('app.js?v=10',b'async function sendTurn('),('style.css?v=10',b'.ayo-native-player'),('ayo-mic-stt.js',b'createMicTurns'),('assets/ayo-character.webp',None)]:\n try:\n  with http.open(urllib.request.Request(base+suffix),timeout=8) as r:\n   body=r.read(180000);pol=r.headers.get_all('Permissions-Policy',[])\n   checks.append({'route':suffix or '/','http':r.status,'bytes':len(body),'marker':marker is None or marker in body,'mic_policy':pol if suffix=='' else None})\n except urllib.error.HTTPError as e:checks.append({'route':suffix or '/','http':e.code})\ntry:\n with http.open(base+'api.php?action=status',timeout=8) as r:\n  j=json.load(r);checks.append({'route':'api.php?action=status','http':r.status,'owner_guarded':not j.get('ownerAuthorized',False),'keys_not_leaked':'inworldKey' not in j.get('config',{})})\nexcept urllib.error.HTTPError as e:checks.append({'route':'api.php?action=status','http':e.code})\nwith http.open(base,timeout=8) as r:pol=r.headers.get_all('Permissions-Policy',[])\nresult={'result':'PASS' if all(x.get('http')==200 and x.get('marker',True) for x in checks) else 'FAIL','mic_allowed_in_policy':any('microphone=(self)' in x for x in pol) and not any('microphone=()' in x for x in pol),'checks':checks}\nprint(json.dumps(result))"
+    "import os,json,pathlib,base64,hashlib,urllib.request,subprocess,shutil\nroot=pathlib.Path('/home/appontrack/public_html/ayo')\nexpected=json.loads(__import__('sys').argv[1])\nbackup=pathlib.Path('/home/appontrack/.ayo-inline-chat-v11-backup-20261105')\nif set(expected)!={'app.js','index.php'} or backup.exists():raise RuntimeError('unsafe deployment')\ntoken=json.loads(pathlib.Path('/home/appontrack/ontrack-voice-link/config.json').read_text())['token']\nheads={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','User-Agent':'OnTrack-AYO-Publisher'}\nblobs={}\nfor name,sha in expected.items():\n url='https://api.github.com/repos/OnTrack-Development/OnTrack-voice/contents/ayo/'+name+'?ref=feat/ayo-php-host-demo-20261105'\n with urllib.request.urlopen(urllib.request.Request(url,headers=heads),timeout=8) as r:d=json.load(r)\n raw=base64.b64decode(d['content'])\n h=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\\0'+raw).hexdigest()\n if d.get('sha')!=sha or h!=sha:raise RuntimeError('source SHA mismatch '+name)\n blobs[name]=raw\nphp=shutil.which('php') or '/usr/local/bin/php'\nwith __import__('tempfile').TemporaryDirectory(dir='/home/appontrack') as d:\n p=pathlib.Path(d)/'index.php';p.write_bytes(blobs['index.php'])\n r=subprocess.run([php,'-l',str(p)],capture_output=True,text=True,timeout=6)\n if r.returncode:raise RuntimeError('PHP lint failure')\nbackup.mkdir(mode=0o700)\nfor name in expected:\n p=root/name\n if not p.is_file() or p.is_symlink():raise RuntimeError('missing/symlink '+name)\n (backup/name).write_bytes(p.read_bytes())\nchanged=[]\ntry:\n for name,raw in blobs.items():\n  target=root/name;temp=root/(name+'.v11tmp')\n  fd=os.open(temp,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o644)\n  with os.fdopen(fd,'wb') as f:f.write(raw)\n  os.chmod(temp,0o644);os.replace(temp,target);changed.append(name)\nexcept:\n for name in changed:\n  (root/name).write_bytes((backup/name).read_bytes());os.chmod(root/name,0o644)\n raise\nprint(json.dumps({'status':'deployed','version':'v11','files':changed,'integrity':'ok','php_lint':'ok'}))",
+    "{\"app.js\":\"55de85fdc35be4453463f068afe1949da29f140b\",\"index.php\":\"d4d3e121e06f2a13875db557dd177b3cf34ed3d4\"}"
   ]
 }
