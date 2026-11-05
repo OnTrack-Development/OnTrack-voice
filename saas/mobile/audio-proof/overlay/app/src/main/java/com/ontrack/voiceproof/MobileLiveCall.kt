@@ -32,8 +32,8 @@ internal class MobileLiveCall(
     private val stopped=AtomicBoolean(false)
     @Volatile private var remoteSpeechConfirmed=!outgoingCall
     private val ready=CompletableDeferred<Unit>()
-    // Cap stale speech to ~600 ms, not several seconds after interruption.
-    private val playback=Channel<Pair<Int,ByteArray>>(24)
+    // Keep at most ~250ms of pending generated voice during 4G congestion.
+    private val playback=Channel<Pair<Int,ByteArray>>(10)
     @Volatile private var generation=0
     @Volatile private var pipe:Socket?=null
     @Volatile private var output:DataOutputStream?=null
@@ -115,6 +115,8 @@ internal class MobileLiveCall(
     private val capturedPackets=AtomicLong(0)
     private val audibleCapture=AtomicBoolean(false)
     private val modelAudioBytes=AtomicLong(0)
+    private val lastAssistantAudioAt=AtomicLong(0)
+    private val lastLocalBargeAt=AtomicLong(0)
     private val submittedToShell=AtomicLong(0)
     private var diagnostics:Job?=null
     private var worker:Job?=null
