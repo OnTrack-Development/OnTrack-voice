@@ -27,7 +27,7 @@ try{
     init_schema();
     $operation=(string)($data['operation']??'');
     $maxBody=$operation==='workspace_file_import'?1490000:
-       ($operation==='workspace_import'?350000:4096);
+       ($operation==='workspace_import'?350000:(in_array($operation,['workspace_call_analysis','workspace_call_transcript'],true)?65536:4096));
     if(strlen($raw)>$maxBody)device_answer(413,['ok'=>false,'error'=>'request_too_large']);
     if($operation==='pair'){
         $slot=$data['sim_slot']??null;
