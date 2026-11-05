@@ -1,0 +1,13 @@
+{
+  "job_id": "ontrack-live-call-state-audit2-20261105-2305",
+  "target": "appontrack-server11",
+  "job_sha256": "e97b4072493f3d9c4cbd44b5c6e86c011d82f2dadc15cc955845ffa99ee81ca2",
+  "started_at": "2026-11-05T21:05:03.317714+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"calls\":[{\"id\":60,\"started\":\"2026-11-05 20:58:48\",\"status\":\"ended\",\"duration\":79,\"has_phone\":1,\"has_report\":0,\"has_summary\":0,\"handoff\":\"none\",\"events\":4,\"transcript\":0},{\"id\":59,\"started\":\"2026-11-05 20:57:47\",\"status\":\"ended\",\"duration\":46,\"has_phone\":1,\"has_report\":0,\"has_summary\":0,\"handoff\":\"none\",\"events\":4,\"transcript\":0},{\"id\":58,\"started\":\"2026-11-05 19:44:05\",\"status\":\"ended\",\"duration\":56,\"has_phone\":1,\"has_report\":1,\"has_summary\":0,\"handoff\":\"completed\",\"events\":5,\"transcript\":0},{\"id\":57,\"started\":\"2026-11-05 19:20:45\",\"status\":\"ended\",\"duration\":78,\"has_phone\":1,\"has_report\":1,\"has_summary\":0,\"handoff\":\"requested\",\"events\":4,\"transcript\":0},{\"id\":56,\"started\":\"2026-11-05 18:54:11\",\"status\":\"ended\",\"duration\":1390,\"has_phone\":1,\"has_report\":1,\"has_summary\":0,\"handoff\":\"requested\",\"events\":4,\"transcript\":1},{\"id\":55,\"started\":\"2026-11-05 18:53:58\",\"status\":\"missed\",\"duration\":0,\"has_phone\":0,\"has_report\":0,\"has_summary\":0,\"handoff\":\"none\",\"events\":2,\"transcript\":0},{\"id\":54,\"started\":\"2026-11-05 18:53:26\",\"status\":\"ended\",\"duration\":21,\"has_phone\":1,\"has_report\":0,\"has_summary\":0,\"handoff\":\"none\",\"events\":4,\"transcript\":0},{\"id\":53,\"started\":\"2026-11-05 18:51:53\",\"status\":\"ended\",\"duration\":81,\"has_phone\":1,\"has_report\":1,\"has_summary\":1,\"handoff\":\"requested\",\"events\":5,\"transcript\":1},{\"id\":52,\"started\":\"2026-11-05 18:46:54\",\"status\":\"ended\",\"duration\":37,\"has_phone\":0,\"has_report\":0,\"has_summary\":0,\"handoff\":\"none\",\"events\":2,\"transcript\":0},{\"id\":51,\"started\":\"2026-11-05 18:29:48\",\"status\":\"ended\",\"duration\":235,\"has_phone\":1,\"has_report\":1,\"has_summary\":1,\"handoff\":\"requested\",\"events\":4,\"transcript\":1},{\"id\":50,\"started\":\"2026-11-05 18:29:33\",\"status\":\"ended\",\"duration\":11,\"has_phone\":1,\"has_report\":0,\"has_summary\":0,\"handoff\":\"none\",\"events\":3,\"transcript\":0},{\"id\":49,\"started\":\"2026-11-05 17:34:53\",\"status\":\"ended\",\"duration\":52,\"has_phone\":1,\"has_report\":0,\"has_summary\":0,\"handoff\":\"none\",\"events\":4,\"transcript\":0}]}",
+  "stderr": "",
+  "finished_at": "2026-11-05T21:05:03.387213+00:00",
+  "duration_ms": 70
+}
