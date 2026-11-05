@@ -756,7 +756,7 @@ function render_agents(array $a):void{
                 '<div class="form-grid"><label class="field">مهلة الرد بالثواني<input name="answer_delay_seconds" type="number" min="0" max="30" value="'.(int)$policy['answer_delay_seconds'].'" required></label>'.
                 '<label class="field">المدة القصوى بالدقائق<input name="max_call_minutes" type="number" min="1" max="30" value="'.(int)$policy['max_call_minutes'].'" required></label>'.
                 select_html('الأسلوب','response_style',[
-                    'egyptian_short'=>'مصري مختصر','formal_ar'=>'عربي رسمي','english'=>'إنجليزي','bilingual'=>'عربي وإنجليزي'],$policy['response_style']).
+                    'egyptian_short'=>'مصري مختصر','formal_ar'=>'عربي رسمي','english'=>'إنجليزي','bilingual'=>'عربي وإنجليزي','multilingual'=>'أي لغة يتحدث بها العميل'],$policy['response_style']).
                 select_html('عند تعذر الاستكمال','fallback',['human'=>'عرض مساعدة موظف','end'=>'إنهاء بأدب'],$policy['fallback']).'</div>'.
                 '<label class="field"><input type="checkbox" name="auto_answer"'.($policy['auto_answer']?' checked':'').'> الرد الآلي عند تفعيل ربط الشريحة</label></div></div>'.
                 '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">نشر إعدادات المساعد</button>'.
