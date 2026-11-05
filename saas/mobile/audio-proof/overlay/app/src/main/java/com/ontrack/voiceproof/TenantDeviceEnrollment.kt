@@ -71,7 +71,13 @@ class TenantDeviceEnrollment(private val context: Context) {
             .header("Content-Type","application/json")
         if(token!=null)builder.header("Authorization","Bearer "+TenantPairingContract.token(token))
         val req=builder.post(body.toString().toRequestBody("application/json".toMediaType())).build()
-        client.newCall(req).execute().use { response ->
+        // Google Live structured report generation may take well beyond the
+        // default 12s device API timeout. Other pairing/call control requests
+        // remain short; only post-call analysis receives the longer timeout.
+        val transport=if(body.optString("operation")=="workspace_call_analysis")
+            client.newBuilder().readTimeout(155,TimeUnit.SECONDS).build()
+        else client
+        transport.newCall(req).execute().use { response ->
             val raw=response.body?.string().orEmpty()
             check(raw.length<=maxResponse) { "استجابة السيرفر غير صالحة" }
             val apiError=runCatching{JSONObject(raw).optString("error","")}.getOrDefault("")
