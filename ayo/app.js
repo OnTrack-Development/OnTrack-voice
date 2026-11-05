@@ -29,7 +29,7 @@ function renderGateway(c){
   $('gatewayState').classList.toggle('is-ready',!!c.hasActiveLlmKey);
 }
 async function chooseGateway(provider,model){
-  if(gatewaySaving||!models[provider])return;
+  if(gatewaySaving||!models[provider]||!S.config)return;
   const desired=model||rememberedModels[provider]||models[provider][0];
   if(S.config?.llmProvider===provider&&S.config?.llmModel===desired)return;
   gatewaySaving=true;renderGateway(S.config);
