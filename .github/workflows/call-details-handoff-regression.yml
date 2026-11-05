@@ -1,0 +1,50 @@
+name: Call Details and Manager Handoff Regression
+on:
+  pull_request:
+    branches: [feat/voice-production-gap-20261103]
+    paths:
+      - 'saas/console/_core/TenantWorkspace.php'
+      - 'saas/mobile/audio-proof/**'
+      - 'tools/test_tenant_call_ai_summary.php'
+      - '.github/workflows/call-details-handoff-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  call_backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP lint and actual call-report/handoff regressions
+        run: |
+          set -euo pipefail
+          php -l saas/console/_core/TenantWorkspace.php
+          php -l tools/test_tenant_call_ai_summary.php
+          php tools/test_tenant_call_ai_summary.php
+          php tools/test_human_escalation.php
+          php tools/test_sim_agent_call_reports.php
+          php tools/test_tenant_voice_transcript_archive.php
+          php tools/test_mobile_call_ledger.php
+          echo 'CALL_REPORT_AND_MANAGER_HANDOFF_BACKEND_PASS'
+      - name: Native UI OTA contracts (no APK build duplicated)
+        run: |
+          set -euo pipefail
+          python3 tools/test_mobile_ui_contract.py
+          python3 tools/test_mobile_release_gate.py
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof')
+          source=(root/'MobileLinkActivity.kt').read_text(encoding='utf-8')
+          assert 'private fun requestCallNamesPermissions()' in source
+          assert 'requestCallNamesPermissions()' in source
+          assert 'Manifest.permission.READ_CALL_LOG' in source
+          enrollment=(root/'TenantDeviceEnrollment.kt').read_text(encoding='utf-8')
+          assert 'workspace_call_analysis' in enrollment
+          assert 'readTimeout(155,TimeUnit.SECONDS)' in enrollment
+          dial=(root/'HumanEscalationDialer.kt').read_text(encoding='utf-8')
+          assert 'telecom.placeCall(' in dial
+          print('NATIVE_CALL_REPORT_SOURCE_CONTRACT_PASS')
+          PY
