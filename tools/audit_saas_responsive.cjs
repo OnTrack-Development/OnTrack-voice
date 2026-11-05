@@ -28,11 +28,18 @@ async function evaluate(expression){
 }
 async function load(url){
   await cdp('Page.navigate',{url:'http://127.0.0.1:'+port+url});
-  for(let n=0;n<75;n++){
+  let previous='';
+  for(let n=0;n<100;n++){
     await wait(75);
-    try{if(await evaluate('document.readyState==="complete"')){await wait(100);return}}catch{}
+    try{
+      const state=await evaluate('(function(){return {route:location.pathname+location.search,ready:document.readyState}})()');
+      previous=state.route;
+      // CDP Page.navigate returns before Chromium swaps the old document;
+      // readyState=complete alone was producing false audit results.
+      if(state.route===url && state.ready==='complete'){await wait(85);return}
+    }catch{}
   }
-  throw Error('load timeout '+url);
+  throw Error('load timeout requested='+url+' browser='+previous);
 }
 async function width(w){
   await cdp('Emulation.setDeviceMetricsOverride',{width:w,height:850,deviceScaleFactor:1,mobile:false});
