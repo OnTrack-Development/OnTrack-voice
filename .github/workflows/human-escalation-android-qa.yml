@@ -39,6 +39,13 @@ jobs:
           & python saas/mobile/audio-proof/prepare.py .build/jemrec
           if($LASTEXITCODE -ne 0){throw 'Overlay could not be prepared'}
           Write-Host 'HUMAN_ESCALATION_ANDROID_OVERLAY_PASS'
+      - name: Build shell-side Android daemon with native Windows Java and D8
+        run: |
+          $ErrorActionPreference='Stop'
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
+          if($LASTEXITCODE -ne 0){throw 'Shell server build failed'}
+          Write-Host 'HUMAN_ESCALATION_SHELL_SERVER_PASS'
       - name: Patch existing upstream AndroidX Fragment ActivityResult compatibility
         run: |
           $ErrorActionPreference='Stop'
