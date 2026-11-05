@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "ontrack-manager-routing-audit-20261105-2026",
+  "id": "ontrack-manager-contacts-scoped-20261105-2030",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-05T18:22:25.233Z",
-  "expires_at": "2026-11-05T20:22:25.233Z",
+  "created_at": "2026-11-05T18:24:24.005Z",
+  "expires_at": "2026-11-05T20:24:24.005Z",
   "cwd": "/home/appontrack",
   "timeout_seconds": 20,
   "argv": [
     "/opt/cpanel/ea-php83/root/usr/bin/php",
     "-r",
-    "require '/home/appontrack/public_html/_core/Bootstrap.php';$pdo=db();$out=[];foreach(['human_escalation_contacts','voice_staff_numbers','agents','device_bindings'] as $t){try{$out['counts'][$t]=(int)$pdo->query('SELECT COUNT(*) FROM '.$t)->fetchColumn();}catch(Throwable $e){$out['counts'][$t]='table_unavailable';}}foreach(['human_escalation_contacts'=>'SELECT id,account_id,recipient_role,status,RIGHT(phone_e164,4) phone_last4 FROM human_escalation_contacts ORDER BY id DESC LIMIT 20','voice_staff_numbers'=>'SELECT id,account_id,status,RIGHT(phone_e164,4) phone_last4 FROM voice_staff_numbers ORDER BY id DESC LIMIT 20','agents'=>'SELECT id,account_id,site_id,status FROM agents ORDER BY id DESC LIMIT 20','device_bindings'=>'SELECT id,account_id,site_id,agent_id,sim_slot,status FROM device_bindings WHERE status=\"active\" ORDER BY id DESC LIMIT 12'] as $key=>$sql){try{$out[$key]=$pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);}catch(Throwable $e){$out[$key]='query_unavailable';}}echo json_encode($out,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);"
+    "require '/home/appontrack/public_html/_core/Bootstrap.php';$p=db();$out=[];foreach(['human_escalation_contacts'=>'SELECT id,account_id,recipient_role,status FROM human_escalation_contacts','voice_staff_numbers'=>'SELECT id,account_id,user_id,status FROM voice_staff_numbers','human_escalation_routes'=>'SELECT agent_id,account_id,site_id,contact_id,enabled,updated_at FROM human_escalation_routes'] as $key=>$query){try{$out[$key]=$p->query($query)->fetchAll(PDO::FETCH_ASSOC);}catch(Throwable $e){$out[$key]='query_failed';}}echo json_encode($out,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);"
   ]
 }
