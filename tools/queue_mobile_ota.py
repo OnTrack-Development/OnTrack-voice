@@ -51,7 +51,7 @@ def main():
         # EXACT signed UI payload; the host re-verifies its certificate and
         # digest before installing. No GitHub credential crosses the host link.
         from mobile_direct_transport import asset_url
-        ui_zip=Path('.build/artifact/OnTrack-Voice-UI45.zip')
+        ui_zip=Path('.build/artifact/OnTrack-Voice-UI46.zip')
         if not ui_zip.is_file():raise RuntimeError('SIGNED_UI_RELEASE_BUNDLE_MISSING')
         url=asset_url(ui_zip.name,hashlib.sha256(ui_zip.read_bytes()).hexdigest(),ui_zip.stat().st_size)
         program=(Path('saas/mobile/ota/deploy.py')).read_text()+'\n'+(Path('saas/mobile/ota/remote_deploy.py')).read_text()+'\nimport sys\nremote_install(sys.argv[1],sys.argv[2],sys.argv[3])\n'
