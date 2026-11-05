@@ -218,10 +218,14 @@ function tenant_voice_session(array $binding):array {
         $session=ai_relay_voice_session($definition['policy']['max_call_minutes'],(int)$binding['account_id']);
     else{$provider=tenant_voice_provider((int)$binding['account_id']);$session=['model'=>$provider['model'],
          'token'=>tenant_voice_ephemeral_token($provider['key'],$definition['policy']['max_call_minutes'])];}
+    // A short-lived opaque ticket permits only the SAME paired SIM and key
+    // pool to request a fresh ephemeral token after a provider 429/503/timeout.
+    require_once __DIR__.'/GoogleVoiceFailover.php';
+    $ticket=google_voice_failover_register($binding,$definition,$session);
     return ['token'=>$session['token'],'model'=>$session['model'],'system_instruction'=>$definition['instruction'],
         'voice'=>$definition['voice'],'answer_policy'=>$definition['policy'],
         'revision'=>$definition['revision'],'hash'=>$definition['flow_hash'],
-        'conversation_mode'=>'dynamic',
+        'conversation_mode'=>'dynamic','agent_name'=>$definition['agent_name'],
         'agent_id'=>$definition['agent_id'],'site_id'=>$definition['site_id'],
-        'sim_slot'=>(int)$binding['sim_slot'],'transport'=>'tenant_gemini_live_preview'];
+        'sim_slot'=>(int)$binding['sim_slot'],'transport'=>'tenant_gemini_live_preview']+$ticket;
 }
