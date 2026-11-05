@@ -257,8 +257,10 @@ function ai_relay_model():string {
 function ai_relay_voice_session(int $minutes,?int $callerAccountId=null):array {
     require_once __DIR__.'/GoogleTenantKeys.php';
     $owner=$callerAccountId===null?ai_relay_platform():google_voice_pool_owner($callerAccountId);
-    return ai_relay_run('voice',static function(array $row,string $key)use($minutes){
-        return ['token'=>tenant_voice_ephemeral_token($key,$minutes),'model'=>$row['model']];
+    return ai_relay_run('voice',static function(array $row,string $key)use($minutes,$owner){
+        // Server-only metadata for a failover ticket; no master key is sent to Android.
+        return ['token'=>tenant_voice_ephemeral_token($key,$minutes),'model'=>$row['model'],
+            'entry_id'=>(int)$row['id'],'pool_owner_id'=>$owner];
     },$owner);
 }
 function ai_relay_test(int $id,?int $accountId=null):string {
