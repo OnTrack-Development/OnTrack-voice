@@ -12,10 +12,10 @@ on:
       - feat/white-label-reseller-portal-20261105
     paths:
       - .github/workflows/owner-windows-saas-ui-publish.yml
-      - saas/console/_core/Views.php
+      # Authenticated device API + report ingestion are part of the SaaS
+      # console and MUST deploy alongside the visible call-history UI.
+      - 'saas/console/**'
       - tools/deploy_saas_console.py
-      - saas/console/assets/js/flow-graph.js
-      - saas/console/assets/css/app.css
   workflow_dispatch:
 permissions:
   contents: write
