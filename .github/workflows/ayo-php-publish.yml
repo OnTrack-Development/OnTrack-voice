@@ -26,14 +26,23 @@ jobs:
           php-version: '8.3'
           extensions: curl,fileinfo,openssl
           coverage: none
-      - name: Validate isolated PHP + JS and publisher scripts
+      - name: Check PHP, ES modules, Python, knowledge and image
+        shell: bash
         run: |
           set -euo pipefail
-          php -l ayo/index.php
-          php -l ayo/api.php
-          node --check ayo/app.js
+          for phpfile in ayo/index.php ayo/api.php ayo/secure-vault.php ayo/voice-expression.php; do
+            php -l "$phpfile"
+          done
+          php tests/ayo/test_voice_expression.php
+          for esm in ayo/app.js ayo/ayo-avatar.js ayo/ayo-mic-stt.js; do
+            node --input-type=module --check < "$esm"
+          done
+          node --check ayo/audio-worklet.js
           python3 -m py_compile tools/deploy_ayo.py tools/queue_ayo.py
           python3 -m json.tool ayo/ontrack.json > /dev/null
+          test -s ayo/assets/ayo-character.webp.b64
+          base64 --decode ayo/assets/ayo-character.webp.b64 > /tmp/ayo-character.webp
+          file /tmp/ayo-character.webp | grep -q 'Web/P image'
   publish:
     needs: check
     runs-on: ubuntu-latest
@@ -45,20 +54,30 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - name: Package only the PHP demo (no secrets)
+      - name: Package all AYO dependencies, not the main SaaS
+        shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist/ayo
-          tar --format=ustar -czf dist/ayo/release.tar.gz \
-            ayo/api.php ayo/index.php ayo/app.js ayo/style.css ayo/audio-worklet.js ayo/ontrack.json
+          mkdir -p dist/ayo/stage/ayo/assets
+          cp ayo/index.php ayo/api.php ayo/app.js ayo/style.css \
+             ayo/audio-worklet.js ayo/ontrack.json ayo/secure-vault.php \
+             ayo/voice-expression.php ayo/ayo-avatar.js ayo/ayo-mic-stt.js \
+             ayo/.htaccess dist/ayo/stage/ayo/
+          base64 --decode ayo/assets/ayo-character.webp.b64 > dist/ayo/stage/ayo/assets/ayo-character.webp
+          test -s dist/ayo/stage/ayo/assets/ayo-character.webp
+          tar --format=ustar -C dist/ayo/stage -czf dist/ayo/release.tar.gz ayo
           sha256sum dist/ayo/release.tar.gz | awk '{print $1}' > dist/ayo/release.sha256
+          test "$(tar -tzf dist/ayo/release.tar.gz | grep -v '/$' | wc -l)" -eq 12
+          rm -rf dist/ayo/stage
       - uses: actions/upload-artifact@v5
         with:
           name: OnTrack-AYO-PHP
-          path: dist/ayo/
+          path: |
+            dist/ayo/release.tar.gz
+            dist/ayo/release.sha256
           retention-days: 7
           if-no-files-found: error
-      - name: Deliver pinned AYO artifact to existing hosting runner
+      - name: Deliver complete AYO release to the existing host worker
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 tools/queue_ayo.py
