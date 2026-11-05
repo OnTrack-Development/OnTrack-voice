@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-auth-reseller-live-brand-20261105",
+  "target": "appontrack-server11",
+  "job_sha256": "edc98e98667acc47c4da5ec395fd43a93934e726ec04daaeff65f8073e35af6f",
+  "started_at": "2026-11-05T00:15:03.971864+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "[{\"slug\": \"delta-voice\", \"http\": 200, \"title\": \"سجّل شركتك لدى SOG\", \"heading\": \"سجّل شركتك لدى SOG\", \"brand\": \"SOG\", \"scope_confirmed\": true, \"form_present\": true}, {\"slug\": \"nile-voice\", \"http\": 200, \"title\": \"سجّل شركتك لدى نيل فويس\", \"heading\": \"سجّل شركتك لدى نيل فويس\", \"brand\": \"OTنيل فويس\", \"scope_confirmed\": true, \"form_present\": true}]\n",
+  "stderr": "",
+  "finished_at": "2026-11-05T00:15:04.183322+00:00",
+  "duration_ms": 211
+}
