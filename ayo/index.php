@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <meta name="theme-color" content="#0d0f12"/>
+  <meta name="theme-color" content="#000000"/>
   <title>AYO | OnTrack Voice Lab</title>
-  <link rel="stylesheet" href="style.css?v=6"/>
+  <link rel="stylesheet" href="style.css?v=7"/>
 </head>
 <body>
 <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -25,6 +25,7 @@
           <canvas id="ayoCharacterCanvas" class="ayo-avatar-canvas" aria-hidden="true"></canvas>
         </div>
         <div class="stage-persona"><h2>آيو <span>AYO</span></h2><p id="stageHint">الشخصية الرسمية · تفاعلية مع صوتك وصوت آيو</p></div>
+        <button type="button" id="enableMicBtn" class="ayo-enable-mic"><span aria-hidden="true">🎙</span> تفعيل الميكروفون <small>اضغط واسمح للمتصفح</small></button>
         <div class="ayo-mic-state" aria-live="polite"><span class="ayo-mic-dot" id="micIndicator"></span><span id="micState">الميكروفون غير متصل</span><div class="ayo-mic-track"><div id="micMeter" class="ayo-mic-meter"></div></div></div>
         <div class="visualizer" id="visualizer" aria-hidden="true"></div>
         <div class="clock" id="clock">02:00</div><span class="clock-label">الوقت المتبقي</span>
@@ -34,7 +35,7 @@
         <button class="main-call" id="callBtn"><span id="callIcon">☎</span><strong id="callText">ابدأ المكالمة</strong></button>
         <button class="round-control" id="interruptBtn" title="اقطع رد الإيجنت" disabled><span>Ⅱ</span><small>مقاطعة</small></button>
       </div>
-      <div class="test-mode"><label>نوع الاختبار <select id="testMode"><option value="live">مباشر — LLM خارجي + Inworld</option><option value="mock">محاكاة واجهة — بدون API</option></select></label><label>السماع <select id="sttMode"><option value="browser">تعرف كلام المتصفح (مجاني)</option><option value="inworld" disabled>Inworld STT غير مفعل في ديمو PHP</option></select></label></div>
+      <div class="test-mode"><label>نوع الاختبار <select id="testMode"><option value="live">مباشر — LLM خارجي + Inworld</option><option value="mock">محاكاة واجهة — بدون API</option></select></label><label>السماع <select id="sttMode"><option value="inworld">Inworld STT · يسمع المصري</option><option value="browser">تعرف كلام المتصفح (إن كان مدعومًا)</option></select></label></div>
       <section class="gateway-picker" aria-label="اختيار بوابة الذكاء الاصطناعي">
         <div class="gateway-title"><strong>اختار بوابة الـ AI</strong><small>التبديل مباشر ومحفوظ للجلسة · Inworld للصوت فقط</small></div>
         <div class="gateway-options" role="group" aria-label="بوابة النموذج">
@@ -68,7 +69,7 @@
       <section class="panel config-panel"><div class="panel-head"><div class="panel-label"><span class="speech-icon">⚙</span><h3>إعدادات التجربة</h3></div><button id="toggleConfig" class="btn-quiet">إظهار</button></div>
         <div id="configBody" class="hidden">
           <form id="configForm" class="config-form">
-            <label>مفتاح دخول إضافي (لا يلزم في النسخة المعزولة)<input type="password" id="accessToken" disabled placeholder="فارغ على localhost" autocomplete="off"/></label>
+            <div class="host-keys-info" id="hostKeyStorage">مفاتيح الخدمات تتحفظ مرة واحدة على الاستضافة، خارج ملفات الموقع، وما بتظهرش لأي زائر.</div>
             <div class="separator">INWORLD / VOICE</div>
             <label>Inworld API Key<input type="password" id="inworldKey" placeholder="Basic credential من Inworld Portal" autocomplete="off"/></label>
             <label>Voice ID<input id="voiceId" value="silver-quail-7878__ayo" dir="ltr"/></label>
@@ -86,7 +87,7 @@
             <label>Model ID (قابل للتعديل)<input id="llmModel" dir="ltr" placeholder="free/gpt-6-luna"/></label>
             <small class="helper" id="llmEndpoint">API endpoint: —</small>
             <button class="btn-save" type="submit">حفظ إعدادات الجلسة</button>
-            <small class="helper">المفاتيح لا تُعرض في HTML ولا في استجابة حالة السيرفر. يفضل وضعها في متغيرات بيئة السيرفر. لو دخلتها هنا ستُحفظ في جلسة PHP على الاستضافة ولا تُكتب في Git.</small>
+            <small class="helper">بعد الحفظ المفاتيح تفضل موجودة على الاستضافة، مش محتاج تدخلها كل مرة. الملف خاص بالمالك وخارج public_html.</small>
           </form>
         </div>
         <div id="configSummary" class="status-grid"><div><span class="status-light" id="llmLight"></span> External LLM <strong id="llmReady">غير مضبوط</strong></div><div><span class="status-light" id="ttsLight"></span> Inworld <strong id="ttsReady">غير مضبوط</strong></div><div><span class="status-light" id="voiceLight"></span> Voice Clone <strong id="voiceReady">لم يُحدد</strong></div></div>
@@ -118,6 +119,22 @@
   </section>
   <footer>AYO VOICE LAB <span>·</span> LOCAL EXPERIMENT ONLY <span>·</span> NO CHANGES TO PRODUCTION</footer>
 </div>
-<script type="module" src="app.js?v=6"></script>
+<div class="ayo-modal" id="ownerOverlay" hidden role="dialog" aria-modal="true" aria-labelledby="ownerTitle">
+  <div class="ayo-modal-content"><div class="ayo-modal-icon">AYO</div>
+    <h3 id="ownerTitle">مختبر AYO خاص بالمالك</h3>
+    <p>أدخل رمز المالك مرة واحدة. بعدها مفاتيح Inworld وOmnira وAPInex تتحفظ على الاستضافة وتتفتح تلقائيًا على جهازك.</p>
+    <form id="ownerForm"><label for="ownerCode">رمز المالك</label><input id="ownerCode" type="password" autocomplete="off" required placeholder="رمز دخول الديمو"/><button type="submit" class="ayo-modal-primary">دخول</button></form>
+    <small id="ownerError" aria-live="polite"></small>
+  </div>
+</div>
+<div class="ayo-modal" id="micPermissionDialog" hidden role="dialog" aria-modal="true" aria-labelledby="micDialogTitle">
+  <div class="ayo-modal-content"><div class="ayo-modal-icon">🎙</div>
+    <h3 id="micDialogTitle">تفعيل ميكروفون آيو</h3>
+    <p>هنطلب إذن استخدام الميكروفون من المتصفح علشان آيو تسمعك. اضغط «تفعيل» وبعدها اختار «سماح» من نافذة المتصفح.</p>
+    <div class="ayo-modal-actions"><button type="button" id="micDialogCancel" class="ayo-modal-secondary">إلغاء</button><button type="button" id="micDialogApprove" class="ayo-modal-primary">تفعيل الميكروفون</button></div>
+    <small id="micPermissionError" aria-live="polite"></small>
+  </div>
+</div>
+<script type="module" src="app.js?v=7"></script>
 </body>
 </html>
