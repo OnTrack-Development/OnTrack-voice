@@ -251,7 +251,9 @@ internal class MobileLiveCall(
                     "\n\nتفاصيل الإبلاغ:\n" + manager
                 else session.getString("system_instruction")+"\n\n"+style+
                     " استخدم سؤالًا واحدًا في كل دور ثم استمع للعميل، ولا تكرر التحية أو الأسئلة."+
-                    " توقف عند المقاطعة ولا تختلق أي حجز أو دفع أو تكامل لم يتم فعلياً."
+                    " توقف فورًا عند المقاطعة، ولا تعيد الجملة التي قاطعها العميل. " +
+                    "لما العميل يطلب موظف استخدم request_human_employee لتسجيل السبب والملاحظات، ثم قل إن طلب المتابعة اتسجل إذا نجحت الأداة فقط؛ لا تقل جاري تحويل أو تم تحويل المكالمة. " +
+                    "احفظ ملخصًا موجزًا وملاحظات العملاء باستخدام save_call_note بعد المعلومات المهمة، لأن التفريغ النصي على بيانات المحمول قد يتأخر."
                 val instruction=if(switchedProvider)
                     policy+"\n\n"+VoiceFailoverPolicy.restoredContext(contextBeforeSwitch)
                 else policy
@@ -261,6 +263,25 @@ internal class MobileLiveCall(
                     .put("systemInstruction",JSONObject().put("parts",org.json.JSONArray().put(JSONObject().put("text",instruction))))
                     .put("inputAudioTranscription",JSONObject()).put("outputAudioTranscription",JSONObject())
                     .put("sessionResumption",if(handle.isNullOrBlank())JSONObject() else JSONObject().put("handle",handle))
+                if(manager.isBlank()){
+                    val tools=org.json.JSONArray()
+                    val handoff=JSONObject().put("name","request_human_employee")
+                        .put("description","Call ONLY after the caller explicitly requests a human. Records a FOLLOW-UP REQUEST; never transfers the live phone call.")
+                        .put("parameters",JSONObject().put("type","OBJECT")
+                            .put("properties",JSONObject()
+                                .put("reason",JSONObject().put("type","STRING"))
+                                .put("customer_notes",JSONObject().put("type","STRING")))
+                            .put("required",org.json.JSONArray().put("reason")))
+                    val note=JSONObject().put("name","save_call_note")
+                        .put("description","Save a short preliminary, factual summary and practical customer notes after meaningful exchanges or before saying goodbye. This does not end or transfer the phone call.")
+                        .put("parameters",JSONObject().put("type","OBJECT")
+                            .put("properties",JSONObject()
+                                .put("summary",JSONObject().put("type","STRING"))
+                                .put("customer_notes",JSONObject().put("type","STRING")))
+                            .put("required",org.json.JSONArray().put("summary")))
+                    setup.put("tools",tools.put(JSONObject()
+                        .put("functionDeclarations",org.json.JSONArray().put(handoff).put(note))))
+                }
                 if(!webSocket.send(JSONObject().put("setup",setup).toString()))onTransportLost(webSocket,"تعذر فتح الصوت")
             }
             override fun onMessage(webSocket:WebSocket,text:String) {
