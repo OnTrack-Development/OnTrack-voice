@@ -732,15 +732,15 @@ function render_agents(array $a):void{
                 '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
                 agent_scenario_mode_picker($policy).
                 '<div class="agent-builder-tabs" role="tablist" aria-label="أقسام إعدادات الإيجنت">'.
-                '<button type="button" class="agent-builder-tab active" data-builder-tab="visual" aria-selected="true">✦ Flow Builder</button>'.
-                '<button type="button" class="agent-builder-tab" data-builder-tab="scenario" aria-selected="false">✎ السيناريو النصي</button>'.
+                '<button type="button" class="agent-builder-tab'.($policy['scenario_mode']==='builder'?' active':'').'" data-builder-tab="visual" aria-selected="'.($policy['scenario_mode']==='builder'?'true':'false').'">✦ Flow Builder</button>'.
+                '<button type="button" class="agent-builder-tab'.($policy['scenario_mode']==='scenario'?' active':'').'" data-builder-tab="scenario" aria-selected="'.($policy['scenario_mode']==='scenario'?'true':'false').'">✎ السيناريو النصي</button>'.
                 '<button type="button" class="agent-builder-tab" data-builder-tab="intelligence" aria-selected="false">🧠 الشخصية والمهام</button>'.
                 '<button type="button" class="agent-builder-tab" data-builder-tab="knowledge" aria-selected="false">📚 المعرفة والتكاملات</button>'.
                 '<button type="button" class="agent-builder-tab" data-builder-tab="voice" aria-selected="false">⚙️ الصوت والمكالمة</button></div>'.
-                '<div class="agent-builder-pane" data-builder-pane="visual">'.
+                '<div class="agent-builder-pane" data-builder-pane="visual"'.($policy['scenario_mode']==='scenario'?' hidden':'').'>'.
                 '<div class="agent-builder-intro"><strong>تصميم المحادثة</strong><p>رتّب الخطوات والوصلات واسحبها بحرية. مساعد التصميم متاح للاقتراح والتعديل بعد موافقتك.</p></div>'.
                 '<div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.e((string)$agent['flow_json']).'</textarea></div></div>'.
-                '<div class="agent-builder-pane" data-builder-pane="scenario" hidden>'.
+                '<div class="agent-builder-pane" data-builder-pane="scenario"'.($policy['scenario_mode']!=='scenario'?' hidden':'').'>'.
                 agent_scenario_text_editor($policy['scenario_text']).'</div>'.
                 '<div class="agent-builder-pane" data-builder-pane="intelligence" hidden>'.
                 '<div class="form-grid"><label class="field">اسم المساعد<input name="name" maxlength="140" required value="'.e($agent['name']).'"></label>'.
