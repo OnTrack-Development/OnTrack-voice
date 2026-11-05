@@ -68,8 +68,9 @@ if(e.type==='voice_style'){
   $('voiceStyleStatus').textContent='التوجيه الفعلي من Inworld: '+e.instruction;
 }if(e.type==='llm_delta'){to.textContent+=e.text;S.lastReply+=e.text;$('transcript').scrollTop=$('transcript').scrollHeight;}$('audioStatus').textContent='PCM 24 kHz · HTTP Streaming';if(e.type==='audio'){pcm(samples(atob(e.content)),e.sampleRate||24000);$('audioStatus').textContent='PCM · '+S.audio.length+' chunks · '+(S.ctx?.state||'?');}if(e.type==='latency'){$(e.metric==='llmFirstTokenMs'?'metricLlm':'metricTts').textContent=e.value+' ms';}if(e.type==='audio_done'){log('Inworld TTS مكتمل: '+(e.chunks||S.audio.length)+' chunks / '+(e.audioSeconds||'?')+' seconds');S.chars+=e.chars||0;S.cost+=e.estimatedUsd||0;$('metricChars').textContent=S.chars.toLocaleString('en-US');$('metricCost').textContent='$'+S.cost.toFixed(5);}if(e.type==='complete')log('انتهى الطلب في '+e.totalMs+'ms');}
 async function sendTurn(question){
- if(S.busy||!question.trim())return;
- if(!S.config?.hasActiveLlmKey){note('بوابة الذكاء المختارة ملهاش مفتاح محفوظ. افتح «مفاتيح API» وراجع حالة المفتاح.',true);return;}
+ if(!question.trim())return;
+ if(S.busy){note('في طلب شغال حاليًا؛ استنى لحد ما يخلص أو اضغط إيقاف الصوت.',true);return;}
+ if(!S.config?.hasActiveLlmKey){bubble('agent','⚠ مفتاح بوابة الذكاء المختارة مش متوفر. افتح «مفاتيح API» واحفظ المفتاح مرة واحدة.');note('بوابة الذكاء المختارة ملهاش مفتاح محفوظ.',true);return;}
  try{
    if(!S.session){
      await api('start',{});
@@ -80,8 +81,8 @@ async function sendTurn(question){
      $('callStatus').textContent='جلسة شات نصي · مش محتاجة ميكروفون';
      note('بدأت جلسة محادثة نصية مستقلة، من غير مايكروفون.');
    }
- }catch(err){note('بدء الشات: '+err.message,true);return;}
- stopListen();S.busy=true;S.audio=[];S.lastReply='';bubble('user',question);const to=bubble('agent','');$('callStatus').textContent='آيو بتفكر...';$('question').value='';$('metricTts').textContent='—';$('metricLlm').textContent='—';try{await audioStart();if($('testMode').value==='mock'){to.textContent='أهلاً بحضرتك، استضافة المواقع عندنا بتبدأ من خمسة دولار وتسعة وتسعين سنت شهريًا. تحب تسمع تفاصيل الباقات؟';note('محاكاة فقط — لا يوجد اتصال LLM أو صوت مستنسخ.');}else await ndjson('turn',{question},e=>readEvent(e,to));S.history.push({question,answer:S.lastReply});S.turns++;$('metricTurns').textContent=S.turns; }catch(e){if(e.name!=='AbortError')note('فشل الرد: '+e.message,true);}finally{S.busy=false;if(!S.sources.length&&S.session&&micStream?.active)startListen();}}
+ }catch(err){bubble('agent','⚠ تعذر بدء الشات: '+err.message);note('بدء الشات: '+err.message,true);return;}
+ stopListen();S.busy=true;S.audio=[];S.lastReply='';bubble('user',question);const to=bubble('agent','');$('callStatus').textContent='آيو بتفكر...';$('question').value='';$('metricTts').textContent='—';$('metricLlm').textContent='—';try{await audioStart();if($('testMode').value==='mock'){to.textContent='أهلاً بحضرتك، استضافة المواقع عندنا بتبدأ من خمسة دولار وتسعة وتسعين سنت شهريًا. تحب تسمع تفاصيل الباقات؟';note('محاكاة فقط — لا يوجد اتصال LLM أو صوت مستنسخ.');}else await ndjson('turn',{question},e=>readEvent(e,to));S.history.push({question,answer:S.lastReply});S.turns++;$('metricTurns').textContent=S.turns; }catch(e){if(e.name!=='AbortError'){const message='⚠ '+(S.lastReply?'النص وصل، لكن باقي الطلب فشل: ':'فشل إرسال الطلب: ')+e.message;to.textContent+=(to.textContent?'\n':'')+message;note('فشل الرد: '+e.message,true);}}finally{S.busy=false;if(!S.sources.length&&S.session&&micStream?.active)startListen();}}
 async function preview(){if(S.busy){S.abort?.abort();stopAudio();return;}if(!S.config?.hasInworldKey)return note('اضبط مفتاح Inworld من إعدادات الجلسة.',true);const text=$('previewText').value.trim();if(!text)return;S.busy=true;S.audio=[];$('previewBtn').textContent='■ إيقاف الصوت';$('previewStatus').textContent='جاري الاتصال بـInworld...';$('ayoPlayback').removeAttribute('src');$('ayoPlayback').load();
  let done=false;
  try{await audioStart();await ndjson('preview',{text},e=>{readEvent(e,{textContent:''});if(e.type==='audio')$('previewStatus').textContent='استلمنا '+S.audio.length+' جزء صوت · تشغيل مباشر (Web Audio: '+(S.ctx?.state||'?')+')';if(e.type==='audio_done')done=true;});
