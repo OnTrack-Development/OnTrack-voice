@@ -148,7 +148,11 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
         var consumed=false
         for(i in 0 until lookups.length()){
             val item=lookups.optJSONObject(i)?:continue
-            if(now-item.optLong("ended")>3600000L)continue // bounded history; never endless polling
+            // Allow recovery of yesterday's call identities if the user grants
+            // READ_CALL_LOG only after seeing blank names in SaaS. A unique,
+            // timestamp- and duration-matched Android CallLog entry is still
+            // mandatory; withheld/ambiguous numbers are NEVER inferred.
+            if(now-item.optLong("ended")>86400000L)continue // bounded 24h lookup
             if(consumed || now-item.optLong("ended")<2500L){rest.put(item);continue}
             consumed=true
             val identified=runCatching{matchingCall(item)}.getOrNull()
