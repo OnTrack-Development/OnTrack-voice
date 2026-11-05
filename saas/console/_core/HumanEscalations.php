@@ -96,6 +96,18 @@ function he_route_configure(int $accountId,int $agentId,int $contactId,bool $ena
         insert('INSERT INTO human_escalation_routes
             (agent_id,account_id,site_id,contact_id,enabled,updated_at) VALUES (?,?,?,?,?,?)',
             [$agentId,$accountId,$agent['site_id'],$contactId?:null,(int)$enabled,now()]);
+    // Revoking/changing an agent route must immediately stop any not-yet-claimed
+    // callback for that agent; a previously saved queue row is not authorization.
+    execute("UPDATE human_escalation_jobs SET status='cancelled',
+        result='route_changed',finished_at=?
+        WHERE account_id=? AND status='pending'
+          AND EXISTS (SELECT 1 FROM calls c WHERE c.account_id=?
+            AND c.site_id=human_escalation_jobs.site_id
+            AND c.device_binding_id=human_escalation_jobs.device_binding_id
+            AND c.external_call_id=human_escalation_jobs.call_id
+            AND c.agent_id=?)
+          AND (?=0 OR contact_id<>?)",
+        [now(),$accountId,$accountId,$agentId,(int)$enabled,$contactId]);
 }
 /** Select a destination from the agent bound WHEN the call started; no
  * speculative reassignment if the SIM's agent was changed in the meantime.
@@ -187,6 +199,15 @@ function he_claim(array $binding):array {
          AND co.account_id=j.account_id AND co.status='active'
         JOIN device_bindings d ON d.id=j.device_binding_id
          AND d.account_id=j.account_id AND d.sim_slot=j.sim_slot AND d.status='active'
+        JOIN calls c ON c.account_id=j.account_id AND c.site_id=j.site_id
+         AND c.device_binding_id=j.device_binding_id AND c.sim_slot=j.sim_slot
+         AND c.external_call_id=j.call_id AND c.status='ended'
+        JOIN human_escalation_routes ar ON ar.account_id=j.account_id
+         AND ar.site_id=j.site_id AND ar.agent_id=c.agent_id
+         AND ar.contact_id=j.contact_id AND ar.enabled=1
+        JOIN tenant_call_reports r ON r.account_id=j.account_id AND r.site_id=j.site_id
+         AND r.device_binding_id=j.device_binding_id AND r.call_id=j.call_id
+         AND r.handoff_status='requested'
         WHERE j.account_id=? AND j.site_id=? AND j.device_binding_id=?
           AND j.sim_slot=? AND j.status='pending' AND j.due_epoch<=?
         ORDER BY j.id ASC LIMIT 1",
@@ -221,7 +242,8 @@ function he_ack(array $b,int $jobId,string $stage):array {
     if(!$job)throw new InvalidArgumentException('manager_notification_not_found');
     $state=$stage==='dial_started'?'dial_started':($stage==='failed'?'failed':'call_ended_unverified');
     if($job['status']===$state)return ['saved'=>true,'duplicate'=>true,'status'=>$state];
-    if($job['status']!=='claimed' && !($stage==='call_ended_unverified'&&$job['status']==='dial_started'))
+    if($job['status']!=='claimed' &&
+       !(in_array($stage,['call_ended_unverified','failed'],true)&&$job['status']==='dial_started'))
         throw new InvalidArgumentException('manager_notification_not_claimed');
     if($stage==='call_ended_unverified'&&$job['status']!=='dial_started')
         throw new InvalidArgumentException('cannot_finish_undialed_manager_call');
