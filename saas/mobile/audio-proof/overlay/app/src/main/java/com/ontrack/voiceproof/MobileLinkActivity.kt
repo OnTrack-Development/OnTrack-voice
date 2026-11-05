@@ -94,7 +94,10 @@ class MobileLinkActivity:ComponentActivity(){
         val continueStart=startRequestedAfterPhonePermission
         startRequestedAfterPhonePermission=false
         if(granted && continueStart){
-            runCatching { startTenantMonitor() }.onFailure { error ->
+            runCatching {
+                startTenantMonitor()
+                requestManagerCallbackPhonePermission()
+            }.onFailure { error ->
                 banner.text="تعذر تشغيل مراقب الشريحة: "+(error.message ?: "خطأ غير معروف")
                 banner.visibility=View.VISIBLE
                 sendState()
@@ -105,6 +108,12 @@ class MobileLinkActivity:ComponentActivity(){
             banner.visibility=View.VISIBLE
         }
         requestTenantStatusRefresh()
+    }
+    private val managerCallbackPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
+        banner.text=if(granted)"إذن الاتصال مفعّل؛ يمكن إبلاغ المدير بعد انتهاء المكالمة"
+            else "إذن الاتصال غير مفعّل؛ المكالمات الواردة تعمل لكن إبلاغ المدير آليًا سيتوقف"
+        banner.visibility=View.VISIBLE
+        sendState()
     }
     private val campaignPhonePermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
         if(granted)ContextCompat.startForegroundService(this,
@@ -633,6 +642,11 @@ class MobileLinkActivity:ComponentActivity(){
         banner.visibility=View.VISIBLE
         web.postDelayed({sendState()},700)
     }
+    private fun requestManagerCallbackPhonePermission(){
+        if(ContextCompat.checkSelfPermission(this,Manifest.permission.CALL_PHONE)
+            !=PackageManager.PERMISSION_GRANTED)
+            managerCallbackPermission.launch(Manifest.permission.CALL_PHONE)
+    }
     private fun requestStartTenantMonitor(){
         check(tenantEnrollment.hasAny()){ "لا توجد شريحة مربوطة بحساب SaaS على هذا الهاتف" }
         check(!MobileLinkService.tenantPairingInProgress){ "اقتران الشريحة قيد التنفيذ؛ أعد المحاولة بعد اكتماله" }
@@ -645,6 +659,7 @@ class MobileLinkActivity:ComponentActivity(){
             return
         }
         startTenantMonitor()
+        requestManagerCallbackPhonePermission()
     }
     private fun testTenantReadiness(){
         lifecycleScope.launch {

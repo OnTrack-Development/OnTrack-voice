@@ -60,7 +60,7 @@ def main():
         declared=json.loads(Path('saas/mobile/ota/native_release.json').read_text())
         artifact_name=os.environ.get('MOBILE_OTA_ARTIFACT_NAME',
             'OnTrack-Voice-'+declared['version_name'])
-        assert artifact_name in ('OnTrack-Voice-0.3.11','OnTrack-Voice-0.3.12','OnTrack-Voice-0.3.16','OnTrack-Voice-0.3.17','OnTrack-Voice-0.3.18','OnTrack-Voice-0.3.19','OnTrack-Voice-0.3.20','OnTrack-Voice-0.3.21','OnTrack-Voice-0.3.22','OnTrack-Voice-UI-OTA'), 'Unexpected OTA artifact name'
+        assert artifact_name in ('OnTrack-Voice-0.3.11','OnTrack-Voice-0.3.12','OnTrack-Voice-0.3.16','OnTrack-Voice-0.3.17','OnTrack-Voice-0.3.18','OnTrack-Voice-0.3.19','OnTrack-Voice-0.3.20','OnTrack-Voice-0.3.21','OnTrack-Voice-0.3.22','OnTrack-Voice-0.3.23','OnTrack-Voice-UI-OTA'), 'Unexpected OTA artifact name'
         source=request('actions/runs/'+source_run)
         expected_sha=os.environ.get('MOBILE_RELEASE_SOURCE_SHA',os.environ.get('GITHUB_SHA'))
         assert expected_sha and source.get('head_sha')==expected_sha and source.get('head_branch')=='feat/voice-production-gap-20261103', 'OTA release source mismatch'
