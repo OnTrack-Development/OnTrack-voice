@@ -29,13 +29,22 @@ function publish_agent_flow(int $accountId,int $agentId,int $actorId):array {
     catch(JsonException $e){throw new InvalidArgumentException('invalid_flow');}
     if(!is_array($graph))throw new InvalidArgumentException('invalid_flow');
     flow_preview_compile($graph);
+    $policyData=answer_policy_for_agent($accountId,$agentId);
+    if($policyData['scenario_mode']==='scenario' && $policyData['scenario_text']==='')
+        throw new InvalidArgumentException('اكتب السيناريو النصي قبل النشر، أو اختر وضع البيلدر.');
+    if($policyData['api_connector_id']>0){
+        $api=one("SELECT id FROM voice_data_connectors
+            WHERE id=? AND account_id=? AND site_id=? AND status='verified'",[
+            $policyData['api_connector_id'],$accountId,(int)$agent['site_id']]);
+        if(!$api)throw new InvalidArgumentException('مصدر API المحدد غير مختبر أو لا يتبع موقع الإيجنت.');
+    }
     $normalized=json_encode($graph,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
     $hash=hash('sha256',$normalized);
     $own=!db()->inTransaction();
     if($own)db()->beginTransaction();
     try{
         $prior=published_agent_flow($accountId,(int)$agent['site_id'],$agentId);
-        $policy=json_encode(answer_policy_for_agent($accountId,$agentId),JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+        $policy=json_encode($policyData,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
         $snapshot=hash('sha256',$normalized."\n".(string)$agent['voice']."\n".(string)$agent['instructions']."\n".(string)$agent['knowledge']."\n".$policy);
         if($prior && hash_equals($prior['snapshot_hash'],$snapshot)){
             execute("UPDATE agents SET status='published' WHERE id=? AND account_id=? AND status!='archived'",[$agentId,$accountId]);

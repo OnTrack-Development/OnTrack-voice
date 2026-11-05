@@ -630,6 +630,32 @@ function render_voice_data_sources(array $a,array $site):void {
     echo '</details>';
 }
 
+/** Both editors are retained. Only the selected one guides live speech after publish. */
+function agent_scenario_mode_picker(array $policy):string {
+    return '<div class="agent-studio-section agent-scenario-choice">'.
+        '<strong>طريقة تشغيل السيناريو في المكالمات</strong>'.
+        '<p class="info">اختار النص الحر أو مخطط Flow لكل مساعد. تغيير الاختيار لا يمسح أي سيناريو أو عقدة؛ النشر وحده يفعّل الاختيار في المكالمات.</p>'.
+        select_html('مسار المحادثة الفعّال','scenario_mode',[
+            'builder'=>'Flow Builder — المخطط المرئي',
+            'scenario'=>'سيناريو نصي — كلام مكتوب خطوة بخطوة'],$policy['scenario_mode']).
+        '</div>';
+}
+function agent_scenario_text_editor(string $value):string {
+    return '<div class="agent-builder-intro"><strong>السيناريو النصي</strong><p>اكتب طريقة بدء المكالمة، الأسئلة، الردود، الاعتراضات، والإنهاء. المساعد يفهم النص ويمشي عليه بشكل طبيعي، بدون تحويله إلى بلوكات.</p></div>'.
+        '<label class="field">نص السيناريو (حد أقصى 8000 حرف)'.
+        '<textarea name="scenario_text" data-scenario-text rows="14" maxlength="8000" dir="auto" placeholder="ابدأ بالترحيب... اسأل عن احتياج العميل... وضّح الخدمة... تعامل مع الاعتراضات... أنهِ المكالمة...">'.e($value).'</textarea></label>'.
+        '<button class="btn" type="button" data-scenario-example="dog-sale">تحميل مثال ديمو بيع كلب (قابل للتعديل)</button>'.
+        '<small class="dim">ده مثال جديد بنفس فكرة ديمو البيع، مش استرجاع حرفي لنص الديمو القديم. السيناريو بيتحفظ حتى وإنت مشغّل البيلدر.</small>';
+}
+function agent_api_source_picker(array $policy,array $sources):string {
+    return '<div class="agent-studio-section"><div class="agent-studio-section-title"><strong>تجهيز API متعدد اللغات</strong><small>مصدر واحد موثّق لكل مساعد؛ القراءة فقط في المرحلة الحالية</small></div>'.
+        select_html('مصدر API المختبر','api_connector_id',$sources,(string)$policy['api_connector_id']).
+        select_html('لغة التعامل مع بيانات API','api_language',[
+            'auto'=>'تلقائي حسب لغة المتصل',
+            'ar'=>'العربية','en'=>'English',
+            'multilingual'=>'متعدد اللغات'],(string)$policy['api_language']).
+        '<p class="info">أضف المصدر من «مصادر المعرفة والتكاملات»، واختبر اتصاله الأول. إعداد اللغة لا يمنح صلاحيات كتابة، ولا يشغّل استدعاءات API أثناء المكالمة تلقائيًا.</p></div>';
+}
 /** استوديو المساعدين replaces the obsolete branching-template UI. */
 function agent_studio_policy_fields(array $policy):string{
     $html='<div class="agent-studio-section"><div class="agent-studio-section-title"><strong>الهدف والسلوك</strong><small>المساعد يختار مسار المحادثة بنفسه</small></div>'.
@@ -667,6 +693,11 @@ function render_agents(array $a):void{
     foreach(all("SELECT code,name FROM voices WHERE ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?) ORDER BY name",[$id]) as $voice)
         $voices[$voice['code']]=$voice['name'];
     if(!$voices)$voices=['google.aoede'=>'Aoede'];
+    $apiSources=['0'=>'بدون مصدر API'];
+    if($selected)foreach(all("SELECT id,name,type FROM voice_data_connectors
+        WHERE account_id=? AND site_id=? AND status='verified' ORDER BY name ASC LIMIT 100",[
+        $id,(int)$selected['id']]) as $source)
+        $apiSources[(string)$source['id']]=$source['name'].' ('.$source['type'].')';
     if(allowed('agents.write')){
         $defaults=answer_policy_defaults();
         $create=form_start('add_agent','/?tab=agents&site='.(int)$selected['id'],'class="agent-studio-form-create"').
@@ -675,6 +706,9 @@ function render_agents(array $a):void{
             select_html('الصوت','voice',$voices).'</div>'.
             '<label class="field">التعليمات وأسلوب الحديث<textarea name="instructions" rows="4" maxlength="5000" placeholder="اتكلم بالمصري وبأسلوب مهني..."></textarea></label>'.
             '<label class="field">معرفة المساعد<textarea name="knowledge" rows="4" maxlength="20000" placeholder="المنتجات، الخدمات والسياسات المعتمدة"></textarea></label>'.
+            agent_scenario_mode_picker($defaults).
+            agent_scenario_text_editor('').
+            agent_api_source_picker($defaults,$apiSources).
             agent_studio_policy_fields($defaults).
             '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">إنشاء ونشر المساعد</button>'.
             '<button class="btn" type="submit">إنشاء مسودة</button></div></form>';
@@ -687,6 +721,7 @@ function render_agents(array $a):void{
         $policy=answer_policy_for_agent($id,(int)$agent['id']);
         $version=published_agent_flow($id,(int)$selected['id'],(int)$agent['id']);
         $summary='<div class="agent-summary"><span class="pill neutral">مساعد ذكي</span>'.
+            '<span class="pill neutral">'.($policy['scenario_mode']==='scenario'?'السيناريو النصي':'Flow Builder').'</span>'.
             pill((string)$agent['status']).'<span class="dim">صوت: '.e($voices[$agent['voice']]??'الصوت المختار').'</span>'.
             ($version?'<span class="pill neutral">المنشور v'.(int)$version['revision'].'</span>':'<span class="pill neutral">غير منشور</span>').'</div>';
         if(allowed('agents.write')){
@@ -695,14 +730,18 @@ function render_agents(array $a):void{
             $editing=form_start('update_agent','/?tab=agents&site='.(int)$selected['id'],
                 'class="stack agent-form agent-studio-form"').
                 '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
-                '<div class="agent-builder-tabs" role="tablist" aria-label="أقسام البلدر">'.
-                '<button type="button" class="agent-builder-tab active" data-builder-tab="visual" aria-selected="true">✦ مخطط المحادثة</button>'.
+                agent_scenario_mode_picker($policy).
+                '<div class="agent-builder-tabs" role="tablist" aria-label="أقسام إعدادات الإيجنت">'.
+                '<button type="button" class="agent-builder-tab'.($policy['scenario_mode']==='builder'?' active':'').'" data-builder-tab="visual" aria-selected="'.($policy['scenario_mode']==='builder'?'true':'false').'">✦ Flow Builder</button>'.
+                '<button type="button" class="agent-builder-tab'.($policy['scenario_mode']==='scenario'?' active':'').'" data-builder-tab="scenario" aria-selected="'.($policy['scenario_mode']==='scenario'?'true':'false').'">✎ السيناريو النصي</button>'.
                 '<button type="button" class="agent-builder-tab" data-builder-tab="intelligence" aria-selected="false">🧠 الشخصية والمهام</button>'.
                 '<button type="button" class="agent-builder-tab" data-builder-tab="knowledge" aria-selected="false">📚 المعرفة والتكاملات</button>'.
                 '<button type="button" class="agent-builder-tab" data-builder-tab="voice" aria-selected="false">⚙️ الصوت والمكالمة</button></div>'.
-                '<div class="agent-builder-pane" data-builder-pane="visual">'.
+                '<div class="agent-builder-pane" data-builder-pane="visual"'.($policy['scenario_mode']==='scenario'?' hidden':'').'>'.
                 '<div class="agent-builder-intro"><strong>تصميم المحادثة</strong><p>رتّب الخطوات والوصلات واسحبها بحرية. مساعد التصميم متاح للاقتراح والتعديل بعد موافقتك.</p></div>'.
                 '<div class="flow-builder" data-flow-editor><textarea name="flow_json" class="flow-source" rows="7" maxlength="16000">'.e((string)$agent['flow_json']).'</textarea></div></div>'.
+                '<div class="agent-builder-pane" data-builder-pane="scenario"'.($policy['scenario_mode']!=='scenario'?' hidden':'').'>'.
+                agent_scenario_text_editor($policy['scenario_text']).'</div>'.
                 '<div class="agent-builder-pane" data-builder-pane="intelligence" hidden>'.
                 '<div class="form-grid"><label class="field">اسم المساعد<input name="name" maxlength="140" required value="'.e($agent['name']).'"></label>'.
                 select_html('الصوت','voice',$options,(string)$agent['voice']).'</div>'.
@@ -710,13 +749,14 @@ function render_agents(array $a):void{
                 agent_studio_policy_fields($policy).
                 '</div><div class="agent-builder-pane" data-builder-pane="knowledge" hidden>'.
                 '<div class="agent-studio-section"><strong>المعرفة والتكاملات</strong><p class="info">اربط الملفات ومصادر WHMCS وLaravel وWordPress من مصادر بيانات الموقع. المساعد يقترح ما يلزم منها دون إنشاء صلاحيات أو مفاتيح تلقائيًا.</p>'.
-                '<label class="field">معلومات المساعد<textarea name="knowledge" rows="6" maxlength="20000">'.e($agent['knowledge']).'</textarea></label></div></div>'.
+                '<label class="field">معلومات المساعد<textarea name="knowledge" rows="6" maxlength="20000">'.e($agent['knowledge']).'</textarea></label></div>'.
+                agent_api_source_picker($policy,$apiSources).'</div>'.
                 '<div class="agent-builder-pane" data-builder-pane="voice" hidden>'.
                 '<div class="agent-studio-section"><div class="agent-studio-section-title"><strong>الرد والمكالمة</strong></div>'.
                 '<div class="form-grid"><label class="field">مهلة الرد بالثواني<input name="answer_delay_seconds" type="number" min="0" max="30" value="'.(int)$policy['answer_delay_seconds'].'" required></label>'.
                 '<label class="field">المدة القصوى بالدقائق<input name="max_call_minutes" type="number" min="1" max="30" value="'.(int)$policy['max_call_minutes'].'" required></label>'.
                 select_html('الأسلوب','response_style',[
-                    'egyptian_short'=>'مصري مختصر','formal_ar'=>'عربي رسمي','english'=>'إنجليزي','bilingual'=>'عربي وإنجليزي'],$policy['response_style']).
+                    'egyptian_short'=>'مصري مختصر','formal_ar'=>'عربي رسمي','english'=>'إنجليزي','bilingual'=>'عربي وإنجليزي','multilingual'=>'أي لغة يتحدث بها العميل'],$policy['response_style']).
                 select_html('عند تعذر الاستكمال','fallback',['human'=>'عرض مساعدة موظف','end'=>'إنهاء بأدب'],$policy['fallback']).'</div>'.
                 '<label class="field"><input type="checkbox" name="auto_answer"'.($policy['auto_answer']?' checked':'').'> الرد الآلي عند تفعيل ربط الشريحة</label></div></div>'.
                 '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">نشر إعدادات المساعد</button>'.

@@ -14,6 +14,8 @@ function answer_policy_defaults():array {
         'auto_answer'=>false,'answer_delay_seconds'=>5,
         'response_style'=>'egyptian_short','max_call_minutes'=>10,'fallback'=>'human',
         'conversation_mode'=>'dynamic',
+        'scenario_mode'=>'builder','scenario_text'=>'',
+        'api_connector_id'=>0,'api_language'=>'auto',
         'goal'=>'افهم طلب المتصل وساعده بوضوح وبأقل عدد أسئلة ممكن.',
         'guardrails'=>'لا تخمّن بيانات أو أسعار أو نتائج عمليات خارجية. تحقق من الصلاحيات وصعّد عند اللزوم.',
         'use_knowledge'=>true,'use_signed_facts'=>true,
@@ -25,10 +27,21 @@ function answer_policy_normalize(array $input):array {
     if(!is_bool($v['auto_answer']))throw new InvalidArgumentException('invalid_auto_answer');
     if(!is_int($v['answer_delay_seconds'])||$v['answer_delay_seconds']<0||$v['answer_delay_seconds']>30)throw new InvalidArgumentException('invalid_answer_delay');
     if(!is_int($v['max_call_minutes'])||$v['max_call_minutes']<1||$v['max_call_minutes']>30)throw new InvalidArgumentException('invalid_call_duration');
-    if(!in_array($v['response_style'],['egyptian_short','formal_ar','english','bilingual'],true))throw new InvalidArgumentException('invalid_style');
+    if(!in_array($v['response_style'],['egyptian_short','formal_ar','english','bilingual','multilingual'],true))throw new InvalidArgumentException('invalid_style');
     if(!in_array($v['fallback'],['human','end'],true))throw new InvalidArgumentException('invalid_fallback');
-    // The legacy graph remains metadata only. New conversations are always dynamic.
+    // Gemini Live remains dynamic; this only selects WHICH owner-authored
+    // conversation instructions guide the SAME live session.
     if($v['conversation_mode']!=='dynamic')throw new InvalidArgumentException('invalid_conversation_mode');
+    if(!in_array($v['scenario_mode'],['builder','scenario'],true))
+        throw new InvalidArgumentException('invalid_agent_scenario_mode');
+    if(!is_string($v['scenario_text'])||mb_strlen($v['scenario_text'])>8000||
+       !mb_check_encoding($v['scenario_text'],'UTF-8'))
+        throw new InvalidArgumentException('invalid_agent_scenario_text');
+    $v['scenario_text']=trim($v['scenario_text']);
+    if(!is_int($v['api_connector_id'])||$v['api_connector_id']<0)
+        throw new InvalidArgumentException('invalid_agent_api_connector');
+    if(!in_array($v['api_language'],['auto','ar','en','multilingual'],true))
+        throw new InvalidArgumentException('invalid_agent_api_language');
     foreach(['goal'=>1800,'guardrails'=>1800] as $name=>$length){
         if(!is_string($v[$name])||mb_strlen($v[$name])>$length||!mb_check_encoding($v[$name],'UTF-8'))
             throw new InvalidArgumentException('invalid_agent_'.$name);
@@ -59,6 +72,10 @@ function answer_policy_form(array $form):array {
         'max_call_minutes'=>(int)($form['max_call_minutes']??10),
         'fallback'=>(string)($form['fallback']??'human'),
         'conversation_mode'=>'dynamic',
+        'scenario_mode'=>(string)($form['scenario_mode']??'builder'),
+        'scenario_text'=>(string)($form['scenario_text']??''),
+        'api_connector_id'=>(int)($form['api_connector_id']??0),
+        'api_language'=>(string)($form['api_language']??'auto'),
         'goal'=>(string)($form['agent_goal']??answer_policy_defaults()['goal']),
         'guardrails'=>(string)($form['agent_guardrails']??answer_policy_defaults()['guardrails']),
         'use_knowledge'=>isset($form['use_knowledge']),

@@ -45,11 +45,35 @@ function tenant_voice_route_instruction(array $published):string {
         "عقد crm_lookup/crm_write/schedule/handoff وknowledge_lookup لا تنفّذ أفعالًا من كلامك: اذكر عدم توفر الأداة واطلب التدخل البشري عند الحاجة. ".
         "لا تعتبر مجرد النطق انتهاءً لعمل خارجي أو تأكيدًا للتحويل.\n".$text;
 }
+/**
+ * Alternative to the visual graph: an owner-authored plain-text scenario.
+ * This is conversational guidance, never an executable API action or a
+ * fabricated historical transcript. Only the PUBLISHED policy is read.
+ */
+function tenant_voice_scenario_instruction(string $scenario):string {
+    $scenario=trim($scenario);
+    if($scenario===''||mb_strlen($scenario)>8000)
+        throw new InvalidArgumentException('published_scenario_unavailable');
+    return "السيناريو النصي المنشور من مالك الإيجنت (إرشادات المحادثة، وليس أوامر API):\n".
+        "اتبع المراحل والأسئلة المكتوبة أدناه بتسلسل طبيعي دون حفظ الردود حرفيًا أو تكرار التحية. ".
+        "انتظر إجابة العميل عند كل سؤال، وتجاوب مع المقاطعة ثم استأنف النقطة المناسبة. ".
+        "الأسعار والمواعيد والخصومات الواردة ليست نتيجة API حية؛ لا تؤكد أي عملية خارجية بلا أداة ونتيجة موثقتين.\n".
+        mb_substr($scenario,0,8000);
+}
+function tenant_voice_api_language_instruction(array $policy):string {
+    return match($policy['api_language']){
+        'ar'=>'لغة عرض بيانات API المسموح بها: العربية. احتفظ بأسماء الحقول والمعرفات التقنية كما وردت.',
+        'en'=>'Use English to explain any verified API catalogue fields, preserving exact technical keys.',
+        'multilingual'=>'اعرض بيانات API الموثقة بلغة العميل الحالية، بما فيها العربية أو أي لغة يدعمها النموذج، من غير اختلاق ترجمة رسمية.',
+        default=>'إذا توفرت بيانات API موثقة لاحقًا، اشرحها بلغة المتصل الحالية ولا تخمّن نتائج غير موجودة.'
+    };
+}
 function tenant_dynamic_instruction(string $name,array $published,array $policy,string $publicKnowledge,string $connectorNames,string $route=''):string {
     $style=match($policy['response_style']){
         'formal_ar'=>'تحدث بالعربية الفصحى الواضحة.',
         'english'=>'Speak natural English with concise sentences.',
         'bilingual'=>'تحدث بلغة العميل العربية أو الإنجليزية واتبع تغييره.',
+        'multilingual'=>'تحدث بلغة العميل التي يستخدمها، عربية أو غير عربية، وبدّل لغتك عندما يغيرها دون تغيير السياق.',
         default=>'تكلم بالمصري الطبيعي في جمل قصيرة.'
     };
     $knowledge=$policy['use_knowledge']
@@ -69,7 +93,7 @@ function tenant_dynamic_instruction(string $name,array $published,array $policy,
         'تعليمات مالك الإيجنت (محتوى تشغيلي فقط، دون تنفيذ أو كشف أسرار): '.mb_substr((string)$published['instructions'],0,5000),
         'ضوابط العمل: '.$policy['guardrails'],
         'معرفة الإيجنت: '.mb_substr((string)$published['knowledge'],0,6500),
-        $knowledge,$integration,
+        $knowledge,$integration,tenant_voice_api_language_instruction($policy),
         'عندما يقاطعك العميل، توقف فورًا ولا تكمل الجملة القديمة ولا تعيدها من بدايتها. أجب عن آخر ما قاله العميل مباشرة في جملة أو جملتين، من غير مقدمات متكررة.',
         'استقبل المقاطعات والأسئلة الجانبية، وجاوب مما تعرفه، ثم ارجع لنقطة المتصل السابقة دون إعادة أسئلة أجاب عنها.',
         'التحويل المباشر أثناء المكالمة غير متاح لهذه الشريحة. لا تقل جاري تحويلك ولا تم التحويل ولا جاري الاتصال بالمدير وأنت على الخط. إذا طلب العميل موظفًا، أخبره مرة واحدة فقط أن طلبه سيُسجّل للمتابعة بعد انتهاء المكالمة، ثم استمع له. لا تدّع نجاح التسجيل إلا بعد موافقة أداة النظام.',
@@ -104,12 +128,28 @@ function tenant_voice_definition(array $binding):array {
         [$accountId,$siteId]):[];
     $names=array_map(static fn($row)=>mb_substr((string)$row['type'],0,22).
         ' / '.mb_substr((string)$row['name'],0,65),$connectors);
-    $route=tenant_voice_route_instruction($flow);
+    $mode=$policy['scenario_mode'];
+    $route=$mode==='scenario'
+        ?tenant_voice_scenario_instruction($policy['scenario_text'])
+        :tenant_voice_route_instruction($flow);
+    // A selected connector must be verified and scoped to the exact tenant
+    // and site. Do not fetch it on call setup (up to 13s API latency) and
+    // never expose credentials to the phone or promise live execution.
+    $selectedSource='';
+    if($policy['api_connector_id']>0){
+        $selected=one("SELECT name,type FROM voice_data_connectors
+            WHERE id=? AND account_id=? AND site_id=? AND status='verified'",[
+            $policy['api_connector_id'],$accountId,$siteId]);
+        if(!$selected)throw new InvalidArgumentException('published_api_connector_unavailable');
+        $selectedSource=" | مصدر API المختار: ".mb_substr((string)$selected['name'],0,70).
+            " (".(string)$selected['type'].") — اختبار الاتصال فقط مؤكد؛ لا توجد نتيجة قراءة حية لهذه المكالمة.";
+    }
     $instruction=tenant_dynamic_instruction($agentName,$flow,$policy,$siteKnowledge,
-        implode('، ',$names)?:'لا يوجد مصدر خارجي متحقق',$route);
+        (implode('، ',$names)?:'لا يوجد مصدر خارجي متحقق').$selectedSource,$route);
     return ['account_id'=>$accountId,'site_id'=>$siteId,'agent_id'=>$agentId,'agent_name'=>$agentName,
         'revision'=>(int)$flow['revision'],'flow_hash'=>(string)$flow['flow_hash'],
-        'conversation_mode'=>'dynamic','routing_contract'=>'published_graph_prompt_guidance',
+        'conversation_mode'=>'dynamic','scenario_mode'=>$mode,
+        'routing_contract'=>$mode==='scenario'?'published_text_scenario_prompt_guidance':'published_graph_prompt_guidance',
         'policy'=>$policy,'instruction'=>$instruction,
         'voice'=>(string)$flow['voice']];
 }

@@ -507,6 +507,16 @@ body.graph-editor-maximized{overflow:hidden}
  padding:10px 13px;border-radius:11px;cursor:pointer;font:inherit;font-size:12px;transition:.2s ease}
 .agent-builder-tab.active,.agent-builder-tab[aria-selected="true"]{border-color:var(--border);
  color:var(--text);background:var(--panel);box-shadow:0 6px 20px #0002}
+.agent-scenario-choice{border-inline-start:3px solid var(--accent);margin-bottom:14px}
+.agent-scenario-choice .field select{width:100%}
+.agent-builder-pane[data-builder-pane="scenario"]{min-height:320px}
+.agent-builder-pane[data-builder-pane="scenario"] textarea[data-scenario-text]{
+  display:block;width:100%;min-height:280px;line-height:1.9;resize:vertical;
+  font-family:inherit;text-align:start;overflow-wrap:anywhere
+}
+.agent-builder-pane[data-builder-pane="scenario"] [data-scenario-example]{
+  margin-block:10px;max-width:100%;white-space:normal
+}
 .agent-builder-pane[hidden]{display:none!important}
 .agent-builder-pane[data-builder-pane="visual"]{min-height:570px}
 .agent-builder-intro{padding:12px 16px;background:var(--panel2);border-radius:12px;margin-bottom:10px}
