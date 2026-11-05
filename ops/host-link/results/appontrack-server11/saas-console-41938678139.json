@@ -1,0 +1,13 @@
+{
+  "job_id": "saas-console-41938678139",
+  "target": "appontrack-server11",
+  "job_sha256": "810e2163e7edeb521f477eab4b06de194988759caa00109742b0c7540b2dd561",
+  "started_at": "2026-11-05T00:06:02.724435+00:00",
+  "status": "failed",
+  "exit_code": 1,
+  "output_truncated": false,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 106, in <module>\n  File \"<string>\", line 71, in deploy\n  File \"<string>\", line 41, in rewrite_root_urls\nRuntimeError: root_url_transform_failed\n",
+  "finished_at": "2026-11-05T00:06:03.835491+00:00",
+  "duration_ms": 1111
+}
