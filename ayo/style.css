@@ -65,3 +65,39 @@
 @media(max-width:800px){.stage-center{height:auto;min-height:420px}.orb-wrap.ayo-avatar{width:min(100%,315px)}}
 @media(max-width:420px){.stage-center{min-height:385px;padding:5px}.orb-wrap.ayo-avatar{width:min(100%,270px)}.stage-persona h2{font-size:20px}.ayo-mic-state{margin-top:6px}}
 @media(prefers-reduced-motion:reduce){.orb-wrap.ayo-avatar.speaking .ayo-avatar-image,.orb-wrap.ayo-avatar.listening .ayo-avatar-image{animation:none}.ayo-mic-meter{transition:none}}
+
+/* V7: true-black full-page AYO identity. Black pixels in the official reference
+   blend into the scene instead of rendering as a pasted rectangle. */
+html,body{background:#000!important;color:#fafafa}
+body{background-image:none!important}
+.ambient{display:none!important}
+.topbar,.headline,.dashboard,.side{background:transparent}
+.panel{background:#030304!important;border-color:#1b1c20!important;box-shadow:none}
+.stage-panel{background:#000!important;overflow:hidden}
+.stage-center{background:#000!important}
+.orb-wrap.ayo-avatar{border:0!important;border-radius:0!important;width:min(100%,370px);isolation:isolate;background:#000!important}
+.ayo-avatar-image{mask:none!important;-webkit-mask:none!important;mix-blend-mode:screen;object-fit:contain;filter:brightness(1.02) contrast(1.05);border:0;background:#000}
+.ayo-avatar-canvas{mix-blend-mode:screen}
+.ayo-avatar-glow{background:radial-gradient(circle,rgba(218,31,50,.065),transparent 60%)}
+.ayo-brand-mark,.brand-mark{background:#000!important}
+.ayo-brand-mark img{mix-blend-mode:screen;object-fit:contain}
+.stage-persona{position:relative;z-index:5}
+.ayo-enable-mic{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:2px auto 6px;background:#202226;border:1px solid #6d2935;color:#fff;border-radius:12px;padding:11px 17px;font-size:12px;font-weight:800;transition:background .2s,border-color .2s}
+.ayo-enable-mic:hover{background:#3a2027;border-color:#e44a61}
+.ayo-enable-mic.enabled{background:#10372b;border-color:#249d7a;color:#a4efd3}
+.ayo-enable-mic small{display:block;width:100%;font-size:9px;color:#a7a8ad;font-weight:500}
+.ayo-modal[hidden]{display:none!important}
+.ayo-modal{position:fixed;z-index:999;inset:0;background:rgba(0,0,0,.84);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(8px)}
+.ayo-modal-content{width:min(100%,420px);background:#0d0e11;border:1px solid #414149;border-radius:19px;padding:24px;box-shadow:0 16px 75px #000}
+.ayo-modal-icon{display:grid;place-items:center;margin:0 auto 12px;width:56px;height:56px;border-radius:16px;background:#190a0d;color:#fa4c62;border:1px solid #622530;font-size:20px;font-weight:900}
+.ayo-modal-content h3{text-align:center;font-size:19px;margin:3px 0 8px}
+.ayo-modal-content p{line-height:2;color:#a9abb2;font-size:12px;margin:0 0 15px;text-align:center}
+.ayo-modal-content label{font-size:11px;color:#e5e7eb}
+.ayo-modal-content input{display:block;width:100%;border:1px solid #44454d;background:#17181b;color:#fff;border-radius:9px;padding:11px;margin:6px 0 10px;text-align:left;direction:ltr}
+.ayo-modal-actions{display:flex;justify-content:center;gap:10px}
+.ayo-modal-primary,.ayo-modal-secondary{border-radius:10px;padding:11px 17px;border:1px solid transparent;font-size:12px;font-weight:800;cursor:pointer}
+.ayo-modal-primary{background:#e3344b;color:#fff;flex:1}
+.ayo-modal-secondary{background:#212329;color:#e7e7eb;border-color:#4c4f58;flex:1}
+.ayo-modal-content small{display:block;text-align:center;margin-top:9px;color:#ff9eaa;font-size:10px}
+.host-keys-info{font-size:10px;line-height:1.8;color:#7bd5b1;background:#103026;border:1px solid #1c634b;border-radius:10px;padding:10px}
+@media(max-width:420px){.orb-wrap.ayo-avatar{width:min(100%,340px)}.ayo-modal-content{padding:18px}}
