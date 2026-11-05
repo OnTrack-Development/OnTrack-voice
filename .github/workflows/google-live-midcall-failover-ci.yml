@@ -75,7 +75,7 @@ jobs:
           [IO.File]::WriteAllText((Resolve-Path $gradle).Path,$source,[Text.UTF8Encoding]::new($false))
           Push-Location .build/jemrec
           try {
-            & .\gradlew.bat --no-daemon :app:compileDebugKotlin :app:testDebugUnitTest
+            & .\gradlew.bat --no-daemon :app:compileDebugKotlin :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.VoiceFailoverPolicyTest' --tests 'com.ontrack.voiceproof.TenantPairingContractTest' --tests 'com.ontrack.voiceproof.TenantCallRoutingTest'
             if($LASTEXITCODE -ne 0){throw 'Kotlin compilation or unit tests failed'}
           }finally{Pop-Location}
           Write-Host 'GOOGLE_MIDCALL_FAILOVER_ANDROID_COMPILE_PASS'
