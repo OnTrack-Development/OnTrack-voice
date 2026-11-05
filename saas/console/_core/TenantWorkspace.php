@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/DncGuard.php';
 require_once __DIR__.'/TenantVoiceTranscript.php';
+require_once __DIR__.'/HumanEscalations.php';
 require_once __DIR__.'/BillingUsage.php';
 require_once __DIR__.'/TenantCampaignQueue.php';
 /** No pilot bearer, no user-provided account/site identifiers. */
@@ -81,13 +82,14 @@ function tenant_workspace_call_event(array $b,array $p):array{
        !is_int($duration)||$duration<0||$duration>172800)
         throw new InvalidArgumentException('invalid_call_event');
     voice_usage_init(); // migration BEFORE DB transaction (MySQL DDL auto-commits)
+    he_init();
     db()->beginTransaction();
     try{
         $exists=one('SELECT sequence FROM tenant_call_events WHERE device_binding_id=? AND call_id=? AND sequence=?',[$b['id'],$id,$seq]);
         if(!$exists){
             if(!one('SELECT id FROM calls WHERE device_binding_id=? AND external_call_id=?',[$b['id'],$id]))
-                insert('INSERT INTO calls(account_id,site_id,phone,name,duration_seconds,status,is_demo,created_at,external_call_id,device_binding_id,sim_slot) VALUES (?,?,?,?,?,?,0,?,?,?,?)',[
-                    $b['account_id'],$b['site_id'],'','',0,'ringing',now(),$id,$b['id'],$b['sim_slot']]);
+                insert('INSERT INTO calls(account_id,site_id,phone,name,duration_seconds,status,is_demo,created_at,external_call_id,device_binding_id,sim_slot,agent_id) VALUES (?,?,?,?,?,?,0,?,?,?,?,?)',[
+                    $b['account_id'],$b['site_id'],'','',0,'ringing',now(),$id,$b['id'],$b['sim_slot'],$b['agent_id']??null]);
             if($phase==='human_takeover'){
                 // A handset takeover stops the AI. It is NOT proof of an
                 // external phone transfer or a staff member answering.
@@ -140,10 +142,20 @@ function tenant_workspace_call_event(array $b,array $p):array{
                         $duration,$duration,$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot'],$id]);
                 }
             }
+            if($phase==='ended')execute('UPDATE calls SET ended_at=COALESCE(ended_at,?)
+                WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=?
+                  AND external_call_id=? AND status=?',
+                [now(),$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot'],$id,'ended']);
             insert('INSERT INTO tenant_call_events(device_binding_id,call_id,sequence,created_at) VALUES (?,?,?,?)',[$b['id'],$id,$seq,now()]);
             if(in_array($phase,['active','ended'],true))voice_usage_update($b,$id,$phase);
         }
-        db()->commit();return ['accepted'=>true,'duplicate'=>(bool)$exists];
+        db()->commit();
+        if($phase==='ended'){
+            // Reports can arrive before or after the terminal event.
+            // The queue is idempotent and never dials from this API.
+            he_schedule($b,$id);
+        }
+        return ['accepted'=>true,'duplicate'=>(bool)$exists];
     }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
 }
 
@@ -187,6 +199,7 @@ function tenant_call_report_save(array $binding,array $data,string $source='devi
         throw new InvalidArgumentException('handoff_reason_required');
     if($summary===''&&$notes===''&&$handoff==='not_requested'&&$outcome==='unknown')
         throw new InvalidArgumentException('empty_call_report');
+    he_init();
     $db=db();
     $db->beginTransaction();
     try{
@@ -223,7 +236,10 @@ function tenant_call_report_save(array $binding,array $data,string $source='devi
         }
         $result=tenant_call_report_find($binding,$callId);
         $db->commit();
-        return ['saved'=>true,'duplicate'=>false,'report'=>$result];
+        // A verified customer request becomes eligible 10 seconds AFTER the
+        // actual terminal event, never before it and never on the same call.
+        $notification=he_schedule($binding,$callId);
+        return ['saved'=>true,'duplicate'=>false,'report'=>$result,'manager_notification'=>$notification];
     }catch(Throwable $error){
         if($db->inTransaction())$db->rollBack();
         throw $error;
