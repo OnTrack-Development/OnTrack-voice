@@ -5,8 +5,10 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
+import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
 
 /** Owner-authorized follow-up only, never a public/prompt-supplied dialer.
@@ -32,15 +34,22 @@ internal object HumanEscalationDialer {
             ?:error("خدمة الاتصال غير متاحة على الهاتف")
         val capable=telecom.callCapablePhoneAccounts
         check(capable.isNotEmpty()){"لم يتم العثور على شريحة صالحة للمكالمات"}
-        // Android does not provide a universally portable public API to map
-        // arbitrary PhoneAccountHandle IDs to SIM slots. When more than one
-        // handle exists, NEVER guess and accidentally dial via another tenant.
-        val matching:List<PhoneAccountHandle>=capable.filter{
-            it.id.trim()==subscriptionId.toString()
+        // Official Android API 30+: resolve each outgoing PhoneAccountHandle to
+        // its real telephony subscription ID, rather than guessing from a
+        // vendor-specific handle.id string or SIM index.
+        val telephony=context.getSystemService(TelephonyManager::class.java)
+            ?:error("تعذر فحص حساب الشريحة")
+        val matching:List<PhoneAccountHandle>=capable.filter{handle->
+            if(Build.VERSION.SDK_INT>=30)
+                runCatching{telephony.getSubscriptionId(handle)==subscriptionId}
+                    .getOrDefault(false)
+            else handle.id.trim()==subscriptionId.toString()
         }
-        val chosen=if(matching.size==1)matching.single()
-            else if(capable.size==1)capable.single()
-            else error("تعذر تحديد حساب الاتصال للشريحة بشكل مؤكد؛ أوقفنا الاتصال حمايةً لعزل الشركات")
+        val chosen=matching.singleOrNull()
+            ?:error("لم يثبت تطابق شريحة الاتصال مع حساب Android؛ تم إيقاف محاولة الاتصال")
+        check(telecom.isOutgoingCallPermitted(chosen)){
+            "خط الهاتف مشغول أو Android لا يسمح بمكالمة أخرى الآن"
+        }
         val extras=Bundle().apply{
             putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE,chosen)
         }
