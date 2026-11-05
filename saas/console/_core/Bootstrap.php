@@ -309,7 +309,7 @@ function go(string $path):never {
     $public=['/register','/register-logo','/verify-email','/forgot-password',
         '/reset-password','/change-password'];
     $prefix=in_array($route,$public,true)?'':'/saas/console';
-    header('Location: '.$prefix.($path==='/'?'':$path),true,303);
+    header('Location: '.($path==='/'?($prefix===''?'/':$prefix):$prefix.$path),true,303);
     exit;
 }
 function startsession():void {
