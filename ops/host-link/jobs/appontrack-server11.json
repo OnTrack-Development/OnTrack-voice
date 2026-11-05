@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "ontrack-live-call-event-audit-20261105-2303",
+  "id": "ontrack-live-call-state-audit2-20261105-2305",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-05T21:03:02.732Z",
-  "expires_at": "2026-11-05T22:33:02.732Z",
+  "created_at": "2026-11-05T21:04:30.569Z",
+  "expires_at": "2026-11-05T22:04:30.569Z",
   "cwd": "/home/appontrack",
-  "timeout_seconds": 18,
+  "timeout_seconds": 20,
   "argv": [
     "/opt/cpanel/ea-php83/root/usr/bin/php",
     "-r",
-    "require '/home/appontrack/public_html/_core/Bootstrap.php';$d=db();$c=all(\"SELECT c.id,c.account_id,c.site_id,c.device_binding_id,c.sim_slot,c.external_call_id,c.status,c.duration_seconds,c.created_at,c.ended_at,CASE WHEN c.phone IS NOT NULL AND c.phone<>'' THEN 1 ELSE 0 END has_number,r.id report_id,CASE WHEN r.summary IS NOT NULL AND r.summary<>'' THEN 1 ELSE 0 END has_summary,r.handoff_status,r.source,CASE WHEN t.call_id IS NULL THEN 0 ELSE 1 END has_transcript FROM calls c LEFT JOIN tenant_call_reports r ON r.account_id=c.account_id AND r.site_id=c.site_id AND r.device_binding_id=c.device_binding_id AND r.call_id=c.external_call_id LEFT JOIN tenant_call_transcripts t ON t.device_binding_id=c.device_binding_id AND t.call_id=c.external_call_id ORDER BY c.id DESC LIMIT 9\");$out=['recent_calls'=>$c];foreach($c as $row){$id=$row['external_call_id'];$out['details'][]=['call_id'=>$id,'events'=>one(\"SELECT COUNT(*) AS ct FROM tenant_call_events WHERE device_binding_id=? AND call_id=?\",[$row['device_binding_id'],$id])['ct']??0,'jobs'=>all(\"SELECT id,status,result FROM human_escalation_jobs WHERE device_binding_id=? AND call_id=?\",[$row['device_binding_id'],$id])];}echo json_encode($out,JSON_UNESCAPED_UNICODE);"
+    "require '/home/appontrack/public_html/_core/Bootstrap.php';$rows=all(\"SELECT c.id,c.external_call_id,c.status,c.duration_seconds,c.created_at,CASE WHEN c.phone<>'' THEN 1 ELSE 0 END has_phone,CASE WHEN r.call_id IS NULL THEN 0 ELSE 1 END has_report,CASE WHEN r.summary<>'' THEN 1 ELSE 0 END has_summary,COALESCE(r.handoff_status,'none') handoff FROM calls c LEFT JOIN tenant_call_reports r ON r.account_id=c.account_id AND r.site_id=c.site_id AND r.device_binding_id=c.device_binding_id AND r.call_id=c.external_call_id ORDER BY c.id DESC LIMIT 12\");$out=[];foreach($rows as $x){$out[]=['id'=>$x['id'],'started'=>$x['created_at'],'status'=>$x['status'],'duration'=>$x['duration_seconds'],'has_phone'=>$x['has_phone'],'has_report'=>$x['has_report'],'has_summary'=>$x['has_summary'],'handoff'=>$x['handoff'],'events'=>one('SELECT COUNT(*) cnt FROM tenant_call_events WHERE call_id=?',[$x['external_call_id']])['cnt']??'unavailable','transcript'=>one('SELECT COUNT(*) cnt FROM tenant_call_transcripts WHERE call_id=?',[$x['external_call_id']])['cnt']??'unavailable'];}echo json_encode(['calls'=>$out],JSON_UNESCAPED_UNICODE);"
   ]
 }
