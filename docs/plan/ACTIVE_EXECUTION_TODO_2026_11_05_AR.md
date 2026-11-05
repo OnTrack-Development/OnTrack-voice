@@ -71,7 +71,7 @@
 ## سجل تنفيذ وتحديث الحالة
 | رقم | الحالة | الدليل |
 |---|---|---|
-| 01 | IN_PROGRESS | سيتم إضافة SHA/CI ثم DEV E2E عند تحققها |
+| 01 | IN_PROGRESS — CODED, PHP CI_PASS, ANDROID_PENDING | [PR #52](https://github.com/OnTrack-Development/OnTrack-voice/pull/52)؛ [PHP backend PASS run 42079048322](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42079048322)؛ Android compile/device E2E لم يُثبتا بعد |
 | 02–12 | TODO | لم تُجتز بوابات القبول الكاملة |
 
 المرجع الأشمل والمتطلبات الأصلية: [MASTER_REPAIR_ROADMAP_2026_11_03_AR.md](./MASTER_REPAIR_ROADMAP_2026_11_03_AR.md). تحديث القائمة مطلوب مع كل commit أو run. لا تحوّل أي checkbox إلى DONE اعتمادًا على نجاح HTTP 200 أو Build فقط.
