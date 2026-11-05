@@ -430,7 +430,71 @@ function render_staff(array $a):void{
     echo card('دعوات الفريق المعلقة',tbl(['الاسم','البريد','الدور','تنتهي','الإجراء'],$pendingRows));
     render_voice_staff_section($a,$rows);
     echo '</div>';
+    render_human_escalation_settings($a);
 }
+/** Independent phone directory: a manager does NOT need to create a SaaS
+ * login or set up a voice-PIN just to receive post-call escalation alerts.
+ */
+function render_human_escalation_settings(array $a):void {
+    require_once __DIR__.'/HumanEscalations.php';
+    he_init();
+    $id=(int)$a['account_id'];
+    $manage=in_array($a['role'],['owner','admin'],true)&&!active_support();
+    $contacts=all('SELECT id,name,phone_e164,recipient_role,status
+        FROM human_escalation_contacts WHERE account_id=? ORDER BY id DESC LIMIT 100',[$id]);
+    $options=[0=>'بدون تحويل تلقائي'];
+    $contactRows=[];
+    foreach($contacts as $c){
+        if($c['status']==='active')$options[(int)$c['id']]=
+            $c['name'].' — '.$c['phone_e164'].' ('.
+            ($c['recipient_role']==='manager'?'مدير':'موظف').')';
+        $control=$manage && $c['status']==='active'
+            ?form_start('human_contact_disable','/?tab=staff','class="inline-form"').
+                '<input type="hidden" name="contact_id" value="'.(int)$c['id'].'">'.
+                '<button class="btn small danger" data-confirm="تعطيل رقم الموظف وإيقاف الإشعارات المعلقة له؟">تعطيل</button></form>'
+            :'—';
+        $contactRows[]=[e($c['name']),
+            '<span dir="ltr">'.e($c['phone_e164']).'</span>',
+            $c['recipient_role']==='manager'?'مدير':'موظف',
+            $c['status']==='active'?'مفعّل':'متوقف',$control];
+    }
+    echo '<section id="human-escalation-settings" class="card">'.
+        '<div class="card-head"><h3>التحويل البشري وإبلاغ المدير بعد المكالمة</h3></div>'.
+        '<p>سجّل أرقام المديرين والموظفين، وحدّد لكل مساعد الشخص المسؤول عن المكالمات التي يطلب فيها العميل موظفًا بشريًا. النظام يسجّل السبب والملخص، وبعد انتهاء المكالمة بـ10 ثوانٍ يصدر إشعار اتصال إلى الشريحة المرتبطة. لا يبدأ اتصال أثناء مكالمة العميل.</p>'.
+        '<p class="dim">الاتصال الآلي متوقف افتراضيًا حتى تفعّله وتختار رقمًا. بدء الاتصال لا يعني أن المدير استلم الرسالة؛ تتم متابعة حالة المحاولة بشكل مستقل.</p>'.
+        tbl(['الاسم','رقم الهاتف','الصفة','الحالة','الإجراء'],$contactRows).'</section>';
+    if(!$manage)return;
+    echo card('إضافة رقم مدير أو موظف',
+        form_start('human_contact_add','/?tab=staff').
+        '<div class="form-grid">'.
+        '<label class="field">اسم المسؤول<input name="contact_name" maxlength="140" required placeholder="اسم المدير أو الموظف"></label>'.
+        '<label class="field">رقم الاتصال الدولي<input type="tel" name="phone_e164" dir="ltr" maxlength="20" required placeholder="+201012345678"></label>'.
+        select_html('الصفة','recipient_role',['manager'=>'مدير','employee'=>'موظف']).
+        '</div>'.submit_btn('حفظ رقم الاتصال'));
+    $agents=all("SELECT ag.id,ag.name,ag.site_id,s.name site_name,
+        r.contact_id,r.enabled
+        FROM agents ag JOIN sites s ON s.id=ag.site_id AND s.account_id=ag.account_id
+        LEFT JOIN human_escalation_routes r ON r.agent_id=ag.id AND r.account_id=ag.account_id
+        WHERE ag.account_id=? AND ag.status!='archived' ORDER BY ag.id DESC LIMIT 100",[$id]);
+    $routes='';
+    foreach($agents as $ag){
+        $routeOptions=$options;
+        $selected=(int)($ag['contact_id']??0);
+        if(!array_key_exists($selected,$routeOptions))$selected=0;
+        $routes.='<div class="call-handoff-route"><strong>'.e($ag['name']).'</strong>'.
+            '<small class="dim">'.e($ag['site_name']).'</small>'.
+            form_start('human_route_save','/?tab=staff').
+            '<input type="hidden" name="agent_id" value="'.(int)$ag['id'].'">'.
+            select_html('موظف التحويل','contact_id',$routeOptions,$selected).
+            '<label class="field"><input type="checkbox" name="enabled" value="1"'.
+                (!empty($ag['enabled'])?' checked':'').'> تفعيل الاتصال التلقائي للمسؤول عند طلب العميل</label>'.
+            '<p class="dim">يبدأ الطلب بعد إنهاء العميل مكالمته، ولا يتم الاتصال قبل مرور 10 ثوانٍ.</p>'.
+            submit_btn('حفظ مسار التحويل').'</form></div>';
+    }
+    echo card('تحديد المسؤول لكل AI Agent',
+        $routes?:'<p>أنشئ مساعدًا أولًا حتى تختار مسؤول التحويل الخاص به.</p>');
+}
+
 function render_invitations():void {
     $u=me();if(!$u)return;
     $invites=pending_staff_invitations_for_user((int)$u['id']);
