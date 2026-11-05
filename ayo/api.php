@@ -18,6 +18,8 @@ function fail(string $message, int $code=400): never { http_response_code($code)
 function json_out(array $data): never { header('Content-Type: application/json; charset=utf-8'); echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE); exit; }
 function body(): array { $raw=file_get_contents('php://input'); if (strlen((string)$raw)>24000) fail('الطلب أكبر من الحد'); $data=json_decode((string)$raw,true); return is_array($data)?$data:[]; }
 function emit(array $event): void { echo json_encode($event,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE|JSON_UNESCAPED_SLASHES)."\n"; if (ob_get_level()>0) @ob_flush(); flush(); }
+function char_len(string $s): int { if(function_exists('mb_strlen')) return mb_strlen($s,'UTF-8'); return preg_match_all('/./us',$s) ?: strlen($s); }
+function char_sub(string $s,int $length): string { if(function_exists('mb_substr')) return mb_substr($s,0,$length,'UTF-8'); preg_match_all('/./us',$s,$m); return implode('',array_slice($m[0]??[],0,$length)); }
 function envkey(string $key): string { $v=getenv($key); return $v===false?'':trim($v); }
 function cfg(): array {
  $saved=$_SESSION['ayo_config'] ?? [];
@@ -37,7 +39,7 @@ function require_post(): void {
  if ($_SERVER['REQUEST_METHOD']!=='POST') fail('الطريقة غير مدعومة',405);
  if (($_SERVER['HTTP_X_AYO_CSRF']??'')!==($_SESSION['ayo_csrf']??'')) fail('جلسة الصفحة غير متزامنة؛ حدّث الصفحة',403);
  $origin=$_SERVER['HTTP_ORIGIN']??''; if($origin!==''){
-  $parts=parse_url($origin); if(!$parts || strcasecmp($parts['host']??'',$_SERVER['HTTP_HOST']??'')!==0) fail('Origin غير مسموح',403);
+  $parts=parse_url($origin); if(!$parts || strcasecmp($parts['host']??'',explode(':',$_SERVER['HTTP_HOST']??'')[0])!==0) fail('Origin غير مسموح',403);
  }
 }
 function stream_headers(): void { header('Content-Type: application/x-ndjson; charset=utf-8'); header('X-Accel-Buffering: no'); header('Cache-Control: no-store, no-transform'); @ini_set('zlib.output_compression','0'); while(ob_get_level()>0) @ob_end_flush(); }
@@ -76,7 +78,7 @@ function llm_stream(array $c,array $messages): string {
 }
 function tts_stream(string $text,array $c): void {
  if($c['inworldKey']==='')throw new RuntimeException('اضبط مفتاح Inworld في الإعدادات');
- if(mb_strlen($text)>3500)$text=mb_substr($text,0,3500);
+ if(char_len($text)>3500)$text=char_sub($text,3500);
  $payload=['text'=>$text,'voiceId'=>$c['voiceId'],'modelId'=>$c['ttsModel'],'language'=>$c['ttsLocale'],'audioConfig'=>['audioEncoding'=>'PCM','sampleRateHertz'=>24000,'speakingRate'=>1],'deliveryMode'=>$c['ttsDelivery']];
  $ch=curl_base('https://api.inworld.ai/tts/v1/voice:stream',['Authorization: Basic '.$c['inworldKey'],'Content-Type: application/json','Accept: application/json'],(string)json_encode($payload,JSON_UNESCAPED_UNICODE));
  $buffer='';$started=microtime(true);$audio=false;$httpErr='';$processed=0;
@@ -94,7 +96,7 @@ function tts_stream(string $text,array $c): void {
  if($ok===false||$status>=400)throw new RuntimeException('Inworld HTTP '.($status?:'network').($err?' / اتصال غير متاح':''));
  if(trim($buffer)!=='')$handleLine($buffer);
  if(!$audio)throw new RuntimeException('Inworld لم يرجع أجزاء صوتية');
- $count=max($processed,mb_strlen($text));emit(['type'=>'audio_done','chars'=>$count,'estimatedUsd'=>round($count*($c['ttsModel']==='inworld-tts-2'?25:15)/1000000,6)]);
+ $count=max($processed,char_len($text));emit(['type'=>'audio_done','chars'=>$count,'estimatedUsd'=>round($count*($c['ttsModel']==='inworld-tts-2'?25:15)/1000000,6)]);
 }
 $action=(string)($_GET['action']??'status');
 if ($action==='status') json_out(['csrf'=>$_SESSION['ayo_csrf'],'config'=>public_cfg(cfg()),'running'=>isset($_SESSION['ayo_deadline'])&&$_SESSION['ayo_deadline']>time()]);
@@ -122,7 +124,7 @@ if ($action==='clone') {
  $_SESSION['ayo_config']['voiceId']=$d['voice']['voiceId'];json_out(['voiceId'=>$d['voice']['voiceId'],'config'=>public_cfg(cfg())]);
 }
 if ($action==='preview'||$action==='turn') {
- $in=body();$text=trim((string)($in[$action==='preview'?'text':'question']??''));if($text===''||mb_strlen($text)>1500)fail('النص مطلوب (بحد أقصى 1500 حرف)');
+ $in=body();$text=trim((string)($in[$action==='preview'?'text':'question']??''));if($text===''||char_len($text)>1500)fail('النص مطلوب (بحد أقصى 1500 حرف)');
  $c=cfg();if($action==='turn'&&(!isset($_SESSION['ayo_deadline'])||$_SESSION['ayo_deadline']<time()))fail('انتهت جلسة الدقيقتين؛ ابدأ من جديد',408);
  $hist=$_SESSION['ayo_history']??[];if($action==='turn')$_SESSION['ayo_history']=array_slice([...$hist,['role'=>'user','content'=>$text]],-12);
  session_write_close();stream_headers();$start=microtime(true);
