@@ -118,6 +118,28 @@ function test_signup():void {
     password_reset_stage('not-found-'.bin2hex(random_bytes(5)).'@example.test',
         static function(string $e,string $t)use(&$missingSent):bool{$missingSent=true;return true;});
     ok(!$missingSent,'unknown recovery email never sends a link or selects an identity');
+    $root=dirname(__DIR__).'/saas/console';
+    $signupSource=(string)file_get_contents($root.'/_core/Signup.php');
+    $viewSource=(string)file_get_contents($root.'/_core/Views.php');
+    $bootstrapSource=(string)file_get_contents($root.'/_core/Bootstrap.php');
+    foreach(['/register','/verify-email','/forgot-password','/reset-password','/change-password'] as $publicRoute){
+        ok(!str_contains($signupSource,'/saas/console'.$publicRoute),
+            'signup and email links never reference dead nested path '.$publicRoute);
+    }
+    ok(str_contains($signupSource,'action="/register"') &&
+        str_contains($signupSource,'action="/forgot-password"') &&
+        str_contains($signupSource,'action="/reset-password"') &&
+        str_contains($signupSource,'action="/verify-email"'),
+        'all public auth forms post to actual live root');
+    ok(str_contains($signupSource,'https://app.ontrackegy.com/verify-email?token=') &&
+        str_contains($signupSource,'https://app.ontrackegy.com/reset-password?token='),
+        'verification and reset emails use correct live site root');
+    ok(str_contains($viewSource,"\$base='/register';") &&
+        str_contains($viewSource,'href="/forgot-password"') &&
+        str_contains($viewSource,'href="/change-password"') &&
+        str_contains($bootstrapSource,"in_array(\$route,\$public,true)?'':'/saas/console'"),
+        'owner/reseller UI and redirects use root public auth paths');
+    echo "WEB_AUTH_PUBLIC_ROOT_ROUTING_PASS\n";
     echo "VERIFIED_TENANT_REGISTRATION_AND_PASSWORD_RECOVERY_PASS\n";
     echo "VERIFIED_CUSTOMER_SIGNUP_PASS\n";
 }
