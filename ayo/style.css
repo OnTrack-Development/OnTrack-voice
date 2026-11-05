@@ -116,3 +116,8 @@ body{background-image:none!important}
 .ayo-modal-content{max-height:calc(100dvh - 30px);overflow-y:auto}
 .ayo-modal-content #micPermissionError:not(:empty){color:#ffa5ac;line-height:1.7;font-size:11px}
 @media(max-width:480px){.ayo-mic-recovery{max-height:40vh}.ayo-mic-recovery-actions button{font-size:10px;padding:10px 5px}}
+
+/* v9: keep voice replay accessible on Android Chrome after streamed playback. */
+.ayo-native-player{display:block;width:calc(100% - 24px);height:48px;margin:12px auto 8px;accent-color:#d8394c;background:#09090b;border:1px solid #343037;border-radius:12px;}
+.ayo-chat-note{font-size:11px;line-height:1.8;padding:9px 14px;margin:0;color:#b6b7bc;background:#101115;border-top:1px solid #2b2c31;}
+@media(max-width:420px){.ayo-native-player{width:calc(100% - 14px)}}
