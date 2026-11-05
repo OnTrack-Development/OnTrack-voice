@@ -1,0 +1,13 @@
+{
+  "job_id": "ayo-gateway-switcher-e2e-20261105-01",
+  "target": "appontrack-server11",
+  "job_sha256": "04ca6c8404c600583af8d4f8d8524e421f7067a86ce9ee472add3692f47a16b0",
+  "started_at": "2026-11-05T03:37:03.142826+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"result\": \"PASS\", \"assets\": [{\"url\": \"/\", \"http\": 200, \"found\": true}, {\"url\": \"app.js?v=4\", \"http\": 200, \"found\": true}, {\"url\": \"style.css?v=4\", \"http\": 200, \"found\": true}], \"switch_tests\": [{\"provider\": \"omnira-a\", \"model\": \"claude-fable-5.1\", \"http\": 200, \"saved\": true, \"active_key_ready\": false}, {\"provider\": \"omnira-b\", \"model\": \"glm-5-3-flash\", \"http\": 200, \"saved\": true, \"active_key_ready\": false}, {\"provider\": \"apinex\", \"model\": \"free/gpt-6-luna\", \"http\": 200, \"saved\": true, \"active_key_ready\": false}], \"inworld_key_ready\": false}\n",
+  "stderr": "",
+  "finished_at": "2026-11-05T03:37:03.480680+00:00",
+  "duration_ms": 338
+}
