@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 /* AYO Voice Lab: isolated PHP HTTP streaming demo. No credentials are committed. */
+require_once __DIR__.'/voice-expression.php';
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 ini_set('session.use_strict_mode', '1');
@@ -23,13 +24,13 @@ function char_sub(string $s,int $length): string { if(function_exists('mb_substr
 function envkey(string $key): string { $v=getenv($key); return $v===false?'':trim($v); }
 function cfg(): array {
  $saved=$_SESSION['ayo_config'] ?? [];
- return array_merge(['voiceId'=>'silver-quail-7878__ayo','ttsModel'=>'inworld-tts-2','ttsDelivery'=>'BALANCED','ttsLocale'=>'ar-EG','llmProvider'=>'apinex','llmModel'=>'free/gpt-6-luna'], $saved, [
+ return array_merge(['voiceId'=>'silver-quail-7878__ayo','ttsModel'=>'inworld-tts-2','ttsDelivery'=>'BALANCED','ttsLocale'=>'ar-EG','emotionMode'=>'expressive','llmProvider'=>'apinex','llmModel'=>'free/gpt-6-luna'], $saved, [
   'inworldKey'=>$_SESSION['ayo_keys']['inworld'] ?? envkey('INWORLD_API_KEY'),
   'apinexKey'=>$_SESSION['ayo_keys']['apinex'] ?? envkey('APINEX_API_KEY'),
   'omniraKey'=>$_SESSION['ayo_keys']['omnira'] ?? envkey('OMNIRA_API_KEY')
  ]);
 }
-function public_cfg(array $c): array {return ['voiceId'=>$c['voiceId'],'ttsModel'=>$c['ttsModel'],'ttsDelivery'=>$c['ttsDelivery'],'ttsLocale'=>$c['ttsLocale'],'llmProvider'=>$c['llmProvider'],'llmModel'=>$c['llmModel'],'hasInworldKey'=>($c['inworldKey']!==''),'hasActiveLlmKey'=>($c[$c['llmProvider']==='apinex'?'apinexKey':'omniraKey']!==''),'hasOmniraKey'=>($c['omniraKey']!==''),'hasApinexKey'=>($c['apinexKey']!==''),'defaultSttMode'=>'browser','ttsPrice'=>$c['ttsModel']==='inworld-tts-2'?25:15,'maxSeconds'=>120]; }
+function public_cfg(array $c): array {return ['voiceId'=>$c['voiceId'],'ttsModel'=>$c['ttsModel'],'ttsDelivery'=>$c['ttsDelivery'],'ttsLocale'=>$c['ttsLocale'],'emotionMode'=>$c['emotionMode'],'llmProvider'=>$c['llmProvider'],'llmModel'=>$c['llmModel'],'hasInworldKey'=>($c['inworldKey']!==''),'hasActiveLlmKey'=>($c[$c['llmProvider']==='apinex'?'apinexKey':'omniraKey']!==''),'hasOmniraKey'=>($c['omniraKey']!==''),'hasApinexKey'=>($c['apinexKey']!==''),'defaultSttMode'=>'browser','ttsPrice'=>$c['ttsModel']==='inworld-tts-2'?25:15,'maxSeconds'=>120]; }
 function prompt(): string {
  $k=json_decode((string)file_get_contents(__DIR__.'/ontrack.json'),true) ?: [];
  $plans=[]; foreach($k['plans']??[] as $p){$plans[]=$p['name'].': $'.$p['monthly_usd'].' شهريًا، $'.$p['yearly_usd'].' سنويًا؛ '.$p['details'];}
@@ -76,14 +77,18 @@ function llm_stream(array $c,array $messages): string {
  if(trim($whole)==='')throw new RuntimeException('لم يرجع الموديل نصًا قابلًا للنطق؛ جرّب موديلًا آخر يدعم Streaming');
  emit(['type'=>'llm_done']); return trim($whole);
 }
-function tts_stream(string $text,array $c): void {
+function tts_stream(string $text,array $c,string $callerText=''): void {
  if($c['inworldKey']==='')throw new RuntimeException('اضبط مفتاح Inworld في الإعدادات');
  if(char_len($text)>3500)$text=char_sub($text,3500);
- $payload=['text'=>$text,'voiceId'=>$c['voiceId'],'modelId'=>$c['ttsModel'],'language'=>$c['ttsLocale'],'audioConfig'=>['audioEncoding'=>'PCM','sampleRateHertz'=>24000,'speakingRate'=>1],'deliveryMode'=>$c['ttsDelivery']];
+ $styled=ayo_expression_prepare($text,$c['emotionMode'],$c['ttsModel'],$callerText);
+ $payload=['text'=>$styled['text'],'voiceId'=>$c['voiceId'],'modelId'=>$c['ttsModel'],'language'=>$c['ttsLocale'],'audioConfig'=>['audioEncoding'=>'PCM','sampleRateHertz'=>24000,'speakingRate'=>1],'deliveryMode'=>$c['ttsDelivery']];
+ if ($styled['synthesisContext']!==null) $payload['synthesisContext']=$styled['synthesisContext'];
+ emit(['type'=>'voice_style','mode'=>$styled['mode'],'reasoningEnabled'=>$styled['reasoningEnabled'],'cue'=>$styled['nonverbalCue'],'model'=>$c['ttsModel']]);
  $ch=curl_base('https://api.inworld.ai/tts/v1/voice:stream',['Authorization: Basic '.$c['inworldKey'],'Content-Type: application/json','Accept: application/json'],(string)json_encode($payload,JSON_UNESCAPED_UNICODE));
  $buffer='';$started=microtime(true);$audio=false;$httpErr='';$processed=0;
  $handleLine=function(string $line)use(&$audio,&$processed,$started){$d=json_decode(trim($line),true);if(!is_array($d))return;
   $r=$d['result']??[];if(isset($d['error']))throw new RuntimeException('Inworld رفض توليد الصوت');
+  if(!empty($r['reasoningInstruction'])&&is_string($r['reasoningInstruction']))emit(['type'=>'reasoning_instruction','instruction'=>char_sub($r['reasoningInstruction'],200)]);
   if(isset($r['usage']['processedCharactersCount']))$processed+=(int)$r['usage']['processedCharactersCount'];
   if(!empty($r['audioContent'])){if(!$audio){emit(['type'=>'latency','metric'=>'ttsFirstChunkMs','value'=>round((microtime(true)-$started)*1000)]);$audio=true;}
    emit(['type'=>'audio','content'=>$r['audioContent'],'encoding'=>'PCM','sampleRate'=>24000]); }
@@ -103,9 +108,9 @@ if ($action==='status') json_out(['csrf'=>$_SESSION['ayo_csrf'],'config'=>public
 if ($action==='knowledge') { $k=json_decode((string)file_get_contents(__DIR__.'/ontrack.json'),true)?:[]; json_out($k); }
 require_post();
 if ($action==='settings') {
- $in=body();$c=cfg();$allowed=['voiceId'=>96,'ttsModel'=>64,'ttsDelivery'=>20,'ttsLocale'=>16,'llmProvider'=>20,'llmModel'=>96];
+ $in=body();$c=cfg();$allowed=['voiceId'=>96,'ttsModel'=>64,'ttsDelivery'=>20,'ttsLocale'=>16,'llmProvider'=>20,'llmModel'=>96,'emotionMode'=>20];
  foreach($allowed as $k=>$limit){if(isset($in[$k])&&is_string($in[$k])){if(strlen($in[$k])>$limit)fail('إعداد أطول من المطلوب');$_SESSION['ayo_config'][$k]=$in[$k];}}
- $c=cfg();if(!in_array($c['ttsModel'],['inworld-tts-2','inworld-tts-2-flash'],true)|| !in_array($c['llmProvider'],['apinex','omnira-a','omnira-b'],true)||!in_array($c['ttsDelivery'],['BALANCED','STABLE','CREATIVE'],true)||!in_array($c['ttsLocale'],['ar-EG','arz','AUTO'],true))fail('إعدادات غير صالحة');
+ $c=cfg();if(!in_array($c['ttsModel'],['inworld-tts-2','inworld-tts-2-flash'],true)|| !in_array($c['llmProvider'],['apinex','omnira-a','omnira-b'],true)||!in_array($c['emotionMode'],['off','auto','expressive'],true)||!in_array($c['ttsDelivery'],['BALANCED','STABLE','CREATIVE'],true)||!in_array($c['ttsLocale'],['ar-EG','arz','AUTO'],true))fail('إعدادات غير صالحة');
  foreach(['inworldKey'=>'inworld','omniraKey'=>'omnira','apinexKey'=>'apinex'] as $inName=>$slot){if(!empty($in[$inName])){if(!is_string($in[$inName])||strlen($in[$inName])>2200)fail('مفتاح غير صالح');$_SESSION['ayo_keys'][$slot]=trim($in[$inName]);}}
  json_out(['config'=>public_cfg(cfg())]);
 }
@@ -132,7 +137,7 @@ if ($action==='preview'||$action==='turn') {
   if($action==='turn'){
    emit(['type'=>'started']);$messages=[['role'=>'system','content'=>prompt()]];foreach(array_slice($hist,-10) as $r)if(in_array($r['role'],['user','assistant'],true))$messages[]=$r;
    $messages[]=['role'=>'user','content'=>$text];$reply=llm_stream($c,$messages);$reply=preg_replace('/<think>.*?<\/think>/su','',$reply)??$reply;
-   tts_stream($reply,$c);
+   tts_stream($reply,$c,$text);
   } else {emit(['type'=>'started']);tts_stream($text,$c);}
   emit(['type'=>'complete','totalMs'=>round((microtime(true)-$start)*1000)]);
  }catch(Throwable $e){emit(['type'=>'error','message'=>$e->getMessage()]);}
