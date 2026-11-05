@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "ontrack-manager-contacts-scoped-20261105-2030",
+  "id": "ontrack-enable-manager-route-20261105-2039",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-05T18:24:24.005Z",
-  "expires_at": "2026-11-05T20:24:24.005Z",
+  "created_at": "2026-11-05T18:27:46.460Z",
+  "expires_at": "2026-11-05T20:27:46.460Z",
   "cwd": "/home/appontrack",
-  "timeout_seconds": 20,
+  "timeout_seconds": 25,
   "argv": [
     "/opt/cpanel/ea-php83/root/usr/bin/php",
     "-r",
-    "require '/home/appontrack/public_html/_core/Bootstrap.php';$p=db();$out=[];foreach(['human_escalation_contacts'=>'SELECT id,account_id,recipient_role,status FROM human_escalation_contacts','voice_staff_numbers'=>'SELECT id,account_id,user_id,status FROM voice_staff_numbers','human_escalation_routes'=>'SELECT agent_id,account_id,site_id,contact_id,enabled,updated_at FROM human_escalation_routes'] as $key=>$query){try{$out[$key]=$p->query($query)->fetchAll(PDO::FETCH_ASSOC);}catch(Throwable $e){$out[$key]='query_failed';}}echo json_encode($out,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);"
+    "require '/home/appontrack/public_html/_core/Bootstrap.php';require '/home/appontrack/public_html/_core/HumanEscalations.php';he_init();$manager=one(\"SELECT id FROM human_escalation_contacts WHERE id=1 AND account_id=1 AND recipient_role='manager' AND status='active'\");$agent=one(\"SELECT id FROM agents WHERE id=7 AND account_id=1 AND site_id=6 AND status='published'\");$binding=one(\"SELECT id FROM device_bindings WHERE id=1 AND account_id=1 AND site_id=6 AND agent_id=7 AND sim_slot=0 AND status='active'\");if(!$manager||!$agent||!$binding)throw new RuntimeException('validated_owner_contact_or_device_changed');$old=one('SELECT agent_id FROM human_escalation_routes WHERE account_id=1 AND agent_id=7');if($old)throw new RuntimeException('route_already_set_review_before_modifying');$rows=all(\"SELECT c.external_call_id,c.account_id,c.site_id,c.device_binding_id,c.sim_slot FROM calls c JOIN tenant_call_reports r ON r.account_id=c.account_id AND r.site_id=c.site_id AND r.device_binding_id=c.device_binding_id AND r.call_id=c.external_call_id WHERE c.account_id=1 AND c.site_id=6 AND c.device_binding_id=1 AND c.agent_id=7 AND c.status='ended' AND r.handoff_status='requested' AND r.source!='device_handoff'\");$db=db();$db->beginTransaction();try{$n=0;foreach($rows as $c){$exists=one('SELECT id FROM human_escalation_jobs WHERE device_binding_id=? AND call_id=?',[$c['device_binding_id'],$c['external_call_id']]);if($exists)continue;insert(\"INSERT INTO human_escalation_jobs(account_id,site_id,device_binding_id,sim_slot,call_id,contact_id,due_epoch,status,finished_at,result,created_at) VALUES(?,?,?,?,?,?,?,'cancelled',?,?,?)\",[(int)$c['account_id'],(int)$c['site_id'],(int)$c['device_binding_id'],(int)$c['sim_slot'],(string)$c['external_call_id'],1,time(),now(),'route_not_configured_at_call',now()]);$n++;}he_route_configure(1,7,1,true,10);$route=one('SELECT enabled,contact_id,delay_seconds FROM human_escalation_routes WHERE account_id=1 AND agent_id=7 AND site_id=6');if(!$route||(int)$route['enabled']!==1||(int)$route['contact_id']!==1||(int)$route['delay_seconds']!==10)throw new RuntimeException('route_not_verified');$db->commit();echo json_encode(['route'=>'enabled','manager_contact_id'=>1,'agent_id'=>7,'sim_slot'=>0,'delay_seconds'=>10,'historical_requests_not_dialed'=>$n]);}catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}"
   ]
 }
