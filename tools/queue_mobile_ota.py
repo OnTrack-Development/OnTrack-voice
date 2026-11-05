@@ -46,7 +46,21 @@ def main():
     script="import base64,zlib;exec(zlib.decompress(base64.b64decode('"+compact+"')))"
     now=datetime.datetime.now(datetime.timezone.utc);job={'schema':1,'id':'mobile-ota-'+os.environ['GITHUB_RUN_ID'],'target':TARGET,'action':'exec','created_at':now.isoformat(),'expires_at':(now+datetime.timedelta(hours=24)).isoformat(),'cwd':'/home/appontrack/public_html/saas','timeout_seconds':25,'argv':['/bin/python3','-c',script,packed,hashlib.sha256(bundle).hexdigest()]}
     encoded=json.dumps(job,ensure_ascii=False,indent=2).encode()
-    if len(encoded)>16384:
+    if len(encoded)>16384 and os.environ.get('MOBILE_DIRECT_RELEASE_MODE')=='1':
+        # Artifact storage is full. Private GitHub Release ZIP carries the
+        # EXACT signed UI payload; the host re-verifies its certificate and
+        # digest before installing. No GitHub credential crosses the host link.
+        from mobile_direct_transport import asset_url
+        ui_zip=Path('.build/artifact/OnTrack-Voice-UI45.zip')
+        if not ui_zip.is_file():raise RuntimeError('SIGNED_UI_RELEASE_BUNDLE_MISSING')
+        url=asset_url(ui_zip.name,hashlib.sha256(ui_zip.read_bytes()).hexdigest(),ui_zip.stat().st_size)
+        program=(Path('saas/mobile/ota/deploy.py')).read_text()+'\n'+(Path('saas/mobile/ota/remote_deploy.py')).read_text()+'\nimport sys\nremote_install(sys.argv[1],sys.argv[2],sys.argv[3])\n'
+        compact=base64.b64encode(zlib.compress(program.encode(),9)).decode()
+        script="import base64,zlib;exec(zlib.decompress(base64.b64decode('"+compact+"')))"
+        job['timeout_seconds']=30
+        job['argv']=['/bin/python3','-c',script,url,meta['sha256'],str(meta['revision'])]
+        encoded=json.dumps(job,ensure_ascii=False,indent=2).encode()
+    elif len(encoded)>16384:
         # Upload transport is not a product dependency: fetch exact signed artifact from
         # the completed build via short-lived GitHub Actions blob redirect on the host.
         from queue_mobile_native import download_url
