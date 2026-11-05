@@ -1,81 +1,88 @@
 /**
- * AYO microphone turn detector: actual mic volume -> MediaRecorder Opus ->
- * Inworld synchronous Arabic transcription -> text sent to external LLM.
- * Browser SpeechRecognition is not required. No API key reaches the browser.
+ * AYO mic turns: AudioWorklet PCM with pre-roll and adaptive noise gate.
+ * 16k mono LINEAR16 -> Inworld STT sync. Never forward low-energy silence.
+ * No API keys leave the PHP host.
  */
-export function createMicTurns({ stream, analyser, csrf, onText, onStatus, onError }) {
-  const format = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus']
-    .find(x => MediaRecorder.isTypeSupported(x));
-  if (!format) throw new Error('المتصفح لا يدعم تسجيل Opus، استخدم Chrome أو Firefox');
-  const encoding = format.includes('ogg') ? 'OGG_OPUS' : 'WEBM';
-  const signal = new Uint8Array(analyser.fftSize);
-  let active=false, recorder=null, listening=false, busy=false, startMs=0;
-  let lastVoiceAt=0, quiet=0, timer=null, chunks=[], threshold=.022, noise=.012;
-  let status='idle';
-  const say = (s) => { if (s !== status) {status=s;onStatus?.(s);} };
-  const volume = () => {
-    analyser.getByteTimeDomainData(signal);let sum=0;
-    for(let i=0;i<signal.length;i+=4){const v=(signal[i]-128)/128;sum+=v*v;}
-    return Math.sqrt(sum/(signal.length/4));
+export function createMicTurns({stream,csrf,onText,onStatus,onError}) {
+  const Context=window.AudioContext||window.webkitAudioContext;
+  if(!Context||!window.AudioWorkletNode)throw Error('محتاج Chrome حديث يدعم AudioWorklet لتحسين دقة الكلام');
+  const ctx=new Context({sampleRate:16000,latencyHint:'interactive'});
+  let source=null,processor=null,mute=null,active=false,listening=false,busy=false,ready=false,closed=false;
+  let status='idle',noise=.006,pre=[],audio=[],voiceMs=0,lastVoiceMs=0,startMs=0,clockMs=0;
+  const say=s=>{if(status!==s){status=s;onStatus?.(s)}};
+  const reset=()=>{audio=[];voiceMs=0;lastVoiceMs=0;startMs=0;};
+  const voiceLevel=raw=>{
+    const d=new DataView(raw.buffer,raw.byteOffset,raw.byteLength);let total=0,count=0;
+    for(let i=0;i+1<raw.length;i+=8){const v=d.getInt16(i,true)/32768;total+=v*v;count++}
+    return Math.sqrt(total/Math.max(1,count));
   };
-  async function submit(blob) {
-    if (!active || blob.size < 800) return;
-    if (blob.size > 680000) {onError?.('التسجيل تجاوز الحد، حاول بجملة أقصر');return;}
-    busy=true; say('transcribing');
-    try {
-      const buffer=new Uint8Array(await blob.arrayBuffer());let binary='';
-      for(let i=0;i<buffer.length;i+=8192) binary+=String.fromCharCode(...buffer.subarray(i,i+8192));
-      const response=await fetch('api.php?action=transcribe',{
+  const sizeMs=raw=>Math.round(raw.byteLength/2/ctx.sampleRate*1000);
+  const base64=raw=>{
+    let b='';
+    for(let i=0;i<raw.length;i+=8192)b+=String.fromCharCode(...raw.subarray(i,i+8192));
+    return btoa(b);
+  };
+  async function transcribe(parts,durationMs){
+    if(!active||!listening||busy||!parts.length)return;
+    busy=true;say('transcribing');
+    try{
+      const total=parts.reduce((n,p)=>n+p.length,0);
+      if(total>850000)throw Error('الجملة طويلة؛ جرّب توقف بين الجمل');
+      const bytes=new Uint8Array(total);let offset=0;
+      for(const part of parts){bytes.set(part,offset);offset+=part.length}
+      const r=await fetch('api.php?action=transcribe',{
         method:'POST',headers:{'Content-Type':'application/json','X-AYO-CSRF':csrf()},
-        body:JSON.stringify({encoding,audio:btoa(binary)})
+        body:JSON.stringify({encoding:'LINEAR16',sampleRate:ctx.sampleRate,durationMs,audio:base64(bytes)})
       });
-      const data=await response.json().catch(()=>({error:'استجابة غير صالحة من STT'}));
-      if(!response.ok)throw new Error(data.error||'تعذر فهم الصوت');
-      const phrase=(data.transcript||'').trim();
-      if(phrase&&active){say('recognized');await onText(phrase);}
-      else if(active)say('no-speech');
-    }catch(err){if(active)onError?.(err.message||'خطأ في التفريغ الصوتي');}
-    finally{busy=false;if(active&&listening)say('listening');}
+      const data=await r.json().catch(()=>({error:'استجابة STT غير صالحة'}));
+      if(!r.ok)throw Error(data.error||'تعذر فهم الصوت');
+      const text=(data.transcript||'').trim();
+      if(!active||!listening)return;
+      if(data.suspect||!data.hasText||!text){say('no-speech');return}
+      say('recognized');await onText(text);
+    }catch(e){if(active)onError?.(e.message||'فشل التفريغ')}
+    finally{busy=false;if(active&&listening)say('listening')}
   }
-  function startRecording() {
-    if (!active || !listening || recorder || busy) return;
-    try {
-      chunks=[];
-      recorder=new MediaRecorder(stream,{mimeType:format,audioBitsPerSecond:32000});
-      const current=recorder;
-      current.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};
-      current.onstop=()=>{
-        recorder=null;
-        const blob=new Blob(chunks,{type:format});chunks=[];
-        if(active)submit(blob);
-      };
-      current.onerror=()=>{onError?.('فشل تسجيل الصوت من الميكروفون')};
-      startMs=performance.now();lastVoiceAt=startMs;current.start(250);
-      say('recording');
-    }catch(e){recorder=null;onError?.('تعذر بدء التسجيل: '+e.message);}
-  }
-  function finishRecording() {
-    const current=recorder;
-    if(current?.state==='recording') current.stop();
-  }
-  function tick(){
-    if(!active||!listening||busy)return;
-    const level=volume(),now=performance.now();
-    if(!recorder){
-      if(level<.024)noise=noise*.97+level*.03;
-      const gate=Math.max(.018, Math.min(.06, noise*2.7));
-      if(level>gate)startRecording();
-    }else{
-      const gate=Math.max(.014, Math.min(.045, noise*2.1));
-      if(level>gate)lastVoiceAt=now;
-      if(now-startMs>15500 || (now-startMs>500&&now-lastVoiceAt>850)) finishRecording();
+  function accept(buffer){
+    if(!active||!listening||busy||closed)return;
+    const frame=new Uint8Array(buffer);
+    if(frame.length<32)return;
+    const rms=voiceLevel(frame),ms=sizeMs(frame),now=performance.now();
+    const gate=Math.min(.075,Math.max(.014,noise*2.6));
+    if(startMs===0){
+      if(rms<gate){noise=noise*.98+rms*.02;pre.push(frame);if(pre.length>6)pre.shift();return}
+      startMs=now;clockMs=now;lastVoiceMs=now;voiceMs=ms;
+      audio=[...pre,frame];pre=[];
+      say('recording');return;
+    }
+    audio.push(frame);
+    if(rms>gate){voiceMs+=ms;lastVoiceMs=now}
+    if(now-startMs>12500||(now-startMs>650&&now-lastVoiceMs>950)){
+      const parts=audio,duration=Math.round(parts.reduce((n,p)=>n+p.length,0)/2/ctx.sampleRate*1000);
+      reset();pre=[];
+      // Avoid STT hallucinations on fan noise, clicks, and very short bursts.
+      const voiced=parts.length?parts.reduce((n,p)=>n+(voiceLevel(p)>.014?sizeMs(p):0),0):0;
+      if(duration<600||voiced<350){say('no-speech');return}
+      transcribe(parts,duration);
     }
   }
-  timer=setInterval(tick,75);
+  const initializing=(async()=>{
+    try{
+      await ctx.audioWorklet.addModule('audio-worklet.js');
+      if(closed)return;
+      source=ctx.createMediaStreamSource(stream);
+      processor=new AudioWorkletNode(ctx,'ayo-pcm-capture');
+      mute=ctx.createGain();mute.gain.value=0;
+      source.connect(processor).connect(mute).connect(ctx.destination);
+      processor.port.onmessage=e=>accept(e.data);
+      ready=true;if(listening)say('listening');
+    }catch(e){onError?.('تعذر تشغيل PCM: '+e.message);throw e}
+  })();
   return {
-    resume(){active=true;listening=true;say('listening');},
-    pause(){listening=false;finishRecording();say('paused');},
-    stop(){active=false;listening=false;finishRecording();clearInterval(timer);timer=null;say('idle');},
-    get isProcessing(){return busy;}
+    resume(){active=true;listening=true;initializing.then(()=>{ctx.resume().catch(e=>onError?.(e.message));if(ready)say('listening')}).catch(()=>{});},
+    pause(){listening=false;reset();pre=[];say('paused');},
+    stop(){active=false;listening=false;closed=true;reset();pre=[];try{processor?.disconnect();source?.disconnect();mute?.disconnect();}catch{}ctx.close().catch(()=>{});say('idle');},
+    get isProcessing(){return busy},
+    get sampleRate(){return ctx.sampleRate}
   };
 }
