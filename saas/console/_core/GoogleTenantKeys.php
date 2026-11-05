@@ -62,15 +62,18 @@ function google_voice_key_set_customer_limit(int $resellerId,int $customerId,int
         throw new InvalidArgumentException('google_key_limit_owner_mismatch');
     // A reseller can reduce a customer's plan allowance, never raise it.
     $current=one('SELECT max_keys FROM google_voice_key_overrides WHERE account_id=?',[$customerId]);
-    if($current)execute('DELETE FROM google_voice_key_overrides WHERE account_id=?',[$customerId]);
     $plan=one("SELECT p.google_key_limit FROM subscriptions s JOIN plans p ON p.id=s.plan_id
         WHERE s.account_id=? AND s.status='active' AND p.kind='user'
         AND s.starts_at<=? AND s.ends_at>? ORDER BY s.id DESC LIMIT 1",
         [$customerId,now(),now()]);
     $ceiling=max(0,(int)($plan['google_key_limit']??0));
     if($limit>$ceiling)throw new InvalidArgumentException('google_key_limit_exceeds_plan');
-    insert('INSERT INTO google_voice_key_overrides(account_id,max_keys,updated_at)
-        VALUES (?,?,?)',[$customerId,$limit,now()]);
+    if($current)
+        execute('UPDATE google_voice_key_overrides SET max_keys=?,updated_at=? WHERE account_id=?',
+            [$limit,now(),$customerId]);
+    else
+        insert('INSERT INTO google_voice_key_overrides(account_id,max_keys,updated_at)
+            VALUES (?,?,?)',[$customerId,$limit,now()]);
 }
 
 /** A customer with any own keys is BYOK-only, even when all are disabled.
