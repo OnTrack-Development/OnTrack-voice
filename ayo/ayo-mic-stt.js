@@ -58,10 +58,9 @@ export function createMicTurns({stream,csrf,onText,onStatus,onError}) {
     audio.push(frame);
     if(rms>gate){voiceMs+=ms;lastVoiceMs=now}
     if(now-startMs>12500||(now-startMs>650&&now-lastVoiceMs>950)){
-      const parts=audio,duration=Math.round(parts.reduce((n,p)=>n+p.length,0)/2/ctx.sampleRate*1000);
+      const parts=audio,duration=Math.round(parts.reduce((n,p)=>n+p.length,0)/2/ctx.sampleRate*1000),voiced=voiceMs;
       reset();pre=[];
-      // Avoid STT hallucinations on fan noise, clicks, and very short bursts.
-      const voiced=parts.length?parts.reduce((n,p)=>n+(voiceLevel(p)>.014?sizeMs(p):0),0):0;
+      // Reject clipped noises or too little detected speech before STT.
       if(duration<600||voiced<350){say('no-speech');return}
       transcribe(parts,duration);
     }
