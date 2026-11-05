@@ -454,8 +454,22 @@
         method:'POST',body:data,credentials:'same-origin',cache:'no-store',redirect:'error',
         headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}
       });
-      const result=await response.json();
-      if(!response.ok||result.ok!==true)throw Error(result.error||'تعذر حفظ إعدادات الإيجنت');
+      // Never parse an empty/HTML response as JSON: a stale session, failed
+      // CSRF check or server-side fatal may otherwise surface only the opaque
+      // "Unexpected end of JSON input" error on the owner's phone.
+      if(response.redirected||response.status===401||response.status===419){
+        throw Error('انتهت جلسة الدخول أو صلاحية الطلب. افتح الصفحة من جديد، وسجّل الدخول إذا لزم، ثم أعد النشر.');
+      }
+      const contentType=(response.headers.get('Content-Type')||'').toLowerCase();
+      const raw=await response.text();
+      if(!raw.trim())throw Error('السيرفر رجّع ردًا فارغًا (HTTP '+response.status+'). لم يتم تأكيد الحفظ أو النشر؛ راجع سجل الإصدارات قبل تكرار الطلب.');
+      if(!contentType.includes('application/json'))throw Error(
+        'السيرفر رجّع استجابة غير JSON (HTTP '+response.status+'). لم يتم تأكيد النشر؛ تحقق من جلسة الدخول أو سجل أخطاء السيرفر.');
+      let result;
+      try{result=JSON.parse(raw)}catch{
+        throw Error('السيرفر رجّع JSON غير مكتمل (HTTP '+response.status+'). لم يتم تأكيد حفظ الإعدادات.');
+      }
+      if(!response.ok||result?.ok!==true)throw Error(result?.error||'تعذر حفظ إعدادات الإيجنت (HTTP '+response.status+')');
       if(status)status.textContent=result.message||'تم الحفظ';
       window.ontrackToast(result.message||'تم حفظ إعدادات الإيجنت');
     }catch(error){
