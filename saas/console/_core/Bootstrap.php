@@ -302,7 +302,16 @@ function route():string {
     $uri='/'.trim($uri,'/');
     return $uri==='/'?'/':$uri;
 }
-function go(string $path):never {header('Location: /saas/console'.($path==='/'?'':$path),true,303);exit;}
+function go(string $path):never {
+    $route=explode('?',$path,2)[0];
+    // Public auth routes live at the web root in the published SaaS layout.
+    // Other historic console paths keep their existing prefix/redirect behavior.
+    $public=['/register','/register-logo','/verify-email','/forgot-password',
+        '/reset-password','/change-password'];
+    $prefix=in_array($route,$public,true)?'':'/saas/console';
+    header('Location: '.$prefix.($path==='/'?'':$path),true,303);
+    exit;
+}
 function startsession():void {
     if(PHP_SAPI==='cli')return;
     ini_set('session.use_strict_mode','1');
