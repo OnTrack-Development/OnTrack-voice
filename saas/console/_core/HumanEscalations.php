@@ -11,7 +11,7 @@ require_once __DIR__.'/VoiceAccess.php';
  */
 function he_init():void {
     $marker=private_path().'/.schema.human-escalation.v1';
-    if(is_file($marker))return;
+    if(is_file($marker)){he_delay_init();return;}
     $mysql=driver()==='mysql';
     $int=$mysql?'BIGINT':'INTEGER';
     $pk=$mysql?'BIGINT AUTO_INCREMENT PRIMARY KEY':'INTEGER PRIMARY KEY AUTOINCREMENT';
@@ -47,6 +47,17 @@ function he_init():void {
         db()->exec('CREATE INDEX IF NOT EXISTS he_contact_owner ON human_escalation_contacts(account_id,status)');
     }
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+    he_delay_init();
+}
+/** Backward-compatible migration for already deployed route tables. */
+function he_delay_init():void {
+    $marker=private_path().'/.schema.human-escalation-route-delay.v2';
+    if(is_file($marker))return;
+    $cols=driver()==='mysql'?array_column(all('SHOW COLUMNS FROM human_escalation_routes'),'Field'):
+        array_column(all('PRAGMA table_info(human_escalation_routes)'),'name');
+    if(!in_array('delay_seconds',$cols,true))
+        db()->exec('ALTER TABLE human_escalation_routes ADD COLUMN delay_seconds INTEGER NOT NULL DEFAULT 10');
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
 function he_contact_add(int $accountId,string $name,string $number,string $role):int {
     he_init();
@@ -76,8 +87,9 @@ function he_contact_disable(int $accountId,int $contactId):void {
     execute("UPDATE human_escalation_jobs SET status='cancelled',result='recipient_disabled',finished_at=?
         WHERE account_id=? AND contact_id=? AND status='pending'",[now(),$accountId,$contactId]);
 }
-function he_route_configure(int $accountId,int $agentId,int $contactId,bool $enabled):void {
+function he_route_configure(int $accountId,int $agentId,int $contactId,bool $enabled,int $delaySeconds=10):void {
     he_init();
+    if($delaySeconds<10||$delaySeconds>120)throw new InvalidArgumentException('مهلة الاتصال يجب أن تكون بين 10 و120 ثانية');
     $agent=one('SELECT id,site_id FROM agents WHERE id=? AND account_id=? AND status!=?',
         [$agentId,$accountId,'archived']);
     if(!$agent)throw new InvalidArgumentException('اختر مساعدًا تابعًا لشركتك');
@@ -89,13 +101,13 @@ function he_route_configure(int $accountId,int $agentId,int $contactId,bool $ena
     $previous=one('SELECT agent_id FROM human_escalation_routes WHERE account_id=? AND agent_id=?',
         [$accountId,$agentId]);
     if($previous)
-        execute('UPDATE human_escalation_routes SET site_id=?,contact_id=?,enabled=?,updated_at=?
+        execute('UPDATE human_escalation_routes SET site_id=?,contact_id=?,enabled=?,delay_seconds=?,updated_at=?
             WHERE account_id=? AND agent_id=?',
-            [$agent['site_id'],$contactId?:null,(int)$enabled,now(),$accountId,$agentId]);
+            [$agent['site_id'],$contactId?:null,(int)$enabled,$delaySeconds,now(),$accountId,$agentId]);
     else
         insert('INSERT INTO human_escalation_routes
-            (agent_id,account_id,site_id,contact_id,enabled,updated_at) VALUES (?,?,?,?,?,?)',
-            [$agentId,$accountId,$agent['site_id'],$contactId?:null,(int)$enabled,now()]);
+            (agent_id,account_id,site_id,contact_id,enabled,delay_seconds,updated_at) VALUES (?,?,?,?,?,?,?)',
+            [$agentId,$accountId,$agent['site_id'],$contactId?:null,(int)$enabled,$delaySeconds,now()]);
     // Revoke stale owner authorization immediately; two-step scoped selection
     // is portable across MySQL and SQLite (no target-table UPDATE subquery).
     $pending=all("SELECT j.id,j.contact_id FROM human_escalation_jobs j
@@ -119,7 +131,7 @@ function he_schedule(array $b,string $callId):array {
     $account=(int)$b['account_id'];$site=(int)$b['site_id'];
     $device=(int)$b['id'];$slot=(int)$b['sim_slot'];
     $row=one("SELECT c.ended_at,c.status,c.agent_id,r.handoff_status,r.handoff_reason,
-            r.source,ar.contact_id,ar.enabled,co.status recipient_status
+            r.source,ar.contact_id,ar.enabled,ar.delay_seconds,co.status recipient_status
         FROM calls c
         JOIN tenant_call_reports r ON r.account_id=c.account_id
           AND r.site_id=c.site_id AND r.device_binding_id=c.device_binding_id
@@ -144,7 +156,7 @@ function he_schedule(array $b,string $callId):array {
         [$device,$callId]);
     if($existing)return ['queued'=>true,'duplicate'=>true,'status'=>$existing['status']];
     $ended=strtotime((string)$row['ended_at'].' UTC');
-    $due=max(time(),($ended?:time())+10);
+    $due=max(time(),($ended?:time())+max(10,min(120,(int)($row['delay_seconds']??10))));
     try{
         $id=insert("INSERT INTO human_escalation_jobs
             (account_id,site_id,device_binding_id,sim_slot,call_id,contact_id,
