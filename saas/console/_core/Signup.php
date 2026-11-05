@@ -269,10 +269,12 @@ function password_change(int $userId,string $current,string $next):int {
 function auth_public_page(string $title,string $body,?string $warning=null):never {
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: private,no-store');
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.e($title).' | OnTrack Voice</title><link rel="stylesheet" href="/assets/css/app.css"></head><body class="login-body"><div class="login-backdrop"></div><main class="login-panel" style="max-width:550px;margin:6vh auto"><div class="login-brand"><span class="brand-icon">OT</span><strong>OnTrack Voice</strong></div><h1>'.e($title).'</h1>';
+    $brand=white_label_identity();
+    $label=$brand['name'];
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.e($title).' | '.e($label).'</title><link rel="stylesheet" href="/assets/css/app.css"></head><body class="login-body'.(white_label_context()?' white-label-auth':'').'"><div class="login-backdrop"></div><main class="login-panel wl-auth-panel"><div class="login-brand">'.white_label_logo_html().'<strong>'.e($label).'</strong></div><h1>'.e($title).'</h1>';
     if($warning)echo '<div class="alert danger">'.e($warning).'</div>';
     if($notice=flash('success'))echo '<div class="alert success">'.e($notice).'</div>';
-    echo $body.'<p><a href="/login">العودة إلى تسجيل الدخول</a></p></main></body></html>';
+    echo $body.'<p><a href="'.e(white_label_url('/login')).'">العودة إلى تسجيل الدخول</a></p></main></body></html>';
     exit;
 }
 function password_forgot_route():never {
@@ -293,7 +295,7 @@ function password_forgot_route():never {
 }
 function password_forgot_page(?string $warning=null):never {
     $body='<p>اكتب البريد المرتبط بحسابك لاستلام رابط تغيير كلمة المرور. مش مطلوب كود مصادقة ثنائية.</p>'.
-        '<form method="post" action="/forgot-password" class="stack">'.
+        '<form method="post" action="'.e(white_label_url('/forgot-password')).'" class="stack">'.
         '<input type="hidden" name="csrf" value="'.e(csrf()).'">'.
         '<label class="field">البريد الإلكتروني<input name="email" type="email" maxlength="190" autocomplete="email" required></label>'.
         '<button class="btn primary wide" type="submit">إرسال رابط الاسترجاع</button></form>';
@@ -319,9 +321,9 @@ function password_reset_route():never {
 }
 function password_reset_page(string $token,?string $warning=null):never {
     if(!preg_match('/^[a-f0-9]{64}$/D',$token))
-        auth_public_page('رابط الاسترجاع غير صالح','<p>اطلب رابطًا جديدًا من صفحة استرجاع كلمة المرور.</p><p><a href="/forgot-password">طلب رابط جديد</a></p>');
+        auth_public_page('رابط الاسترجاع غير صالح','<p>اطلب رابطًا جديدًا من صفحة استرجاع كلمة المرور.</p><p><a href="'.e(white_label_url('/forgot-password')).'">طلب رابط جديد</a></p>');
     $body='<p>حدد كلمة مرور جديدة للحساب. الرابط صالح لمدة 30 دقيقة ولمرة واحدة.</p>'.
-        '<form method="post" action="/reset-password" class="stack">'.
+        '<form method="post" action="'.e(white_label_url('/reset-password')).'" class="stack">'.
         '<input type="hidden" name="csrf" value="'.e(csrf()).'">'.
         '<input type="hidden" name="token" value="'.e($token).'">'.
         '<label class="field">كلمة المرور الجديدة<input name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label>'.
@@ -347,7 +349,7 @@ function password_change_route():never {
     password_change_page();
 }
 function password_change_page(?string $warning=null):never {
-    $body='<form method="post" action="/change-password" class="stack">'.
+    $body='<form method="post" action="'.e(white_label_url('/change-password')).'" class="stack">'.
         '<input type="hidden" name="csrf" value="'.e(csrf()).'">'.
         '<label class="field">كلمة المرور الحالية<input name="current_password" type="password" autocomplete="current-password" required></label>'.
         '<label class="field">كلمة المرور الجديدة<input name="new_password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label>'.
