@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#000000"/>
   <title>AYO | OnTrack Voice Lab</title>
-  <link rel="stylesheet" href="style.css?v=9"/>
+  <link rel="stylesheet" href="style.css?v=10"/>
 </head>
 <body>
 <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -149,6 +149,6 @@
     <button type="button" id="micShowGuide" class="ayo-mic-help-link">الموافقة مش بتظهر؟ شوف خطوات Chrome على الموبايل</button>
   </div>
 </div>
-<script type="module" src="app.js?v=9"></script>
+<script type="module" src="app.js?v=10"></script>
 </body>
 </html>
