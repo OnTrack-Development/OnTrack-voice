@@ -227,6 +227,16 @@ if ($action==='clone') {
  $d=json_decode(is_string($res)?$res:'',true);if($status<200||$status>=300||empty($d['voice']['voiceId']))fail('استنساخ Inworld لم ينجح؛ تحقق من المفتاح والعينة (HTTP '.$status.')',502);
  $_SESSION['ayo_config']['voiceId']=$d['voice']['voiceId'];json_out(['voiceId'=>$d['voice']['voiceId'],'config'=>public_cfg(cfg())]);
 }
+if ($action==='llm_test') {
+ $c=cfg();if(($c['llmProvider']==='apinex'?$c['apinexKey']:$c['omniraKey'])==='')fail('المفتاح غير محفوظ للبوابة المختارة');
+ session_write_close();@set_time_limit(90);stream_headers();$start=microtime(true);
+ emit(['type'=>'probe_start','provider'=>$c['llmProvider'],'model'=>$c['llmModel']]);
+ try {
+  $reply=llm_stream($c,[['role'=>'system','content'=>'رد بجملة قصيرة فقط من غير تفكير داخلي.'],['role'=>'user','content'=>'قول: بوابة آيو شغالة']]);
+  emit(['type'=>'probe_complete','usableText'=>trim($reply)!=='','elapsedMs'=>round((microtime(true)-$start)*1000)]);
+ }catch(Throwable $e){emit(['type'=>'error','message'=>$e->getMessage()]);}
+ exit;
+}
 if ($action==='preview'||$action==='turn') {
  $in=body();$text=trim((string)($in[$action==='preview'?'text':'question']??''));if($text===''||char_len($text)>1500)fail('النص مطلوب (بحد أقصى 1500 حرف)');
  $c=cfg();if($action==='turn'&&(!isset($_SESSION['ayo_deadline'])||$_SESSION['ayo_deadline']<time()))fail('انتهت جلسة الدقيقتين؛ ابدأ من جديد',408);
