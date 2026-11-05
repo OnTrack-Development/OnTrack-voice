@@ -1,24 +1,14 @@
 name: Google Live In-Call Failover QA
 on:
-  push:
-    branches:
-      - fix/google-live-midcall-failover-20261105
-    paths:
-      - 'saas/console/_core/GoogleVoiceFailover.php'
-      - 'saas/console/_core/GoogleTenantKeys.php'
-      - 'saas/console/_core/AiRelay.php'
-      - 'saas/console/_core/TenantVoiceSession.php'
-      - 'saas/console/device/v1/index.php'
-      - 'saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/**'
-      - 'saas/mobile/audio-proof/overlay/app/src/test/java/com/ontrack/voiceproof/**'
-      - 'tools/test_google_live_failover.php'
-      - '.github/workflows/google-live-midcall-failover-ci.yml'
   pull_request:
     branches:
       - feat/voice-production-gap-20261103
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: 'utf-8'
 jobs:
   php_failover:
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
