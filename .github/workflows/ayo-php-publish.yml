@@ -1,0 +1,64 @@
+name: Publish isolated AYO PHP voice demo
+on:
+  push:
+    branches: [feat/ayo-php-host-demo-20261105]
+    paths:
+      - 'ayo/**'
+      - 'tools/deploy_ayo.py'
+      - 'tools/queue_ayo.py'
+      - '.github/workflows/ayo-php-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-ayo-php-demo
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl,fileinfo,openssl
+          coverage: none
+      - name: Validate isolated PHP + JS and publisher scripts
+        run: |
+          set -euo pipefail
+          php -l ayo/index.php
+          php -l ayo/api.php
+          node --check ayo/app.js
+          python3 -m py_compile tools/deploy_ayo.py tools/queue_ayo.py
+          python3 -m json.tool ayo/ontrack.json > /dev/null
+  publish:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Package only the PHP demo (no secrets)
+        run: |
+          set -euo pipefail
+          mkdir -p dist/ayo
+          tar --format=ustar -czf dist/ayo/release.tar.gz \
+            ayo/api.php ayo/index.php ayo/app.js ayo/style.css ayo/audio-worklet.js ayo/ontrack.json
+          sha256sum dist/ayo/release.tar.gz | awk '{print $1}' > dist/ayo/release.sha256
+      - uses: actions/upload-artifact@v5
+        with:
+          name: OnTrack-AYO-PHP
+          path: dist/ayo/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Deliver pinned AYO artifact to existing hosting runner
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/queue_ayo.py
