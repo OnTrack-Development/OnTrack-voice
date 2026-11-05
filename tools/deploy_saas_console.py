@@ -39,7 +39,7 @@ def rewrite_root_urls(root):
         if changed!=original:p.write_text(changed);changes+=1
     bootstrap=(root/'_core/Bootstrap.php').read_text()
     legacy_root_go="function go(string $path):never {header('Location: /'.ltrim"
-    scoped_root_go=("header('Location: '.$prefix.($path==='/'?'':$path),true,303);" in bootstrap
+    scoped_root_go=("header('Location: '.($path==='/'?($prefix===''?'/':$prefix):$prefix.$path),true,303);" in bootstrap
         and "in_array($route,$public,true)?'':''" in bootstrap)
     if not (legacy_root_go in bootstrap or scoped_root_go):
         raise RuntimeError('root_url_transform_failed')
