@@ -1,7 +1,16 @@
-# AYO browser voice demo only. This policy applies exclusively to /ayo/.
-# The main app and all other site directories keep their existing restrictions.
+# AYO standalone voice lab; no main-app login rewrite in this directory.
+Options -Indexes
+DirectoryIndex index.php
+<IfModule mod_rewrite.c>
+    RewriteEngine Off
+</IfModule>
 <IfModule mod_headers.c>
     Header onsuccess unset Permissions-Policy
     Header always unset Permissions-Policy
     Header always set Permissions-Policy "camera=(), microphone=(self), geolocation=()"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
 </IfModule>
+<FilesMatch "^(secure-vault\.php|voice-expression\.php|ontrack\.json|\.ayo-release\.json)$">
+    Require all denied
+</FilesMatch>
