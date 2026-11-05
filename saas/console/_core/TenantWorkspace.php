@@ -78,7 +78,7 @@ function tenant_workspace_calls(array $b):array{
 function tenant_workspace_call_event(array $b,array $p):array{
     $id=$p['call_id']??null;$seq=$p['sequence']??null;$phase=$p['phase']??null;$duration=$p['duration_seconds']??0;
     if(!is_string($id)||!preg_match('/^[a-f0-9-]{36}$/D',$id)||!is_int($seq)||$seq<1||$seq>100||
-       !in_array($phase,['ringing','active','missed','ended','identified','human_takeover','customer_human_request'],true)||
+       !in_array($phase,['ringing','active','missed','ended','identified','human_takeover','customer_human_request','agent_report'],true)||
        !is_int($duration)||$duration<0||$duration>172800)
         throw new InvalidArgumentException('invalid_call_event');
     voice_usage_init(); // migration BEFORE DB transaction (MySQL DDL auto-commits)
