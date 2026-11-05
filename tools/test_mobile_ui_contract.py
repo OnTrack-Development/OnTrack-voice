@@ -51,7 +51,7 @@ assert 'session.optString("agent_name"' in session, 'Greeting must use agent dis
 assert 'id="key"' not in embedded and 'id="tenantWorkspaceSlot"' in embedded, 'Old Pilot UI bundled into Android APK'
 meta=json.loads(Path('saas/mobile/ota/release.json').read_text())
 assert meta['revision']>=40, 'A signed OTA revision must advance'
-assert meta['min_native']==34 and meta['max_native']==46, 'Advanced UI must not auto-replace legacy 0.3.9 with unsupported commands'
+assert meta['min_native']==34 and meta['max_native']==47, 'Advanced UI46 must support native47 without upgrading legacy 0.3.9 outside compatibility range'
 assert meta['runtime']==1
 for part in ('requestUiRefresh()', "send('checkUpdates')", "data-view=\"dashboard\"", 'body.light', "readUiTheme()"):
     assert part in ui, 'Missing UI-only capability: '+part
