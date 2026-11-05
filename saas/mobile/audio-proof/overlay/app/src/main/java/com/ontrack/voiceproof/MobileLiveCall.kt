@@ -24,7 +24,8 @@ internal class MobileLiveCall(
     private val session:JSONObject, private val settings:JSONObject, private val notice:(String)->Unit,
     private val outgoingCall:Boolean=false,
     private val onAudioDiagnostics:(String)->Unit = {},
-    private val onHumanRequested:()->Unit = {},
+    private val onHumanRequested:(String,String)->Boolean = {_,_->false},
+    private val onCallNote:(String,String)->Boolean = {_,_->false},
     private val rotateVoiceToken:(suspend (JSONObject,String)->JSONObject)? = null,
     private val onFinished:(String)->Unit = {},
 ) {
@@ -91,7 +92,7 @@ internal class MobileLiveCall(
             val context=rolling.substring((match.range.first-16).coerceAtLeast(0),match.range.first)
             if(humanRequestNegation.containsMatchIn(context))continue
             if(humanRequestReported.compareAndSet(false,true)){
-                runCatching{onHumanRequested()}.onFailure{
+                runCatching{onHumanRequested("المتصل طلب التحدث مع موظف بشري أثناء المكالمة.","")}.onFailure{
                     humanRequestReported.set(false)
                     notice("تعذر حفظ طلب الموظف محليًا، هيتم إعادة المحاولة")
                 }
