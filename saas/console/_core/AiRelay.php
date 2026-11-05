@@ -139,6 +139,14 @@ function ai_relay_error(Throwable $e):string {
     return 'error';
 }
 function ai_relay_mark(int $id,string $code):void {
+    if($code==='ok'){
+        // A concurrent successful token issuance must NOT cancel a 429/503
+        // cooldown from another live call on the same credential.
+        execute("UPDATE ai_relay_entries SET last_status='ok',last_checked_at=?,cooldown_until=NULL
+            WHERE id=? AND (cooldown_until IS NULL OR cooldown_until<=?)",
+            [now(),$id,now()]);
+        return;
+    }
     $cool=in_array($code,['429','503','timeout'],true)?gmdate('Y-m-d H:i:s',time()+900):null;
     execute('UPDATE ai_relay_entries SET last_status=?,last_checked_at=?,cooldown_until=? WHERE id=?',
         [$code,now(),$cool,$id]);
