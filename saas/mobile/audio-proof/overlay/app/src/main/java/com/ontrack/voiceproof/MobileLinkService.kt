@@ -466,6 +466,14 @@ class MobileLinkService:Service() {
                             selected=null;liveSimSlot=-1;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;outgoingCall=false;humanControl=false;policy=JSONObject()
                             ringingAt=0L;startedAt=0L;audioAttemptCount=0;nextAudioRetryAt=0L
                         }
+                        // The cellular call has ended. Only NOW submit the
+                        // encrypted, accumulated real-time text to summarization.
+                        runCatching{
+                            reportOutbox.finalizeAtIdle { slot ->
+                                if(enrollment.paired(slot))runCatching{enrollment.bindingId(slot)}.getOrNull()
+                                else null
+                            }
+                        }.onFailure{notice("نص المكالمة محفوظ؛ تعذر تجهيزه للملخص وسيُعاد بعد انشغال الخط")}
                         inCall=false;callAnswered=false
                         // Running a monitor is not an authenticated voice connection.
                         connected=false
@@ -648,6 +656,14 @@ class MobileLinkService:Service() {
                         val reportBinding=enrollment.bindingId(reportSlot)
                         val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,
                             sess,liveSettings,::notice,outgoingCall=outgoingCall,
+                            onHumanRequested={
+                                // Fast, durable request flag independent of any
+                                // later summarizer response or network connection.
+                                if(reportCallId!=null && callback==null)
+                                    check(tenantEvents.recordCustomerHumanRequest(reportSlot,reportBinding)){
+                                        "customer_request_event_unavailable"
+                                    }
+                            },
                             onAudioDiagnostics={ diagnostic ->
                                 // Gemini setup alone cannot prove the VoLTE modem
                                 // delivered audible PCM to the other party.
@@ -657,7 +673,7 @@ class MobileLinkService:Service() {
                                 }
                             }) { realTranscript ->
                             if(reportCallId!=null && callback==null)
-                                reportOutbox.enqueue(reportSlot,reportBinding,reportCallId,realTranscript)
+                                reportOutbox.appendLiveSegment(reportSlot,reportBinding,reportCallId,realTranscript)
                         }
                         // Regression 2026-11-04: synchronous 25s Gemini setup
                         // froze the SIM ring/OFFHOOK polling loop, so loss of a
