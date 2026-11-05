@@ -265,6 +265,11 @@ class MobileLinkService:Service() {
         tenantEventOutbox=tenantEvents
         val reportOutbox=CallReportOutbox(this)
         var lastReportAttempt=0L
+        var lastManagerPoll=0L
+        var managerClaim:Deferred<Result<JSONObject>>?=null
+        var managerCallback:JSONObject?=null
+        var managerSawOffhook=false
+        var managerDialAt=0L
         var selected:Int?=null
         var lastState=TelephonyManager.CALL_STATE_IDLE
         var ringingAt=0L
@@ -329,6 +334,51 @@ class MobileLinkService:Service() {
                         delay(900);continue
                     }
                     val current=active.singleOrNull()
+                    // Never put network I/O in the 750ms telephony observer.
+                    // The authenticated claim is fetched asynchronously and
+                    // can be dialed ONLY after the physical SIM is fully idle.
+                    if(managerCallback!=null && current?.state==TelephonyManager.CALL_STATE_OFFHOOK &&
+                        current.slot==managerCallback?.optInt("sim_slot",-1)){
+                        managerSawOffhook=true
+                    }
+                    if(managerClaim?.isCompleted==true) {
+                        val claimed=managerClaim?.await()
+                        managerClaim=null
+                        val job=claimed?.getOrNull()?.optJSONObject("job")
+                        if(job!=null){
+                            val slot=job.optInt("sim_slot",-1)
+                            val jobId=job.optInt("id",-1)
+                            val safeToCall=current==null && managerCallback==null &&
+                                agentEnabled && !tenantPairingInProgress &&
+                                slot in 0..1 && enrollment.paired(slot) &&
+                                runCatching{enrollment.bindingId(slot)>0}.getOrDefault(false)
+                            try {
+                                check(safeToCall){"مكالمة أخرى جارية أو الشريحة غير جاهزة"}
+                                check(jobId>0){"معرف إبلاغ غير صالح"}
+                                // Only the owner-configured phone from the server
+                                // may reach the native Android dialer.
+                                HumanEscalationDialer.placeOnPairedSim(this@MobileLinkService,
+                                    slot,job.getString("phone"))
+                                managerCallback=job
+                                managerSawOffhook=false
+                                managerDialAt=SystemClock.elapsedRealtime()
+                                scope.launch(Dispatchers.IO){
+                                    runCatching{enrollment.workspace(slot,"workspace_handoff_ack",
+                                        JSONObject().put("job_id",jobId).put("stage","dial_started"))}
+                                        .onFailure{notice("تعذر تحديث حالة اتصال المدير في السجل")}
+                                }
+                                notice("جاري الاتصال بـ"+job.optString("name","المسؤول")+
+                                    " لإبلاغه بطلب الموظف وملخص المكالمة")
+                            }catch(problem:Exception){
+                                if(slot in 0..1 && enrollment.paired(slot) && jobId>0)
+                                    scope.launch(Dispatchers.IO){
+                                        runCatching{enrollment.workspace(slot,"workspace_handoff_ack",
+                                            JSONObject().put("job_id",jobId).put("stage","failed"))}
+                                    }
+                                notice("تعذر إبلاغ المدير: "+problem.message.orEmpty().take(110))
+                            }
+                        }
+                    }
                     val observedBinding=current?.slot?.takeIf { enrollment.paired(it) }
                         ?.let { runCatching { enrollment.bindingId(it) }.getOrNull() }
                     tenantEvents.observe(if(observedBinding!=null)current!!.state else TelephonyManager.CALL_STATE_IDLE,
@@ -370,6 +420,43 @@ class MobileLinkService:Service() {
                         }
                     }
                     if(current==null){
+                        val callback=managerCallback
+                        if(callback!=null){
+                            if(managerSawOffhook ||
+                                SystemClock.elapsedRealtime()-managerDialAt>45000L) {
+                                val jobId=callback.optInt("id",-1)
+                                val slot=callback.optInt("sim_slot",-1)
+                                val status=if(managerSawOffhook)"call_ended_unverified" else "failed"
+                                if(jobId>0 && slot in 0..1 && enrollment.paired(slot))
+                                    scope.launch(Dispatchers.IO){
+                                        runCatching{
+                                            enrollment.workspace(slot,"workspace_handoff_ack",
+                                                JSONObject().put("job_id",jobId).put("stage",status))
+                                        }.onFailure{notice("تعذر توثيق نتيجة مكالمة المدير؛ راجع السجل")}
+                                    }
+                                managerCallback=null
+                                managerSawOffhook=false
+                                managerDialAt=0L
+                            }
+                        }
+                        if(managerCallback==null && managerClaim==null && agentEnabled &&
+                            SystemClock.elapsedRealtime()-lastManagerPoll>=4000L){
+                            lastManagerPoll=SystemClock.elapsedRealtime()
+                            managerClaim=scope.async(Dispatchers.IO){
+                                runCatching{
+                                    var result=JSONObject().put("job",JSONObject.NULL)
+                                    for(slot in 0..1){
+                                        if(!enrollment.paired(slot))continue
+                                        val candidate=enrollment.workspace(slot,"workspace_handoff_claim")
+                                        if(candidate.optJSONObject("job")!=null){
+                                            result=candidate
+                                            break
+                                        }
+                                    }
+                                    result
+                                }
+                            }
+                        }
                         audioStart?.cancel();audioStart=null
                         flowLoad?.cancel();flowLoad=null
                         sessionLoad?.cancel();sessionLoad=null
@@ -545,6 +632,17 @@ class MobileLinkService:Service() {
                         val liveSettings=JSONObject().put("voice",selectedVoice)
                             .put("input_channel","mix")
                             .put("response_style",policy.optString("response_style","egyptian_short"))
+                        val callback=managerCallback?.takeIf{
+                            it.optInt("sim_slot",-1)==current.slot
+                        }
+                        if(callback!=null){
+                            val brief="المسؤول: "+callback.optString("name","مدير الشركة").take(100)+
+                                "\nالعميل: "+callback.optString("customer_name","غير معروف").take(100)+
+                                "\nرقم العميل: "+callback.optString("customer_phone","غير متاح").take(30)+
+                                "\nسبب طلب الموظف: "+callback.optString("reason","غير مذكور").take(900)+
+                                "\nملخص المكالمة: "+callback.optString("summary","لم يتوفر تفريغ موثق").take(1200)
+                            liveSettings.put("manager_briefing",brief)
+                        }
                         val reportCallId=tenantEvents.currentCallId(current.slot)
                         val reportSlot=current.slot
                         val reportBinding=enrollment.bindingId(reportSlot)
@@ -558,7 +656,7 @@ class MobileLinkService:Service() {
                                     showOverlay()
                                 }
                             }) { realTranscript ->
-                            if(reportCallId!=null)
+                            if(reportCallId!=null && callback==null)
                                 reportOutbox.enqueue(reportSlot,reportBinding,reportCallId,realTranscript)
                         }
                         // Regression 2026-11-04: synchronous 25s Gemini setup
