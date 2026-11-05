@@ -1,15 +1,16 @@
 {
   "schema": 1,
-  "id": "ayo-php-git-auth-20261105-01",
+  "id": "ayo-php-https-check-20261105-01",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-05T02:17:36.162Z",
-  "expires_at": "2026-11-05T02:47:36.162Z",
+  "created_at": "2026-11-05T02:35:10.458Z",
+  "expires_at": "2026-11-05T03:05:10.458Z",
   "cwd": "/home/appontrack/public_html",
-  "timeout_seconds": 18,
+  "timeout_seconds": 15,
   "argv": [
-    "/bin/python3",
-    "-c",
-    "import json,os,subprocess\nenv=dict(os.environ)\nenv['GIT_SSH_COMMAND']='ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=5'\ntry:\n r=subprocess.run(['/usr/bin/git','ls-remote','git@github.com:OnTrack-Development/OnTrack-voice.git','refs/heads/feat/ayo-php-host-demo-20261105'],capture_output=True,text=True,env=env,timeout=12)\n print(json.dumps({'exit_code':r.returncode,'ref_present':bool(r.stdout.strip()),'sha':r.stdout.split()[0] if r.stdout.strip() else None,'error_class':'auth_or_network' if r.returncode!=0 else None}))\nexcept subprocess.TimeoutExpired:print(json.dumps({'status':'timeout'}))"
+    "/usr/bin/git",
+    "ls-remote",
+    "https://github.com/OnTrack-Development/OnTrack-voice.git",
+    "refs/heads/feat/ayo-php-host-demo-20261105"
   ]
 }
