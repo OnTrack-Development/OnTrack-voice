@@ -268,7 +268,10 @@ def main():
         print(json.dumps({"status":"ALREADY_QUEUED","id":job_id}));return
     source_run=os.environ.get("MOBILE_RELEASE_SOURCE_RUN_ID",os.environ["GITHUB_RUN_ID"])
     assert source_run.isdecimal() and int(source_run)>0,"Invalid pinned release source run"
-    items=api("actions/runs/"+source_run+"/artifacts?per_page=100")["artifacts"]
+    direct_release=os.environ.get("MOBILE_DIRECT_RELEASE_MODE")=="1"
+    if direct_release:
+        assert source_run==os.environ["GITHUB_RUN_ID"],"signed_direct_release_source_run_mismatch"
+    items=[] if direct_release else api("actions/runs/"+source_run+"/artifacts?per_page=100")["artifacts"]
     artifact_name=f"OnTrack-Voice-{meta['version_name']}"
     source=api("actions/runs/"+source_run)
     # A publish-only workflow may reuse a previously signed artifact, but
@@ -286,12 +289,16 @@ def main():
         and x.get("workflow_run",{}).get("id")==int(source_run)
         and x.get("workflow_run",{}).get("head_branch")=="feat/voice-production-gap-20261103"
         and x.get("workflow_run",{}).get("head_sha")==expected_sha]
-    assert matches,"Release artifact missing or source identity mismatch"
+    if not direct_release:
+        assert matches,"Release artifact missing or source identity mismatch"
     # A re-run may upload the same signed release under a second artifact ID.
     # Select the latest artifact from this exact source commit, and the host
     # still verifies the downloaded APK against the signed manifest hash.
-    chosen=max(matches,key=lambda x:(x.get("created_at",""),int(x["id"])))
-    if os.environ.get("MOBILE_NATIVE_RESCUE_MODE")=="1":
+    chosen=max(matches,key=lambda x:(x.get("created_at",""),int(x["id"]))) if matches else None
+    if direct_release:
+        from mobile_direct_transport import asset_url
+        url=asset_url("OnTrack-Voice-"+meta["version_name"]+".apk",meta["sha256"],meta["size"])
+    elif os.environ.get("MOBILE_NATIVE_RESCUE_MODE")=="1":
         try:
             url=release_asset_url(folder,meta)
         except urllib.error.HTTPError as e:
