@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "ontrack-lte-no-fake-transfer-voice-prompt-20261105-2330",
+  "id": "ontrack-lte-report-live-sections-20261105-2334",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-05T21:25:00.650Z",
-  "expires_at": "2026-11-05T22:25:00.650Z",
+  "created_at": "2026-11-05T21:27:25.197Z",
+  "expires_at": "2026-11-05T22:27:25.197Z",
   "cwd": "/home/appontrack",
-  "timeout_seconds": 20,
+  "timeout_seconds": 10,
   "argv": [
     "/bin/python3",
     "-c",
-    "import json,pathlib,hashlib,os,shutil,subprocess\nv=json.loads(\"{\\\"old\\\":\\\"        'استقبل المقاطعات والأسئلة الجانبية، وجاوب مما تعرفه، ثم ارجع لنقطة المتصل السابقة دون إعادة أسئلة أجاب عنها.',\\\",\\\"new\\\":\\\"        'عندما يقاطعك العميل، توقف فورًا ولا تكمل الجملة القديمة ولا تعيدها من بدايتها. أجب عن آخر ما قاله العميل مباشرة في جملة أو جملتين، من غير مقدمات متكررة.',\\\\n        'استقبل المقاطعات والأسئلة الجانبية، وجاوب مما تعرفه، ثم ارجع لنقطة المتصل السابقة دون إعادة أسئلة أجاب عنها.',\\\\n        'التحويل المباشر أثناء المكالمة غير متاح لهذه الشريحة. لا تقل جاري تحويلك ولا تم التحويل ولا جاري الاتصال بالمدير وأنت على الخط. إذا طلب العميل موظفًا، أخبره مرة واحدة فقط أن طلبه سيُسجّل للمتابعة بعد انتهاء المكالمة، ثم استمع له. لا تدّع نجاح التسجيل إلا بعد موافقة أداة النظام.',\\\"}\")\np=pathlib.Path('/home/appontrack/public_html/_core/TenantVoiceSession.php')\nraw=p.read_bytes()\nblob=lambda x:hashlib.sha1(b'blob '+str(len(x)).encode()+b'\\0'+x).hexdigest()\nif blob(raw)!='ff18dcf62ac23f42a36bf63e4a7f67da268bc37b':raise RuntimeError('source_changed')\ns=raw.decode('utf-8')\nif s.count(v['old'])!=1:raise RuntimeError('instruction_anchor')\nstage=p.with_name('TenantVoiceSession.php.lte-stage')\nbak=pathlib.Path('/home/appontrack/backup/lte-call-report-20261105/TenantVoiceSession.php')\nif stage.exists() or bak.exists():raise RuntimeError('staging_or_backup_exists')\nstage.write_text(s.replace(v['old'],v['new'],1),encoding='utf-8')\nos.chmod(stage,p.stat().st_mode & 0o777)\nz=subprocess.run(['/opt/cpanel/ea-php83/root/usr/bin/php','-l',str(stage)],capture_output=True,text=True,timeout=5)\nif z.returncode:stage.unlink();raise RuntimeError('php_lint_failed')\nbak.parent.mkdir(parents=True,exist_ok=True)\nshutil.copy2(p,bak);os.replace(stage,p)\nprint(json.dumps({'status':'published','file':'TenantVoiceSession.php','sha1git':blob(p.read_bytes()),'backup':str(bak)}))"
+    "import pathlib,json\ns=pathlib.Path('/home/appontrack/public_html/_core/TenantWorkspace.php').read_text(encoding='utf-8')\nout={}\nfor label,start,end in [('request',\"}elseif($phase==='customer_human_request'){\",\"}elseif($phase==='identified'){\"),('previous',\"if($previous && trim\", \"    $schema=[\"),('provider',\"if($transport!==null){\",\"    $note=trim(\")]:\n a=s.find(start);b=s.find(end,a+len(start)) if a>=0 else -1\n out[label]={'found':a>=0 and b>a,'snippet':s[a:b][:4200] if a>=0 and b>a else ''}\nprint(json.dumps(out,ensure_ascii=False))"
   ]
 }
