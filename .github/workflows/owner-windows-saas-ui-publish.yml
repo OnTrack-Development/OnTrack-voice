@@ -8,9 +8,11 @@ on:
       - feat/voice-production-gap-20261103
       - feat/web-auth-complete-20261105
       - fix/web-auth-root-routing-20261105
+      - fix/web-auth-root-publisher-20261105
     paths:
       - .github/workflows/owner-windows-saas-ui-publish.yml
       - saas/console/_core/Views.php
+      - tools/deploy_saas_console.py
       - saas/console/assets/js/flow-graph.js
       - saas/console/assets/css/app.css
   workflow_dispatch:
@@ -24,7 +26,7 @@ env:
   PYTHONUTF8: '1'
 jobs:
   web_auth_validate:
-    if: github.ref == 'refs/heads/feat/web-auth-complete-20261105' || github.ref == 'refs/heads/fix/web-auth-root-routing-20261105'
+    if: github.ref == 'refs/heads/feat/web-auth-complete-20261105' || github.ref == 'refs/heads/fix/web-auth-root-routing-20261105' || github.ref == 'refs/heads/fix/web-auth-root-publisher-20261105'
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 18
     defaults:
@@ -70,6 +72,41 @@ jobs:
           & php $runnerPath
           if ($LASTEXITCODE -ne 0) { throw 'Scoped registration/recovery test failed.' }
           Write-Host 'WEB_AUTH_TENANT_SQLITE_E2E: PASS'
+          & python -m py_compile tools/deploy_saas_console.py
+          if ($LASTEXITCODE -ne 0) { throw 'SaaS root publisher syntax failed.' }
+          $rewriteTest=@'
+          import importlib.util,pathlib,shutil,tempfile
+          spec=importlib.util.spec_from_file_location('publisher','tools/deploy_saas_console.py')
+          publisher=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(publisher)
+          src=pathlib.Path('saas/console')
+          with tempfile.TemporaryDirectory() as t:
+              root=pathlib.Path(t)
+              (root/'_core').mkdir()
+              for relative in ('_core/Bootstrap.php','_core/Signup.php','_core/Views.php'):
+                  shutil.copy2(src/relative,root/relative)
+              changes=publisher.rewrite_root_urls(root)
+              bootstrap=(root/'_core/Bootstrap.php').read_text()
+              signup=(root/'_core/Signup.php').read_text()
+              views=(root/'_core/Views.php').read_text()
+              assert changes>=1,'source should rewrite at least the historic bootstrap prefix'
+              assert "in_array($route,$public,true)?'':''" in bootstrap,'public auth must route to root'
+              assert "header('Location: '.($path==='/'?($prefix===''?'/':$prefix):$prefix.$path),true,303);" in bootstrap,'root home and nested redirects must work'
+              assert '/saas/console/register' not in signup
+              assert 'action="/register"' in signup and 'action="/reset-password"' in signup
+              assert 'href="/forgot-password"' in views
+          with tempfile.TemporaryDirectory() as t:
+              root=pathlib.Path(t)
+              (root/'_core').mkdir()
+              old="function go(string $path):never {header('Location: /saas/console'.($path==='/'?'':$path),true,303);exit;}"
+              (root/'_core/Bootstrap.php').write_text(old)
+              publisher.rewrite_root_urls(root)
+              assert "function go(string $path):never {header('Location: /'.ltrim" in (root/'_core/Bootstrap.php').read_text(), 'legacy redirect rewrite broken'
+          print('ROOT_URL_TRANSFORM_OLD_AND_SCOPED_GO_PASS')
+          '@
+          $rewriteTest | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Root URL deployer test failed; refusing release.' }
+
   publish:
     if: github.actor == 'ahmedbedir' && github.ref == 'refs/heads/feat/voice-production-gap-20261103'
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
