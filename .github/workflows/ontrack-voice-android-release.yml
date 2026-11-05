@@ -238,7 +238,7 @@ jobs:
           Write-Host ('APK_LOCAL_PATH: ' + $signed)
           Write-Host ('APK_SHA256: ' + $hash)
           Write-Host 'SIGNED_APK_VERIFIED: PASS'
-      - name: Generate and verify signed OTA 45 and native versionCode 48
+      - name: Generate and verify signed OTA 47 and native versionCode 48
         run: |
           $ErrorActionPreference='Stop'
           $bin='C:\Program Files\Git\usr\bin'
