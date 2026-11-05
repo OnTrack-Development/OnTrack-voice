@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "ontrack-call-source-audit-20261105-2138",
+  "id": "agent-publish-live-diagnostic-20261105-2141",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-05T19:39:00.255Z",
-  "expires_at": "2026-11-05T20:39:00.255Z",
+  "created_at": "2026-11-05T19:42:27.504Z",
+  "expires_at": "2026-11-05T21:42:27.504Z",
   "cwd": "/home/appontrack",
-  "timeout_seconds": 12,
+  "timeout_seconds": 20,
   "argv": [
     "/bin/python3",
     "-c",
-    "import hashlib,json,pathlib\nroot=pathlib.Path('/home/appontrack/public_html/_core')\nout={}\nfor name in ['TenantWorkspace.php','HumanEscalations.php']:\n p=root/name; text=p.read_text(encoding='utf-8')\n out[name]={'sha256':hashlib.sha256(text.encode()).hexdigest(),'bytes':len(text),'has_fallback':'tenant_call_summary_transcript_fallback' in text,'has_route_guard':'staff_route_configured_after_call' in text,'has_ai_old':'    if($transport!==null){' in text,'has_ai_new':'    try {\\\\n        if($transport!==null){' in text,'has_he_init':'function he_schedule' in text}\nprint(json.dumps(out))"
+    "import json,hashlib,pathlib,re,os\nroot=pathlib.Path('/home/appontrack/public_html');out={}\nfor rel in ['_core/Actions.php','_core/Bootstrap.php','_core/Views.php','_core/PublishedFlow.php','assets/js/app.js','index.php']:\n p=root/rel;d=p.read_bytes() if p.exists() else b'';s=d.decode('utf-8','replace')\n out[rel]={'exists':p.is_file(),'bytes':len(d),'sha256':hashlib.sha256(d).hexdigest(),'agent_ajax':\"\\u0024action==='update_agent'\" in s,'json_parse':\"response.json()\" in s,'form_handler':\"agent-studio-form\" in s}\nout['logs']={}\nfor path in [root/'error_log',root/'_core/error_log',pathlib.Path('/home/appontrack/logs/error_log')]:\n if path.is_file():\n  ls=path.read_text(errors='replace').splitlines()[-80:]\n  hits=[x for x in ls if re.search('fatal|error|exception|PHP',x,re.I)]\n  out['logs'][path.name]={'total_recent_hits':len(hits),'types':[('fatal' if 'fatal' in x.lower() else 'warning' if 'warning' in x.lower() else 'error') for x in hits[-6:]]}\nprint(json.dumps(out))"
   ]
 }
