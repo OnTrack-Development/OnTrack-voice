@@ -149,7 +149,7 @@ function llm_stream(array $c,array $messages,?callable $onSentence=null,bool $al
   if(strlen($raw)<131072)$raw.=substr($chunk,0,131072-strlen($raw));
   if(curl_getinfo($handle,CURLINFO_HTTP_CODE)>=400)return strlen($chunk);
   $buffer.=$chunk;
-  try{while(($pos=strpos($buffer,"\\n"))!==false){$line=trim(substr($buffer,0,$pos));$buffer=substr($buffer,$pos+1);decodeSse($line,$take);}}
+  try{while(($pos=strpos($buffer,"\n"))!==false){$line=trim(substr($buffer,0,$pos));$buffer=substr($buffer,$pos+1);decodeSse($line,$take);}}
   catch(Throwable $e){$callbackError=$e;return 0;}
   return strlen($chunk);
  });
@@ -283,7 +283,7 @@ if ($action==='llm_test') {
 }
 if ($action==='preview'||$action==='turn') {
  $in=body();$text=trim((string)($in[$action==='preview'?'text':'question']??''));if($text===''||char_len($text)>1500)fail('النص مطلوب (بحد أقصى 1500 حرف)');
- $c=cfg();if($action==='turn'&&(!isset($_SESSION['ayo_deadline'])||$_SESSION['ayo_deadline']<time()))fail('انتهت جلسة الدقيقتين؛ ابدأ من جديد',408);
+ $c=cfg();if($action==='turn'&&(!isset($_SESSION['ayo_deadline'])||$_SESSION['ayo_deadline']<time()))fail('انتهت جلسة الـ15 دقيقة؛ ابدأ من جديد',408);
  $hist=$_SESSION['ayo_history']??[];if($action==='turn')$_SESSION['ayo_history']=array_slice([...$hist,['role'=>'user','content'=>$text]],-12);
  session_write_close();@set_time_limit(95);stream_headers();$start=microtime(true);
  try {
