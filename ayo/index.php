@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#0d0f12"/>
   <title>AYO | OnTrack Voice Lab</title>
-  <link rel="stylesheet" href="style.css?v=4"/>
+  <link rel="stylesheet" href="style.css?v=5"/>
 </head>
 <body>
 <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -40,6 +40,15 @@
         <div class="gateway-model-row"><label for="gatewayModel">موديل البوابة</label><select id="gatewayModel" aria-label="الموديل النشط"></select></div>
         <div class="gateway-bottom"><span class="gateway-url" id="gatewayEndpointDisplay" dir="ltr">—</span><span class="gateway-state" id="gatewayState" role="status" aria-live="polite">جاري تحميل الإعدادات</span><button type="button" class="gateway-settings" id="gatewaySettingsButton">مفاتيح API</button></div>
       </section>
+      <div class="emotion-selector">
+        <label for="emotionMode">مشاعر وصوت آيو</label>
+        <select id="emotionMode" aria-label="اختار طريقة تعبير آيو">
+          <option value="expressive">ذكي تلقائي + تنهيدات وضحك وقت اللزوم</option>
+          <option value="auto">ذكي تلقائي · نبرة حسب سياق الكلام</option>
+          <option value="off">طبيعي · بدون إضافة مشاعر</option>
+        </select>
+        <small id="voiceStyleStatus" role="status" aria-live="polite">Inworld TTS-2 يحدد المشاعر تلقائيًا</small>
+      </div>
       <label class="switch-line"><input type="checkbox" id="bargeIn"><span class="check-visual"></span><span>السماح بمقاطعة صوت آيو بالكلام (قد يلتقط صوت السماعة)</span></label>
       <div class="warn-banner" id="banner">الأصوات المستنسخة تحتاج مفتاح Inworld وVoice ID. المحاكاة لا تختبر جودة الصوت.</div>
     </section>
@@ -85,6 +94,13 @@
         <div class="clone-result" id="cloneResult">هنا هيظهر Voice ID بمجرد نجاح الاستنساخ.</div>
         <div class="separator">LIVE VOICE PREVIEW · HTTP STREAMING</div>
         <label class="tts-preview-label">جرب صوت آيو من النص مباشرة<textarea id="previewText" rows="3" maxlength="1800" placeholder="اكتب أي نص مصري علشان تسمعه بصوت آيو...">أهلاً بحضرتك، معاك آيو من أون تراك. ممكن أساعدك تختار أنسب باقة استضافة لموقعك؟</textarea></label>
+        <div class="emotion-examples" role="group" aria-label="تجربة الأصوات البشرية">
+          <button type="button" data-voice-cue="sigh">تنهيدة</button>
+          <button type="button" data-voice-cue="laugh">ضحكة</button>
+          <button type="button" data-voice-cue="breathe">نَفَس</button>
+          <button type="button" data-voice-cue="gasp">دهشة</button>
+          <button type="button" data-voice-cue="groan">آهة</button>
+        </div>
         <button id="previewBtn" class="btn-clone" type="button">▶ اسمع صوت آيو</button>
         <small class="helper" id="previewStatus">HTTP Streaming مباشر من Inworld بدون تشغيل LLM، بتكلفة TTS فقط.</small>
       </section>
@@ -97,6 +113,6 @@
   </section>
   <footer>AYO VOICE LAB <span>·</span> LOCAL EXPERIMENT ONLY <span>·</span> NO CHANGES TO PRODUCTION</footer>
 </div>
-<script type="module" src="app.js?v=4"></script>
+<script type="module" src="app.js?v=5"></script>
 </body>
 </html>
