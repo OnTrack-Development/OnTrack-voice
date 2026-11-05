@@ -73,6 +73,7 @@ function tenant_dynamic_instruction(string $name,array $published,array $policy,
         'formal_ar'=>'تحدث بالعربية الفصحى الواضحة.',
         'english'=>'Speak natural English with concise sentences.',
         'bilingual'=>'تحدث بلغة العميل العربية أو الإنجليزية واتبع تغييره.',
+        'multilingual'=>'تحدث بلغة العميل التي يستخدمها، عربية أو غير عربية، وبدّل لغتك عندما يغيرها دون تغيير السياق.',
         default=>'تكلم بالمصري الطبيعي في جمل قصيرة.'
     };
     $knowledge=$policy['use_knowledge']
