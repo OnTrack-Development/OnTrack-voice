@@ -1,0 +1,13 @@
+{
+  "job_id": "ontrack-lte-report-backend-spliced-20261105-2339",
+  "target": "appontrack-server11",
+  "job_sha256": "33decf457ad8b202afa8bb064ab5995aececebf026e5c689671a0a0986487784",
+  "started_at": "2026-11-05T21:31:03.621219+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\": \"published\", \"file\": \"TenantWorkspace.php\", \"sha1git\": \"a1add1f366368508674c553e6db41f781084c806\", \"backup\": \"/home/appontrack/backup/lte-call-report-20261105/TenantWorkspace.php\"}\n",
+  "stderr": "",
+  "finished_at": "2026-11-05T21:31:03.761225+00:00",
+  "duration_ms": 140
+}
