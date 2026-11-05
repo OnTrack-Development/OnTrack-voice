@@ -656,6 +656,9 @@ class MobileLinkService:Service() {
                         val reportBinding=enrollment.bindingId(reportSlot)
                         val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,
                             sess,liveSettings,::notice,outgoingCall=outgoingCall,
+                            rotateVoiceToken={ previous,failure ->
+                                enrollment.rotateVoiceSession(reportSlot,previous,failure)
+                            },
                             onHumanRequested={
                                 // Fast, durable request flag independent of any
                                 // later summarizer response or network connection.
