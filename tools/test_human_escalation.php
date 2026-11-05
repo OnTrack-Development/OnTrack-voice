@@ -94,9 +94,44 @@ try{
     he_ok(one('SELECT status FROM human_escalation_jobs WHERE device_binding_id=? AND call_id=?',
         [$b['id'],$second])['status']==='cancelled','disabling number cancels unsent callback');
     he_ok(he_claim($b)['job']===null,'disabled recipient never receives callback');
+    // Route ownership must be rechecked after scheduling, even if the owner
+    // changes the agent assignment before the 10-second threshold.
+    $other=he_contact_add($account,'موظف آخر','+201009876543','employee');
+    $third='c8e37392-90d0-44e4-97ae-791ed5e9cd7c';
+    he_route_configure($account,1,$other,true);
+    tenant_workspace_call_event($b,['call_id'=>$third,'sequence'=>1,'phase'=>'ringing']);
+    tenant_call_report_save($b,['call_id'=>$third,'summary'=>'طلب متابعة',
+        'handoff_status'=>'requested','handoff_reason'=>'عايز أكلم موظف مختص'],'manual');
+    tenant_workspace_call_event($b,['call_id'=>$third,'sequence'=>2,'phase'=>'ended']);
+    $thirdJob=one('SELECT id FROM human_escalation_jobs WHERE device_binding_id=? AND call_id=?',
+        [$b['id'],$third]);
+    he_ok($thirdJob!==null,'route can schedule selected active staff recipient');
+    he_route_configure($account,1,$other,false);
+    he_ok(one('SELECT status FROM human_escalation_jobs WHERE id=?',[$thirdJob['id']])['status']==='cancelled',
+        'disabling agent route cancels unclaimed human callback');
+    he_route_configure($account,1,$other,true);
+    he_ok(he_claim($b)['job']===null,'disabled route cannot be bypassed by stale callback');
+    // A dial attempt can be created by TelecomManager yet never reach OFFHOOK.
+    // The failure report must remain recordable and must not trigger redial.
+    $fourth='c8e37392-90d0-44e4-97ae-791ed5e9cd7d';
+    tenant_workspace_call_event($b,['call_id'=>$fourth,'sequence'=>1,'phase'=>'ringing']);
+    tenant_call_report_save($b,['call_id'=>$fourth,'summary'=>'طلب متابعة جديد',
+        'handoff_status'=>'requested','handoff_reason'=>'تحويل لمدير'],'manual');
+    tenant_workspace_call_event($b,['call_id'=>$fourth,'sequence'=>2,'phase'=>'ended']);
+    $fourthJob=one('SELECT id FROM human_escalation_jobs WHERE device_binding_id=? AND call_id=?',
+        [$b['id'],$fourth]);
+    execute('UPDATE human_escalation_jobs SET due_epoch=? WHERE id=?',[time()-1,$fourthJob['id']]);
+    $dialAttempt=he_claim($b)['job'];
+    he_ok($dialAttempt!==null,'new job claimed for post-dial failure transition');
+    he_ack($b,(int)$dialAttempt['id'],'dial_started');
+    $failed=he_ack($b,(int)$dialAttempt['id'],'failed');
+    he_ok($failed['status']==='failed','failed call after TelecomManager placeCall is recorded');
+    he_ok(he_claim($b)['job']===null,'post-dial failure does not cause duplicate call');
+    execute('DELETE FROM human_escalation_contacts WHERE id=? AND account_id=?',[$other,$account]);
     echo "HUMAN_ESCALATION_END_TO_END_PASS\n";
 }finally{
-    $calls=[$call,'c8e37392-90d0-44e4-97ae-791ed5e9cd7b'];
+    $calls=[$call,'c8e37392-90d0-44e4-97ae-791ed5e9cd7b',
+      'c8e37392-90d0-44e4-97ae-791ed5e9cd7c','c8e37392-90d0-44e4-97ae-791ed5e9cd7d'];
     foreach($calls as $cid){
         execute('DELETE FROM human_escalation_jobs WHERE device_binding_id=? AND call_id=?',[$b['id'],$cid]);
         execute('DELETE FROM tenant_call_reports WHERE device_binding_id=? AND call_id=?',[$b['id'],$cid]);
