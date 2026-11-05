@@ -1,6 +1,7 @@
 'use strict';
 import { createAyoAvatar } from './ayo-avatar.js';
-let avatar=null, micStream=null, micSource=null, micAnalyser=null, micMeterTimer=null, recognitionUnavailable=false;
+import { createMicTurns } from './ayo-mic-stt.js';
+let avatar=null, micStream=null, micSource=null, micAnalyser=null, micMeterTimer=null, recognitionUnavailable=false, micTurnDetector=null, startAfterMic=false;
 const $=id=>document.getElementById(id);
 const S={csrf:'',config:null,session:false,clock:null,remaining:120,busy:false,abort:null,muted:false,recog:null,recogWanted:false,preview:false,ctx:null,playAt:0,sources:[],audio:[],lastReply:'',turns:0,chars:0,cost:0,started:0,recording:null,history:[]};
 const models={apinex:['free/gpt-6-luna'],'omnira-a':['claude-fable-5.1','claude-fable-5.1[1m]','claude-sonnet-5[1m]','gpt-6-astra[1m]','claude-sonnet-5'],'omnira-b':['glm-5-3-flash','glm-5-3','glm-5-2','deepseek-v4-flash','deepseek-v4-pro','qwen3-8-flash','qwen3-8-max','kimi-k3','claude-fable-5-1','claude-opus-5-5','gpt-6-sol','claude-sonnet-5-5','deepseek-v4-1-flash','deepseek-v4-flash-0731','deepseek-v4-pro-0813','qwen3-8-max-0902']};
@@ -74,14 +75,18 @@ function micState(text,state='') {
   el.classList.toggle('error',state==='error');
 }
 async function openMic(){
-  if(!navigator.mediaDevices?.getUserMedia)throw Error('المتصفح لا يدعم فتح الميكروفون من هذه الصفحة؛ استخدم Chrome وحدّث الصفحة عبر HTTPS.');
-  micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+  if(micStream?.active)return;
+  if(!navigator.mediaDevices?.getUserMedia)throw Error('المتصفح لا يدعم فتح الميكروفون من هذه الصفحة؛ استخدم Chrome وافتح الموقع عبر HTTPS.');
+  const micPromise=navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+  micStream=await micPromise;
+  await audioStart();
   micSource=S.ctx.createMediaStreamSource(micStream);
   micAnalyser=S.ctx.createAnalyser();
   micAnalyser.fftSize=2048;micAnalyser.smoothingTimeConstant=.62;
   micSource.connect(micAnalyser);
   avatar?.setMicrophone(micAnalyser);
-  micState('الميكروفون متصل · جاري الاستماع','active');
+  micState('الميكروفون متصل · الإذن متاح','active');
+  $('enableMicBtn').classList.add('enabled');$('enableMicBtn').innerHTML='✓ الميكروفون متفعل <small>اضغط لتغيير الأذونات</small>';
   const data=new Uint8Array(micAnalyser.fftSize);
   if(micMeterTimer)clearInterval(micMeterTimer);
   micMeterTimer=setInterval(()=>{
@@ -93,6 +98,7 @@ async function openMic(){
   },85);
 }
 function closeMic(){
+  micTurnDetector?.stop();micTurnDetector=null;
   clearInterval(micMeterTimer);micMeterTimer=null;
   try{micSource?.disconnect();}catch{}
   micSource=null;micAnalyser=null;
@@ -100,10 +106,78 @@ function closeMic(){
   micStream=null;avatar?.setMicrophone(null);avatar?.setStatus('idle');
   $('micMeter').style.transform='scaleX(0)';
   micState('الميكروفون غير متصل');
+  $('enableMicBtn').classList.remove('enabled');$('enableMicBtn').innerHTML='🎙 تفعيل الميكروفون <small>اضغط واسمح للمتصفح</small>';
 }
-async function toggleCall(){if(S.session){S.abort?.abort();stopListen();stopAudio();S.session=false;clearInterval(S.clock);closeMic();$('callText').textContent='ابدأ المكالمة';$('callStatus').textContent='جاهزة للتجربة';$('muteBtn').disabled=true;$('interruptBtn').disabled=true;await api('end',{}).catch(()=>{});return;}try{if($('testMode').value==='live'&&(!S.config?.hasInworldKey||!S.config?.hasActiveLlmKey)){note('المكالمة محتاجة مفتاح Inworld ومفتاح البوابة المختارة. افتح «مفاتيح API» واحفظ الإعدادات.',true);return;}await audioStart();micState('في انتظار إذن الميكروفون...');await openMic();await api('start',{});S.session=true;recognitionUnavailable=false;S.remaining=120;setClock();S.clock=setInterval(()=>{S.remaining--;setClock();if(S.remaining<=0)toggleCall();},1000);$('callText').textContent='إنهاء المكالمة';$('muteBtn').disabled=false;$('interruptBtn').disabled=false;note('الميكروفون اشتغل فعلًا. أي نبضة في المؤشر بتعكس الصوت الداخل؛ نتأكد من تحويل الكلام لنص قبل طلب الرد.');startListen();}catch(e){closeMic();micState('تعذر فتح الميكروفون','error');note('بدء المكالمة: '+e.message,true);}}
-function stopListen(){S.recogWanted=false;try{S.recog?.abort()}catch{}}
-function startListen(){if(!S.session||S.muted||S.busy||S.sources.length)return;avatar?.setStatus('listening');const R=window.SpeechRecognition||window.webkitSpeechRecognition;if(!R||recognitionUnavailable){const msg='الميكروفون شغال، لكن تحويل الكلام لنص غير متاح في المتصفح؛ اكتب سؤالك';$('callStatus').textContent=msg;micState('ميكروفون متصل · التفريغ الصوتي غير متاح','error');return;}if(S.recogWanted)return;const rec=new R();S.recog=rec;rec.lang='ar-EG';rec.interimResults=true;rec.continuous=false;S.recogWanted=true;rec.onresult=e=>{let final='',interim='';for(let i=e.resultIndex;i<e.results.length;i++){const txt=e.results[i][0].transcript;if(e.results[i].isFinal)final+=txt;else interim+=txt;}$('interim').textContent=interim;if(final.trim()){$('interim').textContent='';S.recogWanted=false;sendTurn(final.trim());}};rec.onerror=e=>{if(e.error!=='aborted'){log('SpeechRecognition: '+e.error);if(['not-allowed','service-not-allowed','network','language-not-supported'].includes(e.error)){recognitionUnavailable=true;micState('تعذر تحويل الصوت لنص · '+e.error,'error');note('التعرف على الكلام فشل ('+e.error+'). الميكروفون نفسه متصل؛ تقدر تستخدم خانة الكتابة.',true);}}};rec.onend=()=>{S.recogWanted=false;if(S.session&&!S.busy&&!S.muted&&!S.sources.length&&!recognitionUnavailable)setTimeout(startListen,450);};try{rec.start();$('callStatus').textContent='آيو بتسمعك';$('orbWrap').className='orb-wrap listening';}catch(e){S.recogWanted=false;log(e.message);}}
+
+async function toggleCall(){
+ if(S.session){
+   S.abort?.abort();stopListen();stopAudio();S.session=false;clearInterval(S.clock);closeMic();
+   $('callText').textContent='ابدأ المكالمة';$('callStatus').textContent='جاهزة للتجربة';
+   $('muteBtn').disabled=true;$('interruptBtn').disabled=true;
+   await api('end',{}).catch(()=>{});return;
+ }
+ if(!micStream?.active){startAfterMic=true;$('micPermissionDialog').hidden=false;return;}
+ if(!S.config?.hasInworldKey||!S.config?.hasActiveLlmKey){
+   note('لازم تحفظ مفاتيح Inworld والبوابة المختارة مرة واحدة في «مفاتيح API» قبل المكالمة الحقيقية.',true);
+   $('configBody').classList.remove('hidden');return;
+ }
+ try {
+   await audioStart();await api('start',{});
+   S.session=true;recognitionUnavailable=false;S.remaining=120;setClock();
+   S.clock=setInterval(()=>{S.remaining--;setClock();if(S.remaining<=0)toggleCall();},1000);
+   $('callText').textContent='إنهاء المكالمة';$('muteBtn').disabled=false;$('interruptBtn').disabled=false;
+   micState('الميكروفون جاهز · منتظر الكلام','active');
+   note('ابدأ الكلام. مستوى الصوت بيتحرك، والكلام هيتحول لنص قبل الرد.');
+   startListen();
+ }catch(e){note('بدء المكالمة: '+e.message,true);}
+}
+function stopListen(){
+ micTurnDetector?.pause();
+ S.recogWanted=false;try{S.recog?.abort()}catch{}
+}
+function startListen(){
+ if(!S.session||S.muted||S.busy||S.sources.length||!micStream)return;
+ avatar?.setStatus('listening');
+ if($('sttMode').value==='inworld'){
+   if(!S.config?.hasInworldKey){micState('مفتاح Inworld STT غير متاح','error');return;}
+   try{
+     if(!micTurnDetector)micTurnDetector=createMicTurns({
+       stream:micStream,analyser:micAnalyser,csrf:()=>S.csrf,
+       onText:async text=>{
+         $('interim').textContent='سمعت: '+text;
+         micState('تم فهم الكلام: '+text,'active');
+         sendTurn(text);
+       },
+       onStatus:state=>{
+         const states={listening:'آيو بتسمعك · اتكلم',recording:'آيو سامعاك · جاري تسجيل الكلام',transcribing:'جاري تحويل كلامك لنص',recognized:'تم فهم الكلام',paused:'متوقف أثناء رد آيو',idle:'في انتظار تفعيل الميكروفون','no-speech':'ماسمعتش كلام واضح، جرّب تاني'};
+         if(['listening','recording','transcribing','recognized','no-speech'].includes(state)){
+           $('callStatus').textContent=states[state];
+           micState(states[state],state==='no-speech'?'error':'active');
+         }
+         log('STT: '+state);
+       },
+       onError:message=>{
+         micState('خطأ في التفريغ الصوتي','error');
+         note('Inworld STT: '+message,true);
+       }
+     });
+     micTurnDetector.resume();$('orbWrap').className='orb-wrap listening';
+   }catch(e){note('تعذر تشغيل التفريغ الصوتي: '+e.message,true);micState('STT غير متاح','error');}
+   return;
+ }
+ const R=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!R||recognitionUnavailable){micState('SpeechRecognition غير مدعوم؛ اختار Inworld STT','error');return;}
+ if(S.recogWanted)return;
+ const rec=new R();S.recog=rec;rec.lang='ar-EG';rec.interimResults=true;rec.continuous=false;S.recogWanted=true;
+ rec.onresult=e=>{let final='',interim='';for(let i=e.resultIndex;i<e.results.length;i++){
+   const txt=e.results[i][0].transcript;if(e.results[i].isFinal)final+=txt;else interim+=txt;
+ }$('interim').textContent=interim;
+ if(final.trim()){$('interim').textContent='سمعت: '+final.trim();S.recogWanted=false;sendTurn(final.trim());}};
+ rec.onerror=e=>{if(e.error!=='aborted'){recognitionUnavailable=true;micState('SpeechRecognition فشل؛ التحويل إلى Inworld STT','error');$('sttMode').value='inworld';setTimeout(startListen,300);}};
+ rec.onend=()=>{S.recogWanted=false;if(S.session&&!S.busy&&!S.muted&&!S.sources.length&&!recognitionUnavailable)setTimeout(startListen,450);};
+ try{rec.start();$('callStatus').textContent='آيو بتسمعك';}
+ catch(e){recognitionUnavailable=true;$('sttMode').value='inworld';startListen();}
+}
 async function record(){if(S.recording){const r=S.recording;S.recording=null;clearTimeout(r.timer);r.worklet.port.postMessage('flush');await new Promise(x=>setTimeout(x,150));r.stream.getTracks().forEach(x=>x.stop());await r.ctx.close();S.sample=new File([wav(r.parts,r.rate)],'ayo-sample.wav',{type:'audio/wav'});$('fileLabel').textContent='تسجيل العينة جاهز';$('recordBtn').textContent='● تسجيل عينة';return;}try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});const ctx=new AudioContext({sampleRate:16000});await ctx.audioWorklet.addModule('audio-worklet.js');const source=ctx.createMediaStreamSource(stream),worklet=new AudioWorkletNode(ctx,'ayo-pcm-capture'),mute=ctx.createGain();mute.gain.value=0;source.connect(worklet).connect(mute).connect(ctx.destination);const parts=[];worklet.port.onmessage=e=>parts.push(new Uint8Array(e.data));S.recording={stream,ctx,worklet,parts,rate:ctx.sampleRate,timer:setTimeout(record,30000)};$('recordBtn').textContent='■ وقف التسجيل';note('سجّل عينة واضحة 10–30 ثانية');}catch(e){note('التسجيل: '+e.message,true);}}
 async function clone(){const f=S.sample||$('voiceFile').files[0];if(!f)return note('اختر ملف MP3 أو WAV أولاً.',true);if(!$('sampleConsent').checked)return note('لازم تؤكد إن الصوت ملكك أو لديك تصريح.',true);if(!S.config?.hasInworldKey)return note('اضبط مفتاح Inworld.',true);const form=new FormData();form.append('sample',f);form.append('consent','yes');$('cloneResult').textContent='جارٍ استنساخ الصوت...';try{const r=await fetch('api.php?action=clone',{method:'POST',headers:{'X-AYO-CSRF':S.csrf},body:form});const d=await r.json();if(!r.ok)throw Error(d.error||'خطأ');$('cloneResult').textContent='Voice ID: '+d.voiceId;renderConfig(d.config);note('تم استنساخ الصوت بنجاح');}catch(e){note('استنساخ الصوت: '+e.message,true);}}
 async function main(){avatar=createAyoAvatar($('ayoCharacterCanvas'),$('orbWrap'));for(let i=0;i<44;i++){const bar=document.createElement('i');bar.style.setProperty('--h',`${7+(i*13%29)}px`);bar.style.setProperty('--dur',`${450+i*61%600}ms`);$('visualizer').append(bar);}$('toggleConfig').onclick=()=>{$('configBody').classList.toggle('hidden');$('toggleConfig').textContent=$('configBody').classList.contains('hidden')?'إظهار':'إخفاء';};document.querySelectorAll('[data-gateway]').forEach(button=>button.onclick=()=>chooseGateway(button.dataset.gateway));$('gatewayModel').onchange=()=>chooseGateway(S.config.llmProvider,$('gatewayModel').value);$('gatewaySettingsButton').onclick=()=>{$('configBody').classList.remove('hidden');$('toggleConfig').textContent='إخفاء';$('configForm').scrollIntoView({behavior:'smooth',block:'start'});};$('emotionMode').onchange=()=>chooseEmotion($('emotionMode').value);document.querySelectorAll('[data-voice-cue]').forEach(button=>button.onclick=()=>{const cue=button.dataset.voiceCue;if(!['sigh','laugh','breathe','gasp','groan'].includes(cue))return;const current=$('previewText').value.trim().replace(/^\[(?:sigh|laugh|breathe|gasp|groan)\]\s*/i,'');$('previewText').value='['+cue+'] '+current;$('previewText').focus();$('previewStatus').textContent='مؤثر ['+cue+'] أُضيف لبداية النص. اضغط «اسمع صوت آيو» لتجربته.';});$('llmProvider').onchange=()=>presets();$('llmModelPreset').onchange=()=>$('llmModel').value=$('llmModelPreset').value;$('configForm').onsubmit=async e=>{e.preventDefault();const payload={voiceId:$('voiceId').value,ttsModel:$('ttsModel').value,ttsLocale:$('ttsLocale').value,ttsDelivery:$('ttsDelivery').value,llmProvider:$('llmProvider').value,llmModel:$('llmModel').value};for(const [id,k] of [['inworldKey','inworldKey'],['apinexKey','apinexKey'],['omniraKey','omniraKey']])if($(id).value.trim())payload[k]=$(id).value.trim();try{const d=await api('settings',payload);renderConfig(d.config);for(const k of ['inworldKey','apinexKey','omniraKey'])$(k).value='';note('اتحفظت إعدادات الجلسة على السيرفر.');}catch(e){note(e.message,true);}};$('callBtn').onclick=toggleCall;$('muteBtn').onclick=()=>{S.muted=!S.muted;$('muteIcon').textContent=S.muted?'×':'◉';if(S.muted)stopListen();else startListen();};$('interruptBtn').onclick=()=>{S.abort?.abort();stopAudio();S.busy=false;startListen();};$('clearBtn').onclick=()=>{$('transcript').replaceChildren();};$('composer').onsubmit=e=>{e.preventDefault();sendTurn($('question').value.trim());};$('previewBtn').onclick=preview;$('recordBtn').onclick=record;$('cloneBtn').onclick=clone;$('voiceFile').onchange=e=>{$('fileLabel').textContent=e.target.files[0]?.name||'اختيار ملف عينة الصوت';S.sample=null;};$('downloadLast').onclick=()=>{if(!S.audio.length)return;const url=URL.createObjectURL(wav(S.audio));const a=document.createElement('a');a.href=url;a.download='AYO-output.wav';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
