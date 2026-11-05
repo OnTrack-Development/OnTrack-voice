@@ -74,6 +74,26 @@ function micState(text,state='') {
   el.classList.toggle('active',state==='active');
   el.classList.toggle('error',state==='error');
 }
+async function micPermissionDiagnostics(){
+  const secure=!!window.isSecureContext;
+  const supported=!!navigator.mediaDevices?.getUserMedia;
+  let browserPermission='غير معروف';
+  try{
+    if(navigator.permissions?.query){
+      const response=await navigator.permissions.query({name:'microphone'});
+      browserPermission=({denied:'محظور من إعدادات المتصفح',prompt:'الموافقة مطلوبة من Chrome',granted:'مسموح في إعدادات المتصفح'})[response.state]||response.state;
+    }
+  }catch{browserPermission='المتصفح لا يوفر حالة الإذن';}
+  const policy=document.permissionsPolicy||document.featurePolicy;
+  let policyStatus='غير متاح';
+  try{
+    if(policy?.allowsFeature)policyStatus=policy.allowsFeature('microphone')?'مسموح على الصفحة':'محظور بسياسة أذونات الموقع';
+  }catch{}
+  const text='HTTPS: '+(secure?'نعم':'لا')+' · دعم الميكروفون: '+(supported?'نعم':'لا')+
+     ' · حالة الإذن: '+browserPermission+' · سياسة الموقع: '+policyStatus;
+  $('micDiagnosticResult').textContent=text;
+  return {secure,supported,browserPermission,policyStatus};
+}
 async function openMic(){
   if(micStream?.active)return;
   if(!navigator.mediaDevices?.getUserMedia)throw Error('المتصفح لا يدعم فتح الميكروفون من هذه الصفحة؛ استخدم Chrome وافتح الموقع عبر HTTPS.');
@@ -194,16 +214,39 @@ async function main(){avatar=createAyoAvatar($('ayoCharacterCanvas'),$('orbWrap'
  };
  $('enableMicBtn').onclick=()=>{
    if(micStream?.active){note('الميكروفون متفعّل؛ لما تبدأ المكالمة آيو هتسمع كلامك.');return;}
-   $('micPermissionError').textContent='';$('micPermissionDialog').hidden=false;
+   $('micPermissionError').textContent='';$('micPermissionDialog').hidden=false;micPermissionDiagnostics();
  };
+ $('micShowGuide').onclick=async()=>{
+   $('micRecoveryPanel').hidden=false;await micPermissionDiagnostics();
+ };
+ $('micHelpToggle').onclick=()=>{$('micRecoveryPanel').hidden=true;};
+ $('micRetryBtn').onclick=()=>{$('micDialogApprove').click();};
+ document.addEventListener('visibilitychange',()=>{
+   if(!document.hidden&&!$('micPermissionDialog').hidden)micPermissionDiagnostics();
+ });
  $('micDialogCancel').onclick=()=>{startAfterMic=false;$('micPermissionDialog').hidden=true;};
  $('micDialogApprove').onclick=async()=>{
    const btn=$('micDialogApprove');btn.disabled=true;$('micPermissionError').textContent='';
    micState('جاري طلب إذن الميكروفون...');
    try{await openMic();$('micPermissionDialog').hidden=true;note('المايكروفون اتفعّل وبيستقبل صوتك بالفعل.');
      if(startAfterMic){startAfterMic=false;toggleCall();}
-   }catch(err){const msg=err?.name==='NotAllowedError'?'الإذن مرفوض. اضغط علامة القفل بجانب رابط الموقع، وفعّل الميكروفون، وبعدين حدّث الصفحة.':err.message;
-      $('micPermissionError').textContent=msg;micState('الميكروفون محظور','error');note('الميكروفون: '+msg,true);
+   }catch(err){
+      const category=err?.name||'UnknownError';
+      const messages={
+        NotAllowedError:'Chrome أو أندرويد مانع الميكروفون. مش لازم يظهر رمز القفل في شريط العنوان؛ افتح إرشادات أندرويد اللي تحت.',
+        SecurityError:'المتصفح حظر وصول الصفحة للميكروفون بسبب إعدادات الأمان.',
+        NotFoundError:'الموبايل مش شايف جهاز ميكروفون متاح.',
+        NotReadableError:'الميكروفون مشغول أو تعذّر فتحه. اقفل تطبيقات التسجيل والمكالمات وجرّب تاني.',
+        OverconstrainedError:'المايكروفون مش متوافق مع إعدادات التسجيل المطلوبة.',
+        AbortError:'تم إلغاء محاولة فتح الميكروفون.'
+      };
+      const msg=messages[category]||('فشل فتح الميكروفون ('+category+'): '+(err.message||'تعذّر الوصول'));
+      $('micPermissionError').textContent=msg;
+      $('micRecoveryPanel').hidden=false;
+      const checks=await micPermissionDiagnostics();
+      if(!checks.secure)$('micDiagnosticResult').textContent+=' · الصفحة لازم تفتح بـ HTTPS';
+      micState('فشل إذن الميكروفون · '+category,'error');
+      note('الميكروفون: '+msg,true);
    }finally{btn.disabled=false;}
  };
  $('sttMode').onchange=()=>{stopListen();if(S.session)startListen();};
