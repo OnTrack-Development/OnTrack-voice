@@ -1,0 +1,13 @@
+{
+  "job_id": "ontrack-lte-report-backend-20261105-2326",
+  "target": "appontrack-server11",
+  "job_sha256": "df28cbec1b3c967b4062f0ad4a5e71f9e850a31bc5533c2cede2b5673520877b",
+  "started_at": "2026-11-05T21:24:03.108257+00:00",
+  "status": "failed",
+  "exit_code": 1,
+  "output_truncated": false,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 10, in <module>\nRuntimeError: anchor_missing_or_ambiguous\n",
+  "finished_at": "2026-11-05T21:24:03.181263+00:00",
+  "duration_ms": 73
+}
