@@ -76,7 +76,8 @@ function call_history_csv(int $accountId,array $request):void {
     if(!$out)throw new RuntimeException('csv_unavailable');
     fwrite($out,"\xEF\xBB\xBF");
     fputcsv($out,['Call ID','Name','Phone','Status','Duration seconds','SIM','Site ID',
-        'Started UTC','Outcome','Summary','Customer Notes','Handoff Status']);
+        'Started UTC','Outcome','Summary','Customer Notes','Handoff Status','Handoff Reason',
+        'Manager Notification Status','Manager Name']);
     // Strict bound and pagination; no unbounded memory or cross-tenant export.
     $written=0;
     for($offset=0;$offset<5000;$offset+=200){
@@ -85,7 +86,8 @@ function call_history_csv(int $accountId,array $request):void {
             $cells=[$row['external_call_id'],$row['name'],$row['phone'],$row['status'],
                 $row['duration_seconds'],(int)$row['sim_slot']+1,$row['site_id'],
                 $row['created_at'],$row['outcome'],$row['summary'],$row['customer_notes'],
-                $row['handoff_status']];
+                $row['handoff_status'],$row['handoff_reason'],
+                $row['manager_notification_status'],$row['manager_notification_name']];
             fputcsv($out,array_map('call_history_cell',$cells));
             $written++;
         }
