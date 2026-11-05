@@ -39,7 +39,7 @@ try{
         );
         device_answer(201,['ok'=>true,'binding'=>$bound,'state'=>'paired_control_plane_only']);
     }
-    if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session','voice_preflight','caller_identify','caller_verify',
+    if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session','voice_failover','voice_preflight','caller_identify','caller_verify',
         'workspace_contacts','workspace_contact_dnc','workspace_import','workspace_calls','workspace_call_transcript',
         'workspace_call_event','workspace_call_report','workspace_call_analysis','workspace_handoff_claim','workspace_handoff_ack','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_campaign_claim',
         'workspace_campaign_verify','workspace_campaign_finish','workspace_contact_consent',
@@ -150,6 +150,28 @@ try{
                 device_answer(503,['ok'=>false,'error'=>'voice_provider_unavailable']);
             }
             device_answer(200,['ok'=>true,'session'=>$session]);
+        }
+        if($operation==='voice_failover'){
+            // Authenticated device binding is checked above. Never accept a
+            // tenant/account/key id or raw API key from the request.
+            require_once __DIR__.'/../../_core/GoogleVoiceFailover.php';
+            $generation=$data['failover_generation']??null;
+            if(!is_int($generation))device_answer(422,['ok'=>false,'error'=>'invalid_failover_generation']);
+            try{
+                $rotated=google_voice_failover_rotate($binding,
+                    (string)($data['failover_ticket']??''),$generation,
+                    (string)($data['failure_code']??''));
+            }catch(RuntimeException $error){
+                $code=$error->getMessage();
+                if($code==='voice_subscription_inactive')
+                    device_answer(403,['ok'=>false,'error'=>$code]);
+                if(in_array($code,['voice_failover_ticket_invalid_or_stale',
+                    'voice_failover_pool_changed','voice_failover_key_not_owned',
+                    'voice_failover_concurrent_request'],true))
+                    device_answer(409,['ok'=>false,'error'=>'voice_failover_conflict']);
+                device_answer(503,['ok'=>false,'error'=>'voice_failover_no_healthy_keys']);
+            }
+            device_answer(200,['ok'=>true,'session'=>$rotated]);
         }
         if($operation==='published_flow'){
             $flow=published_agent_flow((int)$binding['account_id'],(int)$binding['site_id'],(int)$binding['agent_id']);
