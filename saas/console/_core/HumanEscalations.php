@@ -96,18 +96,20 @@ function he_route_configure(int $accountId,int $agentId,int $contactId,bool $ena
         insert('INSERT INTO human_escalation_routes
             (agent_id,account_id,site_id,contact_id,enabled,updated_at) VALUES (?,?,?,?,?,?)',
             [$agentId,$accountId,$agent['site_id'],$contactId?:null,(int)$enabled,now()]);
-    // Revoking/changing an agent route must immediately stop any not-yet-claimed
-    // callback for that agent; a previously saved queue row is not authorization.
-    execute("UPDATE human_escalation_jobs SET status='cancelled',
-        result='route_changed',finished_at=?
-        WHERE account_id=? AND status='pending'
-          AND EXISTS (SELECT 1 FROM calls c WHERE c.account_id=?
-            AND c.site_id=human_escalation_jobs.site_id
-            AND c.device_binding_id=human_escalation_jobs.device_binding_id
-            AND c.external_call_id=human_escalation_jobs.call_id
-            AND c.agent_id=?)
-          AND (?=0 OR contact_id<>?)",
-        [now(),$accountId,$accountId,$agentId,(int)$enabled,$contactId]);
+    // Revoke stale owner authorization immediately; two-step scoped selection
+    // is portable across MySQL and SQLite (no target-table UPDATE subquery).
+    $pending=all("SELECT j.id,j.contact_id FROM human_escalation_jobs j
+        JOIN calls c ON c.account_id=j.account_id AND c.site_id=j.site_id
+         AND c.device_binding_id=j.device_binding_id AND c.external_call_id=j.call_id
+        WHERE j.account_id=? AND c.agent_id=? AND j.status='pending'",
+        [$accountId,$agentId]);
+    foreach($pending as $item){
+        if($enabled && (int)$item['contact_id']===$contactId)continue;
+        execute("UPDATE human_escalation_jobs SET status='cancelled',
+            result='route_changed',finished_at=?
+            WHERE id=? AND account_id=? AND status='pending'",
+            [now(),(int)$item['id'],$accountId]);
+    }
 }
 /** Select a destination from the agent bound WHEN the call started; no
  * speculative reassignment if the SIM's agent was changed in the meantime.
