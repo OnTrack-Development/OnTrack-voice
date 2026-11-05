@@ -428,6 +428,46 @@
       pane.hidden=pane.getAttribute('data-builder-pane')!==current;
     });
   });
+  // Switching the active runtime mode never removes the other editor's
+  // text/graph. Both are saved as a draft; only publishing changes SIM calls.
+  document.addEventListener('change',event=>{
+    const mode=event.target.closest?.('select[name="scenario_mode"]');
+    if(!mode)return;
+    const form=mode.closest('form');
+    form?.querySelector(mode.value==='scenario'
+      ?'[data-builder-tab="scenario"]':'[data-builder-tab="visual"]')?.click();
+  });
+  // A fresh, editable example of the earlier dog-sales demo idea; do not
+  // claim the exact old text was recovered or overwrite a user's draft.
+  const dogSaleExample=[
+    'الدور: مساعد مبيعات حيوانات أليفة باللهجة المصرية. اتكلم طبيعي ومختصر.',
+    '1. رحّب بالعميل مرة واحدة، واسأله هل بيدور على كلب صغير ولا كبير.',
+    '2. اسأله عن العمر والميزانية ومساحة المكان وهل عنده خبرة في التربية.',
+    '3. اعرض فقط السلالات والأسعار والمعلومات الموجودة في معرفة المتجر أو نتيجة API موثوقة. لو مش متوفرة، قول محتاج تأكيد.',
+    '4. اسأل سؤالًا واحدًا في كل مرة، واستمع للإجابة من غير تكرار أو ضغط على العميل.',
+    '5. لو عنده اعتراض عن السعر أو الرعاية، وضّح الخيارات والمصاريف المتوقعة من معلومات مؤكدة.',
+    '6. لو عايز يتواصل مع موظف، استخدم أداة تسجيل طلب الموظف أولًا، ولا تقل جاري تحويل المكالمة.',
+    '7. اختم بملخص ما اختاره العميل وما لم يتم تنفيذه، واسأله إن كان محتاج معلومة تانية.'
+  ].join('\\n');
+  document.addEventListener('click',async event=>{
+    const button=event.target.closest?.('[data-scenario-example="dog-sale"]');
+    if(!button)return;
+    const form=button.closest('form');
+    const editor=form?.querySelector('textarea[name="scenario_text"]');
+    if(!editor)return;
+    if(editor.value.trim()){
+      const confirmed=await window.ontrackConfirm(
+        'تحميل مثال البيع هيستبدل نص السيناريو الحالي في المسودة، لكنه مش هيغير البيلدر ولا هينشر أي شيء.',
+        {title:'تحميل مثال السيناريو',confirmText:'استبدال النص'});
+      if(!confirmed)return;
+    }
+    editor.value=dogSaleExample;
+    editor.dispatchEvent(new Event('input',{bubbles:true}));
+    const mode=form.querySelector('select[name="scenario_mode"]');
+    if(mode){mode.value='scenario';mode.dispatchEvent(new Event('change',{bubbles:true}));}
+    editor.focus();
+    window.ontrackToast('مثال سيناريو البيع اتضاف للمسودة. اضغط نشر عشان يتفعّل في المكالمات.');
+  });
   // Agent Studio stores the complete published policy as one atomic backend
   // request; never reloads the screen, loses the current tab or exposes keys.
   document.addEventListener('submit',async event=>{
