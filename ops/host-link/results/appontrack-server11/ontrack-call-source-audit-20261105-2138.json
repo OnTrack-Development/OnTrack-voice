@@ -1,0 +1,13 @@
+{
+  "job_id": "ontrack-call-source-audit-20261105-2138",
+  "target": "appontrack-server11",
+  "job_sha256": "ec64faacdb87cfc55c3db7ea613da11d3b34831957c55b15dd08fc041a69d708",
+  "started_at": "2026-11-05T19:40:03.098776+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"TenantWorkspace.php\": {\"sha256\": \"c06db341aadacfe2bae179d1d1b8997322b4eb6f388290d3544216567aeef2f1\", \"bytes\": 26864, \"has_fallback\": false, \"has_route_guard\": false, \"has_ai_old\": true, \"has_ai_new\": false, \"has_he_init\": false}, \"HumanEscalations.php\": {\"sha256\": \"f8653ab30dd7d10920cc8098bfac9d58ee29acb2769353037386a425d99e1e21\", \"bytes\": 16289, \"has_fallback\": false, \"has_route_guard\": false, \"has_ai_old\": false, \"has_ai_new\": false, \"has_he_init\": true}}\n",
+  "stderr": "",
+  "finished_at": "2026-11-05T19:40:03.177910+00:00",
+  "duration_ms": 79
+}
