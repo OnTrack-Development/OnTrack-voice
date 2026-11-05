@@ -128,3 +128,11 @@ body{background-image:none!important}
 .gateway-test-result.is-error{background:#35151e;border-color:#8e374d;color:#ffacb8}
 .gateway-probe-btn{border:1px solid #864153!important;border-radius:9px!important;padding:5px 11px!important;background:#361b24!important;color:#f6c5cf!important;text-decoration:none!important}
 .gateway-probe-btn:disabled{opacity:.55}
+
+
+/* v13: persona and STT accuracy controls */
+.ayo-persona-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:15px 0 10px;padding:12px;border:1px solid #51323c;border-radius:14px;background:#170e12}
+.ayo-persona-controls label{display:grid;gap:6px;color:#e5c4cb;font-weight:700;font-size:12px}
+.ayo-persona-controls select{width:100%;background:#09090c;border:1px solid #683b4a;border-radius:9px;color:#fff;padding:10px;font:inherit;min-width:0}
+.ayo-persona-controls select:disabled{opacity:.46}
+@media(max-width:550px){.ayo-persona-controls{grid-template-columns:1fr;padding:11px}}
