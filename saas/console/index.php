@@ -12,6 +12,8 @@ header('Referrer-Policy: no-referrer');
 header('Permissions-Policy: camera=(),microphone=(),geolocation=()');
 startsession();
 try {init_schema();} catch(Throwable $e){
+    if(agent_studio_ajax_request())
+        agent_studio_ajax_error(503,'خدمة حفظ إعدادات المساعد غير متاحة الآن بسبب خطأ في قاعدة البيانات. لم يتم تأكيد النشر.');
     http_response_code(503);
     header('Content-Type: text/html; charset=utf-8');
     echo '<html lang="ar" dir="rtl"><body style="font-family:system-ui;padding:48px"><h2>تهيئة قاعدة بيانات لوحة OnTrack</h2><p>تحتاج قاعدة بيانات MySQL أو SQLite مفعلة على السيرفر.</p><code>'.e($e->getMessage()).'</code></body></html>';
