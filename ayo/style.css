@@ -9,3 +9,25 @@
 .tts-preview-label textarea:focus{border-color:rgba(229,45,64,.7)}
 #previewBtn{width:100%;margin-bottom:12px}
 #previewStatus{display:block;line-height:1.7}
+
+/* Visible provider switching for the independent AYO voice lab. */
+.gateway-picker{margin:0 19px 14px;padding:13px;border:1px solid #373c45;border-radius:13px;background:#171a1f}
+.gateway-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:11px}
+.gateway-title strong{font-size:12px;color:#f6f6f8}
+.gateway-title small{font-size:9px;color:#9da4af}
+.gateway-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.gateway-card{padding:10px 7px;min-width:0;text-align:right;color:#edeef3;background:#1d2128;border:1px solid #3b4049;border-radius:10px;display:flex;flex-direction:column;gap:3px;transition:border-color .15s,background .15s}
+.gateway-card strong{font-size:12px;direction:ltr;text-align:right}
+.gateway-card small{font-size:9px;color:#9da4af;line-height:1.6}
+.gateway-card:hover{border-color:#b34e59}
+.gateway-card.selected{border-color:#ec4358;background:#56212b;box-shadow:inset 0 0 0 1px #ec435847}
+.gateway-card.selected small{color:#f1bbc2}
+.gateway-model-row{display:flex;align-items:center;gap:10px;margin-top:11px}
+.gateway-model-row label{font-size:10px;color:#afb3bd;white-space:nowrap}
+.gateway-model-row select{min-width:0;flex:1;background:#22262e;border:1px solid #484d58;border-radius:9px;color:#fff;padding:9px;font:11px Inter,Cairo,sans-serif;direction:ltr}
+.gateway-bottom{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:7px;margin-top:9px}
+.gateway-url{font-size:9px;color:#788d9f;overflow-wrap:anywhere}
+.gateway-state{font-size:9px;color:#f3a3a6}
+.gateway-state.is-ready{color:#4fd6a0}
+.gateway-settings{border:0;background:transparent;color:#f27886;font-size:10px;cursor:pointer;text-decoration:underline}
+@media(max-width:420px){.gateway-picker{margin:0 11px 12px;padding:10px}.gateway-title{display:block}.gateway-title small{display:block;margin-top:2px}.gateway-card{padding:9px 5px}.gateway-card strong{font-size:11px}.gateway-card small{font-size:8px}.gateway-bottom{align-items:start}}
