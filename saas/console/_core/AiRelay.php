@@ -145,6 +145,15 @@ function ai_relay_mark(int $id,string $code):void {
 }
 function ai_relay_run(string $scope,callable $callback,?int $accountId=null):mixed {
     $all=ai_relay_rows($scope,false,$accountId);
+    if($scope==='voice'&&$accountId!==null&&$accountId!==ai_relay_platform()){
+        $poolAccount=account($accountId);
+        if($poolAccount&&$poolAccount['kind']==='customer'){
+            require_once __DIR__.'/GoogleTenantKeys.php';
+            $limit=google_voice_key_limit($accountId);
+            if($limit<1)throw new RuntimeException('google_key_plan_limit_reached');
+            $all=array_slice($all,0,$limit);
+        }
+    }
     $rows=array_values(array_filter($all,static fn($row)=>(int)$row['enabled']===1));
     if(!$rows)throw new RuntimeException('ai_relay_no_enabled_entries');
     $count=0;$last='not_available';
