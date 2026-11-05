@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#0d0f12"/>
   <title>AYO | OnTrack Voice Lab</title>
-  <link rel="stylesheet" href="style.css?v=5"/>
+  <link rel="stylesheet" href="style.css?v=6"/>
 </head>
 <body>
 <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
 <div class="shell">
   <header class="topbar">
-    <div class="brand"><div class="brand-mark"><span class="bolt">✦</span></div><div><strong>AYO <small>VOICE LAB</small></strong><p>مختبر المحادثات الصوتية · OnTrack Development</p></div></div>
+    <div class="brand"><div class="brand-mark ayo-brand-mark"><img src="assets/ayo-character.webp" alt="شعار AYO" width="44" height="44"/></div><div><strong>AYO <small>VOICE LAB</small></strong><p>مختبر المحادثات الصوتية · OnTrack Development</p></div></div>
     <div class="top-actions"><span class="stage-pill"><i></i> DEMO / INTERNAL</span><span class="connection" id="connection"><b></b> غير متصل</span></div>
   </header>
   <div class="headline"><div><span class="eyebrow">VOICE CLONING × STREAMING</span><h1>خلّي آيو <em>تتكلم.</em></h1><p>اختبار مباشر لصوت AYO المستنسخ، وردود APInex أو Omnira، وتدفّق صوتي لحظي. كل حاجة هنا منفصلة عن النظام الأساسي.</p></div><div class="model-chip" id="modelChip">INWORLD TTS-2 <span>+</span> APINEX LLM</div></div>
@@ -19,8 +19,13 @@
     <section class="stage-panel panel">
       <div class="panel-head"><div><span class="dot-on" id="callLed"></span><span class="subheading" id="callStatus">جاهزة للتجربة</span></div><span class="subtitle" id="sessionLabel">جلسة اختبار مستقلة · حد أقصى دقيقتان</span></div>
       <div class="stage-center">
-        <div class="orb-wrap" id="orbWrap"><div class="orbit orbit1"></div><div class="orbit orbit2"></div><div class="orb" id="orb"><span class="orb-symbol">✦</span></div><span class="orb-flare flare1"></span><span class="orb-flare flare2"></span></div>
-        <div class="stage-persona"><h2>آيو <span>AYO</span></h2><p id="stageHint">مساعدة أون تراك الصوتية · تجربة داخل المتصفح</p></div>
+        <div class="orb-wrap ayo-avatar" id="orbWrap">
+          <div class="ayo-avatar-glow" aria-hidden="true"></div>
+          <img id="ayoCharacterImage" class="ayo-avatar-image" src="assets/ayo-character.webp" alt="شخصية آيو الرسمية، وجه بشري مضيء بنقاط بيضاء وموجة صوت حمراء على الفم" width="512" height="512" fetchpriority="high"/>
+          <canvas id="ayoCharacterCanvas" class="ayo-avatar-canvas" aria-hidden="true"></canvas>
+        </div>
+        <div class="stage-persona"><h2>آيو <span>AYO</span></h2><p id="stageHint">الشخصية الرسمية · تفاعلية مع صوتك وصوت آيو</p></div>
+        <div class="ayo-mic-state" aria-live="polite"><span class="ayo-mic-dot" id="micIndicator"></span><span id="micState">الميكروفون غير متصل</span><div class="ayo-mic-track"><div id="micMeter" class="ayo-mic-meter"></div></div></div>
         <div class="visualizer" id="visualizer" aria-hidden="true"></div>
         <div class="clock" id="clock">02:00</div><span class="clock-label">الوقت المتبقي</span>
       </div>
@@ -113,6 +118,6 @@
   </section>
   <footer>AYO VOICE LAB <span>·</span> LOCAL EXPERIMENT ONLY <span>·</span> NO CHANGES TO PRODUCTION</footer>
 </div>
-<script type="module" src="app.js?v=5"></script>
+<script type="module" src="app.js?v=6"></script>
 </body>
 </html>
