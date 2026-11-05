@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feat/call-summaries-human-escalation-20261105
+      - fix/live-handoff-timing-20261105
     paths:
       - saas/console/**
       - tools/test_human_escalation.php
