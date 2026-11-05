@@ -1,0 +1,13 @@
+{
+  "job_id": "agent-publish-live-revision-readonly-20261105",
+  "target": "appontrack-server11",
+  "job_sha256": "bbbd9910a951981efceac616aa346769694e6f192da68e404507799e6984a53c",
+  "started_at": "2026-11-05T19:45:03.266669+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"agents\":[{\"agent_id\":8,\"state\":\"published\",\"revision\":1,\"published_at\":\"2026-11-03 02:29:09\",\"draft_delay\":5,\"published_delay\":5,\"draft_autoanswer\":false,\"published_autoanswer\":false},{\"agent_id\":7,\"state\":\"published\",\"revision\":7,\"published_at\":\"2026-11-02 20:47:10\",\"draft_delay\":5,\"published_delay\":5,\"draft_autoanswer\":true,\"published_autoanswer\":true}]}",
+  "stderr": "",
+  "finished_at": "2026-11-05T19:45:03.353841+00:00",
+  "duration_ms": 87
+}
