@@ -1,0 +1,43 @@
+name: Agent Studio Publish JSON Regression
+on:
+  pull_request:
+    branches: [feat/voice-production-gap-20261103]
+    paths:
+      - 'saas/console/assets/js/app.js'
+      - 'saas/console/_core/Bootstrap.php'
+      - 'saas/console/index.php'
+      - 'tools/test_agent_publish_ajax.py'
+      - '.github/workflows/agent-studio-publish-json-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: 'utf-8'
+jobs:
+  verify:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 18
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Lint PHP and JavaScript response handlers
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($file in @('saas/console/_core/Bootstrap.php','saas/console/index.php','saas/console/_core/Actions.php')) {
+            & php -l $file
+            if($LASTEXITCODE -ne 0){throw "PHP syntax failed $file"}
+          }
+          & node --check saas/console/assets/js/app.js
+          if($LASTEXITCODE -ne 0){throw 'Agent Studio JS syntax invalid'}
+      - name: Test real JSON error paths and published agent policy
+        run: |
+          & python tools/test_agent_publish_ajax.py
+          if($LASTEXITCODE -ne 0){throw 'Agent Studio response contract failed'}
+          & php tools/test_dynamic_agent_studio.php
+          if($LASTEXITCODE -ne 0){throw 'Dynamic agent studio failed'}
+          Write-Host 'AGENT_STUDIO_PUBLISH_JSON_FIX_PASS'
