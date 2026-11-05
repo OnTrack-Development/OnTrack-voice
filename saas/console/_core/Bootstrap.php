@@ -289,8 +289,24 @@ function csrf():string {
     if (empty($_SESSION['csrf'])) $_SESSION['csrf']=bin2hex(random_bytes(32));
     return $_SESSION['csrf'];
 }
+/** Agent Studio AJAX always gets a typed error even for auth/CSRF preflights. */
+function agent_studio_ajax_request():bool {
+    return ($_SERVER['REQUEST_METHOD']??'')==='POST'
+        && ($_POST['action']??'')==='update_agent'
+        && ($_SERVER['HTTP_X_REQUESTED_WITH']??'')==='XMLHttpRequest';
+}
+function agent_studio_ajax_error(int $status,string $message):never {
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: private,no-store');
+    echo json_encode(['ok'=>false,'error'=>$message],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    exit;
+}
 function require_csrf():void {
-    if (!hash_equals(csrf(),(string)($_POST['csrf']??''))) {http_response_code(419);exit('انتهت صلاحية الطلب');}
+    if (!hash_equals(csrf(),(string)($_POST['csrf']??''))) {
+        if(agent_studio_ajax_request())agent_studio_ajax_error(419,'انتهت صلاحية الطلب. حدّث الصفحة وسجّل الدخول مجددًا إذا لزم.');
+        http_response_code(419);exit('انتهت صلاحية الطلب');
+    }
 }
 function flash(string $key,?string $value=null):?string{
     if($value!==null){$_SESSION['flash_'.$key]=$value;return null;}
@@ -401,12 +417,16 @@ function allowed(string $permission,?array $account=null):bool {
     return in_array($permission,$grants[$r]??[],true);
 }
 function deny(int $code=403,string $message='لا تملك صلاحية لهذا الإجراء'):never {
+    if(agent_studio_ajax_request())agent_studio_ajax_error($code,$message);
     http_response_code($code);echo '<div style="direction:rtl;font-family:system-ui;padding:40px">'.e($message).'</div>';exit;
 }
 function require_login():array{
     $user=me();
-    if(!$user || (white_label_context()&&!white_label_memberships((int)$user['id'])))
+    if(!$user || (white_label_context()&&!white_label_memberships((int)$user['id']))){
+        if(agent_studio_ajax_request())
+            agent_studio_ajax_error(401,'انتهت جلسة الدخول. سجّل الدخول من جديد ثم أعد نشر إعدادات المساعد.');
         go('/login');
+    }
     return $user;
 }
 function require_permission(string $p):void {if(!allowed($p))deny();}
