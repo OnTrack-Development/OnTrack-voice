@@ -15,6 +15,7 @@ on:
       - 'tools/verify_shell_jar_packaging.py'
       - 'tools/queue_mobile_ota.py'
       - 'tools/queue_mobile_native.py'
+      - 'tools/mobile_direct_transport.py'
       - 'saas/mobile/ota/native_deploy.py'
       - 'tools/prepare_mobile_ota.py'
       - 'tools/prepare_mobile_native.py'
@@ -260,16 +261,18 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'Native manifest signature failed'}
           & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_ota import verify as u;from queue_mobile_native import verify as n;_,_,ui=u(Path('.build/artifact/ota'));_,_,app=n(Path('.build/artifact/native'));assert ui['revision']==45 and ui['min_native']<=46<=ui['max_native'] and app['version_code']==46 and app['version_name']=='0.3.23';print('SIGNED_UI45_NATIVE46_VERIFIED')"
           if($LASTEXITCODE -ne 0){throw 'Signed OTA/native version or signature invalid'}
-      - name: Upload complete release artifact before queuing host jobs
-        uses: actions/upload-artifact@v4
-        with:
-          name: OnTrack-Voice-0.3.23
-          path: .build/artifact/
-          if-no-files-found: error
-          retention-days: 14
+      - name: Upload signed APK and UI ZIP as private GitHub Release assets, without Actions quota
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/mobile_direct_transport.py publish .build/artifact
+          if($LASTEXITCODE -ne 0){throw 'Signed Release asset transport failed; host publish forbidden'}
+          Write-Host 'SIGNED_NATIVE_AND_UI_PRIVATE_RELEASE_ASSETS: PASS'
       - name: Queue signed UI revision 45 with the existing host worker
         env:
           GH_TOKEN: ${{ github.token }}
+          MOBILE_DIRECT_RELEASE_MODE: '1'
         run: |
           & python tools/queue_mobile_ota.py .build/artifact/ota
           if($LASTEXITCODE -ne 0){throw 'UI 45 host queue blocked'}
@@ -282,6 +285,7 @@ jobs:
       - name: Queue signed versionCode 46 APK after UI receipt
         env:
           GH_TOKEN: ${{ github.token }}
+          MOBILE_DIRECT_RELEASE_MODE: '1'
         run: |
           & python tools/queue_mobile_native.py .build/artifact/native
           if($LASTEXITCODE -ne 0){throw 'Native v46 host queue blocked'}
