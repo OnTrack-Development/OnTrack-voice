@@ -404,7 +404,9 @@ function deny(int $code=403,string $message='لا تملك صلاحية لهذا
     http_response_code($code);echo '<div style="direction:rtl;font-family:system-ui;padding:40px">'.e($message).'</div>';exit;
 }
 function require_login():array{
-    $user=me();if(!$user)go('/login');
+    $user=me();
+    if(!$user || (white_label_context()&&!white_label_memberships((int)$user['id'])))
+        go('/login');
     return $user;
 }
 function require_permission(string $p):void {if(!allowed($p))deny();}
