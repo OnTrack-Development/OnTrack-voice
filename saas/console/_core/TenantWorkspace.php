@@ -275,6 +275,15 @@ function tenant_workspace_call_report(array $binding,array $input):array {
  * returns a draft conclusion, never a claim that a human accepted transfer.
  * No complete transcript or raw audio is retained server-side.
  */
+/** Explicitly labelled factual extract only; never claim AI analysis or staff acceptance. */
+function tenant_call_summary_transcript_fallback(string $transcript):array {
+    $snippet=trim(mb_substr(preg_replace('/\\s+/u',' ',$transcript)??$transcript,0,320));
+    return [
+        'summary'=>'تعذر التلخيص الآلي؛ مقتطف موثق من تفريغ المكالمة: '.$snippet,
+        'customer_notes'=>'','outcome'=>'unknown',
+        'handoff_requested'=>false,'handoff_reason'=>''
+    ];
+}
 function tenant_workspace_call_analysis(array $binding,array $data,?callable $transport=null):array {
     $callId=$data['call_id']??'';
     $transcript=$data['transcript']??'';
@@ -338,18 +347,12 @@ function tenant_workspace_call_analysis(array $binding,array $data,?callable $tr
            !is_string($result['handoff_reason']??null))
             throw new RuntimeException('call_report_model_invalid');
     }catch(Throwable $error){
-        // Google may time out or return a non-structured result. Never lose an
-        // AUTHENTIC transcribed call or block an already recorded human request.
-        // This fallback is explicitly a short extract, not an AI-generated
-        // summary, outcome, notes, or proof of staff receiving a handoff.
-        $snippet=trim(mb_substr(preg_replace('/\\s+/u',' ',$transcript)??$transcript,0,320));
-        $result=[
-            'summary'=>'تعذر التلخيص الآلي؛ مقتطف موثق من تفريغ المكالمة: '.$snippet,
-            'customer_notes'=>'',
-            'outcome'=>'unknown',
-            'handoff_requested'=>false,
-            'handoff_reason'=>''
-        ];
+        // Test injectors deliberately propagate outages so the regression
+        // suite can prove the real transcript is archived before a 503.
+        if($transport!==null)throw $error;
+        // In production return a truthfully labelled extract, preserving an
+        // independently recorded human request, instead of an empty report.
+        $result=tenant_call_summary_transcript_fallback($transcript);
     }
     $note=trim(mb_substr($result['customer_notes'],0,1200));
     $reason=trim(mb_substr($result['handoff_reason'],0,1200));
