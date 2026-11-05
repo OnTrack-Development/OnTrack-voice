@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "voice-responsive-cancel-superseded-ci-20261105",
+  "id": "ayo-php-preflight-20261105-01",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-05T01:04:36.645Z",
-  "expires_at": "2026-11-05T01:39:36.645Z",
+  "created_at": "2026-11-05T02:08:09.046Z",
+  "expires_at": "2026-11-05T02:53:09.046Z",
   "cwd": "/home/appontrack/public_html",
-  "timeout_seconds": 29,
+  "timeout_seconds": 15,
   "argv": [
     "/bin/python3",
     "-c",
-    "import json,urllib.request,urllib.error,pathlib\ncfg=json.loads(pathlib.Path('/home/appontrack/ontrack-voice-link/config.json').read_text())\ntoken=cfg['token']\nbase='https://api.github.com/repos/OnTrack-Development/OnTrack-voice/actions/runs/'\ntargets=[(41945362481,'aa376ea9ba95'),(41945512666,'e44cd89fe3c7')]\nout=[]\nfor run,sha in targets:\n h={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','User-Agent':'OnTrack-Responsive-CI-Cleanup'}\n try:\n  with urllib.request.urlopen(urllib.request.Request(base+str(run),headers=h),timeout=8) as r:\n   row=json.load(r)\n  if not str(row.get('head_sha','')).startswith(sha):\n   out.append({'run':run,'result':'sha_mismatch_not_touched'});continue\n  if row.get('status')=='completed':\n   out.append({'run':run,'result':'already_completed'});continue\n  request=urllib.request.Request(base+str(run)+'/cancel',data=b'',headers=h,method='POST')\n  with urllib.request.urlopen(request,timeout=8) as r:\n   out.append({'run':run,'result':'cancel_requested','http':r.status})\n except urllib.error.HTTPError as e:out.append({'run':run,'result':'not_cancelled','http':e.code})\n except Exception as e:out.append({'run':run,'result':'error','type':type(e).__name__})\nprint(json.dumps(out))\n"
+    "import json,shutil,pathlib,os\np=pathlib.Path('/home/appontrack/public_html/ayo')\nprint(json.dumps({'exists':p.exists(),'symlink':p.is_symlink(),'is_dir':p.is_dir(),'entries':sorted(x.name for x in p.iterdir())[:30] if p.is_dir() else [],'php':shutil.which('php'),'document_root':pathlib.Path('/home/appontrack/public_html').is_dir(),'uid':os.getuid()}))"
   ]
 }
