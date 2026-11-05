@@ -42,6 +42,7 @@ export function createAyoAvatar(canvas, container) {
   }
   function draw(t) {
     if (dead) return;
+    if (lastTime && t - lastTime < 31) { raf = requestAnimationFrame(draw); return; }
     if (!width || !height) resize();
     const outputLevel = status === 'speaking' ? rms(output, sound) : 0;
     const inputLevel = status === 'listening' ? rms(microphone, microphoneSound) : 0;
