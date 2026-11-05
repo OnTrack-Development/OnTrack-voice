@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#0d0f12"/>
   <title>AYO | OnTrack Voice Lab</title>
-  <link rel="stylesheet" href="style.css?v=3"/>
+  <link rel="stylesheet" href="style.css?v=4"/>
 </head>
 <body>
 <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -30,6 +30,16 @@
         <button class="round-control" id="interruptBtn" title="اقطع رد الإيجنت" disabled><span>Ⅱ</span><small>مقاطعة</small></button>
       </div>
       <div class="test-mode"><label>نوع الاختبار <select id="testMode"><option value="live">مباشر — LLM خارجي + Inworld</option><option value="mock">محاكاة واجهة — بدون API</option></select></label><label>السماع <select id="sttMode"><option value="browser">تعرف كلام المتصفح (مجاني)</option><option value="inworld" disabled>Inworld STT غير مفعل في ديمو PHP</option></select></label></div>
+      <section class="gateway-picker" aria-label="اختيار بوابة الذكاء الاصطناعي">
+        <div class="gateway-title"><strong>اختار بوابة الـ AI</strong><small>التبديل مباشر ومحفوظ للجلسة · Inworld للصوت فقط</small></div>
+        <div class="gateway-options" role="group" aria-label="بوابة النموذج">
+          <button type="button" class="gateway-card" data-gateway="apinex" aria-pressed="false"><strong>APInex</strong><small>20 مليون توكن / يوم</small></button>
+          <button type="button" class="gateway-card" data-gateway="omnira-a" aria-pressed="false"><strong>Omnira A</strong><small>Unlimited · 1× Weighted</small></button>
+          <button type="button" class="gateway-card" data-gateway="omnira-b" aria-pressed="false"><strong>Omnira B</strong><small>5,000 وحدة / يوم</small></button>
+        </div>
+        <div class="gateway-model-row"><label for="gatewayModel">موديل البوابة</label><select id="gatewayModel" aria-label="الموديل النشط"></select></div>
+        <div class="gateway-bottom"><span class="gateway-url" id="gatewayEndpointDisplay" dir="ltr">—</span><span class="gateway-state" id="gatewayState" role="status" aria-live="polite">جاري تحميل الإعدادات</span><button type="button" class="gateway-settings" id="gatewaySettingsButton">مفاتيح API</button></div>
+      </section>
       <label class="switch-line"><input type="checkbox" id="bargeIn"><span class="check-visual"></span><span>السماح بمقاطعة صوت آيو بالكلام (قد يلتقط صوت السماعة)</span></label>
       <div class="warn-banner" id="banner">الأصوات المستنسخة تحتاج مفتاح Inworld وVoice ID. المحاكاة لا تختبر جودة الصوت.</div>
     </section>
@@ -87,6 +97,6 @@
   </section>
   <footer>AYO VOICE LAB <span>·</span> LOCAL EXPERIMENT ONLY <span>·</span> NO CHANGES TO PRODUCTION</footer>
 </div>
-<script type="module" src="app.js?v=3"></script>
+<script type="module" src="app.js?v=4"></script>
 </body>
 </html>
