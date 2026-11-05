@@ -59,6 +59,9 @@ jobs:
         working-directory: .build/jemrec
         run: |
           $ErrorActionPreference='Stop'
-          & .\gradlew.bat --no-daemon :app:compileDebugKotlin :app:testDebugUnitTest
+          # Full upstream JemRec unit tests include unrelated screenshot and
+          # recording fixtures that require its own CI environment. Use the
+          # exact targeted set the proven native OnTrack release gate uses.
+          & .\gradlew.bat --no-daemon :app:compileDebugKotlin :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.PcmWavTest' --tests 'com.ontrack.voiceproof.SetupDiagnosticFormatTest' --tests 'com.ontrack.voiceproof.ProofExportTest' --tests 'com.ontrack.voiceproof.LinkPcmTest' --tests 'com.ontrack.voiceproof.SignedOtaTest' --tests 'com.ontrack.voiceproof.LocalUiPageTest' --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' --tests 'com.ontrack.voiceproof.OverlayUiModelTest' --tests 'com.ontrack.voiceproof.TenantPairingContractTest' --tests 'com.ontrack.voiceproof.TenantAgentIdentityTest' --tests 'com.ontrack.voiceproof.OutboundFirstTurnTest' --tests 'com.ontrack.voiceproof.TenantCallRoutingTest' :daemon-tests:test
           if($LASTEXITCODE -ne 0){throw 'Android Kotlin compile or unit test failed. DO NOT PUBLISH.'}
           Write-Host 'HUMAN_ESCALATION_ANDROID_COMPILE_PASS'
