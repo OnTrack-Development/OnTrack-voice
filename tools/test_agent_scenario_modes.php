@@ -8,6 +8,21 @@ require_once __DIR__.'/../saas/console/_core/Views.php';
 function scenario_ok(bool $check,string $why):void {
     if(!$check)throw new RuntimeException('SCENARIO_MODE_REGRESSION: '.$why);
 }
+// Ensure a scripted ending never gets overridden by the generic
+// customer-service goodbye and that the caller finishes their thought.
+$stylePolicy=answer_policy_normalize([
+    'scenario_mode'=>'scenario','scenario_text'=>'مشهد تمثيلي',
+    'response_style'=>'egyptian_short'
+]);
+$styleInstruction=tenant_dynamic_instruction('Demo',
+    ['instructions'=>'','knowledge'=>''],$stylePolicy,'','',
+    tenant_voice_scenario_instruction($stylePolicy['scenario_text']));
+scenario_ok(str_contains($styleInstruction,'سكتة تفكير قصيرة'),
+    'customer can finish a sentence before AI replies');
+scenario_ok(str_contains($styleInstruction,'إيقاع الكلام طبيعي'),
+    'natural Egyptian speech pace');
+scenario_ok(str_contains($styleInstruction,'بعد جملة الختام توقف عن الكلام'),
+    'text scenario finale is not restarted');
 seed_console();
 $account=4;$site=1;
 $graph=['nodes'=>[
