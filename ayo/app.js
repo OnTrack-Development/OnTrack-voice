@@ -218,7 +218,7 @@ function startListen(){
        onText:async text=>{
          $('interim').textContent='سمعت: '+text;
          micState('تم فهم الكلام: '+text,'active');
-         if($('confirmTranscript').checked){$('question').value=text;$('question').focus();note('راجع النص وعدله لو محتاج، وبعدها اضغط إرسال.');return;}
+         if($('confirmTranscript').checked){micTurnDetector?.pause();$('question').value=text;$('question').focus();note('راجع النص وعدله لو محتاج، وبعدها اضغط إرسال.');return;}
          sendTurn(text);
        },
        onStatus:state=>{
