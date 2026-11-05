@@ -121,3 +121,10 @@ body{background-image:none!important}
 .ayo-native-player{display:block;width:calc(100% - 24px);height:48px;margin:12px auto 8px;accent-color:#d8394c;background:#09090b;border:1px solid #343037;border-radius:12px;}
 .ayo-chat-note{font-size:11px;line-height:1.8;padding:9px 14px;margin:0;color:#b6b7bc;background:#101115;border-top:1px solid #2b2c31;}
 @media(max-width:420px){.ayo-native-player{width:calc(100% - 14px)}}
+
+/* v12: verified gateway state is distinct from a stored API key. */
+.gateway-test-result{margin-top:10px;padding:9px 10px;border:1px solid #48414a;background:#201b22;border-radius:9px;font-size:10px;line-height:1.8;color:#bcb6c2;overflow-wrap:anywhere}
+.gateway-test-result.is-ok{background:#0f3026;border-color:#285b47;color:#8de4b8}
+.gateway-test-result.is-error{background:#35151e;border-color:#8e374d;color:#ffacb8}
+.gateway-probe-btn{border:1px solid #864153!important;border-radius:9px!important;padding:5px 11px!important;background:#361b24!important;color:#f6c5cf!important;text-decoration:none!important}
+.gateway-probe-btn:disabled{opacity:.55}
