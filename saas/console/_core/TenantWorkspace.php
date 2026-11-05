@@ -328,7 +328,8 @@ function tenant_workspace_call_analysis(array $binding,array $data,?callable $tr
     $previous=tenant_call_report_find($binding,$callId);
     // Human takeover may have been reported before the model summary arrived.
     // Keep its reason and do not discard the real transcript/AI analysis.
-    if($previous && trim((string)$previous['summary'])!=='')
+    if($previous && trim((string)$previous['summary'])!=='' &&
+       !str_starts_with((string)$previous['summary'],'ملخص أولي غير مؤكد:'))
         return ['saved'=>true,'duplicate'=>true,'report'=>$previous];
     if($previous && ($previous['handoff_status']??'')==='completed')
         return ['saved'=>true,'duplicate'=>true,'report'=>$previous];
