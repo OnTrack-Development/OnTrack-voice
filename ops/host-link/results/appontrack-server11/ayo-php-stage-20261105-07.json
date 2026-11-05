@@ -1,0 +1,13 @@
+{
+  "job_id": "ayo-php-stage-20261105-07",
+  "target": "appontrack-server11",
+  "job_sha256": "d90d636074fdafda5544fde47106c810ea97d5e1702f2585cbffff7c07f7d3eb",
+  "started_at": "2026-11-05T02:51:03.515109+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"step\": 6, \"next\": 7}\n",
+  "stderr": "",
+  "finished_at": "2026-11-05T02:51:03.607716+00:00",
+  "duration_ms": 93
+}
