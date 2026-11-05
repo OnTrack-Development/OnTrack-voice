@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "ayo-mic-policy-diagnostic-20261105-01",
+  "id": "ayo-mic-policy-origin-20261105-01",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-05T04:41:34.877Z",
-  "expires_at": "2026-11-05T05:11:34.877Z",
+  "created_at": "2026-11-05T04:43:12.602Z",
+  "expires_at": "2026-11-05T05:13:12.602Z",
   "cwd": "/home/appontrack/public_html",
-  "timeout_seconds": 16,
+  "timeout_seconds": 15,
   "argv": [
     "/bin/python3",
     "-c",
-    "import urllib.request,json,pathlib\nurl='https://app.ontrackegy.com/ayo/'\nwith urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'AYO-Mic-Policy-Diagnostic/1.0'}),timeout=8) as r:\n h=dict(r.headers);keys=['content-security-policy','permissions-policy','feature-policy','cross-origin-opener-policy','cross-origin-embedder-policy','x-frame-options','location']\n print(json.dumps({'status':r.status,'url':r.url,'policy_headers':{k:v for k,v in h.items() if k.lower() in keys},'server_text_html':r.headers.get('content-type'),'https':r.url.startswith('https://')}))"
+    "import pathlib,json\nroot=pathlib.Path('/home/appontrack/public_html')\npaths=[root/'.htaccess',root/'ayo'/'.htaccess']\nfor p in paths:\n if p.is_file():\n  lines=p.read_text(errors='replace').splitlines();match=[{'line':i+1,'directive':v.strip()} for i,v in enumerate(lines) if ('Permissions-Policy' in v or 'microphone' in v)]\n  print(json.dumps({'path':str(p),'exists':True,'policy_lines':match[:12],'line_count':len(lines)}))\n else:print(json.dumps({'path':str(p),'exists':False}))"
   ]
 }
