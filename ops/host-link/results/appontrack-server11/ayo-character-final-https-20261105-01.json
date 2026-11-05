@@ -1,0 +1,13 @@
+{
+  "job_id": "ayo-character-final-https-20261105-01",
+  "target": "appontrack-server11",
+  "job_sha256": "39107da8b6e8fc9a9786beaad00e2d1b652698963061f954fd75b869267c0b45",
+  "started_at": "2026-11-05T04:14:02.664930+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"result\": \"PASS\", \"assets_mode\": \"0o755\", \"checks\": [{\"path\": \"/\", \"http\": 200, \"type\": \"text/html; charset=UTF-8\", \"bytes\": 15274, \"redirected\": false, \"marker\": true}, {\"path\": \"app.js?v=6\", \"http\": 200, \"type\": \"text/javascript\", \"bytes\": 24034, \"redirected\": false, \"marker\": true}, {\"path\": \"ayo-avatar.js\", \"http\": 200, \"type\": \"text/javascript\", \"bytes\": 5906, \"redirected\": false, \"marker\": true}, {\"path\": \"style.css?v=6\", \"http\": 200, \"type\": \"text/css\", \"bytes\": 19917, \"redirected\": false, \"marker\": true}, {\"path\": \"api.php?action=status\", \"http\": 200, \"type\": \"application/json; charset=utf-8\", \"bytes\": 411, \"redirected\": false, \"marker\": true}, {\"path\": \"assets/ayo-character.webp\", \"http\": 200, \"type\": \"image/webp\", \"bytes\": 14962, \"redirected\": false, \"webp\": true, \"sha256_ok\": true, \"mime_ok\": true}], \"browser_engine_available\": false}\n",
+  "stderr": "",
+  "finished_at": "2026-11-05T04:14:02.856813+00:00",
+  "duration_ms": 192
+}
