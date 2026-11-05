@@ -1,0 +1,13 @@
+{
+  "job_id": "ontrack-lte-saas-hotfix-base-audit-20261105-2313",
+  "target": "appontrack-server11",
+  "job_sha256": "bf7a5d367d4503c3f684eefcdc20a3c2cc55d823edce7709186912c4c8d107d5",
+  "started_at": "2026-11-05T21:17:03.242526+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"TenantWorkspace.php\": {\"sha256\": \"c06db341aadacfe2bae179d1d1b8997322b4eb6f388290d3544216567aeef2f1\", \"bytes\": 26864, \"has_agent_report\": false, \"has_live_handoff_guard\": false, \"has_call_report_fallback\": false, \"has_human_request_event\": true}, \"TenantVoiceSession.php\": {\"sha256\": \"949c284e2936512b48e3af0f3e646bdc5461deedd3e6a3fe0fc0d3c4d9646e0d\", \"bytes\": 14973, \"has_agent_report\": false, \"has_live_handoff_guard\": false, \"has_call_report_fallback\": false, \"has_human_request_event\": false}}\n",
+  "stderr": "",
+  "finished_at": "2026-11-05T21:17:03.285071+00:00",
+  "duration_ms": 43
+}
