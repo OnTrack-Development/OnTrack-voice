@@ -76,6 +76,7 @@ const roles=[
 const failures=[];let measured=0;
 function assertPage(label,w,m){
   measured++;
+  if(measured%40===0)console.log('RESPONSIVE_AUDIT_PROGRESS '+measured);
   const dx=Math.max(m.scroll,m.bodyScroll)-w;
   if(dx>4||m.fields.length || (m.main&&(!m.main.visible||m.main.w<60)))
     failures.push({label,w,document_overflow:dx,fields:m.fields,esc:m.esc,main:m.main});
@@ -107,8 +108,14 @@ async function main(){
     if(m.error)p.reject(Error(m.error.message));else p.resolve(m);
   });
   await cdp('Runtime.enable');await cdp('Page.enable');
-  for(const page of publicPages)for(const w of widths){
-    await width(w);await load(page);assertPage(page,w,await evaluate(expr));
+  // Navigate once per page, then use real browser viewport resizing for all breakpoints.
+  for(const page of publicPages){
+    await width(1440);
+    await load(page);
+    for(const w of widths){
+      await width(w);
+      assertPage(page,w,await evaluate(expr));
+    }
   }
   for(const role of roles){
     await cdp('Network.clearBrowserCookies');
@@ -116,8 +123,10 @@ async function main(){
     await signIn(role.email,role.prefix);
     for(const tab of role.tabs){
       const route=role.prefix+'/?tab='+tab;
+      await width(1440);
+      await load(route);
       for(const w of compact){
-        await width(w);await load(route);
+        await width(w);
         const m=await evaluate(expr);
         if(!m.main)failures.push({label:role.email+' '+tab,w,error:'missing content'});
         assertPage(role.email+' '+tab,w,m);
