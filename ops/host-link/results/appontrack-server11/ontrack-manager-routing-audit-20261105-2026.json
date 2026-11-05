@@ -1,0 +1,13 @@
+{
+  "job_id": "ontrack-manager-routing-audit-20261105-2026",
+  "target": "appontrack-server11",
+  "job_sha256": "a7de8e18334a7cbc6c07e28b6c4411a98a7bc32ddd5232e2986c77fe6b6572fe",
+  "started_at": "2026-11-05T18:23:02.756109+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"counts\":{\"human_escalation_contacts\":1,\"voice_staff_numbers\":1,\"agents\":8,\"device_bindings\":1},\"human_escalation_contacts\":\"query_unavailable\",\"voice_staff_numbers\":\"query_unavailable\",\"agents\":[{\"id\":8,\"account_id\":1,\"site_id\":6,\"status\":\"published\"},{\"id\":7,\"account_id\":1,\"site_id\":6,\"status\":\"published\"},{\"id\":6,\"account_id\":1,\"site_id\":6,\"status\":\"archived\"},{\"id\":5,\"account_id\":7,\"site_id\":5,\"status\":\"draft\"},{\"id\":4,\"account_id\":6,\"site_id\":4,\"status\":\"draft\"},{\"id\":3,\"account_id\":5,\"site_id\":3,\"status\":\"draft\"},{\"id\":2,\"account_id\":4,\"site_id\":2,\"status\":\"draft\"},{\"id\":1,\"account_id\":4,\"site_id\":1,\"status\":\"draft\"}],\"device_bindings\":[{\"id\":1,\"account_id\":1,\"site_id\":6,\"agent_id\":7,\"sim_slot\":0,\"status\":\"active\"}]}",
+  "stderr": "",
+  "finished_at": "2026-11-05T18:23:02.858628+00:00",
+  "duration_ms": 103
+}
