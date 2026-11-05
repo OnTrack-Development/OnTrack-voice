@@ -711,3 +711,23 @@ body:not(.light) .wa-manual-notice{background:#15243d;border-color:#38557e;color
  .graph-footer{align-items:flex-start}
  .graph-btn{min-height:42px}
 }
+
+
+/* White-label: private tenant brand experience, never advertise the parent vendor. */
+.white-label-auth{background:radial-gradient(circle at 7% 95%,rgba(183,25,54,.2),transparent 36%),radial-gradient(circle at 92% 7%,rgba(220,44,70,.14),transparent 38%),#0b0d13}
+.white-label-auth .login-backdrop{left:auto;right:-290px;top:-290px;width:710px;height:710px;box-shadow:0 0 0 30px #df23430a,0 0 0 80px #df234306}
+.login-panel.wl-auth-panel{width:min(100%,510px);max-width:510px;margin:24px auto;border:1px solid rgba(255,255,255,.09);border-radius:26px;padding:40px 42px;background:linear-gradient(155deg,rgba(37,39,49,.98),rgba(18,19,25,.99));box-shadow:0 26px 90px #0009,0 1px 0 #ffffff08 inset}
+.wl-auth-panel .login-brand{display:flex;gap:16px;align-items:center;min-height:65px;margin-bottom:16px}
+.wl-auth-panel .login-brand strong{font-size:22px;font-weight:850;letter-spacing:-.4px}
+.wl-auth-panel .login-brand small{font-size:11px;letter-spacing:0;text-align:start;direction:rtl}
+.wl-mark{width:64px;height:64px;object-fit:contain;object-position:center;border-radius:17px;background:#fff;padding:7px;box-shadow:0 9px 24px #0004;flex-shrink:0}
+.wl-fallback{width:64px;height:64px;display:inline-grid;place-items:center;border-radius:18px;background:linear-gradient(145deg,#f52a4e,#9c1632);color:#fff;font-size:32px;font-weight:950;flex-shrink:0;box-shadow:0 8px 26px #e11d3950}
+.wl-auth-panel .login-intro{margin-top:26px}.wl-auth-panel .login-intro h1,.wl-auth-panel h1{font-size:28px;line-height:1.4;margin-bottom:10px}
+.wl-auth-panel .login-intro p,.wl-auth-panel>p{color:#b9bcc7;font-size:13px;line-height:1.9}
+.wl-auth-panel .field{font-size:13px}.wl-auth-panel .field input{min-height:53px;background:#14151d;border:1px solid #363946}
+.wl-auth-panel .field input:focus{border-color:#f12e50;box-shadow:0 0 0 3px #e11d3922}
+.wl-auth-panel .btn.primary.wide{min-height:53px;font-size:14px;background:linear-gradient(100deg,#f32b4d,#ae1a39);box-shadow:0 12px 25px #b71b3730}
+.wl-auth-links{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:20px;font-size:12px;font-weight:700}
+.wl-auth-links a:hover,.wl-auth-panel>p a:hover{text-decoration:underline}
+.wl-copyright{text-align:center;margin-top:28px;color:#9699a6;font-size:11px}
+@media(max-width:600px){.login-panel.wl-auth-panel{padding:27px 22px;border-radius:21px;margin:12px auto}.wl-auth-panel .login-brand strong{font-size:19px}.wl-auth-panel .login-intro h1,.wl-auth-panel h1{font-size:24px}.wl-mark,.wl-fallback{width:57px;height:57px}}
