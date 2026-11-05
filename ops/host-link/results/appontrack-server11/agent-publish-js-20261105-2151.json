@@ -1,0 +1,13 @@
+{
+  "job_id": "agent-publish-js-20261105-2151",
+  "target": "appontrack-server11",
+  "job_sha256": "981134bc65b7a3e72bf3df8065c0b0a6470ab4755c4bdfb2661c234351d06d60",
+  "started_at": "2026-11-05T19:49:02.418713+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\": \"published\", \"file\": \"assets/js/app.js\", \"sha256\": \"da71ad1386e9bd6bfc321bb8b520506fd21357ff0e27e2d1910261a87de0fcb8\"}\n",
+  "stderr": "",
+  "finished_at": "2026-11-05T19:49:02.466354+00:00",
+  "duration_ms": 48
+}
