@@ -1,0 +1,35 @@
+{
+  "brand": "OnTrack Development / أون تراك للتطوير",
+  "website": "https://ontrackegy.com/",
+  "customer_portal": "https://services.ontrackegy.com/",
+  "checked_on": "2026-11-05",
+  "disclaimer": "الأسعار بالدولار حسب صفحات الموقع وقت التحقق، وقد تختلف الأسعار والضرائب وأسعار الصرف والعروض. السعر النهائي داخل بوابة العميل عند الطلب. القيود والشروط الفعلية تتبع سياسة الاستخدام العادل.",
+  "general": [
+    "استضافة مواقع وريسيلر وVPS/VDS وسيرفرات كاملة وحجز دومينات",
+    "دعم فني 24/7 وتذاكر من بوابة العملاء",
+    "استضافة تعتمد على NVMe وLiteSpeed وCloudLinux وImunify360 لخطط الويب",
+    "شهادة SSL مجانية ونسخ احتياطي وخدمة ترحيل للمواقع وفق الشروط",
+    "إمكانية دفع بالجنيه المصري وفق الموقع",
+    "خدمات إضافية: استضافة راديو، تراخيص، نسخ احتياطي خارجي، وحلول أتمتة واتساب"
+  ],
+  "plans": [
+    {"category":"shared", "name":"استضافة المواقع الشخصية والمدونات", "monthly_usd":5.99, "yearly_usd":50, "details":"مساحة ونقل بيانات غير محدودين حسب السياسة، 1 دومين، RAM 1024MB، CPU 1x 4200MHz، cPanel عربي، Node.js وTerminal وWP Toolkit", "url":"https://ontrackegy.com/web-hosting/"},
+    {"category":"shared", "name":"استضافة الشركات الناشئة Startup", "monthly_usd":6.99, "yearly_usd":64, "details":"مساحة ونقل بيانات غير محدودين حسب السياسة، 2 دومين، RAM 1536MB، CPU 1.25x 4200MHz، cPanel، Node.js وTerminal وWP Toolkit", "url":"https://ontrackegy.com/web-hosting/"},
+    {"category":"shared", "name":"استضافة ووردبريس للمتاجر الصغيرة", "monthly_usd":7.99, "yearly_usd":78, "details":"مساحة ونقل بيانات غير محدودين حسب السياسة، 3 دومينات، RAM 2048MB، CPU 1.5x 4200MHz، cPanel، Node.js وTerminal وWP Toolkit", "url":"https://ontrackegy.com/web-hosting/"},
+    {"category":"shared", "name":"الاستضافة المشتركة للمشروعات الضخمة", "monthly_usd":9.99, "yearly_usd":106, "details":"مساحة ونقل بيانات غير محدودين حسب السياسة، 5 دومينات، RAM 3072MB، CPU 2x 4200MHz، cPanel", "url":"https://ontrackegy.com/web-hosting/"},
+    {"category":"reseller", "name":"Starter Reseller", "monthly_usd":13.99, "yearly_usd":125, "details":"WHM/cPanel، 100GB NVMe، 15 حساب استضافة، نقل بيانات غير محدود حسب الشروط، DNS باسم شركتك ونطاق مجاني حسب الشروط", "url":"https://ontrackegy.com/reseller-hosting/"},
+    {"category":"reseller", "name":"Reseller Plus", "monthly_usd":19.99, "yearly_usd":185, "details":"WHM/cPanel، 200GB NVMe، 30 حساب استضافة، DNS خاص ونطاق مجاني حسب الشروط", "url":"https://ontrackegy.com/reseller-hosting/"},
+    {"category":"reseller", "name":"Business Reseller", "monthly_usd":25.99, "yearly_usd":245, "details":"WHM/cPanel، 300GB NVMe، 45 حساب استضافة، DNS خاص ونطاق مجاني حسب الشروط", "url":"https://ontrackegy.com/reseller-hosting/"},
+    {"category":"reseller", "name":"Pro Reseller", "monthly_usd":37.99, "yearly_usd":305, "details":"WHM/cPanel، مساحة NVMe وحسابات استضافة غير محدودة وفق الشروط، DNS خاص ونطاق مجاني حسب الشروط", "url":"https://ontrackegy.com/reseller-hosting/"},
+    {"category":"vps", "name":"VPS Basic", "monthly_usd":30, "yearly_usd":300, "details":"4 CPU Cores حتى 4.5GHz، RAM 8GB، 150GB NVMe SSD أو 350GB HDD، إدارة كاملة وحماية DDoS و100GB نسخ احتياطي خارجي مجاني", "url":"https://ontrackegy.com/shared-servers-vps-vds/"},
+    {"category":"vps", "name":"VPS Startup", "monthly_usd":40, "yearly_usd":400, "details":"5 CPU Cores حتى 4.5GHz، RAM 12GB، 200GB NVMe أو 500GB HDD، إدارة كاملة و100GB نسخ احتياطي خارجي", "url":"https://ontrackegy.com/shared-servers-vps-vds/"},
+    {"category":"vps", "name":"VPS Pro", "monthly_usd":50, "yearly_usd":500, "details":"6 CPU Cores حتى 4.5GHz، RAM 16GB، 250GB NVMe أو 700GB HDD، إدارة كاملة و100GB نسخ احتياطي خارجي", "url":"https://ontrackegy.com/shared-servers-vps-vds/"},
+    {"category":"vps", "name":"VPS Elite", "monthly_usd":60, "yearly_usd":600, "details":"8 CPU Cores حتى 4.5GHz، RAM 20GB، 300GB NVMe أو 900GB HDD، إدارة كاملة و100GB نسخ احتياطي خارجي", "url":"https://ontrackegy.com/shared-servers-vps-vds/"},
+    {"category":"dedicated", "name":"AMD Ryzen 5 3600", "monthly_usd":85, "yearly_usd":850, "details":"6c/12t، RAM 64GB DDR4، 2x512GB NVMe أو 2x2TB Enterprise، شبكة 1Gbit/s، إدارة كاملة، لا رسوم تنصيب", "url":"https://ontrackegy.com/dedicated-server/"},
+    {"category":"dedicated", "name":"Intel Core i5-13500", "monthly_usd":90, "yearly_usd":900, "details":"14c/20t، RAM 64GB DDR4، 2x512GB NVMe Gen4، شبكة 1Gbit/s، إدارة كاملة، تنصيب 55 دولار مرة واحدة", "url":"https://ontrackegy.com/dedicated-server/"},
+    {"category":"dedicated", "name":"AMD Ryzen 7 7700", "monthly_usd":115, "yearly_usd":1150, "details":"8c/16t، RAM 64GB DDR5، 2x1TB NVMe Gen4، شبكة 1Gbit/s، إدارة كاملة، تنصيب 55 دولار مرة واحدة", "url":"https://ontrackegy.com/dedicated-server/"},
+    {"category":"dedicated", "name":"Intel Core i9-13900", "monthly_usd":165, "yearly_usd":1650, "details":"24c/36t حسب الوصف بالموقع، RAM 64GB DDR5 ECC، 2x1.92TB NVMe Datacenter، شبكة 1Gbit/s، تنصيب 55 دولار مرة واحدة", "url":"https://ontrackegy.com/dedicated-server/"}
+  ],
+  "domains": [{"tld":".com","price_usd":15},{"tld":".net","price_usd":19},{"tld":".org","price_usd":16},{"tld":".info","price_usd":23},{"tld":".cc","price_usd":15},{"tld":".co","price_usd":30}],
+  "sources": ["https://ontrackegy.com/", "https://ontrackegy.com/web-hosting/", "https://ontrackegy.com/reseller-hosting/", "https://ontrackegy.com/shared-servers-vps-vds/", "https://ontrackegy.com/dedicated-server/"]
+}
