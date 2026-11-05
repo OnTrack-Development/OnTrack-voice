@@ -57,7 +57,12 @@ try{
     he_ok(he_claim($foreign)['job']===null,'another tenant/SIM cannot claim manager notification');
     he_ok(he_claim($b)['job']===null,'job is not claimable before ten seconds');
     execute('UPDATE human_escalation_jobs SET due_epoch=? WHERE id=?',[time()-1,$job['id']]);
-    $claim=he_claim($b)['job'];
+    $claimed=he_claim($b);
+    $claim=$claimed['job']??null;
+    if($claim===null)fwrite(STDERR,'CALLBACK_CLAIM_DIAG '.json_encode([
+        'result'=>$claimed,'job'=>one('SELECT id,status,due_epoch,contact_id FROM human_escalation_jobs WHERE id=?',[$job['id']]),
+        'binding'=>['id'=>$b['id'],'account_id'=>$b['account_id'],'site_id'=>$b['site_id'],'sim_slot'=>$b['sim_slot']]
+    ],JSON_UNESCAPED_UNICODE).'\n');
     he_ok($claim!==null && $claim['phone']==='+201001234567' &&
         $claim['name']==='مدير التجربة' &&
         str_contains($claim['reason'],'موظف مبيعات') &&
