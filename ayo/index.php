@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#000000"/>
   <title>AYO | OnTrack Voice Lab</title>
-  <link rel="stylesheet" href="style.css?v=7"/>
+  <link rel="stylesheet" href="style.css?v=8"/>
 </head>
 <body>
 <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -133,8 +133,22 @@
     <p>هنطلب إذن استخدام الميكروفون من المتصفح علشان آيو تسمعك. اضغط «تفعيل» وبعدها اختار «سماح» من نافذة المتصفح.</p>
     <div class="ayo-modal-actions"><button type="button" id="micDialogCancel" class="ayo-modal-secondary">إلغاء</button><button type="button" id="micDialogApprove" class="ayo-modal-primary">تفعيل الميكروفون</button></div>
     <small id="micPermissionError" aria-live="polite"></small>
+    <section class="ayo-mic-recovery" id="micRecoveryPanel" hidden aria-labelledby="micRecoveryTitle">
+      <h4 id="micRecoveryTitle">كيفية السماح بالميكروفون على Android Chrome</h4>
+      <p id="micDiagnosticResult" class="ayo-mic-diagnostic" aria-live="polite">جاري فحص إذن الميكروفون...</p>
+      <ol>
+        <li>في Chrome اضغط <b>الثلاث نقط ⋮</b> اللي فوق جنب العنوان، ثم <b>الإعدادات</b>.</li>
+        <li>افتح <b>إعدادات المواقع ← الميكروفون</b>، واختر السماح للمواقع بطلب استخدام الميكروفون.</li>
+        <li>لو لقيت <b>app.ontrackegy.com</b> في المواقع المحظورة، افتحه وغيّره إلى <b>السماح</b>.</li>
+        <li>راجع <b>إعدادات الموبايل ← التطبيقات ← Chrome ← الأذونات ← الميكروفون ← سماح</b>، وتأكد إن زر الميكروفون العام في لوحة اختصارات أندرويد مش مقفول.</li>
+        <li>ارجع للديمو واضغط <b>إعادة طلب الإذن</b>. لو Chrome احتفظ بالحظر، امسح أذونات الموقع من Chrome ثم جرّب.</li>
+      </ol>
+      <div class="ayo-mic-recovery-actions"><button type="button" id="micRetryBtn" class="ayo-modal-primary">↻ إعادة طلب الإذن</button><button type="button" id="micHelpToggle" class="ayo-modal-secondary">إخفاء الإرشادات</button></div>
+      <p class="ayo-mic-disclaimer">مهم: الموقع ما يقدرش يفتح إعدادات Chrome أو يمنح نفسه صلاحية الميكروفون تلقائيًا. لازم توافق من المتصفح أو إعدادات الموبايل.</p>
+    </section>
+    <button type="button" id="micShowGuide" class="ayo-mic-help-link">الموافقة مش بتظهر؟ شوف خطوات Chrome على الموبايل</button>
   </div>
 </div>
-<script type="module" src="app.js?v=7"></script>
+<script type="module" src="app.js?v=8"></script>
 </body>
 </html>
