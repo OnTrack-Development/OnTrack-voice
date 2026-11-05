@@ -58,7 +58,7 @@ function readLayout(){
     .filter(e=>{const r=e.getBoundingClientRect();return (r.left < -6||r.right>ww+6)&&!internal(e)})
     .slice(0,5).map(e=>({name:e.name||e.id||e.tagName,w:Math.round(e.getBoundingClientRect().width)}));
   return {url:location.pathname+location.search,inner:ww,scroll:doc.scrollWidth,
-    bodyScroll:body.scrollWidth,esc:escaping,fields,
+    bodyScroll:body.scrollWidth,bodyOverflowX:getComputedStyle(body).overflowX,esc:escaping,fields,
     main:metrics('.content'),sidebar:metrics('.sidebar'),toggle:metrics('#navToggle'),
     card:metrics('.card'),login:metrics('.login-panel'),graph:metrics('.graph-shell'),table:metrics('.table-wrap')};
 }
@@ -77,7 +77,9 @@ const failures=[];let measured=0;
 function assertPage(label,w,m){
   measured++;
   if(measured%40===0)console.log('RESPONSIVE_AUDIT_PROGRESS '+measured);
-  const dx=Math.max(m.scroll,m.bodyScroll)-w;
+  // The public login intentionally clips decorative background orbs with
+  // body {overflow-x:hidden}; body.scrollWidth alone is not a scroll defect.
+  const dx=Math.max(m.scroll,m.bodyOverflowX==='visible'?m.bodyScroll:0)-w;
   if(dx>4||m.fields.length || (m.main&&(!m.main.visible||m.main.w<60)))
     failures.push({label,w,document_overflow:dx,fields:m.fields,esc:m.esc,main:m.main});
 }
@@ -133,7 +135,10 @@ async function main(){
       }
     }
     await width(390);await load(role.prefix+'/?tab=overview');
-    const drawer=await evaluate('(function(){const t=document.getElementById("navToggle");if(!t)return {error:"missing toggle"};t.click();const s=document.querySelector(".sidebar").getBoundingClientRect();return {open:document.body.classList.contains("nav-open"),inside:s.left>=-2&&s.right<=window.innerWidth+2}})()');
+    await evaluate('document.getElementById("navToggle")?.click()');
+    // Drawer animates for 200ms; measure final position rather than first frame.
+    await wait(280);
+    const drawer=await evaluate('(function(){const t=document.getElementById("navToggle");if(!t)return {error:"missing toggle"};const s=document.querySelector(".sidebar").getBoundingClientRect();return {open:document.body.classList.contains("nav-open"),inside:s.left>=-2&&s.right<=window.innerWidth+2,rect:[s.left,s.right]}})()');
     if(!drawer.open||!drawer.inside)failures.push({label:role.email,w:390,error:'mobile drawer invalid',drawer});
     await evaluate('document.getElementById("navClose")?.click()');
     if(await evaluate('document.body.classList.contains("nav-open")'))failures.push({label:role.email,error:'drawer not closing'});
