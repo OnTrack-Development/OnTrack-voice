@@ -39,7 +39,7 @@ internal object HumanEscalationDialer {
         // vendor-specific handle.id string or SIM index.
         val telephony=context.getSystemService(TelephonyManager::class.java)
             ?:error("تعذر فحص حساب الشريحة")
-        val matching:List<PhoneAccountHandle>=capable.filter{handle->
+        val matching:List<PhoneAccountHandle> = capable.filter{handle->
             if(Build.VERSION.SDK_INT>=30)
                 runCatching{telephony.getSubscriptionId(handle)==subscriptionId}
                     .getOrDefault(false)
