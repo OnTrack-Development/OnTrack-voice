@@ -1078,29 +1078,58 @@ function render_domains(array $a):void{
     if($a['kind']!=='reseller')deny();
     require_once __DIR__.'/DomainVerification.php';
     $id=(int)$a['account_id'];
+    $brand=brand($a);
     $d=all('SELECT * FROM domains WHERE account_id=? ORDER BY id DESC',[$id]);
     $rows=[];
     foreach($d as $v){
+        $status=(string)$v['status'];
         $action='—';
-        if(in_array($a['role'],['owner','admin'],true)&&!active_support()&&$v['status']!=='active'){
+        if(in_array($a['role'],['owner','admin'],true)&&!active_support()&&$status!=='active'){
             $action=form_start('verify_domain_dns','/?tab=domains','class="inline-form"').
                 '<input type="hidden" name="domain_id" value="'.(int)$v['id'].'">'.
-                '<button class="btn small" type="submit">التحقق من DNS</button></form>';
+                '<button class="btn small" type="submit">تأكيد ملكية DNS</button></form>';
+            if($status==='dns_verified')
+                $action.=form_start('activate_domain_https','/?tab=domains','class="inline-form"').
+                    '<input type="hidden" name="domain_id" value="'.(int)$v['id'].'">'.
+                    '<button class="btn small primary" type="submit">فحص HTTPS وتفعيل البوابة</button></form>';
         }
-        $rows[]=[e($v['hostname']),
-            '<code>'.e(domain_dns_name((string)$v['hostname'])).'</code>',
-            '<code>'.e('ontrack-verify='.$v['verification_token']).'</code>',
-            pill((string)$v['status']),$action];
+        if($status==='active')
+            $action='<a class="btn small" href="https://'.e((string)$v['hostname']).'/login">فتح لوحة شركتك</a>'.
+                ' <a class="btn small" href="https://'.e((string)$v['hostname']).'/register">صفحة التسجيل</a>';
+        $description=match($status){
+            'active'=>'الدومين جاهز للعملاء',
+            'dns_verified'=>'الملكية مؤكدة · استكمل إعداد الاستضافة وSSL',
+            default=>'بانتظار إثبات ملكية الدومين'
+        };
+        $rows[]=['<strong dir="ltr">'.e((string)$v['hostname']).'</strong><small class="block dim">'.e($description).'</small>',
+            '<code dir="ltr">'.e(domain_dns_name((string)$v['hostname'])).'</code>',
+            '<code dir="ltr">'.e('ontrack-verify='.$v['verification_token']).'</code>',
+            pill($status),$action];
     }
-    echo card('النطاقات المرتبطة',
-        '<p class="dim">أضف سجل TXT بالاسم والقيمة الموضحين. نجاح التحقق يثبت ملكية DNS فقط؛ لا يتم تفعيل الرابط قبل إعداد VirtualHost وشهادة TLS صحيحة.</p>'.
-        tbl(['الدومين','اسم TXT','قيمة TXT','الحالة','التحقق'],$rows));
-    echo card('طلب ربط دومين',
-        form_start('add_domain','/?tab=domains').
-        field_html('الدومين أو Subdomain','hostname','text','voice.reseller.com',true).
-        '<p class="info">إضافة الدومين لا تفعّله تلقائيًا ولا تتطلب رفع ملفات عند الريسيلر.</p>'.
-        submit_btn('إنشاء طلب الربط'));
+    $slug=(string)$a['slug'];
+    $fallback='https://app.ontrackegy.com/portal/'.rawurlencode($slug);
+    echo card('بوابة شركتك',
+        '<div class="brand-preview"><div class="wl-fallback">'.e(mb_substr((string)$brand['name'],0,1)).'</div><div><h3>'.e((string)$brand['name']).'</h3>'.
+        '<p>العملاء يشوفوا اسم شركتك وشعارك فقط في التسجيل والدخول ولوحة الحساب، بدون علامة مزوّد النظام.</p></div></div>'.
+        '<p><strong>رابط معاينة بوابتك قبل ربط دومينك:</strong></p>'.
+        '<p><a class="btn primary" href="'.e($fallback.'/login').'">معاينة تسجيل الدخول</a> '.
+        '<a class="btn" href="'.e($fallback.'/register').'">معاينة التسجيل</a></p>'.
+        '<label class="field">الرابط الدائم المؤقت لعملائك<input readonly dir="ltr" onclick="this.select()" value="'.e($fallback.'/login').'"></label>');
+    echo card('ربط دومين شركتك',
+        '<p>مثال: <code dir="ltr">app.sog.com</code>. بعد ربطه، تسجيل الدخول والتسجيل ولوحة الحساب هيشتغلوا تحت الدومين بتاعك بنفس الهوية، من غير ظهور رابط المنصة.</p>'.
+        '<div class="stack"><p><strong>1.</strong> أنشئ سجل CNAME للاسم <code dir="ltr">app</code> يشير إلى <code dir="ltr">'.e(WHITE_LABEL_PLATFORM_HOST).'</code> (حسب إعداد DNS الخاص بدومينك).</p>'.
+        '<p><strong>2.</strong> أضف سجل TXT الموضح لكل دومين واضغط تأكيد ملكية DNS.</p>'.
+        '<p><strong>3.</strong> اربط الاسم بالاستضافة كـ Domain Alias / VirtualHost وأصدر شهادة SSL صالحة للدومين.</p>'.
+        '<p><strong>4.</strong> اضغط فحص HTTPS وتفعيل البوابة. التفعيل لن يتم قبل نجاح جميع الاختبارات.</p></div>'.
+        '<p class="dim">تأكيد DNS لا يضيف الدومين إلى استضافة cPanel ولا يصدر شهادة SSL تلقائياً. لا تشارك رابط الدومين الجديد قبل ظهور حالته نشط.</p>'.
+        tbl(['الدومين','سجل TXT','قيمة TXT','الحالة','الخطوة التالية'],$rows));
+    if(in_array($a['role'],['owner','admin'],true)&&!active_support())
+        echo card('إضافة دومين جديد',
+            form_start('add_domain','/?tab=domains').
+            '<label class="field">الدومين أو النطاق الفرعي<input name="hostname" maxlength="190" dir="ltr" placeholder="app.example.com" required></label>'.
+            submit_btn('إنشاء طلب الربط'));
 }
+
 function render_billing(array $a):void{
     $id=(int)$a['account_id'];
     require_once __DIR__.'/BillingUsage.php';
