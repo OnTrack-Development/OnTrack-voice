@@ -84,6 +84,34 @@ try {
     try{tenant_workspace_call_analysis($binding,['call_id'=>$callId,'transcript'=>'صمت'],$transport);}
     catch(InvalidArgumentException){$denied=true;}
     call_ai_ok($denied,'empty transcript not summarized');
+    // A failed Live summarizer must not erase a verified transcript or pretend
+    // that a human has answered. Keep a visibly labelled factual excerpt.
+    $fallbackId='ae83b221-92d7-4ef1-a456-94c10302ab17';
+    try {
+        tenant_workspace_call_event($binding,[
+            'call_id'=>$fallbackId,'sequence'=>1,'phase'=>'active','duration_seconds'=>0]);
+        tenant_workspace_call_event($binding,[
+            'call_id'=>$fallbackId,'sequence'=>2,'phase'=>'ended','duration_seconds'=>42]);
+        $failedSummary=tenant_workspace_call_analysis($binding,[
+            'call_id'=>$fallbackId,
+            'transcript'=>'المتصل: أريد معرفة تفاصيل الاشتراك الجديد. الإيجنت: سأوضح المزايا الآن.'
+        ],static function():never {throw new RuntimeException('provider_503');});
+        call_ai_ok($failedSummary['saved']===true &&
+            str_contains($failedSummary['report']['summary'],'تعذر التلخيص الآلي') &&
+            str_contains($failedSummary['report']['summary'],'تفريغ المكالمة') &&
+            $failedSummary['report']['outcome']==='unknown' &&
+            $failedSummary['report']['handoff_status']==='not_requested',
+            'failed Gemini analysis keeps labelled factual excerpt without fake handoff');
+        $savedRaw=tenant_voice_transcript_find($binding,$fallbackId);
+        call_ai_ok($savedRaw!==null &&
+            str_contains($savedRaw['transcript'],'الاشتراك الجديد'),
+            'failed summary still archives true transcript securely');
+    }finally {
+        execute('DELETE FROM tenant_call_transcripts WHERE device_binding_id=? AND call_id=?',[$binding['id'],$fallbackId]);
+        execute('DELETE FROM tenant_call_reports WHERE device_binding_id=? AND call_id=?',[$binding['id'],$fallbackId]);
+        execute('DELETE FROM tenant_call_events WHERE device_binding_id=? AND call_id=?',[$binding['id'],$fallbackId]);
+        execute('DELETE FROM calls WHERE device_binding_id=? AND external_call_id=?',[$binding['id'],$fallbackId]);
+    }
     echo "GEMINI_LIVE_REAL_CALL_SUMMARY_MOCK_PASS\n";
 }finally{
     execute('DELETE FROM tenant_call_transcripts WHERE device_binding_id=? AND call_id=?',[$binding['id'],$callId]);
