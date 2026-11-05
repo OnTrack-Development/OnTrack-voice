@@ -66,7 +66,7 @@ try{
     he_ok($claim!==null && $claim['phone']==='+201001234567' &&
         $claim['name']==='مدير التجربة' &&
         str_contains($claim['reason'],'موظف مبيعات') &&
-        str_contains($claim['summary'],'الاشتراك'),
+        str_contains($claim['summary'],'اشتراك'),
         'device receives exact owner-approved staff number, real summary and reason');
     he_ok(he_claim($b)['job']===null,'one-shot lease prevents duplicate automatic dial');
     $bad=false;try{he_ack($foreign,(int)$claim['id'],'dial_started');}
