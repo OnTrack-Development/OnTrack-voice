@@ -1,0 +1,13 @@
+{
+  "job_id": "ayo-chat-audio-mic-v10-smoke-20261105-01",
+  "target": "appontrack-server11",
+  "job_sha256": "b6d9f895a9fe7eac92073f50bca930cabe4964f77a23b0e9e29311260eb33f60",
+  "started_at": "2026-11-05T04:52:02.683467+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"result\": \"PASS\", \"mic_allowed_in_policy\": true, \"checks\": [{\"route\": \"/\", \"http\": 200, \"bytes\": 19305, \"marker\": true, \"mic_policy\": [\"camera=(), microphone=(self), geolocation=()\"]}, {\"route\": \"app.js?v=10\", \"http\": 200, \"bytes\": 33311, \"marker\": true, \"mic_policy\": null}, {\"route\": \"style.css?v=10\", \"http\": 200, \"bytes\": 25048, \"marker\": true, \"mic_policy\": null}, {\"route\": \"ayo-mic-stt.js\", \"http\": 200, \"bytes\": 3920, \"marker\": true, \"mic_policy\": null}, {\"route\": \"assets/ayo-character.webp\", \"http\": 200, \"bytes\": 14962, \"marker\": true, \"mic_policy\": null}, {\"route\": \"api.php?action=status\", \"http\": 200, \"owner_guarded\": true, \"keys_not_leaked\": true}]}\n",
+  "stderr": "",
+  "finished_at": "2026-11-05T04:52:03.261123+00:00",
+  "duration_ms": 578
+}
