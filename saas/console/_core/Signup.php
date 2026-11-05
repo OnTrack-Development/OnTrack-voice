@@ -39,7 +39,7 @@ function signup_send_email(string $email,string $token):bool {
     // Existing owner domain is the default while private email.json is not installed.
     $from=is_array($config)?($config['from']??'no-reply@ontrackegy.com'):'no-reply@ontrackegy.com';
     if(!is_string($from)||strlen($from)>190||!filter_var($from,FILTER_VALIDATE_EMAIL))return false;
-    $url='https://app.ontrackegy.com/saas/console/verify-email?token='.$token;
+    $url='https://app.ontrackegy.com/verify-email?token='.$token;
     $body="Confirm your OnTrack Voice account using this secure link within 30 minutes:\n\n".$url."\n\nIf you did not request an account, ignore this email.\n";
     return mail($email,'OnTrack Voice - Verify your email',$body,
         ['From'=>$from,'Content-Type'=>'text/plain; charset=UTF-8']);
@@ -120,13 +120,13 @@ function signup_page(?string $warning=null):never {
     $title=$kind==='reseller'?'إنشاء حساب ريسيلر':'إنشاء حساب شركة';
     if($scope && $scope['slug']!=='')$title='سجّل شركتك لدى '.(string)$scope['brand'];
     $brandIcon=$scope && $scope['slug']!=='' && $scope['logo']!==''
-        ?'<img src="/saas/console/register-logo?reseller='.rawurlencode((string)$scope['slug']).'" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:12px">'
+        ?'<img src="/register-logo?reseller='.rawurlencode((string)$scope['slug']).'" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:12px">'
         :'<span class="brand-icon">OT</span>';
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.e($title).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"></head><body class="login-body"><div class="login-backdrop"></div><main class="login-panel" style="max-width:540px;margin:5vh auto"><div class="login-brand">'.$brandIcon.'<strong>'.e($brand).'</strong></div><h1>'.e($title).'</h1><p>إنشاء حسابك يتطلب تأكيد البريد مرة واحدة. الباقات المدفوعة لا تتفعل تلقائيًا.</p>';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.e($title).'</title><link rel="stylesheet" href="/assets/css/app.css"></head><body class="login-body"><div class="login-backdrop"></div><main class="login-panel" style="max-width:540px;margin:5vh auto"><div class="login-brand">'.$brandIcon.'<strong>'.e($brand).'</strong></div><h1>'.e($title).'</h1><p>إنشاء حسابك يتطلب تأكيد البريد مرة واحدة. الباقات المدفوعة لا تتفعل تلقائيًا.</p>';
     if($warning)echo '<div class="alert danger">'.e($warning).'</div>';
     if($msg=flash('success'))echo '<div class="alert success">'.e($msg).'</div>';
     if($scope){
-        echo '<form method="post" action="/saas/console/register" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="kind" value="'.e($scope['kind']).'"><input type="hidden" name="reseller" value="'.e($scope['slug']).'">';
+        echo '<form method="post" action="/register" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="kind" value="'.e($scope['kind']).'"><input type="hidden" name="reseller" value="'.e($scope['slug']).'">';
         echo '<label class="field">اسمك<input name="name" required maxlength="120" autocomplete="name"></label>';
         echo '<label class="field">اسم الشركة<input name="company" required maxlength="120" autocomplete="organization"></label>';
         echo '<label class="field">البريد الإلكتروني<input name="email" type="email" maxlength="190" required autocomplete="email"></label>';
@@ -134,7 +134,7 @@ function signup_page(?string $warning=null):never {
         echo '<label class="field">تأكيد كلمة المرور<input name="password_confirm" type="password" minlength="12" maxlength="128" required autocomplete="new-password"></label>';
         echo '<button class="btn primary wide" type="submit">إرسال رابط تأكيد البريد</button></form>';
     }
-    echo '<p><a href="/saas/console/login">عندي حساب بالفعل — تسجيل الدخول</a></p></main></body></html>';exit;
+    echo '<p><a href="/login">عندي حساب بالفعل — تسجيل الدخول</a></p></main></body></html>';exit;
 }
 function signup_route():never {
     if(($_SERVER['REQUEST_METHOD']??'GET')!=='POST')signup_page();
@@ -161,10 +161,10 @@ function signup_route():never {
 function signup_verify_page(?string $error=null):never {
     header('Content-Type: text/html; charset=utf-8');header('Cache-Control: private,no-store');
     $token=(string)($_POST['token']??$_GET['token']??'');
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تأكيد البريد | OnTrack</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"></head><body class="login-body"><main class="login-panel" style="max-width:520px;margin:6vh auto"><h1>تأكيد البريد الإلكتروني</h1>';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تأكيد البريد | OnTrack</title><link rel="stylesheet" href="/assets/css/app.css"></head><body class="login-body"><main class="login-panel" style="max-width:520px;margin:6vh auto"><h1>تأكيد البريد الإلكتروني</h1>';
     if($error)echo '<div class="alert danger">'.e($error).'</div>';
     echo '<p>اضغط تأكيد لإنشاء الحساب بعد إثبات وصول رسالة البريد. الرابط صالح لمدة 30 دقيقة ولمرة واحدة.</p>';
-    echo '<form method="post" action="/saas/console/verify-email"><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="token" value="'.e($token).'"><button type="submit" class="btn primary wide">تأكيد البريد وإنشاء حسابي</button></form></main></body></html>';exit;
+    echo '<form method="post" action="/verify-email"><input type="hidden" name="csrf" value="'.e(csrf()).'"><input type="hidden" name="token" value="'.e($token).'"><button type="submit" class="btn primary wide">تأكيد البريد وإنشاء حسابي</button></form></main></body></html>';exit;
 }
 function signup_verify_route():never {
     if(($_SERVER['REQUEST_METHOD']??'GET')!=='POST')signup_verify_page();
@@ -184,7 +184,7 @@ function password_reset_send_email(string $email,string $token):bool {
     // Existing owner domain is the default while private email.json is not installed.
     $from=is_array($config)?($config['from']??'no-reply@ontrackegy.com'):'no-reply@ontrackegy.com';
     if(!is_string($from)||!filter_var($from,FILTER_VALIDATE_EMAIL))return false;
-    $url='https://app.ontrackegy.com/saas/console/reset-password?token='.$token;
+    $url='https://app.ontrackegy.com/reset-password?token='.$token;
     $body="To reset your OnTrack Voice password, use this link within 30 minutes:\n\n".$url.
         "\n\nIf you did not request a reset, ignore this email.\n";
     return mail($email,'OnTrack Voice - Reset your password',$body,
@@ -253,10 +253,10 @@ function password_change(int $userId,string $current,string $next):int {
 function auth_public_page(string $title,string $body,?string $warning=null):never {
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: private,no-store');
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.e($title).' | OnTrack Voice</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"></head><body class="login-body"><div class="login-backdrop"></div><main class="login-panel" style="max-width:550px;margin:6vh auto"><div class="login-brand"><span class="brand-icon">OT</span><strong>OnTrack Voice</strong></div><h1>'.e($title).'</h1>';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.e($title).' | OnTrack Voice</title><link rel="stylesheet" href="/assets/css/app.css"></head><body class="login-body"><div class="login-backdrop"></div><main class="login-panel" style="max-width:550px;margin:6vh auto"><div class="login-brand"><span class="brand-icon">OT</span><strong>OnTrack Voice</strong></div><h1>'.e($title).'</h1>';
     if($warning)echo '<div class="alert danger">'.e($warning).'</div>';
     if($notice=flash('success'))echo '<div class="alert success">'.e($notice).'</div>';
-    echo $body.'<p><a href="/saas/console/login">العودة إلى تسجيل الدخول</a></p></main></body></html>';
+    echo $body.'<p><a href="/login">العودة إلى تسجيل الدخول</a></p></main></body></html>';
     exit;
 }
 function password_forgot_route():never {
@@ -277,7 +277,7 @@ function password_forgot_route():never {
 }
 function password_forgot_page(?string $warning=null):never {
     $body='<p>اكتب البريد المرتبط بحسابك لاستلام رابط تغيير كلمة المرور. مش مطلوب كود مصادقة ثنائية.</p>'.
-        '<form method="post" action="/saas/console/forgot-password" class="stack">'.
+        '<form method="post" action="/forgot-password" class="stack">'.
         '<input type="hidden" name="csrf" value="'.e(csrf()).'">'.
         '<label class="field">البريد الإلكتروني<input name="email" type="email" maxlength="190" autocomplete="email" required></label>'.
         '<button class="btn primary wide" type="submit">إرسال رابط الاسترجاع</button></form>';
@@ -303,9 +303,9 @@ function password_reset_route():never {
 }
 function password_reset_page(string $token,?string $warning=null):never {
     if(!preg_match('/^[a-f0-9]{64}$/D',$token))
-        auth_public_page('رابط الاسترجاع غير صالح','<p>اطلب رابطًا جديدًا من صفحة استرجاع كلمة المرور.</p><p><a href="/saas/console/forgot-password">طلب رابط جديد</a></p>');
+        auth_public_page('رابط الاسترجاع غير صالح','<p>اطلب رابطًا جديدًا من صفحة استرجاع كلمة المرور.</p><p><a href="/forgot-password">طلب رابط جديد</a></p>');
     $body='<p>حدد كلمة مرور جديدة للحساب. الرابط صالح لمدة 30 دقيقة ولمرة واحدة.</p>'.
-        '<form method="post" action="/saas/console/reset-password" class="stack">'.
+        '<form method="post" action="/reset-password" class="stack">'.
         '<input type="hidden" name="csrf" value="'.e(csrf()).'">'.
         '<input type="hidden" name="token" value="'.e($token).'">'.
         '<label class="field">كلمة المرور الجديدة<input name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label>'.
@@ -331,7 +331,7 @@ function password_change_route():never {
     password_change_page();
 }
 function password_change_page(?string $warning=null):never {
-    $body='<form method="post" action="/saas/console/change-password" class="stack">'.
+    $body='<form method="post" action="/change-password" class="stack">'.
         '<input type="hidden" name="csrf" value="'.e(csrf()).'">'.
         '<label class="field">كلمة المرور الحالية<input name="current_password" type="password" autocomplete="current-password" required></label>'.
         '<label class="field">كلمة المرور الجديدة<input name="new_password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label>'.
