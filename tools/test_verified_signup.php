@@ -126,19 +126,19 @@ function test_signup():void {
         ok(!str_contains($signupSource,'/saas/console'.$publicRoute),
             'signup and email links never reference dead nested path '.$publicRoute);
     }
-    ok(str_contains($signupSource,'action="/register"') &&
-        str_contains($signupSource,'action="/forgot-password"') &&
-        str_contains($signupSource,'action="/reset-password"') &&
-        str_contains($signupSource,'action="/verify-email"'),
-        'all public auth forms post to actual live root');
-    ok(str_contains($signupSource,'https://app.ontrackegy.com/verify-email?token=') &&
-        str_contains($signupSource,'https://app.ontrackegy.com/reset-password?token='),
-        'verification and reset emails use correct live site root');
+    ok(str_contains($signupSource,"white_label_url('/register')") &&
+        str_contains($signupSource,"white_label_url('/forgot-password')") &&
+        str_contains($signupSource,"white_label_url('/reset-password')") &&
+        str_contains($signupSource,"white_label_url('/verify-email')"),
+        'public auth forms are linked to the trusted branded URL resolver');
+    ok(str_contains($signupSource,"white_label_absolute_url('/verify-email?token=") &&
+        str_contains($signupSource,"white_label_absolute_url('/reset-password?token="),
+        'email links use verified portal URL instead of untrusted request Host');
     ok(str_contains($viewSource,"\$base='/register';") &&
-        str_contains($viewSource,'href="/forgot-password"') &&
-        str_contains($viewSource,'href="/change-password"') &&
+        str_contains($viewSource,"white_label_url('/forgot-password')") &&
+        str_contains($viewSource,"white_label_url('/login')") &&
         str_contains($bootstrapSource,"in_array(\$route,\$public,true)?'':'/saas/console'"),
-        'owner/reseller UI and redirects use root public auth paths');
+        'brand-aware public links and legacy redirects are compatible');
     echo "WEB_AUTH_PUBLIC_ROOT_ROUTING_PASS\n";
     echo "VERIFIED_TENANT_REGISTRATION_AND_PASSWORD_RECOVERY_PASS\n";
     echo "VERIFIED_CUSTOMER_SIGNUP_PASS\n";
