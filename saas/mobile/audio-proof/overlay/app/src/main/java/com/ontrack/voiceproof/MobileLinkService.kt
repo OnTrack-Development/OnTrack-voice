@@ -659,13 +659,15 @@ class MobileLinkService:Service() {
                             rotateVoiceToken={ previous,failure ->
                                 enrollment.rotateVoiceSession(reportSlot,previous,failure)
                             },
-                            onHumanRequested={
-                                // Fast, durable request flag independent of any
-                                // later summarizer response or network connection.
+                            onHumanRequested={ reason,notes ->
                                 if(reportCallId!=null && callback==null)
-                                    check(tenantEvents.recordCustomerHumanRequest(reportSlot,reportBinding)){
-                                        "customer_request_event_unavailable"
-                                    }
+                                    tenantEvents.recordCustomerHumanRequest(reportSlot,reportBinding,reason,notes)
+                                else false
+                            },
+                            onCallNote={ summary,notes ->
+                                if(reportCallId!=null && callback==null)
+                                    tenantEvents.recordAgentCallNote(reportSlot,reportBinding,summary,notes)
+                                else false
                             },
                             onAudioDiagnostics={ diagnostic ->
                                 // Gemini setup alone cannot prove the VoLTE modem
