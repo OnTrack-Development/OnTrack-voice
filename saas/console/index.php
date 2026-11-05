@@ -17,7 +17,9 @@ try {init_schema();} catch(Throwable $e){
     echo '<html lang="ar" dir="rtl"><body style="font-family:system-ui;padding:48px"><h2>تهيئة قاعدة بيانات لوحة OnTrack</h2><p>تحتاج قاعدة بيانات MySQL أو SQLite مفعلة على السيرفر.</p><code>'.e($e->getMessage()).'</code></body></html>';
     exit;
 }
+white_label_guard();
 $path=route();
+if(white_label_context() && in_array($path,['/sso','/sso/confirm'],true))deny(404);
 // Source applications should POST the signed assertion as a hidden form field,
 // avoiding bearer credentials in URLs and web-server query logs. GET is accepted
 // only as a compatibility fallback and is immediately redirected to a clean URL.
@@ -93,6 +95,7 @@ if($path==='/sso/confirm'){
 
 if($path==='/register')signup_route();
 if($path==='/register-logo')signup_logo_route();
+if($path==='/portal-logo')white_label_logo_route();
 if($path==='/verify-email')signup_verify_route();
 if($path==='/forgot-password')password_forgot_route();
 if($path==='/reset-password')password_reset_route();
@@ -107,7 +110,8 @@ if($path==='/login') {
         if(time()-$oldest>900){$bad=0;$_SESSION['bad_logins']=0;$_SESSION['bad_start']=time();}
         if($bad>=8){login_page('محاولات كثيرة. حاول بعد 15 دقيقة.');exit;}
         $u=filter_var($email,FILTER_VALIDATE_EMAIL)?one("SELECT * FROM users WHERE email=? AND status='active'",[$email]):null;
-        if($u && password_verify($pass,$u['password_hash'])){
+        if($u && password_verify($pass,$u['password_hash']) &&
+            white_label_memberships((int)$u['id'])){
             session_regenerate_id(true);
             $_SESSION['uid']=(int)$u['id'];
             $_SESSION['auth_version']=(int)($u['auth_version']??0);
@@ -115,7 +119,7 @@ if($path==='/login') {
             // administrator TOTP enrollment must never challenge this login.
             unset($_SESSION['mfa_ok'],$_SESSION['mfa_pending'],$_SESSION['mfa_pending_uid'],
                 $_SESSION['mfa_pending_at'],$_SESSION['mfa_failures'],$_SESSION['mfa_block_until']);
-            $m=memberships((int)$u['id']);
+            $m=white_label_memberships((int)$u['id']);
             $_SESSION['account_id']=$m[0]['account_id']??null;
             $_SESSION['bad_logins']=0;
             unset($_SESSION['support']);
@@ -126,7 +130,8 @@ if($path==='/login') {
         usleep(250000);
         login_page('البريد أو كلمة المرور غير صحيحة');exit;
     }
-    if(me())go(!empty($_SESSION['sso_pending'])?'/sso/confirm':(memberships((int)me()['id'])?'/':'/invitations'));
+    if(me() && white_label_memberships((int)me()['id']))
+        go(!empty($_SESSION['sso_pending'])?'/sso/confirm':'/');
     login_page();exit;
 }
 // MFA enrollment and 6-digit login codes are disabled by owner decision
