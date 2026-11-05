@@ -511,10 +511,14 @@ function act():void {
                 audit('plan.assigned',$customer,['plan'=>$plan['id']]);break;
             case 'create_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
+                require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
                 $type=field('kind',20);if(!in_array($type,['reseller','user'],true))deny();
                 $price=intfield('price');$overage=intfield('overage');
                 if($price>1000000000||$overage>10000000)throw new InvalidArgumentException('السعر أكبر من الحد المسموح');
-                insert("INSERT INTO plans(kind,name,call_quota,site_limit,agent_limit,staff_limit,reseller_customers,price_minor,overage_minor,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,'active',?)",[$type,required('name'),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),intfield('customers'),$price,$overage,now()]);
+                $keyLimit=intfield('google_key_limit');
+                if($keyLimit>1000)throw new InvalidArgumentException('حد مفاتيح Google أكبر من المسموح');
+                insert("INSERT INTO plans(kind,name,call_quota,site_limit,agent_limit,staff_limit,reseller_customers,price_minor,overage_minor,google_key_limit,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,'active',?)",
+                    [$type,required('name'),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),intfield('customers'),$price,$overage,$keyLimit,now()]);
                 audit('plan.created',$id);break;
             case 'toggle_voice':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
@@ -796,11 +800,14 @@ function act():void {
                 audit('account.status',$target['id'],['status'=>$status]);break;
             case 'edit_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
+                require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
                 $plan=one('SELECT id FROM plans WHERE id=?',[intfield('plan_id')]);if(!$plan)deny();
                 $price=intfield('price');$overage=intfield('overage');
                 if($price>1000000000||$overage>10000000)throw new InvalidArgumentException('السعر أكبر من الحد المسموح');
-                execute('UPDATE plans SET name=?,call_quota=?,site_limit=?,agent_limit=?,staff_limit=?,reseller_customers=?,price_minor=?,overage_minor=? WHERE id=?',
-                   [required('name',120),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),intfield('customers'),$price,$overage,$plan['id']]);
+                $keyLimit=intfield('google_key_limit');
+                if($keyLimit>1000)throw new InvalidArgumentException('حد مفاتيح Google أكبر من المسموح');
+                execute('UPDATE plans SET name=?,call_quota=?,site_limit=?,agent_limit=?,staff_limit=?,reseller_customers=?,price_minor=?,overage_minor=?,google_key_limit=? WHERE id=?',
+                   [required('name',120),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),intfield('customers'),$price,$overage,$keyLimit,$plan['id']]);
                 audit('plan.updated',$id,['plan'=>$plan['id']]);break;
             case 'archive_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
@@ -926,12 +933,23 @@ function act():void {
                 if(!device_binding_revoke($id,intfield('device_id')))throw new InvalidArgumentException('الجهاز غير موجود أو مفصول مسبقًا');
                 audit('device.binding.revoked',$id,['device_id'=>intfield('device_id')]);
                 break;
+            case 'google_customer_key_limit':
+                if($kind!=='reseller'||!in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                require_once __DIR__.'/GoogleTenantKeys.php';
+                $targetId=intfield('customer_id');$limit=intfield('google_key_limit');
+                google_voice_key_set_customer_limit($id,$targetId,$limit);
+                audit('voice.google.customer_key_limit',$targetId,['max_keys'=>$limit]);
+                $success='تم حفظ حد مفاتيح Google لهذا العميل ضمن سقف باقته.';
+                break;
             case 'relay_add':
             case 'relay_manage':
             case 'relay_edit':
             case 'relay_test':
-                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||
-                   console_view_mode($a)!=='admin'||active_support())deny();
+                if(!in_array($a['role'],['owner','admin'],true)||active_support()||
+                   ($kind==='platform'&&console_view_mode($a)!=='admin'))deny();
+                // Non-platform accounts only manage their own Google Live keys.
+                $relayOwner=$kind==='platform'?null:$id;
                 if($action==='relay_add'){
                     $item=ai_relay_add($id,required('scope',12),required('relay_driver',25),
                         required('relay_label',100),required('relay_model',120),
@@ -942,15 +960,15 @@ function act():void {
                     $providerId=intfield('relay_id');
                     ai_relay_edit($providerId,required('relay_label',100),
                         required('relay_model',120),field('relay_endpoint',600),
-                        field('relay_api_key',512));
+                        field('relay_api_key',512),$relayOwner);
                     audit('ai.relay.edited',$id,['provider_id'=>$providerId]);
                     $success='تم تعديل بيانات المزوّد. اختبر الاتصال للتحقق من المفتاح الجديد.';
                 }elseif($action==='relay_test'){
-                    $providerId=intfield('relay_id');$success=ai_relay_test($providerId);
+                    $providerId=intfield('relay_id');$success=ai_relay_test($providerId,$relayOwner);
                     audit('ai.relay.tested',$id,['provider_id'=>$providerId]);
                 }else{
                     $providerId=intfield('relay_id');$operation=required('relay_operation',12);
-                    ai_relay_modify($providerId,$operation);
+                    ai_relay_modify($providerId,$operation,$relayOwner);
                     audit('ai.relay.updated',$id,['provider_id'=>$providerId,'operation'=>$operation]);
                     $success='تم تحديث إعدادات الـRelay.';
                 }

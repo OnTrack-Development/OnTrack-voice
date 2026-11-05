@@ -342,6 +342,7 @@ function render_accounts(array $a):void{
     echo card('الحسابات التابعة',tbl(['الاسم','النوع','الريسيلر','الأعضاء','الحالة','إدارة'],$cells));
 }
 function render_plans(array $a):void{
+    require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
     $type=(string)$a['kind'];$id=(int)$a['account_id'];
     $list=$type==='platform'?all('SELECT * FROM plans ORDER BY kind,id'):all("SELECT * FROM plans WHERE kind='user' AND status='active' ORDER BY id");
     $rows=[];
@@ -374,6 +375,7 @@ function render_plans(array $a):void{
                 '<label class="field">حد عملاء الريسيلر<input name="customers" type="number" min="0" value="'.(int)$plan['reseller_customers'].'" required></label>'.
                 '<label class="field">سعر الباقة (قرش)<input name="price" type="number" min="0" max="1000000000" step="1" value="'.(int)$plan['price_minor'].'" required><small>100 قرش = 1 جنيه</small></label>'.
                 '<label class="field">سعر كل مكالمة بعد الحد (قرش)<input name="overage" type="number" min="0" max="10000000" step="1" value="'.(int)($plan['overage_minor']??0).'" required><small>0 = بدون تكلفة إضافية</small></label>'.
+                '<label class="field">عدد مفاتيح Google للعميل<input name="google_key_limit" type="number" min="0" max="1000" required value="'.(int)($plan['google_key_limit']??1).'"></label>'.
                 '</div><div class="plan-actions"><button class="btn primary" type="submit">حفظ تغييرات الباقة</button></div></form>'.
                 form_start('archive_plan','/?tab=plans','class="plan-archive"').
                 '<input type="hidden" name="plan_id" value="'.(int)$plan['id'].'">'.
@@ -393,6 +395,7 @@ function render_plans(array $a):void{
             field_html('حد عملاء الريسيلر','customers','number','10',true).
             '<label class="field">سعر الباقة (قرش)<input name="price" type="number" min="0" max="1000000000" step="1" value="0" required></label>'.
             '<label class="field">سعر المكالمة الزائدة (قرش)<input name="overage" type="number" min="0" max="10000000" step="1" value="0" required></label>'.
+            '<label class="field">عدد مفاتيح Google للعميل<input name="google_key_limit" type="number" min="0" max="1000" required value="1"></label>'.
             '</div>'.submit_btn('إنشاء الباقة'));
     }elseif($type==='reseller'){
         $customers=all("SELECT id,name FROM accounts WHERE parent_id=? AND kind='customer'",[$id]);
@@ -400,6 +403,19 @@ function render_plans(array $a):void{
         foreach($customers as $c)$co[$c['id']]=$c['name'];
         foreach($list as $p)$po[$p['id']]=$p['name'].' — '.$p['call_quota'].' مكالمة';
         if($co&&$po)echo card('تخصيص باقة',form_start('assign_plan','/?tab=plans').select_html('الحساب','customer_id',$co).select_html('الباقة','plan_id',$po).submit_btn('تعيين الباقة'));
+        $limits=[];
+        foreach($customers as $customer){
+            $limit=google_voice_key_limit((int)$customer['id']);
+            $limits[]=[e((string)$customer['name']),e((string)$limit)];
+        }
+        echo card('حد مفاتيح Google لكل عميل',
+            '<p class="dim">تقدر تقلل عدد المفاتيح المسموح للعميل، ولكن لا تقدر تتجاوز الحد اللي في باقته.</p>'.
+            tbl(['العميل','الحد الحالي'],$limits).
+            ($co?form_start('google_customer_key_limit','/?tab=plans').
+                select_html('العميل','customer_id',$co).
+                '<label class="field">حد المفاتيح<input type="number" name="google_key_limit" min="0" max="1000" required value="1"></label>'.
+                submit_btn('حفظ حد المفاتيح'):''));
+
     }
 }
 function render_staff(array $a):void{
@@ -1387,6 +1403,10 @@ function render_settings(array $a):void{
         // Legacy key remains encrypted and auto-imports once into Voice Relay.
         // Avoid showing a second Google editor that would not update Relay priority.
         render_ai_relay_settings($a);
+    }
+    if($a['kind']!=='platform'){
+        require_once __DIR__.'/GoogleVoiceKeysView.php';
+        render_google_voice_key_settings($a);
     }
     echo card('كلمة المرور والحساب',
         '<p>تقدر تغيّر كلمة المرور باستخدام الحالية، أو تسترجعها من البريد لو نسيتها. من غير مصادقة ثنائية أثناء التجارب.</p>'.

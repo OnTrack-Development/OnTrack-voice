@@ -139,15 +139,18 @@ function tenant_voice_ephemeral_token(string $apiKey,int $minutes=10):string {
     return $token;
 }
 /** Resolve the platform's encrypted Live provider, with no legacy pilot fallback. */
-function tenant_voice_provider():array {
-    $relay=ai_relay_rows('voice',true);
+function tenant_voice_provider(?int $callerAccountId=null):array {
+    require_once __DIR__.'/GoogleTenantKeys.php';
+    $owner=$callerAccountId===null?ai_relay_platform():google_voice_pool_owner($callerAccountId);
+    $configured=ai_relay_rows('voice',false,$owner);
+    $relay=ai_relay_rows('voice',true,$owner);
     foreach($relay as $entry){
         if(!empty($entry['cooldown_until'])&&$entry['cooldown_until']>now())continue;
-        $full=ai_relay_one((int)$entry['id']);
+        $full=ai_relay_one((int)$entry['id'],$owner);
         $key=$full?unseal_secret($full['secret_enc']??null):null;
         if(is_string($key)&&$key!=='')return ['model'=>$entry['model'],'key'=>$key];
     }
-    if($relay)throw new RuntimeException('voice_all_keys_in_cooldown');
+    if($configured)throw new RuntimeException('voice_all_keys_unavailable');
     $model=trim((string)getenv('ONTRACK_GEMINI_LIVE_MODEL'));
     $key=trim((string)getenv('ONTRACK_GEMINI_API_KEY'));
     if($key===''||$model===''){
@@ -192,8 +195,10 @@ function tenant_voice_entitled(array $binding):bool {
 function tenant_voice_preflight(array $binding):array {
     if(!tenant_voice_entitled($binding))throw new RuntimeException('voice_subscription_inactive');
     $definition=tenant_voice_definition($binding);
-    if(ai_relay_has('voice'))$session=ai_relay_voice_session(1);
-    else{$provider=tenant_voice_provider();$session=['model'=>$provider['model'],
+    require_once __DIR__.'/GoogleTenantKeys.php';
+    if(ai_relay_rows('voice',false,google_voice_pool_owner((int)$binding['account_id']))!==[])
+        $session=ai_relay_voice_session(1,(int)$binding['account_id']);
+    else{$provider=tenant_voice_provider((int)$binding['account_id']);$session=['model'=>$provider['model'],
         'token'=>tenant_voice_ephemeral_token($provider['key'],1)];}
     $ephemeral=$session['token'];
     if(!str_starts_with($ephemeral,'auth_tokens/'))throw new RuntimeException('voice_provider_token_invalid');
@@ -208,8 +213,10 @@ function tenant_voice_session(array $binding):array {
     // Caller must still have an authenticated, active per-SIM device binding.
     if(!tenant_voice_entitled($binding))throw new RuntimeException('voice_subscription_inactive');
     $definition=tenant_voice_definition($binding);
-    if(ai_relay_has('voice'))$session=ai_relay_voice_session($definition['policy']['max_call_minutes']);
-    else{$provider=tenant_voice_provider();$session=['model'=>$provider['model'],
+    require_once __DIR__.'/GoogleTenantKeys.php';
+    if(ai_relay_rows('voice',false,google_voice_pool_owner((int)$binding['account_id']))!==[])
+        $session=ai_relay_voice_session($definition['policy']['max_call_minutes'],(int)$binding['account_id']);
+    else{$provider=tenant_voice_provider((int)$binding['account_id']);$session=['model'=>$provider['model'],
          'token'=>tenant_voice_ephemeral_token($provider['key'],$definition['policy']['max_call_minutes'])];}
     return ['token'=>$session['token'],'model'=>$session['model'],'system_instruction'=>$definition['instruction'],
         'voice'=>$definition['voice'],'answer_policy'=>$definition['policy'],

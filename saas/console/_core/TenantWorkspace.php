@@ -327,7 +327,7 @@ function tenant_workspace_call_analysis(array $binding,array $data,?callable $tr
         $result=flow_ai_live_extract($response,'submit_call_report');
     }else{
         require_once __DIR__.'/TenantVoiceSession.php';
-        $provider=tenant_voice_provider();
+        $provider=tenant_voice_provider((int)$binding['account_id']);
         $result=flow_ai_live_exchange($provider['key'],$setup,$prompt,'submit_call_report');
     }
     if(!is_array($result)||!is_string($result['summary']??null)||

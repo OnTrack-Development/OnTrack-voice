@@ -1,0 +1,51 @@
+name: Google Tenant Voice Key Isolation Tests
+on:
+  push:
+    branches:
+      - feat/google-tenant-keys-20261105
+    paths:
+      - 'saas/console/_core/**'
+      - 'tools/test_google_tenant_keys.php'
+      - '.github/workflows/google-tenant-keys-tests.yml'
+  pull_request:
+    branches:
+      - feat/voice-production-gap-20261103
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tenant_keys:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP syntax checks
+        run: |
+          $ErrorActionPreference='Stop'
+          $files=@(
+            'saas/console/_core/GoogleTenantKeys.php',
+            'saas/console/_core/GoogleVoiceKeysView.php',
+            'saas/console/_core/AiRelay.php',
+            'saas/console/_core/TenantVoiceSession.php',
+            'saas/console/_core/TenantWorkspace.php',
+            'saas/console/_core/Views.php',
+            'saas/console/_core/Actions.php',
+            'tools/test_google_tenant_keys.php',
+            'tools/test_ai_relay.php'
+          )
+          foreach($f in $files) {
+            & php -l $f
+            if($LASTEXITCODE -ne 0) { throw ('PHP lint failed: '+$f) }
+          }
+      - name: Tenant ownership and existing relay tests
+        run: |
+          $ErrorActionPreference='Stop'
+          & php tools/test_ai_relay.php
+          if($LASTEXITCODE -ne 0) { throw 'Existing relay tests failed' }
+          & php tools/test_google_tenant_keys.php
+          if($LASTEXITCODE -ne 0) { throw 'Google tenant key isolation failed' }
