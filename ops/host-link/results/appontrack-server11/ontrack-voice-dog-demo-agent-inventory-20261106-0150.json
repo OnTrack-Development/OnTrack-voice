@@ -1,0 +1,13 @@
+{
+  "job_id": "ontrack-voice-dog-demo-agent-inventory-20261106-0150",
+  "target": "appontrack-server11",
+  "job_sha256": "65411f1743cd7dfe142b194fcce60d1a8148650b6fffd114346a5bc9bf0ddb26",
+  "started_at": "2026-11-05T23:31:03.172074+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"agents\":[{\"id\":7,\"account_id\":1,\"site_id\":6,\"name\":\"نور\",\"status\":\"published\",\"bindings\":1,\"revision\":9,\"scenario_mode\":\"scenario\",\"scenario_len\":676,\"response_style\":\"egyptian_short\"},{\"id\":8,\"account_id\":1,\"site_id\":6,\"name\":\"ام السيد\",\"status\":\"published\",\"bindings\":0,\"revision\":1,\"scenario_mode\":\"builder\",\"scenario_len\":0,\"response_style\":\"egyptian_short\"},{\"id\":5,\"account_id\":7,\"site_id\":5,\"name\":\"مساعد نيل\",\"status\":\"draft\",\"bindings\":0,\"revision\":null,\"scenario_mode\":\"builder\",\"scenario_len\":0,\"response_style\":\"egyptian_short\"},{\"id\":4,\"account_id\":6,\"site_id\":4,\"name\":\"مساعد أزياء القاهرة\",\"status\":\"draft\",\"bindings\":0,\"revision\":null,\"scenario_mode\":\"builder\",\"scenario_len\":0,\"response_style\":\"egyptian_short\"},{\"id\":3,\"account_id\":5,\"site_id\":3,\"name\":\"مساعد صيدلية الندى\",\"status\":\"draft\",\"bindings\":0,\"revision\":null,\"scenario_mode\":\"builder\",\"scenario_len\":0,\"response_style\":\"egyptian_short\"},{\"id\":2,\"account_id\":4,\"site_id\":2,\"name\":\"مساعد العيادة\",\"status\":\"draft\",\"bindings\":0,\"revision\":null,\"scenario_mode\":\"builder\",\"scenario_len\":0,\"response_style\":\"egyptian_short\"},{\"id\":1,\"account_id\":4,\"site_id\":1,\"name\":\"مساعد المتجر\",\"status\":\"draft\",\"bindings\":0,\"revision\":null,\"scenario_mode\":\"builder\",\"scenario_len\":0,\"response_style\":\"egyptian_short\"}]}",
+  "stderr": "",
+  "finished_at": "2026-11-05T23:31:03.244698+00:00",
+  "duration_ms": 73
+}
