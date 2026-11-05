@@ -1,0 +1,13 @@
+{
+  "job_id": "ayo-php-git-auth-20261105-01",
+  "target": "appontrack-server11",
+  "job_sha256": "78a52328a9b8a5ab66ee9ba0a672850a358fdec97057f23ac66ab4eed3adbe23",
+  "started_at": "2026-11-05T02:18:02.964818+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"exit_code\": 128, \"ref_present\": false, \"sha\": null, \"error_class\": \"auth_or_network\"}\n",
+  "stderr": "",
+  "finished_at": "2026-11-05T02:18:03.517960+00:00",
+  "duration_ms": 553
+}
