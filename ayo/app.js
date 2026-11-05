@@ -26,6 +26,28 @@ async function chooseEmotion(mode){
   catch(e){renderConfig(S.config);note('تعذر حفظ المشاعر: '+e.message,true);}
   finally{$('emotionMode').disabled=false;}
 }
+async function testGateway(){
+ const button=$('gatewayTestButton'),label=$('gatewayTestResult');
+ if(S.busy){label.textContent='فيه طلب صوت أو شات شغال، انهيه قبل اختبار البوابة.';return;}
+ button.disabled=true;label.textContent='بختبر اتصال '+(S.config?.llmProvider||'')+' بالموديل '+(S.config?.llmModel||'')+'...';
+ let textPart='',finished=false,diagnostic='';
+ try{
+  await ndjson('llm_test',{},event=>{
+   if(event.type==='error')throw Error(event.message);
+   if(event.type==='llm_diagnostic')diagnostic='HTTP '+event.http+' · '+event.mode+' · '+event.elapsedMs+'ms';
+   if(event.type==='llm_delta')textPart+=event.text;
+   if(event.type==='probe_complete')finished=Boolean(event.usableText);
+  });
+  if(!finished||!textPart.trim())throw Error('المزود لم يرجع إجابة قابلة للاستخدام');
+  label.textContent='✓ اختبار ناجح · '+diagnostic+' · رد الموديل: '+textPart.trim().slice(0,115);
+  label.classList.add('is-ok');label.classList.remove('is-error');
+  note('اختبار البوابة نجح: '+S.config.llmProvider+' / '+S.config.llmModel);
+ }catch(err){
+  label.textContent='✕ اختبار البوابة فشل: '+err.message+(diagnostic?' ('+diagnostic+')':'');
+  label.classList.add('is-error');label.classList.remove('is-ok');
+  note(label.textContent,true);
+ }finally{button.disabled=false;}
+}
 function renderGateway(c){
   document.querySelectorAll('[data-gateway]').forEach(button=>{
     const active=button.dataset.gateway===c.llmProvider;
@@ -36,7 +58,7 @@ function renderGateway(c){
   if(c.llmModel&&!choices.includes(c.llmModel)){const o=document.createElement('option');o.value=c.llmModel;o.textContent=c.llmModel+' · Custom';select.append(o);}
   select.value=c.llmModel||choices[0]||'';select.disabled=gatewaySaving;
   $('gatewayEndpointDisplay').textContent=urls[c.llmProvider]||'—';
-  $('gatewayState').textContent=c.hasActiveLlmKey?'المفتاح جاهز · '+gatewayLabels[c.llmProvider]:'مفتاح البوابة غير مهيأ';
+  $('gatewayState').textContent=c.hasActiveLlmKey?'مفتاح محفوظ · '+gatewayLabels[c.llmProvider]:'مفتاح البوابة غير مهيأ';
   $('gatewayState').classList.toggle('is-ready',!!c.hasActiveLlmKey);
 }
 async function chooseGateway(provider,model){
@@ -45,7 +67,7 @@ async function chooseGateway(provider,model){
   if(S.config?.llmProvider===provider&&S.config?.llmModel===desired)return;
   gatewaySaving=true;renderGateway(S.config);
   $('gatewayState').textContent='جاري تفعيل البوابة...';
-  try{const result=await api('settings',{llmProvider:provider,llmModel:desired});
+  try{const result=await api('settings',{llmProvider:provider,llmModel:desired});$('gatewayTestResult').textContent='البوابة أو الموديل اتغير؛ اضغط «اختبر البوابة» للتأكد من الاتصال.';$('gatewayTestResult').classList.remove('is-ok','is-error');
     rememberedModels[provider]=desired;renderConfig(result.config);
     note('البوابة النشطة: '+gatewayLabels[provider]+' · '+desired+(result.config.hasActiveLlmKey?'':' · يلزم إضافة مفتاح API'));
   }catch(e){if(S.config)renderConfig(S.config);note('تعذر تغيير البوابة: '+e.message,true);}
@@ -59,6 +81,10 @@ function stopAudio(){for(const x of S.sources){try{x.stop()}catch{}}S.sources=[]
 function pcm(bytes,rate){if(!S.ctx)return;if(S.ctx.state==='suspended'){S.ctx.resume().catch(()=>{});}const count=bytes.length>>1;if(!count)return;const data=new Float32Array(count),v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);for(let i=0;i<count;i++)data[i]=v.getInt16(i*2,true)/32768;const b=S.ctx.createBuffer(1,count,rate);b.copyToChannel(data,0);const src=S.ctx.createBufferSource();src.buffer=b;src.connect(S.ctx._ayoOutputAnalyser||S.ctx.destination);avatar?.setStatus('speaking');const start=Math.max(S.ctx.currentTime+.04,S.playAt||0);src.start(start);S.playAt=start+count/rate;S.sources.push(src);src.onended=()=>{S.sources=S.sources.filter(x=>x!==src);if(!S.sources.length&&!S.busy){avatar?.setStatus(micStream&&S.session?'listening':'idle');$('callStatus').textContent=S.session?'آيو بتسمعك':'جاهزة للتجربة';$('visualizer').classList.remove('active');$('orbWrap').className=S.session?'orb-wrap listening':'orb-wrap';if(S.session)startListen();}};$('visualizer').classList.add('active');$('orbWrap').className='orb-wrap speaking';$('callStatus').textContent='آيو بتتكلم';S.audio.push(bytes);$('downloadLast').disabled=false;}
 async function ndjson(action,payload,onEvent){const ctrl=new AbortController();S.abort=ctrl;const r=await fetch('api.php?action='+action,{method:'POST',headers:{'Content-Type':'application/json','X-AYO-CSRF':S.csrf},body:JSON.stringify(payload),signal:ctrl.signal});if(!r.ok){const j=await r.json().catch(()=>({error:'HTTP '+r.status}));throw Error(j.error||'HTTP '+r.status);}const reader=r.body.getReader();const decoder=new TextDecoder();let buf='';try{while(true){const {value,done}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});let i;while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);if(line.trim())onEvent(JSON.parse(line));}}if(buf.trim())onEvent(JSON.parse(buf));}finally{if(S.abort===ctrl)S.abort=null;}}
 function readEvent(e,to){if(e.type==='error')throw Error(e.message);
+ if(e.type==='llm_diagnostic'){
+  log('LLM '+e.provider+'/'+e.model+' · '+e.mode+' · HTTP '+e.http+' · '+e.elapsedMs+'ms');
+ }
+
  if(e.type==='tts_diagnostic'){log('Inworld: '+e.status+' · chunks='+e.chunks+' · bytes='+e.bytes+' · code='+e.errorCode);}
  if(e.type==='tts_notice'){note(e.message,true);}
 if(e.type==='voice_style'){
@@ -225,7 +251,7 @@ function startListen(){
 }
 async function record(){if(S.recording){const r=S.recording;S.recording=null;clearTimeout(r.timer);r.worklet.port.postMessage('flush');await new Promise(x=>setTimeout(x,150));r.stream.getTracks().forEach(x=>x.stop());await r.ctx.close();S.sample=new File([wav(r.parts,r.rate)],'ayo-sample.wav',{type:'audio/wav'});$('fileLabel').textContent='تسجيل العينة جاهز';$('recordBtn').textContent='● تسجيل عينة';return;}try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});const ctx=new AudioContext({sampleRate:16000});await ctx.audioWorklet.addModule('audio-worklet.js');const source=ctx.createMediaStreamSource(stream),worklet=new AudioWorkletNode(ctx,'ayo-pcm-capture'),mute=ctx.createGain();mute.gain.value=0;source.connect(worklet).connect(mute).connect(ctx.destination);const parts=[];worklet.port.onmessage=e=>parts.push(new Uint8Array(e.data));S.recording={stream,ctx,worklet,parts,rate:ctx.sampleRate,timer:setTimeout(record,30000)};$('recordBtn').textContent='■ وقف التسجيل';note('سجّل عينة واضحة 10–30 ثانية');}catch(e){note('التسجيل: '+e.message,true);}}
 async function clone(){const f=S.sample||$('voiceFile').files[0];if(!f)return note('اختر ملف MP3 أو WAV أولاً.',true);if(!$('sampleConsent').checked)return note('لازم تؤكد إن الصوت ملكك أو لديك تصريح.',true);if(!S.config?.hasInworldKey)return note('اضبط مفتاح Inworld.',true);const form=new FormData();form.append('sample',f);form.append('consent','yes');$('cloneResult').textContent='جارٍ استنساخ الصوت...';try{const r=await fetch('api.php?action=clone',{method:'POST',headers:{'X-AYO-CSRF':S.csrf},body:form});const d=await r.json();if(!r.ok)throw Error(d.error||'خطأ');$('cloneResult').textContent='Voice ID: '+d.voiceId;renderConfig(d.config);note('تم استنساخ الصوت بنجاح');}catch(e){note('استنساخ الصوت: '+e.message,true);}}
-async function main(){avatar=createAyoAvatar($('ayoCharacterCanvas'),$('orbWrap'));for(let i=0;i<44;i++){const bar=document.createElement('i');bar.style.setProperty('--h',`${7+(i*13%29)}px`);bar.style.setProperty('--dur',`${450+i*61%600}ms`);$('visualizer').append(bar);}$('toggleConfig').onclick=()=>{$('configBody').classList.toggle('hidden');$('toggleConfig').textContent=$('configBody').classList.contains('hidden')?'إظهار':'إخفاء';};document.querySelectorAll('[data-gateway]').forEach(button=>button.onclick=()=>chooseGateway(button.dataset.gateway));$('gatewayModel').onchange=()=>chooseGateway(S.config.llmProvider,$('gatewayModel').value);$('gatewaySettingsButton').onclick=()=>{$('configBody').classList.remove('hidden');$('toggleConfig').textContent='إخفاء';$('configForm').scrollIntoView({behavior:'smooth',block:'start'});};$('emotionMode').onchange=()=>chooseEmotion($('emotionMode').value);document.querySelectorAll('[data-voice-cue]').forEach(button=>button.onclick=()=>{const cue=button.dataset.voiceCue;if(!['sigh','laugh','breathe','gasp','groan'].includes(cue))return;const current=$('previewText').value.trim().replace(/^\[(?:sigh|laugh|breathe|gasp|groan)\]\s*/i,'');$('previewText').value='['+cue+'] '+current;$('previewText').focus();$('previewStatus').textContent='مؤثر ['+cue+'] أُضيف لبداية النص. اضغط «اسمع صوت آيو» لتجربته.';});$('llmProvider').onchange=()=>presets();$('llmModelPreset').onchange=()=>$('llmModel').value=$('llmModelPreset').value;$('configForm').onsubmit=async e=>{e.preventDefault();const payload={voiceId:$('voiceId').value,ttsModel:$('ttsModel').value,ttsLocale:$('ttsLocale').value,ttsDelivery:$('ttsDelivery').value,llmProvider:$('llmProvider').value,llmModel:$('llmModel').value};for(const [id,k] of [['inworldKey','inworldKey'],['apinexKey','apinexKey'],['omniraKey','omniraKey']])if($(id).value.trim())payload[k]=$(id).value.trim();try{const d=await api('settings',payload);renderConfig(d.config);for(const k of ['inworldKey','apinexKey','omniraKey'])$(k).value='';note('اتحفظت مفاتيح الخدمات بشكل دائم على الاستضافة (خارج public_html). مش هتحتاج تدخلها مرة تانية.');}catch(e){note(e.message,true);}};$('ownerForm').onsubmit=async e=>{
+async function main(){avatar=createAyoAvatar($('ayoCharacterCanvas'),$('orbWrap'));for(let i=0;i<44;i++){const bar=document.createElement('i');bar.style.setProperty('--h',`${7+(i*13%29)}px`);bar.style.setProperty('--dur',`${450+i*61%600}ms`);$('visualizer').append(bar);}$('toggleConfig').onclick=()=>{$('configBody').classList.toggle('hidden');$('toggleConfig').textContent=$('configBody').classList.contains('hidden')?'إظهار':'إخفاء';};document.querySelectorAll('[data-gateway]').forEach(button=>button.onclick=()=>chooseGateway(button.dataset.gateway));$('gatewayModel').onchange=()=>chooseGateway(S.config.llmProvider,$('gatewayModel').value);$('gatewayTestButton').onclick=testGateway;$('gatewaySettingsButton').onclick=()=>{$('configBody').classList.remove('hidden');$('toggleConfig').textContent='إخفاء';$('configForm').scrollIntoView({behavior:'smooth',block:'start'});};$('emotionMode').onchange=()=>chooseEmotion($('emotionMode').value);document.querySelectorAll('[data-voice-cue]').forEach(button=>button.onclick=()=>{const cue=button.dataset.voiceCue;if(!['sigh','laugh','breathe','gasp','groan'].includes(cue))return;const current=$('previewText').value.trim().replace(/^\[(?:sigh|laugh|breathe|gasp|groan)\]\s*/i,'');$('previewText').value='['+cue+'] '+current;$('previewText').focus();$('previewStatus').textContent='مؤثر ['+cue+'] أُضيف لبداية النص. اضغط «اسمع صوت آيو» لتجربته.';});$('llmProvider').onchange=()=>presets();$('llmModelPreset').onchange=()=>$('llmModel').value=$('llmModelPreset').value;$('configForm').onsubmit=async e=>{e.preventDefault();const payload={voiceId:$('voiceId').value,ttsModel:$('ttsModel').value,ttsLocale:$('ttsLocale').value,ttsDelivery:$('ttsDelivery').value,llmProvider:$('llmProvider').value,llmModel:$('llmModel').value};for(const [id,k] of [['inworldKey','inworldKey'],['apinexKey','apinexKey'],['omniraKey','omniraKey']])if($(id).value.trim())payload[k]=$(id).value.trim();try{const d=await api('settings',payload);renderConfig(d.config);for(const k of ['inworldKey','apinexKey','omniraKey'])$(k).value='';note('اتحفظت مفاتيح الخدمات بشكل دائم على الاستضافة (خارج public_html). مش هتحتاج تدخلها مرة تانية.');}catch(e){note(e.message,true);}};$('ownerForm').onsubmit=async e=>{
    e.preventDefault();$('ownerError').textContent='';
    const code=$('ownerCode').value.trim();
    try{const result=await api('auth',{ownerCode:code});$('ownerCode').value='';$('ownerOverlay').hidden=true;
