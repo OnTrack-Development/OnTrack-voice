@@ -101,3 +101,18 @@ body{background-image:none!important}
 .ayo-modal-content small{display:block;text-align:center;margin-top:9px;color:#ff9eaa;font-size:10px}
 .host-keys-info{font-size:10px;line-height:1.8;color:#7bd5b1;background:#103026;border:1px solid #1c634b;border-radius:10px;padding:10px}
 @media(max-width:420px){.orb-wrap.ayo-avatar{width:min(100%,340px)}.ayo-modal-content{padding:18px}}
+
+/* Chrome Android microphone permission recovery dialog */
+.ayo-mic-recovery[hidden]{display:none!important}
+.ayo-mic-recovery{max-height:44vh;overflow:auto;text-align:right;border:1px solid #4c3540;background:#171317;border-radius:12px;padding:12px;margin-top:12px}
+.ayo-mic-recovery h4{font-size:13px;color:#fff;margin:0 0 7px}
+.ayo-mic-recovery ol{padding-right:20px;margin:8px 0;display:grid;gap:7px}
+.ayo-mic-recovery li{font-size:11px;color:#d4d0d3;line-height:1.8}
+.ayo-mic-recovery li b{color:#fff}
+.ayo-mic-recovery .ayo-mic-diagnostic{font:10px Cairo,system-ui;line-height:1.8;color:#a9d6bb;background:#14241b;padding:8px;border-radius:7px;text-align:right;margin:8px 0;overflow-wrap:anywhere}
+.ayo-mic-recovery-actions{display:flex;gap:8px;position:sticky;bottom:0;background:#171317;padding-top:9px}
+.ayo-mic-recovery .ayo-mic-disclaimer{font-size:9px;line-height:1.7;color:#c39d9d;margin:8px 0 0;text-align:right}
+.ayo-mic-help-link{border:0;background:transparent;color:#fca4af;text-decoration:underline;display:block;margin:11px auto 0;font-size:11px;cursor:pointer}
+.ayo-modal-content{max-height:calc(100dvh - 30px);overflow-y:auto}
+.ayo-modal-content #micPermissionError:not(:empty){color:#ffa5ac;line-height:1.7;font-size:11px}
+@media(max-width:480px){.ayo-mic-recovery{max-height:40vh}.ayo-mic-recovery-actions button{font-size:10px;padding:10px 5px}}
