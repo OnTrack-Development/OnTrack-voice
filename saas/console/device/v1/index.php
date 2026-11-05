@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../../_core/Bootstrap.php';
-require __DIR__.'/../../_core/DevicePairing.php';
-require __DIR__.'/../../_core/TenantVoiceSession.php';
-require __DIR__.'/../../_core/TenantWorkspace.php';
-require __DIR__.'/../../_core/TenantFileParser.php';
-require __DIR__.'/../../_core/VoiceAccess.php';
-require __DIR__.'/../../_core/HumanEscalations.php';
+require_once __DIR__.'/../../_core/Bootstrap.php';
+require_once __DIR__.'/../../_core/DevicePairing.php';
+require_once __DIR__.'/../../_core/TenantVoiceSession.php';
+require_once __DIR__.'/../../_core/TenantWorkspace.php';
+require_once __DIR__.'/../../_core/TenantFileParser.php';
+require_once __DIR__.'/../../_core/VoiceAccess.php';
+require_once __DIR__.'/../../_core/HumanEscalations.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
