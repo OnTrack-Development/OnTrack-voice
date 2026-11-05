@@ -24,6 +24,12 @@ function white_label_portal_slug():?string {
 function white_label_context():?array {
     $host=white_label_host();
     $slug=white_label_portal_slug();
+    // Preserve a branded portal throughout dashboard links on the shared host;
+    // never carry this browser session scope across a different host.
+    if($host===WHITE_LABEL_PLATFORM_HOST && $slug===null &&
+       !empty($_SESSION['wl_portal_slug']) &&
+       preg_match('/^[a-z0-9-]{1,100}$/D',(string)$_SESSION['wl_portal_slug']))
+        $slug=(string)$_SESSION['wl_portal_slug'];
     if($host!==WHITE_LABEL_PLATFORM_HOST) {
         if($slug!==null)throw new InvalidArgumentException('custom_host_portal_mismatch');
         $row=one("SELECT a.* FROM domains d JOIN accounts a ON a.id=d.account_id
@@ -42,6 +48,8 @@ function white_label_context():?array {
     return $row;
 }
 function white_label_guard():void {
+    $routeSlug=white_label_portal_slug();
+    if($routeSlug!==null)$_SESSION['wl_portal_slug']=$routeSlug;
     try{white_label_context();}
     catch(InvalidArgumentException){
         http_response_code(421);
@@ -49,6 +57,24 @@ function white_label_guard():void {
         header('Cache-Control: no-store');
         exit('بوابة الخدمة غير متاحة على هذا النطاق.');
     }
+}
+/** Domain is not public until DNS ownership, hosting and a valid TLS
+ * certificate have been confirmed; this pre-activation challenge is the only
+ * allowed response on a pending custom hostname.
+ */
+function white_label_domain_health():void {
+    try{$host=white_label_host();}catch(InvalidArgumentException){return;}
+    if($host===WHITE_LABEL_PLATFORM_HOST ||
+       (parse_url((string)($_SERVER['REQUEST_URI']??'/'),PHP_URL_PATH)!=='/portal-health'))return;
+    $row=one("SELECT d.verification_token FROM domains d JOIN accounts a ON a.id=d.account_id
+        WHERE d.hostname=? AND d.status='dns_verified'
+          AND a.kind='reseller' AND a.status='active'",[$host]);
+    if(!$row)return;
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Cache-Control: no-store');
+    header('X-Content-Type-Options: nosniff');
+    echo 'portal-ready:'.hash_hmac('sha256',$host,(string)$row['verification_token']);
+    exit;
 }
 function white_label_url(string $path='/'):string {
     $ctx=white_label_context();
