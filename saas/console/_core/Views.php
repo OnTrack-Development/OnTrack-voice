@@ -905,7 +905,10 @@ function render_calls(array $a):void{
         $letter=mb_substr((string)($c['name']?:$c['phone']),0,1);
         echo '<a class="call-contact'.($chosen?' active':'').'" href="'.e($url).'"'.($chosen?' aria-current="true"':'').'><span class="call-avatar">'.e($letter).'</span>'.
             '<span class="call-contact-main"><strong>'.e((string)($c['name']?:($c['phone']!==''?'رقم غير مسجل':'هوية المتصل لم تصل بعد'))).'</strong>'.
-            '<small dir="ltr">'.e((string)($c['phone']?:'رقم غير متاح · راجع إذن سجل المكالمات')).'</small></span>'.
+            '<small dir="ltr">'.e((string)($c['phone']?:'رقم غير متاح · راجع إذن سجل المكالمات')).'</small>'.
+                (($c['handoff_status']??'')==='requested'?'<small class="call-handoff-tag">⚑ طلب موظف بشري</small>':'').
+                (!empty($c['summary'])?'<small class="call-summary-snippet">'.e(mb_substr((string)$c['summary'],0,90)).'</small>':'').
+                '</span>'.
             '<span class="call-contact-meta"><time>'.e((string)$c['created_at']).'</time>'.pill((string)$c['status']).'</span></a>';
     }
     echo '</div><section class="call-detail" aria-label="تفاصيل المكالمة">';
@@ -940,6 +943,21 @@ function render_calls(array $a):void{
                     default=>'لم يتم طلب تدخل موظف'
                 }).'</p>'.
                 (!empty($selected['handoff_reason'])?'<p>'.nl2br(e((string)$selected['handoff_reason'])).'</p>':'').
+                '<strong>إبلاغ المدير أو الموظف بعد المكالمة</strong>'.
+                '<p>'.e(match((string)($selected['manager_notification_status']??'')){
+                    'pending'=>'مكالمة الإبلاغ مجدولة بعد مرور 10 ثوانٍ من نهاية المكالمة',
+                    'claimed'=>'التطبيق استلم طلب الاتصال؛ في انتظار البدء الفعلي',
+                    'dial_started'=>'بدأ الهاتف محاولة الاتصال بالموظف؛ لم يتأكد سماع الملخص',
+                    'call_ended_unverified'=>'انتهت محاولة الاتصال؛ لم يتأكد سماع الموظف للملخص',
+                    'failed'=>'فشل بدء اتصال الموظف من الجهاز — راجع الإعدادات',
+                    'unknown'=>'النتيجة غير مؤكدة؛ تتطلب مراجعة بشرية قبل أي إعادة',
+                    'cancelled'=>'أُلغي الإبلاغ لأن رقم الموظف لم يعد نشطًا',
+                    default=>($selected['handoff_status']??'not_requested')==='requested'
+                       ?'لم تُجهّز مكالمة متابعة؛ راجع رقم المدير وتفعيل مسار التحويل للمساعد'
+                       :'لم يُطلب إبلاغ موظف'
+                }).'</p>'.
+                (!empty($selected['manager_notification_name'])
+                  ?'<p class="dim">المسؤول: '.e((string)$selected['manager_notification_name']).'</p>':'').
                 ($transcriptRecord
                     ?'<details class="call-real-transcript"><summary>تفريغ صوت المكالمة الحقيقي (Gemini Live)</summary>'.
                         '<p class="dim">مصدر التفريغ: '.e((string)$transcriptRecord['source']).' · '.e((string)$transcriptRecord['created_at']).'</p>'.
