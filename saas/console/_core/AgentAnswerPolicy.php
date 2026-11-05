@@ -27,7 +27,7 @@ function answer_policy_normalize(array $input):array {
     if(!is_bool($v['auto_answer']))throw new InvalidArgumentException('invalid_auto_answer');
     if(!is_int($v['answer_delay_seconds'])||$v['answer_delay_seconds']<0||$v['answer_delay_seconds']>30)throw new InvalidArgumentException('invalid_answer_delay');
     if(!is_int($v['max_call_minutes'])||$v['max_call_minutes']<1||$v['max_call_minutes']>30)throw new InvalidArgumentException('invalid_call_duration');
-    if(!in_array($v['response_style'],['egyptian_short','formal_ar','english','bilingual'],true))throw new InvalidArgumentException('invalid_style');
+    if(!in_array($v['response_style'],['egyptian_short','formal_ar','english','bilingual','multilingual'],true))throw new InvalidArgumentException('invalid_style');
     if(!in_array($v['fallback'],['human','end'],true))throw new InvalidArgumentException('invalid_fallback');
     // Gemini Live remains dynamic; this only selects WHICH owner-authored
     // conversation instructions guide the SAME live session.
