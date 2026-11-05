@@ -87,11 +87,11 @@ function nav_entries(string $type):array{
         'billing'=>['▣','الاشتراكات'],
         'staff'=>['♙','الفريق والأدوار'],
         'voices'=>['♫','الأصوات المتاحة'],
-        'domains'=>['◎','الدومينات والبراند'],
-        'integrations'=>['⇄','تكاملات الريسيلر'],
+        'domains'=>['◎','دومين شركتي'],
+        'integrations'=>['⇄','تكاملات الشركة'],
         'keys'=>['⌘','مفاتيح API'],
         'releases'=>['↓','تطبيق Android'],
-        'settings'=>['⚙','إعدادات الريسيلر']
+        'settings'=>['⚙','إعدادات الشركة']
     ];
     return [
         'overview'=>['⌂','الرئيسية'],'sites'=>['◈','مواقعي'],
@@ -107,7 +107,7 @@ function layout_open(array $a,string $tab):void{
     $u=me();$brand=brand($a);$items=nav_entries((string)$a['kind']);$heading=$items[$tab][1]??'الرئيسية';
     $role=white_label_context()
         ?(console_view_mode($a)==='user'?'مساحة العمل':'لوحة الإدارة')
-        :(console_view_mode($a)==='user'?'USER WORKSPACE':match($a['kind']){'platform'=>'ADMIN CONTROL','reseller'=>'RESELLER HUB',default=>'USER WORKSPACE'});
+        :(console_view_mode($a)==='user'?'USER WORKSPACE':match($a['kind']){'platform'=>'ADMIN CONTROL','reseller'=>'إدارة الشركة',default=>'USER WORKSPACE'});
     $support=active_support()!==null;
     header('Content-Type: text/html; charset=utf-8');
     header('Referrer-Policy: strict-origin-when-cross-origin');
@@ -248,7 +248,7 @@ function render_overview(array $a):void{
         $n1=(int)one("SELECT COUNT(*) n FROM accounts WHERE parent_id=?",[$id])['n'];
         $n2=(int)one("SELECT COALESCE(SUM(p.call_quota),0) n FROM subscriptions s JOIN plans p ON s.plan_id=p.id JOIN accounts a ON a.id=s.account_id WHERE a.parent_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?",[$id,now(),now()])['n'];
         $n3=site_limit($id,'call_quota');$n4=(int)one('SELECT COUNT(*) n FROM integrations WHERE account_id=?',[$id])['n'];
-        $title='مساحة الريسيلر';$sub='إدارة العملاء والهوية والاشتراكات من مكان واحد دون رفع ملفات.';
+        $title='لوحة إدارة شركتك';$sub='تابع عملاءك وخدماتك وباقاتك وهويتك من مكان واحد.';
     }else{
         $n1=(int)one('SELECT COUNT(*) n FROM sites WHERE account_id=?',[$id])['n'];
         $n2=(int)one('SELECT COUNT(*) n FROM agents WHERE account_id=?',[$id])['n'];
@@ -1314,9 +1314,16 @@ function render_settings(array $a):void{
     $identityDescription=$adminIdentity
         ?'هنا بتتحكم في هوية الإدارة والعلامة التجارية. إعدادات وبيانات المستخدم التشغيلية موجودة في مساحة المستخدم.'
         :'المستخدم المباشر يرث OnTrack؛ المستخدم التابع يرث هوية الريسيلر بشكل آمن.';
-    echo card($identityTitle,'<div class="brand-preview"><div class="brand-icon">'.e(mb_substr($brand['name'],0,1)).'</div><div><h3>'.e($brand['name']).'</h3><p>ألوان الهوية الأساسية: أحمر / أسود / أبيض</p></div></div><p>'.e($identityDescription).'</p>');
+    $logoPreview=!empty($brand['logo'])
+        ?'<img class="wl-mark" src="/saas/console/brand-logo" alt="'.e($brand['name']).'" width="64" height="64">'
+        :'<span class="wl-fallback">'.e(mb_substr((string)$brand['name'],0,1)).'</span>';
+    echo card($identityTitle,'<div class="brand-preview">'.$logoPreview.'<div><h3>'.e($brand['name']).'</h3><p>هوية شركتك تظهر في تسجيل الدخول وإنشاء الحساب ولوحة العملاء.</p></div></div><p>'.e($identityDescription).'</p>');
     if(in_array($a['kind'],['reseller','platform'],true)&&console_view_mode($a)==='admin'){
-        echo card('تعديل الاسم والشعار',form_start('brand','/?tab=settings','enctype="multipart/form-data"').field_html('الاسم التجاري الظاهر','brand_name','text',$brand['name'],true).'<label class="field">شعار PNG/JPEG/WEBP (حتى 1MB)<input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></label>'.submit_btn('حفظ الهوية'));
+        echo card('الاسم التجاري والشعار',form_start('brand','/?tab=settings','enctype="multipart/form-data"').
+            '<label class="field">اسم شركتك الظاهر للعملاء<input name="brand_name" type="text" maxlength="100" value="'.e($brand['name']).'" required></label>'.
+            '<label class="field">ارفع شعار شركتك (PNG/JPEG/WEBP، حتى 1MB)<input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></label>'.
+            '<p class="dim">يفضل شعار مربع بخلفية شفافة. تقدر تغير الاسم أو الشعار في أي وقت، وهيظهر مباشرة في صفحات البوابة.</p>'.
+            submit_btn('حفظ هوية شركتي'));
     }else{
         echo card('إعدادات المستخدم','<p>اسم وشعار البرنامج متاحان من علامة الريسيلر الذي تتبع له، أو علامة OnTrack إن كنت عميلاً مباشراً.</p>');
     }
