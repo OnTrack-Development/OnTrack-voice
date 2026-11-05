@@ -8,6 +8,9 @@ $other=['id'=>971432,'account_id'=>5,'site_id'=>3,'sim_slot'=>1];
 $id='32ff1c20-51b2-4fb3-a02f-f82fe21e19cc';
 $actual="المتصل: محتاج متابعة مكالمة جديدة يوم الخميس.\nالإيجنت: حاضر؛ سأطلب من الموظف التواصل بعد الموافقة.";
 seed_console();
+// Cleanup an old fixture report from an interrupted Windows runner attempt.
+// A stale summary otherwise short-circuits the forced outage test.
+execute('DELETE FROM tenant_call_reports WHERE device_binding_id=? AND call_id=?',[$ours['id'],$id]);
 try{
     tenant_workspace_call_event($ours,['call_id'=>$id,'sequence'=>1,'phase'=>'ringing','duration_seconds'=>0]);
     $fail=false;
@@ -40,6 +43,7 @@ try{
     text_ok($invalid,'never accept invented short data');
     echo "TENANT_VOICE_TRANSCRIPT_ARCHIVE_PASS\n";
 }finally{
+    execute('DELETE FROM tenant_call_reports WHERE device_binding_id=? AND call_id=?',[$ours['id'],$id]);
     execute('DELETE FROM tenant_call_transcripts WHERE device_binding_id=?',[$ours['id']]);
     execute('DELETE FROM tenant_call_events WHERE device_binding_id=?',[$ours['id']]);
     execute('DELETE FROM calls WHERE device_binding_id=?',[$ours['id']]);

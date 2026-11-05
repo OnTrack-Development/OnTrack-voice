@@ -84,6 +84,16 @@ try {
     try{tenant_workspace_call_analysis($binding,['call_id'=>$callId,'transcript'=>'صمت'],$transport);}
     catch(InvalidArgumentException){$denied=true;}
     call_ai_ok($denied,'empty transcript not summarized');
+    // Production fallback never invents a manager callback or fabricated AI
+    // outcome. The separate archive test still asserts an injected 503
+    // propagates after the true transcript was saved.
+    $fallback=tenant_call_summary_transcript_fallback($transcript);
+    call_ai_ok(str_contains($fallback['summary'],'تعذر التلخيص الآلي') &&
+        str_contains($fallback['summary'],'الباقة الجديدة') &&
+        $fallback['outcome']==='unknown' &&
+        $fallback['handoff_requested']===false &&
+        $fallback['customer_notes']==='',
+        'fallback is labelled factual speech only, never fake staff handoff');
     echo "GEMINI_LIVE_REAL_CALL_SUMMARY_MOCK_PASS\n";
 }finally{
     execute('DELETE FROM tenant_call_transcripts WHERE device_binding_id=? AND call_id=?',[$binding['id'],$callId]);

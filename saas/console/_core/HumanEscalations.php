@@ -130,8 +130,8 @@ function he_schedule(array $b,string $callId):array {
     he_init();
     $account=(int)$b['account_id'];$site=(int)$b['site_id'];
     $device=(int)$b['id'];$slot=(int)$b['sim_slot'];
-    $row=one("SELECT c.ended_at,c.status,c.agent_id,r.handoff_status,r.handoff_reason,
-            r.source,ar.contact_id,ar.enabled,ar.delay_seconds,co.status recipient_status
+    $row=one("SELECT c.ended_at,c.created_at AS call_started_at,c.status,c.agent_id,r.handoff_status,r.handoff_reason,
+            r.source,ar.contact_id,ar.enabled,ar.delay_seconds,ar.updated_at AS route_updated_at,co.status recipient_status
         FROM calls c
         JOIN tenant_call_reports r ON r.account_id=c.account_id
           AND r.site_id=c.site_id AND r.device_binding_id=c.device_binding_id
@@ -152,6 +152,12 @@ function he_schedule(array $b,string $callId):array {
         return ['queued'=>false,'reason'=>'handset_takeover_not_customer_request'];
     if((int)($row['enabled']??0)!==1||!$row['contact_id']||$row['recipient_status']!=='active')
         return ['queued'=>false,'reason'=>'staff_routing_not_configured'];
+    // A route configured after a call began must NEVER auto-dial about that
+    // historical call. In particular, enabling the first manager number must
+    // not retroactively call staff for hours-old requests.
+    if(!empty($row['route_updated_at']) &&
+       (string)$row['call_started_at']<(string)$row['route_updated_at'])
+        return ['queued'=>false,'reason'=>'staff_route_configured_after_call'];
     $existing=one('SELECT id,status FROM human_escalation_jobs WHERE device_binding_id=? AND call_id=?',
         [$device,$callId]);
     if($existing)return ['queued'=>true,'duplicate'=>true,'status'=>$existing['status']];
