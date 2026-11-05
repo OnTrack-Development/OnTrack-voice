@@ -7,6 +7,8 @@ on:
       - saas/console/assets/css/app.css
       - saas/console/assets/js/app.js
       - tools/audit_saas_responsive.cjs
+      - tools/seed_responsive_ui.php
+      - tools/test_saas_ui_router.php
       - .github/workflows/voice-saas-responsive-audit.yml
   workflow_dispatch:
 permissions:
@@ -42,3 +44,44 @@ jobs:
           }
           & python -c "import importlib.util; print('PY_PLAYWRIGHT',bool(importlib.util.find_spec('playwright')))"
           Write-Host 'BROWSER_PROBE_COMPLETE'
+      - name: Browser-measured mobile, tablet and desktop layouts for all SaaS roles
+        env:
+          SAAS_RESPONSIVE_FIXTURE: '1'
+        run: |
+          $ErrorActionPreference='Stop'
+          $originalTemp=$env:TEMP
+          $originalTmp=$env:TMP
+          $isolated=Join-Path $env:RUNNER_TEMP ('responsive-browser-'+$env:GITHUB_RUN_ID)
+          New-Item -Path $isolated -ItemType Directory -Force | Out-Null
+          $env:TEMP=$isolated
+          $env:TMP=$isolated
+          $env:CHROME_BIN='C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
+          $server=$null
+          try {
+            & php tools/seed_responsive_ui.php
+            if($LASTEXITCODE -ne 0){throw 'Demo database seed failed'}
+            & php -l tools/test_saas_ui_router.php
+            if($LASTEXITCODE -ne 0){throw 'PHP browser router invalid'}
+            & node --check tools/audit_saas_responsive.cjs
+            if($LASTEXITCODE -ne 0){throw 'CDP responsive browser test invalid'}
+            $args=@('-S','127.0.0.1:18773','-t','saas/console','tools/test_saas_ui_router.php')
+            $server=Start-Process -FilePath (Get-Command php).Source -ArgumentList $args -WorkingDirectory $PWD -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $isolated 'php.out.log') -RedirectStandardError (Join-Path $isolated 'php.err.log')
+            $online=$false
+            for($i=0;$i -lt 30;$i++){
+              Start-Sleep -Milliseconds 300
+              try {
+                $result=Invoke-WebRequest -Uri 'http://127.0.0.1:18773/login' -UseBasicParsing -TimeoutSec 4
+                if($result.StatusCode -eq 200){$online=$true;break}
+              } catch {}
+            }
+            if(-not $online){Get-Content (Join-Path $isolated 'php.err.log') -Tail 35;throw 'Local SaaS PHP test server not available'}
+            & node tools/audit_saas_responsive.cjs
+            if($LASTEXITCODE -ne 0){throw 'Responsive browser viewport audit found defects'}
+            Write-Host 'SAAS_ALL_ROLES_RESPONSIVE_BROWSER_PASS'
+          } finally {
+            if($server){Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue}
+            $env:TEMP=$originalTemp
+            $env:TMP=$originalTmp
+            Remove-Item -Path $isolated -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
