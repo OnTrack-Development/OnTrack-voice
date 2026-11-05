@@ -1,0 +1,13 @@
+{
+  "job_id": "ayo-character-https-smoke-20261105-01",
+  "target": "appontrack-server11",
+  "job_sha256": "0be829f7e267c3af60e0032529859abfa2c8de7d15b4846cac54afae3f31601f",
+  "started_at": "2026-11-05T04:11:02.800071+00:00",
+  "status": "failed",
+  "exit_code": 1,
+  "output_truncated": false,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 17, in <module>\nRuntimeError: AYO official-character HTTPS smoke failed: [{\"path\": \"/\", \"http\": 200, \"length\": 15274, \"has_marker\": true, \"mime\": \"text/html; charset=UTF-8\"}, {\"path\": \"app.js?v=6\", \"http\": 200, \"length\": 24034, \"has_marker\": true, \"mime\": \"text/javascript\"}, {\"path\": \"ayo-avatar.js\", \"http\": 200, \"length\": 5906, \"has_marker\": true, \"mime\": \"text/javascript\"}, {\"path\": \"style.css?v=6\", \"http\": 200, \"length\": 19917, \"has_marker\": true, \"mime\": \"text/css\"}, {\"path\": \"assets/ayo-character.webp\", \"http\": 200, \"length\": 1845, \"has_marker\": false, \"mime\": \"text/html; charset=utf-8\", \"sha256_ok\": false, \"webp\": false}, {\"path\": \"api.php?action=status\", \"http\": 200, \"length\": 411, \"has_marker\": true, \"mime\": \"application/json; charset=utf-8\", \"config_has_emotion_mode\": true}]\n",
+  "finished_at": "2026-11-05T04:11:03.167690+00:00",
+  "duration_ms": 368
+}
