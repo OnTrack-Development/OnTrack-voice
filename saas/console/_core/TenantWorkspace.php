@@ -113,14 +113,21 @@ function tenant_workspace_call_event(array $b,array $p):array{
                 // Explicit caller speech observed by Google Live, not an AI
                 // summary or the manual handset takeover button. Record the
                 // request immediately; dialing remains post-call and route-scoped.
-                $reason='المتصل طلب التحدث مع موظف بشري أثناء المكالمة.';
+                $reason=$p['handoff_reason']??'';
+                $notes=$p['customer_notes']??'';
+                if(!is_string($reason)||!is_string($notes)||
+                   mb_strlen($reason)>350||mb_strlen($notes)>700)
+                    throw new InvalidArgumentException('invalid_handoff_details');
+                $reason=trim($reason);
+                if($reason==='')$reason='المتصل طلب التحدث مع موظف بشري أثناء المكالمة.';
+                $notes=trim($notes);
                 $report=tenant_call_report_find($b,$id);
                 if(!$report){
                     insert('INSERT INTO tenant_call_reports
                         (account_id,site_id,device_binding_id,call_id,summary,customer_notes,
                          outcome,handoff_status,handoff_reason,source,revision,created_at,updated_at)
                          VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?)',
-                        [$b['account_id'],$b['site_id'],$b['id'],$id,'','',
+                        [$b['account_id'],$b['site_id'],$b['id'],$id,'',$notes,
                          'unknown','requested',$reason,'device',now(),now()]);
                 }elseif(($report['handoff_status']??'')!=='completed'){
                     execute("UPDATE tenant_call_reports SET handoff_status='requested',
