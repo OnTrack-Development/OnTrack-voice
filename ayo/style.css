@@ -31,3 +31,13 @@
 .gateway-state.is-ready{color:#4fd6a0}
 .gateway-settings{border:0;background:transparent;color:#f27886;font-size:10px;cursor:pointer;text-decoration:underline}
 @media(max-width:420px){.gateway-picker{margin:0 11px 12px;padding:10px}.gateway-title{display:block}.gateway-title small{display:block;margin-top:2px}.gateway-card{padding:9px 5px}.gateway-card strong{font-size:11px}.gateway-card small{font-size:8px}.gateway-bottom{align-items:start}}
+
+/* Autonomous TTS-2 vocal expression and manual sound-preview controls. */
+.emotion-selector{margin:0 19px 12px;border:1px solid #373c45;border-radius:12px;background:#16191e;padding:11px 13px;display:grid;gap:6px}
+.emotion-selector label{font-size:11px;color:#f1dce0;font-weight:800}
+.emotion-selector select{width:100%;min-width:0;padding:9px;color:#fff;background:#22262e;border:1px solid #474b53;border-radius:9px;font-size:11px}
+.emotion-selector small{font-size:9px;color:#98a2b0;line-height:1.7;min-height:17px;overflow-wrap:anywhere}
+.emotion-examples{display:flex;flex-wrap:wrap;gap:6px;margin:8px 18px 12px}
+.emotion-examples button{padding:7px 10px;border-radius:8px;border:1px solid #59363e;background:#292026;color:#f5c4cd;font-size:10px}
+.emotion-examples button:focus-visible,.emotion-examples button:hover{border-color:#e85b6e;background:#49232c}
+@media(max-width:420px){.emotion-selector{margin:0 11px 12px;padding:10px}.emotion-examples{margin-inline:12px}.emotion-examples button{flex:1 1 auto}}
