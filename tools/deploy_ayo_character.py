@@ -113,6 +113,7 @@ def deploy():
     for name in EDITABLE:
         (BACKUP / name).write_bytes((DOCROOT / name).read_bytes())
     assets.mkdir(mode=0o755, exist_ok=True)
+    assets.chmod(0o755)  # Shared-host umask can silently turn mode 755 into mode 700.
     written = []
     try:
         for name, raw in built.items():
