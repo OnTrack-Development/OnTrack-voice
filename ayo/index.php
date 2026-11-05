@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#000000"/>
   <title>AYO | OnTrack Voice Lab</title>
-  <link rel="stylesheet" href="style.css?v=8"/>
+  <link rel="stylesheet" href="style.css?v=9"/>
 </head>
 <body>
 <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -63,7 +63,7 @@
       <div class="conversation-scroll" id="transcript"><div class="empty-chat"><div class="empty-icon">◌</div><h3>ابدأ الحديث مع آيو</h3><p>اسأل عن باقات الاستضافة، الفرق بين الريسيلر والـVPS، أو أسعار الدومينات.</p></div></div>
       <div class="interim" id="interim"></div>
       <form class="composer" id="composer"><button class="send-btn" aria-label="إرسال" type="submit">➤</button><input id="question" autocomplete="off" placeholder="أو اكتب سؤالك هنا..." maxlength="1500"/><span class="composer-caption">ENTER</span></form>
-      <div class="chat-footer"><span>AR-EG / مصري</span><span id="audioStatus">PCM 24 kHz · HTTP Streaming</span><button class="link-button" id="downloadLast" disabled>↓ تحميل آخر رد WAV</button></div>
+      <p class="ayo-chat-note">تقدر تبعت رسالة نصية حتى لو الميكروفون مش متفعّل. اختيار Omnira أو APInex فوق هو اللي هيحدد الرد.</p><div class="chat-footer"><span>AR-EG / مصري</span><span id="audioStatus">PCM 24 kHz · HTTP Streaming</span><button class="link-button" id="downloadLast" disabled>↓ تحميل آخر رد WAV</button></div>
     </section>
     <aside class="side">
       <section class="panel config-panel"><div class="panel-head"><div class="panel-label"><span class="speech-icon">⚙</span><h3>إعدادات التجربة</h3></div><button id="toggleConfig" class="btn-quiet">إظهار</button></div>
@@ -107,7 +107,7 @@
           <button type="button" data-voice-cue="gasp">دهشة</button>
           <button type="button" data-voice-cue="groan">آهة</button>
         </div>
-        <button id="previewBtn" class="btn-clone" type="button">▶ اسمع صوت آيو</button>
+        <button id="previewBtn" class="btn-clone" type="button">▶ اسمع صوت آيو</button><audio id="ayoPlayback" class="ayo-native-player" controls preload="none" aria-label="مشغل الصوت المستنسخ بعد اكتمال التوليد"></audio>
         <small class="helper" id="previewStatus">HTTP Streaming مباشر من Inworld بدون تشغيل LLM، بتكلفة TTS فقط.</small>
       </section>
       <section class="panel knowledge-panel"><div class="panel-head"><div class="panel-label"><span class="speech-icon">▤</span><h3>معرفة آيو</h3></div><span class="source-pill">مصدر رسمي</span></div><p class="panel-description">بيانات باقات أون تراك حسب صفحات الموقع بتاريخ 5 نوفمبر 2026.</p><div id="knowledge"></div><a class="source-link" href="https://ontrackegy.com/web-hosting/" target="_blank" rel="noopener">عرض باقات أون تراك ↗</a></section>
@@ -149,6 +149,6 @@
     <button type="button" id="micShowGuide" class="ayo-mic-help-link">الموافقة مش بتظهر؟ شوف خطوات Chrome على الموبايل</button>
   </div>
 </div>
-<script type="module" src="app.js?v=8"></script>
+<script type="module" src="app.js?v=9"></script>
 </body>
 </html>
