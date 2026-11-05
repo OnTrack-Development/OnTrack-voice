@@ -1,0 +1,13 @@
+{
+  "job_id": "agent-publish-live-diagnostic-20261105-2141",
+  "target": "appontrack-server11",
+  "job_sha256": "1a22e58a05a741742e26700b35f90d195f949dcb9b97724e96f26eaed37d6e0d",
+  "started_at": "2026-11-05T19:43:02.741427+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"_core/Actions.php\": {\"exists\": true, \"bytes\": 88913, \"sha256\": \"bc2ff48aea4d742bcd526d7269f7729113743319db00370cfe52c20d2b2dd506\", \"agent_ajax\": true, \"json_parse\": false, \"form_handler\": false}, \"_core/Bootstrap.php\": {\"exists\": true, \"bytes\": 46617, \"sha256\": \"70a41508dd2e36b704d3cd7a9ff2b49949723c5d0bfb73fe63e758ae4e2fe7f1\", \"agent_ajax\": false, \"json_parse\": false, \"form_handler\": false}, \"_core/Views.php\": {\"exists\": true, \"bytes\": 167962, \"sha256\": \"6e32e7fc804f952e757b90d330115a9b5351ed0e5536671c1356b06002a3d6a2\", \"agent_ajax\": false, \"json_parse\": false, \"form_handler\": true}, \"_core/PublishedFlow.php\": {\"exists\": true, \"bytes\": 3637, \"sha256\": \"f37a4f4cd4118e64acbecb657dc7f64dab7ff4332f682c292e2901263e2468dd\", \"agent_ajax\": false, \"json_parse\": false, \"form_handler\": false}, \"assets/js/app.js\": {\"exists\": true, \"bytes\": 24320, \"sha256\": \"bc58f55ac3117b4c1fe67a010c29da92533a074c0d07ece18eb12bbfbc844569\", \"agent_ajax\": false, \"json_parse\": true, \"form_handler\": true}, \"index.php\": {\"exists\": true, \"bytes\": 12991, \"sha256\": \"19a7da81beae00a002e544297710632fe234f13281eeac6800c78a6b92c4d55a\", \"agent_ajax\": false, \"json_parse\": false, \"form_handler\": false}, \"logs\": {}}\n",
+  "stderr": "",
+  "finished_at": "2026-11-05T19:43:02.778053+00:00",
+  "duration_ms": 37
+}
