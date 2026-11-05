@@ -42,19 +42,19 @@ function ai_relay_legacy_voice_once():void {
     }
     file_put_contents($mark,now(),LOCK_EX);@chmod($mark,0600);
 }
-function ai_relay_rows(string $scope,bool $enabledOnly=false):array {
+function ai_relay_rows(string $scope,bool $enabledOnly=false,?int $accountId=null):array {
     if(!in_array($scope,['voice','assistant'],true))throw new InvalidArgumentException('relay_scope');
     ai_relay_init();
     if($scope==='voice')ai_relay_legacy_voice_once();
     return all("SELECT id,account_id,scope,driver,label,model,endpoint,priority,enabled,
         cooldown_until,last_status,last_checked_at FROM ai_relay_entries
         WHERE account_id=? AND scope=? ".($enabledOnly?'AND enabled=1 ':'').
-        "ORDER BY priority ASC,id ASC",[ai_relay_platform(),$scope]);
+        "ORDER BY priority ASC,id ASC",[$accountId??ai_relay_platform(),$scope]);
 }
-function ai_relay_one(int $id):?array {
+function ai_relay_one(int $id,?int $accountId=null):?array {
     ai_relay_init();
     return one('SELECT * FROM ai_relay_entries WHERE id=? AND account_id=?',
-        [$id,ai_relay_platform()]);
+        [$id,$accountId??ai_relay_platform()]);
 }
 function ai_relay_has(string $scope):bool {return ai_relay_rows($scope)!==[];}
 function ai_relay_endpoint(string $url):string {
@@ -72,7 +72,16 @@ function ai_relay_endpoint(string $url):string {
 }
 function ai_relay_add(int $account,string $scope,string $driver,string $name,string $model,string $endpoint,string $key):int {
     ai_relay_init();
-    if($account!==ai_relay_platform())throw new RuntimeException('relay_denied');
+    if($account!==ai_relay_platform()){
+        if($scope!=='voice'||$driver!=='google_live')
+            throw new RuntimeException('relay_denied');
+        require_once __DIR__.'/GoogleTenantKeys.php';
+        $limit=google_voice_key_limit($account);
+        $owner=account($account);
+        if(!$owner||$owner['status']!=='active'||($owner['kind']==='customer'&&
+            (int)one("SELECT COUNT(*) n FROM ai_relay_entries WHERE account_id=? AND scope='voice'",[$account])['n'] >= $limit))
+            throw new RuntimeException('google_key_limit_reached');
+    }
     if(!in_array($scope,['voice','assistant'],true)||
        !in_array($driver,$scope==='voice'?['google_live']:['google_live','google_text','openai_compatible'],true))
         throw new InvalidArgumentException('نوع مزوّد غير صالح');
@@ -85,8 +94,8 @@ function ai_relay_add(int $account,string $scope,string $driver,string $name,str
     return insert('INSERT INTO ai_relay_entries(account_id,scope,driver,label,model,endpoint,secret_enc,priority,enabled,created_at)
       VALUES(?,?,?,?,?,?,?,?,1,?)',[$account,$scope,$driver,trim($name),$model,$endpoint,seal_secret($key),(int)$maximum['n']+1,now()]);
 }
-function ai_relay_edit(int $id,string $name,string $model,string $endpoint,string $key):void {
-    $row=ai_relay_one($id);
+function ai_relay_edit(int $id,string $name,string $model,string $endpoint,string $key,?int $accountId=null):void {
+    $row=ai_relay_one($id,$accountId);
     if(!$row)throw new InvalidArgumentException('المزوّد غير موجود');
     if(mb_strlen(trim($name))<2||mb_strlen($name)>100||
        !preg_match('/\A[A-Za-z0-9._-]{4,120}\z/D',$model)||
@@ -98,8 +107,8 @@ function ai_relay_edit(int $id,string $name,string $model,string $endpoint,strin
         cooldown_until=NULL,last_status='edited' WHERE id=? AND account_id=?",
         [trim($name),$model,$url,$encrypted,$id,$row['account_id']]);
 }
-function ai_relay_modify(int $id,string $action):void {
-    $item=ai_relay_one($id);
+function ai_relay_modify(int $id,string $action,?int $accountId=null):void {
+    $item=ai_relay_one($id,$accountId);
     if(!$item)throw new InvalidArgumentException('المزوّد غير موجود');
     if($action==='toggle'){
         execute("UPDATE ai_relay_entries SET enabled=?,last_status='manual' WHERE id=?",
@@ -110,7 +119,7 @@ function ai_relay_modify(int $id,string $action):void {
     }
     if($action==='delete'){execute('DELETE FROM ai_relay_entries WHERE id=?',[$id]);return;}
     if($action==='up'||$action==='down'){
-        $rows=ai_relay_rows((string)$item['scope']);
+        $rows=ai_relay_rows((string)$item['scope'],false,(int)$item['account_id']);
         $ids=array_map('intval',array_column($rows,'id'));
         $pos=array_search($id,$ids,true);
         $other=$pos+($action==='up'?-1:1);
@@ -134,14 +143,15 @@ function ai_relay_mark(int $id,string $code):void {
     execute('UPDATE ai_relay_entries SET last_status=?,last_checked_at=?,cooldown_until=? WHERE id=?',
         [$code,now(),$cool,$id]);
 }
-function ai_relay_run(string $scope,callable $callback):mixed {
-    $rows=ai_relay_rows($scope,true);
-    if(!$rows)throw new RuntimeException('ai_relay_no_entries');
+function ai_relay_run(string $scope,callable $callback,?int $accountId=null):mixed {
+    $all=ai_relay_rows($scope,false,$accountId);
+    $rows=array_values(array_filter($all,static fn($row)=>(int)$row['enabled']===1));
+    if(!$rows)throw new RuntimeException('ai_relay_no_enabled_entries');
     $count=0;$last='not_available';
     foreach($rows as $row){
         if(!empty($row['cooldown_until'])&&$row['cooldown_until']>now())continue;
         $count++;
-        $full=ai_relay_one((int)$row['id']);
+        $full=ai_relay_one((int)$row['id'],(int)$row['account_id']);
         $key=$full?unseal_secret($full['secret_enc']??null):null;
         if(!is_string($key)||$key===''){ai_relay_mark((int)$row['id'],'key_unavailable');continue;}
         try{$result=$callback($row,$key);ai_relay_mark((int)$row['id'],'ok');return $result;}
@@ -235,13 +245,15 @@ function ai_relay_model():string {
         if(empty($row['cooldown_until'])||$row['cooldown_until']<=now())return (string)$row['model'];
     return flow_ai_live_model();
 }
-function ai_relay_voice_session(int $minutes):array {
+function ai_relay_voice_session(int $minutes,?int $callerAccountId=null):array {
+    require_once __DIR__.'/GoogleTenantKeys.php';
+    $owner=$callerAccountId===null?ai_relay_platform():google_voice_pool_owner($callerAccountId);
     return ai_relay_run('voice',static function(array $row,string $key)use($minutes){
         return ['token'=>tenant_voice_ephemeral_token($key,$minutes),'model'=>$row['model']];
-    });
+    },$owner);
 }
-function ai_relay_test(int $id):string {
-    $row=ai_relay_one($id);
+function ai_relay_test(int $id,?int $accountId=null):string {
+    $row=ai_relay_one($id,$accountId);
     if(!$row)throw new InvalidArgumentException('المزوّد غير موجود');
     $key=(string)(unseal_secret($row['secret_enc']??null)??'');
     try{
