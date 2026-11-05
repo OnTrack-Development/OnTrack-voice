@@ -1,0 +1,13 @@
+{
+  "job_id": "ontrack-scenario-backend-policy-publish-20261106-0110",
+  "target": "appontrack-server11",
+  "job_sha256": "71272d69d07b6ef56a263c9b0c74eabdcf63f5573a7585c20cc75a636aeeea1f",
+  "started_at": "2026-11-05T23:05:03.783869+00:00",
+  "status": "failed",
+  "exit_code": 1,
+  "output_truncated": false,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 16, in <module>\nRuntimeError: patch_anchor__core/AgentAnswerPolicy.php_0_count_0\n",
+  "finished_at": "2026-11-05T23:05:03.836557+00:00",
+  "duration_ms": 53
+}
