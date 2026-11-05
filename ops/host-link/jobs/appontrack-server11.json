@@ -1,16 +1,15 @@
 {
   "schema": 1,
-  "id": "ayo-php-publish-20261105-01",
+  "id": "ayo-php-https-smoke-20261105-01",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-05T02:53:39.268Z",
-  "expires_at": "2026-11-05T03:53:39.268Z",
+  "created_at": "2026-11-05T02:54:36.181Z",
+  "expires_at": "2026-11-05T03:54:36.181Z",
   "cwd": "/home/appontrack/public_html",
   "timeout_seconds": 30,
   "argv": [
     "/bin/python3",
     "-c",
-    "import os,pathlib,hashlib,json,subprocess,shutil\nstage=pathlib.Path('/home/appontrack/.ayo-stage-transfer-20261105')\ntarget=pathlib.Path('/home/appontrack/public_html/ayo')\nexpected=json.loads(__import__('sys').argv[1])\nif (stage/'.next').read_text().strip()!='9':raise RuntimeError('transfer incomplete')\nif not target.is_dir() or any(target.iterdir()):raise RuntimeError('target missing or not empty; no overwrite')\nfor name,sha in expected.items():\n raw=(stage/name).read_bytes()\n blob=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\\x00'+raw).hexdigest()\n if blob!=sha:raise RuntimeError('integrity check failed '+name)\n if name.endswith('.php'):\n  exe=shutil.which('php') or '/usr/local/bin/php'\n  p=subprocess.run([exe,'-l',str(stage/name)],capture_output=True,text=True,timeout=10)\n  if p.returncode:raise RuntimeError('PHP lint failed '+name)\njson.loads((stage/'ontrack.json').read_text())\nwritten=[]\ntry:\n for name in expected:\n  dest=target/name\n  fd=os.open(dest,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o644)\n  with os.fdopen(fd,'wb') as f:f.write((stage/name).read_bytes())\n  written.append(dest)\nexcept Exception:\n for path in written:path.unlink(missing_ok=True)\n raise\nprint(json.dumps({'deployed':True,'directory':str(target),'files':sorted(expected),'php_lint':'pass','git_blob_integrity':'pass'}))",
-    "{\"api.php\":\"02032a1314158998b0868bb01bd10931826a7bee\",\"index.php\":\"7a15215c748a12c38e5c940f4df8a7198c6fb20e\",\"app.js\":\"63a8e6f0809dde43571322ba612d4093d9728443\",\"style.css\":\"6917bf62c5ff819fc2f3a74110ebbb0ffb85bb02\",\"audio-worklet.js\":\"3d25bb65090fa0ab13c462fb35e1c0100af6fc44\",\"ontrack.json\":\"9cf434537f03b417fa6074629fe8d141f5c4dd7d\"}"
+    "import urllib.request,urllib.error,json\nbase='https://app.ontrackegy.com/ayo/'\nout=[]\nfor suffix in ('','api.php?action=status','app.js','style.css','audio-worklet.js'):\n try:\n  req=urllib.request.Request(base+suffix,headers={'User-Agent':'OnTrack-AYO-HTTP-Smoke/1.0'})\n  with urllib.request.urlopen(req,timeout=7) as r:\n   raw=r.read(250000)\n   item={'path':suffix or '/','http':r.status,'type':r.headers.get('content-type','')}\n   if suffix=='':item['ayo_marker']=b'AYO' in raw\n   if suffix=='api.php?action=status':\n    data=json.loads(raw);item['config_ok']=isinstance(data.get('config'),dict);item['csrf']=bool(data.get('csrf'));item['has_inworld_key']=data.get('config',{}).get('hasInworldKey')\n   out.append(item)\n except Exception as e:out.append({'path':suffix or '/','error_type':type(e).__name__,'http':getattr(e,'code',None)})\nprint(json.dumps(out))"
   ]
 }
