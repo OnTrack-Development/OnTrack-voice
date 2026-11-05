@@ -16,9 +16,9 @@ import urllib.request
 import zipfile
 
 REPO="OnTrack-Development/OnTrack-voice"
-TAG="ontrack-native-v47"
+TAG="ontrack-native-v48"
 PREFIX="https://api.github.com/repos/"+REPO+"/"
-ASSETS=("OnTrack-Voice-0.3.24.apk","OnTrack-Voice-UI46.zip")
+ASSETS=("OnTrack-Voice-0.3.25.apk","OnTrack-Voice-UI47.zip")
 ALLOWED_CDN=("release-assets.githubusercontent.com","objects.githubusercontent.com")
 
 def api(endpoint,method="GET",payload=None):
@@ -43,7 +43,7 @@ def _release(create=False):
         if error.code!=404 or not create:raise
         r=api("releases","POST",{
             "tag_name":TAG,"target_commitish":_assert_source(),
-            "name":"OnTrack Voice 0.3.24 - signed APK and UI46",
+            "name":"OnTrack Voice 0.3.25 - signed APK and UI47",
             "body":"Private build transport. Only signed manifests and exact SHA256 assets are eligible for publication.",
             "draft":False,"prerelease":True,"make_latest":"false"})
     assert r["tag_name"]==TAG and not r["draft"]
@@ -69,8 +69,8 @@ def publish(folder):
     signed=folder/ASSETS[0]
     _,_,native_meta=native.verify(folder/"native")
     _,_,ui_meta=ui.verify(folder/"ota")
-    assert native_meta["version_code"]==47 and native_meta["version_name"]=="0.3.24"
-    assert ui_meta["revision"]==46 and ui_meta["min_native"]<=47<=ui_meta["max_native"]
+    assert native_meta["version_code"]==48 and native_meta["version_name"]=="0.3.25"
+    assert ui_meta["revision"]==47 and ui_meta["min_native"]<=48<=ui_meta["max_native"]
     assert signed.stat().st_size==native_meta["size"]
     assert hashlib.sha256(signed.read_bytes()).hexdigest()==native_meta["sha256"]
     bundle=_archive(folder)
