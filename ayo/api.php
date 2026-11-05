@@ -62,6 +62,46 @@ function decodeSse(string $line, callable $cb): void {
  if(is_string($delta)&&$delta!=='')$cb($delta);
  elseif(is_array($delta)){foreach($delta as $part)if(($part['type']??'')==='text'&&isset($part['text']))$cb((string)$part['text']);}
 }
+function llm_plain_text(array $d): string {
+ $message=$d['choices'][0]['message']??[];
+ $content=$message['content']??($d['output_text']??'');
+ if(is_string($content))return trim($content);
+ if(is_array($content)){
+  $parts=[];
+  foreach($content as $part){
+   if(is_string($part))$parts[]=$part;
+   elseif(is_array($part) && isset($part['text']) && is_string($part['text']))$parts[]=$part['text'];
+  }
+  return trim(implode('',$parts));
+ }
+ return '';
+}
+function llm_error_label(int $status,string $provider): string {
+ $name=match($provider){'omnira-a'=>'Omnira A','omnira-b'=>'Omnira B',default=>'APInex'};
+ if($status===401)return $name.' رفض المصادقة (401). راجع المفتاح المخزن على الاستضافة';
+ if($status===403)return $name.' منع الطلب (403). راجع صلاحية الموديل/الحساب أو سياسة الوصول بالبوابة';
+ if($status===404)return $name.' لم يجد الموديل أو المسار (404). اختر موديلًا متاحًا لهذه البوابة';
+ if($status===429)return $name.' وصل لحد الاستخدام (429). جرّب بوابة أخرى أو راجع الحصة';
+ if(in_array($status,[502,503,504],true))return $name.' غير متاح حاليًا (HTTP '.$status.'). مزود الخدمة نفسه أو الخادم الخلفي متعطل';
+ return $name.' رفض الطلب (HTTP '.($status?:'network').'). جرّب موديلًا آخر أو افحص الاتصال';
+}
+function llm_fallback_plain(array $c,array $messages,string $reason): string {
+ $p=llm_info($c);
+ $payload=json_encode(['model'=>$c['llmModel'],'messages'=>$messages,'stream'=>false,'max_tokens'=>550,'temperature'=>0.55],JSON_UNESCAPED_UNICODE);
+ $ch=curl_base($p['url'],['Authorization: Bearer '.$p['key'],'Content-Type: application/json','Accept: application/json'],(string)$payload);
+ curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
+ curl_setopt($ch,CURLOPT_TIMEOUT,48);
+ $started=microtime(true);$raw=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
+ emit(['type'=>'llm_diagnostic','provider'=>$c['llmProvider'],'model'=>$c['llmModel'],'mode'=>'nonstream-fallback','reason'=>$reason,'http'=>$status,'elapsedMs'=>round((microtime(true)-$started)*1000)]);
+ if($raw===false||$status>=400)throw new RuntimeException(llm_error_label($status,$c['llmProvider']));
+ $doc=json_decode(is_string($raw)?$raw:'',true);
+ $text=is_array($doc)?llm_plain_text($doc):'';
+ if($text===''){
+  $hasReasoning=is_array($doc)&&!empty($doc['choices'][0]['message']['reasoning_content']);
+  throw new RuntimeException($hasReasoning?'الموديل رجّع تفكيرًا داخليًا من غير إجابة نهائية. اختار موديل Flash أو غير Thinking':'مزود التفكير رد بدون نص نهائي صالح. اختار موديل Chat Completions آخر');
+ }
+ return $text;
+}
 function llm_stream(array $c,array $messages): string {
  $p=llm_info($c);if($p['key']==='') throw new RuntimeException('اضبط مفتاح مزود التفكير المختار');
  $payload=json_encode(['model'=>$c['llmModel'],'messages'=>$messages,'stream'=>true,'max_tokens'=>250,'temperature'=>0.55],JSON_UNESCAPED_UNICODE);
@@ -75,14 +115,22 @@ function llm_stream(array $c,array $messages): string {
   }return strlen($chunk);
  });
  $ok=curl_exec($ch);$err=curl_error($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
- if($ok===false || $status>=400)throw new RuntimeException('LLM HTTP '.($status?:'network').' '.($err?'تعذر الاتصال':'تحقق من الموديل والحصة')); 
+ emit(['type'=>'llm_diagnostic','provider'=>$c['llmProvider'],'model'=>$c['llmModel'],'mode'=>'stream','http'=>$status,'elapsedMs'=>round((microtime(true)-$start)*1000)]);
+ if($ok===false || $status>=400){
+  if(in_array($status,[502,503,504],true))return llm_fallback_plain($c,$messages,'upstream-'.$status);
+  throw new RuntimeException(llm_error_label($status,$c['llmProvider']).($ok===false&&$status===0?' · اتصال الشبكة فشل':''));
+ } 
  if($buffer!=='')decodeSse(trim($buffer),function($x)use(&$whole){$whole.=$x;emit(['type'=>'llm_delta','text'=>$x]);});
  if(trim($whole)===''){
    $doc=json_decode(trim($rawSuccess),true);
    $fallback=$doc['choices'][0]['message']['content']??null;
    if(is_string($fallback)&&trim($fallback)!==''){$whole=trim($fallback);emit(['type'=>'latency','metric'=>'llmFirstTokenMs','value'=>round((microtime(true)-$start)*1000)]);emit(['type'=>'llm_delta','text'=>$whole]);}
  }
- if(trim($whole)==='')throw new RuntimeException('مزود التفكير لم يرجع محتوى نصيًا؛ جرّب موديلًا آخر وتأكد من دعم Chat Completions');
+ if(trim($whole)===''){
+  $whole=llm_fallback_plain($c,$messages,'empty-stream');
+  emit(['type'=>'latency','metric'=>'llmFirstTokenMs','value'=>round((microtime(true)-$start)*1000)]);
+  emit(['type'=>'llm_delta','text'=>$whole]);
+ }
  emit(['type'=>'llm_done']); return trim($whole);
 }
 function tts_stream(string $text,array $c,string $callerText=''): void {
