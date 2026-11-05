@@ -82,10 +82,17 @@ def deploy():
             check = subprocess.run([php, "-l", str(tempdir / name)], capture_output=True, timeout=8)
             if check.returncode:
                 raise RuntimeError("PHP lint failed: " + name)
+        # Shared-host PHP may resolve to php-cgi, which does not support php -r.
+        # Run a temporary PHP file with -f, supported by both php-cgi and CLI.
+        expression_test = tempdir / "test_expression.php"
+        expression_test.write_text(
+            '<?php require __DIR__."/voice-expression.php"; '
+            '$v=ayo_expression_prepare("بنعتذر عن التأخير","expressive","inworld-tts-2"); '
+            'if ($v["nonverbalCue"]!=="sigh") exit(3); echo "AYO_EXPRESSION_OK";',
+            encoding="utf-8"
+        )
         expression_check = subprocess.run([
-            php, "-r",
-            'require $argv[1]; $v=ayo_expression_prepare("بنعتذر عن التأخير","expressive","inworld-tts-2"); if($v["nonverbalCue"]!=="sigh") exit(3);',
-            str(tempdir / "voice-expression.php")
+            php, "-f", str(expression_test)
         ], capture_output=True, timeout=8)
         if expression_check.returncode:
             raise RuntimeError("AYO expression regression test failed")
