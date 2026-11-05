@@ -38,15 +38,22 @@ function call_history_filters(int $accountId,array $input):array {
         'q'=>$q,'status'=>$status,'sim'=>(string)$sim,'site'=>$site,'from'=>$start,'to'=>$end];
 }
 function call_history_rows(array $filter,int $limit=100,int $offset=0):array {
+    require_once __DIR__.'/HumanEscalations.php';
+    he_init();
     if($limit<1||$limit>5000||$offset<0||$offset>1000000)
         throw new InvalidArgumentException('history_page_invalid');
     return all("SELECT c.id,c.external_call_id,c.name,c.phone,c.status,c.duration_seconds,
         c.is_demo,c.device_binding_id,c.sim_slot,c.site_id,c.created_at,
         r.summary,r.customer_notes,r.outcome,r.handoff_status,r.handoff_reason,
-        r.source AS report_source,r.updated_at AS report_updated_at
+        r.source AS report_source,r.updated_at AS report_updated_at,
+        h.status AS manager_notification_status,h.result AS manager_notification_result,
+        h.due_epoch AS manager_notification_due,co.name AS manager_notification_name
         FROM calls c LEFT JOIN tenant_call_reports r
         ON r.account_id=c.account_id AND r.site_id=c.site_id
         AND r.device_binding_id=c.device_binding_id AND r.call_id=c.external_call_id
+        LEFT JOIN human_escalation_jobs h ON h.account_id=c.account_id
+        AND h.device_binding_id=c.device_binding_id AND h.call_id=c.external_call_id
+        LEFT JOIN human_escalation_contacts co ON co.id=h.contact_id AND co.account_id=c.account_id
         WHERE ".$filter['where']." ORDER BY c.id DESC LIMIT ".(int)$limit." OFFSET ".(int)$offset,
         $filter['params']);
 }
