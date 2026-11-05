@@ -85,6 +85,30 @@ try {
     finding_ok(count($counted)===1&&(int)$counted[0]['units']===1,
         'real answered and ended GSM call metered once despite replay');
 
+    // LTE can deliver model function-call summaries even when Google Live
+    // does not deliver input/output transcription. This must still persist.
+    $draft=tenant_workspace_call_event($binding,[
+        'call_id'=>$callId,'sequence'=>6,'phase'=>'agent_report','duration_seconds'=>0,
+        'summary'=>'سأل عن الأسعار وتوافر المنتج',
+        'customer_notes'=>'يريد معرفة موعد التسليم']);
+    finding_ok($draft['accepted']===true,'LTE model call note accepted');
+    $preliminary=tenant_call_report_find($binding,$callId);
+    finding_ok(str_contains($preliminary['summary'],'ملخص أولي غير مؤكد') &&
+        str_contains($preliminary['customer_notes'],'موعد التسليم'),
+        'non-transcribed LTE conversation still has preliminary notes');
+    $requested=tenant_workspace_call_event($binding,[
+        'call_id'=>$callId,'sequence'=>7,'phase'=>'customer_human_request',
+        'duration_seconds'=>0,'handoff_reason'=>'طلب موظف مبيعات للمتابعة',
+        'customer_notes'=>'يحتاج مكالمة متابعة']);
+    finding_ok($requested['accepted']===true,'real caller handoff request recorded');
+    $handoff=tenant_call_report_find($binding,$callId);
+    finding_ok($handoff['handoff_status']==='requested' &&
+        $handoff['handoff_reason']==='طلب موظف مبيعات للمتابعة',
+        'staff request reason persisted without fake live transfer');
+    finding_ok(tenant_workspace_call_event($binding,[
+        'call_id'=>$callId,'sequence'=>7,'phase'=>'customer_human_request',
+        'duration_seconds'=>0,'handoff_reason'=>'طلب موظف مبيعات للمتابعة'])['duplicate']===true,
+        'LTE retry cannot duplicate staff request');
     // Verify the call remains attached to the authorized tenant and SIM.
     $scoped=one('SELECT id FROM calls WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? AND external_call_id=?',[
         4,1,$device,0,$callId]);
