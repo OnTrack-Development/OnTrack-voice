@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "ayo-php-preflight-20261105-01",
+  "id": "ayo-php-git-preflight-20261105-01",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-05T02:08:09.046Z",
-  "expires_at": "2026-11-05T02:53:09.046Z",
+  "created_at": "2026-11-05T02:16:34.277Z",
+  "expires_at": "2026-11-05T03:01:34.277Z",
   "cwd": "/home/appontrack/public_html",
-  "timeout_seconds": 15,
+  "timeout_seconds": 10,
   "argv": [
     "/bin/python3",
     "-c",
-    "import json,shutil,pathlib,os\np=pathlib.Path('/home/appontrack/public_html/ayo')\nprint(json.dumps({'exists':p.exists(),'symlink':p.is_symlink(),'is_dir':p.is_dir(),'entries':sorted(x.name for x in p.iterdir())[:30] if p.is_dir() else [],'php':shutil.which('php'),'document_root':pathlib.Path('/home/appontrack/public_html').is_dir(),'uid':os.getuid()}))"
+    "import json,pathlib,shutil,subprocess\nbase=pathlib.Path('/home/appontrack')\nnames=['OnTrack-voice','ontrack-voice','ontrack-voice-repo','ontrack-voice-link','repos/OnTrack-voice','public_html/ayo']\nout={}\nfor name in names:\n p=base/name\n out[name]={'exists':p.exists(),'git':(p/'.git').exists() if p.is_dir() else False,'isdir':p.is_dir()}\nprint(json.dumps({'paths':out,'git_binary':shutil.which('git')}))"
   ]
 }
