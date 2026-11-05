@@ -92,9 +92,12 @@ internal class MobileLiveCall(
             val context=rolling.substring((match.range.first-16).coerceAtLeast(0),match.range.first)
             if(humanRequestNegation.containsMatchIn(context))continue
             if(humanRequestReported.compareAndSet(false,true)){
-                runCatching{onHumanRequested("المتصل طلب التحدث مع موظف بشري أثناء المكالمة.","")}.onFailure{
+                val recorded=runCatching{
+                    onHumanRequested("المتصل طلب التحدث مع موظف بشري أثناء المكالمة.","")
+                }.getOrDefault(false)
+                if(!recorded){
                     humanRequestReported.set(false)
-                    notice("تعذر حفظ طلب الموظف محليًا، هيتم إعادة المحاولة")
+                    notice("طلب الموظف لم يتأكد حفظه بعد؛ هيتم إعادة المحاولة")
                 }
             }
             return
