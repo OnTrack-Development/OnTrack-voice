@@ -1,0 +1,13 @@
+{
+  "job_id": "ayo-character-publish-20261105-01",
+  "target": "appontrack-server11",
+  "job_sha256": "cad6586929215515ea481a5c1f1e83e6950c63f63f9b242007a82a27dcdad6db",
+  "started_at": "2026-11-05T04:08:02.458976+00:00",
+  "status": "failed",
+  "exit_code": 1,
+  "output_truncated": false,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 147, in <module>\n  File \"<string>\", line 91, in deploy\nRuntimeError: AYO expression regression test failed\n",
+  "finished_at": "2026-11-05T04:08:02.734445+00:00",
+  "duration_ms": 276
+}
