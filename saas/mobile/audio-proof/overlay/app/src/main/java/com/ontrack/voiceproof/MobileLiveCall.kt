@@ -361,6 +361,15 @@ internal class MobileLiveCall(
                     // the Android microphone or infer text from audio payload bytes.
                     content.optJSONObject("inputTranscription")
                         ?.optString("text","")?.let { spoken ->
+                            val now=SystemClock.elapsedRealtime()
+                            if(LiveInterruptionPolicy.shouldCutPreviousSpeech(now,
+                                lastAssistantAudioAt.get(),lastLocalBargeAt.get(),spoken)){
+                                lastLocalBargeAt.set(now)
+                                lastAssistantAudioAt.set(0)
+                                generation++
+                                while(playback.tryReceive().isSuccess){}
+                                synchronized(writeLock){output?.writeInt(-1);output?.flush()}
+                            }
                             appendLiveTranscription("المتصل",spoken)
                             observeCallerIntent(spoken)
                             if(outgoingCall && !remoteSpeechConfirmed &&
@@ -384,6 +393,7 @@ internal class MobileLiveCall(
                         val rate=Regex("rate=(\\d+)").find(mime)?.groupValues?.get(1)?.toInt()?:24000
                         val bytes=LinkPcm.output(Base64.decode(inline.getString("data"),Base64.DEFAULT),rate)
                         modelAudioBytes.addAndGet(bytes.size.toLong())
+                        lastAssistantAudioAt.set(SystemClock.elapsedRealtime())
                         for(at in bytes.indices step 2400) {
                             val packet=generation to bytes.copyOfRange(at,minOf(at+2400,bytes.size))
                             if(!playback.trySend(packet).isSuccess){
