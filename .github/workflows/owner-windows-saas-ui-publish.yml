@@ -152,22 +152,44 @@ jobs:
             Write-Host 'WINDOWS_PHP_NOT_PRESENT: host deployer must PHP-lint staged runtime before atomic swap; do not claim full PHP CI.'
           }
           Write-Host 'STUDIO_SCRIPT_REGRESSIONS: PASS'
-      - name: Package exact bounded SaaS release
-        run: |
-          & python tools/package_saas_console.py
-          if ($LASTEXITCODE -ne 0) { throw 'SaaS release packaging failed.' }
-      - name: Upload verified portal bundle for host worker
-        uses: actions/upload-artifact@v4
+      # Storage quota is currently exhausted. Re-use only the immutable,
+      # SHA-verified artifact from the exact reviewed commit ecefdfbe.
+      # Fail closed if the cached runtime differs from checked-out sources.
+      - name: Retrieve immutable approved SaaS artifact from original run
+        uses: actions/download-artifact@v4
         with:
           name: OnTrack-SaaS-Console
-          path: dist/saas-console/
-          retention-days: 14
-          if-no-files-found: error
-          overwrite: true
+          run-id: 41999426418
+          repository: OnTrack-Development/OnTrack-voice
+          github-token: ${{ github.token }}
+          path: dist/saas-console
+      - name: Verify pinned archive hash and match checked-out runtime source
+        run: |
+          $ErrorActionPreference='Stop'
+          @'
+          import hashlib,pathlib,tarfile
+          p=pathlib.Path('dist/saas-console/release.tar.gz')
+          expected='9fd1d552c31d582759dbd93d0507eb4d12fde79bbdb70f93364e3ee7aaffa63f'
+          assert p.is_file() and p.with_name('release.sha256').read_text().strip()==expected,'missing_or_wrong_manifest'
+          assert hashlib.sha256(p.read_bytes()).hexdigest()==expected,'cached_artifact_digest_mismatch'
+          with tarfile.open(p,'r:gz') as tf:
+              files=[m for m in tf.getmembers() if m.isfile()]
+              assert len(files)>=50,'unexpectedly_small_artifact'
+              for m in files:
+                  rel=pathlib.PurePosixPath(m.name)
+                  assert rel.parts[0]=='console' and '..' not in rel.parts and not m.issym(),'unsafe_archive_entry'
+                  local=pathlib.Path('saas').joinpath(*rel.parts)
+                  assert local.is_file(),'missing_checkout_file:'+m.name
+                  assert tf.extractfile(m).read()==local.read_bytes(),'checkout_artifact_drift:'+m.name
+          print('SAAS_CACHED_ARTIFACT_PINNED_AND_CHECKOUT_MATCH: PASS')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Stored release is not identical to current reviewed SaaS runtime.' }
       - name: Queue release with existing safe host worker
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $env:GITHUB_RUN_ID='41999426418'
+          $env:GITHUB_SHA='ecefdfbe488fb4c357a60ee43a2684c9f72d1de2'
           & python tools/queue_saas_console.py
           if ($LASTEXITCODE -ne 0) { throw 'Host queue blocked; current site unchanged.' }
           Write-Host 'SAAS_CONSOLE_QUEUED: PASS'
@@ -175,6 +197,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $env:GITHUB_RUN_ID='41999426418'
+          $env:GITHUB_SHA='ecefdfbe488fb4c357a60ee43a2684c9f72d1de2'
           & python tools/verify_saas_console_host_receipt.py
           if ($LASTEXITCODE -ne 0) { throw 'Host did not confirm safe SaaS deployment.' }
           Write-Host 'SAAS_CONSOLE_DEPLOYED: PASS'
