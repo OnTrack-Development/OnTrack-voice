@@ -1404,6 +1404,10 @@ function render_settings(array $a):void{
         // Avoid showing a second Google editor that would not update Relay priority.
         render_ai_relay_settings($a);
     }
+    if($a['kind']!=='platform'){
+        require_once __DIR__.'/GoogleVoiceKeysView.php';
+        render_google_voice_key_settings($a);
+    }
     echo card('كلمة المرور والحساب',
         '<p>تقدر تغيّر كلمة المرور باستخدام الحالية، أو تسترجعها من البريد لو نسيتها. من غير مصادقة ثنائية أثناء التجارب.</p>'.
         '<p><a class="btn primary" href="/change-password">تغيير كلمة المرور</a> '.
