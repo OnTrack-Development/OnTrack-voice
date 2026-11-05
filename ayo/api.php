@@ -26,17 +26,36 @@ function envkey(string $key): string { $v=getenv($key); return $v===false?'':tri
 function cfg(): array {
  $saved=$_SESSION['ayo_config'] ?? [];
  $privateKeys=ayo_saved_keys();
- return array_merge(['voiceId'=>'silver-quail-7878__ayo','ttsModel'=>'inworld-tts-2','ttsDelivery'=>'BALANCED','ttsLocale'=>'ar-EG','emotionMode'=>'expressive','llmProvider'=>'apinex','llmModel'=>'free/gpt-6-luna'], $saved, [
+ return array_merge(['voiceId'=>'silver-quail-7878__ayo','ttsModel'=>'inworld-tts-2','ttsDelivery'=>'BALANCED','ttsLocale'=>'ar-EG','emotionMode'=>'expressive','personaMode'=>'flirty','flirtIntensity'=>'bold','llmProvider'=>'omnira-b','llmModel'=>'deepseek-v4-flash'], $saved, [
   'inworldKey'=>ayo_is_owner() ? ($privateKeys['inworld'] ?? ($_SESSION['ayo_keys']['inworld'] ?? envkey('INWORLD_API_KEY'))) : '',
   'apinexKey'=>ayo_is_owner() ? ($privateKeys['apinex'] ?? ($_SESSION['ayo_keys']['apinex'] ?? envkey('APINEX_API_KEY'))) : '',
   'omniraKey'=>ayo_is_owner() ? ($privateKeys['omnira'] ?? ($_SESSION['ayo_keys']['omnira'] ?? envkey('OMNIRA_API_KEY'))) : ''
  ]);
 }
-function public_cfg(array $c): array {return ['voiceId'=>$c['voiceId'],'ttsModel'=>$c['ttsModel'],'ttsDelivery'=>$c['ttsDelivery'],'ttsLocale'=>$c['ttsLocale'],'emotionMode'=>$c['emotionMode'],'llmProvider'=>$c['llmProvider'],'llmModel'=>$c['llmModel'],'hasInworldKey'=>($c['inworldKey']!==''),'hasActiveLlmKey'=>($c[$c['llmProvider']==='apinex'?'apinexKey':'omniraKey']!==''),'hasOmniraKey'=>($c['omniraKey']!==''),'hasApinexKey'=>($c['apinexKey']!==''),'defaultSttMode'=>'browser','ttsPrice'=>$c['ttsModel']==='inworld-tts-2'?25:15,'maxSeconds'=>120]; }
-function prompt(): string {
- $k=json_decode((string)file_get_contents(__DIR__.'/ontrack.json'),true) ?: [];
- $plans=[]; foreach($k['plans']??[] as $p){$plans[]=$p['name'].': $'.$p['monthly_usd'].' شهريًا، $'.$p['yearly_usd'].' سنويًا؛ '.$p['details'];}
- return 'أنت آيو AYO، مساعدة المبيعات الصوتية التجريبية لشركة أون تراك OnTrack Development. تكلمي بالمصري الطبيعي وبجملتين قصيرتين كحد أقصى. لا تدعي أنك إنسان أو تؤكدي طلبات لم تنفذ. لا تخترعي أسعارًا أو مواصفات. اذكري أن الأسعار قابلة للتغيير وأن الشراء النهائي من بوابة العملاء. عند سؤال محدد عن حساب العميل وجهيه للدعم. لا تنطقي روابط كاملة. معلومات الشركة: '.implode('؛ ', $k['general']??[]).'\nالباقات وأسعارها: '.implode('؛ ',$plans).'\nبوابة العملاء: '.($k['customer_portal']??'https://services.ontrackegy.com/');
+function public_cfg(array $c): array {return ['voiceId'=>$c['voiceId'],'ttsModel'=>$c['ttsModel'],'ttsDelivery'=>$c['ttsDelivery'],'ttsLocale'=>$c['ttsLocale'],'emotionMode'=>$c['emotionMode'],'personaMode'=>$c['personaMode'],'flirtIntensity'=>$c['flirtIntensity'],'llmProvider'=>$c['llmProvider'],'llmModel'=>$c['llmModel'],'hasInworldKey'=>($c['inworldKey']!==''),'hasActiveLlmKey'=>($c[$c['llmProvider']==='apinex'?'apinexKey':'omniraKey']!==''),'hasOmniraKey'=>($c['omniraKey']!==''),'hasApinexKey'=>($c['apinexKey']!==''),'defaultSttMode'=>'browser','ttsPrice'=>$c['ttsModel']==='inworld-tts-2'?25:15,'maxSeconds'=>900]; }
+function prompt(array $c,string $question=''): string {
+ $mode=$c['personaMode']??'flirty';$level=$c['flirtIntensity']??'bold';
+ $out='أنت آيو AYO، سكرتيرة افتراضية مصرية، بتتكلمي مصري طبيعي وبشخصية مرحة وذكية. ردودك شفوية قصيرة من جملة إلى ثلاث جمل، مش روبوت مبيعات، وبلاش مقدمات أو فصحى أو كلام مكرر. لو حد سألك عن هويتك قولي إنك مساعدة افتراضية.';
+ if($mode==='flirty'){
+  $out.=' شخصيتك لعوب، لذيذة وخفيفة الدم، بتاخدي وبتدي في الكلام، بتهزري وبتغازلي بتلميحات رومانسية غير صريحة لما اللي بيكلمك متجاوب. خدي مبادرة في الهزار بشكل طبيعي من غير ردود مدرسية أو محاضرات.';
+  $out.=match($level){'soft'=>' غزل خفيف ورقيق.','playful'=>' دلع وهزار وغزل واضح ولطيف.',default=>' جرأة عالية في الهزار والتلميح والغزل اللطيف من غير كلام جنسي صريح.'};
+  $out.=' لو اللي قدامك مش متجاوب مع الغزل أو طلب الرسمي، غيّري الأسلوب فورًا.';
+ }elseif($mode==='casual')$out.=' شخصيتك صاحبة اجتماعية دمها خفيف بتعرف ترمي إفيهات.';
+ else $out.=' شخصيتك سكرتيرة محترفة وودودة من غير غزل.';
+ $out.=' ما تختلقيش خدمات أو أسعار أو تنفيذ أو إنك إنسانة.';
+ if(preg_match('/(?:استضاف|ريسيلر|vps|سيرفر|دومين|سعر|باقة|خدم|ontrack|أون ?تراك)/iu',$question)){
+  $k=json_decode((string)file_get_contents(__DIR__.'/ontrack.json'),true)?:[];
+  $plans=[];
+  foreach($k['plans']??[] as $item){
+   $category=(string)($item['category']??'');
+   if(preg_match('/ريسيلر|reseller/iu',$question)&&$category!=='reseller')continue;
+   if(preg_match('/vps|سيرفر/iu',$question)&&$category!=='vps')continue;
+   $plans[]=$item['name'].': $'.$item['monthly_usd'].' شهريًا';
+   if(count($plans)>=5)break;
+  }
+  $out.=' بيانات OnTrack: '.implode('؛ ',$k['general']??[]).' الباقات: '.implode('؛ ',$plans).' الأسعار تتغير والسعر النهائي في بوابة العملاء.';
+ }
+ return $out;
 }
 function require_post(): void {
  if ($_SERVER['REQUEST_METHOD']!=='POST') fail('الطريقة غير مدعومة',405);
@@ -87,10 +106,10 @@ function llm_error_label(int $status,string $provider): string {
 }
 function llm_fallback_plain(array $c,array $messages,string $reason): string {
  $p=llm_info($c);
- $payload=json_encode(['model'=>$c['llmModel'],'messages'=>$messages,'stream'=>false,'max_tokens'=>550,'temperature'=>0.55],JSON_UNESCAPED_UNICODE);
+ $payload=json_encode(['model'=>$c['llmModel'],'messages'=>$messages,'stream'=>false,'max_tokens'=>220,'temperature'=>0.75],JSON_UNESCAPED_UNICODE);
  $ch=curl_base($p['url'],['Authorization: Bearer '.$p['key'],'Content-Type: application/json','Accept: application/json'],(string)$payload);
  curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
- curl_setopt($ch,CURLOPT_TIMEOUT,48);
+ curl_setopt($ch,CURLOPT_TIMEOUT,20);
  $started=microtime(true);$raw=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
  emit(['type'=>'llm_diagnostic','provider'=>$c['llmProvider'],'model'=>$c['llmModel'],'mode'=>'nonstream-fallback','reason'=>$reason,'http'=>$status,'elapsedMs'=>round((microtime(true)-$started)*1000)]);
  if($raw===false||$status>=400)throw new RuntimeException(llm_error_label($status,$c['llmProvider']));
@@ -102,36 +121,55 @@ function llm_fallback_plain(array $c,array $messages,string $reason): string {
  }
  return $text;
 }
-function llm_stream(array $c,array $messages): string {
- $p=llm_info($c);if($p['key']==='') throw new RuntimeException('اضبط مفتاح مزود التفكير المختار');
- $payload=json_encode(['model'=>$c['llmModel'],'messages'=>$messages,'stream'=>true,'max_tokens'=>250,'temperature'=>0.55],JSON_UNESCAPED_UNICODE);
+function ayo_phrase(string &$pending,bool $force=false): ?string {
+ $pending=ltrim($pending);
+ if($pending==='')return null;
+ if($force){$x=$pending;$pending='';return $x;}
+ if(preg_match('/^(.{8,110}?[.!؟،؛\\n])(?:\\s|$)/us',$pending,$m)){
+  $pending=ltrim(substr($pending,strlen($m[0])));return trim($m[1]);
+ }
+ if(char_len($pending)>=85&&preg_match('/^(.{45,85})\\s/us',$pending,$m)){
+  $pending=ltrim(substr($pending,strlen($m[0])));return trim($m[1]);
+ }
+ return null;
+}
+function llm_stream(array $c,array $messages,?callable $onSentence=null,bool $allowRetry=true):string {
+ $p=llm_info($c);if($p['key']==='')throw new RuntimeException('اضبط مفتاح مزود الذكاء المختار');
+ $payload=json_encode(['model'=>$c['llmModel'],'messages'=>$messages,'stream'=>true,'max_tokens'=>200,'temperature'=>0.75],JSON_UNESCAPED_UNICODE);
  $ch=curl_base($p['url'],['Authorization: Bearer '.$p['key'],'Content-Type: application/json','Accept: text/event-stream'],(string)$payload);
- $buffer='';$whole='';$start=microtime(true);$first=false;$httpData='';$rawSuccess='';
- curl_setopt($ch,CURLOPT_WRITEFUNCTION,function($handle,$chunk)use(&$buffer,&$whole,&$first,&$httpData,&$rawSuccess,$start){
-  if(curl_getinfo($handle,CURLINFO_HTTP_CODE)>=400){$httpData.=substr($chunk,0,2000);return strlen($chunk);}
-  if(strlen($rawSuccess)<131072)$rawSuccess.=substr($chunk,0,131072-strlen($rawSuccess));
-  $buffer.=$chunk;while(($pos=strpos($buffer,"\n"))!==false){$line=trim(substr($buffer,0,$pos));$buffer=substr($buffer,$pos+1);
-   decodeSse($line,function($text)use(&$whole,&$first,$start){if(!$first){emit(['type'=>'latency','metric'=>'llmFirstTokenMs','value'=>round((microtime(true)-$start)*1000)]);$first=true;}$whole.=$text;emit(['type'=>'llm_delta','text'=>$text]);});
-  }return strlen($chunk);
+ curl_setopt($ch,CURLOPT_TIMEOUT,30);
+ $buffer='';$whole='';$pending='';$raw='';$first=false;$start=microtime(true);$callbackError=null;
+ $take=function(string $piece)use(&$whole,&$pending,&$first,$start,$onSentence){
+  if($piece==='')return;
+  if(!$first){emit(['type'=>'latency','metric'=>'llmFirstTokenMs','value'=>round((microtime(true)-$start)*1000)]);$first=true;}
+  $whole.=$piece;emit(['type'=>'llm_delta','text'=>$piece]);
+  if($onSentence!==null){$pending.=$piece;while(($part=ayo_phrase($pending))!==null)$onSentence($part);}
+ };
+ curl_setopt($ch,CURLOPT_WRITEFUNCTION,function($handle,$chunk)use(&$buffer,&$raw,$take,&$callbackError){
+  if(strlen($raw)<131072)$raw.=substr($chunk,0,131072-strlen($raw));
+  if(curl_getinfo($handle,CURLINFO_HTTP_CODE)>=400)return strlen($chunk);
+  $buffer.=$chunk;
+  try{while(($pos=strpos($buffer,"\\n"))!==false){$line=trim(substr($buffer,0,$pos));$buffer=substr($buffer,$pos+1);decodeSse($line,$take);}}
+  catch(Throwable $e){$callbackError=$e;return 0;}
+  return strlen($chunk);
  });
- $ok=curl_exec($ch);$err=curl_error($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
+ $ok=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);$err=curl_error($ch);curl_close($ch);
  emit(['type'=>'llm_diagnostic','provider'=>$c['llmProvider'],'model'=>$c['llmModel'],'mode'=>'stream','http'=>$status,'elapsedMs'=>round((microtime(true)-$start)*1000)]);
- if($ok===false || $status>=400){
-  if(in_array($status,[502,503,504],true))return llm_fallback_plain($c,$messages,'upstream-'.$status);
-  throw new RuntimeException(llm_error_label($status,$c['llmProvider']).($ok===false&&$status===0?' · اتصال الشبكة فشل':''));
- } 
- if($buffer!=='')decodeSse(trim($buffer),function($x)use(&$whole){$whole.=$x;emit(['type'=>'llm_delta','text'=>$x]);});
- if(trim($whole)===''){
-   $doc=json_decode(trim($rawSuccess),true);
-   $fallback=$doc['choices'][0]['message']['content']??null;
-   if(is_string($fallback)&&trim($fallback)!==''){$whole=trim($fallback);emit(['type'=>'latency','metric'=>'llmFirstTokenMs','value'=>round((microtime(true)-$start)*1000)]);emit(['type'=>'llm_delta','text'=>$whole]);}
+ if($callbackError!==null)throw $callbackError;
+ if($status===403&&$allowRetry&&$c['llmProvider']==='apinex'&&$c['omniraKey']!==''){
+  emit(['type'=>'provider_fallback','from'=>'apinex','to'=>'omnira-b','model'=>'deepseek-v4-flash','reason'=>'APInex HTTP 403']);
+  $other=$c;$other['llmProvider']='omnira-b';$other['llmModel']='deepseek-v4-flash';
+  return llm_stream($other,$messages,$onSentence,false);
  }
+ if($ok===false||$status>=400)throw new RuntimeException(llm_error_label($status,$c['llmProvider']).($status===0?' · '.$err:''));
+ if(trim($buffer)!=='')decodeSse(trim($buffer),$take);
  if(trim($whole)===''){
-  $whole=llm_fallback_plain($c,$messages,'empty-stream');
-  emit(['type'=>'latency','metric'=>'llmFirstTokenMs','value'=>round((microtime(true)-$start)*1000)]);
-  emit(['type'=>'llm_delta','text'=>$whole]);
+  $doc=json_decode(trim($raw),true);$fallback=is_array($doc)?llm_plain_text($doc):'';
+  if($fallback!=='')$take($fallback);
  }
- emit(['type'=>'llm_done']); return trim($whole);
+ if(trim($whole)==='')throw new RuntimeException('الموديل رجع بدون نص؛ اختار Flash Chat غير Thinking');
+ if($onSentence!==null&&($last=ayo_phrase($pending,true))!==null)$onSentence($last);
+ emit(['type'=>'llm_done']);return trim($whole);
 }
 function tts_stream(string $text,array $c,string $callerText=''): void {
  if($c['inworldKey']==='')throw new RuntimeException('اضبط مفتاح Inworld في الإعدادات');
@@ -187,22 +225,28 @@ if ($action==='transcribe') {
  if (!is_string($raw)||strlen($raw)>1100000) fail('التسجيل الصوتي كبير جدًا',413);
  $in=json_decode($raw,true);
  $audio=$in['audio']??null; $kind=$in['encoding']??'';
- if (!is_string($audio)||strlen($audio)<1200||strlen($audio)>1000000||!in_array($kind,['WEBM','OGG_OPUS'],true)) fail('التسجيل غير صالح');
+ if (!is_string($audio)||strlen($audio)<1200||strlen($audio)>1000000||!in_array($kind,['WEBM','OGG_OPUS','LINEAR16'],true)) fail('التسجيل غير صالح');
  if (base64_decode($audio,true)===false) fail('ترميز التسجيل غير صالح');
  $key=cfg()['inworldKey']??'';
  if (!$key) fail('Inworld غير مضبوط للتفريغ الصوتي',400);
- $payload=['transcribeConfig'=>['modelId'=>'inworld/inworld-stt-1','audioEncoding'=>$kind,'language'=>'ar'],'audioData'=>['content'=>$audio]];
+ $rate=(int)($in['sampleRate']??16000);
+ if($kind==='LINEAR16'&&($rate<16000||$rate>48000||strlen((string)base64_decode($audio,true))%2))fail('PCM format invalid');
+ $sttCfg=['modelId'=>'inworld/inworld-stt-1','audioEncoding'=>$kind,'language'=>'ar-EG','prompts'=>['آيو','أون تراك','OnTrack','مكالمة','سكرتيرة']];
+ if($kind==='LINEAR16'){$sttCfg['sampleRateHertz']=$rate;$sttCfg['numberOfChannels']=1;}
+ $payload=['transcribeConfig'=>$sttCfg,'audioData'=>['content'=>$audio]];
  $ch=curl_init('https://api.inworld.ai/stt/v1/transcribe');
  curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($payload),CURLOPT_HTTPHEADER=>['Authorization: Basic '.$key,'Content-Type: application/json'],CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>25,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,CURLOPT_FOLLOWLOCATION=>false]);
  $response=curl_exec($ch);$err=curl_error($ch);$http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
  if(!is_string($response)||$http<200||$http>=300) fail('تعذر تحويل الصوت لنص · Inworld HTTP '.($http?:'network'),502);
  $data=json_decode($response,true);$transcript=trim((string)($data['transcription']['transcript']??''));
- json_out(['transcript'=>char_sub($transcript,1500),'engine'=>'Inworld STT','hasText'=>$transcript!=='']);
+ $duration=(int)($data['usage']['transcribedAudioMs']??($in['durationMs']??0));
+ $suspect=$duration<500||preg_match('/^(?:شكرا على المشاهدة|شكراً على المشاهدة|اشتركوا في القناة|ترجمة نانسي)/u',$transcript);
+ json_out(['transcript'=>$suspect?'':char_sub($transcript,1500),'engine'=>'Inworld STT','hasText'=>$transcript!==''&&!$suspect,'suspect'=>(bool)$suspect,'audioMs'=>$duration]);
 }
 if ($action==='settings') {
- $in=body();$c=cfg();$allowed=['voiceId'=>96,'ttsModel'=>64,'ttsDelivery'=>20,'ttsLocale'=>16,'llmProvider'=>20,'llmModel'=>96,'emotionMode'=>20];
+ $in=body();$c=cfg();$allowed=['voiceId'=>96,'ttsModel'=>64,'ttsDelivery'=>20,'ttsLocale'=>16,'llmProvider'=>20,'llmModel'=>96,'emotionMode'=>20,'personaMode'=>20,'flirtIntensity'=>20];
  foreach($allowed as $k=>$limit){if(isset($in[$k])&&is_string($in[$k])){if(strlen($in[$k])>$limit)fail('إعداد أطول من المطلوب');$_SESSION['ayo_config'][$k]=$in[$k];}}
- $c=cfg();if(!in_array($c['ttsModel'],['inworld-tts-2','inworld-tts-2-flash'],true)|| !in_array($c['llmProvider'],['apinex','omnira-a','omnira-b'],true)||!in_array($c['emotionMode'],['off','auto','expressive'],true)||!in_array($c['ttsDelivery'],['BALANCED','STABLE','CREATIVE'],true)||!in_array($c['ttsLocale'],['ar-EG','arz','AUTO'],true))fail('إعدادات غير صالحة');
+ $c=cfg();if(!in_array($c['ttsModel'],['inworld-tts-2','inworld-tts-2-flash'],true)|| !in_array($c['llmProvider'],['apinex','omnira-a','omnira-b'],true)||!in_array($c['emotionMode'],['off','auto','expressive'],true)||!in_array($c['personaMode'],['flirty','casual','business'],true)||!in_array($c['flirtIntensity'],['soft','playful','bold'],true)||!in_array($c['ttsDelivery'],['BALANCED','STABLE','CREATIVE'],true)||!in_array($c['ttsLocale'],['ar-EG','arz','AUTO'],true))fail('إعدادات غير صالحة');
  $newKeys=[];
  foreach(['inworldKey'=>'inworld','omniraKey'=>'omnira','apinexKey'=>'apinex'] as $inName=>$slot){
    if(!empty($in[$inName])) {
@@ -213,7 +257,7 @@ if ($action==='settings') {
  if($newKeys) ayo_persist_keys($newKeys);
  json_out(['config'=>public_cfg(cfg()),'keysStoredOnHost'=>true]);
 }
-if ($action==='start') {$_SESSION['ayo_deadline']=time()+120;$_SESSION['ayo_history']=[];json_out(['expiresIn'=>120]);}
+if ($action==='start') {$_SESSION['ayo_deadline']=time()+900;$_SESSION['ayo_history']=[];json_out(['expiresIn'=>900]);}
 if ($action==='end') {unset($_SESSION['ayo_deadline'],$_SESSION['ayo_history']);json_out(['ended'=>true]);}
 if ($action==='clone') {
  if(empty($_POST['consent'])||$_POST['consent']!=='yes')fail('يلزم إثبات ملكية الصوت أو إذن صاحبه');
@@ -244,9 +288,10 @@ if ($action==='preview'||$action==='turn') {
  session_write_close();@set_time_limit(95);stream_headers();$start=microtime(true);
  try {
   if($action==='turn'){
-   emit(['type'=>'started']);$messages=[['role'=>'system','content'=>prompt()]];foreach(array_slice($hist,-10) as $r)if(in_array($r['role'],['user','assistant'],true))$messages[]=$r;
-   $messages[]=['role'=>'user','content'=>$text];$reply=llm_stream($c,$messages);$reply=preg_replace('/<think>.*?<\/think>/su','',$reply)??$reply;
-   if($c['inworldKey']!=='')tts_stream($reply,$c,$text);else emit(['type'=>'tts_notice','message'=>'تم توليد الرد النصي فقط: مفتاح Inworld غير محفوظ']);
+   emit(['type'=>'started']);$messages=[['role'=>'system','content'=>prompt($c,$text)]];foreach(array_slice($hist,-10) as $r)if(in_array($r['role'],['user','assistant'],true))$messages[]=$r;
+   $messages[]=['role'=>'user','content'=>$text];$speak=$c['inworldKey']!==''?function(string $phrase)use($c,$text){if(trim($phrase)!=='')tts_stream($phrase,$c,$text);}:null;
+   $reply=llm_stream($c,$messages,$speak);
+   if($speak===null)emit(['type'=>'tts_notice','message'=>'الرد نصي فقط: صوت Inworld مش متاح']);
   } else {emit(['type'=>'started']);tts_stream($text,$c);}
   emit(['type'=>'complete','totalMs'=>round((microtime(true)-$start)*1000)]);
  }catch(Throwable $e){emit(['type'=>'error','message'=>$e->getMessage()]);}
