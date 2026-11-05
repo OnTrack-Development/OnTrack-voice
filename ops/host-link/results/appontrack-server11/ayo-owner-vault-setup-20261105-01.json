@@ -1,0 +1,13 @@
+{
+  "job_id": "ayo-owner-vault-setup-20261105-01",
+  "target": "appontrack-server11",
+  "job_sha256": "d09a49b0081ec87ff778d18e09bdcc90bc488cf44eba8f2a516a4bd8012ce5ba",
+  "started_at": "2026-11-05T04:24:02.362107+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"guard\": \"ready\", \"directory_outside_docroot\": true, \"owner_mode\": \"0o600\"}\n",
+  "stderr": "",
+  "finished_at": "2026-11-05T04:24:02.394904+00:00",
+  "duration_ms": 33
+}
