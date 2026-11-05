@@ -129,6 +129,35 @@ function tenant_workspace_call_event(array $b,array $p):array{
                         WHERE account_id=? AND site_id=? AND device_binding_id=? AND call_id=?",[
                         $reason,now(),$b['account_id'],$b['site_id'],$b['id'],$id]);
                 }
+            }elseif($phase==='agent_report'){
+                $summary=$p['summary']??'';
+                $notes=$p['customer_notes']??'';
+                if(!is_string($summary)||!is_string($notes)||
+                   mb_strlen($summary)>1000||mb_strlen($notes)>1000)
+                    throw new InvalidArgumentException('invalid_live_report');
+                $summary=trim($summary);$notes=trim($notes);
+                if($summary!==''||$notes!==''){
+                    if($summary!=='')$summary='ملخص أولي غير مؤكد: '.$summary;
+                    $current=tenant_call_report_find($b,$id);
+                    if(!$current){
+                        insert('INSERT INTO tenant_call_reports
+                           (account_id,site_id,device_binding_id,call_id,summary,customer_notes,
+                            outcome,handoff_status,handoff_reason,source,revision,created_at,updated_at)
+                            VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?)',[
+                            $b['account_id'],$b['site_id'],$b['id'],$id,$summary,$notes,
+                            'unknown','not_requested','','device',now(),now()]);
+                    }else{
+                        $replaceSummary=$current['summary']===''||
+                            str_starts_with($current['summary'],'ملخص أولي غير مؤكد:');
+                        execute('UPDATE tenant_call_reports SET
+                            summary=CASE WHEN ?=1 AND ?<>\'\' THEN ? ELSE summary END,
+                            customer_notes=CASE WHEN ?<>\'\' THEN ? ELSE customer_notes END,
+                            revision=revision+1,updated_at=?
+                            WHERE account_id=? AND site_id=? AND device_binding_id=? AND call_id=?',[
+                            (int)$replaceSummary,$summary,$summary,$notes,$notes,now(),
+                            $b['account_id'],$b['site_id'],$b['id'],$id]);
+                    }
+                }
             }elseif($phase==='identified'){
                 $phone=(string)($p['phone_number']??'');$name=trim((string)($p['contact_name']??''));
                 if($phone!==''&&mb_strlen($name)<=100&&preg_match('/^\\+?[0-9 ()-]{8,30}$/D',$phone)){
