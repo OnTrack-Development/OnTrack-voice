@@ -321,21 +321,36 @@ function tenant_workspace_call_analysis(array $binding,array $data,?callable $tr
     $setup['setup']['tools'][0]['functionDeclarations'][0]['name']='submit_call_report';
     $setup['setup']['tools'][0]['functionDeclarations'][0]['description']=
         'Return structured call findings only; do not perform actions or human transfer';
-    if($transport!==null){
-        $response=$transport($setup,flow_ai_live_text_turn($prompt));
-        if(!is_array($response))throw new RuntimeException('call_report_invalid_live_response');
-        $result=flow_ai_live_extract($response,'submit_call_report');
-    }else{
-        require_once __DIR__.'/TenantVoiceSession.php';
-        $provider=tenant_voice_provider((int)$binding['account_id']);
-        $result=flow_ai_live_exchange($provider['key'],$setup,$prompt,'submit_call_report');
+    try {
+        if($transport!==null){
+            $response=$transport($setup,flow_ai_live_text_turn($prompt));
+            if(!is_array($response))throw new RuntimeException('call_report_invalid_live_response');
+            $result=flow_ai_live_extract($response,'submit_call_report');
+        }else{
+            require_once __DIR__.'/TenantVoiceSession.php';
+            $provider=tenant_voice_provider((int)$binding['account_id']);
+            $result=flow_ai_live_exchange($provider['key'],$setup,$prompt,'submit_call_report');
+        }
+        if(!is_array($result)||!is_string($result['summary']??null)||
+           !is_string($result['customer_notes']??null)||
+           !is_string($result['outcome']??null)||
+           !is_bool($result['handoff_requested']??null)||
+           !is_string($result['handoff_reason']??null))
+            throw new RuntimeException('call_report_model_invalid');
+    }catch(Throwable $error){
+        // Google may time out or return a non-structured result. Never lose an
+        // AUTHENTIC transcribed call or block an already recorded human request.
+        // This fallback is explicitly a short extract, not an AI-generated
+        // summary, outcome, notes, or proof of staff receiving a handoff.
+        $snippet=trim(mb_substr(preg_replace('/\\s+/u',' ',$transcript)??$transcript,0,320));
+        $result=[
+            'summary'=>'تعذر التلخيص الآلي؛ مقتطف موثق من تفريغ المكالمة: '.$snippet,
+            'customer_notes'=>'',
+            'outcome'=>'unknown',
+            'handoff_requested'=>false,
+            'handoff_reason'=>''
+        ];
     }
-    if(!is_array($result)||!is_string($result['summary']??null)||
-       !is_string($result['customer_notes']??null)||
-       !is_string($result['outcome']??null)||
-       !is_bool($result['handoff_requested']??null)||
-       !is_string($result['handoff_reason']??null))
-        throw new RuntimeException('call_report_model_invalid');
     $note=trim(mb_substr($result['customer_notes'],0,1200));
     $reason=trim(mb_substr($result['handoff_reason'],0,1200));
     $requested=$result['handoff_requested'];
