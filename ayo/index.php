@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#000000"/>
   <title>AYO | OnTrack Voice Lab</title>
-  <link rel="stylesheet" href="style.css?v=10"/>
+  <link rel="stylesheet" href="style.css?v=12"/>
 </head>
 <body>
 <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -44,7 +44,8 @@
           <button type="button" class="gateway-card" data-gateway="omnira-b" aria-pressed="false"><strong>Omnira B</strong><small>5,000 وحدة / يوم</small></button>
         </div>
         <div class="gateway-model-row"><label for="gatewayModel">موديل البوابة</label><select id="gatewayModel" aria-label="الموديل النشط"></select></div>
-        <div class="gateway-bottom"><span class="gateway-url" id="gatewayEndpointDisplay" dir="ltr">—</span><span class="gateway-state" id="gatewayState" role="status" aria-live="polite">جاري تحميل الإعدادات</span><button type="button" class="gateway-settings" id="gatewaySettingsButton">مفاتيح API</button></div>
+        <div class="gateway-bottom"><span class="gateway-url" id="gatewayEndpointDisplay" dir="ltr">—</span><span class="gateway-state" id="gatewayState" role="status" aria-live="polite">جاري تحميل الإعدادات</span><button type="button" class="gateway-settings" id="gatewaySettingsButton">مفاتيح API</button><button type="button" class="gateway-settings gateway-probe-btn" id="gatewayTestButton">اختبر البوابة</button></div>
+      <div class="gateway-test-result" id="gatewayTestResult" role="status" aria-live="polite">المفتاح محفوظ ≠ اتصال شغال. اضغط «اختبر البوابة» للتحقق من الرد الفعلي.</div>
       </section>
       <div class="emotion-selector">
         <label for="emotionMode">مشاعر وصوت آيو</label>
@@ -149,6 +150,6 @@
     <button type="button" id="micShowGuide" class="ayo-mic-help-link">الموافقة مش بتظهر؟ شوف خطوات Chrome على الموبايل</button>
   </div>
 </div>
-<script type="module" src="app.js?v=11"></script>
+<script type="module" src="app.js?v=12"></script>
 </body>
 </html>
