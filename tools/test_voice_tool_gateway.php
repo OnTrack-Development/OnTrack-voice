@@ -115,4 +115,85 @@ $ok=voice_tool_confirm(4,$site,$confirmed['request_id'],$actor,$confirmed['appro
 tool_check($ok['reference_id']==='BK-1001','confirmed booking ref');
 tool_check(count(voice_tool_history(4,$site))>=4,'audit history');
 tool_check(!str_contains(json_encode(voice_tool_history(4,$site)),'demo-key'),'no secrets in trace');
+// Provider must return a real identifier, not a boolean that PHP casts to "1".
+foreach ([true, false, 0, '0'] as $fakeId) {
+    $refDenied=false;
+    try { voice_tool_result('rest.booking.create',['success'=>true,'booking_id'=>$fakeId]); }
+    catch (RuntimeException $e) { $refDenied=$e->getMessage()==='tool_booking_reference_missing'; }
+    tool_check($refDenied,'booking id must be a nonzero scalar identifier');
+}
+foreach ([true, 0, '0'] as $fakeId) {
+    $refDenied=false;
+    try { voice_tool_result('whmcs.ticket.create',['result'=>'success','id'=>$fakeId]); }
+    catch (RuntimeException $e) { $refDenied=$e->getMessage()==='tool_whmcs_ticket_id_missing'; }
+    tool_check($refDenied,'ticket id must be a positive numeric identifier');
+}
+$badSlots=voice_tool_result('rest.slots',['success'=>true,'slots'=>[
+    ['id'=>false,'start'=>'2026-12-01T09:00:00'],
+    ['id'=>'slot-real','start'=>'2026-12-01T09:30:00']
+]]);
+tool_check($badSlots['count']===1&&$badSlots['slots'][0]['id']==='slot-real',
+    'invalid boolean slot identifiers excluded');
+
+// Revoke access to existing PREPARED writes when the site or tenant is stopped.
+// The data stays prepared and cannot be executed while entitlement is gone.
+$archiveRequest=voice_tool_prepare(4,$site,$booking,$actor,'rest-book-archive-abcdef',
+    ['slot_id'=>'room-3','name'=>'Archive QA','phone'=>'+201234567890','service_id'=>'standard']);
+$siteStatus=(string)one('SELECT status FROM sites WHERE id=? AND account_id=4',[$site])['status'];
+$externalCalls=0;
+execute("UPDATE sites SET status='archived' WHERE id=? AND account_id=4",[$site]);
+try {
+    $blocked=false;
+    try { voice_tool_policy(4,$site,$booking); }
+    catch (InvalidArgumentException $e) { $blocked=$e->getMessage()==='tool_policy_unavailable'; }
+    tool_check($blocked,'archived site revokes approved policy');
+    $blocked=false;
+    try { voice_tool_confirm(4,$site,$archiveRequest['request_id'],$actor,
+        $archiveRequest['approval_token'],true,static function()use(&$externalCalls):array {
+            $externalCalls++;return ['status'=>'succeeded','reference_id'=>'should-not-exist'];
+        }); }
+    catch (InvalidArgumentException $e) { $blocked=$e->getMessage()==='tool_policy_unavailable'; }
+    tool_check($blocked&&$externalCalls===0,'archived site cannot dispatch prepared booking');
+    tool_check((string)one('SELECT status FROM voice_tool_requests WHERE id=?',
+        [$archiveRequest['request_id']])['status']==='prepared',
+        'blocked booking remains unexecuted');
+} finally {
+    execute('UPDATE sites SET status=? WHERE id=? AND account_id=4',[$siteStatus,$site]);
+}
+$approvedAfterSiteRestore=voice_tool_confirm(4,$site,$archiveRequest['request_id'],
+    $actor,$archiveRequest['approval_token'],true,
+    static fn()=>voice_tool_result('rest.booking.create',['success'=>true,'booking_id'=>'SITE-RESTORED']));
+tool_check($approvedAfterSiteRestore['reference_id']==='SITE-RESTORED',
+    'restored site permits explicitly confirmed, still valid booking');
+
+$accountRequest=voice_tool_prepare(4,$site,$booking,$actor,'rest-book-suspend-abcde',
+    ['slot_id'=>'room-3','name'=>'Suspension QA','phone'=>'+201234567890','service_id'=>'standard']);
+$accountStatus=(string)one('SELECT status FROM accounts WHERE id=4')['status'];
+execute("UPDATE accounts SET status='suspended' WHERE id=4");
+try {
+    $blocked=false;
+    try { voice_tool_actor(4,$actor); }
+    catch (RuntimeException $e) { $blocked=$e->getMessage()==='tool_actor_requires_owner_or_manager'; }
+    tool_check($blocked,'suspended tenant loses tool actor rights');
+    $blocked=false;
+    try { voice_tool_prepare(4,$site,$booking,$actor,'rest-book-paused-abcdef',
+        ['slot_id'=>'room-3','name'=>'Blocked QA','phone'=>'+201234567890','service_id'=>'standard']); }
+    catch (InvalidArgumentException) { $blocked=true; }
+    tool_check($blocked,'suspended tenant cannot prepare new booking');
+    $blocked=false;
+    try { voice_tool_confirm(4,$site,$accountRequest['request_id'],$actor,
+        $accountRequest['approval_token'],true,static function()use(&$externalCalls):array {
+            $externalCalls++;return ['status'=>'succeeded','reference_id'=>'should-not-exist'];
+        }); }
+    catch (RuntimeException) { $blocked=true; }
+    tool_check($blocked&&$externalCalls===0,
+        'suspended tenant cannot dispatch previously prepared booking');
+} finally {
+    execute('UPDATE accounts SET status=? WHERE id=4',[$accountStatus]);
+}
+$approvedAfterResume=voice_tool_confirm(4,$site,$accountRequest['request_id'],
+    $actor,$accountRequest['approval_token'],true,
+    static fn()=>voice_tool_result('rest.booking.create',['success'=>true,'booking_id'=>'TENANT-RESTORED']));
+tool_check($approvedAfterResume['reference_id']==='TENANT-RESTORED',
+    're-enabled tenant still needs explicit booking confirmation');
 echo "VOICE_SITE_TOOL_GATEWAY_PASS\n";
