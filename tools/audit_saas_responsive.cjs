@@ -149,6 +149,25 @@ async function main(){
     if(!drawer.open||!drawer.inside)failures.push({label:role.email,w:390,error:'mobile drawer invalid',drawer});
     await evaluate('document.getElementById("navClose")?.click()');
     if(await evaluate('document.body.classList.contains("nav-open")'))failures.push({label:role.email,error:'drawer not closing'});
+    if(role.email==='admin@ontrackegy.com'){
+      // Exercise a real mobile navigation click using the AJAX path (not
+      // just screenshot measurements), verifying the new sidebar selection.
+      await load('/saas/console/?tab=overview');
+      await evaluate('(function(){const l=document.querySelector(".nav-link[href$=\"tab=settings\"]");'+
+        'if(!l)throw Error("settings nav missing");l.closest("details").open=true;'+
+        'document.getElementById("navToggle").click();l.click();})()');
+      for(let attempt=0;attempt<35;attempt++){
+        const ready=await evaluate('location.search.includes("tab=settings") && !!document.querySelector(".nav-link.selected[href$=\"tab=settings\"]")');
+        if(ready)break;
+        await wait(100);
+      }
+      const state=await evaluate('(function(){return {url:location.search,'+
+        'selected:!!document.querySelector(".nav-link.selected[href$=\"tab=settings\"]"),'+
+        'drawerOpen:document.body.classList.contains("nav-open"),'+
+        'visible:!!document.querySelector("main.content")}})()');
+      if(!state.selected||!state.url.includes('tab=settings')||state.drawerOpen||!state.visible)
+        failures.push({label:role.email,error:'AJAX sidebar navigation state invalid',state});
+    }
   }
   console.log('SAAS_RESPONSIVE_AUDIT '+JSON.stringify({measured,failures:failures.slice(0,55),count:failures.length}));
   if(failures.length)process.exitCode=2;else console.log('SAAS_RESPONSIVE_BROWSER_PASS');
