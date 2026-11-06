@@ -145,7 +145,7 @@ function layout_open(array $a,string $tab):void{
         $visible=array_intersect_key($items,array_flip($groupData[1]));
         if(!$visible)continue;
         $isCurrent=array_key_exists($tab,$visible);
-        echo '<details class="nav-group"'.($isCurrent?' open':'').'><summary class="nav-group-title">'.e($groupData[0]).'<span aria-hidden="true">⌄</span></summary><div class="nav-group-links">';
+        echo '<details class="nav-group" data-nav-group="'.e((string)$group).'"'.($isCurrent?' open':'').'><summary class="nav-group-title">'.e($groupData[0]).'<span aria-hidden="true">⌄</span></summary><div class="nav-group-links">';
         foreach($groupData[1] as $key){
             if(!isset($visible[$key]))continue;
             $entry=$items[$key];$active=$tab===$key?' selected':'';
