@@ -14,6 +14,8 @@ on:
       - 'tools/test_voice_access.php'
       - 'tools/test_v1_site05_plan_transitions.php'
       - 'tools/test_voice_kb_search_index.php'
+      - 'tools/test_voice_kb_pdf_extract.php'
+      - 'tools/audit_saas_responsive.cjs'
       - 'tools/test_auth_login_throttle.php'
       - 'tools/test_v1_reseller_toggle.php'
       - 'tools/test_verified_signup.php'
@@ -73,6 +75,7 @@ jobs:
             $suite=@(
               'tools/test_v1_knowledge.php',
               'tools/test_voice_kb_search_index.php',
+              'tools/test_voice_kb_pdf_extract.php',
               'tools/test_v1_site05_plan_transitions.php',
               'tools/test_voice_access.php',
               'tools/test_auth_login_throttle.php',

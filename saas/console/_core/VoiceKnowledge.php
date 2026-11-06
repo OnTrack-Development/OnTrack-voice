@@ -50,6 +50,16 @@ function voice_knowledge_validate(string $name,string $kind,string $content,stri
         throw new InvalidArgumentException('knowledge_invalid_content');
     return $content;
 }
+/**
+ * Intentionally truthful capability check for the Linux production host.
+ * Poppler's pdftotext is required for reliable multi-page text PDF support.
+ */
+function voice_knowledge_pdf_extractor():?string {
+    if(!function_exists('proc_open'))return null;
+    foreach(['/usr/bin/pdftotext','/bin/pdftotext'] as $candidate)
+        if(is_file($candidate)&&is_executable($candidate))return $candidate;
+    return null;
+}
 /** Extract text only; never store/execute the uploaded original binary. */
 function voice_knowledge_extract_file(string $filename,string $path,int $size):array {
     if($size<1||$size>2097152||!is_file($path)||!is_readable($path))
@@ -77,12 +87,11 @@ function voice_knowledge_extract_file(string $filename,string $path,int $size):a
             $content=html_entity_decode(strip_tags((string)$xml),ENT_QUOTES|ENT_XML1,'UTF-8');
         }finally{$zip->close();}
     }else{
-        // PDF text is extracted using an allowlisted local Poppler binary if installed.
-        // We never execute a caller-supplied command and never claim OCR support.
-        $binary=null;
-        foreach(['/usr/bin/pdftotext','/bin/pdftotext'] as $candidate)
-            if(is_file($candidate)&&is_executable($candidate)){$binary=$candidate;break;}
-        if(!$binary||!function_exists('proc_open'))throw new RuntimeException('knowledge_pdf_extractor_unavailable');
+        // Only approved executable paths are used; never execute a caller's
+        // filename as a shell command. Scanned/image PDFs require OCR and are
+        // deliberately not described as searchable until real text exists.
+        $binary=voice_knowledge_pdf_extractor();
+        if($binary===null)throw new RuntimeException('knowledge_pdf_extractor_unavailable');
         $pipes=[];
         $process=@proc_open([$binary,'-f','1','-l','50','-enc','UTF-8','-nopgbrk',$path,'-'],
             [0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,null,null,['bypass_shell'=>true]);
