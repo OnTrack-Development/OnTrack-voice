@@ -74,8 +74,10 @@ function voice_flow_start(int $accountId,int $siteId,int $agentId,string $callId
         if($actorId<1)throw new InvalidArgumentException('flow_actor_required');
         voice_tool_actor($accountId,$actorId);
     }elseif($deviceBindingId<1)throw new InvalidArgumentException('flow_device_required');
-    $agent=one("SELECT id FROM agents WHERE id=? AND account_id=? AND site_id=? AND status!='archived'",
-        [$agentId,$accountId,$siteId]);
+    $agent=one("SELECT a.id FROM agents a
+        JOIN sites s ON s.id=a.site_id AND s.account_id=a.account_id
+        WHERE a.id=? AND a.account_id=? AND a.site_id=? AND a.status!='archived'
+          AND s.status='active'",[$agentId,$accountId,$siteId]);
     $published=published_agent_flow($accountId,$siteId,$agentId);
     if(!$agent||!$published)throw new InvalidArgumentException('flow_unpublished_agent');
     $graph=flow_preview_compile(json_decode((string)$published['flow_json'],true,32,JSON_THROW_ON_ERROR));
@@ -110,6 +112,15 @@ function voice_flow_session(int $accountId,int $sessionId,int $actorId=0,int $de
         throw new InvalidArgumentException('flow_session_access_denied');
     return $s;
 }
+/** Archive/suspension must revoke a previously opened workflow before the next step. */
+function voice_flow_require_active_context(array $session):void {
+    if(!one("SELECT a.id FROM agents a
+        JOIN sites s ON s.id=a.site_id AND s.account_id=a.account_id
+        WHERE a.id=? AND a.account_id=? AND a.site_id=?
+          AND a.status!='archived' AND s.status='active'",
+        [(int)$session['agent_id'],(int)$session['account_id'],(int)$session['site_id']]))
+        throw new InvalidArgumentException('flow_context_inactive');
+}
 function voice_flow_saved_graph(array $session):array {
     $snapshot=one('SELECT flow_json,revision,flow_hash FROM agent_flow_versions
        WHERE account_id=? AND site_id=? AND agent_id=? AND revision=?',
@@ -122,6 +133,7 @@ function voice_flow_saved_graph(array $session):array {
 function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string $reply=null,
     int $deviceBindingId=0):array {
     $session=voice_flow_session($accountId,$sessionId,$actorId,$deviceBindingId);
+    voice_flow_require_active_context($session);
     if(in_array($session['status'],['completed','blocked'],true))return ['status'=>$session['status'],'events'=>[],'done'=>true];
     $graph=voice_flow_saved_graph($session);
     $state=json_decode((string)$session['state_json'],true,32,JSON_THROW_ON_ERROR);
@@ -230,6 +242,7 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
 /** Only server-confirmed, matching tool requests can release a paused node. */
 function voice_flow_complete_tool(int $accountId,int $sessionId,int $actorId,int $requestId):array {
     $session=voice_flow_session($accountId,$sessionId,$actorId);
+    voice_flow_require_active_context($session);
     $state=json_decode((string)$session['state_json'],true,32,JSON_THROW_ON_ERROR);
     $pending=$state['pending_tool']??null;
     if(!is_array($pending))throw new InvalidArgumentException('flow_no_pending_tool');
