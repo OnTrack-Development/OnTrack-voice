@@ -116,7 +116,7 @@ function voice_connector_cache_schedule_init():void {
 }
 
 /**
- * Refresh at most eight VERIFIED public catalogues across active tenant sites.
+ * Refresh only WHMCS GetProducts catalogues across active tenant sites.
  * Never cache invoices, bookings, contacts or individual customer lookups.
  * A failed request leaves the stale snapshot expired (and unavailable to AI).
  */
@@ -131,6 +131,7 @@ function voice_connector_cache_due_all(int $limit=4,?callable $transport=null):a
        LEFT JOIN voice_connector_public_refresh_schedule r
          ON r.connector_id=c.id AND r.account_id=c.account_id AND r.site_id=c.site_id
        WHERE c.status='verified' AND s.status='active'
+         AND c.type='whmcs' AND c.read_path='/includes/api.php'
          AND (p.expires_at IS NULL OR p.expires_at<=?)
          AND (r.next_attempt_at IS NULL OR r.next_attempt_at<=?)
        ORDER BY COALESCE(r.next_attempt_at,p.expires_at,c.last_tested_at),c.id
