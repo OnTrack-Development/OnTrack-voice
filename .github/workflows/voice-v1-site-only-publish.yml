@@ -5,12 +5,14 @@ on:
       - fix/v1-site-only-20261106
       - feat/site-v1-remaining-20261106
       - feat/site-v1-finish-20261106
+      - feat/site-v1-api-cache-20261106
       - release/voice-v1-20261106
     paths:
       - 'saas/console/**'
       - 'tools/test_v1_knowledge.php'
       - 'tools/test_voice_tool_gateway.php'
       - 'tools/test_voice_openapi.php'
+      - 'tools/test_voice_connector_cache.php'
       - 'tools/test_voice_knowledge_web.php'
       - 'tools/test_voice_flow_runtime.php'
       - 'tools/test_voice_call_timeline.php'
@@ -63,6 +65,7 @@ jobs:
               'tools/test_v1_knowledge.php',
               'tools/test_voice_tool_gateway.php',
               'tools/test_voice_openapi.php',
+              'tools/test_voice_connector_cache.php',
               'tools/test_voice_knowledge_web.php',
               'tools/test_voice_flow_runtime.php',
               'tools/test_voice_call_timeline.php',

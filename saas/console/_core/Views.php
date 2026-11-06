@@ -700,6 +700,27 @@ function render_voice_data_sources(array $a,array $site):void {
                 form_start('voice_connector_delete',$url,'class="inline-form"').'<input type="hidden" name="connector_id" value="'.(int)$row['id'].'"><button class="btn small danger" type="submit">حذف</button></form></div>';
         }
         echo card('تكاملات القراءة', $html);
+        require_once __DIR__.'/VoiceConnectorCache.php';
+        $cacheStatus=[];
+        foreach(voice_connector_cache_rows($id,$siteId) as $snapshot)
+            $cacheStatus[(int)$snapshot['connector_id']]=$snapshot;
+        $cacheHtml='<p class="info">يجري تخزين المعلومات العامة فقط من موصل متحقق منه. تنتهي تلقائيًا حسب TTL، ويقرأها الإيجنت من السيرفر دون انتظار الشبكة. الفواتير والمواعيد الشخصية والحجوزات لا تُحفظ هنا ولا تعتبر مؤكدة دون API حيّة.</p>';
+        foreach($connectors as $connector){
+            if($connector['status']!=='verified')continue;
+            $snapshot=$cacheStatus[(int)$connector['id']]??null;
+            $state=$snapshot!==null?($snapshot['status']==='current'
+                ?'سارية حتى '.$snapshot['expires_at'].' UTC'
+                :'انتهت صلاحيتها '.$snapshot['expires_at'].' UTC')
+                :'لا توجد لقطة بيانات عامة محفوظة';
+            $cacheHtml.='<div class="voice-data-row"><strong>'.e($connector['name']).'</strong>'.
+                '<span>'.e($state).'</span>'.
+                form_start('voice_connector_cache_refresh',$url,'class="inline-form"').
+                '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+                '<input type="hidden" name="connector_id" value="'.(int)$connector['id'].'">'.
+                '<label class="field">صلاحية بالدقائق<input type="number" name="ttl_minutes" min="5" max="1440" value="60" required></label>'.
+                '<button class="btn small" type="submit">جلب معلومات عامة وتجديد صلاحيتها</button></form></div>';
+        }
+        echo card('Cache للبيانات العامة من API',$cacheHtml);
         // Approved connector discovery proposes endpoint drafts ONLY.
         require_once __DIR__.'/VoiceOpenApi.php';
         $restConnectors=array_values(array_filter($connectors,
