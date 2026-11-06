@@ -10,6 +10,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: utf-8
 concurrency:
   group: ontrack-wifi-pcm-qa-${{ github.ref }}
   cancel-in-progress: true
