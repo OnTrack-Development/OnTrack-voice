@@ -591,6 +591,9 @@ function render_voice_data_sources(array $a,array $site):void {
        FROM voice_knowledge_sources WHERE account_id=? AND site_id=? AND status IN ('active','review') ORDER BY id DESC LIMIT 40",
        [$id,$siteId]);
     $html='<p class="info">المعرفة معزولة حسب الشركة والموقع. يُستخرج نص الملفات فقط، ويُحفظ تاريخ التعديلات؛ المصادر الداخلية لا تصل إلى مكالمات العملاء. PDF يتطلب محرك استخراج على الاستضافة، ولا يُدّعى فهرسته إذا تعذر ذلك.</p>';
+    $html.=form_start('voice_knowledge_reindex',$url,'class="inline-form"').
+        '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+        '<button class="btn small" type="submit">إعادة فهرسة المعرفة المعتمدة</button></form>';
     $html.=form_start('voice_knowledge_folder_add',$url).
         '<input type="hidden" name="site_id" value="'.$siteId.'">'.
         field_html('اسم المجلد الجديد','folder_name','text','مثلاً سياسات الحجز',true).
