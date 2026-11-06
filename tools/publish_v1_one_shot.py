@@ -2,8 +2,8 @@
 """Build-verified V1 site and native host publisher. Receipts gate success."""
 import base64,datetime,hashlib,json,os,pathlib,subprocess,sys,tarfile,time,urllib.error,urllib.parse,urllib.request,zipfile,zlib
 REPO="OnTrack-Development/OnTrack-voice"
-RUN_SOURCE=os.environ["GITHUB_RUN_ID"]
-SHA_SOURCE=os.environ["GITHUB_SHA"]
+RUN_SOURCE=os.environ.get("ONTRACK_BUILD_RUN",os.environ["GITHUB_RUN_ID"])
+SHA_SOURCE=os.environ.get("ONTRACK_BUILD_SHA",os.environ["GITHUB_SHA"])
 APK="OnTrack-Voice-0.3.26.apk"
 APK_SHA=None
 CERT="d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f"
@@ -14,7 +14,7 @@ TARGET="appontrack-server11"
 QUEUE="ops/host-link/jobs/"+TARGET+".json"
 RESULT="ops/host-link/results/"+TARGET+"/"
 OUT=pathlib.Path(".build/v1-one-shot")
-RUN=os.environ["GITHUB_RUN_ID"]
+RUN=RUN_SOURCE
 GH=os.environ["GH_TOKEN"]
 assert os.environ["GITHUB_REPOSITORY"]==REPO and os.environ["GITHUB_REF"]=="refs/heads/release/voice-v1-20261106"
 
