@@ -33,7 +33,7 @@
 **يُمنع دمج/نشر هذا المرشح قبل إغلاق الفحوص الحرجة.**
 
 ## تحديث تنفيذ نفس اليوم — طلب بناء النسخة الموحّدة
-- أُضيف `.github/workflows/voice-v1-build-only.yml` لبناء APK موقّع بالهوية الأصلية والتأكد من التوقيع والمحتويات **دون رفعه للهاتف أو استدعاء عامل النشر**. التشغيل الحالي: https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42154020662 (queued عند التحقق)، وليس دليل إنتاج ملف APK.
+- أُضيف `.github/workflows/voice-v1-build-only.yml` لبناء APK موقّع بالهوية الأصلية والتأكد من التوقيع والمحتويات **دون رفعه للهاتف أو استدعاء عامل النشر**. تشغيل `42154020662` انتهى بفشل مثبت في Python `UnicodeDecodeError` أثناء `prepare.py` على Windows (cp1252)، بعد نجاح checkout/JDK/SDK/signing identity. أُصلح إعداد الترميز عبر `PYTHONUTF8=1` و`PYTHONIOENCODING=utf-8` في workflow. إعادة المحاولة: https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42154272984؛ لم يؤكد APK بعد.
 - `MobileLinkActivity.kt` يفتح SaaS بـ Android ACTION_VIEW للمتصفح الخارجي، ويرسل حالة READ_PHONE_STATE للواجهة. واجهتا `ui.html` متطابقتان، wizard يبقى ظاهرًا عند انعدام ربط SIM أو فقد إذن الهاتف، وأزرار التشغيل تستدعي bridge القائم.
 - `TenantVoiceSession.php` أزيل منه وصف سيناريو تجريبي في تعليمات الصوت، وأضيف حد جملتين لكل دور والانتظار لرد العميل. لا إثبات بعد لتحسن LTE.
 - `prepare.py` لم يعد يشحن قائمة تفاصيل مسارات التنفيذ في `ONTRACK-MODIFICATIONS.txt`، مع الحفاظ على ترخيص Apache-2.0 والإسناد الإلزامي.
