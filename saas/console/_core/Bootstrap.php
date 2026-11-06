@@ -474,6 +474,15 @@ function audit(string $action,?int $accountId=null,array $details=[]):void{
     insert('INSERT INTO audit_events(actor_user_id,account_id,action,detail,created_at) VALUES (?,?,?,?,?)',[$actor['id'],$accountId,$action,$info,now()]);
 }
 function site_limit(int $accountId,string $key):int{
+    $account=one('SELECT kind,status FROM accounts WHERE id=?',[$accountId]);
+    if(!$account||$account['status']!=='active')return 0;
+    // The platform is the service owner, not a metered customer. It must not
+    // acquire an expiring demo subscription merely to create sites/agents or
+    // maintain its own voice/SIM configuration. Child tenants remain metered.
+    if($account['kind']==='platform')return in_array($key,[
+        'call_quota','site_limit','agent_limit','staff_limit',
+        'reseller_customers','google_key_limit'
+    ],true)?1000000000:0;
     $row=one("SELECT p.* FROM subscriptions s JOIN plans p ON p.id=s.plan_id
         WHERE s.account_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
         ORDER BY s.id DESC LIMIT 1",[$accountId,now(),now()]);
