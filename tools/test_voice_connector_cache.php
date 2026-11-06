@@ -113,6 +113,30 @@ $recoveryRow=one('SELECT failures FROM voice_connector_public_refresh_schedule
 cached_check((int)$recoveryRow['failures']===0,'recovery resets retry counter');
 cached_check(str_contains(voice_connector_cache_context(4,$site),'Recovered hosting plan'),
     'recovered public facts are available again');
+// Suspension is a hard tenant boundary for both cache reads and cron work.
+execute("UPDATE accounts SET status='suspended' WHERE id=4");
+cached_check(voice_connector_cache_context(4,$site)==='',
+    'suspended tenant cannot read its formerly valid public cache');
+$denied=false;
+try{voice_connector_cache_refresh(4,$site,$conn,60,static fn()=>[
+    'result'=>'success','products'=>['product'=>[['name'=>'should not run']]]]);}
+catch(InvalidArgumentException){$denied=true;}
+cached_check($denied,'suspended account cannot refresh its public cache');
+execute('UPDATE voice_connector_public_cache SET expires_at=? WHERE connector_id=? AND account_id=4',
+    [$old,$conn]);
+execute('UPDATE voice_connector_public_refresh_schedule SET next_attempt_at=?
+    WHERE connector_id=? AND account_id=4',[$old,$conn]);
+$skipped=voice_connector_cache_due_all(2,static function():never {
+    throw new RuntimeException('suspended account cannot call provider');
+});
+cached_check($skipped['checked']===0,
+    'cron skips due catalogue belonging to suspended tenant');
+execute("UPDATE accounts SET status='active' WHERE id=4");
+$restored=voice_connector_cache_due_all(1,static fn():array=>[
+    'result'=>'success','products'=>['product'=>[['name'=>'Restored tenant catalogue']]]
+]);
+cached_check($restored['checked']===1&&$restored['refreshed']===1,
+    'reactivated tenant refreshes previously due public catalogue');
 $bad=false;try{voice_connector_cache_due_all(9);}catch(InvalidArgumentException){$bad=true;}
 cached_check($bad,'global refresh budget enforced');
 
