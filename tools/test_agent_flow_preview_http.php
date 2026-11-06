@@ -28,8 +28,9 @@ function test_agent_flow_preview_http():void {
     $port=(int)substr(strrchr($address,':'),1);
     $root=realpath(__DIR__.'/../saas/console');
     $router=__DIR__.'/flow_preview_http_router.php';
+    $nullDevice=PHP_OS_FAMILY==='Windows'?'NUL':'/dev/null';
     $process=proc_open([PHP_BINARY,'-S','127.0.0.1:'.$port,'-t',$root,$router],
-        [0=>['pipe','r'],1=>['file','/dev/null','a'],2=>['file','/dev/null','a']],
+        [0=>['pipe','r'],1=>['file',$nullDevice,'a'],2=>['file',$nullDevice,'a']],
         $pipes,dirname(__DIR__));
     if(!is_resource($process))throw new RuntimeException('flow_http_server');
     fclose($pipes[0]);
