@@ -21,6 +21,9 @@ scenario_ok(str_contains($styleInstruction,'سكتة تفكير قصيرة'),
     'customer can finish a sentence before AI replies');
 scenario_ok(str_contains($styleInstruction,'إيقاع الكلام طبيعي'),
     'natural Egyptian speech pace');
+scenario_ok(str_contains($styleInstruction,'بسرعة متوسطة هادية') &&
+    str_contains($styleInstruction,'افصل بين الجمل'),
+    'Egyptian voice instructs an unhurried intelligible pace');
 scenario_ok(str_contains($styleInstruction,'بعد جملة الختام توقف عن الكلام'),
     'text scenario finale is not restarted');
 seed_console();
