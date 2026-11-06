@@ -108,4 +108,44 @@ flow_check($legacyResult['status']==='blocked'&&$legacyResult['done']===true&&
     $legacyResult['state']['pending_tool']===null,'legacy unbound tool session recovers');
 flow_check(voice_flow_process(4,$legacySessionId,$actor)['status']==='blocked',
     'legacy reconciliation idempotent');
+
+// Archive/suspend after starting a session must deny both process and tool completion.
+$archiveSession=voice_flow_start(4,$site,$aid,'webdemo-archive-agent','web_preview',$actor);
+$archiveId=(int)$archiveSession['session_id'];
+$agentStatus=(string)one('SELECT status FROM agents WHERE id=? AND account_id=4',[$aid])['status'];
+execute("UPDATE agents SET status='archived' WHERE id=? AND account_id=4",[$aid]);
+try {
+    $inactive=false;
+    try{voice_flow_process(4,$archiveId,$actor);}
+    catch(InvalidArgumentException $e){$inactive=$e->getMessage()==='flow_context_inactive';}
+    flow_check($inactive,'archived agent cannot continue existing flow');
+    $inactive=false;
+    try{voice_flow_complete_tool(4,$archiveId,$actor,999999);}
+    catch(InvalidArgumentException $e){$inactive=$e->getMessage()==='flow_context_inactive';}
+    flow_check($inactive,'archived agent cannot complete pending tool');
+    $inactive=false;
+    try{voice_flow_start(4,$site,$aid,'webdemo-new-archived','web_preview',$actor);}
+    catch(InvalidArgumentException){$inactive=true;}
+    flow_check($inactive,'archived agent cannot start new flow');
+} finally {
+    execute('UPDATE agents SET status=? WHERE id=? AND account_id=4',[$agentStatus,$aid]);
+}
+$siteStatus=(string)one('SELECT status FROM sites WHERE id=? AND account_id=4',[$site])['status'];
+execute("UPDATE sites SET status='archived' WHERE id=? AND account_id=4",[$site]);
+try {
+    $inactive=false;
+    try{voice_flow_process(4,$archiveId,$actor);}
+    catch(InvalidArgumentException $e){$inactive=$e->getMessage()==='flow_context_inactive';}
+    flow_check($inactive,'archived site revokes old flow');
+    $inactive=false;
+    try{voice_flow_start(4,$site,$aid,'webdemo-new-closedsite','web_preview',$actor);}
+    catch(InvalidArgumentException){$inactive=true;}
+    flow_check($inactive,'archived site blocks flow start');
+} finally {
+    execute('UPDATE sites SET status=? WHERE id=? AND account_id=4',[$siteStatus,$site]);
+}
+$restored=voice_flow_process(4,$archiveId,$actor);
+flow_check($restored['status']==='active'&&$restored['state']['awaiting']==='q',
+    'active site restores permitted pending flow without arbitrary execution');
+
 echo "VOICE_FLOW_RUNTIME_STATES_AND_TRACES_PASS\n";
