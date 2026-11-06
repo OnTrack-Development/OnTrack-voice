@@ -14,10 +14,11 @@ function private_path(): string {
         if(!is_dir($root)||is_link($root))throw new RuntimeException('untrusted_test_root');
         $path=$isolated;
     }else{
-        // Isolate local/runner fixture databases by a validated short CI identifier.
-        // This variable is ignored for browser requests and does not override
-        // the explicit protected host preflight path above.
-        $tag=PHP_SAPI==='cli'?(string)(getenv('ONTRACK_CI_NAMESPACE')?:''):'';
+        // Isolate runner fixtures; the PHP built-in HTTP test server is loopback-only.
+        // Apache/FPM/web production cannot choose a private database via HTTP.
+        $isCi=PHP_SAPI==='cli'||(PHP_SAPI==='cli-server'&&
+            in_array((string)($_SERVER['SERVER_ADDR']??''),['127.0.0.1','::1'],true));
+        $tag=$isCi?(string)(getenv('ONTRACK_CI_NAMESPACE')?:''):'';
         if($tag!==''){
             if(!preg_match('/^[A-Za-z0-9_-]{8,60}$/D',$tag))
                 throw new RuntimeException('unsafe_ci_namespace');
