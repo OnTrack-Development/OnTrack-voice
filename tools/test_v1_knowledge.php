@@ -27,7 +27,13 @@ verify_kb(voice_knowledge_update(4,$site,$id,'المواعيد تؤكد بعد �
 verify_kb((int)one('SELECT version FROM voice_knowledge_sources WHERE id=?',[$id])['version']===2,'version persisted');
 verify_kb(str_contains((string)one('SELECT content FROM voice_knowledge_revisions WHERE source_id=? AND version=1',[$id])['content'],'نظام الحجز'),'old revision retained');
 verify_kb(!str_contains(voice_knowledge_context(4,$site),'المواعيد المتاحة من خلال نظام الحجز فقط.'),'current context only');
-verify_kb(voice_knowledge_delete(4,$id),'archive');
+$candidate=voice_knowledge_add(4,$site,'مواعيد العيادة','md','المواعيد الجديدة تتطلب تأكيداً مستقلاً','public',$folder);
+verify_kb((string)one('SELECT status FROM voice_knowledge_sources WHERE id=?',[$candidate])['status']==='review','changed knowledge quarantine');
+verify_kb(!str_contains(voice_knowledge_context(4,$site),'المواعيد الجديدة'),'pending excluded from public context');
+verify_kb(voice_knowledge_approve(4,$site,$candidate),'explicit approval');
+verify_kb((string)one('SELECT status FROM voice_knowledge_sources WHERE id=?',[$id])['status']==='archived','previous facts replaced');
+verify_kb(str_contains(voice_knowledge_context(4,$site),'المواعيد الجديدة'),'approved facts visible');
+verify_kb(voice_knowledge_delete(4,$candidate),'archive');
 verify_kb(!str_contains(voice_knowledge_context(4,$site),'المواعيد تؤكد'),'archived excluded');
 verify_kb(voice_knowledge_delete(4,$private),'archive private');
 verify_kb(voice_knowledge_folder_delete(4,$site,$child),'delete child');
