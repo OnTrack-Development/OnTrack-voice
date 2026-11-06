@@ -8,7 +8,7 @@ on:
       - '.github/workflows/voice-v1-build-only.yml'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 env:
   PYTHONUTF8: '1'
   PYTHONIOENCODING: utf-8
@@ -201,14 +201,11 @@ jobs:
           Write-Host ('APK_LOCAL_PATH: ' + $signed)
           Write-Host ('APK_SHA256: ' + $hash)
           Write-Host 'SIGNED_APK_VERIFIED: PASS'
-      - name: Upload private candidate APK, checksums and provenance
-        uses: actions/upload-artifact@v4
-        with:
-          name: OnTrack-Voice-v1-candidate-unreleased
-          path: |
-            .build/release/OnTrack-Voice-0.3.25.apk
-            .build/release/SHA256SUMS.txt
-            .build/release/size-report.json
-            .build/release/ontrack-build-source.json
-          if-no-files-found: error
-          retention-days: 30
+      - name: Publish validated signed candidate to private GitHub prerelease (NO DEPLOY)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/publish_v1_candidate_release.py
+          if ($LASTEXITCODE -ne 0) { throw 'Signed candidate delivery failed; check private Release upload' }
+          Write-Host 'SIGNED_CANDIDATE_PRIVATE_RELEASE: PASS'
