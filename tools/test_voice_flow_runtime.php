@@ -148,4 +148,27 @@ $restored=voice_flow_process(4,$archiveId,$actor);
 flow_check($restored['status']==='active'&&$restored['state']['awaiting']==='q',
     'active site restores permitted pending flow without arbitrary execution');
 
+// A numeric device ID is never sufficient to open a new SIM workflow.
+$invalidBinding=false;
+try{voice_flow_start(4,$site,$aid,'device-nobind-123456','device',0,999999);}
+catch(InvalidArgumentException $e){$invalidBinding=$e->getMessage()==='flow_device_binding_invalid';}
+flow_check($invalidBinding,'unpaired device cannot start flow');
+$fixtureBinding=insert("INSERT INTO device_bindings
+    (account_id,site_id,agent_id,installation_id,sim_slot,slot_claim,
+     device_name,token_hash,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",[
+    4,$site,$aid,'flow-runtime-fixture-2026',0,
+    hash('sha256','flow-runtime-fixture-2026|0'),'Flow QA SIM',
+    hash('sha256','flow-test-token-'.bin2hex(random_bytes(12))),'active',now()
+]);
+$deviceStart=voice_flow_start(4,$site,$aid,'device-valid-123456','device',0,$fixtureBinding);
+flow_check($deviceStart['status']==='active','paired matching device starts flow');
+$deviceProgress=voice_flow_process(4,(int)$deviceStart['session_id'],0,null,$fixtureBinding);
+flow_check($deviceProgress['status']==='active'&&$deviceProgress['state']['awaiting']==='q',
+    'paired device progresses to question');
+execute("UPDATE device_bindings SET status='revoked' WHERE id=? AND account_id=4",[$fixtureBinding]);
+$revoked=false;
+try{voice_flow_process(4,(int)$deviceStart['session_id'],0,null,$fixtureBinding);}
+catch(InvalidArgumentException $e){$revoked=$e->getMessage()==='flow_device_binding_inactive';}
+flow_check($revoked,'revoked SIM cannot continue an opened flow');
+
 echo "VOICE_FLOW_RUNTIME_STATES_AND_TRACES_PASS\n";
