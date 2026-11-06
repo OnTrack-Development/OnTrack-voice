@@ -13,7 +13,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ontrack-v1-site-only-\${{ github.ref }}
+  group: ontrack-v1-site-only-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   site-smoke:
@@ -62,7 +62,7 @@ jobs:
     permissions:
       contents: write
     env:
-      GH_TOKEN: \${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
       PYTHONUTF8: '1'
     steps:
       - uses: actions/checkout@v4
