@@ -203,7 +203,11 @@
   });
   navClose?.addEventListener('click',()=>closeNav(true));
   navBackdrop?.addEventListener('click',()=>closeNav(true));
-  nav?.querySelectorAll('.nav-link').forEach(link=>link.addEventListener('click',()=>closeNav()));
+  // Delegate to the sidebar itself: AJAX can replace the nav links when an
+  // admin toggles a feature, otherwise newly-added links lose mobile handlers.
+  nav?.addEventListener('click',event=>{
+    if(event.target.closest?.('.nav-link'))closeNav();
+  });
   document.addEventListener('keydown',event=>{
     if(event.key==='Escape')closeNav(true);
     if(event.key==='Tab'&&body.classList.contains('nav-open')&&isCompact.matches&&nav){
@@ -320,13 +324,27 @@
     const heading=parsed.querySelector('.topbar .headline');
     const currentHeading=document.querySelector('.topbar .headline');
     if(heading&&currentHeading)currentHeading.replaceWith(heading);
-    const selected=parsed.querySelector('.nav-link.selected')?.getAttribute('href');
-    document.querySelectorAll('.nav-link').forEach(link=>{
-      const active=link.getAttribute('href')===selected;
-      link.classList.toggle('selected',active);
-      if(active)link.setAttribute('aria-current','page');
-      else link.removeAttribute('aria-current');
-    });
+    // Server-side roles, feature toggles and subscription changes may alter
+    // navigation itself. Only replacing <main> leaves removed actions visible
+    // until a hard reload and hides newly allowed sections from the sidebar.
+    const nextNavigation=parsed.querySelector('.sidebar .nav-list');
+    const oldNavigation=document.querySelector('.sidebar .nav-list');
+    if(nextNavigation && oldNavigation){
+      const previousOpen=[...oldNavigation.querySelectorAll('.nav-group[open]')]
+        .map(group=>group.getAttribute('data-nav-group')).filter(Boolean);
+      nextNavigation.querySelectorAll('.nav-group').forEach(group=>{
+        if(previousOpen.includes(group.getAttribute('data-nav-group')))group.open=true;
+      });
+      oldNavigation.replaceWith(nextNavigation);
+    }else{
+      const selected=parsed.querySelector('.nav-link.selected')?.getAttribute('href');
+      document.querySelectorAll('.nav-link').forEach(link=>{
+        const active=link.getAttribute('href')===selected;
+        link.classList.toggle('selected',active);
+        if(active)link.setAttribute('aria-current','page');
+        else link.removeAttribute('aria-current');
+      });
+    }
     const nextUrl=new URL(requestedUrl,location.href);
     if(replace)history.replaceState({otAjax:true},'',nextUrl.pathname+nextUrl.search+nextUrl.hash);
     else history.pushState({otAjax:true},'',nextUrl.pathname+nextUrl.search+nextUrl.hash);
