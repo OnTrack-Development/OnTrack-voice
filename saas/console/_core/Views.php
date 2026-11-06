@@ -652,6 +652,72 @@ function render_voice_data_sources(array $a,array $site):void {
                 form_start('voice_connector_delete',$url,'class="inline-form"').'<input type="hidden" name="connector_id" value="'.(int)$row['id'].'"><button class="btn small danger" type="submit">حذف</button></form></div>';
         }
         echo card('تكاملات القراءة', $html);
+        // External tools require an owner-pinned policy and a separate approval.
+        // These tests are operator-initiated; published call flows NEVER infer success.
+        require_once __DIR__.'/VoiceToolGateway.php';
+        voice_tools_init();
+        $verified=all("SELECT id,name,type FROM voice_data_connectors WHERE account_id=? AND site_id=? AND status='verified'
+            ORDER BY id DESC LIMIT 40",[$id,$siteId]);
+        $toolChoices=[];
+        foreach($verified as $toolConnector)$toolChoices[(string)$toolConnector['id']]=
+            $toolConnector['name'].' · '.$toolConnector['type'];
+        $operationChoices=[
+            'whmcs.products'=>'WHMCS: المنتجات','whmcs.services'=>'WHMCS: خدمات عميل متحقق',
+            'whmcs.invoices'=>'WHMCS: فواتير عميل متحقق','whmcs.tickets'=>'WHMCS: تذاكر عميل متحقق',
+            'whmcs.ticket.create'=>'WHMCS: فتح تذكرة بموافقة صريحة',
+            'whmcs.ticket.reply'=>'WHMCS: رد على تذكرة بموافقة',
+            'rest.slots'=>'Laravel/REST: قراءة المواعيد',
+            'rest.booking.create'=>'Laravel/REST: إنشاء حجز بموافقة'];
+        $toolHtml='<p class="info">التنفيذ الخارجي مغلق افتراضيًا؛ لا يمكن للمساعد اختيار عنوان أو صلاحية أو إعلان حجز دون مرجع حقيقي. اعتماد الأدمن لسياسة تشغيل لا يُنفذ الطلب: كل طلب يحتاج موافقة ثانية.</p>';
+        if($toolChoices){
+            $toolHtml.=form_start('voice_tool_policy_save',$url).
+                '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+                select_html('موصل سبق التحقق منه','connector_id',$toolChoices).
+                select_html('العملية المسموح بها','tool_operation',$operationChoices).
+                '<label class="field">مسار HTTPS المحدد لـLaravel/REST فقط<input name="tool_path" maxlength="350" placeholder="/api/appointments"></label>'.
+                '<label class="field"><input type="checkbox" name="tool_enabled" value="1"> تفعيل هذه العملية في سياسة الموقع</label>'.
+                submit_btn('حفظ سياسة العملية');
+        }else $toolHtml.='<p class="dim">اختبر اتصالًا أولًا من قسم تكاملات القراءة؛ ليس هناك موصل متحقق.</p>';
+        $policyRows=all("SELECT p.id,p.operation,p.enabled,p.path,c.name FROM voice_tool_policies p
+          JOIN voice_data_connectors c ON c.id=p.connector_id AND c.account_id=p.account_id
+          WHERE p.account_id=? AND p.site_id=? ORDER BY p.id DESC LIMIT 30",[$id,$siteId]);
+        $toolsForTest=[];
+        foreach($policyRows as $policy){
+            $toolHtml.='<div class="voice-data-row"><strong>'.e($policy['name']).'</strong>'.
+                '<span>'.e($policy['operation']).' · '.($policy['enabled']?'مفعل بشرط الموافقة':'متوقف').
+                ' · '.e($policy['path']).'</span></div>';
+            if($policy['enabled'])$toolsForTest[(string)$policy['id']]=$policy['operation'].' · '.$policy['name'];
+        }
+        if($toolsForTest){
+            $toolHtml.='<details><summary>تجربة عملية موثقة (تتطلب موافقة منفصلة)</summary>'.
+                form_start('voice_tool_prepare',$url).
+                '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+                select_html('عملية من سياسة محددة','policy_id',$toolsForTest).
+                '<label class="field">Call ID اختياري للتتبع<input name="call_id" maxlength="64"></label>'.
+                '<label class="field">معاملات العملية JSON حسب نوعها<textarea name="tool_payload_json" rows="4" maxlength="5000" required placeholder="{&quot;client_id&quot;:123}">{}</textarea></label>'.
+                submit_btn('تحضير الطلب للمراجعة').'</details>';
+        }
+        $pending=$_SESSION['voice_tool_pending']??null;
+        if(is_array($pending)&&(int)($pending['account_id']??0)===$id&&
+            (int)($pending['site_id']??0)===$siteId&&is_string($pending['approval_token']??null)){
+            $toolHtml.='<section class="card"><strong>تأكيد مستقل قبل التنفيذ</strong>'.
+                '<p class="info">لن يُرسل طلب للخدمة الخارجية إلا بعد قراءة المعاملات والموافقة المنفصلة. عملية كتابة ناجحة لا يُعلن عنها إلا بإيصال المرجع.</p>'.
+                form_start('voice_tool_confirm',$url).
+                '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+                '<input type="hidden" name="request_id" value="'.(int)$pending['request_id'].'">'.
+                '<label class="field"><input name="explicit_consent" type="checkbox" value="yes" required> أؤكد تنفيذ الطلب المخزن لدى الخادم بالخدمة الخارجية</label>'.
+                submit_btn('تأكيد التنفيذ الآن').'</section>';
+        }
+        $history=voice_tool_history($id,$siteId,20);
+        if($history){
+            $historyRows=[];
+            foreach($history as $entry)$historyRows[]=[
+                (int)$entry['id'],e($entry['operation']),e($entry['status']),
+                e((string)($entry['reference_id']??'')),e((string)($entry['error_code']??''))];
+            $toolHtml.=tbl(['رقم الطلب','العملية','النتيجة','معرّف النظام','الكود'],$historyRows);
+        }
+        echo card('Integration Manager · العمليات والموافقات',$toolHtml);
+
         $staff=all("SELECT v.id,v.phone_e164,v.status,u.name,m.role
           FROM voice_staff_numbers v JOIN users u ON u.id=v.user_id
           JOIN memberships m ON m.account_id=v.account_id AND m.user_id=v.user_id

@@ -254,6 +254,61 @@ function act():void {
                 require_once __DIR__.'/VoiceKnowledge.php';
                 if(!voice_knowledge_delete($id,intfield('source_id')))deny(404);
                 audit('voice.knowledge.archived',$id);break;
+            case 'voice_tool_policy_save':
+                require_permission('agents.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceToolGateway.php';
+                $sid=intfield('site_id');
+                $toolId=voice_tool_policy_save($id,$sid,intfield('connector_id'),
+                    required('tool_operation',48),field('tool_path',350),
+                    (string)($_POST['tool_enabled']??'')==='1');
+                audit('voice.tools.policy_saved',$id,['policy_id'=>$toolId,'site_id'=>$sid]);
+                $success='تم حفظ السياسة المحددة. لا تُنفذ أي عملية خارجية بمجرد حفظ السياسة.';
+                break;
+            case 'voice_tool_prepare':
+                require_permission('agents.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceToolGateway.php';
+                $sid=intfield('site_id');
+                $raw=(string)($_POST['tool_payload_json']??'');
+                if(strlen($raw)>5000)throw new InvalidArgumentException('حمولة العملية طويلة');
+                $input=json_decode($raw,true,12,JSON_THROW_ON_ERROR);
+                if(!is_array($input)||(array_is_list($input)&&$input!==[]))
+                    throw new InvalidArgumentException('يجب كتابة JSON object');
+                $nonce='qa-'.bin2hex(random_bytes(12));
+                $actor=me();if(!$actor)deny();
+                $result=voice_tool_prepare($id,$sid,intfield('policy_id'),(int)$actor['id'],
+                    $nonce,$input,field('call_id',64));
+                $_SESSION['voice_tool_pending']=['site_id'=>$sid,'request_id'=>$result['request_id'],
+                    'account_id'=>$id,'actor_id'=>(int)$actor['id'],
+                    'approval_token'=>$result['approval_token'],
+                    'operation'=>(string)($result['status']??'prepared')];
+                audit('voice.tools.request_prepared',$id,['request_id'=>$result['request_id']]);
+                $success='الطلب في انتظار موافقة صريحة منفصلة. لم يتم تنفيذ أي طلب خارجي.';
+                break;
+            case 'voice_tool_confirm':
+                require_permission('agents.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceToolGateway.php';
+                $pending=$_SESSION['voice_tool_pending']??null;$sid=intfield('site_id');
+                $actor=me();if(!$actor)deny();
+                if(!is_array($pending)||(int)($pending['account_id']??0)!==$id||
+                   (int)($pending['site_id']??0)!==$sid||
+                   (int)($pending['actor_id']??0)!==(int)$actor['id']||
+                   (int)($pending['request_id']??0)!==intfield('request_id'))
+                    throw new InvalidArgumentException('طلب التأكيد غير متاح للجلسة');
+                // Consume the session challenge before external I/O, never repeat on refresh.
+                unset($_SESSION['voice_tool_pending']);
+                $result=voice_tool_confirm($id,$sid,(int)$pending['request_id'],(int)$actor['id'],
+                    (string)($pending['approval_token']??''),
+                    (string)($_POST['explicit_consent']??'')==='yes');
+                audit('voice.tools.request_finished',$id,
+                    ['request_id'=>$pending['request_id'],'status'=>$result['status']??'unknown',
+                     'reference_id'=>$result['reference_id']??null]);
+                $success=$result['status']==='succeeded'
+                    ?'أكد النظام الخارجي نجاح العملية'.(!empty($result['reference_id'])?'، رقم المرجع '.(string)$result['reference_id']:'')
+                    :'لم يتم تأكيد نجاح العملية الخارجية؛ راجع سجل الحالة دون إعادة المحاولة تلقائيًا.';
+                break;
             case 'voice_connector_add':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 require_once __DIR__.'/VoiceConnectors.php';
