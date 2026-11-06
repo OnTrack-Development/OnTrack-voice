@@ -12,6 +12,10 @@ on:
       - 'saas/console/**'
       - 'tools/test_v1_knowledge.php'
       - 'tools/test_voice_access.php'
+      - 'tools/test_auth_login_throttle.php'
+      - 'tools/test_v1_reseller_toggle.php'
+      - 'tools/test_verified_signup.php'
+      - 'tools/test_white_label_portal.php'
       - 'tools/test_voice_tool_gateway.php'
       - 'tools/test_voice_openapi.php'
       - 'tools/test_voice_connector_cache.php'
@@ -67,6 +71,7 @@ jobs:
             $suite=@(
               'tools/test_v1_knowledge.php',
               'tools/test_voice_access.php',
+              'tools/test_auth_login_throttle.php',
               'tools/test_voice_tool_gateway.php',
               'tools/test_voice_openapi.php',
               'tools/test_voice_connector_cache.php',

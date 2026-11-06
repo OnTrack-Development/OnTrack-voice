@@ -94,11 +94,28 @@ function test_white_label_portal():void {
     try{domain_https_activate(3,$id,$getTxt,static fn():bool=>true,static fn():bool=>true);}
     catch(InvalidArgumentException){$foreignDenied=true;}
     wlcheck($foreignDenied,'other reseller cannot activate a domain it does not own');
+    // Old installations may not have a UNIQUE(hostname) constraint.
+    // A duplicated pending hostname must never activate either reseller.
+    $duplicate=insert("INSERT INTO domains(account_id,hostname,verification_token,status,created_at)
+        VALUES (3,?,?,'pending',?)",[$domain,bin2hex(random_bytes(18)),now()]);
+    $collision=domain_https_activate(2,$id,$getTxt,
+        static fn():bool=>true,static fn():bool=>true);
+    wlcheck(!$collision['active'] && $collision['reason']==='hostname_conflict',
+        'duplicate domain blocks activation across resellers');
+    execute('DELETE FROM domains WHERE id=? AND account_id=3',[$duplicate]);
     $passed=domain_https_activate(2,$id,$getTxt,static fn():bool=>true,static fn():bool=>true);
     wlcheck($passed['active'] && one('SELECT status FROM domains WHERE id=?',[$id])['status']==='active',
         'only verified DNS plus real-routed HTTPS may activate custom domain');
     $ctx=white_label_context();
     wlcheck((int)$ctx['id']===2 && $ctx['_portal_mode']==='domain','active hostname resolves own reseller');
+    $duplicateActive=insert("INSERT INTO domains(account_id,hostname,verification_token,status,created_at)
+        VALUES (3,?,?,'active',?)",[$domain,bin2hex(random_bytes(18)),now()]);
+    $ambiguous=false;
+    try{white_label_context();}catch(InvalidArgumentException){$ambiguous=true;}
+    wlcheck($ambiguous,'ambiguous active hostname fails closed instead of picking a tenant');
+    execute('DELETE FROM domains WHERE id=? AND account_id=3',[$duplicateActive]);
+    wlcheck((int)white_label_context()['id']===2,
+        'original reseller context restored after duplicate removed');
     wlcheck(white_label_url('/login')==='/login' &&
         white_label_absolute_url('/register')==='https://'.$domain.'/register',
         'custom hostname contains all public routes without parent vendor hostname');

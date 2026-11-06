@@ -94,6 +94,11 @@ function domain_https_activate(int $account,int $domainId,?callable $lookup=null
         WHERE d.id=? AND d.account_id=?",[$domainId,$account]);
     if(!$row||$row['kind']!=='reseller'||$row['account_status']!=='active')
         throw new InvalidArgumentException('domain_not_owned');
+    // A duplicate hostname must be reconciled by the platform, rather than
+    // activating a second tenant or allowing SELECT ... LIMIT 1 to pick one.
+    if(one('SELECT id FROM domains WHERE hostname=? AND id<>? LIMIT 1',
+        [$row['hostname'],$domainId]))
+        return ['active'=>false,'reason'=>'hostname_conflict'];
     if($row['status']==='active')return ['active'=>true,'reason'=>'already_active'];
     $verified=domain_dns_verify($account,$domainId,$lookup);
     if(!$verified['verified'])return ['active'=>false,'reason'=>'dns_txt_unverified'];

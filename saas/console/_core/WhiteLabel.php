@@ -36,10 +36,13 @@ function white_label_context():?array {
         $slug=(string)$_SESSION['wl_portal_slug'];
     if($host!==WHITE_LABEL_PLATFORM_HOST) {
         if($slug!==null)throw new InvalidArgumentException('custom_host_portal_mismatch');
-        $row=one("SELECT a.* FROM domains d JOIN accounts a ON a.id=d.account_id
+        // Never resolve an ambiguous hostname to an arbitrary reseller.
+        // This is particularly important for old DBs lacking a UNIQUE index.
+        $matches=all("SELECT a.* FROM domains d JOIN accounts a ON a.id=d.account_id
             WHERE d.hostname=? AND d.status='active' AND a.status='active'
-              AND a.kind='reseller' LIMIT 1",[$host]);
-        if(!$row)throw new InvalidArgumentException('unmapped_portal_host');
+              AND a.kind='reseller' LIMIT 2",[$host]);
+        if(count($matches)!==1)throw new InvalidArgumentException('unmapped_portal_host');
+        $row=$matches[0];
         $row['_portal_host']=$host;
         $row['_portal_mode']='domain';
         return $row;
@@ -53,8 +56,13 @@ function white_label_context():?array {
 }
 function white_label_guard():void {
     $routeSlug=white_label_portal_slug();
-    if($routeSlug!==null)$_SESSION['wl_portal_slug']=$routeSlug;
-    try{white_label_context();}
+    try{
+        $ctx=white_label_context();
+        // An invalid or suspended portal must not poison the next request
+        // with a persisted reseller slug.
+        if($routeSlug!==null && $ctx && ($ctx['_portal_mode']??'')==='path')
+            $_SESSION['wl_portal_slug']=$routeSlug;
+    }
     catch(InvalidArgumentException){
         http_response_code(421);
         header('Content-Type: text/plain; charset=utf-8');

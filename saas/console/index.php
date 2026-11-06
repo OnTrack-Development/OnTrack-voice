@@ -111,10 +111,16 @@ if($path==='/login') {
         $bad=(int)($_SESSION['bad_logins']??0);
         $oldest=(int)($_SESSION['bad_start']??0);
         if(time()-$oldest>900){$bad=0;$_SESSION['bad_logins']=0;$_SESSION['bad_start']=time();}
-        if($bad>=8){login_page('محاولات كثيرة. حاول بعد 15 دقيقة.');exit;}
+        // The database throttle also survives discarded cookies, new sessions
+        // and attempts from multiple browsers. Never trust proxy-supplied IP.
+        $peer=(string)($_SERVER['REMOTE_ADDR']??'');
+        if($bad>=8 || auth_login_throttled($email,$peer)){
+            login_page('محاولات كثيرة. حاول بعد 15 دقيقة.');exit;
+        }
         $u=filter_var($email,FILTER_VALIDATE_EMAIL)?one("SELECT * FROM users WHERE email=? AND status='active'",[$email]):null;
         if($u && password_verify($pass,$u['password_hash']) &&
             white_label_memberships((int)$u['id'])){
+            auth_login_record($email,$peer,true);
             session_regenerate_id(true);
             $_SESSION['uid']=(int)$u['id'];
             $_SESSION['auth_version']=(int)($u['auth_version']??0);
@@ -130,6 +136,7 @@ if($path==='/login') {
             go(!empty($_SESSION['sso_pending'])?'/sso/confirm':($m?'/':'/invitations'));
         }
         $_SESSION['bad_logins']=$bad+1;
+        auth_login_record($email,$peer,false);
         usleep(250000);
         login_page('البريد أو كلمة المرور غير صحيحة');exit;
     }
