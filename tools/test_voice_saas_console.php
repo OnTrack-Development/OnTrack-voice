@@ -26,6 +26,16 @@ $direct=account(4);
 ok(brand($direct)['name']==='OnTrack Voice','direct OnTrack identity');
 require_once __DIR__.'/../saas/console/_core/TenantVoiceSession.php';
 ok(tenant_voice_entitled(['account_id'=>1]),'active platform admin works without recurring trial or subscription');
+require_once __DIR__.'/../saas/console/_core/BillingUsage.php';
+$platformUsage=voice_usage_summary(1);
+ok($platformUsage['active']===true && $platformUsage['unlimited']===true
+  && $platformUsage['quota']===null && $platformUsage['remaining']===null
+  && $platformUsage['estimate_minor']===0,
+  'platform billing is unlimited and does not expire with customer plans');
+$customerUsage=voice_usage_summary(4);
+ok($customerUsage['active']===true && $customerUsage['unlimited']===false
+  && is_int($customerUsage['quota']),
+  'customer quota remains enforced by their active subscription');
 ok(tenant_voice_entitled(['account_id'=>4]),'active customer subscription authorizes voice');
 execute("UPDATE subscriptions SET status='suspended' WHERE account_id=4");
 ok(!tenant_voice_entitled(['account_id'=>4]),'suspended subscription blocks voice');
