@@ -5,7 +5,17 @@ const SAAS_PRIVATE = '/home/appontrack/.ontrack-saas';
 date_default_timezone_set('UTC');
 require_once __DIR__.'/WhiteLabel.php';
 function private_path(): string {
-    $path = is_dir('/home/appontrack') ? SAAS_PRIVATE : sys_get_temp_dir().'/ontrack-saas-demo';
+    // CLI-only isolated host preflight. Never let an HTTP request pick a DB path.
+    $isolated=PHP_SAPI==='cli'?(string)(getenv('ONTRACK_TEST_PRIVATE')?:''):'';
+    if($isolated!==''){
+        if(!preg_match('~^/home/appontrack/\.ontrack-ci-[A-Za-z0-9_-]{8,60}/private$~D',$isolated))
+            throw new RuntimeException('unsafe_test_private_path');
+        $root=dirname($isolated);
+        if(!is_dir($root)||is_link($root))throw new RuntimeException('untrusted_test_root');
+        $path=$isolated;
+    }else{
+        $path=is_dir('/home/appontrack')?SAAS_PRIVATE:sys_get_temp_dir().'/ontrack-saas-demo';
+    }
     if (!is_dir($path)) {mkdir($path,0700,true);}
     return $path;
 }
