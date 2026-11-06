@@ -634,6 +634,51 @@ function render_voice_data_sources(array $a,array $site):void {
             '<button class="btn small danger" type="submit">حذف لو فارغ</button></form></div>';
     }
     echo card('قاعدة المعرفة والمجلدات',$html);
+    // Public HTTPS sources are imported as review-only; model sees only approved facts.
+    require_once __DIR__.'/VoiceKnowledgeWeb.php';
+    $links=all("SELECT w.id,w.name,w.url,w.status,w.last_error,w.last_fetched_at,w.source_id,
+           k.status source_status
+        FROM voice_kb_web_links w LEFT JOIN voice_knowledge_sources k
+          ON k.id=w.source_id AND k.account_id=w.account_id AND k.site_id=w.site_id
+        WHERE w.account_id=? AND w.site_id=? ORDER BY w.id DESC LIMIT 40",[$id,$siteId]);
+    $linkHtml='<p class="info">روابط HTTPS عامة فقط. منع عناوين الشبكات الخاصة وإعادة التوجيه. كل نسخة جديدة تدخل المراجعة قبل استخدامها. التحديث الآن يدوي؛ الموعد التالي يُسجَّل للمتابعة ولا ندّعي وجود Cron فهرسة آلي.</p>'.
+        form_start('voice_knowledge_url_add',$url).
+        '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+        field_html('اسم صفحة المعرفة','name','text','سياسة المواعيد',true).
+        field_html('رابط صفحة HTTPS عامة','knowledge_url','url','https://example.com/faq',true).
+        select_html('مجلد الرابط','knowledge_folder_id',$folderOptions,'0').
+        select_html('الإتاحة','knowledge_visibility',['public'=>'عام','staff'=>'داخلي'],'public').
+        '<label class="field">فاصل مراجعة التحديث بالساعات<input type="number" min="1" max="720" name="interval_hours" value="24"></label>'.
+        submit_btn('حفظ الرابط للمراجعة');
+    foreach($links as $link){
+        $status=($link['source_status']??'')==='active'?'معتمد':(string)$link['status'];
+        $linkHtml.='<div class="voice-data-row"><strong>'.e($link['name']).'</strong>'.
+            '<span dir="ltr">'.e($link['url']).'</span><span>'.e($status).
+            (!empty($link['last_error'])?' · '.e($link['last_error']):'').'</span>'.
+            form_start('voice_knowledge_url_sync',$url,'class="inline-form"').
+            '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+            '<input type="hidden" name="link_id" value="'.(int)$link['id'].'">'.
+            '<button class="btn small" type="submit">جلب وتحديث الآن</button></form></div>';
+    }
+    echo card('روابط المعرفة والتحديث اليدوي',$linkHtml);
+    $agentRows=all("SELECT id,name FROM agents WHERE account_id=? AND site_id=? AND status!='archived'
+        ORDER BY id DESC LIMIT 80",[$id,$siteId]);
+    if($agentRows&&$rows){
+        $sourceOpts=[];$agentOpts=['0'=>'كل إيجنتات الموقع'];
+        foreach($rows as $source)$sourceOpts[(string)$source['id']]=$source['name'].' #'.$source['id'];
+        foreach($agentRows as $agent)$agentOpts[(string)$agent['id']]=$agent['name'].' #'.$agent['id'];
+        $scopeHtml='<p class="dim">المصدر العام يمكن إتاحته لكل المساعدين أو لإيجنت واحد. انتهاء TTL يوقف ظهوره للمكالمات، ولا يجدد معلومات الفواتير أو الحجوزات الحيّة.</p>'.
+            form_start('voice_knowledge_scope_set',$url).
+            '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+            select_html('المصدر','source_id',$sourceOpts).
+            select_html('نطاق المعرفة','scope_mode',['all'=>'كل الإيجنتات','agent'=>'إيجنت محدد'],'all').
+            select_html('الإيجنت المختار','agent_id',$agentOpts,'0').
+            '<label class="field">الأولوية 1–1000<input type="number" name="priority" min="1" max="1000" value="100"></label>'.
+            '<label class="field">صلاحية المصدر بالساعات (0 = بدون انتهاء)<input type="number" name="ttl_hours" min="0" max="8760" value="0"></label>'.
+            submit_btn('حفظ حدود المعرفة');
+        echo card('صلاحيات المعرفة لكل Agent وTTL',$scopeHtml);
+    }
+
     if(in_array($a['role'],['owner','admin'],true)&&!active_support()){
         $connectors=all('SELECT id,name,type,status,last_tested_at FROM voice_data_connectors WHERE account_id=? AND site_id=? ORDER BY id DESC LIMIT 20',[$id,$siteId]);
         $html='<p class="info">WordPress وWHMCS وLaravel أو REST مخصص. الاتصال للقراءة فقط، ويظل غير مفعّل حتى ينجح اختبار حقيقي. لا تُنفَّذ أوامر من صوت العميل.</p>'.

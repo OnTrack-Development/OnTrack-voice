@@ -126,7 +126,8 @@ function tenant_voice_definition(array $binding):array {
     $agentName=mb_substr(trim((string)$nameRow['name']),0,120);
     $policy=answer_policy_normalize((array)(json_decode((string)($flow['answer_policy_json']??''),true)??[]));
     require_once __DIR__.'/VoiceKnowledge.php';
-    $siteKnowledge=$policy['use_knowledge']?voice_knowledge_context($accountId,$siteId,5000):'';
+    require_once __DIR__.'/VoiceKnowledgeWeb.php';
+    $siteKnowledge=$policy['use_knowledge']?voice_kb_agent_context($accountId,$siteId,$agentId,5000):'';
     // Deliberately enumerate only verified site connectors, never their URLs,
     // encrypted secrets, customer data or live network output during call setup.
     $connectors=$policy['use_signed_facts']?all(

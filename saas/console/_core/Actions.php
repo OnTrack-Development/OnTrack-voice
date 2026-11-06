@@ -197,6 +197,39 @@ function act():void {
         // Migrate DNC outside a transaction (MySQL CREATE TABLE auto-commits).
         if(in_array($action,['add_contact','edit_contact','delete_contact'],true))dnc_init_ledger();
         switch($action) {
+            case 'voice_knowledge_url_add':
+                require_permission('agents.write');
+                if(active_support())deny();
+                require_once __DIR__.'/VoiceKnowledgeWeb.php';
+                $site=intfield('site_id');
+                $link=voice_kb_web_add($id,$site,required('name',150),required('knowledge_url',500),
+                    intfield('knowledge_folder_id'),field('knowledge_visibility',10),
+                    max(1,min(720,intfield('interval_hours'))));
+                audit('voice.knowledge.link_created',$id,['site_id'=>$site,'link_id'=>$link]);
+                $success='اتحفظ رابط المعرفة. محتواه لا يُستخدم حتى يتم جلبه ومراجعته واعتماده.';
+                break;
+            case 'voice_knowledge_url_sync':
+                require_permission('agents.write');
+                if(active_support())deny();
+                require_once __DIR__.'/VoiceKnowledgeWeb.php';
+                $site=intfield('site_id');$link=intfield('link_id');
+                $result=voice_kb_web_sync($id,$site,$link);
+                audit('voice.knowledge.link_synced',$id,['site_id'=>$site,'link_id'=>$link,
+                   'state'=>$result['status']]);
+                $success=$result['status']==='unchanged'
+                    ?'المصدر لم يتغير.':'تم جلب النص، وهو بانتظار مراجعة واعتماد قبل وصوله للإيجنت.';
+                break;
+            case 'voice_knowledge_scope_set':
+                require_permission('agents.write');
+                if(active_support())deny();
+                require_once __DIR__.'/VoiceKnowledgeWeb.php';
+                $site=intfield('site_id');$source=intfield('source_id');
+                voice_kb_scope_set($id,$site,$source,required('scope_mode',10),intfield('agent_id'),
+                    max(1,min(1000,intfield('priority'))),
+                    min(8760,intfield('ttl_hours')));
+                audit('voice.knowledge.scope_saved',$id,['site_id'=>$site,'source_id'=>$source]);
+                $success='تم حفظ نطاق الإيجنت وأولوية المصدر وفترة الصلاحية.';
+                break;
             case 'voice_knowledge_folder_add':
                 require_permission('agents.write');
                 require_once __DIR__.'/VoiceKnowledge.php';
