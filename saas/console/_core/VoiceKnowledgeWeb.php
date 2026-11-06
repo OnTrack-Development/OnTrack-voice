@@ -297,6 +297,7 @@ function voice_kb_sync_due_all(int $limit=12,?callable $transport=null):array {
     if($limit<1||$limit>12)throw new InvalidArgumentException('knowledge_global_due_limit_invalid');
     $rows=all("SELECT l.id,l.account_id,l.site_id FROM voice_kb_web_links l
         INNER JOIN sites s ON s.id=l.site_id AND s.account_id=l.account_id
+        INNER JOIN accounts a ON a.id=l.account_id AND a.status='active'
         WHERE s.status='active'
           AND l.status IN ('draft','current','review','error')
           AND (l.next_check_at IS NULL OR l.next_check_at<=?)

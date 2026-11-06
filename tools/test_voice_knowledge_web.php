@@ -132,4 +132,23 @@ kb_web_check($retry['status']==='error' && $retry['next_check_at']>now(),
     'failed refresh receives retry backoff');
 kb_web_check(voice_kb_sync_due_all(12,static fn()=> 'no network fetch required')['checked']===0,
     'failed link is not retried on every tick');
+// Global cron must not contact any verified URL belonging to a suspended
+// tenant, while resuming once the tenant becomes active again.
+$suspendedLink=voice_kb_web_add(4,$site,'Paused tenant documentation',
+    'https://example.net/suspended-faq',$folder,'public',1);
+execute("UPDATE accounts SET status='suspended' WHERE id=4");
+$skipped=voice_kb_sync_due_all(12,static function():never {
+    throw new RuntimeException('suspended tenant must not be crawled');
+});
+kb_web_check($skipped['checked']===0,'suspended tenant skipped in global URL scan');
+execute("UPDATE accounts SET status='active' WHERE id=4");
+$resumed=voice_kb_sync_due_all(12,static fn(string $url):string=>
+    'Restored and updated public policy text pending owner approval, '.hash('sha256',$url));
+kb_web_check($resumed['checked']===1&&$resumed['review']===1,
+    'reactivated tenant reschedules verified URL');
+$pendingSource=one('SELECT source_id,status FROM voice_kb_web_links WHERE id=?',[$suspendedLink]);
+kb_web_check($pendingSource['status']==='review'&&
+    (string)one('SELECT status FROM voice_knowledge_sources WHERE id=?',
+    [$pendingSource['source_id']])['status']==='review',
+    'reactivation never silently publishes unapproved URL knowledge');
 echo "VOICE_KNOWLEDGE_WEB_AGENT_TTL_PASS\n";
