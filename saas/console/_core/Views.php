@@ -587,8 +587,8 @@ function render_voice_data_sources(array $a,array $site):void {
         $folderLabels[$fid]=$prefix.(string)$folder['name'];
         $folderOptions[(string)$fid]=$folderLabels[$fid];
     }
-    $rows=all("SELECT id,name,kind,visibility,folder_id,version,content
-       FROM voice_knowledge_sources WHERE account_id=? AND site_id=? AND status='active' ORDER BY id DESC LIMIT 40",
+    $rows=all("SELECT id,name,kind,visibility,status,folder_id,version,content
+       FROM voice_knowledge_sources WHERE account_id=? AND site_id=? AND status IN ('active','review') ORDER BY id DESC LIMIT 40",
        [$id,$siteId]);
     $html='<p class="info">المعرفة معزولة حسب الشركة والموقع. يُستخرج نص الملفات فقط، ويُحفظ تاريخ التعديلات؛ المصادر الداخلية لا تصل إلى مكالمات العملاء. PDF يتطلب محرك استخراج على الاستضافة، ولا يُدّعى فهرسته إذا تعذر ذلك.</p>';
     $html.=form_start('voice_knowledge_folder_add',$url).
@@ -610,12 +610,18 @@ function render_voice_data_sources(array $a,array $site):void {
         $html.='<div class="voice-data-row"><strong>'.e($row['name']).'</strong>'.
             '<span>'.e($folderLabels[$fid]??'مجلد غير متاح').' · '.e($row['kind']).
             ' · v'.(int)$row['version'].' · '.($row['visibility']==='public'?'عام':'داخلي').'</span>'.
-            '<details><summary>مراجعة وتعديل المصدر</summary>'.
+            ($row['status']==='review'
+                ?'<span>بانتظار مراجعة التغييرات — لن يظهر للإيجنت قبل الاعتماد</span>'.
+                    form_start('voice_knowledge_approve',$url,'class="inline-form"').
+                    '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+                    '<input type="hidden" name="source_id" value="'.$sourceId.'">'.
+                    '<button class="btn small primary" type="submit">اعتماد النسخة الجديدة</button></form>'
+                :'<details><summary>مراجعة وتعديل المصدر</summary>'.
             form_start('voice_knowledge_update',$url).
             '<input type="hidden" name="site_id" value="'.$siteId.'">'.
             '<input type="hidden" name="source_id" value="'.$sourceId.'">'.
             '<label class="field">المحتوى النصي<textarea name="knowledge_text" maxlength="180000" rows="5">'.e($row['content']).'</textarea></label>'.
-            '<button class="btn small" type="submit">حفظ إصدار جديد</button></form></details>'.
+            '<button class="btn small" type="submit">حفظ إصدار جديد</button></form></details>').
             form_start('voice_knowledge_delete',$url,'class="inline-form"').
             '<input type="hidden" name="source_id" value="'.$sourceId.'"><button class="btn small danger" type="submit">أرشفة المصدر</button></form></div>';
     }
