@@ -578,21 +578,56 @@ function render_voice_data_sources(array $a,array $site):void {
     if(!allowed('agents.write'))return;
     $url='/?tab=agents&site='.$siteId;
     echo '<details class="agent-create voice-data-workspace"><summary class="btn">مصادر المعرفة والتكاملات وأرقام الموظفين</summary>';
-    $rows=all('SELECT id,name,kind,status,visibility FROM voice_knowledge_sources WHERE account_id=? AND site_id=? ORDER BY id DESC LIMIT 30',[$id,$siteId]);
-    $html='<p class="info">مصادر المعرفة التي تخص الموقع الحالي فقط. تُستخدم في اقتراحات Flow وإجابات المساعد بعد النشر.</p>';
+    $folders=all('SELECT id,name,parent_id FROM voice_knowledge_folders WHERE account_id=? AND site_id=? ORDER BY parent_id,id LIMIT 100',[$id,$siteId]);
+    $folderOptions=['0'=>'بدون مجلد'];
+    $folderLabels=[0=>'بدون مجلد'];
+    foreach($folders as $folder){
+        $fid=(int)$folder['id'];
+        $prefix=(int)$folder['parent_id']>0?'↳ ':'';
+        $folderLabels[$fid]=$prefix.(string)$folder['name'];
+        $folderOptions[(string)$fid]=$folderLabels[$fid];
+    }
+    $rows=all("SELECT id,name,kind,visibility,folder_id,version,content
+       FROM voice_knowledge_sources WHERE account_id=? AND site_id=? AND status='active' ORDER BY id DESC LIMIT 40",
+       [$id,$siteId]);
+    $html='<p class="info">المعرفة معزولة حسب الشركة والموقع. يُستخرج نص الملفات فقط، ويُحفظ تاريخ التعديلات؛ المصادر الداخلية لا تصل إلى مكالمات العملاء. PDF يتطلب محرك استخراج على الاستضافة، ولا يُدّعى فهرسته إذا تعذر ذلك.</p>';
+    $html.=form_start('voice_knowledge_folder_add',$url).
+        '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+        field_html('اسم المجلد الجديد','folder_name','text','مثلاً سياسات الحجز',true).
+        select_html('المجلد الأعلى','parent_id',$folderOptions,'0').
+        '<button class="btn" type="submit">إنشاء مجلد</button></form>';
     $html.=form_start('voice_knowledge_upload',$url,'enctype="multipart/form-data"').
         '<input type="hidden" name="site_id" value="'.$siteId.'">'.
-        field_html('اسم مصدر المعرفة','name','text','مثلاً سياسات الحجوزات',true).
-        select_html('إتاحة المعرفة','knowledge_visibility',['public'=>'معلومات عامة للإيجنت والمتصلين','staff'=>'داخلية — لا تُستخدم في مكالمات العملاء']).
-        '<label class="field">ملف TXT أو MD أو CSV أو JSON بحد 180KB<input type="file" name="knowledge_file" accept=".txt,.md,.csv,.json"></label>'.
-        '<label class="field">أو محتوى نصي<textarea name="knowledge_text" maxlength="180000" rows="4" placeholder="يمكنك كتابة المعلومات بدل رفع ملف"></textarea></label>'.
-        '<button class="btn primary" type="submit">إضافة إلى قاعدة المعرفة</button></form>';
+        field_html('اسم مصدر المعرفة','name','text','مثلاً سياسة المواعيد',true).
+        select_html('مجلد المعرفة','knowledge_folder_id',$folderOptions,'0').
+        select_html('إتاحة المعرفة','knowledge_visibility',
+            ['public'=>'عام للمساعد والعملاء','staff'=>'داخلي — لا يظهر للمتصلين']).
+        '<label class="field">TXT / MD / CSV / JSON / DOCX / PDF (حتى 2MB؛ يتحول إلى نص فقط)<input type="file" name="knowledge_file" accept=".txt,.md,.csv,.json,.docx,.pdf"></label>'.
+        '<label class="field">أو محتوى نصي<textarea name="knowledge_text" maxlength="180000" rows="4" placeholder="اكتب معلومات معتمدة يمكن للمساعد الاستناد إليها"></textarea></label>'.
+        '<button class="btn primary" type="submit">حفظ مصدر المعرفة</button></form>';
     foreach($rows as $row){
-        $html.='<div class="voice-data-row"><strong>'.e($row['name']).'</strong><span>'.e($row['kind']).' · '.($row['visibility']==='public'?'عام':'داخلي').'</span>'.
+        $sourceId=(int)$row['id'];$fid=(int)$row['folder_id'];
+        $html.='<div class="voice-data-row"><strong>'.e($row['name']).'</strong>'.
+            '<span>'.e($folderLabels[$fid]??'مجلد غير متاح').' · '.e($row['kind']).
+            ' · v'.(int)$row['version'].' · '.($row['visibility']==='public'?'عام':'داخلي').'</span>'.
+            '<details><summary>مراجعة وتعديل المصدر</summary>'.
+            form_start('voice_knowledge_update',$url).
+            '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+            '<input type="hidden" name="source_id" value="'.$sourceId.'">'.
+            '<label class="field">المحتوى النصي<textarea name="knowledge_text" maxlength="180000" rows="5">'.e($row['content']).'</textarea></label>'.
+            '<button class="btn small" type="submit">حفظ إصدار جديد</button></form></details>'.
             form_start('voice_knowledge_delete',$url,'class="inline-form"').
-            '<input type="hidden" name="source_id" value="'.(int)$row['id'].'"><button class="btn small danger" type="submit">إزالة المصدر</button></form></div>';
+            '<input type="hidden" name="source_id" value="'.$sourceId.'"><button class="btn small danger" type="submit">أرشفة المصدر</button></form></div>';
     }
-    echo card('قاعدة المعرفة',$html);
+    foreach($folders as $folder){
+        $fid=(int)$folder['id'];
+        $html.='<div class="voice-data-row"><span>مجلد: '.e($folderLabels[$fid]).'</span>'.
+            form_start('voice_knowledge_folder_delete',$url,'class="inline-form"').
+            '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+            '<input type="hidden" name="folder_id" value="'.$fid.'">'.
+            '<button class="btn small danger" type="submit">حذف لو فارغ</button></form></div>';
+    }
+    echo card('قاعدة المعرفة والمجلدات',$html);
     if(in_array($a['role'],['owner','admin'],true)&&!active_support()){
         $connectors=all('SELECT id,name,type,status,last_tested_at FROM voice_data_connectors WHERE account_id=? AND site_id=? ORDER BY id DESC LIMIT 20',[$id,$siteId]);
         $html='<p class="info">WordPress وWHMCS وLaravel أو REST مخصص. الاتصال للقراءة فقط، ويظل غير مفعّل حتى ينجح اختبار حقيقي. لا تُنفَّذ أوامر من صوت العميل.</p>'.
