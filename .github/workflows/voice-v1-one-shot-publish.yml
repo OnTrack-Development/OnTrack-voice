@@ -1,3 +1,4 @@
+# Gated v49 release: preserve Android 34-49 signed OTA compatibility.
 name: OnTrack Voice 0.3.26 one-shot build test site and APK publish
 on:
   push:
