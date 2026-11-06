@@ -10,9 +10,19 @@ on:
   pull_request:
     branches:
       - feat/voice-production-gap-20261103
+    paths:
+      - 'saas/console/_core/GoogleTenantKeys.php'
+      - 'saas/console/_core/GoogleVoiceKeysView.php'
+      - 'saas/console/_core/AiRelay.php'
+      - 'saas/console/_core/TenantVoiceSession.php'
+      - 'tools/test_google_tenant_keys.php'
+      - 'tools/test_ai_relay.php'
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ontrack-qa-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   tenant_keys:
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
