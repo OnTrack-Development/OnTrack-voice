@@ -9,6 +9,7 @@ function signup_scope(string $kind='customer',?string $resellerSlug=null):array 
         $resellerSlug=(string)$portal['slug'];
     }
     if(!in_array($kind,['customer','reseller'],true))throw new InvalidArgumentException('نوع التسجيل غير صالح');
+    if($kind==='reseller'&&!platform_resellers_visible())throw new InvalidArgumentException('تسجيل مزوّدي الخدمات غير متاح حاليًا');
     $platform=one("SELECT id,name FROM accounts WHERE kind='platform' AND status='active' ORDER BY id LIMIT 1");
     if(!$platform)throw new RuntimeException('تسجيل الحسابات غير متاح حاليًا');
     if($resellerSlug!==null && $resellerSlug!==''){
@@ -96,6 +97,7 @@ function signup_confirm(string $token):int {
         if($updated!==1)throw new RuntimeException('signup_claim_race');
         // Revalidate the owner tenant at activation, not just at public form display.
         $kind=(string)($request['registration_kind']??'customer');
+        if($kind==='reseller'&&!platform_resellers_visible())throw new InvalidArgumentException('تسجيل مزوّدي الخدمات غير متاح حاليًا');
         $parentId=(int)($request['parent_account_id']??0);
         $portal=white_label_context();
         if($portal && ($kind!=='customer'||$parentId!==(int)$portal['id']))
