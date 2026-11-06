@@ -242,7 +242,7 @@ function login_page(?string $error=null):void{
     if($error)echo '<div class="alert danger">'.e($error).'</div>';
     if($notice=flash('success'))echo '<div class="alert success">'.e($notice).'</div>';
     echo '<form method="post" action="'.e($login).'" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><label class="field">البريد الإلكتروني<input required type="email" name="email" autocomplete="username" placeholder="name@company.com"></label><label class="field">كلمة المرور<div class="password-wrap"><input required type="password" name="password" autocomplete="current-password" id="loginPassword" placeholder="••••••••••"><button type="button" class="password-toggle" data-toggle-password>إظهار</button></div></label><button class="btn primary wide" type="submit">تسجيل الدخول</button></form><div class="wl-auth-links"><a href="'.e($forgot).'">نسيت كلمة المرور؟</a><a href="'.e($signup).'">إنشاء حساب جديد</a></div>';
-    if(!$portal)echo '<p class="login-foot"><a href="/register?type=reseller">إنشاء حساب مزوّد خدمات</a></p>';
+    if(!$portal&&platform_resellers_visible())echo '<p class="login-foot"><a href="/register?type=reseller">إنشاء حساب مزوّد خدمات</a></p>';
     echo '<p class="wl-copyright">© '.date('Y').' '.e($name).' · جميع الحقوق محفوظة</p></main></body></html>';
 }
 
@@ -383,7 +383,7 @@ function render_plans(array $a):void{
                 '<label class="field">المواقع<input name="sites" type="number" min="0" value="'.(int)$plan['site_limit'].'" required></label>'.
                 '<label class="field">المساعدون<input name="agents" type="number" min="0" value="'.(int)$plan['agent_limit'].'" required></label>'.
                 '<label class="field">الموظفون<input name="staff" type="number" min="0" value="'.(int)$plan['staff_limit'].'" required></label>'.
-                '<label class="field">حد عملاء الريسيلر<input name="customers" type="number" min="0" value="'.(int)$plan['reseller_customers'].'" required></label>'.
+                (platform_resellers_visible()?'<label class="field">حد عملاء الريسيلر<input name="customers" type="number" min="0" value="'.(int)$plan['reseller_customers'].'" required></label>':'<input type="hidden" name="customers" value="'.(int)$plan['reseller_customers'].'">').
                 '<label class="field">سعر الباقة (قرش)<input name="price" type="number" min="0" max="1000000000" step="1" value="'.(int)$plan['price_minor'].'" required><small>100 قرش = 1 جنيه</small></label>'.
                 '<label class="field">سعر كل مكالمة بعد الحد (قرش)<input name="overage" type="number" min="0" max="10000000" step="1" value="'.(int)($plan['overage_minor']??0).'" required><small>0 = بدون تكلفة إضافية</small></label>'.
                 '<label class="field">عدد مفاتيح Google للعميل<input name="google_key_limit" type="number" min="0" max="1000" required value="'.(int)($plan['google_key_limit']??1).'"></label>'.
@@ -403,7 +403,7 @@ function render_plans(array $a):void{
             field_html('المواقع','sites','number','1',true).
             field_html('المساعدون','agents','number','1',true).
             field_html('الموظفون','staff','number','3',true).
-            field_html('حد عملاء الريسيلر','customers','number','10',true).
+            (platform_resellers_visible()?field_html('حد عملاء الريسيلر','customers','number','10',true):'<input type="hidden" name="customers" value="0">').
             '<label class="field">سعر الباقة (قرش)<input name="price" type="number" min="0" max="1000000000" step="1" value="0" required></label>'.
             '<label class="field">سعر المكالمة الزائدة (قرش)<input name="overage" type="number" min="0" max="10000000" step="1" value="0" required></label>'.
             '<label class="field">عدد مفاتيح Google للعميل<input name="google_key_limit" type="number" min="0" max="1000" required value="1"></label>'.
