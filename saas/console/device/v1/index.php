@@ -43,7 +43,7 @@ try{
         'workspace_contacts','workspace_contact_dnc','workspace_import','workspace_calls','workspace_call_transcript',
         'workspace_call_event','workspace_call_report','workspace_call_analysis','workspace_handoff_claim','workspace_handoff_ack','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_campaign_claim',
         'workspace_campaign_verify','workspace_campaign_finish','workspace_contact_consent',
-        'workspace_file_import'],true)){
+        'workspace_file_import','workspace_call_timeline'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
         if(!str_starts_with($auth,'Bearer '))device_answer(401,['ok'=>false,'error'=>'authorization_required']);
         $binding=device_binding_authorize(substr($auth,7));
@@ -56,6 +56,10 @@ try{
             if($operation==='workspace_contacts')device_answer(200,['ok'=>true]+tenant_workspace_contacts($binding));
             if($operation==='workspace_calls')device_answer(200,['ok'=>true]+tenant_workspace_calls($binding));
             if($operation==='workspace_call_transcript')device_answer(200,['ok'=>true]+tenant_workspace_call_transcript($binding,$data));
+            if($operation==='workspace_call_timeline'){
+                require_once __DIR__.'/../../_core/VoiceCallEvidence.php';
+                device_answer(200,['ok'=>true]+voice_call_timeline_store($binding,$data));
+            }
             if($operation==='workspace_campaigns')device_answer(200,['ok'=>true]+tenant_workspace_campaigns($binding));
             if($operation==='workspace_campaign_claim')device_answer(200,['ok'=>true]+tenant_workspace_campaign_claim($binding));
             if($operation==='workspace_campaign_verify')device_answer(200,['ok'=>true]+tenant_workspace_campaign_verify($binding,$data));

@@ -1210,6 +1210,30 @@ function render_calls(array $a):void{
                 'id'=>(int)$selected['device_binding_id'],'sim_slot'=>(int)$selected['sim_slot']];
             $transcriptRecord=tenant_voice_transcript_find($callScope,(string)$selected['external_call_id']);
         }
+        $realEvidence='';
+        if(!empty($selected['device_binding_id'])&&!empty($selected['external_call_id'])){
+            require_once __DIR__.'/VoiceToolGateway.php';
+            require_once __DIR__.'/VoiceCallEvidence.php';
+            $evidence=voice_call_evidence($id,(int)$selected['site_id'],
+                (int)$selected['device_binding_id'],(int)$selected['sim_slot'],
+                (string)$selected['external_call_id']);
+            if($evidence['transcript_events']){
+                $realEvidence.='<details class="call-real-transcript"><summary>خط زمني مسجل من الجهاز · المتحدث والوقت</summary>'.
+                    '<p class="dim">مصدر السطور: بلاغات التطبيق؛ لا يعتبر إثباتًا مستقلاً لصحة تفريغ الصوت أو تسجيل GSM.</p>';
+                foreach($evidence['transcript_events'] as $evidenceEvent)
+                    $realEvidence.='<p><small>'.e($evidenceEvent['occurred_at']).' · '.
+                        e($evidenceEvent['speaker']).' · '.e($evidenceEvent['event_type']).'</small>'.
+                        '<span>'.nl2br(e($evidenceEvent['content'])).'</span></p>';
+                $realEvidence.='</details>';
+            }
+            if($evidence['tool_traces']){
+                $realEvidence.='<details class="call-real-transcript"><summary>Tool Trace · نتائج عمليات API</summary>';
+                foreach($evidence['tool_traces'] as $trace)
+                    $realEvidence.='<p><small>'.e($trace['created_at']).' · '.e($trace['operation']).
+                        '</small> '.e($trace['status']).' · '.e($trace['detail']).'</p>';
+                $realEvidence.='<p class="dim">حالة succeeded فقط تعني أن نظام العمليات تحقّق من استجابة المزود؛ حالات uncertain لا تعني نجاحًا.</p></details>';
+            }
+        }
         echo '<div class="call-detail-header"><span class="call-avatar large">'.e(mb_substr((string)($selected['name']?:$selected['phone']),0,1)).'</span>'.
             '<h3>'.e((string)($selected['name']?:($selected['phone']!==''?'اسم غير مسجل':'هوية المتصل غير متاحة'))).'</h3>'.
             '<p dir="ltr">'.e((string)($selected['phone']?:'لم يصل الرقم من Android')).'</p>'.
@@ -1253,7 +1277,7 @@ function render_calls(array $a):void{
                         '<p class="dim">مصدر التفريغ: '.e((string)$transcriptRecord['source']).' · '.e((string)$transcriptRecord['created_at']).'</p>'.
                         '<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'.e((string)$transcriptRecord['transcript']).'</pre></details>'
                     :'<p class="dim">لم يصل تفريغ صوتي موثّق لهذه المكالمة بعد.</p>').
-                '<p class="dim">ملف التسجيل الصوتي لا يظهر قبل رفع تسجيل حقيقي مصرح به.</p></div>';
+                '<p class="dim">ملف التسجيل الصوتي لا يظهر قبل رفع تسجيل حقيقي مصرح به.</p>'.$realEvidence.'</div>';
             if(allowed('calls.write')&&!empty($selected['device_binding_id'])&&!empty($selected['external_call_id'])){
                 echo '<section class="call-annotation-panel"><h3>تعديل تقرير المكالمة وملاحظات العميل</h3>'.
                     '<p class="dim">دي بيانات المكالمة الحالية فقط. طلب التحويل لا يعني إن الموظف استلم، إلا لو تم تأكيده فعليًا.</p>'.
