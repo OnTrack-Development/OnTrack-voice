@@ -71,7 +71,7 @@ function voice_knowledge_extract_file(string $filename,string $path,int $size):a
             $xml=$zip->getFromIndex($index);
             if(!is_string($xml)||strlen($xml)>1500000)throw new InvalidArgumentException('knowledge_docx_invalid');
             $xml=preg_replace('~</w:p>~i',"\n",$xml);
-            $xml=preg_replace('~<w:(?:tab|br)\b[^>]*/>~i",' ',$xml);
+            $xml=preg_replace('~<w:(?:tab|br)\b[^>]*/>~i',' ',$xml);
             $content=html_entity_decode(strip_tags((string)$xml),ENT_QUOTES|ENT_XML1,'UTF-8');
         }finally{$zip->close();}
     }else{
