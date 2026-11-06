@@ -574,6 +574,7 @@ function render_sites(array $a):void{
  * Caller-based privileges are registered here but NOT yet trusted by voice runtime.
  */
 function render_voice_data_sources(array $a,array $site):void {
+    require_once __DIR__.'/VoiceKnowledge.php';
     $id=(int)$a['account_id'];$siteId=(int)$site['id'];
     if(!allowed('agents.write'))return;
     $url='/?tab=agents&site='.$siteId;
@@ -591,6 +592,10 @@ function render_voice_data_sources(array $a,array $site):void {
        FROM voice_knowledge_sources WHERE account_id=? AND site_id=? AND status IN ('active','review') ORDER BY id DESC LIMIT 40",
        [$id,$siteId]);
     $html='<p class="info">المعرفة معزولة حسب الشركة والموقع. يُستخرج نص الملفات فقط، ويُحفظ تاريخ التعديلات؛ المصادر الداخلية لا تصل إلى مكالمات العملاء. PDF يتطلب محرك استخراج على الاستضافة، ولا يُدّعى فهرسته إذا تعذر ذلك.</p>';
+    $pdfReady=voice_knowledge_pdf_extractor()!==null;
+    $html.='<p class="info">'.($pdfReady
+       ?'استخراج PDF النصي متاح على الاستضافة. ملفات PDF المصورة تحتاج OCR منفصل.'
+       :'استخراج PDF غير متاح على الاستضافة حاليًا؛ يلزم تثبيت Poppler pdftotext قبل قبول ملفات PDF. لا يتم الادعاء بفهرستها.').'</p>';
     $html.=form_start('voice_knowledge_reindex',$url,'class="inline-form"').
         '<input type="hidden" name="site_id" value="'.$siteId.'">'.
         '<button class="btn small" type="submit">إعادة فهرسة المعرفة المعتمدة</button></form>';
