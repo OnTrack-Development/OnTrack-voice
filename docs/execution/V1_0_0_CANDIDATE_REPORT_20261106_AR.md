@@ -31,3 +31,13 @@
 6. تنفيذ KB والـFlow الذكي وWHMCS/Laravel/Booking API والتقارير وفق خطة المرحلة الأولى.
 7. استكمال جميع release gates: tests, host receipt, authenticated UI, actual Android calls, secure rollback.
 **يُمنع دمج/نشر هذا المرشح قبل إغلاق الفحوص الحرجة.**
+
+## تحديث تنفيذ نفس اليوم — طلب بناء النسخة الموحّدة
+- أُضيف `.github/workflows/voice-v1-build-only.yml` لبناء APK موقّع بالهوية الأصلية والتأكد من التوقيع والمحتويات **دون رفعه للهاتف أو استدعاء عامل النشر**. التشغيل الحالي: https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42154020662 (queued عند التحقق)، وليس دليل إنتاج ملف APK.
+- `MobileLinkActivity.kt` يفتح SaaS بـ Android ACTION_VIEW للمتصفح الخارجي، ويرسل حالة READ_PHONE_STATE للواجهة. واجهتا `ui.html` متطابقتان، wizard يبقى ظاهرًا عند انعدام ربط SIM أو فقد إذن الهاتف، وأزرار التشغيل تستدعي bridge القائم.
+- `TenantVoiceSession.php` أزيل منه وصف سيناريو تجريبي في تعليمات الصوت، وأضيف حد جملتين لكل دور والانتظار لرد العميل. لا إثبات بعد لتحسن LTE.
+- `prepare.py` لم يعد يشحن قائمة تفاصيل مسارات التنفيذ في `ONTRACK-MODIFICATIONS.txt`، مع الحفاظ على ترخيص Apache-2.0 والإسناد الإلزامي.
+- `Views.php` لا يعرض حسابات ريسيلر أو عملاء تابعين له في جدول Platform عند إيقاف خيار الريسيلرز؛ بياناتهم محفوظة.
+- تحقق مباشر من مصدر الفرع (دون build): نص واجهة OTA متطابق مع embedded، Script HTML يمر في JavaScript parser، فتح الموقع الخارجي موصول في Native، وإذن الهاتف ظاهر في state والواجهة. **هذه فحوص ثابتة فقط وليست CI أو Build أو تجربة مكالمة**.
+- لم تُنفّذ بعد Knowledge Base المطلوبة، العمليات الحية WHMCS/Laravel/Booking، Flow الذكي، Hangup E2E، ولا نقل الـshell audio engine إلى وحدة مصرح بتحميلها. APK الحالي المحتمل **لا يحقق شرط حماية المحرك**.
+- التعديل الحالي لا يُدمج في release branch ولا ينشر في host؛ PR #60 يبقى Draft. CI Validation فشل قبل إظهار خطوات قابلة للقراءة، فلا تُعلن PASS.
