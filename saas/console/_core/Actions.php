@@ -241,6 +241,14 @@ function act():void {
                 audit('voice.knowledge.updated',$id,['source_id'=>$source,'site_id'=>$site,'revision'=>$revision]);
                 $success='تم تحديث المحتوى وحفظ الإصدار السابق.';
                 break;
+            case 'voice_knowledge_approve':
+                require_permission('agents.write');
+                require_once __DIR__.'/VoiceKnowledge.php';
+                $site=intfield('site_id');$source=intfield('source_id');
+                if(!voice_knowledge_approve($id,$site,$source))deny(404);
+                audit('voice.knowledge.review_approved',$id,['site_id'=>$site,'source_id'=>$source]);
+                $success='تم اعتماد المصدر الجديد وإيقاف النسخة القديمة.';
+                break;
             case 'voice_knowledge_delete':
                 require_permission('agents.write');
                 require_once __DIR__.'/VoiceKnowledge.php';
