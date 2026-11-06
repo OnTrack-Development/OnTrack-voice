@@ -1,0 +1,36 @@
+name: OnTrack Voice v1.0.0 Candidate Validation
+on:
+  pull_request:
+    branches: [feat/voice-production-gap-20261103]
+    paths:
+      - 'saas/console/**'
+      - 'saas/mobile/ota/ui.html'
+      - 'saas/mobile/audio-proof/overlay/**'
+      - 'tools/test_v1_**'
+      - '.github/workflows/voice-v1-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  v1-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,openssl,fileinfo
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: PHP syntax
+        run: find saas/console -name '*.php' -type f -print0 | xargs -0 -n1 php -l
+      - name: V1 reseller controls
+        run: php tools/test_v1_reseller_toggle.php
+      - name: V1 mobile shell
+        run: python3 tools/test_v1_mobile_shell.py
+      - name: Existing SaaS pricing and signup regressions
+        run: |
+          php tools/test_console_pricing_ui.php
+          php tools/test_voice_saas_console.php
