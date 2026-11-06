@@ -272,7 +272,7 @@ def publish():
     else:
         native_prog=program(["saas/mobile/ota/native_deploy.py"],"deploy(*sys.argv[1:]);ROOT.chmod(0o755)")
         host_job("apk","/home/appontrack/public_html",native_prog,
-                 [apk_url,base64.b64encode(native_envelope.encode()).decode(),base64.b64encode(cert).decode(),APK_SHA],
+                 [apk_url,base64.b64encode(native_envelope).decode(),base64.b64encode(cert).decode(),APK_SHA],
                  lambda x:x.get("status")=="published" and x.get("sha256")==APK_SHA and x.get("version")==49)
     assert live("mobile/updates/latest.json")==json.loads(ui_envelope),"public UI manifest mismatch"
     assert live("mobile/updates/native/latest.json")==json.loads(native_envelope),"public native manifest mismatch"
@@ -280,7 +280,59 @@ def publish():
         "site":"https://app.ontrackegy.com/","apk":"https://app.ontrackegy.com/mobile/updates/native/"+native["file"],
         "sha256":APK_SHA,"revision":ui["revision"]}),flush=True)
 
+
+def resume_native():
+    """Resume ONLY the signed native APK delivery from preserved successful run."""
+    global APK_SHA
+    root=pathlib.Path("D:/ai/OnTrack-Voice-Builds/v1-candidates")/RUN_SOURCE
+    apk=root/APK
+    report=json.loads((root/"size-report.json").read_text(encoding="utf-8-sig"))
+    data=apk.read_bytes()
+    APK_SHA=sha(data)
+    assert 100000<len(data)<=15728640
+    assert report["sha256"]==APK_SHA and report["release"]=="0.3.26"
+    assert str(report["source_build_run"])==RUN_SOURCE and report["signing_cert_verified"] is True
+    sdk=pathlib.Path(os.environ["LOCALAPPDATA"])/"Android"/"Sdk"
+    signer=sdk/"build-tools"/"36.0.0"/"apksigner.bat"
+    analyzer=sdk/"cmdline-tools"/"latest"/"bin"/"apkanalyzer.bat"
+    sig=subprocess.check_output([str(signer),"verify","--print-certs",str(apk)],text=True).lower()
+    assert CERT in sig,"preserved APK certificate mismatch"
+    subprocess.run([str(signer),"verify","--verbose",str(apk)],check=True)
+    assert subprocess.check_output([str(analyzer),"manifest","version-code",str(apk)],text=True).strip()=="49"
+    assert subprocess.check_output([str(analyzer),"manifest","application-id",str(apk)],text=True).strip()=="com.ontrack.voiceproof"
+    key=pathlib.Path.home()/".android"/"debug.keystore"
+    assert key.is_file()
+    apk_url,downloaded=asset(APK,APK_SHA,len(data))
+    assert downloaded==data,"release asset differs from signed candidate"
+    OUT.mkdir(parents=True,exist_ok=True)
+    folder=OUT/"resume-native"
+    subprocess.run(["python","tools/prepare_mobile_native.py",str(apk),str(folder)],check=True)
+    subprocess.run(["java","tools/SignMobileOta.java",str(key),str(folder)],check=True)
+    sys.path.insert(0,str(pathlib.Path("tools").resolve()))
+    import queue_mobile_native
+    native_envelope,cert,native=queue_mobile_native.verify(folder)
+    assert native["sha256"]==APK_SHA and native["version_code"]==49 and native["size"]==len(data)
+    existing=live("mobile/updates/native/latest.json")
+    if existing==json.loads(native_envelope):
+        print("SIGNED_APK_ALREADY_PUBLIC",flush=True)
+    else:
+        assert existing is None or json.loads(existing["payload"])["version_code"]<=49
+        native_prog=program(["saas/mobile/ota/native_deploy.py"],"deploy(*sys.argv[1:]);ROOT.chmod(0o755)")
+        host_job("apk","/home/appontrack/public_html",native_prog,
+                 [apk_url,base64.b64encode(native_envelope).decode(),base64.b64encode(cert).decode(),APK_SHA],
+                 lambda x:x.get("status")=="published" and x.get("sha256")==APK_SHA and x.get("version")==49)
+    assert live("mobile/updates/native/latest.json")==json.loads(native_envelope),"native live manifest mismatch"
+    ui=live("mobile/updates/latest.json")
+    assert ui and json.loads(ui["payload"])["revision"]>=48,"signed UI missing"
+    with urllib.request.urlopen("https://app.ontrackegy.com/",timeout=15) as page:
+        assert page.status==200,"SaaS site not reachable"
+    print("SITE_AND_APK_PUBLISHED_AND_VERIFIED",json.dumps({
+        "site":"https://app.ontrackegy.com/",
+        "apk":"https://app.ontrackegy.com/mobile/updates/native/"+native["file"],
+        "sha256":APK_SHA,"ui_revision":json.loads(ui["payload"])["revision"]}),flush=True)
+
 if __name__=="__main__":
-    assert len(sys.argv)==2 and sys.argv[1] in ("prepare","publish")
+    assert len(sys.argv)==2 and sys.argv[1] in ("prepare","publish","resume-native")
     if sys.argv[1]=="prepare":prepare()
+    elif sys.argv[1]=="resume-native":resume_native()
     else:publish()
