@@ -9,6 +9,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: utf-8
 concurrency:
   group: ontrack-voice-v1-candidate-build-${{ github.ref }}
   cancel-in-progress: true
