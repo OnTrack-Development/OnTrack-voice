@@ -1,0 +1,70 @@
+name: OnTrack Stable v1 SaaS-only Test and Publish
+on:
+  push:
+    branches:
+      - fix/v1-site-only-20261106
+      - release/voice-v1-20261106
+    paths:
+      - 'saas/console/**'
+      - 'tools/test_v1_knowledge.php'
+      - 'tools/publish_v1_one_shot.py'
+      - '.github/workflows/voice-v1-site-only-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-v1-site-only-\${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  site-smoke:
+    name: Site-only PHP security, flows, KB, UI regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP 8.3 with upload and database extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,openssl,fileinfo,zip,dom
+          coverage: none
+      - name: Verify website-only sources and syntax
+        run: |
+          set -eu
+          find saas/console -name '*.php' -type f -print0 | xargs -0 -n1 php -l
+          php -l tools/test_v1_knowledge.php
+          python3 -m py_compile tools/publish_v1_one_shot.py tools/deploy_saas_console.py
+          node --check saas/console/assets/js/app.js
+          node --check saas/console/assets/js/flow-graph.js
+      - name: Knowledge folders, revisions, uploads and isolation
+        run: |
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_v1_knowledge.php
+      - name: Existing website and role regressions
+        run: |
+          php tools/test_v1_reseller_toggle.php
+          php tools/test_flow_ai_sources.php
+          php tools/test_console_pricing_ui.php
+          php tools/test_voice_saas_console.php
+          php tools/test_tenant_workspace.php
+          php tools/test_dynamic_agent_studio.php
+          php tools/test_tenant_call_ai_summary.php
+          php tools/test_agent_scenario_modes.php
+          php tools/test_voice_sso.php
+          node tools/test_graph_routing.cjs
+          node tools/test_console_ajax_ui.cjs
+  publish-site:
+    name: Publish SaaS only with host receipt and unchanged Android pointer
+    if: github.ref == 'refs/heads/release/voice-v1-20261106'
+    needs: site-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: \${{ github.token }}
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish independently of Android/OTA
+        run: python3 tools/publish_v1_one_shot.py site-only
