@@ -73,7 +73,17 @@ function voice_flow_start(int $accountId,int $siteId,int $agentId,string $callId
     if($source==='web_preview'){
         if($actorId<1)throw new InvalidArgumentException('flow_actor_required');
         voice_tool_actor($accountId,$actorId);
-    }elseif($deviceBindingId<1)throw new InvalidArgumentException('flow_device_required');
+    }else{
+        if($deviceBindingId<1)throw new InvalidArgumentException('flow_device_required');
+        // A positive ID is not proof of a paired SIM. Validate its current
+        // tenant/site/agent binding before opening a device-backed workflow.
+        if(!one("SELECT d.id FROM device_bindings d
+            JOIN accounts a ON a.id=d.account_id AND a.status='active'
+            WHERE d.id=? AND d.account_id=? AND d.site_id=? AND d.agent_id=?
+              AND d.status='active'",
+            [$deviceBindingId,$accountId,$siteId,$agentId]))
+            throw new InvalidArgumentException('flow_device_binding_invalid');
+    }
     $agent=one("SELECT a.id FROM agents a
         JOIN sites s ON s.id=a.site_id AND s.account_id=a.account_id
         WHERE a.id=? AND a.account_id=? AND a.site_id=? AND a.status!='archived'
@@ -114,12 +124,21 @@ function voice_flow_session(int $accountId,int $sessionId,int $actorId=0,int $de
 }
 /** Archive/suspension must revoke a previously opened workflow before the next step. */
 function voice_flow_require_active_context(array $session):void {
-    if(!one("SELECT a.id FROM agents a
-        JOIN sites s ON s.id=a.site_id AND s.account_id=a.account_id
-        WHERE a.id=? AND a.account_id=? AND a.site_id=?
-          AND a.status!='archived' AND s.status='active'",
+    if(!one("SELECT ag.id FROM agents ag
+        JOIN sites s ON s.id=ag.site_id AND s.account_id=ag.account_id
+        JOIN accounts a ON a.id=ag.account_id
+        WHERE ag.id=? AND ag.account_id=? AND ag.site_id=?
+          AND ag.status!='archived' AND s.status='active' AND a.status='active'",
         [(int)$session['agent_id'],(int)$session['account_id'],(int)$session['site_id']]))
         throw new InvalidArgumentException('flow_context_inactive');
+    // The current call retains its immutable agent snapshot after reassignment,
+    // but revoking a physical SIM must terminate permission to continue.
+    if(($session['source']??'')==='device' &&
+       !one("SELECT id FROM device_bindings
+          WHERE id=? AND account_id=? AND site_id=? AND status='active'",
+          [(int)$session['device_binding_id'],(int)$session['account_id'],
+           (int)$session['site_id']]))
+        throw new InvalidArgumentException('flow_device_binding_inactive');
 }
 function voice_flow_saved_graph(array $session):array {
     $snapshot=one('SELECT flow_json,revision,flow_hash FROM agent_flow_versions

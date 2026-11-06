@@ -35,6 +35,20 @@ kb_web_check(voice_knowledge_approve(4,$site,$source),'approved by owner');
 kb_web_check((string)one('SELECT status FROM voice_kb_web_links WHERE id=?',[$link])['status']==='current',
     'approved link is current, not waiting for review');
 kb_web_check(str_contains(voice_kb_agent_context(4,$site,$agent),'Clinic policy'),'approved visible');
+// Site and account lifecycle must revoke knowledge immediately, even if
+// individual knowledge sources are still approved and unexpired.
+execute("UPDATE sites SET status='archived' WHERE id=? AND account_id=4",[$site]);
+kb_web_check(voice_kb_agent_context(4,$site,$agent)==='',
+    'archived site cannot expose formerly approved knowledge');
+execute("UPDATE sites SET status='active' WHERE id=? AND account_id=4",[$site]);
+kb_web_check(str_contains(voice_kb_agent_context(4,$site,$agent),'Clinic policy'),
+    'reactivated site uses existing approved source');
+execute("UPDATE accounts SET status='suspended' WHERE id=4");
+kb_web_check(voice_kb_agent_context(4,$site,$agent)==='',
+    'suspended account cannot expose knowledge');
+execute("UPDATE accounts SET status='active' WHERE id=4");
+kb_web_check(str_contains(voice_kb_agent_context(4,$site,$agent),'Clinic policy'),
+    'reactivated tenant retains approved source');
 voice_kb_scope_set(4,$site,$source,'agent',$agent,900,3);
 kb_web_check(str_contains(voice_kb_agent_context(4,$site,$agent),'Clinic policy'),'allowlisted agent sees facts');
 kb_web_check(!str_contains(voice_kb_agent_context(4,$site,$other),'Clinic policy'),'unrelated agent sees no facts');

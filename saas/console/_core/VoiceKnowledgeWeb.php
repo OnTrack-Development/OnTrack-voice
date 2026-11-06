@@ -229,8 +229,12 @@ function voice_kb_agent_context(int $accountId,int $siteId,int $agentId,int $max
     voice_kb_web_init();
     // Fail closed: a missing, archived or foreign agent must receive no context,
     // even if a source is otherwise visible to all agents of this site.
-    if($agentId<=0||!one("SELECT id FROM agents WHERE id=? AND account_id=? AND site_id=?
-          AND status!='archived'",[$agentId,$accountId,$siteId]))return '';
+    if($agentId<=0||!one("SELECT ag.id FROM agents ag
+          JOIN sites s ON s.id=ag.site_id AND s.account_id=ag.account_id
+          JOIN accounts a ON a.id=ag.account_id
+          WHERE ag.id=? AND ag.account_id=? AND ag.site_id=?
+          AND ag.status!='archived' AND s.status='active' AND a.status='active'",
+          [$agentId,$accountId,$siteId]))return '';
     $rows=all("SELECT k.name,k.content,k.version,m.origin_url
       FROM voice_knowledge_sources k
       LEFT JOIN voice_kb_meta m ON m.source_id=k.id AND m.account_id=k.account_id AND m.site_id=k.site_id
