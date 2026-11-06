@@ -16,14 +16,23 @@ function failover_reject(callable $do,string $expected):void {
     }
     throw new RuntimeException('expected '.$expected);
 }
-$ids=[];$tickets=[];
+$ids=[];$tickets=[];$bindingFixtureId=null;
 try {
+    // A real paired SIM fixture is required: failover must not trust an
+    // arbitrary array claiming a binding that was never enrolled.
+    $bindingFixtureId=insert("INSERT INTO device_bindings
+        (account_id,site_id,agent_id,installation_id,sim_slot,slot_claim,
+         device_name,token_hash,status,created_at)
+        VALUES (?,?,?,?,?,?,?,?,'active',?)",[
+        5,3,3,'failover-fixture-'.bin2hex(random_bytes(8)),0,
+        hash('sha256','slot-fixture-'.bin2hex(random_bytes(8))),'Failover CI SIM',
+        hash('sha256','token-fixture-'.bin2hex(random_bytes(8))),now()]);
     $reseller=2;
     $ids[]=$key1=ai_relay_add($reseller,'voice','google_live','Failover primary','gemini-3.8-live','','test-reseller-pool-key-one');
     $ids[]=$key2=ai_relay_add($reseller,'voice','google_live','Failover reserve','gemini-3.8-live','','test-reseller-pool-key-two');
     failover_check(google_voice_pool_owner(5)===$reseller,'customer chooses same reseller pool');
-    $binding=['id'=>8701,'account_id'=>5,'site_id'=>6,'agent_id'=>31,'sim_slot'=>0];
-    $def=['account_id'=>5,'site_id'=>6,'agent_id'=>31,'revision'=>4,
+    $binding=['id'=>$bindingFixtureId,'account_id'=>5,'site_id'=>3,'agent_id'=>3,'sim_slot'=>0];
+    $def=['account_id'=>5,'site_id'=>3,'agent_id'=>3,'revision'=>4,
         'flow_hash'=>str_repeat('a',64),'policy'=>['max_call_minutes'=>10]];
     $mint=static function(int $caller)use($reseller):array {
         failover_check($caller===5,'rotator retains caller account identity');
@@ -47,7 +56,7 @@ try {
     failover_check($switch['failover_generation']===1 && $switch['failover_ticket']===$ticket,
         'rotation increments generation and keeps call ticket');
     failover_check($switch['model']==='gemini-3.8-live' && $switch['revision']===4 &&
-        $switch['hash']===$def['flow_hash'] && $switch['agent_id']===31,
+        $switch['hash']===$def['flow_hash'] && $switch['agent_id']===3,
         'original published agent revision stays pinned');
     $row1=ai_relay_one($key1,$reseller);
     $cooldown=strtotime((string)$row1['cooldown_until'])-time();
@@ -67,11 +76,28 @@ try {
     failover_check($used['state']==='exhausted','no healthy key is a terminal, visible state');
     failover_reject(static fn()=>google_voice_failover_rotate($binding,$ticket,1,'timeout',$mint),
         'voice_failover_ticket_invalid_or_stale');
+    // Revocation during the external token request must not return a token.
+    ai_relay_modify($key1,'reset',$reseller);
+    ai_relay_modify($key2,'reset',$reseller);
+    $ticket2=google_voice_failover_register($binding,$def,$initial)['failover_ticket'];
+    $tickets[]=$ticket2;
+    $revokingMint=static function(int $caller)use($mint,$bindingFixtureId):array {
+        $next=$mint($caller);
+        execute("UPDATE device_bindings SET status='revoked' WHERE id=?",[$bindingFixtureId]);
+        return $next;
+    };
+    failover_reject(static fn()=>google_voice_failover_rotate($binding,$ticket2,0,'429',$revokingMint),
+        'voice_failover_no_healthy_keys');
+    $revoked=one('SELECT state FROM google_voice_live_calls WHERE ticket=?',[$ticket2]);
+    failover_check($revoked['state']==='exhausted','mid-mint device revocation exhausts ticket');
+    failover_reject(static fn()=>google_voice_failover_register($binding,$def,$initial),
+        'voice_failover_binding_revoked');
     // A different tenant with a BYOK pool never falls back to reseller/platform.
     $ids[]=$own=ai_relay_add(5,'voice','google_live','Customer own','gemini-3.8-live','','test-customer-own-one');
     failover_check(google_voice_pool_owner(5)===5,'customer BYOK isolates pool');
     echo "GOOGLE_LIVE_MIDCALL_FAILOVER_TEST_PASS\n";
 }finally{
     foreach($tickets as $ticket)execute('DELETE FROM google_voice_live_calls WHERE ticket=?',[$ticket]);
+    if($bindingFixtureId!==null)execute('DELETE FROM device_bindings WHERE id=?',[$bindingFixtureId]);
     foreach($ids as $id)execute('DELETE FROM ai_relay_entries WHERE id=?',[$id]);
 }
