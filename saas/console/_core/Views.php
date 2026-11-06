@@ -308,7 +308,7 @@ function render_accounts(array $a):void{
     if(!in_array($a['kind'],['platform','reseller'],true))deny();
     $id=(int)$a['account_id'];
     $rows=$a['kind']==='platform'?
-        all("SELECT a.*, (SELECT COUNT(*) FROM memberships m WHERE m.account_id=a.id) seats FROM accounts a WHERE a.kind".(platform_resellers_visible()?"!='platform'":"='customer'")." ORDER BY a.id DESC"):
+        all("SELECT a.*, (SELECT COUNT(*) FROM memberships m WHERE m.account_id=a.id) seats FROM accounts a WHERE ".(platform_resellers_visible()?"a.kind!='platform'":"a.kind='customer' AND (a.parent_id IS NULL OR a.parent_id IN (SELECT id FROM accounts WHERE kind='platform'))")." ORDER BY a.id DESC"):
         all("SELECT a.*, (SELECT COUNT(*) FROM memberships m WHERE m.account_id=a.id) seats FROM accounts a WHERE a.parent_id=? ORDER BY a.id DESC",[$id]);
     echo '<div class="cols two">';
     if(in_array($a['role'],['owner','admin'],true)&&!active_support()){
