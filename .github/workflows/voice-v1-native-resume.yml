@@ -1,0 +1,40 @@
+name: Resume verified OnTrack Voice v49 APK host publication
+on:
+  push:
+    branches: [release/voice-v1-20261106]
+    paths: ['.github/workflows/voice-v1-native-resume.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+env:
+  GH_TOKEN: ${{ github.token }}
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: utf-8
+  ONTRACK_BUILD_RUN: '42167828181'
+  ONTRACK_BUILD_SHA: 'ed8dd62db4cb359e547753b765fc6077bfe7da1a'
+concurrency:
+  group: ontrack-voice-v1-20261106-exact-host-publish
+  cancel-in-progress: false
+jobs:
+  resume_native:
+    name: Verify existing signed APK and complete host native delivery
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout native release publisher
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Re-verify preserved APK and publish native with host receipt
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:PATH = 'C:\Program Files\Git\usr\bin;' + $env:PATH
+          & python -m py_compile tools/publish_v1_one_shot.py tools/prepare_mobile_native.py tools/queue_mobile_native.py
+          if ($LASTEXITCODE -ne 0) { throw 'Native release publisher syntax failed' }
+          & python tools/test_mobile_release_gate.py
+          if ($LASTEXITCODE -ne 0) { throw 'Native release gate failed' }
+          & python tools/publish_v1_one_shot.py resume-native
+          if ($LASTEXITCODE -ne 0) { throw 'Native host publication verification failed' }
