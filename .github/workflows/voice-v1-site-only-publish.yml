@@ -6,6 +6,7 @@ on:
       - feat/site-v1-remaining-20261106
       - feat/site-v1-finish-20261106
       - feat/site-v1-api-cache-20261106
+      - test/site-v1-browser-e2e-20261106
       - release/voice-v1-20261106
     paths:
       - 'saas/console/**'
@@ -91,6 +92,34 @@ jobs:
             Write-Host 'PHP CLI unavailable on Windows; mandatory isolated PHP 8.3 host preflight blocks unsafe publication.'
           }
           Write-Host 'SITE_STATIC_AND_JS_PASS'
+      - name: Isolated authenticated browser RTL and mobile responsive audit
+        run: |
+          $ErrorActionPreference='Stop'
+          $chromePaths=@(
+            'C:\Program Files\Google\Chrome\Application\chrome.exe',
+            'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+            'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
+            'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
+          )
+          $browser=$chromePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $browser) { throw 'No local Chrome/Edge browser: cannot claim authenticated responsive E2E PASS' }
+          $env:CHROME_BIN=$browser
+          $env:SAAS_RESPONSIVE_FIXTURE='1'
+          $env:ONTRACK_CI_NAMESPACE="v1browser$($env:GITHUB_RUN_ID)"
+          & php tools/seed_responsive_ui.php
+          if ($LASTEXITCODE -ne 0) { throw 'Isolated browser fixture failed' }
+          $phpPath=(Get-Command php -ErrorAction Stop).Source
+          $server=Start-Process -FilePath $phpPath -ArgumentList @(
+            '-S','127.0.0.1:18773','-t','saas/console','tools/test_saas_ui_router.php'
+          ) -PassThru -NoNewWindow
+          try {
+            & node tools/audit_saas_responsive.cjs
+            if ($LASTEXITCODE -ne 0) { throw 'Authenticated Admin/Reseller/User browser responsive audit failed' }
+          } finally {
+            Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+            Remove-Item Env:\SAAS_RESPONSIVE_FIXTURE -ErrorAction SilentlyContinue
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          }
   publish-site:
     name: Run PHP host preflight, publish SaaS, verify native pointers unchanged
     if: github.ref == 'refs/heads/release/voice-v1-20261106'
