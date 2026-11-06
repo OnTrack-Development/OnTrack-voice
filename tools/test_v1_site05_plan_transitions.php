@@ -14,7 +14,7 @@ subs_check(site_limit($owner,'site_limit')>=1000000000 &&
     site_limit($owner,'call_quota')>=1000000000,
     'active platform owner has non-expiring site/agent/call limits');
 $keys=one("SELECT id FROM api_keys WHERE account_id=? LIMIT 1",[$owner]);
-$another=(int)one("SELECT id FROM accounts WHERE kind='customer' AND parent_id=? LIMIT 1",[$owner])['id'];
+$another=(int)one("SELECT id FROM accounts WHERE kind='customer' AND parent_id IS NULL ORDER BY id LIMIT 1")['id'];
 $plans=all("SELECT id FROM plans WHERE kind='user' AND status='active' ORDER BY id LIMIT 2");
 subs_check(count($plans)===2,'two legitimate customer plans');
 $current=all('SELECT id,plan_id,status,starts_at,ends_at FROM subscriptions WHERE account_id=? ORDER BY id',[$another]);
