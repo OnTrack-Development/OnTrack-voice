@@ -4,6 +4,7 @@ on:
     branches: [release/voice-v1-20261106]
     paths:
       - '.github/workflows/voice-deliver-signed-0_3_27.yml'
+      - 'tools/publish_signed_voice_ota.py'
   workflow_dispatch:
 permissions:
   contents: write
@@ -14,7 +15,7 @@ jobs:
   deliver:
     name: Preserve and upload verified APK to existing private prerelease
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
-    timeout-minutes: 12
+    timeout-minutes: 45
     defaults:
       run:
         shell: pwsh
@@ -75,3 +76,20 @@ jobs:
           Write-Host ('APK_URL='+$uploaded.browser_download_url)
           Write-Host ('APK_SHA256='+$digest)
           Write-Host 'NOT_HOST_DEPLOYED_NOT_INSTALLED_NOT_CALL_TESTED'
+
+      - name: Publish signed v50 automatically via host worker, verify actual public OTA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ONTRACK_SIGNED_APK: 'D:\ai\OnTrack-Voice-Builds\wifi-pcm-0.3.27-42311336737\OnTrack-Voice-0.3.27.apk'
+          ONTRACK_EXPECTED_APK_SHA256: '1f0e9ef6a08242313e132bb5004f6db46d963161d4524655f6e51edeabd3dcc7'
+          ONTRACK_PRIVATE_APK_ASSET: 'OnTrack-Voice-0.3.27-WiFi-PCM-fixed-42311336737.apk'
+        run: |
+          $ErrorActionPreference='Stop'
+          $env:PATH = 'C:\Program Files\Git\usr\bin;' + $env:PATH
+          & python -m py_compile tools/publish_signed_voice_ota.py tools/publish_v1_one_shot.py
+          if($LASTEXITCODE -ne 0){throw 'OTA publisher syntax invalid'}
+          & python tools/test_mobile_release_gate.py
+          if($LASTEXITCODE -ne 0){throw 'OTA release safety regression failed'}
+          & python tools/publish_signed_voice_ota.py
+          if($LASTEXITCODE -ne 0){throw 'Signed native APK not published to OTA or public receipt verification failed'}
+          Write-Host 'ONTRACK_NATIVE_V50_OTA_PUBLISHED_CONFIRMED'
