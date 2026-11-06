@@ -105,10 +105,15 @@ function voice_knowledge_add(int $accountId,int $siteId,string $name,string $kin
     $prior=one("SELECT id FROM voice_knowledge_sources WHERE account_id=? AND site_id=? AND folder_id=? AND sha256=? AND visibility=? AND status='active'",
         [$accountId,$siteId,$folderId,$hash,$visibility]);
     if($prior)return (int)$prior['id'];
+    // Same title and folder, changed facts: require explicit approval before calls see it.
+    $different=one("SELECT id FROM voice_knowledge_sources WHERE account_id=? AND site_id=?
+        AND folder_id=? AND name=? AND sha256<>? AND visibility=? AND status='active' LIMIT 1",
+        [$accountId,$siteId,$folderId,trim($name),$hash,$visibility]);
+    $status=$different?'review':'active';
     return insert("INSERT INTO voice_knowledge_sources
         (account_id,site_id,name,kind,content,visibility,status,sha256,created_at,folder_id,version,updated_at)
-        VALUES (?,?,?,?,?,?,'active',?,?,?,1,?)",
-        [$accountId,$siteId,trim($name),$kind,$content,$visibility,$hash,now(),$folderId,now()]);
+        VALUES (?,?,?,?,?,?,?,?,?,?,1,?)",
+        [$accountId,$siteId,trim($name),$kind,$content,$visibility,$status,$hash,now(),$folderId,now()]);
 }
 function voice_knowledge_update(int $accountId,int $siteId,int $sourceId,string $content):int {
     voice_knowledge_site($accountId,$siteId);
@@ -149,7 +154,25 @@ function voice_knowledge_context(int $accountId,int $siteId,int $max=7000):strin
     }
     return $output;
 }
+/** A pending contradictory source is never sent to the agent until owner approval. */
+function voice_knowledge_approve(int $accountId,int $siteId,int $sourceId):bool {
+    voice_knowledge_site($accountId,$siteId);
+    db()->beginTransaction();
+    try{
+        $pending=one("SELECT * FROM voice_knowledge_sources WHERE id=? AND account_id=? AND site_id=? AND status='review'",
+            [$sourceId,$accountId,$siteId]);
+        if(!$pending){db()->rollBack();return false;}
+        execute("UPDATE voice_knowledge_sources SET status='archived',updated_at=?
+          WHERE account_id=? AND site_id=? AND folder_id=? AND name=? AND visibility=? AND status='active'",
+          [now(),$accountId,$siteId,$pending['folder_id'],$pending['name'],$pending['visibility']]);
+        $count=execute("UPDATE voice_knowledge_sources SET status='active',updated_at=?
+            WHERE id=? AND account_id=? AND site_id=? AND status='review'",
+            [now(),$sourceId,$accountId,$siteId]);
+        if($count!==1)throw new RuntimeException('knowledge_approval_race');
+        db()->commit();return true;
+    }catch(Throwable $error){if(db()->inTransaction())db()->rollBack();throw $error;}
+}
 function voice_knowledge_delete(int $accountId,int $sourceId):bool {
-    return execute("UPDATE voice_knowledge_sources SET status='archived',updated_at=? WHERE id=? AND account_id=? AND status='active'",
+    return execute("UPDATE voice_knowledge_sources SET status='archived',updated_at=? WHERE id=? AND account_id=? AND status IN ('active','review')",
         [now(),$sourceId,$accountId])===1;
 }
