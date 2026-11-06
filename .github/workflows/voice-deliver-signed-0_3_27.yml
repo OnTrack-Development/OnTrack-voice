@@ -20,6 +20,10 @@ jobs:
       run:
         shell: pwsh
     steps:
+      - name: Checkout OTA publisher scripts from exact release branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Preserve the signed APK from successful run 42311336737 (no checkout or rebuild)
         run: |
           $ErrorActionPreference='Stop'
