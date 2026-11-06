@@ -56,6 +56,13 @@ jobs:
           }
           $source=$source.Replace($anchor, '    implementation("androidx.fragment:fragment:1.6.2")' + [Environment]::NewLine + $anchor)
           [System.IO.File]::WriteAllText((Resolve-Path $gradle).Path,$source,[System.Text.UTF8Encoding]::new($false))
+      - name: Compile original PCM shell bridge on Windows with JDK and D8
+        run: |
+          $ErrorActionPreference='Stop'
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
+          if(-not $?){throw 'Windows PCM shell bridge compilation failed'}
+          Write-Host 'PCM_SHELL_BRIDGE_COMPILED_PASS'
       - name: Unit test full PCM burst order and compile mobile Kotlin
         working-directory: .build/jemrec
         run: |
@@ -65,3 +72,55 @@ jobs:
           & .\gradlew.bat --no-daemon :app:compileDebugKotlin
           if($LASTEXITCODE -ne 0){throw 'Live voice Kotlin compilation failed'}
           Write-Host 'WIFI_PCM_BURST_NO_EVICTION_QA_PASS'
+
+      - name: Build candidate APK with the original native PCM shell
+        working-directory: .build/jemrec
+        run: |
+          $ErrorActionPreference='Stop'
+          & .\gradlew.bat --no-daemon :app:assembleRelease
+          if($LASTEXITCODE -ne 0){throw 'Native APK assembleRelease failed'}
+          Write-Host 'AUDIO_FIXED_RELEASE_COMPILED'
+      - name: Verify native PCM and signing identity then sign v50
+        run: |
+          $ErrorActionPreference='Stop'
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $signer=Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer=Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
+          $source='.build\jemrec\app\build\outputs\apk\release\app-release-unsigned.apk'
+          $jar='.build\jemrec\shellserver\ontrack-voiceproof-capture.jar'
+          & python tools/verify_shell_jar_packaging.py $source $jar
+          if($LASTEXITCODE -ne 0){throw 'PCM shell missing from unsigned APK'}
+          $cert=Join-Path $env:RUNNER_TEMP 'original-voice-signing-cert.der'
+          & keytool -exportcert -alias androiddebugkey -keystore $key -storepass android -file $cert
+          if($LASTEXITCODE -ne 0){throw 'Original Android signing certificate unavailable'}
+          $actual=(Get-FileHash -LiteralPath $cert -Algorithm SHA256).Hash.ToLowerInvariant()
+          Remove-Item -LiteralPath $cert -Force -ErrorAction SilentlyContinue
+          if($actual -ne 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'){
+            throw 'Signing certificate does NOT match installed phone - refusing APK'
+          }
+          New-Item -ItemType Directory '.build\audio-fixed-release' -Force | Out-Null
+          $signed='.build\audio-fixed-release\OnTrack-Voice-0.3.27.apk'
+          & $signer sign --ks $key --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out $signed $source
+          if($LASTEXITCODE -ne 0){throw 'Original identity APK signing failed'}
+          & $signer verify --verbose $signed
+          if($LASTEXITCODE -ne 0){throw 'Signed APK signature invalid'}
+          & python tools/verify_shell_jar_packaging.py $signed $jar
+          if($LASTEXITCODE -ne 0){throw 'PCM shell missing from signed APK'}
+          $appId=(& $analyzer manifest application-id $signed | Out-String).Trim()
+          $v=(& $analyzer manifest version-code $signed | Out-String).Trim()
+          if($appId -ne 'com.ontrack.voiceproof' -or $v -ne '50'){
+            throw "Wrong package/version $appId/$v, expected original app with versionCode50"
+          }
+          $sha=(Get-FileHash -LiteralPath $signed -Algorithm SHA256).Hash.ToLowerInvariant()
+          "sha256=$sha" | Out-File -LiteralPath '.build\audio-fixed-release\SHA256.txt' -Encoding ascii
+          Copy-Item '.build\jemrec\ontrack-build-source.json' '.build\audio-fixed-release\ontrack-build-source.json'
+          Write-Host 'SIGNED_WIFI_PCM_FIX_APK_VERIFIED'
+          Write-Host ('APK_SHA256='+$sha)
+      - name: Upload verified original-signed APK for installation
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnTrack-Voice-0.3.27-WiFi-PCM-fixed
+          path: .build/audio-fixed-release/
+          if-no-files-found: error
+          retention-days: 30
