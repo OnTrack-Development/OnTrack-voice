@@ -1,0 +1,67 @@
+name: Recover signed APK candidate via private GitHub Release (NO DEPLOY)
+on:
+  push:
+    branches: [feat/voice-v1-minimal-console-20261106]
+    paths:
+      - '.github/workflows/voice-v1-candidate-rescue.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ontrack-v1-signed-candidate-rescue
+  cancel-in-progress: false
+jobs:
+  recover_private_apk:
+    name: Verify retained APK and publish private prerelease asset
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - name: Checkout transport without deleting previous local signed build
+        uses: actions/checkout@v4
+        with:
+          clean: false
+          persist-credentials: false
+      - name: Verify immutable previous signed build and installed signing identity
+        run: |
+          $ErrorActionPreference='Stop'
+          $directory=Join-Path $env:GITHUB_WORKSPACE '.build\release'
+          $apk=Join-Path $directory 'OnTrack-Voice-0.3.25.apk'
+          $report=Join-Path $directory 'size-report.json'
+          if(!(Test-Path -LiteralPath $apk) -or !(Test-Path -LiteralPath $report)){
+            throw 'Signed candidate not retained on Windows runner; full rebuild needed'
+          }
+          $data=Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+          if([string]$data.source_build_run -ne '42154272984' -or [string]$data.release -ne '0.3.25'){
+            throw 'Previous signed build does not match inspected run'
+          }
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $signer=Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer=Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          & $signer verify --verbose $apk
+          if($LASTEXITCODE -ne 0){throw 'Previously signed APK failed signature verification'}
+          $cert=(& $signer verify --print-certs $apk | Out-String).ToLowerInvariant()
+          if($cert -notlike '*d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f*'){
+            throw 'Candidate signing identity does not match installed phone'
+          }
+          $ver=(& $analyzer manifest version-code $apk | Out-String).Trim()
+          $appId=(& $analyzer manifest application-id $apk | Out-String).Trim()
+          if($ver -ne '48' -or $appId -ne 'com.ontrack.voiceproof'){
+            throw 'Candidate version/application ID mismatch'
+          }
+          $actual=(Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($actual -ne [string]$data.sha256){throw 'Retained APK checksum mismatch'}
+          Write-Host "PRESERVED_SIGNED_APK: PASS SHA256=$actual"
+      - name: Upload signed APK to private prerelease without Actions artifact quota
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/publish_v1_candidate_release.py
+          if($LASTEXITCODE -ne 0){throw 'Private candidate GitHub Release upload failed'}
+          Write-Host 'SIGNED_CANDIDATE_PRIVATE_RELEASE: PASS'
