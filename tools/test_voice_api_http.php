@@ -54,7 +54,8 @@ function test_voice_api_http():void {
     $root=realpath(__DIR__.'/../saas/console');
     $router=$root.'/api/v1/index.php';
     $command=[PHP_BINARY,'-S','127.0.0.1:'.$port,'-t',$root,$router];
-    $process=proc_open($command,[0=>['pipe','r'],1=>['file','/dev/null','a'],2=>['file','/dev/null','a']],$pipes,dirname(__DIR__));
+    $nullDevice=PHP_OS_FAMILY==='Windows'?'NUL':'/dev/null';
+    $process=proc_open($command,[0=>['pipe','r'],1=>['file',$nullDevice,'a'],2=>['file',$nullDevice,'a']],$pipes,dirname(__DIR__));
     if(!is_resource($process))throw new RuntimeException('api_http_server_failed');
     fclose($pipes[0]);
     $base='http://127.0.0.1:'.$port.'/api/v1/';
