@@ -122,7 +122,7 @@ function voice_flow_saved_graph(array $session):array {
 function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string $reply=null,
     int $deviceBindingId=0):array {
     $session=voice_flow_session($accountId,$sessionId,$actorId,$deviceBindingId);
-    if($session['status']==='completed')return ['status'=>'completed','events'=>[],'done'=>true];
+    if(in_array($session['status'],['completed','blocked'],true))return ['status'=>$session['status'],'events'=>[],'done'=>true];
     $graph=voice_flow_saved_graph($session);
     $state=json_decode((string)$session['state_json'],true,32,JSON_THROW_ON_ERROR);
     if(!is_array($state))throw new RuntimeException('flow_state_invalid');
@@ -175,8 +175,8 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
                     WHERE account_id=? AND site_id=? AND agent_id=? AND node_id=?",[
                     $session['account_id'],$session['site_id'],$session['agent_id'],$nodeId]);
                 if(!$binding){
-                    $events[]=['kind'=>'notice','text'=>'هذه العقدة ليست مرتبطة بأداة معتمدة؛ لم تنفذ عملية خارجية.'];
-                    $state['awaiting']=$nodeId;break;
+                    $events[]=['kind'=>'notice','text'=>'هذه العقدة ليست مرتبطة بأداة معتمدة؛ أُوقف التنفيذ بأمان ولم تنفذ أي عملية.'];
+                    $state['pending_tool']=['node_id'=>$nodeId,'policy_id'=>0,'blocked'=>true];break;
                 }
                 $state['pending_tool']=['node_id'=>$nodeId,'policy_id'=>(int)$binding['policy_id']];
                 $events[]=['kind'=>'tool_requires_approval','node_id'=>$nodeId,
@@ -234,15 +234,16 @@ function voice_flow_complete_tool(int $accountId,int $sessionId,int $actorId,int
     }
     $state['pending_tool']=null;
     if($next!==null){$state['cursor']=$next;$state['awaiting']=null;}
-    else{$state['awaiting']=$node;}
-    $updated=execute("UPDATE voice_flow_sessions SET state_json=?,status='active',
+    else{$state['done']=true;$state['awaiting']=null;}
+    $newStatus=($state['done']??false)?'blocked':'active';
+    $updated=execute("UPDATE voice_flow_sessions SET state_json=?,status=?,
        step_version=step_version+1,updated_at=? WHERE id=? AND account_id=? AND step_version=?",[
-       json_encode($state,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),now(),
+       json_encode($state,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$newStatus,now(),
        $sessionId,$accountId,(int)$session['step_version']]);
     if($updated!==1)throw new RuntimeException('flow_session_write_conflict');
     voice_flow_trace($session,$node,'tool_'.$tool['status'],
         $tool['status']==='succeeded'?'verified_ref_'.(string)($tool['reference_id']??''):'unconfirmed');
-    return ['status'=>'active','events'=>[$event],'state'=>$state,'done'=>false];
+    return ['status'=>$newStatus,'events'=>[$event],'state'=>$state,'done'=>(bool)($state['done']??false)];
 }
 function voice_flow_session_traces(int $accountId,int $sessionId,int $actorId):array {
     voice_flow_session($accountId,$sessionId,$actorId);
