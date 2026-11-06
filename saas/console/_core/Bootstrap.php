@@ -16,8 +16,9 @@ function private_path(): string {
     }else{
         // Isolate runner fixtures; the PHP built-in HTTP test server is loopback-only.
         // Apache/FPM/web production cannot choose a private database via HTTP.
-        $isCi=PHP_SAPI==='cli'||(PHP_SAPI==='cli-server'&&
-            in_array((string)($_SERVER['SERVER_ADDR']??''),['127.0.0.1','::1'],true));
+        // The built-in php -S test server has PHP_SAPI=cli-server; Apache/FPM
+        // never honor this environment variable. CI runner sets it explicitly.
+        $isCi=in_array(PHP_SAPI,['cli','cli-server'],true);
         $tag=$isCi?(string)(getenv('ONTRACK_CI_NAMESPACE')?:''):'';
         if($tag!==''){
             if(!preg_match('/^[A-Za-z0-9_-]{8,60}$/D',$tag))
