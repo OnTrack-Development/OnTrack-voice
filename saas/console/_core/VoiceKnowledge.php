@@ -157,18 +157,42 @@ function voice_knowledge_context(int $accountId,int $siteId,int $max=7000):strin
 /** A pending contradictory source is never sent to the agent until owner approval. */
 function voice_knowledge_approve(int $accountId,int $siteId,int $sourceId):bool {
     voice_knowledge_site($accountId,$siteId);
+    if(function_exists('voice_kb_web_init'))voice_kb_web_init();
     db()->beginTransaction();
     try{
         $pending=one("SELECT * FROM voice_knowledge_sources WHERE id=? AND account_id=? AND site_id=? AND status='review'",
             [$sourceId,$accountId,$siteId]);
         if(!$pending){db()->rollBack();return false;}
-        execute("UPDATE voice_knowledge_sources SET status='archived',updated_at=?
-          WHERE account_id=? AND site_id=? AND folder_id=? AND name=? AND visibility=? AND status='active'",
-          [now(),$accountId,$siteId,$pending['folder_id'],$pending['name'],$pending['visibility']]);
+        $webOrigin='';
+        if(function_exists('voice_kb_web_init')){
+            $meta=one("SELECT origin_url FROM voice_kb_meta
+              WHERE source_id=? AND account_id=? AND site_id=?",
+              [$sourceId,$accountId,$siteId]);
+            $webOrigin=(string)($meta['origin_url']??'');
+        }
+        if($webOrigin!==''){
+            // Approving a URL revision must not archive an unrelated source
+            // with the same title from another URL or a manual upload.
+            execute("UPDATE voice_knowledge_sources SET status='archived',updated_at=?
+              WHERE account_id=? AND site_id=? AND folder_id=? AND name=?
+                AND visibility=? AND status='active'
+                AND id IN (SELECT source_id FROM voice_kb_meta
+                  WHERE account_id=? AND site_id=? AND origin_url=?)",
+              [now(),$accountId,$siteId,$pending['folder_id'],$pending['name'],
+               $pending['visibility'],$accountId,$siteId,$webOrigin]);
+        }else{
+            execute("UPDATE voice_knowledge_sources SET status='archived',updated_at=?
+              WHERE account_id=? AND site_id=? AND folder_id=? AND name=? AND visibility=? AND status='active'",
+              [now(),$accountId,$siteId,$pending['folder_id'],$pending['name'],$pending['visibility']]);
+        }
         $count=execute("UPDATE voice_knowledge_sources SET status='active',updated_at=?
             WHERE id=? AND account_id=? AND site_id=? AND status='review'",
             [now(),$sourceId,$accountId,$siteId]);
         if($count!==1)throw new RuntimeException('knowledge_approval_race');
+        if($webOrigin!=='')
+            execute("UPDATE voice_kb_web_links SET status='current',last_error=NULL
+              WHERE account_id=? AND site_id=? AND source_id=? AND last_hash=?",
+              [$accountId,$siteId,$sourceId,$pending['sha256']]);
         db()->commit();return true;
     }catch(Throwable $error){if(db()->inTransaction())db()->rollBack();throw $error;}
 }

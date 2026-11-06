@@ -288,7 +288,7 @@ function act():void {
                 break;
             case 'voice_knowledge_approve':
                 require_permission('agents.write');
-                require_once __DIR__.'/VoiceKnowledge.php';
+                require_once __DIR__.'/VoiceKnowledgeWeb.php';
                 $site=intfield('site_id');$source=intfield('source_id');
                 if(!voice_knowledge_approve($id,$site,$source))deny(404);
                 audit('voice.knowledge.review_approved',$id,['site_id'=>$site,'source_id'=>$source]);

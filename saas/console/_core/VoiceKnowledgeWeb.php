@@ -118,17 +118,40 @@ function voice_kb_web_sync(int $accountId,int $siteId,int $linkId,?callable $tra
         if(!is_string($content))throw new RuntimeException('knowledge_link_invalid_content');
         $content=voice_knowledge_validate((string)$link['name'],'txt',$content,(string)$link['visibility']);
         $hash=hash('sha256',$content);
-        if(hash_equals((string)($link['last_hash']??''),$hash)){
-            execute("UPDATE voice_kb_web_links SET status='current',last_fetched_at=?,
-                next_check_at=?,last_error=NULL WHERE id=? AND account_id=?",
-                [now(),gmdate('Y-m-d H:i:s',time()+(int)$link['interval_hours']*3600),$linkId,$accountId]);
-            return ['status'=>'unchanged','source_id'=>$link['source_id']];
+        // A refetch must never turn an unapproved draft into a "current" fact.
+        // An archived/missing source is not current even when its hash matches.
+        $linkedId=(int)($link['source_id']??0);
+        $linked=$linkedId>0?one("SELECT k.status FROM voice_knowledge_sources k
+            JOIN voice_kb_meta m ON m.source_id=k.id AND m.account_id=k.account_id AND m.site_id=k.site_id
+            WHERE k.id=? AND k.account_id=? AND k.site_id=? AND m.origin_url=?",
+            [$linkedId,$accountId,$siteId,$link['url']]):null;
+        if(hash_equals((string)($link['last_hash']??''),$hash) &&
+           $linked && in_array($linked['status'],['active','review'],true)){
+            $linkStatus=$linked['status']==='active'?'current':'review';
+            execute("UPDATE voice_kb_web_links SET status=?,last_fetched_at=?,
+                next_check_at=?,last_error=NULL WHERE id=? AND account_id=? AND site_id=?",
+                [$linkStatus,now(),gmdate('Y-m-d H:i:s',time()+(int)$link['interval_hours']*3600),
+                 $linkId,$accountId,$siteId]);
+            return ['status'=>$linkStatus==='current'?'unchanged':'review','source_id'=>$linkedId];
         }
         db()->beginTransaction();
         try{
-            $duplicate=one("SELECT id FROM voice_knowledge_sources
-                WHERE account_id=? AND site_id=? AND name=? AND sha256=? AND status IN ('review','active')",
-                [$accountId,$siteId,$link['name'],$hash]);
+            // Revisions only belong to the same URL, folder and visibility.
+            // Reusing a same-named manual or foreign URL source can leak scope.
+            $previous=$linkedId>0?one("SELECT m.scope_mode,m.priority,m.expires_at
+                FROM voice_kb_meta m JOIN voice_knowledge_sources k
+                  ON k.id=m.source_id AND k.account_id=m.account_id AND k.site_id=m.site_id
+                WHERE m.source_id=? AND m.account_id=? AND m.site_id=?
+                  AND m.origin_url=? AND k.status IN ('active','review')",
+                [$linkedId,$accountId,$siteId,$link['url']]):null;
+            $duplicate=one("SELECT k.id FROM voice_knowledge_sources k
+                JOIN voice_kb_meta m ON m.source_id=k.id
+                  AND m.account_id=k.account_id AND m.site_id=k.site_id
+                WHERE k.account_id=? AND k.site_id=? AND k.folder_id=? AND k.name=?
+                  AND k.visibility=? AND k.sha256=? AND m.origin_url=?
+                  AND k.status IN ('review','active')",
+                [$accountId,$siteId,$link['folder_id'],$link['name'],
+                 $link['visibility'],$hash,$link['url']]);
             if($duplicate)$source=(int)$duplicate['id'];
             else $source=insert("INSERT INTO voice_knowledge_sources
                 (account_id,site_id,name,kind,content,visibility,status,sha256,created_at,folder_id,version,updated_at)
@@ -137,10 +160,26 @@ function voice_kb_web_sync(int $accountId,int $siteId,int $linkId,?callable $tra
                   now(),$link['folder_id'],now()]);
             $meta=one('SELECT source_id FROM voice_kb_meta WHERE source_id=? AND account_id=?',
                 [$source,$accountId]);
-            if(!$meta)insert("INSERT INTO voice_kb_meta
-               (source_id,account_id,site_id,scope_mode,priority,origin_url,updated_at)
-               VALUES (?,?,?,'all',100,?,?)",
-                [$source,$accountId,$siteId,$link['url'],now()]);
+            if(!$meta){
+                // A refreshed public source must inherit the reviewed Agent scope,
+                // priority and expiry. Never silently widen 'agent' to 'all'.
+                $scope=(string)($previous['scope_mode']??'all');
+                $priority=(int)($previous['priority']??100);
+                $expiresAt=$previous['expires_at']??null;
+                insert("INSERT INTO voice_kb_meta
+                  (source_id,account_id,site_id,scope_mode,priority,expires_at,origin_url,updated_at)
+                  VALUES (?,?,?,?,?,?,?,?)",
+                  [$source,$accountId,$siteId,$scope,$priority,$expiresAt,$link['url'],now()]);
+                if($scope==='agent' && $linkedId>0){
+                    $allowedAgents=all("SELECT agent_id FROM voice_kb_agent_scope
+                      WHERE source_id=? AND account_id=? AND site_id=?",
+                      [$linkedId,$accountId,$siteId]);
+                    foreach($allowedAgents as $allowed)
+                        insert("INSERT INTO voice_kb_agent_scope
+                           (source_id,agent_id,account_id,site_id) VALUES (?,?,?,?)",
+                           [$source,(int)$allowed['agent_id'],$accountId,$siteId]);
+                }
+            }
             execute("UPDATE voice_kb_web_links SET source_id=?,status='review',
                 last_hash=?,last_fetched_at=?,next_check_at=?,last_error=NULL
                 WHERE id=? AND account_id=? AND site_id=?",
