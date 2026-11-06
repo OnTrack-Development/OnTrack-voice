@@ -1,7 +1,20 @@
 # OnTrack Voice v1.0.0 — العقد التنفيذي للمرحلة الأولى
-**تاريخ الاعتماد للمواصفات:** 2026-11-06. **الحالة الحالية:** تنفيذ جزئي؛ آخر SaaS منشور Source `ed8ce1694e2ee080cbf514b976a554cdc8707796`، Run `42244090845` SUCCESS، Host QA 66 PHP، Deploy 81 ملفًا، Browser Demo 237 حالة بلا أخطاء؛ Mobile/OTA لم يتغيرا. كامل Stable 1.0.0 وDevice E2E ليسا معتمدين.
+**تاريخ الاعتماد للمواصفات:** 2026-11-06. **الحالة الحالية:** تنفيذ جزئي؛ آخر SaaS منشور Source `9878f0d200804fb934c361fbc70e001e410670c7`، Run `42266613931` SUCCESS، Host QA 66 PHP، Deploy 81 ملفًا، Browser Demo 237 حالة بلا أخطاء؛ Mobile/OTA لم يتغيرا. كامل Stable 1.0.0 وDevice E2E ليسا معتمدين.
 **الموقع:** app.ontrackegy.com؛ **الجهاز المرجعي:** Xiaomi Note 12 Pro 5G.
 **مصدر الحقيقة:** آخر قرارات المالك في جلسة نوفمبر 2026 تتقدم على خارطة نوفمبر 3 فيما يتعلق بنطاق المرحلة الأولى.
+
+## تحديث تنفيذ موثق — 6 نوفمبر 2026، الساعة 20:05 بتوقيت القاهرة
+
+هذه **تعديلات فعلية للموقع** وليست إعلان إغلاق الـ21 بندًا. لا يوجد تغيير في `Android/APK/OTA`.
+
+| المهام | التغيير المنفذ | إثبات الاختبار/النشر | حالة القبول |
+|---|---|---|---|
+| SITE-06 / SITE-20 | تحديث روابط المعرفة لا يحوّل نسخة `review` إلى `current` قبل موافقة المالك؛ توارث Agent allowlist وpriority وTTL؛ عدم خلط مصادر متطابقة الاسم من URLs مختلفة؛ أرشفة النسخة القديمة من **نفس المصدر فقط** عند الاعتماد | [PR #61](https://github.com/OnTrack-Development/OnTrack-voice/pull/61)؛ Commit `6d98f88248bf`، Run [42266306219](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42266306219) = SUCCESS؛ Host QA 66 PHP و81 ملفًا منشورًا | `CODED + CI_PASS + HOST_DEPLOYED`؛ تظل SITE-06 مفتوحة للمزامنة التلقائية والفهرسة الدلالية واختبار PDF على الهوست |
+| SITE-17 / SITE-20 | سجلات Transcript ترفض إعادة استخدام نفس `event_id` لتغيير المتحدث أو نوع الحدث أو التوقيت أو النص أو نطاق SIM؛ إعادة الإرسال المطابق فقط idempotent | [PR #62](https://github.com/OnTrack-Development/OnTrack-voice/pull/62)؛ Commit `9878f0d20080`، Run [42266613931](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42266613931) = SUCCESS؛ `VOICE_CALL_TIMELINE_EVIDENCE_PASS`؛ Browser 237 فحصًا/0 فشل؛ Host QA 66 PHP و81 ملفًا منشورًا | `CODED + CI_PASS + HOST_DEPLOYED`؛ تظل SITE-17 مفتوحة للتفريغ والملخص وربط نتائج مكالمة حقيقية |
+
+آخر إيصال نشر للموقع: `v1-saas-42266613931` = `deployed` على مصدر `9878f0d20080`، PHP 8.3، نسخة رجوع `/home/appontrack/backup/releases/9878f0d20080`، و`android_compat=true`. لم تُختبر بعد حجوزات/تذاكر فعلية بخدمات خارجية أو مكالمة SIM تربط الـFlow بالأداة، ولم يُعتمد تسجيل دخول إنتاجي لكل دور. **تبقى checkboxes الـ21 مفتوحة حتى اجتياز شروط قبول كل بند، ولا يعني هذا إطلاق Stable 1.0.0.**
+
+---
 
 ## 1) خط الأساس والدليل
 - صاحب المشروع يؤكد أن **ربط حساب الأدمن الحالي يعمل** من التجربة الأولى ولم يُفك؛ لا تعاد التهيئة ولا يُحذف pairing/token/data بلا داع.
