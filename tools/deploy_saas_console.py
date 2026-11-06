@@ -53,11 +53,19 @@ def site_preflight(download_url,tar_sha,source_commit):
             if result.returncode!=0:raise RuntimeError('site_php_syntax_'+source.relative_to(app).as_posix())
         seed=app/'database/Seed.php'
         knowledge=app/'_core/VoiceKnowledge.php'
-        if not seed.is_file() or not knowledge.is_file():raise RuntimeError('site_knowledge_sources_missing')
+        tool_gateway=app/'_core/VoiceToolGateway.php'
+        flow_runtime=app/'_core/VoiceFlowRuntime.php'
+        kb_web=app/'_core/VoiceKnowledgeWeb.php'
+        if not all(p.is_file() for p in (seed,knowledge,tool_gateway,flow_runtime,kb_web)):
+            raise RuntimeError('site_runtime_modules_missing')
         test=(
             'require_once '+json.dumps(str(seed))+';'
             'require_once '+json.dumps(str(knowledge))+';'
+            'require_once '+json.dumps(str(tool_gateway))+';'
+            'require_once '+json.dumps(str(flow_runtime))+';'
+            'require_once '+json.dumps(str(kb_web))+';'
             'seed_console();'
+            'voice_tools_init();voice_flow_runtime_init();voice_kb_web_init();'
             "$site=one(\"SELECT id FROM sites WHERE account_id=4 AND status='active' LIMIT 1\");"
             "if(!$site)throw new RuntimeException('site_fixture_missing');"
             '$sid=(int)$site["id"];'

@@ -3,10 +3,15 @@ on:
   push:
     branches:
       - fix/v1-site-only-20261106
+      - feat/site-v1-remaining-20261106
       - release/voice-v1-20261106
     paths:
       - 'saas/console/**'
       - 'tools/test_v1_knowledge.php'
+      - 'tools/test_voice_tool_gateway.php'
+      - 'tools/test_voice_knowledge_web.php'
+      - 'tools/test_voice_flow_runtime.php'
+      - 'tools/test_voice_call_timeline.php'
       - 'tools/deploy_saas_console.py'
       - 'tools/publish_v1_one_shot.py'
       - '.github/workflows/voice-v1-site-only-publish.yml'
@@ -49,8 +54,30 @@ jobs:
               & php -l $_.FullName | Out-Null
               if($LASTEXITCODE -ne 0){throw "Invalid PHP: $($_.FullName)"}
             }
-            & php tools/test_v1_knowledge.php
-            if($LASTEXITCODE -ne 0){throw 'Knowledge regression failed'}
+            $suite=@(
+              'tools/test_v1_knowledge.php',
+              'tools/test_voice_tool_gateway.php',
+              'tools/test_voice_knowledge_web.php',
+              'tools/test_voice_flow_runtime.php',
+              'tools/test_voice_call_timeline.php',
+              'tools/test_v1_reseller_toggle.php',
+              'tools/test_admin_mfa.php',
+              'tools/test_verified_signup.php',
+              'tools/test_white_label_portal.php',
+              'tools/test_flow_ai_sources.php',
+              'tools/test_dynamic_agent_studio.php',
+              'tools/test_agent_scenario_modes.php',
+              'tools/test_voice_saas_console.php'
+            )
+            $i=0
+            foreach($test in $suite){
+              $i++
+              $env:ONTRACK_CI_NAMESPACE="v1site$($env:GITHUB_RUN_ID)_$i"
+              Write-Host "Running isolated SaaS regression $i - $test"
+              & php $test
+              if($LASTEXITCODE -ne 0){throw "SaaS regression failed: $test"}
+            }
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
           } else {
             Write-Host 'PHP CLI unavailable on Windows; mandatory isolated PHP 8.3 host preflight blocks unsafe publication.'
           }
