@@ -1,0 +1,77 @@
+name: OnTrack Deliver Already Signed WiFi PCM v0.3.27 (NO REBUILD)
+on:
+  push:
+    branches: [release/voice-v1-20261106]
+    paths:
+      - '.github/workflows/voice-deliver-signed-0_3_27.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ontrack-wifi-pcm-deliver-v50
+  cancel-in-progress: false
+jobs:
+  deliver:
+    name: Preserve and upload verified APK to existing private prerelease
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Preserve the signed APK from successful run 42311336737 (no checkout or rebuild)
+        run: |
+          $ErrorActionPreference='Stop'
+          $source=Join-Path $env:GITHUB_WORKSPACE '.build\audio-fixed-release\OnTrack-Voice-0.3.27.apk'
+          $safe='D:\ai\OnTrack-Voice-Builds\wifi-pcm-0.3.27-42311336737'
+          $destination=Join-Path $safe 'OnTrack-Voice-0.3.27.apk'
+          $expected='1f0e9ef6a08242313e132bb5004f6db46d963161d4524655f6e51edeabd3dcc7'
+          if(-not (Test-Path -LiteralPath $destination)){
+            if(-not (Test-Path -LiteralPath $source)){throw 'Previously signed v0.3.27 APK is missing on Windows runner; cannot deliver without rebuilding'}
+            New-Item -ItemType Directory -Path $safe -Force | Out-Null
+            Copy-Item -LiteralPath $source -Destination $destination
+          }
+          $actual=(Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($actual -ne $expected){throw 'Preserved APK SHA mismatch; do not deliver'}
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $signer=Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer=Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          & $signer verify --verbose $destination
+          if($LASTEXITCODE -ne 0){throw 'Preserved APK signature verification failed'}
+          $app=(& $analyzer manifest application-id $destination | Out-String).Trim()
+          $version=(& $analyzer manifest version-code $destination | Out-String).Trim()
+          if($app -ne 'com.ontrack.voiceproof' -or $version -ne '50'){throw 'Preserved APK package/version mismatch'}
+          "SIGNED_APK_PRESERVED=$destination"
+          "SIGNED_APK_SHA256=$actual"
+          "ONTRACK_PRESERVED_APK=$destination" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Upload signed v0.3.27 APK to private GitHub prerelease without using Actions artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $headers=@{
+            Authorization="Bearer $env:GH_TOKEN"
+            Accept='application/vnd.github+json'
+            'X-GitHub-Api-Version'='2022-11-28'
+            'User-Agent'='OnTrack-v50-existing-signed-APK-delivery'
+          }
+          $release=Invoke-RestMethod -Method Get -Uri 'https://api.github.com/repos/OnTrack-Development/OnTrack-voice/releases/tags/ontrack-native-v48' -Headers $headers
+          if(-not $release.prerelease -or $release.draft -or $release.immutable){throw 'Private delivery release must be an editable prerelease'}
+          $name='OnTrack-Voice-0.3.27-WiFi-PCM-fixed-42311336737.apk'
+          $src=$env:ONTRACK_PRESERVED_APK
+          $bytes=(Get-Item -LiteralPath $src).Length
+          $digest=(Get-FileHash -LiteralPath $src -Algorithm SHA256).Hash.ToLowerInvariant()
+          $existing=@($release.assets | Where-Object { $_.name -eq $name })
+          if($existing.Count -gt 1){throw 'Duplicate private release assets; refusing upload'}
+          if($existing.Count -eq 1){
+            $uploaded=$existing[0]
+          }else{
+            $endpoint=($release.upload_url -split '\{')[0] + '?name=' + [uri]::EscapeDataString($name)
+            $uploaded=Invoke-RestMethod -Method Post -Uri $endpoint -Headers $headers -ContentType 'application/vnd.android.package-archive' -InFile $src -TimeoutSec 150
+          }
+          if([int64]$uploaded.size -ne $bytes){throw 'Private GitHub upload asset size mismatch'}
+          if($uploaded.digest -and $uploaded.digest -ne ('sha256:'+$digest)){throw 'Private GitHub upload asset digest mismatch'}
+          Write-Host 'PRIVATE_SIGNED_PCM_APK_UPLOAD_VERIFIED'
+          Write-Host ('APK_URL='+$uploaded.browser_download_url)
+          Write-Host ('APK_SHA256='+$digest)
+          Write-Host 'NOT_HOST_DEPLOYED_NOT_INSTALLED_NOT_CALL_TESTED'
