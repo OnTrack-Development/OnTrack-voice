@@ -13,6 +13,7 @@ on:
       - 'tools/test_v1_knowledge.php'
       - 'tools/test_voice_access.php'
       - 'tools/test_v1_site05_plan_transitions.php'
+      - 'tools/test_console_ajax_ui.cjs'
       - 'tools/test_voice_kb_search_index.php'
       - 'tools/test_voice_kb_pdf_extract.php'
       - 'tools/audit_saas_responsive.cjs'
