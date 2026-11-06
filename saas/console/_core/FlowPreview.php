@@ -13,7 +13,8 @@ function flow_preview_compile(array $graph):array {
         ||count($nodes)<1||count($nodes)>100||count($edges)>250)
         throw new InvalidArgumentException('flow_invalid_graph');
     $types=['start','say','listen','ask','condition','instruction','knowledge_lookup',
-        'collect_field','crm_lookup','crm_write','schedule','handoff','end'];
+        'collect_field','crm_lookup','crm_write','schedule','handoff','end',
+        'intent','reasoning','validation','approval','fallback','tool'];
     $index=[];$starts=[];
     foreach($nodes as $node){
         if(!is_array($node)||!is_string($node['id']??null)
@@ -96,7 +97,7 @@ function flow_preview_step(array $flow,array $state,?string $answer=null):array 
         $node=$flow['nodes'][$state['cursor']??'']??null;
         if(!$node)throw new InvalidArgumentException('flow_unknown_cursor');
         $type=$node['type'];$id=$node['id'];$message=trim($node['text']);
-        if(in_array($type,['knowledge_lookup','crm_lookup','crm_write','schedule','handoff'],true)){
+        if(in_array($type,['knowledge_lookup','crm_lookup','crm_write','schedule','handoff','tool'],true)){
             $events[]=['kind'=>'notice','text'=>'هذه الخطوة (' . $type . ') تتطلب تكاملًا فعليًا؛ لم تُنفّذ أي عملية خارجية.'];
             $state['done']=true;break;
         }
@@ -104,11 +105,11 @@ function flow_preview_step(array $flow,array $state,?string $answer=null):array 
             if($message!=='')$events[]=['kind'=>'agent','text'=>$message];
             $state['done']=true;break;
         }
-        if(in_array($type,['ask','listen','collect_field'],true)){
+        if(in_array($type,['ask','listen','collect_field','approval'],true)){
             if($message!=='')$events[]=['kind'=>'agent','text'=>$message];
             $state['awaiting']=$id;break;
         }
-        if($type==='condition'){
+        if(in_array($type,['condition','intent','validation'],true)){
             $next=flow_preview_edge($flow,$id,$state['last_answer']??null);
             if($next===null){
                 $events[]=['kind'=>'notice','text'=>'لا يوجد مسار شرط مطابق؛ المحاكاة توقفت دون تخمين.'];
@@ -116,7 +117,7 @@ function flow_preview_step(array $flow,array $state,?string $answer=null):array 
             }
         }else{
             // Internal guidance/knowledge policy is never spoken as a chat message.
-            if($message!==''&&$type!=='instruction')$events[]=['kind'=>'agent','text'=>$message];
+            if($message!==''&&!in_array($type,['instruction','reasoning'],true))$events[]=['kind'=>'agent','text'=>$message];
             $next=flow_preview_edge($flow,$id,null);
             if($next===null){
                 $events[]=['kind'=>'notice','text'=>'لا توجد خطوة تالية؛ انتهت المحاكاة.'];

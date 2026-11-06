@@ -952,6 +952,75 @@ function render_flows(array $a):void{
             '<a class="btn small primary" href="'.e($url).'">فتح المخطط</a>'];
     }
     echo card('مخططات المحادثة',tbl(['المساعد','الموقع','النسخة','الإجراء'],$rows));
+    if(in_array($a['role'],['owner','admin'],true)&&allowed('agents.write')&&!active_support()){
+        require_once __DIR__.'/VoiceFlowRuntime.php';
+        voice_flow_runtime_init();
+        $available=[];
+        foreach($agents as $agent)
+            if(published_agent_flow($id,(int)$agent['site_id'],(int)$agent['id']))
+                $available[(string)$agent['id']]=$agent['name'].' · '.$agent['site_name'];
+        if($available){
+            $selectedId=(int)array_key_first($available);
+            $chosen=one("SELECT site_id FROM agents WHERE id=? AND account_id=?",[$selectedId,$id]);
+            $test='<p class="info">محاكاة سيرفر حقيقية لحالة العقد والترانزيشن فقط، ولا تُعادل مكالمة SIM. العقد الخارجية متوقفة حتى ربط أداة وموافقة ونتيجة API.</p>'.
+                form_start('voice_flow_test_start','/?tab=flows').
+                '<label class="field">اختر مساعدًا منشورًا<select name="agent_id">';
+            foreach($available as $aid=>$label)$test.='<option value="'.(int)$aid.'">'.e($label).'</option>';
+            $test.='</select></label>'.
+                '<label class="field">Site ID للمساعد المنشور<input type="number" name="site_id" min="1" required placeholder="رقم الموقع"></label>'.
+                submit_btn('بدء محاكاة Flow منفصلة');
+            $active=$_SESSION['voice_flow_active']??null;
+            if(is_array($active)&&(int)($active['account_id']??0)===$id&&
+               (int)($active['actor_id']??0)===(int)(me()['id']??0)){
+                try{
+                    $s=voice_flow_session($id,(int)$active['session_id'],(int)me()['id']);
+                    $state=json_decode((string)$s['state_json'],true);
+                    $test.='<p><strong>جلسة #'.(int)$s['id'].'</strong> · '.e($s['status']).
+                        ' · Node: '.e((string)($state['cursor']??'')).' · revision '.(int)$s['published_revision'].'</p>'.
+                        form_start('voice_flow_test_step','/?tab=flows').
+                        '<input type="hidden" name="session_id" value="'.(int)$s['id'].'">'.
+                        '<label class="field">رد العميل عند انتظار سؤال (اتركه فارغًا لبداية المسار)<input name="flow_reply" maxlength="500"></label>'.
+                        submit_btn('تنفيذ خطوة على السيرفر');
+                    $pending=$state['pending_tool']??null;
+                    if(is_array($pending)){
+                        $test.='<p>العقدة '.e($pending['node_id']).' تنتظر نتيجة API موثقة؛ استخدم Integration Manager بنفس Call ID: '.e($s['call_id']).'</p>'.
+                            form_start('voice_flow_test_tool_complete','/?tab=flows').
+                            '<input type="hidden" name="session_id" value="'.(int)$s['id'].'">'.
+                            '<label class="field">معرّف طلب API المؤكد<input type="number" name="tool_request_id" min="1" required></label>'.
+                            submit_btn('ربط نتيجة API بالخطة');
+                    }
+                    $last=$_SESSION['voice_flow_last']??null;
+                    if(is_array($last))foreach((array)($last['events']??[]) as $event)
+                        $test.='<p>'.e((string)($event['kind']??'event')).': '.e((string)($event['text']??$event['reference_id']??'')).'</p>';
+                    $traceRows=[];
+                    foreach(voice_flow_session_traces($id,(int)$s['id'],(int)me()['id']) as $trace)
+                        $traceRows[]=[e($trace['created_at']),e($trace['node_id']),
+                            e($trace['event_type']),e($trace['event_detail'])];
+                    $test.=tbl(['الوقت','العقدة','الحدث','التفاصيل'],$traceRows);
+                }catch(Throwable $error){
+                    $test.='<p class="dim">جلسة المحاكاة غير متاحة؛ افتح جلسة جديدة.</p>';
+                }
+            }
+            echo card('اختبار تنفيذ Flow وتتبع كل عقدة',$test);
+        }
+        $policyOptions=[];
+        foreach(all("SELECT p.id,p.operation,c.name FROM voice_tool_policies p
+          JOIN voice_data_connectors c ON c.id=p.connector_id AND c.account_id=p.account_id
+          WHERE p.account_id=? AND p.enabled=1 AND c.status='verified' ORDER BY p.id DESC LIMIT 60",[$id]) as $p)
+            $policyOptions[(string)$p['id']]=$p['operation'].' · '.$p['name'];
+        if($policyOptions&&$available){
+            $bind=form_start('voice_flow_tool_bind','/?tab=flows').
+                '<label class="field">المساعد المنشور<select name="agent_id">';
+            foreach($available as $aid=>$label)$bind.='<option value="'.(int)$aid.'">'.e($label).'</option>';
+            $bind.='</select></label>'.
+                '<label class="field">Site ID المملوك للمساعد<input type="number" name="site_id" min="1" required></label>'.
+                '<label class="field">Node ID في المخطط<input name="node_id" maxlength="60" required></label>'.
+                select_html('سياسة أداة معتمدة','policy_id',$policyOptions).
+                submit_btn('ربط العقدة بالعملية المصرح بها');
+            echo card('ربط عقد Tool / CRM / Booking بسياسة', $bind);
+        }
+    }
+
 }
 
 function render_answering(array $a):void {

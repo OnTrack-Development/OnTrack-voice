@@ -13,7 +13,7 @@ function flow_ai_validate_proposal(array $candidate):array {
     if(!is_array($graph['nodes'])||!is_array($graph['edges'])||
        count($graph['nodes'])<2||count($graph['nodes'])>32||
        count($graph['edges'])>64)throw new InvalidArgumentException('ai_flow_invalid_size');
-    $safe=['start','say','listen','ask','condition','instruction','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end'];
+    $safe=['start','say','listen','ask','condition','instruction','intent','reasoning','validation','approval','fallback','tool','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end','intent','reasoning','validation','approval','fallback','tool'];
     $nodes=[];
     foreach($graph['nodes'] as $n){
         if(!is_array($n)||!in_array($n['type']??null,$safe,true))
@@ -76,7 +76,7 @@ function flow_ai_generate(int $accountId,int $agentId,string $idea,array $histor
     $instruction=<<<'PROMPT'
 You are a graph designer for an Egyptian Arabic telephone AI agent. Return only a JSON object
 with keys "nodes" and "edges". Each node has id, type, text, x, y. Each edge has from, to, label.
-Use only these types: start, say, listen, ask, instruction, condition, knowledge_lookup, collect_field, crm_lookup, crm_write, schedule, handoff, end. Preserve existing node types when editing.
+Use only these types: start, say, listen, ask, instruction, condition, intent, reasoning, validation, approval, fallback, tool, knowledge_lookup, collect_field, crm_lookup, crm_write, schedule, handoff, end. Preserve existing node types when editing.
 Use EXACTLY one start and at least one end. The platform accepts 2-32 nodes,
 0-64 edges and 16KB of UTF-8 JSON. Do not arbitrarily reduce rich requests to 6-12 nodes.
 For EXTREME/STRESS requests: preserve at least 8 existing node IDs when present, design

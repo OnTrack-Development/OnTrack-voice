@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const TYPES={start:'بداية',say:'رسالة',listen:'استماع',ask:'سؤال',condition:'شرط',instruction:'تعليمات AI / معرفة',knowledge_lookup:'بحث في المعرفة',collect_field:'جمع بيانات',crm_lookup:'بحث CRM',crm_write:'تحديث CRM',schedule:'حجز موعد',handoff:'تحويل بشري',end:'إنهاء'};
+const TYPES={start:'بداية',say:'رسالة',listen:'استماع',ask:'سؤال',condition:'شرط',intent:'تحديد النية',reasoning:'تفكير AI',instruction:'تعليمات AI / معرفة',validation:'تحقق',approval:'موافقة صريحة',fallback:'مسار بديل',tool:'أداة معتمدة',knowledge_lookup:'بحث في المعرفة',collect_field:'جمع بيانات',crm_lookup:'بحث CRM',crm_write:'تحديث CRM',schedule:'حجز موعد',handoff:'تحويل بشري',end:'إنهاء'};
 const NS='http://www.w3.org/2000/svg';
 const make=(tag,cls,value)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined)e.textContent=value;return e};
 const S=(tag,attrs)=>{const e=document.createElementNS(NS,tag);Object.entries(attrs||{}).forEach(([k,v])=>e.setAttribute(k,String(v)));return e};

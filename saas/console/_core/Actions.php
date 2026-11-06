@@ -287,6 +287,55 @@ function act():void {
                 require_once __DIR__.'/VoiceKnowledge.php';
                 if(!voice_knowledge_delete($id,intfield('source_id')))deny(404);
                 audit('voice.knowledge.archived',$id);break;
+            case 'voice_flow_tool_bind':
+                require_permission('agents.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceFlowRuntime.php';
+                $site=intfield('site_id');$agentId=intfield('agent_id');
+                voice_flow_tool_bind($id,$site,$agentId,required('node_id',60),intfield('policy_id'));
+                audit('voice.flow.tool_bound',$id,['site_id'=>$site,'agent_id'=>$agentId]);
+                $success='العقدة اتربطت بالسياسة المحددة؛ التنفيذ ما زال يتطلب موافقة مستقلة.';
+                break;
+            case 'voice_flow_test_start':
+                require_permission('agents.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceFlowRuntime.php';
+                $actor=me();if(!$actor)deny();
+                $site=intfield('site_id');$agentId=intfield('agent_id');
+                $callId='webdemo-'.bin2hex(random_bytes(12));
+                $started=voice_flow_start($id,$site,$agentId,$callId,'web_preview',(int)$actor['id']);
+                $_SESSION['voice_flow_active']=['account_id'=>$id,'site_id'=>$site,
+                    'actor_id'=>(int)$actor['id'],'session_id'=>(int)$started['session_id']];
+                $_SESSION['voice_flow_last']=null;
+                audit('voice.flow.web_test_started',$id,['session_id'=>$started['session_id']]);
+                $success='اتفتحت محاكاة Flow مستقلة؛ دي مش مكالمة SIM ولا تنفيذ تلقائي.';
+                break;
+            case 'voice_flow_test_step':
+                require_permission('agents.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceFlowRuntime.php';
+                $saved=$_SESSION['voice_flow_active']??null;$actor=me();if(!$actor)deny();
+                if(!is_array($saved)||(int)($saved['account_id']??0)!==$id||
+                    (int)($saved['actor_id']??0)!==(int)$actor['id']||
+                    (int)($saved['session_id']??0)!==intfield('session_id'))deny();
+                $reply=field('flow_reply',500);
+                $output=voice_flow_process($id,(int)$saved['session_id'],(int)$actor['id'],
+                    $reply===''?null:$reply);
+                $_SESSION['voice_flow_last']=$output;
+                $success='تم حفظ حالة المحاكاة ومسار انتقال العقدة، من غير أي تنفيذ خارجي تلقائي.';
+                break;
+            case 'voice_flow_test_tool_complete':
+                require_permission('agents.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceFlowRuntime.php';
+                $saved=$_SESSION['voice_flow_active']??null;$actor=me();if(!$actor)deny();
+                if(!is_array($saved)||(int)($saved['account_id']??0)!==$id||
+                    (int)($saved['actor_id']??0)!==(int)$actor['id']||
+                    (int)($saved['session_id']??0)!==intfield('session_id'))deny();
+                $_SESSION['voice_flow_last']=voice_flow_complete_tool($id,
+                    (int)$saved['session_id'],(int)$actor['id'],intfield('tool_request_id'));
+                $success='تم تحديث العقدة بناءً على نتيجة طلب API المحفوظة على السيرفر.';
+                break;
             case 'voice_tool_policy_save':
                 require_permission('agents.write');
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
@@ -559,7 +608,7 @@ function act():void {
                     if(!is_array($n)||!preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',(string)($n['id']??''))||isset($ids[$n['id']]))throw new InvalidArgumentException('معرّف عقدة Flow مكرر أو غير صالح');
                     $ids[$n['id']]=true;
                     if(!in_array($n['type']??'',[
-                       'start','say','listen','ask','condition','instruction','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end'],true))
+                       'start','say','listen','ask','condition','instruction','intent','reasoning','validation','approval','fallback','tool','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end'],true))
                        throw new InvalidArgumentException('نوع عقدة غير صالح');
                 }
                 // Use the exact same safety/branch contract as the simulator and publisher.
