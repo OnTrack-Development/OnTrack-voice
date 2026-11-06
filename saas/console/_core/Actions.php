@@ -232,6 +232,17 @@ function act():void {
                 $success='فُحص '.$result['checked'].' مصدر مستحق، '. $result['review'].
                     ' ينتظر المراجعة، و'.$result['failed'].' أخطاء. لا اعتماد تلقائي.';
                 break;
+            case 'voice_knowledge_reindex':
+                require_permission('agents.write');
+                if(active_support())deny();
+                require_once __DIR__.'/VoiceKnowledgeWeb.php';
+                $site=intfield('site_id');
+                $indexed=voice_kb_search_reindex($id,$site,200);
+                audit('voice.knowledge.reindexed',$id,['site_id'=>$site,
+                    'scanned'=>$indexed['scanned'],'indexed'=>$indexed['indexed']]);
+                $success='تم تحديث فهرس المعرفة العامة المعتمدة: '.
+                    $indexed['indexed'].' مصدر، من '.$indexed['scanned'].' مصدر مفحوص.';
+                break;
             case 'voice_knowledge_scope_set':
                 require_permission('agents.write');
                 if(active_support())deny();
