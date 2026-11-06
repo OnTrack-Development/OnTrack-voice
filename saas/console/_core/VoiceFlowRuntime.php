@@ -90,7 +90,7 @@ function voice_flow_start(int $accountId,int $siteId,int $agentId,string $callId
             'reused'=>true,'revision'=>(int)$existing['published_revision']];
     }
     $state=['cursor'=>$graph['start'],'awaiting'=>null,'fields'=>[],'last_answer'=>null,
-        'pending_tool'=>null,'turns'=>0,'steps'=>0,'done'=>false];
+        'pending_tool'=>null,'turns'=>0,'steps'=>0,'done'=>false,'blocked'=>false];
     $id=insert("INSERT INTO voice_flow_sessions
         (account_id,site_id,agent_id,actor_id,device_binding_id,source,call_id,
          published_revision,flow_hash,state_json,created_at,updated_at)
@@ -128,6 +128,22 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
     if(!is_array($state))throw new RuntimeException('flow_state_invalid');
     $events=[];$pending=$state['pending_tool']??null;
     if($pending!==null){
+        // Reconcile sessions created before the unbound-tool fix; never allow a policy_id=0
+        // placeholder to wait indefinitely or be released by an unrelated tool request.
+        if(is_array($pending)&&(!empty($pending['blocked'])||(int)($pending['policy_id']??0)<1)){
+            $state['pending_tool']=null;
+            $state['blocked']=true;$state['done']=true;
+            $updated=execute("UPDATE voice_flow_sessions SET state_json=?,status='blocked',
+                step_version=step_version+1,updated_at=?
+                WHERE id=? AND account_id=? AND step_version=?",[
+                json_encode($state,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+                now(),$sessionId,$accountId,(int)$session['step_version']]);
+            if($updated!==1)throw new RuntimeException('flow_session_write_conflict');
+            voice_flow_trace($session,(string)($pending['node_id']??''),'tool_unbound','legacy session blocked');
+            return ['status'=>'blocked','events'=>[[
+                'kind'=>'notice','text'=>'الأداة غير مربوطة بسياسة معتمدة؛ تم إيقاف هذا المسار بأمان دون تنفيذ أي عملية.'
+            ]],'state'=>$state,'done'=>true];
+        }
         $events[]=['kind'=>'notice','text'=>'خطوة خارجية معلقة بموافقة صريحة؛ لا يُفترض تنفيذها.'];
         return ['status'=>'awaiting_tool','events'=>$events,'state'=>$state,'done'=>false];
     }
@@ -176,7 +192,9 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
                     $session['account_id'],$session['site_id'],$session['agent_id'],$nodeId]);
                 if(!$binding){
                     $events[]=['kind'=>'notice','text'=>'هذه العقدة ليست مرتبطة بأداة معتمدة؛ أُوقف التنفيذ بأمان ولم تنفذ أي عملية.'];
-                    $state['pending_tool']=['node_id'=>$nodeId,'policy_id'=>0,'blocked'=>true];break;
+                    $state['blocked']=true;$state['done']=true;
+                    voice_flow_trace($session,$nodeId,'tool_unbound','no approved policy binding');
+                    break;
                 }
                 $state['pending_tool']=['node_id'=>$nodeId,'policy_id'=>(int)$binding['policy_id']];
                 $events[]=['kind'=>'tool_requires_approval','node_id'=>$nodeId,
@@ -200,7 +218,8 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
         }
     }
     $state['done']=(bool)$state['done'];
-    $status=$state['done']?'completed':($state['pending_tool']!==null?'awaiting_tool':'active');
+    $status=!empty($state['blocked'])?'blocked':
+        ($state['done']?'completed':($state['pending_tool']!==null?'awaiting_tool':'active'));
     $updated=execute("UPDATE voice_flow_sessions SET state_json=?,status=?,step_version=step_version+1,updated_at=?
        WHERE id=? AND account_id=? AND step_version=?",[
        json_encode($state,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$status,now(),
@@ -214,6 +233,8 @@ function voice_flow_complete_tool(int $accountId,int $sessionId,int $actorId,int
     $state=json_decode((string)$session['state_json'],true,32,JSON_THROW_ON_ERROR);
     $pending=$state['pending_tool']??null;
     if(!is_array($pending))throw new InvalidArgumentException('flow_no_pending_tool');
+    if(!empty($pending['blocked'])||(int)($pending['policy_id']??0)<1)
+        throw new InvalidArgumentException('flow_tool_node_unbound');
     $tool=one("SELECT status,operation,reference_id,call_id,policy_id
        FROM voice_tool_requests WHERE id=? AND account_id=? AND site_id=? AND actor_id=?",
        [$requestId,$accountId,(int)$session['site_id'],$actorId]);

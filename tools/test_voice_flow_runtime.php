@@ -78,4 +78,34 @@ $blocked=voice_flow_complete_tool(4,$failed['session_id'],$actor,$request['reque
 flow_check($blocked['status']==='blocked'&&$blocked['done'],'failed tool cannot advance as success');
 $again=voice_flow_process(4,$failed['session_id'],$actor);
 flow_check($again['status']==='blocked','blocked remains terminal');
+// Missing policy binding is terminal, not a permanently awaiting external tool.
+execute("DELETE FROM voice_flow_node_tools WHERE account_id=? AND site_id=? AND agent_id=? AND node_id=?",
+    [4,$site,$aid,'tool']);
+$unbound=voice_flow_start(4,$site,$aid,'webdemo-unbound1234','web_preview',$actor);
+voice_flow_process(4,(int)$unbound['session_id'],$actor);
+$stopped=voice_flow_process(4,(int)$unbound['session_id'],$actor,'نعم');
+flow_check($stopped['status']==='blocked'&&$stopped['done']===true&&
+    $stopped['state']['pending_tool']===null&&($stopped['state']['blocked']??false)===true,
+    'unbound tool fails closed without awaiting forever');
+$stoppedAgain=voice_flow_process(4,(int)$unbound['session_id'],$actor);
+flow_check($stoppedAgain['status']==='blocked'&&$stoppedAgain['done']===true,
+    'unbound flow remains terminal on retry');
+$badComplete=false;
+try{voice_flow_complete_tool(4,(int)$unbound['session_id'],$actor,999999);}
+catch(InvalidArgumentException){$badComplete=true;}
+flow_check($badComplete,'unbound tool cannot be released by fabricated completion');
+// Existing sessions from earlier releases with placeholder policy_id=0 are reconciled.
+$legacy=voice_flow_start(4,$site,$aid,'webdemo-legacy1234','web_preview',$actor);
+$legacySessionId=(int)$legacy['session_id'];
+$legacyState=['cursor'=>'tool','awaiting'=>null,'fields'=>[],'last_answer'=>null,
+    'pending_tool'=>['node_id'=>'tool','policy_id'=>0,'blocked'=>true],
+    'turns'=>1,'steps'=>3,'done'=>false];
+execute("UPDATE voice_flow_sessions SET state_json=?,status='awaiting_tool'
+    WHERE id=? AND account_id=?",[
+    json_encode($legacyState,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$legacySessionId,4]);
+$legacyResult=voice_flow_process(4,$legacySessionId,$actor);
+flow_check($legacyResult['status']==='blocked'&&$legacyResult['done']===true&&
+    $legacyResult['state']['pending_tool']===null,'legacy unbound tool session recovers');
+flow_check(voice_flow_process(4,$legacySessionId,$actor)['status']==='blocked',
+    'legacy reconciliation idempotent');
 echo "VOICE_FLOW_RUNTIME_STATES_AND_TRACES_PASS\n";
