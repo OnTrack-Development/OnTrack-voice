@@ -95,3 +95,70 @@ function voice_connector_cache_context(int $accountId,int $siteId,int $max=2800)
     }
     return $output;
 }
+
+
+/**
+ * Independent cron retry state; an upstream failure cannot extend an expired
+ * snapshot or hammer a broken connector on every five-minute worker tick.
+ */
+function voice_connector_cache_schedule_init():void {
+    voice_connector_cache_init();
+    $marker=private_path().'/.schema.voice-public-cache-schedule.v1';
+    if(is_file($marker))return;
+    $mysql=driver()==='mysql';$int=$mysql?'BIGINT':'INTEGER';
+    $engine=$mysql?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci':'';
+    db()->exec("CREATE TABLE IF NOT EXISTS voice_connector_public_refresh_schedule (
+        account_id $int NOT NULL,site_id $int NOT NULL,connector_id $int NOT NULL,
+        next_attempt_at VARCHAR(19) NOT NULL,failures INTEGER NOT NULL DEFAULT 0,
+        updated_at VARCHAR(19) NOT NULL,
+        PRIMARY KEY(account_id,site_id,connector_id))".$engine);
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+/**
+ * Refresh at most eight VERIFIED public catalogues across active tenant sites.
+ * Never cache invoices, bookings, contacts or individual customer lookups.
+ * A failed request leaves the stale snapshot expired (and unavailable to AI).
+ */
+function voice_connector_cache_due_all(int $limit=4,?callable $transport=null):array {
+    if($limit<1||$limit>8)throw new InvalidArgumentException('public_cache_worker_limit_invalid');
+    voice_connector_cache_schedule_init();
+    $rows=all("SELECT c.id,c.account_id,c.site_id
+       FROM voice_data_connectors c
+       JOIN sites s ON s.id=c.site_id AND s.account_id=c.account_id
+       LEFT JOIN voice_connector_public_cache p
+         ON p.connector_id=c.id AND p.account_id=c.account_id AND p.site_id=c.site_id
+       LEFT JOIN voice_connector_public_refresh_schedule r
+         ON r.connector_id=c.id AND r.account_id=c.account_id AND r.site_id=c.site_id
+       WHERE c.status='verified' AND s.status='active'
+         AND (p.expires_at IS NULL OR p.expires_at<=?)
+         AND (r.next_attempt_at IS NULL OR r.next_attempt_at<=?)
+       ORDER BY COALESCE(r.next_attempt_at,p.expires_at,c.last_tested_at),c.id
+       LIMIT ".(int)$limit,[now(),now()]);
+    $summary=['checked'=>0,'refreshed'=>0,'failed'=>0];
+    foreach($rows as $row){
+        $accountId=(int)$row['account_id'];$siteId=(int)$row['site_id'];
+        $connectorId=(int)$row['id'];$summary['checked']++;
+        $failed=false;
+        try {
+            voice_connector_cache_refresh($accountId,$siteId,$connectorId,60,$transport);
+            $summary['refreshed']++;
+        } catch(Throwable) {
+            // Never log URLs, credentials, provider response, or customer content.
+            $summary['failed']++;$failed=true;
+        }
+        $next=gmdate('Y-m-d H:i:s',time()+($failed?900:3600));
+        $existing=one('SELECT connector_id FROM voice_connector_public_refresh_schedule
+            WHERE account_id=? AND site_id=? AND connector_id=?',
+            [$accountId,$siteId,$connectorId]);
+        if($existing)execute('UPDATE voice_connector_public_refresh_schedule
+              SET next_attempt_at=?,failures=CASE WHEN ?=1 THEN failures+1 ELSE 0 END,
+                  updated_at=? WHERE account_id=? AND site_id=? AND connector_id=?',
+              [$next,$failed?1:0,now(),$accountId,$siteId,$connectorId]);
+        else insert('INSERT INTO voice_connector_public_refresh_schedule
+              (account_id,site_id,connector_id,next_attempt_at,failures,updated_at)
+              VALUES (?,?,?,?,?,?)',
+              [$accountId,$siteId,$connectorId,$next,$failed?1:0,now()]);
+    }
+    return $summary;
+}
