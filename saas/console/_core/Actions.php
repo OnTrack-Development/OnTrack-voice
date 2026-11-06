@@ -435,6 +435,19 @@ function act():void {
                     field('auth_mode',25),field('credential',2000));
                 audit('voice.connector.created',$id,['connector_id'=>$connector,'type'=>field('type',25)]);
                 break;
+            case 'voice_connector_cache_refresh':
+                require_permission('agents.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceConnectorCache.php';
+                $site=intfield('site_id');$connector=intfield('connector_id');
+                $ttl=intfield('ttl_minutes');
+                $result=voice_connector_cache_refresh($id,$site,$connector,$ttl);
+                audit('voice.connector.cache_refreshed',$id,['site_id'=>$site,
+                   'connector_id'=>$connector,'sha'=>$result['sha256'],
+                   'expires_at'=>$result['expires_at']]);
+                $success='تم تحديث لقطة المعلومات العامة المصرح بها، وصالحة حتى '.
+                    $result['expires_at'].' UTC. المعلومات الخاصة تُقرأ حيّة فقط بعد التحقق.';
+                break;
             case 'voice_connector_test':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 require_once __DIR__.'/VoiceConnectors.php';
