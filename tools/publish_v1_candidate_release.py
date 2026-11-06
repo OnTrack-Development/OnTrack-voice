@@ -12,8 +12,8 @@ import urllib.parse
 import urllib.request
 
 REPO = "OnTrack-Development/OnTrack-voice"
-RUN_ID = "42154272984"
-SOURCE_SHA = "3a0252729b596205a328b881a80e6485865b5f48"
+RUN_ID = os.environ.get("CANDIDATE_BUILD_RUN_ID", os.environ["GITHUB_RUN_ID"])
+SOURCE_SHA = os.environ.get("CANDIDATE_SOURCE_SHA", os.environ["GITHUB_SHA"])
 TAG = "ontrack-v1-candidate-build-" + RUN_ID
 NAME = "OnTrack-Voice-0.3.25.apk"
 API = f"https://api.github.com/repos/{REPO}"
