@@ -8,6 +8,7 @@ require_once __DIR__.'/PublishedFlow.php';
 require_once __DIR__.'/FlowTemplates.php';
 require_once __DIR__.'/AgentAnswerPolicy.php';
 require_once __DIR__.'/Checkout.php';
+require_once __DIR__.'/SubscriptionPlans.php';
 require_once __DIR__.'/AiRelay.php';
 require_once __DIR__.'/RecycleBin.php';
 require_once __DIR__.'/DomainVerification.php';
@@ -738,9 +739,9 @@ function act():void {
                 // to verified payment for a priced commercial subscription.
                 if((int)$plan['price_minor']>0 && !is_demo())
                     throw new InvalidArgumentException('الباقة المدفوعة تحتاج طلب دفع معتمد أو بيئة Demo');
-                execute("UPDATE subscriptions SET status='replaced' WHERE account_id=? AND status='active'",[$customer]);
-                insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at) VALUES (?,?,'active',?,?)",[$customer,$plan['id'],now(),gmdate('Y-m-d H:i:s',time()+30*86400)]);
-                audit('plan.assigned',$customer,['plan'=>$plan['id']]);break;
+                $result=subscription_assign_demo($customer,(int)$plan['id']);
+                audit($result['changed']?'plan.assigned':'plan.assignment_replayed',
+                    $customer,['plan'=>$plan['id'],'subscription_id'=>$result['subscription_id']]);break;
             case 'create_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
