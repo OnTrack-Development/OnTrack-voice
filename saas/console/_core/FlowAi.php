@@ -111,9 +111,10 @@ PROMPT;
     $context='';
     $loggedIn=mine();
     if($loggedIn && (int)$loggedIn['account_id']===$accountId && !active_support()){
-        $role=(string)$loggedIn['role'];
-        $principal=['account_id'=>$accountId,'role'=>$role,'scopes'=>voice_role_scopes($role)];
-        $facts=voice_visible_facts($principal,35);
+        $sessionUser=me();
+        $facts=$sessionUser
+            ?voice_visible_facts_for_member($accountId,(int)$sessionUser['id'],35)
+            :[];
         $publicFacts=[];
         foreach($facts as $fact)$publicFacts[]=[
             'origin'=>$fact['integration_name'],'category'=>$fact['category'],

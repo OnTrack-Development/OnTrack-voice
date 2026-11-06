@@ -11,6 +11,7 @@ on:
     paths:
       - 'saas/console/**'
       - 'tools/test_v1_knowledge.php'
+      - 'tools/test_voice_access.php'
       - 'tools/test_voice_tool_gateway.php'
       - 'tools/test_voice_openapi.php'
       - 'tools/test_voice_connector_cache.php'
@@ -65,6 +66,7 @@ jobs:
             }
             $suite=@(
               'tools/test_v1_knowledge.php',
+              'tools/test_voice_access.php',
               'tools/test_voice_tool_gateway.php',
               'tools/test_voice_openapi.php',
               'tools/test_voice_connector_cache.php',
