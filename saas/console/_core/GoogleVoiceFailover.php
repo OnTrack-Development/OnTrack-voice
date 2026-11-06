@@ -60,7 +60,8 @@ function google_voice_failover_register(array $binding,array $definition,array $
         throw new RuntimeException('voice_failover_binding_mismatch');
     google_voice_failover_assert_live_binding($binding,(int)$definition['agent_id']);
     $key=ai_relay_one($keyId,$ownerId);
-    if(!$key||$key['scope']!=='voice'||$key['driver']!=='google_live')
+    if(!$key||$key['scope']!=='voice'||$key['driver']!=='google_live'||
+       (int)$key['enabled']!==1)
         throw new RuntimeException('voice_failover_pool_mismatch');
     google_voice_failover_schema();
     $ticket=bin2hex(random_bytes(24));

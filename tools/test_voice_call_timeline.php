@@ -43,6 +43,18 @@ try{
     try{voice_call_timeline_store($ours,$forged);}
     catch(InvalidArgumentException){$denied=true;}
     timeline_check($denied,'duplicate event cannot evade timestamp format validation');
+    $impossible=$entry;$impossible['event_id']='utterance-impossible';
+    $impossible['occurred_at']=gmdate('Y-m-d').' 24:00:00';
+    $denied=false;try{voice_call_timeline_store($ours,$impossible);}catch(InvalidArgumentException){$denied=true;}
+    timeline_check($denied,'24:00 rollover timestamp is not valid evidence');
+
+    require_once __DIR__.'/../saas/console/_core/BillingUsage.php';
+    timeline_check(!voice_usage_update($ours,$call,'active'),'ringing call not billed');
+    timeline_check(!voice_usage_update($ours,$call,'active'),'duplicate active callback idempotent');
+    $tampered=$ours;$tampered['account_id']=5;
+    $denied=false;try{voice_usage_update($tampered,$call,'active');}
+    catch(RuntimeException $ex){$denied=$ex->getMessage()==='voice_usage_evidence_scope_mismatch';}
+    timeline_check($denied,'answered evidence cannot be reused across tenants');
     $bad=$entry;$bad['event_id']='utterance-000002';$bad['event_type']='spoken_text';$bad['speaker']='caller';
     $denied=false;try{voice_call_timeline_store($ours,$bad);}catch(InvalidArgumentException){$denied=true;}
     timeline_check($denied,'caller cannot be claimed as agent spoken text');
@@ -53,6 +65,7 @@ try{
     timeline_check($denied,'history cross-tenant filter');
     echo "VOICE_CALL_TIMELINE_EVIDENCE_PASS\n";
 }finally{
+    execute('DELETE FROM voice_call_answer_evidence WHERE device_binding_id=?',[$ours['id']]);
     execute('DELETE FROM voice_call_timeline WHERE device_binding_id=?',[$ours['id']]);
     execute('DELETE FROM tenant_call_events WHERE device_binding_id=?',[$ours['id']]);
     execute('DELETE FROM calls WHERE device_binding_id=?',[$ours['id']]);

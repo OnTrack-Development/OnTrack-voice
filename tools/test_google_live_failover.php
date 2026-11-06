@@ -44,6 +44,10 @@ try {
     };
     $initial=$mint(5);
     failover_check($initial['entry_id']===$key1,'primary key selected at call start');
+    ai_relay_modify($key1,'toggle',$reseller);
+    failover_reject(static fn()=>google_voice_failover_register($binding,$def,$initial),
+        'voice_failover_pool_mismatch');
+    ai_relay_modify($key1,'toggle',$reseller);
     $ticket=google_voice_failover_register($binding,$def,$initial)['failover_ticket'];
     $tickets[]=$ticket;
     failover_check(strlen($ticket)===48,'opaque ticket issued to paired SIM');
