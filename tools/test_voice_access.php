@@ -54,14 +54,78 @@ $visible=voice_visible_facts($rec);
 assert_voice(count($visible)===2 && !in_array('finance',array_column($visible,'category'),true),
     'reception cannot see finance facts');
 assert_voice(count(voice_visible_facts($principal))===3,'owner sees granted finance and booking facts');
+assert_voice((int)($principal['number_id']??0)===$ownerRow,
+    'authenticated principal pins exact enrolled number');
+$partialRejected=false;
+try {voice_ingest_facts($integration,['category'=>'bookings','facts'=>[
+    ['key'=>'must_not_commit','value'=>42],['key'=>'invalid space','value'=>'oops']
+]]);}
+catch(InvalidArgumentException){$partialRejected=true;}
+assert_voice($partialRejected&&!one('SELECT id FROM integration_facts
+    WHERE integration_id=? AND fact_key=?',[$integrationId,'must_not_commit']),
+    'malformed second item cannot partially commit first API fact');
+$duplicateRejected=false;
+try {voice_ingest_facts($integration,['category'=>'bookings','facts'=>[
+    ['key'=>'duplicate_key','value'=>1],['key'=>'duplicate_key','value'=>2]
+]]);}
+catch(InvalidArgumentException){$duplicateRejected=true;}
+assert_voice($duplicateRejected&&!one('SELECT id FROM integration_facts
+    WHERE integration_id=? AND fact_key=?',[$integrationId,'duplicate_key']),
+    'duplicate keys reject the complete snapshot');
+$nestedRollback=false;
+db()->beginTransaction();
+try {
+    voice_ingest_facts($integration,['category'=>'bookings','facts'=>[
+        ['key'=>'nested_fact','value'=>1]
+    ]]);
+    assert_voice(db()->inTransaction(),'nested ingest preserves caller transaction');
+    db()->rollBack();
+    $nestedRollback=true;
+} finally { if(db()->inTransaction())db()->rollBack(); }
+assert_voice($nestedRollback&&!one('SELECT id FROM integration_facts
+    WHERE integration_id=? AND fact_key=?',[$integrationId,'nested_fact']),
+    'nested ingest participates atomically in outer transaction');
+execute("UPDATE integrations SET status='revoked' WHERE id=?",[$integrationId]);
+$inactiveDenied=false;
+try{voice_ingest_facts($integration,['category'=>'bookings',
+    'facts'=>[['key'=>'must_not_commit','value'=>1]]]);}
+catch(InvalidArgumentException){$inactiveDenied=true;}
+assert_voice($inactiveDenied,'disabled connector cannot ingest facts');
+execute("UPDATE integrations SET status='active' WHERE id=?",[$integrationId]);
 execute("UPDATE memberships SET role='viewer' WHERE user_id=? AND account_id=4",[$receptionId]);
 $reduced=voice_staff_authenticate(4,$receptionNumber,'246810');
 assert_voice($reduced!==null && $reduced['scopes']===['general'],
     'role downgrade is effective without reenrollment');
+assert_voice(voice_visible_facts($rec)===[],
+    'previously authenticated principal loses bookings on role downgrade');
 $foreign=voice_visible_facts(['account_id'=>5,'role'=>'owner','scopes'=>['bookings','finance']]);
 assert_voice($foreign===[],'connector facts never cross account');
 assert_voice(voice_staff_revoke(4,$recId),'revocation succeeds');
+assert_voice(voice_visible_facts($reduced)===[],
+    'revoked enrolled phone cannot reuse existing principal to read facts');
 assert_voice(voice_staff_authenticate(4,$receptionNumber,'246810')===null,'revoked phone cannot authenticate');
+execute("UPDATE accounts SET status='suspended' WHERE id=4");
+try {
+    assert_voice(voice_visible_facts($principal)===[],
+        'suspended account blocks previously authenticated principal');
+    assert_voice(voice_staff_authenticate(4,$number,'324851')===null,
+        'suspended account denies new PIN authentication');
+    $denied=false;
+    try {voice_ingest_facts($integration,['category'=>'bookings',
+        'facts'=>[['key'=>'paused_snapshot','value'=>1]]]);}
+    catch(InvalidArgumentException){$denied=true;}
+    assert_voice($denied,'suspended account cannot ingest external facts');
+    $denied=false;
+    try {voice_staff_enroll(4,$ownerId,'+201012345677','246810',['general']);}
+    catch(InvalidArgumentException){$denied=true;}
+    assert_voice($denied,'suspended account cannot enroll staff numbers');
+} finally {
+    execute("UPDATE accounts SET status='active' WHERE id=4");
+}
+assert_voice(count(voice_visible_facts($principal))===3,
+    'reactivated tenant restores only still-authorized facts');
+assert_voice(count(voice_visible_facts_for_member(4,$ownerId))===3,
+    'authenticated website member reads current permitted connector facts');
 $lockedNumber='+201012345673';
 voice_staff_enroll(4,$ownerId,$lockedNumber,'555666',['general']);
 for($i=0;$i<5;$i++)voice_staff_authenticate(4,$lockedNumber,'000000');
