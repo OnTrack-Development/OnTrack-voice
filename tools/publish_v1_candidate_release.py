@@ -10,6 +10,7 @@ from pathlib import Path
 import urllib.error
 import urllib.parse
 import urllib.request
+import sys
 
 REPO = "OnTrack-Development/OnTrack-voice"
 RUN_ID = os.environ.get("CANDIDATE_BUILD_RUN_ID", os.environ["GITHUB_RUN_ID"])
@@ -27,8 +28,15 @@ def request(url, method="GET", obj=None, raw=None, content_type="application/jso
         "User-Agent": "OnTrack-private-candidate-transport",
         "Content-Type": content_type,
     })
-    with urllib.request.urlopen(req, timeout=150) as resp:
-        return json.load(resp)
+    try:
+        with urllib.request.urlopen(req, timeout=150) as resp:
+            data = resp.read()
+            return json.loads(data) if data else {}
+    except urllib.error.HTTPError as error:
+        detail = error.read(4096).decode("utf-8", errors="replace")
+        path = urllib.parse.urlsplit(url).path
+        print(f"GITHUB_API_FAILED method={method} endpoint={path} status={error.code} detail={detail}", file=sys.stderr)
+        raise
 
 def digest(path):
     hash_value = hashlib.sha256()
@@ -36,6 +44,72 @@ def digest(path):
         for chunk in iter(lambda: source.read(1 << 20), b""):
             hash_value.update(chunk)
     return hash_value.hexdigest()
+
+def destination():
+    try:
+        release = request(f"{API}/releases/tags/{TAG}")
+        assert release["prerelease"] and not release["draft"], "candidate_release_disabled"
+        return release, False
+    except urllib.error.HTTPError as error:
+        if error.code != 404:
+            raise
+    try:
+        release = request(f"{API}/releases", method="POST", obj={
+            "tag_name": TAG,
+            "target_commitish": SOURCE_SHA,
+            "name": f"OnTrack Voice internal candidate (build {RUN_ID})",
+            "body": "TEST BUILD ONLY; not v1.0.0, no host deployment or device call verification.",
+            "draft": False,
+            "prerelease": True,
+            "make_latest": "false",
+        })
+        assert release["tag_name"] == TAG
+        return release, False
+    except urllib.error.HTTPError as error:
+        if error.code != 403:
+            raise
+        # GitHub can forbid creating new release tags while allowing uploads to
+        # an already approved private prerelease. Never overwrite its assets.
+        old = request(f"{API}/releases/tags/ontrack-native-v48")
+        assert old["tag_name"] == "ontrack-native-v48"
+        assert old["prerelease"] and not old["draft"] and not old.get("immutable", False)
+        print("CANDIDATE_FALLBACK_TO_EXISTING_PRIVATE_PRERELEASE", file=sys.stderr)
+        return old, True
+
+def asset_name(original, fallback):
+    return f"OnTrack-V1-Candidate-{RUN_ID}-{original}" if fallback else original
+
+def upload(release, name, data):
+    url = release["upload_url"].split("{", 1)[0] + "?" + urllib.parse.urlencode({"name": name})
+    mime = "application/vnd.android.package-archive" if name.endswith(".apk") else "application/octet-stream"
+    result = request(url, method="POST", raw=data, content_type=mime)
+    assert result["name"] == name and result["size"] == len(data), "upload_verification_failed"
+    expected = hashlib.sha256(data).hexdigest()
+    if result.get("digest"):
+        assert result["digest"] == "sha256:" + expected, "asset_digest_mismatch"
+    return result
+
+def preflight():
+    assert os.environ["GITHUB_REPOSITORY"] == REPO
+    assert os.environ["GITHUB_REF"] == "refs/heads/feat/voice-v1-minimal-console-20261106"
+    release, fallback = destination()
+    name = f"OnTrack-v1-candidate-upload-check-{RUN_ID}.json"
+    proof = json.dumps({"run_id": RUN_ID, "source_sha": SOURCE_SHA,
+                        "purpose": "upload-permission-probe"}).encode("utf-8")
+    existing = [a for a in release.get("assets", []) if a["name"] == name]
+    if existing:
+        item = existing[0]
+        assert item["size"] == len(proof), "existing_probe_size_mismatch"
+    else:
+        item = upload(release, name, proof)
+    # Leave a small auditable receipt if DELETE is forbidden. It is not an APK.
+    try:
+        request(f"{API}/releases/assets/{item['id']}", method="DELETE")
+    except urllib.error.HTTPError as error:
+        if error.code not in (403, 404, 405):
+            raise
+    print(json.dumps({"status": "GITHUB_RELEASE_UPLOAD_PREFLIGHT_PASS",
+                      "url": release["html_url"], "fallback": fallback, "run": RUN_ID}))
 
 def main():
     assert os.environ["GITHUB_REPOSITORY"] == REPO
@@ -65,41 +139,29 @@ def main():
                 "physical_call_test_passed": False}
     record = folder / "CANDIDATE-RECEIPT.json"
     record.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
-    try:
-        release = request(f"{API}/releases/tags/{TAG}")
-    except urllib.error.HTTPError as e:
-        if e.code != 404:
-            raise
-        release = request(f"{API}/releases", method="POST", obj={
-            "tag_name": TAG,
-            "target_commitish": SOURCE_SHA,
-            "name": f"OnTrack Voice internal signed candidate - run {RUN_ID}",
-            "body": "Build-only APK (0.3.25 / code 48); NOT the complete v1.0.0 release. Not deployed. Requires device and security verification.",
-            "draft": False,
-            "prerelease": True,
-            "make_latest": "false",
-        })
-    assert release["tag_name"] == TAG and release["prerelease"] is True
+    release, fallback = destination()
     existing = {asset["name"]: asset for asset in release.get("assets", [])}
     results = {}
     for path in (apk, checksum, report, provenance, record):
         expected_hash = digest(path)
-        if path.name in existing:
-            item = existing[path.name]
+        name = asset_name(path.name, fallback)
+        if name in existing:
+            item = existing[name]
             assert item["size"] == path.stat().st_size, "existing_asset_size_mismatch"
             if item.get("digest"):
                 assert item["digest"] == "sha256:" + expected_hash, "existing_asset_hash_mismatch"
         else:
-            url = release["upload_url"].split("{", 1)[0] + "?" + urllib.parse.urlencode({"name": path.name})
-            data = path.read_bytes()
-            mime = "application/vnd.android.package-archive" if path.suffix == ".apk" else "application/octet-stream"
-            item = request(url, method="POST", raw=data, content_type=mime)
-            assert item["name"] == path.name and item["size"] == len(data)
-            if item.get("digest"):
-                assert item["digest"] == "sha256:" + expected_hash, "uploaded_asset_hash_mismatch"
-        results[path.name] = {"sha256": expected_hash, "bytes": path.stat().st_size}
+            item = upload(release, name, path.read_bytes())
+        results[name] = {"sha256": expected_hash, "bytes": path.stat().st_size,
+                         "asset_url": item.get("browser_download_url")}
     print(json.dumps({"status":"PRIVATE_CANDIDATE_RELEASE_VERIFIED",
-                      "tag": TAG, "url": release["html_url"], "assets": results}))
+                      "tag": release["tag_name"], "url": release["html_url"],
+                      "fallback": fallback, "assets": results}))
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 2 and sys.argv[1] == "--preflight":
+        preflight()
+    elif len(sys.argv) == 1:
+        main()
+    else:
+        raise SystemExit("usage: publish_v1_candidate_release.py [--preflight]")
