@@ -13,10 +13,26 @@ function voice_usage_init():void{
 }
 function voice_usage_update(array $b,string $callId,string $phase):bool{
   if(!in_array($phase,['active','ended'],true))return false;
+  voice_usage_init();
   $a=(int)$b['account_id'];$s=(int)$b['site_id'];$d=(int)$b['id'];$slot=(int)$b['sim_slot'];
-  if($phase==='active'&&!one('SELECT call_id FROM voice_call_answer_evidence WHERE device_binding_id=? AND call_id=?',[$d,$callId])){
-    insert('INSERT INTO voice_call_answer_evidence(account_id,site_id,device_binding_id,sim_slot,call_id,observed_at)
-      VALUES (?,?,?,?,?,?)',[$a,$s,$d,$slot,$callId,now()]);
+  if($phase==='active'){
+    $evidence=one('SELECT account_id,site_id,sim_slot FROM voice_call_answer_evidence
+      WHERE device_binding_id=? AND call_id=?',[$d,$callId]);
+    if(!$evidence){
+      try{
+        insert('INSERT INTO voice_call_answer_evidence(account_id,site_id,device_binding_id,sim_slot,call_id,observed_at)
+          VALUES (?,?,?,?,?,?)',[$a,$s,$d,$slot,$callId,now()]);
+      }catch(PDOException $ex){
+        // Concurrent Android callbacks may report the same active call.
+        // Only an identical already-inserted scope is an idempotent retry.
+        $evidence=one('SELECT account_id,site_id,sim_slot FROM voice_call_answer_evidence
+          WHERE device_binding_id=? AND call_id=?',[$d,$callId]);
+        if(!$evidence)throw $ex;
+      }
+    }
+    if($evidence && ((int)$evidence['account_id']!==$a||
+       (int)$evidence['site_id']!==$s||(int)$evidence['sim_slot']!==$slot))
+      throw new RuntimeException('voice_usage_evidence_scope_mismatch');
   }
   $row=one('SELECT status,duration_seconds,is_demo FROM calls
     WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? AND external_call_id=?',

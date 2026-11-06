@@ -59,8 +59,11 @@ function voice_call_timeline_store(array $binding,array $payload):array {
             throw new RuntimeException('timeline_replay_changed');
         return ['saved'=>true,'duplicate'=>true];
     }
-    $ts=strtotime($at.' UTC');
-    if($ts===false||abs(time()-$ts)>24*3600)
+    // Reject impossible UTC dates and 24:00 rollovers rather than silently
+    // normalizing device-reported evidence to another moment.
+    $stamp=DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$at,new DateTimeZone('UTC'));
+    if(!$stamp||$stamp->format('Y-m-d H:i:s')!==$at||
+       abs(time()-$stamp->getTimestamp())>24*3600)
         throw new InvalidArgumentException('timeline_timestamp_invalid');
     insert("INSERT INTO voice_call_timeline
       (account_id,site_id,device_binding_id,sim_slot,call_id,event_id,speaker,event_type,
