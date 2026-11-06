@@ -24,6 +24,67 @@ def get_archive(url,sha):
     if hashlib.sha256(tar).hexdigest()!=sha:raise ValueError('artifact_digest_mismatch')
     return tar
 
+def site_preflight(download_url,tar_sha,source_commit):
+    """Validate all staged PHP and an isolated SQLite knowledge workflow before a live swap."""
+    import re
+    if not re.fullmatch(r'[0-9a-f]{40}',source_commit):raise ValueError('invalid_source_commit')
+    archive=get_archive(download_url,tar_sha)
+    stage=pathlib.Path(tempfile.mkdtemp(prefix='.ontrack-ci-',dir=str(HOME)))
+    stage.chmod(0o700)
+    app=stage/'stage'
+    app.mkdir(mode=0o700)
+    try:
+        with tarfile.open(fileobj=io.BytesIO(archive),mode='r:gz') as tf:
+            members=tf.getmembers()
+            if len(members)>250:raise ValueError('too_many_archive_files')
+            for m in members:
+                parts=pathlib.PurePosixPath(m.name).parts
+                if not parts or parts[0]!='console' or any(p in ('..','.') for p in parts) or m.issym() or m.islnk() or not (m.isdir() or m.isfile()) or m.size>1024*1024:
+                    raise ValueError('invalid_archive_entry')
+                target=app.joinpath(*parts[1:]) if len(parts)>1 else app
+                if m.isdir():target.mkdir(parents=True,exist_ok=True)
+                else:
+                    target.parent.mkdir(parents=True,exist_ok=True)
+                    with tf.extractfile(m) as inp,target.open('wb') as out:shutil.copyfileobj(inp,out)
+        php_files=sorted(app.rglob('*.php'))
+        if len(php_files)<30:raise RuntimeError('site_php_archive_incomplete')
+        for source in php_files:
+            result=subprocess.run([PHP,'-l',str(source)],capture_output=True,text=True,timeout=3)
+            if result.returncode!=0:raise RuntimeError('site_php_syntax_'+source.relative_to(app).as_posix())
+        seed=app/'database/Seed.php'
+        knowledge=app/'_core/VoiceKnowledge.php'
+        if not seed.is_file() or not knowledge.is_file():raise RuntimeError('site_knowledge_sources_missing')
+        test=(
+            'require_once '+json.dumps(str(seed))+';'
+            'require_once '+json.dumps(str(knowledge))+';'
+            'seed_console();'
+            "$site=one(\"SELECT id FROM sites WHERE account_id=4 AND status='active' LIMIT 1\");"
+            "if(!$site)throw new RuntimeException('site_fixture_missing');"
+            '$sid=(int)$site["id"];'
+            '$fid=voice_knowledge_folder_add(4,$sid,"Host QA");'
+            '$kid=voice_knowledge_add(4,$sid,"QA Facts","note","Host isolate test","public",$fid);'
+            "if(!str_contains(voice_knowledge_context(4,$sid),'Host isolate test'))throw new RuntimeException('kb_not_indexed');"
+            "if(voice_knowledge_context(5,$sid)!=='')throw new RuntimeException('tenant_isolation_failure');"
+            '$v=voice_knowledge_update(4,$sid,$kid,"Updated QA facts");'
+            "if($v!==2)throw new RuntimeException('revision_failed');"
+            "if(!voice_knowledge_delete(4,$kid))throw new RuntimeException('archive_failed');"
+            "if(!voice_knowledge_folder_delete(4,$sid,$fid))throw new RuntimeException('folder_delete_failed');"
+            "echo 'SITE_PHP_FIXTURE_PASS';"
+        )
+        environment=os.environ.copy()
+        environment['ONTRACK_TEST_PRIVATE']=str(stage/'private')
+        try:
+            result=subprocess.run([PHP,'-r',test],capture_output=True,text=True,
+                timeout=12,env=environment)
+        except subprocess.TimeoutExpired:raise RuntimeError('site_isolated_test_timeout')
+        if result.returncode!=0 or 'SITE_PHP_FIXTURE_PASS' not in result.stdout:
+            raise RuntimeError('site_isolated_knowledge_test_failed_'+str(result.returncode))
+        print(json.dumps({'result':'preflight_pass','source':source_commit[:12],
+            'php_files':len(php_files),'isolated_database':True,
+            'no_live_db_mutation':True},ensure_ascii=False))
+    finally:
+        shutil.rmtree(stage,ignore_errors=True)
+
 def rewrite_root_urls(root):
     changes=0
     for p in root.rglob('*'):

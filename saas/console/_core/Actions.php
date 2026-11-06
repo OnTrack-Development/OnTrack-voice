@@ -197,29 +197,63 @@ function act():void {
         // Migrate DNC outside a transaction (MySQL CREATE TABLE auto-commits).
         if(in_array($action,['add_contact','edit_contact','delete_contact'],true))dnc_init_ledger();
         switch($action) {
+            case 'voice_knowledge_folder_add':
+                require_permission('agents.write');
+                require_once __DIR__.'/VoiceKnowledge.php';
+                $site=intfield('site_id');
+                $folderId=voice_knowledge_folder_add($id,$site,required('folder_name',100),intfield('parent_id'));
+                audit('voice.knowledge.folder_created',$id,['folder_id'=>$folderId,'site_id'=>$site]);
+                $success='تم إنشاء مجلد المعرفة.';
+                break;
+            case 'voice_knowledge_folder_delete':
+                require_permission('agents.write');
+                require_once __DIR__.'/VoiceKnowledge.php';
+                $site=intfield('site_id');
+                if(!voice_knowledge_folder_delete($id,$site,intfield('folder_id')))deny(404);
+                audit('voice.knowledge.folder_deleted',$id,['site_id'=>$site]);
+                $success='تم حذف المجلد الفارغ.';
+                break;
             case 'voice_knowledge_upload':
                 require_permission('agents.write');
+                require_once __DIR__.'/VoiceKnowledge.php';
                 $site=intfield('site_id');
+                $folder=intfield('knowledge_folder_id');
                 $name=required('name',150);$file=$_FILES['knowledge_file']??null;
                 $content='';$kind='note';
                 if(is_array($file)&&($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
-                    if(($file['error']??-1)!==UPLOAD_ERR_OK||!is_uploaded_file((string)($file['tmp_name']??''))||
-                       (int)($file['size']??0)>180000||($file['size']??0)<=0)
-                        throw new InvalidArgumentException('ملف المعرفة غير صالح أو أكبر من 180KB');
-                    $filename=(string)($file['name']??'');$kind=strtolower(pathinfo($filename,PATHINFO_EXTENSION));
-                    if(!in_array($kind,['txt','md','csv','json'],true))
-                        throw new InvalidArgumentException('المسموح الآن TXT وMD وCSV وJSON فقط');
-                    $content=(string)file_get_contents((string)$file['tmp_name']);
+                    if(($file['error']??-1)!==UPLOAD_ERR_OK||
+                       !is_uploaded_file((string)($file['tmp_name']??''))||
+                       (int)($file['size']??0)>2097152||(int)($file['size']??0)<=0)
+                        throw new InvalidArgumentException('ملف المعرفة غير صالح أو أكبر من 2MB');
+                    [$kind,$content]=voice_knowledge_extract_file((string)($file['name']??''),
+                        (string)$file['tmp_name'],(int)$file['size']);
                 }else{$content=field('knowledge_text',180000);}
+                $saved=voice_knowledge_add($id,$site,$name,$kind,$content,
+                    field('knowledge_visibility',20),$folder);
+                audit('voice.knowledge.created',$id,['source_id'=>$saved,'site_id'=>$site,'folder_id'=>$folder]);
+                $success='تمت فهرسة النص وحفظ مصدر المعرفة.';
+                break;
+            case 'voice_knowledge_update':
+                require_permission('agents.write');
                 require_once __DIR__.'/VoiceKnowledge.php';
-                $saved=voice_knowledge_add($id,$site,$name,$kind,$content,field('knowledge_visibility',20));
-                audit('voice.knowledge.created',$id,['source_id'=>$saved,'site_id'=>$site]);
+                $site=intfield('site_id');$source=intfield('source_id');
+                $revision=voice_knowledge_update($id,$site,$source,required('knowledge_text',180000));
+                audit('voice.knowledge.updated',$id,['source_id'=>$source,'site_id'=>$site,'revision'=>$revision]);
+                $success='تم تحديث المحتوى وحفظ الإصدار السابق.';
+                break;
+            case 'voice_knowledge_approve':
+                require_permission('agents.write');
+                require_once __DIR__.'/VoiceKnowledge.php';
+                $site=intfield('site_id');$source=intfield('source_id');
+                if(!voice_knowledge_approve($id,$site,$source))deny(404);
+                audit('voice.knowledge.review_approved',$id,['site_id'=>$site,'source_id'=>$source]);
+                $success='تم اعتماد المصدر الجديد وإيقاف النسخة القديمة.';
                 break;
             case 'voice_knowledge_delete':
                 require_permission('agents.write');
                 require_once __DIR__.'/VoiceKnowledge.php';
                 if(!voice_knowledge_delete($id,intfield('source_id')))deny(404);
-                audit('voice.knowledge.deleted',$id);break;
+                audit('voice.knowledge.archived',$id);break;
             case 'voice_connector_add':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 require_once __DIR__.'/VoiceConnectors.php';

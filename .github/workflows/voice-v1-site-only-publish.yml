@@ -1,0 +1,80 @@
+name: OnTrack Stable v1 SaaS-only Test and Publish
+on:
+  push:
+    branches:
+      - fix/v1-site-only-20261106
+      - release/voice-v1-20261106
+    paths:
+      - 'saas/console/**'
+      - 'tools/test_v1_knowledge.php'
+      - 'tools/deploy_saas_console.py'
+      - 'tools/publish_v1_one_shot.py'
+      - '.github/workflows/voice-v1-site-only-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-v1-site-only-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  site-smoke:
+    name: Windows self-hosted site-only source and UI checks
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Site source and JavaScript checks, no Android rebuild
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/publish_v1_one_shot.py tools/deploy_saas_console.py
+          if ($LASTEXITCODE -ne 0) { throw 'Site publisher syntax failed' }
+          & node --check saas/console/assets/js/app.js
+          if ($LASTEXITCODE -ne 0) { throw 'Console JavaScript invalid' }
+          & node --check saas/console/assets/js/flow-graph.js
+          if ($LASTEXITCODE -ne 0) { throw 'Flow graph JavaScript invalid' }
+          & node --check saas/console/assets/js/graph-routing.js
+          if ($LASTEXITCODE -ne 0) { throw 'Flow routing JavaScript invalid' }
+          & node tools/test_console_ajax_ui.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Agent studio regression failed' }
+          & node tools/test_graph_routing.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Graph routing regression failed' }
+          $php=Get-Command php -ErrorAction SilentlyContinue
+          if ($php) {
+            Get-ChildItem saas/console -Recurse -File -Filter '*.php' | ForEach-Object {
+              & php -l $_.FullName | Out-Null
+              if($LASTEXITCODE -ne 0){throw "Invalid PHP: $($_.FullName)"}
+            }
+            & php tools/test_v1_knowledge.php
+            if($LASTEXITCODE -ne 0){throw 'Knowledge regression failed'}
+          } else {
+            Write-Host 'PHP CLI unavailable on Windows; mandatory isolated PHP 8.3 host preflight blocks unsafe publication.'
+          }
+          Write-Host 'SITE_STATIC_AND_JS_PASS'
+  publish-site:
+    name: Run PHP host preflight, publish SaaS, verify native pointers unchanged
+    if: github.ref == 'refs/heads/release/voice-v1-20261106'
+    needs: site-smoke
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Publish site only through isolated host PHP preflight and verified Cron receipts
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/publish_v1_one_shot.py site-only
+          if ($LASTEXITCODE -ne 0){throw 'Site publication or host preflight failed'}

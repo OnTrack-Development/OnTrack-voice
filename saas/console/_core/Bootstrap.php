@@ -5,7 +5,17 @@ const SAAS_PRIVATE = '/home/appontrack/.ontrack-saas';
 date_default_timezone_set('UTC');
 require_once __DIR__.'/WhiteLabel.php';
 function private_path(): string {
-    $path = is_dir('/home/appontrack') ? SAAS_PRIVATE : sys_get_temp_dir().'/ontrack-saas-demo';
+    // CLI-only isolated host preflight. Never let an HTTP request pick a DB path.
+    $isolated=PHP_SAPI==='cli'?(string)(getenv('ONTRACK_TEST_PRIVATE')?:''):'';
+    if($isolated!==''){
+        if(!preg_match('~^/home/appontrack/\.ontrack-ci-[A-Za-z0-9_-]{8,60}/private$~D',$isolated))
+            throw new RuntimeException('unsafe_test_private_path');
+        $root=dirname($isolated);
+        if(!is_dir($root)||is_link($root))throw new RuntimeException('untrusted_test_root');
+        $path=$isolated;
+    }else{
+        $path=is_dir('/home/appontrack')?SAAS_PRIVATE:sys_get_temp_dir().'/ontrack-saas-demo';
+    }
     if (!is_dir($path)) {mkdir($path,0700,true);}
     return $path;
 }
@@ -45,7 +55,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_console_v24(); init_console_v25(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_console_v24(); init_console_v25(); init_console_v26(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -54,7 +64,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_console_v24(); init_console_v25(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_console_v24(); init_console_v25(); init_console_v26(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -874,6 +884,43 @@ function init_console_voice_transcripts_v1():void {
             PRIMARY KEY(device_binding_id,call_id))");
         db()->exec("CREATE INDEX IF NOT EXISTS ix_transcript_scope
             ON tenant_call_transcripts(account_id,site_id,device_binding_id,sim_slot)");
+    }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+
+/** Additive Knowledge folders and revisions. Existing v13 knowledge is preserved. */
+function init_console_v26():void {
+    $marker=private_path().'/schema.v26';
+    if(is_file($marker))return;
+    $mysql=driver()==='mysql';
+    $id=$mysql?'BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY':'INTEGER PRIMARY KEY AUTOINCREMENT';
+    $int=$mysql?'BIGINT':'INTEGER';
+    $engine=$mysql?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci':'';
+    $content=$mysql?'MEDIUMTEXT':'TEXT';
+    db()->exec("CREATE TABLE IF NOT EXISTS voice_knowledge_folders (
+        id $id, account_id $int NOT NULL, site_id $int NOT NULL,
+        parent_id $int NOT NULL DEFAULT 0,name VARCHAR(100) NOT NULL,
+        created_at VARCHAR(19) NOT NULL)".$engine);
+    db()->exec("CREATE TABLE IF NOT EXISTS voice_knowledge_revisions (
+        id $id,source_id $int NOT NULL,account_id $int NOT NULL,
+        site_id $int NOT NULL,version INTEGER NOT NULL,
+        content $content NOT NULL,sha256 VARCHAR(64) NOT NULL,
+        created_at VARCHAR(19) NOT NULL)".$engine);
+    $existing=$mysql?array_column(all('SHOW COLUMNS FROM voice_knowledge_sources'),'Field'):
+        array_column(all('PRAGMA table_info(voice_knowledge_sources)'),'name');
+    if(!in_array('folder_id',$existing,true))
+        db()->exec('ALTER TABLE voice_knowledge_sources ADD COLUMN folder_id BIGINT NOT NULL DEFAULT 0');
+    if(!in_array('version',$existing,true))
+        db()->exec('ALTER TABLE voice_knowledge_sources ADD COLUMN version INTEGER NOT NULL DEFAULT 1');
+    if(!in_array('updated_at',$existing,true))
+        db()->exec('ALTER TABLE voice_knowledge_sources ADD COLUMN updated_at VARCHAR(19) NULL');
+    if($mysql){
+        $indexes=array_column(all("SHOW INDEX FROM voice_knowledge_sources"),'Key_name');
+        if(!in_array('idx_voice_kb_scope',$indexes,true))
+            db()->exec('CREATE INDEX idx_voice_kb_scope ON voice_knowledge_sources(account_id,site_id,folder_id,status)');
+    }else{
+        db()->exec('CREATE INDEX IF NOT EXISTS idx_voice_kb_scope ON voice_knowledge_sources(account_id,site_id,folder_id,status)');
     }
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }

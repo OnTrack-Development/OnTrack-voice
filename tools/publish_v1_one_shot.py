@@ -331,8 +331,51 @@ def resume_native():
         "apk":"https://app.ontrackegy.com/mobile/updates/native/"+native["file"],
         "sha256":APK_SHA,"ui_revision":json.loads(ui["payload"])["revision"]}),flush=True)
 
+
+def publish_site_only():
+    """Publish ONLY the SaaS console. Preserve signed Android APK and UI OTA verbatim."""
+    native_before=live("mobile/updates/native/latest.json")
+    ui_before=live("mobile/updates/latest.json")
+    assert native_before is not None and ui_before is not None,"cannot confirm existing mobile pointers"
+    OUT.mkdir(parents=True,exist_ok=True)
+    tarfile_path=OUT/"site-release.tar.gz"
+    with tarfile.open(tarfile_path,"w:gz",format=tarfile.USTAR_FORMAT) as tf:
+        tf.add("saas/console",arcname="console",recursive=True)
+    compressed=tarfile_path.read_bytes()
+    assert len(compressed)<=4*1024*1024
+    with tarfile.open(tarfile_path,"r:gz") as tf:
+        members=tf.getmembers()
+        assert len(members)<=250
+        assert all((m.isdir() or m.isfile()) and not (m.issym() or m.islnk()) and m.size<1024*1024 for m in members)
+        assert all(not any(x in (".env",".git",".ontrack-saas","secrets") for x in pathlib.PurePosixPath(m.name).parts) for m in members)
+    webzip=OUT/("OnTrack-V1-SiteOnly-"+SHA_SOURCE[:12]+".zip")
+    with zipfile.ZipFile(webzip,"w",zipfile.ZIP_DEFLATED,compresslevel=7) as z:
+        z.write(tarfile_path,"release.tar.gz")
+    url,remote=asset(webzip.name,sha(webzip.read_bytes()),webzip.stat().st_size,webzip)
+    assert remote==webzip.read_bytes()
+    original=pathlib.Path("tools/deploy_saas_console.py").read_text(encoding="utf-8")
+    before="(u.hostname.endswith('.blob.core.windows.net') or u.hostname.endswith('.actions.githubusercontent.com'))"
+    after="(u.hostname.endswith('.blob.core.windows.net') or u.hostname.endswith('.actions.githubusercontent.com') or u.hostname in ('release-assets.githubusercontent.com','objects.githubusercontent.com'))"
+    assert original.count(before)==1
+    reviewed=original.replace(before,after)
+    preflight=inline_program(reviewed,"site_preflight(*sys.argv[1:])")
+    host_job("siteqa","/home/appontrack",preflight,[url,sha(compressed),SHA_SOURCE],
+        lambda obj:obj.get("result")=="preflight_pass" and obj.get("source")==SHA_SOURCE[:12] and obj.get("isolated_database") is True)
+    script=inline_program(reviewed,"deploy(*sys.argv[1:])")
+    host_job("saas","/home/appontrack",script,[url,sha(compressed),SHA_SOURCE],
+        lambda obj:obj.get("result")=="deployed" and obj.get("source")==SHA_SOURCE[:12] and obj.get("android_compat") is True)
+    assert live("mobile/updates/latest.json")==ui_before,"UI OTA pointer changed"
+    assert live("mobile/updates/native/latest.json")==native_before,"native APK pointer changed"
+    for route in ("","login","register"):
+        with urllib.request.urlopen("https://app.ontrackegy.com/"+route,timeout=15) as page:
+            assert page.status==200,"site route unavailable: "+route
+    print("SITE_ONLY_DEPLOY_VERIFIED",json.dumps({
+        "site":"https://app.ontrackegy.com/","sha":SHA_SOURCE,
+        "signed_mobile_unchanged":True,"source_archive_sha256":sha(compressed)}),flush=True)
+
 if __name__=="__main__":
-    assert len(sys.argv)==2 and sys.argv[1] in ("prepare","publish","resume-native")
+    assert len(sys.argv)==2 and sys.argv[1] in ("prepare","publish","resume-native","site-only")
     if sys.argv[1]=="prepare":prepare()
     elif sys.argv[1]=="resume-native":resume_native()
+    elif sys.argv[1]=="site-only":publish_site_only()
     else:publish()
