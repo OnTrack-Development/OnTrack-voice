@@ -1,0 +1,63 @@
+name: OnTrack v1 one-shot verified site and APK publication
+on:
+  push:
+    branches: [feat/voice-v1-minimal-console-20261106]
+    paths:
+      - '.github/workflows/voice-v1-one-shot-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: ontrack-voice-v1-one-shot-host-release
+  cancel-in-progress: false
+jobs:
+  publish_verified:
+    name: One verified release, one runner, no Android rebuild
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - name: Checkout candidate source and publisher
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate publisher and mobile UI gates
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/publish_v1_one_shot.py
+          if ($LASTEXITCODE -ne 0) { throw 'Publisher syntax invalid' }
+          & python tools/test_v1_mobile_shell.py
+          if ($LASTEXITCODE -ne 0) { throw 'Mobile shell regression failed' }
+          & python tools/test_mobile_ui_contract.py
+          if ($LASTEXITCODE -ne 0) { throw 'Mobile UI contract failed' }
+          & python tools/test_mobile_release_gate.py
+          if ($LASTEXITCODE -ne 0) { throw 'Mobile signed release gate failed' }
+          $php=Get-Command php -ErrorAction SilentlyContinue
+          if ($php) {
+            Get-ChildItem saas/console -Recurse -File -Filter *.php | ForEach-Object {
+              & php -l $_.FullName | Out-Null
+              if ($LASTEXITCODE -ne 0) { throw "PHP lint failed: $($_.FullName)" }
+            }
+            & php tools/test_v1_reseller_toggle.php
+            if ($LASTEXITCODE -ne 0) { throw 'Reseller regression failed' }
+          } else {
+            Write-Host 'No Windows PHP CLI: host performs PHP 8.3 lint before atomic switch'
+          }
+      - name: Verify existing signed APK and build signed OTA and SaaS package
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/publish_v1_one_shot.py prepare
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned APK or publish preparation failed' }
+      - name: Publish site then signed UI and APK with host receipt verification
+        run: |
+          $ErrorActionPreference='Stop'
+          $env:PATH = 'C:\Program Files\Git\usr\bin;' + $env:PATH
+          & python tools/publish_v1_one_shot.py publish
+          if ($LASTEXITCODE -ne 0) { throw 'Hosting publication not verified' }

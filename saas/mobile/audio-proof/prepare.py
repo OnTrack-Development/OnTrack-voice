@@ -294,11 +294,8 @@ def main(root):
     for name in ['LICENSE', 'NOTICE.md']:
         shutil.copyfile(root / name, assets / ('UPSTREAM-' + name))
     (assets / 'ONTRACK-MODIFICATIONS.txt').write_text(
-        'OnTrack Development, 2026-10-30. Experimental derivative of JemRec at ' + LOCK['commit'] + '\n'
-        'Apache-2.0. Original attribution and notices retained.\n'
-        'Changes: separate application namespace/socket/files; Arabic proof launcher; local audio import;\n'
-        'one-call test cancellation; no automatic recording by default; explicit diagnostics export.\n'
-        'This build does not establish compatibility or full duplex AI conversation on any device.\n')
+        'OnTrack Development, 2026. This distribution contains modified Apache-2.0 licensed software.\\n'
+        'Copyright, license, and upstream notices are retained in the accompanying LICENSE and NOTICE.\\n')
     # Prove that the overlaid manifest does not request forbidden services.
     merged = (root / 'app/src/main/AndroidManifest.xml').read_text()
     if any(x in merged for x in ['BIND_ACCESSIBILITY_SERVICE', 'android.accessibilityservice',

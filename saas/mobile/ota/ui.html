@@ -17,10 +17,10 @@ a{color:#bfd1ee}#message{color:#f5a1ad;min-height:17px;margin:7px 0}.show-on-cal
 #version{text-align:left;direction:ltr}button:focus-visible,input:focus-visible{outline:2px solid #8ab9ec;outline-offset:2px}
 footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details summary{cursor:pointer;font-size:13px;color:#bbcbe0}details p{margin-top:12px}
 
-/* OnTrack Launch — premium motion, reduced-motion aware, never blocks the UI. */
+
 #otSplash{position:fixed;inset:0;z-index:9999;background:radial-gradient(circle at 50% 44%,#211b2f 0%,#0b101b 52%,#060912 100%);display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity .55s ease,visibility .55s ease}
 #otSplash.exit{opacity:0;visibility:hidden;pointer-events:none}
-/* Android already owns an animated, progress-aware splash. Never show a second HTML spinner. */
+
 #otSplash{display:none!important}
 .otHalo{width:156px;height:156px;border-radius:100%;position:relative;display:grid;place-items:center;margin-bottom:25px}
 .otHalo:before{content:"";position:absolute;inset:0;border-radius:50%;border:1px solid #e3304c50;border-top:3px solid #e3304c;animation:otOrbit 2.3s linear infinite;box-shadow:0 0 50px #e3304c12}
@@ -33,7 +33,7 @@ footer{text-align:center;margin:25px 0 0;color:#79879b;font-size:11px}details su
 @keyframes otOrbit{to{transform:rotate(360deg)}}@keyframes otBeat{50%{opacity:.25;transform:scale(.5)}}
 @media(prefers-reduced-motion:reduce){.otHalo:before,.otHalo:after,.otPulse{animation:none}#otSplash{transition:none}}
 
-/* OnTrack Voice 0.2.6 — compact operations cockpit, mobile-first. */
+
 body{max-width:780px;margin:auto;padding:18px 16px 36px;background:radial-gradient(circle at 92% 0,#2a273a 0,transparent 38%),linear-gradient(160deg,#080e19,#101a2b 75%)}
 header{margin-bottom:15px}.logo{background:linear-gradient(145deg,#fa4c68,#ae1634);box-shadow:0 14px 40px #e3304c30}
 h1{font-size:23px}.otTopline{font-size:10px;letter-spacing:.16em;color:#ef8296;text-transform:uppercase;margin-bottom:4px}
@@ -65,7 +65,7 @@ body.light .chip.good{background:#dff4ed;color:#135c46}
 body.light .chip.warn{background:#fff0d5;color:#85560f}
 body.light .otMetric small,body.light .otMiniCard small{color:#62718a}
 @media(max-width:385px){.otTabs button{min-width:65px;padding:10px}.otMetrics{gap:8px}.otMetric{padding:12px}}
-/* OnTrack Voice identity: red / black / white, mobile user shell */
+
 :root{color-scheme:dark;--bg:#0b0b0e;--panel:#19191c;--border:#36363b;--muted:#ababaf;--text:#fafafa;--accent:#dc112c;--control:#29292e;--raised:#161619}
 html{background:var(--bg)}body{max-width:780px;margin:auto;padding:18px 16px calc(106px + env(safe-area-inset-bottom));color:var(--text);background:var(--bg)!important}
 .otHeaderTools{display:flex;gap:8px;align-items:center}.otThemeButton{width:43px;height:43px;min-width:43px;margin:0;padding:0;display:grid;place-items:center;font-size:22px;border:1px solid var(--border);background:var(--control);color:var(--text)}
@@ -88,11 +88,11 @@ body.light .otThemeButton,body.light .minor{background:white;color:var(--text)}b
 @media(max-width:385px){.otTabs button{min-width:0;font-size:10px;padding:5px 0}.navIcon{font-size:19px}}
 
 
-/* Signed OTA refresh works on existing 0.2.9 APK; no native installation. */
+
 #uiPullStatus[hidden]{display:none!important}
 #uiPullStatus{position:fixed;z-index:9990;top:calc(env(safe-area-inset-top) + 12px);left:50%;transform:translateX(-50%);max-width:92vw;min-width:220px;text-align:center;padding:12px 18px;border-radius:999px;background:var(--panel);border:1px solid var(--border);box-shadow:0 12px 30px #0006;color:var(--text);font-size:13px;font-weight:750;pointer-events:none}
 body.light #uiPullStatus{background:#fff;box-shadow:0 12px 30px #0002}
-/* Production call-control tiles, including ringing and human-handoff states. */
+
 .callControlHeading{font-size:15px;margin:0 0 12px}
 .callQuickActions{grid-template-columns:repeat(2,minmax(0,1fr))}
 .callQuickActions button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-height:116px;padding:12px 9px;border-radius:15px;border:1px solid var(--border)}
@@ -101,7 +101,7 @@ body.light #uiPullStatus{background:#fff;box-shadow:0 12px 30px #0002}
 .callQuickActions button small{font-size:10px;font-weight:500;line-height:1.5;color:inherit;opacity:.8;text-align:center}
 .callQuickActions button:disabled{opacity:.5;filter:grayscale(.3)}
 body.light .callQuickActions button.outline{background:#fafafa}
-/* Native and OTA screens share one card-based device center; no grey Android controls above the UI. */
+
 .tenant-sim-list{display:grid;gap:9px;margin:13px 0}
 .tenant-sim{display:flex;align-items:flex-start;gap:10px;justify-content:space-between;padding:13px 14px;background:var(--raised);border:1px solid var(--border);border-radius:13px}
 .tenant-sim strong{font-size:13px;white-space:nowrap;direction:ltr}
@@ -109,7 +109,7 @@ body.light .callQuickActions button.outline{background:#fafafa}
 #tenantDeviceCenter .row{margin-top:9px}
 .subtle-button{background:transparent;border:1px dashed var(--border);color:var(--muted);font-size:12px;margin-top:9px;padding:9px 12px;min-height:42px}
 
-/* 0.3.12 • consolidated navigation, compact hierarchy and update announcement */
+
 [hidden]{display:none!important}
 .otEyebrow{display:block;font-size:10px;font-weight:850;letter-spacing:.16em;color:var(--accent);margin:0 0 6px}
 .otWelcome{margin:0 0 12px;padding:15px 17px;border-radius:19px;min-height:98px}
@@ -137,7 +137,7 @@ body.light .otUpdateNotice{background:linear-gradient(115deg,#fff0f3,#ffe5ea)!im
 body.light .otUpdateCopy small{color:#7c3443}body.light .otUpdateCopy b{color:#631324}
 @media(max-width:380px){.otTabs button{font-size:9px}.otActionGrid{gap:7px}.otHeaderTools{gap:5px}.otWelcome strong{font-size:17px}.otUpdateCopy strong{font-size:13px}}
 
-/* OnTrack mobile operations • fixed brand identity: red, black, white */
+
 .otTabs{background:#121215!important;border-top:1px solid #38383d!important;padding:9px 8px calc(8px + env(safe-area-inset-bottom))!important;gap:5px;box-shadow:0 -8px 30px #0008}
 .otTabs button{min-height:60px;background:transparent!important;color:#a4a4ad!important;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid transparent!important;border-radius:12px!important;font-size:10px;font-weight:740}
 .otTabs button.active{background:#e20f2b!important;color:#fff!important;border-color:#e20f2b!important;box-shadow:0 6px 14px #e20f2b38!important}
@@ -169,7 +169,7 @@ body.light .otTabs button.active{background:#d20d28!important;color:#fff!importa
 .otAgentEmpty{font-size:12px;line-height:1.8;color:var(--muted);padding:12px;border:1px dashed var(--border);border-radius:12px}
 @media(max-width:390px){.otTabs{gap:3px;padding-left:5px!important;padding-right:5px!important}.otTabs button{font-size:9px}.otTabs .navIcon{width:21px;height:21px}.otStatusGrid{gap:5px}.otConnection{padding:10px 6px}.otConnection strong{font-size:11px}}
 
-/* Customer-first surface: no duplicate builder actions or raw version badges. */
+
 #version[hidden],#openFlowStudio[hidden]{display:none!important}
 .otAgentCard{padding:16px;border-radius:20px;box-shadow:0 8px 26px #00000012}
 .otAgentCards{gap:12px}
@@ -179,16 +179,45 @@ body.light .otTabs button.active{background:#d20d28!important;color:#fff!importa
 .otConnection strong{font-size:13px}
 #agentBuilderHub .primary{min-height:48px}
 
-/* Accurate agent switch colors: only verified native service can be green. */
+
 #enable,#disable{background:var(--control)!important;color:var(--text)!important;border:1px solid var(--border)!important;transition:background-color .18s ease,border-color .18s ease}
 #enable.agent-on{background:#147d47!important;border-color:#28a463!important;color:#fff!important;opacity:1!important;filter:none!important}
 #disable.agent-off{background:#b91c34!important;border-color:#e2384a!important;color:#fff!important;opacity:1!important;filter:none!important}
 #version{display:block!important;font-size:12px;font-weight:800;color:var(--text);white-space:nowrap}
+body>.otWelcome,body>.otTabs,body>.otPageIntro,body>[data-panel],body>footer{display:none!important}
+#v1Minimal{max-width:650px;margin:0 auto 32px;display:grid;gap:14px}
+#v1Minimal>.card{margin:0}#v1Minimal [hidden]{display:none!important}
+#v1Minimal button{min-height:44px}.v1Pair{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--border);padding:13px 0}
+.v1Pair span{font-size:12px;color:var(--muted);max-width:76%;overflow-wrap:anywhere}
+.v1Buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.v1Hint{font-size:12px;line-height:1.8;color:var(--muted)}
 </style></head><body>
 <div id="uiPullStatus" hidden role="status" aria-live="polite">↻ جارٍ تحديث البيانات…</div>
 <div id="otSplash" role="status" aria-live="polite"><div class="otHalo"><div class="otMonogram">OT</div></div><div class="otTitle">ONTRACK</div><div class="otSubtitle">VOICE INTELLIGENCE</div><div class="otProgress"><span class="otPulse"></span>يرجى الانتظار · جارٍ تجهيز الاتصال</div></div>
 
 <header><div class="brand"><span class="logo">OT</span><div><h1>OnTrack Voice</h1><div class="sub">OnTrack Development · مركز الاتصال</div></div></div><div class="otHeaderTools"><button id="updateBell" type="button" class="otUpdateBellButton" hidden aria-label="تحديث جديد — فتح شاشة التحديث">↑<span class="otNotifyDot"></span></button><button id="themeToggle" type="button" class="otThemeButton" aria-label="تبديل المظهر">☀</button><div class="minor" id="version" aria-label="إصدار التطبيق">جاري قراءة الإصدار…</div></div></header>
+<main id="v1Minimal" aria-label="OnTrack Voice">
+<section class="card" id="v1Wizard" hidden><h2>تجهيز الهاتف لأول مرة</h2>
+<p class="v1Hint">الخطوات دي بتختفي بعد نجاح الربط، وتقدر ترجع لصلاحيات التشغيل عند الحاجة.</p>
+<p><b>1. ربط الحساب والشريحة</b></p><button type="button" id="v1Pair">ربط الشريحة</button>
+<p><b>2. تفعيل الصلاحيات</b></p><button type="button" id="v1Setup">فتح خطوات التفعيل</button>
+<p><b>3. فحص الجاهزية</b></p><button type="button" id="v1Test">اختبار الجهاز</button></section>
+<section class="card"><div class="section-title"><h2>المساعد الصوتي</h2><span class="chip" id="v1State">جارٍ التحقق</span></div>
+<p id="v1Status" class="v1Hint">جاري فحص الاتصال...</p>
+<div class="v1Buttons"><button type="button" id="v1Enable" class="positive">تشغيل المساعد</button><button type="button" id="v1Disable" class="outline">إيقاف المساعد</button></div></section>
+<section class="card"><div class="section-title"><h2>الشرائح المرتبطة</h2><span id="v1LinkStatus" class="chip">جارٍ الفحص</span></div>
+<div class="v1Pair"><b>SIM 1</b><span id="v1Sim1">جارٍ التحقق</span></div>
+<div class="v1Pair"><b>SIM 2</b><span id="v1Sim2">جارٍ التحقق</span></div></section>
+<section class="card"><h2>سيناريو التشغيل</h2><p class="v1Hint">السيناريو المخصص للشريحة، وسيناريو الموقع، وFlow الموقع بتتدار من لوحة الويب.</p>
+<button type="button" class="outline" id="v1OpenSite">فتح لوحة الموقع في المتصفح</button>
+<div class="v1Buttons"><button type="button" class="outline" id="v1Agent">السيناريوهات</button><button type="button" class="outline" id="v1Flow">Flow الموقع</button></div></section>
+<section class="card"><div class="v1Buttons"><button type="button" class="outline" id="v1Permissions">صلاحيات التشغيل</button><button type="button" class="outline" id="v1Refresh">تحديث الحالة</button></div>
+<div id="v1PermissionsBox" hidden><p class="v1Hint">لو نقص تصريح لازم للتشغيل، افتح التفعيل وفحص الجهاز.</p>
+<div class="v1Buttons"><button type="button" id="v1PermissionSetup">فتح التفعيل</button><button type="button" id="v1PermissionTest">فحص الجهاز</button></div></div>
+<div id="v1UpdateBox" hidden><p class="v1Hint">تحديث Android يحتاج موافقة التثبيت.</p>
+<div class="v1Buttons"><button type="button" id="v1CheckUpdates">فحص التحديثات</button><button type="button" id="v1InstallUpdates">تثبيت التحديث</button></div>
+<p id="v1UpdateStatus" class="v1Hint"></p></div></section>
+</main>
 <div class="otWelcome" data-panel="dashboard"><div><span class="otEyebrow">لوحة التحكم</span><strong>مركز تشغيل المكالمات</strong><small>تابع المكالمات والمساعدين والشرائح بسهولة.</small></div><div class="otSpark">✦</div></div>
 
 <nav class="otTabs" aria-label="أقسام التطبيق" role="navigation">
@@ -274,14 +303,10 @@ body.light .otTabs button.active{background:#d20d28!important;color:#fff!importa
 <p class="small" id="updateNotificationHint">الإشعار يظهر داخل التطبيق، ويمكن تفعيل إشعار Android عند توفر إصدار جديد أثناء فحص التطبيق.</p>
 <p class="small">لا يعاد تنزيل ملف سبق التحقق منه. التثبيت يتطلب موافقة Android، ولا يبدأ أثناء مكالمة.</p>
 </section>
-<section class="card" id="mobileDataMode" data-panel="settings">
-<div class="section-title"><h2>الاتصال ببيانات الهاتف</h2><span class="chip warn">اختياري · تجريبي</span></div>
-<p>تجربة تشغيل مساعد الشريحة على 4G/5G بدون الاعتماد على Wi-Fi. يتطلب إعدادًا أوليًا على شبكة Wi-Fi، ولا ينجح بالضرورة على أجهزة Xiaomi كلها أو بعد إعادة التشغيل.</p>
-<div class="status"><span class="indicator" id="wifiFreeLamp"></span><div><strong>المسار المحلي بدون Wi-Fi</strong><span class="small" id="wifiFreeStatus">غير مفعّل</span></div></div>
-<label style="display:flex;gap:10px;align-items:flex-start;margin:12px 0;font-size:13px;line-height:1.7"><input type="checkbox" id="wifiFreeConsent" style="width:auto;margin-top:5px;accent-color:#e3304c"><span>فاهم إن التجربة قد تفتح منفذ ADB رقم 5555 على شبكات الهاتف عند تفعيل التصحيح، وده يزيد مخاطر الوصول غير المصرح به. هستخدمه على جهاز اختبار فقط.</span></label>
-<button id="wifiFreeToggle" class="outline">تجربة الاتصال بدون Wi-Fi</button>
-<p class="small">لو حبيت تلغي الوضع، اتصل بالواي فاي أولًا واضغط إيقاف. لو المنفذ فضل مفتوح، أوقف USB debugging من إعدادات الهاتف. تشغيل البيانات لا يغني عن موافقة Android لإعداد ADB.</p>
-</section>
+<section id="mobileDataMode" data-panel="settings" hidden>
+ <span id="wifiFreeLamp"></span><span id="wifiFreeStatus"></span>
+ <input id="wifiFreeConsent" type="checkbox"><button id="wifiFreeToggle" disabled></button>
+ </section>
 <section class="card" data-panel="settings"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
 <section class="card" data-panel="settings"><h2>فحص الجهاز</h2><p>اربط الشرائح من حساب OnTrack؛ لا تحتاج إعداد المحرك أو مفتاح API.</p><div class="row"><button id="setup">فحص الهاتف</button><button id="updates" class="outline">فحص تحديث الواجهة</button></div></section>
 <section class="card" data-panel="settings"><label for="tenantWorkspaceSlot">شريحة المكالمات وجهات الاتصال والحملات</label><select id="tenantWorkspaceSlot"><option value="">اختار الشريحة</option></select><p id="tenantWorkspaceHelp" class="small">كل شريحة مرتبطة بحسابها فقط.</p></section>
@@ -345,17 +370,7 @@ body.light .otTabs button.active{background:#d20d28!important;color:#fff!importa
 <div class="divider"></div>
 
 </section>
-<section class="card" data-panel="settings" id="voiceLibrary">
-<div class="section-title"><h2>مكتبة الأصوات</h2><span class="chip">Basic / Premium</span></div>
-<p>الأصوات الأساسية متاحة عبر جلسات Gemini الحالية. الأصوات الخاصة تحتاج اشتراكًا يتيحها ومحرك TTS متوافقًا؛ لا يُشغَّل ملف PT كأنه صوت PCM.</p>
-<div class="otMiniCard"><div><strong><span class="otDot"></span> Gemini Live</strong><small>Aoede · Kore · Puck · Charon · Fenrir — حسب إعداد الخادم</small></div><span class="chip good">أساسي</span></div>
-<div class="otMiniCard"><div><strong>AYO Calm</strong><small>هدوء واحترافية • PyTorch voice preset</small></div><span class="otLocked">Premium · قيد الدمج</span></div>
-<div class="otMiniCard"><div><strong>AYO Excited</strong><small>حماسي • PyTorch voice preset</small></div><span class="otLocked">Premium · قيد الدمج</span></div>
-<div class="otMiniCard"><div><strong>AYO Sleepy</strong><small>نبرة هادئة جدًا • PyTorch voice preset</small></div><span class="otLocked">Premium · قيد الدمج</span></div>
-<div class="divider"></div><h2>الخطط والصلاحيات</h2>
-<p>كل باقة تتحكم في الأدوات والأصوات المتاحة لها من الخادم. الدفع المستقبلي عبر Kashier؛ تفعيل الاشتراك مشروط بتأكيد الدفع الموقّع.</p>
-
-</section>
+<section id="voiceLibrary" data-panel="settings" hidden></section>
 <footer>OnTrack Development © 2026 · Voice Cloud</footer>
 <script>
 const el=id=>document.getElementById(id);
@@ -364,7 +379,7 @@ setTimeout(finishSplash,2400);
 
 const send=(command,data={})=>OnTrack.postMessage(JSON.stringify({command,nonce:window.OTA_NONCE,...data}));
 let last={},first=true;
-// The existing 0.2.9 native bridge supports checkUpdates: signed HTML only.
+
 let pullStart=0,pullArmed=false,pullBusy=false,pullTimer=0;
 function pullMessage(message,ms=13000){
  const notice=el('uiPullStatus');notice.textContent=message;notice.hidden=false;
@@ -398,8 +413,7 @@ function readUiTheme(){
 }
 
 
-/* A SIM may be reachable while Live audio is intentionally idle. Never infer
-   SaaS health from s.connected, which indicates a live voice session only. */
+
 function updateConnectionHealth(s){
  let server=typeof s.tenantServerState==='string'?s.tenantServerState:'checking';
  if(typeof s.tenantServerState!=='string'){
@@ -548,7 +562,6 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
   el('disable').disabled=!engine||!s.agentEnabled||!!s.updating;
  }
 
- // Display only confirmed SIM-monitor state; do not mistake desired state for active.
  const confirmedActive=enabled && s.tenantServiceRunning===true && !s.tenantPairingInProgress;
  const isStarting=!!s.pendingSync || (!!s.tenantDesiredEnabled && !confirmedActive);
  el('enable').classList.toggle('agent-on',confirmedActive && !isStarting);
@@ -590,7 +603,37 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('wifiFreeToggle').textContent=wifiFree?'إيقاف وضع بدون Wi-Fi':'تجربة الاتصال بدون Wi-Fi';
  el('wifiFreeToggle').disabled=call||(!wifiFree&&!el('wifiFreeConsent').checked);
  if(first&&online)first=false;
+ v1Render(s);
 };
+function v1Render(s){
+ const linked=!!s.tenantLinked,phoneReady=s.phonePermissionGranted!==false,active=!!s.agentEnabled&&s.tenantServiceRunning===true&&!s.tenantPairingInProgress;
+ el('v1Wizard').hidden=linked&&phoneReady;
+ el('v1State').textContent=s.tenantPairingInProgress?'جاري الربط':active?'يعمل':linked?'متوقف':'غير مربوط';
+ el('v1State').className='chip '+(active?'good':'warn');
+ el('v1LinkStatus').textContent=linked?'مرتبط':'غير مربوط';
+ el('v1Status').textContent=!linked?'اربط شريحتك بحسابك أولًا':!phoneReady?'يلزم منح صلاحية الهاتف قبل تشغيل المساعد':s.inCall?'مكالمة جارية':active?'جاهز لاستقبال المكالمات':s.pendingSync?'جاري تطبيق التغيير':'المساعد متوقف';
+ el('v1Sim1').textContent=s.tenantPaired1?String(s.tenantSim1||'مربوطة'):'غير مربوطة';
+ el('v1Sim2').textContent=s.tenantPaired2?String(s.tenantSim2||'مربوطة'):'غير مربوطة';
+ el('v1Enable').disabled=!linked||!!s.updating||!!s.inCall||!!s.tenantPairingInProgress||active;
+ el('v1Disable').disabled=!linked||!!s.updating||!s.agentEnabled;
+ if(linked&&s.tenantServerState==='device')el('v1PermissionsBox').hidden=false;
+ el('v1InstallUpdates').disabled=el('upgradeAndroid').disabled;
+ el('v1UpdateStatus').textContent=el('nativeUpdateStatus').textContent;
+}
+el('v1Enable').onclick=()=>el('enable').click();
+el('v1Disable').onclick=()=>el('disable').click();
+el('v1Pair').onclick=()=>send('tenantMenu');
+el('v1Setup').onclick=()=>send('diagnostics');
+el('v1Test').onclick=()=>send('tenantTest');
+el('v1OpenSite').onclick=()=>send('openConsole');
+el('v1Agent').onclick=()=>send('openAgents');
+el('v1Flow').onclick=()=>send('openFlowBuilder');
+el('v1Permissions').onclick=()=>el('v1PermissionsBox').hidden=!el('v1PermissionsBox').hidden;
+el('v1PermissionSetup').onclick=()=>send('diagnostics');
+el('v1PermissionTest').onclick=()=>send('tenantTest');
+el('v1Refresh').onclick=()=>send('tenantRefresh');
+el('v1CheckUpdates').onclick=()=>el('scanAndroid').click();
+el('v1InstallUpdates').onclick=()=>el('upgradeAndroid').click();
 el('enable').onclick=()=>{
  el('message').textContent='';
  if(!last.tenantLinked){el('message').textContent='اربط SIM بحساب OnTrack أولًا';return;}
@@ -619,10 +662,7 @@ el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent
 el('scanAndroid').onclick=()=>send('checkNativeUpdates');
 el('upgradeAndroid').onclick=()=>send('installNativeUpdate');
 el('enableUpdateNotice').onclick=()=>{if(Number(last.nativeCode)>=36)send('enableUpdateNotifications')};
-function openUpdateCenter(){
-  setView('settings');
-  el('versionUpdates').scrollIntoView({behavior:'smooth',block:'start'});
-}
+function openUpdateCenter(){el('v1UpdateBox').hidden=false;el('v1UpdateBox').scrollIntoView({behavior:'smooth',block:'start'});}
 el('updateNotice').onclick=openUpdateCenter;
 el('updateBell').onclick=openUpdateCenter;
 window.onTrackOpenUpdates=openUpdateCenter;
@@ -667,7 +707,7 @@ function renderCallHistory(){
   const stamp=parsed&&!Number.isNaN(parsed.valueOf())?parsed.toLocaleString('ar-EG'):'وقت غير متاح';
   sub.textContent=[call.name&&call.phone?call.phone:null,stamp,formatCallDuration(call.duration),String(call.id||'').slice(0,8)].filter(Boolean).join(' · ');
   block.appendChild(label);block.appendChild(sub);
-  // All model/staff text uses textContent: never interpret transcripts as markup.
+
   const reportFields=[['ملخص المكالمة',call.summary],['ملاحظات العميل',call.customer_notes],
    ['سبب طلب الموظف',call.handoff_reason],['النتيجة',call.outcome&&call.outcome!=='unknown'?call.outcome:null]];
   if(reportFields.some(([,v])=>typeof v==='string'&&v.trim())||call.has_transcript){

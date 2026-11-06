@@ -502,12 +502,15 @@ class MobileLinkActivity:ComponentActivity(){
         }
     }
     private fun openConsole(section:String="",siteId:Int=0,agentId:Int=0){
-        startActivity(Intent(this,ConsoleWebActivity::class.java).apply{
-            if(section in setOf("agents","flows","answering","devices"))putExtra("section",section)
-            if(section=="agents" && siteId>0 && agentId>0){
-                putExtra("site_id",siteId)
-                putExtra("agent_id",agentId)
-            }
+        val tab=if(section in setOf("agents","flows","answering","devices"))section else "overview"
+        val builder=Uri.parse("https://app.ontrackegy.com/saas/console/").buildUpon()
+            .appendQueryParameter("tab",tab)
+        if(tab=="agents" && siteId>0 && agentId>0){
+            builder.appendQueryParameter("site_id",siteId.toString())
+                .appendQueryParameter("agent_id",agentId.toString())
+        }
+        startActivity(Intent(Intent.ACTION_VIEW,builder.build()).apply{
+            addCategory(Intent.CATEGORY_BROWSABLE)
         })
     }
     private fun showScenarioMenu(){
@@ -965,6 +968,7 @@ class MobileLinkActivity:ComponentActivity(){
             .put("inCall",MobileLinkService.inCall).put("callAnswered",MobileLinkService.callAnswered).put("humanControl",MobileLinkService.humanControl)
             .put("agentAudioReady",MobileLinkService.audioReady).put("callProblem",MobileLinkService.callProblem)
             .put("agentEnabled",MobileLinkService.agentEnabled).put("connected",MobileLinkService.connected).put("pendingSync",MobileLinkService.pendingSync).put("serverRevision",MobileLinkService.serverRevision)
+            .put("phonePermissionGranted",ContextCompat.checkSelfPermission(this,Manifest.permission.READ_PHONE_STATE)==PackageManager.PERMISSION_GRANTED)
             .put("overlayGranted",Settings.canDrawOverlays(this)).put("revision",ota.revision)
             .put("nativeUpdateAvailable",nativeRelease!=null).put("nativeUpdateBusy",nativeBusy)
             .put("nativeUpdateStatus",nativeStatus)

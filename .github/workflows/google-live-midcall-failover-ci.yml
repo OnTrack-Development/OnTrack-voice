@@ -3,9 +3,19 @@ on:
   pull_request:
     branches:
       - feat/voice-production-gap-20261103
+    paths:
+      - 'saas/console/_core/GoogleVoiceFailover.php'
+      - 'saas/console/_core/AiRelay.php'
+      - 'saas/console/_core/TenantVoiceSession.php'
+      - 'saas/mobile/audio-proof/**'
+      - 'tools/test_google_live_failover.php'
+      - 'tools/test_google_tenant_keys.php'
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ontrack-qa-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 env:
   PYTHONUTF8: '1'
   PYTHONIOENCODING: 'utf-8'

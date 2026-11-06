@@ -67,7 +67,8 @@ function nav_entries(string $type):array{
     ];
     // Administrative spaces manage tenants, plans and platform integrations.
     // Operational tools belong ONLY to the separate User Workspace preview.
-    if($type==='platform')return [
+    if($type==='platform'){
+        $nav=[
         'overview'=>['⌂','نظرة عامة'],
         'accounts'=>['♧','الحسابات والريسيلرز'],
         'plans'=>['◫','الخطط والحدود'],
@@ -79,8 +80,13 @@ function nav_entries(string $type):array{
         'whatsapp_admin'=>['✉','إعدادات ربط واتساب'],
         'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات المنصة']
-    ];
-    if($type==='reseller')return [
+        ];
+        unset($nav['whatsapp_admin'],$nav['voices']);
+        if(!platform_resellers_visible())$nav['accounts']=['♧','الحسابات'];
+        return $nav;
+    }
+    if($type==='reseller'){
+        $nav=[
         'overview'=>['⌂','نظرة عامة'],
         'accounts'=>['♧','عملائي'],
         'plans'=>['◫','باقات العملاء'],
@@ -92,8 +98,11 @@ function nav_entries(string $type):array{
         'keys'=>['⌘','مفاتيح API'],
         'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات الشركة']
-    ];
-    return [
+        ];
+        unset($nav['voices']);
+        return $nav;
+    }
+    $nav=[
         'overview'=>['⌂','الرئيسية'],'sites'=>['◈','مواقعي'],
         'agents'=>['✧','استوديو المساعدين'],
         'answering'=>['☷','إعدادات الرد'],'whatsapp'=>['✉','WhatsApp Inbox'],'campaigns'=>['▤','الحملات'],
@@ -102,6 +111,8 @@ function nav_entries(string $type):array{
         'keys'=>['⌘','مفاتيح API'],'integrations'=>['⇄','التكاملات'],'billing'=>['▣','الباقة والرصيد'],
         'releases'=>['↓','Android'],'settings'=>['⚙','الإعدادات']
     ];
+    unset($nav['campaigns'],$nav['whatsapp'],$nav['voices'],$nav['staff']);
+    return $nav;
 }
 function layout_open(array $a,string $tab):void{
     $u=me();$brand=brand($a);$items=nav_entries((string)$a['kind']);$heading=$items[$tab][1]??'الرئيسية';
@@ -231,7 +242,7 @@ function login_page(?string $error=null):void{
     if($error)echo '<div class="alert danger">'.e($error).'</div>';
     if($notice=flash('success'))echo '<div class="alert success">'.e($notice).'</div>';
     echo '<form method="post" action="'.e($login).'" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><label class="field">البريد الإلكتروني<input required type="email" name="email" autocomplete="username" placeholder="name@company.com"></label><label class="field">كلمة المرور<div class="password-wrap"><input required type="password" name="password" autocomplete="current-password" id="loginPassword" placeholder="••••••••••"><button type="button" class="password-toggle" data-toggle-password>إظهار</button></div></label><button class="btn primary wide" type="submit">تسجيل الدخول</button></form><div class="wl-auth-links"><a href="'.e($forgot).'">نسيت كلمة المرور؟</a><a href="'.e($signup).'">إنشاء حساب جديد</a></div>';
-    if(!$portal)echo '<p class="login-foot"><a href="/register?type=reseller">إنشاء حساب مزوّد خدمات</a></p>';
+    if(!$portal&&platform_resellers_visible())echo '<p class="login-foot"><a href="/register?type=reseller">إنشاء حساب مزوّد خدمات</a></p>';
     echo '<p class="wl-copyright">© '.date('Y').' '.e($name).' · جميع الحقوق محفوظة</p></main></body></html>';
 }
 
@@ -257,16 +268,16 @@ function render_overview(array $a):void{
         $title='مساحة عملك الذكية';$sub='اختار الموقع المناسب، وابنِ المساعد، وتابع حملاتك واستهلاكك.';
     }
     $primaryAction=$kind==='platform'?'accounts':($kind==='reseller'?'accounts':'agents');
-    $primaryLabel=$kind==='platform'?'إدارة الحسابات والريسيلرز':($kind==='reseller'?'إدارة العملاء':'إدارة المساعدون');
-    $secondaryAction=$kind==='platform'?'whatsapp_admin':($kind==='reseller'?'plans':'releases');
-    $secondaryLabel=$kind==='platform'?'إعدادات ربط واتساب':($kind==='reseller'?'باقات العملاء':'تطبيق Android');
+    $primaryLabel=$kind==='platform'?(platform_resellers_visible()?'إدارة الحسابات والريسيلرز':'إدارة العملاء'):($kind==='reseller'?'إدارة العملاء':'إدارة المساعدون');
+    $secondaryAction=$kind==='platform'?'settings':($kind==='reseller'?'plans':'releases');
+    $secondaryLabel=$kind==='platform'?'إعدادات المنصة':($kind==='reseller'?'باقات العملاء':'تطبيق Android');
     echo '<section class="welcome"><div><span class="eyebrow">SMART VOICE CONTROL</span><h2>'.e($title).'</h2><p>'.e($sub).'</p><div class="welcome-actions">'.
         '<a class="btn light" href="/saas/console/?tab='.e($primaryAction).'">'.e($primaryLabel).' ←</a>'.
         '<a class="btn ghost-light" href="/saas/console/?tab='.e($secondaryAction).'">'.e($secondaryLabel).'</a>'.
         '</div></div><div class="orb-art"><span></span><b>OT</b></div></section>';
     echo '<div class="metric-grid">';
     if($kind==='platform'){
-        echo counter('الريسيلرز',$n1,'♧').counter('العملاء',$n2,'♙').counter('المساعدون',$n3,'✧').counter('سجلات المكالمات',$n4,'☏');
+        echo (platform_resellers_visible()?counter('الريسيلرز',$n1,'♧'):'').counter('العملاء',$n2,'♙').counter('المساعدون',$n3,'✧').counter('سجلات المكالمات',$n4,'☏');
     }elseif($kind==='reseller'){
         echo counter('شركات العملاء',$n1,'♧').counter('حصص عملائك المحجوزة',$n2,'◫').counter('رصيد باقة شركتك',$n3,'▣').counter('تكاملات مرتبطة',$n4,'⇄');
     }else{
@@ -275,9 +286,9 @@ function render_overview(array $a):void{
     echo '</div><div class="cols two">';
     if($kind==='platform'){
         $tips='<div class="quick-grid">'.
-            '<a href="/saas/console/?tab=accounts"><b>♧</b><span>الحسابات والريسيلرز</span><small>إدارة العملاء والشركات</small></a>'.
+            '<a href="/saas/console/?tab=accounts"><b>♧</b><span>'.(platform_resellers_visible()?'الحسابات والريسيلرز':'حسابات العملاء').'</span><small>إدارة العملاء والشركات</small></a>'.
             '<a href="/saas/console/?tab=plans"><b>◫</b><span>الخطط والحدود</span><small>إدارة باقات المنصة</small></a>'.
-            '<a href="/saas/console/?tab=whatsapp_admin"><b>✉</b><span>إعدادات ربط واتساب</span><small>Embedded Signup وCoexistence</small></a>'.
+            '<a href="/saas/console/?tab=integrations"><b>⇄</b><span>التكاملات</span><small>ربط أنظمة العملاء</small></a>'.
             '<a href="/saas/console/?tab=settings"><b>⚙</b><span>إعدادات المنصة</span><small>الهوية والتكاملات المركزية</small></a></div>';
     }elseif($kind==='reseller'){
         $tips='<div class="quick-grid">'.
@@ -297,15 +308,15 @@ function render_accounts(array $a):void{
     if(!in_array($a['kind'],['platform','reseller'],true))deny();
     $id=(int)$a['account_id'];
     $rows=$a['kind']==='platform'?
-        all("SELECT a.*, (SELECT COUNT(*) FROM memberships m WHERE m.account_id=a.id) seats FROM accounts a WHERE a.kind!='platform' ORDER BY a.id DESC"):
+        all("SELECT a.*, (SELECT COUNT(*) FROM memberships m WHERE m.account_id=a.id) seats FROM accounts a WHERE ".(platform_resellers_visible()?"a.kind!='platform'":"a.kind='customer' AND (a.parent_id IS NULL OR a.parent_id IN (SELECT id FROM accounts WHERE kind='platform'))")." ORDER BY a.id DESC"):
         all("SELECT a.*, (SELECT COUNT(*) FROM memberships m WHERE m.account_id=a.id) seats FROM accounts a WHERE a.parent_id=? ORDER BY a.id DESC",[$id]);
     echo '<div class="cols two">';
     if(in_array($a['role'],['owner','admin'],true)&&!active_support()){
         $base='/register';
         if($a['kind']==='platform'){
             echo card('روابط التسجيل العامة',
-                '<p>شارك رابط تسجيل العملاء المباشرين، أو رابط تسجيل الريسيلرز.</p>'.
-                '<p><a class="btn" href="'.$base.'">تسجيل عميل مباشر</a> <a class="btn" href="'.$base.'?type=reseller">تسجيل ريسيلر</a></p>'.
+                '<p>روابط تسجيل الحسابات الجديدة.</p>'.
+                '<p><a class="btn" href="'.$base.'">تسجيل عميل مباشر</a> '.(platform_resellers_visible()?'<a class="btn" href="'.$base.'?type=reseller">تسجيل ريسيلر</a>':'').'</p>'.
                 '<p class="dim" dir="ltr">https://app.ontrackegy.com'.$base.'</p>');
         }else{
             $verified=one("SELECT hostname FROM domains WHERE account_id=? AND status='active' ORDER BY id DESC LIMIT 1",[$id]);
@@ -319,13 +330,13 @@ function render_accounts(array $a):void{
         }
     }
     echo card('إنشاء حساب جديد',form_start('create_account','/?tab=accounts').
-        ($a['kind']==='platform'?select_html('نوع الحساب','kind',['reseller'=>'ريسيلر','customer'=>'عميل مباشر']):'').
+        ($a['kind']==='platform'?select_html('نوع الحساب','kind',platform_resellers_visible()?['reseller'=>'ريسيلر','customer'=>'عميل مباشر']:['customer'=>'عميل مباشر']):'').
         field_html('اسم الشركة','name','text','اسم المؤسسة',true).
         field_html('بريد المالك','email','email','owner@company.com',true).
         submit_btn('إنشاء الحساب وإظهار كلمة مرور مؤقتة'));
     $policy=$a['kind']==='platform'?0:$id;
     $options=[0=>'السياسة العامة'];
-    if($a['kind']==='platform')foreach(all("SELECT id,name FROM accounts WHERE kind='reseller'") as $reseller)$options[$reseller['id']]=$reseller['name'];
+    if($a['kind']==='platform'&&platform_resellers_visible())foreach(all("SELECT id,name FROM accounts WHERE kind='reseller'") as $reseller)$options[$reseller['id']]=$reseller['name'];
     echo card('سياسة دخول الحسابات',form_start('support_policy','/?tab=accounts').
         ($a['kind']==='platform'?select_html('الحساب','reseller_id',$options):'').
         select_html('صلاحيات الدخول','access_mode',['full'=>'كامل الصلاحيات','read_only'=>'قراءة فقط']).
@@ -339,12 +350,12 @@ function render_accounts(array $a):void{
         $support.=form_start('set_account_status','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><input type="hidden" name="status" value="'.($r['status']==='active'?'suspended':'active').'"><button class="btn small danger">'.($r['status']==='active'?'تعليق':'تفعيل').'</button></form>';
         $cells[]=[e($r['name']).'<small class="block dim">'.e($r['slug']).'</small>',pill((string)$r['kind']),e((string)($r['parent_id']??'مباشر')),e((string)$r['seats']),pill((string)$r['status']),$support];
     }
-    echo card('الحسابات التابعة',tbl(['الاسم','النوع','الريسيلر','الأعضاء','الحالة','إدارة'],$cells));
+    echo card('الحسابات التابعة',tbl(['الاسم','النوع',platform_resellers_visible()?'الريسيلر':'الحساب','الأعضاء','الحالة','إدارة'],$cells));
 }
 function render_plans(array $a):void{
     require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
     $type=(string)$a['kind'];$id=(int)$a['account_id'];
-    $list=$type==='platform'?all('SELECT * FROM plans ORDER BY kind,id'):all("SELECT * FROM plans WHERE kind='user' AND status='active' ORDER BY id");
+    $list=$type==='platform'?all(platform_resellers_visible()?'SELECT * FROM plans ORDER BY kind,id':"SELECT * FROM plans WHERE kind='user' ORDER BY kind,id"):all("SELECT * FROM plans WHERE kind='user' AND status='active' ORDER BY id");
     $rows=[];
     foreach($list as $p){
         $rows[]=[
@@ -372,7 +383,7 @@ function render_plans(array $a):void{
                 '<label class="field">المواقع<input name="sites" type="number" min="0" value="'.(int)$plan['site_limit'].'" required></label>'.
                 '<label class="field">المساعدون<input name="agents" type="number" min="0" value="'.(int)$plan['agent_limit'].'" required></label>'.
                 '<label class="field">الموظفون<input name="staff" type="number" min="0" value="'.(int)$plan['staff_limit'].'" required></label>'.
-                '<label class="field">حد عملاء الريسيلر<input name="customers" type="number" min="0" value="'.(int)$plan['reseller_customers'].'" required></label>'.
+                (platform_resellers_visible()?'<label class="field">حد عملاء الريسيلر<input name="customers" type="number" min="0" value="'.(int)$plan['reseller_customers'].'" required></label>':'<input type="hidden" name="customers" value="'.(int)$plan['reseller_customers'].'">').
                 '<label class="field">سعر الباقة (قرش)<input name="price" type="number" min="0" max="1000000000" step="1" value="'.(int)$plan['price_minor'].'" required><small>100 قرش = 1 جنيه</small></label>'.
                 '<label class="field">سعر كل مكالمة بعد الحد (قرش)<input name="overage" type="number" min="0" max="10000000" step="1" value="'.(int)($plan['overage_minor']??0).'" required><small>0 = بدون تكلفة إضافية</small></label>'.
                 '<label class="field">عدد مفاتيح Google للعميل<input name="google_key_limit" type="number" min="0" max="1000" required value="'.(int)($plan['google_key_limit']??1).'"></label>'.
@@ -386,13 +397,13 @@ function render_plans(array $a):void{
         echo card('إضافة باقة جديدة',
             form_start('create_plan','/?tab=plans').
             '<div class="form-grid">'.
-            select_html('نوع الباقة','kind',['reseller'=>'ريسيلر','user'=>'مستخدم']).
+            select_html('نوع الباقة','kind',platform_resellers_visible()?['reseller'=>'ريسيلر','user'=>'مستخدم']:['user'=>'مستخدم']).
             field_html('اسم الباقة','name','text','اسم الباقة',true).
             field_html('المكالمات الشهرية','calls','number','1000',true).
             field_html('المواقع','sites','number','1',true).
             field_html('المساعدون','agents','number','1',true).
             field_html('الموظفون','staff','number','3',true).
-            field_html('حد عملاء الريسيلر','customers','number','10',true).
+            (platform_resellers_visible()?field_html('حد عملاء الريسيلر','customers','number','10',true):'<input type="hidden" name="customers" value="0">').
             '<label class="field">سعر الباقة (قرش)<input name="price" type="number" min="0" max="1000000000" step="1" value="0" required></label>'.
             '<label class="field">سعر المكالمة الزائدة (قرش)<input name="overage" type="number" min="0" max="10000000" step="1" value="0" required></label>'.
             '<label class="field">عدد مفاتيح Google للعميل<input name="google_key_limit" type="number" min="0" max="1000" required value="1"></label>'.
@@ -1435,11 +1446,10 @@ function render_settings(array $a):void{
     // Owner decision 2026-11-04: no administrator 2FA/QR setup tile.
     // Auth uses password, session hardening and existing login rate limits.
     if($a['kind']==='platform'&&console_view_mode($a)==='admin'&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
-        require_once __DIR__.'/WhatsAppOnboarding.php';
-        $meta=wa_platform_onboarding();
-        echo card('إعدادات واتساب للمنصة',
-            '<p>إدارة الربط التلقائي (Meta Embedded Signup)، وCoexistence، ومفاتيح وتكوينات Meta الخاصة بالمنصة في صفحة مستقلة عن صندوق وارد العميل.</p>'.
-            '<a class="btn primary" href="/saas/console/?tab=whatsapp_admin">فتح إعدادات ربط واتساب</a>');
+        echo card('إظهار الريسيلرز',form_start('platform_resellers_visibility','/?tab=settings').
+            '<label class="field"><input type="checkbox" name="resellers_enabled" value="1" '.(platform_resellers_visible()?'checked':'').'> تفعيل وإظهار الريسيلرز وتسجيلهم وباقاتهم</label>'.
+            '<p class="dim">عند الإيقاف تختفي خيارات الريسيلرز من لوحة الإدارة وروابط التسجيل والباقات، مع بقاء حساباتهم واشتراكاتهم دون حذف.</p>'.
+            submit_btn('حفظ الإعداد'));
         // Legacy key remains encrypted and auto-imports once into Voice Relay.
         // Avoid showing a second Google editor that would not update Relay priority.
         render_ai_relay_settings($a);

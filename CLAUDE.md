@@ -20,6 +20,14 @@
 
 <!-- ONTRACK_MANDATORY_AGENT_RULES_END -->
 
+## Owner-approved v1.0.0 corrections — 2026-11-06
+
+- The owner has confirmed that the existing Admin phone/SIM pairing remains functional and has never been deliberately unpaired. Preserve all existing device tokens, signing identity and SIM binding on upgrades.
+- On the owner device, incoming auto-answer and microphone mute work. Wi-Fi speech quality is good. LTE/4G experiences accumulated audio and excessive agent verbosity. Earlier notes claiming both auto-answer and mute are broken are historic and superseded for the current device, not proof of universal compatibility.
+- Mobile v1 is a minimal bridge/permission onboarding shell. All advanced operational management is on the external browser SaaS console. Public mobile text must not disclose implementation experiments; retain mandatory open-source attribution. Remove/relocate native audio capture/injection logic only behind a fully tested downloaded module, never break the working SIM pathway to simulate secrecy.
+- Phase-one scope is documented in docs/plan/V1_0_0_PHASE1_RELEASE_20261106_AR.md. Externally executable WHMCS/Laravel bookings/tickets, verified KB processing, intelligent Flow, 4G improvements, call summaries and protected remote audio module are release blockers, not done features.
+- No v1.0.0 publish based on visual UI changes alone. The isolated APK candidate workflow builds without publishing; release requires CI, signed APK, host receipt, then real calls.
+
 ## OnTrack Voice — current project-specific rules (2026-11-04)
 
 - **Latest owner authentication override (2026-11-04):** Website login uses account email + password ONLY, including platform admins, resellers, customers and signed-SSO entry. Never require Google Authenticator/TOTP/6-digit 2FA enrollment or code on `app.ontrackegy.com/saas/console`. This supersedes earlier Q02 mandatory-admin-2FA wording. Keep CSRF, password validation, session rotation, login throttling, SSO signed assertion/consent and role checks. **Do not remove SIM pairing QR, API tokens or first-time email ownership verification; those are NOT website login 2FA.** Source of truth: `saas/console/index.php`, `_core/Views.php`, `_core/Signup.php`, `tools/test_admin_mfa.php`.

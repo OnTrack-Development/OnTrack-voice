@@ -11,10 +11,10 @@ assert '#otSplash{display:none!important}' in ui, 'Native splash must not be fol
 native=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkActivity.kt').read_text()
 assert 'id="homeAgentCards"' in ui and 'id="agentCards"' in ui and 'id="openFlowStudio"' in ui, 'Native agent workspace not visible'
 assert 'id="serverHealth"' in ui and 'tenantServerState' in ui and 'updateConnectionHealth(s)' in ui, 'SaaS connection must not reuse voice live status'
-assert 'svg class="navIcon"' in ui and 'data-view="agents"' in ui, 'Branded vector bottom navigation missing'
+assert 'id="v1Minimal"' in ui and 'body>.otTabs' in ui, 'V1 must hide advanced bottom navigation'
 assert 'window.onTrackOpenUpdates=openUpdateCenter' in ui and 'enableUpdateNotice' in ui, 'Update notification tap not wired'
 assert 'id="updateNotice"' in ui and 'id="updateBell"' in ui and 'id="updateTabDot"' in ui, 'Native update notification controls missing'
-assert "el('updateNotice').onclick=openUpdateCenter" in ui and "setView('settings')" in ui, 'Update prompt must open the install screen'
+assert "el('updateNotice').onclick=openUpdateCenter" in ui and "el('v1UpdateBox').hidden=false" in ui, 'Update prompt must open the compact install panel'
 assert 'data-view="agents"' in ui and 'data-panel="agents"' in ui, 'SIM device navigation missing'
 assert 'data-view="voices"' not in ui and 'id="voiceLibrary"' in ui, 'Voices must live under settings'
 assert '"start","enable"-> requestStartTenantMonitor()' in native, 'Start must run tenant-only action without Pilot key'

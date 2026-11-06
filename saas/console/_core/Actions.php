@@ -29,7 +29,11 @@ function confirm_account(int $id):array{
 }
 function scoped_customer(int $id):array{
     $a=mine();if(!$a)deny();
-    if($a['kind']==='platform')return confirm_account($id);
+    if($a['kind']==='platform'){
+        $target=confirm_account($id);
+        if(!platform_resellers_visible()&&$target['kind']==='reseller')deny(404);
+        return $target;
+    }
     if($a['kind']==='reseller' && is_reseller_child((int)$a['account_id'],$id))return confirm_account($id);
     deny();
 }
@@ -275,6 +279,13 @@ function act():void {
                 $principal=intfield('caller_id');
                 if(!voice_staff_revoke($id,$principal))deny(404);
                 audit('voice.staff_phone.revoked',$id,['principal_id'=>$principal]);break;
+            case 'platform_resellers_visibility':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support()||console_view_mode($a)!=='admin')deny();
+                $enabled=(string)($_POST['resellers_enabled']??'0')==='1';
+                platform_set_resellers_visible($enabled);
+                audit('platform.resellers.visibility',$id,['enabled'=>$enabled]);
+                flash('success',$enabled?'إظهار الريسيلرز مفعّل':'تم إخفاء الريسيلرز وخططهم وروابط تسجيلهم');
+                break;
             case 'set_view':
                 if(!console_can_switch_view($a))deny();
                 $view=(string)($_POST['view']??'');
@@ -315,6 +326,7 @@ function act():void {
                 if(!in_array($kind,['platform','reseller'],true)||!in_array($a['role'],['owner','admin'],true))deny();
                 $type=field('kind',20);if($kind==='reseller')$type='customer';
                 if(!in_array($type,['reseller','customer'],true))throw new InvalidArgumentException('نوع الحساب');
+                if($type==='reseller'&&!platform_resellers_visible())deny(404);
                 $name=required('name',120);$email=required('email',190);
                 if(!filter_var($email,FILTER_VALIDATE_EMAIL))throw new InvalidArgumentException('البريد غير صالح');
                 if(one('SELECT id FROM users WHERE email=?',[$email]))throw new RuntimeException('البريد مستخدم بالفعل');
@@ -513,6 +525,7 @@ function act():void {
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
                 $type=field('kind',20);if(!in_array($type,['reseller','user'],true))deny();
+                if($type==='reseller'&&!platform_resellers_visible())deny(404);
                 $price=intfield('price');$overage=intfield('overage');
                 if($price>1000000000||$overage>10000000)throw new InvalidArgumentException('السعر أكبر من الحد المسموح');
                 $keyLimit=intfield('google_key_limit');
@@ -801,7 +814,8 @@ function act():void {
             case 'edit_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
-                $plan=one('SELECT id FROM plans WHERE id=?',[intfield('plan_id')]);if(!$plan)deny();
+                $plan=one('SELECT id,kind FROM plans WHERE id=?',[intfield('plan_id')]);if(!$plan)deny();
+                if($plan['kind']==='reseller'&&!platform_resellers_visible())deny(404);
                 $price=intfield('price');$overage=intfield('overage');
                 if($price>1000000000||$overage>10000000)throw new InvalidArgumentException('السعر أكبر من الحد المسموح');
                 $keyLimit=intfield('google_key_limit');
@@ -811,6 +825,8 @@ function act():void {
                 audit('plan.updated',$id,['plan'=>$plan['id']]);break;
             case 'archive_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
+                $archivedPlan=one('SELECT kind FROM plans WHERE id=?',[intfield('plan_id')]);
+                if(!$archivedPlan||($archivedPlan['kind']==='reseller'&&!platform_resellers_visible()))deny(404);
                 execute("UPDATE plans SET status='archived' WHERE id=?",[intfield('plan_id')]);
                 audit('plan.archived',$id);break;
             case 'edit_staff':
