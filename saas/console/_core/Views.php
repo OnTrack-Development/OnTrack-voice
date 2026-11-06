@@ -145,7 +145,7 @@ function layout_open(array $a,string $tab):void{
         $visible=array_intersect_key($items,array_flip($groupData[1]));
         if(!$visible)continue;
         $isCurrent=array_key_exists($tab,$visible);
-        echo '<details class="nav-group"'.($isCurrent?' open':'').'><summary class="nav-group-title">'.e($groupData[0]).'<span aria-hidden="true">⌄</span></summary><div class="nav-group-links">';
+        echo '<details class="nav-group" data-nav-group="'.e((string)$group).'"'.($isCurrent?' open':'').'><summary class="nav-group-title">'.e($groupData[0]).'<span aria-hidden="true">⌄</span></summary><div class="nav-group-links">';
         foreach($groupData[1] as $key){
             if(!isset($visible[$key]))continue;
             $entry=$items[$key];$active=$tab===$key?' selected':'';
@@ -591,6 +591,9 @@ function render_voice_data_sources(array $a,array $site):void {
        FROM voice_knowledge_sources WHERE account_id=? AND site_id=? AND status IN ('active','review') ORDER BY id DESC LIMIT 40",
        [$id,$siteId]);
     $html='<p class="info">المعرفة معزولة حسب الشركة والموقع. يُستخرج نص الملفات فقط، ويُحفظ تاريخ التعديلات؛ المصادر الداخلية لا تصل إلى مكالمات العملاء. PDF يتطلب محرك استخراج على الاستضافة، ولا يُدّعى فهرسته إذا تعذر ذلك.</p>';
+    $html.=form_start('voice_knowledge_reindex',$url,'class="inline-form"').
+        '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+        '<button class="btn small" type="submit">إعادة فهرسة المعرفة المعتمدة</button></form>';
     $html.=form_start('voice_knowledge_folder_add',$url).
         '<input type="hidden" name="site_id" value="'.$siteId.'">'.
         field_html('اسم المجلد الجديد','folder_name','text','مثلاً سياسات الحجز',true).

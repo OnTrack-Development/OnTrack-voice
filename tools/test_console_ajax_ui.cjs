@@ -29,6 +29,15 @@ for(const marker of [
   "payload.current_graph_read===true",
   "aiModel.textContent=payload.model",
 ])assert(flow.includes(marker),'Missing flow continuity/async save behavior: '+marker);
+for(const marker of [
+  "const nextNavigation=parsed.querySelector('.sidebar .nav-list')",
+  "oldNavigation.replaceWith(nextNavigation)",
+  "nav?.addEventListener('click',event=>",
+  "group.getAttribute('data-nav-group')",
+])assert(app.includes(marker),'Navigation permission/feature refresh missing: '+marker);
+assert(views.includes('data-nav-group'), 'Sidebar groups must be stable across AJAX refresh');
+assert(views.includes("form_start('voice_knowledge_reindex'"),
+  'Knowledge UI must provide authorized reindex action');
 assert(app.includes("'switch','set_view','support_enter'"),'Role switching must bypass AJAX');
 assert(views.includes('data-no-ajax="1"'),'Role switch forms must force native full-page navigation');
 for(const marker of ["HTTP_X_REQUESTED_WITH", "json_encode(['ok'=>true,'message'","json_encode(['ok'=>false,'error'"])

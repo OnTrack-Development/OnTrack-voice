@@ -8,6 +8,7 @@ require_once __DIR__.'/PublishedFlow.php';
 require_once __DIR__.'/FlowTemplates.php';
 require_once __DIR__.'/AgentAnswerPolicy.php';
 require_once __DIR__.'/Checkout.php';
+require_once __DIR__.'/SubscriptionPlans.php';
 require_once __DIR__.'/AiRelay.php';
 require_once __DIR__.'/RecycleBin.php';
 require_once __DIR__.'/DomainVerification.php';
@@ -230,6 +231,17 @@ function act():void {
                     'failed'=>$result['failed']]);
                 $success='فُحص '.$result['checked'].' مصدر مستحق، '. $result['review'].
                     ' ينتظر المراجعة، و'.$result['failed'].' أخطاء. لا اعتماد تلقائي.';
+                break;
+            case 'voice_knowledge_reindex':
+                require_permission('agents.write');
+                if(active_support())deny();
+                require_once __DIR__.'/VoiceKnowledgeWeb.php';
+                $site=intfield('site_id');
+                $indexed=voice_kb_search_reindex($id,$site,200);
+                audit('voice.knowledge.reindexed',$id,['site_id'=>$site,
+                    'scanned'=>$indexed['scanned'],'indexed'=>$indexed['indexed']]);
+                $success='تم تحديث فهرس المعرفة العامة المعتمدة: '.
+                    $indexed['indexed'].' مصدر، من '.$indexed['scanned'].' مصدر مفحوص.';
                 break;
             case 'voice_knowledge_scope_set':
                 require_permission('agents.write');
@@ -738,9 +750,9 @@ function act():void {
                 // to verified payment for a priced commercial subscription.
                 if((int)$plan['price_minor']>0 && !is_demo())
                     throw new InvalidArgumentException('الباقة المدفوعة تحتاج طلب دفع معتمد أو بيئة Demo');
-                execute("UPDATE subscriptions SET status='replaced' WHERE account_id=? AND status='active'",[$customer]);
-                insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at) VALUES (?,?,'active',?,?)",[$customer,$plan['id'],now(),gmdate('Y-m-d H:i:s',time()+30*86400)]);
-                audit('plan.assigned',$customer,['plan'=>$plan['id']]);break;
+                $result=subscription_assign_demo($customer,(int)$plan['id']);
+                audit($result['changed']?'plan.assigned':'plan.assignment_replayed',
+                    $customer,['plan'=>$plan['id'],'subscription_id'=>$result['subscription_id']]);break;
             case 'create_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();

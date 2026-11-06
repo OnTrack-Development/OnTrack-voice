@@ -212,8 +212,11 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
                 $state['awaiting']=$nodeId;break;
             }
             if($type==='knowledge_lookup'){
+                // Use the caller's most recent answer to retrieve relevant
+                // approved facts, not the same blind first-page excerpt.
                 $facts=voice_kb_agent_context((int)$session['account_id'],
-                    (int)$session['site_id'],(int)$session['agent_id'],1200);
+                    (int)$session['site_id'],(int)$session['agent_id'],1200,
+                    (string)($state['last_answer']??''));
                 $events[]=['kind'=>'knowledge','text'=>$facts!==''?$facts:
                     'لا توجد معرفة عامة معتمدة مناسبة؛ لا تخترع معلومة.'];
                 $next=flow_preview_edge($graph,$nodeId,null);

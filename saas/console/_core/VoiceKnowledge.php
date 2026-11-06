@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 /** Knowledge is tenant/site scoped. No staff-only source may reach a public call. */
 function voice_knowledge_site(int $accountId,int $siteId):void {
-    if($accountId<=0||$siteId<=0||!one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$siteId,$accountId]))
+    if($accountId<=0||$siteId<=0||!one("SELECT s.id FROM sites s
+        JOIN accounts a ON a.id=s.account_id AND a.status='active'
+        WHERE s.id=? AND s.account_id=? AND s.status='active'",[$siteId,$accountId]))
         throw new InvalidArgumentException('site_unavailable');
 }
 function voice_knowledge_folder(int $accountId,int $siteId,int $folderId):void {
