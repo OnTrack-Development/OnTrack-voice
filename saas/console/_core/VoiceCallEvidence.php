@@ -39,17 +39,28 @@ function voice_call_timeline_store(array $binding,array $payload):array {
     $call=one("SELECT id FROM calls WHERE account_id=? AND site_id=?
       AND device_binding_id=? AND sim_slot=? AND external_call_id=?",$scope);
     if(!$call)throw new InvalidArgumentException('timeline_call_not_owned');
-    $prev=one('SELECT id,content FROM voice_call_timeline
-      WHERE device_binding_id=? AND call_id=? AND event_id=?',
+    $at=(string)($payload['occurred_at']??'');
+    if(!preg_match('/^20[0-9]{2}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$/D',$at))
+        throw new InvalidArgumentException('timeline_timestamp_invalid');
+    $prev=one('SELECT account_id,site_id,sim_slot,speaker,event_type,content,occurred_at
+      FROM voice_call_timeline WHERE device_binding_id=? AND call_id=? AND event_id=?',
       [(int)$binding['id'],$callId,$eventId]);
     if($prev){
-        if($prev['content']!==trim($content))throw new RuntimeException('timeline_replay_changed');
+        // An event_id is an immutable evidence record, not just a text dedupe key.
+        // Retries may repeat the identical utterance, never change its identity,
+        // speaker, type, SIM, timestamp or contents after it was accepted.
+        if((int)$prev['account_id']!==$scope[0]||
+           (int)$prev['site_id']!==$scope[1]||
+           (int)$prev['sim_slot']!==$scope[3]||
+           $prev['speaker']!==$speaker||
+           $prev['event_type']!==$event||
+           $prev['content']!==trim($content)||
+           $prev['occurred_at']!==$at)
+            throw new RuntimeException('timeline_replay_changed');
         return ['saved'=>true,'duplicate'=>true];
     }
-    $at=(string)($payload['occurred_at']??'');
     $ts=strtotime($at.' UTC');
-    if(!preg_match('/^20[0-9]{2}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$/D',$at)||
-        $ts===false||abs(time()-$ts)>24*3600)
+    if($ts===false||abs(time()-$ts)>24*3600)
         throw new InvalidArgumentException('timeline_timestamp_invalid');
     insert("INSERT INTO voice_call_timeline
       (account_id,site_id,device_binding_id,sim_slot,call_id,event_id,speaker,event_type,

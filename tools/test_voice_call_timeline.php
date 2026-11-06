@@ -27,6 +27,22 @@ try{
     $corrupt=$entry;$corrupt['text']='Modified transcript';
     $denied=false;try{voice_call_timeline_store($ours,$corrupt);}catch(RuntimeException){$denied=true;}
     timeline_check($denied,'append-only idempotency');
+    foreach([
+        ['speaker'=>'agent'],
+        ['event_type'=>'notice'],
+        ['occurred_at'=>gmdate('Y-m-d H:i:s',time()-10)]
+    ] as $mutation){
+        $forged=array_replace($entry,$mutation);
+        $denied=false;
+        try{voice_call_timeline_store($ours,$forged);}
+        catch(RuntimeException $error){$denied=$error->getMessage()==='timeline_replay_changed';}
+        timeline_check($denied,'event_id replay cannot modify speaker, event type or timestamp');
+    }
+    $forged=$entry;$forged['occurred_at']='invalid date';
+    $denied=false;
+    try{voice_call_timeline_store($ours,$forged);}
+    catch(InvalidArgumentException){$denied=true;}
+    timeline_check($denied,'duplicate event cannot evade timestamp format validation');
     $bad=$entry;$bad['event_id']='utterance-000002';$bad['event_type']='spoken_text';$bad['speaker']='caller';
     $denied=false;try{voice_call_timeline_store($ours,$bad);}catch(InvalidArgumentException){$denied=true;}
     timeline_check($denied,'caller cannot be claimed as agent spoken text');
