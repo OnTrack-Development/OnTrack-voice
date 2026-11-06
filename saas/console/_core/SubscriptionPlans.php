@@ -31,9 +31,13 @@ function subscription_assign_demo(int $accountId,int $planId):array {
         }
         execute("UPDATE subscriptions SET status='replaced'
             WHERE account_id=? AND status='active'",[$accountId]);
+        // Changing the demo plan is not a renewal: preserve the paid/trial
+        // period already granted instead of silently shortening or extending it.
+        $endsAt=$current?(string)$current['ends_at']:
+            gmdate('Y-m-d H:i:s',time()+30*86400);
         $new=insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at)
             VALUES (?,?,'active',?,?)",
-            [$accountId,$planId,now(),gmdate('Y-m-d H:i:s',time()+30*86400)]);
+            [$accountId,$planId,now(),$endsAt]);
         db()->commit();
         return ['subscription_id'=>$new,'changed'=>true];
     }catch(Throwable $error){

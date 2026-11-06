@@ -62,6 +62,25 @@ voice_knowledge_delete(4,$approved);
 voice_kb_search_reindex(4,$site);
 search_check(!one('SELECT source_id FROM voice_kb_search_index WHERE source_id=?',[$approved]),
     'archive purges active search index entry');
+// A relevant, low-priority source outside the first 40 ordered candidates
+// must still be retrievable by an exact query, without leaking unrelated data.
+$deep=voice_knowledge_add(4,$site,'مرجع المناطق الصناعية العميق','md',
+    'المناطق الصناعية: برنامج صناعي خاص 2026');
+voice_kb_scope_set(4,$site,$deep,'all',0,50,0);
+for($i=0;$i<45;$i++){
+    $noise=voice_knowledge_add(4,$site,'نشرة عامة '.$i,'md',
+        'تفاصيل تشغيل عامة لا تخص الموضوع رقم '.$i);
+    voice_kb_scope_set(4,$site,$noise,'all',0,1000,0);
+}
+$deepAnswer=voice_kb_agent_context(4,$site,$agent,4000,'المناطق الصناعية');
+search_check(str_contains($deepAnswer,'برنامج صناعي خاص 2026') &&
+    !str_contains($deepAnswer,'تفاصيل تشغيل عامة'),
+    'query ranks a relevant deep source beyond 40 unrelated high-priority candidates');
+$conflicts=[];
+for($i=0;$i<14;$i++)$conflicts[]=['content'=>'رسوم الخدمة: '.($i===13?'20':'10').' جنيه',
+    'priority'=>100];
+search_check(voice_kb_search_resolve_facts($conflicts)===[],
+    'equal-priority contradictory facts are suppressed even beyond response row 12');
 execute("UPDATE accounts SET status='suspended' WHERE id=4");
 $blocked=false;
 try{voice_kb_search_reindex(4,$site);}catch(InvalidArgumentException){$blocked=true;}

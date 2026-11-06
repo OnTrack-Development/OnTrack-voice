@@ -348,6 +348,9 @@
     const nextUrl=new URL(requestedUrl,location.href);
     if(replace)history.replaceState({otAjax:true},'',nextUrl.pathname+nextUrl.search+nextUrl.hash);
     else history.pushState({otAjax:true},'',nextUrl.pathname+nextUrl.search+nextUrl.hash);
+    // AJAX replaces the editor DOM after the original hashchange event.
+    // Re-open a deep-linked editor against the freshly rendered page.
+    openAgentFromHash();
     window.ontrackMountFlowEditors?.(main);
     window.ontrackMountWhatsApp?.(main);
     window.ontrackMountPairingQR?.(main);

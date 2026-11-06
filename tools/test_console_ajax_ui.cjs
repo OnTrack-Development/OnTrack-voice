@@ -35,6 +35,8 @@ for(const marker of [
   "nav?.addEventListener('click',event=>",
   "group.getAttribute('data-nav-group')",
 ])assert(app.includes(marker),'Navigation permission/feature refresh missing: '+marker);
+assert(app.includes('openAgentFromHash();\n    window.ontrackMountFlowEditors?.(main)'),
+  'AJAX deep-link navigation must re-open the newly rendered agent editor');
 assert(views.includes('data-nav-group'), 'Sidebar groups must be stable across AJAX refresh');
 assert(views.includes("form_start('voice_knowledge_reindex'"),
   'Knowledge UI must provide authorized reindex action');

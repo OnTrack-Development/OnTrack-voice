@@ -31,6 +31,9 @@ $upgrade=subscription_assign_demo($another,(int)$plans[1]['id']);
 subs_check($upgrade['changed']===true && $upgrade['subscription_id']!==$first['subscription_id'] &&
     (string)one('SELECT status FROM subscriptions WHERE id=?',[$first['subscription_id']])['status']==='replaced',
     'upgrade replaces only current subscription and retains prior history');
+subs_check((string)one('SELECT ends_at FROM subscriptions WHERE id=?',
+    [$upgrade['subscription_id']])['ends_at']===$originalEnd,
+    'upgrade preserves the existing subscription expiration and cannot cut paid time');
 $bad=false;
 try{subscription_assign_demo($another,999999999);}catch(InvalidArgumentException){$bad=true;}
 subs_check($bad &&

@@ -246,10 +246,14 @@ function voice_kb_agent_context(int $accountId,int $siteId,int $agentId,int $max
             OR EXISTS(SELECT 1 FROM voice_kb_agent_scope s
               WHERE s.source_id=k.id AND s.account_id=k.account_id
                 AND s.site_id=k.site_id AND s.agent_id=?))
-      ORDER BY COALESCE(m.priority,100) DESC,k.id DESC LIMIT 40",
+      ORDER BY COALESCE(m.priority,100) DESC,k.id DESC LIMIT ".
+      (trim($query)!==''?200:40),
       [$accountId,$siteId,now(),$agentId]);
+    // A relevant lower-priority source can be beyond the first 40 records;
+    // search a bounded wider set before ranking. Resolve conflicting facts
+    // across the entire candidate set BEFORE limiting the response to 12.
     if(trim($query)!=='')$rows=voice_kb_search_rank_rows($rows,$query);
-    $rows=voice_kb_search_resolve_facts(array_slice($rows,0,12));
+    $rows=array_slice(voice_kb_search_resolve_facts($rows),0,12);
     $out='';$max=max(0,min(12000,$max));
     foreach($rows as $row){
         $intro="\n[معرفة موثقة: ".mb_substr((string)$row['name'],0,90).
