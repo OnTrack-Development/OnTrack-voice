@@ -12,7 +12,7 @@ assert 'body>.otTabs' in a and 'display:none!important' in a
 assert '<!--' not in a and '/*' not in a, 'Do not ship developer comments in UI HTML'
 assert 'Intent(Intent.ACTION_VIEW,builder.build())' in native, 'Website must open in external browser'
 assert 'ConsoleWebActivity::class.java' not in native[native.index('private fun openConsole('):native.index('private fun showScenarioMenu()')], 'Nested website UI not permitted'
-scripts=re.findall(r'<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>',a)
+scripts=re.findall(r'<script[^>]*>(.*?)</script>',a,re.S)
 assert scripts,'embedded JavaScript not found'
 for js in scripts:
     p=subprocess.run(['node','--check'],input=js,text=True,capture_output=True)
