@@ -153,16 +153,16 @@ async function main(){
       // Exercise a real mobile navigation click using the AJAX path (not
       // just screenshot measurements), verifying the new sidebar selection.
       await load('/saas/console/?tab=overview');
-      await evaluate('(function(){const l=document.querySelector(".nav-link[href$=\"tab=settings\"]");'+
+      await evaluate('(function(){const l=[...document.querySelectorAll(".nav-link")].find(a=>a.getAttribute("href")?.endsWith("tab=settings"));'+
         'if(!l)throw Error("settings nav missing");l.closest("details").open=true;'+
         'document.getElementById("navToggle").click();l.click();})()');
       for(let attempt=0;attempt<35;attempt++){
-        const ready=await evaluate('location.search.includes("tab=settings") && !!document.querySelector(".nav-link.selected[href$=\"tab=settings\"]")');
+        const ready=await evaluate('location.search.includes("tab=settings") && !!document.querySelector(".nav-link.selected")?.getAttribute("href")?.endsWith("tab=settings")');
         if(ready)break;
         await wait(100);
       }
       const state=await evaluate('(function(){return {url:location.search,'+
-        'selected:!!document.querySelector(".nav-link.selected[href$=\"tab=settings\"]"),'+
+        'selected:!!document.querySelector(".nav-link.selected")?.getAttribute("href")?.endsWith("tab=settings"),'+
         'drawerOpen:document.body.classList.contains("nav-open"),'+
         'visible:!!document.querySelector("main.content")}})()');
       if(!state.selected||!state.url.includes('tab=settings')||state.drawerOpen||!state.visible)
