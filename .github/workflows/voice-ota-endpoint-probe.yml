@@ -1,0 +1,53 @@
+name: Diagnose Android native OTA endpoint without redirects
+on:
+  push:
+    branches: [release/voice-v1-20261106]
+    paths:
+      - '.github/workflows/voice-ota-endpoint-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    name: Probe client-side native OTA GET and HTTP redirects
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 6
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Probe native OTA with redirects disabled like Android
+        run: |
+          $ErrorActionPreference='Stop'
+          $handler=[System.Net.Http.HttpClientHandler]::new()
+          $handler.AllowAutoRedirect=$false
+          $http=[System.Net.Http.HttpClient]::new($handler)
+          $http.Timeout=[TimeSpan]::FromSeconds(20)
+          foreach($path in @('mobile/updates/native/latest.json','mobile/updates/latest.json')){
+            foreach($ua in @('okhttp/4.12.0','OnTrack-verified-native-OTA')){
+              $url='https://app.ontrackegy.com/'+$path
+              $request=[System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get,$url)
+              $null=$request.Headers.TryAddWithoutValidation('User-Agent',$ua)
+              $null=$request.Headers.TryAddWithoutValidation('Cache-Control','no-cache')
+              $response=$http.SendAsync($request).GetAwaiter().GetResult()
+              $body=$response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+              $info=@{path=$path;user_agent=$ua;status=[int]$response.StatusCode;content_type=($response.Content.Headers.ContentType | Out-String).Trim();location=([string]$response.Headers.Location);body_bytes=[System.Text.Encoding]::UTF8.GetByteCount($body)}
+              if([int]$response.StatusCode -eq 200){
+                try{
+                  $envelope=$body|ConvertFrom-Json
+                  $meta=$envelope.payload | ConvertFrom-Json
+                  $info.version_code=$meta.version_code
+                  $info.version_name=$meta.version_name
+                  $info.revision=$meta.revision
+                  $info.min_native=$meta.min_native
+                  $info.max_native=$meta.max_native
+                  $info.has_signature=[bool]$envelope.signature
+                }catch{
+                  $info.parsing_error=$_.Exception.Message
+                }
+              }
+              Write-Host ('ANDROID_HTTP_PROBE '+($info|ConvertTo-Json -Compress))
+              $request.Dispose();$response.Dispose()
+            }
+          }
+          $http.Dispose()
