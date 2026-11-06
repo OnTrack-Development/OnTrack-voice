@@ -377,3 +377,80 @@ function signup_logo_route():never {
     header('Cache-Control: public,max-age=300');
     readfile($path);exit;
 }
+
+/**
+ * Shared-host login throttling survives new browser sessions/cookie deletion.
+ * Keys are SHA-256 digests of canonical email and the direct peer IP; no raw
+ * login identifiers or secrets are stored. Not a second factor or an OTP.
+ */
+function auth_login_throttle_init():void {
+    $mysql=driver()==='mysql';
+    $engine=$mysql?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci':'';
+    db()->exec("CREATE TABLE IF NOT EXISTS auth_login_throttle (
+        bucket_hash CHAR(64) PRIMARY KEY,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        first_attempt_at VARCHAR(19) NOT NULL,
+        blocked_until VARCHAR(19) NULL,
+        updated_at VARCHAR(19) NOT NULL
+    )".$engine);
+}
+function auth_login_buckets(string $email,string $ip):array {
+    $email=mb_substr(strtolower(trim($email)),0,190);
+    // Read REMOTE_ADDR supplied by the web server, never X-Forwarded-For.
+    $ip=filter_var($ip,FILTER_VALIDATE_IP)?$ip:'unknown';
+    return [
+       ['hash'=>hash('sha256',"email\0".$email),'limit'=>15],
+       ['hash'=>hash('sha256',"peer\0".$ip),'limit'=>500]
+    ];
+}
+function auth_login_throttled(string $email,string $ip):bool {
+    auth_login_throttle_init();
+    $now=now();
+    $window=gmdate('Y-m-d H:i:s',time()-900);
+    foreach(auth_login_buckets($email,$ip) as $bucket){
+        $row=one('SELECT attempts,first_attempt_at,blocked_until
+          FROM auth_login_throttle WHERE bucket_hash=?',[$bucket['hash']]);
+        if(!$row)continue;
+        if(($row['blocked_until']??'')>$now)return true;
+        if($row['first_attempt_at']>$window && (int)$row['attempts'] >= $bucket['limit'])return true;
+    }
+    return false;
+}
+function auth_login_record(string $email,string $ip,bool $succeeded):void {
+    auth_login_throttle_init();
+    $buckets=auth_login_buckets($email,$ip);
+    if($succeeded){
+        // Successful authentication clears the account bucket; retain peer
+        // failures so password-spraying across emails is still bounded.
+        execute('DELETE FROM auth_login_throttle WHERE bucket_hash=?',[$buckets[0]['hash']]);
+        return;
+    }
+    $now=now();$window=gmdate('Y-m-d H:i:s',time()-900);
+    foreach($buckets as $bucket){
+        $hash=$bucket['hash'];$limit=$bucket['limit'];
+        $row=one('SELECT attempts,first_attempt_at,blocked_until FROM auth_login_throttle
+          WHERE bucket_hash=?',[$hash]);
+        if(!$row) {
+            // Concurrent bad logins may race a first INSERT. Retry via UPDATE.
+            try {
+                insert('INSERT INTO auth_login_throttle
+                  (bucket_hash,attempts,first_attempt_at,blocked_until,updated_at)
+                  VALUES (?,1,?,NULL,?)',[$hash,$now,$now]);
+                continue;
+            }catch(PDOException){$row=one('SELECT attempts,first_attempt_at,blocked_until
+                FROM auth_login_throttle WHERE bucket_hash=?',[$hash]);}
+        }
+        if(!$row)throw new RuntimeException('login_throttle_write_failed');
+        if((string)$row['first_attempt_at']<=$window &&
+           (string)($row['blocked_until']??'')<=$now){
+            execute('UPDATE auth_login_throttle SET attempts=1,first_attempt_at=?,
+                blocked_until=NULL,updated_at=? WHERE bucket_hash=?',[$now,$now,$hash]);
+        }else {
+            $count=(int)$row['attempts']+1;
+            $until=$count>=$limit?gmdate('Y-m-d H:i:s',time()+900):null;
+            execute('UPDATE auth_login_throttle SET attempts=attempts+1,
+                blocked_until=CASE WHEN ? IS NOT NULL THEN ? ELSE blocked_until END,
+                updated_at=? WHERE bucket_hash=?',[$until,$until,$now,$hash]);
+        }
+    }
+}
