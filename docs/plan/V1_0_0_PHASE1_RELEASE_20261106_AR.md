@@ -1,5 +1,5 @@
 # OnTrack Voice v1.0.0 — العقد التنفيذي للمرحلة الأولى
-**تاريخ الاعتماد للمواصفات:** 2026-11-06. **الحالة الحالية:** تنفيذ جزئي؛ آخر نشر SaaS فقط مثبت Commit ffba5c6fd3cf وRun 42181948097 ناجح، Host QA 64 PHP وHost Deploy 79 ملفًا PASS، Native/OTA دون تغيير. Stable 1.0.0 بالكامل وDevice E2E غير معتمدين.
+**تاريخ الاعتماد للمواصفات:** 2026-11-06. **الحالة الحالية:** تنفيذ جزئي؛ آخر SaaS منشور Source `ed8ce1694e2ee080cbf514b976a554cdc8707796`، Run `42244090845` SUCCESS، Host QA 66 PHP، Deploy 81 ملفًا، Browser Demo 237 حالة بلا أخطاء؛ Mobile/OTA لم يتغيرا. كامل Stable 1.0.0 وDevice E2E ليسا معتمدين.
 **الموقع:** app.ontrackegy.com؛ **الجهاز المرجعي:** Xiaomi Note 12 Pro 5G.
 **مصدر الحقيقة:** آخر قرارات المالك في جلسة نوفمبر 2026 تتقدم على خارطة نوفمبر 3 فيما يتعلق بنطاق المرحلة الأولى.
 
@@ -193,7 +193,7 @@
 
 
 
-## 8) إثبات تنفيذ الموقع الجاري — 6 نوفمبر 2026
+## 8) إثبات تنفيذ الموقع السابق — 6 نوفمبر 2026 (مرجع تاريخي)
 - Branch: release/voice-v1-20261106؛ مصدر النشر: ffba5c6fd3cf1bdb756f9fd5fa6f33d3eb27256e.
 - CI Run: https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42181948097 — SUCCESS.
 - Host QA: v1-siteqa-42181948097 SUCCESS (64 PHP، QA database معزولة).
@@ -201,3 +201,17 @@
 - الجديد: Knowledge Links/TTL/Agent scope، Tool Gateway بموافقة ونتيجة حقيقية، Flow server state/trace، Call Timeline.
 - غير المؤكد: WHMCS/Laravel على مزود فعلي، واجهة مرخّصة لكل دور، Domain/TLS فعلي، Gemini Live إلى Tool أثناء مكالمة SIM، وProtected audio module.
 - راجع TODO الموقع أعلاه. لا يُعلن اكتمال Stable 1.0.0 على هذا النشر الجزئي.
+
+
+## 9) استكمال موقع SaaS والتفويض — إثبات تشغيلي جديد بتاريخ 2026-11-06
+
+**هذا بند مُثبت من CI/Host، لا يعلن اعتماد Stable 1.0.0.** المستخدم أمر بتنفيذ TODO الموقع فقط؛ التعديلات جاءت ضمن \`saas/console/**\` والاختبارات والـWorkflow الخاص بالموقع. **لم تُغيّر ملفات Android أو Native APK أو OTA أو ربط SIM**.
+
+1. Run \`42240928825\` / Commit \`014ee1258b5b\`: OpenAPI discovery من الموصّلات المتحقق منها؛ مزامنة روابط المعرفة المستحقة يدويًا بحد أقصى 3 لكل مرة؛ تدعيم idempotency وتأكيد العمليات. CI/Host QA/Host Deploy SUCCESS، 80 ملفًا.
+2. Run \`42242511149\` / Commit \`93d70717ef13\`: Public API Cache مع TTL وعزل Tenant/Site واستعمال بيانات عامة حديثة في تعليمات الإيجنت من دون شبكة أثناء إعداد الجلسة. CI/Host QA/Host Deploy SUCCESS، 81 ملفًا.
+3. Run \`42244090845\` / Commit \`ed8ce1694e2e\`: دعم اعتماد Bearer/Basic عند جلب OpenAPI من موصل مصرح، تمييز WHMCS Ticket ID الداخلي عن الرقم الظاهر للعميل، واختبار متصفح CDP بحسابات Admin/Reseller/User التجريبية عبر 237 فحصًا و0 إخفاقات. Host QA 66 PHP، Host Deploy 81 ملفًا، rollback محفوظ، تحقق ثبات Native/OTA، Run SUCCESS.
+4. **دليل المضيف:** \`ops/host-link/results/appontrack-server11/v1-siteqa-42244090845.json\` و\`.../v1-saas-42244090845.json\`؛ حالة \`success\`، exit code 0، source \`ed8ce1694e2e\`. رابط التشغيل: https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42244090845.
+5. **المفتوح حاليًا:** مزودات WHMCS/Laravel حية على بيئة تجربة مأذونة؛ تأكيد حجز/تذكرة بإيصال فعلي أثناء مكالمة Gemini/SIM؛ مزامنة KB خلفية وجدولة فعلية وفهرسة دلالية؛ DNS/TLS لريسيلر حقيقي؛ متصفح إنتاجي مصادق؛ تغطية الأمان والترخيص عن بعد؛ اختبارات Gemini failover والمكالمة على Wi-Fi/4G. لا تُختلق هذه الأدلة أو تُمزج مع نتائج CI.
+6. **حدود الصلاحية باقية كما في §7:** GitHub + Runner + Host Worker موثقة؛ لا SSH عام مفترض ولا اتصال جهاز فعلي مفترض. كل نشر جديد يحتاج أمر تنفيذ وTest/Host Receipt مطابق. هذا التحديث توثيق للحاصل وليس أمرًا ببدء عمل آخر.
+
+لم تُحذف أو تُعدّل شروط المرحلة الأولى أو التصاريح الأصلية، ولم يُنقل بند غير مكتمل إلى DONE.
