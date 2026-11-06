@@ -1,0 +1,64 @@
+name: OnTrack Wi-Fi Gemini PCM downlink QA (NO APK / NO DEPLOY)
+on:
+  push:
+    branches: [release/voice-v1-20261106]
+    paths:
+      - 'saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLiveCall.kt'
+      - 'saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/LinkPcm.kt'
+      - 'saas/mobile/audio-proof/overlay/app/src/test/java/com/ontrack/voiceproof/LinkPcmTest.kt'
+      - '.github/workflows/voice-wifi-playback-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-wifi-pcm-qa-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android_pcm:
+    name: Windows native PCM contract and Kotlin compile only
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: jemcik/JemRec
+          ref: f011062adfb3a2154c4d5a9cc4394032fb4345f2
+          path: .build/jemrec
+          persist-credentials: false
+      - name: Apply latest audited OnTrack audio overlay
+        run: |
+          $ErrorActionPreference='Stop'
+          & python saas/mobile/audio-proof/prepare.py .build/jemrec
+          if($LASTEXITCODE -ne 0){throw 'Cannot apply audio source overlay'}
+          Write-Host 'OVERLAY_PREPARED_PASS'
+      - name: Resolve Android test and Fragment prerequisites
+        run: |
+          $ErrorActionPreference='Stop'
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $env:ANDROID_HOME=$sdk
+          $env:ANDROID_SDK_ROOT=$sdk
+          "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $gradle='.build/jemrec/app/build.gradle.kts'
+          $source=[System.IO.File]::ReadAllText((Resolve-Path $gradle).Path)
+          $anchor='    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")'
+          if($source.Split([string[]]@($anchor), [System.StringSplitOptions]::None).Length -ne 2){
+            throw 'AndroidX fragment dependency anchor mismatch'
+          }
+          $source=$source.Replace($anchor, '    implementation("androidx.fragment:fragment:1.6.2")' + [Environment]::NewLine + $anchor)
+          [System.IO.File]::WriteAllText((Resolve-Path $gradle).Path,$source,[System.Text.UTF8Encoding]::new($false))
+      - name: Unit test full PCM burst order and compile mobile Kotlin
+        working-directory: .build/jemrec
+        run: |
+          $ErrorActionPreference='Stop'
+          & .\gradlew.bat --no-daemon :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.LinkPcmTest'
+          if($LASTEXITCODE -ne 0){throw 'Gemini PCM burst regression test failed'}
+          & .\gradlew.bat --no-daemon :app:compileDebugKotlin
+          if($LASTEXITCODE -ne 0){throw 'Live voice Kotlin compilation failed'}
+          Write-Host 'WIFI_PCM_BURST_NO_EVICTION_QA_PASS'
