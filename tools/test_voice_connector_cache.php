@@ -90,6 +90,29 @@ cached_check(!str_contains(voice_connector_cache_context(4,$site),'Tenant 4 publ
 cached_check(voice_connector_cache_due_all(1,static function():never {
     throw new RuntimeException('unexpected immediate retry');
 })['checked']===0,'failed provider is not hammered on every cron tick');
+// A second failure increments the counter; recovery resets it without
+// accidentally extending the TTL of the previously expired snapshot.
+execute('UPDATE voice_connector_public_refresh_schedule SET next_attempt_at=?
+    WHERE connector_id=? AND account_id=4',[$old,$conn]);
+$downAgain=voice_connector_cache_due_all(1,static function():never {
+    throw new RuntimeException('synthetic second failure');
+});
+cached_check($downAgain['checked']===1&&$downAgain['failed']===1,'repeated API failure counted');
+$retryAgain=one('SELECT failures,next_attempt_at FROM voice_connector_public_refresh_schedule
+    WHERE connector_id=? AND account_id=4',[$conn]);
+cached_check((int)$retryAgain['failures']===2&&$retryAgain['next_attempt_at']>now(),
+    'second public failure increments backoff counter');
+execute('UPDATE voice_connector_public_refresh_schedule SET next_attempt_at=?
+    WHERE connector_id=? AND account_id=4',[$old,$conn]);
+$recovered=voice_connector_cache_due_all(1,static fn():array=>[
+    'result'=>'success','products'=>['product'=>[['name'=>'Recovered hosting plan']]]
+]);
+cached_check($recovered['checked']===1&&$recovered['refreshed']===1,'public API recovers');
+$recoveryRow=one('SELECT failures FROM voice_connector_public_refresh_schedule
+    WHERE connector_id=? AND account_id=4',[$conn]);
+cached_check((int)$recoveryRow['failures']===0,'recovery resets retry counter');
+cached_check(str_contains(voice_connector_cache_context(4,$site),'Recovered hosting plan'),
+    'recovered public facts are available again');
 $bad=false;try{voice_connector_cache_due_all(9);}catch(InvalidArgumentException){$bad=true;}
 cached_check($bad,'global refresh budget enforced');
 
