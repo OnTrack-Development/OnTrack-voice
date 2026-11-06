@@ -191,9 +191,13 @@ function voice_kb_web_sync(int $accountId,int $siteId,int $linkId,?callable $tra
             'message'=>'Owner must approve before this content is used by an agent.'];
     }catch(Throwable $error){
         // Do not overwrite a previously reviewed live fact on failed refresh.
-        execute("UPDATE voice_kb_web_links SET status='error',last_error=?,last_fetched_at=?
-            WHERE id=? AND account_id=? AND site_id=?",
-            [mb_substr($error->getMessage(),0,90),now(),$linkId,$accountId,$siteId]);
+        // A failed URL must wait before retrying; otherwise it starves other
+        // tenants/sites on every scheduled run. The approved source remains live.
+        $retrySeconds=max(3600,min(86400,(int)$link['interval_hours']*3600));
+        execute("UPDATE voice_kb_web_links SET status='error',last_error=?,last_fetched_at=?,
+            next_check_at=? WHERE id=? AND account_id=? AND site_id=?",
+            [mb_substr($error->getMessage(),0,90),now(),
+             gmdate('Y-m-d H:i:s',time()+$retrySeconds),$linkId,$accountId,$siteId]);
         throw $error;
     }
 }
@@ -223,6 +227,10 @@ function voice_kb_scope_set(int $accountId,int $siteId,int $sourceId,
 }
 function voice_kb_agent_context(int $accountId,int $siteId,int $agentId,int $max=7000):string {
     voice_kb_web_init();
+    // Fail closed: a missing, archived or foreign agent must receive no context,
+    // even if a source is otherwise visible to all agents of this site.
+    if($agentId<=0||!one("SELECT id FROM agents WHERE id=? AND account_id=? AND site_id=?
+          AND status!='archived'",[$agentId,$accountId,$siteId]))return '';
     $rows=all("SELECT k.name,k.content,k.version,m.origin_url
       FROM voice_knowledge_sources k
       LEFT JOIN voice_kb_meta m ON m.source_id=k.id AND m.account_id=k.account_id AND m.site_id=k.site_id
@@ -270,6 +278,34 @@ function voice_kb_sync_due(int $accountId,int $siteId,int $limit=3,?callable $tr
             $summary['failed']++;
             $summary['errors'][]=['link_id'=>$linkId,'error'=>'source_sync_failed'];
         }
+    }
+    return $summary;
+}
+
+
+/**
+ * Cron-ready bounded scan across active tenants. Each link is fetched through
+ * the same HTTPS policy and owner approval process as manual synchronization.
+ * This function does not grant or promote a pending source automatically.
+ */
+function voice_kb_sync_due_all(int $limit=12,?callable $transport=null):array {
+    voice_kb_web_init();
+    if($limit<1||$limit>12)throw new InvalidArgumentException('knowledge_global_due_limit_invalid');
+    $rows=all("SELECT l.id,l.account_id,l.site_id FROM voice_kb_web_links l
+        INNER JOIN sites s ON s.id=l.site_id AND s.account_id=l.account_id
+        WHERE s.status='active'
+          AND l.status IN ('draft','current','review','error')
+          AND (l.next_check_at IS NULL OR l.next_check_at<=?)
+        ORDER BY COALESCE(l.next_check_at,l.created_at),l.id LIMIT ".(int)$limit,[now()]);
+    $summary=['checked'=>0,'unchanged'=>0,'review'=>0,'failed'=>0];
+    foreach($rows as $row){
+        $summary['checked']++;
+        try{
+            $result=voice_kb_web_sync((int)$row['account_id'],(int)$row['site_id'],
+                (int)$row['id'],$transport);
+            if($result['status']==='unchanged')$summary['unchanged']++;
+            else $summary['review']++;
+        }catch(Throwable $ignored){$summary['failed']++;}
     }
     return $summary;
 }

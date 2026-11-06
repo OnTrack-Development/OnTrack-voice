@@ -90,4 +90,32 @@ $crossDue=false;
 try{voice_kb_sync_due(5,$site,3,static fn()=> 'irrelevant');}
 catch(InvalidArgumentException){$crossDue=true;}
 kb_web_check($crossDue,'due sync cannot cross tenant');
+// The scheduled worker processes separate accounts and keeps changes pending.
+$tenantSite=(int)one("SELECT id FROM sites WHERE account_id=5 AND status='active' LIMIT 1")['id'];
+kb_web_check(voice_kb_agent_context(4,$site,$agent+999999)==='',
+    'unknown agent cannot read even all-scope knowledge');
+kb_web_check(voice_kb_agent_context(4,$site,$other)==='',
+    'cross-tenant agent cannot read any public knowledge');
+$autoA=voice_kb_web_add(4,$site,'Auto knowledge A','https://example.com/auto-a',$folder,'public',1);
+$autoB=voice_kb_web_add(5,$tenantSite,'Auto knowledge B','https://example.org/auto-b',0,'public',1);
+$auto=voice_kb_sync_due_all(12,static fn(string $url):string=>
+    'Public updated documentation must remain pending until owner review, source '.hash('sha256',$url));
+kb_web_check($auto['checked']===2&&$auto['review']===2&&$auto['failed']===0,
+    'scheduled scan handles two isolated accounts');
+$autoSourceA=(int)one("SELECT source_id FROM voice_kb_web_links WHERE id=? AND account_id=4",[$autoA])['source_id'];
+$autoSourceB=(int)one("SELECT source_id FROM voice_kb_web_links WHERE id=? AND account_id=5",[$autoB])['source_id'];
+kb_web_check((string)one("SELECT status FROM voice_knowledge_sources WHERE id=?",[$autoSourceA])['status']==='review' &&
+    (string)one("SELECT status FROM voice_knowledge_sources WHERE id=?",[$autoSourceB])['status']==='review',
+    'background sync never auto approves foreign or local source');
+$badLink=voice_kb_web_add(4,$site,'Unreachable','https://example.net/fail',$folder,'public',1);
+$failed=voice_kb_sync_due_all(12,static function(string $url):string {
+    throw new RuntimeException('test_network_down');
+});
+kb_web_check($failed['checked']===1&&$failed['failed']===1,
+    'scheduled fetch fails closed');
+$retry=one('SELECT status,next_check_at FROM voice_kb_web_links WHERE id=?',[$badLink]);
+kb_web_check($retry['status']==='error' && $retry['next_check_at']>now(),
+    'failed refresh receives retry backoff');
+kb_web_check(voice_kb_sync_due_all(12,static fn()=> 'no network fetch required')['checked']===0,
+    'failed link is not retried on every tick');
 echo "VOICE_KNOWLEDGE_WEB_AGENT_TTL_PASS\n";

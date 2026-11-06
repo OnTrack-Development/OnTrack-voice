@@ -2,7 +2,7 @@
 The old /saas/console URL is a compatibility route, never a second deployment.
 Never include .ontrack-saas keys or customer files in the public archive.
 """
-import hashlib,io,json,os,pathlib,shutil,subprocess,tarfile,tempfile,urllib.parse,urllib.request,zipfile
+import hashlib,io,json,os,pathlib,shutil,subprocess,tarfile,tempfile,urllib.parse,urllib.request,zipfile,shlex
 HOME=pathlib.Path('/home/appontrack')
 ROOT=HOME/'public_html'
 BACKUPS=HOME/'backup/releases'
@@ -114,6 +114,30 @@ def rewrite_root_urls(root):
         raise RuntimeError('root_url_transform_failed')
     return changes
 
+
+def ensure_knowledge_sync_cron():
+    """Install only this site's five-minute CLI entry, preserving every other cron."""
+    tag='# ontrack-site-knowledge-sync'
+    entry='*/5 * * * * '+shlex.quote(PHP)+' '+shlex.quote(str(ROOT/'jobs/knowledge_sync.php'))+' >/dev/null 2>&1 '+tag
+    current=subprocess.run(['crontab','-l'],capture_output=True,text=True,timeout=10)
+    if current.returncode:
+        if not (current.returncode==1 and not current.stdout.strip() and
+                'no crontab' in current.stderr.lower()):
+            raise RuntimeError('site_kb_crontab_unreadable')
+        prior=[]
+    else:
+        prior=current.stdout.splitlines()
+    if entry in prior:return True
+    preserved=[line for line in prior if tag not in line]
+    updated='\n'.join(preserved+[entry])+'\n'
+    result=subprocess.run(['crontab','-'],input=updated,text=True,
+                          capture_output=True,timeout=10)
+    if result.returncode:raise RuntimeError('site_kb_cron_install_failed')
+    verified=subprocess.run(['crontab','-l'],capture_output=True,text=True,timeout=10)
+    if verified.returncode or entry not in verified.stdout.splitlines():
+        raise RuntimeError('site_kb_cron_verify_failed')
+    return True
+
 def deploy(download_url,tar_sha,source_commit):
     if os.getuid()!=2379 or ROOT.is_symlink() or not ROOT.is_dir() or not (ROOT/'mobile').is_dir():
         raise RuntimeError('root_or_mobile_compat_missing')
@@ -163,10 +187,11 @@ def deploy(download_url,tar_sha,source_commit):
         seed=subprocess.run([PHP,str(ROOT/'database/Seed.php')],capture_output=True,text=True,timeout=9)
         if seed.returncode!=0:raise RuntimeError('seed_failed')
         assert (ROOT/'saas/mobile').resolve()==(ROOT/'mobile').resolve()
+        cron_installed=ensure_knowledge_sync_cron()
         print(json.dumps({'result':'deployed','source':source_commit[:12],'target':'/',
                           'files':files,'rewritten':changes,'php':'8.3',
                           'seed':json.loads(seed.stdout),'private_rollback':str(backups),
-                          'android_compat':True},ensure_ascii=False))
+                          'android_compat':True,'knowledge_cron_installed':cron_installed},ensure_ascii=False))
     except Exception:
         if switched and backups is not None and backups.exists():
             broken=stage/'broken_root'
