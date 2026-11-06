@@ -1,8 +1,8 @@
 name: Android SIM Audio Proof
 on:
   push:
-    branches: [main, 'fix/sim1-staging-ui-20261102', 'fix/console-pricing-connection-ui-20261102', 'feat/tenant-only-mobile-workspace-20261102', 'fix/tenant-mix-session-parity-20261102', ]
-    # Owner production branch uses ONLY ontrack-voice-android-release.yml.
+    branches: [main, 'fix/sim1-staging-ui-20261102', 'fix/console-pricing-connection-ui-20261102', 'feat/tenant-only-mobile-workspace-20261102', 'fix/tenant-mix-session-parity-20261102', 'release/voice-v1-20261106']
+    # On release/voice-v1-20261106 this is a non-publishing audio QA build only.
     # Never launch a second Linux APK build/publish for the same revision.
     # Native builds only for Android/telephony/backend changes.
     # Visual HTML OTA now has its own signed no-APK pipeline.

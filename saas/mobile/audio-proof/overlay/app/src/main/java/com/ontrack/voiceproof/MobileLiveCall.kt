@@ -32,8 +32,10 @@ internal class MobileLiveCall(
     private val stopped=AtomicBoolean(false)
     @Volatile private var remoteSpeechConfirmed=!outgoingCall
     private val ready=CompletableDeferred<Unit>()
-    // Keep at most ~250ms of pending generated voice during 4G congestion.
-    private val playback=Channel<Pair<Int,ByteArray>>(10)
+    // Gemini may deliver several seconds of PCM in one websocket burst.
+    // Ten 25ms packets truncated every burst and made speech sound rushed/cut
+    // even on Wi-Fi. Keep full natural utterances; never evict the HEAD.
+    private val playback=Channel<Pair<Int,ByteArray>>(LivePlaybackQueuePolicy.MAX_PACKETS)
     @Volatile private var generation=0
     @Volatile private var pipe:Socket?=null
     @Volatile private var output:DataOutputStream?=null
@@ -118,6 +120,7 @@ internal class MobileLiveCall(
     private val capturedPackets=AtomicLong(0)
     private val audibleCapture=AtomicBoolean(false)
     private val modelAudioBytes=AtomicLong(0)
+    private val playbackOverflowPackets=AtomicLong(0)
     private val lastAssistantAudioAt=AtomicLong(0)
     private val lastLocalBargeAt=AtomicLong(0)
     private val submittedToShell=AtomicLong(0)
@@ -396,11 +399,15 @@ internal class MobileLiveCall(
                         val bytes=LinkPcm.output(Base64.decode(inline.getString("data"),Base64.DEFAULT),rate)
                         modelAudioBytes.addAndGet(bytes.size.toLong())
                         lastAssistantAudioAt.set(SystemClock.elapsedRealtime())
-                        for(at in bytes.indices step 2400) {
-                            val packet=generation to bytes.copyOfRange(at,minOf(at+2400,bytes.size))
+                        for(at in bytes.indices step LivePlaybackQueuePolicy.PACKET_BYTES) {
+                            val packet=generation to bytes.copyOfRange(at,
+                                minOf(at+LivePlaybackQueuePolicy.PACKET_BYTES,bytes.size))
                             if(!playback.trySend(packet).isSuccess){
-                                playback.tryReceive()
-                                playback.trySend(packet)
+                                // Do not remove old, unsounded PCM and splice later words
+                                // over it. Preserve order; record a saturation diagnosis.
+                                val overflows=playbackOverflowPackets.incrementAndGet()
+                                if(overflows==1L || overflows%100L==0L)
+                                    onAudioDiagnostics("AI playback queue overflow; PCM tail suppressed. packets=$overflows")
                             }
                         }
                     }

@@ -24,6 +24,19 @@ internal object LiveAudioQueuePolicy {
     }
 }
 
+/**
+ * Downlink PCM is 48kHz mono signed 16-bit; each packet contains 25ms.
+ * Gemini websocket messages may batch seconds of audio. A 10-packet channel
+ * (250ms) is NOT a valid playback jitter buffer and audibly drops syllables.
+ * 800 packets = 20 seconds / <2 MiB, enough to preserve natural utterances.
+ */
+internal object LivePlaybackQueuePolicy {
+    const val PACKET_BYTES = 2400
+    const val OUTPUT_RATE = 48000
+    const val MAX_PACKETS = 800
+    const val MAX_QUEUED_MS = MAX_PACKETS * PACKET_BYTES * 1000 / (OUTPUT_RATE * 2)
+}
+
 internal class LinkPcm(private val channel: String) {
     private var sum = 0
     private var frames = 0
