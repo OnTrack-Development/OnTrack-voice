@@ -4,6 +4,7 @@ on:
     branches:
       - fix/v1-site-only-20261106
       - feat/site-v1-remaining-20261106
+      - feat/site-v1-finish-20261106
       - release/voice-v1-20261106
     paths:
       - 'saas/console/**'
