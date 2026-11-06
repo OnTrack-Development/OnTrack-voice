@@ -357,7 +357,11 @@ def publish_site_only():
     before="(u.hostname.endswith('.blob.core.windows.net') or u.hostname.endswith('.actions.githubusercontent.com'))"
     after="(u.hostname.endswith('.blob.core.windows.net') or u.hostname.endswith('.actions.githubusercontent.com') or u.hostname in ('release-assets.githubusercontent.com','objects.githubusercontent.com'))"
     assert original.count(before)==1
-    script=inline_program(original.replace(before,after),"deploy(*sys.argv[1:])")
+    reviewed=original.replace(before,after)
+    preflight=inline_program(reviewed,"site_preflight(*sys.argv[1:])")
+    host_job("siteqa","/home/appontrack",preflight,[url,sha(compressed),SHA_SOURCE],
+        lambda obj:obj.get("result")=="preflight_pass" and obj.get("source")==SHA_SOURCE[:12] and obj.get("isolated_database") is True)
+    script=inline_program(reviewed,"deploy(*sys.argv[1:])")
     host_job("saas","/home/appontrack",script,[url,sha(compressed),SHA_SOURCE],
         lambda obj:obj.get("result")=="deployed" and obj.get("source")==SHA_SOURCE[:12] and obj.get("android_compat") is True)
     assert live("mobile/updates/latest.json")==ui_before,"UI OTA pointer changed"
