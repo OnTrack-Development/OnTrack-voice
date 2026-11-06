@@ -27,6 +27,9 @@ subs_check($again['changed']===false && $again['subscription_id']===$first['subs
     'replay does not prolong 30-day entitlement or create a duplicate');
 $afterReplay=one('SELECT starts_at,ends_at FROM subscriptions WHERE id=?',[$first['subscription_id']]);
 subs_check((string)$afterReplay['ends_at']!=='','subscription period remains explicit');
+// An existing longer entitlement must survive an upgrade, not reset to 30 days.
+$originalEnd=gmdate('Y-m-d H:i:s',time()+65*86400);
+execute('UPDATE subscriptions SET ends_at=? WHERE id=?',[$originalEnd,$first['subscription_id']]);
 $upgrade=subscription_assign_demo($another,(int)$plans[1]['id']);
 subs_check($upgrade['changed']===true && $upgrade['subscription_id']!==$first['subscription_id'] &&
     (string)one('SELECT status FROM subscriptions WHERE id=?',[$first['subscription_id']])['status']==='replaced',

@@ -22,7 +22,7 @@ function subscription_assign_demo(int $accountId,int $planId):array {
         throw new RuntimeException('subscription_nested_transaction_denied');
     db()->beginTransaction();
     try{
-        $current=one("SELECT id,plan_id FROM subscriptions
+        $current=one("SELECT id,plan_id,ends_at FROM subscriptions
             WHERE account_id=? AND status='active' AND starts_at<=? AND ends_at>?
             ORDER BY id DESC LIMIT 1",[$accountId,now(),now()]);
         if($current && (int)$current['plan_id']===$planId){
