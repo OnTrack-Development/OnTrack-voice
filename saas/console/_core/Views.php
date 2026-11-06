@@ -960,15 +960,14 @@ function render_flows(array $a):void{
             if(published_agent_flow($id,(int)$agent['site_id'],(int)$agent['id']))
                 $available[(string)$agent['id']]=$agent['name'].' · '.$agent['site_name'];
         if($available){
-            $selectedId=(int)array_key_first($available);
-            $chosen=one("SELECT site_id FROM agents WHERE id=? AND account_id=?",[$selectedId,$id]);
-            $test='<p class="info">محاكاة سيرفر حقيقية لحالة العقد والترانزيشن فقط، ولا تُعادل مكالمة SIM. العقد الخارجية متوقفة حتى ربط أداة وموافقة ونتيجة API.</p>'.
-                form_start('voice_flow_test_start','/?tab=flows').
-                '<label class="field">اختر مساعدًا منشورًا<select name="agent_id">';
-            foreach($available as $aid=>$label)$test.='<option value="'.(int)$aid.'">'.e($label).'</option>';
-            $test.='</select></label>'.
-                '<label class="field">Site ID للمساعد المنشور<input type="number" name="site_id" min="1" required placeholder="رقم الموقع"></label>'.
-                submit_btn('بدء محاكاة Flow منفصلة');
+            $test='<p class="info">محاكاة خادم لحالة العقد والانتقالات. لا تُعادل مكالمة SIM، ولا تنفذ عملية خارجية دون موافقة ونتيجة API.</p>';
+            foreach($agents as $agent){
+                if(!isset($available[(string)$agent['id']]))continue;
+                $test.=form_start('voice_flow_test_start','/?tab=flows','class="inline-form"').
+                    '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
+                    '<input type="hidden" name="site_id" value="'.(int)$agent['site_id'].'">'.
+                    '<button class="btn small" type="submit">اختبار '.e($agent['name']).'</button></form>';
+            }
             $active=$_SESSION['voice_flow_active']??null;
             if(is_array($active)&&(int)($active['account_id']??0)===$id&&
                (int)($active['actor_id']??0)===(int)(me()['id']??0)){
@@ -1009,14 +1008,17 @@ function render_flows(array $a):void{
           WHERE p.account_id=? AND p.enabled=1 AND c.status='verified' ORDER BY p.id DESC LIMIT 60",[$id]) as $p)
             $policyOptions[(string)$p['id']]=$p['operation'].' · '.$p['name'];
         if($policyOptions&&$available){
-            $bind=form_start('voice_flow_tool_bind','/?tab=flows').
-                '<label class="field">المساعد المنشور<select name="agent_id">';
-            foreach($available as $aid=>$label)$bind.='<option value="'.(int)$aid.'">'.e($label).'</option>';
-            $bind.='</select></label>'.
-                '<label class="field">Site ID المملوك للمساعد<input type="number" name="site_id" min="1" required></label>'.
-                '<label class="field">Node ID في المخطط<input name="node_id" maxlength="60" required></label>'.
-                select_html('سياسة أداة معتمدة','policy_id',$policyOptions).
-                submit_btn('ربط العقدة بالعملية المصرح بها');
+            $bind='<p class="dim">حدد عقدة من مخطط مساعد منشور ثم سياسة أداة صرح بها صاحب الحساب. لا تنفذ أي عملية بمجرد الربط.</p>';
+            foreach($agents as $agent){
+                if(!isset($available[(string)$agent['id']]))continue;
+                $bind.='<details><summary>'.e($agent['name']).' · '.e($agent['site_name']).'</summary>'.
+                    form_start('voice_flow_tool_bind','/?tab=flows').
+                    '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
+                    '<input type="hidden" name="site_id" value="'.(int)$agent['site_id'].'">'.
+                    '<label class="field">Node ID في المخطط<input name="node_id" maxlength="60" required></label>'.
+                    select_html('سياسة أداة معتمدة','policy_id',$policyOptions).
+                    submit_btn('ربط العقدة بالعملية المصرح بها').'</details>';
+            }
             echo card('ربط عقد Tool / CRM / Booking بسياسة', $bind);
         }
     }

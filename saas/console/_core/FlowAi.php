@@ -13,7 +13,7 @@ function flow_ai_validate_proposal(array $candidate):array {
     if(!is_array($graph['nodes'])||!is_array($graph['edges'])||
        count($graph['nodes'])<2||count($graph['nodes'])>32||
        count($graph['edges'])>64)throw new InvalidArgumentException('ai_flow_invalid_size');
-    $safe=['start','say','listen','ask','condition','instruction','intent','reasoning','validation','approval','fallback','tool','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end','intent','reasoning','validation','approval','fallback','tool'];
+    $safe=['start','say','listen','ask','condition','instruction','intent','reasoning','validation','approval','fallback','tool','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end'];
     $nodes=[];
     foreach($graph['nodes'] as $n){
         if(!is_array($n)||!in_array($n['type']??null,$safe,true))
@@ -158,7 +158,7 @@ PROMPT;
     $schema=['type'=>'OBJECT','properties'=>[
         'nodes'=>['type'=>'ARRAY','items'=>['type'=>'OBJECT','properties'=>[
             'id'=>['type'=>'STRING'],'type'=>['type'=>'STRING',
-                'enum'=>['start','say','listen','ask','instruction','condition','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end']],
+                'enum'=>['start','say','listen','ask','instruction','condition','intent','reasoning','validation','approval','fallback','tool','knowledge_lookup','collect_field','crm_lookup','crm_write','schedule','handoff','end']],
             'text'=>['type'=>'STRING'],'x'=>['type'=>'INTEGER'],'y'=>['type'=>'INTEGER']],
             'required'=>['id','type','text','x','y']]],
         'edges'=>['type'=>'ARRAY','items'=>['type'=>'OBJECT','properties'=>[

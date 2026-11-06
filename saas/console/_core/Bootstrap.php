@@ -14,7 +14,17 @@ function private_path(): string {
         if(!is_dir($root)||is_link($root))throw new RuntimeException('untrusted_test_root');
         $path=$isolated;
     }else{
-        $path=is_dir('/home/appontrack')?SAAS_PRIVATE:sys_get_temp_dir().'/ontrack-saas-demo';
+        // Isolate local/runner fixture databases by a validated short CI identifier.
+        // This variable is ignored for browser requests and does not override
+        // the explicit protected host preflight path above.
+        $tag=PHP_SAPI==='cli'?(string)(getenv('ONTRACK_CI_NAMESPACE')?:''):'';
+        if($tag!==''){
+            if(!preg_match('/^[A-Za-z0-9_-]{8,60}$/D',$tag))
+                throw new RuntimeException('unsafe_ci_namespace');
+            $path=sys_get_temp_dir().'/ontrack-saas-ci-'.$tag;
+        }else{
+            $path=is_dir('/home/appontrack')?SAAS_PRIVATE:sys_get_temp_dir().'/ontrack-saas-demo';
+        }
     }
     if (!is_dir($path)) {mkdir($path,0700,true);}
     return $path;
