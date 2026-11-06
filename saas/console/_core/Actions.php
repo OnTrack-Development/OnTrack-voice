@@ -447,6 +447,16 @@ function act():void {
                     field('auth_mode',25),field('credential',2000));
                 audit('voice.connector.created',$id,['connector_id'=>$connector,'type'=>field('type',25)]);
                 break;
+            case 'voice_connector_cache_priority_set':
+                require_permission('agents.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceConnectorCache.php';
+                $site=intfield('site_id');$connector=intfield('connector_id');
+                voice_connector_cache_priority_set($id,$site,$connector,intfield('priority'));
+                audit('voice.connector.cache_priority',$id,['site_id'=>$site,
+                    'connector_id'=>$connector,'priority'=>intfield('priority')]);
+                $success='تم حفظ أولوية المصدر العام دون تعديل صلاحية أو بيانات API الخاصة.';
+                break;
             case 'voice_connector_cache_refresh':
                 require_permission('agents.write');
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
@@ -456,7 +466,8 @@ function act():void {
                 $result=voice_connector_cache_refresh($id,$site,$connector,$ttl);
                 audit('voice.connector.cache_refreshed',$id,['site_id'=>$site,
                    'connector_id'=>$connector,'sha'=>$result['sha256'],
-                   'expires_at'=>$result['expires_at']]);
+                   'expires_at'=>$result['expires_at'],
+                   'duration_ms'=>$result['duration_ms']]);
                 $success='تم تحديث لقطة المعلومات العامة المصرح بها، وصالحة حتى '.
                     $result['expires_at'].' UTC. المعلومات الخاصة تُقرأ حيّة فقط بعد التحقق.';
                 break;
@@ -698,6 +709,15 @@ function act():void {
                 }catch(Throwable $ex){if($started&&db()->inTransaction())db()->rollBack();throw $ex;}
                 audit('agent.updated',$id,['agent'=>$ag['id'],'published'=>$publishNow]);
                 if(!$publishNow)$success='تم حفظ إعدادات الإيجنت كمسودة بدون تحديث الصفحة.';
+                break;
+            case 'restore_agent_flow_draft':
+                require_permission('agents.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $agentId=intfield('agent_id');$revision=intfield('revision');
+                $restored=restore_published_agent_draft($id,$agentId,$revision);
+                audit('agent.flow.restored_draft',$id,['agent_id'=>$agentId,
+                    'revision'=>$restored['draft_from_revision']]);
+                $success='تم استرجاع النسخة v'.$revision.' كمسودة فقط. النسخة المنشورة لم تتغير حتى تنشر بموافقة منفصلة.';
                 break;
             case 'publish_agent_flow':
                 require_permission('agents.write');

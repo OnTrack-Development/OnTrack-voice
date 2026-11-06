@@ -78,6 +78,22 @@ try {
     save_answer_policy($account,$agent,$policy);
     $third=publish_agent_flow($account,$agent,$ownerId);
     scenario_ok($third['revision']===3,'switching back to builder publishes new revision');
+    $restored=restore_published_agent_draft($account,$agent,2);
+    scenario_ok($restored['published_unchanged']===true &&
+        (string)one('SELECT status FROM agents WHERE id=?',[$agent])['status']==='draft',
+        'restoring a historical revision changes draft only');
+    scenario_ok(answer_policy_for_agent($account,$agent)['scenario_mode']==='scenario' &&
+        answer_policy_for_agent($account,$agent)['scenario_text']===$text,
+        'historical text scenario restored alongside graph');
+    scenario_ok((int)published_agent_flow($account,$site,$agent)['revision']===3,
+        'restoring draft leaves immutable published revision untouched');
+    $missing=false;try{restore_published_agent_draft($account,$agent,99999);}
+    catch(InvalidArgumentException){$missing=true;}
+    scenario_ok($missing,'unknown revision restore denied');
+    $foreign=false;try{restore_published_agent_draft(5,$agent,1);}
+    catch(InvalidArgumentException){$foreign=true;}
+    scenario_ok($foreign,'cross-tenant restore denied');
+    restore_published_agent_draft($account,$agent,3);
     $back=tenant_voice_definition($binding);
     scenario_ok($back['scenario_mode']==='builder'&&
         !str_contains($back['instruction'],'نسخة مسودة مختلفة')&&

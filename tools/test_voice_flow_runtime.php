@@ -46,6 +46,10 @@ flow_check($one['state']['awaiting']==='q','waits for consent in graph');
 $side=voice_flow_process(4,$sessionId,$actor,'ما أخبار الطقس؟');
 flow_check($side['state']['awaiting']==='q'&&$side['state']['cursor']==='q',
     'side question preserves graph node');
+$sideAgain=voice_flow_process(4,$sessionId,$actor,'ما أخبار الطقس؟');
+flow_check($sideAgain['state']['awaiting']==='q'&&
+    str_contains((string)($sideAgain['events'][0]['text']??''),'نفس السؤال'),
+    'repeated diversion does not repeat the awaiting node prompt');
 $yes=voice_flow_process(4,$sessionId,$actor,'نعم');
 flow_check($yes['status']==='awaiting_tool'&&$yes['state']['pending_tool']['policy_id']===$policy,
     'tool stopped for independent approval');
@@ -59,6 +63,22 @@ $confirmed=voice_tool_confirm(4,$site,$prepared['request_id'],$actor,$prepared['
 flow_check($confirmed['status']==='succeeded','upstream result verified');
 $linked=voice_flow_complete_tool(4,$sessionId,$actor,$prepared['request_id']);
 flow_check($linked['status']==='active'&&$linked['state']['cursor']==='end','verified tool advances node');
+$recorded=one('SELECT session_id,node_id FROM voice_flow_tool_consumptions WHERE request_id=?',
+    [$prepared['request_id']]);
+flow_check((int)$recorded['session_id']===$sessionId&&$recorded['node_id']==='tool',
+    'confirmed result is consumed by exactly one node');
+$rearmed=$linked['state'];$rearmed['cursor']='tool';
+$rearmed['pending_tool']=['node_id'=>'tool','policy_id'=>$policy];
+execute("UPDATE voice_flow_sessions SET state_json=?,status='awaiting_tool' WHERE id=?",[
+    json_encode($rearmed,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$sessionId]);
+$replayRejected=false;
+try{voice_flow_complete_tool(4,$sessionId,$actor,$prepared['request_id']);}
+catch(InvalidArgumentException $error){
+    $replayRejected=$error->getMessage()==='flow_tool_result_already_consumed';
+}
+flow_check($replayRejected,'the same verified provider request cannot complete another node');
+execute("UPDATE voice_flow_sessions SET state_json=?,status='active' WHERE id=?",[
+    json_encode($linked['state'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$sessionId]);
 $done=voice_flow_process(4,$sessionId,$actor);
 flow_check($done['done']===true&&$done['status']==='completed','flow reaches end only after result');
 flow_check(count(voice_flow_session_traces(4,$sessionId,$actor))>=6,'node traces captured');

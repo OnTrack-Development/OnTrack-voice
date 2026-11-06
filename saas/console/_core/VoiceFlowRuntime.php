@@ -57,6 +57,19 @@ function voice_flow_tool_bind(int $accountId,int $siteId,int $agentId,string $no
         (account_id,site_id,agent_id,node_id,policy_id,updated_at)
         VALUES (?,?,?,?,?,?)",[$accountId,$siteId,$agentId,$nodeId,$policyId,now()]);
 }
+/** Real upstream request IDs may advance at most one flow node globally. */
+function voice_flow_tool_consumptions_init():void {
+    $marker=private_path().'/.schema.voice-flow-tool-consumption.v1';
+    if(is_file($marker))return;
+    $int=driver()==='mysql'?'BIGINT':'INTEGER';
+    $engine=driver()==='mysql'
+      ?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci':'';
+    db()->exec("CREATE TABLE IF NOT EXISTS voice_flow_tool_consumptions (
+       request_id $int PRIMARY KEY,account_id $int NOT NULL,site_id $int NOT NULL,
+       session_id $int NOT NULL,node_id VARCHAR(64) NOT NULL,consumed_at VARCHAR(19) NOT NULL
+    )".$engine);
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
 function voice_flow_trace(array $session,string $node,string $event,string $text):void {
     insert("INSERT INTO voice_flow_traces
        (account_id,site_id,session_id,agent_id,node_id,event_type,event_detail,created_at)
@@ -185,9 +198,21 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
         if($answer==='')throw new InvalidArgumentException('flow_empty_reply');
         $next=flow_preview_edge($graph,(string)$state['awaiting'],$answer);
         if($next===null){
-            // Side question: do not discard the waiting node, collected fields or call context.
-            $events[]=['kind'=>'side_question','text'=>'السؤال الجانبي اتسجل؛ العقدة الحالية لم تتغير.'];
-            voice_flow_trace($session,(string)$state['awaiting'],'side_question','non-matching answer');
+            // Side questions never consume the original waiting node or repeat
+            // its prompt. Answer only from explicitly approved public knowledge.
+            $state['turns']++;
+            $digest=hash('sha256',mb_strtolower($answer,'UTF-8'));
+            if(($state['last_side_question_hash']??'')===$digest){
+                $events[]=['kind'=>'notice','text'=>'تم التعامل مع نفس السؤال الجانبي؛ ما زلنا في الخطوة الأصلية.'];
+            }else{
+                $state['last_side_question_hash']=$digest;
+                $facts=voice_kb_agent_context((int)$session['account_id'],
+                    (int)$session['site_id'],(int)$session['agent_id'],1200,$answer);
+                $events[]=['kind'=>'side_question','text'=>$facts!==''?$facts:
+                    'لا توجد معلومات معتمدة كافية للإجابة على هذا السؤال الجانبي. نستكمل من نفس الخطوة.'];
+                voice_flow_trace($session,(string)$state['awaiting'],'side_question',
+                    $facts!==''?'answered_from_approved_knowledge':'unverified_question');
+            }
         }else{
             $old=(string)$state['awaiting'];
             if(($graph['nodes'][$old]['type']??'')==='collect_field')$state['fields'][$old]=$answer;
@@ -263,6 +288,7 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
 }
 /** Only server-confirmed, matching tool requests can release a paused node. */
 function voice_flow_complete_tool(int $accountId,int $sessionId,int $actorId,int $requestId):array {
+    voice_flow_tool_consumptions_init();
     $session=voice_flow_session($accountId,$sessionId,$actorId);
     voice_flow_require_active_context($session);
     $state=json_decode((string)$session['state_json'],true,32,JSON_THROW_ON_ERROR);
@@ -292,11 +318,22 @@ function voice_flow_complete_tool(int $accountId,int $sessionId,int $actorId,int
     if($next!==null){$state['cursor']=$next;$state['awaiting']=null;}
     else{$state['done']=true;$state['awaiting']=null;}
     $newStatus=($state['done']??false)?'blocked':'active';
-    $updated=execute("UPDATE voice_flow_sessions SET state_json=?,status=?,
-       step_version=step_version+1,updated_at=? WHERE id=? AND account_id=? AND step_version=?",[
-       json_encode($state,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$newStatus,now(),
-       $sessionId,$accountId,(int)$session['step_version']]);
-    if($updated!==1)throw new RuntimeException('flow_session_write_conflict');
+    if(db()->inTransaction())throw new RuntimeException('flow_tool_nested_transaction');
+    db()->beginTransaction();
+    try{
+        if(one('SELECT request_id FROM voice_flow_tool_consumptions WHERE request_id=?',[$requestId]))
+            throw new InvalidArgumentException('flow_tool_result_already_consumed');
+        $updated=execute("UPDATE voice_flow_sessions SET state_json=?,status=?,
+           step_version=step_version+1,updated_at=? WHERE id=? AND account_id=? AND step_version=?",[
+           json_encode($state,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$newStatus,now(),
+           $sessionId,$accountId,(int)$session['step_version']]);
+        if($updated!==1)throw new RuntimeException('flow_session_write_conflict');
+        insert('INSERT INTO voice_flow_tool_consumptions
+           (request_id,account_id,site_id,session_id,node_id,consumed_at)
+           VALUES (?,?,?,?,?,?)',[$requestId,$accountId,(int)$session['site_id'],
+           $sessionId,$node,now()]);
+        db()->commit();
+    }catch(Throwable $error){if(db()->inTransaction())db()->rollBack();throw $error;}
     voice_flow_trace($session,$node,'tool_'.$tool['status'],
         $tool['status']==='succeeded'?'verified_ref_'.(string)($tool['reference_id']??''):'unconfirmed');
     return ['status'=>$newStatus,'events'=>[$event],'state'=>$state,'done'=>(bool)($state['done']??false)];

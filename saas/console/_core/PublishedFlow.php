@@ -62,3 +62,34 @@ function publish_agent_flow(int $accountId,int $agentId,int $actorId):array {
         return ['revision'=>$revision,'duplicate'=>false,'hash'=>$hash];
     }catch(Throwable $e){if($own&&db()->inTransaction())db()->rollBack();throw $e;}
 }
+
+/** Restore a prior approved snapshot into an editable draft, never auto-publish. */
+function restore_published_agent_draft(int $accountId,int $agentId,int $revision):array {
+    if($revision<1)throw new InvalidArgumentException('flow_revision_invalid');
+    $agent=one("SELECT ag.id,ag.site_id FROM agents ag
+       JOIN sites s ON s.id=ag.site_id AND s.account_id=ag.account_id AND s.status='active'
+       JOIN accounts a ON a.id=ag.account_id AND a.status='active'
+       WHERE ag.id=? AND ag.account_id=? AND ag.status!='archived'",[$agentId,$accountId]);
+    if(!$agent)throw new InvalidArgumentException('flow_restore_agent_unavailable');
+    $siteId=(int)$agent['site_id'];
+    $snapshot=one('SELECT revision,flow_json,voice,instructions,knowledge,answer_policy_json
+       FROM agent_flow_versions WHERE account_id=? AND site_id=? AND agent_id=? AND revision=?',
+       [$accountId,$siteId,$agentId,$revision]);
+    if(!$snapshot)throw new InvalidArgumentException('flow_restore_revision_unavailable');
+    $graph=json_decode((string)$snapshot['flow_json'],true,32,JSON_THROW_ON_ERROR);
+    flow_preview_compile($graph);
+    $policy=json_decode((string)$snapshot['answer_policy_json'],true,32,JSON_THROW_ON_ERROR);
+    if(!is_array($policy))throw new InvalidArgumentException('flow_restore_policy_invalid');
+    if(db()->inTransaction())throw new RuntimeException('flow_restore_nested_transaction');
+    db()->beginTransaction();
+    try{
+        $updated=execute("UPDATE agents SET flow_json=?,voice=?,instructions=?,knowledge=?,status='draft'
+           WHERE id=? AND account_id=? AND site_id=? AND status!='archived'",
+           [$snapshot['flow_json'],$snapshot['voice'],$snapshot['instructions'],
+            $snapshot['knowledge'],$agentId,$accountId,$siteId]);
+        if($updated!==1)throw new RuntimeException('flow_restore_concurrent_edit');
+        save_answer_policy($accountId,$agentId,$policy);
+        db()->commit();
+    }catch(Throwable $error){if(db()->inTransaction())db()->rollBack();throw $error;}
+    return ['agent_id'=>$agentId,'draft_from_revision'=>$revision,'published_unchanged'=>true];
+}

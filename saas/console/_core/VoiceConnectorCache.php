@@ -32,6 +32,7 @@ function voice_connector_cache_refresh(int $accountId,int $siteId,int $connector
       WHERE c.id=? AND c.account_id=? AND c.site_id=? AND c.status='verified'
         AND s.status='active'",[$connectorId,$accountId,$siteId]);
     if(!$connector)throw new InvalidArgumentException('public_cache_connector_unverified');
+    $startedAt=microtime(true);
     // voice_connector_request uses pinned HTTPS and prohibits redirects, writes and
     // nonpublic IP destinations. No dynamic operations are taken from the caller.
     $data=$transport!==null?$transport($connector):voice_connector_request($connector);
@@ -56,14 +57,59 @@ function voice_connector_cache_refresh(int $accountId,int $siteId,int $connector
         VALUES (?,?,?,?,?,?,?,?)",
         [$accountId,$siteId,$connectorId,$public,$hash,$timestamp,$expiry,$timestamp]);
     return ['status'=>'refreshed','connector_id'=>$connectorId,'sha256'=>$hash,
-        'expires_at'=>$expiry,'public_only'=>true,'cache_hit'=>false];
+        'expires_at'=>$expiry,'public_only'=>true,'cache_hit'=>false,
+        'duration_ms'=>max(0,(int)round((microtime(true)-$startedAt)*1000))];
+}
+
+/** Separate marker: deployed sites already have the first cache schema. */
+function voice_connector_cache_priority_init():void {
+    $marker=private_path().'/.schema.voice-public-cache-priority.v1';
+    if(is_file($marker))return;
+    $int=driver()==='mysql'?'BIGINT':'INTEGER';
+    $engine=driver()==='mysql'
+      ?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci':'';
+    db()->exec("CREATE TABLE IF NOT EXISTS voice_connector_public_priority (
+      account_id $int NOT NULL,site_id $int NOT NULL,connector_id $int NOT NULL,
+      priority INTEGER NOT NULL DEFAULT 100,updated_at VARCHAR(19) NOT NULL,
+      PRIMARY KEY(account_id,site_id,connector_id))".$engine);
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+function voice_connector_cache_priority_set(int $accountId,int $siteId,int $connectorId,int $priority):void {
+    voice_connector_cache_priority_init();
+    if($priority<1||$priority>1000)
+        throw new InvalidArgumentException('public_cache_priority_invalid');
+    if(!one("SELECT c.id FROM voice_data_connectors c
+       JOIN sites s ON s.id=c.site_id AND s.account_id=c.account_id AND s.status='active'
+       JOIN accounts a ON a.id=c.account_id AND a.status='active'
+       WHERE c.id=? AND c.account_id=? AND c.site_id=? AND c.status='verified'",
+       [$connectorId,$accountId,$siteId]))
+        throw new InvalidArgumentException('public_cache_connector_unverified');
+    if(one('SELECT connector_id FROM voice_connector_public_priority
+       WHERE account_id=? AND site_id=? AND connector_id=?',[$accountId,$siteId,$connectorId]))
+        execute('UPDATE voice_connector_public_priority SET priority=?,updated_at=?
+           WHERE account_id=? AND site_id=? AND connector_id=?',
+           [$priority,now(),$accountId,$siteId,$connectorId]);
+    else insert('INSERT INTO voice_connector_public_priority
+       (account_id,site_id,connector_id,priority,updated_at) VALUES (?,?,?,?,?)',
+       [$accountId,$siteId,$connectorId,$priority,now()]);
+}
+function voice_connector_cache_priorities(int $accountId,int $siteId):array {
+    voice_connector_cache_priority_init();
+    $rows=all('SELECT connector_id,priority FROM voice_connector_public_priority
+       WHERE account_id=? AND site_id=?',[$accountId,$siteId]);
+    $priorities=[];foreach($rows as $row)
+        $priorities[(int)$row['connector_id']]=(int)$row['priority'];
+    return $priorities;
 }
 function voice_connector_cache_rows(int $accountId,int $siteId):array {
-    voice_connector_cache_init();
+    voice_connector_cache_init();voice_connector_cache_priority_init();
     return all("SELECT p.connector_id,p.retrieved_at,p.expires_at,p.source_sha256,
+         COALESCE(pr.priority,100) priority,
          CASE WHEN p.expires_at>? THEN 'current' ELSE 'expired' END AS status
        FROM voice_connector_public_cache p JOIN voice_data_connectors c
          ON c.id=p.connector_id AND c.account_id=p.account_id AND c.site_id=p.site_id
+       LEFT JOIN voice_connector_public_priority pr
+         ON pr.connector_id=p.connector_id AND pr.account_id=p.account_id AND pr.site_id=p.site_id
        WHERE p.account_id=? AND p.site_id=? AND c.status='verified'
        ORDER BY p.connector_id DESC LIMIT 100",[now(),$accountId,$siteId]);
 }
@@ -73,17 +119,19 @@ function voice_connector_cache_rows(int $accountId,int $siteId):array {
  * network timeout on the live call path.
  */
 function voice_connector_cache_context(int $accountId,int $siteId,int $max=2800):string {
-    voice_connector_cache_init();
+    voice_connector_cache_init();voice_connector_cache_priority_init();
     $max=max(0,min(4500,$max));if($max===0)return '';
     $rows=all("SELECT p.content,p.retrieved_at,p.expires_at,c.name,c.type
        FROM voice_connector_public_cache p
        JOIN voice_data_connectors c
          ON c.id=p.connector_id AND c.account_id=p.account_id AND c.site_id=p.site_id
+       LEFT JOIN voice_connector_public_priority pr
+         ON pr.connector_id=p.connector_id AND pr.account_id=p.account_id AND pr.site_id=p.site_id
        JOIN sites s ON s.id=p.site_id AND s.account_id=p.account_id
        JOIN accounts a ON a.id=p.account_id AND a.status='active'
        WHERE p.account_id=? AND p.site_id=? AND p.expires_at>?
          AND c.status='verified' AND s.status='active'
-       ORDER BY p.retrieved_at DESC,p.connector_id DESC LIMIT 3",
+       ORDER BY COALESCE(pr.priority,100) DESC,p.retrieved_at DESC,p.connector_id DESC LIMIT 3",
        [$accountId,$siteId,now()]);
     $output='';
     foreach($rows as $row) {

@@ -41,6 +41,24 @@ cached_check($bad,'provider error cannot refresh cache');
 cached_check(!str_contains(voice_connector_cache_context(4,$site),'Demo Hosting Plan'),
     'failed refresh cannot extend stale information');
 cached_check(count(voice_connector_cache_rows(4,$site))===1,'cache UI status available');
+// Prioritization is scoped to an existing verified public connector.
+$prioritySource=voice_connector_add(4,$site,'custom','Second public catalogue',
+    'https://catalog.example.org','/public/catalog','bearer','fixture-token');
+execute("UPDATE voice_data_connectors SET status='verified' WHERE id=? AND account_id=4",[$prioritySource]);
+$measured=voice_connector_cache_refresh(4,$site,$prioritySource,60,
+    static fn()=>['products'=>['product'=>[['name'=>'High priority public source']]]]);
+cached_check(is_int($measured['duration_ms'])&&$measured['duration_ms']>=0,
+    'refresh measures latency without an invented duration');
+voice_connector_cache_priority_set(4,$site,$prioritySource,900);
+voice_connector_cache_priority_set(4,$site,$conn,10);
+cached_check(voice_connector_cache_priorities(4,$site)[$prioritySource]===900,
+    'source priority saved in tenant/site scope');
+$bad=false;try{voice_connector_cache_priority_set(5,$site,$prioritySource,999);}
+catch(InvalidArgumentException){$bad=true;}
+cached_check($bad,'cross-tenant source priority is rejected');
+$bad=false;try{voice_connector_cache_priority_set(4,$site,$prioritySource,0);}
+catch(InvalidArgumentException){$bad=true;}
+cached_check($bad,'invalid priority is rejected');
 
 // The scheduled worker refreshes only verified public catalogue snapshots.
 $site5=(int)one("SELECT id FROM sites WHERE account_id=5 AND status='active' LIMIT 1")['id'];
@@ -64,6 +82,11 @@ cached_check(!one('SELECT connector_id FROM voice_connector_public_refresh_sched
     'generic authenticated endpoint excluded from scheduled public crawling');
 cached_check(str_contains(voice_connector_cache_context(4,$site),'Tenant 4 public product'),
     'first tenant refreshed');
+$ranked=voice_connector_cache_context(4,$site,4400);
+cached_check(strpos($ranked,'High priority public source')!==false &&
+    strpos($ranked,'Tenant 4 public product')!==false &&
+    strpos($ranked,'High priority public source')<strpos($ranked,'Tenant 4 public product'),
+    'priority wins over newest result on public facts only');
 cached_check(str_contains(voice_connector_cache_context(5,$site5),'Tenant 5 public product'),
     'second tenant refreshed');
 cached_check(!str_contains(voice_connector_cache_context(4,$site),'Tenant 5 public product')&&

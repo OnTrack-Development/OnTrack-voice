@@ -715,6 +715,7 @@ function render_voice_data_sources(array $a,array $site):void {
         echo card('تكاملات القراءة', $html);
         require_once __DIR__.'/VoiceConnectorCache.php';
         $cacheStatus=[];
+        $sourcePriority=voice_connector_cache_priorities($id,$siteId);
         foreach(voice_connector_cache_rows($id,$siteId) as $snapshot)
             $cacheStatus[(int)$snapshot['connector_id']]=$snapshot;
         $cacheHtml='<p class="info">يجري تخزين المعلومات العامة فقط من موصل متحقق منه. تنتهي تلقائيًا حسب TTL، ويقرأها الإيجنت من السيرفر دون انتظار الشبكة. الفواتير والمواعيد الشخصية والحجوزات لا تُحفظ هنا ولا تعتبر مؤكدة دون API حيّة.</p>';
@@ -726,7 +727,12 @@ function render_voice_data_sources(array $a,array $site):void {
                 :'انتهت صلاحيتها '.$snapshot['expires_at'].' UTC')
                 :'لا توجد لقطة بيانات عامة محفوظة';
             $cacheHtml.='<div class="voice-data-row"><strong>'.e($connector['name']).'</strong>'.
-                '<span>'.e($state).'</span>'.
+                '<span>'.e($state).' · أولوية '.(int)($sourcePriority[(int)$connector['id']]??100).'</span>'.
+                form_start('voice_connector_cache_priority_set',$url,'class="inline-form"').
+                '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+                '<input type="hidden" name="connector_id" value="'.(int)$connector['id'].'">'.
+                '<label class="field">أولوية المصدر العام<input type="number" name="priority" min="1" max="1000" value="'.(int)($sourcePriority[(int)$connector['id']]??100).'" required></label>'.
+                '<button class="btn small" type="submit">حفظ الأولوية</button></form>'.
                 form_start('voice_connector_cache_refresh',$url,'class="inline-form"').
                 '<input type="hidden" name="site_id" value="'.$siteId.'">'.
                 '<input type="hidden" name="connector_id" value="'.(int)$connector['id'].'">'.
@@ -959,6 +965,22 @@ function render_agents(array $a):void{
         if(allowed('agents.write')){
             $options=$voices;
             if(!isset($options[$agent['voice']]))$options[$agent['voice']]=$agent['voice'].' (الحالي)';
+            $restoreForm='';
+            $past=all('SELECT revision,published_at FROM agent_flow_versions
+                WHERE account_id=? AND site_id=? AND agent_id=? ORDER BY revision DESC LIMIT 20',
+                [$id,(int)$selected['id'],(int)$agent['id']]);
+            if($past){
+                $versionChoices=[];
+                foreach($past as $versionRow)$versionChoices[(string)$versionRow['revision']]=
+                    'v'.(int)$versionRow['revision'].' · '.(string)$versionRow['published_at'];
+                $restoreForm='<div class="agent-studio-section"><strong>استرجاع نسخة منشورة إلى المسودة</strong>'.
+                    '<p class="dim">يسترجع المخطط والسيناريو وإعدادات النسخة المختارة إلى المحرر فقط؛ المنشور يظل كما هو حتى توافق على نشر مستقل.</p>'.
+                    form_start('restore_agent_flow_draft','/?tab=agents&site='.(int)$selected['id'],
+                        'class="inline-form"').
+                    '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
+                    select_html('النسخة المحفوظة','revision',$versionChoices).
+                    '<button class="btn small" type="submit" data-confirm="استرجاع النسخة كمسودة بدون نشر؟">استرجاع كمسودة</button></form></div>';
+            }
             $editing=form_start('update_agent','/?tab=agents&site='.(int)$selected['id'],
                 'class="stack agent-form agent-studio-form"').
                 '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
@@ -994,6 +1016,7 @@ function render_agents(array $a):void{
                 '<div class="agent-publish-actions"><button class="btn primary" type="submit" name="publish_now" value="1">نشر إعدادات المساعد</button>'.
                 '<button class="btn" type="submit">حفظ مسودة بدون تحديث</button>'.
                 '<span class="agent-studio-status" role="status"></span></div></form>'.
+                $restoreForm.
                 form_start('archive_agent','/?tab=agents&site='.(int)$selected['id'],'class="inline-form"').
                 '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
                 '<button class="btn small danger" data-confirm="أرشفة المساعد؟">أرشفة المساعد</button></form>';
