@@ -28,6 +28,7 @@ function voice_connector_cache_refresh(int $accountId,int $siteId,int $connector
         throw new InvalidArgumentException('public_cache_ttl_invalid');
     $connector=one("SELECT c.* FROM voice_data_connectors c JOIN sites s
       ON s.id=c.site_id AND s.account_id=c.account_id
+      JOIN accounts a ON a.id=c.account_id AND a.status='active'
       WHERE c.id=? AND c.account_id=? AND c.site_id=? AND c.status='verified'
         AND s.status='active'",[$connectorId,$accountId,$siteId]);
     if(!$connector)throw new InvalidArgumentException('public_cache_connector_unverified');
@@ -79,6 +80,7 @@ function voice_connector_cache_context(int $accountId,int $siteId,int $max=2800)
        JOIN voice_data_connectors c
          ON c.id=p.connector_id AND c.account_id=p.account_id AND c.site_id=p.site_id
        JOIN sites s ON s.id=p.site_id AND s.account_id=p.account_id
+       JOIN accounts a ON a.id=p.account_id AND a.status='active'
        WHERE p.account_id=? AND p.site_id=? AND p.expires_at>?
          AND c.status='verified' AND s.status='active'
        ORDER BY p.retrieved_at DESC,p.connector_id DESC LIMIT 3",
@@ -126,6 +128,7 @@ function voice_connector_cache_due_all(int $limit=4,?callable $transport=null):a
     $rows=all("SELECT c.id,c.account_id,c.site_id
        FROM voice_data_connectors c
        JOIN sites s ON s.id=c.site_id AND s.account_id=c.account_id
+       JOIN accounts a ON a.id=c.account_id AND a.status='active'
        LEFT JOIN voice_connector_public_cache p
          ON p.connector_id=c.id AND p.account_id=c.account_id AND p.site_id=c.site_id
        LEFT JOIN voice_connector_public_refresh_schedule r
