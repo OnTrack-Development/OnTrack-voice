@@ -35,6 +35,16 @@ $changed=false;
 try{voice_tool_prepare(4,$site,$policy,$actor,'booking-voice-abcdef12345',array_merge($input,['message'=>'change']));}
 catch(RuntimeException){$changed=true;}
 tool_check($changed,'idempotency checks payload');
+$crossCall=false;
+try{voice_tool_prepare(4,$site,$policy,$actor,'booking-voice-abcdef12345',$input,'callDIFFERENT9876');}
+catch(RuntimeException){$crossCall=true;}
+tool_check($crossCall,'idempotency cannot cross call ids');
+$otherPolicy=voice_tool_policy_save(4,$site,$connector,'whmcs.ticket.reply','',true);
+$crossPolicy=false;
+try{voice_tool_prepare(4,$site,$otherPolicy,$actor,'booking-voice-abcdef12345',
+    ['ticket_id'=>55,'message'=>'x'],'call0012345678');}
+catch(RuntimeException){$crossPolicy=true;}
+tool_check($crossPolicy,'idempotency cannot cross operations or policies');
 $denied=false;
 try{voice_tool_confirm(4,$site,$prepared['request_id'],$actor,$prepared['approval_token'],false);}
 catch(InvalidArgumentException){$denied=true;}
@@ -54,6 +64,10 @@ tool_check(($reply['reference_id']??'')==='455001'&&$hits===1,'real upstream ref
 $again=voice_tool_confirm(4,$site,$prepared['request_id'],$actor,$prepared['approval_token'],true,
     static function()use(&$hits):array{$hits++;return ['status'=>'succeeded'];});
 tool_check($again['replayed']===true&&$hits===1,'single execution per request');
+$fakeToken=false;
+try{voice_tool_confirm(4,$site,$prepared['request_id'],$actor,str_repeat('0',48),true);}
+catch(InvalidArgumentException){$fakeToken=true;}
+tool_check($fakeToken,'completed request cannot disclose result with forged token');
 $noId=false;
 try{voice_tool_result('whmcs.ticket.create',['result'=>'success']);}
 catch(RuntimeException){$noId=true;}

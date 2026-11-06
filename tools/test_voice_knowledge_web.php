@@ -53,4 +53,13 @@ $unchanged=voice_kb_web_sync(4,$site,$link,static fn()=> 'dummy text not used');
 kb_web_check($unchanged['status']==='unchanged','unchanged content recognized');
 kb_web_check(!str_contains(voice_kb_agent_context(4,$site,$agent),'dummy text'),'sync does not silently extend owner approved TTL');
 kb_web_check(!str_contains(voice_kb_agent_context(5,$site,$other),'Clinic policy'),'cross-tenant isolation');
+execute('UPDATE voice_kb_web_links SET next_check_at=? WHERE id=? AND account_id=4',
+    [gmdate('Y-m-d H:i:s',time()-5),$link]);
+$due=voice_kb_sync_due(4,$site,3,static fn()=> 'dummy text not used');
+kb_web_check($due['checked']===1&&$due['unchanged']===1,
+    'manual bounded sync uses due timestamp and does not auto-approve');
+$crossDue=false;
+try{voice_kb_sync_due(5,$site,3,static fn()=> 'irrelevant');}
+catch(InvalidArgumentException){$crossDue=true;}
+kb_web_check($crossDue,'due sync cannot cross tenant');
 echo "VOICE_KNOWLEDGE_WEB_AGENT_TTL_PASS\n";

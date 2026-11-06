@@ -219,6 +219,18 @@ function act():void {
                 $success=$result['status']==='unchanged'
                     ?'المصدر لم يتغير.':'تم جلب النص، وهو بانتظار مراجعة واعتماد قبل وصوله للإيجنت.';
                 break;
+            case 'voice_knowledge_due_sync':
+                require_permission('agents.write');
+                if(active_support())deny();
+                require_once __DIR__.'/VoiceKnowledgeWeb.php';
+                $site=intfield('site_id');
+                $result=voice_kb_sync_due($id,$site,3);
+                audit('voice.knowledge.due_sync',$id,['site_id'=>$site,
+                    'checked'=>$result['checked'],'review'=>$result['review'],
+                    'failed'=>$result['failed']]);
+                $success='فُحص '.$result['checked'].' مصدر مستحق، '. $result['review'].
+                    ' ينتظر المراجعة، و'.$result['failed'].' أخطاء. لا اعتماد تلقائي.';
+                break;
             case 'voice_knowledge_scope_set':
                 require_permission('agents.write');
                 if(active_support())deny();
@@ -335,6 +347,30 @@ function act():void {
                 $_SESSION['voice_flow_last']=voice_flow_complete_tool($id,
                     (int)$saved['session_id'],(int)$actor['id'],intfield('tool_request_id'));
                 $success='تم تحديث العقدة بناءً على نتيجة طلب API المحفوظة على السيرفر.';
+                break;
+            case 'voice_openapi_discover':
+                require_permission('agents.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceOpenApi.php';
+                $site=intfield('site_id');
+                $result=voice_openapi_discover($id,$site,intfield('connector_id'),
+                    required('schema_path',40));
+                audit('voice.openapi.discovered',$id,['site_id'=>$site,
+                    'connector_id'=>$result['connector_id'],'sha'=>$result['sha256'],
+                    'count'=>$result['count']]);
+                $success='تم جلب مخطط OpenAPI والتحقق منه، وعُثر على '.$result['count'].
+                    ' مسارات مرشحة. لم تُفعّل أي صلاحية كتابة.';
+                break;
+            case 'voice_openapi_draft':
+                require_permission('agents.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceOpenApi.php';
+                $site=intfield('site_id');
+                $policyId=voice_openapi_draft_policy($id,$site,intfield('connector_id'),
+                    required('tool_operation',48),required('tool_path',350),
+                    required('schema_sha256',64));
+                audit('voice.openapi.policy_draft',$id,['site_id'=>$site,'policy_id'=>$policyId]);
+                $success='تم حفظ المسار كسياسة متوقفة. راجعها من Integration Manager لتفعيلها.';
                 break;
             case 'voice_tool_policy_save':
                 require_permission('agents.write');

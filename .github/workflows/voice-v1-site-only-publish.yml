@@ -9,6 +9,7 @@ on:
       - 'saas/console/**'
       - 'tools/test_v1_knowledge.php'
       - 'tools/test_voice_tool_gateway.php'
+      - 'tools/test_voice_openapi.php'
       - 'tools/test_voice_knowledge_web.php'
       - 'tools/test_voice_flow_runtime.php'
       - 'tools/test_voice_call_timeline.php'
@@ -60,6 +61,7 @@ jobs:
             $suite=@(
               'tools/test_v1_knowledge.php',
               'tools/test_voice_tool_gateway.php',
+              'tools/test_voice_openapi.php',
               'tools/test_voice_knowledge_web.php',
               'tools/test_voice_flow_runtime.php',
               'tools/test_voice_call_timeline.php',

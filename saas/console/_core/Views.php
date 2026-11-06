@@ -649,7 +649,10 @@ function render_voice_data_sources(array $a,array $site):void {
         select_html('مجلد الرابط','knowledge_folder_id',$folderOptions,'0').
         select_html('الإتاحة','knowledge_visibility',['public'=>'عام','staff'=>'داخلي'],'public').
         '<label class="field">فاصل مراجعة التحديث بالساعات<input type="number" min="1" max="720" name="interval_hours" value="24"></label>'.
-        submit_btn('حفظ الرابط للمراجعة');
+        submit_btn('حفظ الرابط للمراجعة').
+        form_start('voice_knowledge_due_sync',$url).
+        '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+        '<button class="btn" type="submit">فحص 3 روابط مستحقة للتحديث</button></form>';
     foreach($links as $link){
         $status=($link['source_status']??'')==='active'?'معتمد':(string)$link['status'];
         $linkHtml.='<div class="voice-data-row"><strong>'.e($link['name']).'</strong>'.
@@ -697,6 +700,38 @@ function render_voice_data_sources(array $a,array $site):void {
                 form_start('voice_connector_delete',$url,'class="inline-form"').'<input type="hidden" name="connector_id" value="'.(int)$row['id'].'"><button class="btn small danger" type="submit">حذف</button></form></div>';
         }
         echo card('تكاملات القراءة', $html);
+        // Approved connector discovery proposes endpoint drafts ONLY.
+        require_once __DIR__.'/VoiceOpenApi.php';
+        $restConnectors=array_values(array_filter($connectors,
+            static fn($c)=>in_array($c['type'],['laravel','custom'],true)&&$c['status']==='verified'));
+        $openApiHtml='<p class="info">اكتشاف OpenAPI 3 من نفس السيرفر الموثّق فقط: لا قراءة لخوادم يحددها الملف ولا تشغيل تلقائي لأدوات الكتابة. اكتشاف المسار لا يعني نجاح حجز أو ربط حي.</p>';
+        if($restConnectors){
+            $restChoices=[];
+            foreach($restConnectors as $c)$restChoices[(string)$c['id']]=$c['name'].' · #'.$c['id'];
+            $openApiHtml.=form_start('voice_openapi_discover',$url).
+                '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+                select_html('موصل Laravel / REST متحقق','connector_id',$restChoices).
+                select_html('مسار Schema الآمن','schema_path',[
+                    '/openapi.json'=>'/openapi.json',
+                    '/api/openapi.json'=>'/api/openapi.json',
+                    '/docs/openapi.json'=>'/docs/openapi.json'
+                ],'/openapi.json').
+                submit_btn('فحص OpenAPI من المصدر');
+            $candidates=voice_openapi_candidates($id,$siteId);
+            foreach($candidates as $candidate){
+                $openApiHtml.='<div class="voice-data-row"><strong>'.e($candidate['connector_name']).
+                    '</strong><span>'.e($candidate['method']).' '.e($candidate['path']).' · '.
+                    e($candidate['operation']).' · '.e($candidate['summary']).'</span>'.
+                    form_start('voice_openapi_draft',$url,'class="inline-form"').
+                    '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+                    '<input type="hidden" name="connector_id" value="'.(int)$candidate['connector_id'].'">'.
+                    '<input type="hidden" name="schema_sha256" value="'.e($candidate['sha256']).'">'.
+                    '<input type="hidden" name="tool_operation" value="'.e($candidate['operation']).'">'.
+                    '<input type="hidden" name="tool_path" value="'.e($candidate['path']).'">'.
+                    '<button class="btn small" type="submit">حفظ كمسودة متوقفة</button></form></div>';
+            }
+        }else $openApiHtml.='<p class="dim">أضف موصل REST واختبره بنجاح أولًا.</p>';
+        echo card('OpenAPI · اكتشاف مسارات Laravel / REST',$openApiHtml);
         // External tools require an owner-pinned policy and a separate approval.
         // These tests are operator-initiated; published call flows NEVER infer success.
         require_once __DIR__.'/VoiceToolGateway.php';

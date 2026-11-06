@@ -148,11 +148,13 @@ function voice_tool_prepare(int $accountId,int $siteId,int $policyId,int $actorI
     $payload=voice_tool_payload((string)$policy['operation'],$input);
     $json=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
     $hash=hash('sha256',$json);
-    $prior=one("SELECT id,payload_sha256,operation,status,reference_id,error_code
+    $prior=one("SELECT id,payload_sha256,operation,status,reference_id,error_code,actor_id,policy_id,call_id
         FROM voice_tool_requests WHERE account_id=? AND site_id=? AND idempotency_key=?",
         [$accountId,$siteId,$idempotencyKey]);
     if($prior){
-        if($prior['payload_sha256']!==$hash||$prior['operation']!==$policy['operation'])
+        if($prior['payload_sha256']!==$hash||$prior['operation']!==$policy['operation']||
+           (int)$prior['actor_id']!==$actorId||(int)$prior['policy_id']!==$policyId||
+           (string)$prior['call_id']!==$callId)
             throw new RuntimeException('tool_idempotency_conflict');
         return ['request_id'=>(int)$prior['id'],'status'=>$prior['status'],
             'reference_id'=>$prior['reference_id'],'reused'=>true,'approval_token'=>null];
@@ -304,15 +306,15 @@ function voice_tool_confirm(int $accountId,int $siteId,int $requestId,int $actor
     $row=one("SELECT * FROM voice_tool_requests WHERE id=? AND account_id=? AND site_id=? AND actor_id=?",
         [$requestId,$accountId,$siteId,$actorId]);
     if(!$row)throw new InvalidArgumentException('tool_request_not_owned');
-    if($row['status']!=='prepared')return ['status'=>$row['status'],'reference_id'=>$row['reference_id'],'replayed'=>true];
     if(!hash_equals((string)$row['approval_sha256'],hash('sha256',$token)))
         throw new InvalidArgumentException('tool_confirmation_token_invalid');
+    if($row['status']!=='prepared')return ['status'=>$row['status'],'reference_id'=>$row['reference_id'],'replayed'=>true];
     $date=strtotime((string)$row['prepared_at'].' UTC');
     if($date===false||time()-$date>600)throw new RuntimeException('tool_confirmation_expired');
     $policy=voice_tool_policy($accountId,$siteId,(int)$row['policy_id']);
     if((int)$policy['connector_id']!==(int)$row['connector_id']||
        $policy['operation']!==$row['operation'])throw new RuntimeException('tool_policy_changed');
-    $claimed=execute("UPDATE voice_tool_requests SET status='inflight',approval_sha256=''
+    $claimed=execute("UPDATE voice_tool_requests SET status='inflight'
         WHERE id=? AND account_id=? AND site_id=? AND status='prepared'",
         [$requestId,$accountId,$siteId]);
     if($claimed!==1)throw new RuntimeException('tool_concurrent_confirmation');

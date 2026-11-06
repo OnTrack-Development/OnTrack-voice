@@ -205,3 +205,32 @@ function voice_kb_agent_context(int $accountId,int $siteId,int $agentId,int $max
     }
     return $out;
 }
+
+
+/**
+ * Bounded, explicit operator-triggered synchronization of DUE public links.
+ * This is not a background cron promise. Changed content remains REVIEW.
+ */
+function voice_kb_sync_due(int $accountId,int $siteId,int $limit=3,?callable $transport=null):array {
+    voice_kb_web_init();voice_knowledge_site($accountId,$siteId);
+    if($limit<1||$limit>5)throw new InvalidArgumentException('knowledge_due_limit_invalid');
+    $rows=all("SELECT id FROM voice_kb_web_links
+       WHERE account_id=? AND site_id=?
+       AND status IN ('draft','current','review','error')
+       AND (next_check_at IS NULL OR next_check_at<=?)
+       ORDER BY COALESCE(next_check_at,created_at),id LIMIT ".(int)$limit,
+       [$accountId,$siteId,now()]);
+    $summary=['checked'=>0,'unchanged'=>0,'review'=>0,'failed'=>0,'errors'=>[]];
+    foreach($rows as $row){
+        $linkId=(int)$row['id'];$summary['checked']++;
+        try{
+            $result=voice_kb_web_sync($accountId,$siteId,$linkId,$transport);
+            if($result['status']==='unchanged')$summary['unchanged']++;
+            else $summary['review']++;
+        }catch(Throwable $error){
+            $summary['failed']++;
+            $summary['errors'][]=['link_id'=>$linkId,'error'=>'source_sync_failed'];
+        }
+    }
+    return $summary;
+}

@@ -140,6 +140,7 @@ function voice_openapi_candidates(int $accountId,int $siteId):array {
 function voice_openapi_draft_policy(int $accountId,int $siteId,int $connectorId,
     string $operation,string $path,string $documentHash):int {
     voice_openapi_connector($accountId,$siteId,$connectorId);
+    voice_tools_init();
     if(!preg_match('/^[a-f0-9]{64}$/D',$documentHash))throw new InvalidArgumentException('openapi_hash_invalid');
     $row=one("SELECT endpoints_json FROM voice_openapi_discoveries
        WHERE account_id=? AND site_id=? AND connector_id=? AND document_sha256=?",
