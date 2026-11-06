@@ -45,7 +45,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_console_v24(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_console_v24(); init_console_v25(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -876,4 +876,19 @@ function init_console_voice_transcripts_v1():void {
             ON tenant_call_transcripts(account_id,site_id,device_binding_id,sim_slot)");
     }
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+function init_console_v25():void {
+    db()->exec("CREATE TABLE IF NOT EXISTS platform_feature_settings (
+        feature_key VARCHAR(64) PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1,
+        updated_at VARCHAR(19) NOT NULL)");
+}
+function platform_resellers_visible():bool {
+    $flag=one("SELECT enabled FROM platform_feature_settings WHERE feature_key='resellers'");
+    return $flag===null || (int)$flag['enabled']===1;
+}
+function platform_set_resellers_visible(bool $enabled):void {
+    $current=one("SELECT feature_key FROM platform_feature_settings WHERE feature_key='resellers'");
+    if($current)execute("UPDATE platform_feature_settings SET enabled=?,updated_at=? WHERE feature_key='resellers'",[$enabled?1:0,now()]);
+    else insert("INSERT INTO platform_feature_settings(feature_key,enabled,updated_at) VALUES ('resellers',?,?)",[$enabled?1:0,now()]);
 }
