@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/VoiceKnowledge.php';
+require_once __DIR__.'/VoiceKnowledgeSearch.php';
 require_once __DIR__.'/VoiceConnectors.php';
 /** Public HTTPS knowledge source with explicit owner review. No private URL fetching. */
 function voice_kb_web_init():void {
@@ -225,7 +226,7 @@ function voice_kb_scope_set(int $accountId,int $siteId,int $sourceId,
         insert('INSERT INTO voice_kb_agent_scope(source_id,agent_id,account_id,site_id)
             VALUES (?,?,?,?)',[$sourceId,$agentId,$accountId,$siteId]);
 }
-function voice_kb_agent_context(int $accountId,int $siteId,int $agentId,int $max=7000):string {
+function voice_kb_agent_context(int $accountId,int $siteId,int $agentId,int $max=7000,string $query=''):string {
     voice_kb_web_init();
     // Fail closed: a missing, archived or foreign agent must receive no context,
     // even if a source is otherwise visible to all agents of this site.
@@ -235,7 +236,8 @@ function voice_kb_agent_context(int $accountId,int $siteId,int $agentId,int $max
           WHERE ag.id=? AND ag.account_id=? AND ag.site_id=?
           AND ag.status!='archived' AND s.status='active' AND a.status='active'",
           [$agentId,$accountId,$siteId]))return '';
-    $rows=all("SELECT k.name,k.content,k.version,m.origin_url
+    $rows=all("SELECT k.id source_id,k.account_id,k.site_id,k.sha256,
+        k.name,k.content,k.version,m.origin_url,COALESCE(m.priority,100) priority
       FROM voice_knowledge_sources k
       LEFT JOIN voice_kb_meta m ON m.source_id=k.id AND m.account_id=k.account_id AND m.site_id=k.site_id
       WHERE k.account_id=? AND k.site_id=? AND k.status='active' AND k.visibility='public'
@@ -244,8 +246,10 @@ function voice_kb_agent_context(int $accountId,int $siteId,int $agentId,int $max
             OR EXISTS(SELECT 1 FROM voice_kb_agent_scope s
               WHERE s.source_id=k.id AND s.account_id=k.account_id
                 AND s.site_id=k.site_id AND s.agent_id=?))
-      ORDER BY COALESCE(m.priority,100) DESC,k.id DESC LIMIT 12",
+      ORDER BY COALESCE(m.priority,100) DESC,k.id DESC LIMIT 40",
       [$accountId,$siteId,now(),$agentId]);
+    if(trim($query)!=='')$rows=voice_kb_search_rank_rows($rows,$query);
+    $rows=voice_kb_search_resolve_facts(array_slice($rows,0,12));
     $out='';$max=max(0,min(12000,$max));
     foreach($rows as $row){
         $intro="\n[معرفة موثقة: ".mb_substr((string)$row['name'],0,90).
