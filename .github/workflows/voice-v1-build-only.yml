@@ -28,6 +28,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Preflight GitHub Release upload permissions before costly Android build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/publish_v1_candidate_release.py --preflight
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub delivery authorization blocked: refusing expensive APK build' }
       - name: Checkout pinned Android upstream
         uses: actions/checkout@v4
         with:
@@ -201,6 +208,20 @@ jobs:
           Write-Host ('APK_LOCAL_PATH: ' + $signed)
           Write-Host ('APK_SHA256: ' + $hash)
           Write-Host 'SIGNED_APK_VERIFIED: PASS'
+      - name: Preserve verified signed candidate outside volatile runner workspace
+        run: |
+          $ErrorActionPreference='Stop'
+          $base=Join-Path 'D:\ai\OnTrack-Voice-Builds\v1-candidates' $env:GITHUB_RUN_ID
+          if(Test-Path -LiteralPath $base) { throw 'Signed candidate already preserved; refuse overwrite' }
+          New-Item -ItemType Directory -Path $base -Force | Out-Null
+          foreach($name in @('OnTrack-Voice-0.3.25.apk','SHA256SUMS.txt','size-report.json','ontrack-build-source.json')) {
+            Copy-Item -LiteralPath (Join-Path '.build\release' $name) -Destination (Join-Path $base $name)
+          }
+          $expected=(Get-Content -LiteralPath (Join-Path $base 'size-report.json') -Raw | ConvertFrom-Json).sha256
+          $actual=(Get-FileHash -LiteralPath (Join-Path $base 'OnTrack-Voice-0.3.25.apk') -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($actual -ne $expected){throw 'Persistent APK SHA-256 check failed'}
+          Write-Host ('PRESERVED_SIGNED_CANDIDATE: '+$base)
+          Write-Host ('PRESERVED_APK_SHA256: '+$actual)
       - name: Publish validated signed candidate to private GitHub prerelease (NO DEPLOY)
         env:
           GH_TOKEN: ${{ github.token }}
