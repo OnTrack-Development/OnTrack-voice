@@ -30,6 +30,25 @@ function voice_openapi_connector(int $accountId,int $siteId,int $connectorId):ar
         [$siteId,$accountId]))throw new InvalidArgumentException('openapi_connector_unverified_or_foreign');
     return $connector;
 }
+
+/** Server-only credentials reused from the verified connector; never persisted in schema snapshots. */
+function voice_openapi_headers(array $connector):array {
+    $headers=['Accept: application/json'];
+    $mode=(string)($connector['auth_mode']??'none');
+    if($mode==='none')return $headers;
+    $credential=unseal_secret($connector['secret_enc']??null)??'';
+    if($mode==='bearer'){
+        if($credential===''||preg_match('/[\r\n]/',$credential))
+            throw new RuntimeException('openapi_auth_missing');
+        $headers[]='Authorization: Bearer '.$credential;
+    }elseif($mode==='wp_application'){
+        if(!str_contains($credential,':')||preg_match('/[\r\n]/',$credential))
+            throw new RuntimeException('openapi_auth_invalid');
+        $headers[]='Authorization: Basic '.base64_encode($credential);
+    }else throw new RuntimeException('openapi_auth_mode_denied');
+    return $headers;
+}
+
 function voice_openapi_fetch(array $connector,string $path):string {
     if(!in_array($path,['/openapi.json','/api/openapi.json','/docs/openapi.json'],true))
         throw new InvalidArgumentException('openapi_path_not_allowlisted');
@@ -46,7 +65,7 @@ function voice_openapi_fetch(array $connector,string $path):string {
        CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>12,
        CURLOPT_PROXY=>'',CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,
        CURLOPT_RESOLVE=>[$target['host'].':443:'.$ip],
-       CURLOPT_HTTPHEADER=>['Accept: application/json'],
+       CURLOPT_HTTPHEADER=>voice_openapi_headers($connector),
        CURLOPT_USERAGENT=>'OnTrack-OpenAPI-Discovery/1.0',
        CURLOPT_WRITEFUNCTION=>static function($handle,string $chunk)use(&$body):int {
            if(strlen($body)+strlen($chunk)>196608)return 0;

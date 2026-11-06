@@ -61,6 +61,16 @@ $reply=voice_tool_confirm(4,$site,$prepared['request_id'],$actor,$prepared['appr
         return voice_tool_result('whmcs.ticket.create',['result'=>'success','id'=>455001]);
     });
 tool_check(($reply['reference_id']??'')==='455001'&&$hits===1,'real upstream reference required');
+$ticketResponse=voice_tool_result('whmcs.ticket.create',
+    ['result'=>'success','id'=>'455002','tid'=>'693842']);
+tool_check($ticketResponse['reference_id']==='455002'&&
+    $ticketResponse['ticket_number']==='693842'&&
+    $ticketResponse['reference_kind']==='new_ticket_id',
+    'WHMCS internal and customer ticket identifiers distinguished');
+$replyResponse=voice_tool_result('whmcs.ticket.reply',['result'=>'success']);
+tool_check($replyResponse['status']==='succeeded'&&
+    !isset($replyResponse['reference_id']),
+    'WHMCS AddTicketReply success never invents a reply ID');
 $again=voice_tool_confirm(4,$site,$prepared['request_id'],$actor,$prepared['approval_token'],true,
     static function()use(&$hits):array{$hits++;return ['status'=>'succeeded'];});
 tool_check($again['replayed']===true&&$hits===1,'single execution per request');

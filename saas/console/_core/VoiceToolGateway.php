@@ -179,7 +179,13 @@ function voice_tool_result(string $op,array $data):array {
             $ref=$data['id']??$data['ticketid']??null;
             if(!is_scalar($ref)||!preg_match('/^[0-9]{1,16}$/D',(string)$ref))
                 throw new RuntimeException('tool_whmcs_ticket_id_missing');
-            return ['reference_id'=>(string)$ref,'status'=>'succeeded'];
+            $ticketNumber=$data['tid']??null;
+            if($ticketNumber!==null&&(!is_scalar($ticketNumber)||
+                !preg_match('/^[A-Za-z0-9_-]{1,36}$/D',(string)$ticketNumber)))
+                throw new RuntimeException('tool_whmcs_ticket_number_invalid');
+            return ['reference_id'=>(string)$ref,'status'=>'succeeded',
+                'ticket_number'=>$ticketNumber===null?null:(string)$ticketNumber,
+                'reference_kind'=>'new_ticket_id'];
         }
         if($op==='whmcs.ticket.reply')return ['reference_id'=>isset($data['replyid'])?(string)$data['replyid']:null,'status'=>'succeeded'];
         $key=match($op){

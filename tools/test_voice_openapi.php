@@ -49,4 +49,20 @@ openapi_check($notDocument,'reject invalid version');
 $notDocument=false;try{voice_openapi_parse(str_repeat('x',200000));}
 catch(InvalidArgumentException){$notDocument=true;}
 openapi_check($notDocument,'reject huge document');
+$headers=voice_openapi_headers(['auth_mode'=>'bearer',
+    'secret_enc'=>seal_secret('readonly-ci-secret')]);
+openapi_check(in_array('Authorization: Bearer readonly-ci-secret',$headers,true),
+    'private connector bearer auth supported for schema fetch');
+$headers=voice_openapi_headers(['auth_mode'=>'wp_application',
+    'secret_enc'=>seal_secret('reader:password')]);
+openapi_check(in_array('Authorization: Basic '.base64_encode('reader:password'),$headers,true),
+    'basic auth restricted to verified WP connector credentials');
+$blocked=false;
+try{voice_openapi_headers(['auth_mode'=>'whmcs','secret_enc'=>seal_secret('id:secret')]);}
+catch(RuntimeException){$blocked=true;}
+openapi_check($blocked,'unsupported schema auth refused');
+$missing=false;
+try{voice_openapi_headers(['auth_mode'=>'bearer','secret_enc'=>null]);}
+catch(RuntimeException){$missing=true;}
+openapi_check($missing,'schema credential missing fails closed');
 echo "VOICE_OPENAPI_DISCOVERY_SAFETY_PASS\n";
