@@ -24,6 +24,31 @@ function google_voice_failover_schema():void {
     )".$tail);
 }
 
+/**
+ * A ticket is not an authorization grant. Recheck the live SIM after token
+ * minting as well as before switching, since an owner can revoke the device
+ * or archive the original agent while the upstream request is in flight.
+ * Agent reassignment of an otherwise active SIM is allowed mid-call; the
+ * immutable original agent/revision remains pinned to the ticket.
+ */
+function google_voice_failover_assert_live_binding(array $binding,int $originalAgentId):void {
+    $live=one("SELECT d.id FROM device_bindings d
+        JOIN accounts a ON a.id=d.account_id AND a.status='active'
+        JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
+        JOIN agents current_agent ON current_agent.id=d.agent_id
+           AND current_agent.account_id=d.account_id AND current_agent.site_id=d.site_id
+           AND current_agent.status!='archived'
+        JOIN agents original_agent ON original_agent.id=?
+           AND original_agent.account_id=d.account_id AND original_agent.site_id=d.site_id
+           AND original_agent.status!='archived'
+        WHERE d.id=? AND d.account_id=? AND d.site_id=? AND d.sim_slot=?
+          AND d.status='active'",[
+        $originalAgentId,(int)($binding['id']??0),(int)($binding['account_id']??0),
+        (int)($binding['site_id']??0),(int)($binding['sim_slot']??-1)
+    ]);
+    if(!$live)throw new RuntimeException('voice_failover_binding_revoked');
+}
+
 /** An opaque single-call ticket pins the tenant, key pool, SIM and published agent revision. */
 function google_voice_failover_register(array $binding,array $definition,array $issued):array {
     $keyId=(int)($issued['entry_id']??0);
@@ -33,6 +58,7 @@ function google_voice_failover_register(array $binding,array $definition,array $
        (int)($binding['site_id']??0)!==(int)$definition['site_id'] ||
        (int)($binding['agent_id']??0)!==(int)$definition['agent_id'])
         throw new RuntimeException('voice_failover_binding_mismatch');
+    google_voice_failover_assert_live_binding($binding,(int)$definition['agent_id']);
     $key=ai_relay_one($keyId,$ownerId);
     if(!$key||$key['scope']!=='voice'||$key['driver']!=='google_live')
         throw new RuntimeException('voice_failover_pool_mismatch');
@@ -83,6 +109,7 @@ function google_voice_failover_rotate(array $binding,string $ticket,int $generat
         require_once __DIR__.'/GoogleTenantKeys.php';
         if(google_voice_pool_owner((int)$binding['account_id'])!==$owner)
             throw new RuntimeException('voice_failover_pool_changed');
+        google_voice_failover_assert_live_binding($binding,(int)$row['agent_id']);
         $keyId=(int)$row['current_key_id'];
         $key=ai_relay_one($keyId,$owner);
         if(!$key || $key['scope']!=='voice' || $key['driver']!=='google_live')
@@ -105,6 +132,17 @@ function google_voice_failover_rotate(array $binding,string $ticket,int $generat
            !preg_match('~^auth_tokens/[A-Za-z0-9_-]{12,512}$~D',(string)($next['token']??'')) ||
            !is_string($next['model']??null))
             throw new RuntimeException('voice_failover_next_key_invalid');
+        // The issuer may have returned a key deleted, disabled or cooled by a
+        // concurrent admin action. Only an enabled, healthy credential from
+        // the original pool may take over the call.
+        $entry=ai_relay_one($newKey,$owner);
+        if(!$entry || (int)$entry['enabled']!==1 ||
+           $entry['scope']!=='voice' || $entry['driver']!=='google_live' ||
+           (!empty($entry['cooldown_until']) && $entry['cooldown_until']>now()) ||
+           (string)$entry['model']!==$next['model'] ||
+           google_voice_pool_owner((int)$row['account_id'])!==$owner)
+            throw new RuntimeException('voice_failover_next_key_unavailable');
+        google_voice_failover_assert_live_binding($binding,(int)$row['agent_id']);
         $changed=execute("UPDATE google_voice_live_calls
             SET current_key_id=?,generation=?,state='active'
             WHERE ticket=? AND generation=? AND state='switching'",
