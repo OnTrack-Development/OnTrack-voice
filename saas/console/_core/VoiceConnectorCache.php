@@ -152,10 +152,17 @@ function voice_connector_cache_due_all(int $limit=4,?callable $transport=null):a
         $existing=one('SELECT connector_id FROM voice_connector_public_refresh_schedule
             WHERE account_id=? AND site_id=? AND connector_id=?',
             [$accountId,$siteId,$connectorId]);
-        if($existing)execute('UPDATE voice_connector_public_refresh_schedule
-              SET next_attempt_at=?,failures=CASE WHEN ?=1 THEN failures+1 ELSE 0 END,
-                  updated_at=? WHERE account_id=? AND site_id=? AND connector_id=?',
-              [$next,$failed?1:0,now(),$accountId,$siteId,$connectorId]);
+        // PDO commonly binds positional arguments as strings. In SQLite the
+        // expression ?=1 is false when ? is the string "1", silently resetting
+        // failure counters. Use explicit SQL branches so MySQL and SQLite agree.
+        if($existing&&$failed)execute('UPDATE voice_connector_public_refresh_schedule
+              SET next_attempt_at=?,failures=failures+1,updated_at=?
+              WHERE account_id=? AND site_id=? AND connector_id=?',
+              [$next,now(),$accountId,$siteId,$connectorId]);
+        elseif($existing)execute('UPDATE voice_connector_public_refresh_schedule
+              SET next_attempt_at=?,failures=0,updated_at=?
+              WHERE account_id=? AND site_id=? AND connector_id=?',
+              [$next,now(),$accountId,$siteId,$connectorId]);
         else insert('INSERT INTO voice_connector_public_refresh_schedule
               (account_id,site_id,connector_id,next_attempt_at,failures,updated_at)
               VALUES (?,?,?,?,?,?)',
