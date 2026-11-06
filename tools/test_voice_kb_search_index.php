@@ -23,9 +23,16 @@ search_check((string)one('SELECT status FROM voice_knowledge_sources WHERE id=?'
 voice_kb_scope_set(4,$site,$approved,'all',0,900,0);
 voice_kb_scope_set(4,$site,$conflict,'all',0,100,0);
 voice_kb_scope_set(4,$site,$returns,'all',0,400,0);
+$before=voice_kb_search_status(4,$site);
+search_check($before['total']===3 && $before['ready']===0 &&
+    $before['pending']===3 && $before['review']===1,
+    'index status excludes private and review documents and counts pending sources');
 $indexed=voice_kb_search_reindex(4,$site);
 search_check($indexed['scanned']===3 && $indexed['indexed']===3,
     'only three approved public knowledge sources indexed');
+$ready=voice_kb_search_status(4,$site);
+search_check($ready['ready']===3 && $ready['pending']===0,
+    'completed index status has no stale approved public documents');
 search_check(!one('SELECT source_id FROM voice_kb_search_index WHERE source_id=?',[$private]) &&
     !one('SELECT source_id FROM voice_kb_search_index WHERE source_id=?',[$pending]),
     'staff/private and unapproved revisions absent from index');
@@ -53,6 +60,9 @@ search_check(voice_kb_agent_context(4,$site,$agent+99999,4000,'سعر الحجز
 search_check(voice_kb_agent_context(5,$site,$agent,4000,'سعر الحجز')==='',
     'cross-tenant knowledge isolation includes search index');
 voice_knowledge_update(4,$site,$approved,'رسوم الحجز: 360 جنيه');
+$stale=voice_kb_search_status(4,$site);
+search_check($stale['ready']===2 && $stale['pending']===1,
+    'edited source becomes observably stale until reindex');
 $afterEdit=voice_kb_agent_context(4,$site,$agent,4000,'سعر الحجز');
 search_check(str_contains($afterEdit,'360 جنيه') && !str_contains($afterEdit,'350 جنيه'),
     'old index hash is ignored immediately after source edit');

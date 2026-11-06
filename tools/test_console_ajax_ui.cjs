@@ -38,6 +38,10 @@ for(const marker of [
 assert(app.includes('openAgentFromHash();\n    window.ontrackMountFlowEditors?.(main)'),
   'AJAX deep-link navigation must re-open the newly rendered agent editor');
 assert(views.includes('data-nav-group'), 'Sidebar groups must be stable across AJAX refresh');
+assert(views.includes('حساب مالك المنصة') && views.includes("$a['kind']==='platform'"),
+  'Owner billing must show unmetered platform status instead of a missing subscription');
+assert(views.includes('voice_kb_search_status($id,$siteId)'),
+  'Knowledge UI must show the active-public index freshness state');
 assert(views.includes("form_start('voice_knowledge_reindex'"),
   'Knowledge UI must provide authorized reindex action');
 assert(app.includes("'switch','set_view','support_enter'"),'Role switching must bypass AJAX');

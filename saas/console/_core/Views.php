@@ -596,6 +596,11 @@ function render_voice_data_sources(array $a,array $site):void {
     $html.='<p class="info">'.($pdfReady
        ?'استخراج PDF النصي متاح على الاستضافة. ملفات PDF المصورة تحتاج OCR منفصل.'
        :'استخراج PDF غير متاح على الاستضافة حاليًا؛ يلزم تثبيت Poppler pdftotext قبل قبول ملفات PDF. لا يتم الادعاء بفهرستها.').'</p>';
+    $indexState=voice_kb_search_status($id,$siteId);
+    $html.='<p class="info">فهرس الكلمات والمرادفات للمصادر العامة المعتمدة: '.
+        (int)$indexState['ready'].' جاهز من '.(int)$indexState['total']. '؛ '.
+        (int)$indexState['pending'].' تحتاج إعادة فهرسة، و'.
+        (int)$indexState['review'].' بانتظار موافقة المالك.</p>';
     $html.=form_start('voice_knowledge_reindex',$url,'class="inline-form"').
         '<input type="hidden" name="site_id" value="'.$siteId.'">'.
         '<button class="btn small" type="submit">إعادة فهرسة المعرفة المعتمدة</button></form>';
@@ -1595,19 +1600,28 @@ function render_domains(array $a):void{
 function render_billing(array $a):void{
     $id=(int)$a['account_id'];
     require_once __DIR__.'/BillingUsage.php';
-    $sub=one("SELECT p.*,s.status sub_status,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.account_id=? ORDER BY s.id DESC LIMIT 1",[$id]);
-    $isActive=$sub && $sub['sub_status']==='active' &&
-        $sub['ends_at']>now();
-    $text=$isActive?'<div class="plan-panel"><span class="eyebrow">YOUR CURRENT PLAN</span><h2>'.e($sub['name']).'</h2><p>'.e((string)$sub['call_quota']).' مكالمة متصلة شهرياً · '.e((string)$sub['agent_limit']).' AI · '.e((string)$sub['site_limit']).' مواقع</p><small>تنتهي الفترة: '.e($sub['ends_at']).'</small></div>':'<p>لا توجد باقة نشطة. إنشاء الحساب لا يمنح اشتراكًا مدفوعًا تلقائيًا.</p>';
-    echo card('اشتراك الحساب',$text);
-    $usage=voice_usage_summary($id);
-    echo card('معدل استهلاك المكالمات المتصلة',
-        '<p><strong>'.(int)$usage['used'].'</strong> مستخدم / <strong>'.(int)$usage['quota'].
-        '</strong> متاح · متبقي <strong>'.(int)$usage['remaining'].
-        '</strong> · مكالمات التجاوز <strong>'.(int)$usage['overage'].'</strong>.</p>'.
-        '<p>تقدير التجاوز '.e(number_format($usage['estimate_minor']/100,2)).
-        ' ج.م — لم يتم تحصيل رسوم التجاوز تلقائيًا.</p>'.
-        (!$usage['active']?'<p class="dim">لا يوجد اشتراك فعّال في الفترة الحالية.</p>':''));
+    if($a['kind']==='platform'){
+        // Platform ownership is not a metered customer subscription; a missing
+        // subscriptions row must never be displayed as an account expiration.
+        echo card('اشتراك الحساب','<div class="plan-panel"><span class="eyebrow">PLATFORM OWNER</span>'.
+            '<h2>حساب مالك المنصة</h2><p>الاستحقاقات غير محدودة ما دام الحساب نشطًا؛ لا يحتاج باقة مستخدم أو تجديدًا يوميًا.</p></div>');
+        echo card('معدل استهلاك المكالمات المتصلة',
+            '<p>حساب مالك المنصة لا يخضع لحصة مكالمات العملاء أو رسوم تجاوز الباقة.</p>');
+    }else{
+        $sub=one("SELECT p.*,s.status sub_status,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.account_id=? ORDER BY s.id DESC LIMIT 1",[$id]);
+        $isActive=$sub && $sub['sub_status']==='active' &&
+            $sub['ends_at']>now();
+        $text=$isActive?'<div class="plan-panel"><span class="eyebrow">YOUR CURRENT PLAN</span><h2>'.e($sub['name']).'</h2><p>'.e((string)$sub['call_quota']).' مكالمة متصلة شهرياً · '.e((string)$sub['agent_limit']).' AI · '.e((string)$sub['site_limit']).' مواقع</p><small>تنتهي الفترة: '.e($sub['ends_at']).'</small></div>':'<p>لا توجد باقة نشطة. إنشاء الحساب لا يمنح اشتراكًا مدفوعًا تلقائيًا.</p>';
+        echo card('اشتراك الحساب',$text);
+        $usage=voice_usage_summary($id);
+        echo card('معدل استهلاك المكالمات المتصلة',
+            '<p><strong>'.(int)$usage['used'].'</strong> مستخدم / <strong>'.(int)$usage['quota'].
+            '</strong> متاح · متبقي <strong>'.(int)$usage['remaining'].
+            '</strong> · مكالمات التجاوز <strong>'.(int)$usage['overage'].'</strong>.</p>'.
+            '<p>تقدير التجاوز '.e(number_format($usage['estimate_minor']/100,2)).
+            ' ج.م — لم يتم تحصيل رسوم التجاوز تلقائيًا.</p>'.
+            (!$usage['active']?'<p class="dim">لا يوجد اشتراك فعّال في الفترة الحالية.</p>':''));
+    }
 
     if(in_array($a['kind'],['reseller','customer'],true)
        &&in_array($a['role'],['owner','admin'],true)&&!active_support()){

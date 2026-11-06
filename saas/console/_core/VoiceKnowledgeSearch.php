@@ -142,3 +142,24 @@ function voice_kb_search_resolve_facts(array $rows):array {
     unset($row);
     return array_values(array_filter($rows,static fn(array $r):bool=>$r['content']!==''));
 }
+
+/** Observable index state; counts only approved, tenant/site-owned public sources. */
+function voice_kb_search_status(int $accountId,int $siteId):array {
+    voice_knowledge_site($accountId,$siteId);
+    voice_kb_search_init();
+    $counts=one("SELECT COUNT(*) total,
+        COALESCE(SUM(CASE WHEN i.source_id IS NOT NULL AND i.content_hash=k.sha256
+          THEN 1 ELSE 0 END),0) ready
+      FROM voice_knowledge_sources k
+      LEFT JOIN voice_kb_search_index i ON i.source_id=k.id
+        AND i.account_id=k.account_id AND i.site_id=k.site_id
+      WHERE k.account_id=? AND k.site_id=?
+        AND k.status='active' AND k.visibility='public'",[$accountId,$siteId]);
+    $total=(int)($counts['total']??0);
+    $ready=(int)($counts['ready']??0);
+    $review=(int)(one("SELECT COUNT(*) n FROM voice_knowledge_sources
+        WHERE account_id=? AND site_id=? AND status='review' AND visibility='public'",
+        [$accountId,$siteId])['n']??0);
+    return ['total'=>$total,'ready'=>$ready,'pending'=>max(0,$total-$ready),
+      'review'=>$review];
+}

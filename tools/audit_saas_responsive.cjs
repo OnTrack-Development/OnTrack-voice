@@ -130,10 +130,23 @@ async function main(){
     await cdp('Network.clearBrowserCookies');
     await width(1440);
     await signIn(role.email,role.prefix);
+    // Real interaction: theme icon must change the interface and survive reload.
+    const initialTheme=await evaluate('document.body.classList.contains("light")');
+    await evaluate('document.getElementById("themeToggle").click()');
+    const toggledTheme=await evaluate('document.body.classList.contains("light")');
+    await load(role.prefix+'/?tab=overview');
+    const restoredTheme=await evaluate('document.body.classList.contains("light")');
+    if(toggledTheme===initialTheme||restoredTheme!==toggledTheme)
+      failures.push({label:role.email,error:'theme icon toggle or saved appearance failed'});
+    await evaluate('document.getElementById("themeToggle").click()');
     for(const tab of role.tabs){
       const route=role.prefix+'/?tab='+tab;
       await width(1440);
       await load(route);
+      if(role.email==='admin@ontrackegy.com'&&tab==='billing'){
+        const ownerPlan=await evaluate('document.querySelector("main.content")?.innerText.includes("حساب مالك المنصة")');
+        if(!ownerPlan)failures.push({label:role.email,error:'platform owner billing misidentified as a customer plan'});
+      }
       for(const w of compact){
         await width(w);
         const m=await evaluate(expr);
