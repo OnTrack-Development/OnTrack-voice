@@ -52,8 +52,10 @@ function voice_tool_policy_save(int $accountId,int $siteId,int $connectorId,
     voice_tools_init();
     if(!in_array($operation,voice_tool_operations(),true))
         throw new InvalidArgumentException('tool_operation_not_allowed');
-    $connector=one("SELECT * FROM voice_data_connectors
-       WHERE id=? AND account_id=? AND site_id=? AND status='verified'",
+    $connector=one("SELECT c.* FROM voice_data_connectors c
+       JOIN sites s ON s.id=c.site_id AND s.account_id=c.account_id AND s.status='active'
+       JOIN accounts a ON a.id=c.account_id AND a.status='active'
+       WHERE c.id=? AND c.account_id=? AND c.site_id=? AND c.status='verified'",
        [$connectorId,$accountId,$siteId]);
     if(!$connector)throw new InvalidArgumentException('tool_connector_unverified');
     if(str_starts_with($operation,'whmcs.')){
@@ -84,6 +86,8 @@ function voice_tool_policy(int $accountId,int $siteId,int $policyId):array {
     $row=one("SELECT p.*,c.type,c.base_url,c.read_path,c.auth_mode,c.secret_enc,c.status connector_status
        FROM voice_tool_policies p JOIN voice_data_connectors c
         ON c.id=p.connector_id AND c.account_id=p.account_id AND c.site_id=p.site_id
+       JOIN sites s ON s.id=p.site_id AND s.account_id=p.account_id AND s.status='active'
+       JOIN accounts a ON a.id=p.account_id AND a.status='active'
        WHERE p.id=? AND p.account_id=? AND p.site_id=? AND p.enabled=1
          AND c.status='verified'",[$policyId,$accountId,$siteId]);
     if(!$row)throw new InvalidArgumentException('tool_policy_unavailable');
@@ -125,8 +129,10 @@ function voice_tool_payload(string $operation,array $input):array {
     return $output;
 }
 function voice_tool_actor(int $accountId,int $userId):array {
-    $principal=one("SELECT m.role FROM memberships m JOIN users u ON u.id=m.user_id
-      WHERE m.account_id=? AND m.user_id=? AND u.status='active'",
+    $principal=one("SELECT m.role FROM memberships m
+      JOIN users u ON u.id=m.user_id AND u.status='active'
+      JOIN accounts a ON a.id=m.account_id AND a.status='active'
+      WHERE m.account_id=? AND m.user_id=?",
       [$accountId,$userId]);
     if(!$principal||!in_array($principal['role'],['owner','admin','manager'],true))
         throw new RuntimeException('tool_actor_requires_owner_or_manager');
@@ -177,7 +183,8 @@ function voice_tool_result(string $op,array $data):array {
         if(($data['result']??'')!=='success')throw new RuntimeException('tool_whmcs_not_success');
         if($op==='whmcs.ticket.create'){
             $ref=$data['id']??$data['ticketid']??null;
-            if(!is_scalar($ref)||!preg_match('/^[0-9]{1,16}$/D',(string)$ref))
+            if(!(is_int($ref)||is_string($ref))||
+               !preg_match('/^[0-9]{1,16}$/D',(string)$ref)||(int)$ref<1)
                 throw new RuntimeException('tool_whmcs_ticket_id_missing');
             $ticketNumber=$data['tid']??null;
             if($ticketNumber!==null&&(!is_scalar($ticketNumber)||
@@ -203,7 +210,9 @@ function voice_tool_result(string $op,array $data):array {
         if(($data['success']??false)!==true)
             throw new RuntimeException('tool_booking_not_confirmed');
         $ref=$data['booking_id']??$data['reservation_id']??null;
-        if(!is_scalar($ref)||!preg_match('/^[A-Za-z0-9_-]{1,100}$/D',(string)$ref))
+        if(!(is_int($ref)||is_string($ref))||
+           !preg_match('/^[A-Za-z0-9_-]{1,100}$/D',(string)$ref)||
+           (string)$ref==='0')
             throw new RuntimeException('tool_booking_reference_missing');
         return ['status'=>'succeeded','reference_id'=>(string)$ref];
     }
@@ -212,7 +221,10 @@ function voice_tool_result(string $op,array $data):array {
             throw new RuntimeException('tool_slots_unverified');
         $slots=[];
         foreach(array_slice($data['slots'],0,25) as $slot){
-            if(!is_array($slot)||!is_scalar($slot['id']??null)||!is_scalar($slot['start']??null))continue;
+            if(!is_array($slot)||
+               !(is_int($slot['id']??null)||is_string($slot['id']??null))||
+               !(is_int($slot['start']??null)||is_string($slot['start']??null))||
+               (string)$slot['id']===''||(string)$slot['start']==='')continue;
             $slots[]=['id'=>mb_substr((string)$slot['id'],0,90),
                 'start'=>mb_substr((string)$slot['start'],0,50)];
         }
