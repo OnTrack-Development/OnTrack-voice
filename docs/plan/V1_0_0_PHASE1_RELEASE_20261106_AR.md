@@ -1,5 +1,5 @@
 # OnTrack Voice v1.0.0 — العقد التنفيذي للمرحلة الأولى
-**تاريخ الاعتماد للمواصفات:** 2026-11-06. **الحالة الحالية:** تنفيذ جزئي. آخر نشر SaaS فقط مؤكد: Commit `32056460acd1`، Run `42173660235` ناجح وإيصالات Host QA/Deploy ناجحة؛ لا يوجد اعتماد Stable 1.0.0 كاملة أو Device E2E.
+**تاريخ الاعتماد للمواصفات:** 2026-11-06. **الحالة الحالية:** تنفيذ جزئي؛ آخر نشر SaaS فقط مثبت Commit ffba5c6fd3cf وRun 42181948097 ناجح، Host QA 64 PHP وHost Deploy 79 ملفًا PASS، Native/OTA دون تغيير. Stable 1.0.0 بالكامل وDevice E2E غير معتمدين.
 **الموقع:** app.ontrackegy.com؛ **الجهاز المرجعي:** Xiaomi Note 12 Pro 5G.
 **مصدر الحقيقة:** آخر قرارات المالك في جلسة نوفمبر 2026 تتقدم على خارطة نوفمبر 3 فيما يتعلق بنطاق المرحلة الأولى.
 
@@ -67,10 +67,10 @@
 | V1-05 | 4G backlog/latency / turn taking | OPEN | 10 مكالمات حقيقية Wi-Fi/4G، لا تراكم صوت |
 | V1-06 | Hangup / call lifecycle | OPEN | real call DISCONNECTED + sync |
 | V1-07 | Remote protected audio module | OPEN | base APK does not contain protected module + attestation/crypto/static reverse-engineering tests |
-| V1-08 | Knowledge folders and verification | OPEN | PDF/DOCX/TXT/MD indexed, conflicts surfaced, owner audit |
-| V1-09 | Intelligent Flow runtime | OPEN | realistic scenario interruptions, side questions and tools succeed |
-| V1-10 | WHMCS read/ticket/reply | OPEN | verified identity + customer approval + ticket ID |
-| V1-11 | Laravel/OpenAPI/booking | OPEN | slot read, approval, booking confirmation and idempotency |
+| V1-08 | Knowledge folders and verification | PARTIAL — site deployed, real E2E pending | PDF/DOCX/TXT/MD indexed, conflicts surfaced, owner audit |
+| V1-09 | Intelligent Flow runtime | PARTIAL — server test done, voice E2E pending | realistic scenario interruptions, side questions and tools succeed |
+| V1-10 | WHMCS read/ticket/reply | PARTIAL — gateway mock tests only | verified identity + customer approval + ticket ID |
+| V1-11 | Laravel/OpenAPI/booking | PARTIAL — booking handler, live E2E pending | slot read, approval, booking confirmation and idempotency |
 | V1-12 | Call report and transcript | PARTIAL | coherent summary grounded in events, no fragment spam |
 | V1-13 | Full release CI/Host/Device E2E | OPEN | commit/SHA/build/host/app install/test evidence all PASS |
 
@@ -191,3 +191,13 @@
 - عند تعطل Connector: افحص الأدوات القابلة للاتصال أولًا. إن غابت الصلاحية حقًا أو كانت العملية خارج نطاق صلاحية الإجراء، صرّح بالعائق المحدد؛ لا تخترع إصلاحًا ولا تزعم إكمالًا.
 - التوثيق الحالي **لا يُعتبر اختبارًا أو تفويضًا تلقائيًا لتشغيل Run**؛ عندما يطلب المالك كتابة ملف فقط، اكتب ملفًا فقط. وأي تعليمات تتطلب أدوات غير متاحة في جلسة لاحقة لا تضمن توافرها مستقبلًا.
 
+
+
+## 8) إثبات تنفيذ الموقع الجاري — 6 نوفمبر 2026
+- Branch: release/voice-v1-20261106؛ مصدر النشر: ffba5c6fd3cf1bdb756f9fd5fa6f33d3eb27256e.
+- CI Run: https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42181948097 — SUCCESS.
+- Host QA: v1-siteqa-42181948097 SUCCESS (64 PHP، QA database معزولة).
+- Host Deploy: v1-saas-42181948097 SUCCESS (79 files، rollback محفوظ، Android unchanged).
+- الجديد: Knowledge Links/TTL/Agent scope، Tool Gateway بموافقة ونتيجة حقيقية، Flow server state/trace، Call Timeline.
+- غير المؤكد: WHMCS/Laravel على مزود فعلي، واجهة مرخّصة لكل دور، Domain/TLS فعلي، Gemini Live إلى Tool أثناء مكالمة SIM، وProtected audio module.
+- راجع TODO الموقع أعلاه. لا يُعلن اكتمال Stable 1.0.0 على هذا النشر الجزئي.
