@@ -606,12 +606,12 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  v1Render(s);
 };
 function v1Render(s){
- const linked=!!s.tenantLinked,active=!!s.agentEnabled&&s.tenantServiceRunning===true&&!s.tenantPairingInProgress;
- el('v1Wizard').hidden=linked;
+ const linked=!!s.tenantLinked,phoneReady=s.phonePermissionGranted!==false,active=!!s.agentEnabled&&s.tenantServiceRunning===true&&!s.tenantPairingInProgress;
+ el('v1Wizard').hidden=linked&&phoneReady;
  el('v1State').textContent=s.tenantPairingInProgress?'جاري الربط':active?'يعمل':linked?'متوقف':'غير مربوط';
  el('v1State').className='chip '+(active?'good':'warn');
  el('v1LinkStatus').textContent=linked?'مرتبط':'غير مربوط';
- el('v1Status').textContent=!linked?'اربط شريحتك بحسابك أولًا':s.inCall?'مكالمة جارية':active?'جاهز لاستقبال المكالمات':s.pendingSync?'جاري تطبيق التغيير':'المساعد متوقف';
+ el('v1Status').textContent=!linked?'اربط شريحتك بحسابك أولًا':!phoneReady?'يلزم منح صلاحية الهاتف قبل تشغيل المساعد':s.inCall?'مكالمة جارية':active?'جاهز لاستقبال المكالمات':s.pendingSync?'جاري تطبيق التغيير':'المساعد متوقف';
  el('v1Sim1').textContent=s.tenantPaired1?String(s.tenantSim1||'مربوطة'):'غير مربوطة';
  el('v1Sim2').textContent=s.tenantPaired2?String(s.tenantSim2||'مربوطة'):'غير مربوطة';
  el('v1Enable').disabled=!linked||!!s.updating||!!s.inCall||!!s.tenantPairingInProgress||active;
