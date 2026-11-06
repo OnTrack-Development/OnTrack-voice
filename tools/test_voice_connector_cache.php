@@ -47,6 +47,10 @@ $site5=(int)one("SELECT id FROM sites WHERE account_id=5 AND status='active' LIM
 $conn5=voice_connector_add(5,$site5,'whmcs','Tenant 5 catalogue',
     'https://catalog.example.org','/includes/api.php','whmcs','id:secret');
 execute("UPDATE voice_data_connectors SET status='verified' WHERE id=? AND account_id=5",[$conn5]);
+// A verified generic endpoint is not a licence to crawl private APIs unattended.
+$privateApi=voice_connector_add(4,$site,'custom','Private account API',
+    'https://account.example.com','/private/account','bearer','fixture-token');
+execute("UPDATE voice_data_connectors SET status='verified' WHERE id=? AND account_id=4",[$privateApi]);
 $batch=voice_connector_cache_due_all(2,static fn(array $connector):array=>[
     'result'=>'success','products'=>['product'=>[[
         'name'=>'Tenant '.(int)$connector['account_id'].' public product',
@@ -55,6 +59,9 @@ $batch=voice_connector_cache_due_all(2,static fn(array $connector):array=>[
 ]);
 cached_check($batch['checked']===2&&$batch['refreshed']===2&&$batch['failed']===0,
     'bounded public snapshot auto refresh');
+cached_check(!one('SELECT connector_id FROM voice_connector_public_refresh_schedule
+    WHERE connector_id=? AND account_id=4',[$privateApi]),
+    'generic authenticated endpoint excluded from scheduled public crawling');
 cached_check(str_contains(voice_connector_cache_context(4,$site),'Tenant 4 public product'),
     'first tenant refreshed');
 cached_check(str_contains(voice_connector_cache_context(5,$site5),'Tenant 5 public product'),
