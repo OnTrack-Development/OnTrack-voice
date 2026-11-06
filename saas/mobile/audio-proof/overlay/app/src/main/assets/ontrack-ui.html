@@ -303,14 +303,10 @@ body>.otWelcome,body>.otTabs,body>.otPageIntro,body>[data-panel],body>footer{dis
 <p class="small" id="updateNotificationHint">الإشعار يظهر داخل التطبيق، ويمكن تفعيل إشعار Android عند توفر إصدار جديد أثناء فحص التطبيق.</p>
 <p class="small">لا يعاد تنزيل ملف سبق التحقق منه. التثبيت يتطلب موافقة Android، ولا يبدأ أثناء مكالمة.</p>
 </section>
-<section class="card" id="mobileDataMode" data-panel="settings">
-<div class="section-title"><h2>الاتصال ببيانات الهاتف</h2><span class="chip warn">اختياري · تجريبي</span></div>
-<p>تجربة تشغيل مساعد الشريحة على 4G/5G بدون الاعتماد على Wi-Fi. يتطلب إعدادًا أوليًا على شبكة Wi-Fi، ولا ينجح بالضرورة على أجهزة Xiaomi كلها أو بعد إعادة التشغيل.</p>
-<div class="status"><span class="indicator" id="wifiFreeLamp"></span><div><strong>المسار المحلي بدون Wi-Fi</strong><span class="small" id="wifiFreeStatus">غير مفعّل</span></div></div>
-<label style="display:flex;gap:10px;align-items:flex-start;margin:12px 0;font-size:13px;line-height:1.7"><input type="checkbox" id="wifiFreeConsent" style="width:auto;margin-top:5px;accent-color:#e3304c"><span>فاهم إن التجربة قد تفتح منفذ ADB رقم 5555 على شبكات الهاتف عند تفعيل التصحيح، وده يزيد مخاطر الوصول غير المصرح به. هستخدمه على جهاز اختبار فقط.</span></label>
-<button id="wifiFreeToggle" class="outline">تجربة الاتصال بدون Wi-Fi</button>
-<p class="small">لو حبيت تلغي الوضع، اتصل بالواي فاي أولًا واضغط إيقاف. لو المنفذ فضل مفتوح، أوقف USB debugging من إعدادات الهاتف. تشغيل البيانات لا يغني عن موافقة Android لإعداد ADB.</p>
-</section>
+<section id="mobileDataMode" data-panel="settings" hidden>
+ <span id="wifiFreeLamp"></span><span id="wifiFreeStatus"></span>
+ <input id="wifiFreeConsent" type="checkbox"><button id="wifiFreeToggle" disabled></button>
+ </section>
 <section class="card" data-panel="settings"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
 <section class="card" data-panel="settings"><h2>فحص الجهاز</h2><p>اربط الشرائح من حساب OnTrack؛ لا تحتاج إعداد المحرك أو مفتاح API.</p><div class="row"><button id="setup">فحص الهاتف</button><button id="updates" class="outline">فحص تحديث الواجهة</button></div></section>
 <section class="card" data-panel="settings"><label for="tenantWorkspaceSlot">شريحة المكالمات وجهات الاتصال والحملات</label><select id="tenantWorkspaceSlot"><option value="">اختار الشريحة</option></select><p id="tenantWorkspaceHelp" class="small">كل شريحة مرتبطة بحسابها فقط.</p></section>
@@ -374,17 +370,7 @@ body>.otWelcome,body>.otTabs,body>.otPageIntro,body>[data-panel],body>footer{dis
 <div class="divider"></div>
 
 </section>
-<section class="card" data-panel="settings" id="voiceLibrary">
-<div class="section-title"><h2>مكتبة الأصوات</h2><span class="chip">Basic / Premium</span></div>
-<p>الأصوات الأساسية متاحة عبر جلسات Gemini الحالية. الأصوات الخاصة تحتاج اشتراكًا يتيحها ومحرك TTS متوافقًا؛ لا يُشغَّل ملف PT كأنه صوت PCM.</p>
-<div class="otMiniCard"><div><strong><span class="otDot"></span> Gemini Live</strong><small>Aoede · Kore · Puck · Charon · Fenrir — حسب إعداد الخادم</small></div><span class="chip good">أساسي</span></div>
-<div class="otMiniCard"><div><strong>AYO Calm</strong><small>هدوء واحترافية • PyTorch voice preset</small></div><span class="otLocked">Premium · قيد الدمج</span></div>
-<div class="otMiniCard"><div><strong>AYO Excited</strong><small>حماسي • PyTorch voice preset</small></div><span class="otLocked">Premium · قيد الدمج</span></div>
-<div class="otMiniCard"><div><strong>AYO Sleepy</strong><small>نبرة هادئة جدًا • PyTorch voice preset</small></div><span class="otLocked">Premium · قيد الدمج</span></div>
-<div class="divider"></div><h2>الخطط والصلاحيات</h2>
-<p>كل باقة تتحكم في الأدوات والأصوات المتاحة لها من الخادم. الدفع المستقبلي عبر Kashier؛ تفعيل الاشتراك مشروط بتأكيد الدفع الموقّع.</p>
-
-</section>
+<section id="voiceLibrary" data-panel="settings" hidden></section>
 <footer>OnTrack Development © 2026 · Voice Cloud</footer>
 <script>
 const el=id=>document.getElementById(id);
