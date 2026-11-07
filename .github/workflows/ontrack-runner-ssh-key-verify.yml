@@ -1,0 +1,26 @@
+name: Verify unattended SSH key usable by Windows publishing runner
+on:
+  push:
+    branches: [feat/v1-io-premium-20261107]
+    paths: ['.github/workflows/ontrack-runner-ssh-key-verify.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Require unencrypted signing runner SSH key and match public key
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $pub=Get-Content -LiteralPath ($key+'.pub') -Raw
+          $derived=& ssh-keygen.exe -y -P '' -f $key 2>&1
+          if($LASTEXITCODE -ne 0){Write-Host 'UNATTENDED_PRIVATE_KEY=False'; exit 1}
+          if($derived.Trim().Split(' ')[1] -ne $pub.Trim().Split(' ')[1]) {throw 'SSH private/public key mismatch'}
+          Write-Host 'UNATTENDED_PRIVATE_KEY=True'
+          Write-Host ('DEPLOY_PUBLIC_KEY='+$pub.Trim())
