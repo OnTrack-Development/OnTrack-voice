@@ -1,0 +1,30 @@
+name: Verify published admin voices and IO Premium Fish keys (no site writes)
+on:
+  push:
+    branches: [feat/io-premium-voice-ui-publish-20261107]
+    paths: ['.github/workflows/ontrack-voice-voices-verify-live.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 7
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read-only live PHP and configured voice UI check
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $hostName='appontrack@65.21.208.232'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          & scp.exe @flags -P 7195 'tools/verify_io_premium_voice_ui.py' ($hostName+':/home/appontrack/.ontrack-mobile/verify_io_premium_voice_ui.py')
+          if($LASTEXITCODE -ne 0){throw 'Verification script staging failed'}
+          & ssh.exe @flags -p 7195 $hostName 'python3 /home/appontrack/.ontrack-mobile/verify_io_premium_voice_ui.py'
+          if($LASTEXITCODE -ne 0){throw 'Live voice UI verification failed'}
+          Write-Host 'LIVE_VOICE_ADMIN_AGENT_FISH_UI_VERIFIED=True'
