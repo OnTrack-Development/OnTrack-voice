@@ -13,7 +13,9 @@ if ($origin !== '' && strtolower((string)parse_url($origin, PHP_URL_HOST)) !== $
 if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 2048) { http_response_code(413); exit('request_too_large'); }
 $key = voice_lab_saved_key((int)$labUser['id'], 'google', (string)($_SERVER['HTTP_X_GEMINI_API_KEY'] ?? ''));
 session_write_close();
-if (strlen($key) < 20 || strlen($key) > 256 || !preg_match('/^[A-Za-z0-9_-]+$/', $key)) { http_response_code(400); exit('gemini_key_required'); }
+if ($key === '') { http_response_code(400); exit('gemini_key_required'); }
+// Provider decides validity; only reject unsafe HTTP-header values.
+if (strlen($key) > 2048 || preg_match('/[\x00-\x1F\x7F]/', $key)) { http_response_code(400); exit('unsafe_google_key'); }
 if (!function_exists('curl_init')) { http_response_code(503); exit('host_curl_extension_missing'); }
 $payload = json_encode([
     'uses' => 1,
