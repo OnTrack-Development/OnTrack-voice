@@ -77,8 +77,8 @@ jobs:
           $php=Get-Command php -ErrorAction SilentlyContinue
           if ($php) {
             & php -r 'echo "SITE20_RUNTIME_DIAG version=",PHP_VERSION," pdo=",implode(",",PDO::getAvailableDrivers())," sodium=",extension_loaded("sodium")?"yes":"no",PHP_EOL;'
-            & php -r 'if (PHP_VERSION_ID < 80300 || !in_array("sqlite", PDO::getAvailableDrivers(), true) || !extension_loaded("sodium")) exit(41); echo "SITE20_PHP83_SQLITE_SODIUM_PASS ", PHP_VERSION, PHP_EOL;'
-            if ($LASTEXITCODE -ne 0) { throw 'SITE-20 requires PHP 8.3+, SQLite PDO, sodium Ed25519 on CI runner' }
+            & php -r 'if (PHP_VERSION_ID < 80200 || !in_array("sqlite", PDO::getAvailableDrivers(), true) || !extension_loaded("sodium")) exit(41); echo "SITE20_PHP82_SQLITE_SODIUM_PASS ", PHP_VERSION, PHP_EOL;'
+            if ($LASTEXITCODE -ne 0) { throw 'SITE-20 CI requires PHP 8.2+, SQLite PDO and sodium; host PHP 8.3 is verified separately by preflight' }
             Get-ChildItem saas/console -Recurse -File -Filter '*.php' | ForEach-Object {
               & php -l $_.FullName | Out-Null
               if($LASTEXITCODE -ne 0){throw "Invalid PHP: $($_.FullName)"}
@@ -133,7 +133,8 @@ jobs:
             }
             $matrix=@{
               source_sha=$env:GITHUB_SHA
-              php_runtime='8.3+'
+              php_runner_version=(& php -r 'echo PHP_VERSION;')
+              host_php83='gated_by_isolated_host_preflight'
               sqlite_pdo=$true
               ed25519_sodium=$true
               suites_passed=$passed.Count
