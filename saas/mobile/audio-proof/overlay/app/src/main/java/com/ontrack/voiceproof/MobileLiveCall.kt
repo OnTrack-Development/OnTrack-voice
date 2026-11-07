@@ -237,10 +237,14 @@ internal class MobileLiveCall(
                 "لو مش المسؤول اعتذر من غير ذكر بيانات العميل:\n" + manager
             else "ابدأ المكالمة بتحية مصرية قصيرة باسم "+agentName+
                 " فقط، ولا تنطق رقم الإيجنت أو نسخة السيناريو. ثم اسمع رد العميل."
-            ws?.send(JSONObject().put("clientContent",JSONObject()
-                .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
-                    .put("parts",org.json.JSONArray().put(JSONObject().put("text",prompt)))))
-                .put("turnComplete",true)).toString())
+            if(premium){
+                scope.launch(Dispatchers.IO){runCatching{official?.prompt(prompt)}}
+            }else{
+                ws?.send(JSONObject().put("clientContent",JSONObject()
+                    .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
+                        .put("parts",org.json.JSONArray().put(JSONObject().put("text",prompt)))))
+                    .put("turnComplete",true)).toString())
+            }
         }
             // The server setup must succeed before the overlay enables takeover.
             notice("قناة PCM متصلة والإيجنت جاهز — اختبار صوت الطرفين على الهاتف مطلوب")
@@ -293,7 +297,7 @@ internal class MobileLiveCall(
                 var started=false
                 try{
                     premiumPcm.invoke(text,{!stopped.get()&&generation==turn}){chunk->
-                        if(stopped.get()||generation!=turn)return@invoke
+                        if(!stopped.get()&&generation==turn){
                         val pcm=resampler.convert(chunk)
                         if(pcm.isNotEmpty()){
                             if(!started){started=true;lastAssistantAudioAt.set(SystemClock.elapsedRealtime())}
@@ -305,6 +309,7 @@ internal class MobileLiveCall(
                                     playbackOverflowPackets.incrementAndGet()
                                 }
                             }
+                        }
                         }
                     }
                 }catch(e:Throwable){
