@@ -94,3 +94,67 @@ function voice_lab_saved_key(int $uid, string $provider, string $incoming): stri
     $encoded = $data['keys'][$provider] ?? null;
     return is_string($encoded) ? (unseal_secret($encoded) ?? '') : '';
 }
+
+ 
+// Structured, credential-free diagnostics, stored outside public_html.
+function voice_lab_trace_file(int $uid): string {
+    if ($uid < 1) throw new RuntimeException('invalid_trace_owner');
+    $dir = private_path() . '/voice-lab/diagnostics';
+    if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
+        throw new RuntimeException('trace_storage_unavailable');
+    }
+    if (is_link($dir)) throw new RuntimeException('unsafe_trace_directory');
+    @chmod($dir, 0700);
+    return $dir . '/owner-' . $uid . '-' . gmdate('Ymd') . '.jsonl';
+}
+
+function voice_lab_trace_log(int $uid, string $attempt, string $stage, array $meta = []): void {
+    try {
+        if (!preg_match('/^[a-z0-9_]{1,40}$/D', $stage)) return;
+        if (!preg_match('/^[a-zA-Z0-9_-]{1,64}$/D', $attempt)) $attempt = 'unknown';
+        $safe = [];
+        foreach (['http_status','ws_code','elapsed_ms','curl_errno'] as $key) {
+            if (isset($meta[$key]) && is_numeric($meta[$key])) {
+                $safe[$key] = max(0, min(3600000, (int)$meta[$key]));
+            }
+        }
+        foreach (['error_code','phase'] as $key) {
+            $value = $meta[$key] ?? '';
+            if (is_string($value) && preg_match('/^[a-zA-Z0-9_.-]{1,60}$/D', $value)) {
+                $safe[$key] = $value;
+            }
+        }
+        $line = json_encode(['at'=>gmdate('c'), 'attempt'=>$attempt, 'stage'=>$stage, 'meta'=>$safe],
+            JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+        $path = voice_lab_trace_file($uid);
+        if (file_put_contents($path, $line, FILE_APPEND | LOCK_EX) === false) {
+            error_log('voice_lab_trace_write_failed');
+        }
+        @chmod($path, 0600);
+    } catch (Throwable $e) {
+        // Logging must never interrupt the actual voice call. Never log credentials.
+        error_log('voice_lab_trace_unavailable');
+    }
+}
+
+function voice_lab_trace_read(int $uid, int $limit = 80): array {
+    $path = voice_lab_trace_file($uid);
+    if (is_link($path)) throw new RuntimeException('unsafe_trace_path');
+    if (!is_file($path)) return [];
+    $size = filesize($path);
+    if ($size === false) throw new RuntimeException('trace_read_failed');
+    $stream = fopen($path, 'rb');
+    if ($stream === false) throw new RuntimeException('trace_read_failed');
+    try {
+        $offset = max(0, $size - 131072);
+        fseek($stream, $offset);
+        if ($offset > 0) fgets($stream); // Discard incomplete first line.
+        $rows = [];
+        while (($line = fgets($stream)) !== false) {
+            $record = json_decode($line, true);
+            if (is_array($record)) $rows[] = $record;
+            if (count($rows) > $limit) array_shift($rows);
+        }
+        return $rows;
+    } finally { fclose($stream); }
+}
