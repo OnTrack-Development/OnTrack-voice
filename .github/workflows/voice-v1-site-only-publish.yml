@@ -35,6 +35,7 @@ on:
       - 'tools/test_device_bootstrap.php'
       - 'tools/test_tenant_call_ai_summary.php'
       - 'tools/test_voice_sso.php'
+      - 'tools/test_stitch_theme_update.py'
       - 'tools/test_voice_api_http.php'
       - 'tools/test_voice_dnc_hooks_http.php'
       - 'tools/test_agent_flow_preview_http.php'
@@ -64,6 +65,8 @@ jobs:
           $ErrorActionPreference='Stop'
           & python -m py_compile tools/publish_v1_one_shot.py tools/deploy_saas_console.py
           if ($LASTEXITCODE -ne 0) { throw 'Site publisher syntax failed' }
+          & python tools/test_stitch_theme_update.py
+          if ($LASTEXITCODE -ne 0) { throw 'Stitch brand/update banner UI contract rejected' }
           & node --check saas/console/assets/js/app.js
           if ($LASTEXITCODE -ne 0) { throw 'Console JavaScript invalid' }
           & node --check saas/console/assets/js/flow-graph.js

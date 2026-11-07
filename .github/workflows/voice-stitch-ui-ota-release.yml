@@ -1,0 +1,76 @@
+name: Publish reviewed OnTrack Stitch UI OTA — signed HTML, no APK
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: ontrack-stitch-ui-ota
+  cancel-in-progress: false
+jobs:
+  publish:
+    name: Sign, verify and install UI-only OTA
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 50
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify UI bridge contract and persistent update banner
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/test_stitch_theme_update.py
+          if ($LASTEXITCODE -ne 0) { throw 'Stitch color/update banner contract failed' }
+          & python tools/test_mobile_ui_contract.py
+          if ($LASTEXITCODE -ne 0) { throw 'Mobile native bridge contract failed' }
+      - name: Verify pinned original signing identity
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
+          if(-not (Test-Path -LiteralPath $key)) { throw 'Original keystore is missing' }
+          $cert=Join-Path $env:RUNNER_TEMP 'ontrack-stitch-ui.der'
+          try {
+            & keytool -exportcert -alias androiddebugkey -keystore $key -storepass android -file $cert | Out-Null
+            if($LASTEXITCODE -ne 0) { throw 'Signing key unreadable' }
+            if((Get-FileHash -LiteralPath $cert -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f') { throw 'APK signer changed' }
+          } finally { Remove-Item -LiteralPath $cert -Force -ErrorAction SilentlyContinue }
+          Write-Host 'STITCH_UI_ORIGINAL_SIGNER_PASS'
+      - name: Prepare and sign HTML OTA
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/prepare_mobile_ota.py .build/artifact/ota
+          if($LASTEXITCODE -ne 0) { throw 'OTA preparation failed' }
+          $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
+          & java tools/SignMobileOta.java $key .build/artifact/ota
+          if($LASTEXITCODE -ne 0) { throw 'OTA sign failed' }
+          $env:PATH += ';C:\Program Files\Git\usr\bin'
+          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_ota import verify;_,_,m=verify(Path('.build/artifact/ota'));assert m['revision']==50 and m['min_native']==34 and m['max_native']==50;print('STITCH_SIGNED_OTA50_VERIFIED')"
+          if($LASTEXITCODE -ne 0) { throw 'Signed OTA verification failed' }
+      - name: Upload pinned signed UI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnTrack-Voice-UI-OTA
+          path: .build/artifact/ota/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Queue signed UI via existing host worker
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MOBILE_OTA_ARTIFACT_NAME: OnTrack-Voice-UI-OTA
+        run: |
+          $ErrorActionPreference='Stop'
+          $env:PATH += ';C:\Program Files\Git\usr\bin'
+          & python tools/queue_mobile_ota.py .build/artifact/ota
+          if($LASTEXITCODE -ne 0) { throw 'Signed OTA host queue failed' }
+      - name: Verify host installed exact signed UI 50
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $env:PATH += ';C:\Program Files\Git\usr\bin'
+          & python tools/verify_mobile_ui_host_receipt.py .build/artifact/ota
+          if($LASTEXITCODE -ne 0) { throw 'Host did not install exact signed UI revision' }
+          Write-Host 'STITCH_UI50_HOST_PUBLISHED_PASS'

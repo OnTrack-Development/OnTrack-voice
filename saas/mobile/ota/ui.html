@@ -1,5 +1,5 @@
 <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#0b0b0e"><title>OnTrack Voice</title>
+<meta name="theme-color" content="#280B08"><title>OnTrack Voice</title>
 <style>
 #legacyPilotConfig[hidden]{display:none!important}#accountLinkHint{font-size:12px;line-height:1.7;color:var(--muted)}
 :root{--bg:#0b101b;--panel:#171f2e;--border:#2c3648;--muted:#9cacc4;--text:#eff3fb;--accent:#e3304c;--green:#35cf9a;--yellow:#f0ad57}
@@ -191,6 +191,40 @@ body>.otWelcome,body>.otTabs,body>.otPageIntro,body>[data-panel],body>footer{dis
 .v1Pair span{font-size:12px;color:var(--muted);max-width:76%;overflow-wrap:anywhere}
 .v1Buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
 .v1Hint{font-size:12px;line-height:1.8;color:var(--muted)}
+
+/* Owner Stitch palette: Black Bean / Champagne / Scarlet Red. Applied to the
+   EXISTING voice UI and bridge; no medical-demo content is imported. */
+:root{--bg:#280B08;--panel:#351712;--border:#69453e;--muted:#d2b2a1;
+  --text:#F9E7C9;--accent:#C92925;--control:#48251e;
+  --green:#2E6F40;--yellow:#dfb86c;color-scheme:dark}
+body{background:#280B08;color:var(--text)}
+body.light{--bg:#FBF7F0;--panel:#fff;--border:#E8DEC8;--muted:#6E5D57;
+  --text:#280B08;--accent:#C92925;--control:#F9E7C9;
+  --green:#2E6F40;--yellow:#b48745;color-scheme:light;background:#FBF7F0}
+#v1Minimal .card,.card{border-radius:16px;border-color:var(--border)}
+body.light #v1Minimal .card{background:#fff;box-shadow:0 12px 32px -8px #280b0812,0 4px 12px -2px #280b0808}
+body.light button:not(.primary):not(.positive):not(.agent-on):not(.agent-off){color:#280B08}
+#v1Minimal button:focus-visible,button:focus-visible{outline:2px solid #C92925;outline-offset:3px}
+#v1Minimal .v1Buttons button{min-height:48px}
+#v1Minimal .section-title h2{font-weight:850;letter-spacing:-.2px}
+#v1UpdateBox.otPersistentUpdates{display:block;scroll-margin-top:22px;
+  border:1px solid var(--border);overflow:hidden}
+#v1UpdateBox .otUpdateAvailability{display:flex;align-items:center;gap:11px;
+  border:1px solid var(--border);background:var(--control);border-radius:14px;
+  padding:13px 14px;margin:10px 0 14px}
+#v1UpdateBox .otUpdateAvailability .otUpdateMark{height:43px;width:43px;
+  flex:none;border-radius:12px;background:#C9292522;display:grid;place-items:center;
+  color:#C92925;font-weight:900;font-size:23px}
+#v1UpdateBox .otUpdateAvailability strong{display:block;font-size:14px}
+#v1UpdateBox .otUpdateAvailability small{display:block;font-size:11px;color:var(--muted)}
+#v1UpdateBox .otUpdateAvailability.has-update{
+  border-color:#C92925;background:linear-gradient(110deg,#C9292528,#F9E7C918)}
+body.light #v1UpdateBox .otUpdateAvailability.has-update{
+  background:#fff1e7}
+#v1InstallUpdates:not(:disabled){background:#C92925;color:#fff;border-color:#C92925}
+#v1UpdateBox[hidden]{display:block!important}
+@media(max-width:380px){#v1Minimal{gap:11px}#v1UpdateBox .v1Buttons{gap:7px}
+#v1UpdateBox .v1Buttons button{font-size:12px}}
 </style></head><body>
 <div id="uiPullStatus" hidden role="status" aria-live="polite">↻ جارٍ تحديث البيانات…</div>
 <div id="otSplash" role="status" aria-live="polite"><div class="otHalo"><div class="otMonogram">OT</div></div><div class="otTitle">ONTRACK</div><div class="otSubtitle">VOICE INTELLIGENCE</div><div class="otProgress"><span class="otPulse"></span>يرجى الانتظار · جارٍ تجهيز الاتصال</div></div>
@@ -214,9 +248,17 @@ body>.otWelcome,body>.otTabs,body>.otPageIntro,body>[data-panel],body>footer{dis
 <section class="card"><div class="v1Buttons"><button type="button" class="outline" id="v1Permissions">صلاحيات التشغيل</button><button type="button" class="outline" id="v1Refresh">تحديث الحالة</button></div>
 <div id="v1PermissionsBox" hidden><p class="v1Hint">لو نقص تصريح لازم للتشغيل، افتح التفعيل وفحص الجهاز.</p>
 <div class="v1Buttons"><button type="button" id="v1PermissionSetup">فتح التفعيل</button><button type="button" id="v1PermissionTest">فحص الجهاز</button></div></div>
-<div id="v1UpdateBox" hidden><p class="v1Hint">تحديث Android يحتاج موافقة التثبيت.</p>
-<div class="v1Buttons"><button type="button" id="v1CheckUpdates">فحص التحديثات</button><button type="button" id="v1InstallUpdates">تثبيت التحديث</button></div>
-<p id="v1UpdateStatus" class="v1Hint"></p></div></section>
+</section>
+<section class="card otPersistentUpdates" id="v1UpdateBox" aria-labelledby="v1UpdateHeading">
+<div class="section-title"><h2 id="v1UpdateHeading">تحديثات التطبيق</h2><span class="chip">إصدار موثّق</span></div>
+<div class="otUpdateAvailability" id="v1UpdateBanner" role="status" aria-live="polite">
+  <span class="otUpdateMark" aria-hidden="true">↧</span>
+  <span><strong id="v1UpdateTitle">جارٍ التحقق من تحديث Android</strong><small id="v1UpdateVersion">يظهر رقم الإصدار بعد الفحص</small></span>
+</div>
+<div class="v1Buttons"><button type="button" id="v1CheckUpdates" class="outline">فحص التحديثات</button><button type="button" id="v1InstallUpdates" class="primary" disabled>تحميل وتثبيت التحديث</button></div>
+<p id="v1UpdateStatus" class="v1Hint" aria-live="polite">تحديث Android يتم بموافقتك، وبدون حذف بيانات الحساب.</p>
+<p class="v1Hint">التحديث لا يبدأ أثناء مكالمة. بعد تنزيل APK الموقّع، Android نفسه يؤكد التثبيت.</p>
+</section>
 </main>
 <div class="otWelcome" data-panel="dashboard"><div><span class="otEyebrow">لوحة التحكم</span><strong>مركز تشغيل المكالمات</strong><small>تابع المكالمات والمساعدين والشرائح بسهولة.</small></div><div class="otSpark">✦</div></div>
 
@@ -617,7 +659,13 @@ function v1Render(s){
  el('v1Enable').disabled=!linked||!!s.updating||!!s.inCall||!!s.tenantPairingInProgress||active;
  el('v1Disable').disabled=!linked||!!s.updating||!s.agentEnabled;
  if(linked&&s.tenantServerState==='device')el('v1PermissionsBox').hidden=false;
+ const updateReady=!!s.nativeUpdateAvailable;
+ el('v1UpdateBanner').classList.toggle('has-update',updateReady);
+ el('v1UpdateTitle').textContent=updateReady?'تحديث جديد جاهز للتنزيل':s.nativeUpdateBusy?'جارٍ فحص تحديث التطبيق':'مركز تحديثات Android';
+ el('v1UpdateVersion').textContent=updateReady?'الإصدار '+(s.nativeUpdateVersion||'الجديد')+' متاح':('المثبت: '+String(s.native||'جارٍ القراءة'));
  el('v1InstallUpdates').disabled=el('upgradeAndroid').disabled;
+ el('v1InstallUpdates').textContent=updateReady?(s.nativeUpdateBusy?'جاري تجهيز التحديث…':'تحميل وتثبيت '+(s.nativeUpdateVersion||'التحديث')):'لا يوجد تحديث قابل للتثبيت';
+ el('v1CheckUpdates').disabled=!!s.nativeUpdateBusy||!!s.inCall;
  el('v1UpdateStatus').textContent=el('nativeUpdateStatus').textContent;
 }
 el('v1Enable').onclick=()=>el('enable').click();
@@ -662,7 +710,10 @@ el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent
 el('scanAndroid').onclick=()=>send('checkNativeUpdates');
 el('upgradeAndroid').onclick=()=>send('installNativeUpdate');
 el('enableUpdateNotice').onclick=()=>{if(Number(last.nativeCode)>=36)send('enableUpdateNotifications')};
-function openUpdateCenter(){el('v1UpdateBox').hidden=false;el('v1UpdateBox').scrollIntoView({behavior:'smooth',block:'start'});}
+function openUpdateCenter(){
+ el('v1UpdateBox').hidden=false;
+ el('v1UpdateBox').scrollIntoView({behavior:'smooth',block:'start'});
+}
 el('updateNotice').onclick=openUpdateCenter;
 el('updateBell').onclick=openUpdateCenter;
 window.onTrackOpenUpdates=openUpdateCenter;

@@ -246,6 +246,45 @@ function login_page(?string $error=null):void{
     echo '<p class="wl-copyright">© '.date('Y').' '.e($name).' · جميع الحقوق محفوظة</p></main></body></html>';
 }
 
+/**
+ * Read ONLY the official on-domain native OTA release manifest. No arbitrary
+ * URL, path from the user, CDN redirect, or fake download link.
+ */
+function ontrack_native_public_release():?array {
+    $file=__DIR__.'/../../../mobile/updates/native/latest.json';
+    if(!is_file($file)||is_link($file)||filesize($file)>16384)return null;
+    $envelope=json_decode((string)file_get_contents($file),true);
+    if(!is_array($envelope)||!is_string($envelope['payload']??null)||
+       !is_string($envelope['signature']??null)||
+       base64_decode($envelope['signature'],true)===false)return null;
+    $data=json_decode($envelope['payload'],true);
+    if(!is_array($data)||($data['schema']??null)!==1||
+       ($data['channel']??null)!=='stable'||
+       ($data['package']??null)!=='com.ontrack.voiceproof')return null;
+    $name=$data['file']??null;
+    if(!is_string($name)||!preg_match('/^ontrack-voice-v([0-9]{1,9})-([a-f0-9]{64})\\.apk$/D',$name,$m)||
+       (int)$m[1]!==(int)($data['version_code']??0)||
+       $m[2]!==($data['sha256']??null)||empty($data['version_name'])||
+       (int)($data['size']??0)<1000000)return null;
+    return ['name'=>(string)$data['version_name'],'code'=>(int)$m[1],
+      'url'=>'/mobile/updates/native/'.rawurlencode($name)];
+}
+function ontrack_update_banner():string {
+    $release=ontrack_native_public_release();
+    $status=$release
+        ?'الإصدار '.e($release['name']).' متاح للتنزيل من سيرفر OnTrack'
+        :'افحص آخر إصدار من مركز التحديثات قبل التنزيل';
+    $action=$release
+        ?'<a class="btn primary" href="'.e($release['url']).'" download>↓ تنزيل APK</a>'
+        :'<a class="btn primary" href="/saas/console/?tab=releases">فحص الإصدار</a>';
+    return '<section class="ot-master-update" aria-labelledby="otReleaseHeading">'.
+        '<div class="ot-master-update-icon" aria-hidden="true">↧</div>'.
+        '<div class="ot-master-update-text"><strong id="otReleaseHeading">تحديثات تطبيق OnTrack Voice</strong>'.
+        '<span>'.$status.'</span></div><div class="ot-master-update-actions">'.
+        $action.'<a class="btn" href="/saas/console/?tab=releases">تفاصيل التحديث</a>'.
+        '</div></section>';
+}
+
 function render_overview(array $a):void{
     $id=(int)$a['account_id'];$kind=$a['kind'];
     if(in_array($kind,['platform','reseller'],true)&&console_view_mode($a)==='user')$kind='customer';
@@ -275,6 +314,7 @@ function render_overview(array $a):void{
         '<a class="btn light" href="/saas/console/?tab='.e($primaryAction).'">'.e($primaryLabel).' ←</a>'.
         '<a class="btn ghost-light" href="/saas/console/?tab='.e($secondaryAction).'">'.e($secondaryLabel).'</a>'.
         '</div></div><div class="orb-art"><span></span><b>OT</b></div></section>';
+    echo ontrack_update_banner();
     echo '<div class="metric-grid">';
     if($kind==='platform'){
         echo (platform_resellers_visible()?counter('الريسيلرز',$n1,'♧'):'').counter('العملاء',$n2,'♙').counter('المساعدون',$n3,'✧').counter('سجلات المكالمات',$n4,'☏');
@@ -1704,17 +1744,24 @@ function render_billing(array $a):void{
     echo '<div class="info">مدفوعات Kashier الحقيقية لا تُفعّل من صفحة Success؛ التفعيل يتطلب Webhook موثّقًا أو موافقة دفع يدوي مسجلة.</div>';
 }
 function render_releases(array $a):void{
-    $file='/home/appontrack/public_html/saas/mobile/updates/native/latest.json';
-    $apk='';
-    if(is_file($file)){
-        $d=json_decode((string)file_get_contents($file),true);
-        $payload=json_decode((string)($d['payload']??''),true);
-        if(is_array($payload)&&is_string($payload['file']??null) && basename($payload['file'])===$payload['file'])
-            $apk='/saas/mobile/updates/native/'.rawurlencode($payload['file']);
-    }
+    $release=ontrack_native_public_release();
     $brand=brand($a);
-    echo card('تطبيق Android — '.e($brand['name']),'<p>تطبيق الاتصال بشريحة الهاتف، مع تفعيل الجهاز داخل الحساب. ملفات التطبيق والتحديثات مركزية على استضافة OnTrack.</p>'.($apk?'<a class="btn primary" href="'.e($apk).'">↓ تنزيل APK الموقّع</a>':'<div class="info">لم يتم العثور على رابط إصدار موثّق في السيرفر الحالي.</div>').'<p class="small dim">تحديثات الواجهة تتم عبر OTA بدون APK. تحديث أجزاء Android الأصلية يحتاج موافقة النظام على التثبيت.</p>');
+    $body='<p>تحديثات تطبيق '.e($brand['name']).' بتظهر في مركز التحديثات داخل الهاتف. '.
+        'تنزيل APK من سيرفر OnTrack متاح أيضًا من هنا، والتثبيت يحتاج موافقة Android.</p>';
+    if($release){
+        $body.='<div class="ot-release-version"><strong>الإصدار '.e($release['name']).'</strong>'.
+            '<span>versionCode '.(int)$release['code'].'</span></div>'.
+            '<a class="btn primary" href="'.e($release['url']).'" download>↓ تحميل إصدار Android الموقّع</a>';
+    }else{
+        $body.='<div class="alert secret">ملف إصدار Android غير متاح أو بياناته غير مطابقة. '.
+            'لم يتم عرض رابط تنزيل غير موثوق.</div>';
+    }
+    $body.='<p class="dim">الواجهة تُحدّث بشكل مستقل عبر OTA. الملف الأصلي يتحقق من التوقيع '.
+        'قبل تثبيته داخل التطبيق، ولا يتم حذف الربط أو بيانات المستخدم تلقائيًا.</p>'.
+        '<a class="btn" href="/saas/console/?tab=overview">← العودة للرئيسية</a>';
+    echo card('مركز تحديثات Android — '.e($brand['name']),$body);
 }
+
 /** Centralized platform-only controls for Meta Tech Provider and Coexistence.
  * Never display any tenant-facing inbox or connection form in this page.
  */
