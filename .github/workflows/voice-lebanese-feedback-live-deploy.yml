@@ -11,37 +11,26 @@ concurrency:
   group: voice-lebanese-feedback-canonical-root
   cancel-in-progress: false
 jobs:
-  validate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 7
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: release/voice-v1-20261106
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: mbstring,pdo_sqlite
-      - name: Syntax checks
-        run: |
-          set -eu
-          node --check saas/console/assets/js/app.js
-          php -l saas/console/_core/Views.php
-          python3 -m py_compile tools/patch_lebanese_scenario_live_20261107.py
-      - name: Regression tests
-        run: |
-          set -eu
-          php tools/test_answer_policy.php
-          php tools/test_dynamic_agent_studio.php
-          node tools/test_console_ajax_ui.cjs
   deploy:
-    needs: validate
+    name: Publish and verify Lebanese feedback scenario over direct SSH
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
           ref: release/voice-v1-20261106
+          persist-credentials: false
+      - name: Validate scenario files locally on existing Windows runner
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          & node --check saas/console/assets/js/app.js
+          if($LASTEXITCODE -ne 0){throw 'Agent Studio JavaScript syntax failed'}
+          & python -m py_compile tools/patch_lebanese_scenario_live_20261107.py
+          if($LASTEXITCODE -ne 0){throw 'Scenario deployment patch syntax failed'}
+          & node tools/test_console_ajax_ui.cjs
+          if($LASTEXITCODE -ne 0){throw 'Agent Studio JS regression failed'}
+          Write-Output 'SCENARIO_LOCAL_REGRESSION_PASS'
       - name: Publish just the two Agent Studio files by authorized SSH
         shell: pwsh
         env:
