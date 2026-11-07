@@ -404,7 +404,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
   function firstFishPhrase(text){
     const value=String(text||'').trim();
     if(value.length<8)return '';
-    const complete=value.match(/^([\s\S]{8,125}?[.!؟،؛\n])(?=\s|$)/u);
+    const complete=value.match(/^([\s\S]{3,125}?[.!؟،؛\n])(?=\s|$)/u);
     if(complete)return complete[1].trim();
     if(value.length<74)return '';
     const boundary=value.slice(0,88).lastIndexOf(' ');
@@ -450,8 +450,11 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
       ui.first.textContent='أول صوت: ...';
       stopFishAudioOnly();
       const onStart=()=>{
-        diagnostic('fish_first_audio',{elapsed_ms:Math.round(performance.now()-begin)});
-        ui.first.textContent='Fish أول صوت: '+Math.round(performance.now()-begin)+'ms';
+        if(!session||!session.firstAudio){
+          if(session)session.firstAudio=true;
+          diagnostic('fish_first_audio',{elapsed_ms:Math.round(performance.now()-begin)});
+          ui.first.textContent='Fish أول صوت: '+Math.round(performance.now()-begin)+'ms';
+        }
         if(active)setCallState('speaking');status('Fish Audio بيتكلم...');
       };
       if(!response.body||!window.MediaSource||!MediaSource.isTypeSupported('audio/mpeg')){
