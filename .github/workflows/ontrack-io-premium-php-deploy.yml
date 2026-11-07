@@ -1,4 +1,4 @@
-name: OnTrack IO Premium canonical site install over verified SSH
+name: OnTrack IO Premium root-site deploy with reviewed LF normalization
 on:
   push:
     branches: [feat/io-premium-native-v51-20261107]
