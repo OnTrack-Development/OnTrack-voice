@@ -4,6 +4,7 @@ on:
     branches: [feat/io-premium-native-v51-20261107]
     paths:
       - '.github/workflows/ontrack-voice-controls-direct-deploy.yml'
+      - 'tools/io_premium_voice_controls_deploy.py'
   workflow_dispatch:
 permissions:
   contents: read
