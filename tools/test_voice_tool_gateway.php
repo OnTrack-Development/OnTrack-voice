@@ -140,23 +140,47 @@ $booking=voice_tool_policy_save(4,$site,$rest,'rest.booking.create','/api/bookin
 $bad=false;try{voice_tool_policy_save(4,$site,$rest,'rest.booking.create','/admin/../credentials',true);}
 catch(InvalidArgumentException){$bad=true;}
 tool_check($bad,'path traversal rejected');
+$bookingCall='call-booking-abcdef123456';
 $slots=voice_tool_prepare(4,$site,$slotPolicy,$actor,'slot-list-abcdef123456',
-    ['date'=>'2026-12-01','service_id'=>'standard']);
+    ['date'=>'2026-12-01','service_id'=>'standard'],$bookingCall);
 $found=voice_tool_confirm(4,$site,$slots['request_id'],$actor,$slots['approval_token'],true,
     static fn()=>voice_tool_result('rest.slots',['success'=>true,'slots'=>[['id'=>'room-3','start'=>'2026-12-01T09:00:00']]]));
 tool_check($found['count']===1&&$found['slots'][0]['id']==='room-3','available slots result');
+$notRealStart=voice_tool_result('rest.slots',['success'=>true,'slots'=>[
+    ['id'=>'fake','start'=>'tomorrow maybe'],['id'=>'room-3','start'=>'2026-12-01T09:00:00']]]);
+tool_check($notRealStart['count']===1,'unverifiable slot timestamp rejected before booking');
+// Wrong or unverified slot cannot be booked by guessing its ID.
+$blockedSlot=false;
+try{voice_tool_prepare(4,$site,$booking,$actor,'rest-book-invalidcall1',
+    ['slot_id'=>'room-3','name'=>'Test Client','phone'=>'+201234567890','service_id'=>'standard'],
+    'call-unrelated-0001');}
+catch(InvalidArgumentException $e){$blockedSlot=$e->getMessage()==='booking_slot_not_verified_for_call';}
+tool_check($blockedSlot,'slot proof must match same verified call');
+$blockedSlot=false;
+try{voice_tool_prepare(4,$site,$booking,$actor,'rest-book-invalidslot2',
+    ['slot_id'=>'unknown','name'=>'Test Client','phone'=>'+201234567890','service_id'=>'standard'],
+    $bookingCall);}
+catch(InvalidArgumentException $e){$blockedSlot=$e->getMessage()==='booking_slot_not_verified_for_call';}
+tool_check($blockedSlot,'unverified booking slot cannot be written');
+$blockedSlot=false;
+try{voice_tool_prepare(4,$site,$booking,$actor,'rest-book-nocall333',
+    ['slot_id'=>'room-3','name'=>'Test Client','phone'=>'+201234567890','service_id'=>'standard']);}
+catch(InvalidArgumentException $e){$blockedSlot=$e->getMessage()==='booking_call_id_required';}
+tool_check($blockedSlot,'booking requires auditable call ID');
 $res=voice_tool_prepare(4,$site,$booking,$actor,'rest-book-abcdef123456',
-    ['slot_id'=>'room-3','name'=>'Test Client','phone'=>'+201234567890','service_id'=>'standard']);
+    ['slot_id'=>'room-3','name'=>'Test Client','phone'=>'+201234567890','service_id'=>'standard'],$bookingCall);
 $unconfirmed=voice_tool_confirm(4,$site,$res['request_id'],$actor,$res['approval_token'],true,
     static fn()=>voice_tool_result('rest.booking.create',['success'=>true]));
 tool_check($unconfirmed['status']==='uncertain'&&!$unconfirmed['retriable_automatically'],'missing booking reference stays uncertain');
 $again=voice_tool_confirm(4,$site,$res['request_id'],$actor,$res['approval_token'],true);
 tool_check($again['status']==='uncertain'&&$again['replayed']===true,'uncertain not auto-retried');
 $confirmed=voice_tool_prepare(4,$site,$booking,$actor,'rest-book-abcdef654321',
-    ['slot_id'=>'room-3','name'=>'Test Client','phone'=>'+201234567890','service_id'=>'standard']);
+    ['slot_id'=>'room-3','name'=>'Test Client','phone'=>'+201234567890','service_id'=>'standard'],$bookingCall);
 $ok=voice_tool_confirm(4,$site,$confirmed['request_id'],$actor,$confirmed['approval_token'],true,
-    static fn()=>voice_tool_result('rest.booking.create',['success'=>true,'booking_id'=>'BK-1001']));
-tool_check($ok['reference_id']==='BK-1001','confirmed booking ref');
+    static fn()=>voice_tool_result('rest.booking.create',['success'=>true,'booking_id'=>'BK-1001',
+        'starts_at'=>'2026-12-01T09:00:00+02:00']));
+tool_check($ok['reference_id']==='BK-1001'&&
+    $ok['starts_at']==='2026-12-01T09:00:00+02:00','provider-confirmed booking ID and attendance time');
 tool_check(count(voice_tool_history(4,$site))>=4,'audit history');
 tool_check(!str_contains(json_encode(voice_tool_history(4,$site)),'demo-key'),'no secrets in trace');
 // Provider must return a real identifier, not a boolean that PHP casts to "1".
@@ -182,7 +206,7 @@ tool_check($badSlots['count']===1&&$badSlots['slots'][0]['id']==='slot-real',
 // Revoke access to existing PREPARED writes when the site or tenant is stopped.
 // The data stays prepared and cannot be executed while entitlement is gone.
 $archiveRequest=voice_tool_prepare(4,$site,$booking,$actor,'rest-book-archive-abcdef',
-    ['slot_id'=>'room-3','name'=>'Archive QA','phone'=>'+201234567890','service_id'=>'standard']);
+    ['slot_id'=>'room-3','name'=>'Archive QA','phone'=>'+201234567890','service_id'=>'standard'],$bookingCall);
 $siteStatus=(string)one('SELECT status FROM sites WHERE id=? AND account_id=4',[$site])['status'];
 $externalCalls=0;
 execute("UPDATE sites SET status='archived' WHERE id=? AND account_id=4",[$site]);
@@ -211,7 +235,7 @@ tool_check($approvedAfterSiteRestore['reference_id']==='SITE-RESTORED',
     'restored site permits explicitly confirmed, still valid booking');
 
 $accountRequest=voice_tool_prepare(4,$site,$booking,$actor,'rest-book-suspend-abcde',
-    ['slot_id'=>'room-3','name'=>'Suspension QA','phone'=>'+201234567890','service_id'=>'standard']);
+    ['slot_id'=>'room-3','name'=>'Suspension QA','phone'=>'+201234567890','service_id'=>'standard'],$bookingCall);
 $accountStatus=(string)one('SELECT status FROM accounts WHERE id=4')['status'];
 execute("UPDATE accounts SET status='suspended' WHERE id=4");
 try {

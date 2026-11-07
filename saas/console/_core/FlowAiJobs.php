@@ -98,13 +98,13 @@ function flow_ai_job_run(string $id,?callable $liveTransport=null):array {
         if($job['kind']==='graph'){
             $graph=flow_ai_generate($account,$agent,$idea,$history,$current===[]?null:$current,$liveTransport);
             $explanation=flow_ai_explain_graph($graph);
-            $result=['ok'=>true,'graph'=>$graph,'explanation'=>$explanation,'model'=>flow_ai_model(),
+            $result=['ok'=>true,'graph'=>$graph,'explanation'=>$explanation,'model'=>flow_ai_model($account),
                 'metrics'=>flow_ai_graph_quality($graph),
                 'changes'=>flow_ai_preview_changes($current,$graph),'saved'=>false,'published'=>false];
         }else{
             $profile=flow_ai_profile_generate($account,$agent,$idea,$current,$history,$liveTransport);
             $result=['ok'=>true,'profile'=>$profile,'explanation'=>$profile['explanation'],
-                'model'=>flow_ai_model(),'saved'=>false,'published'=>false];
+                'model'=>flow_ai_model($account),'saved'=>false,'published'=>false];
         }
         db()->beginTransaction();
         try {

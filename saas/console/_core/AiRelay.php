@@ -70,26 +70,79 @@ function ai_relay_endpoint(string $url):string {
         throw new InvalidArgumentException('عنوان المزوّد غير مسموح؛ استخدم دومين HTTPS عام');
     return $url;
 }
+
+/**
+ * Assistant/Flow Text BYOK is independent of Live Voice keys. Existing user
+ * plans start at zero assistant keys until an owner grants a plan entitlement.
+ * Platform and reseller have their own unmetered pools; no cross-tenant key
+ * access or browser delivery of decrypted secrets.
+ */
+function ai_relay_assistant_limits_schema():void {
+    $mark=private_path().'/.schema.ai-assistant-key-limit.v1';
+    if(is_file($mark))return;
+    $cols=driver()==='mysql'
+        ?array_column(all('SHOW COLUMNS FROM plans'),'Field')
+        :array_column(all('PRAGMA table_info(plans)'),'name');
+    if(!in_array('assistant_key_limit',$cols,true))
+        db()->exec('ALTER TABLE plans ADD COLUMN assistant_key_limit INTEGER NOT NULL DEFAULT 0');
+    file_put_contents($mark,now(),LOCK_EX);@chmod($mark,0600);
+}
+function ai_relay_assistant_key_limit(int $accountId):int {
+    ai_relay_assistant_limits_schema();
+    $owner=account($accountId);
+    if(!$owner||$owner['status']!=='active')return 0;
+    if(in_array($owner['kind'],['platform','reseller'],true))return 0; // unlimited
+    $row=one("SELECT p.assistant_key_limit FROM subscriptions s
+        JOIN plans p ON p.id=s.plan_id AND p.kind='user' AND p.status='active'
+        WHERE s.account_id=? AND s.status='active'
+          AND s.starts_at<=? AND s.ends_at>?
+        ORDER BY s.id DESC LIMIT 1",[$accountId,now(),now()]);
+    return max(0,min(1000,(int)($row['assistant_key_limit']??0)));
+}
+function ai_relay_assistant_pool_owner(int $accountId):int {
+    $owner=account($accountId);
+    if(!$owner||$owner['status']!=='active')
+        throw new RuntimeException('assistant_account_inactive');
+    if(ai_relay_rows('assistant',false,$accountId)!==[]){
+        if($owner['kind']==='customer'&&ai_relay_assistant_key_limit($accountId)<1)
+            throw new RuntimeException('assistant_byok_plan_disabled');
+        return $accountId;
+    }
+    if($owner['kind']==='customer'&&(int)($owner['parent_id']??0)>0){
+        $reseller=account((int)$owner['parent_id']);
+        if($reseller&&$reseller['kind']==='reseller'&&$reseller['status']==='active'&&
+            ai_relay_rows('assistant',false,(int)$reseller['id'])!==[])
+            return (int)$reseller['id'];
+    }
+    return ai_relay_platform();
+}
+function ai_relay_is_compatible_text_provider(string $driver):bool {
+    return in_array($driver,['openai_compatible','omnira_a','omnira_b','nvidia'],true);
+}
+
 function ai_relay_add(int $account,string $scope,string $driver,string $name,string $model,string $endpoint,string $key):int {
     ai_relay_init();
-    if($account!==ai_relay_platform()){
-        if($scope!=='voice'||$driver!=='google_live')
-            throw new RuntimeException('relay_denied');
-        require_once __DIR__.'/GoogleTenantKeys.php';
-        $limit=google_voice_key_limit($account);
-        $owner=account($account);
-        if(!$owner||$owner['status']!=='active'||($owner['kind']==='customer'&&
-            (int)one("SELECT COUNT(*) n FROM ai_relay_entries WHERE account_id=? AND scope='voice'",[$account])['n'] >= $limit))
-            throw new RuntimeException('google_key_limit_reached');
-    }
     if(!in_array($scope,['voice','assistant'],true)||
-       !in_array($driver,$scope==='voice'?['google_live']:['google_live','google_text','openai_compatible'],true))
+       !in_array($driver,$scope==='voice'?['google_live']:
+            ['google_live','google_text','openai_compatible','omnira_a','omnira_b','nvidia'],true))
         throw new InvalidArgumentException('نوع مزوّد غير صالح');
+    if($account!==ai_relay_platform()){
+        $owner=account($account);
+        if(!$owner||$owner['status']!=='active')
+            throw new RuntimeException('relay_account_inactive');
+        require_once __DIR__.'/GoogleTenantKeys.php';
+        $limit=$scope==='voice'?google_voice_key_limit($account):
+            ai_relay_assistant_key_limit($account);
+        if($owner['kind']==='customer'&&
+            (int)one('SELECT COUNT(*) n FROM ai_relay_entries WHERE account_id=? AND scope=?',
+                [$account,$scope])['n'] >= $limit)
+            throw new RuntimeException('relay_plan_key_limit_reached');
+    }
     if(mb_strlen($name)<2||mb_strlen($name)>100||
        !preg_match('/\A[A-Za-z0-9._-]{4,120}\z/D',$model)||
        strlen($key)<4||strlen($key)>512||preg_match('/[\r\n]/',$key))
         throw new InvalidArgumentException('الاسم أو الموديل أو المفتاح غير صالح');
-    $endpoint=$driver==='openai_compatible'?ai_relay_endpoint($endpoint):'';
+    $endpoint=ai_relay_is_compatible_text_provider($driver)?ai_relay_endpoint($endpoint):'';
     $maximum=one('SELECT COALESCE(MAX(priority),0) n FROM ai_relay_entries WHERE account_id=? AND scope=?',[$account,$scope]);
     return insert('INSERT INTO ai_relay_entries(account_id,scope,driver,label,model,endpoint,secret_enc,priority,enabled,created_at)
       VALUES(?,?,?,?,?,?,?,?,1,?)',[$account,$scope,$driver,trim($name),$model,$endpoint,seal_secret($key),(int)$maximum['n']+1,now()]);
@@ -101,7 +154,7 @@ function ai_relay_edit(int $id,string $name,string $model,string $endpoint,strin
        !preg_match('/\A[A-Za-z0-9._-]{4,120}\z/D',$model)||
        strlen($key)>512||preg_match('/[\r\n]/',$key))
         throw new InvalidArgumentException('اسم أو موديل أو مفتاح غير صالح');
-    $url=$row['driver']==='openai_compatible'?ai_relay_endpoint($endpoint):'';
+    $url=ai_relay_is_compatible_text_provider((string)$row['driver'])?ai_relay_endpoint($endpoint):'';
     $encrypted=$key!==''?seal_secret($key):$row['secret_enc'];
     execute("UPDATE ai_relay_entries SET label=?,model=?,endpoint=?,secret_enc=?,
         cooldown_until=NULL,last_status='edited' WHERE id=? AND account_id=?",
@@ -159,6 +212,16 @@ function ai_relay_run(string $scope,callable $callback,?int $accountId=null):mix
             require_once __DIR__.'/GoogleTenantKeys.php';
             $limit=google_voice_key_limit($accountId);
             if($limit<1)throw new RuntimeException('google_key_plan_limit_reached');
+            $all=array_slice($all,0,$limit);
+        }
+    }
+    if($scope==='assistant'&&$accountId!==null&&$accountId!==ai_relay_platform()){
+        $pool=account($accountId);
+        if(!$pool||$pool['status']!=='active')
+            throw new RuntimeException('assistant_pool_inactive');
+        if($pool['kind']==='customer'){
+            $limit=ai_relay_assistant_key_limit($accountId);
+            if($limit<1)throw new RuntimeException('assistant_key_plan_limit_reached');
             $all=array_slice($all,0,$limit);
         }
     }
@@ -222,8 +285,10 @@ function ai_relay_assistant_legacy_key():string {
     if(!is_string($key)||$key==='')throw new RuntimeException('assistant_provider_not_configured');
     return $key;
 }
-function ai_relay_proposal(string $system,string $prompt,array $schema):array {
-    if(!ai_relay_has('assistant')){
+function ai_relay_proposal(string $system,string $prompt,array $schema,?int $callerAccountId=null):array {
+    $poolOwner=$callerAccountId===null?ai_relay_platform():
+        ai_relay_assistant_pool_owner($callerAccountId);
+    if(ai_relay_rows('assistant',false,$poolOwner)===[]){
         $setup=flow_ai_live_setup($system."\nOnly call submit_editor_proposal; never speak or execute actions.",$schema);
         return flow_ai_live_exchange(ai_relay_assistant_legacy_key(),$setup,$prompt);
     }
@@ -253,13 +318,16 @@ function ai_relay_proposal(string $system,string $prompt,array $schema):array {
             if(($call['function']['name']??'')==='submit_editor_proposal')
                 return ai_relay_parse_object((string)($call['function']['arguments']??''));
         return ai_relay_parse_object((string)($m['content']??''));
-    });
+    },$poolOwner);
 }
-function ai_relay_model():string {
+function ai_relay_model(?int $callerAccountId=null):string {
     // Lightweight protocol tests intentionally run without database bootstrap.
     if(!function_exists('private_path')||!function_exists('db'))return flow_ai_live_model();
-    foreach(ai_relay_rows('assistant',true) as $row)
-        if(empty($row['cooldown_until'])||$row['cooldown_until']<=now())return (string)$row['model'];
+    $owner=$callerAccountId===null?ai_relay_platform():
+        ai_relay_assistant_pool_owner($callerAccountId);
+    foreach(ai_relay_rows('assistant',true,$owner) as $row)
+        if(empty($row['cooldown_until'])||$row['cooldown_until']<=now())
+            return (string)$row['model'];
     return flow_ai_live_model();
 }
 function ai_relay_voice_session(int $minutes,?int $callerAccountId=null):array {

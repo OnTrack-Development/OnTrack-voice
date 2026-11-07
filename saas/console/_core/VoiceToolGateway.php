@@ -158,6 +158,41 @@ function voice_tool_trace(array $request,string $state,string $detail):void {
         (int)$request['id'],(string)$request['call_id'],(string)$request['operation'],
         $state,mb_substr($detail,0,250),now()]);
 }
+
+/**
+ * A booking can only use an availability ID actually confirmed by the SAME
+ * pinned connector, account, site, human actor and call. An arbitrary slot
+ * guessed by the model or supplied in JSON is never proof of availability.
+ * The confirmed booking time itself must still come from the write provider.
+ */
+function voice_booking_verified_slot(int $accountId,int $siteId,int $connectorId,
+    int $actorId,string $callId,string $slotId,string $serviceId):array {
+    if($callId===''||!preg_match('/^[A-Za-z0-9_-]{8,64}$/D',$callId))
+        throw new InvalidArgumentException('booking_call_id_required');
+    $rows=all("SELECT id,payload_enc,result_summary,completed_at FROM voice_tool_requests
+        WHERE account_id=? AND site_id=? AND connector_id=? AND actor_id=?
+          AND call_id=? AND operation='rest.slots' AND status='succeeded'
+        ORDER BY id DESC LIMIT 20",[$accountId,$siteId,$connectorId,$actorId,$callId]);
+    foreach($rows as $row){
+        $completed=strtotime((string)$row['completed_at'].' UTC');
+        if($completed===false||$completed>time()+10||time()-$completed>600)continue;
+        try {
+            $query=json_decode((string)unseal_secret((string)$row['payload_enc']),true,12,JSON_THROW_ON_ERROR);
+            $result=json_decode((string)$row['result_summary'],true,12,JSON_THROW_ON_ERROR);
+        }catch(Throwable){continue;}
+        if(!is_array($query)||!is_array($result)||
+           ($query['service_id']??null)!==$serviceId)continue;
+        foreach($result['slots']??[] as $slot){
+            if(is_array($slot)&&($slot['id']??null)===$slotId&&
+                is_string($slot['start']??null)&&$slot['start']!=='')
+                return ['slot_id'=>$slotId,'start'=>$slot['start'],
+                    'availability_request_id'=>(int)$row['id'],
+                    'source'=>'provider_verified_availability'];
+        }
+    }
+    throw new InvalidArgumentException('booking_slot_not_verified_for_call');
+}
+
 function voice_tool_prepare(int $accountId,int $siteId,int $policyId,int $actorId,
     string $idempotencyKey,array $input,string $callId=''):array {
     $policy=voice_tool_policy($accountId,$siteId,$policyId);
@@ -179,6 +214,10 @@ function voice_tool_prepare(int $accountId,int $siteId,int $policyId,int $actorI
         return ['request_id'=>(int)$prior['id'],'status'=>$prior['status'],
             'reference_id'=>$prior['reference_id'],'reused'=>true,'approval_token'=>null];
     }
+    $slotProof=$policy['operation']==='rest.booking.create'
+        ?voice_booking_verified_slot($accountId,$siteId,(int)$policy['connector_id'],
+            $actorId,$callId,(string)$payload['slot_id'],(string)$payload['service_id'])
+        :null;
     $token=bin2hex(random_bytes(24));
     $approvalDigest=voice_tool_approval_digest($policy,$token);
     $id=insert("INSERT INTO voice_tool_requests(account_id,site_id,connector_id,policy_id,call_id,
@@ -191,7 +230,7 @@ function voice_tool_prepare(int $accountId,int $siteId,int $policyId,int $actorI
     voice_tool_trace($request,'prepared','owner_confirmation_required');
     return ['request_id'=>$id,'status'=>'prepared','requires_approval'=>true,
         'approval_token'=>$token,'preview'=>['operation'=>(string)$policy['operation'],
-            'fields'=>$payload,'executed'=>false],
+            'fields'=>$payload,'verified_slot'=>$slotProof,'executed'=>false],
         'summary'=>'Do not tell caller an external action succeeded.'];
 }
 /** Restrict response to factual fields; never leak a WHMCS record into a voice prompt. */
@@ -247,7 +286,12 @@ function voice_tool_result(string $op,array $data):array {
            !preg_match('/^[A-Za-z0-9_-]{1,100}$/D',(string)$ref)||
            (string)$ref==='0')
             throw new RuntimeException('tool_booking_reference_missing');
-        return ['status'=>'succeeded','reference_id'=>(string)$ref];
+        $startsAt=$data['starts_at']??$data['start_at']??null;
+        if($startsAt!==null&&(!is_string($startsAt)||
+            !preg_match('/^20[0-9]{2}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9](?::[0-5][0-9])?(?:Z|[+-][0-2][0-9]:[0-5][0-9])?$/D',$startsAt)))
+            throw new RuntimeException('tool_booking_start_invalid');
+        return ['status'=>'succeeded','reference_id'=>(string)$ref]+
+            ($startsAt!==null?['starts_at'=>$startsAt]:[]);
     }
     if($op==='rest.slots'){
         if(($data['success']??false)!==true||!is_array($data['slots']??null))
@@ -257,7 +301,9 @@ function voice_tool_result(string $op,array $data):array {
             if(!is_array($slot)||
                !(is_int($slot['id']??null)||is_string($slot['id']??null))||
                !(is_int($slot['start']??null)||is_string($slot['start']??null))||
-               (string)$slot['id']===''||(string)$slot['start']==='')continue;
+               (string)$slot['id']===''||(string)$slot['start']===''||
+               !is_string($slot['start'])||
+               !preg_match('/^20[0-9]{2}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9](?::[0-5][0-9])?(?:Z|[+-][0-2][0-9]:[0-5][0-9])?$/D',$slot['start']))continue;
             $slots[]=['id'=>mb_substr((string)$slot['id'],0,90),
                 'start'=>mb_substr((string)$slot['start'],0,50)];
         }
@@ -327,8 +373,14 @@ function voice_tool_dispatch(array $policy,array $payload,string $idempotencyKey
     }
     $url=$target['url'].$path;
     $ch=curl_init($url);
+    $response='';
     curl_setopt_array($ch,[
-        CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_MAXREDIRS=>0,
+        CURLOPT_RETURNTRANSFER=>false,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_MAXREDIRS=>0,
+        CURLOPT_WRITEFUNCTION=>static function($handle,string $chunk)use(&$response):int{
+            if(strlen($response)+strlen($chunk)>262144)return 0;
+            $response.=$chunk;
+            return strlen($chunk);
+        },
         CURLOPT_SSL_VERIFYHOST=>2,CURLOPT_SSL_VERIFYPEER=>true,
         CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>13,
         CURLOPT_HTTPHEADER=>$headers,CURLOPT_PROXY=>'',
@@ -336,9 +388,10 @@ function voice_tool_dispatch(array $policy,array $payload,string $idempotencyKey
         CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_USERAGENT=>'OnTrack-ToolGateway/1.0'
     ]);
     if($post){curl_setopt($ch,CURLOPT_POST,true);curl_setopt($ch,CURLOPT_POSTFIELDS,$body);}
-    try{$raw=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);}
+    try{$ok=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);}
     finally{curl_close($ch);}
-    if(!is_string($raw)||strlen($raw)>262144||$status<200||$status>=300)
+    $raw=$response;
+    if($ok!==true||strlen($raw)>262144||$status<200||$status>=300)
         throw new RuntimeException('tool_upstream_unavailable_or_ambiguous');
     $data=json_decode($raw,true,20);
     if(!is_array($data))throw new RuntimeException('tool_invalid_upstream_json');
@@ -365,6 +418,13 @@ function voice_tool_confirm(int $accountId,int $siteId,int $requestId,int $actor
     if($row['status']!=='prepared')return ['status'=>$row['status'],'reference_id'=>$row['reference_id'],'replayed'=>true];
     $date=strtotime((string)$row['prepared_at'].' UTC');
     if($date===false||time()-$date>600)throw new RuntimeException('tool_confirmation_expired');
+    if($row['operation']==='rest.booking.create'){
+        $prepared=json_decode((string)unseal_secret((string)$row['payload_enc']),true,12,JSON_THROW_ON_ERROR);
+        if(!is_array($prepared))throw new RuntimeException('booking_payload_unavailable');
+        voice_booking_verified_slot($accountId,$siteId,(int)$row['connector_id'],
+            $actorId,(string)$row['call_id'],(string)$prepared['slot_id'],
+            (string)$prepared['service_id']);
+    }
     $claimed=execute("UPDATE voice_tool_requests SET status='inflight'
         WHERE id=? AND account_id=? AND site_id=? AND status='prepared'",
         [$requestId,$accountId,$siteId]);
@@ -386,7 +446,7 @@ function voice_tool_confirm(int $accountId,int $siteId,int $requestId,int $actor
         $summary=json_encode($result,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
         execute("UPDATE voice_tool_requests SET status='succeeded',reference_id=?,
            result_summary=?,completed_at=? WHERE id=? AND account_id=?",
-           [$reference,mb_substr($summary,0,1200),now(),$requestId,$accountId]);
+           [$reference,mb_substr($summary,0,7000),now(),$requestId,$accountId]);
         voice_tool_trace($row,'succeeded','provider_result_verified');
         return $result+['request_id'=>$requestId];
     }catch(Throwable $error){

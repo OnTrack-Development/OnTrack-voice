@@ -123,7 +123,7 @@ PROMPT;
     // Never call REST generateContent for editor chat.
     $proposal=flow_ai_profile_validate(
         $liveTransport!==null?flow_ai_live_proposal($system,$context,$schema,$liveTransport)
-            :ai_relay_proposal($system,$context,$schema)
+            :ai_relay_proposal($system,$context,$schema,$accountId)
     );
     // Keep structural suggestions; replace untrusted model completion claims.
     $proposal['explanation']=flow_ai_profile_summary($proposal);

@@ -354,6 +354,7 @@ function render_accounts(array $a):void{
 }
 function render_plans(array $a):void{
     require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
+    require_once __DIR__.'/AiRelay.php';ai_relay_assistant_limits_schema();
     $type=(string)$a['kind'];$id=(int)$a['account_id'];
     $list=$type==='platform'?all(platform_resellers_visible()?'SELECT * FROM plans ORDER BY kind,id':"SELECT * FROM plans WHERE kind='user' ORDER BY kind,id"):all("SELECT * FROM plans WHERE kind='user' AND status='active' ORDER BY id");
     $rows=[];
@@ -387,6 +388,7 @@ function render_plans(array $a):void{
                 '<label class="field">سعر الباقة (قرش)<input name="price" type="number" min="0" max="1000000000" step="1" value="'.(int)$plan['price_minor'].'" required><small>100 قرش = 1 جنيه</small></label>'.
                 '<label class="field">سعر كل مكالمة بعد الحد (قرش)<input name="overage" type="number" min="0" max="10000000" step="1" value="'.(int)($plan['overage_minor']??0).'" required><small>0 = بدون تكلفة إضافية</small></label>'.
                 '<label class="field">عدد مفاتيح Google للعميل<input name="google_key_limit" type="number" min="0" max="1000" required value="'.(int)($plan['google_key_limit']??1).'"></label>'.
+                '<label class="field">مفاتيح Assistant Text للعميل<input name="assistant_key_limit" type="number" min="0" max="1000" required value="'.(int)($plan['assistant_key_limit']??0).'"></label>'.
                 '</div><div class="plan-actions"><button class="btn primary" type="submit">حفظ تغييرات الباقة</button></div></form>'.
                 form_start('archive_plan','/?tab=plans','class="plan-archive"').
                 '<input type="hidden" name="plan_id" value="'.(int)$plan['id'].'">'.
@@ -407,6 +409,7 @@ function render_plans(array $a):void{
             '<label class="field">سعر الباقة (قرش)<input name="price" type="number" min="0" max="1000000000" step="1" value="0" required></label>'.
             '<label class="field">سعر المكالمة الزائدة (قرش)<input name="overage" type="number" min="0" max="10000000" step="1" value="0" required></label>'.
             '<label class="field">عدد مفاتيح Google للعميل<input name="google_key_limit" type="number" min="0" max="1000" required value="1"></label>'.
+            '<label class="field">مفاتيح Assistant Text للعميل<input name="assistant_key_limit" type="number" min="0" max="1000" required value="0"></label>'.
             '</div>'.submit_btn('إنشاء الباقة'));
     }elseif($type==='reseller'){
         $customers=all("SELECT id,name FROM accounts WHERE parent_id=? AND kind='customer'",[$id]);
@@ -761,7 +764,7 @@ function render_voice_data_sources(array $a,array $site):void {
             foreach($candidates as $candidate){
                 $openApiHtml.='<div class="voice-data-row"><strong>'.e($candidate['connector_name']).
                     '</strong><span>'.e($candidate['method']).' '.e($candidate['path']).' · '.
-                    e($candidate['operation']).' · '.e($candidate['summary']).'</span>'.
+                    e($candidate['operation']).' · '.e($candidate['summary']).' · '.e($candidate['contract']??'schema_unverified').'</span>'.
                     form_start('voice_openapi_draft',$url,'class="inline-form"').
                     '<input type="hidden" name="site_id" value="'.$siteId.'">'.
                     '<input type="hidden" name="connector_id" value="'.(int)$candidate['connector_id'].'">'.
@@ -788,7 +791,10 @@ function render_voice_data_sources(array $a,array $site):void {
             'whmcs.ticket.reply'=>'WHMCS: رد على تذكرة بموافقة',
             'rest.slots'=>'Laravel/REST: قراءة المواعيد',
             'rest.booking.create'=>'Laravel/REST: إنشاء حجز بموافقة'];
-        $toolHtml='<p class="info">التنفيذ الخارجي مغلق افتراضيًا؛ لا يمكن للمساعد اختيار عنوان أو صلاحية أو إعلان حجز دون مرجع حقيقي. اعتماد الأدمن لسياسة تشغيل لا يُنفذ الطلب: كل طلب يحتاج موافقة ثانية.</p>';
+        $toolHtml='<p class="info">التنفيذ الخارجي مغلق افتراضيًا؛ لا يمكن للمساعد اختيار عنوان أو صلاحية أو إعلان حجز دون مرجع حقيقي. اعتماد الأدمن لسياسة تشغيل لا يُنفذ الطلب: كل طلب يحتاج موافقة ثانية.</p>'.
+            '<p class="dim">الحجز REST يحتاج 3 خطوات موثقة: استعلم عن rest.slots لنفس Call ID وService ID، '.
+            'انتظر رد المواعيد المتاحة من المزود، ثم حضّر rest.booking.create لنفس الموصل والعميل والمكالمة. '.
+            'راجع اسم ورقم العميل والموعد قبل التأكيد. بدون Booking ID حقيقي لا تعلن نجاح الحجز.</p>';
         if($toolChoices){
             $toolHtml.=form_start('voice_tool_policy_save',$url).
                 '<input type="hidden" name="site_id" value="'.$siteId.'">'.
@@ -813,7 +819,7 @@ function render_voice_data_sources(array $a,array $site):void {
                 form_start('voice_tool_prepare',$url).
                 '<input type="hidden" name="site_id" value="'.$siteId.'">'.
                 select_html('عملية من سياسة محددة','policy_id',$toolsForTest).
-                '<label class="field">Call ID اختياري للتتبع<input name="call_id" maxlength="64"></label>'.
+                '<label class="field">Call ID — مطلوب للحجز، ويجب مطابقته لاستعلام المواعيد السابق<input name="call_id" maxlength="64" placeholder="call-123456789"></label>'.
                 '<label class="field">معاملات العملية JSON حسب نوعها<textarea name="tool_payload_json" rows="4" maxlength="5000" required placeholder="{&quot;client_id&quot;:123}">{}</textarea></label>'.
                 submit_btn('تحضير الطلب للمراجعة').'</details>';
         }
@@ -1747,24 +1753,36 @@ function render_whatsapp_platform_settings(array $a):void {
 
 function render_ai_relay_settings(array $a):void {
     require_once __DIR__.'/AiRelay.php';
-    foreach(['voice'=>'Voice Relay — مفاتيح Google للمكالمات','assistant'=>'AI Assistant Relay — المزوّدون والموديلات'] as $scope=>$heading){
-        $entries=ai_relay_rows($scope);
+    $isPlatform=$a['kind']==='platform';
+    $accountId=(int)$a['account_id'];
+    $scopes=$isPlatform
+        ?['voice'=>'Voice Relay — مفاتيح Google للمكالمات','assistant'=>'AI Assistant Relay — المزوّدون والموديلات']
+        :['assistant'=>'AI Assistant Text — مفاتيح الإيجنت الخاصة بحسابك'];
+    foreach($scopes as $scope=>$heading){
+        $entries=ai_relay_rows($scope,false,$accountId);
+        $limit=$isPlatform||$a['kind']==='reseller'?0:ai_relay_assistant_key_limit($accountId);
+        $canAdd=$isPlatform||$a['kind']==='reseller'||count($entries)<$limit;
         $options=$scope==='voice'
             ?'<option value="google_live">Google Gemini Live</option>'
-            :'<option value="google_live">Google Live</option><option value="google_text">Google Text REST</option><option value="openai_compatible">Custom OpenAI-compatible</option>';
+            :'<option value="google_live">Google Live</option><option value="google_text">Google Text REST</option><option value="openai_compatible">Custom OpenAI-compatible</option><option value="omnira_a">Omnira A · OpenAI-compatible Text</option><option value="omnira_b">Omnira B · OpenAI-compatible Text</option><option value="nvidia">NVIDIA · OpenAI-compatible Text</option>';
         $modelChoices=$scope==='voice'
             ?'<option value="gemini-3.8-live"><option value="gemini-3.8-live-extended-thinking"><option value="gemini-3.1-flash-live-preview">'
             :'<option value="gemini-3.8-live-extended-thinking"><option value="gemini-3.8-flash"><option value="gemini-3.8-live">';
         $modelList='<datalist id="relay-models-'.e($scope).'">'.$modelChoices.'</datalist>';
-        $content='<p>إدارة داخلية كاملة: أضف أي عدد من المفاتيح، رتّب الأولوية، واختبر الاتصال. عند 429 أو 503 يتم تحويل الطلب للذي بعده مع إيقاف المفتاح المختنق 15 دقيقة. لا تظهر الأسرار بعد الحفظ.</p>'.
-            form_start('relay_add','/?tab=settings').
+        $content='<p>مجموعتان منفصلتان: Google Live للمكالمات وAssistant Text لتحرير Flow. '.
+            'Omnira A/B وNVIDIA وCustom للنص فقط عبر HTTPS Endpoint متوافق؛ لا تعمل تلقائيًا كصوت Live. '.
+            'المفاتيح مشفرة ولا تصل إلى المتصفح أو APK، والاختبار الفعلي يثبت التوافق.</p>'.
+            '<p class="dim">مفاتيح المجموعة: '.count($entries).
+            ($isPlatform||$a['kind']==='reseller'?' · غير محدود':' · حد الباقة: '.(int)$limit).'</p>';
+        if($canAdd)$content.=form_start('relay_add','/?tab=settings').
             '<input type="hidden" name="scope" value="'.e($scope).'">'.
             '<div class="cols two"><label class="field">اسم المفتاح<input name="relay_label" maxlength="100" required placeholder="Primary / Backup"></label>'.
             '<label class="field">Provider<select name="relay_driver">'.$options.'</select></label>'.
             '<label class="field">Model ID — اختَر من المقترحات أو اكتب أي موديل<input name="relay_model" list="relay-models-'.e($scope).'" dir="ltr" maxlength="120" required placeholder="gemini-3.8-live"></label>'.
             '<label class="field">API Key<input type="password" name="relay_api_key" maxlength="512" autocomplete="off" required></label></div>'.
-            '<label class="field">Custom HTTPS Endpoint (للمزوّد المخصص فقط)<input name="relay_endpoint" dir="ltr" maxlength="600" placeholder="https://api.provider.example/v1/chat/completions"></label>'.
+            '<label class="field">HTTPS Chat Completions Endpoint لمزودي OpenAI-compatible<input name="relay_endpoint" dir="ltr" maxlength="600" placeholder="https://api.provider.example/v1/chat/completions"></label>'.
             submit_btn('إضافة مفتاح / مزوّد');
+        else $content.='<p class="dim">وصلت لحد الباقة أو إضافة مفاتيح Assistant غير متاحة لهذه الباقة.</p>';
         if(!$entries)$content.='<p class="dim">لا يوجد Relay محفوظ. المزوّد الحالي يظل يعمل إلى أن تضيف أول مفتاح.</p>';
         foreach($entries as $item){
             $id=(int)$item['id'];
@@ -1813,6 +1831,8 @@ function render_settings(array $a):void{
     if($a['kind']!=='platform'){
         require_once __DIR__.'/GoogleVoiceKeysView.php';
         render_google_voice_key_settings($a);
+        if(in_array($a['role'],['owner','admin'],true)&&!active_support())
+            render_ai_relay_settings($a);
     }
     echo card('كلمة المرور والحساب',
         '<p>تقدر تغيّر كلمة المرور باستخدام الحالية، أو تسترجعها من البريد لو نسيتها. من غير مصادقة ثنائية أثناء التجارب.</p>'.

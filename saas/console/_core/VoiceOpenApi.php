@@ -81,6 +81,33 @@ function voice_openapi_fetch(array $connector,string $path):string {
         throw new RuntimeException('openapi_document_unavailable');
     return $body;
 }
+
+/**
+ * Discovery is a draft, never authorization. Reject schemas that REQUIRE an
+ * unapproved query/header/body field or remote reference we cannot supply.
+ * Older OpenAPI documents without field detail remain visibly unverified.
+ */
+function voice_openapi_operation_contract(array $pathParameters,array $details,string $method):?string {
+    $allowed=$method==='get'?['date','service_id']:['slot_id','name','phone','service_id'];
+    $declared=$details['parameters']??[];
+    if(!is_array($declared)||count($declared)>12||count($pathParameters)>12)return null;
+    foreach(array_merge($pathParameters,$declared) as $param){
+        if(!is_array($param)||isset($param['$ref']))return null;
+        if(($param['required']??false)===true&&
+           (!in_array((string)($param['name']??''),$allowed,true)||
+            ($param['in']??'')!=='query'||$method!=='get'))return null;
+    }
+    if($method==='get')return $declared||$pathParameters?'query_fields_reviewed':'no_query_schema';
+    $body=$details['requestBody']??null;
+    if($body===null)return 'no_request_schema';
+    if(!is_array($body)||isset($body['$ref'])||!is_array($body['content']??null))return null;
+    if(!is_array($body['content']['application/json']??null))return null;
+    $schema=$body['content']['application/json']['schema']??null;
+    if(!is_array($schema)||isset($schema['$ref'])||
+       !is_array($schema['required']??[])||array_diff($schema['required'],$allowed))return null;
+    return 'json_body_reviewed';
+}
+
 function voice_openapi_parse(string $raw):array {
     if(strlen($raw)>196608||strlen($raw)<25)throw new InvalidArgumentException('openapi_document_size_invalid');
     $doc=json_decode($raw,true,24,JSON_THROW_ON_ERROR);
@@ -95,6 +122,8 @@ function voice_openapi_parse(string $raw):array {
         try{$safe=voice_connector_path($path);}
         catch(InvalidArgumentException){continue;}
         if($safe==='/')continue;
+        $pathParameters=$methods['parameters']??[];
+        if(!is_array($pathParameters))continue;
         foreach(['get','post'] as $method){
             $details=$methods[$method]??null;
             if(!is_array($details))continue;
@@ -105,10 +134,13 @@ function voice_openapi_parse(string $raw):array {
             if($method==='post'&&preg_match('~(?:^|/)(?:bookings|reservations)$~iD',$safe))
                 $operation='rest.booking.create';
             if(!$operation)continue;
+            $contract=voice_openapi_operation_contract($pathParameters,$details,$method);
+            if($contract===null)continue;
             $summary=$details['summary']??$details['operationId']??'';
             if(!is_string($summary))$summary='';
             $endpoints[]=['path'=>$safe,'method'=>strtoupper($method),
-                'operation'=>$operation,'summary'=>mb_substr(strip_tags($summary),0,160)];
+                'operation'=>$operation,'contract'=>$contract,
+                'summary'=>mb_substr(strip_tags($summary),0,160)];
             if(count($endpoints)>=30)break 2;
         }
     }

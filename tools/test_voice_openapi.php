@@ -18,12 +18,26 @@ $spec=json_encode(['openapi'=>'3.0.3','info'=>['title'=>'Booking Demo','version'
         '/api/users/{id}'=>['get'=>['operationId'=>'GetSecrets']],
         '/admin/secrets'=>['post'=>['operationId'=>'DestroySecret']],
         '/api/other'=>['delete'=>['operationId'=>'DeleteAccount']],
+        '/api/admin/slots'=>['get'=>['parameters'=>[[
+           'in'=>'header','name'=>'X-Admin-Key','required'=>true]]]],
+        '/api/reservations'=>['post'=>['requestBody'=>['content'=>[
+           'application/json'=>['schema'=>['required'=>['admin_override']]]]]]],
         '/admin/../bad'=>['get'=>['operationId'=>'BadHost']]
     ]],JSON_THROW_ON_ERROR);
 $result=voice_openapi_discover(4,$site,$conn,'/openapi.json',static fn()=> $spec);
 openapi_check($result['count']===2&&!$result['writes_enabled'],'two restricted candidate endpoints');
 openapi_check($result['candidates'][0]['operation']==='rest.slots','GET mapped to safe slots');
+openapi_check(($result['candidates'][0]['contract']??'')==='no_query_schema',
+    'undocumented schema is marked for manual review, not falsely verified');
 openapi_check($result['candidates'][1]['operation']==='rest.booking.create','POST mapped to booking only');
+$verifiedBody=json_encode(['openapi'=>'3.1.0','paths'=>[
+   '/api/reservations'=>['post'=>['requestBody'=>['content'=>['application/json'=>[
+     'schema'=>['required'=>['slot_id','name','phone','service_id']]]]]]]
+]],JSON_THROW_ON_ERROR);
+$verifiedOperations=voice_openapi_parse($verifiedBody);
+openapi_check(count($verifiedOperations)===1&&
+    $verifiedOperations[0]['contract']==='json_body_reviewed',
+    'known JSON booking fields accepted; unexpected required keys rejected');
 $found=voice_openapi_candidates(4,$site);
 openapi_check(count($found)===2,'saved site-scoped candidates');
 $originalStatus=(string)one('SELECT status FROM accounts WHERE id=4')['status'];

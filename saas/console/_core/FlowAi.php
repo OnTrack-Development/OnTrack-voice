@@ -87,8 +87,8 @@ function flow_ai_extract_graph(string $providerBody):array {
 
 /** All editor proposals use the existing 3.8 Live text-turn adapter.
  * This must never mutate the separate Android phone call model. */
-function flow_ai_model():string {
-    return ai_relay_model();
+function flow_ai_model(?int $accountId=null):string {
+    return ai_relay_model($accountId);
 }
 
 function flow_ai_generate(int $accountId,int $agentId,string $idea,array $history=[],?array $currentGraph=null,?callable $liveTransport=null):array {
@@ -206,7 +206,7 @@ PROMPT;
         // No generateContent/responseMimeType/responseSchema fallback.
         $graphDraft=$liveTransport!==null
             ?flow_ai_live_proposal($targetPrompt,$userText.$failedGraph,$schema,$liveTransport)
-            :ai_relay_proposal($targetPrompt,$userText.$failedGraph,$schema);
+            :ai_relay_proposal($targetPrompt,$userText.$failedGraph,$schema,$accountId);
         try{
             $graph=flow_ai_validate_proposal($graphDraft);
             if(!$stress)return $graph;

@@ -778,14 +778,17 @@ function act():void {
             case 'create_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
+                require_once __DIR__.'/AiRelay.php';ai_relay_assistant_limits_schema();
                 $type=field('kind',20);if(!in_array($type,['reseller','user'],true))deny();
                 if($type==='reseller'&&!platform_resellers_visible())deny(404);
                 $price=intfield('price');$overage=intfield('overage');
                 if($price>1000000000||$overage>10000000)throw new InvalidArgumentException('السعر أكبر من الحد المسموح');
                 $keyLimit=intfield('google_key_limit');
                 if($keyLimit>1000)throw new InvalidArgumentException('حد مفاتيح Google أكبر من المسموح');
-                insert("INSERT INTO plans(kind,name,call_quota,site_limit,agent_limit,staff_limit,reseller_customers,price_minor,overage_minor,google_key_limit,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,'active',?)",
-                    [$type,required('name'),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),intfield('customers'),$price,$overage,$keyLimit,now()]);
+                $assistantLimit=intfield('assistant_key_limit');
+                if($assistantLimit>1000)throw new InvalidArgumentException('حد مفاتيح AI Text أكبر من المسموح');
+                insert("INSERT INTO plans(kind,name,call_quota,site_limit,agent_limit,staff_limit,reseller_customers,price_minor,overage_minor,google_key_limit,assistant_key_limit,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,'active',?)",
+                    [$type,required('name'),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),intfield('customers'),$price,$overage,$keyLimit,$assistantLimit,now()]);
                 audit('plan.created',$id);break;
             case 'toggle_voice':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
@@ -1068,14 +1071,17 @@ function act():void {
             case 'edit_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
+                require_once __DIR__.'/AiRelay.php';ai_relay_assistant_limits_schema();
                 $plan=one('SELECT id,kind FROM plans WHERE id=?',[intfield('plan_id')]);if(!$plan)deny();
                 if($plan['kind']==='reseller'&&!platform_resellers_visible())deny(404);
                 $price=intfield('price');$overage=intfield('overage');
                 if($price>1000000000||$overage>10000000)throw new InvalidArgumentException('السعر أكبر من الحد المسموح');
                 $keyLimit=intfield('google_key_limit');
                 if($keyLimit>1000)throw new InvalidArgumentException('حد مفاتيح Google أكبر من المسموح');
-                execute('UPDATE plans SET name=?,call_quota=?,site_limit=?,agent_limit=?,staff_limit=?,reseller_customers=?,price_minor=?,overage_minor=?,google_key_limit=? WHERE id=?',
-                   [required('name',120),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),intfield('customers'),$price,$overage,$keyLimit,$plan['id']]);
+                $assistantLimit=intfield('assistant_key_limit');
+                if($assistantLimit>1000)throw new InvalidArgumentException('حد مفاتيح AI Text أكبر من المسموح');
+                execute('UPDATE plans SET name=?,call_quota=?,site_limit=?,agent_limit=?,staff_limit=?,reseller_customers=?,price_minor=?,overage_minor=?,google_key_limit=?,assistant_key_limit=? WHERE id=?',
+                   [required('name',120),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),intfield('customers'),$price,$overage,$keyLimit,$assistantLimit,$plan['id']]);
                 audit('plan.updated',$id,['plan'=>$plan['id']]);break;
             case 'archive_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
