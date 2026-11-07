@@ -25,7 +25,7 @@ FILES={
 }
 
 def blobsha(content):
-    return hashlib.sha1(('blob '+str(len(content))+'\\0').encode()+content).hexdigest()
+    return hashlib.sha1(('blob '+str(len(content))).encode()+bytes([0])+content).hexdigest()
 
 def atomic_write(path,data):
     fd,tmp=tempfile.mkstemp(dir=str(path.parent),prefix='.io-v51-')
