@@ -2,7 +2,7 @@ name: Preflight live OnTrack IO Premium via direct SSH
 on:
   push:
     branches: [feat/v1-io-premium-20261107]
-    paths: ['.github/workflows/ontrack-io-premium-preflight.yml']
+    paths: ['.github/workflows/ontrack-io-premium-preflight.yml', 'tools/io_premium_host_preflight.py']
   workflow_dispatch:
 permissions:
   contents: read
