@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "io-premium-php-syntax-20261107",
+  "id": "io-premium-fish-pcm-smoke-20261107",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-07T17:10:08.756Z",
-  "expires_at": "2026-11-07T18:10:08.756Z",
+  "created_at": "2026-11-07T17:12:07.941Z",
+  "expires_at": "2026-11-07T18:12:07.941Z",
   "cwd": "/home/appontrack",
-  "timeout_seconds": 30,
+  "timeout_seconds": 45,
   "argv": [
     "/bin/python3",
     "-c",
-    "import json,base64,pathlib,urllib.request,tempfile,os,subprocess\nfiles=['saas/console/_core/Bootstrap.php','saas/console/_core/TenantVoiceSession.php','saas/console/device/v1/tts.php']\ntoken=json.loads(pathlib.Path('/home/appontrack/ontrack-voice-link/config.json').read_text())['token']\nreport=[]\nfor path in files:\n req=urllib.request.Request('https://api.github.com/repos/OnTrack-Development/OnTrack-voice/contents/'+path+'?ref=feat%2Fv1-io-premium-20261107',headers={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','User-Agent':'IOPremium-PHP-Lint'})\n with urllib.request.urlopen(req,timeout=12) as r:data=json.loads(r.read(160000))\n raw=base64.b64decode(data['content'])\n fd,temp=tempfile.mkstemp(suffix='.php')\n try:\n  with os.fdopen(fd,'wb') as f:f.write(raw)\n  proc=subprocess.run(['/usr/bin/php','-l',temp],capture_output=True,text=True,timeout=10)\n  report.append({'file':path,'ok':proc.returncode==0,'error':proc.stderr[:180]})\n finally:os.unlink(temp)\nprint(json.dumps({'status':'PASS' if all(x['ok'] for x in report) else 'FAIL','results':report},separators=(',',':')))\nif not all(x['ok'] for x in report):raise SystemExit(1)\n"
+    "import subprocess,json\nsource=\"require \\\"/home/appontrack/public_html/saas/console/_core/Bootstrap.php\\\";\\n$path=private_path().\\\"/voice-lab/owner-1.json\\\";$data=json_decode(file_get_contents($path),true);\\n$key=unseal_secret($data[\\\"keys\\\"][\\\"fish\\\"]??\\\"\\\");$voice=(string)($data[\\\"settings\\\"][\\\"voiceId\\\"]??\\\"\\\");$model=(string)($data[\\\"settings\\\"][\\\"fishModel\\\"]??\\\"\\\");\\nif(!$key||!preg_match(\\\"/^[a-f0-9]{32}$/\\\",$voice)){echo json_encode([\\\"error\\\"=>\\\"config_invalid\\\"]);exit(2);}\\n$payload=json_encode([\\\"text\\\"=>\\\"أهلًا، اتفضل.\\\",\\\"reference_id\\\"=>$voice,\\\"format\\\"=>\\\"pcm\\\",\\\"sample_rate\\\"=>44100,\\\"streaming\\\"=>true,\\\"latency\\\"=>\\\"low\\\"],JSON_UNESCAPED_UNICODE);\\n$ch=curl_init(\\\"https://api.fish.audio/v1/tts\\\");$start=microtime(true);$first=null;$count=0;\\ncurl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_HTTPHEADER=>[\\\"Authorization: Bearer \\\".$key,\\\"Content-Type: application/json\\\",\\\"Accept: application/octet-stream\\\",\\\"model: \\\".$model],CURLOPT_POSTFIELDS=>$payload,CURLOPT_RETURNTRANSFER=>false,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>30,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_WRITEFUNCTION=>function($ch,$chunk)use(&$count,&$first,$start){if($first===null)$first=(int)round((microtime(true)-$start)*1000);$count+=strlen($chunk);return strlen($chunk);}]);\\n$ok=curl_exec($ch);$http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);$type=(string)curl_getinfo($ch,CURLINFO_CONTENT_TYPE);$err=curl_errno($ch);curl_close($ch);\\necho json_encode([\\\"ok\\\"=>(bool)$ok,\\\"http\\\"=>$http,\\\"bytes\\\"=>$count,\\\"first_byte_ms\\\"=>$first,\\\"elapsed_ms\\\"=>(int)round((microtime(true)-$start)*1000),\\\"content_type\\\"=>$type,\\\"curl_errno\\\"=>$err],JSON_UNESCAPED_SLASHES);\\n\"\nr=subprocess.run(['/usr/bin/php','-r',source],capture_output=True,text=True,timeout=38)\nprint(json.dumps({'exit':r.returncode,'result':r.stdout[:900],'stderr_type':bool(r.stderr)},separators=(',',':')))\n"
   ]
 }
