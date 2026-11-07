@@ -12,6 +12,11 @@ if (!in_array($method, ['GET','POST'], true)) {
 $user = voice_lab_access($method === 'POST');
 $uid = (int)$user['id'];
 if ($method === 'GET') {
+    if (!empty($user['voice_lab_guest'])) {
+        // The access code cannot expose the owner's saved server diagnostics.
+        echo '{"ok":true,"entries":[]}';
+        exit;
+    }
     session_write_close();
     try {
         echo json_encode(['ok'=>true, 'entries'=>voice_lab_trace_read($uid)],
@@ -37,6 +42,11 @@ $allowed = [
 if (!in_array($payload['stage'], $allowed, true)
     || !preg_match('/^[a-zA-Z0-9_-]{1,64}$/D', $payload['attempt'])) {
     voice_lab_error(422, 'invalid_diagnostic_event');
+}
+if (!empty($user['voice_lab_guest'])) {
+    // Keep session-local browser diagnostics out of the owner's historical logs.
+    echo '{"ok":true}';
+    exit;
 }
 session_write_close();
 voice_lab_trace_log($uid, $payload['attempt'], $payload['stage'], $payload['meta']);
