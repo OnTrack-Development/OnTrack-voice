@@ -51,9 +51,9 @@ jobs:
           $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
             '-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
           $stage='/home/appontrack/.ontrack-mobile/io-premium-v52-delta-stage'
-          $dirs=@($stage,$stage+'/old',$stage+'/old/_core',$stage+'/old/device',
-            $stage+'/old/device/v1',$stage+'/new',$stage+'/new/_core',
-            $stage+'/new/device',$stage+'/new/device/v1')
+          $dirs=@($stage, "${stage}/old", "${stage}/old/_core", "${stage}/old/device",
+            "${stage}/old/device/v1", "${stage}/new", "${stage}/new/_core",
+            "${stage}/new/device", "${stage}/new/device/v1")
           & ssh.exe @flags -p 7195 $remote ('mkdir -p '+($dirs -join ' ')+'; chmod 700 '+$stage)
           if($LASTEXITCODE -ne 0){throw 'Remote private stage unavailable'}
           $files=@('_core/IoPremiumProvider.php','_core/Views.php','_core/Actions.php',
