@@ -1,3 +1,14 @@
+# أحدث تسليم SITE-16/17/18 — 7 نوفمبر 2026 (الحالة قبل المرجع التاريخي)
+
+- **Repo/branch:** `OnTrack-Development/OnTrack-voice` / `release/voice-v1-20261106`; كود المنتج [`d6e96ec`](https://github.com/OnTrack-Development/OnTrack-voice/commit/d6e96eccf53ba8fec8012adcc29e8b39c00a896e) ثم [`a714aea`](https://github.com/OnTrack-Development/OnTrack-voice/commit/a714aeafa565c1cb3b1f0518addf23b28228273c) يضيف اختبارات `test_sim_agent_call_reports.php` و`test_human_escalation.php` إلى بوابة نشر الموقع بعد اكتشاف أنها لم تكن مشمولة.
+- **SITE-16:** `GoogleVoiceFailover.php` يمنع تسجيل تذكرة على مفتاح Google Live Disabled/Cooldown، ويتطلب مفتاحًا Enabled عند التبديل. `test_google_live_failover.php` يختبر 429/503/timeout وتبريد 900 ثانية، أربعة مفاتيح، حدّ ثلاثة تبديلات في ticket واحدة، وتثبيت revision/hash والـpool/SIM/agent الأصلي. لا يدّعي استمرار صوت GSM أو الحفاظ على transcript عبر websocket فعلي.
+- **SITE-17:** `VoiceCallEvidence.php` يضيف `voice_call_group_transcript_events` لتجميع العرض بشكل bounded مع `event_ids` والأوقات الأصلية، ويحافظ على `transcript_events` كاملة للـAudit. `voice_call_evidence` يعرض Verified Provider References من `voice_tool_requests` بنطاق tenant/site/call، ولا ينتحل نتيجة الـTool عند uncertain. `Views.php` يعرض التجميع وEvent IDs والـProvider refs منفصلة عن Tool Trace. `test_voice_call_timeline.php` يؤكد الدليل الأصلي ومنع خلط المتحدثين/المواقع.
+- **SITE-18:** `TenantWorkspace.php` يتطلب `staff_acknowledged===true` من مشرف يدوي مع حالة `requested` سابقة قبل الانتقال إلى `completed`، ولا يقبل من الجهاز محو طلب موظف قائم. `Actions.php` يقرأ checkbox موثق و`Views.php` يضع الإقرار أمام المشرف؛ `test_sim_agent_call_reports.php` يختبر منع إكمال وهمي وطلب غير سابق. لا يساوي نقل/طلب موظف استلام المدير مكالمة صوتية. Phase 2 dial after 10sec ليس ضمن اعتماد SITE-18.
+- **CI & Host:** [Run 42322578953](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42322578953): `GOOGLE_LIVE_MIDCALL_FAILOVER_TEST_PASS`, `VOICE_CALL_TIMELINE_EVIDENCE_PASS`, `SIM_AGENT_SWITCH_AND_CALL_REPORTS_PASS`, `HUMAN_ESCALATION_END_TO_END_PASS`; Browser `237/0`; Host isolated preflight `v1-siteqa-42322578953` = 69 PHP/no live DB mutations؛ Host `v1-saas-42322578953` = `deployed`, 85 files/PHP8.3, rollback `/home/appontrack/backup/releases/a714aeafa565`. Site-only pointer check confirms native unchanged.
+- **Labels:** SITE-16/17/18 remain **PARTIAL**, not DONE. Real SIM Live failover, audio transcript validity, actual call briefing / manager voice callback and external API IDs are UNVERIFIED. No Android/APK/OTA/SIM code changed.
+
+---
+
 # أحدث تسليم SITE-13/14/15 — 7 نوفمبر 2026 (أحدث من كل ما يلي)
 
 - **المستودع/الفرع:** `OnTrack-Development/OnTrack-voice` / `release/voice-v1-20261106`. [Commit `9de2fca998b4`](https://github.com/OnTrack-Development/OnTrack-voice/commit/9de2fca998b40f5fd9cd162cb08bd30e1a3fb81f) يتضمن تغييرات الموقع واختبارات PHP للثلاث مهام فقط.
