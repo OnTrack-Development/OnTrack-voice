@@ -637,8 +637,10 @@ class MobileLinkService:Service() {
                         val sess=tenantSession!!
                         val selectedCode=sess.optString("voice",
                             tenantFlow?.optString("voice","google.aoede").orEmpty())
-                        val isIoPremium=selectedCode=="io.premium" &&
-                            sess.optString("voice_engine")=="official_google_live_fish_pcm"
+                        val isIoPremium=selectedCode=="io.premium"
+                        if(isIoPremium)check(sess.optString("voice_engine")=="official_google_live_fish_pcm"){
+                            "اختيار IO Premium غير مدعوم في نسخة السيرفر الحالية"
+                        }
                         val voice=if(isIoPremium)"Aoede"
                             else selectedCode.substringAfterLast('.')
                                 .replaceFirstChar{it.uppercaseChar()}
