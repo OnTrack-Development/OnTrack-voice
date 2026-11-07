@@ -261,7 +261,7 @@ audio{display:none}
         generationConfig:{responseModalities:['AUDIO']},
         inputAudioTranscription:{},
         outputAudioTranscription:{},
-        systemInstruction:{parts:[{text:'اتكلمي مصري طبيعي ودافي وبمشاعر مناسبة للموقف. ردود قصيرة وواضحة. خروج النص المنطوق سيُستخدم بصوت Fish المستنسخ، فلا تنطقي تعليمات الإخراج حرفيًا.'}]}
+        systemInstruction:{parts:[{text:'اتكلمي مصري طبيعي ودافي وبمشاعر مناسبة للموقف. ردود قصيرة وواضحة. خلي التنهدات والضحكة والهمس مسموعين بشكل طبيعي حسب الموقف، من غير مبالغة أو تكرار. خروج النص المنطوق سيُستخدم بصوت Fish المستنسخ، فلا تنطقي تعليمات الإخراج حرفيًا. '+emotionInstructions()}]}
       }}));
     };
     socket.onmessage=e=>receiveLive(s,e.data);
