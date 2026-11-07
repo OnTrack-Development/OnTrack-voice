@@ -74,8 +74,11 @@ try{
     $otherSim=$binding;$otherSim['sim_slot']=1;
     engine_reject(static fn()=>protected_engine_download($otherSim,'arm64-v8a',
         $manifest['grant']),'engine_device_not_authorized');
+    // Ensure the signature is modified even when its last hex digit is already 0.
+    $tamperedGrant=substr($manifest['grant'],0,-1).
+        (substr($manifest['grant'],-1)==='0'?'1':'0');
     engine_reject(static fn()=>protected_engine_download($binding,'arm64-v8a',
-        substr($manifest['grant'],0,-1).'0'),'engine_download_grant_invalid');
+        $tamperedGrant),'engine_download_grant_invalid');
     $parts=explode('.',$manifest['grant'],2);
     $claims=json_decode(base64_decode(strtr($parts[0],'-_','+/')),true);
     $claims['exp']=time()-10;
