@@ -250,7 +250,7 @@ class TenantDeviceEnrollment(private val context: Context) {
         val phrase=text.trim()
         require(phrase.isNotEmpty() && phrase.length<=400) { "IO Premium: عبارة طويلة" }
         val device=local(slot)
-        val req=Request.Builder().url("https://app.ontrackegy.com/saas/console/device/v1/tts.php")
+        val req=Request.Builder().url("https://app.ontrackegy.com/device/v1/tts.php")
             .header("Authorization","Bearer "+TenantPairingContract.token(device.getString("token")))
             .header("Accept","application/octet-stream")
             .post(JSONObject().put("text",phrase).toString()
