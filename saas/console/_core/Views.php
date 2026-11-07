@@ -81,7 +81,7 @@ function nav_entries(string $type):array{
         'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات المنصة']
         ];
-        unset($nav['whatsapp_admin'],$nav['voices']);
+        unset($nav['whatsapp_admin']);
         if(!platform_resellers_visible())$nav['accounts']=['♧','الحسابات'];
         return $nav;
     }
@@ -99,7 +99,6 @@ function nav_entries(string $type):array{
         'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات الشركة']
         ];
-        unset($nav['voices']);
         return $nav;
     }
     $nav=[
@@ -111,7 +110,7 @@ function nav_entries(string $type):array{
         'keys'=>['⌘','مفاتيح API'],'integrations'=>['⇄','التكاملات'],'billing'=>['▣','الباقة والرصيد'],
         'releases'=>['↓','Android'],'settings'=>['⚙','الإعدادات']
     ];
-    unset($nav['campaigns'],$nav['whatsapp'],$nav['voices'],$nav['staff']);
+    unset($nav['campaigns'],$nav['whatsapp'],$nav['staff']);
     return $nav;
 }
 function layout_open(array $a,string $tab):void{
@@ -1052,7 +1051,7 @@ function render_agents(array $a):void{
                 agent_scenario_text_editor($policy['scenario_text']).'</div>'.
                 '<div class="agent-builder-pane" data-builder-pane="intelligence" hidden>'.
                 '<div class="form-grid"><label class="field">اسم المساعد<input name="name" maxlength="140" required value="'.e($agent['name']).'"></label>'.
-                select_html('الصوت','voice',$options,(string)$agent['voice']).'</div>'.
+                '</div>'.
                 '<label class="field">التعليمات وأسلوب الحديث<textarea name="instructions" rows="4" maxlength="5000">'.e($agent['instructions']).'</textarea></label>'.
                 agent_studio_policy_fields($policy).
                 '</div><div class="agent-builder-pane" data-builder-pane="knowledge" hidden>'.
@@ -1060,7 +1059,9 @@ function render_agents(array $a):void{
                 '<label class="field">معلومات المساعد<textarea name="knowledge" rows="6" maxlength="20000">'.e($agent['knowledge']).'</textarea></label></div>'.
                 agent_api_source_picker($policy,$apiSources).'</div>'.
                 '<div class="agent-builder-pane" data-builder-pane="voice" hidden>'.
-                '<div class="agent-studio-section"><div class="agent-studio-section-title"><strong>الرد والمكالمة</strong></div>'.
+                '<div class="agent-studio-section"><div class="agent-studio-section-title"><strong>الصوت والرد والمكالمة</strong></div>'.
+                select_html('الصوت المستخدم لهذا المساعد','voice',$options,(string)$agent['voice']).
+                '<p class="dim">الصوت المختار بيتفعّل في المكالمات بعد الضغط على «نشر إعدادات المساعد»؛ IO Premium يحتاج تفعيل الأدمن ومنح الصلاحية للحساب.</p>'.
                 '<div class="form-grid"><label class="field">مهلة الرد بالثواني<input name="answer_delay_seconds" type="number" min="0" max="30" value="'.(int)$policy['answer_delay_seconds'].'" required></label>'.
                 '<label class="field">المدة القصوى بالدقائق<input name="max_call_minutes" type="number" min="1" max="30" value="'.(int)$policy['max_call_minutes'].'" required></label>'.
                 select_html('الأسلوب','response_style',[
@@ -1533,6 +1534,7 @@ function render_devices(array $a):void {
     echo '<div class="info">الربط الجديد لكل شريحة على حدة: اختر الشركة والمساعد، أنشئ QR، ثم راقب آخر اتصال للجهاز. جلسة Google Live تحتاج مزوّدًا معتمدًا واختبار صوت فعلي.</div>';
 }
 function render_voices(array $a):void{
+    require_once __DIR__.'/IoPremiumProvider.php';
     $id=(int)$a['account_id'];$list=all('SELECT * FROM voices ORDER BY tier, id');
     $grants=all('SELECT voice_id FROM voice_grants WHERE account_id=?',[$id]);$g=array_column($grants,'voice_id');
     $rows=[];
@@ -1558,6 +1560,8 @@ function render_voices(array $a):void{
             $rows[]=[e($v['name']),e((string)$v['tier']),'متاح'];
         }
     }
+    if($showProvider && in_array((string)$a['role'],['owner','admin'],true) && !active_support())
+        echo render_io_premium_admin_provider();
     if($showProvider) echo card('إدارة كتالوج الأصوات',tbl(
        ['الصوت','المزوّد','الفئة','الجاهزية','العرض','التحكم'],$rows));
     else echo card('الأصوات المتاحة لك',tbl(['الصوت','الفئة','الحالة'],$rows));
