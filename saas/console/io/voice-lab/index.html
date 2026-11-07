@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<title>Voice Lab — Gemini 3.8 Live + Fish Audio</title>
+<title>Hotline | اتصال مباشر</title>
 <style>
 :root{font-family:system-ui,"Segoe UI",Tahoma,sans-serif;color:#f9f7fa;background:#09090e}*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:radial-gradient(ellipse at 50% -20%,#69304855,transparent 65%),#09090e}svg{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round;stroke-linecap:round}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #ff819b;outline-offset:3px}
 main{max-width:1170px;padding:22px 22px 40px;margin:auto}.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #ffffff17;padding-bottom:19px}.brand{display:flex;align-items:center;gap:12px}.brand-logo{height:44px;width:44px;flex-shrink:0;display:grid;place-items:center;color:white;background:linear-gradient(145deg,#f34768,#94152e);border-radius:13px;box-shadow:0 7px 27px #b7214755}.brand-logo svg{width:23px}.brand-copy{display:flex;flex-direction:column;gap:5px}.brand-name{font-size:18px;line-height:1;font-weight:900;letter-spacing:-.7px;direction:ltr}.brand-name b{color:#fa526f}.brand-subtitle{font-size:10px;color:#a4a0af}
@@ -32,16 +32,106 @@ main{max-width:1170px;padding:22px 22px 40px;margin:auto}.topbar{display:flex;al
 @media(max-width:720px){main{padding:14px 12px 28px}.topbar{padding-bottom:13px}.live-tag{display:none}.brand-name{font-size:16px}.brand-subtitle{font-size:9px}.tool-menu>summary{width:39px;height:39px}.workspace{grid-template-columns:1fr;gap:14px;margin-top:15px}.call-stage{min-height:468px;padding:18px 15px 15px}.call-pill{margin-top:18px}.visualizer{width:185px;height:185px}.phone-avatar{width:115px;height:115px}.call-stage h1{margin-top:0}.call-clock{margin-top:10px}.status{min-height:36px}.conversation{min-height:410px;padding:18px}.secure-label{display:none}#log{min-height:190px;max-height:390px}.grid{grid-template-columns:1fr}.popover-panel{top:68px;right:12px;max-height:calc(100dvh - 80px)}}
 @media(max-width:360px){.brand-name{font-size:14px}.brand-logo{width:38px;height:38px}.tool-menu>summary{width:36px;height:36px}.visualizer{width:165px;height:165px}.phone-avatar{width:100px;height:100px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Hotline call screen: phone UI only. Provider configuration and diagnostics stay behind header icons. */
+html,body{background:#050505!important;color:#f6f6f6}
+body{background-image:none!important}
+main{max-width:650px;min-height:100dvh;padding:16px 15px 32px}
+.topbar{border:0;padding:2px 4px 15px}
+.brand-logo{width:39px;height:39px;border:1px solid #303030;background:#121212;box-shadow:none;border-radius:12px}
+.brand-name{font-size:20px;letter-spacing:1.2px;font-weight:800}
+.brand-subtitle{color:#8b8b8b;font-size:10px}
+.tool-menu>summary{width:38px;height:38px;border-radius:50%;background:#111;border-color:#252525;color:#9c9c9c}
+.tool-menu>summary:hover,.tool-menu[open]>summary{background:#1b1b1b;border-color:#646464;color:#fff}
+.tool-menu>summary svg{width:17px;height:17px}
+.popover-panel{top:69px;right:max(12px,calc((100vw - 650px)/2 + 15px));background:#101010;border:1px solid #333;box-shadow:0 20px 80px #000}
+.popover-heading strong{color:#fff}
+.workspace{display:flex;flex-direction:column;gap:14px;align-items:center;margin-top:6px}
+.call-stage{width:min(100%,520px);min-height:min(740px,calc(100dvh - 130px));padding:31px 20px 26px;border:0;border-radius:25px;background:#080808;box-shadow:none}
+.call-stage:before{display:none}
+.call-top{padding:0 3px}
+.call-top small{font-size:10px;color:#646464;letter-spacing:2.3px}
+.call-top strong{font-size:14px;font-weight:600;color:#d9d9d9}
+.call-top em{color:#8e8e8e}
+.call-top em:before{color:#20cb72}
+.call-pill{margin-top:35px;background:#111;border:1px solid #222;color:#b7b7b7}
+.call-pill:before{background:#21c872;box-shadow:0 0 0 4px #20c8721b}
+.call-stage[data-state="connecting"] .call-pill:before{background:#f0b83d;box-shadow:0 0 0 4px #f0b83d21}
+.call-stage[data-state="listening"] .call-pill:before,.call-stage[data-state="speaking"] .call-pill:before{background:#20c870;box-shadow:0 0 0 4px #20c87022}
+.visualizer{width:235px;height:235px;margin:4px 0 0}
+.signal-ring,.signal-ring:nth-child(3){border-color:#272727;box-shadow:none}
+.call-stage:not([data-state="idle"]) .signal-ring{border-color:#2f2f2f}
+.call-stage[data-state="connecting"] .signal-ring{border-color:#20c8725b}
+.call-stage[data-state="speaking"] .signal-ring{border-color:#f03b4b55}
+.phone-avatar{background:linear-gradient(145deg,#242424,#0d0d0d);border:1px solid #303030;box-shadow:0 0 42px #111;width:138px;height:138px}
+.phone-avatar svg{color:#f5f5f5;filter:none;width:56px}
+.call-stage h1{font-size:clamp(26px,5vw,33px);font-weight:720;margin:2px 0 7px}
+.description{font-size:13px;color:#989898}
+.call-clock{color:#eee;font-size:28px;letter-spacing:3px;margin-top:16px}
+.sound-bars i{background:#25d176}
+.call-stage[data-state="speaking"] .sound-bars i{background:#ef4658}
+.status{font-size:13px;color:#ababab;padding:0 10px;max-width:430px}
+.call-controls{flex-direction:column;gap:14px;width:100%;padding:20px 0 0}
+.orb{width:84px;height:84px;border-radius:50%;color:#fff;background:#20c66a;box-shadow:0 10px 34px #17ad5d3b;transition:background .15s ease,box-shadow .15s ease,transform .15s ease}
+.orb:hover{background:#23d373;transform:scale(1.04)}
+.orb:active{transform:scale(.94)}
+.orb.active{background:#e83643;box-shadow:0 10px 34px #c5283b4b;border-radius:50%}
+.orb.active:hover{background:#f1434f}
+.orb svg{width:37px;height:37px;stroke-width:2.2}
+.orb.active svg{transform:rotate(135deg)}
+.control-copy{align-items:center;text-align:center}
+.control-copy strong{font-size:15px;font-weight:600}
+.control-copy small{display:none}
+#stop{display:none}
+.timing{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:12px;padding-top:12px;border-color:#303030}
+.timing span{color:#8c8c8c}
+.secondary-action{margin:16px 0 0;color:#b0b0b0;text-decoration:none;font-size:12px}
+.advanced-tools{margin-top:15px;border-top:1px solid #282828;padding-top:5px}
+.chat-drawer{width:min(100%,520px);background:#0c0c0c;border:1px solid #202020;border-radius:17px;overflow:hidden}
+.chat-drawer>summary{list-style:none;padding:16px 18px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:650;color:#ddd}
+.chat-drawer>summary::-webkit-details-marker{display:none}
+.chat-drawer>summary span{font-size:11px;color:#777;font-weight:400}
+.chat-drawer[open]>summary{border-bottom:1px solid #222}
+.conversation{width:100%;min-height:390px;background:#0c0c0c;border:0;border-radius:0;padding:18px;box-shadow:none}
+.conversation-head{border-bottom-color:#252525}
+.conversation h2{font-size:15px}
+.chat-icon{background:#181818;color:#e7e7e7}
+#log{min-height:165px;max-height:370px}
+.bubble.mine{background:#163c29;border-color:#25583c}
+.bubble.theirs{background:#202020;border-color:#303030}
+.send{border-top-color:#252525}
+.send button{background:#1baa60}
+.input-note{color:#777}
+input,select{background:#171717;border-color:#363636;color:#f4f4f4}
+.settings-actions button{background:#219e60}
+#diagnosticLog{background:#0b0b0b;border-color:#292929}
+#buildInfo{display:none}
+@media(max-width:720px){
+ main{padding:13px 12px 26px}
+ .workspace{gap:10px;margin-top:8px}
+ .call-stage{min-height:calc(100dvh - 172px);padding:22px 12px 18px;border-radius:20px}
+ .visualizer{height:205px;width:205px}
+ .phone-avatar{height:124px;width:124px}
+ .phone-avatar svg{width:50px}
+ .call-pill{margin-top:23px}
+ .call-clock{margin-top:8px}
+ .call-controls{padding-top:12px}
+ .orb{height:80px;width:80px}
+ .status{min-height:30px}
+ .popover-panel{top:64px;right:12px;max-height:calc(100dvh - 76px)}
+}
+@media(max-width:360px){.visualizer{height:170px;width:170px}.phone-avatar{width:102px;height:102px}.orb{width:73px;height:73px}}
+@media(prefers-reduced-motion:reduce){.orb{transition:none}}
 </style>
 </head>
 <body>
 <main>
 
-<header class="topbar"><div class="brand"><div class="brand-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></div><div class="brand-copy"><span class="brand-name">ONTRACK <b>HOTLINE</b></span><span class="brand-subtitle">تجربة اتصال ذكي • صوت مصري طبيعي</span></div></div>
-<div class="toolbar"><span class="live-tag">LIVE VOICE LAB</span><details class="tool-menu" id="diagnosticsDrawer"><summary title="سجل الاتصال" aria-label="سجل تشخيص الاتصال"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></summary><div class="popover-panel"><div class="popover-heading"><strong>سجل الاتصال</strong><small>Error Log</small></div>
+<header class="topbar"><div class="brand"><div class="brand-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></div><div class="brand-copy"><span class="brand-name">HOTLINE</span><span class="brand-subtitle">اتصال صوتي مباشر</span></div></div>
+<div class="toolbar"><details class="tool-menu" id="diagnosticsDrawer"><summary title="سجل الاتصال" aria-label="سجل تشخيص الاتصال"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></summary><div class="popover-panel"><div class="popover-heading"><strong>سجل الاتصال</strong><small>Error Log</small></div>
 <p class="help">خطوات Gemini Live وFish Audio وأزمنتها وأكواد HTTP وWebSocket؛ بدون تسجيل المفاتيح أو النص أو الصوت. سجل السيرفر للأدمن فقط.</p>
 <div class="trace-actions"><button class="ghost" type="button" id="refreshDiagnostics">تحميل سجل السيرفر</button><button class="ghost" type="button" id="copyDiagnostics">نسخ السجل</button></div>
-<pre id="diagnosticLog">اضغط المايك لبدء التشخيص، أو حمّل سجل السيرفر.</pre>
+<pre id="diagnosticLog">اضغط المايك لبدء التشخيص، أو حمّل سجل السيرفر.</pre><div class="timing"><span id="brainTime">Gemini: —</span><span id="firstAudio">أول صوت: —</span><span id="totalTime">إجمالي: —</span></div>
 </div></details>
 <details class="tool-menu" id="settingsDrawer"><summary title="الإعدادات" aria-label="إعدادات المكالمة"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M20 12a8 8 0 0 0-.1-1.2l1.4-1.1-2-3.5-1.7.7a8 8 0 0 0-2.1-1.2L15.2 4H9l-.3 1.7a8 8 0 0 0-2.1 1.2l-1.7-.7-2 3.5 1.4 1.1a8 8 0 0 0 0 2.4l-1.4 1.1 2 3.5 1.7-.7a8 8 0 0 0 2.1 1.2L9 20h6.2l.3-1.7a8 8 0 0 0 2.1-1.2l1.7.7 2-3.5-1.4-1.1A8 8 0 0 0 20 12Z"/></svg></summary><div class="popover-panel"><div class="popover-heading"><strong>إعدادات المكالمة</strong><small>Google Live × Fish Audio</small></div>
 <div class="grid">
@@ -59,21 +149,21 @@ main{max-width:1170px;padding:22px 22px 40px;margin:auto}.topbar{display:flex;al
 <label class="inline"><input id="removeFish" type="checkbox"> حذف مفتاح Fish المحفوظ عند الحفظ</label>
 <label class="inline"><input id="removeGoogle" type="checkbox"> حذف مفتاح Google المحفوظ عند الحفظ</label>
 <p class="help">Gemini 3.8 Live يستقبل الميكروفون عبر WebSocket مؤقت، ويرجع نص الرد من تفريغ مخرجات Live. الصوت المسموع من Fish Audio فقط، وليس صوت Gemini. مفاتيح Google وFish محفوظة مشفرة؛ سيب حقل المفتاح فاضي لاستخدام المحفوظ. لا يوجد Puter أو Flash أو مزود نص آخر.</p>
-</div></details></div></header>
+<div class="advanced-tools"><button id="testVoice" class="secondary-action" type="button">تجربة صوت Fish فقط</button></div></div></details></div></header>
 <div class="workspace"><section id="callStage" class="call-stage" data-state="idle" aria-label="المكالمة الصوتية">
-<div class="call-top"><div><small>ONTRACK HOTLINE</small><strong>خط اتصال مباشر</strong></div><em>Voice Lab</em></div>
+<div class="call-top"><div><small>HOTLINE</small><strong>خط اتصال مباشر</strong></div><em>متاح للاتصال</em></div>
 <span id="callMode" class="call-pill">جاهز للاتصال</span>
 <div class="visualizer" aria-hidden="true"><span class="signal-ring"></span><span class="signal-ring"></span><span class="signal-ring"></span><span class="phone-avatar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></span></div>
-<h1>ابدأ مكالمتك</h1><p class="description">اتكلم بطبيعتك • Gemini بيسمعك وFish بيرد عليك</p>
+<h1>الخط المباشر</h1><p class="description">اضغط اتصال واتكلم على طول</p>
 <div id="callDuration" class="call-clock" aria-label="مدة المكالمة">00:00</div><div class="sound-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <div id="status" class="status" role="status" aria-live="polite">جاهز للمكالمة</div>
-<div class="call-controls"><button id="mic" class="orb" type="button" aria-label="ابدأ مكالمة صوتية"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></button><div class="control-copy"><strong class="idle-copy">اضغط لبدء الاتصال</strong><strong class="active-copy">اضغط لإنهاء الاتصال</strong><small>مكالمة صوتية تجريبية</small></div><button id="stop" class="ghost" type="button">إنهاء المكالمة</button></div>
-<button id="testVoice" class="secondary-action" type="button">تجربة صوت Fish فقط</button><div class="timing"><span id="brainTime">Gemini: —</span><span id="firstAudio">أول صوت: —</span><span id="totalTime">إجمالي: —</span></div></section>
-<section class="conversation" aria-label="نص المحادثة"><div class="conversation-head"><div class="conversation-title"><span class="chat-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.7 8.7 0 0 1-4-.96L3 21l1.85-5.55A8.5 8.5 0 1 1 21 11.5Z"/></svg></span><div><h2>نص المحادثة المباشر</h2><small>الكلام والردود أول بأول</small></div></div><span class="secure-label">TRANSCRIPT</span></div>
+<div class="call-controls"><button id="mic" class="orb" type="button" aria-label="ابدأ مكالمة صوتية"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></button><div class="control-copy"><strong class="idle-copy">اتصال</strong><strong class="active-copy">إنهاء المكالمة</strong><small>مكالمة صوتية</small></div><button id="stop" class="ghost" type="button">إنهاء المكالمة</button></div>
+</section>
+<details class="chat-drawer" id="chatDrawer"><summary>المحادثة <span>عرض الرسائل</span></summary><section class="conversation" aria-label="نص المحادثة"><div class="conversation-head"><div class="conversation-title"><span class="chat-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.7 8.7 0 0 1-4-.96L3 21l1.85-5.55A8.5 8.5 0 1 1 21 11.5Z"/></svg></span><div><h2>نص المحادثة المباشر</h2><small>الكلام والردود أول بأول</small></div></div><span class="secure-label">TRANSCRIPT</span></div>
 <div id="log" aria-live="polite"><div class="log-placeholder" id="logPlaceholder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.7 8.7 0 0 1-4-.96L3 21l1.85-5.55A8.5 8.5 0 1 1 21 11.5Z"/></svg><strong>المكالمة لسه ما بدأتش</strong><span>اضغط زر التليفون واتكلم، أو اكتب رسالة من تحت.</span></div></div>
 <form id="textForm" class="send"><input id="textInput" type="text" autocomplete="off" placeholder="ابعت رسالة للمساعدة..." aria-label="رسالتك"><button type="submit">إرسال</button></form>
-<p class="input-note">Gemini Live للفهم • Fish Audio للنطق • إعداداتك محفوظة</p></section></div>
-<p id="buildInfo">Voice Lab 2026.11.07.10 • Hotline UI • Gemini 3.8 Live → Fish Audio</p>
+<p class="input-note">اكتب رسالة أثناء المكالمة</p></section></details></div>
+<span id="buildInfo" hidden>Voice Lab 2026.11.07.11</span>
 <audio id="player" playsinline></audio>
 </main>
 <script type="module">
@@ -131,7 +221,18 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
     if(next==='idle'){clearInterval(clockHandle);clockHandle=null;callStarted=0;clock.textContent='00:00';}
     else if(!callStarted){callStarted=Date.now();const update=()=>{const sec=Math.floor((Date.now()-callStarted)/1000);clock.textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');};update();clockHandle=setInterval(update,1000);}
   }
-  function status(message){ui.status.textContent=message;if(!active)return;if(/بيتكلم|صوت رد|بينطق/.test(message))setCallState('speaking');else if(/بيسمعك|تقدر تبعت|المايك/.test(message))setCallState('listening');}
+  function status(message){
+    const raw=String(message);
+    const text=/Fish Audio بيتكلم/.test(raw)?'المتصل بيرد عليك...'
+      :/Fish Audio بيولّد|Gemini Live بيجهز/.test(raw)?'ثواني وبرد عليك...'
+      :/Gemini Live بيسمعك/.test(raw)?'سامعك... اتفضل'
+      :/Gemini Live متصل/.test(raw)?'المكالمة متصلة'
+      :raw.replace(/Gemini(?:\s+3\.8)?(?:\s+Live)?/gi,'الاتصال').replace(/Fish(?:\s+Audio)?/gi,'الصوت').replace(/Google(?:\s+WebSocket|\s+Live)?/gi,'الاتصال');
+    ui.status.textContent=text;
+    if(!active)return;
+    if(/بيتكلم|صوت رد|بينطق/.test(raw))setCallState('speaking');
+    else if(/بيسمعك|تقدر تبعت|المايك/.test(raw))setCallState('listening');
+  }
   const toolMenus=[el('settingsDrawer'),el('diagnosticsDrawer')];
   toolMenus.forEach(menu=>menu.addEventListener('toggle',()=>{if(menu.open)toolMenus.forEach(other=>{if(other!==menu)other.open=false;});}));
   document.addEventListener('keydown',e=>{if(e.key==='Escape')toolMenus.forEach(menu=>menu.open=false);});
@@ -496,7 +597,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
     ui.save.disabled=true;ui.settingsStatus.textContent='بحفظ مفتاحي Gemini وFish والإعدادات...';
     try{
       await settingsReady;
-      if(!csrf)throw Error('سجّل دخولك كأدمن OnTrack الأول');
+      if(!csrf)throw Error('سجّل الدخول أولًا');
       const payload={
         settings:{emotionLevel:ui.emotionLevel.value,autoListen:ui.autoListen.value,emotions:ui.emotions.checked,fishModel:ui.fishModel.value,voiceId:ui.voiceId.value.trim()},
         keys:{google:ui.googleKey.value.trim(),fish:ui.fishKey.value.trim()},
