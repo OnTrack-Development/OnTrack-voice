@@ -322,7 +322,12 @@ class MobileLinkService:Service() {
                 "تعذر وضع محرك الصوت في وضع التحكم المباشر"
             }
         }.onFailure {
-            callProblem="الربط المحلي للصوت غير جاهز: "+it.message.orEmpty().take(85)
+            val noWifiBridge=!NetworkRevive.onWifi(this@MobileLinkService) &&
+                !StartWithoutWifi.ready(this@MobileLinkService)
+            val action=if(noWifiBridge)
+                "؛ فعّل «بدء بدون Wi-Fi» مرة واحدة من إعدادات التطبيق وأنت على Wi-Fi موثوق"
+                else ""
+            callProblem="الربط المحلي للصوت غير جاهز: "+it.message.orEmpty().take(85)+action
             notice(callProblem)
         }
         try{
