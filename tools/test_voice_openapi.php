@@ -26,6 +26,19 @@ openapi_check($result['candidates'][0]['operation']==='rest.slots','GET mapped t
 openapi_check($result['candidates'][1]['operation']==='rest.booking.create','POST mapped to booking only');
 $found=voice_openapi_candidates(4,$site);
 openapi_check(count($found)===2,'saved site-scoped candidates');
+$originalStatus=(string)one('SELECT status FROM accounts WHERE id=4')['status'];
+execute("UPDATE accounts SET status='suspended' WHERE id=4");
+try {
+    openapi_check(voice_openapi_candidates(4,$site)===[],
+        'suspended tenant cannot read cached discovered paths');
+    $blocked=false;
+    try{voice_openapi_discover(4,$site,$conn,'/openapi.json',static fn()=> $spec);}
+    catch(InvalidArgumentException $e){$blocked=$e->getMessage()==='openapi_connector_unverified_or_foreign';}
+    openapi_check($blocked,'suspended tenant cannot refresh schema or draft policy');
+}finally{
+    execute('UPDATE accounts SET status=? WHERE id=4',[$originalStatus]);
+}
+openapi_check(count(voice_openapi_candidates(4,$site))===2,'re-enabled account retrieves scoped paths');
 $policy=voice_openapi_draft_policy(4,$site,$conn,'rest.booking.create','/api/bookings',$result['sha256']);
 openapi_check((int)one('SELECT enabled FROM voice_tool_policies WHERE id=?',[$policy])['enabled']===0,
     'discovered write remains disabled');

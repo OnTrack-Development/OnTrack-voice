@@ -93,6 +93,20 @@ function voice_tool_policy(int $accountId,int $siteId,int $policyId):array {
     if(!$row)throw new InvalidArgumentException('tool_policy_unavailable');
     return $row;
 }
+/** A consent token is pinned to the EXACT verified origin, endpoint and policy. */
+function voice_tool_approval_digest(array $policy,string $token):string {
+    $f=json_encode([
+        'policy_id'=>(int)$policy['id'],'connector_id'=>(int)$policy['connector_id'],
+        'operation'=>(string)$policy['operation'],'path'=>(string)$policy['path'],
+        'enabled'=>(int)$policy['enabled'],'type'=>(string)$policy['type'],
+        'base_url'=>(string)$policy['base_url'],
+        'read_path'=>(string)$policy['read_path'],
+        'auth_mode'=>(string)$policy['auth_mode'],
+        'credential_sha256'=>hash('sha256',(string)($policy['secret_enc']??'')),
+        'policy_updated_at'=>(string)$policy['updated_at']
+    ],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    return hash_hmac('sha256',$f,$token);
+}
 /** No untrusted body may add parameters, endpoint URLs or WHMCS actions. */
 function voice_tool_payload(string $operation,array $input):array {
     $allowed=match($operation){
@@ -166,11 +180,12 @@ function voice_tool_prepare(int $accountId,int $siteId,int $policyId,int $actorI
             'reference_id'=>$prior['reference_id'],'reused'=>true,'approval_token'=>null];
     }
     $token=bin2hex(random_bytes(24));
+    $approvalDigest=voice_tool_approval_digest($policy,$token);
     $id=insert("INSERT INTO voice_tool_requests(account_id,site_id,connector_id,policy_id,call_id,
       operation,actor_id,idempotency_key,payload_enc,payload_sha256,approval_sha256,status,prepared_at)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,'prepared',?)",
       [$accountId,$siteId,$policy['connector_id'],$policyId,$callId,$policy['operation'],
-       $actorId,$idempotencyKey,seal_secret($json),$hash,hash('sha256',$token),now()]);
+       $actorId,$idempotencyKey,seal_secret($json),$hash,$approvalDigest,now()]);
     $request=['id'=>$id,'account_id'=>$accountId,'site_id'=>$siteId,
         'call_id'=>$callId,'operation'=>$policy['operation']];
     voice_tool_trace($request,'prepared','owner_confirmation_required');
@@ -194,16 +209,32 @@ function voice_tool_result(string $op,array $data):array {
                 'ticket_number'=>$ticketNumber===null?null:(string)$ticketNumber,
                 'reference_kind'=>'new_ticket_id'];
         }
-        if($op==='whmcs.ticket.reply')return ['reference_id'=>isset($data['replyid'])?(string)$data['replyid']:null,'status'=>'succeeded'];
+        if($op==='whmcs.ticket.reply'){
+            $reply=$data['replyid']??null;
+            if($reply!==null&&(!is_string($reply)&&!is_int($reply)||
+                !preg_match('/^[0-9]{1,16}$/D',(string)$reply)||(int)$reply<1))
+                throw new RuntimeException('tool_whmcs_reply_id_invalid');
+            return ['reference_id'=>$reply===null?null:(string)$reply,'status'=>'succeeded'];
+        }
         $key=match($op){
             'whmcs.products'=>'products','whmcs.services'=>'products',
             'whmcs.invoices'=>'invoices','whmcs.tickets'=>'tickets'};
-        $list=$data[$key]??[];
-        if($op==='whmcs.services')$list=$data['products']['product']??[];
-        if($op==='whmcs.invoices')$list=$data['invoices']['invoice']??[];
-        if($op==='whmcs.tickets')$list=$data['tickets']['ticket']??[];
-        if($op==='whmcs.products')$list=$data['products']['product']??[];
-        return ['status'=>'succeeded','count'=>is_array($list)?count($list):0,
+        $singular=match($op){
+            'whmcs.products','whmcs.services'=>'product',
+            'whmcs.invoices'=>'invoice','whmcs.tickets'=>'ticket'};
+        $container=$data[$key]??null;
+        $list=is_array($container)?($container[$singular]??null):null;
+        if($list===null){
+            $count=$data['totalresults']??null;
+            if(($count!==0&&$count!=='0')||($container!==null&&!is_array($container)))
+                throw new RuntimeException('tool_whmcs_read_shape_invalid');
+            $list=[];
+        }
+        if(!is_array($list)||(!array_is_list($list)&&$list!==[]))
+            throw new RuntimeException('tool_whmcs_read_shape_invalid');
+        foreach($list as $item)if(!is_array($item))
+            throw new RuntimeException('tool_whmcs_read_shape_invalid');
+        return ['status'=>'succeeded','count'=>count($list),
             'data'=>voice_tool_public_projection($list)];
     }
     if($op==='rest.booking.create'){
@@ -234,7 +265,7 @@ function voice_tool_result(string $op,array $data):array {
 }
 function voice_tool_public_projection(mixed $data):array {
     if(!is_array($data))return [];
-    $safe=[];$keys=['id','pid','status','name','description','price','currency','duedate','total','date'];
+    $safe=[];$keys=['id','pid','status','name','description','price','currency','duedate','total','date','subject','tid','domain','nextduedate','billingcycle'];
     foreach(array_slice($data,0,20) as $item){
         if(!is_array($item))continue;
         $entry=[];
@@ -324,14 +355,14 @@ function voice_tool_confirm(int $accountId,int $siteId,int $requestId,int $actor
     $row=one("SELECT * FROM voice_tool_requests WHERE id=? AND account_id=? AND site_id=? AND actor_id=?",
         [$requestId,$accountId,$siteId,$actorId]);
     if(!$row)throw new InvalidArgumentException('tool_request_not_owned');
-    if(!hash_equals((string)$row['approval_sha256'],hash('sha256',$token)))
-        throw new InvalidArgumentException('tool_confirmation_token_invalid');
-    if($row['status']!=='prepared')return ['status'=>$row['status'],'reference_id'=>$row['reference_id'],'replayed'=>true];
-    $date=strtotime((string)$row['prepared_at'].' UTC');
-    if($date===false||time()-$date>600)throw new RuntimeException('tool_confirmation_expired');
     $policy=voice_tool_policy($accountId,$siteId,(int)$row['policy_id']);
     if((int)$policy['connector_id']!==(int)$row['connector_id']||
        $policy['operation']!==$row['operation'])throw new RuntimeException('tool_policy_changed');
+    if(!hash_equals((string)$row['approval_sha256'],voice_tool_approval_digest($policy,$token)))
+        throw new InvalidArgumentException('tool_confirmation_token_invalid_or_policy_changed');
+    if($row['status']!=='prepared')return ['status'=>$row['status'],'reference_id'=>$row['reference_id'],'replayed'=>true];
+    $date=strtotime((string)$row['prepared_at'].' UTC');
+    if($date===false||time()-$date>600)throw new RuntimeException('tool_confirmation_expired');
     $claimed=execute("UPDATE voice_tool_requests SET status='inflight'
         WHERE id=? AND account_id=? AND site_id=? AND status='prepared'",
         [$requestId,$accountId,$siteId]);

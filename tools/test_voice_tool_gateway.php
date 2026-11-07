@@ -39,6 +39,28 @@ $crossCall=false;
 try{voice_tool_prepare(4,$site,$policy,$actor,'booking-voice-abcdef12345',$input,'callDIFFERENT9876');}
 catch(RuntimeException){$crossCall=true;}
 tool_check($crossCall,'idempotency cannot cross call ids');
+// A prepared approval must not silently switch to a modified endpoint or secret.
+$draftRest=voice_connector_add(4,$site,'laravel','Policy drift test','https://policy.example.com','/api/status','bearer','test-token');
+execute("UPDATE voice_data_connectors SET status='verified' WHERE id=? AND account_id=4",[$draftRest]);
+$drift=voice_tool_policy_save(4,$site,$draftRest,'rest.slots','/api/slots',true);
+$beforeChange=voice_tool_prepare(4,$site,$drift,$actor,'policy-drift-abcdef123456',
+    ['date'=>'2026-12-01','service_id'=>'standard']);
+voice_tool_policy_save(4,$site,$draftRest,'rest.slots','/api/availability',true);
+$externalOnDrift=0;$blocked=false;
+try{voice_tool_confirm(4,$site,$beforeChange['request_id'],$actor,
+    $beforeChange['approval_token'],true,static function()use(&$externalOnDrift):array{
+        $externalOnDrift++;return ['status'=>'succeeded'];
+    });}catch(InvalidArgumentException $e){$blocked=str_contains($e->getMessage(),'policy_changed');}
+tool_check($blocked&&$externalOnDrift===0,'consent tied to original REST endpoint');
+voice_tool_policy_save(4,$site,$draftRest,'rest.slots','/api/slots',true);
+execute("UPDATE voice_data_connectors SET secret_enc=? WHERE id=? AND account_id=4",
+    [seal_secret('rotated-token'),$draftRest]);
+$blocked=false;
+try{voice_tool_confirm(4,$site,$beforeChange['request_id'],$actor,
+    $beforeChange['approval_token'],true,static function()use(&$externalOnDrift):array{
+        $externalOnDrift++;return ['status'=>'succeeded'];
+    });}catch(InvalidArgumentException $e){$blocked=str_contains($e->getMessage(),'policy_changed');}
+tool_check($blocked&&$externalOnDrift===0,'credential rotation invalidates old approval');
 $otherPolicy=voice_tool_policy_save(4,$site,$connector,'whmcs.ticket.reply','',true);
 $crossPolicy=false;
 try{voice_tool_prepare(4,$site,$otherPolicy,$actor,'booking-voice-abcdef12345',
@@ -71,6 +93,12 @@ $replyResponse=voice_tool_result('whmcs.ticket.reply',['result'=>'success']);
 tool_check($replyResponse['status']==='succeeded'&&
     !isset($replyResponse['reference_id']),
     'WHMCS AddTicketReply success never invents a reply ID');
+foreach([true,0,'0','not-an-id'] as $badReply){
+    $invalid=false;
+    try{voice_tool_result('whmcs.ticket.reply',['result'=>'success','replyid'=>$badReply]);}
+    catch(RuntimeException $e){$invalid=$e->getMessage()==='tool_whmcs_reply_id_invalid';}
+    tool_check($invalid,'WHMCS reply id cannot be fabricated');
+}
 $again=voice_tool_confirm(4,$site,$prepared['request_id'],$actor,$prepared['approval_token'],true,
     static function()use(&$hits):array{$hits++;return ['status'=>'succeeded'];});
 tool_check($again['replayed']===true&&$hits===1,'single execution per request');
@@ -89,6 +117,16 @@ $readResult=voice_tool_confirm(4,$site,$readRequest['request_id'],$actor,$readRe
         'invoices'=>['invoice'=>[['id'=>23,'status'=>'Paid','email'=>'hidden@example.com','total'=>'100.00']]]]));
 tool_check($readResult['status']==='succeeded'&&$readResult['count']===1&&
     !str_contains(json_encode($readResult),'hidden@example.com'),'invoice PII redaction');
+$empty=voice_tool_result('whmcs.tickets',['result'=>'success','totalresults'=>0]);
+tool_check($empty['count']===0&&$empty['data']===[],'genuine zero WHMCS tickets');
+$ambiguous=false;
+try{voice_tool_result('whmcs.tickets',['result'=>'success','tickets'=>'broken']);}
+catch(RuntimeException $e){$ambiguous=$e->getMessage()==='tool_whmcs_read_shape_invalid';}
+tool_check($ambiguous,'broken WHMCS response is not invented as no tickets');
+$ambiguous=false;
+try{voice_tool_result('whmcs.services',['result'=>'success','totalresults'=>3,'products'=>[]]);}
+catch(RuntimeException $e){$ambiguous=true;}
+tool_check($ambiguous,'missing paid services cannot be presented as empty');
 $rest=voice_connector_add(4,$site,'laravel','Appointment test','https://appointments.example.com','/api/slots','bearer','demo-key');
 execute("UPDATE voice_data_connectors SET status='verified' WHERE id=? AND account_id=4",[$rest]);
 $slotPolicy=voice_tool_policy_save(4,$site,$rest,'rest.slots','/api/slots',true);

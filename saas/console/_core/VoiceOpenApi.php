@@ -26,8 +26,9 @@ function voice_openapi_connector(int $accountId,int $siteId,int $connectorId):ar
     $connector=one("SELECT * FROM voice_data_connectors WHERE id=? AND account_id=? AND site_id=?
       AND status='verified' AND type IN ('laravel','custom')",
       [$connectorId,$accountId,$siteId]);
-    if(!$connector||!one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",
-        [$siteId,$accountId]))throw new InvalidArgumentException('openapi_connector_unverified_or_foreign');
+    if(!$connector||!one("SELECT s.id FROM sites s JOIN accounts a ON a.id=s.account_id AND a.status='active'
+        WHERE s.id=? AND s.account_id=? AND s.status='active'",[$siteId,$accountId]))
+        throw new InvalidArgumentException('openapi_connector_unverified_or_foreign');
     return $connector;
 }
 
@@ -140,6 +141,8 @@ function voice_openapi_candidates(int $accountId,int $siteId):array {
     $rows=all("SELECT d.connector_id,d.document_sha256,d.checked_at,d.endpoints_json,c.name
        FROM voice_openapi_discoveries d JOIN voice_data_connectors c
           ON c.id=d.connector_id AND c.account_id=d.account_id AND c.site_id=d.site_id
+       JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
+       JOIN accounts a ON a.id=d.account_id AND a.status='active'
        WHERE d.account_id=? AND d.site_id=? AND c.status='verified'
        ORDER BY d.checked_at DESC LIMIT 25",[$accountId,$siteId]);
     $out=[];

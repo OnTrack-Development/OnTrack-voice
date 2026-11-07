@@ -56,6 +56,18 @@ $proposal=flow_ai_validate_proposal(['nodes'=>[
   ['id'=>'n3','type'=>'end','text'=>'شكرًا','x'=>300,'y'=>400]],
   'edges'=>[['from'=>'n1','to'=>'n2','label'=>''],['from'=>'n2','to'=>'n3','label'=>'']]]);
 verify_flow_source(count($proposal['nodes'])===3,'instruction node valid in AI draft');
+$changes=flow_ai_preview_changes([], $proposal);
+verify_flow_source($changes['nodes_added']===3&&$changes['edges_added']===2&&
+    $changes['preview_only']&&$changes['published']===false,'AI preview never publishes');
+$revised=$proposal;
+$revised['nodes'][1]['text']='تعليمات معدلة';
+$revised['nodes'][]=['id'=>'n4','type'=>'say','text'=>'معلومة إضافية','x'=>400,'y'=>290];
+$revised['edges']=[['from'=>'n1','to'=>'n2','label'=>''],
+    ['from'=>'n2','to'=>'n4','label'=>''],['from'=>'n4','to'=>'n3','label'=>'']];
+$diff=flow_ai_preview_changes($proposal,$revised);
+verify_flow_source($diff['nodes_added']===1&&$diff['nodes_edited']===1&&
+    $diff['nodes_preserved']===3&&$diff['edges_added']===2&&$diff['edges_removed']===1,
+    'AI compares draft without overwriting current graph');
 
 $body=json_encode(['candidates'=>[['finishReason'=>'STOP','content'=>['parts'=>[
     ['thought'=>true,'text'=>'Ignore reasoning text'],

@@ -31,6 +31,32 @@ function flow_ai_validate_proposal(array $candidate):array {
     if(strlen($encoded)>16000)throw new InvalidArgumentException('ai_flow_too_large');
     return $graph;
 }
+
+/** Side-effect-free owner review of AI proposed changes. */
+function flow_ai_preview_changes(array $before,array $after):array {
+    if($before!==[])flow_preview_compile($before);
+    $after=flow_ai_validate_proposal($after);
+    $old=[];$new=[];
+    foreach($before['nodes']??[] as $n)$old[(string)$n['id']]=$n;
+    foreach($after['nodes'] as $n)$new[(string)$n['id']]=$n;
+    $added=array_diff(array_keys($new),array_keys($old));
+    $removed=array_diff(array_keys($old),array_keys($new));
+    $changed=0;
+    foreach(array_intersect(array_keys($new),array_keys($old)) as $id)
+        if(($old[$id]['type']??null)!==($new[$id]['type']??null)||
+            trim((string)($old[$id]['text']??''))!==trim((string)($new[$id]['text']??'')))$changed++;
+    $key=static fn(array $e):string=>json_encode([
+        (string)($e['from']??''),(string)($e['to']??''),(string)($e['label']??'')
+    ],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    $oldEdges=array_map($key,$before['edges']??[]);
+    $newEdges=array_map($key,$after['edges']);
+    return ['nodes_added'=>count($added),'nodes_removed'=>count($removed),
+        'nodes_edited'=>$changed,'nodes_preserved'=>count($new)-count($added),
+        'edges_added'=>count(array_diff($newEdges,$oldEdges)),
+        'edges_removed'=>count(array_diff($oldEdges,$newEdges)),
+        'preview_only'=>true,'saved'=>false,'published'=>false];
+}
+
 /**
  * Gemini can put thought parts before its JSON, or return truncated JSON when
  * output tokens run out. Never persist a partial or malformed graph.

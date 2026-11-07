@@ -127,6 +127,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    aiThread.scrollTop=aiThread.scrollHeight;
  }
  let proposal=null,profileProposal=null,busy=false,hasHistory=false;
+ let proposalBaseline=null;
  function profileSnapshot(){
    const form=root.closest('form');
    const string=name=>form?.querySelector('[name="'+name+'"]')?.value||'';
@@ -227,10 +228,11 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    const response=await chatRequest(action,fields);
    return response.queued?waitAiJob(response.job_id):response;
  }
- function showProposal(g){
+ function showProposal(g,baseline=null){
    if(!g||!Array.isArray(g.nodes)||!Array.isArray(g.edges)||g.nodes.length>32)
      throw Error('مخطط غير صالح من المساعد');
    proposal=g;
+   proposalBaseline=baseline===null?JSON.stringify(data):baseline;
    const indegree=new Map(),outdegree=new Map();
    g.edges.forEach(e=>{indegree.set(e.to,(indegree.get(e.to)||0)+1);
      outdegree.set(e.from,(outdegree.get(e.from)||0)+1)});
@@ -244,7 +246,16 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
      item.append(make('b','',TYPES[n.type]||n.type),make('span','',String(n.text||'').slice(0,180)));
      list.append(item);
    });
-   aiPreview.replaceChildren(title,list);
+   const before=JSON.parse(proposalBaseline),oldNodes=new Map(before.nodes.map(n=>[n.id,n]));
+   const newNodes=new Map(g.nodes.map(n=>[n.id,n]));
+   const added=[...newNodes.keys()].filter(id=>!oldNodes.has(id)).length;
+   const removed=[...oldNodes.keys()].filter(id=>!newNodes.has(id)).length;
+   const changed=[...newNodes.entries()].filter(([id,n])=>oldNodes.has(id)&&
+     (oldNodes.get(id).text!==n.text||oldNodes.get(id).type!==n.type)).length;
+   const summary=make('p','graph-ai-change-summary',
+     'مقارنة بالمسودة المفتوحة: '+added+' عقدة جديدة، '+removed+' محذوفة، '+changed+' معدّلة. '+
+     'المعاينة لا تنفذ أدوات ولا تنشر مكالمات.');
+   aiPreview.replaceChildren(title,summary,list);
    aiApply.hidden=false;aiCancel.hidden=false;
    aiThread.scrollTop=aiThread.scrollHeight;
  }
@@ -296,7 +307,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    }catch(error){aiStatus.textContent=error.message||'تعذر مسح المحادثة'}
  }
  function clearAiProposal(){
-   proposal=null;profileProposal=null;aiPreview.replaceChildren();aiStatus.textContent='';aiApply.hidden=true;aiCancel.hidden=true;
+   proposal=null;profileProposal=null;proposalBaseline=null;aiPreview.replaceChildren();aiStatus.textContent='';aiApply.hidden=true;aiCancel.hidden=true;
  }
  async function discardAiProposal(){
    if((!proposal&&!profileProposal)||busy)return;
@@ -319,9 +330,10 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    const mode=aiMode.value;
    // Keep the old reviewed preview if both new network requests fail.
    // Never mix an older profile with a new graph or vice versa.
-   const oldGraph=proposal,oldProfile=profileProposal;
+   const oldGraph=proposal,oldProfile=profileProposal,oldBaseline=proposalBaseline;
+   const requestEditorBaseline=JSON.stringify(data);
    const oldPreview=[...aiPreview.childNodes].map(node=>node.cloneNode(true));
-   busy=true;proposal=null;profileProposal=null;
+   busy=true;proposal=null;profileProposal=null;proposalBaseline=null;
    aiPreview.replaceChildren();aiApply.hidden=true;aiCancel.hidden=true;
    aiMessage('user',prompt);aiSubmit.disabled=true;
    aiStatus.textContent='جارٍ تصميم '+(mode==='both'?'المخطط والخصائص':mode==='graph'?'المخطط':'الخصائص')+'…';
@@ -333,7 +345,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
            description:prompt,current_graph_json:JSON.stringify(data)
          });
          if(result.model)aiModel.textContent=result.model;
-         if(result.graph)showProposal(result.graph);
+         if(result.graph)showProposal(result.graph,requestEditorBaseline);
          if(result.explanation)aiMessage('assistant',result.explanation);
        }catch(error){errors.push('المخطط: '+(error.message||'تعذّر التوليد'))}
      }
@@ -352,7 +364,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
        aiStatus.textContent='راجع الاقتراح الجديد ثم اضغط «نفّذ المقترح كمسودة». النشر يحتاج خطوة منفصلة.';
      }else if(oldGraph||oldProfile){
        // No new result: restore last valid preview without applying changes.
-       proposal=oldGraph;profileProposal=oldProfile;
+       proposal=oldGraph;profileProposal=oldProfile;proposalBaseline=oldBaseline;
        aiPreview.replaceChildren(...oldPreview);
        aiApply.hidden=false;aiCancel.hidden=false;
        aiStatus.textContent='لم يتم إنشاء اقتراح جديد؛ المقترح السابق محفوظ كما هو. ';
@@ -367,6 +379,10 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    if((!proposal&&!profileProposal)||busy)return;
    const form=root.closest('form');
    if(!form){aiStatus.textContent='لا توجد استمارة حفظ.';return;}
+   if(proposal&&proposalBaseline!==null&&JSON.stringify(data)!==proposalBaseline){
+     aiStatus.textContent='المخطط اتعدل بعد طلب AI. اطلب اقتراحًا جديدًا بدل الكتابة فوق مسودتك.';
+     return;
+   }
    const accepted=await window.ontrackConfirm(
       'تطبيق التعديلات على البلدر وخصائص الإيجنت وحفظها كمسودة؟ لن يتم نشرها على المكالمات.',
       {title:'اعتماد اقتراح AI',confirmText:'طبّق واحفظ المسودة'});
