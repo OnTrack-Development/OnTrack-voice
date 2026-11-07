@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  actions: read
 concurrency:
   group: ontrack-io-premium-signed-candidate-recovery
   cancel-in-progress: false
