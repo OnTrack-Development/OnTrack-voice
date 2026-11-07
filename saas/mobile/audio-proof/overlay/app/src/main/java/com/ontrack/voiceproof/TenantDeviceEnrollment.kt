@@ -74,9 +74,20 @@ class TenantDeviceEnrollment(private val context: Context) {
         // Google Live structured report generation may take well beyond the
         // default 12s device API timeout. Other pairing/call control requests
         // remain short; only post-call analysis receives the longer timeout.
-        val transport=if(body.optString("operation")=="workspace_call_analysis")
-            client.newBuilder().readTimeout(155,TimeUnit.SECONDS).build()
-        else client
+        val operation=body.optString("operation")
+        val transport=when(operation){
+            "workspace_call_analysis" ->
+                client.newBuilder().readTimeout(155,TimeUnit.SECONDS).build()
+            // 3G/H/H+ radio switching during a live SIM call can exceed the
+            // old 8s TCP connect limit. Stay HTTPS-only with the same account
+            // authentication, but allow a bounded slower mobile handshake.
+            "heartbeat","published_flow","voice_session","voice_preflight","voice_failover" ->
+                client.newBuilder()
+                    .connectTimeout(16,TimeUnit.SECONDS)
+                    .readTimeout(22,TimeUnit.SECONDS)
+                    .callTimeout(36,TimeUnit.SECONDS).build()
+            else->client
+        }
         transport.newCall(req).execute().use { response ->
             val raw=response.body?.string().orEmpty()
             check(raw.length<=maxResponse) { "استجابة السيرفر غير صالحة" }
@@ -255,7 +266,10 @@ class TenantDeviceEnrollment(private val context: Context) {
             .header("Accept","application/octet-stream")
             .post(JSONObject().put("text",phrase).toString()
                 .toRequestBody("application/json".toMediaType())).build()
-        val streamClient=client.newBuilder().readTimeout(45,TimeUnit.SECONDS).build()
+        // Fish PCM stream must tolerate a brief 3G/H+ TCP handshake without
+        // imposing a total-call timeout on ongoing audio chunks.
+        val streamClient=client.newBuilder().connectTimeout(16,TimeUnit.SECONDS)
+            .readTimeout(45,TimeUnit.SECONDS).build()
         streamClient.newCall(req).execute().use{response->
             if(response.code==401)throw SecurityException("ربط الشريحة لم يعد صالحًا")
             if(!response.isSuccessful)error("IO Premium HTTP " + response.code)
