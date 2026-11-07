@@ -31,7 +31,8 @@ $allowed = [
     'setup_timeout','ws_error','ws_close','provider_error','mic_permission_start',
     'mic_ready','mic_error','first_audio','audio_error','call_error','call_stopped',
     'audio_context_resume_start','audio_context_resume_ok','audio_context_resume_error',
-    'text_sent','turn_complete','ws_invalid_message'
+    'text_sent','turn_complete','ws_invalid_message',
+    'fish_request_start','fish_http_response','fish_first_audio','fish_complete','fish_error'
 ];
 if (!in_array($payload['stage'], $allowed, true)
     || !preg_match('/^[a-zA-Z0-9_-]{1,64}$/D', $payload['attempt'])) {
