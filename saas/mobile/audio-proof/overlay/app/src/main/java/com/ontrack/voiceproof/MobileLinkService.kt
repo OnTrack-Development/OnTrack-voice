@@ -568,21 +568,30 @@ class MobileLinkService:Service() {
                             policy.optBoolean("auto_answer",false) && tenantFlow!=null && agentEnabled,
                             SystemClock.elapsedRealtime()-ringingAt,
                             policy.optInt("answer_delay_seconds",5),
-                            autoAnswerRequested,humanControl)){
-                        // A failed auto-answer command must NOT disable the
-                        // manually answered AI path for the same phone call.
-                        autoAnswerRequested=true // bounded one attempt
+                            autoAnswerRequested,humanControl) &&
+                        CellularCallRecoveryPolicy.autoAnswerRetryAllowed(
+                            ringing=true,alreadyAcknowledged=autoAnswerRequested,
+                            attempts=autoAnswerAttempts,nowMs=SystemClock.elapsedRealtime(),
+                            nextRetryAtMs=nextAutoAnswerRetryAt)){
+                        // Retry temporary LTE bridge failures while ringing;
+                        // acknowledged answers and OFFHOOK are never retried.
+                        autoAnswerAttempts++
                         try{
                             check(CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)){
-                                "رابط الرد التلقائي ADB غير متصل"
+                                "جسر الرد الآلي غير جاهز؛ على الداتا راجع إعداد بدء التشغيل بدون Wi-Fi في التطبيق"
                             }
                             val daemonState=CaptureDaemon.linkControl(this@MobileLinkService,'Q')
                             check(daemonState=="CALL 1"){"رابط الرد الآلي لم يؤكد الرنين: "+(daemonState?:"لا توجد استجابة")}
                             val ack=CaptureDaemon.linkControl(this@MobileLinkService,'A')
                             check(ack!=null){"لم يؤكد رابط الهاتف أمر الرد التلقائي"}
+                            autoAnswerRequested=true
+                            callProblem=""
                             notice("أُرسل أمر الرد للشريحة ${current.slot+1}؛ انتظار تأكيد OFFHOOK")
                         }catch(problem:Exception){
-                            callProblem="تعذر الرد التلقائي: "+problem.message.orEmpty().take(110)
+                            nextAutoAnswerRetryAt=SystemClock.elapsedRealtime()+
+                                CellularCallRecoveryPolicy.answerRetryDelayMs(autoAnswerAttempts)
+                            callProblem="تعذر الرد التلقائي ("+internetRoute()+"): "+
+                                problem.message.orEmpty().take(110)
                             notice(callProblem+" — الرد اليدوي ما زال متاحًا للإيجنت")
                         }
                     }
@@ -639,7 +648,9 @@ class MobileLinkService:Service() {
                             nextAudioRetryAt=SystemClock.elapsedRealtime()+
                                 CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
                             val message=problem.message.orEmpty().take(140)
-                            callProblem="تعذر تشغيل صوت الإيجنت (${internetRoute()}): "+message
+                            val hint=cellularCallNetworkHint(current.slot)
+                            callProblem="تعذر تشغيل صوت الإيجنت ("+internetRoute()+"): "+message+
+                                if(hint.isNotEmpty()) "؛ "+hint else ""
                             if(message!=lastError){lastError=message;notice(callProblem)}
                         }
                     }
