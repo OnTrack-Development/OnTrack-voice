@@ -212,7 +212,7 @@ class MobileLinkService:Service() {
         )
     }.getOrDefault(false)
     private fun cellularCallNetworkHint(slot:Int):String = runCatching {
-        if(internetRoute()!="offline" || NetworkRevive.onWifi(this))return@runCatching ""
+        if(NetworkRevive.onWifi(this) || internetAvailableForRetry())return@runCatching ""
         val callSubscription=TenantSimHardware.subscriptionId(this,slot)
         val dataSubscription=SubscriptionManager.getDefaultDataSubscriptionId()
         if(dataSubscription>=0 && dataSubscription!=callSubscription)
@@ -650,7 +650,7 @@ class MobileLinkService:Service() {
                             val message=problem.message.orEmpty().take(140)
                             val hint=cellularCallNetworkHint(current.slot)
                             callProblem="تعذر تشغيل صوت الإيجنت ("+internetRoute()+"): "+message+
-                                if(hint.isNotEmpty()) "؛ "+hint else ""
+                                (if(hint.isNotEmpty()) "؛ "+hint else "")
                             if(message!=lastError){lastError=message;notice(callProblem)}
                         }
                     }
