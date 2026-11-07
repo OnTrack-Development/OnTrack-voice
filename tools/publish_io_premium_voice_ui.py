@@ -11,8 +11,9 @@ SHA='bfeed5397e2fc4071db4c56e71045dfa0e33a980'
 def blob(b):return hashlib.sha1(('blob '+str(len(b))).encode()+bytes([0])+b).hexdigest()
 def norm(b):return b.decode('utf-8').replace('\r\n','\n')
 def swap(s,a,b,k):
+    # If already published, do not insert provider action/card twice on rerun.
+    if s.count(b)==1:return s
     if s.count(a)==1:return s.replace(a,b,1)
-    if s.count(a)==0 and s.count(b)==1:return s
     raise RuntimeError('unexpected_live_ui_anchor_'+k)
 def atomic(p,b):
     f,t=tempfile.mkstemp(dir=str(p.parent),prefix='.io-premium-')
