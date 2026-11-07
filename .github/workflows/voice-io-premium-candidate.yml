@@ -1,7 +1,7 @@
 name: OnTrack Voice IO Premium 0.3.29 v52 corrected signed candidate (NO DEPLOY)
 on:
   push:
-    branches: [feat/io-premium-native-v52-20261107]
+    branches: [feat/io-premium-native-v51-20261107]
     paths:
       # Do not burn 15 minutes per intermediate cellular fix commit.
       # Only one verified final trigger starts the expensive signed APK build.
