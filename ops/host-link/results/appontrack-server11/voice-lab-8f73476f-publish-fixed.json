@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-lab-8f73476f-publish-fixed",
+  "target": "appontrack-server11",
+  "job_sha256": "38ee0ace5beb14195b33ab1aea2f7a82f19ed2a4d0430cf2297cec174fc17c39",
+  "started_at": "2026-11-07T06:43:02.989217+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"result\": \"deployed_verified\", \"version\": \"2026.11.07.8\", \"source\": \"8f73476fe7ac64fc856d457832d890f165750988\", \"bytes\": 34751, \"public_verified\": true, \"backup\": true}\n",
+  "stderr": "",
+  "finished_at": "2026-11-07T06:43:03.158390+00:00",
+  "duration_ms": 169
+}
