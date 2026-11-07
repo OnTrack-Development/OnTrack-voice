@@ -1,0 +1,13 @@
+{
+  "job_id": "io-premium-audio-capabilities-20261107",
+  "target": "appontrack-server11",
+  "job_sha256": "6e66a42755be1098defffd371b42e33955ebe25e3cef4cbc6dcf380c311d2b0e",
+  "started_at": "2026-11-07T16:54:03.013145+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"ffmpeg\":null,\"ffprobe\":null,\"php\":\"/usr/bin/php\",\"can_run_proc_open\":true,\"io_voice_settings\":true,\"binary_pipe_test\":\"posix\"}\n",
+  "stderr": "",
+  "finished_at": "2026-11-07T16:54:03.087844+00:00",
+  "duration_ms": 75
+}
