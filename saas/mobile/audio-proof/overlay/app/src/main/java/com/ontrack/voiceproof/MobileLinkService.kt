@@ -64,7 +64,7 @@ class MobileLinkService:Service() {
     private val main=Handler(Looper.getMainLooper())
     private val retryWake=Channel<Unit>(Channel.CONFLATED)
     private val client=OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
-        .connectTimeout(8,TimeUnit.SECONDS).readTimeout(15,TimeUnit.SECONDS).pingInterval(15,TimeUnit.SECONDS).build()
+        .connectTimeout(16,TimeUnit.SECONDS).readTimeout(22,TimeUnit.SECONDS).pingInterval(15,TimeUnit.SECONDS).build()
     private lateinit var overlay:CallOverlay
     private var call:MobileLiveCall?=null
     private var loop:Job?=null
