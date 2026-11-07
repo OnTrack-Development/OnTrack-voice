@@ -94,7 +94,7 @@ assert 'audioStart=scope.async(Dispatchers.IO)' in service, 'PCM/Google setup mu
 assert 'if(audioStart?.isCompleted==true)' in service and 'audioReady=true;connected=true' in service, 'UI readiness requires actual PCM startup completion'
 assert 'audioStart?.cancel();audioStart=null' in service, 'Call end/disable must cancel pending PCM setup'
 assert 'try{' in service and 'تعذر اتصال صوت المكالمة' in service and 'callProblem' in service, 'Audio exceptions must be displayed, not disguised as human takeover'
-assert session.index('pipe=CaptureDaemon.livePcm') < session.index('worker=scope.launch') < session.index('openSocket()',session.index('worker=scope.launch')) < session.index('withTimeout(25000){ready.await()}'), 'Open, mute and drain PCM before waiting for Gemini Live'
+assert session.index('pipe=CaptureDaemon.livePcm') < session.index('worker=scope.launch') < session.index('openSocket()',session.index('worker=scope.launch')) < session.index('withTimeout(if(isCellularLink())35000L else 25000L){ready.await()}'), 'Open, mute and drain PCM before waiting for Gemini Live'
 assert 'else if(socketReady)' in session, 'Do not describe expected Google setup delay as network failure'
 assert 'catch(error:Throwable)' in session and 'stop()' in session.split('catch(error:Throwable)',1)[1].split('private fun openSocket',1)[0], 'Audio setup failures must close pipe and restore microphone'
 assert 'audio.setMicrophoneMute(true)' in bridge and 'if (!audio.isMicrophoneMute())' in bridge and 'audio.setMicrophoneMute(wasMuted)' in bridge, 'Shell must confirm mute before PCM header and restore prior state'
