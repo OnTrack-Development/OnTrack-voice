@@ -1,0 +1,60 @@
+name: Publish admin voice catalogue, Agent selector and IO Premium Fish key controls
+on:
+  push:
+    branches: [feat/io-premium-voice-ui-publish-20261107]
+    paths: ['.github/workflows/ontrack-voice-voices-admin-ui-deploy.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-admin-voices-ui-direct-ssh
+  cancel-in-progress: false
+jobs:
+  publish:
+    name: Verify and apply minimal voice-management UI over approved SSH
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Stage reviewed voice UI and encrypted provider settings, never overwrite live
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/publish_io_premium_voice_ui.py
+          if($LASTEXITCODE -ne 0){throw 'Python patcher syntax invalid'}
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $hostName='appontrack@65.21.208.232'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $dir='/home/appontrack/.ontrack-mobile/io-premium-voice-ui-stage'
+          & ssh.exe @flags -p 7195 $hostName ('mkdir -p '+$dir)
+          if($LASTEXITCODE -ne 0){throw 'Voice UI staging mkdir failed'}
+          $items=@(
+            @('saas/console/_core/Views.php',$dir+'/Views.php'),
+            @('saas/console/_core/Actions.php',$dir+'/Actions.php'),
+            @('saas/console/_core/IoPremiumProvider.php',$dir+'/IoPremiumProvider.php'),
+            @('tools/publish_io_premium_voice_ui.py','/home/appontrack/.ontrack-mobile/publish_io_premium_voice_ui.py')
+          )
+          foreach($item in $items) {
+            & scp.exe @flags -P 7195 $item[0] ($hostName+':'+$item[1])
+            if($LASTEXITCODE -ne 0){throw ('Failed stage '+$item[0])}
+          }
+          Write-Host 'VOICE_UI_REVIEWED_STAGE_PASS'
+      - name: Atomically add admin voice screen, user Agent voice control and Fish provider editor
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          & ssh.exe -i $key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=12 -p 7195 'appontrack@65.21.208.232' 'python3 /home/appontrack/.ontrack-mobile/publish_io_premium_voice_ui.py'
+          if($LASTEXITCODE -ne 0){throw 'Unexpected live admin UI structure; no force overwrite permitted'}
+          Write-Host 'IO_PREMIUM_ADMIN_VOICES_UI_PUBLISHED_PASS'
+      - name: Verify actual canonical server PHP, same encrypted Fish profile and navigation
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $hostName='appontrack@65.21.208.232'
+          $command='for p in /home/appontrack/public_html/_core/{Views,Actions,IoPremiumProvider}.php; do /opt/cpanel/ea-php83/root/usr/bin/php -l "$p" >/dev/null || exit 1; done; grep -Fq "render_io_premium_admin_provider();" /home/appontrack/public_html/_core/Views.php || exit 2; grep -Fq "case '"'"'save_io_premium_provider'"'"':" /home/appontrack/public_html/_core/Actions.php || exit 3; grep -Fq "الصوت المستخدم لهذا المساعد" /home/appontrack/public_html/_core/Views.php || exit 4; echo IO_PREMIUM_ADMIN_VOICE_UI_VERIFIED=True'
+          & ssh.exe -i $key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=12 -p 7195 $hostName $command
+          if($LASTEXITCODE -ne 0){throw 'Live provider UI, agent choice or PHP syntax verification failed'}
