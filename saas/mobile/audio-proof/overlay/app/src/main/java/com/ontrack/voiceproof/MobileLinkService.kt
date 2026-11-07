@@ -323,6 +323,7 @@ class MobileLinkService:Service() {
         var lastError=""
         var mobileDataLostDuringCall=false
         var lastDefaultNetworkEpoch=dataNetworkEpoch
+        var lastObservedRadio=internetRoute()
         var perCallNetworkResets=0
         // 2026-11-04 field regression: handset OFFHOOK alone is NOT evidence
         // that an agent answered, the microphone is muted, or Gemini receives
@@ -639,8 +640,17 @@ class MobileLinkService:Service() {
                         val dataReady=internetAvailableForRetry()
                         if(!dataReady)mobileDataLostDuringCall=true
                         val networkChanged=dataNetworkEpoch!=lastDefaultNetworkEpoch
-                        if(dataReady && (mobileDataLostDuringCall || networkChanged) &&
-                            perCallNetworkResets<2){
+                        val currentRadio=internetRoute()
+                        // 4G -> H+ can keep the same Android Network object;
+                        // compare actual radio as well as onAvailable callbacks.
+                        val radioChanged=lastObservedRadio!=currentRadio &&
+                            lastObservedRadio.isNotBlank()
+                        lastObservedRadio=currentRadio
+                        if(dataReady && (mobileDataLostDuringCall || networkChanged || radioChanged) &&
+                            perCallNetworkResets<2 &&
+                            CellularCallRecoveryPolicy.canRearmAfterNetworkReturn(
+                                current.state==TelephonyManager.CALL_STATE_OFFHOOK,
+                                agentEnabled,humanControl,audioReady,audioAttemptCount)){
                             mobileDataLostDuringCall=false
                             perCallNetworkResets++
                             audioAttemptCount=audioAttemptCount.coerceAtMost(1)
