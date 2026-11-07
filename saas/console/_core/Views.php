@@ -820,8 +820,16 @@ function render_voice_data_sources(array $a,array $site):void {
         $pending=$_SESSION['voice_tool_pending']??null;
         if(is_array($pending)&&(int)($pending['account_id']??0)===$id&&
             (int)($pending['site_id']??0)===$siteId&&is_string($pending['approval_token']??null)){
+            $preview=$pending['preview']??null;
+            $review=is_array($preview)&&is_array($preview['fields']??null)
+                ?'<pre dir="auto" class="voice-tool-review">'.e(json_encode([
+                    'operation'=>$preview['operation']??'',
+                    'fields'=>$preview['fields'],'executed'=>false],
+                    JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR)).'</pre>'
+                :'<p class="dim">المعاينة القديمة غير متاحة؛ أعد تحضير الطلب قبل الموافقة.</p>';
             $toolHtml.='<section class="card"><strong>تأكيد مستقل قبل التنفيذ</strong>'.
                 '<p class="info">لن يُرسل طلب للخدمة الخارجية إلا بعد قراءة المعاملات والموافقة المنفصلة. عملية كتابة ناجحة لا يُعلن عنها إلا بإيصال المرجع.</p>'.
+                $review.
                 form_start('voice_tool_confirm',$url).
                 '<input type="hidden" name="site_id" value="'.$siteId.'">'.
                 '<input type="hidden" name="request_id" value="'.(int)$pending['request_id'].'">'.

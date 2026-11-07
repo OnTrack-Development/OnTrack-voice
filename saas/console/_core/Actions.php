@@ -412,7 +412,8 @@ function act():void {
                 $_SESSION['voice_tool_pending']=['site_id'=>$sid,'request_id'=>$result['request_id'],
                     'account_id'=>$id,'actor_id'=>(int)$actor['id'],
                     'approval_token'=>$result['approval_token'],
-                    'operation'=>(string)($result['status']??'prepared')];
+                    'operation'=>(string)($result['preview']['operation']??''),
+                    'preview'=>$result['preview']??null];
                 audit('voice.tools.request_prepared',$id,['request_id'=>$result['request_id']]);
                 $success='الطلب في انتظار موافقة صريحة منفصلة. لم يتم تنفيذ أي طلب خارجي.';
                 break;
@@ -436,7 +437,8 @@ function act():void {
                     ['request_id'=>$pending['request_id'],'status'=>$result['status']??'unknown',
                      'reference_id'=>$result['reference_id']??null]);
                 $success=$result['status']==='succeeded'
-                    ?'أكد النظام الخارجي نجاح العملية'.(!empty($result['reference_id'])?'، رقم المرجع '.(string)$result['reference_id']:'')
+                    ?'أكد النظام الخارجي نجاح العملية'.(!empty($result['reference_id'])?'، رقم المرجع '.(string)$result['reference_id']:'').
+                       (!empty($result['ticket_number'])?'، رقم التذكرة للعميل '.(string)$result['ticket_number']:'')
                     :'لم يتم تأكيد نجاح العملية الخارجية؛ راجع سجل الحالة دون إعادة المحاولة تلقائيًا.';
                 break;
             case 'voice_connector_add':

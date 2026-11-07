@@ -190,7 +190,9 @@ function voice_tool_prepare(int $accountId,int $siteId,int $policyId,int $actorI
         'call_id'=>$callId,'operation'=>$policy['operation']];
     voice_tool_trace($request,'prepared','owner_confirmation_required');
     return ['request_id'=>$id,'status'=>'prepared','requires_approval'=>true,
-        'approval_token'=>$token,'summary'=>'Do not tell caller an external action succeeded.'];
+        'approval_token'=>$token,'preview'=>['operation'=>(string)$policy['operation'],
+            'fields'=>$payload,'executed'=>false],
+        'summary'=>'Do not tell caller an external action succeeded.'];
 }
 /** Restrict response to factual fields; never leak a WHMCS record into a voice prompt. */
 function voice_tool_result(string $op,array $data):array {

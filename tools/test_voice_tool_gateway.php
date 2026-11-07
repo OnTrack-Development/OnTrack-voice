@@ -29,6 +29,12 @@ tool_check($guard,'dynamic whmcs action injection denied');
 $input=['client_id'=>22,'department_id'=>1,'subject'=>'Support request','message'=>'Please help'];
 $prepared=voice_tool_prepare(4,$site,$policy,$actor,'booking-voice-abcdef12345',$input,'call0012345678');
 tool_check($prepared['status']==='prepared'&&strlen($prepared['approval_token'])===48,'prepare requests consent');
+tool_check(($prepared['preview']['operation']??null)==='whmcs.ticket.create'&&
+    ($prepared['preview']['fields']??null)===$input&&
+    $prepared['preview']['executed']===false,
+    'WHMCS ticket draft readback before second explicit consent');
+tool_check(!str_contains(json_encode($prepared),'id:secret'),
+    'ticket draft excludes connector API secrets');
 $reused=voice_tool_prepare(4,$site,$policy,$actor,'booking-voice-abcdef12345',$input,'call0012345678');
 tool_check($reused['reused']===true&&$reused['approval_token']===null,'retry does not mint token');
 $changed=false;
