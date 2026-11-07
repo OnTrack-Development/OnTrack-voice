@@ -518,6 +518,11 @@ function renderSimAgents(s){
    const title=document.createElement('strong');title.textContent=String(info.agent_name||'مساعد غير محدد').slice(0,140);
    const sub=document.createElement('small');sub.textContent='الشريحة '+(slot+1)+(info.site_name?' · '+String(info.site_name).slice(0,95):'');
    identity.append(title,sub);
+   if(info.state==='online'&&info.voice_label){
+    const voice=document.createElement('small');
+    voice.textContent='الصوت: '+String(info.voice_label).slice(0,60);
+    identity.append(voice);
+   }
    const tag=document.createElement('span');tag.className='otAgentBadge'+(info.flow_ready&&info.state==='online'?' ready':'');
    tag.textContent=info.state!=='online'?'غير متصل':info.flow_ready?'جاهز':'لم يُنشر';
    head.append(avatar,identity,tag);card.append(head);
