@@ -3,13 +3,9 @@ on:
   push:
     branches: [feat/io-premium-native-v51-20261107]
     paths:
-      - 'saas/mobile/audio-proof/**'
-      - 'saas/console/_core/**'
-      - 'saas/console/device/v1/**'
-      - 'tools/test_mobile_ui_contract.py'
-      - 'tools/test_v1_mobile_shell.py'
-      - 'tools/test_mobile_release_gate.py'
-      - '.github/workflows/voice-io-premium-candidate.yml'
+      # Do not burn 15 minutes per intermediate cellular fix commit.
+      # Only one verified final trigger starts the expensive signed APK build.
+      - 'tools/trigger-io-premium-v51-build.txt'
   workflow_dispatch:
 permissions:
   contents: read
