@@ -195,7 +195,7 @@ body.pin-locked main{pointer-events:none;user-select:none;filter:blur(6px);opaci
 <div id="log" aria-live="polite"><div class="log-placeholder" id="logPlaceholder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.7 8.7 0 0 1-4-.96L3 21l1.85-5.55A8.5 8.5 0 1 1 21 11.5Z"/></svg><strong>المكالمة لسه ما بدأتش</strong><span>اضغط زر التليفون واتكلم، أو اكتب رسالة من تحت.</span></div></div>
 <form id="textForm" class="send"><input id="textInput" type="text" autocomplete="off" placeholder="ابعت رسالة للمساعدة..." aria-label="رسالتك"><button type="submit">إرسال</button></form>
 <p class="input-note">اكتب رسالة أثناء المكالمة</p></section></details></div>
-<span id="buildInfo" hidden>Voice Lab 2026.11.07.13</span>
+<span id="buildInfo" hidden>Voice Lab 2026.11.07.14</span>
 <audio id="player" playsinline></audio>
 </main>
 <script type="module">
@@ -302,7 +302,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
   }
   async function secureHeaders(provider='google'){
     await settingsReady;
-    if(!csrf)throw Error('لازم تكون داخل بحساب أدمن OnTrack');
+    if(!csrf)throw Error('لازم تدخل كود الاتصال الأول');
     const headers={'Content-Type':'application/json','X-Voice-Lab-CSRF':csrf};
     if(provider==='google'&&ui.googleKey.value.trim())headers['X-Gemini-API-Key']=ui.googleKey.value.trim();
     if(provider==='fish'&&ui.fishKey.value.trim())headers['X-Fish-API-Key']=ui.fishKey.value.trim();
@@ -367,7 +367,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
     if(live!==s||s.closed){s.media.getTracks().forEach(track=>track.stop());return;}
     s.inputContext=new AudioCtx();
     s.source=s.inputContext.createMediaStreamSource(s.media);
-    s.node=s.inputContext.createScriptProcessor(2048,1,1);
+    s.node=s.inputContext.createScriptProcessor(1024,1,1);
     s.silence=s.inputContext.createGain();s.silence.gain.value=0;
     s.node.onaudioprocess=event=>{
       if(live!==s||s.closed||!s.ready||!s.session||s.speaking)return;
@@ -398,6 +398,25 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
       ? '[warm expressive Egyptian Arabic, natural breathing] '
       :ui.emotionLevel.value==='subtle'?'[gentle natural Egyptian Arabic] ':'[warm lively Egyptian Arabic] ';
     return prefix+spoken;
+  }
+  // Speak a stable first phrase as soon as output transcription arrives,
+  // instead of waiting for the full Gemini model turn to finish.
+  function firstFishPhrase(text){
+    const value=String(text||'').trim();
+    if(value.length<8)return '';
+    const complete=value.match(/^([\s\S]{8,125}?[.!؟،؛\n])(?=\s|$)/u);
+    if(complete)return complete[1].trim();
+    if(value.length<74)return '';
+    const boundary=value.slice(0,88).lastIndexOf(' ');
+    return boundary>42?value.slice(0,boundary).trim():'';
+  }
+  function startEarlyFish(s){
+    if(!s||live!==s||s.closed||s.earlySpeech)return;
+    const first=firstFishPhrase(s.output);
+    if(!first)return;
+    const early={text:first,error:null,promise:null};
+    s.earlySpeech=early;
+    early.promise=speakFish(first,s).catch(err=>{early.error=err;});
   }
   function waitFishEnded(){
     if(ui.player.ended)return Promise.resolve();
@@ -449,7 +468,13 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
         });
         if(!callActive())return;
         const buffer=media.addSourceBuffer('audio/mpeg');
-        const reader=response.body.getReader();let started=false,bytes=0;
+        const reader=response.body.getReader();let started=false,bytes=0,playback=null;
+        const startPlayback=()=>{
+          if(playback)return;
+          // Never await play() inside the read loop: the browser may need
+          // more MP3 frames before it resolves, otherwise streaming stalls.
+          playback=ui.player.play().then(()=>{if(callActive())onStart();});
+        };
         try{
           while(true){
             const chunk=await reader.read();if(chunk.done)break;
@@ -460,15 +485,17 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
               buffer.addEventListener('updateend',resolve,{once:true});
               try{buffer.appendBuffer(chunk.value);}catch(e){reject(e);}
             });
-            if(!started&&bytes>=4096){
-              await ui.player.play();started=true;onStart();
+            if(!started&&bytes>=1536){
+              started=true;startPlayback();
             }
           }
           if(media.readyState==='open'&&!buffer.updating)media.endOfStream();
           if(!started){
             if(!bytes)throw Error('fish_empty_audio');
-            await ui.player.play();onStart();
+            started=true;startPlayback();
           }
+          await playback;
+          if(!callActive())return;
           await waitFishEnded();
         }finally{reader.releaseLock();}
       }
@@ -489,19 +516,27 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
   }
   async function finishTurn(s){
     if(live!==s||s.closed)return;
-    const heard=s.input.trim(),spoken=s.output.trim();
-    s.input='';s.output='';
+    const heard=s.input.trim(),spoken=s.output.trim(),early=s.earlySpeech;
+    s.input='';s.output='';s.earlySpeech=null;
     if(heard&&!s.userBubble)message('user',heard);
     if(!spoken){
+      if(early)await early.promise;
       diagnostic('fish_error',{error_code:'empty_gemini_transcript'});
-      s.speaking=false;status('Gemini Live ما رجّعش نص للنطق عبر Fish');
+      s.speaking=false;status('الاتصال ما رجّعش نص للنطق');
       return;
     }
     s.speaking=true;if(!s.botBubble)message('assistant',spoken);
     diagnostic('turn_complete',{elapsed_ms:Math.round(performance.now()-(s.turnStart||s.connectedAt))});
-    ui.brain.textContent='Gemini 3.8 Live: النص جاهز';
-    try{await speakFish(spoken,s);}
-    catch(e){if(live===s&&!s.closed){status('Fish Audio: '+(e?.message||e));s.speaking=false;}return;}
+    ui.brain.textContent='Gemini Live: النص جاهز';
+    try{
+      if(early)await early.promise;
+      if(live!==s||s.closed)return;
+      // A failed speculative request can be retried using the full
+      // transcript. Otherwise never repeat the already-spoken prefix.
+      const remaining=early&&!early.error&&spoken.startsWith(early.text)
+        ?spoken.slice(early.text.length).trim():spoken;
+      if(remaining)await speakFish(remaining,s);
+    }catch(e){if(live===s&&!s.closed){status('تعذّر تشغيل الرد: '+(e?.message||e));s.speaking=false;}return;}
     if(live!==s||s.closed)return;
     s.speaking=false;s.firstAudio=false;
     if(ui.autoListen.value==='yes'&&s.withMic){reset();status('جاهز للجملة التالية — اضغط المايك');return;}
@@ -544,9 +579,10 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
       s.output=appendText(s.output,content.outputTranscription.text);
       transcriptChunk(s,'bot',s.output);
       s.speaking=true;status('Gemini Live بيجهز النص لـFish Audio...');
+      startEarlyFish(s);
     }
     // Do not play Gemini modelTurn.inlineData audio: Fish is the only audible TTS.
-    if(content.interrupted){s.output='';s.speaking=false;stopFish();s.botBubble=null;}
+    if(content.interrupted){s.output='';s.earlySpeech=null;s.speaking=false;stopFish();s.botBubble=null;}
     if(content.turnComplete){
       s.queue=s.queue.then(async()=>{await finishTurn(s);s.userBubble=null;s.botBubble=null;})
         .catch(e=>status('Gemini Live: '+e.message));
@@ -580,7 +616,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
       if(!active)return;
       const s={session:null,closed:false,ready:false,activated:false,socketOpened:false,withMic:!firstText,pending:firstText?[firstText]:[],
         input:'',output:'',userBubble:null,botBubble:null,inputContext:null,source:null,node:null,silence:null,media:null,
-        speaking:false,firstAudio:false,queue:Promise.resolve(),turnStart:performance.now(),connectedAt:performance.now()};
+        speaking:false,firstAudio:false,earlySpeech:null,queue:Promise.resolve(),turnStart:performance.now(),connectedAt:performance.now()};
       live=s;s.wsStarted=performance.now();
       diagnostic('ws_connect_start',{phase:'google_sdk'});
       s.handshakeTimer=setTimeout(()=>{
