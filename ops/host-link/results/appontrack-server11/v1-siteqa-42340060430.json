@@ -1,0 +1,13 @@
+{
+  "job_id": "v1-siteqa-42340060430",
+  "target": "appontrack-server11",
+  "job_sha256": "68dccc865c3254ea5d05af798cb488a30f1be43f6ff3d3da3e05519fcefdf4d4",
+  "started_at": "2026-11-07T04:55:03.533409+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"result\": \"preflight_pass\", \"source\": \"3961940e809d\", \"php_files\": 73, \"isolated_database\": true, \"no_live_db_mutation\": true}\n",
+  "stderr": "",
+  "finished_at": "2026-11-07T04:55:08.473959+00:00",
+  "duration_ms": 4941
+}
