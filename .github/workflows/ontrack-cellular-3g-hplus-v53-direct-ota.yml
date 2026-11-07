@@ -72,7 +72,7 @@ jobs:
           $id=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
           $dest='appontrack@65.21.208.232'
           $flags=@('-i',$id,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=10')
-          & ssh.exe @flags -p 7195 $dest '/opt/cpanel/ea-php83/root/usr/bin/php /home/appontrack/.ontrack-mobile/io-premium-v53-delta-stage/smoke.php'
+          & ssh.exe @flags -p 7195 $dest '/opt/cpanel/ea-php83/root/usr/bin/php /home/appontrack/.ontrack-mobile/io-premium-v52-delta-stage/smoke.php'
           if($LASTEXITCODE -ne 0){throw 'IO Premium server catalog not verified: OTA NOT published'}
           $stage='/home/appontrack/.ontrack-mobile/io-premium-v53-stage'
           & ssh.exe @flags -p 7195 $dest ('mkdir -p '+$stage+'/native '+$stage+'/ui')
