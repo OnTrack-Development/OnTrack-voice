@@ -17,12 +17,10 @@ if ($key === '') { http_response_code(400); exit('gemini_key_required'); }
 // Provider decides validity; only reject unsafe HTTP-header values.
 if (strlen($key) > 2048 || preg_match('/[\x00-\x1F\x7F]/', $key)) { http_response_code(400); exit('unsafe_google_key'); }
 if (!function_exists('curl_init')) { http_response_code(503); exit('host_curl_extension_missing'); }
-$payload = json_encode([
-    'uses' => 1,
-    'expireTime' => gmdate('Y-m-d\TH:i:s\Z', time() + 1800),
-    'newSessionExpireTime' => gmdate('Y-m-d\TH:i:s\Z', time() + 60),
-    'liveConnectConstraints' => ['model' => 'models/gemini-3.8-live'],
-], JSON_UNESCAPED_SLASHES);
+// Use the documented minimal REST payload. Google defaults to a one-minute
+// new-session window and a 30-minute token lifetime. An unsupported constraint
+// must not prevent an otherwise valid owner API key from connecting.
+$payload = json_encode(['uses' => 1], JSON_UNESCAPED_SLASHES);
 $client = curl_init('https://generativelanguage.googleapis.com/v1beta/auth_tokens');
 curl_setopt_array($client, [
     CURLOPT_POST => true,
@@ -39,8 +37,25 @@ $code = (int)curl_getinfo($client, CURLINFO_HTTP_CODE);
 curl_close($client);
 if (!is_string($out)) { http_response_code(502); exit('live_token_network_error'); }
 if ($code < 200 || $code >= 300) {
+    $decodedError = json_decode($out, true);
+    $googleError = is_array($decodedError) && is_array($decodedError['error'] ?? null)
+        ? $decodedError['error'] : [];
+    $googleStatus = (string)($googleError['status'] ?? '');
+    $googleMessage = (string)($googleError['message'] ?? '');
+    // Never reflect a credential, arbitrary upstream HTML, or long payloads.
+    $googleMessage = str_replace($key, '[redacted]', $googleMessage);
+    $googleMessage = (string)preg_replace('/AIza[A-Za-z0-9_-]+/', '[redacted]', $googleMessage);
+    $googleMessage = (string)preg_replace('/[\x00-\x1F\x7F]/', ' ', $googleMessage);
+    $googleMessage = mb_substr($googleMessage, 0, 200);
     http_response_code(in_array($code, [400,401,403,404,429], true) ? $code : 502);
-    exit($code === 429 ? 'live_token_rate_limited' : 'live_token_upstream_error');
+    echo json_encode([
+        'ok' => false,
+        'error' => $code === 429 ? 'live_token_rate_limited' : 'google_live_token_rejected',
+        'google_http' => $code,
+        'google_status' => $googleStatus,
+        'detail' => $googleMessage,
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
 }
 $decoded = json_decode($out, true);
 $token = is_array($decoded) ? (string)($decoded['name'] ?? '') : '';
