@@ -980,9 +980,14 @@ function render_agents(array $a):void{
     if($selected)render_voice_data_sources($a,$selected);
     echo '<div class="agent-studio-banner"><strong>مساعدك، بطريقتك</strong>'.
         '<p>حدّد هدف المساعد وطريقة كلامه، ثم صمّم المحادثة التي تناسب شغلك.</p></div>';
+    require_once __DIR__.'/IoPremiumProvider.php';
     $voices=[];
     foreach(all("SELECT code,name FROM voices WHERE ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?) ORDER BY name",[$id]) as $voice)
-        $voices[$voice['code']]=$voice['name'];
+        if($voice['code']!=='io.premium')$voices[$voice['code']]=$voice['name'];
+    if(io_premium_access_allowed($id)){
+        $premium=one("SELECT name FROM voices WHERE code='io.premium'");
+        if($premium)$voices['io.premium']=(string)$premium['name'].' · مفتاح المنصة';
+    }
     if(!$voices)$voices=['google.aoede'=>'Aoede'];
     $apiSources=['0'=>'بدون مصدر API'];
     if($selected)foreach(all("SELECT id,name,type FROM voice_data_connectors
@@ -1544,7 +1549,9 @@ function render_voices(array $a):void{
         // upstream provider IDs, development placeholders or technical diagnostics.
         if(!$showProvider && (
            (int)$v['ready']!==1 || (string)$v['status']!=='active' ||
-           !in_array($v['id'],$g)))continue;
+           ($v['code']==='io.premium'
+             ?!io_premium_access_allowed($id)
+             :!in_array($v['id'],$g))))continue;
         if($showProvider){
             $last=form_start('toggle_voice','/?tab=voices','class="inline-form"').
                 '<input type="hidden" name="voice_id" value="'.$v['id'].'"><button class="btn small">إظهار/إخفاء</button></form>';
@@ -1578,7 +1585,8 @@ function render_voices(array $a):void{
     if($a['kind']==='platform'||$a['kind']==='reseller'){
         $targets=$a['kind']==='platform'?all("SELECT id,name FROM accounts WHERE kind!='platform'"):all('SELECT id,name FROM accounts WHERE parent_id=?',[$id]);
         $opts=[];foreach($targets as $v)$opts[$v['id']]=$v['name'];
-        $active=[];foreach($list as $v)if((int)$v['ready']===1)$active[$v['id']]=$v['name'];
+        $active=[];foreach($list as $v)
+            if((int)$v['ready']===1 && $v['code']!=='io.premium')$active[$v['id']]=$v['name'];
         if($opts&&$active)echo card('تخصيص صوت لحساب',form_start('add_voice_grant','/?tab=voices').select_html('الحساب','account_id',$opts).select_html('الصوت الجاهز','voice_id',$active).submit_btn('منح الصوت ضمن صلاحيات الباقة'));
     }
 }
