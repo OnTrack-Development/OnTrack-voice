@@ -56,6 +56,7 @@ jobs:
           Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
           Write-Host 'IO_PREMIUM_V52_INHERITED_ACCESS_TEST_PASS'
       - name: Read-only canonical host duplicate-panel inspection over direct SSH
+        if: always()
         run: |
           $ErrorActionPreference='Stop'
           $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
