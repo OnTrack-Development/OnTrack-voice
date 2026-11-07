@@ -64,7 +64,7 @@ audio{display:none}
 <header><div class="brand"><div class="logo">◉</div><div>OnTrack <span style="color:#fb536b">Voice Lab</span><br><small>تجربة مستقلة — Gemini 3.8 Live × Fish Audio</small></div></div><div class="badge">Egyptian Arabic • Demo</div></header>
 <section class="panel hero">
 <h1>كلم المساعد بالمصري</h1>
-<p class="help" id="buildInfo">Voice Lab 2026.11.07.6 • Gemini 3.8 Live → Fish Audio — تشخيص الاتصال</p>
+<p class="help" id="buildInfo">Voice Lab 2026.11.07.7 • Gemini 3.8 Live → Fish Audio — تشخيص الاتصال</p>
 <p>Gemini 3.8 Live يسمعك ويجهّز النص • Fish Audio ينطق الرد بصوتك المختار</p>
 <button id="mic" class="orb" aria-label="ابدأ مكالمة صوتية">🎙</button>
 <div id="status" class="status" role="status">جاهز للمكالمة</div>
@@ -96,7 +96,8 @@ audio{display:none}
 </details></section>
 <audio id="player" playsinline></audio>
 </main>
-<script>
+<script type="module">
+import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/genai@2.25.0/+esm";
 
 (function () {
   'use strict';
@@ -204,7 +205,7 @@ audio{display:none}
     if(s.source)try{s.source.disconnect();}catch(e){}
     if(s.media)for(const track of s.media.getTracks())track.stop();
     if(s.inputContext)s.inputContext.close().catch(()=>{});
-    if(s.socket&&s.socket.readyState<=1)try{s.socket.close(1000,'stop');}catch(e){}
+    if(s.session)try{s.session.close();}catch(e){}
   }
   function reset(){
     if(active||starting)diagnostic('call_stopped');
@@ -240,8 +241,9 @@ audio{display:none}
     s.node=s.inputContext.createScriptProcessor(2048,1,1);
     s.silence=s.inputContext.createGain();s.silence.gain.value=0;
     s.node.onaudioprocess=event=>{
-      if(live!==s||s.closed||!s.ready||s.speaking||s.socket.readyState!==WebSocket.OPEN||s.socket.bufferedAmount>500000)return;
-      s.socket.send(JSON.stringify({realtimeInput:{audio:{mimeType:'audio/pcm;rate=16000',data:pcm16Base64(event.inputBuffer.getChannelData(0),s.inputContext.sampleRate)}}}));
+      if(live!==s||s.closed||!s.ready||!s.session||s.speaking)return;
+      try{s.session.sendRealtimeInput({audio:{mimeType:'audio/pcm;rate=16000',data:pcm16Base64(event.inputBuffer.getChannelData(0),s.inputContext.sampleRate)}});}
+      catch(e){diagnostic('audio_error',{error_code:'sdk_send_failed'});reset();status('فشل إرسال صوت المايك إلى Gemini');}
     };
     s.source.connect(s.node);s.node.connect(s.silence);s.silence.connect(s.inputContext.destination);
     await s.inputContext.resume();
@@ -252,7 +254,8 @@ audio{display:none}
     if(!s.ready){s.pending.push(text);return;}
     message('user',text);
     s.turnStart=performance.now();ui.first.textContent='أول صوت: ...';
-    s.socket.send(JSON.stringify({realtimeInput:{text}}));
+    if(!s.session){s.pending.push(text);return;}
+    s.session.sendRealtimeInput({text});
     diagnostic('text_sent');
     status('Gemini 3.8 Live بيرد بالصوت...');
   }
@@ -359,13 +362,13 @@ audio{display:none}
     if(live!==s||s.closed)return;
     const heard=s.input.trim(),spoken=s.output.trim();
     s.input='';s.output='';
-    if(heard)message('user',heard);
+    if(heard&&!s.userBubble)message('user',heard);
     if(!spoken){
       diagnostic('fish_error',{error_code:'empty_gemini_transcript'});
       s.speaking=false;status('Gemini Live ما رجّعش نص للنطق عبر Fish');
       return;
     }
-    s.speaking=true;message('assistant',spoken);
+    s.speaking=true;if(!s.botBubble)message('assistant',spoken);
     diagnostic('turn_complete',{elapsed_ms:Math.round(performance.now()-(s.turnStart||s.connectedAt))});
     ui.brain.textContent='Gemini 3.8 Live: النص جاهز';
     try{await speakFish(spoken,s);}
@@ -375,101 +378,102 @@ audio{display:none}
     if(ui.autoListen.value==='yes'&&s.withMic){reset();status('جاهز للجملة التالية — اضغط المايك');return;}
     status(s.withMic?'Gemini 3.8 Live بيسمعك...':'تقدر تبعت رسالة تانية');
   }
-  function receive(s,raw){
-    let result;try{result=JSON.parse(raw);}catch(e){diagnostic('ws_invalid_message');return;}
-    if(result.error){
-      const detail=String(result.error.message||result.error.status||result.error.code||'خطأ غير محدد').replace(/AIza[A-Za-z0-9_-]+/g,'[redacted]').slice(0,280);
-      diagnostic('provider_error',{error_code:String(result.error.status||result.error.code||'provider_error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});
-      reset();status('Google رفض جلسة Live: '+detail);return;
+  function transcriptChunk(s,role,text){
+    const name=role==='user'?'userBubble':'botBubble';
+    if(!s[name]){
+      const item=document.createElement('div');item.className='bubble '+(role==='user'?'mine':'theirs');
+      ui.log.appendChild(item);s[name]=item;
     }
-    if(result.setupComplete){
+    s[name].textContent=(role==='user'?'أنت: ':'المساعدة: ')+text;
+    ui.log.scrollTop=ui.log.scrollHeight;
+  }
+  function activateSession(s){
+    if(live!==s||s.closed||!s.ready||!s.session||s.activated)return;
+    s.activated=true;
+    if(s.withMic)startMic(s).catch(e=>{diagnostic('mic_error',{error_code:e.name||'mic_error'});reset();status('مشكلة المايك: '+e.message);});
+    for(const text of s.pending.splice(0))sendText(s,text);
+  }
+  function receive(s,data){
+    if(live!==s||s.closed)return;
+    if(typeof data==='string'){try{data=JSON.parse(data);}catch(e){diagnostic('ws_invalid_message');return;}}
+    if(data?.error){
+      const reason=String(data.error.message||data.error.status||data.error.code||'provider_error').replace(/AIza[A-Za-z0-9_-]+/g,'[redacted]').slice(0,240);
+      diagnostic('provider_error',{error_code:String(data.error.status||data.error.code||'provider_error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});
+      reset();status('Google Live: '+reason);return;
+    }
+    if(data?.setupComplete){
       clearTimeout(s.handshakeTimer);s.ready=true;s.connectedAt=performance.now();
       diagnostic('setup_complete',{elapsed_ms:Math.round(performance.now()-s.wsStarted)});
-      status('اتصلنا بـGemini 3.8 Live');
-      if(s.withMic)startMic(s).catch(e=>{diagnostic('mic_error',{error_code:e.name||'mic_error'});reset();status('مشكلة المايك: '+e.message);});
-      for(const text of s.pending.splice(0))sendText(s,text);
-      return;
+      status('Gemini Live متصل');activateSession(s);return;
     }
-    const content=result.serverContent||{};
-    if(content.inputTranscription?.text)s.input=appendText(s.input,content.inputTranscription.text);
-    if(content.outputTranscription?.text)s.output=appendText(s.output,content.outputTranscription.text);
-    // Gemini native audio is deliberately ignored; only its output transcription goes to Fish.
-    if(content.outputTranscription?.text){s.speaking=true;status('Gemini Live بيجهّز النص لـFish...');}
-    if(content.interrupted){
-      // Fish audio is the only audible output; cancel it on interruption.
-      s.output='';s.speaking=false;s.firstAudio=false;stopFish();
+    const content=data?.serverContent||{};
+    if(content.inputTranscription?.text){
+      s.input=appendText(s.input,content.inputTranscription.text);
+      transcriptChunk(s,'user',s.input);
     }
+    if(content.outputTranscription?.text){
+      s.output=appendText(s.output,content.outputTranscription.text);
+      transcriptChunk(s,'bot',s.output);
+      s.speaking=true;status('Gemini Live بيجهز النص لـFish Audio...');
+    }
+    // Do not play Gemini modelTurn.inlineData audio: Fish is the only audible TTS.
+    if(content.interrupted){s.output='';s.speaking=false;stopFish();s.botBubble=null;}
     if(content.turnComplete){
-      s.queue=s.queue.then(()=>finishTurn(s)).catch(e=>status('Gemini Live: '+e.message));
+      s.queue=s.queue.then(async()=>{await finishTurn(s);s.userBubble=null;s.botBubble=null;})
+        .catch(e=>status('Gemini Live: '+e.message));
     }
   }
   async function startLive(firstText=null){
     if(live){if(firstText)sendText(live,firstText);return;}
     if(starting)return;
-    if(!window.WebSocket||(!AudioCtx&&!firstText))throw Error('متصفحك لا يدعم مكالمات Live');
-    starting=true;
-    traceAttempt=globalThis.crypto?.randomUUID?.() || String(Date.now());
+    if(!AudioCtx&&!firstText)throw Error('المتصفح لا يدعم AudioContext');
+    starting=true;traceAttempt=globalThis.crypto?.randomUUID?.()||String(Date.now());
     diagnostic('call_start');
-    // TTS output comes from Fish; do not block Live token acquisition on Gemini playback.
     try{
-      const headers=await secureHeaders();
-      headers['X-Voice-Lab-Trace']=traceAttempt;
-      const tokenStart=performance.now();
-      diagnostic('token_fetch_start');
+      const headers=await secureHeaders();headers['X-Voice-Lab-Trace']=traceAttempt;
+      const tokenStart=performance.now();diagnostic('token_fetch_start');
       const abort=new AbortController();tokenAbort=abort;
       const timeout=setTimeout(()=>abort.abort(),18000);
       let response;
       try{response=await fetch('./live-token.php',{method:'POST',headers,credentials:'same-origin',body:'{}',cache:'no-store',signal:abort.signal});}
-      catch(e){diagnostic('token_fetch_error',{error_code:e.name==='AbortError'?'timeout':(e.name||'network_error'),elapsed_ms:Math.round(performance.now()-tokenStart)});
-        throw Error(e.name==='AbortError'?'طلب توكن Live انتهت مهلته':e.message);}
-      finally{clearTimeout(timeout);if(tokenAbort===abort)tokenAbort=null;}
+      catch(e){
+        diagnostic('token_fetch_error',{error_code:e.name==='AbortError'?'timeout':(e.name||'network_error'),elapsed_ms:Math.round(performance.now()-tokenStart)});
+        throw Error(e.name==='AbortError'?'طلب توكن Live انتهت مهلته':e.message);
+      }finally{clearTimeout(timeout);if(tokenAbort===abort)tokenAbort=null;}
       if(!response.ok){
         diagnostic('token_http_error',{http_status:response.status,elapsed_ms:Math.round(performance.now()-tokenStart)});
-        const detail=(await response.text()).slice(0,350);
-        throw Error('التوكن HTTP '+response.status+': '+detail);
+        throw Error('التوكن HTTP '+response.status+': '+(await response.text()).slice(0,350));
       }
-      let data;
-      try{data=await response.json();}catch(e){diagnostic('token_invalid_reply',{error_code:'invalid_json'});throw Error('رد التوكن مش JSON صالح');}
+      let data;try{data=await response.json();}
+      catch(e){diagnostic('token_invalid_reply',{error_code:'invalid_json'});throw Error('رد توكن Google غير صالح');}
       if(!data?.token){diagnostic('token_invalid_reply',{error_code:'missing_token'});throw Error('Google لم يرجع توكن Live');}
       diagnostic('token_fetch_ok',{http_status:response.status,elapsed_ms:Math.round(performance.now()-tokenStart)});
       if(!active)return;
-      const s={socket:null,closed:false,ready:false,withMic:!firstText,pending:firstText?[firstText]:[],
-        input:'',output:'',inputContext:null,source:null,node:null,silence:null,media:null,
+      const s={session:null,closed:false,ready:false,activated:false,socketOpened:false,withMic:!firstText,pending:firstText?[firstText]:[],
+        input:'',output:'',userBubble:null,botBubble:null,inputContext:null,source:null,node:null,silence:null,media:null,
         speaking:false,firstAudio:false,queue:Promise.resolve(),turnStart:performance.now(),connectedAt:performance.now()};
-      live=s;
-      const endpoint='wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(data.token);
-      const socket=new WebSocket(endpoint);s.socket=socket;
-      s.wsStarted=performance.now();
-      diagnostic('ws_connect_start');
+      live=s;s.wsStarted=performance.now();
+      diagnostic('ws_connect_start',{phase:'google_sdk'});
       s.handshakeTimer=setTimeout(()=>{
         if(live!==s||s.closed||s.ready)return;
-        const phase=s.socketOpened?'الـWebSocket اتفتح لكن Google ما أكملش قبول إعدادات الجلسة':'الـWebSocket ما اتفتحش';
         diagnostic('setup_timeout',{elapsed_ms:Math.round(performance.now()-s.wsStarted),phase:s.socketOpened?'setup':'websocket'});
-        reset();status(phase+' خلال 15 ثانية.');
+        reset();status((s.socketOpened?'Google اتصل لكن لم يؤكد إعداد الجلسة':'Google WebSocket لم يفتح')+' خلال 15 ثانية');
       },15000);
-      socket.onopen=()=>{
-        if(live!==s||s.closed)return;
-        s.socketOpened=true;diagnostic('ws_open',{elapsed_ms:Math.round(performance.now()-s.wsStarted)});
-        status('WebSocket اتفتح؛ مستني قبول Gemini 3.8 Live...');
-        socket.send(JSON.stringify({setup:{
-          model:'models/gemini-3.8-live',
-          generationConfig:{responseModalities:['AUDIO']},
-          inputAudioTranscription:{},outputAudioTranscription:{},
-          systemInstruction:{parts:[{text:instructions()}]}
-        }}));
-        diagnostic('setup_sent');
-      };
-      socket.onmessage=e=>receive(s,e.data);
-      socket.onerror=()=>{if(live!==s||s.closed)return;diagnostic('ws_error');
-        status('فشل اتصال WebSocket مع Google؛ منتظر كود الإغلاق...');};
-      socket.onclose=e=>{if(live!==s||s.closed)return;
-        const code=e.code,reason=String(e.reason||'').replace(/AIza[A-Za-z0-9_-]+/g,'[redacted]').slice(0,180);
-        diagnostic('ws_close',{ws_code:code,phase:s.ready?'connected':'handshake'});
-        reset();status('Google قفل جلسة Live (WebSocket '+code+')'+(reason?': '+reason:'؛ راجع دعم Live للمفتاح والشبكة'));};
-      status('بفتح Gemini 3.8 Live...');
-    }finally{
-      starting=false;
-    }
+      const ai=new GoogleGenAI({apiKey:data.token});
+      diagnostic('setup_sent',{phase:'google_sdk'});
+      const session=await ai.live.connect({
+        model:data.model||'gemini-3.8-live',
+        config:{responseModalities:[Modality.AUDIO],inputAudioTranscription:{},outputAudioTranscription:{},systemInstruction:instructions()},
+        callbacks:{
+          onopen:()=>{if(live!==s||s.closed)return;s.socketOpened=true;diagnostic('ws_open',{elapsed_ms:Math.round(performance.now()-s.wsStarted)});status('Google WebSocket اتفتح');},
+          onmessage:message=>receive(s,message),
+          onerror:e=>{if(live!==s||s.closed)return;diagnostic('ws_error',{error_code:String(e?.type||'sdk_error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});status('Gemini SDK: خطأ اتصال، راجع Error Log');},
+          onclose:e=>{if(live!==s||s.closed)return;diagnostic('ws_close',{ws_code:e?.code||0,phase:s.ready?'connected':'handshake'});const why=String(e?.reason||'').replace(/AIza[A-Za-z0-9_-]+/g,'[redacted]').slice(0,160);reset();status('Google أغلق الاتصال ('+(e?.code||0)+') '+why);}
+        }
+      });
+      if(live!==s||s.closed){try{session.close();}catch(e){}return;}
+      s.session=session;activateSession(s);
+    }finally{starting=false;}
   }
   function failure(err){
     diagnostic('call_error',{error_code:String(err?.name||'error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});
