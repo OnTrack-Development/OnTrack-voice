@@ -253,6 +253,11 @@ function tenant_voice_entitled(array $binding):bool {
 function tenant_voice_preflight(array $binding):array {
     if(!tenant_voice_entitled($binding))throw new RuntimeException('voice_subscription_inactive');
     $definition=tenant_voice_definition($binding);
+    if($definition['voice']==='io.premium'){
+        require_once __DIR__.'/IoPremiumProvider.php';
+        if(!io_premium_access_allowed((int)$binding['account_id']))
+            throw new RuntimeException('premium_voice_not_available');
+    }
     require_once __DIR__.'/GoogleTenantKeys.php';
     if(ai_relay_rows('voice',false,google_voice_pool_owner((int)$binding['account_id']))!==[])
         $session=ai_relay_voice_session(1,(int)$binding['account_id']);
@@ -271,6 +276,11 @@ function tenant_voice_session(array $binding):array {
     // Caller must still have an authenticated, active per-SIM device binding.
     if(!tenant_voice_entitled($binding))throw new RuntimeException('voice_subscription_inactive');
     $definition=tenant_voice_definition($binding);
+    if($definition['voice']==='io.premium'){
+        require_once __DIR__.'/IoPremiumProvider.php';
+        if(!io_premium_access_allowed((int)$binding['account_id']))
+            throw new RuntimeException('premium_voice_not_available');
+    }
     require_once __DIR__.'/GoogleTenantKeys.php';
     if(ai_relay_rows('voice',false,google_voice_pool_owner((int)$binding['account_id']))!==[])
         $session=ai_relay_voice_session($definition['policy']['max_call_minutes'],(int)$binding['account_id']);
