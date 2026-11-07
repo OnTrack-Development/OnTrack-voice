@@ -1,24 +1,34 @@
 package com.ontrack.voiceproof
 
-import com.google.genai.kotlin.Client
-import com.google.genai.kotlin.types.AudioTranscriptionConfig
-import com.google.genai.kotlin.types.Blob
-import com.google.genai.kotlin.types.Content
-import com.google.genai.kotlin.types.HttpOptions
-import com.google.genai.kotlin.types.LiveConnectConfig
-import com.google.genai.kotlin.types.Modality
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collect
+import android.util.Base64
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.withTimeout
+import okhttp3.HttpUrl
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
+import okio.ByteString
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Official Google Gen AI Kotlin Live client used ONLY when the published
- * agent selects io.premium. The tenant's ephemeral token is obtained by
- * the existing bound SIM SaaS API. Never embed a permanent provider API key.
- * Google AUDIO is discarded: audible PCM comes exclusively from Fish.
+ * Secure short-lived Gemini Live socket for IO Premium.
+ *
+ * The Google Gen AI Kotlin Android client intentionally throws SECURITY FATAL
+ * on Client(apiKey=...), even for an ephemeral Live token. Use the same proven
+ * token-only v1beta WebSocket transport as our standard SIM Live path instead.
+ * No permanent Google/Fish API key is ever stored on the device.
+ *
+ * Google audio is intentionally discarded. Only verified server-side Fish PCM
+ * reaches the phone call through MobileLiveCall's existing muted conduit.
  */
 internal class PremiumOfficialLive(
     private val scope:CoroutineScope,
+    private val client:OkHttpClient,
     private val token:String,
     private val model:String,
     private val instruction:String,
@@ -30,83 +40,95 @@ internal class PremiumOfficialLive(
 ) {
     private val stopped=AtomicBoolean(false)
     private val ready=CompletableDeferred<Unit>()
-    @Volatile private var send:(suspend(ByteArray)->Unit)?=null
-    @Volatile private var sendText:(suspend(String)->Unit)?=null
-    private var job:Job?=null
+    @Volatile private var socket:WebSocket?=null
     private var fullOutput=""
     private var spoken=""
+    private fun failure(message:String) {
+        if(!ready.isCompleted)ready.completeExceptionally(IllegalStateException(message))
+        if(!stopped.get())disconnected(message)
+    }
     fun start() {
-        check(job==null)
-        job=scope.launch(Dispatchers.IO) {
-            try {
-                // Official SDK handles WebSocket handshake, framing, and the
-                // Live API protocol; unlike the previous handcrafted socket.
-                Client(
-                    apiKey=token,
-                    httpOptions=HttpOptions(apiVersion="v1alpha")
-                ).use { client ->
-                    val config=LiveConnectConfig(
-                        responseModalities=listOf(Modality.AUDIO),
-                        systemInstruction=Content.fromText(instruction),
-                        inputAudioTranscription=AudioTranscriptionConfig(),
-                        outputAudioTranscription=AudioTranscriptionConfig()
-                    )
-                    client.live.connect(model.removePrefix("models/"),config).use { session ->
-                        send={pcm->session.sendRealtimeInput(
-                            audio=Blob(data=pcm,mimeType="audio/pcm;rate=16000")
-                        )}
-                        sendText={text->session.sendRealtimeInput(text=text)}
-                        ready.complete(Unit)
-                        session.receive().collect{server->
-                            if(stopped.get())return@collect
-                            val content=server.serverContent?:return@collect
-                            content.inputTranscription?.text?.takeIf{it.isNotBlank()}?.let(caller)
-                            content.outputTranscription?.text?.takeIf{it.isNotBlank()}?.let { text->
-                                fullOutput=PremiumPhrase.merge(fullOutput,text)
-                                assistant(text)
-                                if(spoken.isEmpty()){
-                                    val prefix=PremiumPhrase.prefix(fullOutput)
-                                    if(prefix.isNotEmpty()){
-                                        spoken=prefix
-                                        phrase(prefix)
-                                    }
-                                }
-                            }
-                            if(content.interrupted==true) {
-                                fullOutput="";spoken=""
-                                interrupted()
-                            }else if(content.turnComplete==true) {
-                                val remainder=if(spoken.isNotEmpty()&&fullOutput.startsWith(spoken))
-                                    fullOutput.substring(spoken.length).trim() else fullOutput.trim()
-                                if(remainder.isNotEmpty())phrase(remainder)
-                                fullOutput="";spoken=""
-                            }
-                            // server.data and modelTurn.inlineData contain
-                            // Google voice audio, intentionally NOT played.
-                        }
-                    }
-                }
-                if(!stopped.get())disconnected("IO Premium: انتهت جلسة الاتصال")
-            }catch(t:Throwable){
-                if(!ready.isCompleted)ready.completeExceptionally(t)
-                if(!stopped.get() && t !is CancellationException)
-                    disconnected("IO Premium Live: "+(t.message?:"تعذر الاتصال").take(160))
-            }finally{
-                send=null;sendText=null
+        require(token.startsWith("auth_tokens/") && token.length>20){"invalid Live ephemeral token"}
+        val url=HttpUrl.Builder().scheme("https").host("generativelanguage.googleapis.com")
+            .addPathSegments("ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained")
+            .addQueryParameter("access_token",token).build().toString().replaceFirst("https:","wss:")
+        socket=client.newWebSocket(Request.Builder().url(url).build(),object:WebSocketListener(){
+            override fun onOpen(webSocket:WebSocket,response:Response) {
+                if(stopped.get())return
+                val setup=JSONObject().put("model","models/"+model.removePrefix("models/"))
+                    .put("generationConfig",JSONObject()
+                        .put("responseModalities",JSONArray().put("AUDIO")))
+                    .put("systemInstruction",JSONObject().put("parts",
+                        JSONArray().put(JSONObject().put("text",instruction))))
+                    .put("inputAudioTranscription",JSONObject())
+                    .put("outputAudioTranscription",JSONObject())
+                if(!webSocket.send(JSONObject().put("setup",setup).toString()))
+                    failure("premium_live_setup_send_failed")
             }
-        }
+            override fun onMessage(webSocket:WebSocket,text:String) {
+                if(stopped.get() || webSocket!==socket)return
+                try {
+                    val message=JSONObject(text)
+                    if(message.has("error")){
+                        val error=message.optJSONObject("error")
+                        failure("premium_live_provider_"+(error?.optInt("code",0)?:0))
+                        webSocket.close(1000,"provider error")
+                        return
+                    }
+                    if(message.has("setupComplete") && !ready.isCompleted)ready.complete(Unit)
+                    val content=message.optJSONObject("serverContent")?:return
+                    content.optJSONObject("inputTranscription")?.optString("text","")
+                        ?.takeIf{it.isNotBlank()}?.let(caller)
+                    content.optJSONObject("outputTranscription")?.optString("text","")
+                        ?.takeIf{it.isNotBlank()}?.let { text->
+                            fullOutput=PremiumPhrase.merge(fullOutput,text)
+                            assistant(text)
+                            if(spoken.isEmpty()){
+                                val prefix=PremiumPhrase.prefix(fullOutput)
+                                if(prefix.isNotEmpty()){spoken=prefix;phrase(prefix)}
+                            }
+                        }
+                    if(content.optBoolean("interrupted")){
+                        fullOutput="";spoken=""
+                        interrupted()
+                    }else if(content.optBoolean("turnComplete")){
+                        val remainder=if(spoken.isNotEmpty()&&fullOutput.startsWith(spoken))
+                            fullOutput.substring(spoken.length).trim() else fullOutput.trim()
+                        if(remainder.isNotEmpty())phrase(remainder)
+                        fullOutput="";spoken=""
+                    }
+                    // Deliberately discard modelTurn.inlineData: audible voice is Fish PCM.
+                }catch(_:Exception){failure("premium_live_invalid_message")}
+            }
+            override fun onMessage(webSocket:WebSocket,bytes:ByteString){
+                onMessage(webSocket,bytes.utf8())
+            }
+            override fun onFailure(webSocket:WebSocket,t:Throwable,response:Response?){
+                if(!stopped.get())failure("premium_live_network_"+(response?.code?:0))
+            }
+            override fun onClosed(webSocket:WebSocket,code:Int,reason:String){
+                if(!stopped.get())failure("premium_live_closed_"+code)
+            }
+        })
     }
     suspend fun awaitConnected(){withTimeout(25000){ready.await()}}
     suspend fun pushPcm(bytes:ByteArray){
-        if(stopped.get())return
-        send?.invoke(bytes)
+        if(stopped.get() || !ready.isCompleted || bytes.isEmpty())return
+        val audio=JSONObject().put("mimeType","audio/pcm;rate=16000")
+            .put("data",Base64.encodeToString(bytes,Base64.NO_WRAP))
+        if(socket?.send(JSONObject().put("realtimeInput",JSONObject().put("audio",audio)).toString())!=true)
+            failure("premium_live_audio_send_failed")
     }
-    suspend fun prompt(text:String){if(!stopped.get())sendText?.invoke(text)}
+    suspend fun prompt(text:String){
+        if(stopped.get() || !ready.isCompleted || text.isBlank())return
+        val input=JSONObject().put("text",text)
+        if(socket?.send(JSONObject().put("realtimeInput",input).toString())!=true)
+            failure("premium_live_text_send_failed")
+    }
     fun stop(){
         if(stopped.compareAndSet(false,true)){
-            // Cancelling the coroutine closes the SDK session via 'use'.
-            job?.cancel()
-            send=null;sendText=null
+            socket?.close(1000,"call ended")
+            socket=null
         }
     }
 }
