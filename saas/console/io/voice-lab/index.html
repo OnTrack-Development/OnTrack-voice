@@ -122,9 +122,41 @@ input,select{background:#171717;border-color:#363636;color:#f4f4f4}
 }
 @media(max-width:360px){.visualizer{height:170px;width:170px}.phone-avatar{width:102px;height:102px}.orb{width:73px;height:73px}}
 @media(prefers-reduced-motion:reduce){.orb{transition:none}}
+
+/* PIN access is a dedicated visual gate; all API access is enforced in PHP. */
+body.pin-locked main{pointer-events:none;user-select:none;filter:blur(6px);opacity:.3;min-height:100dvh}
+.pin-gate{position:fixed;z-index:100;inset:0;background:#050505ef;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}
+.pin-gate[hidden]{display:none}
+.pin-card{width:min(100%,380px);background:#101010;border:1px solid #2e2e2e;border-radius:26px;padding:33px 26px 29px;text-align:center;box-shadow:0 20px 70px #000}
+.pin-symbol{display:grid;place-items:center;margin:0 auto 21px;width:72px;height:72px;border-radius:50%;background:#183e2b;color:#32dc83}
+.pin-symbol svg{width:32px}
+.pin-card h1{font-size:24px;margin:0 0 10px;color:#fff}
+.pin-card p{color:#a3a3a3;font-size:13px;line-height:1.8;margin:0 0 24px}
+#pinForm{display:flex;flex-direction:column;align-items:stretch;gap:14px}
+#pinInput{direction:ltr;text-align:center;letter-spacing:13px;font:700 28px/1.3 system-ui,sans-serif;width:100%;border:1px solid #434343;background:#171717;border-radius:14px;padding:14px 4px;color:white;outline:0;font-variant-numeric:tabular-nums}
+#pinInput:focus{border-color:#26c977}
+#pinSubmit{width:100%;background:#20bb68;color:#fff;border:0;border-radius:14px;padding:15px;font-size:15px;font-weight:750}
+#pinSubmit:disabled{opacity:.5}
+#pinMessage{min-height:24px;color:#ff8993;font-size:12px;margin-top:15px;line-height:1.8}
+.pin-footer{margin-top:12px;font-size:11px;color:#666}
+[hidden]{display:none!important}
 </style>
 </head>
-<body>
+<body class="pin-locked">
+<section id="pinGate" class="pin-gate" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+  <div class="pin-card">
+    <div class="pin-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></div>
+    <h1 id="pinTitle">دخول الخط المباشر</h1>
+    <p>اكتب كود الدخول المكوّن من 6 أرقام علشان تفتح شاشة الاتصال.</p>
+    <form id="pinForm">
+      <label for="pinInput" class="sr-only">كود الدخول</label>
+      <input id="pinInput" name="pin" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" minlength="6" autocomplete="one-time-code" aria-label="كود الدخول المكون من ستة أرقام" placeholder="••••••" required>
+      <button id="pinSubmit" type="submit">فتح الاتصال</button>
+    </form>
+    <div id="pinMessage" role="status" aria-live="polite">جاري التأكد من الاتصال...</div>
+    <div class="pin-footer">الكود صالح للدخول بدون حساب أدمن</div>
+  </div>
+</section>
 <main>
 
 <header class="topbar"><div class="brand"><div class="brand-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></div><div class="brand-copy"><span class="brand-name">HOTLINE</span><span class="brand-subtitle">اتصال صوتي مباشر</span></div></div>
@@ -163,7 +195,7 @@ input,select{background:#171717;border-color:#363636;color:#f4f4f4}
 <div id="log" aria-live="polite"><div class="log-placeholder" id="logPlaceholder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.7 8.7 0 0 1-4-.96L3 21l1.85-5.55A8.5 8.5 0 1 1 21 11.5Z"/></svg><strong>المكالمة لسه ما بدأتش</strong><span>اضغط زر التليفون واتكلم، أو اكتب رسالة من تحت.</span></div></div>
 <form id="textForm" class="send"><input id="textInput" type="text" autocomplete="off" placeholder="ابعت رسالة للمساعدة..." aria-label="رسالتك"><button type="submit">إرسال</button></form>
 <p class="input-note">اكتب رسالة أثناء المكالمة</p></section></details></div>
-<span id="buildInfo" hidden>Voice Lab 2026.11.07.11</span>
+<span id="buildInfo" hidden>Voice Lab 2026.11.07.12</span>
 <audio id="player" playsinline></audio>
 </main>
 <script type="module">
@@ -251,10 +283,14 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
   }
   async function loadSettings(){
     const response=await fetch('./settings.php',{credentials:'same-origin',cache:'no-store'});
-    if(!response.ok)throw Error(response.status===401?'سجّل دخولك كأدمن OnTrack':'تعذّر تحميل الإعدادات HTTP '+response.status);
+    if(!response.ok)throw Error(response.status===401?'كود الدخول مطلوب':'تعذّر تحميل الإعدادات HTTP '+response.status);
     const result=await response.json();
     if(!result.ok||!result.csrf)throw Error('رد السيرفر غير صالح');
     csrf=result.csrf;
+    if(result.guest){
+      for(const id of ['googleKey','fishKey','removeFish','removeGoogle'])el(id)?.closest('label')?.setAttribute('hidden','');
+      ui.save.textContent='حفظ تفضيلات المكالمة';
+    }
     for(const name of ['emotionLevel','autoListen','fishModel']){
       const value=result.settings?.[name];
       if(typeof value==='string'&&Array.from(ui[name].options).some(option=>option.value===value))ui[name].value=value;
@@ -594,7 +630,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
     catch(e){status('تجربة Fish فشلت: '+(e?.message||e));}
   });
   ui.save.addEventListener('click',async()=>{
-    ui.save.disabled=true;ui.settingsStatus.textContent='بحفظ مفتاحي Gemini وFish والإعدادات...';
+    ui.save.disabled=true;ui.settingsStatus.textContent='بحفظ إعدادات المكالمة...';
     try{
       await settingsReady;
       if(!csrf)throw Error('سجّل الدخول أولًا');
@@ -609,13 +645,48 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
       if(!response.ok||!data.ok)throw Error(data.error||'HTTP '+response.status);
       savedGoogle=!!data.saved?.google;savedFish=!!data.saved?.fish;
       ui.googleKey.value='';ui.fishKey.value='';ui.removeGoogle.checked=false;ui.removeFish.checked=false;
-      keyLabel();ui.settingsStatus.textContent='✓ تم حفظ مفاتيح Gemini وFish والإعدادات على السيرفر.';
+      keyLabel();ui.settingsStatus.textContent='✓ تم حفظ تفضيلات المكالمة.';
     }catch(e){ui.settingsStatus.textContent='تعذّر الحفظ: '+(e.message||e);}
     finally{ui.save.disabled=false;}
   });
-  settingsReady=loadSettings().catch(e=>{
-    keyLabel();ui.settingsStatus.textContent='تعذّر تحميل الإعدادات: '+(e.message||e);
+  async function unlockPinGate(){
+    el('pinGate').hidden=true;
+    document.body.classList.remove('pin-locked');
+    el('pinInput').value='';
+    settingsReady=loadSettings().catch(e=>{
+      keyLabel();ui.settingsStatus.textContent='تعذّر تحميل الإعدادات: '+(e.message||e);
+    });
+    await settingsReady;
+  }
+  async function pinStatus(){
+    try{
+      const response=await fetch('./pin.php',{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)throw Error('تعذّر التحقق من صلاحية الدخول');
+      const data=await response.json();
+      if(data.authorized){await unlockPinGate();return;}
+      el('pinMessage').textContent=data.configured?'ادخل الكود علشان تبدأ':'كود الدخول لم يُفعّل على السيرفر بعد.';
+      el('pinInput').focus();
+    }catch(e){el('pinMessage').textContent='تعذّر الاتصال بالسيرفر. حاول تاني.';}
+  }
+  el('pinForm').addEventListener('submit',async event=>{
+    event.preventDefault();
+    const code=el('pinInput').value.trim();
+    if(!/^[0-9]{6}$/.test(code)){el('pinMessage').textContent='اكتب 6 أرقام بالظبط.';return;}
+    const button=el('pinSubmit');button.disabled=true;
+    el('pinMessage').textContent='جاري فتح الاتصال...';
+    try{
+      const response=await fetch('./pin.php',{method:'POST',credentials:'same-origin',cache:'no-store',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:code})});
+      const data=await response.json();
+      if(!response.ok||!data.authorized){
+        el('pinMessage').textContent=response.status===429?'محاولات كثيرة، جرّب بعد 15 دقيقة.':'الكود غير صحيح. حاول تاني.';
+        return;
+      }
+      await unlockPinGate();
+    }catch(e){el('pinMessage').textContent='تعذّر الاتصال بالسيرفر. حاول تاني.';}
+    finally{button.disabled=false;}
   });
+  pinStatus();
 })();
 </script>
 </body></html>
