@@ -48,6 +48,11 @@ input[type=checkbox]{width:auto;accent-color:#e53958}
 .send button{padding:0 17px;color:white;background:#e53c5c;border:0;border-radius:12px;font-weight:700}
 details summary{cursor:pointer;font-weight:bold}
 details[open] summary{margin-bottom:17px}
+.settings-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:16px}
+.settings-actions button{color:#fff;background:#e53c5c;border:0;border-radius:12px;padding:12px 20px;font-weight:bold}
+.settings-actions button:disabled{opacity:.55}
+.settings-note{font-size:12px;color:#b4becb;margin-top:7px;line-height:1.6}
+.settings-state{font-size:13px;line-height:1.7;color:#d2d6e2}
 audio{display:none}
 @media(max-width:640px){main{padding:14px 10px 50px}.grid{grid-template-columns:1fr}header{align-items:flex-start}.badge{font-size:11px} .hero h1{font-size:21px}.panel{padding:16px}.orb{width:122px;height:122px}}
 </style>
@@ -69,17 +74,20 @@ audio{display:none}
 <div class="grid">
 <label>خدمة الصوت<select id="voiceMode"><option value="fish">Fish Audio — صوت مستنسخ</option><option value="browser">صوت المتصفح — بدون مفتاح</option></select></label>
 <label>موديل Fish<select id="fishModel"><option value="drama-3">drama-3 — المشاعر</option><option value="s2.1-pro-free">s2.1-pro-free — مجاني حسب حسابك</option><option value="s2.1-pro">s2.1-pro</option></select></label>
-<label>Fish API Key (للتجربة الحالية فقط)<input id="fishKey" type="password" placeholder="sk-fish-..." autocomplete="off"></label>
+<label>Fish API Key — تقدر تغيّره وقت ما تحب<input id="fishKey" type="password" placeholder="اكتب مفتاحًا جديدًا أو سيبه فاضي" autocomplete="new-password"><span id="fishSaved" class="settings-note">جارٍ تحميل حالة المفتاح...</span></label>
 <label>Voice Reference ID<input id="voiceId" type="text" value="e3c2911a78404bcab3c6adce3c59e1d9" spellcheck="false"></label>
 <label>مخ المحادثة<select id="brainSource"><option value="google-live" selected>Gemini 3.8 Live — المايك مباشرة، والنص إلى Fish</option><option value="puter">Puter — القديم</option><option value="google">Google Gemini API — Flash (بديل)</option></select></label>
 <label>موديل Google (نص فقط)<select id="googleModel"><option value="gemini-3.8-flash">Gemini 3.8 Flash — نص سريع</option><option value="gemini-3-flash-preview">Gemini 3 Flash — نص</option></select></label>
-<label>Google Gemini API Key مؤقت<input id="googleKey" type="password" autocomplete="off" placeholder="مفتاح Google AI Studio"></label>
+<label>Google Gemini API Key — تقدر تغيّره وقت ما تحب<input id="googleKey" type="password" autocomplete="new-password" placeholder="اكتب مفتاحًا جديدًا أو سيبه فاضي"><span id="googleSaved" class="settings-note">جارٍ تحميل حالة المفتاح...</span></label>
 <label>Gemini عبر Puter<select id="geminiModel"><option value="gemini-3-flash-preview">gemini-3-flash-preview</option><option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option></select></label>
 <label>مستوى المشاعر<select id="emotionLevel"><option value="intense">جياشة — تنهيدات وتعبير واضح</option><option value="expressive">معبرة — طبيعية ومتغيرة</option><option value="subtle">هادية — لمسات خفيفة</option></select></label>
 <label>إيقاف الاستماع بعد كل رد<select id="autoListen"><option value="no">لا — كمّل مكالمة تلقائيًا</option><option value="yes">نعم — اضغط المايك لكل جملة</option></select></label>
 </div>
 <label class="inline"><input id="emotions" type="checkbox" checked> تفعيل تعليمات الأداء والتنهدات مع Drama 3</label>
-<p class="help">تحدث من Chrome/Edge على HTTPS. في وضع Gemini 3.8 Live المايك بيروح مباشرة إلى Live عبر WebSocket مؤقت، ونستخرج نص رد النموذج من outputAudioTranscription وننطقه بصوت Fish. صوت Gemini الأصلي مش بيتشغّل. وضع Puter وFlash ما اتغيروش. مفاتيح Google وFish بتتبعت مع الطلب فقط ومش بتتخزن على السيرفر أو في الريبو. الخدمة ممكن تحتاج رصيد. المايك يتحول لإيقاف مؤقت أثناء كلام المساعد عشان الصوت مايرجعش يسمع نفسه.</p>
+<div class="settings-actions"><button type="button" id="saveSettings">💾 حفظ المفاتيح والإعدادات</button><span id="settingsStatus" class="settings-state" role="status" aria-live="polite">حفظ مشفّر على السيرفر — لا تُعرض المفاتيح بعد الحفظ.</span></div>
+<label class="inline"><input id="removeFish" type="checkbox"> حذف مفتاح Fish المحفوظ عند الحفظ</label>
+<label class="inline"><input id="removeGoogle" type="checkbox"> حذف مفتاح Google المحفوظ عند الحفظ</label>
+<p class="help">تحدث من Chrome/Edge على HTTPS. في وضع Gemini 3.8 Live المايك بيروح مباشرة إلى Live عبر WebSocket مؤقت، ونستخرج نص رد النموذج من outputAudioTranscription وننطقه بصوت Fish. صوت Gemini الأصلي مش بيتشغّل. وضع Puter وFlash ما اتغيروش. مفاتيح Google وFish بتتحفظ مشفّرة في فولدر خاص خارج ملفات الموقع عند الضغط على زر الحفظ، وبترجع تشتغل تلقائيًا من غير ما تكتبها تاني. لازم تكون داخل بحساب أدمن OnTrack. المفاتيح مش بتترفع للريبو أو بتظهر تاني في الصفحة. الخدمة ممكن تحتاج رصيد. المايك يتحول لإيقاف مؤقت أثناء كلام المساعد عشان الصوت مايرجعش يسمع نفسه.</p>
 </details></section>
 <audio id="player" playsinline></audio>
 </main>
@@ -90,9 +98,43 @@ audio{display:none}
   const $ = {mic:el('mic'),stop:el('stop'),test:el('testVoice'),status:el('status'),log:el('log'),
     textForm:el('textForm'),textInput:el('textInput'),voiceMode:el('voiceMode'),fishModel:el('fishModel'),
     fishKey:el('fishKey'),voiceId:el('voiceId'),geminiModel:el('geminiModel'),googleModel:el('googleModel'),googleKey:el('googleKey'),brainSource:el('brainSource'),emotionLevel:el('emotionLevel'),autoListen:el('autoListen'),
-    emotions:el('emotions'),player:el('player'),brain:el('brainTime'),first:el('firstAudio'),total:el('totalTime')};
+    emotions:el('emotions'),player:el('player'),brain:el('brainTime'),first:el('firstAudio'),total:el('totalTime'),
+    saveSettings:el('saveSettings'),settingsStatus:el('settingsStatus'),fishSaved:el('fishSaved'),googleSaved:el('googleSaved'),removeFish:el('removeFish'),removeGoogle:el('removeGoogle')};
   let active=false, busy=false, listening=false, recognition=null, history=[], controller=null, blobUrl=null, generation=0;
   let live=null;
+  let csrfToken='';
+  let settingsReady=Promise.resolve();
+  let savedKeys={fish:false,google:false};
+  const settingNames=['voiceMode','fishModel','voiceId','brainSource','googleModel','geminiModel','emotionLevel','autoListen'];
+  function updateKeyLabels(){
+    $.fishSaved.textContent=savedKeys.fish?'✓ مفتاح Fish محفوظ ومشفّر على السيرفر':'لم يتم حفظ مفتاح Fish بعد';
+    $.googleSaved.textContent=savedKeys.google?'✓ مفتاح Gemini محفوظ ومشفّر على السيرفر':'لم يتم حفظ مفتاح Gemini بعد';
+  }
+  async function loadSettings(){
+    const response=await fetch('./settings.php',{credentials:'same-origin',cache:'no-store'});
+    if(!response.ok)throw new Error(response.status===401?'سجّل دخولك كأدمن في OnTrack أولًا (بنفس المتصفح)':'تعذّر تحميل الإعدادات (HTTP '+response.status+')');
+    const data=await response.json();
+    if(!data.ok||!data.csrf)throw new Error('رد غير متوقع من السيرفر');
+    csrfToken=data.csrf;
+    const values=data.settings||{};
+    for(const name of settingNames){
+      if((typeof values[name]==='string'&&Array.from($[name].options||[]).some(o=>o.value===values[name]))
+          || (name==='voiceId'&&/^[0-9a-f]{32}$/i.test(values[name]||''))){
+        $[name].value=values[name];
+      }
+    }
+    if(typeof values.emotions==='boolean')$.emotions.checked=values.emotions;
+    savedKeys={fish:!!data.saved?.fish,google:!!data.saved?.google};
+    updateKeyLabels();
+    $.settingsStatus.textContent='الإعدادات اتحمّلت من السيرفر. سيب حقل المفتاح فاضي لاستخدام المحفوظ.';
+  }
+  async function secureHeaders(provider,temporaryKey){
+    await settingsReady;
+    if(!csrfToken)throw new Error('محتاج تسجّل دخول الأدمن علشان تستخدم مفاتيح Voice Lab المحفوظة');
+    const headers={'Content-Type':'application/json','X-Voice-Lab-CSRF':csrfToken};
+    if(temporaryKey)headers[provider==='fish'?'X-Fish-API-Key':'X-Gemini-API-Key']=temporaryKey;
+    return headers;
+  }
   const Recognition=window.SpeechRecognition || window.webkitSpeechRecognition;
   function status(s){ $.status.textContent=s; }
   function add(role,text){
@@ -243,9 +285,8 @@ audio{display:none}
     }
     if(!window.WebSocket)throw new Error('المتصفح لا يدعم WebSocket');
     if(!navigator.mediaDevices?.getUserMedia&&!firstText)throw new Error('الميكروفون يحتاج HTTPS ومتصفحًا حديثًا');
-    const key=$.googleKey.value.trim();
-    if(!key)throw new Error('اكتب مفتاح Gemini API لتفعيل Live');
-    const response=await fetch('./live-token.php',{method:'POST',headers:{'Content-Type':'application/json','X-Gemini-API-Key':key},body:'{}',cache:'no-store'});
+    const headers=await secureHeaders('google',$.googleKey.value.trim());
+    const response=await fetch('./live-token.php',{method:'POST',headers,body:'{}',cache:'no-store'});
     if(!response.ok)throw new Error('تعذر استخراج توكن Live (HTTP '+response.status+'): '+(await response.text()).slice(0,140));
     const data=await response.json();
     if(!data.token)throw new Error('Google لم يرجع توكن جلسة Live');
@@ -285,10 +326,9 @@ audio{display:none}
       const recent=history.slice(-10);
       let answer='';
       if($.brainSource.value==='google'){
-        const key=$.googleKey.value.trim();
-        if(!key)throw new Error('حط مفتاح Gemini API في الإعدادات علشان تستخدم Google مباشرة');
+        const headers=await secureHeaders('google',$.googleKey.value.trim());
         controller=new AbortController();
-        const response=await fetch('./gemini.php',{method:'POST',headers:{'Content-Type':'application/json','X-Gemini-API-Key':key},body:JSON.stringify({model:$.googleModel.value,system,messages:[...recent,{role:'user',content:text}]}),signal:controller.signal,cache:'no-store'});
+        const response=await fetch('./gemini.php',{method:'POST',headers,body:JSON.stringify({model:$.googleModel.value,system,messages:[...recent,{role:'user',content:text}]}),signal:controller.signal,cache:'no-store'});
         if(!response.ok)throw new Error('Google Gemini HTTP '+response.status+': '+(await response.text()).slice(0,180));
         const data=await response.json();
         answer=typeof data.text==='string'?data.text.trim():'';
@@ -318,12 +358,12 @@ audio{display:none}
         speechSynthesis.speak(utterance);
       });
     }
-    const key=$.fishKey.value.trim(),voiceId=$.voiceId.value.trim();
-    if(!key)throw new Error('حط مفتاح Fish من إعدادات الصفحة');
+    const voiceId=$.voiceId.value.trim();
     if(!/^[0-9a-f]{32}$/i.test(voiceId))throw new Error('Voice ID لازم يكون 32 رمز');
     const spoken=fishScript(text);
     const request={text:spoken,reference_id:voiceId,model:$.fishModel.value,format:'mp3'};
-    controller=new AbortController();const res=await fetch('./tts.php',{method:'POST',headers:{'Content-Type':'application/json','X-Fish-API-Key':key},body:JSON.stringify(request),signal:controller.signal,cache:'no-store'});
+    const headers=await secureHeaders('fish',$.fishKey.value.trim());
+    controller=new AbortController();const res=await fetch('./tts.php',{method:'POST',headers,body:JSON.stringify(request),signal:controller.signal,cache:'no-store'});
     if(!res.ok){const error=(await res.text()).slice(0,350);throw new Error('Fish HTTP '+res.status+': '+error);}
     if(cycle!==generation)return;
     status('Fish بيولّد الصوت...');
@@ -382,6 +422,34 @@ audio{display:none}
     }else turn(value);
   });
   $.test.addEventListener('click',async()=>{if(busy)return;busy=true;const cycle=++generation;const t0=performance.now();$.first.textContent='أول صوت: ...';status('بنجرب نفس الصوت المصري...');try{await speak('[soft, affectionate and playful] إزيك يا زميلي... [gentle sigh] وحشتني والله! [soft chuckle] عامل إيه يا نجم؟ <whisper>أنا مبسوطة إننا بنتكلم النهارده.</whisper>',t0,cycle);if(cycle===generation)status('الصوت اشتغل. جرّب مكالمة بالمايك.');}catch(e){status('تجربة الصوت فشلت: '+e.message);}finally{if(cycle===generation)busy=false;}});
+  $.saveSettings.addEventListener('click',async()=>{
+    $.saveSettings.disabled=true;
+    $.settingsStatus.textContent='بحفظ الإعدادات والمفاتيح بشكل مشفّر...';
+    try{
+      await settingsReady;
+      if(!csrfToken)throw new Error('سجّل دخولك كأدمن OnTrack الأول');
+      const settings={};
+      for(const name of settingNames)settings[name]=$[name].value;
+      settings.emotions=$.emotions.checked;
+      const remove=[];
+      if($.removeFish.checked)remove.push('fish');
+      if($.removeGoogle.checked)remove.push('google');
+      const payload={settings,keys:{fish:$.fishKey.value.trim(),google:$.googleKey.value.trim()},remove};
+      const response=await fetch('./settings.php',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Voice-Lab-CSRF':csrfToken},body:JSON.stringify(payload),cache:'no-store'});
+      const data=await response.json();
+      if(!response.ok||!data.ok)throw new Error(data.error||'HTTP '+response.status);
+      savedKeys={fish:!!data.saved?.fish,google:!!data.saved?.google};
+      $.fishKey.value='';$.googleKey.value='';
+      $.removeFish.checked=false;$.removeGoogle.checked=false;
+      updateKeyLabels();
+      $.settingsStatus.textContent='✓ تم الحفظ على السيرفر. المفاتيح هتفضل موجودة بعد قفل الصفحة وفتحها.';
+    }catch(e){$.settingsStatus.textContent='تعذّر الحفظ: '+(e.message||e);}
+    finally{$.saveSettings.disabled=false;}
+  });
+  settingsReady=loadSettings().catch(e=>{
+    updateKeyLabels();
+    $.settingsStatus.textContent='تعذّر تحميل الإعدادات: '+(e.message||e);
+  });
   if(!Recognition){$.mic.title='Puter/Flash محتاجين تعرّف المتصفح للصوت؛ وضع Live بيستخدم مايك مباشر';}
   $.brainSource.addEventListener('change',()=>{if(active)reset();});
 })();
