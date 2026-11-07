@@ -53,8 +53,8 @@ internal class PremiumPcm(private val sourceRate:Int=44100) {
 internal object PremiumPhrase {
     fun prefix(text:String):String {
         val clean=text.trim()
-        if(clean.length<7)return ""
-        val found=Regex("^([\\s\\S]{7,120}?[.!؟،؛\\n])(?=\\s|$)").find(clean)
+        if(clean.length<3)return ""
+        val found=Regex("^([\\s\\S]{3,120}?[.!؟،؛\\n])(?=\\s|$)").find(clean)
         if(found!=null)return found.groupValues[1].trim()
         if(clean.length<72)return ""
         val cutoff=clean.take(88).lastIndexOf(' ')
