@@ -11,6 +11,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     exit('method_not_allowed');
 }
 $labUser = voice_lab_access(true);
+$uid = (int)$labUser['id'];
+$trace = (string)($_SERVER['HTTP_X_VOICE_LAB_TRACE'] ?? 'unknown');
+$startedAt = microtime(true);
+voice_lab_trace_log($uid, $trace, 'fish_server_start');
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $host = strtolower((string)parse_url('https://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
 if ($origin !== '' && strtolower((string)parse_url($origin, PHP_URL_HOST)) !== $host) {
@@ -24,6 +28,7 @@ if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 12000) {
 $key = voice_lab_saved_key((int)$labUser['id'], 'fish', (string)($_SERVER['HTTP_X_FISH_API_KEY'] ?? ''));
 session_write_close();
 if ($key === '') {
+    voice_lab_trace_log($uid, $trace, 'fish_server_error', ['error_code'=>'missing_key','http_status'=>400]);
     http_response_code(400);
     exit('fish_key_required');
 }
@@ -34,6 +39,7 @@ if (strlen($key) > 2048 || preg_match('/[\x00-\x1F\x7F]/', $key)) {
 }
 $body = json_decode((string)file_get_contents('php://input'), true);
 if (!is_array($body)) {
+    voice_lab_trace_log($uid, $trace, 'fish_server_error', ['error_code'=>'invalid_json','http_status'=>400]);
     http_response_code(400);
     exit('invalid_json');
 }
@@ -42,10 +48,12 @@ $voice = strtolower(trim((string)($body['reference_id'] ?? '')));
 $model = (string)($body['model'] ?? '');
 if ($text === '' || strlen($text) > 5500 || !preg_match('/^[a-f0-9]{32}$/', $voice)
     || !in_array($model, ['drama-3', 's2.1-pro-free', 's2.1-pro'], true)) {
+    voice_lab_trace_log($uid, $trace, 'fish_server_error', ['error_code'=>'invalid_tts_input','http_status'=>422]);
     http_response_code(422);
     exit('invalid_tts_input');
 }
 if (!function_exists('curl_init')) {
+    voice_lab_trace_log($uid, $trace, 'fish_server_error', ['error_code'=>'curl_unavailable','http_status'=>503]);
     http_response_code(503);
     exit('host_curl_extension_missing');
 }
@@ -80,8 +88,10 @@ curl_setopt_array($client, [
         }
         return strlen($header);
     },
-    CURLOPT_WRITEFUNCTION => static function ($ch, string $chunk) use (&$started, &$sentBytes, &$upstreamStatus): int {
+    CURLOPT_WRITEFUNCTION => static function ($ch, string $chunk) use (&$started, &$sentBytes, &$upstreamStatus, $uid, $trace, $startedAt): int {
         if (!$started) {
+            voice_lab_trace_log($uid, $trace, 'fish_first_byte', ['http_status'=>$upstreamStatus,
+                'elapsed_ms'=>(int)round((microtime(true) - $startedAt) * 1000)]);
             http_response_code($upstreamStatus);
             header('Content-Type: ' . ($upstreamStatus >= 200 && $upstreamStatus < 300 ? 'audio/mpeg' : 'text/plain; charset=utf-8'));
             header('X-Accel-Buffering: no');
@@ -94,12 +104,17 @@ curl_setopt_array($client, [
     },
 ]);
 $ok = curl_exec($client);
-$curlError = curl_error($client);
+$curlErrno = (int)curl_errno($client);
 curl_close($client);
+voice_lab_trace_log($uid, $trace, $ok ? 'fish_server_complete' : 'fish_server_error', [
+    'http_status'=>$upstreamStatus, 'curl_errno'=>$curlErrno,
+    'elapsed_ms'=>(int)round((microtime(true) - $startedAt) * 1000),
+    'error_code'=>$ok ? 'none' : 'fish_upstream_failed'
+]);
 if (!$ok && !$started) {
     http_response_code(502);
     header('Content-Type: text/plain; charset=utf-8');
-    echo 'Fish upstream error: ' . $curlError;
+    echo 'Fish upstream transport failed';
 } elseif (!$started) {
     http_response_code($upstreamStatus);
     header('Content-Type: text/plain; charset=utf-8');
