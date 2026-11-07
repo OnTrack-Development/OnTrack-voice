@@ -1,0 +1,32 @@
+name: Verify authorized SSH direct host 7195 (no deployment)
+on:
+  push:
+    branches: [feat/v1-io-premium-20261107]
+    paths:
+      - '.github/workflows/ontrack-direct-ssh-connection-test.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  connect:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 6
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Verify exact original signed APK and SSH login with no writes
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $apk='D:\ai\OnTrack-Voice-Builds\v1-candidates\42399912294\OnTrack-Voice-0.3.27.apk'
+          if(-not (Test-Path -LiteralPath $key)){throw 'RUNNER_SSH_KEY_NOT_FOUND'}
+          if(-not (Test-Path -LiteralPath $apk)){throw 'SIGNED_APK_NOT_FOUND'}
+          $hash=(Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($hash -ne '9c340d1f2ecef3bf3dbc65a59f177382732f89bd76f283d04410cca8b7639689'){throw 'SIGNED_APK_HASH_INVALID'}
+          Write-Host 'SIGNED_APK_VERIFIED=True'
+          $remote='id -un; id -u; test -d /home/appontrack/public_html && echo PUBLIC_HTML_PRESENT; test -d /home/appontrack/.ontrack-mobile && echo OTA_PRIVATE_DIR_PRESENT; test -d /home/appontrack/public_html/mobile/updates/native && echo OTA_NATIVE_DIR_PRESENT; test -w /home/appontrack/public_html/mobile && echo MOBILE_WRITE_ACCESS'
+          & ssh.exe -i $key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -o NumberOfPasswordPrompts=0 -p 7195 'appontrack@65.21.208.232' $remote
+          if($LASTEXITCODE -ne 0){throw ('DIRECT_SSH_CONNECTION_FAILED='+$LASTEXITCODE)}
+          Write-Host 'DIRECT_SSH_AUTHENTICATED=True'
+          Write-Host 'HOST_LINK_UNTOUCHED=True'
