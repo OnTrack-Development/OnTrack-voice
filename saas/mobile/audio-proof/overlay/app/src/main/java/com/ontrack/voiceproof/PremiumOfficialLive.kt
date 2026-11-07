@@ -31,6 +31,7 @@ internal class PremiumOfficialLive(
     private val stopped=AtomicBoolean(false)
     private val ready=CompletableDeferred<Unit>()
     @Volatile private var send:(suspend(ByteArray)->Unit)?=null
+    @Volatile private var sendText:(suspend(String)->Unit)?=null
     @Volatile private var stopSession:(()->Unit)?=null
     private var job:Job?=null
     private var fullOutput=""
@@ -56,6 +57,7 @@ internal class PremiumOfficialLive(
                         send={pcm->session.sendRealtimeInput(
                             audio=Blob(data=pcm,mimeType="audio/pcm;rate=16000")
                         )}
+                        sendText={text->session.sendRealtimeInput(text=text)}
                         ready.complete(Unit)
                         session.receive().collect{server->
                             if(stopped.get())return@collect
@@ -92,7 +94,7 @@ internal class PremiumOfficialLive(
                 if(!stopped.get() && t !is CancellationException)
                     disconnected("IO Premium Live: "+(t.message?:"تعذر الاتصال").take(160))
             }finally{
-                send=null;stopSession=null
+                send=null;sendText=null;stopSession=null
             }
         }
     }
@@ -101,11 +103,12 @@ internal class PremiumOfficialLive(
         if(stopped.get())return
         send?.invoke(bytes)
     }
+    suspend fun prompt(text:String){if(!stopped.get())sendText?.invoke(text)}
     fun stop(){
         if(stopped.compareAndSet(false,true)){
             runCatching{stopSession?.invoke()}
             job?.cancel()
-            send=null
+            send=null;sendText=null
         }
     }
 }
