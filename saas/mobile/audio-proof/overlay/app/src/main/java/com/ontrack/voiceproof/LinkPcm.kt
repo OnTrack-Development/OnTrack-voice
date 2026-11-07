@@ -12,10 +12,11 @@ import java.io.ByteArrayOutputStream
 /** Limit queued 16 kHz audio on unstable cellular uplinks.
  *  A full WebSocket send queue means the caller's old PCM would reach Gemini
  *  late; skip delayed samples instead of producing an ever-later conversation.
- *  Wi-Fi retains its previously working 192 KiB cap.
+ *  LTE now allows a bounded 64 KiB (~1.5 seconds of JSON/b64 PCM) to
+ *  absorb radio jitter without dropping whole words. Wi-Fi remains 192 KiB.
  */
 internal object LiveAudioQueuePolicy {
-    const val CELLULAR_MAX_PENDING_BYTES = 24L * 1024
+    const val CELLULAR_MAX_PENDING_BYTES = 64L * 1024
     const val OTHER_MAX_PENDING_BYTES = 192L * 1024
 
     fun canSend(cellular: Boolean, pendingBytes: Long): Boolean {
