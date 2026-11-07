@@ -6,6 +6,17 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: private, no-store');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
+
+function voice_lab_pin_admin(): bool {
+    $person = me();
+    if (!$person || white_label_context()) return false;
+    foreach (memberships((int)$person['id']) as $membership) {
+        if (($membership['kind'] ?? '') === 'platform'
+            && in_array((string)($membership['role'] ?? ''), ['owner','admin'], true)) return true;
+    }
+    return false;
+}
+
 startsession();
 voice_lab_same_origin();
 $method = (string)($_SERVER['REQUEST_METHOD'] ?? 'GET');
@@ -18,17 +29,55 @@ if ($method === 'GET') {
     echo json_encode([
         'ok'=>true,
         'configured'=>$config !== null,
-        'authorized'=>voice_lab_pin_user() !== null
+        'authorized'=>voice_lab_pin_user() !== null,
+        'can_setup'=>$config === null && voice_lab_pin_admin(),
+        'setup_csrf'=>$config === null && voice_lab_pin_admin() ? csrf() : null
     ], JSON_UNESCAPED_SLASHES);
     exit;
 }
-if ($config === null) voice_lab_error(503, 'pin_not_configured');
 if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 256
     || !str_starts_with(strtolower(trim((string)($_SERVER['CONTENT_TYPE'] ?? ''))), 'application/json')) {
     voice_lab_error(400, 'invalid_request');
 }
 $input = json_decode((string)file_get_contents('php://input'), true);
 $pin = is_array($input) && is_string($input['pin'] ?? null) ? $input['pin'] : '';
+
+// PIN provisioning is a one-time privileged owner action only.
+// All subsequent callers need only the six-digit PIN, not an administrator login.
+if ($config === null) {
+    if (!is_array($input) || ($input['setup'] ?? null) !== true
+        || !voice_lab_pin_admin()
+        || !is_string($input['csrf'] ?? null)
+        || !hash_equals(csrf(), $input['csrf'])) voice_lab_error(403, 'pin_setup_admin_required');
+    if (preg_match('/^[0-9]{6}$/D', $pin) !== 1) voice_lab_error(422, 'pin_six_digits_required');
+    $folder = private_path() . '/voice-lab';
+    if (!is_dir($folder) || is_link($folder)) voice_lab_error(503, 'pin_storage_unavailable');
+    $configured = [
+        'owner_uid'=>(int)me()['id'],
+        'salt'=>bin2hex(random_bytes(20)),
+        'iterations'=>250000,
+        'version'=>bin2hex(random_bytes(12))
+    ];
+    $configured['hash'] = hash_pbkdf2('sha256', $pin, $configured['salt'], $configured['iterations'], 64);
+    $dest = $folder . '/access.json';
+    if (is_link($dest) || is_file($dest)) voice_lab_error(409, 'pin_already_configured');
+    $tmp = $folder . '/.access-' . bin2hex(random_bytes(8)) . '.tmp';
+    try {
+        $json = json_encode($configured, JSON_THROW_ON_ERROR);
+        if (file_put_contents($tmp, $json, LOCK_EX) !== strlen($json)) {
+            voice_lab_error(503, 'pin_setup_failed');
+        }
+        @chmod($tmp, 0600);
+        if (!rename($tmp, $dest)) voice_lab_error(503, 'pin_setup_failed');
+        @chmod($dest, 0600);
+    } finally { if (is_file($tmp)) @unlink($tmp); }
+    session_regenerate_id(true);
+    $_SESSION['voice_lab_pin_version'] = $configured['version'];
+    $_SESSION['voice_lab_pin_expires'] = time() + 12*3600;
+    echo '{"ok":true,"authorized":true,"configured":true}';
+    exit;
+}
+
 $directory = private_path() . '/voice-lab/pin-attempts';
 if ((!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory))
     || is_link($directory)) voice_lab_error(503, 'pin_auth_unavailable');
