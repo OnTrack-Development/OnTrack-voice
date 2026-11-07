@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-lab-key-fix-20261107-051115",
+  "target": "appontrack-server11",
+  "job_sha256": "68697f831e3c17ccb9a5b852db1bbf3d2c2a38b7c02fa3fd5b1743774fc54328",
+  "started_at": "2026-11-07T05:13:03.023399+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\":\"deployed_verified\",\"files\":{\"settings.php\":{\"exact_patch\":true,\"php_lint\":true,\"old_format_reject\":false,\"new_safety_guard\":true},\"gemini.php\":{\"exact_patch\":true,\"php_lint\":true,\"old_format_reject\":false,\"new_safety_guard\":true},\"live-token.php\":{\"exact_patch\":true,\"php_lint\":true,\"old_format_reject\":false,\"new_safety_guard\":true},\"tts.php\":{\"exact_patch\":true,\"php_lint\":true,\"old_format_reject\":false,\"new_safety_guard\":true}},\"backup_created\":true}\n",
+  "stderr": "",
+  "finished_at": "2026-11-07T05:13:03.556812+00:00",
+  "duration_ms": 533
+}
