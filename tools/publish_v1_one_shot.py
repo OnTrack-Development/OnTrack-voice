@@ -4,7 +4,7 @@ import base64,datetime,hashlib,json,os,pathlib,subprocess,sys,tarfile,time,urlli
 REPO="OnTrack-Development/OnTrack-voice"
 RUN_SOURCE=os.environ.get("ONTRACK_BUILD_RUN",os.environ["GITHUB_RUN_ID"])
 SHA_SOURCE=os.environ.get("ONTRACK_BUILD_SHA",os.environ["GITHUB_SHA"])
-APK="OnTrack-Voice-0.3.26.apk"
+APK="OnTrack-Voice-0.3.27.apk"
 APK_SHA=None
 CERT="d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f"
 RELEASE_TAG="ontrack-v1-verified-build-"+RUN_SOURCE
@@ -37,7 +37,7 @@ def release():
         if error.code!=404:raise
         d=call("releases","POST",{"tag_name":RELEASE_TAG,
             "target_commitish":SHA_SOURCE,
-            "name":"OnTrack Voice 0.3.26 signed host delivery",
+            "name":"OnTrack Voice 0.3.27 signed host delivery",
             "body":"Internal verified Android release; host receipt required before any live claim.",
             "draft":False,"prerelease":True,"make_latest":"false"})
     assert d["tag_name"]==RELEASE_TAG and d["prerelease"] and not d["draft"]
@@ -169,7 +169,7 @@ def prepare():
     APK_SHA=sha(data)
     build_report=json.loads((pathlib.Path(".build/release")/"size-report.json").read_text(encoding="utf-8-sig"))
     assert 100000<len(data)<=15728640
-    assert build_report["sha256"]==APK_SHA and build_report["release"]=="0.3.26"
+    assert build_report["sha256"]==APK_SHA and build_report["release"]=="0.3.27"
     assert str(build_report["source_build_run"])==RUN_SOURCE and build_report["signing_cert_verified"] is True
     OUT.mkdir(parents=True,exist_ok=True)
     _,downloaded=asset(APK,APK_SHA,len(data),apk_source)
@@ -182,7 +182,7 @@ def prepare():
     checks=subprocess.check_output([str(signer),"verify","--print-certs",str(apk_file)],text=True).lower()
     assert CERT in checks,"APK signing cert mismatch"
     subprocess.run([str(signer),"verify","--verbose",str(apk_file)],check=True)
-    assert subprocess.check_output([str(analyzer),"manifest","version-code",str(apk_file)],text=True).strip()=="49"
+    assert subprocess.check_output([str(analyzer),"manifest","version-code",str(apk_file)],text=True).strip()=="50"
     key=pathlib.Path.home()/".android"/"debug.keystore"
     assert key.is_file()
     exported=OUT/"signing-cert.der"
@@ -212,12 +212,12 @@ def prepare():
     subprocess.run(["java","tools/SignMobileOta.java",str(key),str(folder/"native")],check=True)
     _,_,ui=queue_mobile_ota.verify(folder/"ota")
     _,_,native=queue_mobile_native.verify(folder/"native")
-    assert native["sha256"]==APK_SHA and native["version_code"]==49 and native["size"]==len(data)
-    assert ui["min_native"]<=49<=ui["max_native"]
+    assert native["sha256"]==APK_SHA and native["version_code"]==50 and native["size"]==len(data)
+    assert ui["min_native"]<=50<=ui["max_native"]
     prev=live("mobile/updates/native/latest.json")
     if prev:
         old=json.loads(prev["payload"])
-        assert old["version_code"]<=49 and (old["version_code"]!=49 or old["sha256"]==APK_SHA),"native version conflict"
+        assert old["version_code"]<=50 and (old["version_code"]!=50 or old["sha256"]==APK_SHA),"native version conflict"
     # Package only the reviewed SaaS console, identical to the existing host publisher archive.
     tarfile_path=OUT/"release.tar.gz"
     with tarfile.open(tarfile_path,"w:gz",format=tarfile.USTAR_FORMAT) as tf:
@@ -273,7 +273,7 @@ def publish():
         native_prog=program(["saas/mobile/ota/native_deploy.py"],"deploy(*sys.argv[1:]);ROOT.chmod(0o755)")
         host_job("apk","/home/appontrack/public_html",native_prog,
                  [apk_url,base64.b64encode(native_envelope).decode(),base64.b64encode(cert).decode(),APK_SHA],
-                 lambda x:x.get("status")=="published" and x.get("sha256")==APK_SHA and x.get("version")==49)
+                 lambda x:x.get("status")=="published" and x.get("sha256")==APK_SHA and x.get("version")==50)
     assert live("mobile/updates/latest.json")==json.loads(ui_envelope),"public UI manifest mismatch"
     assert live("mobile/updates/native/latest.json")==json.loads(native_envelope),"public native manifest mismatch"
     print("SITE_AND_APK_PUBLISHED_AND_VERIFIED",json.dumps({
@@ -290,7 +290,7 @@ def resume_native():
     data=apk.read_bytes()
     APK_SHA=sha(data)
     assert 100000<len(data)<=15728640
-    assert report["sha256"]==APK_SHA and report["release"]=="0.3.26"
+    assert report["sha256"]==APK_SHA and report["release"]=="0.3.27"
     assert str(report["source_build_run"])==RUN_SOURCE and report["signing_cert_verified"] is True
     sdk=pathlib.Path(os.environ["LOCALAPPDATA"])/"Android"/"Sdk"
     signer=sdk/"build-tools"/"36.0.0"/"apksigner.bat"
@@ -298,7 +298,7 @@ def resume_native():
     sig=subprocess.check_output([str(signer),"verify","--print-certs",str(apk)],text=True).lower()
     assert CERT in sig,"preserved APK certificate mismatch"
     subprocess.run([str(signer),"verify","--verbose",str(apk)],check=True)
-    assert subprocess.check_output([str(analyzer),"manifest","version-code",str(apk)],text=True).strip()=="49"
+    assert subprocess.check_output([str(analyzer),"manifest","version-code",str(apk)],text=True).strip()=="50"
     assert subprocess.check_output([str(analyzer),"manifest","application-id",str(apk)],text=True).strip()=="com.ontrack.voiceproof"
     key=pathlib.Path.home()/".android"/"debug.keystore"
     assert key.is_file()
@@ -311,16 +311,16 @@ def resume_native():
     sys.path.insert(0,str(pathlib.Path("tools").resolve()))
     import queue_mobile_native
     native_envelope,cert,native=queue_mobile_native.verify(folder)
-    assert native["sha256"]==APK_SHA and native["version_code"]==49 and native["size"]==len(data)
+    assert native["sha256"]==APK_SHA and native["version_code"]==50 and native["size"]==len(data)
     existing=live("mobile/updates/native/latest.json")
     if existing==json.loads(native_envelope):
         print("SIGNED_APK_ALREADY_PUBLIC",flush=True)
     else:
-        assert existing is None or json.loads(existing["payload"])["version_code"]<=49
+        assert existing is None or json.loads(existing["payload"])["version_code"]<=50
         native_prog=program(["saas/mobile/ota/native_deploy.py"],"deploy(*sys.argv[1:]);ROOT.chmod(0o755)")
         host_job("apk","/home/appontrack/public_html",native_prog,
                  [apk_url,base64.b64encode(native_envelope).decode(),base64.b64encode(cert).decode(),APK_SHA],
-                 lambda x:x.get("status")=="published" and x.get("sha256")==APK_SHA and x.get("version")==49)
+                 lambda x:x.get("status")=="published" and x.get("sha256")==APK_SHA and x.get("version")==50)
     assert live("mobile/updates/native/latest.json")==json.loads(native_envelope),"native live manifest mismatch"
     ui=live("mobile/updates/latest.json")
     assert ui and json.loads(ui["payload"])["revision"]>=48,"signed UI missing"
