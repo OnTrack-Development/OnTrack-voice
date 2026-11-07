@@ -52,11 +52,9 @@ try {
         (int)$binding['site_id'],(int)$binding['agent_id']);
     if(!$published||(string)$published['voice']!=='io.premium')
         io_premium_error(403,'premium_voice_not_published');
-    $grant=one("SELECT v.id FROM voices v JOIN voice_grants g ON g.voice_id=v.id
-        WHERE v.code='io.premium' AND v.provider='fish_audio'
-        AND v.tier='premium' AND v.ready=1 AND v.status='active'
-        AND g.account_id=?",[(int)$binding['account_id']]);
-    if(!$grant)io_premium_error(403,'premium_voice_not_granted');
+    require_once __DIR__.'/../../_core/IoPremiumProvider.php';
+    if(!io_premium_access_allowed((int)$binding['account_id']))
+        io_premium_error(403,'premium_voice_not_available');
     $cfg=private_path().'/voice-lab/owner-1.json';
     if(is_link($cfg)||!is_file($cfg))io_premium_error(503,'premium_voice_unavailable');
     $saved=json_decode((string)file_get_contents($cfg),true);
