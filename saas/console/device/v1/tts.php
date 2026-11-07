@@ -43,7 +43,10 @@ try {
     init_schema();
     $binding=device_binding_authorize(substr($auth,7));
     if(!$binding)io_premium_error(401,'device_not_authorized');
-    $binding=device_binding_heartbeat($binding);
+    device_binding_heartbeat($binding);
+    // The heartbeat returns a public profile, not the authorization row.
+    $binding=device_binding_authorize(substr($auth,7));
+    if(!$binding)io_premium_error(401,'device_not_authorized');
     if(!tenant_voice_entitled($binding))io_premium_error(403,'voice_subscription_inactive');
     $published=published_agent_flow((int)$binding['account_id'],
         (int)$binding['site_id'],(int)$binding['agent_id']);
