@@ -49,13 +49,13 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 51', 'versionCode')
+                        'versionCode = 52', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.3.28"', 'versionName')
+                        'versionName = "0.3.29"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
-    text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")\n    implementation("com.google.genai:google-genai-kotlin:2.0.0")\n    androidTestImplementation("androidx.test:runner:1.6.2")\n    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n    androidTestImplementation("androidx.test:core:1.6.1")', 'mobile websocket transport')
+    text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")\n    androidTestImplementation("androidx.test:runner:1.6.2")\n    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n    androidTestImplementation("androidx.test:core:1.6.1")', 'mobile websocket transport')
     # Google GenAI brings several transitive Google Auth / Apache HttpClient
     # jars sharing non-executable JAR metadata. Keep services and licenses:
     # drop only duplicate indexes/dependency reports, and retain one copy
