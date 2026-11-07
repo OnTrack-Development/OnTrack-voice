@@ -8,3 +8,5 @@ Required regression gates:
 * official Google Live + Fish PCM IO Premium per-Agent voice
 * original signature + package + version + direct-SSH release unchanged until verification
 Source branch: feat/io-premium-native-v51-20261107.
+
+Run the FINAL source including LTE cellular fallback and 6-attempt bounded reconnect; build signed 0.3.28 code 51. Manual trigger 2026-11-07 after review; do not deploy until canonical IO Premium backend verified.
