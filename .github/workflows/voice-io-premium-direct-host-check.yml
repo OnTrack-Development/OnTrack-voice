@@ -1,0 +1,46 @@
+name: IO Premium direct host publish preflight (no Host-Link, no rebuild)
+on:
+  push:
+    branches: [feat/v1-io-premium-20261107]
+    paths: ['.github/workflows/voice-io-premium-direct-host-check.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: io-premium-direct-host-preflight
+  cancel-in-progress: false
+jobs:
+  direct:
+    name: Check direct SSH access from signing runner
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 6
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check connectivity and authorized host access without writes
+        run: |
+          $ErrorActionPreference='Stop'
+          $hostIp='65.21.208.232'
+          $port=7195
+          $apk='D:\ai\OnTrack-Voice-Builds\v1-candidates\42399912294\OnTrack-Voice-0.3.27.apk'
+          $apkOk=(Test-Path -LiteralPath $apk) -and ((Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant() -eq '9c340d1f2ecef3bf3dbc65a59f177382732f89bd76f283d04410cca8b7639689')
+          Write-Host ('SIGNED_APK_PRESENT_AND_VERIFIED='+$apkOk)
+          $tcp=New-Object System.Net.Sockets.TcpClient
+          try{
+            $attempt=$tcp.BeginConnect($hostIp,$port,$null,$null)
+            $connected=$attempt.AsyncWaitHandle.WaitOne(5000) -and $tcp.Connected
+            Write-Host ('DIRECT_SERVER_TCP_REACHABLE='+$connected)
+          }catch{Write-Host 'DIRECT_SERVER_TCP_REACHABLE=False'}
+          finally{$tcp.Close()}
+          $ssh=Get-Command ssh.exe -ErrorAction SilentlyContinue
+          Write-Host ('WINDOWS_SSH_AVAILABLE='+[bool]$ssh)
+          $idFiles=@('id_ed25519','id_rsa','OnTrack_Voice_Test_ed25519') | Where-Object {Test-Path -LiteralPath (Join-Path $env:USERPROFILE ('.ssh\'+$_))}
+          Write-Host ('STANDARD_SSH_IDENTITIES_PRESENT='+$idFiles.Count)
+          if($ssh -and $connected){
+            $result=& ssh.exe -oBatchMode=yes -oStrictHostKeyChecking=yes -oConnectTimeout=6 -oNumberOfPasswordPrompts=0 -p $port "ai@$hostIp" "id -un && test -d /home/appontrack/public_html/mobile/updates/native && echo SITE_OTA_PATH_PRESENT" 2>&1
+            Write-Host ('DIRECT_SSH_EXIT_CODE='+$LASTEXITCODE)
+            if($LASTEXITCODE -eq 0){Write-Host 'DIRECT_SSH_TARGET_VERIFIED=True'; $result | ForEach-Object {Write-Host $_}}
+            else {Write-Host 'DIRECT_SSH_TARGET_VERIFIED=False';$result | Select-Object -Last 3 | ForEach-Object {Write-Host ([string]$_).Substring(0,[math]::Min(160,([string]$_).Length))}}
+          }
+          Write-Host 'HOST_LINK_UNTOUCHED=True'
