@@ -1,0 +1,67 @@
+name: Deploy Lebanese feedback scenario to canonical root
+on:
+  push:
+    branches: [release/voice-v1-20261106]
+    paths:
+      - '.github/workflows/deploy-lebanese-feedback-20261107.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: voice-lebanese-feedback-canonical-root
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring,pdo_sqlite
+      - name: Syntax checks
+        run: |
+          set -eu
+          node --check saas/console/assets/js/app.js
+          php -l saas/console/_core/Views.php
+          python3 -m py_compile tools/patch_lebanese_scenario_live_20261107.py
+      - name: Regression tests
+        run: |
+          set -eu
+          php tools/test_answer_policy.php
+          php tools/test_dynamic_agent_studio.php
+          node tools/test_console_ajax_ui.cjs
+  deploy:
+    needs: validate
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish just the two Agent Studio files by authorized SSH
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $key = Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if (-not (Test-Path $key)) { throw 'The existing authorized deploy key is unavailable on this runner' }
+          $remote = 'appontrack@65.21.208.232'
+          $stage = '/home/appontrack/.voice-scenario-' + $env:GITHUB_RUN_ID
+          $sshOpt = @('-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=10')
+          & ssh.exe -i $key -p 7195 @sshOpt $remote "mkdir -m 700 '$stage'"
+          & scp.exe -i $key -P 7195 @sshOpt tools/patch_lebanese_scenario_live_20261107.py "${remote}:${stage}/patch.py"
+          & scp.exe -i $key -P 7195 @sshOpt saas/console/assets/js/app.js "${remote}:${stage}/source-app.js"
+          & scp.exe -i $key -P 7195 @sshOpt saas/console/_core/Views.php "${remote}:${stage}/source-Views.php"
+          & ssh.exe -i $key -p 7195 @sshOpt $remote "python3 '$stage/patch.py' prepare '$stage'"
+          & ssh.exe -i $key -p 7195 @sshOpt $remote "/opt/cpanel/ea-php83/root/usr/bin/php -l '$stage/candidate-Views.php'"
+          $js = Join-Path $env:RUNNER_TEMP 'lebanese-scenario-live-candidate.js'
+          & scp.exe -i $key -P 7195 @sshOpt "${remote}:${stage}/candidate-app.js" $js
+          & node --check $js
+          & ssh.exe -i $key -p 7195 @sshOpt $remote "python3 '$stage/patch.py' apply '$stage'"
+          & ssh.exe -i $key -p 7195 @sshOpt $remote "python3 '$stage/patch.py' verify '$stage'"
+          $url = 'https://app.ontrackegy.com/assets/js/app.js?scenario=' + $env:GITHUB_RUN_ID
+          $response = Invoke-WebRequest -Uri $url -TimeoutSec 30 -UseBasicParsing
+          if ($response.StatusCode -ne 200 -or $response.Content -notmatch 'lebanese-feedback') {
+            throw 'Host hashes verified but public JS was not confirmed; investigate HTTP/CDN state'
+          }
+          Write-Output 'PUBLIC_JS_PRESET_VERIFIED'
