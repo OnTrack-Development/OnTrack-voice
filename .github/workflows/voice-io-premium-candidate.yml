@@ -124,6 +124,17 @@ jobs:
           $source = $source.Replace($anchor, '    implementation("androidx.fragment:fragment:1.6.2")' + [Environment]::NewLine + $anchor)
           [System.IO.File]::WriteAllText((Resolve-Path $gradle).Path, $source, [System.Text.UTF8Encoding]::new($false))
           Write-Host 'FRAGMENT_ACTIVITY_RESULT_COMPATIBILITY: PASS'
+      - name: Fail fast on duplicate release Java resources
+        working-directory: .build/jemrec
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $gradle = Get-Content -LiteralPath 'app/build.gradle.kts' -Raw
+          foreach($index in @('META-INF/INDEX.LIST','META-INF/DEPENDENCIES')) {
+            if(-not $gradle.Contains($index)){ throw ('Missing intentional Android metadata exclusion: '+$index) }
+          }
+          & .\gradlew.bat --no-daemon :app:mergeReleaseJavaResource
+          if ($LASTEXITCODE -ne 0) { throw 'Java resource merge preflight failed; skipping lengthy unit tests and full APK build.' }
+          Write-Host 'RELEASE_JAVA_RESOURCES_PREFLIGHT: PASS'
       - name: Verify UI notifications, signed OTA safety and navigation contracts
         run: |
           $ErrorActionPreference = 'Stop'
