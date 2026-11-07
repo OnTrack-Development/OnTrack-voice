@@ -19,8 +19,23 @@ jobs:
           $ErrorActionPreference='Stop'
           $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
           $pub=Get-Content -LiteralPath ($key+'.pub') -Raw
-          $derived=& ssh-keygen.exe -y -P '' -f $key 2>&1
-          if($LASTEXITCODE -ne 0){Write-Host 'UNATTENDED_PRIVATE_KEY=False'; exit 1}
-          if($derived.Trim().Split(' ')[1] -ne $pub.Trim().Split(' ')[1]) {throw 'SSH private/public key mismatch'}
+          # Native PowerShell empty arguments may be altered; pass a real
+          # zero-length -P argument through .NET ArgumentList instead.
+          function Inspect-Private([string]$candidate) {
+            $p=[System.Diagnostics.ProcessStartInfo]::new((Get-Command ssh-keygen.exe).Source)
+            $p.UseShellExecute=$false; $p.RedirectStandardOutput=$true
+            $p.RedirectStandardError=$true; $p.CreateNoWindow=$true
+            foreach($arg in @('-y','-P',$candidate,'-f',$key)) {$p.ArgumentList.Add($arg)}
+            $proc=[System.Diagnostics.Process]::Start($p)
+            $out=$proc.StandardOutput.ReadToEnd(); $errorText=$proc.StandardError.ReadToEnd()
+            $proc.WaitForExit(10000)|Out-Null
+            return @{passed=($proc.ExitCode -eq 0);public=$out;error=($errorText -replace '[\\r\\n]+',' ').Trim()}
+          }
+          $empty=Inspect-Private ''
+          Write-Host ('EMPTY_PASSPHRASE_VALID='+$empty.passed)
+          $quoted=Inspect-Private '""'
+          Write-Host ('DOUBLE_QUOTES_PASSPHRASE_VALID='+$quoted.passed)
+          if(-not $empty.passed) {Write-Host ('SSH_KEY_ERROR='+$empty.error.Substring(0,[math]::Min(120,$empty.error.Length)));exit 1}
+          if($empty.public.Trim().Split(' ')[1] -ne $pub.Trim().Split(' ')[1]) {throw 'SSH private/public key mismatch'}
           Write-Host 'UNATTENDED_PRIVATE_KEY=True'
           Write-Host ('DEPLOY_PUBLIC_KEY='+$pub.Trim())
