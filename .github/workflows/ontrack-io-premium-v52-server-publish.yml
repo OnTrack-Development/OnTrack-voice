@@ -4,6 +4,7 @@ on:
     branches: [feat/io-premium-native-v51-20261107]
     paths:
       - '.github/workflows/ontrack-io-premium-v52-server-publish.yml'
+      - 'tools/io_premium_v52_live_patch.py'
   workflow_dispatch:
 permissions:
   contents: read
