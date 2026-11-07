@@ -46,7 +46,14 @@ def main(apply):
         if not src.is_file() or src.is_symlink() or not dest.parent.is_dir() or dest.parent.is_symlink() or dest.is_symlink():
             raise RuntimeError('unsafe_missing_or_symlink_stage_or_target_'+rel)
         data=src.read_bytes()
-        if blobsha(data)!=new_sha:raise RuntimeError('new_source_git_blob_mismatch_'+rel)
+        if blobsha(data)!=new_sha:
+            # Windows checkout may apply core.autocrlf before secure SCP.
+            # Accept ONLY a canonical LF-normalization that matches the
+            # exact reviewed Git blob, never arbitrary source modification.
+            normalized=data.replace(bytes([13,10]),bytes([10]))
+            if normalized==data or blobsha(normalized)!=new_sha:
+                raise RuntimeError('new_source_git_blob_mismatch_'+rel)
+            data=normalized
         check=subprocess.run([PHP,'-l',str(src)],capture_output=True,text=True,timeout=8)
         if check.returncode!=0:raise RuntimeError('php_syntax_failed_'+rel)
         current=blobsha(dest.read_bytes()) if dest.is_file() else None
