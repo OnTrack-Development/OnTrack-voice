@@ -74,6 +74,9 @@ class MobileLinkService:Service() {
     @Volatile private var liveSimSlot:Int=-1
     private var connectivity:ConnectivityManager?=null
     private var networkListener:ConnectivityManager.NetworkCallback?=null
+    // A cellular radio can drop its packet network when a 3G/H+ call starts.
+    // Track real default-network reconnects, not a guessed 4G-only state.
+    @Volatile private var dataNetworkEpoch=0L
     @Volatile private var takeoverRequested=false
     @Volatile private var pendingDesired:Boolean?=null
     @Volatile private var recoveringActiveCall=false
@@ -119,7 +122,11 @@ class MobileLinkService:Service() {
             NotificationChannel("ontrack_mobile_link","OnTrack Voice",NotificationManager.IMPORTANCE_LOW))
         connectivity=getSystemService(ConnectivityManager::class.java)
         val callback=object:ConnectivityManager.NetworkCallback(){
-            override fun onAvailable(network:Network){client.connectionPool.evictAll();retryWake.trySend(Unit)}
+            override fun onAvailable(network:Network){
+                dataNetworkEpoch++
+                client.connectionPool.evictAll()
+                retryWake.trySend(Unit)
+            }
             override fun onCapabilitiesChanged(network:Network,caps:NetworkCapabilities){retryWake.trySend(Unit)}
             override fun onLost(network:Network){connected=false;retryWake.trySend(Unit)}
         }
@@ -211,21 +218,33 @@ class MobileLinkService:Service() {
             cellularTransport=caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)==true
         )
     }.getOrDefault(false)
+    private fun dataRadioLabel():String = runCatching {
+        val subscription=SubscriptionManager.getDefaultDataSubscriptionId()
+        val manager=getSystemService(TelephonyManager::class.java)
+        val forData=if(subscription>=0)manager.createForSubscriptionId(subscription) else manager
+        CellularRadioStatus.label(forData.dataNetworkType)
+    }.getOrDefault("شبكة خلوية (الجيل غير معروف)")
     private fun cellularCallNetworkHint(slot:Int):String = runCatching {
         if(NetworkRevive.onWifi(this) || internetAvailableForRetry())return@runCatching ""
         val callSubscription=TenantSimHardware.subscriptionId(this,slot)
         val dataSubscription=SubscriptionManager.getDefaultDataSubscriptionId()
-        if(dataSubscription>=0 && dataSubscription!=callSubscription)
-            "SIM المكالمة مختلفة عن SIM بيانات الهاتف؛ تأكد من استمرار الداتا أثناء الاتصال وVoLTE"
-        else "الداتا انقطعت أثناء مكالمة SIM؛ تحقق من VoLTE واستمرار الإنترنت أثناء المكالمات"
-    }.getOrDefault("")
+        val support=runCatching {
+            val manager=getSystemService(TelephonyManager::class.java)
+            val voice=if(callSubscription>=0)manager.createForSubscriptionId(callSubscription) else manager
+            voice.isConcurrentVoiceAndDataSupported
+        }.getOrNull()
+        CellularRadioStatus.voiceDataHint(
+            dataInternetAvailable=false,
+            simultaneousVoiceData=support,
+            callSimEqualsDataSim=dataSubscription<0 || dataSubscription==callSubscription)
+    }.getOrDefault("الداتا غير متاحة أثناء المكالمة؛ إعادة ربط الإيجنت عند عودتها")
     private fun internetRoute():String = runCatching {
         val cm=connectivity?:getSystemService(ConnectivityManager::class.java)
-        val caps=if(cm==null)null else cm.activeNetwork?.let { network -> cm.getNetworkCapabilities(network) }
+        val caps=cm?.activeNetwork?.let { network -> cm.getNetworkCapabilities(network) }
         when {
             caps==null -> "offline"
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "4G/5G"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> dataRadioLabel()
             else -> "network"
         }
     }.getOrDefault("unknown")
@@ -302,6 +321,9 @@ class MobileLinkService:Service() {
         var audioAttemptCount=0
         var nextAudioRetryAt=0L
         var lastError=""
+        var mobileDataLostDuringCall=false
+        var lastDefaultNetworkEpoch=dataNetworkEpoch
+        var perCallNetworkResets=0
         // 2026-11-04 field regression: handset OFFHOOK alone is NOT evidence
         // that an agent answered, the microphone is muted, or Gemini receives
         // caller PCM. Separately prove Q/A, signed per-SIM session, shell PCM
@@ -608,6 +630,24 @@ class MobileLinkService:Service() {
                     // latch the OFFHOOK call into silence. Only retry after
                     // default internet VALIDATES, and never repeat phone A/Q.
                     val now=SystemClock.elapsedRealtime()
+                    // 3G/H+ voice calls can suspend packet data, then return it.
+                    // Reset a bounded exhausted AI-start budget only after a genuine
+                    // default network transition or an observed offline->online change.
+                    // Never answer the carrier call a second time or override takeover.
+                    if(current.state==TelephonyManager.CALL_STATE_OFFHOOK &&
+                        !humanControl && !audioReady){
+                        val dataReady=internetAvailableForRetry()
+                        if(!dataReady)mobileDataLostDuringCall=true
+                        val networkChanged=dataNetworkEpoch!=lastDefaultNetworkEpoch
+                        if(dataReady && (mobileDataLostDuringCall || networkChanged) &&
+                            perCallNetworkResets<2){
+                            mobileDataLostDuringCall=false
+                            perCallNetworkResets++
+                            audioAttemptCount=audioAttemptCount.coerceAtMost(1)
+                            nextAudioRetryAt=now+1000L
+                        }
+                        if(dataReady)lastDefaultNetworkEpoch=dataNetworkEpoch
+                    }
                     if(call==null && tenantSession==null && sessionLoad==null && audioStart==null &&
                        TenantCallRouting.voiceRetryDue(
                            current.state==TelephonyManager.CALL_STATE_OFFHOOK,
