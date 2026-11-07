@@ -280,8 +280,11 @@ function tenant_voice_session(array $binding):array {
     // pool to request a fresh ephemeral token after a provider 429/503/timeout.
     require_once __DIR__.'/GoogleVoiceFailover.php';
     $ticket=google_voice_failover_register($binding,$definition,$session);
+    $premium=$definition['voice']==='io.premium';
     return ['token'=>$session['token'],'model'=>$session['model'],'system_instruction'=>$definition['instruction'],
-        'voice'=>$definition['voice'],'answer_policy'=>$definition['policy'],
+        'voice'=>$definition['voice'],
+        'voice_engine'=>$premium?'official_google_live_fish_pcm':'gemini_live_native',
+        'answer_policy'=>$definition['policy'],
         'revision'=>$definition['revision'],'hash'=>$definition['flow_hash'],
         'conversation_mode'=>'dynamic','agent_name'=>$definition['agent_name'],
         'agent_id'=>$definition['agent_id'],'site_id'=>$definition['site_id'],
