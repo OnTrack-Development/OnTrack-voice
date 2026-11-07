@@ -14,7 +14,8 @@ env:
   PYTHONIOENCODING: utf-8
 concurrency:
   group: ontrack-io-premium-candidate-${{ github.ref }}
-  cancel-in-progress: false
+  # Cancel obsolete LTE repair candidates rather than rebuild every commit.
+  cancel-in-progress: true
 jobs:
   io_premium_candidate:
     name: Signed v51 Android candidate, no production delivery
