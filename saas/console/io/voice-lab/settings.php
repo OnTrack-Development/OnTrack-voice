@@ -29,11 +29,6 @@ if (!is_array($payload) || !is_array($payload['keys'] ?? null)
     || !is_array($payload['settings'] ?? null)) voice_lab_error(400, 'invalid_json');
 
 $allowed = [
-    'voiceMode' => ['fish','browser'],
-    'fishModel' => ['drama-3','s2.1-pro-free','s2.1-pro'],
-    'brainSource' => ['google-live','google','puter'],
-    'googleModel' => ['gemini-3.8-flash','gemini-3-flash-preview'],
-    'geminiModel' => ['gemini-3-flash-preview','gemini-3.1-flash-lite'],
     'emotionLevel' => ['intense','expressive','subtle'],
     'autoListen' => ['no','yes'],
 ];
@@ -43,9 +38,6 @@ foreach ($allowed as $name => $options) {
     if (!is_string($value) || !in_array($value, $options, true)) voice_lab_error(422, 'invalid_setting');
     $preferences[$name] = $value;
 }
-$voiceId = (string)($payload['settings']['voiceId'] ?? '');
-if (!preg_match('/^[a-fA-F0-9]{32}$/D', $voiceId)) voice_lab_error(422, 'invalid_voice_id');
-$preferences['voiceId'] = strtolower($voiceId);
 if (!is_bool($payload['settings']['emotions'] ?? null)) voice_lab_error(422, 'invalid_emotions');
 $preferences['emotions'] = $payload['settings']['emotions'];
 
