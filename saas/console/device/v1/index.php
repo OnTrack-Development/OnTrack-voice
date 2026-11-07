@@ -43,11 +43,47 @@ try{
         'workspace_contacts','workspace_contact_dnc','workspace_import','workspace_calls','workspace_call_transcript',
         'workspace_call_event','workspace_call_report','workspace_call_analysis','workspace_handoff_claim','workspace_handoff_ack','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_campaign_claim',
         'workspace_campaign_verify','workspace_campaign_finish','workspace_contact_consent',
-        'workspace_file_import','workspace_call_timeline'],true)){
+        'workspace_file_import','workspace_call_timeline','engine_manifest','engine_download'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
         if(!str_starts_with($auth,'Bearer '))device_answer(401,['ok'=>false,'error'=>'authorization_required']);
         $binding=device_binding_authorize(substr($auth,7));
         if(!$binding)device_answer(401,['ok'=>false,'error'=>'device_not_authorized']);
+        // Protected engine is not Android OTA. Module delivery is opt-in,
+        // signed, encrypted at rest and requires the live SIM entitlement.
+        // No module is available without a pinned, owner-signed release.
+        if($operation==='engine_manifest'||$operation==='engine_download'){
+            require_once __DIR__.'/../../_core/ProtectedEngine.php';
+            try{
+                $abi=(string)($data['abi']??'');
+                if($operation==='engine_manifest'){
+                    device_answer(200,['ok'=>true]+protected_engine_manifest($binding,$abi));
+                }
+                $license=(string)($data['grant']??'');
+                $module=protected_engine_download($binding,$abi,$license);
+                // All download grants arrive by authenticated HTTPS POST,
+                // never query strings or access logs. Do not return a raw
+                // plaintext module through JSON, user logs, or public files.
+                header('Content-Type: application/octet-stream');
+                header('Content-Length: '.strlen($module['bytes']));
+                header('X-Content-SHA256: '.$module['sha256']);
+                header('X-Module-Signature-Ed25519: '.$module['signature']);
+                header('Content-Disposition: attachment; filename="ontrack-protected-engine.bin"');
+                header('Cache-Control: private, no-store, max-age=0');
+                echo $module['bytes'];
+                exit;
+            }catch(InvalidArgumentException){
+                device_answer(422,['ok'=>false,'error'=>'engine_request_invalid']);
+            }catch(RuntimeException $error){
+                $reason=$error->getMessage();
+                if(in_array($reason,['engine_device_not_authorized',
+                    'engine_subscription_inactive'],true))
+                    device_answer(403,['ok'=>false,'error'=>'engine_entitlement_denied']);
+                if(in_array($reason,['engine_release_not_configured',
+                    'engine_download_grant_invalid','engine_release_revoked_or_changed'],true))
+                    device_answer(409,['ok'=>false,'error'=>$reason]);
+                device_answer(503,['ok'=>false,'error'=>'engine_verification_unavailable']);
+            }
+        }
         if($operation==='disconnect'){
             if(!device_binding_disconnect($binding))device_answer(409,['ok'=>false,'error'=>'device_disconnect_conflict']);
             device_answer(200,['ok'=>true,'state'=>'revoked']);

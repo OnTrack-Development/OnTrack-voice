@@ -369,6 +369,31 @@ def publish_site_only():
     for route in ("","login","register"):
         with urllib.request.urlopen("https://app.ontrackegy.com/"+route,timeout=15) as page:
             assert page.status==200,"site route unavailable: "+route
+    # SITE-21: independently probe the LIVE control planes. These deliberately
+    # use no credentials. A login page returning 200 is not proof that private
+    # APIs reject unpaired devices and unscoped integration clients.
+    closed_routes=[
+        ("GET","https://app.ontrackegy.com/api/v1/?op=sites",None,
+         "api_key_required"),
+        ("POST","https://app.ontrackegy.com/device/v1/",
+         json.dumps({"operation":"engine_manifest","abi":"arm64-v8a"}).encode(),
+         "paired_sim_required"),
+    ]
+    for method,target,payload,label in closed_routes:
+        request=urllib.request.Request(target,data=payload,method=method,
+            headers={"User-Agent":"OnTrack-Site21-Acceptance",
+                     "Accept":"application/json",
+                     "Content-Type":"application/json"})
+        try:
+            with urllib.request.urlopen(request,timeout=15) as resp:
+                status=resp.status
+        except urllib.error.HTTPError as failure:
+            status=failure.code
+        assert status==401,"SITE21 fail-closed check failed: "+label+" "+str(status)
+    print("SITE21_HTTPS_NO_BEARER_DENIED_PASS",json.dumps({
+        "routes_checked":2,"expected_unauthorized":401,
+        "production_auth_ui":"unverified_without_owner_login"
+    }),flush=True)
     print("SITE_ONLY_DEPLOY_VERIFIED",json.dumps({
         "site":"https://app.ontrackegy.com/","sha":SHA_SOURCE,
         "signed_mobile_unchanged":True,"source_archive_sha256":sha(compressed)}),flush=True)

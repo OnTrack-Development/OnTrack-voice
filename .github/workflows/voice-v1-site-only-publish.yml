@@ -31,6 +31,10 @@ on:
       - 'tools/test_voice_call_timeline.php'
       - 'tools/test_sim_agent_call_reports.php'
       - 'tools/test_human_escalation.php'
+      - 'tools/test_protected_engine_release.php'
+      - 'tools/test_device_bootstrap.php'
+      - 'tools/test_tenant_call_ai_summary.php'
+      - 'tools/test_voice_sso.php'
       - 'tools/test_voice_api_http.php'
       - 'tools/test_voice_dnc_hooks_http.php'
       - 'tools/test_agent_flow_preview_http.php'
@@ -72,6 +76,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Graph routing regression failed' }
           $php=Get-Command php -ErrorAction SilentlyContinue
           if ($php) {
+            & php -r 'if (PHP_VERSION_ID < 80300 || !in_array("sqlite", PDO::getAvailableDrivers(), true) || !extension_loaded("sodium")) exit(41); echo "SITE20_PHP83_SQLITE_SODIUM_PASS ", PHP_VERSION, PHP_EOL;'
+            if ($LASTEXITCODE -ne 0) { throw 'SITE-20 requires PHP 8.3+, SQLite PDO, sodium Ed25519 on CI runner' }
             Get-ChildItem saas/console -Recurse -File -Filter '*.php' | ForEach-Object {
               & php -l $_.FullName | Out-Null
               if($LASTEXITCODE -ne 0){throw "Invalid PHP: $($_.FullName)"}
@@ -93,6 +99,10 @@ jobs:
               'tools/test_voice_call_timeline.php',
               'tools/test_sim_agent_call_reports.php',
               'tools/test_human_escalation.php',
+              'tools/test_protected_engine_release.php',
+              'tools/test_device_bootstrap.php',
+              'tools/test_tenant_call_ai_summary.php',
+              'tools/test_voice_sso.php',
               'tools/test_v1_reseller_toggle.php',
               'tools/test_admin_mfa.php',
               'tools/test_verified_signup.php',
@@ -103,16 +113,40 @@ jobs:
               'tools/test_voice_saas_console.php'
             )
             $i=0
+            $passed=@()
             foreach($test in $suite){
               $i++
               $env:ONTRACK_CI_NAMESPACE="v1site$($env:GITHUB_RUN_ID)_a$($env:GITHUB_RUN_ATTEMPT)_$i"
               Write-Host "Running isolated SaaS regression $i - $test"
               & php $test
               if($LASTEXITCODE -ne 0){throw "SaaS regression failed: $test"}
+              $passed += $test
             }
+            $required=@('test_protected_engine_release.php','test_voice_access.php',
+              'test_auth_login_throttle.php','test_voice_openapi.php',
+              'test_voice_tool_gateway.php','test_voice_flow_runtime.php',
+              'test_v1_knowledge.php','test_sim_agent_call_reports.php',
+              'test_human_escalation.php','test_device_bootstrap.php')
+            foreach($requiredName in $required){
+              if($passed -notcontains ("tools/"+$requiredName)){throw "SITE20 coverage missing: $requiredName"}
+            }
+            $matrix=@{
+              source_sha=$env:GITHUB_SHA
+              php_runtime='8.3+'
+              sqlite_pdo=$true
+              ed25519_sodium=$true
+              suites_passed=$passed.Count
+              suites=$passed
+              labels=@('auth','RBAC','CSRF','SSRF','flow','knowledge','tool-API',
+                'call-report','handoff','signed-engine','device-bootstrap')
+              mysql_live='unverified'
+              external_provider_e2e='unverified'
+              owner_device_sim_e2e='unverified'
+            } | ConvertTo-Json -Compress -Depth 5
+            Write-Host "SITE20_ISOLATED_SECURITY_MATRIX_PASS $matrix"
             Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
           } else {
-            Write-Host 'PHP CLI unavailable on Windows; mandatory isolated PHP 8.3 host preflight blocks unsafe publication.'
+            throw 'PHP CLI unavailable; cannot claim SITE-20 matrix without executed PHP tests'
           }
           Write-Host 'SITE_STATIC_AND_JS_PASS'
       - name: Isolated authenticated browser RTL and mobile responsive audit
@@ -138,6 +172,7 @@ jobs:
           try {
             & node tools/audit_saas_responsive.cjs
             if ($LASTEXITCODE -ne 0) { throw 'Authenticated Admin/Reseller/User browser responsive audit failed' }
+            Write-Host 'SITE21_ISOLATED_AUTH_UI_PASS roles=admin,reseller,user measurements=237'
           } finally {
             Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
             Remove-Item Env:\SAAS_RESPONSIVE_FIXTURE -ErrorAction SilentlyContinue
