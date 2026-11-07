@@ -6,78 +6,44 @@
 <meta name="color-scheme" content="dark">
 <title>Voice Lab — Gemini 3.8 Live + Fish Audio</title>
 <style>
-:root{font-family:Tahoma,Arial,sans-serif;color:#f7f7fa;background:#090b10}
-*{box-sizing:border-box}
-body{margin:0;min-height:100dvh;background:radial-gradient(circle at 15% 12%,#4f1828 0,transparent 36%),radial-gradient(circle at 85% 85%,#24121a 0,transparent 38%),#090b10}
-main{max-width:920px;padding:24px 16px 60px;margin:auto}
-header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 20px}
-.brand{display:flex;align-items:center;gap:12px;font-weight:900;font-size:20px}
-.logo{width:44px;height:44px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(135deg,#ff3f56,#991a34);box-shadow:0 10px 32px #ed284744}
-small,.muted{color:#a5a9b8}
-.badge{border:1px solid #48303a;border-radius:100px;padding:7px 12px;font-size:12px;background:#21171c;color:#f1cdd5}
-.panel{background:rgba(22,24,32,.95);border:1px solid #30313c;border-radius:22px;padding:20px;margin-bottom:16px;box-shadow:0 24px 70px #0005}
-.hero{text-align:center;padding:26px 16px 20px}
-.hero h1{font-size:25px;margin:5px 0 8px}
-.hero p{color:#a9acba;font-size:14px;margin:0}
-.orb{width:136px;height:136px;margin:22px auto;border:0;border-radius:50%;color:white;font-size:42px;cursor:pointer;background:radial-gradient(circle at 35% 28%,#ff7282,#e82f50 46%,#95152e 100%);box-shadow:0 0 0 10px #d5294920,0 0 0 25px #f42a4810,0 24px 60px #db1a4b55;transition:transform .2s,box-shadow .2s}
-.orb:hover{transform:scale(1.035)}
-.orb:active{transform:scale(.96)}
-.orb.active{animation:pulse 1.5s infinite}
-@keyframes pulse{50%{box-shadow:0 0 0 20px #d5294928,0 0 0 40px #f42a4810,0 24px 60px #db1a4b55}}
-.status{min-height:24px;color:#ebd7df;font-size:15px}
-.actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:16px 0}
-button{font:inherit;cursor:pointer}
-.ghost{background:#242632;color:#fafafa;border:1px solid #424452;border-radius:13px;padding:10px 16px}
-.ghost:disabled{opacity:.5}
-.timing{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;color:#b0b4c4;font-size:12px}
-.timing span{padding:8px 12px;background:#171820;border:1px solid #383844;border-radius:30px}
-h2{font-size:17px;margin:0 0 16px}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-label{display:flex;flex-direction:column;gap:7px;font-size:13px;color:#cfd1dd}
-input,select{width:100%;color:#f8f8ff;background:#101119;border:1px solid #444553;border-radius:12px;padding:12px;font:inherit;outline:none}
-input:focus,select:focus{border-color:#f34d68}
-input[type=checkbox]{width:auto;accent-color:#e53958}
-.inline{display:flex;align-items:center;gap:8px;margin-top:10px;color:#d6d6e1}
-.help{color:#a7aab7;font-size:12px;line-height:1.65;margin:12px 0 0}
-#log{min-height:90px;max-height:310px;overflow:auto;display:flex;flex-direction:column;gap:10px}
-.bubble{max-width:85%;padding:12px 14px;border-radius:15px;line-height:1.8;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
-.mine{align-self:flex-start;background:#612033;border:1px solid #90344f}
-.theirs{align-self:flex-end;background:#242836;border:1px solid #394056}
-.send{display:flex;gap:9px;margin-top:15px}
-.send input{flex:1}
-.send button{padding:0 17px;color:white;background:#e53c5c;border:0;border-radius:12px;font-weight:700}
-details summary{cursor:pointer;font-weight:bold}
-details[open] summary{margin-bottom:17px}
-.settings-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:16px}
-.settings-actions button{color:#fff;background:#e53c5c;border:0;border-radius:12px;padding:12px 20px;font-weight:bold}
-.settings-actions button:disabled{opacity:.55}
-.settings-note{font-size:12px;color:#b4becb;margin-top:7px;line-height:1.6}
-.settings-state{font-size:13px;line-height:1.7;color:#d2d6e2}
-#diagnosticLog{direction:ltr;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;padding:12px;border:1px solid #343744;border-radius:12px;background:#0b0d12;color:#c8d3e5;font-size:12px;line-height:1.55}
-.trace-actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
-audio{display:none}
-@media(max-width:640px){main{padding:14px 10px 50px}.grid{grid-template-columns:1fr}header{align-items:flex-start}.badge{font-size:11px} .hero h1{font-size:21px}.panel{padding:16px}.orb{width:122px;height:122px}}
+:root{font-family:system-ui,"Segoe UI",Tahoma,sans-serif;color:#f9f7fa;background:#09090e}*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:radial-gradient(ellipse at 50% -20%,#69304855,transparent 65%),#09090e}svg{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round;stroke-linecap:round}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #ff819b;outline-offset:3px}
+main{max-width:1170px;padding:22px 22px 40px;margin:auto}.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #ffffff17;padding-bottom:19px}.brand{display:flex;align-items:center;gap:12px}.brand-logo{height:44px;width:44px;flex-shrink:0;display:grid;place-items:center;color:white;background:linear-gradient(145deg,#f34768,#94152e);border-radius:13px;box-shadow:0 7px 27px #b7214755}.brand-logo svg{width:23px}.brand-copy{display:flex;flex-direction:column;gap:5px}.brand-name{font-size:18px;line-height:1;font-weight:900;letter-spacing:-.7px;direction:ltr}.brand-name b{color:#fa526f}.brand-subtitle{font-size:10px;color:#a4a0af}
+.toolbar{display:flex;align-items:center;gap:8px}.live-tag{font-size:10px;color:#c5bdca;background:#ffffff08;border:1px solid #ffffff18;border-radius:25px;padding:8px 12px;direction:ltr}.live-tag:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#f14a71;margin-right:7px;box-shadow:0 0 10px #e93a62}
+.tool-menu>summary{list-style:none;cursor:pointer;width:42px;height:42px;display:grid;place-items:center;color:#d8d2dd;border-radius:13px;border:1px solid #ffffff21;background:#1c1a23}.tool-menu>summary::-webkit-details-marker{display:none}.tool-menu>summary:hover,.tool-menu[open]>summary{color:#fff;background:#3b2131;border-color:#f04b7399}.tool-menu svg{width:19px}.tool-menu[open]>summary{position:relative;z-index:21}
+.popover-panel{display:none;position:fixed;z-index:20;top:78px;right:max(14px,calc((100vw - 1170px)/2 + 22px));width:min(525px,calc(100vw - 28px));max-height:calc(100dvh - 94px);overflow:auto;padding:22px;border-radius:22px;border:1px solid #51404d;background:#1b1922;box-shadow:0 27px 95px #000d}.tool-menu[open] .popover-panel{display:block}.popover-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.popover-heading strong{font-size:17px}.popover-heading small{font-size:11px;color:#9993a4}
+.workspace{display:grid;grid-template-columns:minmax(0,.97fr) minmax(0,1.03fr);gap:19px;margin-top:22px}.call-stage,.conversation{min-width:0;border-radius:27px;border:1px solid #ffffff16;background:linear-gradient(155deg,#1b1821,#101016 75%);box-shadow:0 18px 65px #0005}
+.call-stage{display:flex;align-items:center;flex-direction:column;position:relative;isolation:isolate;overflow:hidden;text-align:center;min-height:620px;padding:26px 25px 20px;background:radial-gradient(circle at 50% 40%,#78263f60,transparent 42%),linear-gradient(155deg,#1c1721,#100f15 72%)}
+.call-stage:before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(125deg,#ffffff09,transparent 35%)}.call-top{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:right}.call-top small{display:block;direction:ltr;color:#9b8e9f;letter-spacing:2px;font-size:10px;font-weight:900}.call-top strong{font-size:14px}.call-top em{font-style:normal;font-size:11px;color:#aca4b4}.call-top em:before{content:"●";color:#eb5474;padding-left:7px}
+.call-pill{display:flex;align-items:center;gap:8px;margin-top:34px;border:1px solid #ffffff1e;border-radius:40px;padding:8px 14px;background:#ffffff09;font-size:12px;color:#c9c0ce}.call-pill:before{content:"";width:7px;height:7px;background:#f25777;border-radius:50%;box-shadow:0 0 0 4px #f2577724}.call-stage[data-state="listening"] .call-pill:before,.call-stage[data-state="speaking"] .call-pill:before{background:#4fd4a1;box-shadow:0 0 0 4px #4fd4a122}
+.visualizer{display:grid;place-items:center;position:relative;width:230px;height:230px;flex-shrink:0}.signal-ring{position:absolute;inset:17px;border:1px solid #f155792a;border-radius:50%;box-shadow:inset 0 0 28px #d02a4620}.signal-ring:nth-child(2){inset:0}.signal-ring:nth-child(3){inset:35px;border-color:#f1557955}
+.call-stage:not([data-state="idle"]) .signal-ring{animation:ring 2.2s ease-in-out infinite}.call-stage:not([data-state="idle"]) .signal-ring:nth-child(2){animation-delay:.5s}.call-stage:not([data-state="idle"]) .signal-ring:nth-child(3){animation-delay:1s}@keyframes ring{0%,100%{opacity:.35;transform:scale(.93)}50%{opacity:1;transform:scale(1.1)}}
+.phone-avatar{z-index:1;width:132px;height:132px;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle at 30% 25%,#82314e,#341624 55%,#18111a);border:1px solid #fb69865c;box-shadow:0 0 50px #f1416725,inset 0 0 20px #fff1}.phone-avatar svg{width:54px;color:#ff819a;transform:rotate(-12deg);filter:drop-shadow(0 0 12px #e7466f)}
+.call-stage:not([data-state="idle"]) .phone-avatar svg{animation:ring-phone 2.2s ease-in-out infinite}@keyframes ring-phone{0%,100%{transform:rotate(-12deg)}8%,22%{transform:rotate(0deg)}15%,29%{transform:rotate(-24deg)}35%{transform:rotate(-12deg)}}
+.call-stage h1{font-size:clamp(23px,3vw,30px);margin:1px 0 6px}.description{font-size:12px;color:#aca2b1;line-height:1.8;margin:0}.call-clock{direction:ltr;color:#aaa0b0;font-size:20px;letter-spacing:2px;font-weight:600;margin-top:17px;font-variant-numeric:tabular-nums}
+.sound-bars{display:flex;align-items:center;justify-content:center;gap:4px;height:17px;margin:9px 0 5px}.sound-bars i{height:3px;width:3px;border-radius:10px;background:#f15c80}.call-stage[data-state="speaking"] .sound-bars i,.call-stage[data-state="listening"] .sound-bars i{animation:bar .8s ease-in-out infinite alternate}.sound-bars i:nth-child(even){animation-delay:.35s}@keyframes bar{from{height:3px}to{height:17px}}
+.status{min-height:41px;display:flex;align-items:center;justify-content:center;color:#d8cedb;font-size:12px;line-height:1.7}.call-controls{display:flex;align-items:center;justify-content:center;gap:15px;margin-top:auto}.orb{display:grid;place-items:center;width:68px;height:68px;border-radius:22px;border:0;background:linear-gradient(145deg,#fa536f,#c0193b);box-shadow:0 12px 30px #bd1f456a;color:#fff;transition:transform .2s}.orb:hover{transform:translateY(-2px)}.orb.active{border-radius:50%}.orb.active svg{transform:rotate(135deg)}.orb svg{width:29px}.control-copy{text-align:right;display:flex;flex-direction:column;gap:4px}.control-copy strong{font-size:13px}.control-copy small{font-size:11px;color:#ada4b4}.call-stage[data-state="idle"] .active-copy,.call-stage:not([data-state="idle"]) .idle-copy{display:none}#stop{display:none}
+.secondary-action{margin-top:21px;background:none;border:0;color:#b2a6b7;text-decoration:underline;text-underline-offset:4px;font-size:11px}.timing{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%;margin-top:19px;border-top:1px solid #ffffff15;padding-top:14px}.timing span{color:#97909e;line-height:1.65;font-size:10px;overflow-wrap:anywhere}
+.conversation{display:flex;flex-direction:column;min-height:620px;padding:24px}.conversation-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:19px;border-bottom:1px solid #ffffff15}.conversation-title{display:flex;align-items:center;gap:10px}.chat-icon{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:#e83c6324;color:#ff6385}.chat-icon svg{width:20px}.conversation h2{font-size:16px;margin:0 0 5px}.conversation small{font-size:11px;color:#938c9b}.secure-label{font-size:10px;color:#a59cac;border:1px solid #ffffff17;border-radius:20px;padding:6px 10px}
+#log{flex:1;display:flex;flex-direction:column;gap:12px;overflow:auto;max-height:465px;min-height:270px;padding:18px 2px;scrollbar-width:thin;scrollbar-color:#673448 transparent}.log-placeholder{margin:auto;display:flex;align-items:center;flex-direction:column;gap:10px;color:#9f98a8;text-align:center;font-size:12px;line-height:1.8}.log-placeholder svg{width:34px;color:#fa6b88}
+.bubble{max-width:88%;padding:12px 14px;border-radius:16px;border:1px solid #ffffff13;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9}.mine{align-self:flex-start;background:#5b2038;border-bottom-right-radius:4px}.theirs{align-self:flex-end;background:#292530;border-bottom-left-radius:4px}
+.send{display:flex;gap:9px;margin-top:auto;padding-top:14px;border-top:1px solid #ffffff16}.send input{flex:1;min-width:0}.send button{padding:0 18px;border:0;border-radius:12px;background:#ec3d60;color:#fff;font-weight:bold;font-size:12px}.input-note{margin:12px 0 0;text-align:center;color:#807684;font-size:10px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#d1cbd6}input,select{width:100%;min-width:0;background:#121019;border:1px solid #4a4050;border-radius:12px;color:#faf8fb;padding:11px;font-size:12px}input:focus,select:focus{border-color:#ed486a}input[type=checkbox]{width:auto;accent-color:#ee4569}.inline{flex-direction:row;align-items:flex-start;gap:9px;margin-top:14px;line-height:1.7}
+.help{color:#ada5b2;font-size:11px;line-height:1.9}.settings-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:17px 0 12px}.settings-actions button{color:#fff;background:#e73b60;border:0;border-radius:12px;padding:12px 14px;font-size:12px;font-weight:bold}.settings-state,.settings-note{color:#b8aebe;font-size:11px;line-height:1.8}#diagnosticLog{direction:ltr;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;background:#101017;color:#bec2d0;padding:13px;border-radius:12px;border:1px solid #433746;font:11px/1.7 ui-monospace,monospace}.trace-actions{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.ghost{background:#ffffff10;border:1px solid #ffffff22;border-radius:11px;color:#ded8e3;padding:10px 13px;font-size:12px}audio{display:none}#buildInfo{color:#77717e;font-size:10px;text-align:center;padding-top:15px}
+@media(max-width:720px){main{padding:14px 12px 28px}.topbar{padding-bottom:13px}.live-tag{display:none}.brand-name{font-size:16px}.brand-subtitle{font-size:9px}.tool-menu>summary{width:39px;height:39px}.workspace{grid-template-columns:1fr;gap:14px;margin-top:15px}.call-stage{min-height:468px;padding:18px 15px 15px}.call-pill{margin-top:18px}.visualizer{width:185px;height:185px}.phone-avatar{width:115px;height:115px}.call-stage h1{margin-top:0}.call-clock{margin-top:10px}.status{min-height:36px}.conversation{min-height:410px;padding:18px}.secure-label{display:none}#log{min-height:190px;max-height:390px}.grid{grid-template-columns:1fr}.popover-panel{top:68px;right:12px;max-height:calc(100dvh - 80px)}}
+@media(max-width:360px){.brand-name{font-size:14px}.brand-logo{width:38px;height:38px}.tool-menu>summary{width:36px;height:36px}.visualizer{width:165px;height:165px}.phone-avatar{width:100px;height:100px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
 <main>
-<header><div class="brand"><div class="logo">◉</div><div>OnTrack <span style="color:#fb536b">Voice Lab</span><br><small>تجربة مستقلة — Gemini 3.8 Live × Fish Audio</small></div></div><div class="badge">Egyptian Arabic • Demo</div></header>
-<section class="panel hero">
-<h1>كلم المساعد بالمصري</h1>
-<p class="help" id="buildInfo">Voice Lab 2026.11.07.8 • Gemini 3.8 Live → Fish Audio — تشخيص الاتصال</p>
-<p>Gemini 3.8 Live يسمعك ويجهّز النص • Fish Audio ينطق الرد بصوتك المختار</p>
-<button id="mic" class="orb" aria-label="ابدأ مكالمة صوتية">🎙</button>
-<div id="status" class="status" role="status">جاهز للمكالمة</div>
-<div class="actions"><button id="stop" class="ghost" type="button">إنهاء المكالمة</button><button id="testVoice" class="ghost" type="button">تجربة الصوت فقط</button></div>
-<div class="timing"><span id="brainTime">Gemini: —</span><span id="firstAudio">أول صوت: —</span><span id="totalTime">إجمالي: —</span></div>
-</section>
-<section class="panel"><details><summary>🧰 سجل أخطاء الاتصال (Error Log)</summary>
+
+<header class="topbar"><div class="brand"><div class="brand-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></div><div class="brand-copy"><span class="brand-name">ONTRACK <b>HOTLINE</b></span><span class="brand-subtitle">تجربة اتصال ذكي • صوت مصري طبيعي</span></div></div>
+<div class="toolbar"><span class="live-tag">LIVE VOICE LAB</span><details class="tool-menu" id="diagnosticsDrawer"><summary title="سجل الاتصال" aria-label="سجل تشخيص الاتصال"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></summary><div class="popover-panel"><div class="popover-heading"><strong>سجل الاتصال</strong><small>Error Log</small></div>
 <p class="help">خطوات Gemini Live وFish Audio وأزمنتها وأكواد HTTP وWebSocket؛ بدون تسجيل المفاتيح أو النص أو الصوت. سجل السيرفر للأدمن فقط.</p>
 <div class="trace-actions"><button class="ghost" type="button" id="refreshDiagnostics">تحميل سجل السيرفر</button><button class="ghost" type="button" id="copyDiagnostics">نسخ السجل</button></div>
 <pre id="diagnosticLog">اضغط المايك لبدء التشخيص، أو حمّل سجل السيرفر.</pre>
-</details></section>
-<section class="panel"><h2>المحادثة</h2><div id="log" aria-live="polite"><p class="muted">ابدأ بالمايك أو اكتب رسالة. هتظهر هنا الجمل والردود.</p></div><form id="textForm" class="send"><input id="textInput" type="text" autocomplete="off" placeholder="اكتب حاجة بالمصري لو المايك مش متاح..." aria-label="رسالتك"><button type="submit">إرسال</button></form></section>
-<section class="panel"><details open><summary>⚙️ إعدادات التجربة</summary>
+</div></details>
+<details class="tool-menu" id="settingsDrawer"><summary title="الإعدادات" aria-label="إعدادات المكالمة"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M20 12a8 8 0 0 0-.1-1.2l1.4-1.1-2-3.5-1.7.7a8 8 0 0 0-2.1-1.2L15.2 4H9l-.3 1.7a8 8 0 0 0-2.1 1.2l-1.7-.7-2 3.5 1.4 1.1a8 8 0 0 0 0 2.4l-1.4 1.1 2 3.5 1.7-.7a8 8 0 0 0 2.1 1.2L9 20h6.2l.3-1.7a8 8 0 0 0 2.1-1.2l1.7.7 2-3.5-1.4-1.1A8 8 0 0 0 20 12Z"/></svg></summary><div class="popover-panel"><div class="popover-heading"><strong>إعدادات المكالمة</strong><small>Google Live × Fish Audio</small></div>
 <div class="grid">
 <label>مخ المحادثة <input type="text" value="Gemini 3.8 Live — يطلع النص" readonly></label>
 <label>الصوت <input type="text" value="Fish Audio — ينطق رد Gemini" readonly></label>
@@ -93,7 +59,21 @@ audio{display:none}
 <label class="inline"><input id="removeFish" type="checkbox"> حذف مفتاح Fish المحفوظ عند الحفظ</label>
 <label class="inline"><input id="removeGoogle" type="checkbox"> حذف مفتاح Google المحفوظ عند الحفظ</label>
 <p class="help">Gemini 3.8 Live يستقبل الميكروفون عبر WebSocket مؤقت، ويرجع نص الرد من تفريغ مخرجات Live. الصوت المسموع من Fish Audio فقط، وليس صوت Gemini. مفاتيح Google وFish محفوظة مشفرة؛ سيب حقل المفتاح فاضي لاستخدام المحفوظ. لا يوجد Puter أو Flash أو مزود نص آخر.</p>
-</details></section>
+</div></details></div></header>
+<div class="workspace"><section id="callStage" class="call-stage" data-state="idle" aria-label="المكالمة الصوتية">
+<div class="call-top"><div><small>ONTRACK HOTLINE</small><strong>خط اتصال مباشر</strong></div><em>Voice Lab</em></div>
+<span id="callMode" class="call-pill">جاهز للاتصال</span>
+<div class="visualizer" aria-hidden="true"><span class="signal-ring"></span><span class="signal-ring"></span><span class="signal-ring"></span><span class="phone-avatar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></span></div>
+<h1>ابدأ مكالمتك</h1><p class="description">اتكلم بطبيعتك • Gemini بيسمعك وFish بيرد عليك</p>
+<div id="callDuration" class="call-clock" aria-label="مدة المكالمة">00:00</div><div class="sound-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+<div id="status" class="status" role="status" aria-live="polite">جاهز للمكالمة</div>
+<div class="call-controls"><button id="mic" class="orb" type="button" aria-label="ابدأ مكالمة صوتية"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></button><div class="control-copy"><strong class="idle-copy">اضغط لبدء الاتصال</strong><strong class="active-copy">اضغط لإنهاء الاتصال</strong><small>مكالمة صوتية تجريبية</small></div><button id="stop" class="ghost" type="button">إنهاء المكالمة</button></div>
+<button id="testVoice" class="secondary-action" type="button">تجربة صوت Fish فقط</button><div class="timing"><span id="brainTime">Gemini: —</span><span id="firstAudio">أول صوت: —</span><span id="totalTime">إجمالي: —</span></div></section>
+<section class="conversation" aria-label="نص المحادثة"><div class="conversation-head"><div class="conversation-title"><span class="chat-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.7 8.7 0 0 1-4-.96L3 21l1.85-5.55A8.5 8.5 0 1 1 21 11.5Z"/></svg></span><div><h2>نص المحادثة المباشر</h2><small>الكلام والردود أول بأول</small></div></div><span class="secure-label">TRANSCRIPT</span></div>
+<div id="log" aria-live="polite"><div class="log-placeholder" id="logPlaceholder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.7 8.7 0 0 1-4-.96L3 21l1.85-5.55A8.5 8.5 0 1 1 21 11.5Z"/></svg><strong>المكالمة لسه ما بدأتش</strong><span>اضغط زر التليفون واتكلم، أو اكتب رسالة من تحت.</span></div></div>
+<form id="textForm" class="send"><input id="textInput" type="text" autocomplete="off" placeholder="ابعت رسالة للمساعدة..." aria-label="رسالتك"><button type="submit">إرسال</button></form>
+<p class="input-note">Gemini Live للفهم • Fish Audio للنطق • إعداداتك محفوظة</p></section></div>
+<p id="buildInfo">Voice Lab 2026.11.07.9 • Hotline UI • Gemini 3.8 Live → Fish Audio</p>
 <audio id="player" playsinline></audio>
 </main>
 <script type="module">
@@ -143,13 +123,25 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
   });
   let settingsReady=Promise.resolve();
   const AudioCtx=window.AudioContext||window.webkitAudioContext;
-  function status(message){ui.status.textContent=message;}
+  const stage=el('callStage'),callMode=el('callMode'),clock=el('callDuration');
+  let callStarted=0,clockHandle=null;
+  function setCallState(next){
+    stage.dataset.state=next;
+    callMode.textContent=({idle:'جاهز للاتصال',connecting:'جاري الاتصال...',listening:'المكالمة متصلة • بيسمعك',speaking:'المساعدة بتتكلم'})[next]||'مكالمة جارية';
+    if(next==='idle'){clearInterval(clockHandle);clockHandle=null;callStarted=0;clock.textContent='00:00';}
+    else if(!callStarted){callStarted=Date.now();const update=()=>{const sec=Math.floor((Date.now()-callStarted)/1000);clock.textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');};update();clockHandle=setInterval(update,1000);}
+  }
+  function status(message){ui.status.textContent=message;if(!active)return;if(/بيتكلم|صوت رد|بينطق/.test(message))setCallState('speaking');else if(/بيسمعك|تقدر تبعت|المايك/.test(message))setCallState('listening');}
+  const toolMenus=[el('settingsDrawer'),el('diagnosticsDrawer')];
+  toolMenus.forEach(menu=>menu.addEventListener('toggle',()=>{if(menu.open)toolMenus.forEach(other=>{if(other!==menu)other.open=false;});}));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')toolMenus.forEach(menu=>menu.open=false);});
+  document.addEventListener('click',e=>{if(!toolMenus.some(menu=>menu.contains(e.target)))toolMenus.forEach(menu=>menu.open=false);});
   function message(role,text){
     if(!text)return;
     const item=document.createElement('div');
     item.className='bubble '+(role==='user'?'mine':'theirs');
     item.textContent=(role==='user'?'أنت: ':'المساعدة: ')+text;
-    ui.log.appendChild(item);
+    el('logPlaceholder')?.remove();ui.log.appendChild(item);
     ui.log.scrollTop=ui.log.scrollHeight;
   }
   function keyLabel(){
@@ -210,7 +202,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
   function reset(){
     if(active||starting)diagnostic('call_stopped');
     active=false;starting=false;stopLive();
-    ui.mic.classList.remove('active');ui.mic.textContent='🎙';
+    ui.mic.classList.remove('active');ui.mic.setAttribute('aria-label','ابدأ مكالمة صوتية');setCallState('idle');
     status('تم إنهاء المكالمة');
   }
   function appendText(existing,chunk){
@@ -304,7 +296,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
       const onStart=()=>{
         diagnostic('fish_first_audio',{elapsed_ms:Math.round(performance.now()-begin)});
         ui.first.textContent='Fish أول صوت: '+Math.round(performance.now()-begin)+'ms';
-        status('Fish Audio بيتكلم...');
+        setCallState('speaking');status('Fish Audio بيتكلم...');
       };
       if(!response.body||!window.MediaSource||!MediaSource.isTypeSupported('audio/mpeg')){
         const blob=await response.blob();
@@ -382,7 +374,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
     const name=role==='user'?'userBubble':'botBubble';
     if(!s[name]){
       const item=document.createElement('div');item.className='bubble '+(role==='user'?'mine':'theirs');
-      ui.log.appendChild(item);s[name]=item;
+      el('logPlaceholder')?.remove();ui.log.appendChild(item);s[name]=item;
     }
     s[name].textContent=(role==='user'?'أنت: ':'المساعدة: ')+text;
     ui.log.scrollTop=ui.log.scrollHeight;
@@ -404,7 +396,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
     if(data?.setupComplete){
       clearTimeout(s.handshakeTimer);s.ready=true;s.connectedAt=performance.now();
       diagnostic('setup_complete',{elapsed_ms:Math.round(performance.now()-s.wsStarted)});
-      status('Gemini Live متصل');activateSession(s);return;
+      setCallState('listening');status('Gemini Live متصل');activateSession(s);return;
     }
     const content=data?.serverContent||{};
     if(content.inputTranscription?.text){
@@ -481,7 +473,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
   }
   ui.mic.addEventListener('click',()=>{
     if(active){reset();return;}
-    active=true;ui.mic.classList.add('active');ui.mic.textContent='◉';
+    active=true;ui.mic.classList.add('active');ui.mic.setAttribute('aria-label','إنهاء المكالمة');setCallState('connecting');
     startLive().catch(failure);
   });
   ui.stop.addEventListener('click',reset);
@@ -490,7 +482,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
     const text=ui.textInput.value.trim();
     if(!text)return;
     ui.textInput.value='';
-    if(!active){active=true;ui.mic.classList.add('active');}
+    if(!active){active=true;ui.mic.classList.add('active');ui.mic.setAttribute('aria-label','إنهاء المكالمة');setCallState('connecting');}
     startLive(text).catch(failure);
   });
   ui.test.addEventListener('click',async()=>{
