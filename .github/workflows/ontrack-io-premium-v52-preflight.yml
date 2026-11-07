@@ -39,7 +39,7 @@ jobs:
           & python -m py_compile tools/io_premium_v52_host_probe.py
           if($LASTEXITCODE -ne 0){throw 'Invalid production host probe'}
           $android=Get-Content saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/PremiumOfficialLive.kt -Raw
-          if($android.Contains('Client(apiKey=') -or -not $android.Contains('BidiGenerateContentConstrained')){
+          if($android.Contains('import com.google.genai.kotlin.Client') -or -not $android.Contains('BidiGenerateContentConstrained')){
             throw 'Unsafe Android Google SDK client is still active or ephemeral websocket is missing'
           }
           Write-Host 'IO_PREMIUM_V52_SOURCE_GUARDS_PASS'
