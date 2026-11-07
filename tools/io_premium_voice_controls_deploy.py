@@ -81,7 +81,16 @@ def actions_patch(live,ref):
     # Reuse the single canonical form action; never add a parallel credential store.
     marker="            case 'set_voice_ready':\n"
     segment=new_section(ref,"            case 'save_io_premium_provider':\n",marker)
-    live=one_replace(live,marker,segment+marker,"provider_save_action")
+    action_count=live.count("case 'save_io_premium_provider':")
+    if action_count==0:
+        live=one_replace(live,marker,segment+marker,"provider_save_action")
+    elif action_count==1:
+        # Another verified deploy may already have installed the same action.
+        # Never insert a duplicate, but reject a conflicting handler body.
+        if segment.strip() not in live:
+            raise RuntimeError("existing_provider_handler_changed")
+    else:
+        raise RuntimeError("duplicate_provider_action_already_live")
     old=("                $voice=one('SELECT id FROM voices WHERE id=?',[intfield('voice_id')]);if(!$voice)deny(404);\n"
          "                $ready=field('ready',1)==='1'?1:0;\n")
     new=new_section(ref,
