@@ -77,16 +77,16 @@ def dedupe_provider_ui(live):
  section=live[start:end]
  guard="    if($showProvider && in_array((string)$a['role'],['owner','admin'],true) && !active_support())"
  call="        echo render_io_premium_admin_provider();"
- pair=guard+'\\n'+call
+ pair=guard+'\n'+call
  # Remove the duplicated entire conditional+echo pair, not only its echo:
  # dropping just the echo would wrongly gate the next catalog statement!
- double=pair+'\\n'+pair
+ double=pair+'\n'+pair
  if double in section:
   section=section.replace(double,pair,1)
  # Self-heal the orphaned conditional left by older incomplete patchers.
- orphan=pair+'\\n'+guard+'\\n'
+ orphan=pair+'\n'+guard+'\n'
  if orphan in section:
-  section=section.replace(orphan,pair+'\\n',1)
+  section=section.replace(orphan,pair+'\n',1)
  if section.count(call)!=1 or section.count(guard)!=1:
   raise RuntimeError('unsafe_or_duplicate_premium_voice_panel')
  return live[:start]+section+live[end:]
