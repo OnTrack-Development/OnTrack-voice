@@ -194,6 +194,7 @@ audio{display:none}
     if(s.socket&&s.socket.readyState<=1)try{s.socket.close(1000,'stop');}catch(e){}
   }
   function reset(){
+    if(active||starting)diagnostic('call_stopped');
     active=false;starting=false;stopLive();
     ui.mic.classList.remove('active');ui.mic.textContent='🎙';
     status('تم إنهاء المكالمة');
@@ -218,6 +219,7 @@ audio{display:none}
     if(!navigator.mediaDevices?.getUserMedia)throw Error('المايك يحتاج HTTPS ومتصفح حديث');
     status('اسمح للمتصفح بالمايك...');
     diagnostic('mic_permission_start');
+    const micRequestedAt=performance.now();
     s.media=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
     if(live!==s||s.closed){s.media.getTracks().forEach(track=>track.stop());return;}
     s.inputContext=new AudioCtx();
@@ -230,7 +232,7 @@ audio{display:none}
     };
     s.source.connect(s.node);s.node.connect(s.silence);s.silence.connect(s.inputContext.destination);
     await s.inputContext.resume();
-    diagnostic('mic_ready');
+    diagnostic('mic_ready',{elapsed_ms:Math.round(performance.now()-micRequestedAt)});
     status('Gemini 3.8 Live بيسمعك...');
   }
   function sendText(s,text){
@@ -238,6 +240,7 @@ audio{display:none}
     message('user',text);
     s.turnStart=performance.now();ui.first.textContent='أول صوت: ...';
     s.socket.send(JSON.stringify({realtimeInput:{text}}));
+    diagnostic('text_sent');
     status('Gemini 3.8 Live بيرد بالصوت...');
   }
   function playChunk(s,base64){
@@ -274,6 +277,7 @@ audio{display:none}
     const remaining=Math.max(0,(s.nextAudioAt-s.playback.currentTime)*1000);
     if(remaining>0)await new Promise(resolve=>setTimeout(resolve,Math.min(remaining+80,45000)));
     if(live!==s||s.closed)return;
+    diagnostic('turn_complete',{elapsed_ms:Math.round(performance.now()-(s.turnStart||s.connectedAt))});
     s.speaking=false;s.firstAudio=false;s.nextAudioAt=0;
     ui.total.textContent='زمن الرد: '+Math.round(performance.now()-(s.turnStart||s.connectedAt))+'ms';
     if(ui.autoListen.value==='yes'&&s.withMic){
@@ -282,7 +286,7 @@ audio{display:none}
     status(s.withMic?'Gemini 3.8 Live بيسمعك...':'تقدر تبعت رسالة تانية');
   }
   function receive(s,raw){
-    let result;try{result=JSON.parse(raw);}catch(e){return;}
+    let result;try{result=JSON.parse(raw);}catch(e){diagnostic('ws_invalid_message');return;}
     if(result.error){
       const detail=String(result.error.message||result.error.status||result.error.code||'خطأ غير محدد').replace(/AIza[A-Za-z0-9_-]+/g,'[redacted]').slice(0,280);
       diagnostic('provider_error',{error_code:String(result.error.status||result.error.code||'provider_error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});
@@ -302,7 +306,7 @@ audio{display:none}
     for(const part of content.modelTurn?.parts||[]){
       const pcm=part.inlineData;
       if(pcm?.data&&String(pcm.mimeType||'').startsWith('audio/pcm')){
-        try{playChunk(s,pcm.data);}catch(e){status('تعذّر تشغيل صوت Gemini: '+e.message);}
+        try{playChunk(s,pcm.data);}catch(e){diagnostic('audio_error',{error_code:String(e?.name||'playback_error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});status('تعذّر تشغيل صوت Gemini: '+e.message);}
       }
     }
     if(content.interrupted){
@@ -322,12 +326,16 @@ audio{display:none}
     diagnostic('call_start');
     // Start playback inside the user's click to satisfy mobile autoplay policies.
     const playback=new AudioCtx({sampleRate:24000});
+    diagnostic('audio_context_resume_start');
     const resumePlayback=playback.resume();
     let attached=false;
     try{
       const headers=await secureHeaders();
       headers['X-Voice-Lab-Trace']=traceAttempt;
-      await resumePlayback;
+      try{
+        await Promise.race([resumePlayback,new Promise((_,reject)=>setTimeout(()=>reject(new Error('AudioContextResumeTimeout')),7000))]);
+        diagnostic('audio_context_resume_ok');
+      }catch(e){diagnostic('audio_context_resume_error',{error_code:String(e?.name==='Error'?(e.message||'resume_error'):(e?.name||'resume_error')).replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});throw e;}
       const tokenStart=performance.now();
       diagnostic('token_fetch_start');
       const abort=new AbortController();tokenAbort=abort;
@@ -337,14 +345,15 @@ audio{display:none}
       catch(e){diagnostic('token_fetch_error',{error_code:e.name==='AbortError'?'timeout':(e.name||'network_error'),elapsed_ms:Math.round(performance.now()-tokenStart)});
         throw Error(e.name==='AbortError'?'طلب توكن Live انتهت مهلته':e.message);}
       finally{clearTimeout(timeout);if(tokenAbort===abort)tokenAbort=null;}
-      diagnostic('token_fetch_ok',{http_status:response.status,elapsed_ms:Math.round(performance.now()-tokenStart)});
       if(!response.ok){
-        diagnostic('token_http_error',{http_status:response.status});
+        diagnostic('token_http_error',{http_status:response.status,elapsed_ms:Math.round(performance.now()-tokenStart)});
         const detail=(await response.text()).slice(0,350);
         throw Error('التوكن HTTP '+response.status+': '+detail);
       }
-      const data=await response.json();
-      if(!data.token){diagnostic('token_invalid_reply');throw Error('Google لم يرجع توكن Live');}
+      let data;
+      try{data=await response.json();}catch(e){diagnostic('token_invalid_reply',{error_code:'invalid_json'});throw Error('رد التوكن مش JSON صالح');}
+      if(!data?.token){diagnostic('token_invalid_reply',{error_code:'missing_token'});throw Error('Google لم يرجع توكن Live');}
+      diagnostic('token_fetch_ok',{http_status:response.status,elapsed_ms:Math.round(performance.now()-tokenStart)});
       if(!active)return;
       const s={socket:null,closed:false,ready:false,withMic:!firstText,pending:firstText?[firstText]:[],
         input:'',output:'',playback,inputContext:null,source:null,node:null,silence:null,media:null,playing:new Set(),
