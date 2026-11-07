@@ -62,7 +62,7 @@ audio{display:none}
 <header><div class="brand"><div class="logo">◉</div><div>OnTrack <span style="color:#fb536b">Voice Lab</span><br><small>تجربة مستقلة — Gemini 3.8 Live</small></div></div><div class="badge">Egyptian Arabic • Demo</div></header>
 <section class="panel hero">
 <h1>كلم المساعد بالمصري</h1>
-<p class="help" id="buildInfo">Voice Lab 2026.11.07.3 • Gemini 3.8 Live — صوت مباشر</p>
+<p class="help" id="buildInfo">Voice Lab 2026.11.07.4 • Gemini 3.8 Live — صوت مباشر</p>
 <p>Gemini 3.8 Live يسمعك ويرد عليك بصوته مباشرة • نص وصوت من نفس الموديل</p>
 <button id="mic" class="orb" aria-label="ابدأ مكالمة صوتية">🎙</button>
 <div id="status" class="status" role="status">جاهز للمكالمة</div>
@@ -245,7 +245,10 @@ audio{display:none}
   }
   function receive(s,raw){
     let result;try{result=JSON.parse(raw);}catch(e){return;}
-    if(result.error){status('Gemini Live: '+(result.error.message||result.error.code||'خطأ اتصال'));return;}
+    if(result.error){
+      const detail=String(result.error.message||result.error.status||result.error.code||'خطأ غير محدد').replace(/AIza[A-Za-z0-9_-]+/g,'[redacted]').slice(0,280);
+      reset();status('Google رفض جلسة Live: '+detail);return;
+    }
     if(result.setupComplete){
       clearTimeout(s.handshakeTimer);s.ready=true;s.connectedAt=performance.now();
       status('اتصلنا بـGemini 3.8 Live');
@@ -303,10 +306,12 @@ audio{display:none}
       const socket=new WebSocket(endpoint);s.socket=socket;
       s.handshakeTimer=setTimeout(()=>{
         if(live!==s||s.closed||s.ready)return;
-        reset();status('Gemini Live ما أكملش الاتصال خلال 15 ثانية');
+        const phase=s.socketOpened?'الـWebSocket اتفتح لكن Google ما أكملش قبول إعدادات الجلسة':'الـWebSocket ما اتفتحش';
+        reset();status(phase+' خلال 15 ثانية.');
       },15000);
       socket.onopen=()=>{
         if(live!==s||s.closed)return;
+        s.socketOpened=true;status('WebSocket اتفتح؛ مستني قبول Gemini 3.8 Live...');
         socket.send(JSON.stringify({setup:{
           model:'models/gemini-3.8-live',
           generationConfig:{responseModalities:['AUDIO']},
@@ -315,8 +320,10 @@ audio{display:none}
         }}));
       };
       socket.onmessage=e=>receive(s,e.data);
-      socket.onerror=()=>{if(live!==s||s.closed)return;reset();status('اتصال Gemini Live فشل؛ راجع API والـquota');};
-      socket.onclose=e=>{if(live!==s||s.closed)return;reset();status('جلسة Gemini Live اتقفلت ('+e.code+'). جرّب تاني');};
+      socket.onerror=()=>{if(live!==s||s.closed)return;status('فشل اتصال WebSocket مع Google؛ منتظر كود الإغلاق...');};
+      socket.onclose=e=>{if(live!==s||s.closed)return;
+        const code=e.code,reason=String(e.reason||'').replace(/AIza[A-Za-z0-9_-]+/g,'[redacted]').slice(0,180);
+        reset();status('Google قفل جلسة Live (WebSocket '+code+')'+(reason?': '+reason:'؛ راجع دعم Live للمفتاح والشبكة'));};
       status('بفتح Gemini 3.8 Live...');
     }finally{
       starting=false;
