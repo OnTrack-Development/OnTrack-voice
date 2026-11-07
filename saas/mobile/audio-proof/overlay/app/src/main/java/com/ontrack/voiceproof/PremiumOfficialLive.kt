@@ -32,7 +32,6 @@ internal class PremiumOfficialLive(
     private val ready=CompletableDeferred<Unit>()
     @Volatile private var send:(suspend(ByteArray)->Unit)?=null
     @Volatile private var sendText:(suspend(String)->Unit)?=null
-    @Volatile private var stopSession:(()->Unit)?=null
     private var job:Job?=null
     private var fullOutput=""
     private var spoken=""
@@ -53,7 +52,6 @@ internal class PremiumOfficialLive(
                         outputAudioTranscription=AudioTranscriptionConfig()
                     )
                     client.live.connect(model.removePrefix("models/"),config).use { session ->
-                        stopSession={session.closeSession()}
                         send={pcm->session.sendRealtimeInput(
                             audio=Blob(data=pcm,mimeType="audio/pcm;rate=16000")
                         )}
@@ -94,7 +92,7 @@ internal class PremiumOfficialLive(
                 if(!stopped.get() && t !is CancellationException)
                     disconnected("IO Premium Live: "+(t.message?:"تعذر الاتصال").take(160))
             }finally{
-                send=null;sendText=null;stopSession=null
+                send=null;sendText=null
             }
         }
     }
@@ -106,7 +104,7 @@ internal class PremiumOfficialLive(
     suspend fun prompt(text:String){if(!stopped.get())sendText?.invoke(text)}
     fun stop(){
         if(stopped.compareAndSet(false,true)){
-            runCatching{stopSession?.invoke()}
+            // Cancelling the coroutine closes the SDK session via 'use'.
             job?.cancel()
             send=null;sendText=null
         }
