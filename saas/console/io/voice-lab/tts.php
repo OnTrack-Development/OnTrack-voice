@@ -23,9 +23,14 @@ if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 12000) {
 }
 $key = voice_lab_saved_key((int)$labUser['id'], 'fish', (string)($_SERVER['HTTP_X_FISH_API_KEY'] ?? ''));
 session_write_close();
-if (!preg_match('/^sk-fish-[A-Za-z0-9_-]{12,}$/', $key)) {
+if ($key === '') {
     http_response_code(400);
     exit('fish_key_required');
+}
+// Do not enforce a guessed Fish key prefix; provider validates the actual credential.
+if (strlen($key) > 2048 || preg_match('/[\x00-\x1F\x7F]/', $key)) {
+    http_response_code(400);
+    exit('unsafe_fish_key');
 }
 $body = json_decode((string)file_get_contents('php://input'), true);
 if (!is_array($body)) {
