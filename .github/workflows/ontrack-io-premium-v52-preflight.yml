@@ -4,6 +4,7 @@ on:
     branches: [feat/io-premium-native-v51-20261107]
     paths:
       - '.github/workflows/ontrack-io-premium-v52-preflight.yml'
+      - 'tools/test_io_premium_shared_access.php'
   workflow_dispatch:
 permissions:
   contents: read
