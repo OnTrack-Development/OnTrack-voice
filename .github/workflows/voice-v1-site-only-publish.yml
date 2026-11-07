@@ -29,6 +29,8 @@ on:
       - 'tools/test_google_live_failover.php'
       - 'tools/test_ai_assistant_tenant_keys.php'
       - 'tools/test_voice_call_timeline.php'
+      - 'tools/test_sim_agent_call_reports.php'
+      - 'tools/test_human_escalation.php'
       - 'tools/test_voice_api_http.php'
       - 'tools/test_voice_dnc_hooks_http.php'
       - 'tools/test_agent_flow_preview_http.php'
@@ -89,6 +91,8 @@ jobs:
               'tools/test_google_live_failover.php',
               'tools/test_ai_assistant_tenant_keys.php',
               'tools/test_voice_call_timeline.php',
+              'tools/test_sim_agent_call_reports.php',
+              'tools/test_human_escalation.php',
               'tools/test_v1_reseller_toggle.php',
               'tools/test_admin_mfa.php',
               'tools/test_verified_signup.php',
