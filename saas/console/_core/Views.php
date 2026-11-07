@@ -1595,6 +1595,8 @@ function render_secret_controls(string $type,array $row,string $tab):string{
     return $controls;
 }
 function render_keys(array $a):void{
+    if($a['kind']==='platform')
+        echo card('مفاتيح مزودي الصوت','<p class="dim">مفتاح Fish Audio وVoice ID الخاص بصوت IO Premium بيتداروا من «إدارة الأصوات»، مش من مفاتيح API اللي بنصدرها للعملاء.</p><a class="btn primary" href="/?tab=voices">فتح إعدادات IO Premium والصوت</a>');
     $id=(int)$a['account_id'];$include=($_GET['archived']??'')==='1';
     $list=all("SELECT k.*,s.name site_name FROM api_keys k LEFT JOIN sites s ON s.id=k.site_id WHERE k.account_id=? ".
         ($include?"":"AND k.status='active' ")."ORDER BY k.id DESC",[$id]);
