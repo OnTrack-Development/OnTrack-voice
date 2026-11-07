@@ -23,9 +23,14 @@ if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 25000) {
 }
 $key = voice_lab_saved_key((int)$labUser['id'], 'google', (string)($_SERVER['HTTP_X_GEMINI_API_KEY'] ?? ''));
 session_write_close();
-if (strlen($key) < 20 || strlen($key) > 256 || !preg_match('/^[A-Za-z0-9_-]+$/', $key)) {
+if ($key === '') {
     http_response_code(400);
     exit('gemini_key_required');
+}
+// Provider validates credentials; locally prevent only oversized or control-character header values.
+if (strlen($key) > 2048 || preg_match('/[\x00-\x1F\x7F]/', $key)) {
+    http_response_code(400);
+    exit('unsafe_google_key');
 }
 $body = json_decode((string)file_get_contents('php://input'), true);
 if (!is_array($body)) {
