@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-lab-pin-owner-setup-041659b5",
+  "target": "appontrack-server11",
+  "job_sha256": "efc901d80151c458f5791cd70ed39bcc328569b422d8f404f5a40ee8d76eca57",
+  "started_at": "2026-11-07T16:22:03.568721+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\":\"updated\",\"version\":\"2026.11.07.13\",\"files\":[\"pin.php\",\"index.html\"],\"php_lint\":\"PASS\"}\n",
+  "stderr": "",
+  "finished_at": "2026-11-07T16:22:04.551887+00:00",
+  "duration_ms": 983
+}
