@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/security.php';
 // Personal voice-lab Gemini text bridge: no request or API key storage.
 header('Cache-Control: no-store, max-age=0');
 header('X-Content-Type-Options: nosniff');
@@ -9,6 +10,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     http_response_code(405);
     exit('method_not_allowed');
 }
+$labUser = voice_lab_access(true);
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $host = strtolower((string)parse_url('https://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
 if ($origin !== '' && strtolower((string)parse_url($origin, PHP_URL_HOST)) !== $host) {
@@ -19,7 +21,8 @@ if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 25000) {
     http_response_code(413);
     exit('request_too_large');
 }
-$key = trim((string)($_SERVER['HTTP_X_GEMINI_API_KEY'] ?? ''));
+$key = voice_lab_saved_key((int)$labUser['id'], 'google', (string)($_SERVER['HTTP_X_GEMINI_API_KEY'] ?? ''));
+session_write_close();
 if (strlen($key) < 20 || strlen($key) > 256 || !preg_match('/^[A-Za-z0-9_-]+$/', $key)) {
     http_response_code(400);
     exit('gemini_key_required');
