@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-lab-8f73476f-publish",
+  "target": "appontrack-server11",
+  "job_sha256": "67abcc809d915352e499895395b0721ff632b331e8c7cdde0da0b05e27bb11d2",
+  "started_at": "2026-11-07T06:38:03.077402+00:00",
+  "status": "failed",
+  "exit_code": 1,
+  "output_truncated": false,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 10, in <module>\nValueError: corrupt offset\n",
+  "finished_at": "2026-11-07T06:38:03.179883+00:00",
+  "duration_ms": 103
+}
