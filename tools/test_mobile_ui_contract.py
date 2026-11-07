@@ -117,7 +117,7 @@ call_overlay=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack
 overlay_model=Path('saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/OverlayUiModel.kt').read_text()
 assert 'fun voiceRetryDue(' in routing and 'attempts in 1 until maxAttempts' in routing, 'LTE reconnect must have a hard per-call bound'
 assert service.count('catch(timeout:TimeoutCancellationException)')==2, 'Google setup and SIM observer must treat cellular timeouts as recoverable errors, not global cancellation'
-assert 'TenantCallRouting.voiceRetryDue(' in service and 'internetValidated()' in service, 'Retry only on validated mobile data'
+assert 'TenantCallRouting.voiceRetryDue(' in service and 'internetAvailableForRetry()' in service and 'CellularCallRecoveryPolicy.MAX_VOICE_START_ATTEMPTS' in service, 'Allow bounded LTE reconnection before VALIDATED while preserving no-network safety'
 assert 'audioAttemptCount=0;nextAudioRetryAt=0L' in service, 'Reset retries per call or SIM identity'
 assert 'onAudioDiagnostics=' in service and 'audioDiagnostic=diagnostic' in service, 'Show audio stage without exposing PCM'
 assert 'capturedPackets.incrementAndGet()' in session and 'modelAudioBytes.addAndGet' in session and 'submittedToShell.addAndGet' in session, 'Capture/AI/shell stages must be separately observable'
