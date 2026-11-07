@@ -63,6 +63,7 @@ audio{display:none}
 <header><div class="brand"><div class="logo">◉</div><div>OnTrack <span style="color:#fb536b">Voice Lab</span><br><small>تجربة مستقلة — Gemini × Fish Audio</small></div></div><div class="badge">Egyptian Arabic • Demo</div></header>
 <section class="panel hero">
 <h1>كلم المساعد بالمصري</h1>
+<p class="help" id="buildInfo">Voice Lab 2026.11.07.2 • Gemini 3.8 Live • حفظ الإعدادات</p>
 <p>Gemini يفهم ويرد بالمصري • Fish Drama 3 ينطق بمشاعر وتنهدات • المايك من المتصفح</p>
 <button id="mic" class="orb" aria-label="ابدأ مكالمة صوتية">🎙</button>
 <div id="status" class="status" role="status">جاهز للمكالمة</div>
@@ -70,7 +71,7 @@ audio{display:none}
 <div class="timing"><span id="brainTime">Gemini: —</span><span id="firstAudio">أول صوت: —</span><span id="totalTime">إجمالي: —</span></div>
 </section>
 <section class="panel"><h2>المحادثة</h2><div id="log" aria-live="polite"><p class="muted">ابدأ بالمايك أو اكتب رسالة. هتظهر هنا الجمل والردود.</p></div><form id="textForm" class="send"><input id="textInput" type="text" autocomplete="off" placeholder="اكتب حاجة بالمصري لو المايك مش متاح..." aria-label="رسالتك"><button type="submit">إرسال</button></form></section>
-<section class="panel"><details><summary>⚙️ إعدادات التجربة</summary>
+<section class="panel"><details open><summary>⚙️ إعدادات التجربة</summary>
 <div class="grid">
 <label>خدمة الصوت<select id="voiceMode"><option value="fish">Fish Audio — صوت مستنسخ</option><option value="browser">صوت المتصفح — بدون مفتاح</option></select></label>
 <label>موديل Fish<select id="fishModel"><option value="drama-3">drama-3 — المشاعر</option><option value="s2.1-pro-free">s2.1-pro-free — مجاني حسب حسابك</option><option value="s2.1-pro">s2.1-pro</option></select></label>
@@ -102,6 +103,7 @@ audio{display:none}
     saveSettings:el('saveSettings'),settingsStatus:el('settingsStatus'),fishSaved:el('fishSaved'),googleSaved:el('googleSaved'),removeFish:el('removeFish'),removeGoogle:el('removeGoogle')};
   let active=false, busy=false, listening=false, recognition=null, history=[], controller=null, blobUrl=null, generation=0;
   let live=null;
+  let liveTokenController=null;
   let csrfToken='';
   let settingsReady=Promise.resolve();
   let savedKeys={fish:false,google:false};
@@ -182,9 +184,11 @@ audio{display:none}
   // Gemini 3.8 Live: native PCM microphone -> Google Live -> output transcript -> Fish TTS.
   // A single-use ephemeral token avoids exposing the long-lived API key to a WebSocket URL.
   function stopLive(){
+    if(liveTokenController){liveTokenController.abort();liveTokenController=null;}
     const s=live;live=null;
     if(!s)return;
     s.closed=true;
+    if(s.handshakeTimer)clearTimeout(s.handshakeTimer);
     if(s.node){s.node.onaudioprocess=null;try{s.node.disconnect();}catch(e){}}
     if(s.silence){try{s.silence.disconnect();}catch(e){}}
     if(s.source){try{s.source.disconnect();}catch(e){}}
@@ -213,6 +217,7 @@ audio{display:none}
     return btoa(out);
   }
   async function captureLive(s){
+    status('Google Live اتصل — اسمح للمتصفح بالميكروفون عشان نبدأ نسمعك...');
     s.media=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
     if(live!==s||s.closed){s.media.getTracks().forEach(t=>t.stop());return;}
     s.context=new (window.AudioContext||window.webkitAudioContext)();
@@ -259,6 +264,7 @@ audio{display:none}
     let obj;try{obj=JSON.parse(raw);}catch(e){return;}
     if(obj.error){status('Gemini Live: '+(obj.error.message||obj.error.code||'error'));return;}
     if(obj.setupComplete){
+      if(s.handshakeTimer){clearTimeout(s.handshakeTimer);s.handshakeTimer=null;}
       s.ready=true;
       status('اتصلنا بـGemini 3.8 Live');
       if(s.withMic)captureLive(s).catch(e=>{status('مشكلة المايك: '+e.message);stopLive();active=false;$.mic.classList.remove('active');});
@@ -286,7 +292,19 @@ audio{display:none}
     if(!window.WebSocket)throw new Error('المتصفح لا يدعم WebSocket');
     if(!navigator.mediaDevices?.getUserMedia&&!firstText)throw new Error('الميكروفون يحتاج HTTPS ومتصفحًا حديثًا');
     const headers=await secureHeaders('google',$.googleKey.value.trim());
-    const response=await fetch('./live-token.php',{method:'POST',headers,body:'{}',cache:'no-store'});
+    const tokenController=new AbortController();
+    liveTokenController=tokenController;
+    const tokenTimer=setTimeout(()=>tokenController.abort(),18000);
+    let response;
+    try{
+      response=await fetch('./live-token.php',{method:'POST',headers,body:'{}',cache:'no-store',signal:tokenController.signal});
+    }catch(e){
+      if(e&&e.name==='AbortError')throw new Error('طلب توكن Live اتأخر أو اتلغى. راجع الإنترنت وأعد تشغيل المايك.');
+      throw e;
+    }finally{
+      clearTimeout(tokenTimer);
+      if(liveTokenController===tokenController)liveTokenController=null;
+    }
     if(!response.ok)throw new Error('تعذر استخراج توكن Live (HTTP '+response.status+'): '+(await response.text()).slice(0,140));
     const data=await response.json();
     if(!data.token)throw new Error('Google لم يرجع توكن جلسة Live');
@@ -295,6 +313,11 @@ audio{display:none}
     live=s;
     const endpoint='wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(data.token);
     const socket=new WebSocket(endpoint);s.socket=socket;
+    s.handshakeTimer=setTimeout(()=>{
+      if(live!==s||s.closed||s.ready)return;
+      stopLive();active=false;$.mic.classList.remove('active');$.mic.textContent='🎙';
+      status('Gemini Live ما أكملش الاتصال خلال 15 ثانية. جرّب تاني أو راجع API والـquota.');
+    },15000);
     socket.onopen=()=>{
       if(live!==s||s.closed)return;
       socket.send(JSON.stringify({setup:{
@@ -306,7 +329,11 @@ audio{display:none}
       }}));
     };
     socket.onmessage=e=>receiveLive(s,e.data);
-    socket.onerror=()=>{if(live===s)status('اتصال Gemini Live فشل؛ راجع صلاحية API والـquota');};
+    socket.onerror=()=>{
+      if(live!==s||s.closed)return;
+      stopLive();active=false;$.mic.classList.remove('active');$.mic.textContent='🎙';
+      status('اتصال Gemini Live فشل؛ راجع صلاحية API والـquota، واضغط المايك لإعادة المحاولة.');
+    };
     socket.onclose=e=>{
       if(live!==s||s.closed)return;
       stopLive();active=false;$.mic.classList.remove('active');$.mic.textContent='🎙';
