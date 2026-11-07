@@ -1,0 +1,13 @@
+{
+  "job_id": "v1-saas-42329968772",
+  "target": "appontrack-server11",
+  "job_sha256": "b21d30f1efd916c4a4cc1cdc8ae168c3f771f170b565956f9d047d84009b834e",
+  "started_at": "2026-11-07T02:40:03.566636+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"result\": \"deployed\", \"source\": \"78a2b7d2552e\", \"target\": \"/\", \"files\": 86, \"rewritten\": 8, \"php\": \"8.3\", \"seed\": {\"status\": \"already_seeded\", \"users\": 9}, \"private_rollback\": \"/home/appontrack/backup/releases/78a2b7d2552e\", \"android_compat\": true, \"knowledge_cron_installed\": true}\n",
+  "stderr": "",
+  "finished_at": "2026-11-07T02:40:29.466937+00:00",
+  "duration_ms": 25900
+}
