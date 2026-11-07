@@ -1,0 +1,36 @@
+name: Recover verified IO Premium signed APK to GitHub Release (NO REBUILD)
+on:
+  push:
+    branches: [feat/v1-io-premium-20261107]
+    paths:
+      - 'tools/recover_io_premium_candidate.py'
+      - '.github/workflows/voice-io-premium-recover.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ontrack-io-premium-signed-candidate-recovery
+  cancel-in-progress: false
+jobs:
+  recover:
+    name: Verify preserved v50 APK and release without Actions artifact storage
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - name: Checkout recovery script
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify exact historical signed APK and publish immutable release asset
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/recover_io_premium_candidate.py
+          if ($LASTEXITCODE -ne 0) { throw 'Signed candidate recovery validation or release upload failed; production unchanged' }
+          Write-Host 'IO_PREMIUM_VERIFIED_SIGNED_RELEASE: PASS'
