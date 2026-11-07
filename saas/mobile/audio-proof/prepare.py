@@ -56,13 +56,18 @@ def main(root):
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
     text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")\n    implementation("com.google.genai:google-genai-kotlin:2.0.0")\n    androidTestImplementation("androidx.test:runner:1.6.2")\n    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n    androidTestImplementation("androidx.test:core:1.6.1")', 'mobile websocket transport')
-    # The official Google Gen AI SDK pulls two Google Auth jars containing
-    # META-INF/INDEX.LIST. This is a build-time JAR index, not runtime data.
-    # Exclude only that duplicate index; leave services/licenses untouched.
+    # Google GenAI brings several transitive Google Auth / Apache HttpClient
+    # jars sharing non-executable JAR metadata. Keep services and licenses:
+    # drop only duplicate indexes/dependency reports, and retain one copy
+    # of legally relevant notices if their paths collide.
     text = replace_once(text,
                         '        resources {\n            // BouncyCastle',
-                        '        resources {\n            excludes += "META-INF/INDEX.LIST"\n            // BouncyCastle',
-                        'google auth duplicated java resource index')
+                        '        resources {\n'
+                        '            excludes += setOf("META-INF/INDEX.LIST", "META-INF/DEPENDENCIES")\n'
+                        '            pickFirsts += setOf("META-INF/LICENSE", "META-INF/LICENSE.txt",\n'
+                        '                "META-INF/NOTICE", "META-INF/NOTICE.txt")\n'
+                        '            // BouncyCastle',
+                        'google auth/apache duplicated java resource metadata')
     path.write_text(text)
     path = root / 'shellserver/src/com/jemcik/jemrec/shell/GreetingPlayer.java'
     text = path.read_text().replace('private static AudioTrack musicTrack(', 'static AudioTrack musicTrack(').replace('private static AudioTrack screeningTrack(', 'static AudioTrack screeningTrack(')
