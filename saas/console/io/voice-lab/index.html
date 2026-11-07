@@ -73,7 +73,7 @@ main{max-width:1170px;padding:22px 22px 40px;margin:auto}.topbar{display:flex;al
 <div id="log" aria-live="polite"><div class="log-placeholder" id="logPlaceholder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.7 8.7 0 0 1-4-.96L3 21l1.85-5.55A8.5 8.5 0 1 1 21 11.5Z"/></svg><strong>المكالمة لسه ما بدأتش</strong><span>اضغط زر التليفون واتكلم، أو اكتب رسالة من تحت.</span></div></div>
 <form id="textForm" class="send"><input id="textInput" type="text" autocomplete="off" placeholder="ابعت رسالة للمساعدة..." aria-label="رسالتك"><button type="submit">إرسال</button></form>
 <p class="input-note">Gemini Live للفهم • Fish Audio للنطق • إعداداتك محفوظة</p></section></div>
-<p id="buildInfo">Voice Lab 2026.11.07.9 • Hotline UI • Gemini 3.8 Live → Fish Audio</p>
+<p id="buildInfo">Voice Lab 2026.11.07.10 • Hotline UI • Gemini 3.8 Live → Fish Audio</p>
 <audio id="player" playsinline></audio>
 </main>
 <script type="module">
@@ -296,7 +296,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
       const onStart=()=>{
         diagnostic('fish_first_audio',{elapsed_ms:Math.round(performance.now()-begin)});
         ui.first.textContent='Fish أول صوت: '+Math.round(performance.now()-begin)+'ms';
-        setCallState('speaking');status('Fish Audio بيتكلم...');
+        if(active)setCallState('speaking');status('Fish Audio بيتكلم...');
       };
       if(!response.body||!window.MediaSource||!MediaSource.isTypeSupported('audio/mpeg')){
         const blob=await response.blob();
