@@ -216,7 +216,8 @@ internal class MobileLiveCall(
             if(premium){
                 startOfficialPremium()
             }else openSocket()
-            withTimeout(25000){ready.await()}
+            // During 3G/H+ fallback the Google Live TLS handshake may run slower.
+            withTimeout(if(isCellularLink())35000L else 25000L){ready.await()}
             check(!stopped.get())
             // A WebSocket setup and PCM header do not prove VoLTE uplink audio.
             // Report only aggregate stage counters after startup, never audio bytes.
