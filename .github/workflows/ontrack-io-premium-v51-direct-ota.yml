@@ -1,5 +1,8 @@
 name: Publish signed IO Premium 0.3.28 v51 via direct SSH (no Host-Link)
 on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths: ['.github/workflows/ontrack-io-premium-v51-direct-ota.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,7 +28,7 @@ jobs:
         run: |
           $ErrorActionPreference='Stop'
           $repo='OnTrack-Development/OnTrack-voice'
-          $sourceRun='42405239868'
+          $sourceRun='42410726144'
           $headers=@{Authorization=('Bearer '+$env:GH_TOKEN);Accept='application/vnd.github+json';'User-Agent'='OnTrack-Direct-SSH-Publisher'}
           $r=Invoke-RestMethod -Uri ('https://api.github.com/repos/'+$repo+'/actions/runs/'+$sourceRun) -Headers $headers -TimeoutSec 20
           if($r.status -ne 'completed' -or $r.conclusion -ne 'success' -or $r.head_branch -ne 'feat/io-premium-native-v51-20261107'){throw 'Pinned signed v51 build did not pass'}
@@ -48,7 +51,7 @@ jobs:
       - name: Create original-signer signed UI51 and native51 manifests
         run: |
           $ErrorActionPreference='Stop'
-          $base=Join-Path 'D:\ai\OnTrack-Voice-Builds\v1-candidates' '42405239868'
+          $base=Join-Path 'D:\ai\OnTrack-Voice-Builds\v1-candidates' '42410726144'
           $apk=Join-Path $base 'OnTrack-Voice-0.3.28.apk'
           $out='.build\io-v51-delivery'
           $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
@@ -74,7 +77,7 @@ jobs:
           $stage='/home/appontrack/.ontrack-mobile/io-premium-v51-stage'
           & ssh.exe @flags -p 7195 $dest ('mkdir -p '+$stage+'/native '+$stage+'/ui')
           if($LASTEXITCODE -ne 0){throw 'Cannot create private signed OTA stage'}
-          $base=Join-Path 'D:\ai\OnTrack-Voice-Builds\v1-candidates' '42405239868'
+          $base=Join-Path 'D:\ai\OnTrack-Voice-Builds\v1-candidates' '42410726144'
           & scp.exe @flags -P 7195 (Join-Path $base 'OnTrack-Voice-0.3.28.apk') ($dest+':'+$stage+'/native/OnTrack-Voice-0.3.28.apk')
           if($LASTEXITCODE -ne 0){throw 'Signed APK transfer failed'}
           foreach($scope in @('native','ui')){
