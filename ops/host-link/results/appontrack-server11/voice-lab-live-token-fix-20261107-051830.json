@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-lab-live-token-fix-20261107-051830",
+  "target": "appontrack-server11",
+  "job_sha256": "a656ba0e124b69793e9cf80de4ee363ecc673c09f675c3815df3d828b870998b",
+  "started_at": "2026-11-07T05:19:02.305111+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"status\": \"deployed_verified\", \"php_lint\": true, \"old_error_removed\": true, \"minimal_payload\": true, \"file_sha256\": \"5b52884a56c9a34acd41fe0dfedd32b69dec5f42cb63988f65ffc23c88a44e59\", \"backup_created\": true}\n",
+  "stderr": "",
+  "finished_at": "2026-11-07T05:19:02.537783+00:00",
+  "duration_ms": 233
+}
