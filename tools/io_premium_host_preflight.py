@@ -22,6 +22,17 @@ for pointer in ('mobile/updates/latest.json','mobile/updates/native/latest.json'
    v[pointer]['revision']=meta.get('revision')
    v[pointer]['version_code']=meta.get('version_code')
    v[pointer]['sha256']=meta.get('sha256')
+   v[pointer]['version_name']=meta.get('version_name')
+   v[pointer]['size']=meta.get('size')
+   v[pointer]['file']=meta.get('file')
+   v[pointer]['source_commit']=meta.get('source_commit')
+   v[pointer]['min_native']=meta.get('min_native')
+   v[pointer]['max_native']=meta.get('max_native')
+   if 'native' in pointer and meta.get('file'):
+    import hashlib
+    apk=root/'mobile/updates/native'/meta['file']
+    v[pointer]['apk_exists']=apk.is_file()
+    v[pointer]['apk_sha_matches']=hashlib.sha256(apk.read_bytes()).hexdigest()==meta['sha256'] if apk.is_file() and not apk.is_symlink() and apk.stat().st_size<30*1024*1024 else False
   except Exception:v[pointer]['manifest_valid']=False
 for name in ('_core/Bootstrap.php','_core/TenantVoiceSession.php','device/v1/index.php'):
  p=root/name
