@@ -454,6 +454,8 @@ class MobileLinkActivity:ComponentActivity(){
                             .put("agent_id",profile.optInt("agent_id",-1))
                             .put("site_id",profile.optInt("site_id",-1))
                             .put("agent_name",profile.optString("agent_name","").take(140))
+                            .put("voice_label",if(profile.optString("voice")=="io.premium")
+                                "IO Premium" else profile.optString("voice","").substringAfterLast('.'))
                             .put("site_name",profile.optString("site_name","").take(140))
                             .put("account_name",profile.optString("account_name","").take(140))
                             .put("purpose",purpose)
