@@ -31,15 +31,19 @@ if (!is_array($payload) || !is_array($payload['keys'] ?? null)
 $allowed = [
     'emotionLevel' => ['intense','expressive','subtle'],
     'autoListen' => ['no','yes'],
+    'fishModel' => ['drama-3','s2.1-pro-free','s2.1-pro'],
 ];
 $preferences = [];
 foreach ($allowed as $name => $options) {
-    $value = $payload['settings'][$name] ?? '';
+    $value = $payload['settings'][$name] ?? ($name === 'fishModel' ? 'drama-3' : '');
     if (!is_string($value) || !in_array($value, $options, true)) voice_lab_error(422, 'invalid_setting');
     $preferences[$name] = $value;
 }
 if (!is_bool($payload['settings']['emotions'] ?? null)) voice_lab_error(422, 'invalid_emotions');
 $preferences['emotions'] = $payload['settings']['emotions'];
+$voiceId = strtolower(trim((string)($payload['settings']['voiceId'] ?? '')));
+if (!preg_match('/^[a-f0-9]{32}$/D', $voiceId)) voice_lab_error(422, 'invalid_fish_voice_id');
+$preferences['voiceId'] = $voiceId;
 
 $fish = $payload['keys']['fish'] ?? '';
 $google = $payload['keys']['google'] ?? '';
