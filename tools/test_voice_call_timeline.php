@@ -58,9 +58,31 @@ try{
     $bad=$entry;$bad['event_id']='utterance-000002';$bad['event_type']='spoken_text';$bad['speaker']='caller';
     $denied=false;try{voice_call_timeline_store($ours,$bad);}catch(InvalidArgumentException){$denied=true;}
     timeline_check($denied,'caller cannot be claimed as agent spoken text');
+    $agentEvent=$entry;
+    $agentEvent['event_id']='utterance-agent-0001';
+    $agentEvent['speaker']='agent';
+    $agentEvent['event_type']='spoken_text';
+    $agentEvent['text']='هل الميعاد الصباحي مناسب لحضرتك؟';
+    voice_call_timeline_store($ours,$agentEvent);
+    $followup=$entry;
+    $followup['event_id']='utterance-000003';
+    $followup['text']='متاح يوم الاتنين؟';
+    $followup['occurred_at']=gmdate('Y-m-d H:i:s',time()+1);
+    voice_call_timeline_store($ours,$followup);
+    $second=$followup;$second['event_id']='utterance-000004';
+    $second['text']='أفضل بعد الضهر';
+    voice_call_timeline_store($ours,$second);
     $evidence=voice_call_evidence(4,1,$ours['id'],0,$call);
-    timeline_check(count($evidence['transcript_events'])===1,'one real utterance listed');
+    timeline_check(count($evidence['transcript_events'])===4,'all four immutable utterances preserved');
+    timeline_check(count($evidence['grouped_transcript'])===3&&
+        $evidence['grouped_transcript'][2]['event_count']===2,
+        'adjacent caller fragments grouped for display, agent not merged');
+    timeline_check($evidence['grouped_transcript'][2]['event_ids']===
+        ['utterance-000003','utterance-000004'],
+        'grouped transcript keeps source event IDs for audit');
     timeline_check($evidence['transcript_events'][0]['origin']==='device_reported','honest provenance');
+    timeline_check($evidence['verified_references']===[],
+        'call without verified external requests has no fabricated API references');
     $denied=false;try{voice_call_evidence(5,1,$ours['id'],0,$call);}catch(InvalidArgumentException){$denied=true;}
     timeline_check($denied,'history cross-tenant filter');
     echo "VOICE_CALL_TIMELINE_EVIDENCE_PASS\n";

@@ -261,6 +261,17 @@ function tenant_call_report_save(array $binding,array $data,string $source='devi
     $db->beginTransaction();
     try{
         $current=tenant_call_report_find($binding,$callId);
+        // A real employee acknowledgement is a separate conscious operator
+        // confirmation. Merely creating the report cannot turn a caller's
+        // request into a completed handoff (including simulated audio calls).
+        if($handoff==='completed'&&($current['handoff_status']??'not_requested')!=='completed'){
+            if($source!=='manual'||($current['handoff_status']??'not_requested')!=='requested'||
+               ($data['staff_acknowledged']??false)!==true)
+                throw new InvalidArgumentException('human_handoff_explicit_staff_confirmation_required');
+        }
+        if($source==='device'&&($current['handoff_status']??'not_requested')==='requested'&&
+           $handoff==='not_requested')
+            throw new InvalidArgumentException('human_handoff_request_cannot_be_erased_by_device');
         $args=[$summary,$notes,$outcome,$handoff,$reason,$source,now(),
             (int)$binding['account_id'],(int)$binding['site_id'],(int)$binding['id'],$callId];
         if($current){

@@ -61,7 +61,8 @@ function google_voice_failover_register(array $binding,array $definition,array $
     google_voice_failover_assert_live_binding($binding,(int)$definition['agent_id']);
     $key=ai_relay_one($keyId,$ownerId);
     if(!$key||$key['scope']!=='voice'||$key['driver']!=='google_live'||
-       (int)$key['enabled']!==1)
+       (int)$key['enabled']!==1||
+       (!empty($key['cooldown_until'])&&$key['cooldown_until']>now()))
         throw new RuntimeException('voice_failover_pool_mismatch');
     google_voice_failover_schema();
     $ticket=bin2hex(random_bytes(24));
@@ -113,7 +114,8 @@ function google_voice_failover_rotate(array $binding,string $ticket,int $generat
         google_voice_failover_assert_live_binding($binding,(int)$row['agent_id']);
         $keyId=(int)$row['current_key_id'];
         $key=ai_relay_one($keyId,$owner);
-        if(!$key || $key['scope']!=='voice' || $key['driver']!=='google_live')
+        if(!$key || $key['scope']!=='voice' || $key['driver']!=='google_live' ||
+           (int)$key['enabled']!==1)
             throw new RuntimeException('voice_failover_key_not_owned');
         $changed=execute("UPDATE google_voice_live_calls SET state='switching'
             WHERE ticket=? AND generation=? AND state='active'",[$ticket,$generation]);

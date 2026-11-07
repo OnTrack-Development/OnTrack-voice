@@ -1168,7 +1168,8 @@ function act():void {
                     'customer_notes'=>field('customer_notes',4000),
                     'outcome'=>required('outcome',32),
                     'handoff_status'=>required('handoff_status',24),
-                    'handoff_reason'=>field('handoff_reason',2000)
+                    'handoff_reason'=>field('handoff_reason',2000),
+                    'staff_acknowledged'=>(string)($_POST['staff_acknowledged']??'')==='yes'
                 ],'manual');
                 audit('call.report.updated',$id,['call_record_id'=>(int)$row['id'],
                     'sim_slot'=>(int)$row['sim_slot'],'report_revision'=>

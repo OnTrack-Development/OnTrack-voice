@@ -1325,13 +1325,26 @@ function render_calls(array $a):void{
             $evidence=voice_call_evidence($id,(int)$selected['site_id'],
                 (int)$selected['device_binding_id'],(int)$selected['sim_slot'],
                 (string)$selected['external_call_id']);
-            if($evidence['transcript_events']){
-                $realEvidence.='<details class="call-real-transcript"><summary>خط زمني مسجل من الجهاز · المتحدث والوقت</summary>'.
-                    '<p class="dim">مصدر السطور: بلاغات التطبيق؛ لا يعتبر إثباتًا مستقلاً لصحة تفريغ الصوت أو تسجيل GSM.</p>';
-                foreach($evidence['transcript_events'] as $evidenceEvent)
-                    $realEvidence.='<p><small>'.e($evidenceEvent['occurred_at']).' · '.
-                        e($evidenceEvent['speaker']).' · '.e($evidenceEvent['event_type']).'</small>'.
-                        '<span>'.nl2br(e($evidenceEvent['content'])).'</span></p>';
+            if($evidence['grouped_transcript']){
+                $realEvidence.='<details class="call-real-transcript"><summary>محادثة المتصل والإيجنت · مرتبة حسب الوقت</summary>'.
+                    '<p class="dim">المحتوى من أحداث جهاز الهاتف فقط. السطور المتتالية لنفس المتحدث مجمعة للعرض؛ '.
+                    'يمكن تدقيق المعرفات والتوقيتات الأصلية. التفريغ ليس تسجيل GSM مؤكدًا.</p>';
+                foreach($evidence['grouped_transcript'] as $utterance)
+                    $realEvidence.='<p><small>'.e($utterance['first_at']).
+                        ($utterance['last_at']!==$utterance['first_at']?' → '.e($utterance['last_at']):'').
+                        ' · '.e($utterance['speaker']).' · '.e($utterance['event_type']).
+                        ' · '.(int)$utterance['event_count'].' حدث</small>'.
+                        '<span>'.nl2br(e($utterance['content'])).'</span>'.
+                        '<small dir="ltr">Event IDs: '.e(implode(', ',$utterance['event_ids'])).'</small></p>';
+                $realEvidence.='</details>';
+            }
+            if($evidence['verified_references']){
+                $realEvidence.='<details class="call-real-transcript"><summary>معرّفات API المؤكدة لهذه المكالمة</summary>'.
+                    '<p class="dim">مراجع رجعت من مزود خارجي بحالة succeeded مرتبطة بنفس Call ID؛ '.
+                    'ليست استنتاجات من النص المتحدث.</p>';
+                foreach($evidence['verified_references'] as $ref)
+                    $realEvidence.='<p><small>'.e($ref['completed_at']).' · '.
+                        e($ref['operation']).'</small> · مرجع '.e($ref['reference_id']).'</p>';
                 $realEvidence.='</details>';
             }
             if($evidence['tool_traces']){
@@ -1405,6 +1418,10 @@ function render_calls(array $a):void{
                         'completed'=>'تم تأكيد استلام موظف'
                     ],(string)($selected['handoff_status']??'not_requested')).
                     '<label class="field">سبب طلب الموظف وملاحظات المتابعة<textarea name="handoff_reason" maxlength="2000" rows="2">'.e((string)($selected['handoff_reason']??'')).'</textarea></label>'.
+                    '<label class="field"><input type="checkbox" name="staff_acknowledged" value="yes"> '.
+                    'أؤكد أن موظفًا استلم طلب العميل بالفعل خارج المكالمة؛ لا تحدد «مكتمل» بغير هذا الإقرار.</label>'.
+                    '<p class="dim">المرحلة الأولى تسجل الطلب والسبب والملخص وحالة التدخل كما وقعت. '.
+                    'اتصال المدير تلقائيًا بعد 10 ثوانٍ ليس إثباتًا للتسليم ولا جزءًا من قبول هذه المرحلة.</p>'.
                     '<button class="btn primary" type="submit">حفظ التقرير والملاحظات</button></form></section>';
             }
     }else echo '<div class="calls-empty">اختار مكالمة لعرض التفاصيل بعد مزامنتها من الشريحة.</div>';

@@ -44,6 +44,13 @@ try {
     };
     $initial=$mint(5);
     failover_check($initial['entry_id']===$key1,'primary key selected at call start');
+    // Reject pre-existing cooldown or revoked primary keys before a failover
+    // ticket can be handed to a real paired SIM.
+    ai_relay_mark($key1,'503');
+    failover_reject(static fn()=>google_voice_failover_register($binding=['id'=>$bindingFixtureId,
+        'account_id'=>5,'site_id'=>3,'agent_id'=>3,'sim_slot'=>0],$def,$initial),
+        'voice_failover_pool_mismatch');
+    ai_relay_modify($key1,'reset',$reseller);
     ai_relay_modify($key1,'toggle',$reseller);
     failover_reject(static fn()=>google_voice_failover_register($binding,$def,$initial),
         'voice_failover_pool_mismatch');
@@ -83,6 +90,35 @@ try {
     // Revocation during the external token request must not return a token.
     ai_relay_modify($key1,'reset',$reseller);
     ai_relay_modify($key2,'reset',$reseller);
+    // Multiple keys can be cooled independently, not all tenants' keys.
+    ai_relay_mark($key1,'503');
+    $during503=ai_relay_one($key1,$reseller);
+    failover_check($during503['last_status']==='503'&&
+        strtotime((string)$during503['cooldown_until'])-time()>=895,
+        '503 cooldown is 900 seconds');
+    ai_relay_modify($key1,'reset',$reseller);
+    ai_relay_mark($key2,'timeout');
+    $duringTimeout=ai_relay_one($key2,$reseller);
+    failover_check($duringTimeout['last_status']==='timeout'&&
+        strtotime((string)$duringTimeout['cooldown_until'])-time()>=895,
+        'timeout cooldown is 900 seconds');
+    ai_relay_modify($key2,'reset',$reseller);
+    // 4-key pool: three bounded rotations, no stale callback or loop.
+    $ids[]=$key3=ai_relay_add($reseller,'voice','google_live','Failover third','gemini-3.8-live','','test-reseller-pool-key-three');
+    $ids[]=$key4=ai_relay_add($reseller,'voice','google_live','Failover fourth','gemini-3.8-live','','test-reseller-pool-key-four');
+    $primaryForFour=$mint(5);
+    failover_check($primaryForFour['entry_id']===$key1,'four-key pool starts at primary');
+    $multi=google_voice_failover_register($binding,$def,$primaryForFour)['failover_ticket'];
+    $tickets[]=$multi;
+    $rot1=google_voice_failover_rotate($binding,$multi,0,'429',$mint);
+    $rot2=google_voice_failover_rotate($binding,$multi,1,'503',$mint);
+    $rot3=google_voice_failover_rotate($binding,$multi,2,'timeout',$mint);
+    failover_check($rot1['failover_generation']===1&&$rot2['failover_generation']===2&&
+        $rot3['failover_generation']===3&&$rot3['hash']===$def['flow_hash']&&
+        $rot3['revision']===4,'four-key bounded failover preserves original flow and revision');
+    failover_reject(static fn()=>google_voice_failover_rotate($binding,$multi,3,'429',$mint),
+        'voice_failover_invalid_request');
+    foreach([$key1,$key2,$key3,$key4] as $keyId)ai_relay_modify($keyId,'reset',$reseller);
     $ticket2=google_voice_failover_register($binding,$def,$initial)['failover_ticket'];
     $tickets[]=$ticket2;
     $revokingMint=static function(int $caller)use($mint,$bindingFixtureId):array {

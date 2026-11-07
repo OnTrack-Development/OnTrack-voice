@@ -71,12 +71,52 @@ function voice_call_timeline_store(array $binding,array $payload):array {
       [...$scope,$eventId,$speaker,$event,trim($content),$at,now()]);
     return ['saved'=>true,'duplicate'=>false];
 }
+
+/**
+ * Fold adjacent utterance chunks only for presentation, never mutate the
+ * append-only device event ledger. Bound each group and preserve the event IDs
+ * and timestamps for an operator to audit the original evidence.
+ */
+function voice_call_group_transcript_events(array $messages):array {
+    $grouped=[];
+    foreach($messages as $event){
+        if(!is_array($event))continue;
+        $speaker=(string)($event['speaker']??'unknown');
+        $kind=(string)($event['event_type']??'notice');
+        $origin=(string)($event['origin']??'device_reported');
+        $content=trim((string)($event['content']??''));
+        $when=(string)($event['occurred_at']??'');
+        if($content==='')continue;
+        $eventId=(string)($event['event_id']??'');
+        $last=count($grouped)-1;
+        $prior=$last>=0?$grouped[$last]:null;
+        $previousAt=$prior?strtotime($prior['last_at'].' UTC'):false;
+        $nowAt=strtotime($when.' UTC');
+        $same=$prior&&$kind==='transcript'&&$prior['event_type']==='transcript'&&
+            $prior['speaker']===$speaker&&$prior['origin']===$origin&&
+            $nowAt!==false&&$previousAt!==false&&$nowAt>=$previousAt&&
+            $nowAt-$previousAt<=20&&$prior['event_count']<8&&
+            mb_strlen($prior['content'])+mb_strlen($content)<4000;
+        if($same){
+            $grouped[$last]['content'].="\n".$content;
+            $grouped[$last]['last_at']=$when;
+            $grouped[$last]['event_count']++;
+            $grouped[$last]['event_ids'][]=$eventId;
+        }else{
+            $grouped[]=['speaker'=>$speaker,'event_type'=>$kind,'origin'=>$origin,
+                'content'=>$content,'first_at'=>$when,'last_at'=>$when,
+                'event_count'=>1,'event_ids'=>[$eventId]];
+        }
+    }
+    return $grouped;
+}
+
 function voice_call_evidence(int $accountId,int $siteId,int $bindingId,int $slot,string $callId):array {
     voice_call_timeline_init();
     $call=one('SELECT id FROM calls WHERE account_id=? AND site_id=? AND device_binding_id=?
        AND sim_slot=? AND external_call_id=?',[$accountId,$siteId,$bindingId,$slot,$callId]);
     if(!$call)throw new InvalidArgumentException('timeline_call_not_owned');
-    $messages=all('SELECT speaker,event_type,content,origin,occurred_at,received_at
+    $messages=all('SELECT event_id,speaker,event_type,content,origin,occurred_at,received_at
        FROM voice_call_timeline WHERE account_id=? AND site_id=?
        AND device_binding_id=? AND sim_slot=? AND call_id=?
        ORDER BY occurred_at,id LIMIT 300',[$accountId,$siteId,$bindingId,$slot,$callId]);
@@ -87,5 +127,17 @@ function voice_call_evidence(int $accountId,int $siteId,int $bindingId,int $slot
           WHERE account_id=? AND site_id=? AND call_id=? ORDER BY id LIMIT 100',
           [$accountId,$siteId,$callId]);
     }
-    return ['transcript_events'=>$messages,'tool_traces'=>$tools];
+    // Matched, verified provider references are distinct from transient tool
+    // traces and never inferred from the spoken transcript.
+    $references=[];
+    if(function_exists('voice_tools_init')){
+        $references=all("SELECT operation,reference_id,status,completed_at
+           FROM voice_tool_requests
+           WHERE account_id=? AND site_id=? AND call_id=? AND status='succeeded'
+             AND reference_id IS NOT NULL AND reference_id!=''
+           ORDER BY id DESC LIMIT 30",[$accountId,$siteId,$callId]);
+    }
+    return ['transcript_events'=>$messages,
+        'grouped_transcript'=>voice_call_group_transcript_events($messages),
+        'tool_traces'=>$tools,'verified_references'=>$references];
 }

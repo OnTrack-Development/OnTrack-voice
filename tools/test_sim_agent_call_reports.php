@@ -142,13 +142,36 @@ try {
     $reject=false;try{tenant_workspace_call_report($other,[
         'call_id'=>$callId,'summary'=>'غير مصرح']);}catch(InvalidArgumentException){$reject=true;}
     finding_ok($reject,'foreign company blocked');
+    // A selected status is not proof that a staff member answered.
+    $reject=false;
+    try{tenant_call_report_save($binding,[
+        'call_id'=>$callId,'summary'=>'إقرار مزيف',
+        'handoff_status'=>'completed',
+        'handoff_reason'=>'لا يوجد تأكيد بشري'],'manual');
+    }catch(InvalidArgumentException $e){
+        $reject=$e->getMessage()==='human_handoff_explicit_staff_confirmation_required';
+    }
+    finding_ok($reject,'manual selection alone cannot claim staff accepted handoff');
     $summary=tenant_call_report_save($binding,[
         'call_id'=>$callId,'summary'=>'طلب المنتج والتسليم',
         'customer_notes'=>'يتابع معه أحمد','outcome'=>'follow_up',
-        'handoff_status'=>'completed','handoff_reason'=>'أكد الموظف الاستلام عبر لوحة الإدارة'
+        'handoff_status'=>'completed','handoff_reason'=>'أكد الموظف الاستلام عبر لوحة الإدارة',
+        'staff_acknowledged'=>true
     ],'manual');
     finding_ok($summary['report']['handoff_status']==='completed',
         'human confirmation recorded explicitly');
+    $fresh='f00fbabc-52b2-4de9-95e8-a37beaf14391';
+    tenant_workspace_call_event($binding,[
+        'call_id'=>$fresh,'sequence'=>1,'phase'=>'ringing','duration_seconds'=>0]);
+    $reject=false;
+    try{tenant_call_report_save($binding,[
+        'call_id'=>$fresh,'summary'=>'لم يُطلب تدخل',
+        'handoff_status'=>'completed','handoff_reason'=>'تم بنقرة',
+        'staff_acknowledged'=>true],'manual');}
+    catch(InvalidArgumentException $e){
+        $reject=$e->getMessage()==='human_handoff_explicit_staff_confirmation_required';
+    }
+    finding_ok($reject,'cannot invent staff confirmation without a prior request');
     $reject=false;try{tenant_workspace_call_report($binding,[
         'call_id'=>$callId,'summary'=>'حذف التحويل']);}catch(InvalidArgumentException){$reject=true;}
     finding_ok($reject,'device cannot override human confirmation');
