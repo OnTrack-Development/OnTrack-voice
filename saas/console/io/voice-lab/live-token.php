@@ -7,16 +7,19 @@ header('Cache-Control: no-store, max-age=0');
 header('X-Content-Type-Options: nosniff');
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') { header('Allow: POST'); http_response_code(405); exit('method_not_allowed'); }
 $labUser = voice_lab_access(true);
+$trace = (string)($_SERVER['HTTP_X_VOICE_LAB_TRACE'] ?? 'unknown');
+$traceStart = microtime(true);
+voice_lab_trace_log((int)$labUser['id'], $trace, 'token_request');
 $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
 $host = strtolower((string)parse_url('https://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
 if ($origin !== '' && strtolower((string)parse_url($origin, PHP_URL_HOST)) !== $host) { http_response_code(403); exit('wrong_origin'); }
 if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 2048) { http_response_code(413); exit('request_too_large'); }
 $key = voice_lab_saved_key((int)$labUser['id'], 'google', (string)($_SERVER['HTTP_X_GEMINI_API_KEY'] ?? ''));
 session_write_close();
-if ($key === '') { http_response_code(400); exit('gemini_key_required'); }
+if ($key === '') { voice_lab_trace_log((int)$labUser['id'], $trace, 'token_missing_key'); http_response_code(400); exit('gemini_key_required'); }
 // Provider decides validity; only reject unsafe HTTP-header values.
 if (strlen($key) > 2048 || preg_match('/[\x00-\x1F\x7F]/', $key)) { http_response_code(400); exit('unsafe_google_key'); }
-if (!function_exists('curl_init')) { http_response_code(503); exit('host_curl_extension_missing'); }
+if (!function_exists('curl_init')) { voice_lab_trace_log((int)$labUser['id'], $trace, 'token_host_curl_missing'); http_response_code(503); exit('host_curl_extension_missing'); }
 // Use the documented minimal REST payload. Google defaults to a one-minute
 // new-session window and a 30-minute token lifetime. An unsupported constraint
 // must not prevent an otherwise valid owner API key from connecting.
@@ -34,7 +37,11 @@ curl_setopt_array($client, [
 ]);
 $out = curl_exec($client);
 $code = (int)curl_getinfo($client, CURLINFO_HTTP_CODE);
+$curlErrno = curl_errno($client);
 curl_close($client);
+$traceMeta = ['http_status'=>$code, 'curl_errno'=>$curlErrno,
+    'elapsed_ms'=>(int)round((microtime(true) - $traceStart) * 1000)];
+voice_lab_trace_log((int)$labUser['id'], $trace, !is_string($out) ? 'token_transport_error' : ($code >= 200 && $code < 300 ? 'token_http_success' : 'token_upstream_error'), $traceMeta);
 if (!is_string($out)) { http_response_code(502); exit('live_token_network_error'); }
 if ($code < 200 || $code >= 300) {
     $decodedError = json_decode($out, true);
@@ -59,5 +66,5 @@ if ($code < 200 || $code >= 300) {
 }
 $decoded = json_decode($out, true);
 $token = is_array($decoded) ? (string)($decoded['name'] ?? '') : '';
-if ($token === '') { http_response_code(502); exit('live_token_missing'); }
+if ($token === '') { voice_lab_trace_log((int)$labUser['id'], $trace, 'token_missing_response_field'); http_response_code(502); exit('live_token_missing'); }
 echo json_encode(['token' => $token, 'model' => 'gemini-3.8-live'], JSON_UNESCAPED_SLASHES);
