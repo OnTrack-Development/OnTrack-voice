@@ -55,7 +55,7 @@ def main(root):
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
-    text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")\n    androidTestImplementation("androidx.test:runner:1.6.2")\n    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n    androidTestImplementation("androidx.test:core:1.6.1")', 'mobile websocket transport')
+    text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")\n    implementation("com.google.genai:google-genai-kotlin:2.0.0")\n    androidTestImplementation("androidx.test:runner:1.6.2")\n    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n    androidTestImplementation("androidx.test:core:1.6.1")', 'mobile websocket transport')
     path.write_text(text)
     path = root / 'shellserver/src/com/jemcik/jemrec/shell/GreetingPlayer.java'
     text = path.read_text().replace('private static AudioTrack musicTrack(', 'static AudioTrack musicTrack(').replace('private static AudioTrack screeningTrack(', 'static AudioTrack screeningTrack(')
