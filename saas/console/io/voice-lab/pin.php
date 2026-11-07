@@ -52,8 +52,10 @@ if ($config === null) {
     if (preg_match('/^[0-9]{6}$/D', $pin) !== 1) voice_lab_error(422, 'pin_six_digits_required');
     $folder = private_path() . '/voice-lab';
     if (!is_dir($folder) || is_link($folder)) voice_lab_error(503, 'pin_storage_unavailable');
+    // The original voice keys belong to the existing owner workspace, not necessarily this admin.
+    if (!is_file(private_path() . '/voice-lab/owner-1.json')) voice_lab_error(503, 'voice_keys_unavailable');
     $configured = [
-        'owner_uid'=>(int)me()['id'],
+        'owner_uid'=>1,
         'salt'=>bin2hex(random_bytes(20)),
         'iterations'=>250000,
         'version'=>bin2hex(random_bytes(12))
