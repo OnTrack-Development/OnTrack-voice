@@ -25,6 +25,58 @@ function io_premium_admin_state(): array {
         && in_array($model,['drama-3','s2.1-pro-free','s2.1-pro'],true);
     return ['key_saved'=>$keyReady,'voice_id'=>$voiceId,'fish_model'=>$model,'configured'=>$configured];
 }
+/**
+ * Platform-wide availability is independent of users' BYOK keys and the old
+ * manual voice_grants table. In limited mode, the oldest N active reseller /
+ * customer accounts receive the slots deterministically. The platform owner
+ * is excluded from that cap; disabled always denies everyone.
+ */
+function io_premium_access_policy():array {
+    $settings=io_premium_admin_profile()['settings'];
+    $mode=(string)($settings['accessMode']??'all');
+    if(!in_array($mode,['all','limited','off'],true))$mode='off';
+    $limit=max(0,min(100000,(int)($settings['accessLimit']??0)));
+    return ['mode'=>$mode,'limit'=>$limit];
+}
+function io_premium_access_allowed(int $accountId):bool {
+    if($accountId<1)return false;
+    $acct=account($accountId);
+    if(!$acct||($acct['status']??'')!=='active')return false;
+    $p=io_premium_access_policy();
+    if($p['mode']==='off')return false;
+    $voice=one("SELECT ready,status FROM voices WHERE code='io.premium'");
+    if(!$voice||(int)$voice['ready']!==1||$voice['status']!=='active'
+        ||!io_premium_admin_state()['configured'])return false;
+    if($acct['kind']==='platform')return true;
+    if($p['mode']==='all')return true;
+    if($p['limit']<1)return false;
+    $slots=all("SELECT id FROM accounts WHERE kind!='platform' AND status='active'
+        ORDER BY id ASC LIMIT ".$p['limit']);
+    foreach($slots as $slot)if((int)$slot['id']===$accountId)return true;
+    return false;
+}
+function io_premium_admin_save_access(string $mode,int $limit):void {
+    if(!in_array($mode,['all','limited','off'],true)||$limit<0||$limit>100000||
+        ($mode==='limited'&&$limit<1))
+        throw new InvalidArgumentException('سياسة توزيع IO Premium غير صالحة');
+    $profile=io_premium_admin_profile();
+    $profile['settings']['accessMode']=$mode;
+    $profile['settings']['accessLimit']=$mode==='limited'?$limit:0;
+    $path=private_path().'/voice-lab/owner-1.json';
+    $folder=dirname($path);
+    if(is_link($folder)||is_link($path))throw new RuntimeException('مسار حفظ غير آمن');
+    if(!is_dir($folder)&&!mkdir($folder,0700,true)&&!is_dir($folder))
+        throw new RuntimeException('لا يمكن تجهيز المجلد الآمن');
+    $out=json_encode($profile,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+    $temp=$path.'.'.bin2hex(random_bytes(8)).'.tmp';
+    try{
+        if(file_put_contents($temp,$out,LOCK_EX)!==strlen($out))
+            throw new RuntimeException('تعذر حفظ توزيع IO Premium');
+        @chmod($temp,0600);
+        if(!rename($temp,$path))throw new RuntimeException('تعذر اعتماد توزيع IO Premium');
+        @chmod($path,0600);
+    }finally{if(is_file($temp))@unlink($temp);}
+}
 function io_premium_admin_verify_fish(string $key,string $voiceId,string $model):void {
     if(!function_exists('curl_init'))throw new RuntimeException('cURL غير متاح للتحقق من Fish Audio');
     $request=json_encode([
@@ -110,5 +162,16 @@ function render_io_premium_admin_provider():string {
         ],(string)$state['fish_model']).'</div>'.
         '<p class="dim">سيتم اختبار PCM Streaming مع Fish Audio قبل الحفظ والتفعيل. اترك المفتاح فارغًا للاحتفاظ بالقديم.</p>'.
         submit_btn('اختبار وحفظ إعدادات IO Premium');
-    return card('IO Premium — إعدادات Fish Audio والمفتاح',$content);
+    $policy=io_premium_access_policy();
+    $count=(int)(one("SELECT COUNT(*) n FROM accounts WHERE kind!='platform' AND status='active'")['n']??0);
+    $access=form_start('save_io_premium_access','/?tab=voices').
+        '<p class="info">إعدادات الصوت دي على مستوى المنصة؛ حساب المستخدم لا يحتاج Fish API Key خاص طالما الصوت متاح له. لا تعرض المفتاح أو تنسخه للحسابات.</p>'.
+        select_html('إتاحة IO Premium للحسابات','io_access_mode',[
+          'all'=>'متاح لكل حساب نشط','limited'=>'متاح لأول عدد محدد من الحسابات النشطة',
+          'off'=>'غير متاح لأي حساب'],(string)$policy['mode']).
+        '<label class="field">الحد الأقصى للحسابات عند اختيار عدد محدد<input name="io_access_limit" type="number" min="1" max="100000" value="'.($policy['limit']?:1).'"></label>'.
+        '<p class="dim">الحسابات النشطة غير التابعة للمنصة: '.$count.'. عند الحد المحدد يتم الاختيار بترتيب إنشاء الحساب (ID)، وليس إدخال مفاتيح عند المستخدم. حساب الأدمن لا يستهلك حصة. عند الإيقاف يتم رفض جلسات IO Premium الجديدة.</p>'.
+        submit_btn('حفظ إتاحة IO Premium');
+    return card('IO Premium — إعدادات Fish Audio والمفتاح',$content).
+        card('توزيع IO Premium من الأدمن',$access);
 }
