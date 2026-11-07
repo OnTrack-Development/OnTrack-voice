@@ -12,4 +12,4 @@ Source provided by project owner: `stitch_ontrack_new_initiative.zip` (SHA-256 `
 3. Keep both mobile and SaaS designs responsive and RTL. Owner must see version, update result, and link to official signed APK when provided by server.
 4. Design files are **references**, not a replacement for source app screens. No third-party secrets or Stitch API keys belong in Git.
 
-The uploaded original ZIP is a separate conversation attachment; this checked-in reference captures its identity, layout, colors, and mapping. When possible, preserve the archive itself as `design/stitch_ontrack_new_initiative.zip` without secrets. See [screen-map.md](screen-map.md).
+The **complete original Stitch archive**, including all nine screenshot PNGs, nine HTML files, the owner palette screenshot, and the original `DESIGN.md`, is committed unmodified as [stitch_ontrack_new_initiative.zip](stitch_ontrack_new_initiative.zip). Verified SHA-256: `c7120fab9847a1d9a04410acd3c055bc013c22ec00b5603dd7610b2a5b69f492`. See [screen-map.md](screen-map.md).
