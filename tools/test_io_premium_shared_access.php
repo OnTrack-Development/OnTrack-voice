@@ -6,6 +6,7 @@ if(!getenv('ONTRACK_CI_NAMESPACE'))putenv('ONTRACK_CI_NAMESPACE=ioacc'.bin2hex(r
 require_once __DIR__.'/../saas/console/database/Seed.php';
 require_once __DIR__.'/../saas/console/_core/IoPremiumProvider.php';
 require_once __DIR__.'/../saas/console/_core/GoogleTenantKeys.php';
+require_once __DIR__.'/../saas/console/_core/Views.php';
 seed_console();
 function io_check(bool $ok,string $label):void {
     if(!$ok)throw new RuntimeException('IO_PREMIUM_ACCESS_FAIL: '.$label);
