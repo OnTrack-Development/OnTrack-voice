@@ -242,6 +242,43 @@ class TenantDeviceEnrollment(private val context: Context) {
         }
         return rotated
     }
+    /** Stream 44.1 kHz signed PCM from Fish without disclosing the Fish key
+     * or the private voice reference. SaaS validates the CURRENT published
+     * agent, exact SIM binding, voice grant, and entitlement for each phrase.
+     */
+    fun streamPremiumPcm(slot:Int,text:String,shouldContinue:()->Boolean,onChunk:(ByteArray)->Unit){
+        val phrase=text.trim()
+        require(phrase.isNotEmpty() && phrase.length<=400) { "IO Premium: عبارة طويلة" }
+        val device=local(slot)
+        val req=Request.Builder().url("https://app.ontrackegy.com/saas/console/device/v1/tts.php")
+            .header("Authorization","Bearer "+TenantPairingContract.token(device.getString("token")))
+            .header("Accept","application/octet-stream")
+            .post(JSONObject().put("text",phrase).toString()
+                .toRequestBody("application/json".toMediaType())).build()
+        val streamClient=client.newBuilder().readTimeout(45,TimeUnit.SECONDS).build()
+        streamClient.newCall(req).execute().use{response->
+            if(response.code==401)throw SecurityException("ربط الشريحة لم يعد صالحًا")
+            if(!response.isSuccessful)error("IO Premium HTTP " + response.code)
+            check(response.header("X-PCM-Sample-Rate")=="44100" &&
+                response.header("X-PCM-Channels")=="1" &&
+                response.header("X-PCM-Format")=="s16le") {
+                "IO Premium: نوع الصوت غير صالح"
+            }
+            val input=response.body?.byteStream()?:error("IO Premium: لا يوجد صوت")
+            val chunk=ByteArray(4096)
+            var total=0
+            while(shouldContinue()){
+                val size=input.read(chunk)
+                if(size<0)break
+                if(size==0)continue
+                total+=size
+                check(total<44100*2*55){"IO Premium: الصوت أطول من الحد"}
+                onChunk(chunk.copyOf(size))
+            }
+            if(shouldContinue()&&total==0)error("IO Premium: رد صوتي فارغ")
+        }
+    }
+
     /** Dry-run for binding + immutable published Flow + ephemeral Gemini session.
      * No GSM call, audio capture, or legacy pilot session is performed.
      */
