@@ -48,6 +48,10 @@ if ($code < 200 || $code >= 300) {
     $googleError = is_array($decodedError) && is_array($decodedError['error'] ?? null)
         ? $decodedError['error'] : [];
     $googleStatus = (string)($googleError['status'] ?? '');
+    voice_lab_trace_log((int)$labUser['id'], $trace, 'token_upstream_status', [
+        'http_status'=>$code, 'elapsed_ms'=>(int)round((microtime(true) - $traceStart) * 1000),
+        'phase'=>$googleStatus
+    ]);
     $googleMessage = (string)($googleError['message'] ?? '');
     // Never reflect a credential, arbitrary upstream HTML, or long payloads.
     $googleMessage = str_replace($key, '[redacted]', $googleMessage);
