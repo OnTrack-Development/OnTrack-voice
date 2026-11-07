@@ -6,6 +6,7 @@ on:
       # Do not burn 15 minutes per intermediate cellular fix commit.
       # Only one verified final trigger starts the expensive signed APK build.
       - '.github/workflows/voice-cellular-3g-hplus-v53-candidate.yml'
+      - 'tools/test_mobile_ui_contract.py'
   workflow_dispatch:
 permissions:
   contents: read
