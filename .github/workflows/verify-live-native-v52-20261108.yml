@@ -1,0 +1,55 @@
+name: Verify public OnTrack native update is visible from the internet
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths: ['.github/workflows/verify-live-native-v52-20261108.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-native-check:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check public signed native OTA manifest and APK from outside host
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ErrorView='NormalView'
+          $hostName='https://app.ontrackegy.com'
+          $uri=$hostName+'/mobile/updates/native/latest.json?verify='+[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          $r=Invoke-WebRequest -Uri $uri -Headers @{'Cache-Control'='no-cache';Pragma='no-cache'} -TimeoutSec 25 -MaximumRedirection 0 -SkipHttpErrorCheck
+          Write-Host ('PUBLIC_NATIVE_STATUS='+[int]$r.StatusCode)
+          Write-Host ('PUBLIC_NATIVE_CONTENT_TYPE='+[string]$r.Headers['Content-Type'])
+          if([int]$r.StatusCode -ne 200){throw 'Public update manifest unreachable or wrong status'}
+          $envelope=$r.Content|ConvertFrom-Json
+          $meta=($envelope.payload|ConvertFrom-Json)
+          Write-Host ('PUBLIC_NATIVE_VERSION='+$meta.version_name+' CODE='+$meta.version_code)
+          Write-Host ('PUBLIC_NATIVE_FILE='+$meta.file)
+          Write-Host ('PUBLIC_NATIVE_BYTES='+$meta.size)
+          Write-Host ('PUBLIC_NATIVE_SHA256='+$meta.sha256)
+          if($meta.version_code -ne 52 -or $meta.version_name -ne '0.3.29' -or $meta.package -ne 'com.ontrack.voiceproof'){throw 'Wrong public update metadata'}
+          $apkUrl=$hostName+'/mobile/updates/native/'+$meta.file
+          $apk=Join-Path $env:RUNNER_TEMP 'ontrack-v52-direct-public.apk'
+          try {
+            Invoke-WebRequest -Uri $apkUrl -OutFile $apk -TimeoutSec 120 -MaximumRedirection 0 -Headers @{'Cache-Control'='no-cache'}
+            $actual=(Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
+            $size=(Get-Item -LiteralPath $apk).Length
+            Write-Host ('PUBLIC_APK_ACTUAL_BYTES='+$size)
+            Write-Host ('PUBLIC_APK_ACTUAL_SHA256='+$actual)
+            if($actual -ne $meta.sha256 -or $size -ne $meta.size){throw 'Public APK is not the promised file'}
+          } finally {
+            Remove-Item -LiteralPath $apk -Force -ErrorAction SilentlyContinue
+          }
+          Write-Host 'PUBLIC_APK_DOWNLOAD_AND_SHA256_VERIFIED_PASS'
+      - name: Verify canonical host manifest and application response
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $dest='appontrack@65.21.208.232'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $cmd="python3 -c 'import json,pathlib,hashlib; root=pathlib.Path(\\"/home/appontrack/public_html/mobile/updates/native\\"); p=root/\\"latest.json\\"; env=json.loads(p.read_text()); m=json.loads(env[\\"payload\\"]); f=root/m[\\"file\\"]; print(\\"HOST_NATIVE_VERSION\\",m[\\"version_name\\"],m[\\"version_code\\"]); print(\\"HOST_APK_PRESENT\\",f.is_file()); print(\\"HOST_APK_SHA256_MATCH\\",hashlib.sha256(f.read_bytes()).hexdigest()==m[\\"sha256\\"])'"
+          & ssh.exe @flags -p 7195 $dest $cmd
+          if($LASTEXITCODE -ne 0){throw 'Host native update proof failed'}
