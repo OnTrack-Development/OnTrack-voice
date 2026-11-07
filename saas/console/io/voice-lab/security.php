@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
-// Owner-only Voice Lab endpoints. Keys are encrypted in the SaaS private directory,
-// never in public_html, HTML, JavaScript, logs, or the repository.
+// PIN grants call-only access to the owner's existing encrypted provider settings.
+// Neither the 6-digit code nor its verifier is shipped to the client/repository.
+
 require_once __DIR__ . '/../../_core/Bootstrap.php';
 
 function voice_lab_error(int $code, string $reason): never {
@@ -12,20 +13,57 @@ function voice_lab_error(int $code, string $reason): never {
     exit;
 }
 
+
+function voice_lab_pin_config(): ?array {
+    $path = private_path() . '/voice-lab/access.json';
+    if (is_link($path) || !is_file($path)) return null;
+    $v = json_decode((string)file_get_contents($path), true);
+    if (!is_array($v) || (int)($v['owner_uid'] ?? 0) < 1
+        || !preg_match('/^[a-f0-9]{40}$/D', (string)($v['salt'] ?? ''))
+        || !preg_match('/^[a-f0-9]{64}$/D', (string)($v['hash'] ?? ''))
+        || !preg_match('/^[a-f0-9]{24}$/D', (string)($v['version'] ?? ''))
+        || (int)($v['iterations'] ?? 0) < 150000) {
+        return null;
+    }
+    return $v;
+}
+
+function voice_lab_pin_user(): ?array {
+    $v = voice_lab_pin_config();
+    if (!$v || !isset($_SESSION['voice_lab_pin_version'])
+        || !is_string($_SESSION['voice_lab_pin_version'])
+        || !hash_equals((string)$v['version'], $_SESSION['voice_lab_pin_version'])
+        || (int)($_SESSION['voice_lab_pin_expires'] ?? 0) <= time()) return null;
+    return ['id'=>(int)$v['owner_uid'], 'voice_lab_guest'=>true];
+}
+
+function voice_lab_same_origin(): void {
+    $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
+    $host = strtolower((string)parse_url('https://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
+    if ($origin !== '' && ((string)parse_url($origin, PHP_URL_SCHEME) !== 'https'
+        || strtolower((string)parse_url($origin, PHP_URL_HOST)) !== $host)) {
+        voice_lab_error(403, 'wrong_origin');
+    }
+    if (strtolower((string)($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '')) === 'cross-site') {
+        voice_lab_error(403, 'wrong_origin');
+    }
+}
+
 function voice_lab_access(bool $write = false): array {
     header('Cache-Control: private, no-store');
     header('X-Content-Type-Options: nosniff');
     startsession();
-    $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
-    $host = strtolower((string)parse_url('https://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
-    if ($origin !== '' && (string)parse_url($origin, PHP_URL_SCHEME) !== 'https') {
-        voice_lab_error(403, 'wrong_origin');
-    }
-    if ($origin !== '' && strtolower((string)parse_url($origin, PHP_URL_HOST)) !== $host) {
-        voice_lab_error(403, 'wrong_origin');
+    voice_lab_same_origin();
+    $guest = voice_lab_pin_user();
+    if ($guest !== null) {
+        if ($write) {
+            $supplied = (string)($_SERVER['HTTP_X_VOICE_LAB_CSRF'] ?? '');
+            if ($supplied === '' || !hash_equals(csrf(), $supplied)) voice_lab_error(419, 'csrf_expired');
+        }
+        return $guest;
     }
     $user = me();
-    if (!$user) voice_lab_error(401, 'admin_login_required');
+    if (!$user) voice_lab_error(401, 'pin_required');
     $authorized = false;
     if (!white_label_context()) {
         foreach (memberships((int)$user['id']) as $membership) {
