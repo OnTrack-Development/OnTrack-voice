@@ -1144,10 +1144,26 @@ function act():void {
                 }
                 audit('voices.catalog_synced',$id,['count'=>$count,'used_live_api'=>$supplied!=='']);
                 break;
+            case 'save_io_premium_provider':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/IoPremiumProvider.php';
+                io_premium_admin_save(
+                    field('io_fish_api_key',2048),
+                    required('io_voice_id',32),
+                    required('io_fish_model',32)
+                );
+                audit('voice.io_premium.config_verified',$id,['provider'=>'fish_audio','ready'=>true]);
+                $success='تم اختبار Fish Audio وتشفير المفتاح وحفظ IO Premium. اختار الصوت من إعدادات المساعد وانشر النسخة الجديدة.';
+                break;
             case 'set_voice_ready':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
-                $voice=one('SELECT id FROM voices WHERE id=?',[intfield('voice_id')]);if(!$voice)deny(404);
+                $voice=one('SELECT id,code FROM voices WHERE id=?',[intfield('voice_id')]);if(!$voice)deny(404);
                 $ready=field('ready',1)==='1'?1:0;
+                if($ready && $voice['code']==='io.premium'){
+                    require_once __DIR__.'/IoPremiumProvider.php';
+                    if(!io_premium_admin_state()['configured'])
+                        throw new InvalidArgumentException('أدخل مفتاح Fish Audio وVoice ID أولاً من إعدادات IO Premium');
+                }
                 if($ready && (string)($_POST['confirmed']??'')!=='1')
                    throw new InvalidArgumentException('يجب إثبات صلاحية الصوت على مزود الاتصال أولاً');
                 execute('UPDATE voices SET ready=? WHERE id=?',[$ready,$voice['id']]);
