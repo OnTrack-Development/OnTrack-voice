@@ -21,7 +21,7 @@ assert "el('v1InstallUpdates').disabled=el('upgradeAndroid').disabled" in ui
 assert "el('v1InstallUpdates').onclick=()=>el('upgradeAndroid').click()" in ui
 assert "el('v1CheckUpdates').onclick=()=>el('scanAndroid').click()" in ui
 assert 'window.onTrackOpenUpdates=openUpdateCenter' in ui
-assert 'function ontrack_native_public_release()' in views
+assert 'function ontrack_native_public_release():?array' in views
 assert "ontrack_update_banner()" in views
 assert "function render_releases(array $a):void" in views
 assert '/mobile/updates/native/' in views
