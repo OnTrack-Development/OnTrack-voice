@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<title>Voice Lab — Gemini 3.8 Live</title>
+<title>Voice Lab — Gemini 3.8 Live + Fish Audio</title>
 <style>
 :root{font-family:Tahoma,Arial,sans-serif;color:#f7f7fa;background:#090b10}
 *{box-sizing:border-box}
@@ -61,33 +61,38 @@ audio{display:none}
 </head>
 <body>
 <main>
-<header><div class="brand"><div class="logo">◉</div><div>OnTrack <span style="color:#fb536b">Voice Lab</span><br><small>تجربة مستقلة — Gemini 3.8 Live</small></div></div><div class="badge">Egyptian Arabic • Demo</div></header>
+<header><div class="brand"><div class="logo">◉</div><div>OnTrack <span style="color:#fb536b">Voice Lab</span><br><small>تجربة مستقلة — Gemini 3.8 Live × Fish Audio</small></div></div><div class="badge">Egyptian Arabic • Demo</div></header>
 <section class="panel hero">
 <h1>كلم المساعد بالمصري</h1>
-<p class="help" id="buildInfo">Voice Lab 2026.11.07.5 • Gemini 3.8 Live — تشخيص الاتصال</p>
-<p>Gemini 3.8 Live يسمعك ويرد عليك بصوته مباشرة • نص وصوت من نفس الموديل</p>
+<p class="help" id="buildInfo">Voice Lab 2026.11.07.6 • Gemini 3.8 Live → Fish Audio — تشخيص الاتصال</p>
+<p>Gemini 3.8 Live يسمعك ويجهّز النص • Fish Audio ينطق الرد بصوتك المختار</p>
 <button id="mic" class="orb" aria-label="ابدأ مكالمة صوتية">🎙</button>
 <div id="status" class="status" role="status">جاهز للمكالمة</div>
 <div class="actions"><button id="stop" class="ghost" type="button">إنهاء المكالمة</button><button id="testVoice" class="ghost" type="button">تجربة الصوت فقط</button></div>
 <div class="timing"><span id="brainTime">Gemini: —</span><span id="firstAudio">أول صوت: —</span><span id="totalTime">إجمالي: —</span></div>
 </section>
 <section class="panel"><details><summary>🧰 سجل أخطاء الاتصال (Error Log)</summary>
-<p class="help">الخطوات وأزمنتها وكود إغلاق WebSocket، بدون تسجيل مفاتيح Google أو الصوت أو المحادثة. سجل السيرفر للأدمن فقط.</p>
+<p class="help">خطوات Gemini Live وFish Audio وأزمنتها وأكواد HTTP وWebSocket؛ بدون تسجيل المفاتيح أو النص أو الصوت. سجل السيرفر للأدمن فقط.</p>
 <div class="trace-actions"><button class="ghost" type="button" id="refreshDiagnostics">تحميل سجل السيرفر</button><button class="ghost" type="button" id="copyDiagnostics">نسخ السجل</button></div>
 <pre id="diagnosticLog">اضغط المايك لبدء التشخيص، أو حمّل سجل السيرفر.</pre>
 </details></section>
 <section class="panel"><h2>المحادثة</h2><div id="log" aria-live="polite"><p class="muted">ابدأ بالمايك أو اكتب رسالة. هتظهر هنا الجمل والردود.</p></div><form id="textForm" class="send"><input id="textInput" type="text" autocomplete="off" placeholder="اكتب حاجة بالمصري لو المايك مش متاح..." aria-label="رسالتك"><button type="submit">إرسال</button></form></section>
 <section class="panel"><details open><summary>⚙️ إعدادات التجربة</summary>
 <div class="grid">
-<label>الموديل الأساسي <input type="text" value="Gemini 3.8 Live — صوت ومحادثة مباشرة" readonly></label>
+<label>مخ المحادثة <input type="text" value="Gemini 3.8 Live — يطلع النص" readonly></label>
+<label>الصوت <input type="text" value="Fish Audio — ينطق رد Gemini" readonly></label>
+<label>موديل Fish Audio<select id="fishModel"><option value="drama-3">Drama 3 — مشاعر وصوت مستنسخ</option><option value="s2.1-pro-free">S2.1 Pro Free</option><option value="s2.1-pro">S2.1 Pro</option></select></label>
+<label>Fish Audio API Key<input id="fishKey" type="password" autocomplete="new-password" placeholder="مفتاح جديد أو سيبه فاضي للمحفوظ"><span id="fishSaved" class="settings-note">جارٍ تحميل حالة مفتاح Fish...</span></label>
+<label>معرّف الصوت المستنسخ — Fish Voice ID<input id="voiceId" type="text" value="e3c2911a78404bcab3c6adce3c59e1d9" spellcheck="false" autocomplete="off"></label>
 <label>Google Gemini API Key<input id="googleKey" type="password" autocomplete="new-password" placeholder="مفتاح جديد أو سيبه فاضي لاستخدام المحفوظ"><span id="googleSaved" class="settings-note">جارٍ تحميل حالة المفتاح...</span></label>
 <label>مستوى المشاعر<select id="emotionLevel"><option value="intense">جياشة — تنهيدات وتعبير واضح</option><option value="expressive">معبرة — طبيعية ومتغيرة</option><option value="subtle">هادية — لمسات خفيفة</option></select></label>
 <label>إيقاف الاستماع بعد كل رد<select id="autoListen"><option value="no">لا — كمّل مكالمة تلقائيًا</option><option value="yes">نعم — اضغط المايك لكل جملة</option></select></label>
 </div>
-<label class="inline"><input id="emotions" type="checkbox" checked> صوت مصري بمشاعر وتنهدات طبيعية من Gemini Live</label>
-<div class="settings-actions"><button type="button" id="saveSettings">💾 حفظ المفتاح والإعدادات</button><span id="settingsStatus" class="settings-state" role="status" aria-live="polite">المفتاح بيتحفظ مشفر على السيرفر.</span></div>
+<label class="inline"><input id="emotions" type="checkbox" checked> توجيهات أداء ومشاعر بصوت Fish Drama 3</label>
+<div class="settings-actions"><button type="button" id="saveSettings">💾 حفظ مفتاحي Gemini وFish والإعدادات</button><span id="settingsStatus" class="settings-state" role="status" aria-live="polite">المفتاح بيتحفظ مشفر على السيرفر.</span></div>
+<label class="inline"><input id="removeFish" type="checkbox"> حذف مفتاح Fish المحفوظ عند الحفظ</label>
 <label class="inline"><input id="removeGoogle" type="checkbox"> حذف مفتاح Google المحفوظ عند الحفظ</label>
-<p class="help">Gemini 3.8 Live هو الموديل الوحيد للمحادثة والصوت؛ المايك بيتبعت مباشرة عبر WebSocket بتوكن قصير الصلاحية، وصوت الرد بيتشغّل فور وصوله. تقدر تحفظ مفتاح Google مرة واحدة وتستخدمه بعد كده بدون كتابته تاني. يلزم تسجيل دخول أدمن OnTrack. الصوت مباشر من Gemini، بدون Flash أو Puter أو Fish TTS.</p>
+<p class="help">Gemini 3.8 Live يستقبل الميكروفون عبر WebSocket مؤقت، ويرجع نص الرد من تفريغ مخرجات Live. الصوت المسموع من Fish Audio فقط، وليس صوت Gemini. مفاتيح Google وFish محفوظة مشفرة؛ سيب حقل المفتاح فاضي لاستخدام المحفوظ. لا يوجد Puter أو Flash أو مزود نص آخر.</p>
 </details></section>
 <audio id="player" playsinline></audio>
 </main>
@@ -100,11 +105,13 @@ audio{display:none}
     mic:el('mic'), stop:el('stop'), test:el('testVoice'), status:el('status'), log:el('log'),
     textForm:el('textForm'), textInput:el('textInput'),
     googleKey:el('googleKey'), googleSaved:el('googleSaved'),
+    fishKey:el('fishKey'),fishSaved:el('fishSaved'),fishModel:el('fishModel'),voiceId:el('voiceId'),removeFish:el('removeFish'),player:el('player'),
     emotionLevel:el('emotionLevel'), autoListen:el('autoListen'), emotions:el('emotions'),
     save:el('saveSettings'), settingsStatus:el('settingsStatus'), removeGoogle:el('removeGoogle'),
     brain:el('brainTime'), first:el('firstAudio'), total:el('totalTime')
   };
-  let csrf='',savedGoogle=false,live=null,active=false,starting=false,tokenAbort=null;
+  let csrf='',savedGoogle=false,savedFish=false,live=null,active=false,starting=false,tokenAbort=null;
+  let fishAbort=null,fishObjectUrl=null;
   let traceAttempt='',traceLines=[];
   const traceView=el('diagnosticLog');
   function diagnostic(stage,meta={}){
@@ -146,6 +153,7 @@ audio{display:none}
   }
   function keyLabel(){
     ui.googleSaved.textContent=savedGoogle?'✓ مفتاح Google محفوظ مشفر على السيرفر':'لم يتم حفظ مفتاح Google';
+    ui.fishSaved.textContent=savedFish?'✓ مفتاح Fish Audio محفوظ مشفر على السيرفر':'لم يتم حفظ مفتاح Fish Audio';
   }
   async function loadSettings(){
     const response=await fetch('./settings.php',{credentials:'same-origin',cache:'no-store'});
@@ -153,19 +161,21 @@ audio{display:none}
     const result=await response.json();
     if(!result.ok||!result.csrf)throw Error('رد السيرفر غير صالح');
     csrf=result.csrf;
-    for(const name of ['emotionLevel','autoListen']){
+    for(const name of ['emotionLevel','autoListen','fishModel']){
       const value=result.settings?.[name];
       if(typeof value==='string'&&Array.from(ui[name].options).some(option=>option.value===value))ui[name].value=value;
     }
     if(typeof result.settings?.emotions==='boolean')ui.emotions.checked=result.settings.emotions;
-    savedGoogle=!!result.saved?.google;keyLabel();
+    if(/^[a-f0-9]{32}$/i.test(result.settings?.voiceId||''))ui.voiceId.value=result.settings.voiceId;
+    savedGoogle=!!result.saved?.google;savedFish=!!result.saved?.fish;keyLabel();
     ui.settingsStatus.textContent='الإعدادات اتحمّلت. سيب حقل المفتاح فاضي لاستخدام المحفوظ.';
   }
-  async function secureHeaders(){
+  async function secureHeaders(provider='google'){
     await settingsReady;
     if(!csrf)throw Error('لازم تكون داخل بحساب أدمن OnTrack');
     const headers={'Content-Type':'application/json','X-Voice-Lab-CSRF':csrf};
-    if(ui.googleKey.value.trim())headers['X-Gemini-API-Key']=ui.googleKey.value.trim();
+    if(provider==='google'&&ui.googleKey.value.trim())headers['X-Gemini-API-Key']=ui.googleKey.value.trim();
+    if(provider==='fish'&&ui.fishKey.value.trim())headers['X-Fish-API-Key']=ui.fishKey.value.trim();
     return headers;
   }
   function instructions(){
@@ -175,22 +185,25 @@ audio{display:none}
       : mood==='subtle'?'مشاعر هادية وطبيعية وتغيير بسيط في النبرة.'
       :'كوني ودودة ومرحة، بنبرة معبرة تتغير طبيعيًا حسب الكلام.'
       :'اتكلمي بطبيعية وبلا تعليمات أداء.';
-    return 'إنتِ بنت مصرية بتتكلمي بالمصري بطلاقة وعفوية. استمعي للمستخدم للآخر بدون مقاطعة، وردّي بصوت طبيعي وواضح وباختصار، من غير تقديم رسمي أو حشو. ردي بالصوت المصري وليس بلغة أخرى. '+emotion;
+    return 'إنتِ بنت مصرية بتتكلمي بالمصري بطلاقة وعفوية. استمعي للمستخدم للآخر بدون مقاطعة، وردّي بجمل قصيرة وواضحة، من غير تقديم رسمي أو حشو. ردك النصي هيتنطق بواسطة Fish Audio. ما تكتبيش أسماء الموديلات أو تعليمات تقنية. '+emotion;
+  }
+  function stopFish(){
+    if(fishAbort){fishAbort.abort();fishAbort=null;}
+    ui.player.pause();ui.player.removeAttribute('src');ui.player.load();
+    if(fishObjectUrl){URL.revokeObjectURL(fishObjectUrl);fishObjectUrl=null;}
   }
   function stopLive(){
     if(tokenAbort){tokenAbort.abort();tokenAbort=null;}
+    stopFish();
     const s=live;live=null;
     if(!s)return;
     s.closed=true;
     clearTimeout(s.handshakeTimer);
     if(s.node){s.node.onaudioprocess=null;try{s.node.disconnect();}catch(e){}}
-    for(const source of s.playing){try{source.stop();}catch(e){}}
-    s.playing.clear();
     if(s.silence)try{s.silence.disconnect();}catch(e){}
     if(s.source)try{s.source.disconnect();}catch(e){}
     if(s.media)for(const track of s.media.getTracks())track.stop();
     if(s.inputContext)s.inputContext.close().catch(()=>{});
-    if(s.playback)s.playback.close().catch(()=>{});
     if(s.socket&&s.socket.readyState<=1)try{s.socket.close(1000,'stop');}catch(e){}
   }
   function reset(){
@@ -243,46 +256,123 @@ audio{display:none}
     diagnostic('text_sent');
     status('Gemini 3.8 Live بيرد بالصوت...');
   }
-  function playChunk(s,base64){
-    if(live!==s||s.closed)return;
-    const binary=atob(base64);
-    if(binary.length<2)return;
-    const count=Math.floor(binary.length/2),pcm=new Float32Array(count),bytes=new DataView(new ArrayBuffer(count*2));
-    for(let i=0;i<count*2;i++)bytes.setUint8(i,binary.charCodeAt(i));
-    for(let i=0;i<count;i++)pcm[i]=bytes.getInt16(i*2,true)/32768;
-    const buffer=s.playback.createBuffer(1,count,24000);
-    buffer.copyToChannel(pcm,0);
-    const source=s.playback.createBufferSource();
-    source.buffer=buffer;source.connect(s.playback.destination);
-    const startAt=Math.max(s.playback.currentTime+0.03,s.nextAudioAt||0);
-    s.nextAudioAt=startAt+buffer.duration;
-    s.playing.add(source);
-    source.onended=()=>s.playing.delete(source);
-    source.start(startAt);
-    s.speaking=true;
-    if(!s.firstAudio){
-      s.firstAudio=true;
-      ui.first.textContent='أول صوت: '+Math.round(performance.now()-(s.turnStart||s.connectedAt))+'ms';
-      ui.brain.textContent='Gemini 3.8 Live — صوت مباشر';
-      diagnostic('first_audio',{elapsed_ms:Math.round(performance.now()-(s.turnStart||s.connectedAt))});
+
+  function fishScript(text){
+    let spoken=String(text||'').trim();
+    if(!spoken)return '';
+    if(!ui.emotions.checked||ui.fishModel.value!=='drama-3')
+      return spoken.replace(/\[[^\]\r\n]{1,120}\]/g,'').replace(/<\/?(?:whisper|soft|slow|emphasis)>/gi,'').trim();
+    const prefix=ui.emotionLevel.value==='intense'
+      ? '[warm expressive Egyptian Arabic, natural breathing] '
+      :ui.emotionLevel.value==='subtle'?'[gentle natural Egyptian Arabic] ':'[warm lively Egyptian Arabic] ';
+    return prefix+spoken;
+  }
+  function waitFishEnded(){
+    if(ui.player.ended)return Promise.resolve();
+    return new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{cleanup();reject(new Error('fish_audio_playback_timeout'));},90000);
+      function cleanup(){clearTimeout(timer);ui.player.removeEventListener('ended',done);ui.player.removeEventListener('error',failed);}
+      function done(){cleanup();resolve();}
+      function failed(){cleanup();reject(new Error('fish_audio_decode_error'));}
+      ui.player.addEventListener('ended',done,{once:true});ui.player.addEventListener('error',failed,{once:true});
+    });
+  }
+  async function speakFish(text,session=null){
+    const reference=ui.voiceId.value.trim().toLowerCase();
+    if(!/^[0-9a-f]{32}$/.test(reference))throw Error('Fish Voice ID لازم يكون 32 رمز');
+    const spoken=fishScript(text);
+    if(!spoken)throw Error('Gemini Live ما رجّعش نص صالح للنطق');
+    const begin=performance.now();
+    const headers=await secureHeaders('fish');
+    headers['X-Voice-Lab-Trace']=traceAttempt;
+    const controller=new AbortController();fishAbort=controller;
+    const callActive=()=>!controller.signal.aborted&&(!session||(live===session&&!session.closed));
+    diagnostic('fish_request_start');
+    status('Fish Audio بيولّد صوت رد Gemini...');
+    try{
+      const response=await fetch('./tts.php',{method:'POST',credentials:'same-origin',headers,
+        body:JSON.stringify({text:spoken,reference_id:reference,model:ui.fishModel.value,format:'mp3'}),
+        cache:'no-store',signal:controller.signal});
+      diagnostic('fish_http_response',{http_status:response.status,elapsed_ms:Math.round(performance.now()-begin)});
+      if(!response.ok)throw Error('Fish HTTP '+response.status+': '+(await response.text()).slice(0,160));
+      if(!callActive())return;
+      ui.first.textContent='أول صوت: ...';
+      stopFishAudioOnly();
+      const onStart=()=>{
+        diagnostic('fish_first_audio',{elapsed_ms:Math.round(performance.now()-begin)});
+        ui.first.textContent='Fish أول صوت: '+Math.round(performance.now()-begin)+'ms';
+        status('Fish Audio بيتكلم...');
+      };
+      if(!response.body||!window.MediaSource||!MediaSource.isTypeSupported('audio/mpeg')){
+        const blob=await response.blob();
+        if(!callActive())return;
+        if(!blob.size)throw Error('Fish Audio رجّع ملف فاضي');
+        fishObjectUrl=URL.createObjectURL(blob);ui.player.src=fishObjectUrl;
+        await ui.player.play();onStart();await waitFishEnded();
+      }else{
+        const media=new MediaSource();fishObjectUrl=URL.createObjectURL(media);ui.player.src=fishObjectUrl;
+        await new Promise((resolve,reject)=>{
+          media.addEventListener('sourceopen',resolve,{once:true});
+          media.addEventListener('error',()=>reject(Error('fish_media_source_error')),{once:true});
+        });
+        if(!callActive())return;
+        const buffer=media.addSourceBuffer('audio/mpeg');
+        const reader=response.body.getReader();let started=false,bytes=0;
+        try{
+          while(true){
+            const chunk=await reader.read();if(chunk.done)break;
+            if(!callActive()){await reader.cancel();return;}
+            if(!chunk.value||!chunk.value.length)continue;
+            bytes+=chunk.value.length;
+            await new Promise((resolve,reject)=>{
+              buffer.addEventListener('updateend',resolve,{once:true});
+              try{buffer.appendBuffer(chunk.value);}catch(e){reject(e);}
+            });
+            if(!started&&bytes>=4096){
+              await ui.player.play();started=true;onStart();
+            }
+          }
+          if(media.readyState==='open'&&!buffer.updating)media.endOfStream();
+          if(!started){
+            if(!bytes)throw Error('fish_empty_audio');
+            await ui.player.play();onStart();
+          }
+          await waitFishEnded();
+        }finally{reader.releaseLock();}
+      }
+      if(callActive()){
+        diagnostic('fish_complete',{elapsed_ms:Math.round(performance.now()-begin)});
+        ui.total.textContent='زمن Fish: '+Math.round(performance.now()-begin)+'ms';
+      }
+    }catch(e){
+      if(!controller.signal.aborted)diagnostic('fish_error',{error_code:String(e?.name||'fish_error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});
+      throw e;
+    }finally{
+      if(fishAbort===controller)fishAbort=null;
     }
-    status('Gemini 3.8 Live بيتكلم...');
+  }
+  function stopFishAudioOnly(){
+    ui.player.pause();ui.player.removeAttribute('src');ui.player.load();
+    if(fishObjectUrl){URL.revokeObjectURL(fishObjectUrl);fishObjectUrl=null;}
   }
   async function finishTurn(s){
     if(live!==s||s.closed)return;
     const heard=s.input.trim(),spoken=s.output.trim();
     s.input='';s.output='';
     if(heard)message('user',heard);
-    if(spoken)message('assistant',spoken);
-    const remaining=Math.max(0,(s.nextAudioAt-s.playback.currentTime)*1000);
-    if(remaining>0)await new Promise(resolve=>setTimeout(resolve,Math.min(remaining+80,45000)));
-    if(live!==s||s.closed)return;
-    diagnostic('turn_complete',{elapsed_ms:Math.round(performance.now()-(s.turnStart||s.connectedAt))});
-    s.speaking=false;s.firstAudio=false;s.nextAudioAt=0;
-    ui.total.textContent='زمن الرد: '+Math.round(performance.now()-(s.turnStart||s.connectedAt))+'ms';
-    if(ui.autoListen.value==='yes'&&s.withMic){
-      reset();status('جاهز للجملة التالية — اضغط المايك');return;
+    if(!spoken){
+      diagnostic('fish_error',{error_code:'empty_gemini_transcript'});
+      s.speaking=false;status('Gemini Live ما رجّعش نص للنطق عبر Fish');
+      return;
     }
+    s.speaking=true;message('assistant',spoken);
+    diagnostic('turn_complete',{elapsed_ms:Math.round(performance.now()-(s.turnStart||s.connectedAt))});
+    ui.brain.textContent='Gemini 3.8 Live: النص جاهز';
+    try{await speakFish(spoken,s);}
+    catch(e){if(live===s&&!s.closed){status('Fish Audio: '+(e?.message||e));s.speaking=false;}return;}
+    if(live!==s||s.closed)return;
+    s.speaking=false;s.firstAudio=false;
+    if(ui.autoListen.value==='yes'&&s.withMic){reset();status('جاهز للجملة التالية — اضغط المايك');return;}
     status(s.withMic?'Gemini 3.8 Live بيسمعك...':'تقدر تبعت رسالة تانية');
   }
   function receive(s,raw){
@@ -303,15 +393,11 @@ audio{display:none}
     const content=result.serverContent||{};
     if(content.inputTranscription?.text)s.input=appendText(s.input,content.inputTranscription.text);
     if(content.outputTranscription?.text)s.output=appendText(s.output,content.outputTranscription.text);
-    for(const part of content.modelTurn?.parts||[]){
-      const pcm=part.inlineData;
-      if(pcm?.data&&String(pcm.mimeType||'').startsWith('audio/pcm')){
-        try{playChunk(s,pcm.data);}catch(e){diagnostic('audio_error',{error_code:String(e?.name||'playback_error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});status('تعذّر تشغيل صوت Gemini: '+e.message);}
-      }
-    }
+    // Gemini native audio is deliberately ignored; only its output transcription goes to Fish.
+    if(content.outputTranscription?.text){s.speaking=true;status('Gemini Live بيجهّز النص لـFish...');}
     if(content.interrupted){
       for(const source of s.playing)try{source.stop();}catch(e){}
-      s.playing.clear();s.nextAudioAt=0;s.output='';s.speaking=false;s.firstAudio=false;
+      s.output='';s.speaking=false;s.firstAudio=false;stopFish();
     }
     if(content.turnComplete){
       s.queue=s.queue.then(()=>finishTurn(s)).catch(e=>status('Gemini Live: '+e.message));
@@ -320,22 +406,14 @@ audio{display:none}
   async function startLive(firstText=null){
     if(live){if(firstText)sendText(live,firstText);return;}
     if(starting)return;
-    if(!window.WebSocket||!AudioCtx)throw Error('متصفحك لا يدعم مكالمات Live');
+    if(!window.WebSocket||(!AudioCtx&&!firstText))throw Error('متصفحك لا يدعم مكالمات Live');
     starting=true;
     traceAttempt=globalThis.crypto?.randomUUID?.() || String(Date.now());
     diagnostic('call_start');
-    // Start playback inside the user's click to satisfy mobile autoplay policies.
-    const playback=new AudioCtx({sampleRate:24000});
-    diagnostic('audio_context_resume_start');
-    const resumePlayback=playback.resume();
-    let attached=false;
+    // TTS output comes from Fish; do not block Live token acquisition on Gemini playback.
     try{
       const headers=await secureHeaders();
       headers['X-Voice-Lab-Trace']=traceAttempt;
-      try{
-        await Promise.race([resumePlayback,new Promise((_,reject)=>setTimeout(()=>reject(new Error('AudioContextResumeTimeout')),7000))]);
-        diagnostic('audio_context_resume_ok');
-      }catch(e){diagnostic('audio_context_resume_error',{error_code:String(e?.name==='Error'?(e.message||'resume_error'):(e?.name||'resume_error')).replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});throw e;}
       const tokenStart=performance.now();
       diagnostic('token_fetch_start');
       const abort=new AbortController();tokenAbort=abort;
@@ -356,9 +434,9 @@ audio{display:none}
       diagnostic('token_fetch_ok',{http_status:response.status,elapsed_ms:Math.round(performance.now()-tokenStart)});
       if(!active)return;
       const s={socket:null,closed:false,ready:false,withMic:!firstText,pending:firstText?[firstText]:[],
-        input:'',output:'',playback,inputContext:null,source:null,node:null,silence:null,media:null,playing:new Set(),
-        speaking:false,firstAudio:false,nextAudioAt:0,queue:Promise.resolve(),turnStart:performance.now(),connectedAt:performance.now()};
-      live=s;attached=true;
+        input:'',output:'',inputContext:null,source:null,node:null,silence:null,media:null,
+        speaking:false,firstAudio:false,queue:Promise.resolve(),turnStart:performance.now(),connectedAt:performance.now()};
+      live=s;
       const endpoint='wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(data.token);
       const socket=new WebSocket(endpoint);s.socket=socket;
       s.wsStarted=performance.now();
@@ -391,7 +469,6 @@ audio{display:none}
       status('بفتح Gemini 3.8 Live...');
     }finally{
       starting=false;
-      if(!attached)playback.close().catch(()=>{});
     }
   }
   function failure(err){
@@ -412,26 +489,30 @@ audio{display:none}
     if(!active){active=true;ui.mic.classList.add('active');}
     startLive(text).catch(failure);
   });
-  ui.test.addEventListener('click',()=>{
-    if(!active){active=true;ui.mic.classList.add('active');}
-    startLive('إزيك؟ اتكلمي مصري طبيعي واعملي تحية قصيرة فيها إحساس دافي.').catch(failure);
+  ui.test.addEventListener('click',async()=>{
+    if(fishAbort)return;
+    traceAttempt=globalThis.crypto?.randomUUID?.()||String(Date.now());
+    diagnostic('call_start',{phase:'fish_only'});
+    try{await speakFish('إزيك يا زميلي! وحشتني والله، عامل إيه النهارده؟');status('تجربة Fish Audio نجحت');}
+    catch(e){status('تجربة Fish فشلت: '+(e?.message||e));}
   });
   ui.save.addEventListener('click',async()=>{
-    ui.save.disabled=true;ui.settingsStatus.textContent='بحفظ مفتاح Gemini والإعدادات...';
+    ui.save.disabled=true;ui.settingsStatus.textContent='بحفظ مفتاحي Gemini وFish والإعدادات...';
     try{
       await settingsReady;
       if(!csrf)throw Error('سجّل دخولك كأدمن OnTrack الأول');
       const payload={
-        settings:{emotionLevel:ui.emotionLevel.value,autoListen:ui.autoListen.value,emotions:ui.emotions.checked},
-        keys:{google:ui.googleKey.value.trim(),fish:''},
-        remove:ui.removeGoogle.checked?['google']:[]
+        settings:{emotionLevel:ui.emotionLevel.value,autoListen:ui.autoListen.value,emotions:ui.emotions.checked,fishModel:ui.fishModel.value,voiceId:ui.voiceId.value.trim()},
+        keys:{google:ui.googleKey.value.trim(),fish:ui.fishKey.value.trim()},
+        remove:[...(ui.removeGoogle.checked?['google']:[]),...(ui.removeFish.checked?['fish']:[])]
       };
       const response=await fetch('./settings.php',{method:'POST',credentials:'same-origin',
         headers:{'Content-Type':'application/json','X-Voice-Lab-CSRF':csrf},body:JSON.stringify(payload),cache:'no-store'});
       const data=await response.json();
       if(!response.ok||!data.ok)throw Error(data.error||'HTTP '+response.status);
-      savedGoogle=!!data.saved?.google;ui.googleKey.value='';ui.removeGoogle.checked=false;
-      keyLabel();ui.settingsStatus.textContent='✓ تم الحفظ على السيرفر. المفتاح هيفضل موجود.';
+      savedGoogle=!!data.saved?.google;savedFish=!!data.saved?.fish;
+      ui.googleKey.value='';ui.fishKey.value='';ui.removeGoogle.checked=false;ui.removeFish.checked=false;
+      keyLabel();ui.settingsStatus.textContent='✓ تم حفظ مفاتيح Gemini وFish والإعدادات على السيرفر.';
     }catch(e){ui.settingsStatus.textContent='تعذّر الحفظ: '+(e.message||e);}
     finally{ui.save.disabled=false;}
   });
