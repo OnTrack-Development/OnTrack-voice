@@ -6,6 +6,9 @@ on:
       - 'saas/mobile/audio-proof/**'
       - 'saas/console/_core/**'
       - 'saas/console/device/v1/**'
+      - 'tools/test_mobile_ui_contract.py'
+      - 'tools/test_v1_mobile_shell.py'
+      - 'tools/test_mobile_release_gate.py'
       - '.github/workflows/voice-io-premium-candidate.yml'
   workflow_dispatch:
 permissions:
