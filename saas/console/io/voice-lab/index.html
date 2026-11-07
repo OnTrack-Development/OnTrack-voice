@@ -396,7 +396,7 @@ audio{display:none}
     // Gemini native audio is deliberately ignored; only its output transcription goes to Fish.
     if(content.outputTranscription?.text){s.speaking=true;status('Gemini Live بيجهّز النص لـFish...');}
     if(content.interrupted){
-      for(const source of s.playing)try{source.stop();}catch(e){}
+      // Fish audio is the only audible output; cancel it on interruption.
       s.output='';s.speaking=false;s.firstAudio=false;stopFish();
     }
     if(content.turnComplete){
