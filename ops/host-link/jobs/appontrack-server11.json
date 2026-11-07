@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "id": "voice-lab-8f73476f-publish",
+  "id": "voice-lab-8f73476f-diagnostic",
   "target": "appontrack-server11",
   "action": "exec",
-  "created_at": "2026-11-07T06:37:40.570Z",
-  "expires_at": "2026-11-07T08:07:40.570Z",
+  "created_at": "2026-11-07T06:39:23.038Z",
+  "expires_at": "2026-11-07T07:39:23.038Z",
   "cwd": "/home/appontrack",
-  "timeout_seconds": 30,
+  "timeout_seconds": 10,
   "argv": [
     "/bin/python3",
     "-c",
-    "import pathlib,os,hashlib,tempfile,shutil,json,urllib.request\np=pathlib.Path('/home/appontrack/.voice-lab-8f73476f.lz')\ndata=p.read_bytes();output=bytearray();i=0\nwhile i<len(data):\n t=data[i];i+=1\n if t<128:\n  n=t+1;output.extend(data[i:i+n]);i+=n\n else:\n  n=(t&127)+4;offset=(data[i]<<8)|data[i+1];i+=2\n  if not 0<offset<=len(output):raise ValueError('corrupt offset')\n  for j in range(n):output.append(output[-offset])\nraw=bytes(output)\ngitsha=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\\x00'+raw).hexdigest()\nif gitsha!='8f73476fe7ac64fc856d457832d890f165750988':raise ValueError('digest mismatch: compressed bytes='+str(len(data))+' recovered='+str(len(raw))+' sha='+gitsha)\nif b'Voice Lab 2026.11.07.8' not in raw:raise ValueError('wrong version')\ndst=pathlib.Path('/home/appontrack/public_html/io/voice-lab/index.html')\nassert dst.is_file() and not dst.is_symlink()\nbackup=pathlib.Path('/home/appontrack/backup/voice-lab/index-before-8f73476f.html')\nbackup.parent.mkdir(parents=True,exist_ok=True)\nif not backup.exists():shutil.copy2(dst,backup)\nfd,tmp=tempfile.mkstemp(prefix='.voice-lab-',dir=str(dst.parent))\ntry:\n with os.fdopen(fd,'wb') as f:f.write(raw);f.flush();os.fsync(f.fileno())\n os.chmod(tmp,0o644);os.replace(tmp,dst)\nfinally:\n if os.path.exists(tmp):os.unlink(tmp)\nassert dst.read_bytes()==raw\npublic=False\ntry:\n req=urllib.request.Request('https://app.ontrackegy.com/io/voice-lab/?verify=8f73476f',headers={'Cache-Control':'no-cache'})\n with urllib.request.urlopen(req,timeout=6) as response:public=response.status==200 and b'Voice Lab 2026.11.07.8' in response.read(100000)\nexcept Exception:pass\nprint(json.dumps({'status':'deployed_verified','version':'2026.11.07.8','source_sha':'8f73476fe7ac64fc856d457832d890f165750988','bytes':len(raw),'public_verified':public,'packed_bytes':len(data)}))\n"
+    "import pathlib,hashlib,json\np=pathlib.Path('/home/appontrack/.voice-lab-8f73476f.lz')\nb=p.read_bytes()\nprint(json.dumps({'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest(),'first':b[:12].hex(),'last':b[-12:].hex()}))"
   ]
 }
