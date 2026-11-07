@@ -790,18 +790,6 @@ function act():void {
                 insert("INSERT INTO plans(kind,name,call_quota,site_limit,agent_limit,staff_limit,reseller_customers,price_minor,overage_minor,google_key_limit,assistant_key_limit,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,'active',?)",
                     [$type,required('name'),intfield('calls'),intfield('sites'),intfield('agents'),intfield('staff'),intfield('customers'),$price,$overage,$keyLimit,$assistantLimit,now()]);
                 audit('plan.created',$id);break;
-            case 'save_io_premium_settings':
-                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||
-                    active_support()||white_label_context())deny();
-                require_once __DIR__.'/IoPremiumSettings.php';
-                $tested=io_premium_save_settings(
-                    field('fish_api_key',2048),required('fish_voice_id',32),required('fish_model',30));
-                audit('voice.io_premium.configured',$id,[
-                    'provider'=>'fish_audio','tested'=>true,
-                    'first_byte_ms'=>$tested['first_byte_ms']]);
-                $success='تم حفظ إعدادات IO Premium المشفرة واختبار صوت Fish بنجاح. أول بايت '.
-                    (int)$tested['first_byte_ms'].'ms؛ اختار الصوت للإيجنت ثم اضغط نشر إعدادات المساعد.';
-                break;
             case 'toggle_voice':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 execute("UPDATE voices SET status=CASE WHEN status='active' THEN 'hidden' ELSE 'active' END WHERE id=?",[intfield('voice_id')]);
