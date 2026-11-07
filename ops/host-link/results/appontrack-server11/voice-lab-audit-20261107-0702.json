@@ -1,0 +1,13 @@
+{
+  "job_id": "voice-lab-audit-20261107-0702",
+  "target": "appontrack-server11",
+  "job_sha256": "8f9f42fd3f1b66ff99ccd177ce722b92ce34212eabd7df7dbae5cc24c5c12b9a",
+  "started_at": "2026-11-07T05:03:02.774019+00:00",
+  "status": "success",
+  "exit_code": 0,
+  "output_truncated": false,
+  "stdout": "{\"checked_at\": \"2026-11-07T05:03:02.842420+00:00\", \"path\": \"/home/appontrack/public_html/io/voice-lab\", \"folder_exists\": true, \"files\": [\".htaccess\", \"gemini.php\", \"index.html\", \"live-token.php\", \"security.php\", \"settings.php\", \"tts.php\"], \"local_html_sha256\": \"60e0db61596ab463790998cc93631aae8e54dca28379ba7c46eb0c9963b88270\", \"local_html_length\": 35855, \"local_save_button\": true, \"local_model\": true, \"local_settings_api\": true, \"local_live_token\": true, \"directory\": {\"status\": 200, \"bytes\": 35855, \"sha256\": \"60e0db61596ab463790998cc93631aae8e54dca28379ba7c46eb0c9963b88270\", \"has_save_button\": true, \"has_live_model\": true, \"content_type\": \"text/html\", \"cache_control\": \"no-store\"}, \"index\": {\"status\": 200, \"bytes\": 35855, \"sha256\": \"60e0db61596ab463790998cc93631aae8e54dca28379ba7c46eb0c9963b88270\", \"has_save_button\": true, \"has_live_model\": true, \"content_type\": \"text/html\", \"cache_control\": \"no-store\"}, \"settings_anon\": {\"status\": 401, \"bytes\": 43, \"sha256\": \"b31375e5827064d138c2068cddcd3b55620d185524723e3eeefd6a23c3a963fe\", \"has_save_button\": false, \"has_live_model\": false, \"content_type\": \"application/json; charset=utf-8\", \"cache_control\": \"no-store\"}}\n",
+  "stderr": "",
+  "finished_at": "2026-11-07T05:03:03.097474+00:00",
+  "duration_ms": 323
+}
