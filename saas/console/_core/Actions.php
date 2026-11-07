@@ -637,9 +637,15 @@ function act():void {
                 $sid=intfield('site_id');if(!owned_site($sid,$id))deny();
                 if($kind!=='platform'&&!can_create($id,'agent'))throw new RuntimeException('انتهى حد الإيجنتات في باقتك');
                 $name=required('name',140);$voice=field('voice',80);
-                $v=one("SELECT * FROM voices WHERE code=? AND ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)",[$voice,$id]);
-                if(!$v && $kind!=='platform')throw new RuntimeException('الصوت غير متاح لهذه الباقة');
-                if(!$v && $kind==='platform')$voice='google.aoede';
+                if($voice==='io.premium'){
+                    require_once __DIR__.'/IoPremiumProvider.php';
+                    if(!io_premium_access_allowed($id))
+                        throw new RuntimeException('IO Premium غير متاح لهذا الحساب حسب سياسة الأدمن');
+                }else{
+                    $v=one("SELECT * FROM voices WHERE code=? AND ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)",[$voice,$id]);
+                    if(!$v && $kind!=='platform')throw new RuntimeException('الصوت غير متاح لهذه الباقة');
+                    if(!$v && $kind==='platform')$voice='google.aoede';
+                }
                 // Compatibility metadata for older clients only. Never used by
                 // Gemini Live: goals, knowledge and policy drive the dialogue.
                 $templateGraph=['nodes'=>[
@@ -673,7 +679,11 @@ function act():void {
                 if(!is_array($decoded)||!isset($decoded['nodes'],$decoded['edges'])||!is_array($decoded['nodes'])||!is_array($decoded['edges'])||count($decoded['nodes'])>100||count($decoded['edges'])>250)throw new InvalidArgumentException('Flow JSON غير صالح');
                 $newName=required('name',140);
                 $voice=field('voice',80);
-                if($voice!==(string)$ag['voice']){
+                if($voice==='io.premium'){
+                    require_once __DIR__.'/IoPremiumProvider.php';
+                    if(!io_premium_access_allowed($id))
+                        throw new InvalidArgumentException('IO Premium غير متاح لهذا الحساب حسب سياسة الأدمن');
+                }elseif($voice!==(string)$ag['voice']){
                     $allowedVoice=one("SELECT id FROM voices WHERE code=? AND ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)",[$voice,$id]);
                     if(!$allowedVoice && $kind!=='platform')throw new InvalidArgumentException('الصوت غير متاح لهذا الحساب');
                 }
@@ -801,6 +811,7 @@ function act():void {
                 if($kind==='platform'&&!account($target))deny();
                 $v=one("SELECT * FROM voices WHERE id=? AND ready=1 AND status='active'",[intfield('voice_id')]);
                 if(!$v)throw new RuntimeException('الصوت لم يتم إثبات جاهزيته');
+                if($v['code']==='io.premium')throw new InvalidArgumentException('IO Premium يستخدم توزيع الأدمن العام، وليس منح صوت فردي');
                 if($kind==='reseller'&&!one('SELECT id FROM voice_grants WHERE account_id=? AND voice_id=?',[$id,$v['id']]))deny();
                 if(!one('SELECT id FROM voice_grants WHERE account_id=? AND voice_id=?',[$target,$v['id']]))
                     insert('INSERT INTO voice_grants(account_id,voice_id) VALUES (?,?)',[$target,$v['id']]);
@@ -1142,6 +1153,16 @@ function act():void {
                 );
                 audit('voice.io_premium.config_verified',$id,['provider'=>'fish_audio','ready'=>true]);
                 $success='تم اختبار Fish Audio وتشفير المفتاح وحفظ IO Premium. اختار الصوت من إعدادات المساعد وانشر النسخة الجديدة.';
+                break;
+            case 'save_io_premium_access':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/IoPremiumProvider.php';
+                io_premium_admin_save_access(
+                    required('io_access_mode',16),
+                    (int)($_POST['io_access_limit']??0)
+                );
+                audit('voice.io_premium.access_updated',$id,io_premium_access_policy());
+                $success='تم حفظ إتاحة IO Premium. المفتاح الرئيسي محفوظ ولم يتغير.';
                 break;
             case 'set_voice_ready':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
