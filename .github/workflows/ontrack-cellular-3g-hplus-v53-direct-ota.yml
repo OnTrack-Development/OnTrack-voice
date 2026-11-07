@@ -1,0 +1,122 @@
+name: Publish OnTrack 3G H H+ recovery 0.3.30 v53 signed OTA
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths: ['.github/workflows/ontrack-cellular-3g-hplus-v53-direct-ota.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ontrack-io-premium-v53-direct-ota
+  cancel-in-progress: false
+jobs:
+  publish:
+    name: Verify original signer, sign OTA manifests, install native 53 and prove HTTPS
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Assert source builder succeeded, verify saved signed native v53
+        run: |
+          $ErrorActionPreference='Stop'
+          $repo='OnTrack-Development/OnTrack-voice'
+          $sourceRun='42425652974'
+          $headers=@{Authorization=('Bearer '+$env:GH_TOKEN);Accept='application/vnd.github+json';'User-Agent'='OnTrack-Direct-SSH-Publisher'}
+          $r=Invoke-RestMethod -Uri ('https://api.github.com/repos/'+$repo+'/actions/runs/'+$sourceRun) -Headers $headers -TimeoutSec 20
+          if($r.status -ne 'completed' -or $r.conclusion -ne 'success' -or $r.head_branch -ne 'feat/io-premium-native-v51-20261107'){throw 'Pinned signed v53 build did not pass'}
+          $base=Join-Path 'D:\ai\OnTrack-Voice-Builds\v1-candidates' $sourceRun
+          $apk=Join-Path $base 'OnTrack-Voice-0.3.30.apk'
+          if(-not (Test-Path -LiteralPath $apk)){throw 'Signed APK missing'}
+          $report=Get-Content -LiteralPath (Join-Path $base 'size-report.json') -Raw | ConvertFrom-Json
+          $actual=(Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($report.release -ne '0.3.30' -or [string]$report.source_build_run -ne $sourceRun -or $report.sha256 -ne $actual -or $report.signing_cert_verified -ne $true){throw 'APK preserved source report mismatch'}
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $signer=Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer=Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          $cert=& $signer verify --print-certs $apk
+          if($LASTEXITCODE -ne 0 -or ($cert|Out-String).ToLowerInvariant() -notlike '*d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f*'){throw 'Original APK signing identity mismatch'}
+          $version=(& $analyzer manifest version-code $apk|Out-String).Trim()
+          if($LASTEXITCODE -ne 0 -or $version -ne '53'){throw 'Signed native version must be 53'}
+          $appId=(& $analyzer manifest application-id $apk|Out-String).Trim()
+          if($LASTEXITCODE -ne 0 -or $appId -ne 'com.ontrack.voiceproof'){throw 'Wrong APK package'}
+          Write-Host ('SIGNED_IO_PREMIUM_V53_VERIFIED='+$actual)
+      - name: Create original-signer signed UI51 and native51 manifests
+        run: |
+          $ErrorActionPreference='Stop'
+          $base=Join-Path 'D:\ai\OnTrack-Voice-Builds\v1-candidates' '42425652974'
+          $apk=Join-Path $base 'OnTrack-Voice-0.3.30.apk'
+          $out='.build\io-v53-delivery'
+          $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
+          & python tools/prepare_mobile_native.py $apk (Join-Path $out 'native')
+          if($LASTEXITCODE -ne 0){throw 'Native manifest preparation failed'}
+          & java tools/SignMobileOta.java $key (Join-Path $out 'native')
+          if($LASTEXITCODE -ne 0){throw 'Native manifest signing failed'}
+          & python tools/prepare_mobile_ota.py (Join-Path $out 'ui')
+          if($LASTEXITCODE -ne 0){throw 'Signed HTML source preparation failed'}
+          & java tools/SignMobileOta.java $key (Join-Path $out 'ui')
+          if($LASTEXITCODE -ne 0){throw 'Signed HTML manifest signing failed'}
+          $env:PATH+=';C:\Program Files\Git\usr\bin'
+          & python -c "import sys;from pathlib import Path;sys.path.insert(0,'tools');import queue_mobile_native as n, queue_mobile_ota as u; m=n.verify(Path('.build/io-v53-delivery/native'))[2]; v=u.verify(Path('.build/io-v53-delivery/ui'))[2];assert m['version_code']==53 and m['version_name']=='0.3.30' and v['revision']==53 and v['min_native']<=34 and v['max_native']>=53;print('SIGNED_V53_MANIFESTS_VERIFIED')"
+          if($LASTEXITCODE -ne 0){throw 'Signed manifest verification failed'}
+      - name: Confirm IO Premium site is deployed; stage signed OTA through direct SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          $id=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $dest='appontrack@65.21.208.232'
+          $flags=@('-i',$id,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=10')
+          & ssh.exe @flags -p 7195 $dest '/opt/cpanel/ea-php83/root/usr/bin/php /home/appontrack/.ontrack-mobile/io-premium-v53-delta-stage/smoke.php'
+          if($LASTEXITCODE -ne 0){throw 'IO Premium server catalog not verified: OTA NOT published'}
+          $stage='/home/appontrack/.ontrack-mobile/io-premium-v53-stage'
+          & ssh.exe @flags -p 7195 $dest ('mkdir -p '+$stage+'/native '+$stage+'/ui')
+          if($LASTEXITCODE -ne 0){throw 'Cannot create private signed OTA stage'}
+          $base=Join-Path 'D:\ai\OnTrack-Voice-Builds\v1-candidates' '42425652974'
+          & scp.exe @flags -P 7195 (Join-Path $base 'OnTrack-Voice-0.3.30.apk') ($dest+':'+$stage+'/native/OnTrack-Voice-0.3.30.apk')
+          if($LASTEXITCODE -ne 0){throw 'Signed APK transfer failed'}
+          foreach($scope in @('native','ui')){
+            foreach($name in @('latest.json','signing-cert.der')){
+              & scp.exe @flags -P 7195 (Join-Path ('.build\io-v53-delivery\'+$scope) $name) ($dest+':'+$stage+'/'+$scope+'/'+$name)
+              if($LASTEXITCODE -ne 0){throw ('Signed '+$scope+' '+$name+' transfer failed')}
+            }
+          }
+          $uiMeta=(Get-Content -LiteralPath '.build\io-v53-delivery\ui\latest.json' -Raw | ConvertFrom-Json).payload | ConvertFrom-Json
+          $uiPath=Join-Path '.build\io-v53-delivery\ui' $uiMeta.file
+          & scp.exe @flags -P 7195 $uiPath ($dest+':'+$stage+'/ui/'+$uiMeta.file)
+          if($LASTEXITCODE -ne 0){throw 'Signed UI transfer failed'}
+          & scp.exe @flags -P 7195 'tools/io_premium_direct_ota_install_v53.py' ($dest+':/home/appontrack/.ontrack-mobile/io_premium_direct_ota_install_v53.py')
+          if($LASTEXITCODE -ne 0){throw 'Signed OTA installer transfer failed'}
+          Write-Host 'IO_PREMIUM_NATIVE51_AND_UI51_STAGED_WITHOUT_HOST_LINK=True'
+      - name: Verify signatures on host, back up old pointers, atomically install UI then APK
+        run: |
+          $ErrorActionPreference='Stop'
+          $id=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          & ssh.exe -i $id -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -p 7195 'appontrack@65.21.208.232' 'python3 /home/appontrack/.ontrack-mobile/io_premium_direct_ota_install_v53.py'
+          if($LASTEXITCODE -ne 0){throw 'Signed v53 host installation refused; previous version remains'}
+          Write-Host 'SIGNED_V53_OTA_HOST_PUBLISH_PASS'
+      - name: Verify live HTTPS signed UI and native manifest and downloadable APK hash
+        run: |
+          $ErrorActionPreference='Stop'
+          $uiExpected=(Get-Content -LiteralPath '.build\io-v53-delivery\ui\latest.json' -Raw).Trim()
+          $nativeExpected=(Get-Content -LiteralPath '.build\io-v53-delivery\native\latest.json' -Raw).Trim()
+          $nonce=$env:GITHUB_RUN_ID
+          $ui=(Invoke-WebRequest -Uri ('https://app.ontrackegy.com/mobile/updates/latest.json?verify='+$nonce) -TimeoutSec 30 -Headers @{'Cache-Control'='no-cache'}).Content.Trim()
+          $native=(Invoke-WebRequest -Uri ('https://app.ontrackegy.com/mobile/updates/native/latest.json?verify='+$nonce) -TimeoutSec 30 -Headers @{'Cache-Control'='no-cache'}).Content.Trim()
+          if($ui -ne $uiExpected -or $native -ne $nativeExpected){throw 'PUBLIC_SIGNED_OTA_MANIFEST_MISMATCH'}
+          $meta=($native | ConvertFrom-Json).payload | ConvertFrom-Json
+          if($meta.version_code -ne 53 -or $meta.version_name -ne '0.3.30'){throw 'Wrong public native version'}
+          $apkUrl='https://app.ontrackegy.com/mobile/updates/native/'+$meta.file
+          $file=Join-Path $env:RUNNER_TEMP 'io-premium-v53-public-verify.apk'
+          try{
+            Invoke-WebRequest -Uri $apkUrl -TimeoutSec 120 -OutFile $file
+            $digest=(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            if($digest -ne $meta.sha256){throw 'Public downloaded APK digest mismatch'}
+          }finally{Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue}
+          Write-Host ('IO_PREMIUM_APP_UPDATE_AVAILABLE='+$apkUrl)
+          Write-Host 'IO_PREMIUM_UI51_NATIVE51_PUBLIC_VERIFIED_PASS'
