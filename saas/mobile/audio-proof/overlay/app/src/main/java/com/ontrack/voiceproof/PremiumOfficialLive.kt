@@ -111,7 +111,8 @@ internal class PremiumOfficialLive(
             }
         })
     }
-    suspend fun awaitConnected(){withTimeout(25000){ready.await()}}
+    // A live 3G/HSPA call may be slower than the initial 25-second LTE path.
+    suspend fun awaitConnected(){withTimeout(35000){ready.await()}}
     suspend fun pushPcm(bytes:ByteArray){
         if(stopped.get() || !ready.isCompleted || bytes.isEmpty())return
         val audio=JSONObject().put("mimeType","audio/pcm;rate=16000")
