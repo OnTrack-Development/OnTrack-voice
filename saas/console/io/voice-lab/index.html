@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<title>Voice Lab — Gemini + Fish Audio</title>
+<title>Voice Lab — Gemini 3.8 Live</title>
 <style>
 :root{font-family:Tahoma,Arial,sans-serif;color:#f7f7fa;background:#090b10}
 *{box-sizing:border-box}
@@ -56,15 +56,14 @@ details[open] summary{margin-bottom:17px}
 audio{display:none}
 @media(max-width:640px){main{padding:14px 10px 50px}.grid{grid-template-columns:1fr}header{align-items:flex-start}.badge{font-size:11px} .hero h1{font-size:21px}.panel{padding:16px}.orb{width:122px;height:122px}}
 </style>
-<script src="https://js.puter.com/v2/"></script>
 </head>
 <body>
 <main>
-<header><div class="brand"><div class="logo">◉</div><div>OnTrack <span style="color:#fb536b">Voice Lab</span><br><small>تجربة مستقلة — Gemini × Fish Audio</small></div></div><div class="badge">Egyptian Arabic • Demo</div></header>
+<header><div class="brand"><div class="logo">◉</div><div>OnTrack <span style="color:#fb536b">Voice Lab</span><br><small>تجربة مستقلة — Gemini 3.8 Live</small></div></div><div class="badge">Egyptian Arabic • Demo</div></header>
 <section class="panel hero">
 <h1>كلم المساعد بالمصري</h1>
-<p class="help" id="buildInfo">Voice Lab 2026.11.07.2 • Gemini 3.8 Live • حفظ الإعدادات</p>
-<p>Gemini يفهم ويرد بالمصري • Fish Drama 3 ينطق بمشاعر وتنهدات • المايك من المتصفح</p>
+<p class="help" id="buildInfo">Voice Lab 2026.11.07.3 • Gemini 3.8 Live — صوت مباشر</p>
+<p>Gemini 3.8 Live يسمعك ويرد عليك بصوته مباشرة • نص وصوت من نفس الموديل</p>
 <button id="mic" class="orb" aria-label="ابدأ مكالمة صوتية">🎙</button>
 <div id="status" class="status" role="status">جاهز للمكالمة</div>
 <div class="actions"><button id="stop" class="ghost" type="button">إنهاء المكالمة</button><button id="testVoice" class="ghost" type="button">تجربة الصوت فقط</button></div>
@@ -73,412 +72,300 @@ audio{display:none}
 <section class="panel"><h2>المحادثة</h2><div id="log" aria-live="polite"><p class="muted">ابدأ بالمايك أو اكتب رسالة. هتظهر هنا الجمل والردود.</p></div><form id="textForm" class="send"><input id="textInput" type="text" autocomplete="off" placeholder="اكتب حاجة بالمصري لو المايك مش متاح..." aria-label="رسالتك"><button type="submit">إرسال</button></form></section>
 <section class="panel"><details open><summary>⚙️ إعدادات التجربة</summary>
 <div class="grid">
-<label>خدمة الصوت<select id="voiceMode"><option value="fish">Fish Audio — صوت مستنسخ</option><option value="browser">صوت المتصفح — بدون مفتاح</option></select></label>
-<label>موديل Fish<select id="fishModel"><option value="drama-3">drama-3 — المشاعر</option><option value="s2.1-pro-free">s2.1-pro-free — مجاني حسب حسابك</option><option value="s2.1-pro">s2.1-pro</option></select></label>
-<label>Fish API Key — تقدر تغيّره وقت ما تحب<input id="fishKey" type="password" placeholder="اكتب مفتاحًا جديدًا أو سيبه فاضي" autocomplete="new-password"><span id="fishSaved" class="settings-note">جارٍ تحميل حالة المفتاح...</span></label>
-<label>Voice Reference ID<input id="voiceId" type="text" value="e3c2911a78404bcab3c6adce3c59e1d9" spellcheck="false"></label>
-<label>مخ المحادثة<select id="brainSource"><option value="google-live" selected>Gemini 3.8 Live — المايك مباشرة، والنص إلى Fish</option><option value="puter">Puter — القديم</option><option value="google">Google Gemini API — Flash (بديل)</option></select></label>
-<label>موديل Google (نص فقط)<select id="googleModel"><option value="gemini-3.8-flash">Gemini 3.8 Flash — نص سريع</option><option value="gemini-3-flash-preview">Gemini 3 Flash — نص</option></select></label>
-<label>Google Gemini API Key — تقدر تغيّره وقت ما تحب<input id="googleKey" type="password" autocomplete="new-password" placeholder="اكتب مفتاحًا جديدًا أو سيبه فاضي"><span id="googleSaved" class="settings-note">جارٍ تحميل حالة المفتاح...</span></label>
-<label>Gemini عبر Puter<select id="geminiModel"><option value="gemini-3-flash-preview">gemini-3-flash-preview</option><option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option></select></label>
+<label>الموديل الأساسي <input type="text" value="Gemini 3.8 Live — صوت ومحادثة مباشرة" readonly></label>
+<label>Google Gemini API Key<input id="googleKey" type="password" autocomplete="new-password" placeholder="مفتاح جديد أو سيبه فاضي لاستخدام المحفوظ"><span id="googleSaved" class="settings-note">جارٍ تحميل حالة المفتاح...</span></label>
 <label>مستوى المشاعر<select id="emotionLevel"><option value="intense">جياشة — تنهيدات وتعبير واضح</option><option value="expressive">معبرة — طبيعية ومتغيرة</option><option value="subtle">هادية — لمسات خفيفة</option></select></label>
 <label>إيقاف الاستماع بعد كل رد<select id="autoListen"><option value="no">لا — كمّل مكالمة تلقائيًا</option><option value="yes">نعم — اضغط المايك لكل جملة</option></select></label>
 </div>
-<label class="inline"><input id="emotions" type="checkbox" checked> تفعيل تعليمات الأداء والتنهدات مع Drama 3</label>
-<div class="settings-actions"><button type="button" id="saveSettings">💾 حفظ المفاتيح والإعدادات</button><span id="settingsStatus" class="settings-state" role="status" aria-live="polite">حفظ مشفّر على السيرفر — لا تُعرض المفاتيح بعد الحفظ.</span></div>
-<label class="inline"><input id="removeFish" type="checkbox"> حذف مفتاح Fish المحفوظ عند الحفظ</label>
+<label class="inline"><input id="emotions" type="checkbox" checked> صوت مصري بمشاعر وتنهدات طبيعية من Gemini Live</label>
+<div class="settings-actions"><button type="button" id="saveSettings">💾 حفظ المفتاح والإعدادات</button><span id="settingsStatus" class="settings-state" role="status" aria-live="polite">المفتاح بيتحفظ مشفر على السيرفر.</span></div>
 <label class="inline"><input id="removeGoogle" type="checkbox"> حذف مفتاح Google المحفوظ عند الحفظ</label>
-<p class="help">تحدث من Chrome/Edge على HTTPS. في وضع Gemini 3.8 Live المايك بيروح مباشرة إلى Live عبر WebSocket مؤقت، ونستخرج نص رد النموذج من outputAudioTranscription وننطقه بصوت Fish. صوت Gemini الأصلي مش بيتشغّل. وضع Puter وFlash ما اتغيروش. مفاتيح Google وFish بتتحفظ مشفّرة في فولدر خاص خارج ملفات الموقع عند الضغط على زر الحفظ، وبترجع تشتغل تلقائيًا من غير ما تكتبها تاني. لازم تكون داخل بحساب أدمن OnTrack. المفاتيح مش بتترفع للريبو أو بتظهر تاني في الصفحة. الخدمة ممكن تحتاج رصيد. المايك يتحول لإيقاف مؤقت أثناء كلام المساعد عشان الصوت مايرجعش يسمع نفسه.</p>
+<p class="help">Gemini 3.8 Live هو الموديل الوحيد للمحادثة والصوت؛ المايك بيتبعت مباشرة عبر WebSocket بتوكن قصير الصلاحية، وصوت الرد بيتشغّل فور وصوله. تقدر تحفظ مفتاح Google مرة واحدة وتستخدمه بعد كده بدون كتابته تاني. يلزم تسجيل دخول أدمن OnTrack. الصوت مباشر من Gemini، بدون Flash أو Puter أو Fish TTS.</p>
 </details></section>
 <audio id="player" playsinline></audio>
 </main>
 <script>
+
 (function () {
   'use strict';
   const el = id => document.getElementById(id);
-  const $ = {mic:el('mic'),stop:el('stop'),test:el('testVoice'),status:el('status'),log:el('log'),
-    textForm:el('textForm'),textInput:el('textInput'),voiceMode:el('voiceMode'),fishModel:el('fishModel'),
-    fishKey:el('fishKey'),voiceId:el('voiceId'),geminiModel:el('geminiModel'),googleModel:el('googleModel'),googleKey:el('googleKey'),brainSource:el('brainSource'),emotionLevel:el('emotionLevel'),autoListen:el('autoListen'),
-    emotions:el('emotions'),player:el('player'),brain:el('brainTime'),first:el('firstAudio'),total:el('totalTime'),
-    saveSettings:el('saveSettings'),settingsStatus:el('settingsStatus'),fishSaved:el('fishSaved'),googleSaved:el('googleSaved'),removeFish:el('removeFish'),removeGoogle:el('removeGoogle')};
-  let active=false, busy=false, listening=false, recognition=null, history=[], controller=null, blobUrl=null, generation=0;
-  let live=null;
-  let liveTokenController=null;
-  let csrfToken='';
+  const ui = {
+    mic:el('mic'), stop:el('stop'), test:el('testVoice'), status:el('status'), log:el('log'),
+    textForm:el('textForm'), textInput:el('textInput'),
+    googleKey:el('googleKey'), googleSaved:el('googleSaved'),
+    emotionLevel:el('emotionLevel'), autoListen:el('autoListen'), emotions:el('emotions'),
+    save:el('saveSettings'), settingsStatus:el('settingsStatus'), removeGoogle:el('removeGoogle'),
+    brain:el('brainTime'), first:el('firstAudio'), total:el('totalTime')
+  };
+  let csrf='',savedGoogle=false,live=null,active=false,starting=false,tokenAbort=null;
   let settingsReady=Promise.resolve();
-  let savedKeys={fish:false,google:false};
-  const settingNames=['voiceMode','fishModel','voiceId','brainSource','googleModel','geminiModel','emotionLevel','autoListen'];
-  function updateKeyLabels(){
-    $.fishSaved.textContent=savedKeys.fish?'✓ مفتاح Fish محفوظ ومشفّر على السيرفر':'لم يتم حفظ مفتاح Fish بعد';
-    $.googleSaved.textContent=savedKeys.google?'✓ مفتاح Gemini محفوظ ومشفّر على السيرفر':'لم يتم حفظ مفتاح Gemini بعد';
+  const AudioCtx=window.AudioContext||window.webkitAudioContext;
+  function status(message){ui.status.textContent=message;}
+  function message(role,text){
+    if(!text)return;
+    const item=document.createElement('div');
+    item.className='bubble '+(role==='user'?'mine':'theirs');
+    item.textContent=(role==='user'?'أنت: ':'المساعدة: ')+text;
+    ui.log.appendChild(item);
+    ui.log.scrollTop=ui.log.scrollHeight;
+  }
+  function keyLabel(){
+    ui.googleSaved.textContent=savedGoogle?'✓ مفتاح Google محفوظ مشفر على السيرفر':'لم يتم حفظ مفتاح Google';
   }
   async function loadSettings(){
     const response=await fetch('./settings.php',{credentials:'same-origin',cache:'no-store'});
-    if(!response.ok)throw new Error(response.status===401?'سجّل دخولك كأدمن في OnTrack أولًا (بنفس المتصفح)':'تعذّر تحميل الإعدادات (HTTP '+response.status+')');
-    const data=await response.json();
-    if(!data.ok||!data.csrf)throw new Error('رد غير متوقع من السيرفر');
-    csrfToken=data.csrf;
-    const values=data.settings||{};
-    for(const name of settingNames){
-      if((typeof values[name]==='string'&&Array.from($[name].options||[]).some(o=>o.value===values[name]))
-          || (name==='voiceId'&&/^[0-9a-f]{32}$/i.test(values[name]||''))){
-        $[name].value=values[name];
-      }
+    if(!response.ok)throw Error(response.status===401?'سجّل دخولك كأدمن OnTrack':'تعذّر تحميل الإعدادات HTTP '+response.status);
+    const result=await response.json();
+    if(!result.ok||!result.csrf)throw Error('رد السيرفر غير صالح');
+    csrf=result.csrf;
+    for(const name of ['emotionLevel','autoListen']){
+      const value=result.settings?.[name];
+      if(typeof value==='string'&&Array.from(ui[name].options).some(option=>option.value===value))ui[name].value=value;
     }
-    if(typeof values.emotions==='boolean')$.emotions.checked=values.emotions;
-    savedKeys={fish:!!data.saved?.fish,google:!!data.saved?.google};
-    updateKeyLabels();
-    $.settingsStatus.textContent='الإعدادات اتحمّلت من السيرفر. سيب حقل المفتاح فاضي لاستخدام المحفوظ.';
+    if(typeof result.settings?.emotions==='boolean')ui.emotions.checked=result.settings.emotions;
+    savedGoogle=!!result.saved?.google;keyLabel();
+    ui.settingsStatus.textContent='الإعدادات اتحمّلت. سيب حقل المفتاح فاضي لاستخدام المحفوظ.';
   }
-  async function secureHeaders(provider,temporaryKey){
+  async function secureHeaders(){
     await settingsReady;
-    if(!csrfToken)throw new Error('محتاج تسجّل دخول الأدمن علشان تستخدم مفاتيح Voice Lab المحفوظة');
-    const headers={'Content-Type':'application/json','X-Voice-Lab-CSRF':csrfToken};
-    if(temporaryKey)headers[provider==='fish'?'X-Fish-API-Key':'X-Gemini-API-Key']=temporaryKey;
+    if(!csrf)throw Error('لازم تكون داخل بحساب أدمن OnTrack');
+    const headers={'Content-Type':'application/json','X-Voice-Lab-CSRF':csrf};
+    if(ui.googleKey.value.trim())headers['X-Gemini-API-Key']=ui.googleKey.value.trim();
     return headers;
   }
-  const Recognition=window.SpeechRecognition || window.webkitSpeechRecognition;
-  function status(s){ $.status.textContent=s; }
-  function add(role,text){
-    const item=document.createElement('div');item.className='bubble '+(role==='user'?'mine':'theirs');item.textContent=(role==='user'?'أنت: ':'المساعدة: ')+text;
-    $.log.appendChild(item);$.log.scrollTop=$.log.scrollHeight;
+  function instructions(){
+    const mood=ui.emotionLevel.value;
+    const emotion=ui.emotions.checked
+      ? mood==='intense'?'عبّري عن المشاعر بوضوح، مع تنهيدات وضحكات وهمسات مناسبة من غير مبالغة.'
+      : mood==='subtle'?'مشاعر هادية وطبيعية وتغيير بسيط في النبرة.'
+      :'كوني ودودة ومرحة، بنبرة معبرة تتغير طبيعيًا حسب الكلام.'
+      :'اتكلمي بطبيعية وبلا تعليمات أداء.';
+    return 'إنتِ بنت مصرية بتتكلمي بالمصري بطلاقة وعفوية. استمعي للمستخدم للآخر بدون مقاطعة، وردّي بصوت طبيعي وواضح وباختصار، من غير تقديم رسمي أو حشو. ردي بالصوت المصري وليس بلغة أخرى. '+emotion;
   }
-  function clearAudio(){ $.player.pause();$.player.removeAttribute('src');$.player.load(); if(blobUrl){URL.revokeObjectURL(blobUrl);blobUrl=null;} }
-  function reset(){ stopLive();active=false;busy=false;listening=false;generation++;$.mic.classList.remove('active');$.mic.textContent='🎙';if(recognition){try{recognition.abort();}catch(e){}}if(controller){controller.abort();controller=null;}window.speechSynthesis&&speechSynthesis.cancel();clearAudio();status('تم إنهاء المكالمة'); }
-  function listen(){
-    if(!active||busy||listening)return;
-    if(!Recognition){status('التعرّف على الكلام مش متاح في المتصفح ده. استخدم Chrome أو اكتب رسالة.');return;}
-    recognition=new Recognition();recognition.lang='ar-EG';recognition.continuous=false;recognition.interimResults=true;recognition.maxAlternatives=1;
-    let finalText='';
-    recognition.onstart=()=>{listening=true;status('بسمعك... اتكلم براحتك');$.mic.textContent='◉';};
-    recognition.onresult=event=>{
-      let interim='';
-      for(let i=event.resultIndex;i<event.results.length;i++){
-        const text=event.results[i][0].transcript;
-        if(event.results[i].isFinal)finalText+=text+' ';else interim+=text;
-      }
-      if(finalText.trim()){const spoken=finalText.trim();finalText='';try{recognition.stop();}catch(e){};listenEnd();turn(spoken);}
-      else if(interim)status('سامعك: '+interim);
-    };
-    recognition.onerror=event=>{listening=false;if(event.error==='not-allowed'){active=false;$.mic.classList.remove('active');status('اسمح للمتصفح باستخدام الميكروفون.');}else if(event.error!=='no-speech'&&event.error!=='aborted')status('مشكلة مايك: '+event.error);};
-    recognition.onend=()=>{listenEnd();if(active&&!busy&&$.autoListen.value==='no')setTimeout(listen,550);};
-    try{recognition.start();}catch(e){listening=false;status('تعذّر تشغيل المايك: '+e.message);}
-  }
-  function listenEnd(){listening=false;if(active)$.mic.textContent='🎙';}
-  function resume(){if(!active)return;busy=false;if($.autoListen.value==='yes'){active=false;$.mic.classList.remove('active');status('جاهز للجملة التالية — اضغط المايك');}else{status('دورك...');setTimeout(listen,420);}}
-  function replyText(result){const v=result&&result.message&&result.message.content;return typeof v==='string'?v.trim():Array.isArray(v)?v.map(x=>x.text||'').join(' ').trim():'';}
-  function stripDirections(text){return text.replace(/\[[^\]\r\n]{1,120}\]/g,'').replace(/<\/?(?:whisper|soft|slow|emphasis|faster|slower|stress|forceful)>/gi,'').trim();}
-  function fishScript(text){
-    if(!$.emotions.checked||$.fishModel.value!=='drama-3')return stripDirections(text);
-    const level=$.emotionLevel.value;
-    const directive=level==='intense'?'[warm, deeply expressive Egyptian Arabic, rich emotional shifts and natural breathing]':level==='expressive'?'[warm, lively, emotionally expressive Egyptian Arabic]':'[gentle, natural Egyptian Arabic conversation]';
-    const hasStageDirection=/\[[^\]]{1,120}\]/.test(text);
-    return directive+' '+(!hasStageDirection&&level==='intense'?'[gentle sigh] ':'')+text.trim();
-  }
-  function emotionInstructions(){
-    if(!$.emotions.checked||$.fishModel.value!=='drama-3')return 'اكتبي الكلام فقط بلا تعليمات أداء.';
-    const intensity=$.emotionLevel.value==='intense'?'المشاعر جياشة وواضحة: ضيفي تنهيدة مسموعة أو نفسًا مناسبًا للموقف، وضحكة أو همسة عندما يسمح السياق، مع تغير حقيقي في النبرة.':'المشاعر طبيعية ومتغيرة بحسب الموقف بدون افتعال.';
-    return intensity+' النص هينطق بصوت Fish Audio Drama 3. اكتبي تعليمات الأداء بين مربعات [ ] زي [sigh] و[soft laugh] و[warm, longing tone] و[excited, breathless] و[pause]. للهمس ممكن <whisper>كلمتين</whisper>. لازم تكون العلامة جزء من الأداء مش كلمة تتقري. لا تعملي كل الردود غزل، وراعي السياق.';
-  }
-
-  // Gemini 3.8 Live: native PCM microphone -> Google Live -> output transcript -> Fish TTS.
-  // A single-use ephemeral token avoids exposing the long-lived API key to a WebSocket URL.
   function stopLive(){
-    if(liveTokenController){liveTokenController.abort();liveTokenController=null;}
+    if(tokenAbort){tokenAbort.abort();tokenAbort=null;}
     const s=live;live=null;
     if(!s)return;
     s.closed=true;
-    if(s.handshakeTimer)clearTimeout(s.handshakeTimer);
+    clearTimeout(s.handshakeTimer);
     if(s.node){s.node.onaudioprocess=null;try{s.node.disconnect();}catch(e){}}
-    if(s.silence){try{s.silence.disconnect();}catch(e){}}
-    if(s.source){try{s.source.disconnect();}catch(e){}}
-    if(s.media)for(const t of s.media.getTracks())t.stop();
-    if(s.context)s.context.close().catch(()=>{});
+    for(const source of s.playing){try{source.stop();}catch(e){}}
+    s.playing.clear();
+    if(s.silence)try{s.silence.disconnect();}catch(e){}
+    if(s.source)try{s.source.disconnect();}catch(e){}
+    if(s.media)for(const track of s.media.getTracks())track.stop();
+    if(s.inputContext)s.inputContext.close().catch(()=>{});
+    if(s.playback)s.playback.close().catch(()=>{});
     if(s.socket&&s.socket.readyState<=1)try{s.socket.close(1000,'stop');}catch(e){}
   }
-  function addLiveChunk(current,fragment){
-    const v=(fragment||'').trim();
-    if(!v)return current;
-    if(!current)return v;
-    if(v===current||current.endsWith(v))return current;
-    if(v.startsWith(current))return v;
-    return current+' '+v;
+  function reset(){
+    active=false;starting=false;stopLive();
+    ui.mic.classList.remove('active');ui.mic.textContent='🎙';
+    status('تم إنهاء المكالمة');
   }
-  function pcmBase64(floatSamples,sampleRate){
-    const len=Math.max(1,Math.round(floatSamples.length*16000/sampleRate));
-    const bytes=new Uint8Array(len*2);
-    const view=new DataView(bytes.buffer);
-    for(let i=0;i<len;i++){
-      const sourceIndex=Math.min(floatSamples.length-1,Math.floor(i*sampleRate/16000));
-      const value=Math.max(-1,Math.min(1,floatSamples[sourceIndex]||0));
+  function appendText(existing,chunk){
+    const text=String(chunk||'').trim();
+    if(!text||text===existing||existing.endsWith(text))return existing;
+    if(!existing||text.startsWith(existing))return text;
+    return existing+' '+text;
+  }
+  function pcm16Base64(samples,sampleRate){
+    const length=Math.max(1,Math.floor(samples.length*16000/sampleRate));
+    const bytes=new Uint8Array(length*2), view=new DataView(bytes.buffer);
+    for(let i=0;i<length;i++){
+      const value=Math.max(-1,Math.min(1,samples[Math.min(samples.length-1,Math.floor(i*sampleRate/16000))]||0));
       view.setInt16(i*2,value<0?value*32768:value*32767,true);
     }
-    let out='';for(let i=0;i<bytes.length;i++)out+=String.fromCharCode(bytes[i]);
-    return btoa(out);
+    let binary='';for(let i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
+    return btoa(binary);
   }
-  async function captureLive(s){
-    status('Google Live اتصل — اسمح للمتصفح بالميكروفون عشان نبدأ نسمعك...');
+  async function startMic(s){
+    if(!navigator.mediaDevices?.getUserMedia)throw Error('المايك يحتاج HTTPS ومتصفح حديث');
+    status('اسمح للمتصفح بالمايك...');
     s.media=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
-    if(live!==s||s.closed){s.media.getTracks().forEach(t=>t.stop());return;}
-    s.context=new (window.AudioContext||window.webkitAudioContext)();
-    s.source=s.context.createMediaStreamSource(s.media);
-    // ScriptProcessor is a compatibility fallback for Chrome on the hosted demo.
-    s.node=s.context.createScriptProcessor(4096,1,1);
-    s.silence=s.context.createGain();s.silence.gain.value=0;
-    s.node.onaudioprocess=e=>{
-      if(live!==s||s.closed||s.busy||!s.ready||s.socket.readyState!==WebSocket.OPEN||s.socket.bufferedAmount>500000)return;
-      const chunk=pcmBase64(e.inputBuffer.getChannelData(0),s.context.sampleRate);
-      s.socket.send(JSON.stringify({realtimeInput:{audio:{mimeType:'audio/pcm;rate=16000',data:chunk}}}));
+    if(live!==s||s.closed){s.media.getTracks().forEach(track=>track.stop());return;}
+    s.inputContext=new AudioCtx();
+    s.source=s.inputContext.createMediaStreamSource(s.media);
+    s.node=s.inputContext.createScriptProcessor(2048,1,1);
+    s.silence=s.inputContext.createGain();s.silence.gain.value=0;
+    s.node.onaudioprocess=event=>{
+      if(live!==s||s.closed||!s.ready||s.speaking||s.socket.readyState!==WebSocket.OPEN||s.socket.bufferedAmount>500000)return;
+      s.socket.send(JSON.stringify({realtimeInput:{audio:{mimeType:'audio/pcm;rate=16000',data:pcm16Base64(event.inputBuffer.getChannelData(0),s.inputContext.sampleRate)}}}));
     };
-    s.source.connect(s.node);s.node.connect(s.silence);s.silence.connect(s.context.destination);
-    await s.context.resume();
-    status('Gemini 3.8 Live بيسمعك... اتكلم براحتك');
+    s.source.connect(s.node);s.node.connect(s.silence);s.silence.connect(s.inputContext.destination);
+    await s.inputContext.resume();
+    status('Gemini 3.8 Live بيسمعك...');
   }
-  function liveSendText(s,text){
+  function sendText(s,text){
+    if(!s.ready){s.pending.push(text);return;}
+    message('user',text);
+    s.turnStart=performance.now();ui.first.textContent='أول صوت: ...';
+    s.socket.send(JSON.stringify({realtimeInput:{text}}));
+    status('Gemini 3.8 Live بيرد بالصوت...');
+  }
+  function playChunk(s,base64){
     if(live!==s||s.closed)return;
-    add('user',text);
-    s.socket.send(JSON.stringify({clientContent:{turns:[{role:'user',parts:[{text}]}],turnComplete:true}}));
-    status('Gemini 3.8 Live بيرد...');
+    const binary=atob(base64);
+    if(binary.length<2)return;
+    const count=Math.floor(binary.length/2),pcm=new Float32Array(count),bytes=new DataView(new ArrayBuffer(count*2));
+    for(let i=0;i<count*2;i++)bytes.setUint8(i,binary.charCodeAt(i));
+    for(let i=0;i<count;i++)pcm[i]=bytes.getInt16(i*2,true)/32768;
+    const buffer=s.playback.createBuffer(1,count,24000);
+    buffer.copyToChannel(pcm,0);
+    const source=s.playback.createBufferSource();
+    source.buffer=buffer;source.connect(s.playback.destination);
+    const startAt=Math.max(s.playback.currentTime+0.03,s.nextAudioAt||0);
+    s.nextAudioAt=startAt+buffer.duration;
+    s.playing.add(source);
+    source.onended=()=>s.playing.delete(source);
+    source.start(startAt);
+    s.speaking=true;
+    if(!s.firstAudio){
+      s.firstAudio=true;
+      ui.first.textContent='أول صوت: '+Math.round(performance.now()-(s.turnStart||s.connectedAt))+'ms';
+      ui.brain.textContent='Gemini 3.8 Live — صوت مباشر';
+    }
+    status('Gemini 3.8 Live بيتكلم...');
   }
-  async function finishLiveTurn(s){
+  async function finishTurn(s){
     if(live!==s||s.closed)return;
-    const spoken=s.output.trim(),heard=s.input.trim();
-    s.output='';s.input='';
-    if(heard)add('user',heard);
-    if(!spoken){s.busy=false;status('Gemini Live ما رجّعش تفريغ نص للرد؛ جرب تاني');return;}
-    s.busy=true;
-    add('assistant',spoken);
-    const start=performance.now();
-    $.brain.textContent='Gemini 3.8 Live: transcript';
-    $.first.textContent='أول صوت: ...';
-    status('Fish بيحضّر صوت Gemini Live بالمشاعر...');
-    try{
-      await speak(spoken,start,s.generation);
-      if(live!==s||s.closed)return;
-      $.total.textContent='إجمالي توليد Fish: '+Math.round(performance.now()-start)+'ms';
-      status('Gemini 3.8 Live بيسمعك...');
-    }catch(e){if(live===s&&!s.closed)status('Fish: '+(e.message||e));}
-    finally{if(live===s&&!s.closed)s.busy=false;}
+    const heard=s.input.trim(),spoken=s.output.trim();
+    s.input='';s.output='';
+    if(heard)message('user',heard);
+    if(spoken)message('assistant',spoken);
+    const remaining=Math.max(0,(s.nextAudioAt-s.playback.currentTime)*1000);
+    if(remaining>0)await new Promise(resolve=>setTimeout(resolve,Math.min(remaining+80,45000)));
+    if(live!==s||s.closed)return;
+    s.speaking=false;s.firstAudio=false;s.nextAudioAt=0;
+    ui.total.textContent='زمن الرد: '+Math.round(performance.now()-(s.turnStart||s.connectedAt))+'ms';
+    if(ui.autoListen.value==='yes'&&s.withMic){
+      reset();status('جاهز للجملة التالية — اضغط المايك');return;
+    }
+    status(s.withMic?'Gemini 3.8 Live بيسمعك...':'تقدر تبعت رسالة تانية');
   }
-  function receiveLive(s,raw){
-    let obj;try{obj=JSON.parse(raw);}catch(e){return;}
-    if(obj.error){status('Gemini Live: '+(obj.error.message||obj.error.code||'error'));return;}
-    if(obj.setupComplete){
-      if(s.handshakeTimer){clearTimeout(s.handshakeTimer);s.handshakeTimer=null;}
-      s.ready=true;
+  function receive(s,raw){
+    let result;try{result=JSON.parse(raw);}catch(e){return;}
+    if(result.error){status('Gemini Live: '+(result.error.message||result.error.code||'خطأ اتصال'));return;}
+    if(result.setupComplete){
+      clearTimeout(s.handshakeTimer);s.ready=true;s.connectedAt=performance.now();
       status('اتصلنا بـGemini 3.8 Live');
-      if(s.withMic)captureLive(s).catch(e=>{status('مشكلة المايك: '+e.message);stopLive();active=false;$.mic.classList.remove('active');});
-      for(const t of s.pending)liveSendText(s,t);
-      s.pending=[];return;
+      if(s.withMic)startMic(s).catch(e=>{reset();status('مشكلة المايك: '+e.message);});
+      for(const text of s.pending.splice(0))sendText(s,text);
+      return;
     }
-    const c=obj.serverContent||{};
-    if(c.inputTranscription?.text)s.input=addLiveChunk(s.input,c.inputTranscription.text);
-    if(c.outputTranscription?.text){
-      s.output=addLiveChunk(s.output,c.outputTranscription.text);
-      // Prevent the microphone from hearing our Fish response.
-      s.busy=true;
-      status('Gemini 3.8 Live بيطلع النص...');
+    const content=result.serverContent||{};
+    if(content.inputTranscription?.text)s.input=appendText(s.input,content.inputTranscription.text);
+    if(content.outputTranscription?.text)s.output=appendText(s.output,content.outputTranscription.text);
+    for(const part of content.modelTurn?.parts||[]){
+      const pcm=part.inlineData;
+      if(pcm?.data&&String(pcm.mimeType||'').startsWith('audio/pcm')){
+        try{playChunk(s,pcm.data);}catch(e){status('تعذّر تشغيل صوت Gemini: '+e.message);}
+      }
     }
-    if(c.interrupted){s.output='';s.busy=false;}
-    if(c.turnComplete){
-      s.queue=s.queue.then(()=>finishLiveTurn(s)).catch(e=>status('Gemini Live: '+e.message));
+    if(content.interrupted){
+      for(const source of s.playing)try{source.stop();}catch(e){}
+      s.playing.clear();s.nextAudioAt=0;s.output='';s.speaking=false;s.firstAudio=false;
+    }
+    if(content.turnComplete){
+      s.queue=s.queue.then(()=>finishTurn(s)).catch(e=>status('Gemini Live: '+e.message));
     }
   }
   async function startLive(firstText=null){
-    if(live){
-      if(firstText){if(live.ready)liveSendText(live,firstText);else live.pending.push(firstText);}
-      return;
-    }
-    if(!window.WebSocket)throw new Error('المتصفح لا يدعم WebSocket');
-    if(!navigator.mediaDevices?.getUserMedia&&!firstText)throw new Error('الميكروفون يحتاج HTTPS ومتصفحًا حديثًا');
-    const headers=await secureHeaders('google',$.googleKey.value.trim());
-    const tokenController=new AbortController();
-    liveTokenController=tokenController;
-    const tokenTimer=setTimeout(()=>tokenController.abort(),18000);
-    let response;
+    if(live){if(firstText)sendText(live,firstText);return;}
+    if(starting)return;
+    if(!window.WebSocket||!AudioCtx)throw Error('متصفحك لا يدعم مكالمات Live');
+    starting=true;
+    // Start playback inside the user's click to satisfy mobile autoplay policies.
+    const playback=new AudioCtx({sampleRate:24000});
+    const resumePlayback=playback.resume();
+    let attached=false;
     try{
-      response=await fetch('./live-token.php',{method:'POST',headers,body:'{}',cache:'no-store',signal:tokenController.signal});
-    }catch(e){
-      if(e&&e.name==='AbortError')throw new Error('طلب توكن Live اتأخر أو اتلغى. راجع الإنترنت وأعد تشغيل المايك.');
-      throw e;
+      const headers=await secureHeaders();
+      await resumePlayback;
+      const abort=new AbortController();tokenAbort=abort;
+      const timeout=setTimeout(()=>abort.abort(),18000);
+      let response;
+      try{response=await fetch('./live-token.php',{method:'POST',headers,credentials:'same-origin',body:'{}',cache:'no-store',signal:abort.signal});}
+      catch(e){throw Error(e.name==='AbortError'?'طلب توكن Live انتهت مهلته':e.message);}
+      finally{clearTimeout(timeout);if(tokenAbort===abort)tokenAbort=null;}
+      if(!response.ok){
+        const detail=(await response.text()).slice(0,350);
+        throw Error('التوكن HTTP '+response.status+': '+detail);
+      }
+      const data=await response.json();
+      if(!data.token)throw Error('Google لم يرجع توكن Live');
+      if(!active)return;
+      const s={socket:null,closed:false,ready:false,withMic:!firstText,pending:firstText?[firstText]:[],
+        input:'',output:'',playback,inputContext:null,source:null,node:null,silence:null,media:null,playing:new Set(),
+        speaking:false,firstAudio:false,nextAudioAt:0,queue:Promise.resolve(),turnStart:performance.now(),connectedAt:performance.now()};
+      live=s;attached=true;
+      const endpoint='wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(data.token);
+      const socket=new WebSocket(endpoint);s.socket=socket;
+      s.handshakeTimer=setTimeout(()=>{
+        if(live!==s||s.closed||s.ready)return;
+        reset();status('Gemini Live ما أكملش الاتصال خلال 15 ثانية');
+      },15000);
+      socket.onopen=()=>{
+        if(live!==s||s.closed)return;
+        socket.send(JSON.stringify({setup:{
+          model:'models/gemini-3.8-live',
+          generationConfig:{responseModalities:['AUDIO']},
+          inputAudioTranscription:{},outputAudioTranscription:{},
+          systemInstruction:{parts:[{text:instructions()}]}
+        }}));
+      };
+      socket.onmessage=e=>receive(s,e.data);
+      socket.onerror=()=>{if(live!==s||s.closed)return;reset();status('اتصال Gemini Live فشل؛ راجع API والـquota');};
+      socket.onclose=e=>{if(live!==s||s.closed)return;reset();status('جلسة Gemini Live اتقفلت ('+e.code+'). جرّب تاني');};
+      status('بفتح Gemini 3.8 Live...');
     }finally{
-      clearTimeout(tokenTimer);
-      if(liveTokenController===tokenController)liveTokenController=null;
+      starting=false;
+      if(!attached)playback.close().catch(()=>{});
     }
-    if(!response.ok)throw new Error('تعذر استخراج توكن Live (HTTP '+response.status+'): '+(await response.text()).slice(0,140));
-    const data=await response.json();
-    if(!data.token)throw new Error('Google لم يرجع توكن جلسة Live');
-    if(!active)return;
-    const s={socket:null,ready:false,closed:false,withMic:!firstText,pending:firstText?[firstText]:[],input:'',output:'',busy:false,queue:Promise.resolve(),generation:++generation};
-    live=s;
-    const endpoint='wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(data.token);
-    const socket=new WebSocket(endpoint);s.socket=socket;
-    s.handshakeTimer=setTimeout(()=>{
-      if(live!==s||s.closed||s.ready)return;
-      stopLive();active=false;$.mic.classList.remove('active');$.mic.textContent='🎙';
-      status('Gemini Live ما أكملش الاتصال خلال 15 ثانية. جرّب تاني أو راجع API والـquota.');
-    },15000);
-    socket.onopen=()=>{
-      if(live!==s||s.closed)return;
-      socket.send(JSON.stringify({setup:{
-        model:'models/gemini-3.8-live',
-        generationConfig:{responseModalities:['AUDIO']},
-        inputAudioTranscription:{},
-        outputAudioTranscription:{},
-        systemInstruction:{parts:[{text:'اتكلمي مصري طبيعي ودافي وبمشاعر مناسبة للموقف. ردود قصيرة وواضحة. خلي التنهدات والضحكة والهمس مسموعين بشكل طبيعي حسب الموقف، من غير مبالغة أو تكرار. خروج النص المنطوق سيُستخدم بصوت Fish المستنسخ، فلا تنطقي تعليمات الإخراج حرفيًا. '+emotionInstructions()}]}
-      }}));
-    };
-    socket.onmessage=e=>receiveLive(s,e.data);
-    socket.onerror=()=>{
-      if(live!==s||s.closed)return;
-      stopLive();active=false;$.mic.classList.remove('active');$.mic.textContent='🎙';
-      status('اتصال Gemini Live فشل؛ راجع صلاحية API والـquota، واضغط المايك لإعادة المحاولة.');
-    };
-    socket.onclose=e=>{
-      if(live!==s||s.closed)return;
-      stopLive();active=false;$.mic.classList.remove('active');$.mic.textContent='🎙';
-      status('جلسة Gemini Live اتقفلت ('+e.code+'). اضغط المايك لبدء جلسة جديدة.');
-    };
-    status('بفتح Gemini 3.8 Live ...');
   }
-
-  async function turn(text){
-    if(busy)return;
-    const cycle=++generation;busy=true;if(recognition){try{recognition.stop();}catch(e){}}listenEnd();
-    $.textInput.value='';add('user',text);
-    const t0=performance.now();$.brain.textContent='Gemini: ...';$.first.textContent='أول صوت: ...';$.total.textContent='إجمالي: ...';
-    status('Gemini بيفكر...');
-    try{
-      const system='إنتِ بنت مصرية بتتكلمي بالمصري بصدق وعفوية، مرحة ودافية، مش رسمية. تتفاعلي مع الكلام بفرحة أو شوق أو دهشة أو تعاطف حسب السياق، من غير تكرار أو افتعال. ردود قصيرة جملة لجملتين غالبًا، من غير كلام إنجليزي في النطق، ومن غير تقديم نفسك كمساعد رسمي. '+emotionInstructions();
-      const recent=history.slice(-10);
-      let answer='';
-      if($.brainSource.value==='google'){
-        const headers=await secureHeaders('google',$.googleKey.value.trim());
-        controller=new AbortController();
-        const response=await fetch('./gemini.php',{method:'POST',headers,body:JSON.stringify({model:$.googleModel.value,system,messages:[...recent,{role:'user',content:text}]}),signal:controller.signal,cache:'no-store'});
-        if(!response.ok)throw new Error('Google Gemini HTTP '+response.status+': '+(await response.text()).slice(0,180));
-        const data=await response.json();
-        answer=typeof data.text==='string'?data.text.trim():'';
-      }else{
-        if(!window.puter||!puter.ai)throw new Error('Puter SDK لم يتم تحميله');
-        const messages=[{role:'system',content:system},...recent,{role:'user',content:text}];
-        const result=await puter.ai.chat(messages,{model:$.geminiModel.value,normalize:true,max_tokens:320});
-        answer=replyText(result);
-      }
-      if(cycle!==generation)return;
-      if(!answer)throw new Error('Gemini رجع رد فاضي');
-      $.brain.textContent='Gemini: '+Math.round(performance.now()-t0)+'ms';history.push({role:'user',content:text},{role:'assistant',content:answer});
-      add('assistant',answer);status('بجهّز الصوت...');
-      await speak(answer,t0,cycle);
-      if(cycle===generation){$.total.textContent='إجمالي: '+Math.round(performance.now()-t0)+'ms';resume();}
-    }catch(e){if(cycle!==generation)return;status('تعذّرت المكالمة: '+(e&&e.message?e.message:String(e)));busy=false;if(active&&$.autoListen.value==='no')setTimeout(listen,900);}
+  function failure(err){
+    reset();status('Gemini Live: '+(err?.message||String(err)));
   }
-  async function speak(text,t0,cycle){
-    if($.voiceMode.value==='browser'){
-      if(!('speechSynthesis' in window))throw new Error('صوت المتصفح غير مدعوم');
-      const spoken=stripDirections(text);
-      return new Promise((resolve,reject)=>{
-        const utterance=new SpeechSynthesisUtterance(spoken);utterance.lang='ar-EG';utterance.rate=1;utterance.pitch=1;
-        const voices=speechSynthesis.getVoices();utterance.voice=voices.find(v=>v.lang.toLowerCase()==='ar-eg')||voices.find(v=>v.lang.toLowerCase().startsWith('ar'))||null;
-        utterance.onstart=()=>{$.first.textContent='أول صوت: '+Math.round(performance.now()-t0)+'ms';status('المساعدة بتتكلم...');};
-        utterance.onend=()=>resolve();utterance.onerror=e=>reject(new Error('صوت المتصفح: '+e.error));
-        speechSynthesis.speak(utterance);
-      });
-    }
-    const voiceId=$.voiceId.value.trim();
-    if(!/^[0-9a-f]{32}$/i.test(voiceId))throw new Error('Voice ID لازم يكون 32 رمز');
-    const spoken=fishScript(text);
-    const request={text:spoken,reference_id:voiceId,model:$.fishModel.value,format:'mp3'};
-    const headers=await secureHeaders('fish',$.fishKey.value.trim());
-    controller=new AbortController();const res=await fetch('./tts.php',{method:'POST',headers,body:JSON.stringify(request),signal:controller.signal,cache:'no-store'});
-    if(!res.ok){const error=(await res.text()).slice(0,350);throw new Error('Fish HTTP '+res.status+': '+error);}
-    if(cycle!==generation)return;
-    status('Fish بيولّد الصوت...');
-    if(!res.body||!window.MediaSource||!MediaSource.isTypeSupported('audio/mpeg')){
-      const blob=await res.blob();if(cycle!==generation)return;
-      blobUrl=URL.createObjectURL(blob);$.player.src=blobUrl;
-      await $.player.play();$.first.textContent='أول صوت: '+Math.round(performance.now()-t0)+'ms';status('المساعدة بتتكلم...');
-      await ended($.player);return;
-    }
-    const media=new MediaSource();blobUrl=URL.createObjectURL(media);$.player.src=blobUrl;
-    await new Promise((resolve,reject)=>{media.addEventListener('sourceopen',resolve,{once:true});media.addEventListener('error',()=>reject(new Error('MediaSource failed')),{once:true});});
-    if(cycle!==generation)return;
-    const buffer=media.addSourceBuffer('audio/mpeg');buffer.mode='sequence';
-    const reader=res.body.getReader();let started=false,bytes=0;
-    try {
-      while(true){
-        const chunk=await reader.read();if(chunk.done)break;
-        if(cycle!==generation){await reader.cancel();return;}
-        if(!chunk.value||!chunk.value.length)continue;
-        bytes+=chunk.value.length;
-        await new Promise((resolve,reject)=>{buffer.addEventListener('updateend',resolve,{once:true});try{buffer.appendBuffer(chunk.value);}catch(e){reject(e);}});
-        if(!started&&bytes>=4096){
-          try{await $.player.play();started=true;$.first.textContent='أول صوت: '+Math.round(performance.now()-t0)+'ms';status('المساعدة بتتكلم...');}
-          catch(e){throw new Error('المتصفح منع تشغيل الصوت: '+e.message);}
-        }
-      }
-      if(media.readyState==='open'&&!buffer.updating)media.endOfStream();
-      if(!started){if(!bytes)throw new Error('Fish رجّع ملف صوت فاضي');await $.player.play();$.first.textContent='أول صوت: '+Math.round(performance.now()-t0)+'ms';status('المساعدة بتتكلم...');}
-      await ended($.player);
-    }finally{reader.releaseLock();}
-  }
-  function ended(audio){
-    if(audio.ended)return Promise.resolve();
-    return new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>{cleanup();reject(new Error('تشغيل الصوت تجاوز المدة المتاحة'));},90000);
-      function cleanup(){clearTimeout(timer);audio.removeEventListener('ended',done);audio.removeEventListener('error',failed);}
-      function done(){cleanup();resolve();}
-      function failed(){cleanup();reject(new Error('تعذّر فك ترميز الصوت'));}
-      audio.addEventListener('ended',done,{once:true});audio.addEventListener('error',failed,{once:true});
-    });
-  }
-  $.mic.addEventListener('click',()=>{
+  ui.mic.addEventListener('click',()=>{
     if(active){reset();return;}
-    active=true;$.mic.classList.add('active');status('بفتح المايك...');
-    if($.brainSource.value==='google-live'){
-      startLive().catch(e=>{stopLive();active=false;$.mic.classList.remove('active');status('Gemini Live: '+e.message);});
-    }else listen();
+    active=true;ui.mic.classList.add('active');ui.mic.textContent='◉';
+    startLive().catch(failure);
   });
-  $.stop.addEventListener('click',reset);
-  $.textForm.addEventListener('submit',e=>{
-    e.preventDefault();const value=$.textInput.value.trim();if(!value||busy)return;
-    if(!active){active=true;$.mic.classList.add('active');}
-    $.textInput.value='';
-    if($.brainSource.value==='google-live'){
-      startLive(value).catch(err=>{stopLive();active=false;$.mic.classList.remove('active');status('Gemini Live: '+err.message);});
-    }else turn(value);
+  ui.stop.addEventListener('click',reset);
+  ui.textForm.addEventListener('submit',event=>{
+    event.preventDefault();
+    const text=ui.textInput.value.trim();
+    if(!text)return;
+    ui.textInput.value='';
+    if(!active){active=true;ui.mic.classList.add('active');}
+    startLive(text).catch(failure);
   });
-  $.test.addEventListener('click',async()=>{if(busy)return;busy=true;const cycle=++generation;const t0=performance.now();$.first.textContent='أول صوت: ...';status('بنجرب نفس الصوت المصري...');try{await speak('[soft, affectionate and playful] إزيك يا زميلي... [gentle sigh] وحشتني والله! [soft chuckle] عامل إيه يا نجم؟ <whisper>أنا مبسوطة إننا بنتكلم النهارده.</whisper>',t0,cycle);if(cycle===generation)status('الصوت اشتغل. جرّب مكالمة بالمايك.');}catch(e){status('تجربة الصوت فشلت: '+e.message);}finally{if(cycle===generation)busy=false;}});
-  $.saveSettings.addEventListener('click',async()=>{
-    $.saveSettings.disabled=true;
-    $.settingsStatus.textContent='بحفظ الإعدادات والمفاتيح بشكل مشفّر...';
+  ui.test.addEventListener('click',()=>{
+    if(!active){active=true;ui.mic.classList.add('active');}
+    startLive('إزيك؟ اتكلمي مصري طبيعي واعملي تحية قصيرة فيها إحساس دافي.').catch(failure);
+  });
+  ui.save.addEventListener('click',async()=>{
+    ui.save.disabled=true;ui.settingsStatus.textContent='بحفظ مفتاح Gemini والإعدادات...';
     try{
       await settingsReady;
-      if(!csrfToken)throw new Error('سجّل دخولك كأدمن OnTrack الأول');
-      const settings={};
-      for(const name of settingNames)settings[name]=$[name].value;
-      settings.emotions=$.emotions.checked;
-      const remove=[];
-      if($.removeFish.checked)remove.push('fish');
-      if($.removeGoogle.checked)remove.push('google');
-      const payload={settings,keys:{fish:$.fishKey.value.trim(),google:$.googleKey.value.trim()},remove};
-      const response=await fetch('./settings.php',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Voice-Lab-CSRF':csrfToken},body:JSON.stringify(payload),cache:'no-store'});
+      if(!csrf)throw Error('سجّل دخولك كأدمن OnTrack الأول');
+      const payload={
+        settings:{emotionLevel:ui.emotionLevel.value,autoListen:ui.autoListen.value,emotions:ui.emotions.checked},
+        keys:{google:ui.googleKey.value.trim(),fish:''},
+        remove:ui.removeGoogle.checked?['google']:[]
+      };
+      const response=await fetch('./settings.php',{method:'POST',credentials:'same-origin',
+        headers:{'Content-Type':'application/json','X-Voice-Lab-CSRF':csrf},body:JSON.stringify(payload),cache:'no-store'});
       const data=await response.json();
-      if(!response.ok||!data.ok)throw new Error(data.error||'HTTP '+response.status);
-      savedKeys={fish:!!data.saved?.fish,google:!!data.saved?.google};
-      $.fishKey.value='';$.googleKey.value='';
-      $.removeFish.checked=false;$.removeGoogle.checked=false;
-      updateKeyLabels();
-      $.settingsStatus.textContent='✓ تم الحفظ على السيرفر. المفاتيح هتفضل موجودة بعد قفل الصفحة وفتحها.';
-    }catch(e){$.settingsStatus.textContent='تعذّر الحفظ: '+(e.message||e);}
-    finally{$.saveSettings.disabled=false;}
+      if(!response.ok||!data.ok)throw Error(data.error||'HTTP '+response.status);
+      savedGoogle=!!data.saved?.google;ui.googleKey.value='';ui.removeGoogle.checked=false;
+      keyLabel();ui.settingsStatus.textContent='✓ تم الحفظ على السيرفر. المفتاح هيفضل موجود.';
+    }catch(e){ui.settingsStatus.textContent='تعذّر الحفظ: '+(e.message||e);}
+    finally{ui.save.disabled=false;}
   });
   settingsReady=loadSettings().catch(e=>{
-    updateKeyLabels();
-    $.settingsStatus.textContent='تعذّر تحميل الإعدادات: '+(e.message||e);
+    keyLabel();ui.settingsStatus.textContent='تعذّر تحميل الإعدادات: '+(e.message||e);
   });
-  if(!Recognition){$.mic.title='Puter/Flash محتاجين تعرّف المتصفح للصوت؛ وضع Live بيستخدم مايك مباشر';}
-  $.brainSource.addEventListener('change',()=>{if(active)reset();});
 })();
 </script>
 </body></html>
