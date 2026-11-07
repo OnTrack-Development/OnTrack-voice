@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/security.php';
 // Isolated demo-only Fish TTS bridge. The caller provides a key on every request;
 // neither the key nor the generated audio is stored by this script.
 header('Cache-Control: no-store, max-age=0');
@@ -9,6 +10,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     http_response_code(405);
     exit('method_not_allowed');
 }
+$labUser = voice_lab_access(true);
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $host = strtolower((string)parse_url('https://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
 if ($origin !== '' && strtolower((string)parse_url($origin, PHP_URL_HOST)) !== $host) {
@@ -19,7 +21,8 @@ if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 12000) {
     http_response_code(413);
     exit('request_too_large');
 }
-$key = trim($_SERVER['HTTP_X_FISH_API_KEY'] ?? '');
+$key = voice_lab_saved_key((int)$labUser['id'], 'fish', (string)($_SERVER['HTTP_X_FISH_API_KEY'] ?? ''));
+session_write_close();
 if (!preg_match('/^sk-fish-[A-Za-z0-9_-]{12,}$/', $key)) {
     http_response_code(400);
     exit('fish_key_required');
