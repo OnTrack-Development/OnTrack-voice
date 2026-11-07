@@ -1,8 +1,15 @@
 {
   "schema": 1,
-  "id": "io-premium-host-worker-probe-20261107-2011",
+  "id": "host-link-disable-owner-request-20261107",
   "target": "appontrack-server11",
-  "action": "probe",
-  "created_at": "2026-11-07T18:49:20.649Z",
-  "expires_at": "2026-11-07T19:34:20.649Z"
+  "action": "exec",
+  "created_at": "2026-11-07T18:52:00.227Z",
+  "expires_at": "2026-11-07T19:52:00.227Z",
+  "cwd": "/home/appontrack",
+  "timeout_seconds": 25,
+  "argv": [
+    "/bin/python3",
+    "-c",
+    "import pathlib,subprocess,json\nhome=pathlib.Path('/home/appontrack/ontrack-voice-link')\nmarker='# ontrack-voice-link'\nif not home.is_dir(): raise RuntimeError('host_link_home_missing')\nread=subprocess.run(['crontab','-l'],capture_output=True,text=True,timeout=8)\nif read.returncode not in (0,1):raise RuntimeError('crontab_unreadable')\nif read.returncode==1 and 'no crontab' not in read.stderr.lower():raise RuntimeError('crontab_unreadable')\nold=read.stdout.splitlines() if read.returncode==0 else []\nremoved=[line for line in old if marker in line]\npreserved=[line for line in old if marker not in line]\nif removed:\n result=subprocess.run(['crontab','-'],input='\\n'.join(preserved)+'\\n',capture_output=True,text=True,timeout=8)\n if result.returncode!=0:raise RuntimeError('crontab_disable_failed')\nverify=subprocess.run(['crontab','-l'],capture_output=True,text=True,timeout=8)\nif verify.returncode not in (0,1):raise RuntimeError('crontab_verify_failed')\nif marker in verify.stdout:raise RuntimeError('host_link_cron_still_active')\nstop=home/'STOP'\nstop.touch(exist_ok=True)\nprint(json.dumps({'disabled':True,'cron_entries_removed':len(removed),'stop_file':str(stop),'other_cron_entries_preserved':len(preserved),'site_or_apk_touched':False},separators=(',',':')))\n"
+  ]
 }
