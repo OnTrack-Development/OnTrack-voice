@@ -195,7 +195,7 @@ body.pin-locked main{pointer-events:none;user-select:none;filter:blur(6px);opaci
 <div id="log" aria-live="polite"><div class="log-placeholder" id="logPlaceholder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.7 8.7 0 0 1-4-.96L3 21l1.85-5.55A8.5 8.5 0 1 1 21 11.5Z"/></svg><strong>المكالمة لسه ما بدأتش</strong><span>اضغط زر التليفون واتكلم، أو اكتب رسالة من تحت.</span></div></div>
 <form id="textForm" class="send"><input id="textInput" type="text" autocomplete="off" placeholder="ابعت رسالة للمساعدة..." aria-label="رسالتك"><button type="submit">إرسال</button></form>
 <p class="input-note">اكتب رسالة أثناء المكالمة</p></section></details></div>
-<span id="buildInfo" hidden>Voice Lab 2026.11.07.12</span>
+<span id="buildInfo" hidden>Voice Lab 2026.11.07.13</span>
 <audio id="player" playsinline></audio>
 </main>
 <script type="module">
@@ -658,13 +658,18 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
     });
     await settingsReady;
   }
+  let pinSetupCsrf='';
   async function pinStatus(){
     try{
       const response=await fetch('./pin.php',{credentials:'same-origin',cache:'no-store'});
       if(!response.ok)throw Error('تعذّر التحقق من صلاحية الدخول');
       const data=await response.json();
       if(data.authorized){await unlockPinGate();return;}
-      el('pinMessage').textContent=data.configured?'ادخل الكود علشان تبدأ':'كود الدخول لم يُفعّل على السيرفر بعد.';
+      pinSetupCsrf=data.can_setup ? String(data.setup_csrf||'') : '';
+      el('pinSubmit').textContent=pinSetupCsrf?'تفعيل كود الدخول':'فتح الاتصال';
+      el('pinMessage').textContent=data.configured?'ادخل الكود علشان تبدأ'
+        :(pinSetupCsrf?'اختار كود من 6 أرقام لتفعيل الدخول أول مرة.'
+          :'الكود لسه مش متفعّل. صاحب الحساب يقدر يفعّله مرة واحدة.');
       el('pinInput').focus();
     }catch(e){el('pinMessage').textContent='تعذّر الاتصال بالسيرفر. حاول تاني.';}
   }
@@ -676,7 +681,7 @@ import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/gena
     el('pinMessage').textContent='جاري فتح الاتصال...';
     try{
       const response=await fetch('./pin.php',{method:'POST',credentials:'same-origin',cache:'no-store',
-        headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:code})});
+        headers:{'Content-Type':'application/json'},body:JSON.stringify(pinSetupCsrf?{pin:code,setup:true,csrf:pinSetupCsrf}:{pin:code})});
       const data=await response.json();
       if(!response.ok||!data.authorized){
         el('pinMessage').textContent=response.status===429?'محاولات كثيرة، جرّب بعد 15 دقيقة.':'الكود غير صحيح. حاول تاني.';
