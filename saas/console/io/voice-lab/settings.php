@@ -54,8 +54,9 @@ $google = $payload['keys']['google'] ?? '';
 if (!is_string($fish) || !is_string($google)) voice_lab_error(422, 'invalid_key');
 $fish = trim($fish);
 $google = trim($google);
-if ($fish !== '' && (strlen($fish) > 256 || !preg_match('/^sk-fish-[A-Za-z0-9_-]{12,}$/D', $fish))) voice_lab_error(422, 'invalid_fish_key');
-if ($google !== '' && (strlen($google) < 20 || strlen($google) > 256 || !preg_match('/^[A-Za-z0-9_-]+$/D', $google))) voice_lab_error(422, 'invalid_google_key');
+// Do not guess provider key formats. Only reject unsafe HTTP-header characters or oversized input.
+if (strlen($fish) > 2048 || preg_match('/[\x00-\x1F\x7F]/', $fish)) voice_lab_error(422, 'unsafe_fish_key');
+if (strlen($google) > 2048 || preg_match('/[\x00-\x1F\x7F]/', $google)) voice_lab_error(422, 'unsafe_google_key');
 $remove = $payload['remove'] ?? [];
 if (!is_array($remove) || array_diff($remove, ['fish','google'])) voice_lab_error(422, 'invalid_remove');
 
