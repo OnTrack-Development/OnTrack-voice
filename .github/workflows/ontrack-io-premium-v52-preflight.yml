@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/ontrack-io-premium-v52-preflight.yml'
       - 'tools/test_io_premium_shared_access.php'
+      - 'tools/io_premium_v52_host_probe.py'
   workflow_dispatch:
 permissions:
   contents: read
