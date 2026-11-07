@@ -76,19 +76,19 @@ function google_voice_key_set_customer_limit(int $resellerId,int $customerId,int
             VALUES (?,?,?)',[$customerId,$limit,now()]);
 }
 
-/** A customer with any own keys is BYOK-only, even when all are disabled.
- * Otherwise use their reseller's pool if configured; lastly platform.
- * Never mix credentials across pools during a single session allocation.
+/** Use enabled BYOK if present; otherwise inherit an enabled reseller
+ * or platform key pool. Disabled personal keys must not block admin access.
+ * A call stays pinned to one selected pool for failover.
  */
 function google_voice_pool_owner(int $accountId):int {
     $account=account($accountId);
     if(!$account||($account['status']??'')!=='active')
         throw new RuntimeException('voice_account_inactive');
-    if(ai_relay_rows('voice',false,$accountId)!==[])return $accountId;
+    if(ai_relay_rows('voice',true,$accountId)!==[])return $accountId;
     if($account['kind']==='customer'&&(int)($account['parent_id']??0)>0){
         $parent=account((int)$account['parent_id']);
         if($parent&&$parent['kind']==='reseller'&&$parent['status']==='active' &&
-           ai_relay_rows('voice',false,(int)$parent['id'])!==[])
+           ai_relay_rows('voice',true,(int)$parent['id'])!==[])
             return (int)$parent['id'];
     }
     return ai_relay_platform();
