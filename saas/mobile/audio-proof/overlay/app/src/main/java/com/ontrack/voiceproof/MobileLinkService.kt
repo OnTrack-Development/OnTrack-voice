@@ -120,6 +120,7 @@ class MobileLinkService:Service() {
         connectivity=getSystemService(ConnectivityManager::class.java)
         val callback=object:ConnectivityManager.NetworkCallback(){
             override fun onAvailable(network:Network){client.connectionPool.evictAll();retryWake.trySend(Unit)}
+            override fun onCapabilitiesChanged(network:Network,caps:NetworkCapabilities){retryWake.trySend(Unit)}
             override fun onLost(network:Network){connected=false;retryWake.trySend(Unit)}
         }
         runCatching{connectivity?.registerDefaultNetworkCallback(callback)}
@@ -200,12 +201,24 @@ class MobileLinkService:Service() {
      * suspended (especially with another SIM as the data subscription).
      * Never use a Wi-Fi-only precondition for already answered SIM calls.
      */
-    private fun internetValidated():Boolean = runCatching {
+    private fun internetAvailableForRetry():Boolean = runCatching {
         val cm=connectivity?:getSystemService(ConnectivityManager::class.java)
-        val network=cm?.activeNetwork?:return@runCatching false
-        cm.getNetworkCapabilities(network)?.hasCapability(
-            NetworkCapabilities.NET_CAPABILITY_VALIDATED)==true
-    }.getOrDefault(true)
+        val caps=cm?.activeNetwork?.let { cm.getNetworkCapabilities(it) }
+        CellularCallRecoveryPolicy.mayRetryLive(
+            defaultNetworkPresent=caps!=null,
+            internetCapability=caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)==true,
+            validated=caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)==true,
+            cellularTransport=caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)==true
+        )
+    }.getOrDefault(false)
+    private fun cellularCallNetworkHint(slot:Int):String = runCatching {
+        if(internetRoute()!="offline" || NetworkRevive.onWifi(this))return@runCatching ""
+        val callSubscription=TenantSimHardware.subscriptionId(this,slot)
+        val dataSubscription=SubscriptionManager.getDefaultDataSubscriptionId()
+        if(dataSubscription>=0 && dataSubscription!=callSubscription)
+            "SIM المكالمة مختلفة عن SIM بيانات الهاتف؛ تأكد من استمرار الداتا أثناء الاتصال وVoLTE"
+        else "الداتا انقطعت أثناء مكالمة SIM؛ تحقق من VoLTE واستمرار الإنترنت أثناء المكالمات"
+    }.getOrDefault("")
     private fun internetRoute():String = runCatching {
         val cm=connectivity?:getSystemService(ConnectivityManager::class.java)
         val caps=if(cm==null)null else cm.activeNetwork?.let { network -> cm.getNetworkCapabilities(network) }
@@ -276,6 +289,8 @@ class MobileLinkService:Service() {
         var answeredByAgent=false
         var ringAttempted=false
         var autoAnswerRequested=false
+        var autoAnswerAttempts=0
+        var nextAutoAnswerRetryAt=0L
         var outgoingCall=false
         var startedAt=0L
         var tenantFlow:JSONObject?=null
@@ -463,7 +478,7 @@ class MobileLinkService:Service() {
                         audioReady=false;callProblem="";audioDiagnostic=""
                         if(selected!=null){
                             call?.stop();call=null;tenantSession=null;tenantFlow=null
-                            selected=null;liveSimSlot=-1;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;outgoingCall=false;humanControl=false;policy=JSONObject()
+                            selected=null;liveSimSlot=-1;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;autoAnswerAttempts=0;nextAutoAnswerRetryAt=0L;outgoingCall=false;humanControl=false;policy=JSONObject()
                             ringingAt=0L;startedAt=0L;audioAttemptCount=0;nextAudioRetryAt=0L
                         }
                         // The cellular call has ended. Only NOW submit the
@@ -493,7 +508,7 @@ class MobileLinkService:Service() {
                         flowLoad?.cancel();flowLoad=null
                         sessionLoad?.cancel();sessionLoad=null
                         audioReady=false;callProblem="";audioDiagnostic=""
-                        selected=current.slot;liveSimSlot=current.slot;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;outgoingCall=false;tenantFlow=null;tenantSession=null
+                        selected=current.slot;liveSimSlot=current.slot;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;autoAnswerAttempts=0;nextAutoAnswerRetryAt=0L;outgoingCall=false;tenantFlow=null;tenantSession=null
                         ringingAt=SystemClock.elapsedRealtime();startedAt=0L;humanControl=false;policy=JSONObject()
                         audioAttemptCount=0;nextAudioRetryAt=0L
                     }
@@ -583,7 +598,8 @@ class MobileLinkService:Service() {
                        TenantCallRouting.voiceRetryDue(
                            current.state==TelephonyManager.CALL_STATE_OFFHOOK,
                            agentEnabled,humanControl,audioReady,answeredByAgent,
-                           audioAttemptCount,3,internetValidated(),now,nextAudioRetryAt)){
+                           audioAttemptCount,CellularCallRecoveryPolicy.MAX_VOICE_START_ATTEMPTS,
+                            internetAvailableForRetry(),now,nextAudioRetryAt)){
                         answeredByAgent=false
                         notice("عاد الإنترنت (${internetRoute()})؛ إعادة ربط صوت AI للمكالمة الجارية")
                     }
@@ -621,7 +637,7 @@ class MobileLinkService:Service() {
                         }?.onFailure { problem ->
                             tenantSession=null
                             nextAudioRetryAt=SystemClock.elapsedRealtime()+
-                                2500L*audioAttemptCount.coerceIn(1,3)
+                                CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
                             val message=problem.message.orEmpty().take(140)
                             callProblem="تعذر تشغيل صوت الإيجنت (${internetRoute()}): "+message
                             if(message!=lastError){lastError=message;notice(callProblem)}
@@ -729,7 +745,7 @@ class MobileLinkService:Service() {
                             call?.stop();call=null;tenantSession=null
                             audioReady=false;connected=false
                             nextAudioRetryAt=SystemClock.elapsedRealtime()+
-                                2500L*audioAttemptCount.coerceIn(1,3)
+                                CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
                             callProblem="فشل ربط الصوت (${internetRoute()}): "+problem.message.orEmpty().take(110)
                             notice(callProblem)
                         }
@@ -738,7 +754,7 @@ class MobileLinkService:Service() {
                         audioStart?.cancel();audioStart=null
                         call=null;tenantSession=null;audioReady=false;connected=false
                         nextAudioRetryAt=SystemClock.elapsedRealtime()+
-                            2500L*audioAttemptCount.coerceIn(1,3)
+                            CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
                         callProblem="انقطعت جلسة الصوت (${internetRoute()})؛ المكالمة على الهاتف بدون AI"
                         notice(callProblem)
                     }
@@ -751,7 +767,7 @@ class MobileLinkService:Service() {
                     }
                     lastState=current.state
                     showOverlay()
-                    delay(750)
+                    withTimeoutOrNull(750L){retryWake.receiveCatching()}
                 }catch(timeout:TimeoutCancellationException){
                     // An LTE/ADB timeout must not terminate the SIM observer.
                     // Continue monitoring the physical call and allow bounded
@@ -760,7 +776,7 @@ class MobileLinkService:Service() {
                     call?.stop();call=null;tenantSession=null
                     audioReady=false;connected=false
                     nextAudioRetryAt=SystemClock.elapsedRealtime()+
-                        2500L*audioAttemptCount.coerceIn(1,3)
+                        CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
                     callProblem="انتهت مهلة ربط الصوت (${internetRoute()})؛ محاولة استعادة"
                     notice(callProblem)
                     delay(1800)
@@ -772,7 +788,7 @@ class MobileLinkService:Service() {
                     call?.stop();call=null;tenantSession=null
                     audioReady=false;connected=false
                     nextAudioRetryAt=SystemClock.elapsedRealtime()+
-                        2500L*audioAttemptCount.coerceIn(1,3)
+                        CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
                     val msg=error.message.orEmpty().take(150)
                     callProblem="تعذر اتصال صوت المكالمة (${internetRoute()}): "+msg
                     if(msg!=lastError){lastError=msg;notice(callProblem)}
