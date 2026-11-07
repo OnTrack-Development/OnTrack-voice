@@ -48,6 +48,20 @@ assert(app.includes("'switch','set_view','support_enter'"),'Role switching must 
 assert(views.includes('data-no-ajax="1"'),'Role switch forms must force native full-page navigation');
 for(const marker of ["HTTP_X_REQUESTED_WITH", "json_encode(['ok'=>true,'message'","json_encode(['ok'=>false,'error'"])
   assert(php.includes(marker),'Missing AJAX server response '+marker);
+// SITE-10: AI acknowledgement follows the authenticated AJAX draft save.
+const applyStart=flow.indexOf('async function applyAiProposal(){');
+const applyEnd=flow.indexOf("aiInput.addEventListener('keydown'",applyStart);
+const applyBody=flow.slice(applyStart,applyEnd);
+assert(applyStart>0&&applyEnd>applyStart,'AI apply handler exists');
+assert(!applyBody.includes("chatRequest('flow_ai_applied'"),
+  'AI proposal must not be consumed before the actual database save');
+assert(applyBody.includes('form.requestSubmit(draft)'),
+  'AI can request draft save but must not publish automatically');
+assert(flow.includes("if(aiDraftSavePending){")&&
+       flow.includes("if(proposal)await chatRequest('flow_ai_applied'"),
+  'AI acknowledgement requires successful AJAX draft save');
+assert(flow.includes('proposalBaseline')&&flow.includes('JSON.stringify(data)!==proposalBaseline'),
+  'Stale AI draft must not overwrite manual editor changes');
 assert(!/\b(?:alert|confirm|prompt)\s*\(/.test(flow),'No browser modal in Flow Builder');
 assert(!/onclick="return confirm\(/.test(views),'No native confirmation in the console templates');
 assert(css.includes('.ot-confirm-overlay{'),'Branded confirmation styling');

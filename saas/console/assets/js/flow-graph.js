@@ -127,7 +127,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    aiThread.scrollTop=aiThread.scrollHeight;
  }
  let proposal=null,profileProposal=null,busy=false,hasHistory=false;
- let proposalBaseline=null;
+ let proposalBaseline=null,aiDraftSavePending=false,aiDraftPreparedForSave=false;
  function profileSnapshot(){
    const form=root.closest('form');
    const string=name=>form?.querySelector('[name="'+name+'"]')?.value||'';
@@ -307,7 +307,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    }catch(error){aiStatus.textContent=error.message||'تعذر مسح المحادثة'}
  }
  function clearAiProposal(){
-   proposal=null;profileProposal=null;proposalBaseline=null;aiPreview.replaceChildren();aiStatus.textContent='';aiApply.hidden=true;aiCancel.hidden=true;
+   proposal=null;profileProposal=null;proposalBaseline=null;aiDraftPreparedForSave=false;aiPreview.replaceChildren();aiStatus.textContent='';aiApply.hidden=true;aiCancel.hidden=true;
  }
  async function discardAiProposal(){
    if((!proposal&&!profileProposal)||busy)return;
@@ -333,7 +333,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    const oldGraph=proposal,oldProfile=profileProposal,oldBaseline=proposalBaseline;
    const requestEditorBaseline=JSON.stringify(data);
    const oldPreview=[...aiPreview.childNodes].map(node=>node.cloneNode(true));
-   busy=true;proposal=null;profileProposal=null;proposalBaseline=null;
+   busy=true;proposal=null;profileProposal=null;proposalBaseline=null;aiDraftPreparedForSave=false;
    aiPreview.replaceChildren();aiApply.hidden=true;aiCancel.hidden=true;
    aiMessage('user',prompt);aiSubmit.disabled=true;
    aiStatus.textContent='جارٍ تصميم '+(mode==='both'?'المخطط والخصائص':mode==='graph'?'المخطط':'الخصائص')+'…';
@@ -379,36 +379,37 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    if((!proposal&&!profileProposal)||busy)return;
    const form=root.closest('form');
    if(!form){aiStatus.textContent='لا توجد استمارة حفظ.';return;}
-   if(proposal&&proposalBaseline!==null&&JSON.stringify(data)!==proposalBaseline){
+   if(form.dataset.otSaving==='1'){aiStatus.textContent='الحفظ الحالي لم ينتهِ بعد.';return;}
+   if(proposal&&!aiDraftPreparedForSave&&proposalBaseline!==null&&JSON.stringify(data)!==proposalBaseline){
      aiStatus.textContent='المخطط اتعدل بعد طلب AI. اطلب اقتراحًا جديدًا بدل الكتابة فوق مسودتك.';
      return;
    }
+   const draft=[...form.querySelectorAll('button[type=submit]')]
+     .find(b=>!b.hasAttribute('name')||b.name!=='publish_now');
+   if(!draft){aiStatus.textContent='لا يوجد زر حفظ مسودة معتمد؛ لا يمكن تطبيق المقترح.';return;}
    const accepted=await window.ontrackConfirm(
-      'تطبيق التعديلات على البلدر وخصائص الإيجنت وحفظها كمسودة؟ لن يتم نشرها على المكالمات.',
-      {title:'اعتماد اقتراح AI',confirmText:'طبّق واحفظ المسودة'});
+      'مراجعة اقتراح AI وحفظ التغييرات كمسودة فقط؟ لن يتم النشر على المكالمات.',
+      {title:'تأكيد حفظ مقترح AI',confirmText:'احفظ المسودة فقط'});
    if(!accepted)return;
    busy=true;aiApply.disabled=true;
    try{
-     // Persist reviewed selections to the same tenant/user/agent conversation
-     // before making local changes, without performing external actions.
-     if(profileProposal)await chatRequest('flow_ai_profile_applied',{
-        profile_json:JSON.stringify(profileProposal)
-     });
-     if(proposal)await chatRequest('flow_ai_applied',{graph_json:JSON.stringify(proposal)});
-     if(profileProposal)applyProfileToForm(profileProposal);
-     if(proposal){
-       data=JSON.parse(JSON.stringify(proposal));
-       selected=data.nodes[0]?.id||null;hovered=null;
-       arrange();store();
+     if(!aiDraftPreparedForSave){
+       if(profileProposal)applyProfileToForm(profileProposal);
+       if(proposal){
+         data=JSON.parse(JSON.stringify(proposal));
+         selected=data.nodes[0]?.id||null;hovered=null;
+         arrange();store();
+         proposalBaseline=JSON.stringify(data);
+       }
+       aiDraftPreparedForSave=true;
      }
-     aiMessage('assistant','تم تطبيق المقترح كمسودة. تقدر تطلب تعديلات إضافية من نفس المحادثة.');
-     clearAiProposal();
-     const draft=[...form.querySelectorAll('button[type=submit]')].find(b=>!b.hasAttribute('name')||b.name!=='publish_now');
-     if(draft)form.requestSubmit(draft);
-     else aiStatus.textContent='راجع المسودة واضغط حفظ.';
+     aiDraftSavePending=true;
+     aiStatus.textContent='جارٍ حفظ المسودة على السيرفر؛ لا تُعتبر محفوظة قبل رد النجاح.';
+     form.requestSubmit(draft);
    }catch(error){
-     aiStatus.textContent=error.message||'تعذر تطبيق مقترح AI';
-   }finally{busy=false;aiApply.disabled=false;}
+     aiDraftSavePending=false;busy=false;aiApply.disabled=false;
+     aiStatus.textContent=error.message||'تعذر تجهيز المسودة للحفظ.';
+   }
  }
  aiInput.addEventListener('keydown',e=>{
    if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();requestAiProposal()}
@@ -674,11 +675,27 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
      if(!response.ok||result.ok!==true)throw Error(result.error||'تعذر حفظ السيناريو');
      notice.textContent=result.message||(publishNow?'تم النشر':'تم حفظ المسودة');
      window.ontrackToast(notice.textContent);
+     if(aiDraftSavePending){
+       try{
+         // Finalize the AI approval only after the backend confirms draft save.
+         if(profileProposal)await chatRequest('flow_ai_profile_applied',{
+           profile_json:JSON.stringify(profileProposal)});
+         if(proposal)await chatRequest('flow_ai_applied',{graph_json:JSON.stringify(proposal)});
+         aiMessage('assistant','تم حفظ مقترح AI كمسودة مؤكدة. النشر يتطلب إجراء مستقلًا.');
+         clearAiProposal();
+       }catch(error){
+         aiStatus.textContent='المسودة اتحفظت، لكن تعذر تأكيد المحادثة: '+(error.message||'حاول مرة أخرى');
+       }
+     }
      // No navigation: preserve zoom, fullscreen and the assistant conversation.
    }catch(error){
      notice.textContent=error.message||'تعذر حفظ السيناريو';
      window.ontrackToast(notice.textContent,{error:true});
-   }finally{delete editorForm.dataset.otSaving;if(submitter)submitter.disabled=false}
+     if(aiDraftSavePending)aiStatus.textContent='فشل حفظ المسودة. المقترح محفوظ ويمكن إعادة المحاولة.';
+   }finally{
+     if(aiDraftSavePending){aiDraftSavePending=false;busy=false;aiApply.disabled=false;}
+     delete editorForm.dataset.otSaving;if(submitter)submitter.disabled=false;
+   }
  });
 });
 window.ontrackMountFlowEditors=mountFlowEditors;
