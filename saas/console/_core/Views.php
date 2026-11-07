@@ -937,6 +937,7 @@ function agent_scenario_text_editor(string $value):string {
         '<label class="field">نص السيناريو (حد أقصى 8000 حرف)'.
         '<textarea name="scenario_text" data-scenario-text rows="14" maxlength="8000" dir="auto" placeholder="ابدأ بالترحيب... اسأل عن احتياج العميل... وضّح الخدمة... تعامل مع الاعتراضات... أنهِ المكالمة...">'.e($value).'</textarea></label>'.
         '<button class="btn" type="button" data-scenario-example="dog-sale">تحميل مثال ديمو بيع كلب (قابل للتعديل)</button>'.
+        '<button class="btn" type="button" data-scenario-example="lebanese-feedback">تقييم خدمة Voice Agent · لبناني ودلع (قابل للتعديل)</button>'.
         '<small class="dim">ده مثال جديد بنفس فكرة ديمو البيع، مش استرجاع حرفي لنص الديمو القديم. السيناريو بيتحفظ حتى وإنت مشغّل البيلدر.</small>';
 }
 function agent_api_source_picker(array $policy,array $sources):string {
