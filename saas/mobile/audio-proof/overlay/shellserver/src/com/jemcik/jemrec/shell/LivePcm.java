@@ -35,9 +35,12 @@ final class LivePcm {
             int route = in.readUnsignedByte();
             track = route == 'S' ? GreetingPlayer.screeningTrack(audio) : GreetingPlayer.musicTrack(audio);
             capture.checkCompatibility();
-            capture.start();
+            // The modem call must not expose the owner's mic while the
+            // capture engine initializes (especially over LTE/VoLTE).
+            // On any failure, finally restores the exact previous mute state.
             audio.setMicrophoneMute(true);
             if (!audio.isMicrophoneMute()) throw new IOException("microphone did not mute");
+            capture.start();
             track.play();
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
             out.writeInt(0x4f545631); out.writeInt(48000); out.writeInt(2); out.flush();
