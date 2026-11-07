@@ -16,7 +16,11 @@ if ($method === 'GET') {
             'fish' => is_string($data['keys']['fish'] ?? null) && unseal_secret($data['keys']['fish']) !== null,
             'google' => is_string($data['keys']['google'] ?? null) && unseal_secret($data['keys']['google']) !== null,
         ];
-        echo json_encode(['ok'=>true, 'csrf'=>csrf(), 'settings'=>$data['settings'], 'saved'=>$saved],
+        $guest = !empty($user['voice_lab_guest']);
+        $preferences = $guest && is_array($_SESSION['voice_lab_guest_settings'] ?? null)
+            ? $_SESSION['voice_lab_guest_settings'] : $data['settings'];
+        echo json_encode(['ok'=>true, 'csrf'=>csrf(), 'settings'=>$preferences, 'saved'=>$saved,
+            'guest'=>$guest, 'can_manage_keys'=>!$guest],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     } catch (Throwable $e) {
         voice_lab_error(503, 'settings_read_failed');
@@ -44,6 +48,16 @@ $preferences['emotions'] = $payload['settings']['emotions'];
 $voiceId = strtolower(trim((string)($payload['settings']['voiceId'] ?? '')));
 if (!preg_match('/^[a-f0-9]{32}$/D', $voiceId)) voice_lab_error(422, 'invalid_fish_voice_id');
 $preferences['voiceId'] = $voiceId;
+
+// A PIN holder may customize this browser session without changing the owner's
+// encrypted API keys or saved defaults.
+if (!empty($user['voice_lab_guest'])) {
+    $_SESSION['voice_lab_guest_settings'] = $preferences;
+    echo json_encode(['ok'=>true, 'guest'=>true, 'saved'=>[
+        'fish'=>true, 'google'=>true
+    ]], JSON_UNESCAPED_SLASHES);
+    exit;
+}
 
 $fish = $payload['keys']['fish'] ?? '';
 $google = $payload['keys']['google'] ?? '';
