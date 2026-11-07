@@ -635,9 +635,15 @@ class MobileLinkService:Service() {
                         val daemonState=CaptureDaemon.linkControl(this@MobileLinkService,'Q')
                         check(daemonState=="CALL 2"){"تعذر تأكيد وصول المكالمة إلى PCM: "+(daemonState?:"لا توجد استجابة")}
                         val sess=tenantSession!!
-                        val voice=tenantFlow?.optString("voice","google.aoede").orEmpty().substringAfterLast('.')
-                        val selectedVoice=voice.replaceFirstChar{it.uppercaseChar()}
-                        val liveSettings=JSONObject().put("voice",selectedVoice)
+                        val selectedCode=sess.optString("voice",
+                            tenantFlow?.optString("voice","google.aoede").orEmpty())
+                        val isIoPremium=selectedCode=="io.premium" &&
+                            sess.optString("voice_engine")=="official_google_live_fish_pcm"
+                        val voice=if(isIoPremium)"Aoede"
+                            else selectedCode.substringAfterLast('.')
+                                .replaceFirstChar{it.uppercaseChar()}
+                        val liveSettings=JSONObject().put("voice",voice)
+                            .put("voice_label",if(isIoPremium)"IO Premium" else voice)
                             .put("input_channel","mix")
                             .put("response_style",policy.optString("response_style","egyptian_short"))
                         val callback=managerCallback?.takeIf{
@@ -659,6 +665,9 @@ class MobileLinkService:Service() {
                             rotateVoiceToken={ previous,failure ->
                                 enrollment.rotateVoiceSession(reportSlot,previous,failure)
                             },
+                            premiumPcm=if(isIoPremium) { text,keepRunning,chunk ->
+                                enrollment.streamPremiumPcm(reportSlot,text,keepRunning,chunk)
+                            } else null,
                             onHumanRequested={ reason,notes ->
                                 if(reportCallId!=null && callback==null)
                                     tenantEvents.recordCustomerHumanRequest(reportSlot,reportBinding,reason,notes)
