@@ -76,6 +76,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Graph routing regression failed' }
           $php=Get-Command php -ErrorAction SilentlyContinue
           if ($php) {
+            & php -r 'echo "SITE20_RUNTIME_DIAG version=",PHP_VERSION," pdo=",implode(",",PDO::getAvailableDrivers())," sodium=",extension_loaded("sodium")?"yes":"no",PHP_EOL;'
             & php -r 'if (PHP_VERSION_ID < 80300 || !in_array("sqlite", PDO::getAvailableDrivers(), true) || !extension_loaded("sodium")) exit(41); echo "SITE20_PHP83_SQLITE_SODIUM_PASS ", PHP_VERSION, PHP_EOL;'
             if ($LASTEXITCODE -ne 0) { throw 'SITE-20 requires PHP 8.3+, SQLite PDO, sodium Ed25519 on CI runner' }
             Get-ChildItem saas/console -Recurse -File -Filter '*.php' | ForEach-Object {
