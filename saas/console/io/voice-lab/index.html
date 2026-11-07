@@ -58,7 +58,7 @@ audio{display:none}
 <header><div class="brand"><div class="logo">◉</div><div>OnTrack <span style="color:#fb536b">Voice Lab</span><br><small>تجربة مستقلة — Gemini × Fish Audio</small></div></div><div class="badge">Egyptian Arabic • Demo</div></header>
 <section class="panel hero">
 <h1>كلم المساعد بالمصري</h1>
-<p>Gemini يفهم ويرد • Fish ينطق بصوتك المستنسخ • المايك من المتصفح</p>
+<p>Gemini يفهم ويرد بالمصري • Fish Drama 3 ينطق بمشاعر وتنهدات • المايك من المتصفح</p>
 <button id="mic" class="orb" aria-label="ابدأ مكالمة صوتية">🎙</button>
 <div id="status" class="status" role="status">جاهز للمكالمة</div>
 <div class="actions"><button id="stop" class="ghost" type="button">إنهاء المكالمة</button><button id="testVoice" class="ghost" type="button">تجربة الصوت فقط</button></div>
@@ -71,11 +71,15 @@ audio{display:none}
 <label>موديل Fish<select id="fishModel"><option value="drama-3">drama-3 — المشاعر</option><option value="s2.1-pro-free">s2.1-pro-free — مجاني حسب حسابك</option><option value="s2.1-pro">s2.1-pro</option></select></label>
 <label>Fish API Key (للتجربة الحالية فقط)<input id="fishKey" type="password" placeholder="sk-fish-..." autocomplete="off"></label>
 <label>Voice Reference ID<input id="voiceId" type="text" value="e3c2911a78404bcab3c6adce3c59e1d9" spellcheck="false"></label>
+<label>مخ المحادثة<select id="brainSource"><option value="puter">Puter — نفس Gemini اللي شغال</option><option value="google">Google Gemini API — مفتاحي</option></select></label>
+<label>موديل Google (نص فقط)<select id="googleModel"><option value="gemini-3.8-flash">Gemini 3.8 Flash — نص سريع</option><option value="gemini-3-flash-preview">Gemini 3 Flash — نص</option></select></label>
+<label>Google Gemini API Key مؤقت<input id="googleKey" type="password" autocomplete="off" placeholder="مفتاح Google AI Studio"></label>
 <label>Gemini عبر Puter<select id="geminiModel"><option value="gemini-3-flash-preview">gemini-3-flash-preview</option><option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option></select></label>
+<label>مستوى المشاعر<select id="emotionLevel"><option value="intense">جياشة — تنهيدات وتعبير واضح</option><option value="expressive">معبرة — طبيعية ومتغيرة</option><option value="subtle">هادية — لمسات خفيفة</option></select></label>
 <label>إيقاف الاستماع بعد كل رد<select id="autoListen"><option value="no">لا — كمّل مكالمة تلقائيًا</option><option value="yes">نعم — اضغط المايك لكل جملة</option></select></label>
 </div>
-<label class="inline"><input id="emotions" type="checkbox" checked> استخدام علامات المشاعر بحذر مع Drama 3</label>
-<p class="help">تحدث من Chrome/Edge على HTTPS. ممكن Puter يطلب تسجيل دخول أو رصيد حسب حسابك، وFish Drama 3 قد يكون مدفوع. مفتاح Fish لا يُحفظ على السيرفر أو داخل الريبو. المايك يتحول لإيقاف مؤقت أثناء كلام المساعد عشان الصوت مايرجعش يسمع نفسه.</p>
+<label class="inline"><input id="emotions" type="checkbox" checked> تفعيل تعليمات الأداء والتنهدات مع Drama 3</label>
+<p class="help">تحدث من Chrome/Edge على HTTPS. Gemini 3.8 Live صوته أصلي؛ علشان نستخدم Fish كصوت مستنسخ بنختار Gemini 3.8 Flash لإرجاع النص مباشرة. وضع Puter القديم ما اتغيرش. مفاتيح Google وFish بتتبعت مع الطلب فقط ومش بتتخزن على السيرفر أو في الريبو. الخدمة ممكن تحتاج رصيد. المايك يتحول لإيقاف مؤقت أثناء كلام المساعد عشان الصوت مايرجعش يسمع نفسه.</p>
 </details></section>
 <audio id="player" playsinline></audio>
 </main>
@@ -85,7 +89,7 @@ audio{display:none}
   const el = id => document.getElementById(id);
   const $ = {mic:el('mic'),stop:el('stop'),test:el('testVoice'),status:el('status'),log:el('log'),
     textForm:el('textForm'),textInput:el('textInput'),voiceMode:el('voiceMode'),fishModel:el('fishModel'),
-    fishKey:el('fishKey'),voiceId:el('voiceId'),geminiModel:el('geminiModel'),autoListen:el('autoListen'),
+    fishKey:el('fishKey'),voiceId:el('voiceId'),geminiModel:el('geminiModel'),googleModel:el('googleModel'),googleKey:el('googleKey'),brainSource:el('brainSource'),emotionLevel:el('emotionLevel'),autoListen:el('autoListen'),
     emotions:el('emotions'),player:el('player'),brain:el('brainTime'),first:el('firstAudio'),total:el('totalTime')};
   let active=false, busy=false, listening=false, recognition=null, history=[], controller=null, blobUrl=null, generation=0;
   const Recognition=window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -118,6 +122,19 @@ audio{display:none}
   function listenEnd(){listening=false;if(active)$.mic.textContent='🎙';}
   function resume(){if(!active)return;busy=false;if($.autoListen.value==='yes'){active=false;$.mic.classList.remove('active');status('جاهز للجملة التالية — اضغط المايك');}else{status('دورك...');setTimeout(listen,420);}}
   function replyText(result){const v=result&&result.message&&result.message.content;return typeof v==='string'?v.trim():Array.isArray(v)?v.map(x=>x.text||'').join(' ').trim():'';}
+  function stripDirections(text){return text.replace(/\[[^\]\r\n]{1,120}\]/g,'').replace(/<\/?(?:whisper|soft|slow|emphasis|faster|slower|stress|forceful)>/gi,'').trim();}
+  function fishScript(text){
+    if(!$.emotions.checked||$.fishModel.value!=='drama-3')return stripDirections(text);
+    const level=$.emotionLevel.value;
+    const directive=level==='intense'?'[warm, deeply expressive Egyptian Arabic, rich emotional shifts and natural breathing]':level==='expressive'?'[warm, lively, emotionally expressive Egyptian Arabic]':'[gentle, natural Egyptian Arabic conversation]';
+    const hasStageDirection=/\[[^\]]{1,120}\]/.test(text);
+    return directive+' '+(!hasStageDirection&&level==='intense'?'[gentle sigh] ':'')+text.trim();
+  }
+  function emotionInstructions(){
+    if(!$.emotions.checked||$.fishModel.value!=='drama-3')return 'اكتبي الكلام فقط بلا تعليمات أداء.';
+    const intensity=$.emotionLevel.value==='intense'?'المشاعر جياشة وواضحة: ضيفي تنهيدة مسموعة أو نفسًا مناسبًا للموقف، وضحكة أو همسة عندما يسمح السياق، مع تغير حقيقي في النبرة.':'المشاعر طبيعية ومتغيرة بحسب الموقف بدون افتعال.';
+    return intensity+' النص هينطق بصوت Fish Audio Drama 3. اكتبي تعليمات الأداء بين مربعات [ ] زي [sigh] و[soft laugh] و[warm, longing tone] و[excited, breathless] و[pause]. للهمس ممكن <whisper>كلمتين</whisper>. لازم تكون العلامة جزء من الأداء مش كلمة تتقري. لا تعملي كل الردود غزل، وراعي السياق.';
+  }
   async function turn(text){
     if(busy)return;
     const cycle=++generation;busy=true;if(recognition){try{recognition.stop();}catch(e){}}listenEnd();
@@ -125,12 +142,25 @@ audio{display:none}
     const t0=performance.now();$.brain.textContent='Gemini: ...';$.first.textContent='أول صوت: ...';$.total.textContent='إجمالي: ...';
     status('Gemini بيفكر...');
     try{
-      if(!window.puter||!puter.ai)throw new Error('Puter SDK لم يتم تحميله');
-      const system='أنت بنت مصرية بتتكلم عامية مصرية طبيعية، خفيفة دم ومش رسمية. ردودك مختصرة ومناسبة للمكالمات، جملة أو جملتين غالبًا. اسمع المستخدم للنهاية قبل الرد، لا تقدم نفسك كمساعد ذكي لشركة ما. لا تستعمل إنجليزي بلا داع. إذا احتجت علامة صوتية للتعبير استخدم فقط [تنهيده] أو [اشتياق] أحيانًا بشكل طبيعي، من غير إفراط، ولا تحول الكلام لمشهد تمثيلي.';
-      const messages=[{role:'system',content:system},...history.slice(-10),{role:'user',content:text}];
-      const result=await puter.ai.chat(messages,{model:$.geminiModel.value,normalize:true,max_tokens:180});
+      const system='إنتِ بنت مصرية بتتكلمي بالمصري بصدق وعفوية، مرحة ودافية، مش رسمية. تتفاعلي مع الكلام بفرحة أو شوق أو دهشة أو تعاطف حسب السياق، من غير تكرار أو افتعال. ردود قصيرة جملة لجملتين غالبًا، من غير كلام إنجليزي في النطق، ومن غير تقديم نفسك كمساعد رسمي. '+emotionInstructions();
+      const recent=history.slice(-10);
+      let answer='';
+      if($.brainSource.value==='google'){
+        const key=$.googleKey.value.trim();
+        if(!key)throw new Error('حط مفتاح Gemini API في الإعدادات علشان تستخدم Google مباشرة');
+        controller=new AbortController();
+        const response=await fetch('./gemini.php',{method:'POST',headers:{'Content-Type':'application/json','X-Gemini-API-Key':key},body:JSON.stringify({model:$.googleModel.value,system,messages:[...recent,{role:'user',content:text}]}),signal:controller.signal,cache:'no-store'});
+        if(!response.ok)throw new Error('Google Gemini HTTP '+response.status+': '+(await response.text()).slice(0,180));
+        const data=await response.json();
+        answer=typeof data.text==='string'?data.text.trim():'';
+      }else{
+        if(!window.puter||!puter.ai)throw new Error('Puter SDK لم يتم تحميله');
+        const messages=[{role:'system',content:system},...recent,{role:'user',content:text}];
+        const result=await puter.ai.chat(messages,{model:$.geminiModel.value,normalize:true,max_tokens:320});
+        answer=replyText(result);
+      }
       if(cycle!==generation)return;
-      const answer=replyText(result);if(!answer)throw new Error('Gemini رجع رد فاضي');
+      if(!answer)throw new Error('Gemini رجع رد فاضي');
       $.brain.textContent='Gemini: '+Math.round(performance.now()-t0)+'ms';history.push({role:'user',content:text},{role:'assistant',content:answer});
       add('assistant',answer);status('بجهّز الصوت...');
       await speak(answer,t0,cycle);
@@ -140,7 +170,7 @@ audio{display:none}
   async function speak(text,t0,cycle){
     if($.voiceMode.value==='browser'){
       if(!('speechSynthesis' in window))throw new Error('صوت المتصفح غير مدعوم');
-      const spoken=text.replace(/\[[^\]]+\]/g,'').trim();
+      const spoken=stripDirections(text);
       return new Promise((resolve,reject)=>{
         const utterance=new SpeechSynthesisUtterance(spoken);utterance.lang='ar-EG';utterance.rate=1;utterance.pitch=1;
         const voices=speechSynthesis.getVoices();utterance.voice=voices.find(v=>v.lang.toLowerCase()==='ar-eg')||voices.find(v=>v.lang.toLowerCase().startsWith('ar'))||null;
@@ -152,8 +182,7 @@ audio{display:none}
     const key=$.fishKey.value.trim(),voiceId=$.voiceId.value.trim();
     if(!key)throw new Error('حط مفتاح Fish من إعدادات الصفحة');
     if(!/^[0-9a-f]{32}$/i.test(voiceId))throw new Error('Voice ID لازم يكون 32 رمز');
-    let spoken=text;
-    if(!$.emotions.checked)spoken=spoken.replace(/\[[^\]]+\]/g,'').trim();
+    const spoken=fishScript(text);
     const request={text:spoken,reference_id:voiceId,model:$.fishModel.value,format:'mp3'};
     controller=new AbortController();const res=await fetch('./tts.php',{method:'POST',headers:{'Content-Type':'application/json','X-Fish-API-Key':key},body:JSON.stringify(request),signal:controller.signal,cache:'no-store'});
     if(!res.ok){const error=(await res.text()).slice(0,350);throw new Error('Fish HTTP '+res.status+': '+error);}
@@ -200,7 +229,7 @@ audio{display:none}
   $.mic.addEventListener('click',()=>{if(active){reset();return;}active=true;$.mic.classList.add('active');status('بفتح المايك...');listen();});
   $.stop.addEventListener('click',reset);
   $.textForm.addEventListener('submit',e=>{e.preventDefault();const value=$.textInput.value.trim();if(!value||busy)return;if(!active){active=true;$.mic.classList.add('active');}turn(value);});
-  $.test.addEventListener('click',async()=>{if(busy)return;busy=true;const cycle=++generation;const t0=performance.now();$.first.textContent='أول صوت: ...';status('بنجرب نفس الصوت المصري...');try{await speak('إزيك يا زميلي! [تنهيده] عامل إيه يا نجم؟ [اشتياق] أنا مبسوطة إننا بنتكلم النهارده.',t0,cycle);if(cycle===generation)status('الصوت اشتغل. جرّب مكالمة بالمايك.');}catch(e){status('تجربة الصوت فشلت: '+e.message);}finally{if(cycle===generation)busy=false;}});
+  $.test.addEventListener('click',async()=>{if(busy)return;busy=true;const cycle=++generation;const t0=performance.now();$.first.textContent='أول صوت: ...';status('بنجرب نفس الصوت المصري...');try{await speak('[soft, affectionate and playful] إزيك يا زميلي... [gentle sigh] وحشتني والله! [soft chuckle] عامل إيه يا نجم؟ <whisper>أنا مبسوطة إننا بنتكلم النهارده.</whisper>',t0,cycle);if(cycle===generation)status('الصوت اشتغل. جرّب مكالمة بالمايك.');}catch(e){status('تجربة الصوت فشلت: '+e.message);}finally{if(cycle===generation)busy=false;}});
   if(!Recognition){$.mic.title='التعرّف الصوتي غير متوفر — جرّب Chrome أو الإدخال النصي';}
 })();
 </script>
