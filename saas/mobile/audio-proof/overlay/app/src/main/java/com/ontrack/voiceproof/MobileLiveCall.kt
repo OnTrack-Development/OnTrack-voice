@@ -27,6 +27,7 @@ internal class MobileLiveCall(
     private val onHumanRequested:(String,String)->Boolean = {_,_->false},
     private val onCallNote:(String,String)->Boolean = {_,_->false},
     private val rotateVoiceToken:(suspend (JSONObject,String)->JSONObject)? = null,
+    private val premiumPcm:((String,()->Boolean,(ByteArray)->Unit)->Unit)? = null,
     private val onFinished:(String)->Unit = {},
 ) {
     private val stopped=AtomicBoolean(false)
@@ -40,6 +41,12 @@ internal class MobileLiveCall(
     @Volatile private var pipe:Socket?=null
     @Volatile private var output:DataOutputStream?=null
     @Volatile private var ws:WebSocket?=null
+    private val premium=session.optString("voice_engine")=="official_google_live_fish_pcm"
+    private var official:PremiumOfficialLive?=null
+    private val premiumPhrases=Channel<Pair<Int,String>>(64)
+    private val premiumInput=Channel<ByteArray>(32)
+    private var premiumSpeaker:Job?=null
+    private var premiumSender:Job?=null
     @Volatile private var socketReady=false
     @Volatile private var resumeHandle:String?=null
     // The same SIM call may continue through a NEW Google key, but the old
@@ -183,7 +190,11 @@ internal class MobileLiveCall(
                             if(!audibleCapture.get() && observedVoiceAudio(mono))
                                 audibleCapture.set(true)
                             val socket=ws
-                            if(socketReady && socket!=null &&
+                            if(premium) {
+                                if(socketReady && !premiumInput.trySend(mono).isSuccess){
+                                    skippedUplinkPackets.incrementAndGet()
+                                }
+                            }else if(socketReady && socket!=null &&
                                 LiveAudioQueuePolicy.canSend(isCellularLink(),socket.queueSize())) {
                                 if(!socket.send(JSONObject().put("realtimeInput",JSONObject().put("audio",JSONObject()
                                     .put("mimeType","audio/pcm;rate=16000").put("data",Base64.encodeToString(mono,Base64.NO_WRAP)))).toString())){
@@ -202,7 +213,9 @@ internal class MobileLiveCall(
             // Start draining 48k PCM immediately after the shell's mute
             // acknowledgement. Frames recorded while Google is connecting
             // are discarded, never buffered and replayed as stale caller audio.
-            openSocket()
+            if(premium){
+                startOfficialPremium()
+            }else openSocket()
             withTimeout(25000){ready.await()}
             check(!stopped.get())
             // A WebSocket setup and PCM header do not prove VoLTE uplink audio.
@@ -238,6 +251,77 @@ internal class MobileLiveCall(
             throw error
         }
     }
+    /** Official Google Live + Fish raw PCM, fully isolated from legacy
+     * OkHttp Google audio; both routes reuse the SAME muted SIM conduit.
+     */
+    private fun startOfficialPremium() {
+        check(premiumPcm!=null){"IO Premium PCM module not configured"}
+        val sdk=PremiumOfficialLive(scope,session.getString("token"),
+            session.getString("model"),session.getString("system_instruction"),
+            caller={spoken->
+                appendLiveTranscription("المتصل",spoken)
+                observeCallerIntent(spoken)
+                if(outgoingCall && !remoteSpeechConfirmed &&
+                    OutboundFirstTurn.remoteSpeechTranscribed(spoken)){
+                    remoteSpeechConfirmed=true
+                    notice("تم سماع رد الطرف الآخر؛ الإيجنت يبدأ الحوار")
+                }
+            },
+            assistant={spoken->appendLiveTranscription("الإيجنت",spoken)},
+            phrase={text->if(!stopped.get())premiumPhrases.trySend(generation to text)},
+            interrupted={
+                generation++
+                while(playback.tryReceive().isSuccess){}
+                while(premiumPhrases.tryReceive().isSuccess){}
+                synchronized(writeLock){runCatching{output?.writeInt(-1);output?.flush()}}
+            },
+            disconnected={reason->if(!stopped.get())fail(reason)}
+        )
+        official=sdk
+        premiumSender=scope.launch(Dispatchers.IO){
+            for(pcm in premiumInput){
+                if(stopped.get())break
+                try{sdk.pushPcm(pcm)}
+                catch(e:Throwable){if(e !is CancellationException)fail("IO Premium: تعذر إرسال صوت المتصل")}
+            }
+        }
+        premiumSpeaker=scope.launch(Dispatchers.IO){
+            for((turn,text) in premiumPhrases){
+                if(stopped.get())break
+                if(turn!=generation || text.isBlank())continue
+                val resampler=PremiumPcm()
+                var started=false
+                try{
+                    premiumPcm.invoke(text,{!stopped.get()&&generation==turn}){chunk->
+                        if(stopped.get()||generation!=turn)return@invoke
+                        val pcm=resampler.convert(chunk)
+                        if(pcm.isNotEmpty()){
+                            if(!started){started=true;lastAssistantAudioAt.set(SystemClock.elapsedRealtime())}
+                            modelAudioBytes.addAndGet(pcm.size.toLong())
+                            for(pos in pcm.indices step LivePlaybackQueuePolicy.PACKET_BYTES){
+                                val packet=pcm.copyOfRange(pos,
+                                    minOf(pos+LivePlaybackQueuePolicy.PACKET_BYTES,pcm.size))
+                                if(!playback.trySend(turn to packet).isSuccess){
+                                    playbackOverflowPackets.incrementAndGet()
+                                }
+                            }
+                        }
+                    }
+                }catch(e:Throwable){
+                    if(!stopped.get()&&generation==turn&&e !is CancellationException)
+                        notice("تعذر تشغيل IO Premium؛ استلم المكالمة لو الصوت غير مسموع")
+                }
+            }
+        }
+        sdk.start()
+        scope.launch(Dispatchers.IO){
+            try{
+                sdk.awaitConnected()
+                if(!stopped.get()){socketReady=true;ready.complete(Unit)}
+            }catch(e:Throwable){if(!stopped.get())fail("IO Premium Live: تعذر تجهيز الاتصال")}
+        }
+    }
+
     private fun openSocket() {
         if(stopped.get())return
         socketReady=false
@@ -487,6 +571,8 @@ internal class MobileLiveCall(
             if(transcription.length>=18)runCatching{onFinished(transcription)}
                 .onFailure{notice("تعذر حفظ نص المكالمة بأمان؛ التقرير غير متاح مؤقتًا")}
             diagnostics?.cancel();recovery?.cancel();runCatching{pipe?.close()};playback.close()
+            premiumInput.close();premiumPhrases.close();premiumSender?.cancel();premiumSpeaker?.cancel()
+            official?.stop();official=null
             worker?.cancel();ws?.close(1000,"call ended");ws=null;output=null
         }
     }
