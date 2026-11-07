@@ -260,7 +260,7 @@ internal class MobileLiveCall(
      */
     private fun startOfficialPremium() {
         check(premiumPcm!=null){"IO Premium PCM module not configured"}
-        val sdk=PremiumOfficialLive(scope,session.getString("token"),
+        val sdk=PremiumOfficialLive(scope,client,session.getString("token"),
             session.getString("model"),session.getString("system_instruction"),
             caller={spoken->
                 appendLiveTranscription("المتصل",spoken)
