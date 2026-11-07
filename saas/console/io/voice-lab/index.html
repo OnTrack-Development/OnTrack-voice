@@ -53,6 +53,8 @@ details[open] summary{margin-bottom:17px}
 .settings-actions button:disabled{opacity:.55}
 .settings-note{font-size:12px;color:#b4becb;margin-top:7px;line-height:1.6}
 .settings-state{font-size:13px;line-height:1.7;color:#d2d6e2}
+#diagnosticLog{direction:ltr;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;padding:12px;border:1px solid #343744;border-radius:12px;background:#0b0d12;color:#c8d3e5;font-size:12px;line-height:1.55}
+.trace-actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
 audio{display:none}
 @media(max-width:640px){main{padding:14px 10px 50px}.grid{grid-template-columns:1fr}header{align-items:flex-start}.badge{font-size:11px} .hero h1{font-size:21px}.panel{padding:16px}.orb{width:122px;height:122px}}
 </style>
@@ -62,13 +64,18 @@ audio{display:none}
 <header><div class="brand"><div class="logo">◉</div><div>OnTrack <span style="color:#fb536b">Voice Lab</span><br><small>تجربة مستقلة — Gemini 3.8 Live</small></div></div><div class="badge">Egyptian Arabic • Demo</div></header>
 <section class="panel hero">
 <h1>كلم المساعد بالمصري</h1>
-<p class="help" id="buildInfo">Voice Lab 2026.11.07.4 • Gemini 3.8 Live — صوت مباشر</p>
+<p class="help" id="buildInfo">Voice Lab 2026.11.07.5 • Gemini 3.8 Live — تشخيص الاتصال</p>
 <p>Gemini 3.8 Live يسمعك ويرد عليك بصوته مباشرة • نص وصوت من نفس الموديل</p>
 <button id="mic" class="orb" aria-label="ابدأ مكالمة صوتية">🎙</button>
 <div id="status" class="status" role="status">جاهز للمكالمة</div>
 <div class="actions"><button id="stop" class="ghost" type="button">إنهاء المكالمة</button><button id="testVoice" class="ghost" type="button">تجربة الصوت فقط</button></div>
 <div class="timing"><span id="brainTime">Gemini: —</span><span id="firstAudio">أول صوت: —</span><span id="totalTime">إجمالي: —</span></div>
 </section>
+<section class="panel"><details><summary>🧰 سجل أخطاء الاتصال (Error Log)</summary>
+<p class="help">الخطوات وأزمنتها وكود إغلاق WebSocket، بدون تسجيل مفاتيح Google أو الصوت أو المحادثة. سجل السيرفر للأدمن فقط.</p>
+<div class="trace-actions"><button class="ghost" type="button" id="refreshDiagnostics">تحميل سجل السيرفر</button><button class="ghost" type="button" id="copyDiagnostics">نسخ السجل</button></div>
+<pre id="diagnosticLog">اضغط المايك لبدء التشخيص، أو حمّل سجل السيرفر.</pre>
+</details></section>
 <section class="panel"><h2>المحادثة</h2><div id="log" aria-live="polite"><p class="muted">ابدأ بالمايك أو اكتب رسالة. هتظهر هنا الجمل والردود.</p></div><form id="textForm" class="send"><input id="textInput" type="text" autocomplete="off" placeholder="اكتب حاجة بالمصري لو المايك مش متاح..." aria-label="رسالتك"><button type="submit">إرسال</button></form></section>
 <section class="panel"><details open><summary>⚙️ إعدادات التجربة</summary>
 <div class="grid">
@@ -98,6 +105,34 @@ audio{display:none}
     brain:el('brainTime'), first:el('firstAudio'), total:el('totalTime')
   };
   let csrf='',savedGoogle=false,live=null,active=false,starting=false,tokenAbort=null;
+  let traceAttempt='',traceLines=[];
+  const traceView=el('diagnosticLog');
+  function diagnostic(stage,meta={}){
+    const row={at:new Date().toISOString(),attempt:traceAttempt||'unknown',stage,meta};
+    traceLines.push(row);
+    if(traceLines.length>80)traceLines.shift();
+    traceView.textContent=traceLines.map(item=>JSON.stringify(item)).join('\n');
+    traceView.scrollTop=traceView.scrollHeight;
+    if(!csrf)return;
+    fetch('./diagnostics.php',{method:'POST',credentials:'same-origin',cache:'no-store',keepalive:true,
+      headers:{'Content-Type':'application/json','X-Voice-Lab-CSRF':csrf},
+      body:JSON.stringify(row)}).catch(()=>{});
+  }
+  el('refreshDiagnostics').addEventListener('click',async()=>{
+    try{
+      const response=await fetch('./diagnostics.php',{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)throw Error('HTTP '+response.status);
+      const result=await response.json();
+      if(!result.ok||!Array.isArray(result.entries))throw Error('رد السجل غير صالح');
+      traceLines=result.entries.slice(-80);
+      traceView.textContent=traceLines.length?traceLines.map(item=>JSON.stringify(item)).join('\n'):'السجل فاضي لسه.';
+      traceView.scrollTop=traceView.scrollHeight;
+    }catch(err){traceView.textContent='تعذّر تحميل السجل: '+(err.message||err);}
+  });
+  el('copyDiagnostics').addEventListener('click',async()=>{
+    try{await navigator.clipboard.writeText(traceView.textContent);status('تم نسخ سجل التشخيص');}
+    catch(err){status('المتصفح منع نسخ السجل؛ تقدر تحدده يدويًا');}
+  });
   let settingsReady=Promise.resolve();
   const AudioCtx=window.AudioContext||window.webkitAudioContext;
   function status(message){ui.status.textContent=message;}
@@ -182,6 +217,7 @@ audio{display:none}
   async function startMic(s){
     if(!navigator.mediaDevices?.getUserMedia)throw Error('المايك يحتاج HTTPS ومتصفح حديث');
     status('اسمح للمتصفح بالمايك...');
+    diagnostic('mic_permission_start');
     s.media=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
     if(live!==s||s.closed){s.media.getTracks().forEach(track=>track.stop());return;}
     s.inputContext=new AudioCtx();
@@ -194,6 +230,7 @@ audio{display:none}
     };
     s.source.connect(s.node);s.node.connect(s.silence);s.silence.connect(s.inputContext.destination);
     await s.inputContext.resume();
+    diagnostic('mic_ready');
     status('Gemini 3.8 Live بيسمعك...');
   }
   function sendText(s,text){
@@ -224,6 +261,7 @@ audio{display:none}
       s.firstAudio=true;
       ui.first.textContent='أول صوت: '+Math.round(performance.now()-(s.turnStart||s.connectedAt))+'ms';
       ui.brain.textContent='Gemini 3.8 Live — صوت مباشر';
+      diagnostic('first_audio',{elapsed_ms:Math.round(performance.now()-(s.turnStart||s.connectedAt))});
     }
     status('Gemini 3.8 Live بيتكلم...');
   }
@@ -247,12 +285,14 @@ audio{display:none}
     let result;try{result=JSON.parse(raw);}catch(e){return;}
     if(result.error){
       const detail=String(result.error.message||result.error.status||result.error.code||'خطأ غير محدد').replace(/AIza[A-Za-z0-9_-]+/g,'[redacted]').slice(0,280);
+      diagnostic('provider_error',{error_code:String(result.error.status||result.error.code||'provider_error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});
       reset();status('Google رفض جلسة Live: '+detail);return;
     }
     if(result.setupComplete){
       clearTimeout(s.handshakeTimer);s.ready=true;s.connectedAt=performance.now();
+      diagnostic('setup_complete',{elapsed_ms:Math.round(performance.now()-s.wsStarted)});
       status('اتصلنا بـGemini 3.8 Live');
-      if(s.withMic)startMic(s).catch(e=>{reset();status('مشكلة المايك: '+e.message);});
+      if(s.withMic)startMic(s).catch(e=>{diagnostic('mic_error',{error_code:e.name||'mic_error'});reset();status('مشكلة المايك: '+e.message);});
       for(const text of s.pending.splice(0))sendText(s,text);
       return;
     }
@@ -278,25 +318,33 @@ audio{display:none}
     if(starting)return;
     if(!window.WebSocket||!AudioCtx)throw Error('متصفحك لا يدعم مكالمات Live');
     starting=true;
+    traceAttempt=globalThis.crypto?.randomUUID?.() || String(Date.now());
+    diagnostic('call_start');
     // Start playback inside the user's click to satisfy mobile autoplay policies.
     const playback=new AudioCtx({sampleRate:24000});
     const resumePlayback=playback.resume();
     let attached=false;
     try{
       const headers=await secureHeaders();
+      headers['X-Voice-Lab-Trace']=traceAttempt;
       await resumePlayback;
+      const tokenStart=performance.now();
+      diagnostic('token_fetch_start');
       const abort=new AbortController();tokenAbort=abort;
       const timeout=setTimeout(()=>abort.abort(),18000);
       let response;
       try{response=await fetch('./live-token.php',{method:'POST',headers,credentials:'same-origin',body:'{}',cache:'no-store',signal:abort.signal});}
-      catch(e){throw Error(e.name==='AbortError'?'طلب توكن Live انتهت مهلته':e.message);}
+      catch(e){diagnostic('token_fetch_error',{error_code:e.name==='AbortError'?'timeout':(e.name||'network_error'),elapsed_ms:Math.round(performance.now()-tokenStart)});
+        throw Error(e.name==='AbortError'?'طلب توكن Live انتهت مهلته':e.message);}
       finally{clearTimeout(timeout);if(tokenAbort===abort)tokenAbort=null;}
+      diagnostic('token_fetch_ok',{http_status:response.status,elapsed_ms:Math.round(performance.now()-tokenStart)});
       if(!response.ok){
+        diagnostic('token_http_error',{http_status:response.status});
         const detail=(await response.text()).slice(0,350);
         throw Error('التوكن HTTP '+response.status+': '+detail);
       }
       const data=await response.json();
-      if(!data.token)throw Error('Google لم يرجع توكن Live');
+      if(!data.token){diagnostic('token_invalid_reply');throw Error('Google لم يرجع توكن Live');}
       if(!active)return;
       const s={socket:null,closed:false,ready:false,withMic:!firstText,pending:firstText?[firstText]:[],
         input:'',output:'',playback,inputContext:null,source:null,node:null,silence:null,media:null,playing:new Set(),
@@ -304,25 +352,32 @@ audio{display:none}
       live=s;attached=true;
       const endpoint='wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(data.token);
       const socket=new WebSocket(endpoint);s.socket=socket;
+      s.wsStarted=performance.now();
+      diagnostic('ws_connect_start');
       s.handshakeTimer=setTimeout(()=>{
         if(live!==s||s.closed||s.ready)return;
         const phase=s.socketOpened?'الـWebSocket اتفتح لكن Google ما أكملش قبول إعدادات الجلسة':'الـWebSocket ما اتفتحش';
+        diagnostic('setup_timeout',{elapsed_ms:Math.round(performance.now()-s.wsStarted),phase:s.socketOpened?'setup':'websocket'});
         reset();status(phase+' خلال 15 ثانية.');
       },15000);
       socket.onopen=()=>{
         if(live!==s||s.closed)return;
-        s.socketOpened=true;status('WebSocket اتفتح؛ مستني قبول Gemini 3.8 Live...');
+        s.socketOpened=true;diagnostic('ws_open',{elapsed_ms:Math.round(performance.now()-s.wsStarted)});
+        status('WebSocket اتفتح؛ مستني قبول Gemini 3.8 Live...');
         socket.send(JSON.stringify({setup:{
           model:'models/gemini-3.8-live',
           generationConfig:{responseModalities:['AUDIO']},
           inputAudioTranscription:{},outputAudioTranscription:{},
           systemInstruction:{parts:[{text:instructions()}]}
         }}));
+        diagnostic('setup_sent');
       };
       socket.onmessage=e=>receive(s,e.data);
-      socket.onerror=()=>{if(live!==s||s.closed)return;status('فشل اتصال WebSocket مع Google؛ منتظر كود الإغلاق...');};
+      socket.onerror=()=>{if(live!==s||s.closed)return;diagnostic('ws_error');
+        status('فشل اتصال WebSocket مع Google؛ منتظر كود الإغلاق...');};
       socket.onclose=e=>{if(live!==s||s.closed)return;
         const code=e.code,reason=String(e.reason||'').replace(/AIza[A-Za-z0-9_-]+/g,'[redacted]').slice(0,180);
+        diagnostic('ws_close',{ws_code:code,phase:s.ready?'connected':'handshake'});
         reset();status('Google قفل جلسة Live (WebSocket '+code+')'+(reason?': '+reason:'؛ راجع دعم Live للمفتاح والشبكة'));};
       status('بفتح Gemini 3.8 Live...');
     }finally{
@@ -331,6 +386,7 @@ audio{display:none}
     }
   }
   function failure(err){
+    diagnostic('call_error',{error_code:String(err?.name||'error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});
     reset();status('Gemini Live: '+(err?.message||String(err)));
   }
   ui.mic.addEventListener('click',()=>{
