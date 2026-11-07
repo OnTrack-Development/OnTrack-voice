@@ -1,0 +1,30 @@
+name: Preflight live OnTrack IO Premium via direct SSH
+on:
+  push:
+    branches: [feat/v1-io-premium-20261107]
+    paths: ['.github/workflows/ontrack-io-premium-preflight.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 6
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read live paths, permissions, active OTA versions and Fish flags
+        run: |
+          $ErrorActionPreference='Stop'
+          $ssh=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $remote='appontrack@65.21.208.232'
+          $flags=@('-i',$ssh,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=10')
+          & scp.exe @flags -P 7195 'tools/io_premium_host_preflight.py' ($remote+':/home/appontrack/.ontrack-mobile/io_premium_host_preflight.py')
+          if($LASTEXITCODE -ne 0){throw 'SSH_PREFLIGHT_SCRIPT_COPY_FAILED'}
+          & ssh.exe @flags -p 7195 $remote 'python3 /home/appontrack/.ontrack-mobile/io_premium_host_preflight.py'
+          if($LASTEXITCODE -ne 0){throw 'SSH_HOST_PREFLIGHT_FAILED'}
+          Write-Host 'SSH_READONLY_PREFLIGHT_PASS'
