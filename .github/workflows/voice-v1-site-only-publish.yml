@@ -99,7 +99,7 @@ jobs:
             $i=0
             foreach($test in $suite){
               $i++
-              $env:ONTRACK_CI_NAMESPACE="v1site$($env:GITHUB_RUN_ID)_$i"
+              $env:ONTRACK_CI_NAMESPACE="v1site$($env:GITHUB_RUN_ID)_a$($env:GITHUB_RUN_ATTEMPT)_$i"
               Write-Host "Running isolated SaaS regression $i - $test"
               & php $test
               if($LASTEXITCODE -ne 0){throw "SaaS regression failed: $test"}
@@ -122,7 +122,7 @@ jobs:
           if (-not $browser) { throw 'No local Chrome/Edge browser: cannot claim authenticated responsive E2E PASS' }
           $env:CHROME_BIN=$browser
           $env:SAAS_RESPONSIVE_FIXTURE='1'
-          $env:ONTRACK_CI_NAMESPACE="v1browser$($env:GITHUB_RUN_ID)"
+          $env:ONTRACK_CI_NAMESPACE="v1browser$($env:GITHUB_RUN_ID)_a$($env:GITHUB_RUN_ATTEMPT)"
           & php tools/seed_responsive_ui.php
           if ($LASTEXITCODE -ne 0) { throw 'Isolated browser fixture failed' }
           $phpPath=(Get-Command php -ErrorAction Stop).Source
