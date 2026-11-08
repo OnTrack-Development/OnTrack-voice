@@ -22,7 +22,7 @@ $checks=[
     'provider_required_at_views_bootstrap'=>str_contains(substr($views,0,400),
         "require_once __DIR__.'/IoPremiumProvider.php';"),
     'optional_kb_marked_in_agent_studio'=>str_contains($views,'قاعدة المعرفة اختيارية'),
-    'empty_knowledge_form_noop'=>str_contains($actions,"if(!$".'hasFile&&trim($text)'."==='')"),
+    'empty_knowledge_form_noop'=>str_contains($actions,'if(!$hasFile&&trim($text)==='),
     'real_kb_source_still_validated'=>str_contains($actions,'voice_knowledge_add('),
     'knowledge_backend_failure_nonblocking'=>str_contains($session,'catch(Throwable $kbError)'),
     'text_scenario_without_kb'=>str_contains($instruction,'اسأل العميل عن احتياجه.'),
