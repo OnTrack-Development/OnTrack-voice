@@ -6,6 +6,7 @@ on:
       - '.github/workflows/voice-saas-wa-v73-diagnostics.yml'
       - 'tools/host_v73_wa_runtime_probe.php'
       - 'tools/host_v73_wa_cron_probe.py'
+      - 'tools/host_v73_wa_safe_run.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -32,7 +33,7 @@ jobs:
           $ErrorActionPreference='Stop'
           & php -l tools/host_v73_wa_runtime_probe.php
           if($LASTEXITCODE -ne 0){throw 'Invalid WA probe PHP'}
-          & python -m py_compile tools/host_v73_wa_cron_probe.py
+          & python -m py_compile tools/host_v73_wa_cron_probe.py tools/host_v73_wa_safe_run.py
           if($LASTEXITCODE -ne 0){throw 'Invalid WA cron probe Python'}
           & php -l saas/console/whatsapp-worker.php
           if($LASTEXITCODE -ne 0){throw 'WhatsApp worker PHP invalid'}
@@ -50,6 +51,7 @@ jobs:
           $assets=@(
             [pscustomobject]@{Source='tools/host_v73_wa_runtime_probe.php';Dest="$stage/jobs.php"}
             [pscustomobject]@{Source='tools/host_v73_wa_cron_probe.py';Dest="$stage/cron.py"}
+            [pscustomobject]@{Source='tools/host_v73_wa_safe_run.py';Dest="$stage/safe_run.py"}
           )
           foreach($asset in $assets){
             $from=[string]$asset.Source
@@ -62,3 +64,6 @@ jobs:
           & ssh.exe @flags -p 7195 $remote ('/opt/cpanel/ea-php83/root/usr/bin/php '+$stage+'/jobs.php')
           if($LASTEXITCODE -ne 0){throw 'Database read-only probe failed'}
           Write-Host 'V73_REAL_PRODUCTION_WA_CRON_AND_JOBS_READ_ONLY_PROBED_PASS'
+          & ssh.exe @flags -p 7195 $remote ('python3 '+$stage+'/safe_run.py')
+          if($LASTEXITCODE -ne 0){throw 'Isolated or zero-job guarded WhatsApp worker runtime failed'}
+          Write-Host 'V73_ISOLATED_AND_NO_JOB_LIVE_WORKER_DIAGNOSTIC_COMPLETE'
