@@ -14,6 +14,17 @@ try{
         WHERE j.status='pending' AND j.attempts<2 AND w.state='verified'
         AND ((w.ai_enabled=1 AND w.ai_agent_id IS NOT NULL)
         OR (w.whmcs_bridge_verified_at IS NOT NULL AND w.whmcs_bridge_url IS NOT NULL))")['n']??0);
+    // Validate the exact worker SELECT schema without acquiring jobs or
+    // sending to Meta; LIMIT 0 still detects stale production columns.
+    $selection=all("SELECT j.id,j.account_id,j.conversation_id,w.ai_enabled,w.ai_agent_id,
+        w.whmcs_bridge_verified_at,w.whmcs_bridge_url,w.onboarding_method
+        FROM wa_ai_jobs j
+        JOIN wa_connections w ON w.id=j.connection_id AND w.account_id=j.account_id
+        JOIN accounts a ON a.id=j.account_id AND a.status='active'
+        WHERE j.status='pending' AND j.attempts<2 AND w.state='verified'
+        AND ((w.ai_enabled=1 AND w.ai_agent_id IS NOT NULL)
+        OR (w.whmcs_bridge_verified_at IS NOT NULL AND w.whmcs_bridge_url IS NOT NULL))
+        ORDER BY j.id ASC LIMIT 0");
     $heartbeat=one("SELECT worker,last_run_at,last_success_at FROM
         operational_worker_heartbeat WHERE worker='whatsapp_ai'");
     $report=['probe'=>'v73_wa_read_only','database_driver'=>$driver,
