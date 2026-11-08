@@ -59,6 +59,9 @@ class MobileLinkActivity:ComponentActivity(){
     private var tenantServerState="checking"
     private var tenantAgentCards=JSONArray()
     private var tenantStatusJob:Job?=null
+    // A freshly paired and server-enabled SIM can start once; a saved local
+    // Stop always wins and a failed start won't repeatedly prompt permissions.
+    private var firstPairAutoStartAttempted=false
     /** The user's explicit Start command may continue once Phone permission is granted. */
     private var startRequestedAfterPhonePermission=false
     /** One-time code kept in memory only while Android asks for SIM permission. */
@@ -498,6 +501,32 @@ class MobileLinkActivity:ComponentActivity(){
             tenantStatusLines=report.first.toTypedArray()
             tenantAgentCards=report.second
             tenantServerState=report.third
+            // The published SOG policy may have auto_answer=true even when
+            // Android's local tenant monitor was never started after pairing.
+            // Start once only for a freshly paired SIM with no prior local
+            // Start/Stop selection. Never override an explicit user Stop.
+            val settings=getSharedPreferences("ontrack_tenant_voice",MODE_PRIVATE)
+            val publishedAutoReady=(0 until tenantAgentCards.length()).any{index->
+                val card=tenantAgentCards.optJSONObject(index)
+                card?.optString("state")=="online" &&
+                    card.optBoolean("flow_ready",false) &&
+                    card.optBoolean("auto_answer_enabled",false)
+            }
+            val phoneGranted=ContextCompat.checkSelfPermission(
+                this@MobileLinkActivity,Manifest.permission.READ_PHONE_STATE
+            )==PackageManager.PERMISSION_GRANTED
+            if(!firstPairAutoStartAttempted &&
+                TenantEngineRestorePolicy.firstPairPublishedAutoStart(
+                    tenantEnrollment.hasAny(),settings.contains("enabled"),
+                    publishedAutoReady,MobileLinkService.tenantPairingInProgress,
+                    phoneGranted,MobileLinkService.inCall)){
+                firstPairAutoStartAttempted=true
+                runCatching{startTenantMonitor()}.onFailure{problem->
+                    banner.text="المساعد منشور للرد الآلي لكن تشغيل الهاتف تعذّر: "+
+                        problem.message.orEmpty().take(110)
+                    banner.visibility=View.VISIBLE
+                }
+            }
             sendState()
         }
     }
