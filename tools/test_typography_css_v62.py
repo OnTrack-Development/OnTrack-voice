@@ -38,8 +38,12 @@ def inspect_css(css: str) -> None:
     for key in required:
         if key not in block:
             raise AssertionError("Typography CSS missing " + key)
-    if "Droid Sans Arabic" in block or "Tahoma" in block or "Arial" in block:
-        raise AssertionError("New typography rules must not depend on rejected fonts")
+    import re
+    without_comments = re.sub(r"/\\*.*?\\*/", "", block, flags=re.S)
+    for family in re.findall(r"font-family\\s*:[^;]*;", without_comments, flags=re.I):
+        if any(re.search(r"\\b" + name + r"\\b", family, flags=re.I)
+               for name in ("Droid Sans Arabic", "Tahoma", "Arial")):
+            raise AssertionError("New font-family rules depend on a rejected legacy font")
     print("TYPO_V62_ARABIC_FONTS_RTL_PREVIEW_RESPONSIVE_AND_TYPE_SCALE_PASS")
 
 if __name__ == "__main__":
