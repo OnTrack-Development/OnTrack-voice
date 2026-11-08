@@ -590,8 +590,8 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  
  const tenantOk=Number(s.nativeCode)>=24;
  el('openAnswerSettings').disabled=Number(s.nativeCode)<25;
- el('tenantMenu').disabled=!tenantOk||call;
- el('tenantQr').disabled=!tenantOk||call;
+ el('tenantMenu').disabled=Number(s.nativeCode)<55||call;
+ el('tenantQr').disabled=Number(s.nativeCode)<55||call;
  el('tenantRefresh').disabled=!tenantOk;
  el('tenantTest').disabled=Number(s.nativeCode)<26;
  el('tenantSim1').textContent=tenantOk?(s.tenantSim1||'جاري التحقق…'):'حدّث Android لعرض حالة الشريحة';
@@ -663,7 +663,7 @@ function v1Render(s){
  el('v1PairState').textContent=linked?'شريحة مرتبطة':'غير مربوط';
  el('v1PairState').className='chip '+(linked?'good':'warn');
  el('v1PairNow').textContent=linked?'إدارة / ربط شريحة تانية':'ربط شريحة SIM الآن';
- el('v1PairNow').disabled=!!s.inCall||!!s.tenantPairingInProgress||Number(s.nativeCode)<24;
+ el('v1PairNow').disabled=!!s.inCall||!!s.tenantPairingInProgress||Number(s.nativeCode)<55;
  el('v1PairHelp').textContent=linked?'الشريحة الحالية مربوطة، وتقدر تربط الشريحة التانية من نفس المكان.':'افتح حسابك واضغط ربط SIM، وبعدها اكتب الـ6 أرقام في التطبيق.';
  el('v1Wizard').hidden=linked&&phoneReady;
  el('v1State').textContent=s.tenantPairingInProgress?'جاري الربط':active?'يعمل':linked?'متوقف':'غير مربوط';
