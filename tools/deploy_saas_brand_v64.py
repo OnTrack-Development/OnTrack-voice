@@ -117,14 +117,16 @@ def patch_white_label(live:str,candidate:str)->str:
 def patch_index(live:str,candidate:str)->str:
     upload="if($path==='/brand-upload'){"
     logo="if($path==='/brand-logo'){"
-    if upload not in live:
-        live=live.replace(logo,select(candidate,upload,logo)+logo,1)
+    newUpload="if($path==='/brand-upload' || ($path==='/' && ($_GET['ot_brand_upload']??'')==='1')){"
+    if upload not in live and newUpload not in live:
+        live=live.replace(logo,select(candidate,newUpload,logo)+logo,1)
     if "brand_identity_brand($a)" not in live:
         begin=logo
         end="require_login();\nif($path==='/invitations')"
         live=live.replace(select(live,begin,end),select(candidate,begin,end),1)
-    if 'brand_identity_upload_http($a)' not in live:
-        raise RuntimeError('binary_upload_php_route_missing')
+    if upload in live:live=live.replace(upload,newUpload,1)
+    if newUpload not in live or 'brand_identity_upload_http($a)' not in live:
+        raise RuntimeError('canonical_binary_upload_router_missing')
     return live
 
 def patch_css(live:str,candidate:str)->str:
@@ -144,9 +146,13 @@ def patch_js(live:str,candidate:str)->str:
     end="  document.querySelectorAll('[data-toggle-password]')"
     if begin not in live:
         live=live.replace(end,select(candidate,begin,end)+end,1)
-    if "fetch('/saas/console/brand-upload'" not in live:
-        raise RuntimeError('raw_binary_upload_js_missing')
+    oldEndpoint="fetch('/saas/console/brand-upload'"
+    newEndpoint="fetch('/?ot_brand_upload=1'"
+    if oldEndpoint in live:live=live.replace(oldEndpoint,newEndpoint,1)
+    if newEndpoint not in live:
+        raise RuntimeError('raw_binary_upload_canonical_endpoint_missing')
     return live
+
 def atomic_write(path:Path,content:bytes,mode:int)->None:
     handle,tmp=tempfile.mkstemp(dir=str(path.parent),prefix='.ot-brand64-')
     try:
