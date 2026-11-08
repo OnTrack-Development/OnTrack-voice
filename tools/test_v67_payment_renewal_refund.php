@@ -27,6 +27,7 @@ function refund_body(array $order,string $event='refund',?string $amount=null):a
     $d['transactionId']='RF_'.bin2hex(random_bytes(16));
     $d['originalTransactionId']=$order['tx'];
     if($amount!==null)$d['amount']=$amount;
+    unset($d['signatureKeys']);
     $d['signatureKeys']=array_values(array_filter(array_keys($d),'is_string'));
     return ['event'=>$event,'data'=>$d];
 }
