@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/WhatsAppSupport.php';
+require_once __DIR__.'/WhatsAppJobSafety.php';
 require_once __DIR__.'/VoiceConnectors.php';
 
 /**
@@ -104,36 +105,7 @@ function wa_whmcs_run_job(int $jobId,?callable $bridgeTransport=null,?callable $
             execute("UPDATE wa_ai_jobs SET status='skipped',updated_at=? WHERE id=?",[now(),$jobId]);
             return ['status'=>'handoff_or_no_reply'];
         }
-        // Lock the conversation row across the final provider send so a staff
-        // takeover cannot race with a stale outbound AI response.
-        db()->beginTransaction();
-        try{
-            $sql='SELECT * FROM wa_conversations WHERE id=? AND account_id=?';
-            if(driver()==='mysql')$sql.=' FOR UPDATE';
-            $current=one($sql,[(int)$job['conversation_id'],$accountId]);
-            if(!$current||(int)$current['generation']!==(int)$job['generation']||
-                !wa_ai_allowed($current)||
-                empty($current['last_customer_at'])||
-                strtotime((string)$current['last_customer_at'])<time()-86400){
-                execute("UPDATE wa_ai_jobs SET status='skipped',updated_at=? WHERE id=?",[now(),$jobId]);
-                db()->commit();return ['status'=>'stale_or_human'];
-            }
-            $send=wa_meta_send($conn,(string)$current['contact'],$body,$metaTransport);
-            $mid=insert("INSERT INTO wa_messages(account_id,conversation_id,connection_id,
-              provider_message_id,role,body,delivery_status,created_at)
-              VALUES (?,?,?,?,'ai',?,'accepted',?)",[
-              $accountId,(int)$current['id'],(int)$conn['id'],
-              $send['provider_message_id'],$body,now()]);
-            execute('UPDATE wa_conversations SET last_message_at=? WHERE id=? AND account_id=?',
-                [now(),(int)$current['id'],$accountId]);
-            execute("UPDATE wa_ai_jobs SET status='sent',updated_at=? WHERE id=?",[now(),$jobId]);
-            wa_audit($accountId,(int)$current['id'],'whatsapp.ai.sent','WHMCS reviewer approved; Meta accepted only');
-            db()->commit();
-            return ['status'=>'accepted_not_delivered','message_id'=>$mid];
-        }catch(Throwable $e){
-            if(db()->inTransaction())db()->rollBack();
-            throw $e;
-        }
+        return wa_job_send_once($job,$body,$metaTransport,[],false);
     }catch(Throwable $e){
         // Never auto-resend an uncertain message. Keep a visible failed job for
         // a human to examine; don't expose raw provider error or payload.
