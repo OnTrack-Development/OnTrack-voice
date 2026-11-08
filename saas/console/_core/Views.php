@@ -310,7 +310,8 @@ function ontrack_update_banner():string {
  * Uses the existing one-time slot-bound token + authenticated account.
  * Does not auto-answer or grant a SIM account without confirmation.
  */
-function render_sim_pair_quick_start(array $a):void {
+function render_sim_pair_quick_start(array $a,string $returnTab='overview'):void {
+    $returnTab=in_array($returnTab,['overview','devices'],true)?$returnTab:'overview';
     if(!in_array((string)($a['kind']??''),['customer','reseller','platform'],true))return;
     $accountId=(int)$a['account_id'];
     $canPair=in_array((string)($a['role']??''),['owner','admin'],true)&&!active_support();
@@ -333,10 +334,13 @@ function render_sim_pair_quick_start(array $a):void {
         $body.='<p>علشان تربط الشريحة لازم يكون عندك مساعد على موقع نشط. قاعدة المعرفة مش مطلوبة.</p>'.
           '<a class="btn primary" href="/saas/console/?tab=agents">إنشاء مساعد للربط</a>';
     }else{
-        $options=count($rows)>1?select_html('المساعد اللي هيرد على الشريحة','agent_id',$rows):
+        $options=count($rows)>1?
+            '<p class="dim">المساعد الافتراضي: '.e(reset($rows)).'</p>'.
+            '<details><summary>تغيير المساعد (اختياري)</summary>'.
+            select_html('المساعد اللي هيرد على الشريحة','agent_id',$rows).'</details>':
             '<input type="hidden" name="agent_id" value="'.e((string)array_key_first($rows)).'">'.
             '<p class="dim">المساعد المختار: '.e(reset($rows)).'</p>';
-        $body.=form_start('create_device_pairing','/?tab=overview',
+        $body.=form_start('create_device_pairing','/?tab='.$returnTab,
           'class="ot-sim-pair-fast" data-no-ajax="1"').$options.
           '<div class="ot-master-update-actions ot-sim-pair-buttons">'.
           '<button type="submit" name="sim_slot" value="0" class="btn primary">ربط SIM 1 الآن</button>'.
@@ -1593,6 +1597,8 @@ function render_devices(array $a):void {
         WHERE d.account_id=? ORDER BY d.id DESC LIMIT 100",[$id]);
     $rows=[];
     $manage=in_array($a['role'],['owner','admin'],true)&&!active_support();
+    // Keep the six-digit SIM 1/SIM 2 actions visible on the devices screen itself.
+    render_sim_pair_quick_start($a,'devices');
     foreach($bindings as $d){
         $action=$manage && $d['status']==='active'
             ?form_start('revoke_device_binding','/?tab=devices','class="inline-form"').
@@ -1628,26 +1634,6 @@ function render_devices(array $a):void {
         $pending[]=[e($p['site_name']),e($p['agent_name']),e($simLabel),e($p['expires_at']).' UTC',$action];
     }
     echo card('طلبات الاقتران المعلقة',tbl(['الموقع','المساعد','الشريحة','ينتهي في','الإجراء'],$pending));
-    if($manage){
-        $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY name",[$id]);
-        $agents=all("SELECT ag.id,ag.name,s.name site_name FROM agents ag JOIN sites s ON s.id=ag.site_id
-            WHERE ag.account_id=? AND ag.status!='archived' AND s.status='active' ORDER BY ag.id",[$id]);
-        $siteOptions=[];$agentOptions=[];
-        foreach($sites as $s)$siteOptions[$s['id']]=$s['name'];
-        foreach($agents as $ag)$agentOptions[$ag['id']]=$ag['site_name'].' — '.$ag['name'];
-        if($siteOptions&&$agentOptions){
-            echo card('ربط جهاز وشريحة بخط مستقل',
-                '<p>اختر SIM 1 أو SIM 2 أولًا. الرمز المؤقت مقيد بهذه الشريحة فقط ولا يمكن استخدامه لربط الأخرى. لكل شريحة حساب وإيجنت محددان، ولا يستخدم هذا الربط مفتاح هاتف التجربة القديم.</p>'.
-                form_start('create_device_pairing','/?tab=devices','data-no-ajax="1"').
-                select_html('الموقع','site_id',$siteOptions).
-                select_html('المساعد','agent_id',$agentOptions).
-                select_html('الشريحة المقصودة','sim_slot',[0=>'SIM 1',1=>'SIM 2']).
-                submit_btn('عرض كود الربط (6 أرقام)').
-                '<p class="dim">الكود 6 أرقام ويُعرض مرة واحدة لمدة 5 دقائق. اكتبه في التطبيق، ومش محتاج QR أو مفتاح API. الربط لا يثبت توافق صوت المكالمات بعد.</p>');
-        }else{
-            echo card('ربط Android','<p>أضف موقعًا وإيجنت أولًا ثم أنشئ رمز ربط للشريحة.</p>');
-        }
-    }
     echo '<div class="info">الربط لكل شريحة: اضغط ربط، اكتب الكود المكوّن من 6 أرقام في التطبيق، ثم راقب حالة الشريحة. جلسة Google Live تحتاج مزوّدًا معتمدًا واختبار صوت فعلي.</div>';
 }
 function render_voices(array $a):void{
