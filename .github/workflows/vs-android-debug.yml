@@ -15,18 +15,49 @@ jobs:
   vs-debug:
     name: Build VS APK independently
     runs-on: [self-hosted, Windows]
-    timeout-minutes: 25
+    timeout-minutes: 30
     defaults:
       run:
         shell: pwsh
         working-directory: VS
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-      - uses: android-actions/setup-android@v3
+      - name: Use existing Java 21 on Windows runner
+        shell: powershell
+        run: |
+          $candidate = @(
+            'C:\Program Files\Java\jdk-21',
+            'C:\Program Files\Eclipse Adoptium\jdk-21',
+            'C:\Program Files\Microsoft\jdk-21.0.0'
+          )
+          $j = Get-Command java -ErrorAction SilentlyContinue
+          if ($j) { java -version }
+          else { throw 'Java is not installed in PATH' }
+      - name: Reuse installed Android SDK (skip broken setup-android action)
+        shell: powershell
+        run: |
+          $paths = @(
+            $env:ANDROID_HOME,
+            $env:ANDROID_SDK_ROOT,
+            (Join-Path $env:LOCALAPPDATA 'Android\Sdk'),
+            (Join-Path $env:USERPROFILE '.android\sdk'),
+            'C:\Android\Sdk',
+            'D:\Android\Sdk',
+            'D:\ai\android-sdk'
+          ) | Where-Object { $_ -and (Test-Path $_) }
+          $sdk = $paths | Where-Object {
+            (Test-Path (Join-Path $_ 'platforms')) -and
+            (Test-Path (Join-Path $_ 'build-tools'))
+          } | Select-Object -First 1
+          if (-not $sdk) {
+            Write-Host "SDK candidates: $($paths -join '; ')"
+            throw 'Android SDK platforms and build-tools not found on Windows runner'
+          }
+          Write-Host "Using SDK: $sdk"
+          "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Get-ChildItem (Join-Path $sdk 'platforms') | Select-Object -ExpandProperty Name
+          Get-ChildItem (Join-Path $sdk 'build-tools') | Select-Object -ExpandProperty Name
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
