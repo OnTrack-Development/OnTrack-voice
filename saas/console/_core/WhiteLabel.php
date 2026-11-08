@@ -142,10 +142,14 @@ function white_label_logo_route():never {
     exit;
 }
 function white_label_logo_html(int $size=64):string {
-    $brand=white_label_identity();
-    $name=e((string)$brand['name']);
+    $ctx=white_label_context();
+    if(!$ctx)return '';
+    require_once __DIR__.'/BrandIdentity.php';
+    if(brand_identity_mode($ctx)==='text')return '';
     $asset=white_label_logo_file();
-    if($asset)
-        return '<img class="wl-mark" src="'.e(white_label_url('/portal-logo')).'" alt="'.e($brand['name']).'" width="'.$size.'" height="'.$size.'">';
-    return '<span class="wl-fallback" aria-hidden="true">'.e(mb_substr((string)$brand['name'],0,1)).'</span>';
+    if(!$asset)return ''; // Text-only fallback, never a forced colored icon.
+    $logo=(string)$ctx['logo_path'];
+    $src=white_label_url('/portal-logo').'?v='.rawurlencode($logo);
+    return '<img class="wl-mark" src="'.e($src).'" alt="'.e(white_label_identity()['name']).
+        '" width="240" height="80" decoding="async">';
 }
