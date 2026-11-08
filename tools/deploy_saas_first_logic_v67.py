@@ -21,6 +21,7 @@ FILES=[
     '_core/Checkout.php','_core/KashierWebhook.php',
     '_core/WhatsAppSupport.php','_core/WhatsAppNativeAgent.php',
     '_core/WhatsAppWhmcsBridge.php','_core/WhatsAppJobSafety.php',
+    '_core/VoiceFlowRuntime.php',
     'whatsapp-worker.php','device/v1/index.php','_core/Actions.php','_core/Views.php'
 ]
 NEW={'_core/WhatsAppJobSafety.php'}
