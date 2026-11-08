@@ -232,10 +232,10 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 <main id="v1Minimal" aria-label="OnTrack Voice">
 <section class="card" id="v1PairAlways" aria-labelledby="v1PairHeading">
 <div class="section-title"><h2 id="v1PairHeading">ربط الشريحة بالحساب</h2><span class="chip" id="v1PairState">جاهز للربط</span></div>
-<p class="v1Hint">خطوتين بس: افتح حسابك واطلع رمز QR، وبعدها امسحه هنا. مفيش API Key ولا إعدادات معقدة.</p>
-<div class="v1Buttons"><button type="button" class="primary" id="v1PairNow">ربط شريحة SIM</button><button type="button" class="outline" id="v1ScanPairQr">مسح QR</button></div>
+<p class="v1Hint">خطوتين: افتح حسابك وخد كود 6 أرقام، واكتبه هنا. مفيش QR ولا API Key.</p>
+<button type="button" class="primary" id="v1PairNow" style="width:100%;min-height:54px">ربط الشريحة بكود 6 أرقام</button>
 <button type="button" class="outline" id="v1PairWebsite" style="width:100%">افتح حسابي وأنشئ رمز الربط</button>
-<p class="v1Hint" id="v1PairHelp" aria-live="polite">اختار SIM 1 أو SIM 2 من داخل التطبيق بعد إنشاء رمز الربط.</p>
+<p class="v1Hint" id="v1PairHelp" aria-live="polite">بعد استخراج الكود من الموقع، اضغط ربط وأدخل الـ6 أرقام.</p>
 </section>
 <section class="card" id="v1Wizard" hidden><h2>تجهيز الهاتف لأول مرة</h2>
 <p class="v1Hint">الخطوات دي بتختفي بعد نجاح الربط، وتقدر ترجع لصلاحيات التشغيل عند الحاجة.</p>
@@ -336,7 +336,7 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
   <div class="tenant-sim"><strong>SIM 1</strong><span id="tenantSim1">جاري التحقق…</span></div>
   <div class="tenant-sim"><strong>SIM 2</strong><span id="tenantSim2">جاري التحقق…</span></div>
 </div>
-<div class="row"><button type="button" id="tenantMenu" class="primary">إدارة الشرائح</button><button type="button" id="tenantQr" class="outline">مسح QR</button></div>
+<div class="row"><button type="button" id="tenantMenu" class="primary">إدارة الشرائح</button><button type="button" id="tenantQr" class="outline">إدخال كود 6 أرقام</button></div>
 <div class="row"><button type="button" id="openConsole" class="outline">لوحة الموقع</button><button type="button" id="openScenario" class="outline">المسارات المنشورة</button></div>
 <div class="row"><button type="button" id="openAnswerSettings" class="outline">إعدادات الرد واللغة</button></div>
 <div class="row"><button type="button" id="tenantTest" class="outline">تشخيص اتصال الشريحة والصوت</button></div>
@@ -664,8 +664,7 @@ function v1Render(s){
  el('v1PairState').className='chip '+(linked?'good':'warn');
  el('v1PairNow').textContent=linked?'إدارة / ربط شريحة تانية':'ربط شريحة SIM الآن';
  el('v1PairNow').disabled=!!s.inCall||!!s.tenantPairingInProgress||Number(s.nativeCode)<24;
- el('v1ScanPairQr').disabled=!!s.inCall||!!s.tenantPairingInProgress||Number(s.nativeCode)<24;
- el('v1PairHelp').textContent=linked?'الشريحة الحالية مربوطة، وتقدر تربط الشريحة التانية من نفس المكان.':'افتح حسابك، اضغط ربط SIM 1 أو SIM 2، وبعدها امسح QR بالتطبيق.';
+ el('v1PairHelp').textContent=linked?'الشريحة الحالية مربوطة، وتقدر تربط الشريحة التانية من نفس المكان.':'افتح حسابك واضغط ربط SIM، وبعدها اكتب الـ6 أرقام في التطبيق.';
  el('v1Wizard').hidden=linked&&phoneReady;
  el('v1State').textContent=s.tenantPairingInProgress?'جاري الربط':active?'يعمل':linked?'متوقف':'غير مربوط';
  el('v1State').className='chip '+(active?'good':'warn');
@@ -687,9 +686,8 @@ function v1Render(s){
 }
 el('v1Enable').onclick=()=>el('enable').click();
 el('v1Disable').onclick=()=>el('disable').click();
-el('v1Pair').onclick=()=>send('tenantMenu');
-el('v1PairNow').onclick=()=>send('tenantMenu');
-el('v1ScanPairQr').onclick=()=>send('tenantQrScan');
+el('v1Pair').onclick=()=>send('tenantQuickPair');
+el('v1PairNow').onclick=()=>send('tenantQuickPair');
 el('v1PairWebsite').onclick=()=>send('openConsole');
 el('v1Setup').onclick=()=>send('diagnostics');
 el('v1Test').onclick=()=>send('tenantTest');
@@ -721,7 +719,7 @@ el('openAgentStudio').onclick=()=>send(Number(last.nativeCode)>=36?'openAgents':
 el('openFlowStudio').onclick=()=>send(Number(last.nativeCode)>=36?'openFlowBuilder':'openConsole');
 el('refreshAgentCards').onclick=()=>send('tenantRefresh');
 el('tenantMenu').onclick=()=>send('tenantMenu');
-el('tenantQr').onclick=()=>send('tenantQrScan');
+el('tenantQr').onclick=()=>send('tenantQuickPair');
 el('tenantRefresh').onclick=()=>send('tenantRefresh');
 el('tenantTest').onclick=()=>send('tenantTest');
 el('openAnswerSettings').onclick=()=>send('openAnswerSettings');
