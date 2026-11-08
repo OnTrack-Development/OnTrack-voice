@@ -1285,7 +1285,19 @@ function act():void {
                 break;
             case 'create_device_pairing':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
-                $siteId=intfield('site_id');$agentId=intfield('agent_id');
+                $agentId=intfield('agent_id');
+                // The homepage pairs the selected agent directly, without
+                // asking the user to separately choose a matching site.
+                // Keep the old device-page form backwards compatible.
+                $linkedAgent=one("SELECT ag.site_id FROM agents ag JOIN sites s
+                    ON s.id=ag.site_id AND s.account_id=ag.account_id AND s.status='active'
+                    WHERE ag.id=? AND ag.account_id=? AND ag.status!='archived'",
+                    [$agentId,$id]);
+                if(!$linkedAgent)throw new InvalidArgumentException('اختار مساعدًا موجودًا في حسابك للربط');
+                $siteId=array_key_exists('site_id',$_POST)
+                    ?intfield('site_id'):(int)$linkedAgent['site_id'];
+                if($siteId!==(int)$linkedAgent['site_id'])
+                    throw new InvalidArgumentException('الموقع المحدد لا يطابق المساعد');
                 $requestedSlot=$_POST['sim_slot']??null;
                 if(!in_array($requestedSlot,['0','1'],true))throw new InvalidArgumentException('اختر شريحة SIM 1 أو SIM 2');
                 $simSlot=(int)$requestedSlot;
