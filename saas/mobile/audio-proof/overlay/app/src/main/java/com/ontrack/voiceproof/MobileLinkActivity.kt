@@ -109,8 +109,10 @@ class MobileLinkActivity:ComponentActivity(){
         }
         if(granted && continueStart){
             runCatching {
+                // Starting an inbound SIM voice assistant needs only
+                // READ_PHONE_STATE. Outbound manager callbacks and importing
+                // contacts are optional, never asked on startup.
                 startTenantMonitor()
-                requestManagerCallbackPhonePermission()
             }.onFailure { error ->
                 banner.text="تعذر تشغيل مراقب الشريحة: "+(error.message ?: "خطأ غير معروف")
                 banner.visibility=View.VISIBLE
@@ -127,9 +129,8 @@ class MobileLinkActivity:ComponentActivity(){
         banner.text=if(granted)"إذن الاتصال مفعّل؛ يمكن إبلاغ المدير بعد انتهاء المكالمة"
             else "إذن الاتصال غير مفعّل؛ المكالمات الواردة تعمل لكن إبلاغ المدير آليًا سيتوقف"
         banner.visibility=View.VISIBLE
-        // Permission requests must be serialized. Once the dial permission
-        // dialog has completed, request call-log access to identify callers.
-        requestCallNamesPermissions()
+        // Do not request call history or contacts as a side-effect of a
+        // callback permission result. Voice calls run without either.
         sendState()
     }
     private val campaignPhonePermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
@@ -707,7 +708,6 @@ class MobileLinkActivity:ComponentActivity(){
             return
         }
         startTenantMonitor()
-        requestManagerCallbackPhonePermission()
     }
     private fun testTenantReadiness(){
         lifecycleScope.launch {
@@ -1099,10 +1099,11 @@ class MobileLinkActivity:ComponentActivity(){
                     "loadCallHistory"->loadCallHistory()
                     "loadCallTranscript"->loadCallTranscript(msg.optString("call_id"))
                     "enableCallNames"->{
-                        val missing=listOf(Manifest.permission.READ_CALL_LOG,Manifest.permission.READ_CONTACTS)
-                            .filter{ContextCompat.checkSelfPermission(this@MobileLinkActivity,it)!=PackageManager.PERMISSION_GRANTED}
-                        if(missing.isNotEmpty())callNamesPermissions.launch(missing.toTypedArray())
-                        else {banner.text="الصلاحيات مفعّلة؛ سيتم مطابقة المكالمات الجديدة";banner.visibility=View.VISIBLE;sendState()}
+                        // The Voice-only APK no longer declares call-log
+                        // scraping. Contact lookup requires explicit choice.
+                        banner.text="تم إلغاء صلاحية سجل المكالمات من تطبيق Voice. اختيار جهة اتصال واحدة أو ملف CSV متاح بدون الإذن."
+                        banner.visibility=View.VISIBLE
+                        sendState()
                     }
                     "setTheme"->{
                         val theme=msg.optString("theme")
@@ -1165,9 +1166,11 @@ class MobileLinkActivity:ComponentActivity(){
                         contactPicker.launch(intent)
                     }
                     "contactsAll"->{
-                        if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.READ_CONTACTS)
-                            ==PackageManager.PERMISSION_GRANTED)loadAllContacts()
-                        else contactsPermission.launch(Manifest.permission.READ_CONTACTS)
+                        // No bulk address-book permission in the Voice APK.
+                        // Android's one-contact picker provides scoped consent.
+                        contactPicker.launch(Intent(Intent.ACTION_PICK).apply{
+                            type=ContactsContract.CommonDataKinds.Phone.CONTENT_TYPE
+                        })
                     }
                     "contactsFilePick"->filePicker.launch(arrayOf(
                         "text/plain","text/csv","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
