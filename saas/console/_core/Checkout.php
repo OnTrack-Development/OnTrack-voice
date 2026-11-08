@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/SubscriptionPlans.php';
 /** Authenticated account checkout. Never infer OnTrack identity from a payment email. */
 function checkout_config():array {
     $file=private_path().'/kashier.json';
@@ -70,6 +71,8 @@ function checkout_start(int $accountId,int $planId,array $user):string {
     $plan=one('SELECT * FROM plans WHERE id=? AND kind=? AND status=?',[
         $planId,$account['kind']==='reseller'?'reseller':'user','active']);
     if(!$plan)throw new InvalidArgumentException('checkout_plan_unavailable');
+    if(!plan_catalog_allowed($plan,$account))
+        throw new InvalidArgumentException('checkout_plan_outside_tenant_catalog');
     $minor=(int)$plan['price_minor'];$amount=checkout_amount($minor);
     $reference='ovc_'.bin2hex(random_bytes(16));
     $email=(string)$user['email'];
@@ -101,6 +104,8 @@ function record_verified_internal_checkout(array $order,string $reference):array
         ||$plan['kind']!==($account['kind']==='reseller'?'reseller':'user')
         ||(int)$plan['price_minor']!==(int)$order['amount_minor'])
         throw new InvalidArgumentException('checkout_account_or_plan_changed');
+    if(!plan_catalog_allowed($plan,$account))
+        throw new InvalidArgumentException('verified_checkout_plan_outside_tenant_catalog');
     if(one('SELECT id FROM orders WHERE payment_reference=? AND id<>?',[$reference,$order['id']]))
         throw new InvalidArgumentException('transaction_already_claimed');
     if($account['kind']==='customer'&&!empty($account['parent_id'])){
