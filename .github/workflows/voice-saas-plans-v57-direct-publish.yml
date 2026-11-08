@@ -1,0 +1,84 @@
+name: OnTrack subscriptions and reseller plans v57 direct SSH publish
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-plans-v57-direct-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-saas-plans-v57-direct
+  cancel-in-progress: false
+jobs:
+  verify-and-publish:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: a646d135c5af972dad66f9b893fc893c87bb2425
+          path: .build/plans-v57-baseline
+          persist-credentials: false
+      - name: Lint exact PHP changes and verify tenant plan regressions
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/deploy_saas_subscription_v57.py
+          if($LASTEXITCODE -ne 0){throw 'Direct SSH deploy script invalid'}
+          $paths=@('_core/SubscriptionPlans.php','_core/Checkout.php','_core/Bootstrap.php','_core/Actions.php','_core/Views.php')
+          foreach($path in $paths){
+            & php -l ('saas/console/'+$path)
+            if($LASTEXITCODE -ne 0){throw ('Invalid PHP '+$path)}
+          }
+          $tests=@('tools/test_v1_site05_plan_transitions.php','tools/test_admin_direct_plan_grants.php','tools/test_reseller_subscription_catalog.php')
+          $n=0
+          foreach($test in $tests) {
+            $n++
+            $env:ONTRACK_CI_NAMESPACE='plans57_'+$env:GITHUB_RUN_ID+'_'+$n
+            & php $test
+            if($LASTEXITCODE -ne 0){throw ('SUBSCRIPTION_REGRESSION_FAILED '+$test)}
+          }
+          Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          Write-Host 'SUBSCRIPTIONS_V57_ISOLATED_TESTS_PASS'
+      - name: Stage reviewed old/new PHP through authorized direct SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized deploy identity unavailable'}
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-subscriptions-v57'
+          & ssh.exe @ssh -p 7195 $remote ('umask 077; mkdir -p '+$stage+'/old/_core '+$stage+'/new/_core; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Direct SSH stage creation failed'}
+          $paths=@('SubscriptionPlans.php','Checkout.php','Bootstrap.php','Actions.php','Views.php')
+          foreach($name in $paths){
+            $old='.build/plans-v57-baseline/saas/console/_core/'+$name
+            $new='saas/console/_core/'+$name
+            & scp.exe @ssh -P 7195 $old ($remote+':'+$stage+'/old/_core/'+$name)
+            if($LASTEXITCODE -ne 0){throw ('Baseline upload failed '+$name)}
+            & scp.exe @ssh -P 7195 $new ($remote+':'+$stage+'/new/_core/'+$name)
+            if($LASTEXITCODE -ne 0){throw ('Candidate upload failed '+$name)}
+          }
+          & scp.exe @ssh -P 7195 tools/deploy_saas_subscription_v57.py ($remote+':'+$stage+'/deploy.py')
+          if($LASTEXITCODE -ne 0){throw 'Direct deploy installer upload failed'}
+          Write-Host 'SUBSCRIPTIONS_V57_STAGED_OVER_DIRECT_SSH'
+      - name: Atomic direct site install and live PHP schema verification
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          & ssh.exe @ssh -p 7195 $remote 'python3 /home/appontrack/.ontrack-mobile/saas-subscriptions-v57/deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'Rollback-safe plans publication failed'}
+          $get=Invoke-WebRequest -Uri ('https://app.ontrackegy.com/?plans57='+$env:GITHUB_RUN_ID) -TimeoutSec 35 -MaximumRedirection 3 -SkipHttpErrorCheck
+          if([int]$get.StatusCode -ge 500){throw 'Site returns an HTTP 5xx after plans publish'}
+          Write-Host 'SUBSCRIPTIONS_V57_DIRECT_SSH_DEPLOY_PASS'
