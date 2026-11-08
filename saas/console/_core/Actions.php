@@ -1735,6 +1735,14 @@ function act():void {
                 wa_native_toggle($id,intfield('connection_id'),$enabled);
                 $success=$enabled?'تم تفعيل إيجنت OnTrack المستقل لهذه القناة؛ الرد الآلي لا يحتاج WHMCS.':'تم إيقاف الرد الآلي لقناة واتساب.';
                 break;
+            case 'wa_existing_outbound_test':
+                require_permission('agents.write');
+                require_once __DIR__.'/WhatsAppSupport.php';
+                $outbound=wa_existing_outbound_probe($id,intfield('connection_id'));
+                audit('whatsapp.existing.outbound_verified',$id,
+                    ['connection_id'=>intfield('connection_id')]);
+                $success='تم إثبات أن موديول واتساب الحالي يدعم إرسال ردود موقّعة من OnTrack بنفس الرقم. تقدر تفعّل الإيجنت.';
+                break;
             case 'wa_connection_test':
                 require_permission('agents.write');
                 require_once __DIR__.'/WhatsAppSupport.php';
