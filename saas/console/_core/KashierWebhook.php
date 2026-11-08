@@ -35,9 +35,126 @@ function kashier_minor_units(mixed $amount):?int {
     if(!preg_match('/^(0|[1-9][0-9]{0,9})(?:\.([0-9]{1,2}))?$/D',$value,$m))return null;
     return (int)$m[1]*100+(int)str_pad($m[2]??'',2,'0');
 }
+/**
+ * Financial reversal needs distinct, signed proof of the ORIGINAL payment.
+ * Event names are outside Kashier's signatureKeys, so never reverse a
+ * subscription from the event name alone. Partial/ambiguous refunds become
+ * auditable manual-review items, never speculative cancellations.
+ */
+function kashier_refund_init():void {
+    $mysql=driver()==='mysql';
+    $engine=$mysql?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4':'';
+    db()->exec("CREATE TABLE IF NOT EXISTS kashier_refund_events (
+        refund_reference VARCHAR(160) PRIMARY KEY,
+        order_id BIGINT NOT NULL,
+        original_reference VARCHAR(160) NOT NULL,
+        event_kind VARCHAR(24) NOT NULL,
+        amount_minor BIGINT NOT NULL,
+        status VARCHAR(24) NOT NULL,
+        created_at VARCHAR(19) NOT NULL
+    )".$engine);
+}
+function kashier_refund_settle(array $body,?int $integrationId):array {
+    $data=$body['data'];
+    if(($data['status']??null)!=='SUCCESS')
+        return ['status'=>'ignored_non_success','duplicate'=>false];
+    // A signed originalTransactionId is required. Without it the legitimate
+    // pay receipt could be relabelled as a reversal (event is not in HMAC).
+    $signed=$data['signatureKeys']??[];
+    if(!is_array($signed)||!in_array('originalTransactionId',$signed,true))
+        throw new InvalidArgumentException('refund_original_payment_proof_missing');
+    $orderNo=(string)($data['merchantOrderId']??'');
+    $ref=(string)($data['transactionId']??'');
+    $original=(string)($data['originalTransactionId']??'');
+    $minor=kashier_minor_units($data['amount']??null);
+    if(!preg_match('/^[A-Za-z0-9_.:-]{1,120}$/D',$orderNo)||
+       !preg_match('/^[A-Za-z0-9_-]{8,160}$/D',$ref)||
+       !preg_match('/^[A-Za-z0-9_-]{8,160}$/D',$original)||
+       hash_equals($ref,$original)||$minor===null||$minor<1||
+       ($data['currency']??null)!=='EGP')
+        throw new InvalidArgumentException('refund_payment_fields_invalid');
+    kashier_refund_init(); // MySQL DDL must run OUTSIDE settlement transaction.
+    db()->beginTransaction();
+    try{
+        if(str_starts_with($orderNo,'ovc_'))
+            $order=one('SELECT * FROM orders WHERE integration_id IS NULL AND external_order_id=?',[$orderNo]);
+        else {
+            if($integrationId===null)throw new InvalidArgumentException('refund_integration_missing');
+            $order=one('SELECT * FROM orders WHERE integration_id=? AND external_order_id=?',
+                [$integrationId,$orderNo]);
+        }
+        if(!$order || !in_array((string)$order['status'],
+                ['active','refunded','paid_pending_claim'],true) ||
+           !hash_equals((string)($order['payment_reference']??''),$original) ||
+           $minor>(int)$order['amount_minor'])
+            throw new InvalidArgumentException('refund_order_or_original_transaction_mismatch');
+        $old=one('SELECT * FROM kashier_refund_events WHERE refund_reference=?',[$ref]);
+        if($old){
+            if((int)$old['order_id']!==(int)$order['id']||
+               !hash_equals((string)$old['original_reference'],$original)||
+               (int)$old['amount_minor']!==$minor||
+               (string)$old['event_kind']!==(string)$body['event'])
+                throw new InvalidArgumentException('refund_reference_replay_conflict');
+            db()->commit();
+            return ['status'=>(string)$old['status'],'duplicate'=>true];
+        }
+        $status='review_required';
+        $full=$minor===(int)$order['amount_minor'];
+        if($full && $order['integration_id']===null &&
+           $order['status']==='active' &&
+           in_array($body['event'],['refund','reversal'],true)){
+            // Only the exact paid subscription created by this payment may be
+            // cancelled. Legacy receipts without a subscription_id require
+            // human reconciliation instead of revoking an unrelated plan.
+            $events=all("SELECT payload FROM outbox WHERE account_id=? AND
+                kind='subscription.activated' ORDER BY id DESC LIMIT 500",
+                [(int)$order['account_id']]);
+            $subId=0;
+            foreach($events as $entry){
+                $record=json_decode((string)$entry['payload'],true);
+                if(is_array($record) && (int)($record['order_id']??0)===(int)$order['id']){
+                    $subId=(int)($record['subscription_id']??0);
+                    break;
+                }
+            }
+            $subscription=$subId>0?one('SELECT id,account_id,status FROM subscriptions WHERE id=? AND account_id=?',
+                [$subId,(int)$order['account_id']]):null;
+            if($subscription){
+                // Already replaced subscriptions are historical and cannot be
+                // confused with newer purchases. Cancel only if still active.
+                execute("UPDATE subscriptions SET status='cancelled'
+                    WHERE id=? AND account_id=? AND status='active'",
+                    [$subId,(int)$order['account_id']]);
+                execute("UPDATE orders SET status='refunded'
+                    WHERE id=? AND integration_id IS NULL AND status='active'",
+                    [(int)$order['id']]);
+                $status='refunded';
+            }
+        }
+        insert("INSERT INTO kashier_refund_events
+            (refund_reference,order_id,original_reference,event_kind,amount_minor,status,created_at)
+            VALUES (?,?,?,?,?,?,?)",[
+            $ref,(int)$order['id'],$original,(string)$body['event'],$minor,$status,now()
+        ]);
+        insert("INSERT INTO outbox(account_id,integration_id,kind,payload,status,created_at)
+            VALUES (?,?,?,?, 'pending',?)",[
+            (int)$order['account_id'],$order['integration_id'],
+            $status==='refunded'?'payment.refunded':'payment.refund_review',
+            json_encode(['order_id'=>(int)$order['id'],'refund_reference'=>$ref,
+                'result'=>$status,'amount_minor'=>$minor],JSON_THROW_ON_ERROR),now()
+        ]);
+        db()->commit();
+        return ['status'=>$status,'duplicate'=>false];
+    }catch(Throwable $error){
+        if(db()->inTransaction())db()->rollBack();
+        throw $error;
+    }
+}
 /** A signed event does not activate a user or grant paid entitlements. */
 function kashier_settle(array $body,?int $integrationId):array {
     $data=$body['data'];
+    if(in_array($body['event'],['refund','partial_refund','reversal','void'],true))
+        return kashier_refund_settle($body,$integrationId);
     if(!in_array($body['event'],['pay','capture'],true)||($data['status']??'')!=='SUCCESS')
         return ['status'=>'ignored_non_success','duplicate'=>false];
     $orderId=$data['merchantOrderId']??null;$tx=$data['transactionId']??null;
