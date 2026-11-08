@@ -123,7 +123,11 @@ function layout_open(array $a,string $tab):void{
     $accountFont=console_font_effective($a);
     require_once __DIR__.'/ConsoleTheme.php';
     $themeVars=console_theme_attribute((int)$a['account_id']);
-    $u=me();$brand=brand($a);$items=nav_entries((string)$a['kind']);$heading=$items[$tab][1]??'الرئيسية';
+    require_once __DIR__.'/BrandIdentity.php';
+    $brand=brand_identity_brand($a);
+    $display=brand_identity_mode($a);
+    if($display==='image' && empty($brand['logo']))$display='text';
+    $u=me();$items=nav_entries((string)$a['kind']);$heading=$items[$tab][1]??'الرئيسية';
     $role=white_label_context()
         ?(console_view_mode($a)==='user'?'مساحة العمل':'لوحة الإدارة')
         :(console_view_mode($a)==='user'?'USER WORKSPACE':match($a['kind']){'platform'=>'ADMIN CONTROL','reseller'=>'إدارة الشركة',default=>'USER WORKSPACE'});
@@ -136,9 +140,12 @@ function layout_open(array $a,string $tab):void{
     // A stale CSS/JS cache must not render new server HTML with the old layout.
     $uiVersion=substr(hash('sha256',hash_file('sha256',__DIR__.'/../assets/css/app.css').hash_file('sha256',__DIR__.'/../assets/js/app.js')),0,12);
     echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css?v='.$uiVersion.'"><script src="/saas/console/assets/js/app.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/graph-routing.js?v='.$uiVersion.'"></script><script src="/saas/console/assets/js/flow-graph.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/qrcode.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/pairing-qr.js?v='.$uiVersion.'" defer></script></head><body data-ot-font="'.e($accountFont).'" data-ot-account="'.(int)$a['account_id'].'"'.$themeVars.'>';
-    echo '<div class="app-shell"><aside class="sidebar" id="mainNavigation" aria-label="القائمة الرئيسية"><button type="button" class="nav-close" id="navClose" aria-label="إغلاق القائمة">×</button><a href="/saas/console/" class="brand"><span class="brand-logo">';
-    if(!empty($brand['logo'])) echo '<img src="/saas/console/brand-logo" alt="">';else echo '<b>'.e(mb_substr($brand['name'],0,1)).'</b>';
-    echo '</span><span class="brand-lines"><strong>'.e($brand['name']).'</strong><small>'.e($role).'</small></span></a>';
+    echo '<div class="app-shell"><aside class="sidebar" id="mainNavigation" aria-label="القائمة الرئيسية"><button type="button" class="nav-close" id="navClose" aria-label="إغلاق القائمة">×</button><a href="/saas/console/" class="brand" data-brand-display="'.e($display).'">';
+    if($display!=='text' && !empty($brand['logo']))
+        echo '<span class="brand-logo"><img src="/saas/console/brand-logo?v='.rawurlencode((string)$brand['logo']).'" alt="'.e($brand['name']).'" decoding="async"></span>';
+    if($display!=='image')
+        echo '<span class="brand-lines"><strong>'.e((string)$brand['name']).'</strong><small>'.e($role).'</small></span>';
+    echo '</a>';
     echo '<nav class="nav-list" aria-label="أقسام المنصة">';
     $administrative=in_array($a['kind'],['platform','reseller'],true)&&
         console_view_mode($a)==='admin'&&!$support;
@@ -262,11 +269,14 @@ function login_page(?string $error=null):void{
     require_once __DIR__.'/ConsoleTheme.php';
     $portalTheme=console_theme_attribute($portal?(int)$portal['id']:0);
     $brand=white_label_identity();
+    require_once __DIR__.'/BrandIdentity.php';
+    $portalMode=$portal?brand_identity_mode($portal):'text';
+    if($portalMode==='image' && !$portal['logo_path'])$portalMode='text';
     $name=(string)$brand['name'];
     $signup=white_label_url('/register');
     $login=white_label_url('/login');
     $forgot=white_label_url('/forgot-password');
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تسجيل الدخول | '.e($name).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script></head><body data-ot-font="'.e($portalFont).'" data-ot-account="'.($portal?(int)$portal['id']:0).'"'.$portalTheme.' class="login-body'.($portal?' white-label-auth':'').'"><div class="login-backdrop"></div><main class="login-panel wl-auth-panel"><div class="login-brand">'.white_label_logo_html().'<div><strong>'.e($name).'</strong><small>'.($portal?'منصتك لإدارة أعمالك':'منصة الأعمال الذكية').'</small></div></div><div class="login-intro"><span class="eyebrow">'.($portal?'مرحباً بك في '.e($name):'SMART VOICE PLATFORM').'</span><h1>أهلاً برجوعك</h1><p>أدر حسابك وخدماتك وفريقك بسهولة من مكان واحد.</p></div>';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تسجيل الدخول | '.e($name).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script></head><body data-ot-font="'.e($portalFont).'" data-ot-account="'.($portal?(int)$portal['id']:0).'"'.$portalTheme.' class="login-body'.($portal?' white-label-auth':'').'"><div class="login-backdrop"></div><main class="login-panel wl-auth-panel"><div class="login-brand" data-brand-display="'.e($portalMode).'">'.white_label_logo_html().'<div class="wl-brand-copy"><strong>'.e($name).'</strong><small>'.($portal?'منصتك لإدارة أعمالك':'منصة الأعمال الذكية').'</small></div></div><div class="login-intro"><span class="eyebrow">'.($portal?'مرحباً بك في '.e($name):'SMART VOICE PLATFORM').'</span><h1>أهلاً برجوعك</h1><p>أدر حسابك وخدماتك وفريقك بسهولة من مكان واحد.</p></div>';
     if($error)echo '<div class="alert danger">'.e($error).'</div>';
     if($notice=flash('success'))echo '<div class="alert success">'.e($notice).'</div>';
     echo '<form method="post" action="'.e($login).'" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><label class="field">البريد الإلكتروني<input required type="email" name="email" autocomplete="username" placeholder="name@company.com"></label><label class="field">كلمة المرور<div class="password-wrap"><input required type="password" name="password" autocomplete="current-password" id="loginPassword" placeholder="••••••••••"><button type="button" class="password-toggle" data-toggle-password>إظهار</button></div></label><button class="btn primary wide" type="submit">تسجيل الدخول</button></form><div class="wl-auth-links"><a href="'.e($forgot).'">نسيت كلمة المرور؟</a><a href="'.e($signup).'">إنشاء حساب جديد</a></div>';
@@ -2468,18 +2478,46 @@ function render_settings(array $a):void{
     $identityDescription=$adminIdentity
         ?'هنا بتتحكم في هوية الإدارة والعلامة التجارية. إعدادات وبيانات المستخدم التشغيلية موجودة في مساحة المستخدم.'
         :'بيانات الهوية والشعار بتظهر بشكل مناسب للبوابة الخاصة بشركتك.';
-    $logoPreview=!empty($brand['logo'])
-        ?'<img class="wl-mark" src="/saas/console/brand-logo" alt="'.e($brand['name']).'" width="64" height="64">'
-        :'<span class="wl-fallback">'.e(mb_substr((string)$brand['name'],0,1)).'</span>';
-    echo card($identityTitle,'<div class="brand-preview">'.$logoPreview.'<div><h3>'.e($brand['name']).'</h3><p>هوية شركتك تظهر في تسجيل الدخول وإنشاء الحساب ولوحة العملاء.</p></div></div><p>'.e($identityDescription).'</p>');
-    if(in_array($a['kind'],['reseller','platform'],true)&&console_view_mode($a)==='admin'){
-        echo card('الاسم التجاري والشعار',form_start('brand','/?tab=settings','enctype="multipart/form-data"').
-            '<label class="field">اسم شركتك الظاهر للعملاء<input name="brand_name" type="text" maxlength="100" value="'.e($brand['name']).'" required></label>'.
-            '<label class="field">ارفع شعار شركتك (PNG/JPEG/WEBP، حتى 1MB)<input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></label>'.
-            '<p class="dim">يفضل شعار مربع بخلفية شفافة. تقدر تغير الاسم أو الشعار في أي وقت، وهيظهر مباشرة في صفحات البوابة.</p>'.
-            submit_btn('حفظ هوية شركتي'));
+    require_once __DIR__.'/BrandIdentity.php';
+    $brand=brand_identity_brand($a);
+    $mode=brand_identity_mode($a);
+    $hasLogo=!empty($brand['logo']);
+    if($mode==='image'&&!$hasLogo)$mode='text';
+    $logoPreview=$hasLogo
+        ?'<img class="ot-brand-preview-image" src="/saas/console/brand-logo?v='.rawurlencode((string)$brand['logo']).'" alt="'.e((string)$brand['name']).'" width="280" height="92">'
+        :'<span class="ot-brand-preview-wordmark">'.e((string)$brand['name']).'</span>';
+    $previewMode=$hasLogo?$mode:'text';
+    echo card($identityTitle,
+        '<div class="brand-preview ot-brand-preview" data-brand-display="'.e($previewMode).'">'.
+        $logoPreview.'<div class="ot-brand-preview-copy"><h3>'.e((string)$brand['name']).
+        '</h3><p>عرض كامل للشعار بدون قص، والاسم اختياري حسب طريقة العرض.</p></div></div>'.
+        '<p>'.e($identityDescription).'</p>');
+    if(brand_identity_edit_allowed($a)){
+        $modeOptions=[
+            'image'=>'صورة الشعار فقط — بدون نص أو أيقونة إضافية',
+            'text'=>'اسم الشركة كنص فقط — بدون صورة',
+            'both'=>'الشعار والاسم معًا'
+        ];
+        $modeField=select_html('طريقة عرض العلامة','brand_display',$modeOptions,$mode);
+        $brandForm=form_start('brand','/?tab=settings',
+            'enctype="multipart/form-data" data-no-ajax="1" data-brand-form').
+            '<label class="field">اسم العلامة التجارية<input name="brand_name" type="text" maxlength="100" value="'.e((string)$brand['name']).'" required></label>'.
+            $modeField.
+            '<div class="ot-brand-upload-zone"><label class="field">الصورة الأصلية (PNG أو JPEG أو WebP — عريضة أو مربعة)'.
+            '<input type="file" name="logo" data-brand-file accept="image/png,image/jpeg,image/webp" aria-label="اختيار صورة شعار الشركة">'.
+            '</label>'.
+            '<p class="dim">أقصى حجم للخادم 3 ميجابايت. بيتم رفع الصورة مباشرة بدون multipart لتجنب خطأ Forbidden 403، مع الحفاظ على أبعاد الشعار.</p>'.
+            '<p role="status" aria-live="polite" data-brand-upload-status>اختار ملف لرفع الشعار، وبعدها احفظ طريقة العرض.</p>'.
+            '</div>'.
+            submit_btn('حفظ الاسم وطريقة العرض');
+        echo card('شعار شركتك — أنت تختار طريقة عرضه',$brandForm);
+        if($hasLogo)echo card('إزالة صورة الشعار',
+            form_start('brand_logo_remove','/?tab=settings','data-no-ajax="1"').
+            '<p class="dim">إزالة الصورة فقط. اسم الشركة وألوانها لا تتغير.</p>'.
+            '<button type="submit" class="btn danger" data-confirm="هل تريد حذف صورة الشعار الحالية؟">حذف صورة الشعار</button></form>');
     }else{
-        echo card('إعدادات المستخدم','<p>اسم وشعار البرنامج متاحان من علامة الريسيلر الذي تتبع له، أو علامة OnTrack إن كنت عميلاً مباشراً.</p>');
+        echo card('إعدادات المستخدم',
+            '<p>العلامة والشعار يظهران حسب إعدادات المنصة أو الريسيلر، ولا يمكن تعديلهُما من حسابك.</p>');
     }
     echo '</div>';
 }
