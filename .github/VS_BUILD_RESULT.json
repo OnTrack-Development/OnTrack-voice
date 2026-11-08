@@ -1,10 +1,10 @@
 {
-    "updated_at":  "2026-11-08T22:58:41.5543625Z",
-    "run_id":  "42531632738",
-    "run_url":  "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42531632738",
+    "updated_at":  "2026-11-08T23:01:55.7029890Z",
+    "run_id":  "42531652237",
+    "run_url":  "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42531652237",
     "run_attempt":  "1",
     "job_status":  "failure",
     "apk_download_url":  null,
-    "head_sha":  "6864a6b6bf2598278db0d9a441473cd4e02ad3ed",
+    "head_sha":  "c104b9034a9b1596c25fbba5f1618296c048d26b",
     "workflow":  "vs-android-debug.yml"
 }
