@@ -232,7 +232,9 @@ try{
     }
     device_answer(404,['ok'=>false,'error'=>'unknown_operation']);
 }catch(InvalidArgumentException $e){
-    device_answer(422,['ok'=>false,'error'=>$e->getMessage()]);
+    $error=$e->getMessage();
+    if($error==='device_pairing_rate_limited')header('Retry-After: 600');
+    device_answer($error==='device_pairing_rate_limited'?429:422,['ok'=>false,'error'=>$error]);
 }catch(PDOException $e){
     // The unique slot_claim prevents assigning the same device SIM slot to two tenants.
     $code=(string)$e->getCode();
