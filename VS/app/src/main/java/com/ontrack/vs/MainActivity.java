@@ -200,8 +200,7 @@ public final class MainActivity extends Activity {
                 String words = FishClient.transcribe(recording, key);
                 if (stopped) return;
                 if (words.isEmpty()) throw new Exception("لم يتم التقاط كلام واضح");
-                info("النص: " + words + "
-جارٍ توليد صوت Drama 3...");
+                info("النص: " + words + "\nجارٍ توليد صوت Drama 3...");
                 render(words, persona);
             } catch (Exception ex) { if (!stopped) info("فشل تحويل الصوت: " + ex.getMessage()); }
         });
