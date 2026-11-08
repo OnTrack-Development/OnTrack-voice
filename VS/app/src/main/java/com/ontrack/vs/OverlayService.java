@@ -217,15 +217,18 @@ public final class OverlayService extends Service {
         if (modeLabel == null) return;
         boolean paused = ConfigStore.isPreviewPaused(this);
         modeLabel.setText(LiveCallService.active ? "● جسر SIM: قيد التجربة"
+            : LiveCallService.connecting ? "◌ جسر SIM: جارٍ التشغيل"
             : paused ? "● معاينة: متوقفة" : "● معاينة: جاهزة");
-        modeLabel.setTextColor(LiveCallService.active ? VsUi.GREEN : paused ? VsUi.RED : VsUi.GREEN);
+        modeLabel.setTextColor(LiveCallService.active ? VsUi.GREEN :
+            LiveCallService.connecting ? VsUi.WHITE : paused ? VsUi.RED : VsUi.GREEN);
         // Always expose both controls, using color and brightness for the state.
         enableButton.setEnabled(true);
         disableButton.setEnabled(true);
         enableButton.setAlpha(paused ? 0.85f : 1f);
         disableButton.setAlpha(paused ? 1f : 0.85f);
         if (simLabel != null) simLabel.setText(
-            LiveCallService.active ? LiveCallService.status : SimAudioStatus.report(this));
+            (LiveCallService.active || LiveCallService.connecting)
+                ? LiveCallService.status : SimAudioStatus.report(this));
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
