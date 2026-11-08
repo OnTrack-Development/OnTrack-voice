@@ -332,7 +332,8 @@ class TenantDeviceEnrollment(private val context: Context) {
         val allowed=setOf("workspace_contacts","workspace_import","workspace_contact_dnc",
             "workspace_calls","workspace_call_event","workspace_call_analysis","workspace_call_transcript",
             "workspace_handoff_claim","workspace_handoff_ack","workspace_campaigns",
-            "workspace_campaign_create","workspace_campaign_action","workspace_file_import")
+            "workspace_campaign_create","workspace_campaign_action","workspace_campaign_claim",
+            "workspace_campaign_verify","workspace_campaign_finish","workspace_file_import")
         require(operation in allowed){ "عملية حساب غير مدعومة" }
         heartbeat(slot) // hardware identity and tenant membership checked before each operation
         val localBinding=local(slot)
