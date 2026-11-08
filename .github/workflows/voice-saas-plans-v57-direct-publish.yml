@@ -26,7 +26,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
-          ref: a646d135c5af972dad66f9b893fc893c87bb2425
+          ref: 8f3db4975ab01c67cc1e2681d488d6f80f04f5c0
           path: .build/plans-v57-baseline
           persist-credentials: false
       - name: Lint exact PHP changes and verify tenant plan regressions
