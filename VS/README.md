@@ -11,9 +11,9 @@ This directory is the isolated workspace for **VS**, a separate Android APK with
 - **Critical gate:** do not claim or enable original-voice isolation until actual two-phone tests establish that the other party cannot hear unmodified microphone audio. Confirm capture, routing, handoff, latency, Wi-Fi/mobile-data behavior, and failure recovery on the target device. Do not equate setting Android microphone mute with verified telephony uplink isolation.
 - **No website, separate SaaS dashboard, or new repository.** Build VS as an independent APK. This README records scope, **not** completed implementation.
 
-## Reference implementation (read-only dependency until copied/adapted)
+## Mandatory separation from AI Voice Assistant
 
-The existing voice bridge is at `saas/mobile/audio-proof/overlay/shellserver/src/com/jemcik/jemrec/shell/LivePcm.java`. Its authenticated loopback PCM capture/playback path and mute restoration are a starting point to study; the currently recorded capture stream is not automatically a microphone feed. VS must not modify the production bridge or assume a standard Android app can replace SIM uplink audio without the required device-specific capability and physical proof.
+The owner has explicitly declared `VS/` a future, independent, **test-only placeholder**. It is not part of the AI Voice Assistant codebase. During AI Voice Assistant development, **do not open, edit, copy, import, build, execute, test, deploy, or reuse anything in VS**. Also do not share code or other resources in the opposite direction without a specific, direct owner instruction. The earlier exploration of the existing voice bridge was only background research, **not permission to reuse code**. All agents must follow [AGENTS.md](AGENTS.md) for the complete prohibition and exception rule.
 
 ## Status
 
