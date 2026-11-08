@@ -49,8 +49,8 @@ function signup_send_email(string $email,string $token):bool {
     $url=white_label_absolute_url('/verify-email?token='.$token);
     $body="Confirm your account using this secure link within 30 minutes:\n\n".$url."\n\nIf you did not request an account, ignore this email.\n";
     $brand=white_label_identity();
-    return mail($email,$brand['name'].' - Confirm your email',$body,
-        ['From'=>$from,'Content-Type'=>'text/plain; charset=UTF-8']);
+    require_once __DIR__.'/EmailDelivery.php';
+    return email_queue_submit('signup',$email,$brand['name'].' - Confirm your email',$body);
 }
 /** Optional in-process mail transport is only for isolated regression tests. */
 function signup_stage(string $name,string $company,string $email,string $password,?callable $send=null,
@@ -204,8 +204,8 @@ function password_reset_send_email(string $email,string $token):bool {
     $body="To reset your password, use this link within 30 minutes:\n\n".$url.
         "\n\nIf you did not request a reset, ignore this email.\n";
     $brand=white_label_identity();
-    return mail($email,$brand['name'].' - Reset password',$body,
-        ['From'=>$from,'Content-Type'=>'text/plain; charset=UTF-8']);
+    require_once __DIR__.'/EmailDelivery.php';
+    return email_queue_submit('password_reset',$email,$brand['name'].' - Reset password',$body);
 }
 /** Returns no account existence information to the public endpoint. */
 function password_reset_stage(string $email,?callable $send=null):void {
