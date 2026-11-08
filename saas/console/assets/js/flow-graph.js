@@ -191,7 +191,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    const params=new URLSearchParams({csrf:id.csrf,agent_id:id.agentId,action,...fields});
    let res;
    try{
-     res=await fetch(id.form.action,{method:'POST',credentials:'same-origin',cache:'no-store',
+     res=await fetch(id.form.getAttribute('action')||location.pathname,{method:'POST',credentials:'same-origin',cache:'no-store',
        headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','Accept':'application/json'},
        body:params.toString()});
    }catch{
@@ -697,7 +697,7 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
    try{
      const fields=new FormData(editorForm);
      if(publishNow)fields.set('publish_now','1');else fields.delete('publish_now');
-     const response=await fetch(editorForm.action||location.pathname,{
+     const response=await fetch(editorForm.getAttribute('action')||location.pathname,{
        method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
        headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},body:fields
      });
