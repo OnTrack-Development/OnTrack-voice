@@ -134,23 +134,9 @@ def main(root):
 
     suspend fun connect(context: Context, timeoutMs: Int = 3_000): Socket''', 'native live bridge API')
     path.write_text(text)
-    # Upstream discards diagnostic-call recordings deliberately. Our proof
-    # needs the entire captured stream, including remote speech, for review.
-    # Preserve it and use the normal completed-file handoff (no message trim).
-    path = root / 'shellserver/src/com/jemcik/jemrec/shell/Main.java'
-    text = path.read_text()
-    start = text.index('        if (outcome != null && outcome.test) {', text.index('private static synchronized void stopRecording('))
-    end = text.index('        if (outcome != null) {', start)
-    text = text[:start] + (
-        '        if (outcome != null && outcome.test) {\n'
-        '            Ln.i("OnTrack proof: keeping complete test recording for local review");\n'
-        '            outcome = null; // retain the whole file, without message trimming\n'
-        '        }\n'
-    ) + text[end:]
-    stop_body = text[text.index('private static synchronized void stopRecording('):text.index('    /** Call end handling.')]
-    if '.delete()' in stop_body or 'wake(ACTION_CALL_ENDED, rec.incoming, name, rec.app);' not in stop_body:
-        raise SystemExit('Proof retention must preserve the completed-file handoff')
-    path.write_text(text)
+    # OnTrack Voice is a LIVE PCM bridge, never a call recorder. Keep the
+    # upstream diagnostic behavior which discards transient test recordings.
+    # Do not retain WAV/PCM files from user calls or test calls.
     path = root / 'shellserver/tests/src/com/jemcik/jemrec/shell/AnswerMachineTest.java'
     text = replace_once(path.read_text(), '    private void testCallGreeting() {',
                         '    @Test public void cancelledProofNeverAnswersTheNextRing() {\n'
@@ -243,7 +229,24 @@ def main(root):
     path.write_text(text)
     # Upstream banner classifier no longer exists; remove its obsolete unit test.
     (root / 'app/src/test/java/com/jemcik/jemrec/capture/DebugNotificationCleanerTest.kt').unlink()
-    # Launcher becomes the Arabic proof screen; upstream setup remains available.
+    # JemRec setup was designed for a call-recording archive. For OnTrack's
+    # direct SIM <-> AI voice link, the ONLY mandatory Android runtime consent
+    # is READ_PHONE_STATE at SIM enrollment (requested by MobileLinkActivity).
+    # Notifications may be requested *later* from its own optional UI button.
+    # Never require recording-library/media permissions to finish ADB pairing.
+    path = root / 'app/src/main/java/com/jemcik/jemrec/ui/Setup.kt'
+    text = path.read_text()
+    text = replace_once(text,
+                        '    val RUNTIME_PERMISSIONS: Array<String> = buildList {',
+                        '    val LEGACY_RUNTIMES_UNUSED: Array<String> = buildList {',
+                        'legacy recording permissions')
+    text = replace_once(text,
+                        '    val ASK_PERMISSIONS = RUNTIME_PERMISSIONS + AudioAccess.PERMISSIONS',
+                        '    val RUNTIME_PERMISSIONS: Array<String> = emptyArray()\\n'
+                        '    val ASK_PERMISSIONS = RUNTIME_PERMISSIONS',
+                        'remove obsolete recorder media permissions prompt')
+    path.write_text(text)
+    # Launcher becomes the Arabic guided connection/fault-check screen.
     path = root / 'app/src/main/AndroidManifest.xml'
     android = '{http://schemas.android.com/apk/res/android}'
     ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')
@@ -253,6 +256,32 @@ def main(root):
     for service in list(app.findall('service')):
         if service.get(android + 'permission') == 'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE':
             app.remove(service)
+    # Remove everything inherited solely for recording archives and contacts.
+    # We still need READ_PHONE_STATE for SIM identity, WRITE_SECURE_SETTINGS for
+    # optional ADB reconnect, and telephony's MANAGE_ONGOING_CALLS shell grant.
+    # Keep CALL_PHONE optional: campaigns/human callback ask only when used.
+    for permission in (
+        'READ_MEDIA_AUDIO', 'READ_EXTERNAL_STORAGE', 'WRITE_EXTERNAL_STORAGE',
+        'READ_CALL_LOG', 'READ_CONTACTS', 'USE_FULL_SCREEN_INTENT',
+        'FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+    ):
+        for node in list(manifest.getroot().findall('uses-permission')):
+            if node.get(android + 'name') == 'android.permission.' + permission:
+                manifest.getroot().remove(node)
+        ET.SubElement(manifest.getroot(), 'uses-permission', {
+            android + 'name': 'android.permission.' + permission,
+            '{http://schemas.android.com/tools}node': 'remove',
+        })
+    # The old recording Quick Settings tile can toggle recording without user
+    # ever opening OnTrack; remove it from the distributable Android manifest.
+    for service in list(app.findall('service')):
+        if service.get(android + 'permission') == 'android.permission.BIND_QUICK_SETTINGS_TILE':
+            app.remove(service)
+    # Explicitly request phone state; the upstream manifest had removed it as
+    # a legacy unnecessary recorder permission, but our SIM enrollment needs it.
+    for node in list(manifest.getroot().findall('uses-permission')):
+        if node.get(android + 'name') == 'android.permission.READ_PHONE_STATE':
+            manifest.getroot().remove(node)
     # Optional Google Play services QR camera UI; manual code remains supported.
     ET.SubElement(app, 'meta-data', {
         android + 'name': 'com.google.mlkit.vision.DEPENDENCIES',
@@ -285,13 +314,9 @@ def main(root):
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.REQUEST_INSTALL_PACKAGES'})
     # Optional Android 13+ system notifications; requested only after user opt-in.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.POST_NOTIFICATIONS'})
-    # Explicit opt-in for importing all phone contacts, no background address-book access.
-    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.READ_CONTACTS'})
     # Tenant SIM subscription-change detection; Android runtime consent required.
     # No ICCID/IMSI/phone number is read or uploaded. Denial blocks enrollment.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.READ_PHONE_STATE'})
-    # Optional and user-consented; Android may restrict call-log access for non-default dialers.
-    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.READ_CALL_LOG'})
     # Outbound SIM placement is never enabled unless the owner explicitly opts in.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.CALL_PHONE'})
     ET.SubElement(app, 'receiver', {
