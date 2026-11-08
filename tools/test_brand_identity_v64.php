@@ -106,6 +106,6 @@ brand_check(str_contains($views,'data-brand-display') &&
 brand_check(str_contains($actions,"case 'brand_logo_remove':") &&
     str_contains($index,"if(\$path==='/brand-upload')") &&
     str_contains($white,'brand_identity_mode($ctx)') &&
-    str_contains($js,"fetch('/saas/console/brand-upload'"),
+    str_contains($js,"fetch('/?ot_brand_upload=1'"),
     'secure raw upload endpoints and public reseller logo route wired');
 echo "BRAND_V64_PLATFORM_RESELLER_WIDE_LOGO_MODE_PRIVATE_UPLOAD_DELETE_PASS\n";
