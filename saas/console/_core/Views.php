@@ -233,12 +233,10 @@ function layout_open(array $a,string $tab):void{
         if(preg_match('/^[0-9]{6}$/D',$pairCode)){
             echo '<section class="alert secret ot-pair-six" aria-label="رمز ربط الشريحة">'.
                 '<strong>كود ربط SIM '.($slot+1).'</strong>'.
-                '<div class="ot-pair-six-digits" dir="ltr" style="font-size:38px;font-weight:900;letter-spacing:.16em;text-align:center;padding:14px;user-select:all">'.
+                '<div id="ot-sim-six-copy" class="ot-pair-six-digits" dir="ltr" style="font-size:38px;font-weight:900;letter-spacing:.16em;text-align:center;padding:14px;user-select:all">'.
                 e($pairCode).'</div>'.
-                '<input data-copy-source type="text" inputmode="numeric" readonly dir="ltr" '.
-                   'aria-label="كود الشريحة" value="'.e($pairCode).'" style="width:100%;max-width:240px;text-align:center;letter-spacing:.2em;font-size:22px">'.
-                '<button type="button" class="btn primary small" data-copy-secret>نسخ الكود</button>'.
-                '<p data-copy-result role="status">افتح التطبيق ← ربط SIM '.($slot+1).' ← الصق الستة أرقام واضغط تأكيد.</p>'.
+                '<button type="button" class="btn primary small" data-wa-copy="ot-sim-six-copy">نسخ الكود</button>'.
+                '<p role="status">افتح التطبيق ← ربط SIM '.($slot+1).' ← الصق الستة أرقام واضغط تأكيد.</p>'.
                 '<small>صالح 5 دقائق ولمرة واحدة فقط. لا تشارك الكود مع أحد.</small></section>';
         }
     }
