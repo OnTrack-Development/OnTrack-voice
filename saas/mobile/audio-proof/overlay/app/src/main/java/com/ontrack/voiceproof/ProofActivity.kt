@@ -2,7 +2,10 @@ package com.ontrack.voiceproof
 
 import android.content.Intent
 import android.Manifest
+import android.net.Uri
+import android.app.NotificationManager
 import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +37,44 @@ class ProofActivity:ComponentActivity(){
     private val text=Color.rgb(245,248,252)
     private val muted=Color.rgb(168,185,208)
     private lateinit var status:TextView
+    private var refreshChecks:(()->Unit)?=null
+    private var firstResume=true
+    private var scanSequence=0
+    private val phonePermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){
+        refreshChecks?.invoke()
+    }
+    private val outgoingPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){
+        refreshChecks?.invoke()
+    }
+    private val notificationPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){
+        refreshChecks?.invoke()
+    }
+    private fun appDetails(){
+        val detail=Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:$packageName"))
+        try{startActivity(detail)}
+        catch(_:Exception){startActivity(Intent(Settings.ACTION_SETTINGS))}
+    }
+    private fun openExactSettings(intent:Intent){
+        try{startActivity(intent)}
+        catch(_:Exception){appDetails()}
+    }
+    private fun askRuntime(permission:String,launcher:androidx.activity.result.ActivityResultLauncher<String>){
+        val prefs=getSharedPreferences("ontrack_permission_requests",MODE_PRIVATE)
+        val key="asked_"+permission
+        if(prefs.getBoolean(key,false) && !shouldShowRequestPermissionRationale(permission)){
+            appDetails() // Android may have disabled the runtime dialog after repeated denials.
+        }else{
+            prefs.edit().putBoolean(key,true).apply()
+            launcher.launch(permission)
+        }
+    }
+    override fun onResume(){
+        super.onResume()
+        if(firstResume){firstResume=false;return}
+        // Android's OEM permission screens do not return a result; recheck on return.
+        refreshChecks?.invoke()
+    }
     private fun dp(n:Int)=(n*resources.displayMetrics.density).toInt()
     private fun shape(color:Int,radius:Int=17)=GradientDrawable().apply{
         setColor(color);cornerRadius=dp(radius).toFloat()
@@ -106,8 +147,24 @@ class ProofActivity:ComponentActivity(){
                             else "الاتصال السابق مش متاح دلوقتي؛ فعّل Wireless Debugging ثم جرّب فحص مجددًا."
                     }
                 }
-                CheckAction.PHONE_PERMISSION->requestPermissions(
-                    arrayOf(Manifest.permission.READ_PHONE_STATE),401)
+                CheckAction.PHONE_PERMISSION->askRuntime(Manifest.permission.READ_PHONE_STATE,phonePermission)
+                CheckAction.APP_DETAILS->appDetails()
+                CheckAction.NOTIFICATIONS->{
+                    if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(this,Manifest.permission.POST_NOTIFICATIONS)
+                            !=PackageManager.PERMISSION_GRANTED){
+                        askRuntime(Manifest.permission.POST_NOTIFICATIONS,notificationPermission)
+                    }else{
+                        openExactSettings(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply{
+                            putExtra(Settings.EXTRA_APP_PACKAGE,packageName)
+                        })
+                    }
+                }
+                CheckAction.OUTBOUND_CALLS->askRuntime(Manifest.permission.CALL_PHONE,outgoingPermission)
+                CheckAction.OVERLAY->openExactSettings(
+                    Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:$packageName")))
+                CheckAction.INSTALL_UPDATES->openExactSettings(
+                    Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:$packageName")))
                 CheckAction.OPEN_VOICE->startActivity(Intent(this,MobileLinkActivity::class.java))
             }
         }
@@ -115,7 +172,7 @@ class ProofActivity:ComponentActivity(){
             status.text="بنفحص الصلاحيات ومحرك صوت المكالمة، من غير تسجيل أو إرسال بيانات…"
             diagnosticBox.removeAllViews()
             lifecycleScope.launch{
-                val results=withContext(Dispatchers.IO){
+                val (connectionChecks,permissionChecks)=withContext(Dispatchers.IO){
                     fun global(name:String):Boolean?=try{
                         Settings.Global.getInt(contentResolver,name)!=0
                     }catch(_:Exception){null}
@@ -132,12 +189,32 @@ class ProofActivity:ComponentActivity(){
                             Manifest.permission.READ_PHONE_STATE)==PackageManager.PERMISSION_GRANTED,
                         pairedSim=TenantDeviceEnrollment(this@ProofActivity).hasAny()
                     )
-                    OnTrackSetupChecklist.evaluate(facts)
+                    val notificationManager=getSystemService(NotificationManager::class.java)
+                    val notificationEnabled=notificationManager?.areNotificationsEnabled() ?: false
+                    val permissions=VoicePermissionFacts(
+                        phoneState=facts.readPhone,
+                        notifications=notificationEnabled,
+                        outboundCalling=ContextCompat.checkSelfPermission(
+                            this@ProofActivity,Manifest.permission.CALL_PHONE)==PackageManager.PERMISSION_GRANTED,
+                        overlay=Settings.canDrawOverlays(this@ProofActivity),
+                        packageInstall=packageManager.canRequestPackageInstalls(),
+                        backgroundRecovery=facts.secureSettings && facts.setupComplete
+                    )
+                    Pair(
+                        OnTrackSetupChecklist.evaluate(facts)
+                            .filterNot{it.id=="phone"||it.id=="repair"},
+                        OnTrackPermissionChecklist.evaluate(permissions)
+                    )
                 }
-                val needed=results.count{it.state==CheckState.ACTION}
-                status.text=if(needed==0)"✅ الفحص انتهى. شغّل المساعد من مركز الهاتف؛ مفيش تسجيل مكالمات."
-                    else "الفحص انتهى: $needed خطوة محتاجة إجراء. اضغط فتح بجانب الخطوة الناقصة."
-                for(check in results){
+                val needed=(connectionChecks+permissionChecks)
+                    .count{it.state==CheckState.ACTION}
+                status.text=if(needed==0)"✅ الأذونات الأساسية جاهزة. الخيارات الإضافية مش مطلوبة للمكالمة الواردة."
+                    else "الفحص خلص: $needed خطوة أساسية ناقصة. كل خطوة فيها زر يصلحها."
+                diagnosticBox.addView(label("تصاريح OnTrack Voice — المفعّل والناقص",18f,text,true))
+                diagnosticBox.addView(label(
+                    "الأحمر مطلوب للمكالمات الواردة، والرمادي ميزة اختيارية. اضغط على التصريح الناقص، وهنفحصه تاني لما ترجع.",
+                    12f,muted))
+                for(check in permissionChecks){
                     val color=when(check.state){
                         CheckState.READY->Color.rgb(94,224,153)
                         CheckState.ACTION->red
@@ -163,8 +240,37 @@ class ProofActivity:ComponentActivity(){
                         bottomMargin=dp(9)
                     })
                 }
+                diagnosticBox.addView(label("فحص ربط الشريحة ومحرك PCM وADB",18f,text,true))
+                for(check in connectionChecks){
+                    val color=when(check.state){
+                        CheckState.READY->Color.rgb(94,224,153)
+                        CheckState.ACTION->red
+                        CheckState.UNKNOWN->Color.rgb(255,190,93)
+                        CheckState.OPTIONAL->muted
+                    }
+                    val symbol=when(check.state){
+                        CheckState.READY->"✓ "
+                        CheckState.ACTION->"✕ "
+                        CheckState.UNKNOWN->"? "
+                        CheckState.OPTIONAL->"ℹ "
+                    }
+                    val panel=LinearLayout(this@ProofActivity).apply{
+                        orientation=LinearLayout.VERTICAL
+                        setPadding(dp(14),dp(12),dp(14),dp(12))
+                        background=shape(card,14)
+                    }
+                    panel.addView(label(symbol+check.title,15f,color,true))
+                    panel.addView(label(check.detail,13f,muted))
+                    if(check.action!=CheckAction.NONE){
+                        panel.addView(button(check.actionLabel){goFix(check.action)})
+                    }
+                    diagnosticBox.addView(panel,LinearLayout.LayoutParams(-1,-2).apply{
+                        bottomMargin=dp(9)
+                    })
+                }
             }
         }
+        refreshChecks={scan()}
         stack.addView(button("فحص وتجهيز الهاتف — بدون Root أو تسجيل"){scan()},
             LinearLayout.LayoutParams(-1,dp(56)).apply{bottomMargin=dp(12)})
         stack.addView(diagnosticBox)
