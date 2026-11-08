@@ -428,6 +428,7 @@ function render_overview(array $a):void{
 }
 function render_accounts(array $a):void{
     if(!in_array($a['kind'],['platform','reseller'],true))deny();
+    require_once __DIR__.'/BillingUsage.php';
     $id=(int)$a['account_id'];
     $rows=$a['kind']==='platform'?
         all("SELECT a.*, (SELECT COUNT(*) FROM memberships m WHERE m.account_id=a.id) seats FROM accounts a WHERE ".(platform_resellers_visible()?"a.kind!='platform'":"a.kind='customer' AND (a.parent_id IS NULL OR a.parent_id IN (SELECT id FROM accounts WHERE kind='platform'))")." ORDER BY a.id DESC"):
@@ -482,10 +483,14 @@ function render_accounts(array $a):void{
         $support=form_start('support_enter','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><button class="btn small" type="submit">الدخول للحساب</button></form>';
         $support.=row_rename('edit_account','/?tab=accounts','account_id',(int)$r['id'],(string)$r['name']);
         $support.=form_start('set_account_status','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><input type="hidden" name="status" value="'.($r['status']==='active'?'suspended':'active').'"><button class="btn small danger">'.($r['status']==='active'?'تعليق':'تفعيل').'</button></form>';
-        $current=one("SELECT p.id plan_id,p.name,p.price_minor,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id
+        $current=one("SELECT p.id plan_id,p.name,p.price_minor,p.call_quota,p.site_limit,p.agent_limit,s.starts_at,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id
             WHERE s.account_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
             ORDER BY s.id DESC LIMIT 1",[(int)$r['id'],now(),now()]);
-        $planInfo=$current?'<strong>'.e((string)$current['name']).'</strong><small class="block dim">حتى '.e((string)$current['ends_at']).'</small>'
+        $usage=$current?voice_usage_summary((int)$r['id']):null;
+        $planInfo=$current?'<strong>'.e((string)$current['name']).'</strong>'.
+            '<small class="block dim">من '.e((string)$current['starts_at']).' حتى '.e((string)$current['ends_at']).'</small>'.
+            '<small class="block dim">مكالمات: '.(int)($usage['used']??0).' / '.(int)$current['call_quota'].
+            ' · مواقع: '.(int)$current['site_limit'].' · AI: '.(int)$current['agent_limit'].'</small>'
             :'<span class="dim">لا توجد باقة نشطة</span>';
         $planKind=$r['kind']==='reseller'?'reseller':'user';
         if($adminCanGrant&&$r['status']==='active'&&!empty($planChoices[$planKind])){
@@ -1965,14 +1970,15 @@ function render_billing(array $a):void{
                     ($q['direction']==='downgrade'?'تخفيض':'تغيير'));
             $switchRows[]=[e((string)$plan['name']),$action,
                 number_format($q['full_period_difference_minor']/100,2).' ج.م',
+                number_format($q['estimated_remaining_difference_minor']/100,2).' ج.م',
                 number_format((int)$plan['price_minor']/100,2).' ج.م'];
         }
         if($options)echo card('Upgrade / Downgrade — تغيير باقتك',
-            '<p class="dim">المقارنة بين أسعار الفترتين الكاملة، وليست خصمًا أو رصيدًا مكتسبًا. المدفوعات تمر ببوابة دفع موثّقة؛ المجانية تتغير فورًا مع حفظ نهاية الفترة الحالية.</p>'.
+            '<p class="dim">نعرض فرق سعر 30 يوم وحسابًا نسبيًا للأيام المتبقية للمعاينة فقط، وليس رصيدًا أو خصمًا مطبقًا. الدفع الفعلي للباقة المدفوعة حاليًا يتم بسعر الفترة الكاملة عبر Kashier؛ المجانية تتغير فورًا مع حفظ نهاية الفترة.</p>'.
             ($current?'<p>باقتك الحالية: <strong>'.e($current['name']).'</strong> · متبقي '.
                 (int)subscription_change_quote($current,$current)['remaining_days'].' يوم</p>':
                 '<p>ليس لديك اشتراك نشط حاليًا.</p>').
-            tbl(['الباقة','نوع التغيير','فرق سعر 30 يوم','السعر الجديد'],$switchRows).
+            tbl(['الباقة','نوع التغيير','فرق سعر 30 يوم','فرق المدة المتبقية (تقديري)','السعر الجديد'],$switchRows).
             form_start('self_change_plan','/?tab=billing').
             select_html('اختر الباقة الجديدة','plan_id',$options).
             '<p class="dim">باقة مدفوعة: تفعيلها بعد الدفع فقط، ويبدأ تاريخ 30 يومًا بعد التأكيد. قد يضيع جزء من الفترة الحالية؛ لا يوجد رصيد نسبي مطبق حاليًا.</p>'.
