@@ -80,7 +80,6 @@ function nav_entries(string $type):array{
         'staff'=>['♙','فريق المنصة'],
         'voices'=>['♫','إدارة الأصوات'],
         'integrations'=>['⇄','تكاملات المنصة'],
-        'keys'=>['⌘','مفاتيح API'],
         'whatsapp_admin'=>['✉','إعدادات ربط واتساب'],
         'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات المنصة']
@@ -100,7 +99,6 @@ function nav_entries(string $type):array{
         'voices'=>['♫','الأصوات المتاحة'],
         'domains'=>['◎','دومين شركتي'],
         'integrations'=>['⇄','تكاملات الشركة'],
-        'keys'=>['⌘','مفاتيح API'],
         'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات الشركة']
         ];
@@ -112,7 +110,7 @@ function nav_entries(string $type):array{
         'answering'=>['☷','إعدادات الرد'],'whatsapp'=>['✉','WhatsApp Inbox'],'campaigns'=>['▤','الحملات'],
         'calls'=>['☏','سجل المكالمات'],'contacts'=>['♧','جهات الاتصال'],'devices'=>['▣','الأجهزة والخطوط'],
         'voices'=>['♫','الأصوات'],'staff'=>['♙','الموظفون'],
-        'keys'=>['⌘','مفاتيح API'],'integrations'=>['⇄','التكاملات'],'billing'=>['▣','الباقة والرصيد'],'invoices'=>['▤','فواتيري'],
+        'integrations'=>['⇄','التكاملات'],'billing'=>['▣','الباقة والرصيد'],'invoices'=>['▤','فواتيري'],
         'releases'=>['↓','Android'],'settings'=>['⚙','الإعدادات']
     ];
     unset($nav['campaigns'],$nav['whatsapp'],$nav['staff']);
@@ -228,15 +226,20 @@ function layout_open(array $a,string $tab):void{
         echo '<small class="dim" data-copy-result role="status">اضغط على الحقل لتحديد المفتاح يدويًا إذا لزم.</small></div>';
     }
     if($pairCode=flash('device_pair_code')){
-        // Display once after a deliberate authenticated click; no QR service.
+        // One-use six digits bound to a specific SIM. Copying works on mobile.
+        $slot=(int)(flash('device_pair_slot')??0);
+        $slot=in_array($slot,[0,1],true)?$slot:0;
         $pairCode=(string)$pairCode;
         if(preg_match('/^[0-9]{6}$/D',$pairCode)){
             echo '<section class="alert secret ot-pair-six" aria-label="رمز ربط الشريحة">'.
-                '<strong>كود ربط الشريحة</strong>'.
-                '<div class="ot-pair-six-digits" dir="ltr" style="font-size:38px;font-weight:900;letter-spacing:.35em;text-align:center;padding:14px;user-select:all">'.
+                '<strong>كود ربط SIM '.($slot+1).'</strong>'.
+                '<div class="ot-pair-six-digits" dir="ltr" style="font-size:38px;font-weight:900;letter-spacing:.16em;text-align:center;padding:14px;user-select:all">'.
                 e($pairCode).'</div>'.
-                '<p>افتح التطبيق ← ربط الشريحة ← اختار SIM 1 أو SIM 2 ← اكتب الـ6 أرقام واضغط ربط.</p>'.
-                '<small>الكود لمرة واحدة، وصالح 5 دقائق فقط. ما تشاركوش مع حد.</small></section>';
+                '<input data-copy-source type="text" inputmode="numeric" readonly dir="ltr" '.
+                   'aria-label="كود الشريحة" value="'.e($pairCode).'" style="width:100%;max-width:240px;text-align:center;letter-spacing:.2em;font-size:22px">'.
+                '<button type="button" class="btn primary small" data-copy-secret>نسخ الكود</button>'.
+                '<p data-copy-result role="status">افتح التطبيق ← ربط SIM '.($slot+1).' ← الصق الستة أرقام واضغط تأكيد.</p>'.
+                '<small>صالح 5 دقائق ولمرة واحدة فقط. لا تشارك الكود مع أحد.</small></section>';
         }
     }
     // Synthetic rows retain explicit DEMO marks; no persistent warning bars.
@@ -422,7 +425,7 @@ function render_overview(array $a):void{
             '<a href="/saas/console/?tab=domains"><b>◎</b><span>الدومينات والهوية</span><small>البراند الخاص بالريسيلر</small></a>'.
             '<a href="/saas/console/?tab=settings"><b>⚙</b><span>إعدادات الريسيلر</span><small>إدارة العلامة التجارية</small></a></div>';
     }else{
-        $tips='<div class="quick-grid"><a href="/saas/console/?tab=sites"><b>◈</b><span>مواقع مستقلة</span><small>إيجنت ومعرفة لكل موقع</small></a><a href="/saas/console/?tab=agents"><b>✧</b><span>تصميم المحادثة</span><small>السيناريو والشخصية والصوت</small></a><a href="/saas/console/?tab=keys"><b>⌘</b><span>API Keys</span><small>مفاتيح مسمّاة وقابلة للإلغاء</small></a><a href="/saas/console/?tab=staff"><b>♙</b><span>إدارة الموظفين</span><small>أدوار وصلاحيات لكل حساب</small></a></div>';
+        $tips='<div class="quick-grid"><a href="/saas/console/?tab=sites"><b>◈</b><span>مواقع مستقلة</span><small>إيجنت ومعرفة لكل موقع</small></a><a href="/saas/console/?tab=agents"><b>✧</b><span>تصميم المحادثة</span><small>السيناريو والشخصية والصوت</small></a><a href="/saas/console/?tab=devices"><b>▣</b><span>ربط الشرائح</span><small>SIM 1 / SIM 2 بكود 6 أرقام</small></a><a href="/saas/console/?tab=staff"><b>♙</b><span>إدارة الموظفين</span><small>أدوار وصلاحيات لكل حساب</small></a></div>';
     }
     echo card('ابدأ من هنا',$tips,'إجراءات سريعة');
     $items=$kind==='platform'?all('SELECT action,created_at FROM audit_events ORDER BY id DESC LIMIT 5'):all('SELECT action,created_at FROM audit_events WHERE account_id=? ORDER BY id DESC LIMIT 5',[$id]);
@@ -1918,31 +1921,15 @@ function render_secret_controls(string $type,array $row,string $tab):string{
     $controls.=form_start($action,$return,'class="inline-form"').'<input type="hidden" name="'.$field.'" value="'.$row['id'].'"><button class="btn small danger" data-confirm="إلغاء الاتصال نهائياً؟">إلغاء</button></form>';
     return $controls;
 }
-function render_keys(array $a):void{
-    if($a['kind']==='platform')
-        echo card('مفاتيح مزودي الصوت','<p class="dim">مفتاح Fish Audio وVoice ID الخاص بصوت IO Premium بيتداروا من «إدارة الأصوات»، مش من مفاتيح API اللي بنصدرها للعملاء.</p><a class="btn primary" href="/?tab=voices">فتح إعدادات IO Premium والصوت</a>');
-    $id=(int)$a['account_id'];$include=($_GET['archived']??'')==='1';
-    $list=all("SELECT k.*,s.name site_name FROM api_keys k LEFT JOIN sites s ON s.id=k.site_id WHERE k.account_id=? ".
-        ($include?"":"AND k.status='active' ")."ORDER BY k.id DESC",[$id]);
-    $rows=[];
-    foreach($list as $k){
-        $name=e($k['name']);
-        if(in_array($a['role'],['owner','admin'],true) && !active_support())
-           $name.=row_rename('rename_secret','/?tab=keys','secret_id',(int)$k['id'],(string)$k['name'],'api');
-        $rows[]=[$name,'<code>'.e($k['prefix']).'•••</code>',e($k['site_name']??'الحساب'),e($k['scopes']),render_secret_controls('api',$k,'keys')];
-    }
-    echo card('مفاتيح API',
-        '<p class="dim">المفاتيح الجديدة مشفرة بمفتاح خاص خارج موقع الويب. عرضها مجددًا متاح للمالك أو الأدمن المسجّل، مع تسجيل كل عرض في سجل التدقيق. المفاتيح القديمة قبل هذه الإضافة تحتاج تدويرًا لأنها محفوظة Hash فقط.</p>'.
-        '<p><a class="btn small" href="?tab=keys'.($include?'':'&archived=1').'">'.($include?'عرض المفاتيح النشطة':'عرض سجل المفاتيح الملغاة').'</a></p>'.
-        tbl(['الاسم','المعرّف','الموقع','الصلاحيات','الإجراءات'],$rows));
-    $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active'",[$id]);
-    $map=[0=>'كامل الحساب'];foreach($sites as $v)$map[$v['id']]=$v['name'];
-    if(in_array($a['role'],['owner','admin'],true)&&!active_support()){
-        $scopes=$a['kind']==='reseller'?'customers:create,plans:read':'agents:invoke,knowledge:read';
-        echo card('إنشاء مفتاح باسم واضح',form_start('create_key','/?tab=keys').field_html('الاسم','name','text','الصيدلية - Production',true).
-            select_html('الموقع','site_id',$map).field_html('الصلاحيات','scopes','text',$scopes).
-            submit_btn('إنشاء المفتاح المشفر'));
-    }
+function render_keys(array $a):void {
+    // Legacy URL is intentionally informational. No customer/reseller
+    // API credentials are created, revealed, or rotated in the console.
+    echo card('الربط بدون API Keys',
+        '<p>ربط شرائح SIM 1 وSIM 2 يتم من صفحة «الأجهزة والخطوط» بكود مكون من 6 أرقام فقط، وبدون تسجيل دخول داخل تطبيق Android.</p>'.
+        '<p>مفاتيح مزودي الصوت والذكاء الاصطناعي تخص إعدادات الخدمة، وليست مفاتيح يطلبها العميل لربط الهاتف.</p>'.
+        '<a class="btn primary" href="/?tab=devices">فتح ربط الشرائح</a>'.
+        ($a['kind']==='platform'
+          ?' <a class="btn" href="/?tab=voices">مفاتيح مزودي الصوت</a>':''));
 }
 function render_integrations(array $a):void{
     $id=(int)$a['account_id'];$include=($_GET['archived']??'')==='1';
