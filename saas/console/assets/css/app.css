@@ -844,3 +844,123 @@ body.light .welcome .orb-art{background:radial-gradient(circle at 35% 25%,#F9E7C
 .ot-release-version span{font-size:12px;color:var(--muted)}
 @media(max-width:700px){.ot-master-update{align-items:flex-start;flex-wrap:wrap;padding:15px 14px}.ot-master-update-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}.ot-master-update-icon{height:44px;width:44px}.ot-master-update-text{flex-basis:calc(100% - 60px)}}
 @media(max-width:350px){.ot-master-update-actions{grid-template-columns:1fr}}
+
+/* OnTrack visual precision v1 — neutral black/white with one scarlet accent.
+   Never recolor or crop a tenant-uploaded white-label logo. */
+:root{
+  --bg:#0d0e11;--panel:#17191d;--panel2:#22252b;--border:#343841;
+  --text:#f5f6f8;--muted:#b8bec8;--accent:#c92925;--accent2:#a9211d;
+  --positive:#40a86b;--warning:#ecc478;
+  --shadow:0 10px 28px rgba(0,0,0,.18);
+  --ot-radius-card:16px;--ot-radius-control:10px;
+  color-scheme:dark;
+}
+body.light{
+  --bg:#f6f7f9;--panel:#fff;--panel2:#f0f2f5;--border:#dce0e6;
+  --text:#16191f;--muted:#565e6c;--accent:#bc2521;--accent2:#941e1b;
+  --positive:#237548;--warning:#8a5a17;
+  --shadow:0 5px 18px rgba(15,23,42,.045);
+  color-scheme:light;
+}
+body{background:var(--bg);color:var(--text);font-size:14px;line-height:1.65}
+.sidebar,.topbar,.card,.metric,.ot-master-update,.login-panel{
+  background:var(--panel);border-color:var(--border);color:var(--text)
+}
+.sidebar{border-inline-start:1px solid var(--border);border-left:0}
+.content{padding-block-start:24px}
+.card,.metric,.ot-master-update{border-radius:var(--ot-radius-card);box-shadow:var(--shadow)}
+.topbar{min-height:74px;height:auto;padding-block:15px}
+.headline h1{line-height:1.35;letter-spacing:0}
+.eyebrow{color:var(--accent);letter-spacing:1px}
+/* Keep the customer's original logo intact in both modes. */
+.brand-logo,.brand-icon,.wl-fallback{
+  background:var(--panel2)!important;color:var(--text)!important;
+  border:1px solid var(--border);box-shadow:none!important;
+  border-radius:12px;overflow:hidden;line-height:1
+}
+.brand-logo{width:48px;height:48px;flex:0 0 48px;padding:0}
+.brand-logo img{width:100%;height:100%;object-fit:contain;object-position:center;background:transparent}
+.brand-logo:has(img){background:transparent!important;border-color:transparent}
+.brand-logo b{font-size:19px;font-weight:850;letter-spacing:-.4px}
+.brand-lines strong{color:var(--text);font-size:15px;line-height:1.4}
+.brand-lines small{color:var(--muted);font-size:10px;letter-spacing:.2px}
+.wl-mark{width:64px;height:64px;border:1px solid var(--border);border-radius:12px;
+  background:transparent;object-fit:contain;object-position:center;padding:0;box-shadow:none}
+.wl-fallback{width:64px;height:64px;font-size:28px;font-weight:850}
+.brand-preview .wl-mark{flex-shrink:0}
+/* Profile initials are neutral chrome, not a second competing brand. */
+.avatar{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px}
+.nav-link{border:1px solid transparent;border-radius:10px;transition:background .16s,border-color .16s,color .16s}
+.nav-link:hover{border-color:var(--border);background:var(--panel2);color:var(--text)}
+.nav-link.selected,body.light .nav-link.selected{
+  color:var(--text);background:color-mix(in srgb,var(--accent) 11%,var(--panel));
+  border-color:color-mix(in srgb,var(--accent) 48%,var(--border));
+  box-shadow:none;font-weight:800
+}
+.nav-link.selected .nav-icon{color:var(--accent)}
+.btn,.icon-button,.workspace-switch-button{
+  border-radius:var(--ot-radius-control);box-shadow:none;transition:background .16s,border-color .16s,filter .16s
+}
+.btn.primary,body.light .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent2);border-color:var(--accent2);filter:none}
+.btn.light,body.light .btn.light{background:var(--panel);border-color:var(--border);color:var(--text)}
+.btn.ghost-light{color:#fff}
+.btn:focus-visible,.icon-button:focus-visible,.nav-link:focus-visible,
+input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:2px solid var(--accent);outline-offset:3px
+}
+.field input,.field select,.field textarea,.field .password-wrap input{
+  background:var(--panel2);border-color:var(--border);color:var(--text);
+  border-radius:var(--ot-radius-control)
+}
+.field input::placeholder,.field textarea::placeholder{color:var(--muted);opacity:.8}
+.field input:focus,.field select:focus,.field textarea:focus{
+  border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)
+}
+/* A single neutral visual rhythm; remove decorative red/pink gradients and orbs. */
+.welcome,body.light .welcome{
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--ot-radius-card);
+  min-height:180px;isolation:auto;box-shadow:var(--shadow)
+}
+.welcome::before,.welcome .orb-art{display:none!important}
+.welcome h2,body.light .welcome h2{color:var(--text);font-size:26px}
+.welcome p,body.light .welcome p{color:var(--muted);font-size:13px}
+.welcome .eyebrow,body.light .welcome .eyebrow{color:var(--accent)}
+.plan-panel{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:var(--ot-radius-card)}
+.plan-panel p,.plan-panel small{color:var(--muted)}
+.metric strong{letter-spacing:0;color:var(--text)}
+.metric-title,.field,.dim{color:var(--muted)}
+.card-head h3{line-height:1.4}
+.info{background:var(--panel2);border-inline-start:3px solid var(--accent);border-right:0;
+  border-radius:10px;color:var(--muted)}
+.table-wrap th{background:var(--panel2);color:var(--text)}
+.table-wrap td{border-color:var(--border)}
+.pill,.chip{border-radius:999px}
+.ot-master-update-icon{background:color-mix(in srgb,var(--accent) 11%,var(--panel2));color:var(--accent)}
+/* White-label login must respect light mode and inherit neutral colors. */
+.white-label-auth{background:var(--bg)}
+.white-label-auth .login-backdrop{display:none}
+.login-panel.wl-auth-panel{
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--ot-radius-card);
+  box-shadow:var(--shadow);color:var(--text)
+}
+.wl-auth-panel .login-intro p,.wl-auth-panel>p,.wl-copyright{color:var(--muted)}
+.wl-auth-panel .field input{background:var(--panel2);border-color:var(--border);color:var(--text)}
+.wl-auth-panel .field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 15%,transparent)}
+.wl-auth-panel .btn.primary.wide{
+  background:var(--accent);box-shadow:none;color:#fff
+}
+/* Correct native form sizing on both laptop and mobile. */
+.btn,.field input,.field select,.field textarea{min-height:44px}
+@media(max-width:810px){.sidebar{border-inline-start:1px solid var(--border)}.topbar{min-height:64px}}
+@media(max-width:560px){
+  .content{padding:14px 11px 34px}
+  .card{padding:16px 14px;margin-bottom:14px}
+  .welcome{padding:22px 18px;min-height:145px}
+  .welcome h2{font-size:21px}
+  .topbar{padding:11px;gap:8px}
+  .header-actions{gap:7px}
+  .brand-logo{width:44px;height:44px;flex-basis:44px}
+  .ot-master-update{padding:15px 14px}
+}
+@media(prefers-reduced-motion:reduce){.btn,.nav-link,.icon-button{transition:none}}
