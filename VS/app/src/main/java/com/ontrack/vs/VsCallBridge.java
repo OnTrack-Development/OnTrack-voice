@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
+import android.net.Credentials;
 import android.util.Base64;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -58,6 +59,10 @@ public final class VsCallBridge implements AutoCloseable {
         LocalSocket s = new LocalSocket();
         try {
             s.connect(new LocalSocketAddress(SOCKET, LocalSocketAddress.Namespace.ABSTRACT));
+            // Verify the peer is actually the adb shell process before disclosing token.
+            Credentials peer = s.getPeerCredentials();
+            if (peer == null || (peer.getUid() != 2000 && peer.getUid() != 0))
+                throw new SecurityException("VS bridge is not owned by Android shell");
             s.setSoTimeout(30000);
             DataOutputStream out = new DataOutputStream(s.getOutputStream());
             DataInputStream in = new DataInputStream(s.getInputStream());
@@ -109,8 +114,16 @@ public final class VsCallBridge implements AutoCloseable {
         catch (Exception e) { return "BRIDGE_DISCONNECTED"; }
     }
 
-    @Override public synchronized void close() {
-        stop();
+    /** Interrupt a blocked PLAY immediately; the shell restores mic on EOF. */
+    public void abort() {
+        active = false;
+        try { socket.shutdownInput(); } catch (Exception ignored) {}
+        try { socket.shutdownOutput(); } catch (Exception ignored) {}
         try { socket.close(); } catch (Exception ignored) {}
+    }
+
+    @Override public synchronized void close() {
+        if (active) stop();
+        abort();
     }
 }
