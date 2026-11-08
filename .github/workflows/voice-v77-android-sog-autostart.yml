@@ -14,8 +14,9 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ontrack-android-campaign-v57-build
-  cancel-in-progress: false
+  # Supersede the obsolete v56 job holding the only signing runner.
+  group: ontrack-android-campaign-v56-build
+  cancel-in-progress: true
 env:
   PYTHONUTF8: '1'
   PYTHONIOENCODING: utf-8
