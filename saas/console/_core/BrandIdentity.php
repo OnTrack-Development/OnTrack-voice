@@ -133,6 +133,29 @@ function brand_identity_store_binary(array $a,string $bytes):string {
     }
     return $filename;
 }
+function brand_identity_remove_logo(array $a):void {
+    if(!brand_identity_edit_allowed($a))
+        throw new InvalidArgumentException('لا تملك صلاحية حذف الشعار.');
+    $id=(int)$a['account_id'];
+    $current=account($id);
+    if(!$current)throw new InvalidArgumentException('الحساب غير موجود.');
+    $previous=(string)($current['logo_path']??'');
+    brand_identity_init();
+    db()->beginTransaction();
+    try{
+        execute("UPDATE accounts SET logo_path=NULL WHERE id=?",[$id]);
+        $mode=one('SELECT display_mode FROM brand_identity_settings WHERE account_id=?',[$id]);
+        if(($mode['display_mode']??'')==='image')
+            execute("UPDATE brand_identity_settings SET display_mode='text',updated_at=? WHERE account_id=?",
+                [now(),$id]);
+        db()->commit();
+    }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
+    if($previous!=='' &&
+       preg_match('/^logo-'.preg_quote((string)$id,'/').'-[a-f0-9]{12}\\.(png|jpg|webp)$/D',$previous)){
+        $old=private_path().'/'.$previous;
+        if(is_file($old)&&!is_link($old))@unlink($old);
+    }
+}
 function brand_identity_legacy_upload(array $a,array $upload):?string {
     $error=(int)($upload['error']??UPLOAD_ERR_NO_FILE);
     if($error===UPLOAD_ERR_NO_FILE)return null;
