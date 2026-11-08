@@ -4,6 +4,7 @@ on:
     branches: [feat/io-premium-native-v51-20261107]
     paths:
       - '.github/workflows/dashboard-reseller-apk-v55-direct-publish.yml'
+      - 'tools/test_dashboard_download_and_reseller_workspace.php'
   workflow_dispatch:
 permissions:
   contents: read
