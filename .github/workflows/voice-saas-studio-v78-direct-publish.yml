@@ -17,7 +17,25 @@ concurrency:
   group: ontrack-saas-v76-sog-studio-save
   cancel-in-progress: true
 jobs:
+  prioritize-sog-fix:
+    # Android 0.3.34 v57 has ALREADY been signed and publicly published by
+    # run 42498126967. A later duplicate is redundant and may hit an
+    # immutable-release conflict due to a different source_commit in OTA.
+    # Free the single authorized signing/SSH runner for the live SOG 404 fix.
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    concurrency:
+      group: ontrack-android-campaign-v57-build
+      cancel-in-progress: true
+    timeout-minutes: 3
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Preserve already published native v57 and prioritize broken SOG save
+        run: |
+          Write-Host 'V78_SAFE_ALREADY_PUBLISHED_V57_SUPERSEDE_DUPLICATE_PASS'
   test-and-publish:
+    needs: prioritize-sog-fix
     name: Real isolated publish, atomic SSH rollout and typed-JSON HTTP verification
     runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 24
