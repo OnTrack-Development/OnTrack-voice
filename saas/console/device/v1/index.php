@@ -47,7 +47,8 @@ try{
         'workspace_contacts','workspace_contact_dnc','workspace_import','workspace_calls','workspace_call_transcript',
         'workspace_call_event','workspace_call_report','workspace_call_analysis','workspace_handoff_claim','workspace_handoff_ack','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_campaign_claim',
         'workspace_campaign_verify','workspace_campaign_finish','workspace_contact_consent',
-        'workspace_file_import','workspace_call_timeline','engine_manifest','engine_download'],true)){
+        'workspace_file_import','workspace_call_timeline','engine_manifest','engine_download',
+        'flow_start','flow_step','flow_state'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
         if(!str_starts_with($auth,'Bearer '))device_answer(401,['ok'=>false,'error'=>'authorization_required']);
         $binding=device_binding_authorize(substr($auth,7));
@@ -216,6 +217,55 @@ try{
                 device_answer(503,['ok'=>false,'error'=>'voice_failover_no_healthy_keys']);
             }
             device_answer(200,['ok'=>true,'session'=>$rotated]);
+        }
+        // Deterministic device-side Flow control plane, scoped to the active
+        // paired SIM and immutable published agent snapshot. The LLM does NOT
+        // choose or execute external tool actions; a human must approve them
+        // separately on the account workspace.
+        if(in_array($operation,['flow_start','flow_step','flow_state'],true)){
+            if(!tenant_voice_entitled($binding))
+                device_answer(403,['ok'=>false,'error'=>'voice_subscription_inactive']);
+            require_once __DIR__.'/../../_core/VoiceFlowRuntime.php';
+            $accountId=(int)$binding['account_id'];
+            $deviceId=(int)$binding['id'];
+            if($operation==='flow_start'){
+                $callId=(string)($data['call_id']??'');
+                $opened=voice_flow_start($accountId,(int)$binding['site_id'],
+                    (int)$binding['agent_id'],$callId,'device',0,$deviceId);
+                $row=voice_flow_session($accountId,(int)$opened['session_id'],0,$deviceId);
+                $advanced=null;
+                if(!$opened['reused']&&$row['status']==='active')
+                    $advanced=voice_flow_process($accountId,(int)$opened['session_id'],0,null,$deviceId);
+                $row=voice_flow_session($accountId,(int)$opened['session_id'],0,$deviceId);
+                device_answer(200,['ok'=>true,'session_id'=>(int)$row['id'],
+                    'status'=>$row['status'],'revision'=>(int)$row['published_revision'],
+                    'step_version'=>(int)$row['step_version'],
+                    'events'=>$advanced['events']??[],
+                    'state'=>json_decode((string)$row['state_json'],true,32,JSON_THROW_ON_ERROR),
+                    'reused'=>$opened['reused'],
+                    'tool_execution'=>'requires_separate_verified_human_approval']);
+            }
+            $id=$data['session_id']??null;
+            if(!is_int($id)||$id<1)device_answer(422,['ok'=>false,'error'=>'flow_session_id_invalid']);
+            $row=voice_flow_session($accountId,$id,0,$deviceId);
+            voice_flow_require_active_context($row);
+            if($operation==='flow_state')
+                device_answer(200,['ok'=>true,'session_id'=>$id,'status'=>$row['status'],
+                    'step_version'=>(int)$row['step_version'],
+                    'state'=>json_decode((string)$row['state_json'],true,32,JSON_THROW_ON_ERROR)]);
+            $expected=$data['step_version']??null;
+            $reply=$data['reply']??null;
+            if(!is_int($expected)||$expected<1||$expected!==(int)$row['step_version'])
+                device_answer(409,['ok'=>false,'error'=>'flow_step_version_conflict',
+                    'step_version'=>(int)$row['step_version']]);
+            if(!is_string($reply)||trim($reply)===''||mb_strlen($reply)>500)
+                device_answer(422,['ok'=>false,'error'=>'flow_reply_invalid']);
+            $out=voice_flow_process($accountId,$id,0,$reply,$deviceId);
+            $fresh=voice_flow_session($accountId,$id,0,$deviceId);
+            device_answer(200,['ok'=>true,'session_id'=>$id,'status'=>$out['status'],
+                'step_version'=>(int)$fresh['step_version'],'events'=>$out['events'],
+                'state'=>$out['state'],'done'=>$out['done'],
+                'tool_execution'=>'requires_separate_verified_human_approval']);
         }
         if($operation==='published_flow'){
             $flow=published_agent_flow((int)$binding['account_id'],(int)$binding['site_id'],(int)$binding['agent_id']);
