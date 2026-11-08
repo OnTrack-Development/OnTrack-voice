@@ -293,10 +293,19 @@ function subscription_change_quote(?array $current,array $target):array {
     $remaining=0;
     if($current && !empty($current['ends_at']))
         $remaining=max(0,strtotime((string)$current['ends_at'])-time());
+    $period=30*86400;
+    if($current && !empty($current['starts_at']) && !empty($current['ends_at'])){
+        $since=strtotime((string)$current['starts_at']);
+        $until=strtotime((string)$current['ends_at']);
+        if($since!==false && $until!==false && $until>$since)
+            $period=max(1,$until-$since);
+    }
+    $prorated=(int)round(($new-$old)*min(1,$remaining/$period));
     return ['direction'=>$new>$old?'upgrade':($new<$old?'downgrade':'switch'),
         'old_minor'=>$old,'new_minor'=>$new,
         'remaining_days'=>(int)ceil($remaining/86400),
-        'full_period_difference_minor'=>$new-$old];
+        'full_period_difference_minor'=>$new-$old,
+        'estimated_remaining_difference_minor'=>$prorated];
 }
 
 /**
