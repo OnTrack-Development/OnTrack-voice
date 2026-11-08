@@ -510,8 +510,8 @@ function audit(string $action,?int $accountId=null,array $details=[]):void{
     insert('INSERT INTO audit_events(actor_user_id,account_id,action,detail,created_at) VALUES (?,?,?,?,?)',[$actor['id'],$accountId,$action,$info,now()]);
 }
 function site_limit(int $accountId,string $key):int{
-    $account=one('SELECT kind,status FROM accounts WHERE id=?',[$accountId]);
-    if(!$account||$account['status']!=='active')return 0;
+    $account=account($accountId);
+    if(!account_service_active($account))return 0;
     // The platform is the service owner, not a metered customer. It must not
     // acquire an expiring demo subscription merely to create sites/agents or
     // maintain its own voice/SIM configuration. Child tenants remain metered.
