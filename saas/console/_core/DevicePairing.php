@@ -37,27 +37,40 @@ function device_pairing_create(int $accountId,int $siteId,int $agentId,int $user
     $agent=one("SELECT id FROM agents WHERE id=? AND account_id=? AND site_id=? AND status!='archived'",[$agentId,$accountId,$siteId]);
     if(!$account||$account['status']!=='active'||!$site||!$agent)
         throw new InvalidArgumentException('device_invalid_account_site_agent');
-    $pending=(int)one("SELECT COUNT(*) n FROM device_pairings WHERE account_id=? AND status IN ('pending','pending_sim0','pending_sim1') AND expires_at>?",[$accountId,now()])['n'];
-    if($pending>=5)throw new InvalidArgumentException('device_pending_limit');
     $bucket=intdiv(time(),300);
     for($attempt=0;$attempt<40;$attempt++){
         $digits=str_pad((string)random_int(0,999999),6,'0',STR_PAD_LEFT);
         $hash=device_pairing_hash($digits,$bucket);
         $older=device_pairing_hash($digits,$bucket-1);
-        // Do not issue a digit code already active across the last two 5m buckets.
+        // Collision guard across all tenants and both SIM slots.
         if(one("SELECT id FROM device_pairings WHERE code_hash IN (?,?)
             AND status IN ('pending_sim0','pending_sim1') AND expires_at>?",
             [$hash,$older,now()]))continue;
+        db()->beginTransaction();
         try{
+            // A replacement click invalidates the earlier 5-minute code for
+            // the SAME account/SIM only. This avoids misleading duplicate codes
+            // or hitting the pending-code cap after a couple of retries.
+            execute("UPDATE device_pairings SET status='cancelled'
+                WHERE account_id=? AND status=? AND expires_at>?",
+                [$accountId,'pending_sim'.$simSlot,now()]);
+            $pending=(int)(one("SELECT COUNT(*) n FROM device_pairings WHERE
+                account_id=? AND status IN ('pending','pending_sim0','pending_sim1')
+                AND expires_at>?",[$accountId,now()])['n']??0);
+            if($pending>=5)throw new InvalidArgumentException('device_pending_limit');
             insert("INSERT INTO device_pairings(account_id,site_id,agent_id,code_hash,status,expires_at,created_by,created_at)
                 VALUES (?,?,?,?,?,?,?,?)",[
                 $accountId,$siteId,$agentId,$hash,'pending_sim'.$simSlot,
                 gmdate('Y-m-d H:i:s',time()+300),$userId,now()
             ]);
+            db()->commit();
             return $digits;
         }catch(PDOException $collision){
-            // If an actual unique hash collision occurred, try a new code.
+            if(db()->inTransaction())db()->rollBack();
             if(!in_array((string)$collision->getCode(),['23000','19'],true))throw $collision;
+        }catch(Throwable $failure){
+            if(db()->inTransaction())db()->rollBack();
+            throw $failure;
         }
     }
     throw new RuntimeException('device_pairing_try_again');
