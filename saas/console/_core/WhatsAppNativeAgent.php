@@ -121,6 +121,10 @@ function wa_native_run_job(int $jobId,?callable $aiTransport=null,?callable $met
     $job=one("SELECT * FROM wa_ai_jobs WHERE id=? AND status='pending'",[$jobId]);
     if(!$job)return ['status'=>'not_pending'];
     $accountId=(int)$job['account_id'];
+    // Preserve the pending job while a reseller or customer is suspended:
+    // no LLM request, bridge callback or Meta send can begin.
+    if(!account_service_active(account($accountId)))
+        return ['status'=>'service_suspended'];
     $conv=wa_conversation((int)$job['conversation_id'],$accountId);
     $conn=wa_connection((int)$job['connection_id'],$accountId);
     if((int)($conn['ai_enabled']??0)!==1||$conn['state']!=='verified'||
