@@ -432,6 +432,9 @@ function render_overview(array $a):void{
 function render_accounts(array $a):void{
     if(!in_array($a['kind'],['platform','reseller'],true))deny();
     require_once __DIR__.'/BillingUsage.php';
+    require_once __DIR__.'/CustomerAccounts.php';
+    $selected=max(0,(int)($_GET['customer_id']??0));
+    if($selected>0){render_customer_detail($a,$selected);return;}
     $id=(int)$a['account_id'];
     $rows=$a['kind']==='platform'?
         all("SELECT a.*, (SELECT COUNT(*) FROM memberships m WHERE m.account_id=a.id) seats FROM accounts a WHERE ".(platform_resellers_visible()?"a.kind!='platform'":"a.kind='customer' AND (a.parent_id IS NULL OR a.parent_id IN (SELECT id FROM accounts WHERE kind='platform'))")." ORDER BY a.id DESC"):
@@ -455,7 +458,8 @@ function render_accounts(array $a):void{
                 '<label class="field">رابط دخول عملائك<input dir="ltr" readonly onclick="this.select()" value="'.e($portalBase.'/login').'"></label>');
         }
     }
-    echo card('إنشاء حساب جديد',form_start('create_account','/?tab=accounts').
+    if(in_array($a['role'],['owner','admin'],true)&&!active_support()&&
+       console_view_mode($a)==='admin')echo card('إنشاء حساب جديد',form_start('create_account','/?tab=accounts').
         ($a['kind']==='platform'?select_html('نوع الحساب','kind',platform_resellers_visible()?['reseller'=>'ريسيلر','customer'=>'عميل مباشر']:['customer'=>'عميل مباشر']):'').
         field_html('اسم الشركة','name','text','اسم المؤسسة',true).
         field_html('بريد المالك','email','email','owner@company.com',true).
@@ -483,10 +487,26 @@ function render_accounts(array $a):void{
             (int)$p['call_quota'].' مكالمة · '.number_format((int)$p['price_minor']/100,2).' ج.م';
     }
     foreach($rows as $r){
-        $support=form_start('support_enter','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><button class="btn small" type="submit">الدخول للحساب</button></form>';
-        $support.=row_rename('edit_account','/?tab=accounts','account_id',(int)$r['id'],(string)$r['name']);
-        $support.='<a class="btn small" href="/?tab=invoices&amp;customer_id='.(int)$r['id'].'">فواتير العميل</a>';
-        $support.=form_start('set_account_status','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><input type="hidden" name="status" value="'.($r['status']==='active'?'suspended':'active').'"><button class="btn small danger">'.($r['status']==='active'?'تعليق':'تفعيل').'</button></form>';
+        $cid=(int)$r['id'];
+        $support='<a class="btn small primary" href="/?tab=accounts&amp;customer_id='.$cid.'">ملف العميل</a>';
+        if(($r['status']??'')!=='archived' && in_array($a['role'],['owner','admin'],true)
+           && !active_support() && console_view_mode($a)==='admin'){
+            $support.=form_start('support_enter','/?tab=accounts','class="inline-form"').
+                '<input type="hidden" name="account_id" value="'.$cid.'">'.
+                '<button class="btn small" type="submit">الدخول للحساب</button></form>';
+            $support.=row_rename('edit_account','/?tab=accounts','account_id',$cid,(string)$r['name']);
+            $support.=form_start('set_account_status','/?tab=accounts','class="inline-form"').
+                '<input type="hidden" name="account_id" value="'.$cid.'">'.
+                '<input type="hidden" name="status" value="'.($r['status']==='active'?'suspended':'active').'">'.
+                '<button class="btn small danger">'.($r['status']==='active'?'إيقاف':'إعادة تفعيل').'</button></form>';
+        }
+        if($r['status']==='archived' && in_array($a['role'],['owner','admin'],true)
+            && !active_support() && console_view_mode($a)==='admin'){
+            $support.=form_start('customer_restore','/?tab=accounts','class="inline-form"').
+                '<input type="hidden" name="customer_id" value="'.$cid.'">'.
+                '<button class="btn small" type="submit">استعادة الحساب</button></form>';
+        }
+        $support.='<a class="btn small" href="/?tab=invoices&amp;customer_id='.$cid.'">فواتير العميل</a>';
         $current=one("SELECT p.id plan_id,p.name,p.price_minor,p.call_quota,p.site_limit,p.agent_limit,s.starts_at,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id
             WHERE s.account_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
             ORDER BY s.id DESC LIMIT 1",[(int)$r['id'],now(),now()]);
@@ -532,6 +552,93 @@ function render_accounts(array $a):void{
         $cells[]=[e($r['name']).'<small class="block dim">'.e($r['slug']).'</small>',pill((string)$r['kind']),e((string)($r['parent_id']??'مباشر')),e((string)$r['seats']),pill((string)$r['status']),$planInfo,$support];
     }
     echo card('الحسابات التابعة',tbl(['الاسم','النوع',platform_resellers_visible()?'الريسيلر':'الحساب','الأعضاء','الحالة','الباقة الحالية وتعديلها','إدارة'],$cells));
+}
+function render_customer_detail(array $actor,int $customerId):void {
+    require_once __DIR__.'/CustomerAccounts.php';
+    require_once __DIR__.'/BillingInvoices.php';
+    try{$customer=customer_accounts_scope($actor,$customerId);}
+    catch(InvalidArgumentException){deny(404,'العميل غير متاح');}
+    $id=(int)$customer['id'];
+    $canEdit=in_array($actor['role'],['owner','admin'],true)&&
+        !active_support()&&console_view_mode($actor)==='admin';
+    $profile=customer_accounts_profile($id);
+    $metrics=customer_accounts_metrics($id);
+    $counts=$metrics['counts'];$sub=$metrics['subscription'];$usage=$metrics['usage'];
+    $owner=one("SELECT u.email,u.name FROM users u JOIN memberships m ON m.user_id=u.id
+        WHERE m.account_id=? AND m.role='owner' ORDER BY m.id LIMIT 1",[$id]);
+    echo '<div class="section-line"><a class="btn small" href="/?tab=accounts">العودة للعملاء</a>'.
+        '<strong>ملف العميل: '.e((string)$customer['name']).'</strong> '.
+        pill((string)$customer['status']).'</div>';
+    echo card('بيانات الحساب',
+        '<p>رقم الحساب: #'.$id.' · النوع: '.e((string)$customer['kind']).
+        ' · تاريخ الإنشاء: '.e((string)$customer['created_at']).'</p>'.
+        '<p>بريد تسجيل دخول المالك: <strong dir="ltr">'.e($owner['email']??'غير متاح').'</strong></p>'.
+        '<p>جهة الاتصال: '.e((string)$profile['contact_name']).' · '.
+        '<span dir="ltr">'.e((string)$profile['contact_email']).'</span> · '.
+        '<span dir="ltr">'.e((string)$profile['phone']).'</span></p>'.
+        '<p>العنوان: '.nl2br(e((string)$profile['address'])).'</p>'.
+        '<p>ملاحظات الإدارة: '.nl2br(e((string)$profile['notes'])).'</p>');
+    echo '<div class="metric-grid">'.
+        counter('فواتير',$counts['invoices'],'▤').
+        counter('طلبات',$counts['orders'],'▣').
+        counter('مكالمات',$counts['calls'],'☏').
+        counter('مواقع',$counts['sites'],'◈').
+        counter('مساعدون',$counts['agents'],'✧').
+        counter('أجهزة',$counts['devices'],'◉').
+        '</div>';
+    $planInfo=$sub?
+        '<p><strong>'.e((string)$sub['name']).'</strong> — من '.e($sub['starts_at']).
+        ' إلى '.e($sub['ends_at']).' · '.
+        (int)($usage['used']??0).' / '.(int)($usage['quota']??0).' مكالمة</p>':
+        '<p class="dim">لا توجد باقة نشطة.</p>';
+    echo card('الاشتراك والاستهلاك',$planInfo.
+        '<p>إجمالي المدفوعات المسجلة بالفواتير: <strong>'.
+        billing_invoice_money((int)$counts['paid_minor']).'</strong></p>'.
+        '<p><a class="btn small" href="/?tab=invoices&amp;customer_id='.$id.'">عرض فواتير العميل</a></p>');
+    $orders=all('SELECT id,external_order_id,amount_minor,status,created_at,payment_reference
+        FROM orders WHERE account_id=? ORDER BY id DESC LIMIT 20',[$id]);
+    $entries=[];
+    foreach($orders as $o)$entries[]=[
+        '#'.(int)$o['id'],e((string)$o['status']),
+        billing_invoice_money((int)$o['amount_minor']),
+        e((string)$o['created_at']),
+        e((string)($o['payment_reference']?:'—'))];
+    echo card('آخر المعاملات',tbl(['الطلب','الحالة','المبلغ','التاريخ','مرجع الدفع'],$entries));
+    if(!$canEdit)return;
+    if($customer['status']==='archived'){
+        echo card('استعادة العميل',form_start('customer_restore','/?tab=accounts').
+            '<input type="hidden" name="customer_id" value="'.$id.'">'.
+            '<p class="dim">الاستعادة تعيد العميل موقوفًا، ولن تُفعّل الخدمات حتى إعادة التفعيل الصريحة.</p>'.
+            submit_btn('استعادة الحساب'));
+        return;
+    }
+    $form=form_start('customer_profile_save','/?tab=accounts&amp;customer_id='.$id).
+        '<input type="hidden" name="customer_id" value="'.$id.'"><div class="form-grid">'.
+        '<label class="field">اسم الشركة<input name="name" required maxlength="120" value="'.e($customer['name']).'"></label>'.
+        '<label class="field">اسم جهة الاتصال<input name="contact_name" maxlength="190" value="'.e($profile['contact_name']).'"></label>'.
+        '<label class="field">البريد الخاص بالفواتير والتواصل<input name="contact_email" type="email" maxlength="190" value="'.e($profile['contact_email']).'"></label>'.
+        '<label class="field">رقم الهاتف<input name="phone" type="tel" maxlength="45" value="'.e($profile['phone']).'"></label>'.
+        '<label class="field">العنوان<textarea name="address" maxlength="800">'.e($profile['address']).'</textarea></label>'.
+        '<label class="field">ملاحظات الإدارة<textarea name="notes" maxlength="2000">'.e($profile['notes']).'</textarea></label>'.
+        '</div>'.submit_btn('حفظ بيانات العميل');
+    echo card('تعديل بيانات العميل',$form);
+    $loginForm=form_start('customer_owner_email','/?tab=accounts&amp;customer_id='.$id).
+        '<input type="hidden" name="customer_id" value="'.$id.'">'.
+        '<label class="field">تغيير بريد دخول مالك الحساب<input type="email" name="owner_email" maxlength="190" required value="'.e($owner['email']??'').'"></label>'.
+        '<p class="dim">تغيير بريد الدخول يؤثر على تسجيل الدخول فقط، ولا يغيّر الفواتير الصادرة بالفعل.</p>'.
+        submit_btn('تحديث بريد الدخول');
+    echo card('بيانات تسجيل الدخول',$loginForm);
+    $toggle=$customer['status']==='active'?'suspended':'active';
+    $controls=form_start('set_account_status','/?tab=accounts&amp;customer_id='.$id).
+        '<input type="hidden" name="account_id" value="'.$id.'">'.
+        '<input type="hidden" name="status" value="'.$toggle.'">'.
+        '<button class="btn primary" type="submit">'.($toggle==='active'?'إعادة تفعيل العميل':'إيقاف العميل').'</button></form>';
+    $controls.=form_start('customer_delete','/?tab=accounts').
+        '<input type="hidden" name="customer_id" value="'.$id.'">'.
+        '<input type="hidden" name="confirm" value="DELETE">'.
+        '<button class="btn danger" type="submit" data-confirm="تأكيد حذف العميل؟ الحساب الفارغ فقط يُحذف نهائيًا؛ أما المستخدم فيُؤرشف وتظل الفواتير والتسجيلات محفوظة.">حذف العميل</button></form>';
+    echo card('إدارة حالة العميل',$controls.
+        '<p class="dim">الإيقاف يمنع الدخول والاستخدام فورًا دون مسح السجلات. الحذف الآمن يُؤرشف الحسابات ذات الفواتير أو المكالمات، ويحذف الحساب الفارغ فقط.</p>');
 }
 function render_plans(array $a):void{
     require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
