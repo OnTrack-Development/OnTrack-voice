@@ -83,6 +83,7 @@ $secondRev=refund_body($second,'reversal');
 // An attacker can relabel the unsigned outer event but cannot alter the
 // signed eventType; that mismatch must not revoke a paid entitlement.
 $unsafe=$secondRev;$unsafe['event']='refund';
+$unsafe['data']['transactionId']='RF_'.bin2hex(random_bytes(16));
 pay_check(kashier_settle($unsafe,null)['status']==='review_required',
     'unsigned outer event mismatch requires manual review rather than auto-reversal');
 pay_check((string)one('SELECT status FROM subscriptions WHERE id=?',[$two['id']])['status']==='active',
