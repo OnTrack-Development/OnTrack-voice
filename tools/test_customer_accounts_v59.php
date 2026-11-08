@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__.'/../saas/console/database/Seed.php';
 require_once __DIR__.'/../saas/console/_core/CustomerAccounts.php';
 require_once __DIR__.'/../saas/console/_core/BillingInvoices.php';
+require_once __DIR__.'/../saas/console/_core/TenantVoiceSession.php';
 if(is_dir('/home/appontrack')&&!getenv('ONTRACK_CI_NAMESPACE'))
     throw new RuntimeException('isolated_customer_fixture_only');
 function test_customer(bool $ok,string $name):void {
