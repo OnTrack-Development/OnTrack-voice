@@ -60,7 +60,7 @@ v67flow($result['status']==='active'&&$result['state']['cursor']==='e',
    'authorized human completion advances only matching SIM flow node');
 $done=voice_flow_process($account,$opened['session_id'],0,null,$binding);
 v67flow($done['status']==='completed','device flow completes after provider success');
-v67flow(count(all('SELECT id FROM voice_flow_tool_consumptions WHERE request_id=?',
+v67flow(count(all('SELECT request_id FROM voice_flow_tool_consumptions WHERE request_id=?',
   [$request['request_id']]))===1,'idempotent tool result consumed once');
 execute("UPDATE device_bindings SET status='revoked' WHERE id=?",[$binding]);
 $denied=false;
