@@ -488,7 +488,7 @@ public final class MainActivity extends Activity {
         refreshPermissions();
         if (code == 401 && results.length > 0
                 && results[0] == PackageManager.PERMISSION_GRANTED) toggleRecording();
-        else if (code == 401) info("الميكروفون مطلوب لتجربة التسجيل فقط.");
+        else if (code == 401) info("الميكروفون مطلوب لالتقاط كلامك مباشرة في الذاكرة، بدون حفظ مكالمات.");
     }
 
     @Override protected void onResume() {
