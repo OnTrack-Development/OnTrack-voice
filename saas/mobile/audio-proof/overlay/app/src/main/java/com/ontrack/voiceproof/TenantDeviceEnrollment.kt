@@ -272,7 +272,16 @@ class TenantDeviceEnrollment(private val context: Context) {
             .readTimeout(45,TimeUnit.SECONDS).build()
         streamClient.newCall(req).execute().use{response->
             if(response.code==401)throw SecurityException("ربط الشريحة لم يعد صالحًا")
-            if(!response.isSuccessful)error("IO Premium HTTP " + response.code)
+            if(!response.isSuccessful){
+                val code=runCatching{
+                    JSONObject(response.body?.string().orEmpty().take(1024)).optString("error","")
+                }.getOrDefault("")
+                val reason=FishTtsFailover.reason(response.code,code)
+                if(reason!=null)throw FishTtsFailoverException(reason)
+                // In particular: 403 due to a revoked subscription, voice grant
+                // or changed published agent never bypasses authorization.
+                error("IO Premium HTTP " + response.code + " " + code.take(64))
+            }
             check(response.header("X-PCM-Sample-Rate")=="44100" &&
                 response.header("X-PCM-Channels")=="1" &&
                 response.header("X-PCM-Format")=="s16le") {
