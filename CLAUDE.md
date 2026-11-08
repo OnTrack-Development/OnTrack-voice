@@ -20,6 +20,11 @@
 
 <!-- ONTRACK_MANDATORY_AGENT_RULES_END -->
 
+<!-- VS_OWNER_ISOLATION_POLICY_2026_11_08 -->
+> **قرار المالك الملزم — عزل VS (2026-11-08):** المجلد [`VS/`](VS/AGENTS.md) مساحة تجريبية مؤجلة لمشروع مستقل، **وليس جزءًا من OnTrack AI Voice Assistant**. عند تنفيذ أي عمل على الـAI Voice Assistant **لا تفتح أو تعدّل أو تبني أو تختبر أو تنشر أو تستورد أو تنسخ أي شيء من/إلى `VS/`، ولا تربطه بمكونات المشروع أو CI أو الـAPK**. يحظر استخدام كود أو إعدادات أي من المشروعين في الآخر إلا **بأمر مباشر وصريح من المالك يحدد النطاق والنقل**. لا يعتبر تكليف التطوير العام إذنًا بتفعيل `VS/` أو لمسه. لا تُراجع [`VS/AGENTS.md`](VS/AGENTS.md) إلا عند وجود تكليف مباشر خاص بـVS.
+<!-- VS_OWNER_ISOLATION_POLICY_END -->
+
+
 ## OnTrack Voice — current project-specific rules (2026-11-04)
 
 - **Owner stage:** internal/demo development and owner-controlled live tests only. No real paying customer accounts. Production infrastructure use is for verified internal testing, not proof of commercial release.
