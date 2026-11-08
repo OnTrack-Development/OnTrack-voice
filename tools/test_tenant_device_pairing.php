@@ -6,14 +6,14 @@ function test_tenant_device_pairing():void {
     $admin=one("SELECT id FROM users WHERE email='admin@ontrackegy.com'");
     $actor=(int)$admin['id'];
     $codeA=device_pairing_create(4,1,1,$actor,0);
-    ok((bool)preg_match('/^[A-F0-9]{4}(?:-[A-F0-9]{4}){5}$/D',$codeA),'device code long random one-time format');
-    ok($codeA[0]==='0','SIM 1 code carries server-locked slot marker');
+    ok((bool)preg_match('/^[0-9]{6}$/D',$codeA),'device code is exactly 6 digits');
+    ok(strlen($codeA)===6,'SIM 1 six-digit code does not expose slot marker');
     $storedA=one('SELECT status FROM device_pairings WHERE code_hash=?',
-        [hash('sha256',strtolower(str_replace('-','',$codeA)))]);
+        [device_pairing_hash($codeA,intdiv(time(),300))]);
     ok($storedA['status']==='pending_sim0','database records intended SIM independently of QR');
     $legacy=device_pairing_create(4,1,1,$actor,0);
     execute("UPDATE device_pairings SET status='pending' WHERE code_hash=?",
-        [hash('sha256',strtolower(str_replace('-','',$legacy)))]);
+        [device_pairing_hash($legacy,intdiv(time(),300))]);
     $legacyDenied=false;
     try{device_pairing_redeem($legacy,'legacy-install-000000001',0,'Legacy ticket');}
     catch(InvalidArgumentException $e){$legacyDenied=$e->getMessage()==='device_pairing_expired_or_used';}
@@ -55,7 +55,7 @@ function test_tenant_device_pairing():void {
     ok($used,'one-time code replay denied');
     $codeB0=device_pairing_create(5,3,3,$actor,0);
     $codeB=device_pairing_create(5,3,3,$actor,1);
-    ok($codeB[0]==='1','SIM 2 code carries server-locked slot marker');
+    ok((bool)preg_match('/^[0-9]{6}$/D',$codeB),'SIM 2 gets numeric code; server locks slot independently');
     $sameSlot=false;
     try{device_pairing_redeem($codeB0,$inst,0,'Collision');}
     catch(PDOException $e){$sameSlot=true;}
