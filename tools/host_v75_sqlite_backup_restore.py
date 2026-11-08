@@ -5,6 +5,7 @@ Read-only source connection with SQLite's online backup API. No live DB
 replacement, no account changes, no Cron, no offsite upload, no secrets in logs.
 """
 from pathlib import Path
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -59,11 +60,12 @@ def drill(source:Path,destination_root:Path)->dict:
     snapshot=folder/'ontrack-console.sqlite'
     original_umask=os.umask(0o077)
     try:
-        with ro(source) as live:
-            with sqlite3.connect(str(snapshot),timeout=15.0) as saved:
+        with closing(ro(source)) as live:
+            with closing(sqlite3.connect(str(snapshot),timeout=15.0)) as saved:
                 live.backup(saved,pages=256,sleep=0.15)
+                saved.commit()
         os.chmod(snapshot,0o600)
-        with ro(snapshot) as backed:
+        with closing(ro(snapshot)) as backed:
             if not integrity(backed):raise RuntimeError('snapshot_integrity_failed')
             snapshot_counts=signatures(backed)
             snapshot_schema=tuple(backed.execute(
@@ -74,7 +76,7 @@ def drill(source:Path,destination_root:Path)->dict:
             os.chmod(restored,0o600)
             if digest(snapshot)!=digest(restored):
                 raise RuntimeError('restored_copy_hash_mismatch')
-            with ro(restored) as recovery:
+            with closing(ro(restored)) as recovery:
                 if not integrity(recovery):raise RuntimeError('restored_integrity_failed')
                 if signatures(recovery)!=snapshot_counts:
                     raise RuntimeError('restored_tables_counts_mismatch')
