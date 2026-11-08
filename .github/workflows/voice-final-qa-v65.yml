@@ -88,7 +88,7 @@ jobs:
           $ErrorActionPreference='Stop'
           $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
           if(!(Test-Path -LiteralPath $key)){throw 'SSH key missing on authorized runner'}
-          $cmd='set -eu; test "$(id -u)" = 2379; cd /home/appontrack/public_html; /opt/cpanel/ea-php83/root/usr/bin/php -l index.php; /opt/cpanel/ea-php83/root/usr/bin/php -l _core/BrandIdentity.php; grep -Fq "OTV_BRAND_LOGO_V64_BEGIN" assets/css/app.css; grep -Fq "OTV_TENANT_STYLE_V63_BEGIN" assets/css/app.css; grep -Fq "fetch('"'"/?ot_brand_upload=1"'"'" assets/js/app.js; echo V65_SSH_PUBLISHED_BRAND_AND_THEME_PASS'
+          $cmd='set -eu; test "$(id -u)" = 2379; cd /home/appontrack/public_html; /opt/cpanel/ea-php83/root/usr/bin/php -l index.php; /opt/cpanel/ea-php83/root/usr/bin/php -l _core/BrandIdentity.php; grep -Fq OTV_BRAND_LOGO_V64_BEGIN assets/css/app.css; grep -Fq OTV_TENANT_STYLE_V63_BEGIN assets/css/app.css; grep -Fq ot_brand_upload=1 assets/js/app.js; echo V65_SSH_PUBLISHED_BRAND_AND_THEME_PASS'
           & ssh.exe -i $key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=12 -p 7195 'appontrack@65.21.208.232' $cmd
           if($LASTEXITCODE -ne 0){throw 'Production SSH read-only acceptance failed'}
       - name: External HTTPS login, CSS, JS, safe private routes and raw upload
