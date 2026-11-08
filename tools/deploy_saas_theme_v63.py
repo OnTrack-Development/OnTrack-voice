@@ -45,7 +45,7 @@ def patch_views(live:str,candidate:str)->str:
         old=select(live,start,"    $u=me();")
         live=live.replace(old,insert,1)
     old='</head><body data-ot-font="\'.e($accountFont).\'">\';'
-    new='</head><body data-ot-font="\'.e($accountFont).\'" data-ot-account="\'.(int)$a[\'account_id\'].\'"\'.$themeVars.\'>';'
+    new = """</head><body data-ot-font="'.e($accountFont).'" data-ot-account="'.(int)$a['account_id'].'"'.$themeVars.'>';"""
     if new not in live:
         if live.count(old)!=1:raise RuntimeError('tenant_dashboard_body_anchor_changed')
         live=live.replace(old,new,1)
