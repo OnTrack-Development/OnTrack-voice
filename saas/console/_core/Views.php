@@ -2021,6 +2021,7 @@ function render_billing(array $a):void{
     echo '<div class="info">مدفوعات Kashier الحقيقية لا تُفعّل من صفحة Success؛ التفعيل يتطلب Webhook موثّقًا أو موافقة دفع يدوي مسجلة.</div>';
 }
 function render_invoices(array $a):void {
+    require_permission('billing.read');
     require_once __DIR__.'/BillingInvoices.php';
     $accountId=(int)$a['account_id'];
     $isManager=in_array($a['kind'],['platform','reseller'],true)&&
