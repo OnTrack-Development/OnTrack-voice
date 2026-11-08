@@ -18,6 +18,8 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import java.io.File;
@@ -28,7 +30,9 @@ import java.util.concurrent.Executors;
 public final class MainActivity extends Activity {
     private final ExecutorService queue = Executors.newSingleThreadExecutor();
     private EditText keyField, voiceField, textField;
-    private TextView status;
+    private TextView status, personaDetail;
+    private RadioGroup personaGroup;
+    private int selectedPersona;
     private Button recordButton;
     private File recording;
     private MediaRecorder recorder;
@@ -64,12 +68,26 @@ public final class MainActivity extends Activity {
         keyField = edit("Fish Audio API key", "");
         keyField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         box.addView(keyField);
-        box.addView(label("Voice ID"));
-        voiceField = edit("reference_id", ConfigStore.voiceId(this));
+        selectedPersona = ConfigStore.selectedPersona(this);
+        box.addView(label("اختار واحدة من ٣ شخصيات — Drama 3 (نفس الصوت أو Voice ID لكل واحدة)"));
+        personaGroup = new RadioGroup(this);
+        personaGroup.setOrientation(LinearLayout.VERTICAL);
+        for (int i = 0; i < PersonaProfiles.COUNT; i++) {
+            RadioButton option = new RadioButton(this);
+            option.setId(2000 + i);
+            option.setText(PersonaProfiles.NAMES[i]);
+            option.setTextSize(16);
+            personaGroup.addView(option);
+        }
+        box.addView(personaGroup);
+        box.addView(label("Voice ID للشخصية المختارة"));
+        voiceField = edit("reference_id", ConfigStore.voiceId(this, selectedPersona));
         box.addView(voiceField);
+        personaDetail = label(PersonaProfiles.DESCRIPTIONS[selectedPersona]);
+        box.addView(personaDetail);
         box.addView(button("حفظ البيانات", v -> save()));
         box.addView(label("جملة التجربة"));
-        textField = edit("اكتب النص بالعربي للتجربة", "أهلاً، دي تجربة صوت من تطبيق في إس.");
+        textField = edit("اكتب النص بالعربي للتجربة", PersonaProfiles.sample(selectedPersona));
         box.addView(textField);
         box.addView(button("تشغيل تجربة Drama 3", v -> testText()));
         recordButton = button("سجّل كلامي", v -> toggleRecording());
@@ -82,16 +100,34 @@ public final class MainActivity extends Activity {
         status = label("جاهز للإعداد. لا يوجد API key مضمن في التطبيق.");
         box.addView(status);
         setContentView(scroll);
+        personaGroup.check(2000 + selectedPersona);
+        personaGroup.setOnCheckedChangeListener((group, id) -> choosePersona(id - 2000));
         IntentFilter filter = new IntentFilter(OverlayService.ACTION_TAKE_OVER);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(takeOver, filter, Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(takeOver, filter);
+    }
+    private void choosePersona(int newIndex) {
+        int next = PersonaProfiles.validIndex(newIndex);
+        if (next == selectedPersona) return;
+        // Save the old persona's manually entered Voice ID before switching.
+        if (!save()) {
+            personaGroup.check(2000 + selectedPersona);
+            return;
+        }
+        selectedPersona = next;
+        ConfigStore.saveSelectedPersona(this, selectedPersona);
+        voiceField.setText(ConfigStore.voiceId(this, selectedPersona));
+        personaDetail.setText(PersonaProfiles.DESCRIPTIONS[selectedPersona]);
+        textField.setText(PersonaProfiles.sample(selectedPersona));
+        info("تم اختيار " + PersonaProfiles.NAMES[selectedPersona] + " — راجع Voice ID وجرب الصوت.");
     }
     private boolean save() {
         String voice = voiceField.getText().toString().trim();
         if (!voice.matches("[A-Za-z0-9_-]{4,128}")) { info("Voice ID غير صالح"); return false; }
         try {
             ConfigStore.saveApiKey(this, keyField.getText().toString());
-            ConfigStore.saveVoiceId(this, voice);
+            ConfigStore.saveVoiceId(this, selectedPersona, voice);
+            ConfigStore.saveSelectedPersona(this, selectedPersona);
             keyField.setText("");
             info("اتحفظ الـVoice ID ومفتاح Fish (لو أدخلته) محليًا بتشفير الجهاز.");
             return true;
@@ -101,12 +137,14 @@ public final class MainActivity extends Activity {
         if (!save()) return;
         String text = textField.getText().toString().trim();
         stopped = false; info("جارٍ طلب الصوت من Fish Audio Drama 3...");
-        queue.execute(() -> render(text));
+        final int persona = selectedPersona;
+        queue.execute(() -> render(text, persona));
     }
-    private void render(String words) {
+    private void render(String words, int persona) {
         try {
             String key = ConfigStore.apiKey(this);
-            byte[] mp3 = FishClient.synthesize(words, key, ConfigStore.voiceId(this));
+            byte[] mp3 = FishClient.synthesize(
+                PersonaProfiles.forTts(words, persona), key, ConfigStore.voiceId(this, persona));
             if (stopped) return;
             File file = new File(getCacheDir(), "vs_preview.mp3");
             try (FileOutputStream out = new FileOutputStream(file)) { out.write(mp3); }
@@ -148,6 +186,7 @@ public final class MainActivity extends Activity {
         } catch (Exception ex) { info("التسجيل قصير أو فشل: " + ex.getMessage()); resetRecorder(); return; }
         resetRecorder();
         info("رفع الصوت إلى Fish ASR، ثم توليده عبر Drama 3...");
+        final int persona = selectedPersona;
         queue.execute(() -> {
             try {
                 String key = ConfigStore.apiKey(this);
@@ -156,7 +195,7 @@ public final class MainActivity extends Activity {
                 if (stopped) return;
                 if (words.isEmpty()) throw new Exception("لم يتم التقاط كلام واضح");
                 info("النص: " + words + "\nجارٍ توليد صوت Drama 3...");
-                render(words);
+                render(words, persona);
             } catch (Exception ex) { if (!stopped) info("فشل تحويل الصوت: " + ex.getMessage()); }
         });
     }
