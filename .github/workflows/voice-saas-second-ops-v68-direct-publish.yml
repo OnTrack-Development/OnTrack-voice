@@ -66,7 +66,7 @@ jobs:
             & php -l $path
             if($LASTEXITCODE -ne 0){throw ('PHP syntax invalid '+$path)}
           }
-          & python -m py_compile tools/deploy_saas_first_logic_v68.py tools/prepare_saas_first_logic_v68.py
+          & python -m py_compile tools/deploy_saas_second_ops_v68.py tools/prepare_saas_second_ops_v68.py tools/install_saas_workers_v68.py
           if($LASTEXITCODE -ne 0){throw 'Publisher syntax failed'}
           $tests=@(
             'tools/test_v68_external_claim.php',
@@ -93,7 +93,7 @@ jobs:
         run: |
           $ErrorActionPreference='Stop'
           $zip=Join-Path $env:RUNNER_TEMP 'ontrack-v68-second-ops.zip'
-          & python tools/prepare_saas_first_logic_v68.py $zip
+          & python tools/prepare_saas_second_ops_v68.py $zip
           if($LASTEXITCODE -ne 0){throw 'Pinned old/new patch package failed'}
           $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
           if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH key unavailable'}
@@ -104,7 +104,7 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'Private staging not writable'}
           & scp.exe @ssh -P 7195 $zip ($hostName+':'+$stage+'/bundle.zip')
           if($LASTEXITCODE -ne 0){throw 'SaaS v68 patch bundle failed to upload'}
-          & scp.exe @ssh -P 7195 tools/deploy_saas_first_logic_v68.py ($hostName+':'+$stage+'/deploy.py')
+          & scp.exe @ssh -P 7195 tools/deploy_saas_second_ops_v68.py ($hostName+':'+$stage+'/deploy.py')
           if($LASTEXITCODE -ne 0){throw 'Atomic deploy script transfer failed'}
           $extract='python3 -c "import zipfile; zipfile.ZipFile('+"'"+$stage+"/bundle.zip'"+').extractall('+"'"+$stage+"'"+')"'
           & ssh.exe @ssh -p 7195 $hostName $extract
