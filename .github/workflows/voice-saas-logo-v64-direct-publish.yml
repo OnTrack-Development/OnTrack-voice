@@ -78,7 +78,7 @@ jobs:
           & scp.exe @ssh -P 7195 tools/deploy_saas_brand_v64.py ($remote+':'+$stage+'/deploy.py')
           if($LASTEXITCODE -ne 0){throw 'Brand SSH publisher staging failed'}
           Write-Host 'BRAND_V64_DIRECT_SSH_STAGE_PASS'
-      # Canonical root-query upload and its integration checks now share the same real endpoint.
+      # Canonical root upload and authenticated /brand-logo image path both use real PHP endpoints.
       - name: Publish live and verify server, public CSS/JS and raw upload route
         run: |
           $ErrorActionPreference='Stop'
