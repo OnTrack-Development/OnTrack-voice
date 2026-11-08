@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 30
     defaults:
       run:
-        shell: pwsh
+        shell: powershell
         working-directory: VS
     steps:
       - uses: actions/checkout@v4
@@ -47,8 +47,8 @@ jobs:
             throw 'Android SDK platforms and build-tools not found on Windows runner'
           }
           Write-Host "Using SDK: $sdk"
-          "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding ascii
+          "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding ascii
           Get-ChildItem (Join-Path $sdk 'platforms') | Select-Object -ExpandProperty Name
           Get-ChildItem (Join-Path $sdk 'build-tools') | Select-Object -ExpandProperty Name
       - uses: gradle/actions/setup-gradle@v4
