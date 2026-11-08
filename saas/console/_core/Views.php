@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/VoiceAccess.php';
+// Preload for SOG/white-label agent workspace; visiting Voices first is not required.
+require_once __DIR__.'/IoPremiumProvider.php';
 
 function form_start(string $action,string $return='/',string $extra=''):string{
     $attrs=trim($extra);
@@ -702,7 +704,7 @@ function render_voice_data_sources(array $a,array $site):void {
     $rows=all("SELECT id,name,kind,visibility,status,folder_id,version,content
        FROM voice_knowledge_sources WHERE account_id=? AND site_id=? AND status IN ('active','review') ORDER BY id DESC LIMIT 40",
        [$id,$siteId]);
-    $html='<p class="info">المعرفة معزولة حسب الشركة والموقع. يُستخرج نص الملفات فقط، ويُحفظ تاريخ التعديلات؛ المصادر الداخلية لا تصل إلى مكالمات العملاء. PDF يتطلب محرك استخراج على الاستضافة، ولا يُدّعى فهرسته إذا تعذر ذلك.</p>';
+    $html='<p class="info">قاعدة المعرفة اختيارية: لو فيه ملف أو نص أو رابط عام معتمد، المساعد يستفيد منه، ولو مفيش يشتغل بالسيناريو والتعليمات مباشرة من غير ما يتوقف. لا تحتاج ترفع ملفًا أو تضيف مصدرًا لحفظ أو نشر المساعد.</p>';
     $pdfReady=voice_knowledge_pdf_extractor()!==null;
     $html.='<p class="info">'.($pdfReady
        ?'استخراج PDF النصي متاح على الاستضافة. ملفات PDF المصورة تحتاج OCR منفصل.'
@@ -727,8 +729,8 @@ function render_voice_data_sources(array $a,array $site):void {
         select_html('إتاحة المعرفة','knowledge_visibility',
             ['public'=>'عام للمساعد والعملاء','staff'=>'داخلي — لا يظهر للمتصلين']).
         '<label class="field">TXT / MD / CSV / JSON / DOCX / PDF (حتى 2MB؛ يتحول إلى نص فقط)<input type="file" name="knowledge_file" accept=".txt,.md,.csv,.json,.docx,.pdf"></label>'.
-        '<label class="field">أو محتوى نصي<textarea name="knowledge_text" maxlength="180000" rows="4" placeholder="اكتب معلومات معتمدة يمكن للمساعد الاستناد إليها"></textarea></label>'.
-        '<button class="btn primary" type="submit">حفظ مصدر المعرفة</button></form>';
+        '<label class="field">أو محتوى نصي (اختياري)<textarea name="knowledge_text" maxlength="180000" rows="4" placeholder="اختياري — لو فاضي، السيناريو يشتغل عادي"></textarea></label>'.
+        '<button class="btn primary" type="submit">حفظ مصدر المعرفة (اختياري)</button></form>';
     foreach($rows as $row){
         $sourceId=(int)$row['id'];$fid=(int)$row['folder_id'];
         $html.='<div class="voice-data-row"><strong>'.e($row['name']).'</strong>'.
