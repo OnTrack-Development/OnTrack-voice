@@ -1,0 +1,59 @@
+name: OnTrack Android campaign v56 build verification
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-v68-android-campaign-build.yml'
+      - 'saas/mobile/audio-proof/**'
+      - 'saas/mobile/ota/native_release.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-android-campaign-v56-build
+  cancel-in-progress: false
+jobs:
+  compile:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: jemcik/JemRec
+          ref: f011062adfb3a2154c4d5a9cc4394032fb4345f2
+          path: .build/jemrec
+          persist-credentials: false
+      - name: Check pinned Android SDK and source overlay
+        run: |
+          $ErrorActionPreference='Stop'
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $env:ANDROID_HOME=$sdk
+          $env:ANDROID_SDK_ROOT=$sdk
+          "ANDROID_HOME=$sdk"|Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "ANDROID_SDK_ROOT=$sdk"|Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          & python saas/mobile/audio-proof/prepare.py .build/jemrec
+          if($LASTEXITCODE -ne 0){throw 'Android overlay failed'}
+          & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
+          if($LASTEXITCODE -ne 0){throw 'Carrier daemon compilation failed'}
+          $path='.build\jemrec\app\build.gradle.kts'
+          $gradle=[IO.File]::ReadAllText((Resolve-Path $path).Path)
+          $anchor='    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")'
+          if(!$gradle.Contains($anchor)){throw 'Fragment API dependency anchor missing'}
+          $gradle=$gradle.Replace($anchor,'    implementation("androidx.fragment:fragment:1.6.2")'+[Environment]::NewLine+$anchor)
+          [IO.File]::WriteAllText((Resolve-Path $path).Path,$gradle,[Text.UTF8Encoding]::new($false))
+          Write-Host 'V68_PINNED_ANDROID_SOURCE_AND_PCM_BRIDGE_PASS'
+      - name: Kotlin compiler and paired SIM unit tests
+        working-directory: .build/jemrec
+        run: |
+          $ErrorActionPreference='Stop'
+          & .\gradlew.bat --no-daemon :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.TenantCallRoutingTest' --tests 'com.ontrack.voiceproof.TenantPairingContractTest' --tests 'com.ontrack.voiceproof.LocalUiPageTest' :daemon-tests:test
+          if($LASTEXITCODE -ne 0){throw 'Android campaign Kotlin or SIM tests failed'}
+          & .\gradlew.bat --no-daemon :app:assembleRelease
+          if($LASTEXITCODE -ne 0){throw 'Native Android v56 release assembly failed'}
+          Write-Host 'V68_ANDROID_0_3_33_CAMPAIGN_COMPILE_AND_UNIT_PASS'
