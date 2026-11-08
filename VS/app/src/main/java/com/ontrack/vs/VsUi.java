@@ -17,6 +17,7 @@ public final class VsUi {
     public static final int CARD = Color.rgb(25, 27, 34);
     public static final int PANEL = Color.rgb(38, 40, 48);
     public static final int RED = Color.rgb(239, 54, 69);
+    public static final int GREEN = Color.rgb(34, 170, 96);
     public static final int WHITE = Color.rgb(247, 248, 251);
     public static final int MUTED = Color.rgb(171, 178, 191);
     public static final int EDGE = Color.rgb(60, 63, 74);
