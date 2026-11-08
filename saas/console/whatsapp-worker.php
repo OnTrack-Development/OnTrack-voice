@@ -6,11 +6,11 @@ declare(strict_types=1);
  * A stale 'sending' delivery is reviewed, NEVER blindly resent.
  */
 if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
-require __DIR__.'/_core/Bootstrap.php';
-require __DIR__.'/_core/WhatsAppNativeAgent.php';
-require __DIR__.'/_core/WhatsAppWhmcsBridge.php';
-require __DIR__.'/_core/WhatsAppJobSafety.php';
-require __DIR__.'/_core/OperationalOutbox.php';
+require_once __DIR__.'/_core/Bootstrap.php';
+require_once __DIR__.'/_core/WhatsAppNativeAgent.php';
+require_once __DIR__.'/_core/WhatsAppWhmcsBridge.php';
+require_once __DIR__.'/_core/WhatsAppJobSafety.php';
+require_once __DIR__.'/_core/OperationalOutbox.php';
 init_schema();
 $lockPath=private_path().'/.whatsapp-worker.lock';
 $lock=@fopen($lockPath,'c');
