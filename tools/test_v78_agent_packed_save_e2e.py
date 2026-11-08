@@ -18,6 +18,9 @@ def php(code):
     result=subprocess.run(['php','-r',code],cwd=root,env=env,
                           capture_output=True,text=True,timeout=50)
     assert result.returncode==0,(result.returncode,result.stderr[-1400:],result.stdout[-1400:])
+    if not result.stdout.strip():
+        raise AssertionError(('empty_php_ajax_response_in_fixture',
+            result.returncode,result.stderr[-1400:],code[-900:]))
     return result.stdout.strip()
 
 setup='''
