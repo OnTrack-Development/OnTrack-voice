@@ -1511,22 +1511,38 @@ function render_devices(array $a):void {
     echo card('طلبات الاقتران المعلقة',tbl(['الموقع','المساعد','الشريحة','ينتهي في','الإجراء'],$pending));
     if($manage){
         $sites=all("SELECT id,name FROM sites WHERE account_id=? AND status='active' ORDER BY name",[$id]);
-        $agents=all("SELECT ag.id,ag.name,s.name site_name FROM agents ag JOIN sites s ON s.id=ag.site_id
+        $agents=all("SELECT ag.id,ag.name,ag.site_id,s.name site_name FROM agents ag JOIN sites s ON s.id=ag.site_id
             WHERE ag.account_id=? AND ag.status!='archived' AND s.status='active' ORDER BY ag.id",[$id]);
         $siteOptions=[];$agentOptions=[];
         foreach($sites as $s)$siteOptions[$s['id']]=$s['name'];
         foreach($agents as $ag)$agentOptions[$ag['id']]=$ag['site_name'].' — '.$ag['name'];
         if($siteOptions&&$agentOptions){
-            echo card('ربط الشريحة في 3 خطوات',
-                '<p>اختار الموقع والمساعد والشريحة، واضغط «إنشاء كود الربط». هتظهر 6 أرقام تكتبها في التطبيق، بدون QR أو مفاتيح API.</p>'.
-                form_start('create_device_pairing','/?tab=devices').
-                select_html('الموقع','site_id',$siteOptions).
-                select_html('المساعد','agent_id',$agentOptions).
-                select_html('الشريحة المقصودة','sim_slot',[0=>'SIM 1',1=>'SIM 2']).
-                submit_btn('إنشاء كود الربط (6 أرقام)').
-                '<p class="dim">الكود يظهر مرة واحدة وصالح 10 دقائق. الربط منفصل لكل شريحة، ولا يثبت وحده نجاح صوت المكالمات.</p>');
+            // One-tap defaults: pair with the account's first active agent, which
+            // already has a validated site. Advanced choices remain available.
+            $default=$agents[0];
+            $quick='<p>اختار الشريحة واضغط إنشاء الكود. هتطلع 6 أرقام تكتبهم في التطبيق، وخلاص.</p>'.
+                '<div class="pair-quick-actions">';
+            foreach([0,1] as $sim){
+                $quick.=form_start('create_device_pairing','/?tab=devices','class="inline-form"').
+                    '<input type="hidden" name="site_id" value="'.(int)$default['site_id'].'">'.
+                    '<input type="hidden" name="agent_id" value="'.(int)$default['id'].'">'.
+                    '<input type="hidden" name="sim_slot" value="'.$sim.'">'.
+                    '<button type="submit" class="btn primary">إنشاء كود SIM '.($sim+1).'</button></form>';
+            }
+            $quick.='</div><p class="dim">المساعد الافتراضي: '.e((string)$default['name']).
+                ' — '.e((string)$default['site_name']).' · صلاحية الكود 10 دقائق ولمرة واحدة.</p>';
+            if(count($agents)>1 || count($sites)>1){
+                $quick.='<details><summary>اختيار مساعد أو موقع مختلف (اختياري)</summary>'.
+                    form_start('create_device_pairing','/?tab=devices').
+                    select_html('الموقع','site_id',$siteOptions).
+                    select_html('المساعد','agent_id',$agentOptions).
+                    select_html('الشريحة','sim_slot',[0=>'SIM 1',1=>'SIM 2']).
+                    submit_btn('إنشاء كود مخصص (6 أرقام)').
+                    '</details>';
+            }
+            echo card('ربط الشريحة بكود 6 أرقام',$quick);
         }else{
-            echo card('ربط Android','<p>أضف موقعًا وإيجنت أولًا ثم أنشئ رمز ربط للشريحة.</p>');
+            echo card('ربط Android','<p>لا يوجد مساعد نشط للحساب. أضف مساعدًا وموقعًا أولًا لتحديد الحساب الذي ستعمل عليه الشريحة.</p>');
         }
     }
     echo '<div class="info">من تطبيق OnTrack اختار «ربط SIM 1» أو «ربط SIM 2»، واكتب كود الـ6 أرقام من نفس الشريحة. راقب آخر اتصال هنا.</div>';
