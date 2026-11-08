@@ -19,7 +19,10 @@ function wa_native_snapshot(array $connection):?array {
 function wa_native_toggle(int $accountId,int $connectionId,bool $enabled):void {
     $connection=wa_connection($connectionId,$accountId);
     if($enabled){
-        if($connection['state']!=='verified')throw new RuntimeException('اختبر رقم Meta أولاً قبل تفعيل الرد الآلي');
+        if($connection['state']!=='verified')throw new RuntimeException('اختبر وسيلة استقبال وإرسال واتساب أولاً قبل تفعيل الرد الآلي');
+        if(($connection['onboarding_method']??'')==='existing_webhook' &&
+           !wa_existing_outbound_ready($connection))
+            throw new RuntimeException('اختبر موصل إرسال الموديول الحالي قبل تفعيل AI؛ استقبال الرسائل وحده غير كاف.');
         if(!wa_native_snapshot($connection))throw new RuntimeException('لازم تختار إيجنت منشور لنفس الموقع أولاً');
         // Fail closed if no platform AI provider credential is configured.
         tenant_voice_provider();
