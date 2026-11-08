@@ -4,16 +4,22 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class TenantPairingContractTest {
-    @Test fun acceptsOnlyTwoSlotsAnd96BitCodes() {
+    @Test fun acceptsSixDigitsAndLegacyHexTickets() {
         assertEquals(0, TenantPairingContract.slot(0))
         assertEquals(1, TenantPairingContract.slot(1))
         for (slot in listOf(-1,2,3)) assertThrows(IllegalArgumentException::class.java) { TenantPairingContract.slot(slot) }
+        assertEquals("012345", TenantPairingContract.code("012345"))
+        assertEquals("000000", TenantPairingContract.code("000000"))
         assertEquals("ABCD-EF01-2345-6789-ABCD-EF01",
             TenantPairingContract.code("abcd-ef01-2345-6789-abcd-ef01"))
-        for (bad in listOf("", "0000", "a".repeat(23), "g".repeat(24), "a".repeat(25)))
+        for (bad in listOf("", "0000", "12345", "1234567", "12ab56", "a".repeat(23), "g".repeat(24), "a".repeat(25)))
             assertThrows(IllegalArgumentException::class.java) { TenantPairingContract.code(bad) }
     }
     @Test fun oneTimeCodesAreLockedToTheSelectedPhysicalSlot() {
+        assertEquals("123456",TenantPairingContract.codeForSlot("123456",0))
+        assertEquals("123456",TenantPairingContract.codeForSlot("123456",1))
+        // Only legacy 24-hex tickets encode a slot; the server rejects
+        // a six-digit ticket submitted against the wrong selected SIM.
         assertEquals("0BCD-EF01-2345-6789-ABCD-EF01",
             TenantPairingContract.codeForSlot("0bcd-ef01-2345-6789-abcd-ef01",0))
         assertEquals("1BCD-EF01-2345-6789-ABCD-EF01",
