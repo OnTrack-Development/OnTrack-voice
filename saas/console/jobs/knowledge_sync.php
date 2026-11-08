@@ -5,6 +5,7 @@ if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 require_once dirname(__DIR__).'/_core/Bootstrap.php';
 require_once dirname(__DIR__).'/_core/VoiceKnowledgeWeb.php';
 require_once dirname(__DIR__).'/_core/VoiceConnectorCache.php';
+require_once dirname(__DIR__).'/_core/OperationalOutbox.php';
 $private=private_path();
 $lock=@fopen($private.'/.knowledge-sync.lock','c');
 if($lock===false)exit(1);
@@ -31,6 +32,9 @@ try{
         @chmod($tmp,0600);@rename($tmp,$target);
     }
 }catch(Throwable $ignored){}
+try{
+    operational_worker_beat('knowledge_sync',1,$exitCode===0?1:0,$exitCode===0?0:1);
+}catch(Throwable){$exitCode=1;$report['result']='failed';}
 flock($lock,LOCK_UN);fclose($lock);
 echo json_encode($report,JSON_UNESCAPED_SLASHES)."\n";
 exit($exitCode);
