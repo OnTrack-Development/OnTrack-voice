@@ -16,6 +16,10 @@ function operational_outbox_init():void{
         payload_hash CHAR(64) NOT NULL,
         accepted_at VARCHAR(19) NOT NULL
     )".$engine);
+    db()->exec("CREATE TABLE IF NOT EXISTS operational_outbox_leases(
+        outbox_id BIGINT PRIMARY KEY,
+        claimed_at VARCHAR(19) NOT NULL
+    )".$engine);
     db()->exec("CREATE TABLE IF NOT EXISTS operational_worker_heartbeat(
         worker VARCHAR(70) PRIMARY KEY,
         last_run_at VARCHAR(19) NOT NULL,
@@ -47,10 +51,16 @@ function operational_outbox_recover(int $timeout=180):int{
     $before=gmdate('Y-m-d H:i:s',time()-max(120,min(86400,$timeout)));
     // No irreversible external I/O is performed in this consumer, so a stale
     // processing state is safe to retry. Never retry more than five times.
-    $recovered=execute("UPDATE outbox SET status='pending' WHERE status='processing'
-        AND created_at<? AND attempts<5",[$before]);
-    execute("UPDATE outbox SET status='failed' WHERE status='processing'
-        AND created_at<? AND attempts>=5",[$before]);
+    $recovered=execute("UPDATE outbox SET status='pending'
+        WHERE status='processing' AND attempts<5 AND id IN
+        (SELECT o.id FROM outbox o LEFT JOIN operational_outbox_leases l
+         ON l.outbox_id=o.id WHERE o.status='processing'
+         AND COALESCE(l.claimed_at,o.created_at)<?)",[$before]);
+    execute("UPDATE outbox SET status='failed'
+        WHERE status='processing' AND attempts>=5 AND id IN
+        (SELECT o.id FROM outbox o LEFT JOIN operational_outbox_leases l
+         ON l.outbox_id=o.id WHERE o.status='processing'
+         AND COALESCE(l.claimed_at,o.created_at)<?)",[$before]);
     return $recovered;
 }
 function operational_outbox_process(int $id):array{
@@ -61,6 +71,13 @@ function operational_outbox_process(int $id):array{
         WHERE id=? AND status='pending' AND attempts<5",[$id])!==1)
         return ['status'=>'already_claimed_or_limit'];
     try{
+        // A fresh claim timestamp prevents old pending jobs from being
+        // incorrectly recovered during an active, newly claimed attempt.
+        $lease=one('SELECT outbox_id FROM operational_outbox_leases WHERE outbox_id=?',[$id]);
+        if($lease)execute('UPDATE operational_outbox_leases SET claimed_at=? WHERE outbox_id=?',
+            [now(),$id]);
+        else insert('INSERT INTO operational_outbox_leases(outbox_id,claimed_at) VALUES (?,?)',
+            [$id,now()]);
         db()->beginTransaction();
         // SELECT row lock is necessary to protect concurrent concurrent
         // consumers and ensure the status transition isn't interrupted.
