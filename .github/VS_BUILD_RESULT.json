@@ -1,10 +1,10 @@
 {
-    "updated_at":  "2026-11-08T22:02:04.5028315Z",
-    "run_id":  "42527015630",
-    "run_url":  "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42527015630",
+    "updated_at":  "2026-11-08T22:04:42.5515558Z",
+    "run_id":  "42527018899",
+    "run_url":  "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42527018899",
     "run_attempt":  "1",
     "job_status":  "success",
-    "apk_download_url":  "https://github.com/OnTrack-Development/OnTrack-voice/releases/download/vs-debug-42527015630/VS-Drama3-debug.apk",
-    "head_sha":  "3417beb7629cc19e0db41e4a55943948be45cb8d",
+    "apk_download_url":  "https://github.com/OnTrack-Development/OnTrack-voice/releases/download/vs-debug-42527018899/VS-Drama3-debug.apk",
+    "head_sha":  "e23c811db39c870d51776fb88cc09ea7db003372",
     "workflow":  "vs-android-debug.yml"
 }
