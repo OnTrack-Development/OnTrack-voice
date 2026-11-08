@@ -230,6 +230,13 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 
 <header><div class="brand"><span class="logo">OT</span><div><h1>OnTrack Voice</h1><div class="sub">OnTrack Development · مركز الاتصال</div></div></div><div class="otHeaderTools"><button id="updateBell" type="button" class="otUpdateBellButton" hidden aria-label="تحديث جديد — فتح شاشة التحديث">↑<span class="otNotifyDot"></span></button><button id="themeToggle" type="button" class="otThemeButton" aria-label="تبديل المظهر">☀</button><div class="minor" id="version" aria-label="إصدار التطبيق">جاري قراءة الإصدار…</div></div></header>
 <main id="v1Minimal" aria-label="OnTrack Voice">
+<section class="card" id="v1PairAlways" aria-labelledby="v1PairHeading">
+<div class="section-title"><h2 id="v1PairHeading">ربط الشريحة بالحساب</h2><span class="chip" id="v1PairState">جاهز للربط</span></div>
+<p class="v1Hint">خطوتين بس: افتح حسابك واطلع رمز QR، وبعدها امسحه هنا. مفيش API Key ولا إعدادات معقدة.</p>
+<div class="v1Buttons"><button type="button" class="primary" id="v1PairNow">ربط شريحة SIM</button><button type="button" class="outline" id="v1ScanPairQr">مسح QR</button></div>
+<button type="button" class="outline" id="v1PairWebsite" style="width:100%">افتح حسابي وأنشئ رمز الربط</button>
+<p class="v1Hint" id="v1PairHelp" aria-live="polite">اختار SIM 1 أو SIM 2 من داخل التطبيق بعد إنشاء رمز الربط.</p>
+</section>
 <section class="card" id="v1Wizard" hidden><h2>تجهيز الهاتف لأول مرة</h2>
 <p class="v1Hint">الخطوات دي بتختفي بعد نجاح الربط، وتقدر ترجع لصلاحيات التشغيل عند الحاجة.</p>
 <p><b>1. ربط الحساب والشريحة</b></p><button type="button" id="v1Pair">ربط الشريحة</button>
@@ -653,6 +660,12 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
 };
 function v1Render(s){
  const linked=!!s.tenantLinked,phoneReady=s.phonePermissionGranted!==false,active=!!s.agentEnabled&&s.tenantServiceRunning===true&&!s.tenantPairingInProgress;
+ el('v1PairState').textContent=linked?'شريحة مرتبطة':'غير مربوط';
+ el('v1PairState').className='chip '+(linked?'good':'warn');
+ el('v1PairNow').textContent=linked?'إدارة / ربط شريحة تانية':'ربط شريحة SIM الآن';
+ el('v1PairNow').disabled=!!s.inCall||!!s.tenantPairingInProgress||Number(s.nativeCode)<24;
+ el('v1ScanPairQr').disabled=!!s.inCall||!!s.tenantPairingInProgress||Number(s.nativeCode)<24;
+ el('v1PairHelp').textContent=linked?'الشريحة الحالية مربوطة، وتقدر تربط الشريحة التانية من نفس المكان.':'افتح حسابك، اضغط ربط SIM 1 أو SIM 2، وبعدها امسح QR بالتطبيق.';
  el('v1Wizard').hidden=linked&&phoneReady;
  el('v1State').textContent=s.tenantPairingInProgress?'جاري الربط':active?'يعمل':linked?'متوقف':'غير مربوط';
  el('v1State').className='chip '+(active?'good':'warn');
@@ -675,6 +688,9 @@ function v1Render(s){
 el('v1Enable').onclick=()=>el('enable').click();
 el('v1Disable').onclick=()=>el('disable').click();
 el('v1Pair').onclick=()=>send('tenantMenu');
+el('v1PairNow').onclick=()=>send('tenantMenu');
+el('v1ScanPairQr').onclick=()=>send('tenantQrScan');
+el('v1PairWebsite').onclick=()=>send('openConsole');
 el('v1Setup').onclick=()=>send('diagnostics');
 el('v1Test').onclick=()=>send('tenantTest');
 el('v1OpenSite').onclick=()=>send('openConsole');
