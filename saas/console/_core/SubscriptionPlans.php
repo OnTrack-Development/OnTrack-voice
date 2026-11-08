@@ -1,5 +1,33 @@
 <?php
 declare(strict_types=1);
+/**
+ * Explicit owner/admin issuance; it is an administrative grant, NEVER proof
+ * of Kashier payment or a settled invoice. Existing plan dates are preserved.
+ * Resellers must still observe their parent quota for customer assignments.
+ */
+function subscription_admin_grant_allowed(array $actor,array $target,array $plan,bool $support=false,string $view='admin'):bool {
+    return ($actor['kind']??'')==='platform'
+        && in_array((string)($actor['role']??''),['owner','admin'],true)
+        && !$support && $view==='admin'
+        && ($target['status']??'')==='active'
+        && in_array((string)($target['kind']??''),['reseller','customer'],true)
+        && ($plan['status']??'')==='active'
+        && ($plan['kind']??'')===(($target['kind']??'')==='reseller'?'reseller':'user');
+}
+
+/** Public self-activation is ONLY allowed for an advertised zero-price plan.
+ * Paid subscriptions MUST continue through the verified checkout flow.
+ */
+function subscription_self_free_allowed(array $actor,array $plan,bool $support=false):bool {
+    return !$support
+        && in_array((string)($actor['role']??''),['owner','admin'],true)
+        && in_array((string)($actor['kind']??''),['reseller','customer'],true)
+        && ($actor['status']??'')==='active'
+        && ($plan['status']??'')==='active'
+        && (int)($plan['price_minor']??-1)===0
+        && ($plan['kind']??'')===(($actor['kind']??'')==='reseller'?'reseller':'user');
+}
+
 
 /**
  * Assign a plan in the owner-controlled DEMO workspace. External verified
