@@ -478,7 +478,8 @@ function owner_scope():int{
     return (int)$a['account_id'];
 }
 function brand(array $a):array{
-    if($a['kind']==='platform')return ['name'=>'OnTrack Voice','logo'=>'','accent'=>'#e11d39'];
+    if($a['kind']==='platform')return ['name'=>(string)($a['brand_name']?:'OnTrack Voice'),
+        'logo'=>(string)($a['logo_path']??''),'accent'=>'#cb2925'];
     if($a['kind']==='reseller')return ['name'=>(string)($a['brand_name']?:$a['name']),'logo'=>(string)($a['logo_path']??''),'accent'=>'#e11d39'];
     if(!empty($a['parent_id'])){
         $p=account((int)$a['parent_id']);
