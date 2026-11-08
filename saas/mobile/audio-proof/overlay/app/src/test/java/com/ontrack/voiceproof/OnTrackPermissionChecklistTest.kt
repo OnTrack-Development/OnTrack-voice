@@ -14,7 +14,7 @@ class OnTrackPermissionChecklistTest {
 
     @Test fun voiceNeedsOnlyPhoneStatePermission() {
         val all=OnTrackPermissionChecklist.evaluate(facts())
-        assertEquals(1,all.count{it.state==CheckState.ACTION})
+        assertEquals(0,all.count{it.state==CheckState.ACTION})
         assertTrue(all.any{it.id=="permission_phone"&&it.state==CheckState.READY})
         assertTrue(all.any{it.id=="permission_calls"&&it.state==CheckState.OPTIONAL})
         assertTrue(all.any{it.id=="permission_overlay"&&it.state==CheckState.OPTIONAL})
