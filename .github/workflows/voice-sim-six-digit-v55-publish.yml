@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
   actions: read
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: utf-8
 concurrency:
   group: ontrack-sim6-v55-signed-direct-deploy
   cancel-in-progress: false
@@ -24,6 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: feat/io-premium-native-v51-20261107
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
