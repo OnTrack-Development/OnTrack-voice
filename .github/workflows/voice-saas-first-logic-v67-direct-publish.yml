@@ -13,6 +13,7 @@ on:
       - 'saas/console/_core/WhatsAppSupport.php'
       - 'saas/console/_core/WhatsAppJobSafety.php'
       - 'saas/console/_core/WhatsAppNativeAgent.php'
+      - 'saas/console/_core/VoiceFlowRuntime.php'
       - 'saas/console/_core/WhatsAppWhmcsBridge.php'
       - 'saas/console/_core/Actions.php'
       - 'saas/console/_core/Views.php'
@@ -49,13 +50,15 @@ jobs:
             'saas/console/_core/WhatsAppSupport.php',
             'saas/console/_core/WhatsAppJobSafety.php',
             'saas/console/_core/WhatsAppNativeAgent.php',
+            'saas/console/_core/VoiceFlowRuntime.php',
             'saas/console/_core/WhatsAppWhmcsBridge.php',
             'saas/console/_core/Actions.php',
             'saas/console/_core/Views.php',
             'saas/console/device/v1/index.php',
             'saas/console/whatsapp-worker.php',
             'tools/test_v67_payment_renewal_refund.php',
-            'tools/test_v67_whatsapp_dispatch.php'
+            'tools/test_v67_whatsapp_dispatch.php',
+            'tools/test_v67_voice_device_flow.php'
           )
           foreach($path in $paths){
             & php -l $path
@@ -66,6 +69,7 @@ jobs:
           $tests=@(
             'tools/test_v67_payment_renewal_refund.php',
             'tools/test_v67_whatsapp_dispatch.php',
+            'tools/test_v67_voice_device_flow.php',
             'tools/test_verified_checkout_settlement.php',
             'tools/test_console_kashier_webhook.php',
             'tools/test_whatsapp_native_agent.php',
