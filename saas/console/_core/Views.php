@@ -210,17 +210,15 @@ function layout_open(array $a,string $tab):void{
         echo '<button type="button" class="btn small primary" data-copy-secret>نسخ المفتاح</button></div>';
         echo '<small class="dim" data-copy-result role="status">اضغط على الحقل لتحديد المفتاح يدويًا إذا لزم.</small></div>';
     }
-    if($pairCode=flash('device_pair_qr')){
-        // The code is rendered only on the post-create session response.
-        // QR is generated in-browser from bundled MIT JS; never a third-party QR API.
-        // The first hex digit encodes the only slot the server will accept.
-        // Never offer a QR for the other slot using the same single-use code.
-        $slot=(int)$pairCode[0];
-        echo '<section class="alert secret pair-qr-panel"><strong>رمز ربط SIM '.($slot+1).' فقط — لا يصلح للشريحة الأخرى</strong><div class="pair-qr-grid">';
-        if(in_array($pairCode[0],['0','1'],true)){
-            echo '<div class="pair-qr-card"><b>SIM '.($slot+1).'</b><div class="pair-qr-code" data-pair-code="'.e($pairCode).'" data-pair-slot="'.$slot.'"></div><button type="button" class="btn small" data-pair-copy="'.$slot.'">نسخ رابط الشريحة</button></div>';
+    if($ticket=flash('device_pair_code')){
+        if(preg_match('/^([01])\\|([0-9]{6})$/D',(string)$ticket,$m)){
+            $slot=(int)$m[1];$code=$m[2];
+            echo '<section class="alert secret" role="status"><strong>رمز ربط SIM '.($slot+1).'</strong>'.
+                '<p>اكتب الست أرقام دي في تطبيق OnTrack. صالحة 10 دقائق ولمرة واحدة فقط.</p>'.
+                '<div class="pair-six-wrap"><input class="pair-six-code" type="text" readonly dir="ltr" inputmode="numeric" data-copy-source value="'.e($code).'" aria-label="رمز الربط من 6 أرقام">'.
+                '<button type="button" class="btn small primary" data-copy-secret>نسخ الرمز</button></div>'.
+                '<small class="dim" data-copy-result role="status">اختار نفس SIM في التطبيق. لا تشارك الرمز.</small></section>';
         }
-        echo '</div><p class="dim">QR يحتوي رمزًا مؤقتًا؛ لا تشاركه مع أحد. المسح يفتح شاشة تأكيد داخل التطبيق ولا يربط تلقائيًا.</p></section>';
     }
     // Synthetic rows retain explicit DEMO marks; no persistent warning bars.
 }
@@ -1519,19 +1517,19 @@ function render_devices(array $a):void {
         foreach($sites as $s)$siteOptions[$s['id']]=$s['name'];
         foreach($agents as $ag)$agentOptions[$ag['id']]=$ag['site_name'].' — '.$ag['name'];
         if($siteOptions&&$agentOptions){
-            echo card('ربط جهاز وشريحة بخط مستقل',
-                '<p>اختر SIM 1 أو SIM 2 أولًا. الرمز المؤقت مقيد بهذه الشريحة فقط ولا يمكن استخدامه لربط الأخرى. لكل شريحة حساب وإيجنت محددان، ولا يستخدم هذا الربط مفتاح هاتف التجربة القديم.</p>'.
+            echo card('ربط الشريحة في 3 خطوات',
+                '<p>اختار الموقع والمساعد والشريحة، واضغط «إنشاء كود الربط». هتظهر 6 أرقام تكتبها في التطبيق، بدون QR أو مفاتيح API.</p>'.
                 form_start('create_device_pairing','/?tab=devices').
                 select_html('الموقع','site_id',$siteOptions).
                 select_html('المساعد','agent_id',$agentOptions).
                 select_html('الشريحة المقصودة','sim_slot',[0=>'SIM 1',1=>'SIM 2']).
-                submit_btn('إنشاء رمز اقتران لمدة 10 دقائق').
-                '<p class="dim">رمز الاقتران يُعرض مرة واحدة، ولا يتم حفظه كنص. استخدم QR داخل تطبيق Android أو أدخل الرمز يدويًا. يجب تأكيد الشريحة والحساب على الهاتف؛ الربط لا يثبت توافق SIM الصوتي بعد.</p>');
+                submit_btn('إنشاء كود الربط (6 أرقام)').
+                '<p class="dim">الكود يظهر مرة واحدة وصالح 10 دقائق. الربط منفصل لكل شريحة، ولا يثبت وحده نجاح صوت المكالمات.</p>');
         }else{
             echo card('ربط Android','<p>أضف موقعًا وإيجنت أولًا ثم أنشئ رمز ربط للشريحة.</p>');
         }
     }
-    echo '<div class="info">الربط الجديد لكل شريحة على حدة: اختر الشركة والمساعد، أنشئ QR، ثم راقب آخر اتصال للجهاز. جلسة Google Live تحتاج مزوّدًا معتمدًا واختبار صوت فعلي.</div>';
+    echo '<div class="info">من تطبيق OnTrack اختار «ربط SIM 1» أو «ربط SIM 2»، واكتب كود الـ6 أرقام من نفس الشريحة. راقب آخر اتصال هنا.</div>';
 }
 function render_voices(array $a):void{
     $id=(int)$a['account_id'];$list=all('SELECT * FROM voices ORDER BY tier, id');
