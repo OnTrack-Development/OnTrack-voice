@@ -184,10 +184,11 @@ public final class OverlayService extends Service {
             ? "● المعاينة: متوقفة"
             : "● المعاينة: جاهزة فقط");
         modeLabel.setTextColor(paused ? VsUi.RED : VsUi.GREEN);
-        enableButton.setEnabled(paused);
-        disableButton.setEnabled(!paused);
-        enableButton.setAlpha(paused ? 1f : 0.55f);
-        disableButton.setAlpha(paused ? 0.55f : 1f);
+        // Always expose both controls, using color and brightness for the state.
+        enableButton.setEnabled(true);
+        disableButton.setEnabled(true);
+        enableButton.setAlpha(paused ? 0.85f : 1f);
+        disableButton.setAlpha(paused ? 1f : 0.85f);
         if (simLabel != null) simLabel.setText(SimAudioStatus.report(this));
     }
 
