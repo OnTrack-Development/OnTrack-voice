@@ -20,7 +20,7 @@ $plan=insert("INSERT INTO plans(kind,name,call_quota,site_limit,agent_limit,staf
 $reference='WHMCS-V68-'.bin2hex(random_bytes(6));
 $orderId=insert("INSERT INTO orders(account_id,integration_id,external_order_id,plan_id,
     customer_name,customer_email,amount_minor,status,created_at)
-    VALUES (2,?,?,?,?,1575,'pending_payment',?)",[
+    VALUES (2,?,?,?,?,?,1575,'pending_payment',?)",[
     $integration,$reference,$plan,'Wrong untrusted email','nobody@example.test',now()]);
 $order=one('SELECT * FROM orders WHERE id=?',[$orderId]);
 $issuer=one('SELECT * FROM integrations WHERE id=?',[$integration]);
