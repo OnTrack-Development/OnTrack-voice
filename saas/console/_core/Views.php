@@ -1437,7 +1437,7 @@ function render_agents(array $a):void{
                     '<button class="btn small" type="submit" data-confirm="استرجاع النسخة كمسودة بدون نشر؟">استرجاع كمسودة</button></form></div>';
             }
             $editing=form_start('update_agent','/?tab=agents&site='.(int)$selected['id'],
-                'class="stack agent-form agent-studio-form"').
+                'class="stack agent-form agent-studio-form" action="'.e(white_label_url('/')).'"').
                 '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
                 agent_scenario_mode_picker($policy).
                 '<div class="agent-builder-tabs" role="tablist" aria-label="أقسام إعدادات الإيجنت">'.
