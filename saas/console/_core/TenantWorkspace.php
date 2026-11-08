@@ -421,7 +421,8 @@ function tenant_workspace_call_analysis(array $binding,array $data,?callable $tr
 function tenant_workspace_campaigns(array $b):array{
     tcq_init();
     return ['campaigns'=>all('SELECT id,name,starts_at,ends_at,status FROM tenant_campaigns WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? ORDER BY created_at DESC LIMIT 60',
-        [$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']]),'attempts'=>all('SELECT id,campaign_id,status,result,finished_at FROM tenant_campaign_attempts WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? ORDER BY leased_epoch DESC LIMIT 80',[$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']])];
+        [$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']]),'attempts'=>all('SELECT id,campaign_id,status,result,finished_at FROM tenant_campaign_attempts WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? ORDER BY leased_epoch DESC LIMIT 80',[$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']]),
+      'dispatch_enabled'=>tcq_enabled()];
 }
 function tenant_workspace_create_campaign(array $b,array $p):array{
     if(($p['confirmed']??false)!==true)throw new InvalidArgumentException('confirmation_required');
