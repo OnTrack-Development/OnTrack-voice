@@ -80,7 +80,7 @@ def main() -> None:
         backup.mkdir(mode=0o700)
         for name in FILES:
             dst = backup / name
-            dst.parent.mkdir(mode=0o700, exist_ok=True)
+            dst.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             dst.write_bytes(old[name])
             os.chmod(dst, 0o600)
         applied = []
