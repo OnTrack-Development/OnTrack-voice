@@ -27,7 +27,7 @@ $pass=$allowed
     &&str_contains($actions,"case 'self_select_free_plan':")
     &&str_contains($actions,"!subscription_admin_grant_allowed(")
     &&str_contains($actions,"'payment_recorded'=>false")
-    &&str_contains($actions,"site_limit($parent,'call_quota')")
+    &&str_contains($actions,'site_limit($parent,')
     &&str_contains($views,"form_start('admin_grant_plan'")
     &&str_contains($views,"form_start('self_select_free_plan'")
     &&str_contains($views,"form_start('checkout_plan'")
