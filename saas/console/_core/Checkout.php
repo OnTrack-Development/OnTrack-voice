@@ -81,6 +81,9 @@ function checkout_start(int $accountId,int $planId,array $user):string {
         VALUES (?,NULL,?,?,?,?,?,'pending_payment',?)",[
         $accountId,$reference,$planId,(string)$user['name'],$email,$minor,now()]);
     $url=checkout_request($cfg,$body);
+    require_once __DIR__.'/BillingInvoices.php';
+    $order=one('SELECT * FROM orders WHERE id=?',[$id]);
+    billing_invoice_for_order($order);
     audit('billing.checkout.created',$accountId,['order_id'=>$id,'plan_id'=>$planId]);
     return $url;
 }
@@ -131,5 +134,7 @@ function record_verified_internal_checkout(array $order,string $reference):array
         VALUES (?,NULL,?,?,'pending',?)",[(int)$order['account_id'],
         'subscription.activated',json_encode(['order_id'=>(int)$order['id'],
             'plan_id'=>(int)$plan['id'],'source'=>'verified_kashier'],JSON_THROW_ON_ERROR),now()]);
+    require_once __DIR__.'/BillingInvoices.php';
+    billing_invoice_settle((int)$order['id'],$reference);
     return ['status'=>'active','duplicate'=>false,'account_id'=>(int)$order['account_id']];
 }
