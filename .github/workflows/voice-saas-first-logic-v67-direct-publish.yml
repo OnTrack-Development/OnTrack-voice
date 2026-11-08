@@ -1,25 +1,5 @@
 name: OnTrack v67 all first-section SaaS logic security and operations repairs
 on:
-  push:
-    branches: [feat/io-premium-native-v51-20261107]
-    paths:
-      - '.github/workflows/voice-saas-first-logic-v67-direct-publish.yml'
-      - 'tools/test_v67_payment_renewal_refund.php'
-      - 'tools/test_v67_whatsapp_dispatch.php'
-      - 'tools/test_v67_voice_device_flow.php'
-      - 'tools/deploy_saas_first_logic_v67.py'
-      - 'tools/prepare_saas_first_logic_v67.py'
-      - 'saas/console/_core/KashierWebhook.php'
-      - 'saas/console/_core/Checkout.php'
-      - 'saas/console/_core/WhatsAppSupport.php'
-      - 'saas/console/_core/WhatsAppJobSafety.php'
-      - 'saas/console/_core/WhatsAppNativeAgent.php'
-      - 'saas/console/_core/VoiceFlowRuntime.php'
-      - 'saas/console/_core/WhatsAppWhmcsBridge.php'
-      - 'saas/console/_core/Actions.php'
-      - 'saas/console/_core/Views.php'
-      - 'saas/console/device/v1/index.php'
-      - 'saas/console/whatsapp-worker.php'
   workflow_dispatch:
 permissions:
   contents: read
