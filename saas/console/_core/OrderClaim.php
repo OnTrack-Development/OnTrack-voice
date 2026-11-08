@@ -36,5 +36,7 @@ function record_verified_external_payment(array $order,string $paymentReference)
     ],JSON_UNESCAPED_SLASHES);
     insert("INSERT INTO outbox(account_id,integration_id,kind,payload,status,created_at) VALUES (?,?,?,?,'pending',?)",
         [(int)$order['account_id'],(int)$order['integration_id'],'payment.received_pending_claim',$payload,now()]);
+    require_once __DIR__.'/BillingInvoices.php';
+    billing_invoice_settle((int)$order['id'],$paymentReference);
     return ['status'=>'paid_pending_claim','order_id'=>(int)$order['id'],'claim_required'=>true,'duplicate'=>false];
 }
