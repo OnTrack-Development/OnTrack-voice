@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.media.MediaDataSource;
 import android.media.MediaRecorder;
 import android.media.AudioRecord;
 import android.media.AudioFormat;
@@ -26,8 +27,8 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import java.io.File;
-import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Arrays;
 import java.io.ByteArrayOutputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -44,6 +45,26 @@ public final class MainActivity extends Activity {
     private ByteArrayOutputStream micSamples;
     private Thread captureThread;
     private MediaPlayer player;
+    private RamMp3 currentRamMp3;
+
+    /** Decoded by Android directly from volatile memory. Never saved to disk. */
+    private static final class RamMp3 extends MediaDataSource {
+        private byte[] data;
+        RamMp3(byte[] data) { this.data = data; }
+        @Override public synchronized int readAt(long position, byte[] buffer, int offset, int size)
+                throws IOException {
+            if (data == null) throw new IOException("audio data already cleared");
+            if (position < 0) return -1;
+            if (position >= data.length) return -1;
+            int length = (int)Math.min((long)size, (long)data.length - position);
+            System.arraycopy(data, (int)position, buffer, offset, length);
+            return length;
+        }
+        @Override public synchronized long getSize() { return data == null ? 0 : data.length; }
+        @Override public synchronized void close() {
+            if (data != null) { Arrays.fill(data, (byte)0); data = null; }
+        }
+    }
     private volatile boolean recordingActive;
     private volatile boolean captureRunning;
     private volatile boolean stopped;
@@ -278,29 +299,63 @@ public final class MainActivity extends Activity {
             String key = ConfigStore.apiKey(this);
             byte[] mp3 = FishClient.synthesize(
                 PersonaProfiles.forTts(words, persona), key, ConfigStore.voiceId(this, persona));
-            if (stopped || ConfigStore.isPreviewPaused(this)) return;
-            File file = new File(getCacheDir(), "vs_preview.mp3");
-            try (FileOutputStream out = new FileOutputStream(file)) { out.write(mp3); }
-            if (!stopped) runOnUiThread(() -> {
-                if (!ConfigStore.isPreviewPaused(this)) play(file);
+            if (stopped || ConfigStore.isPreviewPaused(this)) {
+                Arrays.fill(mp3, (byte)0);
+                return;
+            }
+            runOnUiThread(() -> {
+                if (!stopped && !ConfigStore.isPreviewPaused(this) && !isPhoneAudioBusy())
+                    play(mp3);
+                else Arrays.fill(mp3, (byte)0);
             });
         } catch (Exception ex) {
             if (!stopped) info("Fish Audio: " + ex.getMessage());
         }
     }
 
-    private void play(File file) {
-        if (!mayPreview() || stopped) return;
+    private void play(byte[] mp3) {
+        if (!mayPreview() || stopped) {
+            Arrays.fill(mp3, (byte)0);
+            return;
+        }
         try {
-            if (player != null) { player.release(); player = null; }
+            releasePlayback();
+            RamMp3 ram = new RamMp3(mp3);
+            currentRamMp3 = ram;
             player = new MediaPlayer();
-            player.setDataSource(file.getAbsolutePath());
-            player.setOnPreparedListener(p -> { if (!stopped && !isPhoneAudioBusy()) p.start(); });
-            player.setOnCompletionListener(p -> info("انتهت عينة الصوت على الهاتف."));
+            player.setDataSource(ram);
+            player.setOnPreparedListener(p -> {
+                if (!stopped && !isPhoneAudioBusy() && !ConfigStore.isPreviewPaused(this))
+                    p.start();
+                else releasePlayback();
+            });
+            player.setOnCompletionListener(p -> {
+                releasePlayback();
+                info("انتهت المعاينة. تم مسح بيانات الصوت المؤقتة من الذاكرة.");
+            });
+            player.setOnErrorListener((p, what, extra) -> {
+                releasePlayback();
+                info("تعذّر تشغيل المعاينة");
+                return true;
+            });
             player.prepareAsync();
-            info("الصوت اتولّد. التشغيل على جهازك فقط، مش على خط المكالمة.");
+            info("المعاينة في RAM فقط، ومش متصلة بقناة إرسال مكالمة الشريحة.");
         } catch (Exception ex) {
+            releasePlayback();
+            Arrays.fill(mp3, (byte)0);
             info("تعذّر تشغيل العينة: " + ex.getMessage());
+        }
+    }
+
+    private void releasePlayback() {
+        if (player != null) {
+            try { player.stop(); } catch (Exception ignored) {}
+            try { player.release(); } catch (Exception ignored) {}
+            player = null;
+        }
+        if (currentRamMp3 != null) {
+            currentRamMp3.close();
+            currentRamMp3 = null;
         }
     }
 
@@ -412,11 +467,7 @@ public final class MainActivity extends Activity {
     private void stopAll() {
         stopped = true;
         resetRecorder();
-        if (player != null) {
-            try { player.stop(); } catch (Exception ignored) {}
-            player.release();
-            player = null;
-        }
+        releasePlayback();
     }
 
     private void overlay() {
