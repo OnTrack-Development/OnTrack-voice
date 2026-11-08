@@ -9,9 +9,12 @@ try{
     require_once '/home/appontrack/public_html/_core/Bootstrap.php';
     require_once '/home/appontrack/public_html/_core/TenantVoiceSession.php';
     require_once '/home/appontrack/public_html/_core/AgentAnswerPolicy.php';
+    // Ignore an old suspended reseller carrying the same white-label brand.
+    // Only active SOG accounts can own live SIM sessions and current Studio.
     $matching=all("SELECT id,kind,status,parent_id FROM accounts
-        WHERE LOWER(TRIM(name))='sog' OR LOWER(TRIM(slug))='sog'
-           OR LOWER(TRIM(COALESCE(brand_name,'')))='sog'
+        WHERE status='active' AND
+           (LOWER(TRIM(name))='sog' OR LOWER(TRIM(slug))='sog'
+            OR LOWER(TRIM(COALESCE(brand_name,'')))='sog')
         ORDER BY id LIMIT 4");
     if(count($matching)!==1){
         $candidates=[];
