@@ -14,10 +14,28 @@ try{
            OR LOWER(TRIM(COALESCE(brand_name,'')))='sog'
         ORDER BY id LIMIT 4");
     if(count($matching)!==1){
+        $candidates=[];
+        foreach($matching as $candidate){
+            $candidateId=(int)$candidate['id'];
+            $candidates[]=[
+                'account_id'=>$candidateId,
+                'kind'=>(string)$candidate['kind'],
+                'status'=>(string)$candidate['status'],
+                'parent_id'=>(int)($candidate['parent_id']??0),
+                'agent_count'=>(int)(one("SELECT COUNT(*) n FROM agents
+                    WHERE account_id=? AND status!='archived'",[$candidateId])['n']??0),
+                'published_count'=>(int)(one("SELECT COUNT(DISTINCT agent_id) n FROM agent_flow_versions
+                    WHERE account_id=?",[$candidateId])['n']??0),
+                'paired_active_count'=>(int)(one("SELECT COUNT(*) n FROM device_bindings
+                    WHERE account_id=? AND status='active'",[$candidateId])['n']??0)
+            ];
+        }
         echo json_encode(['probe'=>'v76_sog_read_only',
             'account_resolution'=>count($matching)===0?'not_found':'ambiguous',
             'matched_accounts'=>count($matching),
-            'no_customer_data_modified'=>true],JSON_THROW_ON_ERROR)."\n";
+            'candidate_service_scopes'=>$candidates,
+            'no_customer_data_modified'=>true],
+            JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)."\n";
         exit(0);
     }
     $acct=$matching[0];
