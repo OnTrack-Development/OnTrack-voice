@@ -65,6 +65,7 @@ function nav_entries(string $type):array{
         'overview'=>['⌂','الرئيسية'],
         'staff'=>['♙','الموظفون'],
         'billing'=>['▣','الباقات والمدفوعات'],
+        'invoices'=>['▤','الفواتير'],
         'settings'=>['⚙','الإعدادات']
     ];
     // Administrative spaces manage tenants, plans and platform integrations.
@@ -75,6 +76,7 @@ function nav_entries(string $type):array{
         'accounts'=>['♧','الحسابات والريسيلرز'],
         'plans'=>['◫','الخطط والحدود'],
         'billing'=>['▣','الفوترة'],
+        'invoices'=>['▤','الفواتير'],
         'staff'=>['♙','فريق المنصة'],
         'voices'=>['♫','إدارة الأصوات'],
         'integrations'=>['⇄','تكاملات المنصة'],
@@ -93,6 +95,7 @@ function nav_entries(string $type):array{
         'accounts'=>['♧','عملائي'],
         'plans'=>['◫','باقات العملاء'],
         'billing'=>['▣','الاشتراكات'],
+        'invoices'=>['▤','فواتير العملاء'],
         'staff'=>['♙','الفريق والأدوار'],
         'voices'=>['♫','الأصوات المتاحة'],
         'domains'=>['◎','دومين شركتي'],
@@ -109,7 +112,7 @@ function nav_entries(string $type):array{
         'answering'=>['☷','إعدادات الرد'],'whatsapp'=>['✉','WhatsApp Inbox'],'campaigns'=>['▤','الحملات'],
         'calls'=>['☏','سجل المكالمات'],'contacts'=>['♧','جهات الاتصال'],'devices'=>['▣','الأجهزة والخطوط'],
         'voices'=>['♫','الأصوات'],'staff'=>['♙','الموظفون'],
-        'keys'=>['⌘','مفاتيح API'],'integrations'=>['⇄','التكاملات'],'billing'=>['▣','الباقة والرصيد'],
+        'keys'=>['⌘','مفاتيح API'],'integrations'=>['⇄','التكاملات'],'billing'=>['▣','الباقة والرصيد'],'invoices'=>['▤','فواتيري'],
         'releases'=>['↓','Android'],'settings'=>['⚙','الإعدادات']
     ];
     unset($nav['campaigns'],$nav['whatsapp'],$nav['staff']);
@@ -137,7 +140,7 @@ function layout_open(array $a,string $tab):void{
         console_view_mode($a)==='admin'&&!$support;
     $workspace=$administrative?($a['kind']==='platform'?['overview','whatsapp_admin']:['overview']):
         ['overview','agents','flows','answering','whatsapp','calls','campaigns','contacts','devices','sites'];
-    $platform=['accounts','plans','billing','staff','domains'];
+    $platform=['accounts','plans','billing','invoices','staff','domains'];
     $settings=['voices','integrations','keys','releases','settings'];
     $groups=['workspace'=>[$administrative?'لوحة الإدارة':'مساحة العمل',$workspace],
         'platform'=>['الحسابات والإدارة',$platform],
@@ -482,6 +485,7 @@ function render_accounts(array $a):void{
     foreach($rows as $r){
         $support=form_start('support_enter','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><button class="btn small" type="submit">الدخول للحساب</button></form>';
         $support.=row_rename('edit_account','/?tab=accounts','account_id',(int)$r['id'],(string)$r['name']);
+        $support.='<a class="btn small" href="/?tab=invoices&amp;customer_id='.(int)$r['id'].'">فواتير العميل</a>';
         $support.=form_start('set_account_status','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><input type="hidden" name="status" value="'.($r['status']==='active'?'suspended':'active').'"><button class="btn small danger">'.($r['status']==='active'?'تعليق':'تفعيل').'</button></form>';
         $current=one("SELECT p.id plan_id,p.name,p.price_minor,p.call_quota,p.site_limit,p.agent_limit,s.starts_at,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id
             WHERE s.account_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
@@ -2015,6 +2019,92 @@ function render_billing(array $a):void{
         echo card('طلبات الدفع والاعتماد',tbl(['العميل','رقم الطلب','الحالة/الإجراء','التاريخ'],$rows));
     }
     echo '<div class="info">مدفوعات Kashier الحقيقية لا تُفعّل من صفحة Success؛ التفعيل يتطلب Webhook موثّقًا أو موافقة دفع يدوي مسجلة.</div>';
+}
+function render_invoices(array $a):void {
+    require_once __DIR__.'/BillingInvoices.php';
+    $accountId=(int)$a['account_id'];
+    $isManager=in_array($a['kind'],['platform','reseller'],true)&&
+        in_array($a['role'],['owner','admin','finance'],true)&&
+        !active_support()&&console_view_mode($a)==='admin';
+    $customerFilter=max(0,(int)($_GET['customer_id']??0));
+    $rows=billing_invoice_rows($a,150,$customerFilter?:null);
+    $labels=['paid'=>'مدفوعة','unpaid'=>'غير مدفوعة','overdue'=>'متأخرة',
+             'cancelled'=>'ملغاة','demo'=>'تجريبية'];
+    $counts=['paid'=>0,'unpaid'=>0,'overdue'=>0,'cancelled'=>0,'demo'=>0];
+    $totals=['paid'=>0,'open'=>0];
+    foreach($rows as $invoice){
+        $status=billing_invoice_status($invoice);
+        if(isset($counts[$status]))$counts[$status]++;
+        if($status==='paid')$totals['paid']+=(int)$invoice['amount_minor'];
+        if(in_array($status,['unpaid','overdue'],true))$totals['open']+=(int)$invoice['amount_minor'];
+    }
+    echo card('ملخص الفواتير',
+        '<div class="metric-grid">'.
+        counter('مدفوعة',$counts['paid'],'✓').
+        counter('غير مدفوعة',$counts['unpaid'],'◌').
+        counter('متأخرة',$counts['overdue'],'!').
+        counter('ملغاة',$counts['cancelled'],'×').
+        '</div><p class="dim">المبالغ المسددة الظاهرة: '.billing_invoice_money($totals['paid']).
+        ' · مبالغ مستحقة: '.billing_invoice_money($totals['open']).
+        ' · النتائج لآخر '.count($rows).' فاتورة ضمن صلاحياتك.</p>');
+    if($isManager){
+        $clients=$a['kind']==='platform'
+            ?all("SELECT id,name,kind,parent_id FROM accounts WHERE kind IN ('customer','reseller') AND status='active' ORDER BY id DESC LIMIT 300")
+            :all("SELECT id,name,kind,parent_id FROM accounts WHERE parent_id=? AND kind='customer' AND status='active' ORDER BY id DESC LIMIT 300",[$accountId]);
+        $clientOptions=[];$planOptions=[];
+        foreach($clients as $client){
+            $clientOptions[(string)$client['id']]=$client['name'];
+            foreach(plan_catalog_available($client) as $plan){
+                if((int)$plan['price_minor']>0)
+                    $planOptions[(string)$plan['id']]=$plan['name'].' · '.billing_invoice_money((int)$plan['price_minor']);
+            }
+        }
+        if($clientOptions&&$planOptions)echo card('إصدار فاتورة لعميل — مراجعة دفع يدوي',
+            form_start('invoice_create','/?tab=invoices').
+            select_html('العميل','customer_id',$clientOptions).
+            select_html('باقة مدفوعة','plan_id',$planOptions).
+            '<p class="dim">يصدر طلبًا وفاتورة غير مسددة فقط. لا يفعّل الاشتراك حتى توثيق وصول الدفع. الباقة يجب أن تكون متاحة لهذا العميل.</p>'.
+            submit_btn('إصدار الفاتورة'));
+        if($a['kind']==='platform')echo card('استيراد فواتير الطلبات السابقة',
+            form_start('invoice_backfill','/?tab=invoices').
+            '<p class="dim">استيراد دفعة من 100 طلب قديم فقط، بدون تغيير حالات الطلبات أو إنشاء مدفوعات وهمية.</p>'.
+            submit_btn('استيراد فواتير قديمة'));
+    }
+    $invoiceRows=[];
+    foreach($rows as $invoice){
+        $status=billing_invoice_status($invoice);
+        $ref=(int)$invoice['id'];$orderId=(int)$invoice['order_id'];
+        $controls='<a class="btn small" target="_blank" rel="noopener noreferrer" href="/?tab=invoices&amp;print='.$ref.'">طباعة / PDF</a>';
+        if($isManager && $status==='cancelled'){
+            $controls.=form_start('invoice_reissue','/?tab=invoices','class="inline-form"').
+                '<input type="hidden" name="invoice_id" value="'.$ref.'">'.
+                '<button type="submit" class="btn small" data-confirm="إصدار فاتورة جديدة من الأصل الملغى؟">إعادة إصدار</button></form>';
+        }
+        if($isManager&&in_array($status,['unpaid','overdue'],true)){
+            $order=one('SELECT status FROM orders WHERE id=?',[$orderId]);
+            if($order && $order['status']==='pending_manual_review'){
+                $controls.=form_start('manual_approve','/?tab=invoices','class="inline-form"').
+                    '<input type="hidden" name="order_id" value="'.$orderId.'">'.
+                    '<input name="payment_reference" class="tiny-input" required minlength="8" maxlength="160" placeholder="مرجع تحويل موثّق" aria-label="مرجع سداد موثّق">'.
+                    '<button type="submit" class="btn small primary" data-confirm="هل تحققت من استلام المبلغ بالفعل في حسابك؟">تم السداد</button></form>';
+                $controls.=form_start('invoice_cancel','/?tab=invoices','class="inline-form"').
+                    '<input type="hidden" name="invoice_id" value="'.$ref.'">'.
+                    '<button type="submit" class="btn small danger" data-confirm="إلغاء هذه الفاتورة غير المسددة وطلب الدفع اليدوي؟">إلغاء</button></form>';
+            }
+        }
+        $invoiceRows[]=[
+            '<strong>'.e((string)$invoice['invoice_no']).'</strong>',
+            e((string)$invoice['bill_to_name']),
+            e((string)$invoice['plan_name']),
+            billing_invoice_money((int)$invoice['amount_minor']),
+            e($labels[$status]??$status),
+            e((string)$invoice['issued_at']),
+            e((string)$invoice['due_at']),$controls
+        ];
+    }
+    echo card('سجل الفواتير والمستحقات',
+        '<p class="dim">حالة «مدفوعة» لا تظهر إلا بعد دفع موثّق أو استيراد طلب قديم مرجعه مسجل. لا يُعتبر زر اعتماد الدفع إثباتًا مستقلًا.</p>'.
+        tbl(['رقم الفاتورة','العميل','الباقة','المبلغ','الحالة','الإصدار','الاستحقاق','الإجراءات'],$invoiceRows));
 }
 function render_releases(array $a):void{
     $release=ontrack_native_public_release();
