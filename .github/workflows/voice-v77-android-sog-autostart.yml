@@ -14,8 +14,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  # Supersede the obsolete v56 job holding the only signing runner.
-  group: ontrack-android-campaign-v56-build
+  # Keep only one signed v57 release run; its manifest is immutable.
+  group: ontrack-android-campaign-v57-build
   cancel-in-progress: true
 env:
   PYTHONUTF8: '1'
