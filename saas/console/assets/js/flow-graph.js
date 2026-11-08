@@ -652,7 +652,37 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
  }
  setTimeout(refitVisible,90);
  const editorForm=root.closest('form');
- if(editorForm)editorForm.addEventListener('submit',async event=>{
+ // Agent Studio owns AJAX submission in app.js. Its published/draft flow
+ // editor must only serialize the graph here, never send a second request or
+ // parse a proxy/WAF HTML response as JSON. The old standalone Flow form
+ // retains the independent handler below.
+ if(editorForm?.matches('form.agent-studio-form')){
+   editorForm.addEventListener('submit',()=>store());
+   editorForm.addEventListener('ontrack:studio-saved',async event=>{
+     notice.textContent=event.detail?.message||'تم حفظ الإعدادات';
+     if(aiDraftSavePending){
+       try{
+         if(profileProposal)await chatRequest('flow_ai_profile_applied',{
+           profile_json:JSON.stringify(profileProposal)});
+         if(proposal)await chatRequest('flow_ai_applied',{graph_json:JSON.stringify(proposal)});
+         aiMessage('assistant','تم حفظ مقترح AI كمسودة مؤكدة. النشر يتطلب إجراء مستقلًا.');
+         clearAiProposal();
+       }catch(error){
+         aiStatus.textContent='المسودة اتحفظت، لكن تعذر تأكيد المحادثة: '+(error.message||'حاول مرة أخرى');
+       }finally{
+         aiDraftSavePending=false;busy=false;aiApply.disabled=false;
+       }
+     }
+   });
+   editorForm.addEventListener('ontrack:studio-failed',()=>{
+     if(aiDraftSavePending){
+       aiStatus.textContent='فشل حفظ المسودة. المقترح محفوظ ويمكن إعادة المحاولة.';
+       aiDraftSavePending=false;busy=false;aiApply.disabled=false;
+     }
+   });
+ }
+ if(editorForm&&!editorForm.matches('form.agent-studio-form'))
+ editorForm.addEventListener('submit',async event=>{
    event.preventDefault();event.stopPropagation();
    if(editorForm.dataset.otSaving==='1')return;
    store();
@@ -671,8 +701,15 @@ const mountFlowEditors=(scope=document)=>scope.querySelectorAll('[data-flow-edit
        method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
        headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},body:fields
      });
-     const result=await response.json();
-     if(!response.ok||result.ok!==true)throw Error(result.error||'تعذر حفظ السيناريو');
+     const contentType=(response.headers.get('Content-Type')||'').toLowerCase();
+     const raw=await response.text();
+     if(!contentType.includes('application/json'))
+       throw Error('السيرفر رجّع HTML أو رد غير JSON (HTTP '+response.status+'). لم يتم تأكيد الحفظ.');
+     let result;
+     try{result=JSON.parse(raw)}catch{
+       throw Error('رد السيرفر غير مكتمل (HTTP '+response.status+'). لم يتم تأكيد الحفظ.');
+     }
+     if(!response.ok||result?.ok!==true)throw Error(result?.error||'تعذر حفظ السيناريو');
      notice.textContent=result.message||(publishNow?'تم النشر':'تم حفظ المسودة');
      window.ontrackToast(notice.textContent);
      if(aiDraftSavePending){
