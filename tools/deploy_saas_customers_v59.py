@@ -47,6 +47,54 @@ def apply(live:str,old:str,new:str,label:str)->str:
         if not fixed:raise RuntimeError('unexpected_live_edit_'+label+'_'+str(i1))
     return live
 
+def patch_customer_views(live:str,candidate:str)->str:
+    # The live console is also updated by other features; only touch exact
+    # anchors in the accounts view, preserving neighboring production UI.
+    start=live.find('function render_accounts(array $a):void{')
+    end=live.find('function render_plans(array $a):void{',start)
+    if start<0 or end<=start:raise RuntimeError('accounts_view_anchors_missing')
+    account=live[start:end]
+    header="""function render_accounts(array $a):void{
+    if(!in_array($a['kind'],['platform','reseller'],true))deny();
+    require_once __DIR__.'/BillingUsage.php';"""
+    header_new=header+"""
+    require_once __DIR__.'/CustomerAccounts.php';
+    $selected=max(0,(int)($_GET['customer_id']??0));
+    if($selected>0){render_customer_detail($a,$selected);return;}"""
+    if account.count(header)==1 and header_new not in account:
+        account=account.replace(header,header_new,1)
+    elif header_new not in account:
+        raise RuntimeError('customer_accounts_header_conflict')
+    create="    echo card('إنشاء حساب جديد',form_start('create_account','/?tab=accounts')."
+    create_new="""    if(in_array($a['role'],['owner','admin'],true)&&!active_support()&&
+       console_view_mode($a)==='admin')echo card('إنشاء حساب جديد',form_start('create_account','/?tab=accounts')."""
+    if create_new not in account:
+        if account.count(create)!=1:raise RuntimeError('customer_create_form_conflict')
+        account=account.replace(create,create_new,1)
+    # Add profile + archive recovery after the already-deployed management forms.
+    before='        $current=one("SELECT p.id plan_id'
+    quick="""        $customerQuickId=(int)$r['id'];
+        $customerQuickLink='<a class="btn small primary" href="/?tab=accounts&amp;customer_id='.$customerQuickId.'">ملف العميل</a>';
+        if($r['status']==='archived'){
+            $support=$customerQuickLink.
+                form_start('customer_restore','/?tab=accounts','class="inline-form"').
+                '<input type="hidden" name="customer_id" value="'.$customerQuickId.'">'.
+                '<button class="btn small" type="submit">استعادة الحساب</button></form>';
+        }else{
+            $support=$customerQuickLink.$support;
+        }
+"""
+    if '$customerQuickLink=' not in account:
+        if account.count(before)!=1:raise RuntimeError('account_row_quick_link_anchor_conflict')
+        account=account.replace(before,quick+before,1)
+    detail_start=candidate.find('function render_customer_detail(array $actor,int $customerId):void {')
+    detail_end=candidate.find('function render_plans(array $a):void{',detail_start)
+    if detail_start<0 or detail_end<detail_start:raise RuntimeError('candidate_customer_detail_missing')
+    detail=candidate[detail_start:detail_end]
+    if 'function render_customer_detail(' not in account:account+=detail
+    live=live[:start]+account+live[end:]
+    return live
+
 def atomic_write(path:Path,content:bytes,mode:int)->None:
     handle,tmp=tempfile.mkstemp(dir=str(path.parent),prefix='.customers-v59-')
     try:
@@ -92,7 +140,7 @@ def main():
             else:
                 before=source(STAGE/'old'/rel)
                 original=source(destination)
-                patched=apply(original,before,after,rel)
+                patched=patch_customer_views(original,after) if rel=='_core/Views.php' else apply(original,before,after,rel)
             if patched.count('<?php')!=1:raise RuntimeError('php_open_tag_mismatch_'+rel)
             if rel=='_core/CustomerAccounts.php' and not all(x in patched for x in (
                 'customer_accounts_scope','customer_accounts_update',
