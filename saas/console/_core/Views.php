@@ -612,7 +612,7 @@ function render_customer_detail(array $actor,int $customerId):void {
             submit_btn('استعادة الحساب'));
         return;
     }
-    $form=form_start('customer_profile_save','/?tab=accounts&amp;customer_id='.$id).
+    $form=form_start('customer_profile_save','/?tab=accounts&customer_id='.$id).
         '<input type="hidden" name="customer_id" value="'.$id.'"><div class="form-grid">'.
         '<label class="field">اسم الشركة<input name="name" required maxlength="120" value="'.e($customer['name']).'"></label>'.
         '<label class="field">اسم جهة الاتصال<input name="contact_name" maxlength="190" value="'.e($profile['contact_name']).'"></label>'.
@@ -622,14 +622,14 @@ function render_customer_detail(array $actor,int $customerId):void {
         '<label class="field">ملاحظات الإدارة<textarea name="notes" maxlength="2000">'.e($profile['notes']).'</textarea></label>'.
         '</div>'.submit_btn('حفظ بيانات العميل');
     echo card('تعديل بيانات العميل',$form);
-    $loginForm=form_start('customer_owner_email','/?tab=accounts&amp;customer_id='.$id).
+    $loginForm=form_start('customer_owner_email','/?tab=accounts&customer_id='.$id).
         '<input type="hidden" name="customer_id" value="'.$id.'">'.
         '<label class="field">تغيير بريد دخول مالك الحساب<input type="email" name="owner_email" maxlength="190" required value="'.e($owner['email']??'').'"></label>'.
         '<p class="dim">تغيير بريد الدخول يؤثر على تسجيل الدخول فقط، ولا يغيّر الفواتير الصادرة بالفعل.</p>'.
         submit_btn('تحديث بريد الدخول');
     echo card('بيانات تسجيل الدخول',$loginForm);
     $toggle=$customer['status']==='active'?'suspended':'active';
-    $controls=form_start('set_account_status','/?tab=accounts&amp;customer_id='.$id).
+    $controls=form_start('set_account_status','/?tab=accounts&customer_id='.$id).
         '<input type="hidden" name="account_id" value="'.$id.'">'.
         '<input type="hidden" name="status" value="'.$toggle.'">'.
         '<button class="btn primary" type="submit">'.($toggle==='active'?'إعادة تفعيل العميل':'إيقاف العميل').'</button></form>';
