@@ -4,6 +4,8 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.ClipboardManager;
+import android.content.ClipData;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
@@ -129,12 +131,12 @@ public final class MainActivity extends Activity {
 
         root.addView(VsUi.warning(this,
             "⚠️ غير متصل بصوت مكالمة الشريحة\n"
-            + "في النسخة دي الصوت المُولّد بيتسمع على جهازك فقط. "
-            + "الشخص اللي على الخط هيسمع صوتك الأصلي. "
-            + "صلاحيات المايك والفقاعة مش بتفتح مسار إرسال صوت الشريحة."));
+            + "المعاينة بتشتغل على الهاتف. علشان صوت Fish يدخل مكالمة SIM "
+            + "لازم تشغّل جسر الشريحة وتجربه مع موبايل تاني. "
+            + "لو الجهاز رفض الوصول، مايك المكالمة يرجع طبيعي."));
         gap(root, 12);
 
-        status = VsUi.note(this, "حالة التشغيل: معاينة محلية فقط. لا يوجد استبدال لصوت المكالمة.");
+        status = VsUi.note(this, "حالة التشغيل: المعاينة جاهزة. جسر SIM تجريبي وغير مؤكد على الجهاز.");
         root.addView(status);
         gap(root, 16);
 
@@ -209,8 +211,74 @@ public final class MainActivity extends Activity {
             "التقاط الميكروفون داخل الذاكرة فقط، وإرسال المقطع إلى Fish Audio للتحويل. لا يتم تسجيل أو حفظ مكالمات.", 13, VsUi.MUTED, false));
         VsUi.addSection(root, previewCard, this);
 
+        LinearLayout shellCard = VsUi.card(this);
+        shellCard.addView(VsUi.text(this, "03  /  جسر شريحة الموبايل", 19, VsUi.WHITE, true));
+        gap(shellCard, 8);
+        shellCard.addView(VsUi.warning(this,
+            "حقن الصوت تجريبي عبر ADB Shell من غير JemRec أو تسجيل مكالمات. "
+            + "لازم تهيئة الجسر مرة بعد تشغيل الموبايل، ثم تجربة مع طرف ثانٍ "
+            + "للتأكد من وصول Fish وعدم تسرب صوتك الأصلي."));
+        gap(shellCard, 10);
+        TextView bridgeCommand = VsUi.note(this,
+            "اضغط تجهيز الجسر لنسخ أمر تشغيله على الكمبيوتر المتصل بالموبايل عبر USB أو Wireless Debugging.");
+        bridgeCommand.setTextDirection(View.TEXT_DIRECTION_LTR);
+        bridgeCommand.setTextIsSelectable(true);
+        shellCard.addView(bridgeCommand);
+        gap(shellCard, 10);
+        shellCard.addView(action("تجهيز الجسر ونسخ أمر ADB", true, v -> {
+            try {
+                String command = VsCallBridge.setupCommand(this);
+                ClipboardManager clipboard = (ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+                clipboard.setPrimaryClip(ClipData.newPlainText("VS bridge ADB setup", command));
+                bridgeCommand.setText(command);
+                info("تم تجهيز جسر VS ونسخ أمر ADB. شغّله مرة على الكمبيوتر "
+                    + "المصرّح له باستخدام Wireless Debugging أو USB.");
+            } catch (Exception ex) {
+                info("تعذّر تجهيز الجسر: " + ex.getMessage());
+            }
+        }));
+        gap(shellCard, 8);
+        shellCard.addView(action("فحص الجسر بدون كتم المايك", false, v -> {
+            info("جاري فحص اتصال جسر VS...");
+            queue.execute(() -> {
+                try (VsCallBridge bridge = VsCallBridge.connect(this)) {
+                    String result = bridge.probe();
+                    info("فحص الجسر: " + result
+                        + "\\nالفحص لا يثبت إن الطرف التاني سمع الصوت.");
+                } catch (Exception ex) {
+                    info("جسر الشريحة غير متصل. اضغط تجهيز الجسر أولًا: "
+                        + ex.getClass().getSimpleName());
+                }
+            });
+        }));
+        gap(shellCard, 8);
+        shellCard.addView(action("تشغيل تغيير الصوت في المكالمة (تجريبي)", true, v -> {
+            if (!SimAudioStatus.callIsActive(this)) {
+                info("ابدأ مكالمة SIM أولًا، بعدها اضغط تشغيل.");
+                return;
+            }
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+                info("فعّل إذن الميكروفون قبل تشغيل الجسر.");
+                return;
+            }
+            Intent live = new Intent(this, LiveCallService.class)
+                .setAction(LiveCallService.ACTION_START);
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(live);
+            else startService(live);
+            info("الجسر بدأ محاولة الاتصال. راقب الفقاعة. "
+                + "لو الجهاز رفض أي خطوة، الخدمة هتوقف وترجع المايك الطبيعي.");
+        }));
+        gap(shellCard, 8);
+        shellCard.addView(action("إيقاف الجسر والرجوع لصوتي الأصلي", false, v -> {
+            startService(new Intent(this, LiveCallService.class)
+                .setAction(LiveCallService.ACTION_STOP));
+            info("تم طلب وقف الجسر واستعادة مايك المكالمة الطبيعي.");
+        }));
+        VsUi.addSection(root, shellCard, this);
+
         LinearLayout floatingCard = VsUi.card(this);
-        floatingCard.addView(VsUi.text(this, "03  /  فقاعة VS مصغرة", 19, VsUi.WHITE, true));
+        floatingCard.addView(VsUi.text(this, "04  /  فقاعة VS مصغرة", 19, VsUi.WHITE, true));
         gap(floatingCard, 7);
         floatingCard.addView(VsUi.text(this,
             "فقاعة 58dp، اضغط عليها تفتح/تقفل واسحبها لأي مكان. تشغيل أخضر، إيقاف أحمر. حالة الشريحة منفصلة عن معاينة Fish.", 13, VsUi.MUTED, false));
@@ -239,7 +307,7 @@ public final class MainActivity extends Activity {
         VsUi.addSection(root, floatingCard, this);
 
         LinearLayout permissionsCard = VsUi.card(this);
-        permissionsCard.addView(VsUi.text(this, "04  /  فحص التصاريح والجهاز", 19, VsUi.WHITE, true));
+        permissionsCard.addView(VsUi.text(this, "05  /  فحص التصاريح والجهاز", 19, VsUi.WHITE, true));
         gap(permissionsCard, 9);
         permissionStatus = VsUi.text(this, PermissionCheck.report(this), 13, VsUi.MUTED, false);
         permissionsCard.addView(permissionStatus);
@@ -529,6 +597,7 @@ public final class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         refreshPermissions();
+        if (LiveCallService.active) info(LiveCallService.status);
     }
 
     @Override protected void onDestroy() {
