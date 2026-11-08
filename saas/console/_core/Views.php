@@ -2003,6 +2003,29 @@ function render_integrations(array $a):void{
         '<p class="dim">كل تكامل له سر مستقل. المالك أو الأدمن يقدر يعرضه وينسخه، وكل عرض متسجل في Audit Log.</p>'.
         '<p><a class="btn small" href="?tab=integrations'.($include?'':'&archived=1').'">'.($include?'عرض النشطة':'سجل التكاملات المعطلة').'</a></p>'.
         tbl(['الاسم','النوع','مفتاح الاتصال','الإجراءات'],$rows));
+    if(in_array($a['role'],['owner','admin'],true)&&!active_support()){
+        require_once __DIR__.'/OperationalOutbox.php';
+        $ops=operational_outbox_status($id,$a['kind']==='platform');
+        $states=[];foreach($ops['states'] as $status=>$count)
+            $states[]=[e($status),(string)(int)$count];
+        echo card('تشغيل Events / Outbox',
+            '<p class="dim">الأحداث تُسلّم إلى السجل المحلي الموثوق فقط؛ لا نعتبرها إشعارًا وصل إلى WHMCS أو بريدًا خارجيًا.</p>'.
+            tbl(['الحالة','العدد'],$states));
+        if($a['kind']==='platform'){
+            require_once __DIR__.'/EmailDelivery.php';
+            $mailStates=email_queue_status();
+            $mailRows=[];foreach($mailStates as $row)
+                $mailRows[]=[e((string)$row['purpose']),e((string)$row['status']), (int)$row['amount']];
+            $heart=[];foreach($ops['workers'] as $worker)
+                $heart[]=[e((string)$worker['worker']),e((string)$worker['last_run_at']),
+                    e((string)($worker['last_success_at']??'لم ينجح بعد')),
+                    (int)$worker['delivered'],(int)$worker['failed']];
+            echo card('صحة Workers والبريد',
+                '<p class="dim">Accepted تعني أن SMTP أو برنامج البريد قبل الرسالة، وليس تأكيد وصولها إلى صندوق العميل. الأوقات UTC.</p>'.
+                tbl(['نوع الرسالة','الحالة','العدد'],$mailRows).
+                tbl(['الـWorker','آخر محاولة','آخر نجاح','تمت المعالجة','فشل'],$heart));
+        }
+    }
     if(in_array($a['role'],['owner','admin'],true)&&!active_support())
       echo '<div class="cols two">'.card('إنشاء Integration',
         form_start('new_integration','/?tab=integrations').field_html('اسم الاتصال','name','text','WHMCS / Laravel / WordPress / نظام خارجي',true).
