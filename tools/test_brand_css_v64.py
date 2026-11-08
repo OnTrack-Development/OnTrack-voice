@@ -30,7 +30,7 @@ for item in [
 ]:
     assert item in block,'Missing uncropped wide logo selector: '+item
 for item in [
-    "fetch('/saas/console/brand-upload'",
+    "fetch('/?ot_brand_upload=1'",
     "'X-CSRF-Token':csrf", "credentials:'same-origin'",
     "body:blob", "input.value=''", "getContext('2d')",
     "canvas.toBlob", "image/webp", "response.status===403",
