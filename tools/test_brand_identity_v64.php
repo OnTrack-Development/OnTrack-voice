@@ -104,7 +104,7 @@ brand_check(str_contains($views,'data-brand-display') &&
    str_contains($views,'brand_identity_edit_allowed'),
    'logo identity editor includes display choice and remove');
 brand_check(str_contains($actions,"case 'brand_logo_remove':") &&
-    str_contains($index,"if(\$path==='/brand-upload')") &&
+    str_contains($index,'ot_brand_upload') &&
     str_contains($white,'brand_identity_mode($ctx)') &&
     str_contains($js,"fetch('/?ot_brand_upload=1'"),
     'secure raw upload endpoints and public reseller logo route wired');
