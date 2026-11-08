@@ -3,18 +3,17 @@ package com.ontrack.voiceproof
 /** The new tenant API is deliberately independent from the legacy pilot bearer. */
 object TenantPairingContract {
     const val ENDPOINT = "https://app.ontrackegy.com/saas/console/device/v1/index.php"
-    private val CODE = Regex("(?i)^[a-f0-9]{4}(?:-?[a-f0-9]{4}){5}$")
+    private val CODE = Regex("^[0-9]{6}$")
     private val TOKEN = Regex("^otdev_[a-f0-9]{64}$")
     fun code(raw: String): String {
-        val value = raw.trim()
-        require(CODE.matches(value)) { "رمز الاقتران غير صالح (24 حرفًا)" }
-        return value.uppercase()
+        val digits = raw.trim()
+        require(CODE.matches(digits)) { "اكتب كود الربط المكوّن من 6 أرقام" }
+        return digits
     }
-    /** Server locks a single-use code to exactly one SIM slot (92 random bits). */
+    /** SIM choice is separate; the server locks the code to a physical slot. */
     fun codeForSlot(raw: String, selectedSlot: Int): String {
-        val normalized = code(raw)
-        require(normalized[0] == ('0' + slot(selectedSlot))) { "رمز الربط مخصص للشريحة الأخرى" }
-        return normalized
+        slot(selectedSlot)
+        return code(raw)
     }
     fun slot(value: Int): Int {
         require(value == 0 || value == 1) { "الشريحة غير مدعومة" }
@@ -35,12 +34,5 @@ object TenantPairingContract {
         if (error != null) return "$prefix — $error"
         return "$prefix — ${account.ifBlank { "شركة غير معروفة" }} / ${site.ifBlank { "موقع غير معروف" }} / ${agent.ifBlank { "إيجنت غير معروف" }}"
     }
-    fun qr(uri: String): Pair<Int, String>? {
-        // Strict parsing without allowing an untrusted URL to redirect the API.
-        val match = Regex("^ontrackvoice://pair\\?slot=([01])&code=([A-Fa-f0-9-]{24,29})$").matchEntire(uri) ?: return null
-        return runCatching {
-            val selectedSlot = slot(match.groupValues[1].toInt())
-            Pair(selectedSlot, codeForSlot(match.groupValues[2], selectedSlot))
-        }.getOrNull()
-    }
+    // Old deep links are deliberately rejected: the UI now asks for six digits.
 }
