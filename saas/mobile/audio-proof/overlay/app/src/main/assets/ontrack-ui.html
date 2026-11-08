@@ -233,7 +233,7 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 <main id="v1Minimal" aria-label="OnTrack Voice">
 <section class="card" id="v1Wizard" hidden><h2>تجهيز الهاتف لأول مرة</h2>
 <p class="v1Hint">الخطوات دي بتختفي بعد نجاح الربط، وتقدر ترجع لصلاحيات التشغيل عند الحاجة.</p>
-<p><b>1. ربط الحساب والشريحة</b></p><button type="button" id="v1Pair">ربط الشريحة</button>
+<p><b>1. ربط الحساب والشريحة بكود 6 أرقام</b></p><div class="v1Buttons"><button type="button" id="v1Pair">ربط SIM 1</button><button type="button" id="v1Pair2">ربط SIM 2</button></div>
 <p><b>2. تفعيل الصلاحيات</b></p><button type="button" id="v1Setup">فتح خطوات التفعيل</button>
 <p><b>3. فحص الجاهزية</b></p><button type="button" id="v1Test">اختبار الجهاز</button></section>
 <section class="card"><div class="section-title"><h2>المساعد الصوتي</h2><span class="chip" id="v1State">جارٍ التحقق</span></div>
@@ -330,7 +330,8 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
   <div class="tenant-sim"><strong>SIM 1</strong><span id="tenantSim1">جاري التحقق…</span></div>
   <div class="tenant-sim"><strong>SIM 2</strong><span id="tenantSim2">جاري التحقق…</span></div>
 </div>
-<div class="row"><button type="button" id="tenantMenu" class="primary">إدارة الشرائح</button><button type="button" id="tenantQr" class="outline">مسح QR</button></div>
+<div class="row"><button type="button" id="tenantPair1" class="primary">ربط SIM 1 بكود</button><button type="button" id="tenantPair2" class="primary">ربط SIM 2 بكود</button></div>
+<div class="row"><button type="button" id="tenantMenu" class="outline">إدارة / فصل الشرائح</button><button type="button" id="tenantQr" class="outline" hidden>مسح QR</button></div>
 <div class="row"><button type="button" id="openConsole" class="outline">لوحة الموقع</button><button type="button" id="openScenario" class="outline">المسارات المنشورة</button></div>
 <div class="row"><button type="button" id="openAnswerSettings" class="outline">إعدادات الرد واللغة</button></div>
 <div class="row"><button type="button" id="tenantTest" class="outline">تشخيص اتصال الشريحة والصوت</button></div>
@@ -580,6 +581,8 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  const tenantOk=Number(s.nativeCode)>=24;
  el('openAnswerSettings').disabled=Number(s.nativeCode)<25;
  el('tenantMenu').disabled=!tenantOk||call;
+ el('tenantPair1').disabled=!tenantOk||call||!!s.tenantPaired1;
+ el('tenantPair2').disabled=!tenantOk||call||!!s.tenantPaired2;
  el('tenantQr').disabled=!tenantOk||call;
  el('tenantRefresh').disabled=!tenantOk;
  el('tenantTest').disabled=Number(s.nativeCode)<26;
@@ -656,6 +659,8 @@ function v1Render(s){
  el('v1Status').textContent=!linked?'اربط شريحتك بحسابك أولًا':!phoneReady?'يلزم منح صلاحية الهاتف قبل تشغيل المساعد':s.inCall?'مكالمة جارية':active?'جاهز لاستقبال المكالمات':s.pendingSync?'جاري تطبيق التغيير':'المساعد متوقف';
  el('v1Sim1').textContent=s.tenantPaired1?String(s.tenantSim1||'مربوطة'):'غير مربوطة';
  el('v1Sim2').textContent=s.tenantPaired2?String(s.tenantSim2||'مربوطة'):'غير مربوطة';
+ el('v1Pair').disabled=!!s.tenantPaired1||!!s.inCall;
+ el('v1Pair2').disabled=!!s.tenantPaired2||!!s.inCall;
  el('v1Enable').disabled=!linked||!!s.updating||!!s.inCall||!!s.tenantPairingInProgress||active;
  el('v1Disable').disabled=!linked||!!s.updating||!s.agentEnabled;
  if(linked&&s.tenantServerState==='device')el('v1PermissionsBox').hidden=false;
@@ -670,7 +675,9 @@ function v1Render(s){
 }
 el('v1Enable').onclick=()=>el('enable').click();
 el('v1Disable').onclick=()=>el('disable').click();
-el('v1Pair').onclick=()=>send('tenantMenu');
+const openSimPair=slot=>send(Number(last.nativeCode)>=51?'tenantPairSlot':'tenantMenu',{sim_slot:slot});
+el('v1Pair').onclick=()=>openSimPair(0);
+el('v1Pair2').onclick=()=>openSimPair(1);
 el('v1Setup').onclick=()=>send('diagnostics');
 el('v1Test').onclick=()=>send('tenantTest');
 el('v1OpenSite').onclick=()=>send('openConsole');
@@ -700,6 +707,8 @@ el('openScenario').onclick=()=>send('openScenario');
 el('openAgentStudio').onclick=()=>send(Number(last.nativeCode)>=36?'openAgents':'openConsole');
 el('openFlowStudio').onclick=()=>send(Number(last.nativeCode)>=36?'openFlowBuilder':'openConsole');
 el('refreshAgentCards').onclick=()=>send('tenantRefresh');
+el('tenantPair1').onclick=()=>openSimPair(0);
+el('tenantPair2').onclick=()=>openSimPair(1);
 el('tenantMenu').onclick=()=>send('tenantMenu');
 el('tenantQr').onclick=()=>send('tenantQrScan');
 el('tenantRefresh').onclick=()=>send('tenantRefresh');
