@@ -236,6 +236,8 @@ try{
     }
     device_answer(404,['ok'=>false,'error'=>'unknown_operation']);
 }catch(InvalidArgumentException $e){
+    if($e->getMessage()==='device_pairing_rate_limited')
+        device_answer(429,['ok'=>false,'error'=>'device_pairing_rate_limited']);
     device_answer(422,['ok'=>false,'error'=>$e->getMessage()]);
 }catch(PDOException $e){
     // The unique slot_claim prevents assigning the same device SIM slot to two tenants.
