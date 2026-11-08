@@ -11,8 +11,14 @@ PHP='/opt/cpanel/ea-php83/root/usr/bin/php'
 WORKER='/home/appontrack/public_html/whatsapp-worker.php'
 STAGE=Path('/home/appontrack/.ontrack-mobile/saas-wa-diagnostics-v73')
 
-def exec_worker(env):
-    return subprocess.run([PHP,'-q',WORKER],env=env,
+def exec_worker(env,debug=False):
+    command=[PHP]
+    if debug:
+        # Only the empty isolated fixture may display detailed PHP failures.
+        command+=['-d','display_errors=1','-d','display_startup_errors=1',
+                  '-d','log_errors=0','-d','error_reporting=-1']
+    command+=['-q',WORKER]
+    return subprocess.run(command,env=env,
                           capture_output=True,text=True,timeout=60)
 
 def describe_error(proc):
@@ -31,12 +37,14 @@ def main():
     env=dict(os.environ)
     env['ONTRACK_CI_NAMESPACE']=namespace
     try:
-        isolated=exec_worker(env)
+        isolated=exec_worker(env,debug=True)
     finally:
         if root.is_dir() and not root.is_symlink():
             shutil.rmtree(root)
     print(json.dumps({'stage':'isolated','exit_code':isolated.returncode,
-        'error_class':None if isolated.returncode==0 else describe_error(isolated)},
+        'error_class':None if isolated.returncode==0 else describe_error(isolated),
+        'isolated_failure_detail':None if isolated.returncode==0 else
+            (isolated.stderr or isolated.stdout)[-1800:]},
         separators=(',',':')),flush=True)
     if isolated.returncode!=0:
         raise RuntimeError('isolated_whatsapp_worker_failed')
