@@ -151,9 +151,25 @@ if(in_array($path,['/mfa','/mfa/setup'],true)){
     require_login();
     go('/');
 }
+if($path==='/brand-upload'){
+    // Raw image upload: no multipart POST. This bypasses host WAF rules that
+    // historically returned Forbidden 403 before PHP could accept a logo.
+    // Both the authenticated membership and X-CSRF-Token are checked in PHP.
+    $a=mine();
+    if(!$a){
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        echo '{"ok":false,"error":"جلسة الدخول غير متاحة. سجّل الدخول ثم جرّب مرة أخرى."}';
+        exit;
+    }
+    require_once __DIR__.'/_core/BrandIdentity.php';
+    brand_identity_upload_http($a);
+}
 if($path==='/brand-logo'){
     $a=mine();if(!$a)deny(404);
-    $brand=brand($a);
+    require_once __DIR__.'/_core/BrandIdentity.php';
+    $brand=brand_identity_brand($a);
     $logo=(string)($brand['logo']??'');
     if(!$logo || $logo!==basename($logo) || !preg_match('/^logo-[0-9]+-[a-f0-9]{12}\.(png|jpg|webp)$/D',$logo))deny(404);
     $full=private_path().'/'.$logo;
@@ -162,6 +178,7 @@ if($path==='/brand-logo'){
     header('Content-Type: '.(['png'=>'image/png','jpg'=>'image/jpeg','webp'=>'image/webp'][$ext]));
     header('Content-Length: '.filesize($full));
     header('Cache-Control: private,max-age=60');
+    header('X-Content-Type-Options: nosniff');
     readfile($full);exit;
 }
 require_login();
