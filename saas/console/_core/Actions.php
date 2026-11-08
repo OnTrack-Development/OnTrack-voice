@@ -48,6 +48,33 @@ function reseller_plan_post_values():array {
         'assistant_key_limit'=>intfield('assistant_key_limit')];
 }
 
+/** Decode only bounded Studio text fields after auth and CSRF. The
+ * packed transport never grants authority or overrides account identity.
+ * Every existing flow/policy/publish validation remains mandatory. */
+function agent_studio_unpack_fields():void {
+    if(!isset($_POST['studio_fields_b64']))return;
+    $packed=$_POST['studio_fields_b64'];
+    if(!is_string($packed)||strlen($packed)>170000||
+       !preg_match('/^[A-Za-z0-9_-]{4,170000}$/D',$packed))
+        throw new InvalidArgumentException('صيغة بيانات المساعد غير صالحة؛ أعد تحميل الصفحة');
+    $bytes=base64_decode(strtr($packed,'-_','+/'),true);
+    if($bytes===false||strlen($bytes)>120000||!mb_check_encoding($bytes,'UTF-8'))
+        throw new InvalidArgumentException('تعذر قراءة نص إعدادات المساعد');
+    try{$fields=json_decode($bytes,true,4,JSON_THROW_ON_ERROR);}
+    catch(JsonException){throw new InvalidArgumentException('نص إعدادات المساعد غير مكتمل');}
+    if(!is_array($fields))throw new InvalidArgumentException('حقول إعدادات المساعد غير صالحة');
+    $maxima=['flow_json'=>16000,'scenario_text'=>8000,
+        'instructions'=>5000,'knowledge'=>20000,
+        'agent_goal'=>1800,'agent_guardrails'=>1800];
+    foreach($fields as $name=>$value){
+        if(!is_string($name)||!array_key_exists($name,$maxima)||
+           !is_string($value)||mb_strlen($value)>$maxima[$name])
+            throw new InvalidArgumentException('حقل إعدادات المساعد غير صالح');
+        $_POST[$name]=$value;
+    }
+    unset($_POST['studio_fields_b64']);
+}
+
 function act():void {
     require_login();require_csrf();
     $a=mine();if(!$a)deny();
@@ -205,6 +232,7 @@ function act():void {
         exit;
     }
     try {
+        if($action==='update_agent')agent_studio_unpack_fields();
         // Migrate DNC outside a transaction (MySQL CREATE TABLE auto-commits).
         if(in_array($action,['add_contact','edit_contact','delete_contact'],true))dnc_init_ledger();
         switch($action) {
