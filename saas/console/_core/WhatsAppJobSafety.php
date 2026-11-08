@@ -45,6 +45,17 @@ function wa_job_reserve_send(array $job,string $text,bool $native):array {
             db()->commit();
             return ['send'=>false,'status'=>'not_pending'];
         }
+        // Revalidate beneath the send transaction: the reseller may have been
+        // suspended while an AI draft was being generated. No external I/O
+        // has begun, so restore pending without consuming an attempt.
+        if(!account_service_active(account((int)$job['account_id']))){
+            execute("UPDATE wa_ai_jobs SET status='pending',
+                attempts=CASE WHEN attempts>0 THEN attempts-1 ELSE 0 END,
+                updated_at=? WHERE id=? AND account_id=? AND status='processing'",
+                [now(),(int)$job['id'],(int)$job['account_id']]);
+            db()->commit();
+            return ['send'=>false,'status'=>'service_suspended'];
+        }
         $sql='SELECT * FROM wa_conversations WHERE id=? AND account_id=?';
         if(driver()==='mysql')$sql.=' FOR UPDATE';
         $conv=one($sql,[(int)$job['conversation_id'],(int)$job['account_id']]);
@@ -89,6 +100,15 @@ function wa_job_send_once(array $job,string $body,?callable $transport=null,arra
     if(!$reservation['send'])return ['status'=>$reservation['status']];
     $connection=$reservation['connection'];
     $conversation=$reservation['conversation'];
+    // A last check closes the gap between reservation and network dispatch.
+    // A send not started is definitively safe to put back into pending.
+    if(!account_service_active(account((int)$job['account_id']))){
+        execute("UPDATE wa_ai_jobs SET status='pending',
+            attempts=CASE WHEN attempts>0 THEN attempts-1 ELSE 0 END,
+            updated_at=? WHERE id=? AND account_id=? AND status='sending'",
+            [now(),(int)$job['id'],(int)$job['account_id']]);
+        return ['status'=>'service_suspended'];
+    }
     try{
         // HTTP is outside DB transaction. Never hold a MySQL row lock for
         // a 12-second Meta request or an external relay timeout.
