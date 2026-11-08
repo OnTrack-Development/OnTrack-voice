@@ -4,6 +4,11 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.content.Intent;
 import android.graphics.PixelFormat;
 import android.os.Build;
@@ -22,6 +27,10 @@ import android.widget.TextView;
  */
 public final class OverlayService extends Service {
     public static final String ACTION_TAKE_OVER = "com.ontrack.vs.TAKE_OVER";
+    public static final String ACTION_LIVE_STATUS = "com.ontrack.vs.LIVE_STATUS";
+    private final BroadcastReceiver updates = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) { refresh(); }
+    };
     private WindowManager manager;
     private WindowManager.LayoutParams layout;
     private LinearLayout root, panel;
@@ -111,13 +120,30 @@ public final class OverlayService extends Service {
         panel.addView(close);
 
         enableButton.setOnClickListener(v -> {
-            ConfigStore.setPreviewPaused(this, false);
+            if (SimAudioStatus.callIsActive(this)) {
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                    != PackageManager.PERMISSION_GRANTED) {
+                    simLabel.setText("الميكروفون غير مسموح. افتح التطبيق وفعّل الإذن.");
+                    return;
+                }
+                ConfigStore.setPreviewPaused(this, true);
+                Intent live = new Intent(this, LiveCallService.class)
+                    .setAction(LiveCallService.ACTION_START);
+                try {
+                    if (Build.VERSION.SDK_INT >= 26) startForegroundService(live);
+                    else startService(live);
+                    simLabel.setText("جارٍ تشغيل جسر VS للشريحة... بدون تسجيل مكالمة.");
+                } catch (Exception error) {
+                    simLabel.setText("الجسر لم يبدأ: " + error.getClass().getSimpleName());
+                }
+            } else {
+                ConfigStore.setPreviewPaused(this, false);
+                simLabel.setText("المعاينة جاهزة، افتح VS لتجربة Fish.");
+            }
             refresh();
-            simLabel.setText(SimAudioStatus.callIsActive(this)
-                ? "المكالمة نشطة لكن تحويل الصوت مش متصل بـSIM. لن نشغّل الصوت محليًا أثناء المكالمة."
-                : "المعاينة جاهزة. افتح VS لتجربة Fish Audio.");
         });
         disableButton.setOnClickListener(v -> {
+            stopLiveBridge();
             ConfigStore.setPreviewPaused(this, true);
             sendBroadcast(new Intent(ACTION_TAKE_OVER).setPackage(getPackageName()));
             refresh();
@@ -161,7 +187,17 @@ public final class OverlayService extends Service {
                 }
             }
         });
+        IntentFilter liveFilter = new IntentFilter(ACTION_LIVE_STATUS);
+        if (Build.VERSION.SDK_INT >= 33)
+            registerReceiver(updates, liveFilter, Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(updates, liveFilter);
         refresh();
+    }
+
+    private void stopLiveBridge() {
+        try { startService(new Intent(this, LiveCallService.class)
+            .setAction(LiveCallService.ACTION_STOP)); }
+        catch (Exception ignored) { stopService(new Intent(this, LiveCallService.class)); }
     }
 
     private void setExpanded(boolean next) {
@@ -180,16 +216,16 @@ public final class OverlayService extends Service {
     private void refresh() {
         if (modeLabel == null) return;
         boolean paused = ConfigStore.isPreviewPaused(this);
-        modeLabel.setText(paused
-            ? "● المعاينة: متوقفة"
-            : "● المعاينة: جاهزة فقط");
-        modeLabel.setTextColor(paused ? VsUi.RED : VsUi.GREEN);
+        modeLabel.setText(LiveCallService.active ? "● جسر SIM: قيد التجربة"
+            : paused ? "● معاينة: متوقفة" : "● معاينة: جاهزة");
+        modeLabel.setTextColor(LiveCallService.active ? VsUi.GREEN : paused ? VsUi.RED : VsUi.GREEN);
         // Always expose both controls, using color and brightness for the state.
         enableButton.setEnabled(true);
         disableButton.setEnabled(true);
         enableButton.setAlpha(paused ? 0.85f : 1f);
         disableButton.setAlpha(paused ? 1f : 0.85f);
-        if (simLabel != null) simLabel.setText(SimAudioStatus.report(this));
+        if (simLabel != null) simLabel.setText(
+            LiveCallService.active ? LiveCallService.status : SimAudioStatus.report(this));
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -198,6 +234,8 @@ public final class OverlayService extends Service {
     }
 
     @Override public void onDestroy() {
+        try { unregisterReceiver(updates); } catch (Exception ignored) {}
+        // Closing overlay leaves the call alone unless the user explicitly pressed Stop.
         if (manager != null && root != null) {
             try { manager.removeView(root); } catch (Exception ignored) {}
             root = null;
