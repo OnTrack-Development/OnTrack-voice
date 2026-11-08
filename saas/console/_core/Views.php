@@ -2343,6 +2343,7 @@ function render_ai_relay_settings(array $a):void {
 }
 function render_settings(array $a):void{
     require_once __DIR__.'/ConsoleTypography.php';
+    console_font_init();
     $brand=brand($a);
     $fontOptions=console_font_options();
     $accountId=(int)$a['account_id'];
