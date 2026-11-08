@@ -4,6 +4,7 @@ on:
     branches: [feat/io-premium-native-v51-20261107]
     paths:
       - '.github/workflows/voice-admin-assign-reseller-plans-v56-publish.yml'
+      - 'tools/verify_live_admin_direct_plans_v56.php'
   workflow_dispatch:
 permissions:
   contents: read
