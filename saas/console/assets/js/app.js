@@ -651,14 +651,18 @@
     }
     const data=new FormData(form);
     if(publish)data.set('publish_now','1');else data.delete('publish_now');
+    // Agent Studio has text/JSON fields, not file uploads. URL-encoding avoids
+    // shared-host ModSecurity multipart HTML denial pages on reseller domains.
+    const encoded=new URLSearchParams(data);
     const status=form.querySelector('.agent-studio-status');
     form.dataset.agentSaving='1';
     if(submit)submit.disabled=true;
     if(status)status.textContent='جارٍ '+(publish?'النشر':'الحفظ')+'…';
     try{
       const response=await fetch(form.action||location.pathname,{
-        method:'POST',body:data,credentials:'same-origin',cache:'no-store',redirect:'error',
-        headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}
+        method:'POST',body:encoded,credentials:'same-origin',cache:'no-store',redirect:'error',
+        headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest',
+          'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}
       });
       // Never parse an empty/HTML response as JSON: a stale session, failed
       // CSRF check or server-side fatal may otherwise surface only the opaque
@@ -677,8 +681,12 @@
       }
       if(!response.ok||result?.ok!==true)throw Error(result?.error||'تعذر حفظ إعدادات الإيجنت (HTTP '+response.status+')');
       if(status)status.textContent=result.message||'تم الحفظ';
+      form.dispatchEvent(new CustomEvent('ontrack:studio-saved',{
+        detail:{message:result.message||'تم الحفظ',published:result.published===true}}));
       window.ontrackToast(result.message||'تم حفظ إعدادات الإيجنت');
     }catch(error){
+      form.dispatchEvent(new CustomEvent('ontrack:studio-failed',{
+        detail:{message:error.message||'فشل حفظ الإعدادات'}}));
       if(status)status.textContent=error.message||'فشل حفظ الإعدادات';
       window.ontrackToast(error.message||'فشل حفظ إعدادات الإيجنت',{error:true});
     }finally{
