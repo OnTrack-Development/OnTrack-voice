@@ -105,7 +105,15 @@ function kashier_refund_settle(array $body,?int $integrationId):array {
         // renewal time or mark the whole order fully reconciled.
         $priorRefund=one('SELECT refund_reference FROM kashier_refund_events WHERE order_id=? LIMIT 1',
             [(int)$order['id']]);
-        if($full && !$priorRefund && $order['integration_id']===null &&
+        // Kashier signs data.signatureKeys, not the outer webhook event.
+        // A mutable unsigned event name must never authorize entitlement
+        // cancellation. Only a matching signed eventType can auto-settle;
+        // otherwise keep the verified payment and flag for manual review.
+        $signedEvent=in_array('eventType',$signed,true) &&
+            is_string($data['eventType']??null) &&
+            hash_equals((string)$body['event'],(string)$data['eventType']);
+        if($full && !$priorRefund && $signedEvent &&
+           $order['integration_id']===null &&
            $order['status']==='active' &&
            in_array($body['event'],['refund','reversal'],true)){
             // Only the exact paid subscription created by this payment may be
