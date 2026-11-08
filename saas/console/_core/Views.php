@@ -329,24 +329,27 @@ function render_overview(array $a):void{
     $primaryLabel=$kind==='platform'?(platform_resellers_visible()?'إدارة الحسابات والريسيلرز':'إدارة العملاء'):($kind==='reseller'?'إدارة العملاء':'إدارة المساعدون');
     $secondaryAction=$kind==='platform'?'settings':($kind==='reseller'?'plans':'releases');
     $secondaryLabel=$kind==='platform'?'إعدادات المنصة':($kind==='reseller'?'باقات العملاء':'تطبيق Android');
-    $release=ontrack_native_public_release();
-    $download=$release?'<a class="btn light ot-direct-apk" href="'.e($release['url']).'">↓ تحميل تطبيق Android APK · '.e($release['name']).'</a>':'';
-    $switch='';
-    if($a['kind']==='reseller' && (console_can_switch_view($a)||console_can_switch_support_view($a))){
-        $to=console_view_mode($a)==='user'?'admin':'user';
-        $action=active_support()?'set_support_view':'set_view';
-        $switch=form_start($action,'/?tab=overview','class="inline-form" data-no-ajax="1"').
-            '<input type="hidden" name="view" value="'.e($to).'">'.
-            '<button type="submit" class="btn ghost-light">⇄ '.
-            ($to==='user'?'فتح واجهة مستخدم الريسيلر':'العودة لإدارة الريسيلر').
-            '</button></form>';
-    }
     echo '<section class="welcome"><div><span class="eyebrow">SMART VOICE CONTROL</span><h2>'.e($title).'</h2><p>'.e($sub).'</p><div class="welcome-actions">'.
         '<a class="btn light" href="/saas/console/?tab='.e($primaryAction).'">'.e($primaryLabel).' ←</a>'.
-        $download.$switch.
         '<a class="btn ghost-light" href="/saas/console/?tab='.e($secondaryAction).'">'.e($secondaryLabel).'</a>'.
         '</div></div><div class="orb-art"><span></span><b>OT</b></div></section>';
     echo ontrack_update_banner();
+    $release=ontrack_native_public_release();
+    if($release){
+        echo '<div class="ot-master-update ot-home-actions"><div class="ot-master-update-text"><strong>تحميل تطبيق Android مباشرة</strong><span>آخر إصدار موقّع: '.e($release['name']).'</span></div>'.
+            '<div class="ot-master-update-actions"><a class="btn primary ot-direct-apk" href="'.e($release['url']).'">↓ تحميل APK الآن</a></div></div>';
+    }
+    if($a['kind']==='reseller' && (console_can_switch_view($a)||console_can_switch_support_view($a))){
+        $to=console_view_mode($a)==='user'?'admin':'user';
+        $action=active_support()?'set_support_view':'set_view';
+        echo '<section class="ot-master-update ot-reseller-user-switch"><div class="ot-master-update-text"><strong>واجهات حساب الريسيلر</strong>'.
+            '<span>بدّل بين إدارة الشركة ومساحة المستخدم بنفس الحساب والصلاحيات.</span></div><div class="ot-master-update-actions">'.
+            form_start($action,'/?tab=overview','class="inline-form" data-no-ajax="1"').
+            '<input type="hidden" name="view" value="'.e($to).'">'.
+            '<button type="submit" class="btn primary">⇄ '.
+            ($to==='user'?'فتح واجهة مستخدم الريسيلر':'العودة لإدارة الريسيلر').
+            '</button></form></div></section>';
+    }
     echo '<div class="metric-grid">';
     if($kind==='platform'){
         echo (platform_resellers_visible()?counter('الريسيلرز',$n1,'♧'):'').counter('العملاء',$n2,'♙').counter('المساعدون',$n3,'✧').counter('سجلات المكالمات',$n4,'☏');
