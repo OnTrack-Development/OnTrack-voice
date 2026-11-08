@@ -94,7 +94,7 @@ function email_smtp_send(array $config,string $address,string $subject,string $b
             "\r\nSubject: =?UTF-8?B?".base64_encode($subject)."?=".
             "\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8";
         $payload=$headers."\r\n\r\n".$body;
-        $payload=preg_replace('/\r?\n/','\r\n',$payload);
+        $payload=str_replace("\n","\r\n",str_replace("\r\n","\n",$payload));
         $payload=preg_replace('/^\./m','..',$payload);
         if(fwrite($socket,$payload."\r\n.\r\n")!==strlen($payload)+5)
             throw new RuntimeException('smtp_delivery_uncertain');
