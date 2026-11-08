@@ -1,0 +1,46 @@
+name: OnTrack v67 operational WhatsApp durable worker install and safeguards
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-wa-worker-v67-ops.yml'
+      - 'tools/install_saas_whatsapp_worker_v67.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-saas-v67-whatsapp-worker-ops
+  cancel-in-progress: false
+jobs:
+  install:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 9
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check scheduler syntax before remote installation
+        run: |
+          & python -m py_compile tools/install_saas_whatsapp_worker_v67.py
+          if($LASTEXITCODE -ne 0){throw 'Invalid WhatsApp worker installer'}
+          & php -l saas/console/whatsapp-worker.php
+          if($LASTEXITCODE -ne 0){throw 'Invalid WhatsApp worker source'}
+          Write-Host 'V67_WA_CRON_SCHEDULER_SOURCE_PASS'
+      - name: Install only WhatsApp worker cron, preserve all preexisting entries and stopped Host-Link
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized deploy identity missing'}
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-first-logic-v67'
+          & ssh.exe @ssh -p 7195 $remote ('umask 077; mkdir -p '+$stage+'; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Private operator staging denied'}
+          & scp.exe @ssh -P 7195 tools/install_saas_whatsapp_worker_v67.py ($remote+':'+$stage+'/install_wa_worker.py')
+          if($LASTEXITCODE -ne 0){throw 'Operator installer staging failed'}
+          & ssh.exe @ssh -p 7195 $remote ('python3 '+$stage+'/install_wa_worker.py')
+          if($LASTEXITCODE -ne 0){throw 'Dedicated WhatsApp cron install/verification denied'}
+          Write-Host 'V67_WA_EXISTING_CRON_PRESERVATION_AND_DURABLE_WORKER_PASS'
