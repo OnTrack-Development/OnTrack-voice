@@ -253,7 +253,7 @@ function tenant_voice_entitled(array $binding):bool {
     $accountId=(int)($binding['account_id']??0);
     if($accountId<1)return false;
     $acct=account($accountId);
-    if(!$acct || ($acct['status']??null)!=='active')return false;
+    if(!account_service_active($acct))return false;
     if(($acct['kind']??null)==='platform')return true;
     // A plan can be archived because its reseller published a new immutable
     // catalog revision. Existing subscriptions bought against that historical
