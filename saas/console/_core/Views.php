@@ -138,7 +138,9 @@ function layout_open(array $a,string $tab):void{
     header('X-Frame-Options: DENY');
     header('Cache-Control: private,no-store');
     // A stale CSS/JS cache must not render new server HTML with the old layout.
-    $uiVersion=substr(hash('sha256',hash_file('sha256',__DIR__.'/../assets/css/app.css').hash_file('sha256',__DIR__.'/../assets/js/app.js')),0,12);
+    $uiVersion=substr(hash('sha256',hash_file('sha256',__DIR__.'/../assets/css/app.css').
+        hash_file('sha256',__DIR__.'/../assets/js/app.js').
+        hash_file('sha256',__DIR__.'/../assets/js/flow-graph.js')),0,12);
     echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css?v='.$uiVersion.'"><script src="/saas/console/assets/js/app.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/graph-routing.js?v='.$uiVersion.'"></script><script src="/saas/console/assets/js/flow-graph.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/qrcode.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/pairing-qr.js?v='.$uiVersion.'" defer></script></head><body data-ot-font="'.e($accountFont).'" data-ot-account="'.(int)$a['account_id'].'"'.$themeVars.'>';
     echo '<div class="app-shell"><aside class="sidebar" id="mainNavigation" aria-label="القائمة الرئيسية"><button type="button" class="nav-close" id="navClose" aria-label="إغلاق القائمة">×</button><a href="/saas/console/" class="brand" data-brand-display="'.e($display).'">';
     if($display!=='text' && !empty($brand['logo']))
