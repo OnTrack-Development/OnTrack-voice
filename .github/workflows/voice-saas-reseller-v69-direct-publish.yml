@@ -78,7 +78,9 @@ jobs:
           foreach($source in $sources){
             if(!(Test-Path -LiteralPath $source -PathType Leaf)){throw ('Missing PHP rollout file '+$source)}
             $filename=Split-Path -Path $source -Leaf
-            $target='{0}:{1}/{2}' -f $hostName,$stage,($filename -eq 'deploy_saas_reseller_v69.py'?'deploy.py':$filename)
+            $remoteName=$filename
+            if($filename -eq 'deploy_saas_reseller_v69.py'){$remoteName='deploy.py'}
+            $target='{0}:{1}/{2}' -f $hostName,$stage,$remoteName
             & scp.exe @flags -P 7195 $source $target
             if($LASTEXITCODE -ne 0){throw ('Reseller source staging failed '+$source)}
           }
