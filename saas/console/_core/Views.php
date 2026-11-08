@@ -2670,7 +2670,7 @@ function render_whatsapp(array $a):void {
                 '<small>Phone Number ID: '.e($conn['phone_number_id']).' · WABA ID: '.e((string)($conn['waba_id']??'غير محفوظ')).'</small>'.
                 '<small>Meta App ID: '.e((string)($conn['meta_app_id']??'غير محدد')).' · Graph API: '.e(wa_graph_version($conn)).'</small>').
             '<div class="wa-copy-strip wa-copy-strip-small"><span>'.($existingChannel?'رابط استقبال OnTrack من الموديول':'Callback URL (Meta)').'</span><code id="wa-callback-'.(int)$conn['id'].'" dir="ltr">'.e($webhook).'</code><button type="button" class="btn small" data-wa-copy="wa-callback-'.(int)$conn['id'].'">نسخ</button></div>'.
-            ($existingChannel?'<small>ما تغيّرش إعدادات Meta؛ لازم تفعّل Forwarding داخل الموديول الحالي، وموصل الإرسال مش متاح بعد.</small>':
+            ($existingChannel?'<small>ما تغيّرش إعدادات Meta. استقبال الرسائل لا يساوي صلاحية الإرسال؛ اختبر موصل إرسال الموديول الحالي ثم فعّل AI.</small>':
                 '<small>Webhook Verify Token محفوظ كـHash فقط. استخدم النسخة التي نسختها أثناء إنشاء الاتصال.</small>').
             '<small>Webhook: '.e((string)($conn['last_webhook_at']??'لم يتم تأكيد استقبال رسالة')).'</small>'.
             '<small>OnTrack AI: '.(!empty($conn['ai_agent_id'])?('إيجنت #'.(int)$conn['ai_agent_id'].' · '.(!empty($conn['ai_enabled'])?'مفعّل':'معطّل')):'بدون إيجنت · الرد اليدوي متاح').'</small>'.
@@ -2683,10 +2683,13 @@ function render_whatsapp(array $a):void {
                 form_start('wa_relay_disable','/?tab=whatsapp','class="inline-form"').
                 '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
                 '<button class="btn small" type="submit">إيقاف استقبال Webhook الخارجي</button></form>':'').
+            ($existingChannel?form_start('wa_existing_outbound_test','/?tab=whatsapp','class="inline-form"').
+            '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
+            '<button class="btn small" type="submit">اختبار إرسال الموديول الحالي</button></form>':'').
             (!$existingChannel?form_start('wa_connection_test','/?tab=whatsapp','class="inline-form"').
             '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
             '<button class="btn small" type="submit">اختبار مفتاح Meta والرقم</button></form>':'').
-            (!empty($conn['ai_agent_id'])&&!$existingChannel?
+            (!empty($conn['ai_agent_id'])&&(!$existingChannel||wa_existing_outbound_ready($conn))?
                 form_start('wa_native_toggle','/?tab=whatsapp','class="inline-form"').
                 '<input type="hidden" name="connection_id" value="'.(int)$conn['id'].'">'.
                 '<input type="hidden" name="enabled" value="'.(!empty($conn['ai_enabled'])?'0':'1').'">'.
