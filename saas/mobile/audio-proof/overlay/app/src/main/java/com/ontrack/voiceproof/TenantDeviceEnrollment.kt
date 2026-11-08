@@ -95,8 +95,11 @@ class TenantDeviceEnrollment(private val context: Context) {
             if(response.code==401)throw SecurityException("تسجيل ربط الشريحة اتلغى أو انتهت صلاحيته. افصل الشريحة وأعد الربط.")
             if(!response.isSuccessful){
                 val message=when(apiError){
-                    "device_pairing_expired_or_used"->"رمز QR منتهي أو اتستخدم قبل كده؛ أنشئ رمز جديد من أجهزة الحساب."
-                    "device_pairing_slot_mismatch"->"QR ده لشريحة مختلفة؛ تأكد من SIM 1 أو SIM 2."
+                    "device_pairing_expired_or_used"->"الكود منتهي أو اتستخدم قبل كده؛ اطلب كود 6 أرقام جديد من حسابك."
+                    "device_pairing_slot_mismatch"->"الكود ده مخصص للشريحة التانية؛ اختار SIM الصحيح."
+                    "device_pairing_rate_limited"->"محاولات ربط كتير خلال وقت قصير؛ استنى 5 دقايق وبعدين جرب كود جديد."
+                    "device_pairing_invalid"->"اكتب كود الربط المكوّن من 6 أرقام من الموقع."
+                    "device_pairing_try_again"->"تعذر إنشاء الكود دلوقتي؛ اطلب كود جديد من الموقع."
                     "sim_slot_already_paired"->"الشريحة مربوطة بحساب آخر؛ لازم تفصل الربط القديم من لوحة الأجهزة."
                     "agent_flow_not_published"->"انشر Flow للإيجنت أولًا قبل تجربة المحرك."
                     "tenant_voice_not_launched"->"رسالة قديمة من السيرفر؛ تحديث المحرك لم يصل للهوست بعد."
