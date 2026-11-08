@@ -131,7 +131,7 @@
         );
       }
       if(blob.size>3*1024*1024)throw Error('الشعار ما زال أكبر من 3MB بعد التحسين؛ جرّب WebP أقل حجمًا.');
-      const response=await fetch('/saas/console/brand-upload',{
+      const response=await fetch('/?ot_brand_upload=1',{
         method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
         headers:{'Content-Type':blob.type||original.type,'X-CSRF-Token':csrf,
           'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},
