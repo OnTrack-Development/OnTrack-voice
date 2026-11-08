@@ -207,7 +207,8 @@ if($path!=='/' && !in_array($path,['/admin','/reseller','/workspace'],true))deny
 $a=mine();if(!$a)go('/login');
 if($path==='/admin'&&$a['kind']!=='platform')deny();
 if($path==='/reseller'&&$a['kind']!=='reseller')deny();
-if($path==='/workspace'&&$a['kind']!=='customer'&&$a['kind']!=='platform')deny();
+if($path==='/workspace'&&$a['kind']!=='customer'&&$a['kind']!=='platform'&&
+    !($a['kind']==='reseller'&&console_view_mode($a)==='user'))deny();
 $tab=(string)($_GET['tab']??'overview');
 if(!array_key_exists($tab,nav_entries($a['kind'])))$tab='overview';
 layout_open($a,$tab);
