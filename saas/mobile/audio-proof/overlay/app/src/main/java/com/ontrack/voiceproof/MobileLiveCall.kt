@@ -43,6 +43,7 @@ internal class MobileLiveCall(
     @Volatile private var ws:WebSocket?=null
     private val premium=session.optString("voice_engine")=="official_google_live_fish_pcm"
     private var official:PremiumOfficialLive?=null
+    private val googleVoiceFallback=AtomicBoolean(false)
     private val premiumPhrases=Channel<Pair<Int,String>>(64)
     private val premiumInput=Channel<ByteArray>(32)
     private var premiumSpeaker:Job?=null
@@ -256,6 +257,24 @@ internal class MobileLiveCall(
             throw error
         }
     }
+    /** Audio-only fallback: no new telephony answer, no fresh Gemini Live
+     * session and no Fish key on device. The same muted 48 kHz SIM conduit
+     * receives authorized Google PCM after Fish TTS is unavailable.
+     */
+    private fun playFallbackGooglePcm(audio:ByteArray,rate:Int){
+        if(stopped.get() || !googleVoiceFallback.get())return
+        val turn=generation
+        val pcm=LinkPcm.output(audio,rate)
+        if(pcm.isEmpty() || turn!=generation)return
+        modelAudioBytes.addAndGet(pcm.size.toLong())
+        lastAssistantAudioAt.set(SystemClock.elapsedRealtime())
+        for(pos in pcm.indices step LivePlaybackQueuePolicy.PACKET_BYTES){
+            val packet=pcm.copyOfRange(pos,
+                minOf(pos+LivePlaybackQueuePolicy.PACKET_BYTES,pcm.size))
+            if(!playback.trySend(turn to packet).isSuccess)
+                playbackOverflowPackets.incrementAndGet()
+        }
+    }
     /** Official Google Live + Fish raw PCM, fully isolated from legacy
      * OkHttp Google audio; both routes reuse the SAME muted SIM conduit.
      */
@@ -273,7 +292,9 @@ internal class MobileLiveCall(
                 }
             },
             assistant={spoken->appendLiveTranscription("الإيجنت",spoken)},
-            phrase={text->if(!stopped.get())premiumPhrases.trySend(generation to text)},
+            phrase={text->if(!stopped.get()&&!googleVoiceFallback.get())
+                premiumPhrases.trySend(generation to text)},
+            googleAudio={audio,rate->playFallbackGooglePcm(audio,rate)},
             interrupted={
                 generation++
                 while(playback.tryReceive().isSuccess){}
@@ -293,12 +314,14 @@ internal class MobileLiveCall(
         premiumSpeaker=scope.launch(Dispatchers.IO){
             for((turn,text) in premiumPhrases){
                 if(stopped.get())break
-                if(turn!=generation || text.isBlank())continue
+                if(turn!=generation || text.isBlank() || googleVoiceFallback.get())continue
                 val resampler=PremiumPcm()
                 var started=false
                 try{
-                    premiumPcm.invoke(text,{!stopped.get()&&generation==turn}){chunk->
-                        if(!stopped.get()&&generation==turn){
+                    premiumPcm.invoke(text,{
+                        !stopped.get()&&!googleVoiceFallback.get()&&generation==turn
+                    }){chunk->
+                        if(!stopped.get()&&!googleVoiceFallback.get()&&generation==turn){
                         val pcm=resampler.convert(chunk)
                         if(pcm.isNotEmpty()){
                             if(!started){started=true;lastAssistantAudioAt.set(SystemClock.elapsedRealtime())}
@@ -314,8 +337,27 @@ internal class MobileLiveCall(
                         }
                     }
                 }catch(e:Throwable){
-                    if(!stopped.get()&&generation==turn&&e !is CancellationException)
+                    if(stopped.get() || e is CancellationException)continue
+                    if(e is FishTtsFailoverException){
+                        if(googleVoiceFallback.compareAndSet(false,true)){
+                            // This is a media-path change, NOT a new AI/chat
+                            // session. Cancel old Fish audio and queued phrases
+                            // while keeping the same Live conversation/context.
+                            generation++
+                            while(playback.tryReceive().isSuccess){}
+                            while(premiumPhrases.tryReceive().isSuccess){}
+                            synchronized(writeLock){
+                                runCatching{output?.writeInt(-1);output?.flush()}
+                            }
+                            val message=FishTtsFailover.label(e.causeCode)
+                            notice(message)
+                            onAudioDiagnostics(message)
+                            if(!sdk.enableGoogleAudioFallback())
+                                fail("تعذر تشغيل صوت Google Live البديل أثناء المكالمة")
+                        }
+                    }else if(generation==turn && !googleVoiceFallback.get()){
                         notice("تعذر تشغيل IO Premium؛ استلم المكالمة لو الصوت غير مسموع")
+                    }
                 }
             }
         }
