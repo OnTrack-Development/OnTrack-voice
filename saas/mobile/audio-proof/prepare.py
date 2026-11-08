@@ -159,9 +159,18 @@ def main(root):
                         '        assertTrue(world.did.contains("hang up"));\n    }\n\n'
                         '    private void testCallGreeting() {', 'proof cancel regression tests')
     path.write_text(text)
-    # Recording and automatic answering are off until an explicit one-call test.
+    # OnTrack has no call-recording feature. A legacy JemRec settings screen,
+    # Quick Settings widget, or stale saved toggle must NEVER enable a recording.
+    # Audio to/from the AI is handled by the separate authenticated live PCM
+    # socket ('B') and remains available with recorder mode MODE_OFF.
     path = root / 'app/src/main/java/com/jemcik/jemrec/capture/RecorderSwitch.kt'
-    text = replace_once(path.read_text(), 'getBoolean(KEY, true)', 'getBoolean(KEY, false)', 'recorder default')
+    text = replace_once(path.read_text(),
+                        'Prefs.of(context).getBoolean(KEY, true)',
+                        'false', 'disable all saved call-recording toggle states')
+    text = replace_once(text,
+                        '.edit { putBoolean(KEY, on) }',
+                        '.edit { putBoolean(KEY, false) }',
+                        'never persist call recording enabled')
     path.write_text(text)
     # Add a bounded cancel command; existing protocol authentication is retained.
     path = root / 'app/src/main/java/com/jemcik/jemrec/capture/CaptureDaemon.kt'
