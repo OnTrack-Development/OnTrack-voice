@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/WhatsAppSupport.php';
+require_once __DIR__.'/WhatsAppJobSafety.php';
 require_once __DIR__.'/PublishedFlow.php';
 require_once __DIR__.'/FlowAi.php';
 require_once __DIR__.'/TenantVoiceSession.php';
@@ -133,31 +134,7 @@ function wa_native_run_job(int $jobId,?callable $aiTransport=null,?callable $met
             execute("UPDATE wa_ai_jobs SET status='skipped',updated_at=? WHERE id=?",[now(),$jobId]);
             return ['status'=>'handoff_or_no_reply'];
         }
-        db()->beginTransaction();
-        try{
-            $sql='SELECT * FROM wa_conversations WHERE id=? AND account_id=?';
-            if(driver()==='mysql')$sql.=' FOR UPDATE';
-            $current=one($sql,[(int)$job['conversation_id'],$accountId]);
-            $latest=wa_connection((int)$job['connection_id'],$accountId);
-            if(!$current||(int)($latest['ai_enabled']??0)!==1||
-                (int)$current['generation']!==(int)$job['generation']||!wa_ai_allowed($current)||
-                empty($current['last_customer_at'])||
-                strtotime((string)$current['last_customer_at'])<time()-86400){
-                execute("UPDATE wa_ai_jobs SET status='skipped',updated_at=? WHERE id=?",[now(),$jobId]);
-                db()->commit();return ['status'=>'stale_or_human'];
-            }
-            $sent=wa_meta_send($latest,(string)$current['contact'],$draft['reply_text'],$metaTransport,$draft['buttons']);
-            $mid=insert("INSERT INTO wa_messages(account_id,conversation_id,connection_id,
-                provider_message_id,role,body,delivery_status,created_at)
-                VALUES (?,?,?,?,'ai',?,'accepted',?)",[
-                $accountId,(int)$current['id'],(int)$latest['id'],
-                $sent['provider_message_id'],$draft['reply_text'],now()]);
-            execute('UPDATE wa_conversations SET last_message_at=? WHERE id=? AND account_id=?',
-                [now(),(int)$current['id'],$accountId]);
-            execute("UPDATE wa_ai_jobs SET status='sent',updated_at=? WHERE id=?",[now(),$jobId]);
-            wa_audit($accountId,(int)$current['id'],'whatsapp.native.sent','reviewed; Meta accepted not delivered');
-            db()->commit();return ['status'=>'accepted_not_delivered','message_id'=>$mid];
-        }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
+        return wa_job_send_once($job,$draft['reply_text'],$metaTransport,$draft['buttons'],true);
     }catch(Throwable $e){
         execute("UPDATE wa_ai_jobs SET status='failed',updated_at=? WHERE id=? AND status='processing'",
             [now(),$jobId]);
