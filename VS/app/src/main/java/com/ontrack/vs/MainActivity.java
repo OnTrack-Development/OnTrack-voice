@@ -92,6 +92,12 @@ public final class MainActivity extends Activity {
         box.addView(button("تشغيل تجربة Drama 3", v -> testText()));
         recordButton = button("سجّل كلامي", v -> toggleRecording());
         box.addView(recordButton);
+        box.addView(button("فحص الصلاحيات المطلوبة", v -> info(PermissionCheck.report(this))));
+        box.addView(button("تفعيل الصلاحيات الناقصة", v -> {
+            info(PermissionCheck.report(this));
+            PermissionCheck.activateNext(this);
+        }));
+        box.addView(button("إعدادات صلاحيات التطبيق", v -> PermissionCheck.openAppDetails(this)));
         box.addView(button("إظهار الأيقونة العائمة", v -> overlay()));
         box.addView(button("استلام / إيقاف المعالجة", v -> {
             stopAll(); stopService(new Intent(this, OverlayService.class));
@@ -225,7 +231,7 @@ public final class MainActivity extends Activity {
             toggleRecording();
         else info("يلزم إذن الميكروفون للتسجيل.");
     }
-    @Override protected void onDestroy() {
+    @Override protected void onResume() {\n        super.onResume();\n        if (status != null) info(PermissionCheck.report(this));\n    }\n    @Override protected void onDestroy() {
         stopAll(); unregisterReceiver(takeOver); queue.shutdownNow(); super.onDestroy();
     }
 }
