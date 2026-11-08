@@ -86,6 +86,8 @@ function subscription_assign_demo(int $accountId,int $planId):array {
 function plan_catalog_init():void {
     static $ready=false;
     if($ready)return;
+    $marker=private_path().'/.schema.plans-catalog-v1';
+    if(is_file($marker)){$ready=true;return;}
     $engine=driver()==='mysql'?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4':'';
     db()->exec("CREATE TABLE IF NOT EXISTS reseller_plan_owners(
         plan_id BIGINT PRIMARY KEY,
@@ -93,6 +95,14 @@ function plan_catalog_init():void {
         source_plan_id BIGINT NULL,
         created_at VARCHAR(19) NOT NULL
     )".$engine);
+    db()->exec("CREATE TABLE IF NOT EXISTS subscription_cancellation_intents(
+        account_id BIGINT PRIMARY KEY,
+        subscription_id BIGINT NOT NULL,
+        effective_at VARCHAR(19) NOT NULL,
+        requested_at VARCHAR(19) NOT NULL
+    )".$engine);
+    file_put_contents($marker,now(),LOCK_EX);
+    @chmod($marker,0600);
     $ready=true;
 }
 function plan_catalog_owner(int $planId):int {
@@ -281,4 +291,34 @@ function subscription_change_quote(?array $current,array $target):array {
         'old_minor'=>$old,'new_minor'=>$new,
         'remaining_days'=>(int)ceil($remaining/86400),
         'full_period_difference_minor'=>$new-$old];
+}
+
+/**
+ * Cancellation at term: use ends_at which is already authoritative for site_limit.
+ * This only records the owner's choice; no hidden subscription or automatic charge.
+ */
+function subscription_schedule_end(int $accountId):bool {
+    plan_catalog_init();
+    $current=one("SELECT id,ends_at FROM subscriptions
+        WHERE account_id=? AND status='active' AND starts_at<=? AND ends_at>?
+        ORDER BY id DESC LIMIT 1",[$accountId,now(),now()]);
+    if(!$current)return false;
+    $existing=one('SELECT account_id FROM subscription_cancellation_intents WHERE account_id=?',[$accountId]);
+    if($existing)
+        execute('UPDATE subscription_cancellation_intents SET subscription_id=?,effective_at=?,requested_at=? WHERE account_id=?',
+            [$current['id'],$current['ends_at'],now(),$accountId]);
+    else
+        insert('INSERT INTO subscription_cancellation_intents(account_id,subscription_id,effective_at,requested_at) VALUES (?,?,?,?)',
+            [$accountId,$current['id'],$current['ends_at'],now()]);
+    return true;
+}
+function subscription_unschedule_end(int $accountId):bool {
+    plan_catalog_init();
+    return execute('DELETE FROM subscription_cancellation_intents WHERE account_id=?',[$accountId])>0;
+}
+function subscription_scheduled_end(int $accountId,?int $currentId):?array {
+    if(!$currentId)return null;
+    plan_catalog_init();
+    return one('SELECT * FROM subscription_cancellation_intents WHERE account_id=? AND subscription_id=?',
+        [$accountId,$currentId]);
 }
