@@ -54,8 +54,8 @@ function reseller_plan_post_values():array {
 function agent_studio_unpack_fields():void {
     if(!isset($_POST['studio_fields_b64']))return;
     $packed=$_POST['studio_fields_b64'];
-    if(!is_string($packed)||strlen($packed)>170000||
-       !preg_match('/^[A-Za-z0-9_-]{4,170000}$/D',$packed))
+    if(!is_string($packed)||strlen($packed)<4||strlen($packed)>170000||
+       !preg_match('/^[A-Za-z0-9_-]+$/D',$packed))
         throw new InvalidArgumentException('صيغة بيانات المساعد غير صالحة؛ أعد تحميل الصفحة');
     $bytes=base64_decode(strtr($packed,'-_','+/'),true);
     if($bytes===false||strlen($bytes)>120000||!mb_check_encoding($bytes,'UTF-8'))
