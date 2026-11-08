@@ -40,6 +40,13 @@ public final class ConfigStore {
         prefs(ctx).edit().putString("persona_voice_id_" + PersonaProfiles.validIndex(index),
             voiceId.trim()).apply();
     }
+    /** Preview state only. It never implies that SIM telephony audio has been routed. */
+    public static boolean isPreviewPaused(Context ctx) {
+        return prefs(ctx).getBoolean("preview_paused", false);
+    }
+    public static void setPreviewPaused(Context ctx, boolean paused) {
+        prefs(ctx).edit().putBoolean("preview_paused", paused).apply();
+    }
     private static SecretKey key() throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");
         store.load(null);
