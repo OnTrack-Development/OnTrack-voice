@@ -1,0 +1,9 @@
+{
+    "job_status":  "failure",
+    "workflow":  "vs-android-debug.yml",
+    "updated_at":  "2026-11-08T20:15:31.2534680Z",
+    "run_url":  "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42518427512",
+    "run_attempt":  "1",
+    "head_sha":  "4fe29fb82a413724593450beb15dfc84b904b538",
+    "run_id":  "42518427512"
+}
