@@ -2091,6 +2091,24 @@ function render_billing(array $a):void{
             (!$usage['active']?'<p class="dim">لا يوجد اشتراك فعّال في الفترة الحالية.</p>':''));
     }
 
+    // Only the authenticated owner's verified external SSO subject can
+    // claim a paid WHMCS/Laravel order. Email is never used as identity.
+    if($a['kind']==='customer'&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
+        require_once __DIR__.'/ExternalOrderClaim.php';
+        $person=me();
+        $unclaimed=$person?external_order_claim_candidates((int)$person['id'],$id):[];
+        if($unclaimed){
+            $cards='<p class="dim">طلبات مدفوعة من WHMCS/Laravel تخص هويتك الخارجية المرتبطة والموثقة. اضغط لتفعيل اشتراك هذا الحساب فقط.</p>';
+            foreach($unclaimed as $entry){
+                $cards.=form_start('external_order_claim_paid','/?tab=billing','class="inline-form"').
+                  '<input type="hidden" name="order_id" value="'.(int)$entry['id'].'">'.
+                  '<strong>'.e((string)$entry['integration_name']).' · '.e((string)$entry['external_order_id']).
+                  ' · '.number_format((int)$entry['amount_minor']/100,2).' ج.م</strong>'.
+                  '<button type="submit" class="btn primary small" data-confirm="ربط الطلب المدفوع بهوية هذا الحساب وتفعيل الاشتراك بعد التحقق؟">تفعيل الطلب المدفوع</button></form>';
+            }
+            echo card('مطابقة وتفعيل طلبات مدفوعة من نظام خارجي',$cards);
+        }
+    }
     if(in_array($a['kind'],['reseller','customer'],true)
        &&in_array($a['role'],['owner','admin'],true)&&!active_support()){
         $plans=plan_catalog_available(account($id));
