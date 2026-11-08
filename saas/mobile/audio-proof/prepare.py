@@ -242,7 +242,7 @@ def main(root):
                         'legacy recording permissions')
     text = replace_once(text,
                         '    val ASK_PERMISSIONS = RUNTIME_PERMISSIONS + AudioAccess.PERMISSIONS',
-                        '    val RUNTIME_PERMISSIONS: Array<String> = emptyArray()\\n'
+                        '    val RUNTIME_PERMISSIONS: Array<String> = emptyArray()\n'
                         '    val ASK_PERMISSIONS = RUNTIME_PERMISSIONS',
                         'remove obsolete recorder media permissions prompt')
     path.write_text(text)
