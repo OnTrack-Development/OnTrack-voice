@@ -157,8 +157,15 @@ function layout_open(array $a,string $tab):void{
         $origin=account((int)($a['support_origin']??0));
         $backLabel=($origin['kind']??'')==='reseller'?'العودة إلى إدارة الشركة':'العودة للوحة مدير المنصة';
         echo '<div class="workspace-switcher" aria-label="تبديل مساحة العمل">'.
-            '<span class="workspace-switcher-title">أنت داخل حساب عميل للدعم</span>'.
-            form_start('support_leave','','class="workspace-switch-form" data-no-ajax="1"').
+            '<span class="workspace-switcher-title">أنت داخل حساب '.e((string)$a['name']).' للدعم</span>';
+        if(console_can_switch_support_view($a)){
+            $to=console_view_mode($a)==='user'?'admin':'user';
+            $toLabel=$to==='user'?'عرض واجهة المستخدم للريسيلر':'عرض واجهة إدارة الريسيلر';
+            echo form_start('set_support_view','','class="workspace-switch-form" data-no-ajax="1"').
+                '<input type="hidden" name="view" value="'.e($to).'">'.
+                '<button type="submit" class="workspace-switch-button">⇄ '.e($toLabel).'</button></form>';
+        }
+        echo form_start('support_leave','','class="workspace-switch-form" data-no-ajax="1"').
             '<button type="submit" class="workspace-switch-button">↩ '.e($backLabel).'</button></form></div>';
     }elseif(console_can_switch_view($a)){
         $to=console_view_mode($a)==='user'?'admin':'user';
@@ -180,6 +187,12 @@ function layout_open(array $a,string $tab):void{
     }
     if($support){
         $origin=account((int)($a['support_origin']??0));
+        if(console_can_switch_support_view($a)){
+            $next=console_view_mode($a)==='user'?'admin':'user';
+            echo form_start('set_support_view','','class="inline-form workspace-return-top" data-no-ajax="1"').
+                '<input type="hidden" name="view" value="'.e($next).'">'.
+                '<button type="submit" class="btn small primary">⇄ '.($next==='user'?'واجهة مستخدم الريسيلر':'إدارة الريسيلر').'</button></form>';
+        }
         echo form_start('support_leave','','class="inline-form workspace-return-top" data-no-ajax="1"').
             '<button type="submit" class="btn small primary">'.
             (($origin['kind']??'')==='reseller'?'↩ إدارة الشركة':'↩ لوحة المدير').
@@ -250,7 +263,10 @@ function login_page(?string $error=null):void{
  * URL, path from the user, CDN redirect, or fake download link.
  */
 function ontrack_native_public_release():?array {
-    $file=__DIR__.'/../../../mobile/updates/native/latest.json';
+    // Deployed console is /public_html/index.php + /public_html/_core/.
+    // The signed OTA manifest lives in /public_html/mobile/updates/native/.
+    // Three parent traversals escape public_html and hide an existing APK.
+    $file=__DIR__.'/../mobile/updates/native/latest.json';
     if(!is_file($file)||is_link($file)||filesize($file)>16384)return null;
     $envelope=json_decode((string)file_get_contents($file),true);
     if(!is_array($envelope)||!is_string($envelope['payload']??null)||
@@ -265,8 +281,12 @@ function ontrack_native_public_release():?array {
        (int)$m[1]!==(int)($data['version_code']??0)||
        $m[2]!==($data['sha256']??null)||empty($data['version_name'])||
        (int)($data['size']??0)<1000000)return null;
+    $apk=dirname($file).'/'.$name;
+    if(is_link($apk)||!is_file($apk)||filesize($apk)!==(int)$data['size'])return null;
+    // The canonical OTA host also serves reseller white-label domains.
+    // Use an absolute approved URL instead of assuming /mobile exists there.
     return ['name'=>(string)$data['version_name'],'code'=>(int)$m[1],
-      'url'=>'/mobile/updates/native/'.rawurlencode($name)];
+      'url'=>'https://app.ontrackegy.com/mobile/updates/native/'.rawurlencode($name)];
 }
 function ontrack_update_banner():string {
     $release=ontrack_native_public_release();
@@ -309,8 +329,21 @@ function render_overview(array $a):void{
     $primaryLabel=$kind==='platform'?(platform_resellers_visible()?'إدارة الحسابات والريسيلرز':'إدارة العملاء'):($kind==='reseller'?'إدارة العملاء':'إدارة المساعدون');
     $secondaryAction=$kind==='platform'?'settings':($kind==='reseller'?'plans':'releases');
     $secondaryLabel=$kind==='platform'?'إعدادات المنصة':($kind==='reseller'?'باقات العملاء':'تطبيق Android');
+    $release=ontrack_native_public_release();
+    $download=$release?'<a class="btn light ot-direct-apk" href="'.e($release['url']).'">↓ تحميل تطبيق Android APK · '.e($release['name']).'</a>':'';
+    $switch='';
+    if($a['kind']==='reseller' && (console_can_switch_view($a)||console_can_switch_support_view($a))){
+        $to=console_view_mode($a)==='user'?'admin':'user';
+        $action=active_support()?'set_support_view':'set_view';
+        $switch=form_start($action,'/?tab=overview','class="inline-form" data-no-ajax="1"').
+            '<input type="hidden" name="view" value="'.e($to).'">'.
+            '<button type="submit" class="btn ghost-light">⇄ '.
+            ($to==='user'?'فتح واجهة مستخدم الريسيلر':'العودة لإدارة الريسيلر').
+            '</button></form>';
+    }
     echo '<section class="welcome"><div><span class="eyebrow">SMART VOICE CONTROL</span><h2>'.e($title).'</h2><p>'.e($sub).'</p><div class="welcome-actions">'.
         '<a class="btn light" href="/saas/console/?tab='.e($primaryAction).'">'.e($primaryLabel).' ←</a>'.
+        $download.$switch.
         '<a class="btn ghost-light" href="/saas/console/?tab='.e($secondaryAction).'">'.e($secondaryLabel).'</a>'.
         '</div></div><div class="orb-art"><span></span><b>OT</b></div></section>';
     echo ontrack_update_banner();
