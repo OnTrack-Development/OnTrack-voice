@@ -1,0 +1,98 @@
+name: Deploy direct reseller and customer plan assignment v56
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-admin-assign-reseller-plans-v56-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-admin-plan-grants-v56-public
+  cancel-in-progress: false
+jobs:
+  publish:
+    name: Run account plan permission tests, apply PHP delta safely, verify live
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 18
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Fetch new source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Fetch previous published source for minimal host patch
+        uses: actions/checkout@v4
+        with:
+          ref: ec1020fff980a6b9f7f8fa571caba2cd0c2bbb9e
+          path: .build/plan-before
+          persist-credentials: false
+      - name: Validate PHP, isolated account scenarios and no billing privilege escalation
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($file in @(
+            'saas/console/_core/SubscriptionPlans.php',
+            'saas/console/_core/Actions.php',
+            'saas/console/_core/Views.php',
+            'tools/test_admin_direct_plan_grants.php',
+            'tools/verify_live_admin_direct_plans_v56.php'
+          )){
+            & php -l $file
+            if($LASTEXITCODE -ne 0){throw ('PHP invalid: '+$file)}
+          }
+          $env:ONTRACK_CI_NAMESPACE='planv56'+$env:GITHUB_RUN_ID
+          & php tools/test_admin_direct_plan_grants.php
+          if($LASTEXITCODE -ne 0){throw 'Reseller and customer plan scenarios failed'}
+          Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          & python -m py_compile tools/deploy_admin_direct_plans_v56.py
+          if($LASTEXITCODE -ne 0){throw 'Atomic host publisher syntax failed'}
+          Write-Host 'DIRECT_ADMIN_RESELLER_CUSTOMER_PLAN_GRANT_TESTS_PASS'
+      - name: Stage only reviewed PHP deltas in a private SSH directory
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(-not (Test-Path -LiteralPath $key)){throw 'Authorized SSH key is unavailable'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
+            '-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $dest='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/admin-direct-plans-v56'
+          $dirs=@($stage,"${stage}/old","${stage}/old/_core",
+            "${stage}/new","${stage}/new/_core")
+          & ssh.exe @flags -p 7195 $dest ('mkdir -p '+($dirs -join ' ')+' && chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Private staging denied'}
+          foreach($rel in @('_core/SubscriptionPlans.php','_core/Actions.php','_core/Views.php')){
+            foreach($variant in @('old','new')){
+              $base=if($variant -eq 'old'){'.build/plan-before/saas/console/'}else{'saas/console/'}
+              & scp.exe @flags -P 7195 ($base+$rel) ($dest+':'+$stage+'/'+$variant+'/'+$rel)
+              if($LASTEXITCODE -ne 0){throw ('Failed staging '+$variant+'/'+$rel)}
+            }
+          }
+          & scp.exe @flags -P 7195 tools/deploy_admin_direct_plans_v56.py ($dest+':'+$stage+'/publish.py')
+          if($LASTEXITCODE -ne 0){throw 'Host patch script staging failed'}
+          & scp.exe @flags -P 7195 tools/verify_live_admin_direct_plans_v56.php ($dest+':'+$stage+'/smoke.php')
+          if($LASTEXITCODE -ne 0){throw 'Host read-only verifier staging failed'}
+          Write-Host 'DIRECT_ADMIN_PLANS_DELTA_STAGED'
+      - name: Atomic deployment (preserve tenant data, billings, secrets)
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
+            '-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $dest='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/admin-direct-plans-v56'
+          & ssh.exe @flags -p 7195 $dest ('python3 '+$stage+'/publish.py')
+          if($LASTEXITCODE -ne 0){throw 'Production source drift blocked plan UI publish; no partial update accepted'}
+          Write-Host 'ADMIN_RESELLER_PLAN_ASSIGNMENT_PUBLISHED'
+      - name: Verify live plan edit rules without modifying database
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
+            '-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $dest='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/admin-direct-plans-v56'
+          & ssh.exe @flags -p 7195 $dest ('/opt/cpanel/ea-php83/root/usr/bin/php '+$stage+'/smoke.php')
+          if($LASTEXITCODE -ne 0){throw 'Live admin plans and self-service verification failed'}
+          Write-Host 'LIVE_RESELLER_AND_CUSTOMER_PLAN_DIRECT_ASSIGNMENT_PASS'
