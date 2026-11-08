@@ -109,19 +109,36 @@ jobs:
           $stage='/home/appontrack/.ontrack-mobile/native-v56'
           & ssh.exe @flags -p 7195 $remote ('umask 077; mkdir -p '+$stage+'/ota '+$stage+'/native; chmod 700 '+$stage+' '+$stage+'/ota '+$stage+'/native')
           if($LASTEXITCODE -ne 0){throw 'Private native stage inaccessible'}
-          $ui=((Get-Content -LiteralPath '.build/artifact/ota/latest.json' -Raw|ConvertFrom-Json).payload|ConvertFrom-Json)
-          $paths=@(
-            @('.build/artifact/OnTrack-Voice-0.3.33.apk',"$stage/OnTrack-Voice-0.3.33.apk"),
-            @('.build/artifact/ota/latest.json',"$stage/ota/latest.json"),
-            @('.build/artifact/ota/signing-cert.der',"$stage/ota/signing-cert.der"),
-            @('.build/artifact/ota/'+$ui.file,"$stage/ota/"+$ui.file),
-            @('.build/artifact/native/latest.json',"$stage/native/latest.json"),
-            @('.build/artifact/native/signing-cert.der',"$stage/native/signing-cert.der"),
-            @('tools/deploy_native_v56_direct_ssh.py',"$stage/publish.py")
+          # Signed manifest is the only source of the immutable HTML filename.
+          $ui=((Get-Content -LiteralPath '.build/artifact/ota/latest.json' -Raw | ConvertFrom-Json).payload | ConvertFrom-Json)
+          $uiFile=[string]$ui.file
+          if($uiFile -cnotmatch '^ui-[0-9a-f]{64}\.html$'){throw 'Unsafe signed UI OTA filename'}
+          $uiSource=Join-Path '.build/artifact/ota' $uiFile
+          # Never use nested PowerShell arrays for source/destination pairs: array
+          # unrolling can pass both names as one scp source argument on Windows.
+          $assets=@(
+            [pscustomobject]@{ Source='.build/artifact/OnTrack-Voice-0.3.33.apk'; Destination="$stage/OnTrack-Voice-0.3.33.apk" }
+            [pscustomobject]@{ Source='.build/artifact/ota/latest.json'; Destination="$stage/ota/latest.json" }
+            [pscustomobject]@{ Source='.build/artifact/ota/signing-cert.der'; Destination="$stage/ota/signing-cert.der" }
+            [pscustomobject]@{ Source=$uiSource; Destination="$stage/ota/$uiFile" }
+            [pscustomobject]@{ Source='.build/artifact/native/latest.json'; Destination="$stage/native/latest.json" }
+            [pscustomobject]@{ Source='.build/artifact/native/signing-cert.der'; Destination="$stage/native/signing-cert.der" }
+            [pscustomobject]@{ Source='tools/deploy_native_v56_direct_ssh.py'; Destination="$stage/publish.py" }
           )
-          foreach($pair in $paths){
-            & scp.exe @flags -P 7195 $pair[0] ($remote+':'+$pair[1])
-            if($LASTEXITCODE -ne 0){throw ('Failed to stage signed OTA '+$pair[0])}
+          if($assets.Count -ne 7){throw 'Expected exactly seven signed OTA staging assets'}
+          $destinations=[System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+          foreach($asset in $assets){
+            $source=[string]$asset.Source
+            $destination=[string]$asset.Destination
+            if([string]::IsNullOrWhiteSpace($source) -or [string]::IsNullOrWhiteSpace($destination) -or
+               $source.Contains([char]10) -or $destination.Contains([char]10) -or
+               !(Test-Path -LiteralPath $source -PathType Leaf)){
+              throw ("Missing or invalid signed OTA staging asset: "+$source)
+            }
+            if(!$destinations.Add($destination)){throw ("Duplicate staging destination: "+$destination)}
+            $remoteTarget='{0}:{1}' -f $remote,$destination
+            & scp.exe @flags -P 7195 $source $remoteTarget
+            if($LASTEXITCODE -ne 0){throw ("Failed to stage signed OTA "+$source)}
           }
           Write-Host 'V68_NATIVE_SIGNED_OTA_PRIVATE_STAGING_PASS'
       - name: Publish atomically and verify public Android 0.3.33 and UI revision 56
