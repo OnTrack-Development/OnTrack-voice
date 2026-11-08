@@ -1068,6 +1068,43 @@ function act():void {
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 $url=checkout_start($id,intfield('plan_id'),me());
                 header('Location: '.$url,true,303);exit;
+            case 'invoice_create':
+                if(!in_array($kind,['platform','reseller'],true)||
+                   !in_array($a['role'],['owner','admin','finance'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                require_once __DIR__.'/BillingInvoices.php';
+                $target=scoped_customer(intfield('customer_id'));
+                $invoice=billing_invoice_create_manual($a,(int)$target['id'],
+                    intfield('plan_id'),(int)me()['id']);
+                audit('invoice.manual_issued',(int)$target['id'],['invoice_id'=>$invoice['id']]);
+                $success='تم إصدار فاتورة '.(string)$invoice['invoice_no'].' بانتظار توثيق الدفع.';
+                break;
+            case 'invoice_cancel':
+                if(!in_array($kind,['platform','reseller'],true)||
+                   !in_array($a['role'],['owner','admin','finance'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                require_once __DIR__.'/BillingInvoices.php';
+                $invoice=billing_invoice_cancel_manual($a,intfield('invoice_id'),(int)me()['id']);
+                audit('invoice.cancelled',(int)$invoice['account_id'],['invoice_id'=>$invoice['id']]);
+                $success='تم إلغاء الفاتورة اليدوية غير المسددة، ولم يُسجل دفع.';
+                break;
+            case 'invoice_reissue':
+                if(!in_array($kind,['platform','reseller'],true)||
+                   !in_array($a['role'],['owner','admin','finance'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                require_once __DIR__.'/BillingInvoices.php';
+                $invoice=billing_invoice_reissue_manual($a,intfield('invoice_id'),(int)me()['id']);
+                audit('invoice.reissued',(int)$invoice['account_id'],['invoice_id'=>$invoice['id']]);
+                $success='صدرت فاتورة جديدة: '.$invoice['invoice_no'].'، مع الاحتفاظ بالقديمة.';
+                break;
+            case 'invoice_backfill':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||
+                    active_support()||console_view_mode($a)!=='admin')deny();
+                require_once __DIR__.'/BillingInvoices.php';
+                $amount=billing_invoice_backfill(null,100);
+                audit('invoice.legacy_imported',$id,['count'=>$amount]);
+                $success='تم استيراد '.$amount.' فاتورة من الطلبات السابقة دون تغيير أي حالة دفع.';
+                break;
             case 'manual_approve':
                 if(!in_array($kind,['platform','reseller'],true)||!in_array($a['role'],['owner','admin','finance'],true))deny();
                 $proof=required('payment_reference',160);
@@ -1106,6 +1143,8 @@ function act():void {
                         VALUES (?,?,?,'pending',?)",
                         [$order['account_id'],'subscription.activated',
                          json_encode(['order'=>$order['id'],'source'=>'manual_review']),now()]);
+                    require_once __DIR__.'/BillingInvoices.php';
+                    billing_invoice_settle((int)$order['id'],$proof,(int)me()['id']);
                     db()->commit();
                 }catch(Throwable $ex){db()->rollBack();throw $ex;}
                 audit('manual_payment.approved',(int)$order['account_id'],['order'=>$order['id'],'proof_ref'=>$proof]);break;
