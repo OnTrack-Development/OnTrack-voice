@@ -6,7 +6,7 @@
 - المستودع: `OnTrack-Development/OnTrack-voice`.
 - الفرع: `feat/io-premium-native-v51-20261107`.
 - نسخة الإصلاح الأول `v66`: [42449682572](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42449682572) **SUCCESS / host deployed**.
-- دفعة `v67`: [42450818200](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42450818200) **SUCCESS / host deployed**؛ ثم [42451096873](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42451096873) **SUCCESS / host deployed** عند تعزيز تسوية استردادات الدفع؛ تحسينات لاحقة في نفس الفرع يجب أن تمر بنشر وتحقق مستقلين قبل اعتبارها منشورة.
+- دفعة `v67`: [42450818200](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42450818200) **SUCCESS / host deployed**؛ ثم [42451096873](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42451096873) **SUCCESS / host deployed**؛ وآخر دفعة مدمجة [42451288858](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42451288858) **SUCCESS / host deployed**، SHA `c06df9cbf3350f5375b78de2547ba8213dabe2c8`: اختبار الباقات والدفع/الاسترداد الموثق، WA native/WHMCS، Flow جهاز حقيقي في fixture، نشر 11 ملفًا تدريجيًا مع حفظ نسخة استرجاع وفحص PHP 8.3 وHTTPS.
 - الـWorker الخاص بواتساب: [42451045352](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42451045352) **SUCCESS**، تثبيت Cron مستقل لدقيقة واحدة `status=newly_installed`، مع إثبات الحفاظ على بقية إدخالات Cron وعدم لمس Host-Link الموقوف.
 - المكان الفعلي: `/home/appontrack/public_html/`، SSH مباشر من BEDIR، نسخ الاسترجاع داخل `/home/appontrack/.ontrack-mobile/saas-first-logic-v67/`.
 - لم يتم إصدار APK جديد، ولا تعديل بيانات حسابات العملاء أو أي مدفوعات قائمة.
@@ -30,5 +30,6 @@
 - `V67_PAIRED_DEVICE_DETERMINISTIC_FLOW_AND_VERIFIED_TOOL_BRIDGE_PASS`.
 - `V67_ALL_LOGIC_FILES_PUBLISHED_WITH_ROLLBACK_PASS` / `V67_LIVE_CANONICAL_PHP83_RECHECK_PASS` / `V67_LIVE_PAYMENT_WA_FLOW_PHP_AND_HTTPS_SMOKE_PASS`.
 - `V67_WHATSAPP_DURABLE_WORKER_CRON_INSTALLED_PASS`.
+- أحدث إيصال v67: `V67_ALL_LOGIC_FILES_PUBLISHED_WITH_ROLLBACK_PASS`، backup `/home/appontrack/.ontrack-mobile/saas-first-logic-v67/backup-1794116119-2603081`، المصدر النهائي `c06df9cb`، hash server للـKashierWebhook `bc42b492a6dc1e0faf2cc80bae618d438a297eebee4a96e90f3b41ae1630d5e8`، تغيير Views billing لعرض المراجعات وتوضيح رصيد الأيام.
 - **لا تساوي فحوص SQLite ومعاملات Meta mock تحققًا حيًا من الحسابات والمدفوعات والهواتف**. لم نتعامل مع حساب Meta/WHMCS خارجي حقيقي أو هاتف المالك في هذه الدفعة.
 - ممنوع إظهار بيانات الاعتماد في المستودع أو استئناف Host-Link/الجدولة التي أوقفها المالك. الـCron الجديد مخصص فقط للردود التي فعّلها صاحب القناة صراحةً في منصة SaaS.
