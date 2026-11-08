@@ -46,6 +46,24 @@ def main(root):
                 if patched != text:
                     path.write_text(patched)
                     changed.append(str(path.relative_to(root)))
+    # Android Settings > Wireless debugging > Paired devices uses the ADB
+    # client label, not our app launcher label. This upstream default was
+    # exposing JemRec on customer phones. Rename the DISPLAY name and the
+    # certificate subject for newly generated identities; NEVER reset the
+    # persisted keys/certificates because that would force every installed
+    # device to pair again. Source remains Apache-2.0 with attribution.
+    path = root / 'app/src/main/java/com/jemcik/jemrec/adb/AdbTransport.kt'
+    text = replace_once(path.read_text(),
+                        'override fun getDeviceName(): String = "JemRec"',
+                        'override fun getDeviceName(): String = "OnTrack Voice"',
+                        'wireless debugging client display name')
+    path.write_text(text)
+    path = root / 'app/src/main/java/com/jemcik/jemrec/adb/AdbIdentity.kt'
+    text = replace_once(path.read_text(),
+                        'private const val SUBJECT = "CN=JemRec, O=JemRec, C=US"',
+                        'private const val SUBJECT = "CN=OnTrack Voice, O=OnTrack Development, C=EG"',
+                        'new ADB identity certificate subject')
+    path.write_text(text)
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
