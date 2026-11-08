@@ -47,9 +47,11 @@ public final class VsCallBridge implements AutoCloseable {
         // The APK never executes system commands. Owner enables the limited
         // shell service manually via authorized Wireless/USB Debugging.
         String devicePath = target.getAbsolutePath();
-        return "adb shell \"CLASSPATH=" + devicePath +
-            " app_process / com.ontrack.vs.shell.VsTelephonyShell " + token(ctx) +
-            " >/dev/null 2>&1 &\"";
+        return "adb shell \"cp " + devicePath + " /data/local/tmp/vs-bridge.jar"
+            + " && chmod 600 /data/local/tmp/vs-bridge.jar"
+            + " && CLASSPATH=/data/local/tmp/vs-bridge.jar"
+            + " app_process / com.ontrack.vs.shell.VsTelephonyShell " + token(ctx)
+            + " >/dev/null 2>&1 &\"";
     }
 
     public static VsCallBridge connect(Context ctx) throws Exception {
