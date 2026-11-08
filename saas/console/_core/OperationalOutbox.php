@@ -134,6 +134,52 @@ function operational_outbox_batch(int $limit=60):array{
     operational_worker_beat('operational_outbox',$counts['scanned'],$counts['delivered'],$counts['failed']);
     return $counts;
 }
+/** Pure worker freshness check, safe for fixtures and production read-only UI.
+ * A heartbeat means the process ran, not that Meta/SMTP delivery succeeded.
+ * Timestamps are server UTC. Missing and stale workers must never look green.
+ */
+function operational_workers_assess(array $rows,?int $epoch=null):array{
+    $epoch=$epoch??time();
+    $expected=[
+        'operational_outbox'=>300,
+        'operational_email'=>300,
+        'flow_ai'=>300,
+        'whatsapp_ai'=>300,
+        'knowledge_sync'=>900
+    ];
+    $indexed=[];
+    foreach($rows as $row){
+        $name=(string)($row['worker']??'');
+        if(array_key_exists($name,$expected))$indexed[$name]=$row;
+    }
+    $health=[];$counts=['healthy'=>0,'stale'=>0,'failed'=>0,'missing'=>0,'invalid'=>0];
+    foreach($expected as $name=>$maxAge){
+        $row=$indexed[$name]??null;
+        $run=$row?strtotime((string)($row['last_run_at']??'').' UTC'):false;
+        $success=$row&&!empty($row['last_success_at'])
+            ?strtotime((string)$row['last_success_at'].' UTC'):false;
+        $age=$run===false?null:max(0,$epoch-$run);
+        $successAge=$success===false?null:max(0,$epoch-$success);
+        if($row===null)$status='missing';
+        elseif($run===false||$run>$epoch+60||($success!==false&&$success>$epoch+60))
+            $status='invalid';
+        elseif($age>$maxAge)$status='stale';
+        elseif($success===false||$successAge>max(900,3*$maxAge))
+            $status='failed';
+        else $status='healthy';
+        $counts[$status]++;
+        $health[]=[
+            'worker'=>$name,'status'=>$status,'age_seconds'=>$age,
+            'success_age_seconds'=>$successAge,'last_run_at'=>$row['last_run_at']??null,
+            'last_success_at'=>$row['last_success_at']??null,
+            'scanned'=>(int)($row['scanned']??0),
+            'delivered'=>(int)($row['delivered']??0),
+            'failed'=>(int)($row['failed']??0)
+        ];
+    }
+    return ['workers'=>$health,'counts'=>$counts,
+        'all_healthy'=>$counts['healthy']===count($expected)];
+}
 /** Dashboard is scoped by account; no sensitive raw event payload displayed. */
 function operational_outbox_status(int $accountId,bool $admin=false):array{
     operational_outbox_init();
@@ -142,7 +188,9 @@ function operational_outbox_status(int $accountId,bool $admin=false):array{
     $pending=all("SELECT status,COUNT(*) amount FROM outbox".$where."
         GROUP BY status", $args);
     $states=[];foreach($pending as $v)$states[(string)$v['status']]=(int)$v['amount'];
-    $jobs=all('SELECT worker,last_run_at,last_success_at,scanned,delivered,failed
-        FROM operational_worker_heartbeat ORDER BY worker LIMIT 20');
-    return ['states'=>$states,'workers'=>$jobs];
+    // Only platform admin may see global operational worker health.
+    $jobs=$admin?all('SELECT worker,last_run_at,last_success_at,scanned,delivered,failed
+        FROM operational_worker_heartbeat ORDER BY worker LIMIT 20'):[];
+    return ['states'=>$states,'workers'=>$jobs,
+        'health'=>$admin?operational_workers_assess($jobs):null];
 }
