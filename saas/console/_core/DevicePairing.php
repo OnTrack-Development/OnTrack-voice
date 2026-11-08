@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 /**
  * Multi-tenant Android SIM enrollment. This MUST NOT reuse the old pilot bearer.
- * Pairing code: 92 random bits plus a non-secret SIM-slot nibble (0/1),
- * expires in 10 minutes, one-time, stored as SHA-256. Slot is server-locked.
+ * New six-digit pairing codes expire in ten minutes and are one-time, SHA256-only.
+ * SIM is enforced server-side; legacy 24-hex codes remain valid until expiry.
  * Each installation/physical SIM slot can have at most one active binding.
  */
 function device_pairing_create(int $accountId,int $siteId,int $agentId,int $userId,int $simSlot):string {
@@ -16,34 +16,68 @@ function device_pairing_create(int $accountId,int $siteId,int $agentId,int $user
         throw new InvalidArgumentException('device_invalid_account_site_agent');
     $pending=(int)one("SELECT COUNT(*) n FROM device_pairings WHERE account_id=? AND status IN ('pending','pending_sim0','pending_sim1') AND expires_at>?",[$accountId,now()])['n'];
     if($pending>=5)throw new InvalidArgumentException('device_pending_limit');
-    // 92 unpredictable bits; the first nibble is the approved physical slot.
-    // Encoding the slot in the hashed one-time code avoids a schema migration
-    // and makes a SIM1 code impossible to redeem for SIM2 (or vice versa).
-    $raw=(string)$simSlot.substr(bin2hex(random_bytes(12)),1);
+    // Unique six digits, including leading zeroes. Plaintext never stored.
+    $raw='';
+    for($attempt=0;$attempt<64;$attempt++){
+        $candidate=str_pad((string)random_int(0,999999),6,'0',STR_PAD_LEFT);
+        if(!one('SELECT id FROM device_pairings WHERE code_hash=?',[hash('sha256',$candidate)])){
+            $raw=$candidate;break;
+        }
+    }
+    if($raw==='')throw new RuntimeException('device_pairing_code_space_exhausted');
     insert("INSERT INTO device_pairings(account_id,site_id,agent_id,code_hash,status,expires_at,created_by,created_at)
        VALUES (?,?,?,?,?,?,?,?)",
        [$accountId,$siteId,$agentId,hash('sha256',$raw),'pending_sim'.$simSlot,gmdate('Y-m-d H:i:s',time()+600),$userId,now()]);
-    return strtoupper(implode('-',str_split($raw,4)));
+    return $raw;
+}
+/** Persisted throttle for low-entropy six-digit codes; IP is REMOTE_ADDR, not user headers. */
+function device_pairing_throttle(string $installationId):void {
+    if(PHP_SAPI==='cli' && empty($_SERVER['REMOTE_ADDR']))return;
+    db()->exec('CREATE TABLE IF NOT EXISTS device_pair_attempts (
+        fingerprint CHAR(64) PRIMARY KEY, window_epoch BIGINT NOT NULL, attempts INT NOT NULL)');
+    $now=time();
+    foreach([['install:'.$installationId,5],
+             ['ip:'.(string)($_SERVER['REMOTE_ADDR']??'unknown'),12],
+             ['global',300]] as [$identity,$limit]){
+        $fingerprint=hash('sha256','device-pair-v1|'.$identity);
+        try{
+            execute('INSERT INTO device_pair_attempts(fingerprint,window_epoch,attempts) VALUES (?,?,0)',
+                [$fingerprint,$now]);
+        }catch(PDOException $e){
+            if(!in_array((string)$e->getCode(),['23000','19'],true))throw $e;
+        }
+        execute('UPDATE device_pair_attempts SET
+            attempts=CASE WHEN window_epoch<? THEN 1 ELSE attempts+1 END,
+            window_epoch=CASE WHEN window_epoch<? THEN ? ELSE window_epoch END
+            WHERE fingerprint=?',[$now-600,$now-600,$now,$fingerprint]);
+        $entry=one('SELECT attempts FROM device_pair_attempts WHERE fingerprint=?',[$fingerprint]);
+        if((int)$entry['attempts']>$limit)
+            throw new InvalidArgumentException('device_pairing_rate_limited');
+    }
 }
 function device_pairing_redeem(string $code,string $installationId,int $simSlot,string $label):array {
     $clean=strtolower(str_replace('-','',trim($code)));
-    if(!preg_match('/^[a-f0-9]{24}$/D',$clean)
+    $short=preg_match('/^[0-9]{6}$/D',$clean)===1;
+    $legacy=preg_match('/^[a-f0-9]{24}$/D',$clean)===1;
+    if((!$short&&!$legacy)
         || !preg_match('/^[a-zA-Z0-9_.:-]{12,128}$/D',$installationId)
         || !in_array($simSlot,[0,1],true)
         || mb_strlen($label)>100 || $label==='')
         throw new InvalidArgumentException('device_pairing_invalid');
-    // Reject a wrong-slot request before consuming the single-use ticket.
-    // Legacy 'pending' tickets are intentionally not redeemable after this
-    // change. New slot-bound tickets have an explicit status in the same DB
-    // column; no schema migration or guessing a legacy ticket's intent.
-    if($clean[0] !== (string)$simSlot)
+    // Old 24-character codes have an encoded SIM marker; new numeric codes do not.
+    if($legacy && $clean[0] !== (string)$simSlot)
         throw new InvalidArgumentException('device_pairing_slot_mismatch');
+    if($short)device_pairing_throttle($installationId);
     $token='otdev_'.bin2hex(random_bytes(32));
     $claim=hash('sha256',$installationId.'|'.$simSlot);
     db()->beginTransaction();
     try{
-        $pair=one("SELECT * FROM device_pairings WHERE code_hash=? AND status=? AND expires_at>?",[hash('sha256',$clean),'pending_sim'.$simSlot,now()]);
-        if(!$pair)throw new InvalidArgumentException('device_pairing_expired_or_used');
+        $pair=one("SELECT * FROM device_pairings WHERE code_hash=? AND expires_at>?",
+            [hash('sha256',$clean),now()]);
+        if(!$pair || !in_array((string)$pair['status'],['pending_sim0','pending_sim1'],true))
+            throw new InvalidArgumentException('device_pairing_expired_or_used');
+        if($pair['status']!=='pending_sim'.$simSlot)
+            throw new InvalidArgumentException('device_pairing_slot_mismatch');
         $a=account((int)$pair['account_id']);
         $site=one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$pair['site_id'],$pair['account_id']]);
         $agent=one("SELECT id FROM agents WHERE id=? AND account_id=? AND site_id=? AND status!='archived'",
