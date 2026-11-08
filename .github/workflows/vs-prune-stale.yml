@@ -1,0 +1,41 @@
+name: VS - cancel superseded preview builds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/vs-prune-stale.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  prune-only-vs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner, repo = context.repo.repo;
+            const keepSha = '3b589ba0c56d9eff6ebad4bacbfa4a2bd75bc216';
+            const response = await github.rest.actions.listWorkflowRuns({
+              owner, repo, workflow_id: 'vs-android-debug.yml', per_page: 100
+            });
+            const runs = response.data.workflow_runs || [];
+            const keep = runs.find(r => r.head_sha === keepSha);
+            if (!keep) {
+              core.info('Final VS revision not in the recent runs. No cancellations.');
+              return;
+            }
+            for (const run of runs) {
+              if (run.id >= keep.id || run.status === 'completed') continue;
+              try {
+                await github.rest.actions.cancelWorkflowRun({owner, repo, run_id: run.id});
+                core.info('Cancelled superseded VS build ' + run.id);
+              } catch (err) {
+                core.warning('Could not cancel stale VS build ' + run.id + ': ' + err.message);
+              }
+            }
