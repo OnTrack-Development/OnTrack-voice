@@ -1,11 +1,7 @@
 name: OnTrack Android campaign v56 build verification
+# v56 is immutable historical release; v57 has an independent signed
+# native+UI OTA workflow. Never auto-republish v56 after source changes.
 on:
-  push:
-    branches: [feat/io-premium-native-v51-20261107]
-    paths:
-      - '.github/workflows/voice-v68-android-campaign-build.yml'
-      - 'saas/mobile/audio-proof/**'
-      - 'saas/mobile/ota/native_release.json'
   workflow_dispatch:
 permissions:
   contents: read
