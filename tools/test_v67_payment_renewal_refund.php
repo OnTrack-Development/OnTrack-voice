@@ -94,6 +94,23 @@ pay_check(kashier_settle($secondRev,null)['status']==='review_required',
     'multiple refund deliveries for one payment cannot silently revoke twice');
 pay_check((string)one('SELECT status FROM subscriptions WHERE id=?',[$two['id']])['status']==='active',
     'ambiguous signed reversal requires reconciliation before cancellation');
-pay_check((int)one('SELECT COUNT(*) n FROM kashier_refund_events')['n']===4,
-    'four signed refund/review receipts retained without duplicate cancellation');
+// Independent new purchase: an unambiguous signed full reversal may revoke
+// ONLY that latest subscription. Previously ambiguous payment never authorizes
+// action on a different order.
+$third=paid_order($a,$p,'25.75');
+pay_check(kashier_settle(['event'=>'pay','data'=>$third['data']],null)['status']==='active',
+    'new independent paid renewal');
+$latest=one("SELECT * FROM subscriptions WHERE account_id=? AND status='active'
+    ORDER BY id DESC LIMIT 1",[$a]);
+$clean=refund_body($third,'reversal');
+pay_check(kashier_verified($clean,kashier_signature($clean['data'],'test-secret'),'test-secret'),
+    'new full reversal signature includes exact signed event type');
+pay_check(kashier_settle($clean,null)['status']==='refunded',
+    'only unambiguous signed full refund can revoke its own active paid subscription');
+pay_check((string)one('SELECT status FROM subscriptions WHERE id=?',[$latest['id']])['status']==='cancelled',
+    'full verified refund revoked only its matching active subscription');
+pay_check(kashier_settle($clean,null)['duplicate']===true,
+    'full refund callback replay cannot double-cancel');
+pay_check((int)one('SELECT COUNT(*) n FROM kashier_refund_events')['n']===5,
+    'five signed refund/review receipts retained without duplicate cancellation');
 echo "V67_PAID_TERM_CARRY_AND_TRANSACTION_LINKED_REVERSAL_PASS\n";
