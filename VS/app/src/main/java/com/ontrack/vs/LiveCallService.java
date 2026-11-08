@@ -28,10 +28,12 @@ public final class LiveCallService extends Service {
     public static final String ACTION_STOP = "com.ontrack.vs.LIVE_STOP";
     public static volatile String status = "غير متصل بالشريحة";
     public static volatile boolean active = false;
+    public static volatile boolean connecting = false;
 
     private volatile boolean stopRequested;
     private volatile boolean bridgeMutatedMicrophone;
     private volatile boolean initialMicMuted;
+    private volatile String lastError;
     private volatile AudioRecord capture;
     private volatile VsCallBridge bridge;
     private Thread worker;
@@ -79,6 +81,9 @@ public final class LiveCallService extends Service {
             stopSelf(); return START_NOT_STICKY;
         }
         stopRequested = false;
+        connecting = true;
+        lastError = null;
+        state("جاري تهيئة جسر الشريحة...");
         worker = new Thread(this::runSession, "vs-fish-sim-live");
         worker.start();
         return START_NOT_STICKY;
@@ -164,7 +169,10 @@ public final class LiveCallService extends Service {
                 state("أُرسلت دفعة PCM لمسار الجهاز؛ السماع عند الطرف التاني يحتاج تأكيد");
             }
         } catch (Exception error) {
-            if (!stopRequested) state("توقف آمن: " + error.getMessage());
+            if (!stopRequested) {
+                lastError = "توقف آمن: " + error.getMessage();
+                state(lastError);
+            }
         } finally {
             endSession();
             stopSelf();
@@ -200,6 +208,7 @@ public final class LiveCallService extends Service {
     private void endSession() {
         stopRequested = true;
         active = false;
+        connecting = false;
         AudioRecord mic = capture;
         capture = null;
         if (mic != null) {
@@ -221,7 +230,9 @@ public final class LiveCallService extends Service {
             } catch (Exception ignored) {}
         }
         bridgeMutatedMicrophone = false;
-        state("VS متوقف؛ تم طلب استعادة حالة الميكروفون السابقة");
+        state(lastError == null
+            ? "VS متوقف؛ تم طلب استعادة حالة الميكروفون السابقة"
+            : lastError + " • تم طلب استعادة الميكروفون السابق");
     }
 
     @Override public void onDestroy() {
