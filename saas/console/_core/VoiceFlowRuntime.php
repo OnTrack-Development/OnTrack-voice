@@ -287,10 +287,18 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
     return ['status'=>$status,'events'=>$events,'state'=>$state,'done'=>$state['done']];
 }
 /** Only server-confirmed, matching tool requests can release a paused node. */
-function voice_flow_complete_tool(int $accountId,int $sessionId,int $actorId,int $requestId):array {
+function voice_flow_complete_tool(int $accountId,int $sessionId,int $actorId,int $requestId,
+    int $deviceBindingId=0):array {
     voice_flow_tool_consumptions_init();
-    $session=voice_flow_session($accountId,$sessionId,$actorId);
+    $session=voice_flow_session($accountId,$sessionId,$actorId,$deviceBindingId);
     voice_flow_require_active_context($session);
+    if(($session['source']??'')==='device'){
+        // A device cannot self-attest a manager. The verified Tool Gateway
+        // actor must be an active web account owner/admin/manager.
+        voice_tool_actor($accountId,$actorId);
+        if($deviceBindingId<1)
+            throw new InvalidArgumentException('flow_device_human_confirmation_required');
+    }
     $state=json_decode((string)$session['state_json'],true,32,JSON_THROW_ON_ERROR);
     $pending=$state['pending_tool']??null;
     if(!is_array($pending))throw new InvalidArgumentException('flow_no_pending_tool');
