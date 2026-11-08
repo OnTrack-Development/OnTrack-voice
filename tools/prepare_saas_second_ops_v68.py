@@ -16,7 +16,10 @@ FILES=[
     '_core/Views.php',
     '_core/TenantWorkspace.php',
     'hooks/index.php',
-    'operational-worker.php'
+    'operational-worker.php',
+    'flow-ai-worker.php',
+    'whatsapp-worker.php',
+    'jobs/knowledge_sync.php'
 ]
 NEW={'_core/ExternalOrderClaim.php','_core/OperationalOutbox.php',
      '_core/EmailDelivery.php','operational-worker.php'}
