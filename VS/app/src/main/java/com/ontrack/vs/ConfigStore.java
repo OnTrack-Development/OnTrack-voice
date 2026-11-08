@@ -19,11 +19,26 @@ public final class ConfigStore {
     private static SharedPreferences prefs(Context ctx) {
         return ctx.getApplicationContext().getSharedPreferences("vs_settings", Context.MODE_PRIVATE);
     }
+    public static int selectedPersona(Context ctx) {
+        return PersonaProfiles.validIndex(prefs(ctx).getInt("persona_index", 0));
+    }
+    public static void saveSelectedPersona(Context ctx, int index) {
+        prefs(ctx).edit().putInt("persona_index", PersonaProfiles.validIndex(index)).apply();
+    }
     public static String voiceId(Context ctx) {
-        return prefs(ctx).getString("voice_id", DEFAULT_VOICE_ID);
+        return voiceId(ctx, selectedPersona(ctx));
+    }
+    public static String voiceId(Context ctx, int index) {
+        SharedPreferences data = prefs(ctx);
+        return data.getString("persona_voice_id_" + PersonaProfiles.validIndex(index),
+            data.getString("voice_id", DEFAULT_VOICE_ID));
     }
     public static void saveVoiceId(Context ctx, String voiceId) {
-        prefs(ctx).edit().putString("voice_id", voiceId.trim()).apply();
+        saveVoiceId(ctx, selectedPersona(ctx), voiceId);
+    }
+    public static void saveVoiceId(Context ctx, int index, String voiceId) {
+        prefs(ctx).edit().putString("persona_voice_id_" + PersonaProfiles.validIndex(index),
+            voiceId.trim()).apply();
     }
     private static SecretKey key() throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");
