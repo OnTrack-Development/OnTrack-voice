@@ -4,6 +4,7 @@ on:
     branches: [feat/io-premium-native-v51-20261107]
     paths:
       - '.github/workflows/voice-final-qa-v65.yml'
+      - 'tools/test_workspace_role_switch.php'
   workflow_dispatch:
 permissions:
   contents: read
