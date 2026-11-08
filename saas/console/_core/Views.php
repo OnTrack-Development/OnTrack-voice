@@ -1245,6 +1245,45 @@ function render_voice_data_sources(array $a,array $site):void {
                 e((string)($entry['reference_id']??'')),e((string)($entry['error_code']??''))];
             $toolHtml.=tbl(['رقم الطلب','العملية','النتيجة','معرّف النظام','الكود'],$historyRows);
         }
+        // Outstanding real SIM Flow nodes only: owner must prepare and
+        // independently approve a matching Tool Gateway request first.
+        // Never present a demo simulation as evidence of a live call.
+        require_once __DIR__.'/VoiceFlowRuntime.php';
+        voice_flow_runtime_init();
+        $pendingDeviceFlows=all("SELECT id,call_id,agent_id,state_json FROM voice_flow_sessions
+            WHERE account_id=? AND site_id=? AND source='device'
+              AND status='awaiting_tool' ORDER BY updated_at DESC LIMIT 20",[$id,$siteId]);
+        if($pendingDeviceFlows){
+            $toolHtml.='<section class="card"><h4>طلبات Flow معلقة من شريحة حقيقية</h4>'.
+                '<p class="dim">العملية هنا لا تتنفذ تلقائيًا من كلام Gemini؛ لازم طلب API ناجح بنفس Call ID والأداة وموافقة بشرية منفصلة.</p>';
+            foreach($pendingDeviceFlows as $pendingFlow){
+                $state=json_decode((string)$pendingFlow['state_json'],true);
+                $policyId=(int)($state['pending_tool']['policy_id']??0);
+                if($policyId<1)continue;
+                $toolHtml.='<div class="voice-data-row"><strong>Flow #'.(int)$pendingFlow['id'].
+                    ' · Call '.e((string)$pendingFlow['call_id']).'</strong><small>Agent #'.
+                    (int)$pendingFlow['agent_id'].' · Policy #'.$policyId.'</small>';
+                $actorMember=me();
+                $candidate=$actorMember?one("SELECT id,status FROM voice_tool_requests
+                    WHERE account_id=? AND site_id=? AND actor_id=? AND policy_id=?
+                      AND call_id=? AND status IN ('succeeded','failed','uncertain')
+                    ORDER BY id DESC LIMIT 1",[
+                    $id,$siteId,(int)$actorMember['id'],$policyId,
+                    (string)$pendingFlow['call_id']]):null;
+                if($candidate){
+                    $toolHtml.=form_start('voice_flow_device_tool_complete',$url,'class="inline-form"').
+                        '<input type="hidden" name="site_id" value="'.$siteId.'">'.
+                        '<input type="hidden" name="session_id" value="'.(int)$pendingFlow['id'].'">'.
+                        '<input type="hidden" name="tool_request_id" value="'.(int)$candidate['id'].'">'.
+                        '<button class="btn small" type="submit">تثبيت نتيجة API المؤكدة ('.e($candidate['status']).')</button></form>';
+                }else{
+                    $toolHtml.='<small>محتاج تحضير وتأكيد عملية #'.$policyId.
+                        ' لنفس Call ID من النموذج بالأعلى، وبعدها يظهر زر تثبيت النتيجة.</small>';
+                }
+                $toolHtml.='</div>';
+            }
+            $toolHtml.='</section>';
+        }
         echo card('Integration Manager · العمليات والموافقات',$toolHtml);
 
         $staff=all("SELECT v.id,v.phone_e164,v.status,u.name,m.role
