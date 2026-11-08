@@ -151,7 +151,7 @@ if(in_array($path,['/mfa','/mfa/setup'],true)){
     require_login();
     go('/');
 }
-if($path==='/brand-upload'){
+if($path==='/brand-upload' || ($path==='/' && ($_GET['ot_brand_upload']??'')==='1')){
     // Raw image upload: no multipart POST. This bypasses host WAF rules that
     // historically returned Forbidden 403 before PHP could accept a logo.
     // Both the authenticated membership and X-CSRF-Token are checked in PHP.
