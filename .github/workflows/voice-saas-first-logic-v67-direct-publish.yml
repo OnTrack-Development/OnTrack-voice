@@ -1,0 +1,125 @@
+name: OnTrack v67 all first-section SaaS logic security and operations repairs
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-first-logic-v67-direct-publish.yml'
+      - 'tools/test_v67_payment_renewal_refund.php'
+      - 'tools/test_v67_whatsapp_dispatch.php'
+      - 'tools/deploy_saas_first_logic_v67.py'
+      - 'tools/prepare_saas_first_logic_v67.py'
+      - 'saas/console/_core/KashierWebhook.php'
+      - 'saas/console/_core/Checkout.php'
+      - 'saas/console/_core/WhatsAppSupport.php'
+      - 'saas/console/_core/WhatsAppJobSafety.php'
+      - 'saas/console/_core/WhatsAppNativeAgent.php'
+      - 'saas/console/_core/WhatsAppWhmcsBridge.php'
+      - 'saas/console/_core/Actions.php'
+      - 'saas/console/_core/Views.php'
+      - 'saas/console/device/v1/index.php'
+      - 'saas/console/whatsapp-worker.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-saas-v67-first-section
+  cancel-in-progress: false
+jobs:
+  test-and-publish:
+    name: Test full first-section logic batch and atomically publish to canonical host
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 50
+      - name: PHP syntax, published-source security and isolated financial/WhatsApp/Flow regressions
+        run: |
+          $ErrorActionPreference='Stop'
+          $paths=@(
+            'saas/console/_core/Checkout.php',
+            'saas/console/_core/KashierWebhook.php',
+            'saas/console/_core/WhatsAppSupport.php',
+            'saas/console/_core/WhatsAppJobSafety.php',
+            'saas/console/_core/WhatsAppNativeAgent.php',
+            'saas/console/_core/WhatsAppWhmcsBridge.php',
+            'saas/console/_core/Actions.php',
+            'saas/console/_core/Views.php',
+            'saas/console/device/v1/index.php',
+            'saas/console/whatsapp-worker.php',
+            'tools/test_v67_payment_renewal_refund.php',
+            'tools/test_v67_whatsapp_dispatch.php'
+          )
+          foreach($path in $paths){
+            & php -l $path
+            if($LASTEXITCODE -ne 0){throw ('PHP syntax invalid '+$path)}
+          }
+          & python -m py_compile tools/deploy_saas_first_logic_v67.py tools/prepare_saas_first_logic_v67.py
+          if($LASTEXITCODE -ne 0){throw 'Publisher syntax failed'}
+          $tests=@(
+            'tools/test_v67_payment_renewal_refund.php',
+            'tools/test_v67_whatsapp_dispatch.php',
+            'tools/test_verified_checkout_settlement.php',
+            'tools/test_console_kashier_webhook.php',
+            'tools/test_whatsapp_native_agent.php',
+            'tools/test_whatsapp_whmcs_bridge.php',
+            'tools/test_whatsapp_webhook_relay.php',
+            'tools/test_voice_flow_runtime.php',
+            'tools/test_device_bootstrap.php',
+            'tools/test_reseller_subscription_catalog.php'
+          )
+          $n=0
+          try{
+            foreach($test in $tests){
+              $n++
+              $env:ONTRACK_CI_NAMESPACE='v67_'+$env:GITHUB_RUN_ID+'_'+$n
+              & php $test
+              if($LASTEXITCODE -ne 0){throw ('First-section regression failed '+$test)}
+            }
+          }finally{
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          }
+          Write-Host 'V67_PAYMENT_WHATSAPP_FLOW_DEVICE_ALL_ISOLATED_REGRESSIONS_PASS'
+      - name: Build pinned old-to-new patch ZIP and transfer to private staging via direct SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          $zip=Join-Path $env:RUNNER_TEMP 'ontrack-v67-first-logic.zip'
+          & python tools/prepare_saas_first_logic_v67.py $zip
+          if($LASTEXITCODE -ne 0){throw 'Pinned old/new patch package failed'}
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH key unavailable'}
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-first-logic-v67'
+          & ssh.exe @ssh -p 7195 $hostName ('umask 077; mkdir -p '+$stage+'; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Private staging not writable'}
+          & scp.exe @ssh -P 7195 $zip ($hostName+':'+$stage+'/bundle.zip')
+          if($LASTEXITCODE -ne 0){throw 'SaaS v67 patch bundle failed to upload'}
+          & scp.exe @ssh -P 7195 tools/deploy_saas_first_logic_v67.py ($hostName+':'+$stage+'/deploy.py')
+          if($LASTEXITCODE -ne 0){throw 'Atomic deploy script transfer failed'}
+          $extract='python3 -c "import zipfile; zipfile.ZipFile('+"'"+$stage+"/bundle.zip'"+').extractall('+"'"+$stage+"'"+')"'
+          & ssh.exe @ssh -p 7195 $hostName $extract
+          if($LASTEXITCODE -ne 0){throw 'Private ZIP extraction failed'}
+          Write-Host 'V67_PINNED_PRIVATE_STAGING_PASS'
+      - name: Atomic production patch, rollback, production lint and unauthenticated route smoke
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          & ssh.exe @ssh -p 7195 $hostName 'python3 /home/appontrack/.ontrack-mobile/saas-first-logic-v67/deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'v67 production aborted; no partial deployment should remain'}
+          & ssh.exe @ssh -p 7195 $hostName 'set -eu; cd /home/appontrack/public_html; /opt/cpanel/ea-php83/root/usr/bin/php -l _core/Checkout.php; /opt/cpanel/ea-php83/root/usr/bin/php -l _core/KashierWebhook.php; /opt/cpanel/ea-php83/root/usr/bin/php -l whatsapp-worker.php; /opt/cpanel/ea-php83/root/usr/bin/php -l device/v1/index.php; echo V67_LIVE_CANONICAL_PHP83_RECHECK_PASS'
+          if($LASTEXITCODE -ne 0){throw 'v67 production PHP lint failed'}
+          $site=Invoke-WebRequest -Uri ('https://app.ontrackegy.com/login?v=67-'+$env:GITHUB_RUN_ID) -SkipHttpErrorCheck -TimeoutSec 30 -MaximumRedirection 2
+          if([int]$site.StatusCode -ge 500){throw ('Login HTTP failure '+$site.StatusCode)}
+          $private=Invoke-WebRequest -Uri 'https://app.ontrackegy.com/device/v1/' -SkipHttpErrorCheck -TimeoutSec 20 -MaximumRedirection 0
+          if([int]$private.StatusCode -eq 200){throw 'Unauthenticated device endpoint exposure'}
+          Write-Host 'V67_LIVE_PAYMENT_WA_FLOW_PHP_AND_HTTPS_SMOKE_PASS'
