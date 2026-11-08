@@ -1108,6 +1108,16 @@ function act():void {
                 if(one('SELECT id FROM domains WHERE hostname=?',[$host]))throw new RuntimeException('الدومين مستخدم');
                 insert("INSERT INTO domains(account_id,hostname,verification_token,status,created_at) VALUES (?,?,?,'pending',?)",[$id,$host,bin2hex(random_bytes(18)),now()]);
                 audit('domain.requested',$id,['host'=>$host]);break;
+            case 'external_order_claim_paid':
+                require_permission('billing.write');
+                if($kind!=='customer'||!in_array($a['role'],['owner','admin'],true)||
+                   active_support())deny();
+                require_once __DIR__.'/ExternalOrderClaim.php';
+                $actor=me();if(!$actor)deny();
+                $claimed=external_order_claim_paid((int)$actor['id'],$id,intfield('order_id'));
+                $success='تم إثبات ملكية طلب الدفع الخارجي وربطه باشتراك شركتك. رقم الطلب #'.
+                    (int)$claimed['order_id'];
+                break;
             case 'checkout_plan':
                 require_permission('billing.write');
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
