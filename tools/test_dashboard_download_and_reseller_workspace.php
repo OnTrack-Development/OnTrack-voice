@@ -42,7 +42,7 @@ try{
         ob_start();render_overview($a);$html=(string)ob_get_clean();
         expect_dashboard(str_contains($html,'ot-direct-apk'),'prominent home APK button '.$row[2]);
         expect_dashboard(str_contains($html,$filename),'home link tracks actual version '.$row[2]);
-        expect_dashboard(str_contains($html,'↓ تحميل تطبيق Android APK'),'direct home download label '.$row[2]);
+        expect_dashboard(str_contains($html,'↓ تحميل APK الآن'),'direct home download label '.$row[2]);
     }
     $_SESSION=['uid'=>(int)$reseller['id'],'account_id'=>2,'console_view'=>'admin'];
     expect_dashboard(console_can_switch_view(),'reseller owner allowed to switch view');
