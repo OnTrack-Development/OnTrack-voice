@@ -482,7 +482,7 @@ function render_accounts(array $a):void{
         $support=form_start('support_enter','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><button class="btn small" type="submit">الدخول للحساب</button></form>';
         $support.=row_rename('edit_account','/?tab=accounts','account_id',(int)$r['id'],(string)$r['name']);
         $support.=form_start('set_account_status','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><input type="hidden" name="status" value="'.($r['status']==='active'?'suspended':'active').'"><button class="btn small danger">'.($r['status']==='active'?'تعليق':'تفعيل').'</button></form>';
-        $current=one("SELECT p.name,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id
+        $current=one("SELECT p.id plan_id,p.name,p.price_minor,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id
             WHERE s.account_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
             ORDER BY s.id DESC LIMIT 1",[(int)$r['id'],now(),now()]);
         $planInfo=$current?'<strong>'.e((string)$current['name']).'</strong><small class="block dim">حتى '.e((string)$current['ends_at']).'</small>'
@@ -496,6 +496,29 @@ function render_accounts(array $a):void{
                 '<label class="field">سبب المنحة الإدارية<input name="grant_reason" required minlength="5" maxlength="200" placeholder="تجربة داخلية أو منحة من الإدارة"></label>'.
                 '<label class="field"><input type="checkbox" name="confirm_admin_grant" value="1" required> أتأكد إن ده تفعيل إداري، مش إثبات دفع</label>'.
                 '<button type="submit" class="btn small primary" data-confirm="تفعيل الباقة المحددة فورًا لهذا الحساب كمنحة إدارية بدون تسجيل أي دفعة؟">حفظ وتفعيل الباقة</button></form></details>';
+        }
+        if(in_array($a['role'],['owner','admin'],true)&&!active_support()&&
+           console_view_mode($a)==='admin'&&
+           in_array($r['kind'],['customer','reseller'],true)&&
+           ($a['kind']==='platform'||($a['kind']==='reseller'&&$r['kind']==='customer'))){
+            $cid=(int)$r['id'];
+            if($current){
+                $planInfo.=form_start('manager_cancel_customer_plan','/?tab=accounts','class="inline-form"').
+                    '<input type="hidden" name="customer_id" value="'.$cid.'">'.
+                    '<button type="submit" class="btn small danger" data-confirm="إلغاء اشتراك العميل فورًا وإيقاف استحقاقاته؟">إلغاء اشتراك العميل</button></form>';
+            }
+            $freeChoices=[];
+            foreach(plan_catalog_available($r) as $p){
+                if((int)$p['price_minor']===0)$freeChoices[(string)$p['id']]=$p['name'];
+            }
+            if($freeChoices){
+                $planInfo.='<details class="row-rename"><summary>تجديد باقة مجانية</summary>'.
+                    form_start('manager_renew_customer_free','/?tab=accounts').
+                    '<input type="hidden" name="customer_id" value="'.$cid.'">'.
+                    select_html('الباقة','plan_id',$freeChoices).
+                    '<small class="dim">الاشتراك النشط لا يُمدد تلقائيًا.</small>'.
+                    submit_btn('تجديد مجاني').'</details>';
+            }
         }
         $cells[]=[e($r['name']).'<small class="block dim">'.e($r['slug']).'</small>',pill((string)$r['kind']),e((string)($r['parent_id']??'مباشر')),e((string)$r['seats']),pill((string)$r['status']),$planInfo,$support];
     }
@@ -1954,6 +1977,17 @@ function render_billing(array $a):void{
             select_html('اختر الباقة الجديدة','plan_id',$options).
             '<p class="dim">باقة مدفوعة: تفعيلها بعد الدفع فقط، ويبدأ تاريخ 30 يومًا بعد التأكيد. قد يضيع جزء من الفترة الحالية؛ لا يوجد رصيد نسبي مطبق حاليًا.</p>'.
             submit_btn('متابعة تغيير الباقة'));
+        if($current){
+            $schedule=subscription_scheduled_end($id,(int)$current['subscription_id']);
+            if($schedule)echo card('إلغاء عند نهاية الفترة',
+                '<p>تم تسجيل طلب عدم التجديد عند نهاية الفترة: '.e($schedule['effective_at']).'.</p>'.
+                form_start('self_resume_renewal','/?tab=billing').
+                submit_btn('سحب طلب الإلغاء'));
+            else echo card('إيقاف التجديد عند نهاية الفترة',
+                form_start('self_cancel_at_end','/?tab=billing').
+                '<p class="dim">اشتراكك الحالي يستمر لنهايته. التجديد المدفوع ليس تلقائيًا في النظام الحالي.</p>'.
+                submit_btn('إيقاف التجديد عند انتهاء الاشتراك'));
+        }
         if($current)echo card('إلغاء الاشتراك الحالي',
             form_start('self_cancel_subscription','/?tab=billing').
             '<p class="dim">الإلغاء فوري ويوقف الاستحقاقات، لكنه لا يحذف سجلات الدفع والاشتراك.</p>'.
