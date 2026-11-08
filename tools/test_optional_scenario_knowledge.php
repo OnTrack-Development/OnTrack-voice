@@ -61,7 +61,7 @@ try{
     check_optional_kb(str_contains($html,'io.premium')||function_exists('io_premium_access_allowed'),
         'IO Premium function available before user navigates to voices');
     $actions=(string)file_get_contents(__DIR__.'/../saas/console/_core/Actions.php');
-    check_optional_kb(str_contains($actions,"if(!$".'hasFile&&trim($text)'."==='')"),
+    check_optional_kb(str_contains($actions,'if(!$hasFile&&trim($text)==='),
         'empty KB form explicitly bypasses source validation');
     check_optional_kb(str_contains($actions,"voice_knowledge_add("),'nonempty KB upload still validated');
     echo "OPTIONAL_KB_SCENARIO_PUBLISH_AND_SOG_IO_PREMIUM_BOOTSTRAP_PASS\n";
