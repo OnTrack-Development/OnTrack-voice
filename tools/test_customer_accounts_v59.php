@@ -56,9 +56,28 @@ customer_accounts_status($reseller,5,'suspended');
 test_customer(account(5)['status']==='suspended' && site_limit(5,'call_quota')===0,'suspend blocks entitlement');
 customer_accounts_status($reseller,5,'active');
 test_customer(account(5)['status']==='active' && site_limit(5,'call_quota')>0,'reactivation restores entitlement');
+// A reseller suspension must pause descendants without erasing their paid
+// subscriptions, account state, or manually suspending children.
+$childSubscription=one("SELECT id,ends_at,status FROM subscriptions
+    WHERE account_id=5 AND status='active' ORDER BY id DESC LIMIT 1");
+test_customer($childSubscription!==null && tenant_voice_entitled(['account_id'=>5]),
+    'precondition: paid child has valid live voice entitlement');
+customer_accounts_status($admin,2,'suspended');
+test_customer(account(2)['status']==='suspended' &&
+    account(5)['status']==='active' && site_limit(5,'call_quota')===0,
+    'suspending reseller pauses active child without rewriting child status');
+test_customer(!tenant_voice_entitled(['account_id'=>5]),
+    'suspended reseller blocks child SIM voice session');
 $denied=false;
-try{customer_accounts_status($admin,2,'suspended');}catch(InvalidArgumentException){$denied=true;}
-test_customer($denied,'cannot suspend reseller with active children');
+try{customer_accounts_status($reseller,5,'active');}catch(InvalidArgumentException){$denied=true;}
+test_customer($denied,'cannot bypass inactive parent by reactivating child');
+test_customer(one('SELECT id,ends_at,status FROM subscriptions WHERE id=?',
+    [$childSubscription['id']])===$childSubscription,
+    'parent suspension preserves paid child subscription row');
+customer_accounts_status($admin,2,'active');
+test_customer(site_limit(5,'call_quota')>0 &&
+    tenant_voice_entitled(['account_id'=>5]),
+    'reseller restoration resumes only still eligible child services');
 $archive=customer_accounts_delete($reseller,5);
 test_customer($archive==='archived' && account(5)['status']==='archived',
     'used customer is archived, not deleted');
