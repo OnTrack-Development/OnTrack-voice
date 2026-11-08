@@ -10,6 +10,7 @@ require __DIR__.'/_core/Bootstrap.php';
 require __DIR__.'/_core/WhatsAppNativeAgent.php';
 require __DIR__.'/_core/WhatsAppWhmcsBridge.php';
 require __DIR__.'/_core/WhatsAppJobSafety.php';
+require __DIR__.'/_core/OperationalOutbox.php';
 init_schema();
 $lockPath=private_path().'/.whatsapp-worker.lock';
 $lock=@fopen($lockPath,'c');
@@ -39,6 +40,8 @@ try{
         elseif($status==='failed')$counts['failed']++;
         else $counts['skipped']++;
     }
+    operational_worker_beat('whatsapp_ai',count($jobs),
+        $counts['native_sent']+$counts['bridge_sent'],$counts['failed']+$counts['needs_review']);
     echo json_encode($counts,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)."\n";
 }finally{
     flock($lock,LOCK_UN);
