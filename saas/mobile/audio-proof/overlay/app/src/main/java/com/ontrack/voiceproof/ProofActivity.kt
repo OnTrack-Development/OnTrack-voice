@@ -172,7 +172,17 @@ class ProofActivity:ComponentActivity(){
         val xiaomi=maker.contains("xiaomi")||maker.contains("redmi")||maker.contains("poco")
         val hint=if(xiaomi)"في شاومي / Redmi / POCO اضغط على إصدار MIUI أو HyperOS عدة مرات داخل حول الهاتف حتى يظهر تفعيل خيارات المطوّر."
                  else "افتح حول الهاتف واضغط على Build number سبع مرات تقريبًا، وقد يطلب الهاتف رمز القفل."
-        card(stack,"01  تجهيز Android",
+        // Paired users with a live PCM daemon MUST NOT see developer settings
+        // as compulsory. Only show these manual instructions on demand.
+        val manual=LinearLayout(this).apply{
+            orientation=LinearLayout.VERTICAL
+            visibility=View.GONE
+        }
+        stack.addView(button("عرض إعدادات Android اليدوية عند الحاجة"){
+            manual.visibility=if(manual.visibility==View.VISIBLE)View.GONE else View.VISIBLE
+        },LinearLayout.LayoutParams(-1,dp(52)).apply{bottomMargin=dp(12)})
+        stack.addView(manual)
+        card(manual,"01  تجهيز Android",
             "الخطوة الأولى تفتح صفحة إعدادات الهاتف. فعّل خيارات المطوّر بالضغط على إصدار النظام، ثم USB debugging وWireless debugging من خيارات المطوّر. " +
             (if(xiaomi)"في Xiaomi / POCO قد تحتاج USB debugging (Security settings). " else "") +
             "الإعدادات المحمية يفعّلها صاحب الجهاز بنفسه.",
@@ -183,7 +193,7 @@ class ProofActivity:ComponentActivity(){
             if(developerEnabled)settings(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS,Settings.ACTION_SETTINGS)
             else settings(Settings.ACTION_DEVICE_INFO_SETTINGS,Settings.ACTION_SETTINGS)
         }
-        card(stack,"02  اقتران الهاتف",
+        card(manual,"02  اقتران الهاتف",
             "لما تخلص تفعيل Wireless debugging، اضغط هنا لفتح الاقتران واتبع الكود الظاهر من Android. لو الجهاز متصل بالفعل، تخطّى الخطوة دي.",
             "ربط OnTrack تلقائيًا"){
             try{startActivity(DeepLink.intent(this,DeepLink.Kind.PAIR_AGAIN))}
