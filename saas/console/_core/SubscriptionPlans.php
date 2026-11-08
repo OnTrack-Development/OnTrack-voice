@@ -168,14 +168,43 @@ function plan_catalog_save_reseller(int $reseller,array $values,int $planId=0,in
             insert('INSERT INTO reseller_plan_owners(plan_id,reseller_account_id,source_plan_id,created_at) VALUES(?,?,?,?)',
                 [$planId,$reseller,$sourcePlanId?:null,now()]);
         }else{
-            $row=one("SELECT id FROM plans WHERE id=? AND kind='user' AND status='active'",[$planId]);
+            $row=one("SELECT * FROM plans WHERE id=? AND kind='user' AND status='active'",[$planId]);
             if(!$row)throw new InvalidArgumentException('الباقة غير نشطة أو غير موجودة');
-            execute('UPDATE plans SET name=?,call_quota=?,site_limit=?,agent_limit=?,
-                staff_limit=?,reseller_customers=?,price_minor=?,overage_minor=?,
-                google_key_limit=?,assistant_key_limit=? WHERE id=?',[
-                $v['name'],$v['call_quota'],$v['site_limit'],$v['agent_limit'],
-                $v['staff_limit'],$v['reseller_customers'],$v['price_minor'],$v['overage_minor'],
-                $v['google_key_limit'],$v['assistant_key_limit'],$planId]);
+            $changed=false;
+            foreach($v as $column=>$value){
+                if((string)$row[$column] !== (string)$value){$changed=true;break;}
+            }
+            if($changed){
+                $pending=(int)(one("SELECT COUNT(*) n FROM orders WHERE plan_id=?
+                    AND status IN ('pending_payment','pending_manual_review')",[$planId])['n']??0);
+                if($pending>0)throw new InvalidArgumentException(
+                    'هناك طلب دفع معلّق للباقة؛ احسم الطلب قبل تعديل السعر أو الاستحقاقات');
+                $uses=(int)(one('SELECT COUNT(*) n FROM subscriptions WHERE plan_id=?',[$planId])['n']??0)
+                    +(int)(one('SELECT COUNT(*) n FROM orders WHERE plan_id=?',[$planId])['n']??0);
+                if($uses>0){
+                    // Keep every existing subscriber and paid receipt tied to its
+                    // original immutable plan version.
+                    execute("UPDATE plans SET status='archived' WHERE id=?",[$planId]);
+                    $source=one('SELECT source_plan_id FROM reseller_plan_owners WHERE plan_id=?',[$planId]);
+                    $newId=insert("INSERT INTO plans
+                       (kind,name,call_quota,site_limit,agent_limit,staff_limit,reseller_customers,
+                        price_minor,overage_minor,google_key_limit,assistant_key_limit,status,created_at)
+                        VALUES ('user',?,?,?,?,?,?,?,?,?,?,'active',?)",[
+                        $v['name'],$v['call_quota'],$v['site_limit'],$v['agent_limit'],
+                        $v['staff_limit'],$v['reseller_customers'],$v['price_minor'],$v['overage_minor'],
+                        $v['google_key_limit'],$v['assistant_key_limit'],now()]);
+                    insert('INSERT INTO reseller_plan_owners(plan_id,reseller_account_id,source_plan_id,created_at) VALUES(?,?,?,?)',
+                        [$newId,$reseller,$source['source_plan_id']??null,now()]);
+                    $planId=$newId;
+                }else{
+                    execute('UPDATE plans SET name=?,call_quota=?,site_limit=?,agent_limit=?,
+                        staff_limit=?,reseller_customers=?,price_minor=?,overage_minor=?,
+                        google_key_limit=?,assistant_key_limit=? WHERE id=?',[
+                        $v['name'],$v['call_quota'],$v['site_limit'],$v['agent_limit'],
+                        $v['staff_limit'],$v['reseller_customers'],$v['price_minor'],$v['overage_minor'],
+                        $v['google_key_limit'],$v['assistant_key_limit'],$planId]);
+                }
+            }
         }
         db()->commit();
         return $planId;
