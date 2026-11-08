@@ -6,6 +6,9 @@ on:
       - '.github/workflows/voice-saas-studio-v78-direct-publish.yml'
       - 'tools/deploy_saas_studio_v78.py'
       - 'tools/test_v78_agent_packed_save_e2e.py'
+      - 'saas/console/_core/Actions.php'
+      - 'saas/console/_core/Views.php'
+      - 'saas/console/assets/js/app.js'
   workflow_dispatch:
 permissions:
   contents: read
