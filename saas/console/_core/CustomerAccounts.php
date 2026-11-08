@@ -116,9 +116,9 @@ function customer_accounts_status(array $actor,int $id,string $status):void {
         if(!$parent||$parent['status']!=='active')
             throw new InvalidArgumentException('لا يمكن تفعيل عميل ريسيلر موقوف');
     }
-    if($status==='suspended' && $target['kind']==='reseller' &&
-       (int)(one("SELECT COUNT(*) n FROM accounts WHERE parent_id=? AND status='active'",[$id])['n']??0)>0)
-       throw new InvalidArgumentException('أوقف حسابات الريسيلر التابعة أولًا قبل إيقاف شركته');
+    // Suspending a reseller pauses all descendants at the service gate,
+    // without cancelling customer subscriptions or changing child statuses.
+    // Reactivation restores only customers still independently active/paid.
     execute('UPDATE accounts SET status=? WHERE id=?',[$status,$id]);
 }
 /** Delete empty accounts, archive accounts with any billing/operational history. */
