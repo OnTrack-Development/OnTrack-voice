@@ -54,6 +54,13 @@ ccheck(tenant_voice_entitled($voiceBinding),
     'archived historical plan still grants active subscribed SIM voice access');
 ccheck(site_limit(5,'call_quota')===350,
     'archived plan keeps its sold call quota and tenant limits');
+execute("UPDATE accounts SET status='suspended' WHERE id=2");
+ccheck(account(5)['status']==='active' &&
+    !tenant_voice_entitled($voiceBinding) && site_limit(5,'call_quota')===0,
+    'reseller suspension pauses child quota and voice without cancelling paid plan');
+execute("UPDATE accounts SET status='active' WHERE id=2");
+ccheck(tenant_voice_entitled($voiceBinding) && site_limit(5,'call_quota')===350,
+    'reseller restoration resumes still eligible historical child subscription');
 $activeUntil=(string)one('SELECT ends_at FROM subscriptions WHERE id=?',[$grant['subscription_id']])['ends_at'];
 execute('UPDATE subscriptions SET ends_at=? WHERE id=?',
     [gmdate('Y-m-d H:i:s',time()-60),$grant['subscription_id']]);
