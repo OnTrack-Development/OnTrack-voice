@@ -2,6 +2,11 @@
 > **إلزامي لكل وكيل برمجة (2026-11-04):** اقرأ أولًا [README.md — تعليمات AI Coding Agents](README.md#تعليمات-إلزامية-لتطوير-المشاريع-باستخدام-ai-coding-agents) و[CLAUDE.md — Execution contract](CLAUDE.md). معيار الإنجاز ليس رفع كود فقط؛ بل **تشخيص ← تنفيذ ← Evals/اختبار ← إصلاح ← إعادة اختبار ← Build/Deploy عند الطلب ← تحقق مستقل ← تقرير أدلة وCommit**. لا تعلن نجاح Android SIM/PCM على جهاز حقيقي بسبب نجاح CI أو التوقيع أو نشر APK وحده. القاعدة الجديدة تتقدم على التعليمات التاريخية المتناقضة؛ لا تُعد تشغيل الجدولة التي أوقفها المالك.
 <!-- ONTRACK_MANDATORY_AGENT_RULES_END -->
 
+<!-- VS_OWNER_ISOLATION_POLICY_2026_11_08 -->
+> **قرار المالك الملزم — عزل VS (2026-11-08):** المجلد [`VS/`](VS/AGENTS.md) مساحة تجريبية مؤجلة لمشروع مستقل، **وليس جزءًا من OnTrack AI Voice Assistant**. عند تنفيذ أي عمل على الـAI Voice Assistant **لا تفتح أو تعدّل أو تبني أو تختبر أو تنشر أو تستورد أو تنسخ أي شيء من/إلى `VS/`، ولا تربطه بمكونات المشروع أو CI أو الـAPK**. يحظر استخدام كود أو إعدادات أي من المشروعين في الآخر إلا **بأمر مباشر وصريح من المالك يحدد النطاق والنقل**. لا يعتبر تكليف التطوير العام إذنًا بتفعيل `VS/` أو لمسه. لا تُراجع [`VS/AGENTS.md`](VS/AGENTS.md) إلا عند وجود تكليف مباشر خاص بـVS.
+<!-- VS_OWNER_ISOLATION_POLICY_END -->
+
+
 > **AUTHORITATIVE ROADMAP UPDATE — 2026-11-03:** After latest root SaaS and AI Relay review, read [docs/plan/MASTER_REPAIR_ROADMAP_2026_11_03_AR.md](docs/plan/MASTER_REPAIR_ROADMAP_2026_11_03_AR.md) and the machine backlog first. Main and active root feature branch diverge; the released feature branch 5d0de134 is not merged into main; CI smoke run 41577865384 failed although root deploy run 41577865411 succeeded. Never call release fully passing. Canonical host https://app.ontrackegy.com/ serves app in /home/appontrack/public_html with legacy mobile compatibility. Internal owner-only testing, no paying customers. **Hourly autonomous development schedule was stopped by owner on 2026-11-02; do not restart.** Owner Q01–Q24 already answered. Preserve credentials and pairing. This master repair roadmap supersedes older relative paths and status blurbs; future implementation must update requirements and proof, not simply documents.
 
 # Working contract — OnTrack Voice
