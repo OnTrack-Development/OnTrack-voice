@@ -231,7 +231,7 @@ def main()->None:
                 'brand_identity_init();'
                 '$r=one("SELECT COUNT(*) AS n FROM brand_identity_settings");'
                 'if(!isset($r["n"]))throw new Exception("brand_schema_absent");'
-                '$p=one("SELECT * FROM accounts WHERE kind=\\'platform\\' LIMIT 1");'
+                '$p=one("SELECT * FROM accounts WHERE kind=? LIMIT 1",["platform"]);'
                 'if(!$p || !isset(brand_identity_brand($p)["name"]))'
                 'throw new Exception("platform_brand_not_readable");'
                 'echo "BRAND_V64_LIVE_PRIVATE_LOGO_AND_MODE_SCHEMA_PASS";'],
