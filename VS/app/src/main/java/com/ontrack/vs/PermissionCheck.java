@@ -21,13 +21,16 @@ public final class PermissionCheck {
         boolean notification = Build.VERSION.SDK_INT < 33
             || activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
             == PackageManager.PERMISSION_GRANTED;
-        return "فحص صلاحيات VS (التجربة):\n"
-            + (mic ? "✅" : "❌") + " الميكروفون: " + (mic ? "مفعّل" : "مطلوب لتجربة صوتك") + "\n"
-            + (overlay ? "✅" : "❌") + " الظهور فوق التطبيقات: " + (overlay ? "مفعّل" : "مطلوب للأيقونة العائمة") + "\n"
-            + (notification ? "✅" : "⚠️") + " الإشعارات: "
-            + (notification ? "متاحة" : "اختيارية لعرض حالة الأيقونة") + "\n"
-            + "اضغط «تفعيل المطلوب» لفتح الإذن الناقص مباشرة.\n"
-            + "لا نطلب Accessibility أو سجل المكالمات أو جهات الاتصال.";
+        return "صلاحيات تطبيق VS (للتجربة فقط):\\n"
+            + (mic ? "✓" : "✗") + " الميكروفون: "
+            + (mic ? "مفعّل" : "غير مفعّل - مطلوب فقط لتجربة التسجيل") + "\\n"
+            + (overlay ? "✓" : "✗") + " الظهور فوق التطبيقات: "
+            + (overlay ? "مفعّل" : "غير مفعّل - للفقاعة العائمة") + "\\n"
+            + (notification ? "✓" : "•") + " الإشعارات: "
+            + (notification ? "متاحة" : "اختيارية") + "\\n\\n"
+            + "مسار إرسال الصوت داخل SIM: غير متاح للتطبيق العادي. "
+            + "هذه ليست صلاحية ناقصة يمكن تفعيلها من الإعدادات. "
+            + "الضغط على «تفعيل الإذن» يفتح إعدادات المعاينة فقط.";
     }
     /** Request missing required permissions one at a time with direct destination. */
     public static void activateNext(Activity activity) {
@@ -47,7 +50,7 @@ public final class PermissionCheck {
             }
             return;
         }
-        Toast.makeText(activity, "كل الصلاحيات المطلوبة للتجربة مفعّلة", Toast.LENGTH_LONG).show();
+        Toast.makeText(activity, "تصاريح المعاينة مكتملة. إرسال صوت Fish عبر SIM غير متاح.", Toast.LENGTH_LONG).show();
     }
     public static void openAppDetails(Activity activity) {
         Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
