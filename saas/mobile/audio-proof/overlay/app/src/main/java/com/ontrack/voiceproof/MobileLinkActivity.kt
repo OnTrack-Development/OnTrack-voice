@@ -314,7 +314,6 @@ class MobileLinkActivity:ComponentActivity(){
         // All tenant controls now live inside the signed OnTrack WebView shell.
         // No unstyled native Android buttons outside the main vertical scroll.
         setContentView(layer)
-        handleTenantLink(intent)
         splash=OnTrackLaunchScreen(this,layer)
         web.settings.apply{
             javaScriptEnabled=true;domStorageEnabled=false;allowFileAccess=false;allowContentAccess=false
@@ -396,39 +395,30 @@ class MobileLinkActivity:ComponentActivity(){
     override fun onNewIntent(intent:Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleTenantLink(intent)
         if(intent.getBooleanExtra("open_updates",false)){
             openUpdatesOnReady=true
             if(ready)openUpdatesInWeb()
         }
     }
-    private fun handleTenantLink(intent:Intent?) {
-        val parsed=TenantPairingContract.qr(intent?.dataString.orEmpty()) ?: return
-        // Scanning a QR only fills the native form. It never redeems automatically.
-        showTenantPairDialog(parsed.first,parsed.second)
-    }
-    private fun scanTenantQr() {
+    /** The homepage has a single clear six-digit pairing action. */
+    private fun showQuickTenantPair() {
         if(MobileLinkService.inCall) {
-            banner.text="انتظر انتهاء المكالمة قبل ربط الشريحة"
+            banner.text="استنى المكالمة تخلص قبل ربط الشريحة"
             banner.visibility=View.VISIBLE
             return
         }
-        // Optional Play services scanner; code stays on-device until confirmed.
-        // Manual code entry works even when Google Play services is unavailable.
-        val options=GmsBarcodeScannerOptions.Builder()
-            .setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
-        GmsBarcodeScanning.getClient(this,options).startScan()
-            .addOnSuccessListener { barcode ->
-                val parsed=TenantPairingContract.qr(barcode.rawValue.orEmpty())
-                if(parsed==null) {
-                    banner.text="QR غير صالح؛ استخدم رابط OnTrack أو أدخل الرمز يدويًا"
-                    banner.visibility=View.VISIBLE
-                } else showTenantPairDialog(parsed.first,parsed.second)
-            }
-            .addOnFailureListener {
-                banner.text="ماسح QR غير متاح على الجهاز؛ أدخل رمز الاقتران يدويًا"
-                banner.visibility=View.VISIBLE
-            }
+        val slots=(0..1).filter { !tenantEnrollment.paired(it) }
+        when(slots.size) {
+            0 -> AlertDialog.Builder(this).setTitle("الشرائح مربوطة بالفعل")
+                .setMessage("تقدر تفحص الربط أو تفصل شريحة من إدارة الشرائح.")
+                .setPositiveButton("إدارة الشرائح"){_,_->showTenantMenu()}
+                .setNegativeButton("إغلاق",null).show()
+            1 -> showTenantPairDialog(slots.first(),"")
+            else -> AlertDialog.Builder(this).setTitle("اختار الشريحة")
+                .setItems(arrayOf("SIM 1","SIM 2")) { _,which ->
+                    showTenantPairDialog(which,"")
+                }.setNegativeButton("إلغاء",null).show()
+        }
     }
     /** Authenticated, scoped SIM heartbeats. No device bearer reaches WebView. */
     private fun requestTenantStatusRefresh() {
@@ -701,7 +691,7 @@ class MobileLinkActivity:ComponentActivity(){
                 }
             }
             val message=if(results.isEmpty())
-                "مفيش أي SIM مربوطة. افتح الأجهزة في حسابك وأنشئ QR واربط الشريحة الأول."
+                "مفيش SIM مربوطة. افتح حسابك، خد كود 6 أرقام واكتبه هنا."
                 else results.joinToString("\n")
             AlertDialog.Builder(this@MobileLinkActivity)
                 .setTitle("اختبار ربط الشريحة")
@@ -719,13 +709,13 @@ class MobileLinkActivity:ComponentActivity(){
             return
         }
         val input=EditText(this).apply {
-            hint="رمز الربط من موقع OnTrack"
+            hint="كود 6 أرقام"
             setText(initialCode)
-            inputType=android.text.InputType.TYPE_CLASS_TEXT or
-                android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+            inputType=android.text.InputType.TYPE_CLASS_NUMBER
+            filters=arrayOf(android.text.InputFilter.LengthFilter(6))
         }
         AlertDialog.Builder(this).setTitle("ربط SIM ${slot+1} بحسابك")
-            .setMessage("امسح QR من موقع OnTrack أو الصق رمز الربط هنا. مش محتاج مفتاح API.")
+            .setMessage("اكتب الكود المكوّن من 6 أرقام من حسابك واضغط ربط. مش محتاج API Key.")
             .setView(input)
             .setPositiveButton("تأكيد الربط") { _,_ -> performTenantPair(slot,input.text.toString()) }
             .setNegativeButton("إلغاء",null).show()
@@ -771,7 +761,7 @@ class MobileLinkActivity:ComponentActivity(){
     private fun showTenantProfile(slot:Int,profile:JSONObject) {
         if(profile.optBoolean("verification_pending")) {
             AlertDialog.Builder(this).setTitle("SIM ${slot+1} — تم حفظ الربط")
-                .setMessage("السيرفر أصدر اعتماد الشريحة وتم حفظه مشفرًا على الهاتف، لكن التحقق اللاحق لم يكتمل. لا تعيد استخدام رمز QR؛ اضغط التحقق من ربط الشريحة بعد استعادة الاتصال. المكالمات تظل متوقفة.")
+                .setMessage("السيرفر أصدر اعتماد الشريحة وتم حفظه مشفرًا على الهاتف، لكن التحقق اللاحق لم يكتمل. لا تعيد استخدام الكود؛ اضغط التحقق من ربط الشريحة بعد استعادة الاتصال. المكالمات تظل متوقفة.")
                 .setPositiveButton("حسنًا",null).show()
             return
         }
@@ -1045,7 +1035,8 @@ class MobileLinkActivity:ComponentActivity(){
                     "openScenario" -> showScenarioMenu()
                     "openAnswerSettings" -> openConsole("answering")
                     "tenantMenu" -> showTenantMenu()
-                    "tenantQrScan" -> scanTenantQr()
+                    "tenantQrScan" -> showQuickTenantPair()
+                    "tenantQuickPair" -> showQuickTenantPair()
                     "tenantRefresh" -> requestTenantStatusRefresh()
                     "tenantTest" -> testTenantReadiness()
                     "workspaceSlot"->{
