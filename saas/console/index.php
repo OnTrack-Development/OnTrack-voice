@@ -211,6 +211,7 @@ if($path==='/workspace'&&$a['kind']!=='customer'&&$a['kind']!=='platform'&&
     !($a['kind']==='reseller'&&console_view_mode($a)==='user'))deny();
 // Printable invoices are fully scoped to the authenticated tenant.
 if(($_GET['tab']??'')==='invoices' && isset($_GET['print'])){
+    require_permission('billing.read');
     require_once __DIR__.'/_core/BillingInvoices.php';
     $invoiceId=filter_var($_GET['print'],FILTER_VALIDATE_INT,
         ['options'=>['min_range'=>1]])?:0;
