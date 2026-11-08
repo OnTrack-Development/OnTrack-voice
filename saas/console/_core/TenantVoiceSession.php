@@ -255,9 +255,13 @@ function tenant_voice_entitled(array $binding):bool {
     $acct=account($accountId);
     if(!$acct || ($acct['status']??null)!=='active')return false;
     if(($acct['kind']??null)==='platform')return true;
+    // A plan can be archived because its reseller published a new immutable
+    // catalog revision. Existing subscriptions bought against that historical
+    // revision remain valid until their own end date or explicit cancellation;
+    // archived plans are closed to NEW sales, not a customer-wide kill switch.
     $stamp=now();
     $active=one("SELECT s.id FROM subscriptions s
-        JOIN plans p ON p.id=s.plan_id AND p.status='active'
+        JOIN plans p ON p.id=s.plan_id
         WHERE s.account_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
         ORDER BY s.id DESC LIMIT 1",[$accountId,$stamp,$stamp]);
     return tenant_voice_entitlement_allows($acct,$active!==null);
