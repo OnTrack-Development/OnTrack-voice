@@ -848,3 +848,7 @@ body.light .welcome .orb-art{background:radial-gradient(circle at 35% 25%,#F9E7C
 /* Simple six-digit SIM pairing: large readable number, thumb-friendly copy action. */
 .pair-six-wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}
 .pair-six-code{font-family:ui-monospace,monospace;font-weight:800;font-size:clamp(26px,5vw,40px);letter-spacing:.18em;text-align:center;width:min(100%,280px);direction:ltr}
+
+.pair-quick-actions{display:flex;gap:10px;flex-wrap:wrap;margin:15px 0}
+.pair-quick-actions form{display:inline-flex;flex:1 1 175px}
+.pair-quick-actions button{min-height:46px;width:100%}
