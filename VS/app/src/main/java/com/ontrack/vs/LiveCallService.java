@@ -209,7 +209,7 @@ public final class LiveCallService extends Service {
         VsCallBridge b = bridge;
         bridge = null;
         if (b != null) {
-            try { b.close(); } catch (Exception ignored) {}
+            try { b.abort(); } catch (Exception ignored) {}
         }
         // Emergency rollback when the shell transport died: requires normal
         // MODIFY_AUDIO_SETTINGS permission and may still be refused by OEM.
