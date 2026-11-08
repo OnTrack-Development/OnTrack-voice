@@ -24,6 +24,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      # Re-run with corrected declaration-only font regression validator.
       - name: Validate Arabic fonts, PHP and isolated customer/admin/reseller permissions
         run: |
           $ErrorActionPreference='Stop'
