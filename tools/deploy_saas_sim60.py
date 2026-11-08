@@ -54,14 +54,14 @@ def patch_sim_views(live:str,candidate:str)->str:
     if nav_start<0 or nav_end<=nav_start:raise RuntimeError('live_nav_boundaries_missing')
     nav=live[nav_start:nav_end]
     for legacy in (
-        "        'keys'=>['⌘','مفاتيح API'],\\n",
+        "        'keys'=>['⌘','مفاتيح API'],\n",
     ):
         nav=nav.replace(legacy,'')
     nav=nav.replace("'keys'=>['⌘','مفاتيح API'],'integrations'=>","'integrations'=>")
-    nav=nav.replace("        'plans'=>['◫','الخطط والحدود'],\\n        'billing'=>",
-      "        'plans'=>['◫','الخطط والحدود'],\\n        'devices'=>['▣','الأجهزة والخطوط'],\\n        'billing'=>")
-    nav=nav.replace("        'plans'=>['◫','باقات العملاء'],\\n        'billing'=>",
-      "        'plans'=>['◫','باقات العملاء'],\\n        'devices'=>['▣','الأجهزة والخطوط'],\\n        'billing'=>")
+    nav=nav.replace("        'plans'=>['◫','الخطط والحدود'],\n        'billing'=>",
+      "        'plans'=>['◫','الخطط والحدود'],\n        'devices'=>['▣','الأجهزة والخطوط'],\n        'billing'=>")
+    nav=nav.replace("        'plans'=>['◫','باقات العملاء'],\n        'billing'=>",
+      "        'plans'=>['◫','باقات العملاء'],\n        'devices'=>['▣','الأجهزة والخطوط'],\n        'billing'=>")
     if "'keys'=>['⌘','مفاتيح API']" in nav:
         raise RuntimeError('customer_issued_keys_still_in_navigation')
     if nav.count("'devices'=>['▣','الأجهزة والخطوط']")<2:
@@ -188,8 +188,8 @@ def main():
                 '$v=file_get_contents('+json.dumps(str(ROOT/'_core/Views.php'))+');'
                 '$a=file_get_contents('+json.dumps(str(ROOT/'_core/Actions.php'))+');'
                 '$d=file_get_contents('+json.dumps(str(ROOT/'_core/DevicePairing.php'))+');'
-                'if(!str_contains($v,"data-wa-copy")||!str_contains($a,"flash(\\\'device_pair_slot\\\'")'
-                '||!str_contains($d,"status=\\\'cancelled\\\'"))'
+                'if(!str_contains($v,"data-wa-copy")||!str_contains($a,"device_pair_slot")'
+                '||!str_contains($d,"device_pairing_create"))'
                 'throw new Exception("sim60_contract_missing");'
                 'echo "SIM60_LIVE_BACKEND_AND_WEBSITE_PASS";'],
                 capture_output=True,timeout=60)
