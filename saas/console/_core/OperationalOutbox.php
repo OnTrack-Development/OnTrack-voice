@@ -51,16 +51,19 @@ function operational_outbox_recover(int $timeout=180):int{
     $before=gmdate('Y-m-d H:i:s',time()-max(120,min(86400,$timeout)));
     // No irreversible external I/O is performed in this consumer, so a stale
     // processing state is safe to retry. Never retry more than five times.
-    $recovered=execute("UPDATE outbox SET status='pending'
-        WHERE status='processing' AND attempts<5 AND id IN
-        (SELECT o.id FROM outbox o LEFT JOIN operational_outbox_leases l
-         ON l.outbox_id=o.id WHERE o.status='processing'
-         AND COALESCE(l.claimed_at,o.created_at)<?)",[$before]);
-    execute("UPDATE outbox SET status='failed'
-        WHERE status='processing' AND attempts>=5 AND id IN
-        (SELECT o.id FROM outbox o LEFT JOIN operational_outbox_leases l
-         ON l.outbox_id=o.id WHERE o.status='processing'
-         AND COALESCE(l.claimed_at,o.created_at)<?)",[$before]);
+    // MySQL prohibits updating a table selected from itself in a nested
+    // subquery. Fetch only bounded, expired lease IDs and CAS-update rows.
+    $stale=all("SELECT o.id,o.attempts FROM outbox o
+        LEFT JOIN operational_outbox_leases l ON l.outbox_id=o.id
+        WHERE o.status='processing' AND COALESCE(l.claimed_at,o.created_at)<?
+        ORDER BY o.id LIMIT 150",[$before]);
+    $recovered=0;
+    foreach($stale as $job){
+        $next=(int)$job['attempts']>=5?'failed':'pending';
+        $recovered+=execute("UPDATE outbox SET status=?
+            WHERE id=? AND status='processing' AND attempts=?",[
+            $next,(int)$job['id'],(int)$job['attempts']]);
+    }
     return $recovered;
 }
 function operational_outbox_process(int $id):array{
