@@ -52,7 +52,10 @@ ccheck(plan_catalog_dispose($p,2,'restore')==='restored','reseller can restore p
 $quote=subscription_change_quote(['price_minor'=>9900,'ends_at'=>gmdate('Y-m-d H:i:s',time()+7*86400)],
     ['price_minor'=>15000]);
 ccheck($quote['direction']==='upgrade'&&$quote['full_period_difference_minor']===5100
-    &&$quote['remaining_days']>=6,'upgrade quote and remaining time');
+    &&$quote['remaining_days']>=6
+    &&$quote['estimated_remaining_difference_minor']>0
+    &&$quote['estimated_remaining_difference_minor']<=5100,
+    'upgrade quote, remaining time and illustrative prorated amount');
 ccheck(subscription_schedule_end(5),'schedule cancellation at term');
 ccheck(subscription_scheduled_end(5,$grant['subscription_id'])!==null,'intent stored');
 ccheck(subscription_unschedule_end(5),'schedule revocable');
