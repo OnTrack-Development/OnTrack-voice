@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      # Windows runner cannot emulate Linux chmod 0600; production checks retain strict private permissions.
+      # Windows runner validates isolated media; production publisher patches only scoped login-brand HTML.
       - name: Syntax and isolated billing, account and branding tests
         run: |
           $ErrorActionPreference='Stop'
