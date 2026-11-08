@@ -80,7 +80,7 @@ jobs:
           $body = @{
             tag_name = $tag
             target_commitish = $env:GITHUB_SHA
-            name = "VS Drama3 test APK — $env:GITHUB_RUN_ID"
+            name = "VS Drama3 test APK - $env:GITHUB_RUN_ID"
             body = 'VS standalone Android debug test: Fish ASR, Drama3 TTS, 3 persona presets, overlay, permission checks. WARNING: not yet connected to SIM call uplink; does not change the call microphone.'
             draft = $false
             prerelease = $true
