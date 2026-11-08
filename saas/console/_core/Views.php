@@ -142,7 +142,7 @@ function layout_open(array $a,string $tab):void{
     echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css?v='.$uiVersion.'"><script src="/saas/console/assets/js/app.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/graph-routing.js?v='.$uiVersion.'"></script><script src="/saas/console/assets/js/flow-graph.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/qrcode.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/pairing-qr.js?v='.$uiVersion.'" defer></script></head><body data-ot-font="'.e($accountFont).'" data-ot-account="'.(int)$a['account_id'].'"'.$themeVars.'>';
     echo '<div class="app-shell"><aside class="sidebar" id="mainNavigation" aria-label="القائمة الرئيسية"><button type="button" class="nav-close" id="navClose" aria-label="إغلاق القائمة">×</button><a href="/saas/console/" class="brand" data-brand-display="'.e($display).'">';
     if($display!=='text' && !empty($brand['logo']))
-        echo '<span class="brand-logo"><img src="/saas/console/brand-logo?v='.rawurlencode((string)$brand['logo']).'" alt="'.e($brand['name']).'" decoding="async"></span>';
+        echo '<span class="brand-logo"><img src="/brand-logo?v='.rawurlencode((string)$brand['logo']).'" alt="'.e($brand['name']).'" decoding="async"></span>';
     if($display!=='image')
         echo '<span class="brand-lines"><strong>'.e((string)$brand['name']).'</strong><small>'.e($role).'</small></span>';
     echo '</a>';
@@ -2485,7 +2485,7 @@ function render_settings(array $a):void{
     $hasLogo=!empty($brand['logo']);
     if($mode==='image'&&!$hasLogo)$mode='text';
     $logoPreview=$hasLogo
-        ?'<img class="ot-brand-preview-image" src="/saas/console/brand-logo?v='.rawurlencode((string)$brand['logo']).'" alt="'.e((string)$brand['name']).'" width="280" height="92">'
+        ?'<img class="ot-brand-preview-image" src="/brand-logo?v='.rawurlencode((string)$brand['logo']).'" alt="'.e((string)$brand['name']).'" width="280" height="92">'
         :'<span class="ot-brand-preview-wordmark">'.e((string)$brand['name']).'</span>';
     $previewMode=$hasLogo?$mode:'text';
     echo card($identityTitle,
