@@ -44,6 +44,11 @@ $transport=static function(string $url,string $ts,string $signature,string $raw)
 wa67(wa_existing_outbound_probe(4,$channel,$transport)['verified'],'verified real outbound capability handshake');
 $c=wa_connection($channel,4);
 wa67(wa_existing_outbound_ready($c),'existing adapter now ready');
+putenv('ONTRACK_GEMINI_API_KEY=isolated-only-no-real-provider-calls');
+putenv('ONTRACK_GEMINI_LIVE_MODEL=gemini-3.5-flash');
+wa_native_toggle(4,$channel,true);
+$c=wa_connection($channel,4);
+wa67((int)$c['ai_enabled']===1,'native agent can activate only after sender capability');
 $res=wa_meta_send($c,'201002223344','أهلاً بيك',$transport);
 wa67($res['provider_message_id']==='wamid.v67_sent_001','source module acknowledged outbound provider id');
 $ingest=wa_webhook_ingest($c,wa_relay_normalize($c,$event));
