@@ -97,8 +97,8 @@ jobs:
           $ErrorActionPreference='Stop'
           $base='https://app.ontrackegy.com'
           $nonce=$env:GITHUB_RUN_ID
-          $home=Invoke-WebRequest -Uri ($base+'/login?qa='+$nonce) -MaximumRedirection 2 -SkipHttpErrorCheck -TimeoutSec 30
-          if([int]$home.StatusCode -ge 500){throw ('Login HTTP 5xx: '+$home.StatusCode)}
+          $loginResponse=Invoke-WebRequest -Uri ($base+'/login?qa='+$nonce) -MaximumRedirection 2 -SkipHttpErrorCheck -TimeoutSec 30
+          if([int]$loginResponse.StatusCode -ge 500){throw ('Login HTTP 5xx: '+$loginResponse.StatusCode)}
           $css=Invoke-WebRequest -Uri ($base+'/saas/console/assets/css/app.css?v='+$nonce) -SkipHttpErrorCheck -TimeoutSec 30
           if([int]$css.StatusCode -ne 200){throw 'Public style not reachable'}
           foreach($needle in @('OTV_BRAND_LOGO_V64_BEGIN','OTV_TENANT_STYLE_V63_BEGIN','OTV_TYPOGRAPHY_V62_BEGIN')){
