@@ -29,6 +29,7 @@ public final class VsTelephonyShell {
     private final String secret;
     private AudioTrack track;
     private boolean muted;
+    private boolean previouslyMuted;
 
     private VsTelephonyShell(AudioManager audio, String secret) {
         this.audio = audio;
@@ -139,11 +140,12 @@ public final class VsTelephonyShell {
             if (!activate) return "ROUTE_CANDIDATE_ONLY";
             track = trial;
             trial = null;
+            previouslyMuted = audio.isMicrophoneMute();
             audio.setMicrophoneMute(true);
+            muted = true;
             if (!audio.isMicrophoneMute()) {
                 restore(); return "MUTE_NOT_CONFIRMED";
             }
-            muted = true;
             return "ACTIVE_MIC_MUTED_ROUTE_CANDIDATE";
         } catch (Throwable error) {
             restore();
@@ -162,8 +164,8 @@ public final class VsTelephonyShell {
             catch (Exception ignored) {}
             track = null;
         }
-        if (muted || audio.isMicrophoneMute()) {
-            try { audio.setMicrophoneMute(false); } catch (Exception ignored) {}
+        if (muted) {
+            try { audio.setMicrophoneMute(previouslyMuted); } catch (Exception ignored) {}
         }
         muted = false;
     }
