@@ -94,11 +94,12 @@ jobs:
           }
           $js=Invoke-WebRequest -Uri ('https://app.ontrackegy.com/saas/console/assets/js/app.js?v=64-'+$env:GITHUB_RUN_ID) -TimeoutSec 40 -MaximumRedirection 1 -SkipHttpErrorCheck
           if([int]$js.StatusCode -ne 200 -or
-             -not $js.Content.Contains("fetch('/saas/console/brand-upload'")){
+             -not $js.Content.Contains("fetch('/?ot_brand_upload=1'")){
              throw 'Public raw binary logo uploader is not active'
           }
           $data=[byte[]](0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a)
-          $probe=Invoke-WebRequest -Uri 'https://app.ontrackegy.com/saas/console/brand-upload' -Method Post -Body $data -ContentType 'image/png' -TimeoutSec 30 -MaximumRedirection 0 -SkipHttpErrorCheck
+          $probe=Invoke-WebRequest -Uri 'https://app.ontrackegy.com/?ot_brand_upload=1' -Method Post -Body $data -ContentType 'image/png' -TimeoutSec 30 -MaximumRedirection 0 -SkipHttpErrorCheck
           if([int]$probe.StatusCode -eq 403){throw 'Raw logo route is still blocked by host WAF 403'}
           if([int]$probe.StatusCode -ne 401){throw ('Unauthenticated upload did not return safe 401: HTTP '+$probe.StatusCode)}
+          Write-Host ('BRAND_V64_CANONICAL_ROOT_RAW_PROBE_HTTP '+$probe.StatusCode)
           Write-Host 'BRAND_V64_LIVE_CSS_JS_AND_UNAUTH_WAF_PROBE_PASS'
