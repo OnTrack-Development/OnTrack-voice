@@ -33,6 +33,11 @@ FILES=[
 ]
 NEW={'_core/ExternalOrderClaim.php','_core/OperationalOutbox.php',
      '_core/EmailDelivery.php','operational-worker.php'}
+# Only this exact previously published v68 module is permitted to upgrade.
+# Fail closed if any other file has drifted on the production host.
+PREVIOUS_NEW_HASHES={
+    '_core/OperationalOutbox.php':{'73afe817b72f0bdc431f195665fa9185ff4c18b732561c5bfdff78b5881dbc65'}
+}
 MAX=1_600_000
 
 def checksum(value:bytes)->str:
@@ -112,7 +117,7 @@ def main()->None:
             candidate=read(STAGE/'new'/rel)
             if rel in NEW:
                 before=read(dst) if dst.exists() else ''
-                if before and before!=candidate:
+                if before and before!=candidate and checksum(before.encode('utf-8')) not in PREVIOUS_NEW_HASHES.get(rel,set()):
                     raise RuntimeError('new_module_name_conflict_'+rel)
                 changed=candidate
             else:
