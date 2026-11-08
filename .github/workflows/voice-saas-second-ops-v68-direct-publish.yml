@@ -1,27 +1,9 @@
 name: OnTrack v68 external paid claims, campaigns, workers and email
+# Historic v68 one-time rollout uses an immutable old-to-new patch base.
+# Newer v69-v72 product changes must use their scoped tested workflows.
+# Automatic v68 reruns can fail on files absent from its base, or attempt
+# to roll back newer code; retain manual dispatch for historical diagnostics.
 on:
-  push:
-    branches: [feat/io-premium-native-v51-20261107]
-    paths:
-      - '.github/workflows/voice-saas-second-ops-v68-direct-publish.yml'
-      - 'tools/test_v68_external_claim.php'
-      - 'tools/test_v68_workers_email.php'
-      - 'tools/test_v68_campaign_sim_guard.php'
-      - 'tools/prepare_saas_second_ops_v68.py'
-      - 'tools/deploy_saas_second_ops_v68.py'
-      - 'tools/install_saas_workers_v68.py'
-      - 'saas/console/_core/ExternalOrderClaim.php'
-      - 'saas/console/_core/OperationalOutbox.php'
-      - 'saas/console/_core/EmailDelivery.php'
-      - 'saas/console/_core/Signup.php'
-      - 'saas/console/_core/Actions.php'
-      - 'saas/console/_core/Views.php'
-      - 'saas/console/_core/TenantWorkspace.php'
-      - 'saas/console/hooks/index.php'
-      - 'saas/console/operational-worker.php'
-      - 'saas/console/whatsapp-worker.php'
-      - 'saas/console/flow-ai-worker.php'
-      - 'saas/console/jobs/knowledge_sync.php'
   workflow_dispatch:
 permissions:
   contents: read
