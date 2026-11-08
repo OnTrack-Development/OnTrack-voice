@@ -75,8 +75,10 @@ internal object OnTrackSetupChecklist {
             if(f.secureSettings && f.setupComplete)CheckState.READY else CheckState.OPTIONAL,
             if(f.secureSettings && f.setupComplete)"التجهيز السابق محفوظ؛ يمكن للمحرك محاولة الاستعادة."
             else "استعادة الصوت تلقائيًا بعد إعادة التشغيل قد تحتاج إكمال ربط ADB مرة واحدة. لا Root ولا Shizuku.",
-            if(f.secureSettings && f.setupComplete)CheckAction.NONE else CheckAction.PAIR,
-            if(f.secureSettings && f.setupComplete)"" else "إكمال تجهيز الربط")
+            if(f.secureSettings && f.setupComplete)CheckAction.NONE else
+                if(f.adbPaired)CheckAction.RECONNECT else CheckAction.PAIR,
+            if(f.secureSettings && f.setupComplete)"" else
+                if(f.adbPaired)"استكمال الاتصال" else "إكمال تجهيز الربط")
         return checks
     }
 }
