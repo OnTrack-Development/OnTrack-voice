@@ -42,6 +42,14 @@ The owner has explicitly declared `VS/` a future, independent, **test-only place
 - Do not copy any code from the OnTrack AI project into VS without a direct and specific owner instruction.
 - Successful CI build and APK packaging do not prove call functionality.
 
+## VS 0.4.0 (November 8, 2026) - interaction fixes
+
+- Added three Fish Drama 3 intensity levels: **Natural** (no tag), **Gentle** (default), **Moderate** (restrained, without loud bursts or synthetic sighs). The prior always-on expressive sigh tags were removed. The underlying cloned voice can still produce variable results; verify on a real device.
+- Floating UI starts as a **58dp round bubble**; tap to expand/collapse; drag to move; **green enable** and **red stop** preview controls; explicit close button. No forced closure on takeover, and no Accessibility permission.
+- Added **non-invasive SIM route diagnostics** showing the observed call audio mode and telephony output. This does **not** unlock, intercept or inject real SIM audio. Toggling green while on a SIM call does not transmit anything to the remote party.
+- **Unresolved acceptance gate**: full-duplex SIM microphone capture after original-mic mute, stable Fish ASR+TTS latency and actual uplink injection. Requires a separate VS-specific privileged audio bridge and real two-handset confirmation. The ordinary Android app does not get privileged uplink access merely through runtime permissions.
+- No JemRec, no call recordings, no call log and no reuse of OnTrack AI application code. The current Fish speech preview uses only volatile in-memory PCM and MP3.
+
 ## Status
 
 VS v0.1.0 APK **was built on the Windows runner** and installed/tested on the owner's handset. The owner observed local Fish voice playback but **the SIM call still transmitted the real microphone**. VS v0.2.0 adds UI, permission, and overlay fixes; compilation must be checked on its new commit before delivery. The intended SIM voice replacement is **FAILED / BLOCKED under current unprivileged Android constraints**, not implemented. No two-phone success proof exists.
