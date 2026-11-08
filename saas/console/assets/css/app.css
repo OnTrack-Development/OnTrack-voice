@@ -1716,3 +1716,202 @@ body .content .field input,body .content .field select,body .content .field text
   .ot-theme-preview-main {padding:14px 10px}
 }
 /* OTV_TENANT_STYLE_V63_END */
+
+/* OTV_BRAND_LOGO_V64_BEGIN — authentic widescreen logos with no icon frame */
+.sidebar .brand,
+body.light .sidebar .brand {
+  width:100%;
+  min-width:0;
+  padding:8px 5px 22px;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:8px;
+}
+.sidebar .brand[data-brand-display="both"] {
+  flex-direction:row;
+  align-items:center;
+  gap:10px;
+}
+.sidebar .brand-logo,
+body.light .sidebar .brand-logo,
+.sidebar .brand-logo:has(img),
+body.light .sidebar .brand-logo:has(img) {
+  width:100%;
+  max-width:100%;
+  flex:0 1 auto;
+  height:64px;
+  min-height:28px;
+  padding:0!important;
+  margin:0;
+  border:0!important;
+  outline:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  border-radius:0!important;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  overflow:visible;
+}
+.sidebar .brand-logo img {
+  display:block;
+  object-fit:contain!important;
+  object-position:center right;
+  width:100%;
+  max-height:64px;
+  height:auto;
+  max-width:100%;
+  border:0;
+  border-radius:0;
+  background:transparent!important;
+}
+.sidebar .brand[data-brand-display="both"] .brand-logo {
+  width:auto;
+  max-width:115px;
+  flex:0 1 115px;
+  height:55px;
+}
+.sidebar .brand[data-brand-display="both"] .brand-logo img {max-height:55px}
+.sidebar .brand[data-brand-display="image"] .brand-logo {min-height:65px}
+.sidebar .brand-lines {min-width:0}
+.sidebar .brand[data-brand-display="text"] .brand-lines strong {font-size:18px}
+.sidebar .brand[data-brand-display="image"] .brand-lines {display:none}
+.sidebar .brand-lines strong {
+  overflow-wrap:anywhere;
+  max-width:100%;
+  white-space:normal;
+  text-overflow:clip;
+  line-height:1.5;
+}
+.login-panel .login-brand,
+body.light .login-panel .login-brand {
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:9px;
+}
+.login-panel .login-brand[data-brand-display="both"] {
+  flex-direction:row;
+  align-items:center;
+  gap:14px;
+}
+.login-panel .login-brand .wl-mark,
+body.light .login-panel .login-brand .wl-mark,
+.wl-mark {
+  display:block;
+  width:100%;
+  max-width:280px;
+  height:auto;
+  max-height:85px;
+  min-height:0;
+  object-fit:contain!important;
+  object-position:right center;
+  padding:0!important;
+  margin:0;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  flex:0 1 auto;
+}
+.login-panel .login-brand[data-brand-display="both"] .wl-mark {
+  max-width:145px;
+  max-height:65px;
+}
+.login-panel .login-brand[data-brand-display="image"] .wl-brand-copy,
+.login-panel .login-brand[data-brand-display="text"] .wl-mark {
+  display:none!important;
+}
+.login-panel .login-brand .wl-brand-copy {
+  min-width:0;
+  max-width:100%;
+}
+.login-panel .login-brand .wl-brand-copy strong {
+  white-space:normal;
+  word-break:normal;
+  overflow-wrap:anywhere;
+  font-size:18px;
+}
+.brand-preview.ot-brand-preview,
+body.light .brand-preview.ot-brand-preview {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:11px;
+  width:100%;
+  min-width:0;
+  border:1px solid var(--border);
+  background:var(--panel2);
+  border-radius:12px;
+  padding:20px;
+}
+.ot-brand-preview .ot-brand-preview-image {
+  width:100%;
+  max-width:380px;
+  height:auto;
+  max-height:132px;
+  object-fit:contain!important;
+  object-position:right center;
+  padding:0!important;
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+.ot-brand-preview .ot-brand-preview-wordmark {
+  display:block;
+  font-size:22px;
+  font-weight:700;
+  color:var(--text);
+}
+.ot-brand-preview[data-brand-display="image"] .ot-brand-preview-copy,
+.ot-brand-preview[data-brand-display="text"] .ot-brand-preview-image {
+  display:none;
+}
+.ot-brand-preview[data-brand-display="both"] {
+  flex-direction:row;
+  align-items:center;
+  gap:15px;
+}
+.ot-brand-preview[data-brand-display="both"] .ot-brand-preview-image {
+  max-width:170px;
+}
+.ot-brand-upload-zone {
+  border:1px dashed var(--border);
+  border-radius:12px;
+  padding:17px;
+  margin:12px 0;
+  background:var(--panel2);
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.ot-brand-upload-zone input[type="file"] {
+  display:block;
+  width:100%;
+  margin:6px 0;
+  padding:10px;
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:9px;
+  background:var(--panel);
+}
+.ot-brand-upload-zone [data-brand-upload-status] {
+  margin:0;
+  color:var(--muted);
+  font-size:12px;
+}
+@media (max-width:760px) {
+  .sidebar .brand[data-brand-display="both"] .brand-logo{max-width:95px}
+  .login-panel .login-brand[data-brand-display="both"] .wl-mark{max-width:110px}
+  .ot-brand-preview[data-brand-display="both"]{flex-direction:column;align-items:flex-start}
+  .ot-brand-preview[data-brand-display="both"] .ot-brand-preview-image{max-width:100%}
+}
+@media (max-width:440px) {
+  .sidebar .brand[data-brand-display="image"] .brand-logo{height:58px}
+  .brand-preview.ot-brand-preview{padding:13px}
+  .login-panel .login-brand[data-brand-display="both"]{gap:10px}
+}
+/* OTV_BRAND_LOGO_V64_END */
