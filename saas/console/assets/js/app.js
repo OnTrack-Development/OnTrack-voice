@@ -542,13 +542,13 @@
     const data=new FormData(form,event.submitter||undefined);
     const action=data.get('action');
     if(typeof action==='string'&&excludes.has(action))return;
-    const endpoint=new URL(form.action||location.href,location.href);
+    const endpoint=new URL(form.getAttribute('action')||location.href,location.href);
     if(!allowedUrl(endpoint))return;
     event.preventDefault();
     event.stopPropagation();
     if(activeRequest)return;
     if(form.method.toLowerCase()==='get'){
-      const url=new URL(form.action||location.href,location.href);
+      const url=new URL(form.getAttribute('action')||location.href,location.href);
       for(const [name,value] of data)if(typeof value==='string')url.searchParams.set(name,value);
       void window.ontrackSoftNavigate(url.href);
       return;
@@ -677,7 +677,7 @@
         binary+=String.fromCharCode(...textBytes.subarray(offset,offset+8192));
       data.set('studio_fields_b64',btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''));
       const encoded=new URLSearchParams(data);
-      const response=await fetch(form.action,{
+      const response=await fetch(form.getAttribute('action')||location.pathname,{
         method:'POST',body:encoded,credentials:'same-origin',cache:'no-store',redirect:'error',
         headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest',
           'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}
