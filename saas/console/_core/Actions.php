@@ -39,6 +39,15 @@ function scoped_customer(int $id):array{
     deny();
 }
 function plans_for(string $kind):array{return all("SELECT * FROM plans WHERE kind=? AND status='active' ORDER BY id",[$kind]);}
+function reseller_plan_post_values():array {
+    return ['name'=>required('name',120),
+        'call_quota'=>intfield('calls'),'site_limit'=>intfield('sites'),
+        'agent_limit'=>intfield('agents'),'staff_limit'=>intfield('staff'),
+        'reseller_customers'=>0,'price_minor'=>intfield('price'),
+        'overage_minor'=>intfield('overage'),'google_key_limit'=>intfield('google_key_limit'),
+        'assistant_key_limit'=>intfield('assistant_key_limit')];
+}
+
 function act():void {
     require_login();require_csrf();
     $a=mine();if(!$a)deny();
@@ -841,7 +850,7 @@ function act():void {
                     console_view_mode($a)!=='admin')deny();
                 $customer=intfield('customer_id');$target=scoped_customer($customer);
                 $plan=one("SELECT * FROM plans WHERE id=? AND kind=? AND status='active'",[intfield('plan_id'),$target['kind']==='reseller'?'reseller':'user']);
-                if(!$plan)deny();
+                if(!$plan||!plan_catalog_allowed($plan,$target))deny();
                 if($kind==='reseller'&&$target['kind']!=='customer')deny();
                 $spent=(int)one("SELECT COALESCE(SUM(p.call_quota),0) n FROM subscriptions s JOIN plans p ON p.id=s.plan_id JOIN accounts a ON a.id=s.account_id WHERE a.parent_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>? AND a.id!=?",[$id,now(),now(),$customer])['n'];
                 if($kind==='reseller' && ($spent+(int)$plan['call_quota'])>site_limit($id,'call_quota'))throw new RuntimeException('سعة الباقة تتجاوز حصة الريسيلر');
@@ -853,6 +862,90 @@ function act():void {
                 audit($result['changed']?'plan.assigned':'plan.assignment_replayed',
                     $customer,['plan'=>$plan['id'],'subscription_id'=>$result['subscription_id']]);
                 $success=$result['changed']?'تم تخصيص باقة العميل.':'نفس الباقة مفعلة بالفعل.';
+                break;
+            case 'reseller_plan_save':
+                if($kind!=='reseller'||!in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                $planId=intfield('plan_id');
+                $target=plan_catalog_save_reseller($id,reseller_plan_post_values(),$planId);
+                audit($planId?'reseller.plan.updated':'reseller.plan.created',$id,['plan_id'=>$target]);
+                $success='تم حفظ باقة العملاء الخاصة بشركتك.';
+                break;
+            case 'reseller_plan_copy':
+                if($kind!=='reseller'||!in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                $original=intfield('plan_id');
+                $template=one("SELECT * FROM plans WHERE id=? AND kind='user' AND status='active'",[$original]);
+                if(!$template||plan_catalog_owner($original)!==0)
+                    throw new InvalidArgumentException('الباقة العامة غير متاحة');
+                $fields=['name'=>$template['name'].' - '.($a['name']??'ريسيلر'),
+                    'call_quota'=>(int)$template['call_quota'],'site_limit'=>(int)$template['site_limit'],
+                    'agent_limit'=>(int)$template['agent_limit'],'staff_limit'=>(int)$template['staff_limit'],
+                    'reseller_customers'=>0,'price_minor'=>(int)$template['price_minor'],
+                    'overage_minor'=>(int)($template['overage_minor']??0),
+                    'google_key_limit'=>(int)($template['google_key_limit']??1),
+                    'assistant_key_limit'=>(int)($template['assistant_key_limit']??0)];
+                $created=plan_catalog_save_reseller($id,$fields,0,$original);
+                audit('reseller.plan.copied',$id,['template_id'=>$original,'new_plan_id'=>$created]);
+                $success='تم نسخ الباقة العامة ضمن باقات شركتك، ويمكن تعديل سعرها وحدودها.';
+                break;
+            case 'reseller_plan_dispose':
+                if($kind!=='reseller'||!in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                $planId=intfield('plan_id');
+                $done=plan_catalog_dispose($planId,$id,required('operation',12));
+                audit('reseller.plan.'.$done,$id,['plan_id'=>$planId]);
+                $success=$done==='deleted'?'تم حذف الباقة غير المستخدمة.':
+                    ($done==='restored'?'تمت إعادة إتاحة الباقة.':'تم إيقاف بيع الباقة مع حفظ الاشتراكات والفواتير.');
+                break;
+            case 'platform_plan_dispose':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                $planId=intfield('plan_id');
+                $done=plan_catalog_dispose($planId,0,required('operation',12));
+                audit('platform.plan.'.$done,$id,['plan_id'=>$planId]);
+                $success='تم تحديث حالة الباقة: '.$done;
+                break;
+            case 'self_change_plan':
+                if(!in_array($kind,['reseller','customer'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $chosen=one("SELECT * FROM plans WHERE id=? AND status='active'",[intfield('plan_id')]);
+                $target=account($id);
+                if(!$target||!$chosen||!plan_catalog_allowed($chosen,$target))deny();
+                if((int)$chosen['price_minor']>0){
+                    // Paid upgrade/downgrade becomes effective ONLY after verified Kashier payment.
+                    $url=checkout_start($id,(int)$chosen['id'],me());
+                    header('Location: '.$url,true,303);exit;
+                }
+                $changed=subscription_assign_demo($id,(int)$chosen['id']);
+                audit('subscription.self_changed',$id,['plan_id'=>$chosen['id'],
+                   'changed'=>$changed['changed'],'paid'=>false]);
+                $success=$changed['changed']?'تم تغيير باقتك المجانية.':
+                    'الباقة دي مفعلة بالفعل؛ لم يتم تجديد الفترة مرتين.';
+                break;
+            case 'self_cancel_subscription':
+                if(!in_array($kind,['reseller','customer'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $cancelled=subscription_cancel_now($id);
+                audit('subscription.cancelled_by_owner',$id,['changed'=>$cancelled]);
+                $success=$cancelled?'تم إلغاء الاشتراك فورًا وإيقاف استحقاقاته.':
+                    'لا يوجد اشتراك نشط لإلغائه.';
+                break;
+            case 'self_renew_subscription':
+                if(!in_array($kind,['reseller','customer'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $plan=one("SELECT * FROM plans WHERE id=? AND status='active'",[intfield('plan_id')]);
+                $target=account($id);
+                if(!$plan||!$target||!plan_catalog_allowed($plan,$target))deny();
+                if((int)$plan['price_minor']>0){
+                    $url=checkout_start($id,(int)$plan['id'],me());
+                    header('Location: '.$url,true,303);exit;
+                }
+                $renewed=subscription_renew_free($id,(int)$plan['id']);
+                audit('subscription.free_renewed',$id,['changed'=>$renewed['changed'],
+                    'plan_id'=>$plan['id']]);
+                $success=$renewed['changed']?'تم تجديد الباقة المجانية لمدة 30 يومًا.':
+                    'اشتراكك ما زال نشطًا؛ لن نمدد المدة مرتين.';
                 break;
             case 'create_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
@@ -1152,7 +1245,8 @@ function act():void {
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
                 require_once __DIR__.'/AiRelay.php';ai_relay_assistant_limits_schema();
-                $plan=one('SELECT id,kind FROM plans WHERE id=?',[intfield('plan_id')]);if(!$plan)deny();
+                $plan=one('SELECT id,kind FROM plans WHERE id=?',[intfield('plan_id')]);
+                if(!$plan||plan_catalog_owner((int)$plan['id'])!==0)deny();
                 if($plan['kind']==='reseller'&&!platform_resellers_visible())deny(404);
                 $price=intfield('price');$overage=intfield('overage');
                 if($price>1000000000||$overage>10000000)throw new InvalidArgumentException('السعر أكبر من الحد المسموح');
@@ -1165,8 +1259,9 @@ function act():void {
                 audit('plan.updated',$id,['plan'=>$plan['id']]);break;
             case 'archive_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
-                $archivedPlan=one('SELECT kind FROM plans WHERE id=?',[intfield('plan_id')]);
-                if(!$archivedPlan||($archivedPlan['kind']==='reseller'&&!platform_resellers_visible()))deny(404);
+                $archivedPlan=one('SELECT id,kind FROM plans WHERE id=?',[intfield('plan_id')]);
+                if(!$archivedPlan||plan_catalog_owner((int)$archivedPlan['id'])!==0||
+                  ($archivedPlan['kind']==='reseller'&&!platform_resellers_visible()))deny(404);
                 execute("UPDATE plans SET status='archived' WHERE id=?",[intfield('plan_id')]);
                 audit('plan.archived',$id);break;
             case 'edit_staff':
