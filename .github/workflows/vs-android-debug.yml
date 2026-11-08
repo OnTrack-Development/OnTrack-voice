@@ -114,7 +114,7 @@ jobs:
             tag_name = $tag
             target_commitish = $env:GITHUB_SHA
             name = "VS Drama3 test APK - $env:GITHUB_RUN_ID"
-            body = 'VS standalone Android debug test: Fish ASR, Drama3 TTS, 3 persona presets, overlay, permission checks. WARNING: not yet connected to SIM call uplink; does not change the call microphone.'
+            body = 'VS 0.5 experimental independent ADB shell telephony bridge: Fish ASR/Drama3 to volatile PCM, compact overlay and guarded mic restoration. APK build is NOT proof of far-end SIM audio. Requires explicit ADB setup and two-phone test; no call recording or JemRec.'
             draft = $false
             prerelease = $true
             generate_release_notes = $false
