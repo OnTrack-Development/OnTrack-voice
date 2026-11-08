@@ -6,6 +6,7 @@ on:
       - '.github/workflows/voice-saas-studio-v84-shadowed-action-publish.yml'
       - 'tools/deploy_saas_studio_v84.py'
       - 'tools/test_v84_form_action_shadow.cjs'
+      - 'tools/test_v76_sog_studio_submission.cjs'
   workflow_dispatch:
 permissions:
   contents: read
