@@ -29,6 +29,7 @@ jobs:
           ref: b968161db523ffff5881f3f0f605ef160f510e0c
           path: .build/customers-v59-baseline
           persist-credentials: false
+      # Keep independently published production UI changes untouched.
       - name: Lint exact PHP changes and verify tenant plan regressions
         run: |
           $ErrorActionPreference='Stop'
