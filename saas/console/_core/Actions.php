@@ -543,6 +543,17 @@ function act():void {
                 $principal=intfield('caller_id');
                 if(!voice_staff_revoke($id,$principal))deny(404);
                 audit('voice.staff_phone.revoked',$id,['principal_id'=>$principal]);break;
+            case 'save_console_font':
+                if(active_support())deny(403,'لا يمكن حفظ الخط أثناء جلسة الدعم.');
+                require_once __DIR__.'/ConsoleTypography.php';
+                $chosen=field('font',20);
+                $scope=field('scope',12);
+                console_font_save($a,$chosen,$scope);
+                audit('console.font.changed',$id,['scope'=>$scope,'font'=>$chosen]);
+                $success=$scope==='tenant'
+                    ?'تم حفظ خط الشركة؛ يظهر فور تحديث الصفحات.'
+                    :'تم حفظ خط واجهتك الشخصية، ويمكن الرجوع لخط الشركة.';
+                break;
             case 'platform_resellers_visibility':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support()||console_view_mode($a)!=='admin')deny();
                 $enabled=(string)($_POST['resellers_enabled']??'0')==='1';
