@@ -58,17 +58,13 @@ def patch_views(live:str,candidate:str)->str:
     if "    $loginBrand=white_label_brand_account();" not in live:
         live=live.replace(select(live,loginStart,loginEnd),
                           select(candidate,loginStart,loginEnd),1)
-    # Public login html uses exactly one brand header; preserve auth fields.
-    loginOld='<div class="login-brand">'.replace('\"','"')
-    loginNew='<div class="login-brand" data-brand-display='
-    if loginNew not in live:
-        if live.count(loginOld)!=1:raise RuntimeError('public_auth_brand_html_changed')
-        live=live.replace(loginOld,
-          '<div class="login-brand" data-brand-display="\'.e($portalMode).\'">',1)
-        fromCopy='<div><strong>\'.e($name).\'</strong>'
-        toCopy='<div class="wl-brand-copy"><strong>\'.e($name).\'</strong>'
-        if live.count(fromCopy)!=1:raise RuntimeError('public_auth_brand_copy_changed')
-        live=live.replace(fromCopy,toCopy,1)
+    # Replace only the login-brand HTML fragment; the generic <div><strong>
+    # sequence also appears in unrelated settings and must never be global.
+    authStart='<div class="login-brand"'
+    authEnd='<div class="login-intro">'
+    if 'data-brand-display=' not in select(live,authStart,authEnd):
+        live=live.replace(select(live,authStart,authEnd),
+                          select(candidate,authStart,authEnd),1)
     oldAccount='data-ot-account="\'.($portal?(int)$portal[\'id\']:0).\'"'
     newAccount='data-ot-account="\'.($loginBrand?(int)$loginBrand[\'id\']:0).\'"'
     if oldAccount in live:live=live.replace(oldAccount,newAccount,1)
