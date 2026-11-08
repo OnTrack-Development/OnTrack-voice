@@ -419,13 +419,38 @@ function render_accounts(array $a):void{
         submit_btn('حفظ السياسة'));
     echo '</div>';
     $cells=[];
+    // Available plans are loaded once and filtered per tenant kind, so the
+    // inline form cannot accidentally preselect a customer plan for a reseller.
+    $adminCanGrant=$a['kind']==='platform'&&in_array($a['role'],['owner','admin'],true)
+        &&!active_support()&&console_view_mode($a)==='admin';
+    $planChoices=['user'=>[],'reseller'=>[]];
+    if($adminCanGrant)foreach(all("SELECT id,name,kind,price_minor,call_quota FROM plans WHERE status='active' ORDER BY kind,price_minor,id") as $p){
+        if(!isset($planChoices[$p['kind']]))continue;
+        $planChoices[$p['kind']][(string)$p['id']]=(string)$p['name'].' — '.
+            (int)$p['call_quota'].' مكالمة · '.number_format((int)$p['price_minor']/100,2).' ج.م';
+    }
     foreach($rows as $r){
         $support=form_start('support_enter','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><button class="btn small" type="submit">الدخول للحساب</button></form>';
         $support.=row_rename('edit_account','/?tab=accounts','account_id',(int)$r['id'],(string)$r['name']);
         $support.=form_start('set_account_status','/?tab=accounts','class="inline-form"').'<input type="hidden" name="account_id" value="'.(int)$r['id'].'"><input type="hidden" name="status" value="'.($r['status']==='active'?'suspended':'active').'"><button class="btn small danger">'.($r['status']==='active'?'تعليق':'تفعيل').'</button></form>';
-        $cells[]=[e($r['name']).'<small class="block dim">'.e($r['slug']).'</small>',pill((string)$r['kind']),e((string)($r['parent_id']??'مباشر')),e((string)$r['seats']),pill((string)$r['status']),$support];
+        $current=one("SELECT p.name,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id
+            WHERE s.account_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
+            ORDER BY s.id DESC LIMIT 1",[(int)$r['id'],now(),now()]);
+        $planInfo=$current?'<strong>'.e((string)$current['name']).'</strong><small class="block dim">حتى '.e((string)$current['ends_at']).'</small>'
+            :'<span class="dim">لا توجد باقة نشطة</span>';
+        $planKind=$r['kind']==='reseller'?'reseller':'user';
+        if($adminCanGrant&&$r['status']==='active'&&!empty($planChoices[$planKind])){
+            $planInfo.='<details class="row-rename"><summary>تعيين / تغيير الباقة الآن</summary>'.
+                form_start('admin_grant_plan','/?tab=accounts','class="row-rename-form" data-no-ajax="1"').
+                '<input type="hidden" name="customer_id" value="'.(int)$r['id'].'">'.
+                select_html('الباقة الجديدة','plan_id',$planChoices[$planKind]).
+                '<label class="field">سبب المنحة الإدارية<input name="grant_reason" required minlength="5" maxlength="200" placeholder="تجربة داخلية أو منحة من الإدارة"></label>'.
+                '<label class="field"><input type="checkbox" name="confirm_admin_grant" value="1" required> أتأكد إن ده تفعيل إداري، مش إثبات دفع</label>'.
+                '<button type="submit" class="btn small primary" data-confirm="تفعيل الباقة المحددة فورًا لهذا الحساب كمنحة إدارية بدون تسجيل أي دفعة؟">حفظ وتفعيل الباقة</button></form></details>';
+        }
+        $cells[]=[e($r['name']).'<small class="block dim">'.e($r['slug']).'</small>',pill((string)$r['kind']),e((string)($r['parent_id']??'مباشر')),e((string)$r['seats']),pill((string)$r['status']),$planInfo,$support];
     }
-    echo card('الحسابات التابعة',tbl(['الاسم','النوع',platform_resellers_visible()?'الريسيلر':'الحساب','الأعضاء','الحالة','إدارة'],$cells));
+    echo card('الحسابات التابعة',tbl(['الاسم','النوع',platform_resellers_visible()?'الريسيلر':'الحساب','الأعضاء','الحالة','الباقة الحالية وتعديلها','إدارة'],$cells));
 }
 function render_plans(array $a):void{
     require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
@@ -490,8 +515,16 @@ function render_plans(array $a):void{
         $customers=all("SELECT id,name FROM accounts WHERE parent_id=? AND kind='customer'",[$id]);
         $co=[];$po=[];
         foreach($customers as $c)$co[$c['id']]=$c['name'];
-        foreach($list as $p)$po[$p['id']]=$p['name'].' — '.$p['call_quota'].' مكالمة';
-        if($co&&$po)echo card('تخصيص باقة',form_start('assign_plan','/?tab=plans').select_html('الحساب','customer_id',$co).select_html('الباقة','plan_id',$po).submit_btn('تعيين الباقة'));
+        foreach($list as $p){
+            // Resellers cannot activate priced subscriptions without verified payment.
+            if((int)$p['price_minor']>0 && !is_demo())continue;
+            $po[$p['id']]=$p['name'].' — '.$p['call_quota'].' مكالمة';
+        }
+        if($co&&$po&&in_array($a['role'],['owner','admin'],true)&&!active_support()&&console_view_mode($a)==='admin')
+            echo card('تخصيص باقة مجانية لعميل',form_start('assign_plan','/?tab=plans').
+                select_html('الحساب','customer_id',$co).select_html('الباقة','plan_id',$po).
+                '<p class="dim">الباقات المدفوعة تتطلب تأكيد دفع أو منحة من أدمن المنصة.</p>'.
+                submit_btn('تعيين الباقة'));
         $limits=[];
         foreach($customers as $customer){
             $limit=google_voice_key_limit((int)$customer['id']);
@@ -1752,9 +1785,8 @@ function render_billing(array $a):void{
         echo card('معدل استهلاك المكالمات المتصلة',
             '<p>حساب مالك المنصة لا يخضع لحصة مكالمات العملاء أو رسوم تجاوز الباقة.</p>');
     }else{
-        $sub=one("SELECT p.*,s.status sub_status,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.account_id=? ORDER BY s.id DESC LIMIT 1",[$id]);
-        $isActive=$sub && $sub['sub_status']==='active' &&
-            $sub['ends_at']>now();
+        $sub=one("SELECT p.*,s.status sub_status,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.account_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>? ORDER BY s.id DESC LIMIT 1",[$id,now(),now()]);
+        $isActive=$sub!==null;
         $text=$isActive?'<div class="plan-panel"><span class="eyebrow">YOUR CURRENT PLAN</span><h2>'.e($sub['name']).'</h2><p>'.e((string)$sub['call_quota']).' مكالمة متصلة شهرياً · '.e((string)$sub['agent_limit']).' AI · '.e((string)$sub['site_limit']).' مواقع</p><small>تنتهي الفترة: '.e($sub['ends_at']).'</small></div>':'<p>لا توجد باقة نشطة. إنشاء الحساب لا يمنح اشتراكًا مدفوعًا تلقائيًا.</p>';
         echo card('اشتراك الحساب',$text);
         $usage=voice_usage_summary($id);
@@ -1771,15 +1803,25 @@ function render_billing(array $a):void{
        &&in_array($a['role'],['owner','admin'],true)&&!active_support()){
         $plans=all("SELECT id,name,price_minor,call_quota FROM plans WHERE kind=? AND status='active' ORDER BY price_minor,id",
             [$a['kind']==='reseller'?'reseller':'user']);
-        $choices=[];foreach($plans as $plan){
-            if((int)$plan['price_minor']<=0)continue;
-            $choices[(string)$plan['id']]=$plan['name'].' — '.number_format((int)$plan['price_minor']/100,2).' ج.م / 30 يوم';
+        $free=[];$paid=[];
+        foreach($plans as $plan){
+            if((int)$plan['price_minor']===0)
+                $free[(string)$plan['id']]=$plan['name'].' — '.$plan['call_quota'].' مكالمة / 30 يوم';
+            else
+                $paid[(string)$plan['id']]=$plan['name'].' — '.number_format((int)$plan['price_minor']/100,2).' ج.م / 30 يوم';
         }
-        if($choices)echo card('شراء أو تجديد باقة',
+        if($free)echo card('اختيار باقة مجانية وتفعيلها الآن',
+            form_start('self_select_free_plan','/?tab=billing').
+            select_html('الباقة المجانية','plan_id',$free).
+            '<p class="dim">التفعيل مباشر لمدة 30 يومًا إذا لم يكن لديك اشتراك فعال. تغيير الباقة الحالية لا يمدد تاريخ انتهائها.</p>'.
+            submit_btn('اختيار وتفعيل الباقة'));
+        if($paid)echo card('شراء أو تجديد باقة',
             form_start('checkout_plan','/?tab=billing').
-            select_html('اختر باقة','plan_id',$choices).
-            '<p class="dim">الدفع عبر صفحة Kashier الآمنة. الاشتراك لا يتفعل إلا بعد وصول تأكيد دفع موقّع على السيرفر.</p>'.
+            select_html('اختر باقة','plan_id',$paid).
+            '<p class="dim">الباقات المدفوعة تُفعّل بعد تأكيد الدفع الموثّق من Kashier؛ أو يمنحها أدمن المنصة مباشرة كمنحة إدارية منفصلة.</p>'.
             submit_btn('متابعة الدفع الآمن'));
+        if(!$free&&!$paid)echo card('اختيار الباقة',
+            '<p class="dim">لا توجد باقات متاحة من نوع هذا الحساب حاليًا. تواصل مع أدمن المنصة لإنشاء أو تعيين باقة.</p>');
     }
     if(in_array($a['kind'],['platform','reseller'],true)&&console_view_mode($a)==='admin'){
         $orders=$a['kind']==='platform'?all('SELECT o.*,a.name account_name FROM orders o JOIN accounts a ON a.id=o.account_id ORDER BY o.id DESC LIMIT 60'):all('SELECT o.*,a.name account_name FROM orders o JOIN accounts a ON a.id=o.account_id WHERE a.parent_id=? ORDER BY o.id DESC LIMIT 60',[$id]);
