@@ -34,7 +34,7 @@ public final class PermissionCheck {
         if (activity.checkSelfPermission(Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
             if (Build.VERSION.SDK_INT >= 23) {
-                activity.requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 401);
+                activity.requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 402);
             }
             return;
         }
