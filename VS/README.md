@@ -26,6 +26,13 @@ Fish TTS always uses the user's `drama-3` model and `/v1/tts` endpoint. The cue 
 
 The owner has explicitly declared `VS/` a future, independent, **test-only placeholder**. It is not part of the AI Voice Assistant codebase. During AI Voice Assistant development, **do not open, edit, copy, import, build, execute, test, deploy, or reuse anything in VS**. Also do not share code or other resources in the opposite direction without a specific, direct owner instruction. The earlier exploration of the existing voice bridge was only background research, **not permission to reuse code**. All agents must follow [AGENTS.md](AGENTS.md) for the complete prohibition and exception rule.
 
+## Current live-audio privacy requirements (owner correction, 2026-11-08)
+
+- **Do not use JemRec.** The owner does not want a call-recording application or any recording component of the other project.
+- **Never record or persist phone calls.** Current VS microphone test uses bounded `AudioRecord` PCM in RAM only; sends the sample to Fish Audio for required transcription. The sample is cleared after processing. No call recordings, call logs, or uploaded audio archives.
+- `RECORD_AUDIO` is only for the microphone live signal, not permission to save calls. The unprivileged version still does **not** inject Fish audio into the SIM uplink; do not claim otherwise.
+- The intended final call bridge is a **new VS-specific live streaming bridge**, independent of JemRec and independent of the OnTrack Voice app/SaaS. The actual telephony TX routing is pending compatible device-level integration and a two-phone proof.
+
 ## Handset findings — 2026-11-08
 
 - Owner tested v0.1.0 during an ordinary SIM call. The other person heard the original microphone, not the Fish audio. This is **confirmed failure of the intended voice-replacement requirement**, not a missing user permission.
