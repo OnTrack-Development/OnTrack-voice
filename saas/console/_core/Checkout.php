@@ -125,14 +125,29 @@ function record_verified_internal_checkout(array $order,string $reference):array
         WHERE id=? AND account_id=? AND integration_id IS NULL AND status='pending_payment'",[
         $reference,$order['id'],$order['account_id']]);
     if($changed!==1)throw new RuntimeException('payment_state_conflict');
+    // Each independently verified one-time payment purchases a new 30-day term.
+    // Preserve ALL remaining time on the current paid subscription; a new
+    // payment must never erase a customer's unused days. The previous paid
+    // revision stays in immutable history. This executes in the settlement
+    // transaction and is safe on webhook replays.
+    $old=one("SELECT id,ends_at FROM subscriptions
+        WHERE account_id=? AND status='active' AND starts_at<=? AND ends_at>?
+        ORDER BY ends_at DESC,id DESC LIMIT 1",
+        [$order['account_id'],now(),now()]);
+    $baseline=time();
+    if($old){
+        $end=strtotime((string)$old['ends_at'].' UTC');
+        if($end!==false)$baseline=max($baseline,$end);
+    }
     execute("UPDATE subscriptions SET status='replaced' WHERE account_id=? AND status='active'",
         [$order['account_id']]);
-    insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at)
+    $subscriptionId=insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at)
         VALUES (?,?,'active',?,?)",[$order['account_id'],$plan['id'],now(),
-        gmdate('Y-m-d H:i:s',time()+30*86400)]);
+        gmdate('Y-m-d H:i:s',$baseline+30*86400)]);
     insert("INSERT INTO outbox(account_id,integration_id,kind,payload,status,created_at)
         VALUES (?,NULL,?,?,'pending',?)",[(int)$order['account_id'],
         'subscription.activated',json_encode(['order_id'=>(int)$order['id'],
+            'subscription_id'=>$subscriptionId,
             'plan_id'=>(int)$plan['id'],'source'=>'verified_kashier'],JSON_THROW_ON_ERROR),now()]);
     require_once __DIR__.'/BillingInvoices.php';
     billing_invoice_settle((int)$order['id'],$reference);
