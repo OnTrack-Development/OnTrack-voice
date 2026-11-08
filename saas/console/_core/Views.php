@@ -119,6 +119,8 @@ function nav_entries(string $type):array{
     return $nav;
 }
 function layout_open(array $a,string $tab):void{
+    require_once __DIR__.'/ConsoleTypography.php';
+    $accountFont=console_font_effective($a);
     $u=me();$brand=brand($a);$items=nav_entries((string)$a['kind']);$heading=$items[$tab][1]??'الرئيسية';
     $role=white_label_context()
         ?(console_view_mode($a)==='user'?'مساحة العمل':'لوحة الإدارة')
@@ -131,7 +133,7 @@ function layout_open(array $a,string $tab):void{
     header('Cache-Control: private,no-store');
     // A stale CSS/JS cache must not render new server HTML with the old layout.
     $uiVersion=substr(hash('sha256',hash_file('sha256',__DIR__.'/../assets/css/app.css').hash_file('sha256',__DIR__.'/../assets/js/app.js')),0,12);
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css?v='.$uiVersion.'"><script src="/saas/console/assets/js/app.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/graph-routing.js?v='.$uiVersion.'"></script><script src="/saas/console/assets/js/flow-graph.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/qrcode.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/pairing-qr.js?v='.$uiVersion.'" defer></script></head><body>';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css?v='.$uiVersion.'"><script src="/saas/console/assets/js/app.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/graph-routing.js?v='.$uiVersion.'"></script><script src="/saas/console/assets/js/flow-graph.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/qrcode.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/pairing-qr.js?v='.$uiVersion.'" defer></script></head><body data-ot-font="'.e($accountFont).'">';
     echo '<div class="app-shell"><aside class="sidebar" id="mainNavigation" aria-label="القائمة الرئيسية"><button type="button" class="nav-close" id="navClose" aria-label="إغلاق القائمة">×</button><a href="/saas/console/" class="brand"><span class="brand-logo">';
     if(!empty($brand['logo'])) echo '<img src="/saas/console/brand-logo" alt="">';else echo '<b>'.e(mb_substr($brand['name'],0,1)).'</b>';
     echo '</span><span class="brand-lines"><strong>'.e($brand['name']).'</strong><small>'.e($role).'</small></span></a>';
@@ -2338,7 +2340,47 @@ function render_ai_relay_settings(array $a):void {
     }
 }
 function render_settings(array $a):void{
+    require_once __DIR__.'/ConsoleTypography.php';
     $brand=brand($a);
+    $fontOptions=console_font_options();
+    $accountId=(int)$a['account_id'];
+    $userId=(int)(me()['id']??0);
+    $currentTenant=one('SELECT font_code FROM console_font_preferences WHERE account_id=? AND user_id=0',[$accountId]);
+    $tenantSelection=($currentTenant && console_font_valid((string)$currentTenant['font_code']))
+        ?(string)$currentTenant['font_code']:'inherit';
+    $personalChoice=console_font_personal($accountId,$userId)??'inherit';
+    $tenantFont=console_font_tenant($accountId);
+    $effectiveFont=console_font_effective($a);
+    $previews='<div class="ot-font-options" aria-label="معاينة الخطوط العربية">';
+    foreach($fontOptions as $fontKey=>$fontLabel){
+        $previews.='<div class="ot-font-option" data-font-sample="'.e($fontKey).'">'.
+            '<strong>'.e($fontLabel).'</strong>'.
+            '<span lang="ar">إدارة أعمالك بوضوح — أهلاً بيك في أونتراك</span>'.
+            '<small>المكالمات · العملاء · الفواتير · 12345</small></div>';
+    }
+    $previews.='</div>';
+    $fontControls='<p class="dim">3 خطوط عربية واضحة من غير Tahoma أو Arial. تقدر تختار الخط لواجهة حسابك، وإعداد الشركة يظهر كافتراضي لأعضاء الفريق وعملاء الريسيلر ما لم يختاروا خطًا آخر.</p>'.
+        '<p class="dim">المستخدم الحالي: <strong>'.e($fontOptions[$effectiveFont]??'IBM Plex Sans Arabic').'</strong></p>'.
+        $previews;
+    if(!active_support()){
+        $personalOptions=['inherit'=>'استخدم خط الشركة الافتراضي']+$fontOptions;
+        $fontControls.=form_start('save_console_font','/?tab=settings','data-no-ajax="1"').
+            '<input type="hidden" name="scope" value="personal">'.
+            select_html('الخط الخاص بواجهتي','font',$personalOptions,$personalChoice).
+            '<small class="dim">خطك الشخصي لا يغيّر خطوط باقي مستخدمي الشركة.</small>'.
+            submit_btn('حفظ الخط الشخصي');
+        if(in_array($a['role'],['owner','admin'],true)){
+            $tenantOptions=['inherit'=>'خط العلامة الافتراضي / الموروث']+$fontOptions;
+            $fontControls.=form_start('save_console_font','/?tab=settings','data-no-ajax="1"').
+                '<input type="hidden" name="scope" value="tenant">'.
+                select_html('خط الشركة والأعضاء','font',$tenantOptions,$tenantSelection).
+                '<small class="dim">الخط الحالي للشركة: '.e($fontOptions[$tenantFont]??'IBM Plex Sans Arabic').'. هذا هو الافتراضي لزملائك وعملائك قبل أي اختيار شخصي.</small>'.
+                submit_btn('اعتماد خط الشركة');
+        }
+    }else{
+        $fontControls.='<p class="dim">المعاينة متاحة، لكن لا يمكن تغيير الخط أثناء جلسة الدعم.</p>';
+    }
+    echo card('الخطوط العربية | Typography',$fontControls);
     // Owner decision 2026-11-04: no administrator 2FA/QR setup tile.
     // Auth uses password, session hardening and existing login rate limits.
     if($a['kind']==='platform'&&console_view_mode($a)==='admin'&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
