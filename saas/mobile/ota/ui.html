@@ -399,7 +399,7 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 <section class="card" data-panel="campaigns" id="campaignExecution"><div class="section-title"><h2>تشغيل الحملات من شريحة Android</h2><span class="chip warn">موافقة صريحة</span></div>
 <p>التنفيذ لا يعمل إلا بعد تفعيلك من هذا الهاتف، ومنح إذن المكالمات، واعتماد حملة مسموح بها. قد تُحتسب رسوم مكالمات من شركة الاتصالات. المكالمات التي نتيجتها غير مؤكدة لا يعاد طلبها تلقائيًا.</p>
 <label style="display:flex;align-items:start;gap:9px"><input id="simCampaignConsent" type="checkbox" style="width:auto;margin-top:4px"><span>أؤكد أن جميع المستلمين وافقوا على الاتصال وأنني أسمح باستخدام شريحة الهاتف والرصيد، مع احترام قوائم عدم الاتصال.</span></label>
-<div class="row"><button id="campaignAutoEnable" class="primary" disabled>تشغيل الحملات قيد الاختبار</button><button id="campaignAutoDisable" class="outline">إيقاف فورًا</button></div>
+<div class="row"><button id="campaignAutoEnable" class="primary" disabled>تشغيل الحملات المعتمدة</button><button id="campaignAutoDisable" class="outline">إيقاف فورًا</button></div>
 <p class="small" id="campaignAutoStatus">متوقف افتراضيًا. لا يمكن تفعيله إلا بموافقة صريحة.</p>
 </section>
 <section class="card" data-panel="campaigns" id="campaignCreate"><h2>إنشاء حملة من التطبيق</h2>
@@ -846,7 +846,12 @@ window.onTrackCampaigns=payload=>{
   }out.append(card);
  });
 };
-el('campaignAutoEnable').onclick=()=>{el('campaignAutoStatus').textContent='اتصال الحملات متوقف لحين اختبار حدود الموافقة وDo Not Call.';};
+el('simCampaignConsent').onchange=()=>{el('campaignAutoEnable').disabled=!el('simCampaignConsent').checked;};
+el('campaignAutoEnable').onclick=()=>{
+  if(!el('simCampaignConsent').checked)return;
+  if(!confirm('أؤكد أن كل رقم في الحملات المعتمدة وافق على التواصل، وأوافق على استخدام شريحة الهاتف ورسوم الاتصالات، وأريد التشغيل حتى الإيقاف اليدوي أو توقف الخدمة.'))return;
+  send('campaignAutoEnable',{confirmed:true});
+};
 el('campaignAutoDisable').onclick=()=>send('campaignAutoDisable');
 el('saveMobileCampaign').onclick=()=>{
  if(Number(last.nativeCode)<18){el('campaignResult').textContent='يجب تحديث Android إلى الإصدار الذي يدعم إدارة الحملات أولًا';return;}
