@@ -37,4 +37,4 @@ The owner has explicitly declared `VS/` a future, independent, **test-only place
 
 ## Status
 
-Android **source prototype** exists in `VS/app/`: Fish TTS, experimental ASR recording, API-key storage, three personas, and preview controls. **APK build, runner execution, Windows checkout, Fish live response, cue quality and SIM-call audio-path isolation are NOT YET VERIFIED.** The preview plays on the device only; it is not a proven SIM-call voice replacement.
+VS v0.1.0 APK **was built on the Windows runner** and installed/tested on the owner's handset. The owner observed local Fish voice playback but **the SIM call still transmitted the real microphone**. VS v0.2.0 adds UI, permission, and overlay fixes; compilation must be checked on its new commit before delivery. The intended SIM voice replacement is **FAILED / BLOCKED under current unprivileged Android constraints**, not implemented. No two-phone success proof exists.
