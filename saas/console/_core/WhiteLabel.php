@@ -100,10 +100,17 @@ function white_label_absolute_url(string $path):string {
         ?'https://'.$ctx['_portal_host']:'https://'.WHITE_LABEL_PLATFORM_HOST;
     return $base.white_label_url($path);
 }
+function white_label_brand_account():?array {
+    $portal=white_label_context();
+    if($portal)return $portal;
+    // Platform login is public too: display its branded image without
+    // revealing private storage paths or granting any account membership.
+    return one("SELECT * FROM accounts WHERE kind='platform' ORDER BY id LIMIT 1");
+}
 function white_label_identity():array {
-    $ctx=white_label_context();
+    $ctx=white_label_brand_account();
     if(!$ctx)return ['name'=>'OnTrack Voice','logo'=>'','slug'=>''];
-    return ['name'=>(string)($ctx['brand_name']?:$ctx['name']),
+    return ['name'=>(string)($ctx['brand_name']?:($ctx['kind']==='platform'?'OnTrack Voice':$ctx['name'])),
         'logo'=>(string)($ctx['logo_path']??''),'slug'=>(string)$ctx['slug']];
 }
 /** On a white-label host/path, all authenticated accounts MUST belong to
@@ -122,7 +129,7 @@ function white_label_memberships(int $userId):array {
         static fn(array $m):bool=>white_label_account_allowed((int)$m['account_id'])));
 }
 function white_label_logo_file():?array {
-    $ctx=white_label_context();
+    $ctx=white_label_brand_account();
     if(!$ctx)return null;
     $logo=(string)($ctx['logo_path']??'');
     if($logo==='' || $logo!==basename($logo) ||
@@ -142,7 +149,7 @@ function white_label_logo_route():never {
     exit;
 }
 function white_label_logo_html(int $size=64):string {
-    $ctx=white_label_context();
+    $ctx=white_label_brand_account();
     if(!$ctx)return '';
     require_once __DIR__.'/BrandIdentity.php';
     if(brand_identity_mode($ctx)==='text')return '';
