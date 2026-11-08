@@ -232,7 +232,10 @@ function layout_open(array $a,string $tab):void{
         $slot=(int)$pairCode[0];
         echo '<section class="alert secret pair-qr-panel"><strong>رمز ربط SIM '.($slot+1).' فقط — لا يصلح للشريحة الأخرى</strong><div class="pair-qr-grid">';
         if(in_array($pairCode[0],['0','1'],true)){
-            echo '<div class="pair-qr-card"><b>SIM '.($slot+1).'</b><div class="pair-qr-code" data-pair-code="'.e($pairCode).'" data-pair-slot="'.$slot.'"></div><button type="button" class="btn small" data-pair-copy="'.$slot.'">نسخ رابط الشريحة</button></div>';
+            echo '<div class="pair-qr-card"><b>SIM '.($slot+1).'</b><div class="pair-qr-code" data-pair-code="'.e($pairCode).'" data-pair-slot="'.$slot.'"></div>'.
+                '<a class="btn primary" href="ontrackvoice://pair?slot='.$slot.'&amp;code='.e($pairCode).'">افتح تطبيق OnTrack واربط الشريحة</a>'.
+                '<button type="button" class="btn small" data-pair-copy="'.$slot.'">نسخ رابط الشريحة</button>'.
+                '<p class="dim">لو التطبيق على موبايل تاني، افتحه واضغط «مسح QR».</p></div>';
         }
         echo '</div><p class="dim">QR يحتوي رمزًا مؤقتًا؛ لا تشاركه مع أحد. المسح يفتح شاشة تأكيد داخل التطبيق ولا يربط تلقائيًا.</p></section>';
     }
@@ -306,6 +309,46 @@ function ontrack_update_banner():string {
         '</div></section>';
 }
 
+/** One obvious entry point on customer and reseller home pages.
+ * Uses the existing one-time slot-bound token + authenticated account.
+ * Does not auto-answer or grant a SIM account without confirmation.
+ */
+function render_sim_pair_quick_start(array $a):void {
+    if(!in_array((string)($a['kind']??''),['customer','reseller','platform'],true))return;
+    $accountId=(int)$a['account_id'];
+    $canPair=in_array((string)($a['role']??''),['owner','admin'],true)&&!active_support();
+    $items=all("SELECT ag.id,ag.name,ag.site_id,s.name site_name,
+      (SELECT COUNT(*) FROM agent_flow_versions v WHERE v.agent_id=ag.id
+       AND v.account_id=ag.account_id AND v.site_id=ag.site_id) revisions
+      FROM agents ag JOIN sites s ON s.id=ag.site_id AND s.account_id=ag.account_id
+      WHERE ag.account_id=? AND ag.status!='archived' AND s.status='active'
+      ORDER BY revisions DESC,ag.id ASC LIMIT 40",[$accountId]);
+    $rows=[];
+    foreach($items as $item){
+        $label=(string)$item['site_name'].' · '.(string)$item['name'];
+        if((int)$item['revisions']<1)$label.=' (انشر السيناريو قبل تشغيل المكالمات)';
+        $rows[(string)$item['id']]=$label;
+    }
+    $body='<p class="dim">من التطبيق اضغط <strong>ربط الشريحة</strong>، وامسح QR اللي هيظهر هنا، أو افتح الرابط على نفس الهاتف. مفيش مفاتيح API ولا إعدادات معقدة.</p>';
+    if(!$canPair){
+        $body.='<p class="dim">ربط شريحة جديدة متاح لمالك الحساب أو مديره فقط، وليس في وضع الدعم.</p>';
+    }elseif(!$rows){
+        $body.='<p>علشان تربط الشريحة لازم يكون عندك مساعد على موقع نشط. قاعدة المعرفة مش مطلوبة.</p>'.
+          '<a class="btn primary" href="/saas/console/?tab=agents">إنشاء مساعد للربط</a>';
+    }else{
+        $options=count($rows)>1?select_html('المساعد اللي هيرد على الشريحة','agent_id',$rows):
+            '<input type="hidden" name="agent_id" value="'.e((string)array_key_first($rows)).'">'.
+            '<p class="dim">المساعد المختار: '.e(reset($rows)).'</p>';
+        $body.=form_start('create_device_pairing','/?tab=overview',
+          'class="ot-sim-pair-fast" data-no-ajax="1"').$options.
+          '<div class="ot-master-update-actions ot-sim-pair-buttons">'.
+          '<button type="submit" name="sim_slot" value="0" class="btn primary">ربط SIM 1 الآن</button>'.
+          '<button type="submit" name="sim_slot" value="1" class="btn primary">ربط SIM 2 الآن</button></div></form>'.
+          '<p class="dim">بعد الضغط هيظهر QR صالح لمدة 10 دقائق؛ افتحه بالتطبيق لتأكيد الشريحة والحساب.</p>';
+    }
+    $body.='<p><a href="/saas/console/?tab=devices">عرض الشرائح المربوطة وحالتها</a></p>';
+    echo card('ربط الهاتف والشريحة بسهولة',$body);
+}
 function render_overview(array $a):void{
     $id=(int)$a['account_id'];$kind=$a['kind'];
     if(in_array($kind,['platform','reseller'],true)&&console_view_mode($a)==='user')$kind='customer';
@@ -352,6 +395,7 @@ function render_overview(array $a):void{
             ($to==='user'?'فتح واجهة مستخدم الريسيلر':'العودة لإدارة الريسيلر').
             '</button></form></div></section>';
     }
+    render_sim_pair_quick_start($a);
     echo '<div class="metric-grid">';
     if($kind==='platform'){
         echo (platform_resellers_visible()?counter('الريسيلرز',$n1,'♧'):'').counter('العملاء',$n2,'♙').counter('المساعدون',$n3,'✧').counter('سجلات المكالمات',$n4,'☏');
