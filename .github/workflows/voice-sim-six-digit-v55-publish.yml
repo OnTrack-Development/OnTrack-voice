@@ -90,7 +90,7 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'UI OTA preparation failed'}
           & java tools/SignMobileOta.java $key (Join-Path $out 'ui')
           if($LASTEXITCODE -ne 0){throw 'UI OTA signing failed'}
-          & python -c "import sys;from pathlib import Path;sys.path.insert(0,'tools');import queue_mobile_native as n, queue_mobile_ota as u;a=n.verify(Path('.build/sim6-v55-delivery/native'))[2];b=u.verify(Path('.build/sim6-v55-delivery/ui'))[2];assert a['version_code']==55 and a['version_name']=='0.3.32' and b['revision']==55 and b['max_native']>=55;print('SIX_DIGIT_SIGNED_MANIFESTS_PASS')"
+          & python tools/verify_sim_six_digit_v55_local.py .build/sim6-v55-delivery
           if($LASTEXITCODE -ne 0){throw 'Signed manifest local verification failed'}
       - name: Apply minimal verified site patch and prove six-digit server route
         run: |
