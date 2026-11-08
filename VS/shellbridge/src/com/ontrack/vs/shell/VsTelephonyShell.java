@@ -11,6 +11,8 @@ import android.net.LocalSocket;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.SocketTimeoutException;
+import android.os.SystemClock;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 
@@ -61,15 +63,29 @@ public final class VsTelephonyShell {
     }
 
     private void handle(LocalSocket conn) throws IOException {
-        conn.setSoTimeout(90000);
+        conn.setSoTimeout(1000);
         DataInputStream in = new DataInputStream(conn.getInputStream());
         DataOutputStream out = new DataOutputStream(conn.getOutputStream());
         if (!secret.equals(in.readUTF())) {
             out.writeUTF("DENIED"); out.flush(); return;
         }
         out.writeUTF("READY"); out.flush();
+        long lastRequest = SystemClock.elapsedRealtime();
         while (true) {
-            String command = in.readUTF();
+            String command;
+            try {
+                command = in.readUTF();
+            } catch (SocketTimeoutException idle) {
+                // Fail-safe on cellular hangup even while Fish API is busy.
+                if (track != null && audio.getMode() != AudioManager.MODE_IN_CALL) {
+                    restore(); return;
+                }
+                if (SystemClock.elapsedRealtime() - lastRequest > 120000) {
+                    restore(); return;
+                }
+                continue;
+            }
+            lastRequest = SystemClock.elapsedRealtime();
             if ("STATE".equals(command)) {
                 out.writeUTF("MODE " + audio.getMode() + " MUTE " + audio.isMicrophoneMute());
             } else if ("PROBE".equals(command)) {
