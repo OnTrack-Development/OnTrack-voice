@@ -57,3 +57,40 @@ jobs:
           & .\gradlew.bat --no-daemon :app:assembleRelease
           if($LASTEXITCODE -ne 0){throw 'Native Android v56 release assembly failed'}
           Write-Host 'V68_ANDROID_0_3_33_CAMPAIGN_COMPILE_AND_UNIT_PASS'
+      - name: Verify original signing key and sign v56 APK plus UI/native OTA
+        run: |
+          $ErrorActionPreference='Stop'
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $signer=Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer=Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
+          $cert=Join-Path $env:RUNNER_TEMP 'ontrack-native-v56-cert.der'
+          & keytool -exportcert -alias androiddebugkey -keystore $key -storepass android -file $cert | Out-Null
+          if($LASTEXITCODE -ne 0 -or (Get-FileHash $cert -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'){
+            throw 'Original Android owner signing certificate mismatch'
+          }
+          Remove-Item $cert -Force
+          New-Item -Path '.build\artifact' -ItemType Directory -Force | Out-Null
+          $apk='.build\artifact\OnTrack-Voice-0.3.33.apk'
+          & $signer sign --ks $key --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out $apk '.build\jemrec\app\build\outputs\apk\release\app-release-unsigned.apk'
+          if($LASTEXITCODE -ne 0){throw 'Native v56 APK signing failed'}
+          & $signer verify --verbose $apk
+          if($LASTEXITCODE -ne 0){throw 'Native v56 APK signature check failed'}
+          $package=(& $analyzer manifest application-id $apk|Out-String).Trim()
+          $version=(& $analyzer manifest version-code $apk|Out-String).Trim()
+          if($package -ne 'com.ontrack.voiceproof' -or $version -ne '56'){
+            throw 'Android package or v56 code mismatch'
+          }
+          & python tools/verify_shell_jar_packaging.py $apk '.build/jemrec/shellserver/ontrack-voiceproof-capture.jar'
+          if($LASTEXITCODE -ne 0){throw 'Native PCM module missing'}
+          & python tools/prepare_mobile_ota.py .build/artifact/ota
+          if($LASTEXITCODE -ne 0){throw 'Signed UI OTA prepare failed'}
+          & python tools/prepare_mobile_native.py $apk .build/artifact/native
+          if($LASTEXITCODE -ne 0){throw 'Signed native OTA prepare failed'}
+          & java tools/SignMobileOta.java $key .build/artifact/ota
+          if($LASTEXITCODE -ne 0){throw 'Original signer rejected UI OTA'}
+          & java tools/SignMobileOta.java $key .build/artifact/native
+          if($LASTEXITCODE -ne 0){throw 'Original signer rejected native OTA'}
+          $env:PATH='C:\Program Files\Git\usr\bin;'+$env:PATH
+          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_native import verify as n;from queue_mobile_ota import verify as u;_,_,a=n(Path('.build/artifact/native'));_,_,v=u(Path('.build/artifact/ota'));assert a['version_code']==56 and a['version_name']=='0.3.33' and v['revision']==56 and v['min_native']<=56<=v['max_native'];print('V68_SIGNED_ANDROID_V56_UI56_MANIFESTS_PASS')"
+          if($LASTEXITCODE -ne 0){throw 'RSA-signed Android v56 OTA verification failed'}
