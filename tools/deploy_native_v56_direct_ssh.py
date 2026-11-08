@@ -68,8 +68,8 @@ def main():
         raise RuntimeError('native_v56_ui_56_manifest_contract_invalid')
     ui_filename=ui['file']
     apk_filename=app['file']
-    if ui_filename!='ui-'+ui['sha256']+'.html' or
-       apk_filename!='ontrack-voice-v56-'+app['sha256']+'.apk':
+    if (ui_filename!='ui-'+ui['sha256']+'.html' or
+        apk_filename!='ontrack-voice-v56-'+app['sha256']+'.apk'):
         raise RuntimeError('immutable_filename_invalid')
     html=STAGE/'ota'/ui_filename
     apk=STAGE/'OnTrack-Voice-0.3.33.apk'
