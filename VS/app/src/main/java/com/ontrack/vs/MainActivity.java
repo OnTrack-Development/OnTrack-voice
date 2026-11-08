@@ -230,6 +230,12 @@ public final class MainActivity extends Activity {
         gap(floatingCard, 10);
         floatingCard.addView(action("فحص حالة مكالمة الشريحة", false,
             v -> info(SimAudioStatus.report(this))));
+        gap(floatingCard, 8);
+        floatingCard.addView(action("اختبار مسار إرسال الصوت (صامت)", false,
+            v -> {
+                info("بفحص توجيه Telephony من غير صوت أو تسجيل أو كتم مكالمتك...");
+                queue.execute(() -> info(SimAudioStatus.probePreferredRoute(this)));
+            }));
         VsUi.addSection(root, floatingCard, this);
 
         LinearLayout permissionsCard = VsUi.card(this);
