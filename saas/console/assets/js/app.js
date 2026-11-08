@@ -651,15 +651,33 @@
     }
     const data=new FormData(form);
     if(publish)data.set('publish_now','1');else data.delete('publish_now');
-    // Agent Studio has text/JSON fields, not file uploads. URL-encoding avoids
-    // shared-host ModSecurity multipart HTML denial pages on reseller domains.
-    const encoded=new URLSearchParams(data);
     const status=form.querySelector('.agent-studio-status');
     form.dataset.agentSaving='1';
     if(submit)submit.disabled=true;
     if(status)status.textContent='جارٍ '+(publish?'النشر':'الحفظ')+'…';
     try{
-      const response=await fetch(form.action||location.pathname,{
+      // Group multiline owner-authored text in a single Unicode-safe field.
+      // Some shared-host WAF rules reject legitimate JSON nodes/instructions
+      // with a fake HTML 404 before the request reaches PHP. All decoded
+      // values are still checked by the existing CSRF, RBAC and Flow compiler.
+      const textKeys=['flow_json','scenario_text','instructions','knowledge',
+        'agent_goal','agent_guardrails'];
+      const texts={};
+      for(const key of textKeys){
+        if(data.has(key)){
+          const value=data.get(key);
+          if(typeof value!=='string')throw Error('صيغة حقل إعدادات المساعد غير مدعومة');
+          texts[key]=value;
+          data.delete(key);
+        }
+      }
+      const textBytes=new TextEncoder().encode(JSON.stringify(texts));
+      let binary='';
+      for(let offset=0;offset<textBytes.length;offset+=8192)
+        binary+=String.fromCharCode(...textBytes.subarray(offset,offset+8192));
+      data.set('studio_fields_b64',btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''));
+      const encoded=new URLSearchParams(data);
+      const response=await fetch(form.action,{
         method:'POST',body:encoded,credentials:'same-origin',cache:'no-store',redirect:'error',
         headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest',
           'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}
@@ -674,7 +692,9 @@
       const raw=await response.text();
       if(!raw.trim())throw Error('السيرفر رجّع ردًا فارغًا (HTTP '+response.status+'). لم يتم تأكيد الحفظ أو النشر؛ راجع سجل الإصدارات قبل تكرار الطلب.');
       if(!contentType.includes('application/json'))throw Error(
-        'السيرفر رجّع استجابة غير JSON (HTTP '+response.status+'). لم يتم تأكيد النشر؛ تحقق من جلسة الدخول أو سجل أخطاء السيرفر.');
+        response.status===404
+          ?'مسار حفظ إعدادات المساعد رجّع صفحة 404 بدل JSON. لم يتأكد الحفظ أو النشر؛ راجع إعدادات الحماية والمسار على السيرفر.'
+          :'السيرفر رجّع استجابة غير JSON (HTTP '+response.status+'). لم يتم تأكيد النشر؛ راجع حالة السيرفر.');
       let result;
       try{result=JSON.parse(raw)}catch{
         throw Error('السيرفر رجّع JSON غير مكتمل (HTTP '+response.status+'). لم يتم تأكيد حفظ الإعدادات.');
