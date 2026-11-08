@@ -255,12 +255,14 @@ function login_page(?string $error=null):void{
     header('Content-Type: text/html; charset=utf-8');
     header('X-Frame-Options: DENY');header('Cache-Control: no-store');
     $portal=white_label_context();
+    require_once __DIR__.'/ConsoleTypography.php';
+    $portalFont=$portal?console_font_tenant((int)$portal['id']):'plex';
     $brand=white_label_identity();
     $name=(string)$brand['name'];
     $signup=white_label_url('/register');
     $login=white_label_url('/login');
     $forgot=white_label_url('/forgot-password');
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تسجيل الدخول | '.e($name).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script></head><body class="login-body'.($portal?' white-label-auth':'').'"><div class="login-backdrop"></div><main class="login-panel wl-auth-panel"><div class="login-brand">'.white_label_logo_html().'<div><strong>'.e($name).'</strong><small>'.($portal?'منصتك لإدارة أعمالك':'منصة الأعمال الذكية').'</small></div></div><div class="login-intro"><span class="eyebrow">'.($portal?'مرحباً بك في '.e($name):'SMART VOICE PLATFORM').'</span><h1>أهلاً برجوعك</h1><p>أدر حسابك وخدماتك وفريقك بسهولة من مكان واحد.</p></div>';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تسجيل الدخول | '.e($name).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script></head><body data-ot-font="'.e($portalFont).'" class="login-body'.($portal?' white-label-auth':'').'"><div class="login-backdrop"></div><main class="login-panel wl-auth-panel"><div class="login-brand">'.white_label_logo_html().'<div><strong>'.e($name).'</strong><small>'.($portal?'منصتك لإدارة أعمالك':'منصة الأعمال الذكية').'</small></div></div><div class="login-intro"><span class="eyebrow">'.($portal?'مرحباً بك في '.e($name):'SMART VOICE PLATFORM').'</span><h1>أهلاً برجوعك</h1><p>أدر حسابك وخدماتك وفريقك بسهولة من مكان واحد.</p></div>';
     if($error)echo '<div class="alert danger">'.e($error).'</div>';
     if($notice=flash('success'))echo '<div class="alert success">'.e($notice).'</div>';
     echo '<form method="post" action="'.e($login).'" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><label class="field">البريد الإلكتروني<input required type="email" name="email" autocomplete="username" placeholder="name@company.com"></label><label class="field">كلمة المرور<div class="password-wrap"><input required type="password" name="password" autocomplete="current-password" id="loginPassword" placeholder="••••••••••"><button type="button" class="password-toggle" data-toggle-password>إظهار</button></div></label><button class="btn primary wide" type="submit">تسجيل الدخول</button></form><div class="wl-auth-links"><a href="'.e($forgot).'">نسيت كلمة المرور؟</a><a href="'.e($signup).'">إنشاء حساب جديد</a></div>';
