@@ -1,0 +1,42 @@
+name: OnTrack v78 identify Agent Studio 404 before changing production
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-studio-v78-route-diagnostics.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  anonymous-post-routes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Distinguish Apache/WAF 404 from PHP JSON denial (unauthenticated only)
+        shell: python
+        run: |
+          import json,urllib.parse,urllib.request,urllib.error
+          host='https://app.ontrackegy.com'
+          paths=['/','/saas/console/','/portal/sog/']
+          base={'action':'update_agent','csrf':'invalid','agent_id':'0','name':'SOG test','voice':'io.premium','publish_now':'1'}
+          flow={'nodes':[{'id':'start','type':'start','text':'hello'}],'edges':[]}
+          for path in paths:
+            for kind in ('small','full'):
+              body=base.copy()
+              if kind=='full':
+                body.update({'flow_json':json.dumps(flow)*30,'instructions':'شركة SOG '+('رد على العميل، '+ 'نص تجريبي ')*100,'scenario_text':'سيناريو تجريبي '*300})
+              data=urllib.parse.urlencode(body).encode()
+              req=urllib.request.Request(host+path,data=data,headers={
+                'Accept':'application/json','X-Requested-With':'XMLHttpRequest',
+                'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8',
+                'User-Agent':'OnTrack-Release-Route-Probe/1.0'},method='POST')
+              try:
+                with urllib.request.urlopen(req,timeout=20) as resp:
+                  status=resp.status;ctype=resp.headers.get('Content-Type','');payload=resp.read(4096)
+              except urllib.error.HTTPError as exc:
+                status=exc.code;ctype=exc.headers.get('Content-Type','');payload=exc.read(4096)
+              is_json='application/json' in ctype.lower()
+              print(json.dumps({'path':path,'form':kind,'http':status,
+                'content_type':ctype.split(';')[0],'typed_json':is_json,
+                'php_error':('error' in json.loads(payload)) if is_json else None},ensure_ascii=False))
+              if status>=500:raise SystemExit('unexpected_server_failure')
