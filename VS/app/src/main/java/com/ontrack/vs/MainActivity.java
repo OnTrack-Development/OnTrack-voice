@@ -11,6 +11,8 @@ import android.content.res.ColorStateList;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
+import android.media.AudioRecord;
+import android.media.AudioFormat;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -26,6 +28,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -37,10 +40,12 @@ public final class MainActivity extends Activity {
     private RadioGroup personaGroup;
     private int selectedPersona;
     private Button recordButton;
-    private File recording;
-    private MediaRecorder recorder;
+    private AudioRecord recorder;
+    private ByteArrayOutputStream micSamples;
+    private Thread captureThread;
     private MediaPlayer player;
-    private boolean recordingActive;
+    private volatile boolean recordingActive;
+    private volatile boolean captureRunning;
     private volatile boolean stopped;
     private final BroadcastReceiver takeOver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -157,11 +162,11 @@ public final class MainActivity extends Activity {
         gap(previewCard, 12);
         previewCard.addView(action("▶  تشغيل عينة Drama 3", true, v -> testText()));
         gap(previewCard, 8);
-        recordButton = action("🎙  تجربة صوتي من الميكروفون", false, v -> toggleRecording());
+        recordButton = action("🎙  تجربة الميكروفون المباشر (بدون حفظ)", false, v -> toggleRecording());
         previewCard.addView(recordButton);
         gap(previewCard, 9);
         previewCard.addView(VsUi.text(this,
-            "هذه تجربة للمعاينة على الجهاز فقط، وليست بثًا للصوت إلى الطرف الآخر.", 13, VsUi.MUTED, false));
+            "التقاط الميكروفون داخل الذاكرة فقط، وإرسال المقطع إلى Fish Audio للتحويل. لا يتم تسجيل أو حفظ مكالمات.", 13, VsUi.MUTED, false));
         VsUi.addSection(root, previewCard, this);
 
         LinearLayout floatingCard = VsUi.card(this);
@@ -299,6 +304,10 @@ public final class MainActivity extends Activity {
         }
     }
 
+    /**
+     * A bounded foreground microphone segment for Fish ASR. No MediaRecorder,
+     * audio file, phone call recording, or persistent microphone history.
+     */
     private void toggleRecording() {
         if (recordingActive) { finishRecording(); return; }
         if (!mayPreview()) return;
@@ -309,56 +318,95 @@ public final class MainActivity extends Activity {
         if (!save()) return;
         stopped = false;
         try {
-            recording = new File(getCacheDir(), "vs_record.m4a");
-            recorder = new MediaRecorder();
-            recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            recorder.setOutputFile(recording.getAbsolutePath());
-            recorder.prepare();
-            recorder.start();
+            int min = AudioRecord.getMinBufferSize(16000,
+                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+            if (min <= 0) throw new IllegalStateException("AudioRecord unsupported on device");
+            int buffer = Math.max(min, 6400);
+            recorder = new AudioRecord(MediaRecorder.AudioSource.MIC, 16000,
+                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, buffer);
+            if (recorder.getState() != AudioRecord.STATE_INITIALIZED)
+                throw new IllegalStateException("AudioRecord could not initialize");
+            micSamples = new ByteArrayOutputStream(256000);
+            recorder.startRecording();
+            captureRunning = true;
             recordingActive = true;
-            recordButton.setText("■  إيقاف التسجيل وتحويل العينة");
-            info("تسجيل اختباري محلي. اضغط إيقاف لما تخلص كلامك.");
+            recordButton.setText("■  تحويل الكلام الملتقط الآن");
+            info("التقاط المايك في RAM فقط. لا يوجد ملف تسجيل أو تسجيل مكالمة.");
+            captureThread = new Thread(() -> {
+                byte[] block = new byte[3200];
+                try {
+                    while (captureRunning && !stopped) {
+                        int length = recorder.read(block, 0, block.length);
+                        if (length > 0) {
+                            micSamples.write(block, 0, length);
+                            if (micSamples.size() >= 256000) {
+                                runOnUiThread(() -> {
+                                    if (recordingActive) finishRecording();
+                                });
+                                break;
+                            }
+                        } else if (length < 0) {
+                            break;
+                        }
+                    }
+                } catch (Exception ignored) {
+                    // Ended capture, often because the user stopped the microphone.
+                }
+            }, "vs-volatile-mic");
+            captureThread.start();
         } catch (Exception ex) {
             resetRecorder();
-            info("لا يمكن بدء التسجيل: " + ex.getMessage());
+            info("تعذر التقاط الميكروفون: " + ex.getMessage());
         }
     }
 
     private void finishRecording() {
-        try { recorder.stop(); }
-        catch (Exception ex) {
-            info("تسجيل قصير جدًا أو غير صالح.");
-            resetRecorder();
+        if (!recordingActive) return;
+        recordingActive = false;
+        captureRunning = false;
+        if (recorder != null) {
+            try { recorder.stop(); } catch (Exception ignored) {}
+        }
+        if (captureThread != null && Thread.currentThread() != captureThread) {
+            try { captureThread.join(1200); }
+            catch (InterruptedException ex) { Thread.currentThread().interrupt(); }
+        }
+        byte[] pcm = micSamples == null ? new byte[0] : micSamples.toByteArray();
+        resetRecorder();
+        if (pcm.length < 3200) {
+            info("المقطع قصير جدًا؛ اتكلم ثانية على الأقل.");
             return;
         }
-        resetRecorder();
-        info("بعتنا العينة لـFish ASR، وبعدها هيتم توليدها بـDrama 3...");
+        info("جارٍ إرسال المقطع من الذاكرة إلى Fish ASR ثم Drama 3...");
         final int persona = selectedPersona;
-        final File sample = recording;
         queue.execute(() -> {
             try {
                 String key = ConfigStore.apiKey(this);
                 if (key.isEmpty()) throw new Exception("أدخل مفتاح Fish Audio");
-                String words = FishClient.transcribe(sample, key);
+                String words = FishClient.transcribePcm16(pcm, 16000, key);
+                java.util.Arrays.fill(pcm, (byte) 0);
                 if (stopped || ConfigStore.isPreviewPaused(this)) return;
                 if (words.isEmpty()) throw new Exception("مش قادر أتعرف على الكلام");
                 info("النص: " + words + "\nجارٍ توليد المعاينة...");
                 render(words, persona);
             } catch (Exception ex) {
-                if (!stopped) info("فشل الاختبار: " + ex.getMessage());
+                java.util.Arrays.fill(pcm, (byte) 0);
+                if (!stopped) info("فشل اختبار الصوت: " + ex.getMessage());
             }
         });
     }
 
     private void resetRecorder() {
+        captureRunning = false;
         if (recorder != null) {
+            try { recorder.stop(); } catch (Exception ignored) {}
             try { recorder.release(); } catch (Exception ignored) {}
             recorder = null;
         }
+        captureThread = null;
+        micSamples = null;
         recordingActive = false;
-        if (recordButton != null) recordButton.setText("🎙  تجربة صوتي من الميكروفون");
+        if (recordButton != null) recordButton.setText("🎙  تجربة الميكروفون المباشر (بدون حفظ)");
     }
 
     private void stopAll() {
