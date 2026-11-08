@@ -4,6 +4,8 @@ on:
     branches: [feat/io-premium-native-v51-20261107]
     paths:
       - '.github/workflows/voice-saas-parent-gate-v70-direct-publish.yml'
+      - 'tools/deploy_saas_parent_v70.py'
+      - 'tools/test_reseller_parent_service_gate_v70.php'
   workflow_dispatch:
 permissions:
   contents: read
