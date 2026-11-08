@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   vs-debug:
@@ -36,7 +36,9 @@ jobs:
             (Join-Path $env:USERPROFILE '.android\sdk'),
             'C:\Android\Sdk',
             'D:\Android\Sdk',
-            'D:\ai\android-sdk'
+            'D:\ai\android-sdk',
+            'D:\Android',
+            'C:\Users\ahmed\AppData\Local\Android\Sdk'
           ) | Where-Object { $_ -and (Test-Path $_) }
           $sdk = $paths | Where-Object {
             (Test-Path (Join-Path $_ 'platforms')) -and
@@ -68,3 +70,49 @@ jobs:
           path: VS/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish VS build status for automatic review
+        if: always()
+        shell: powershell
+        working-directory: .
+        env:
+          GH_VS_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $uri = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/contents/.github/VS_BUILD_RESULT.json"
+          $headers = @{
+            Authorization = "Bearer $env:GH_VS_TOKEN"
+            Accept = 'application/vnd.github+json'
+            'X-GitHub-Api-Version' = '2022-11-28'
+            'User-Agent' = 'VS-Android-Builder'
+          }
+          $state = @{
+            run_id = $env:GITHUB_RUN_ID
+            run_attempt = $env:GITHUB_RUN_ATTEMPT
+            head_sha = $env:GITHUB_SHA
+            workflow = 'vs-android-debug.yml'
+            job_status = '${{ job.status }}'
+            run_url = "https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+            updated_at = [DateTime]::UtcNow.ToString('o')
+          }
+          $json = $state | ConvertTo-Json -Depth 4
+          $content = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($json))
+          for ($attempt = 1; $attempt -le 4; $attempt++) {
+            $existingSha = $null
+            try {
+              $old = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
+              $existingSha = $old.sha
+            } catch {
+              if ($_.Exception.Response.StatusCode.value__ -ne 404) { throw }
+            }
+            $body = @{message="ci(vs): record build result $env:GITHUB_RUN_ID"; content=$content; branch='main'}
+            if ($existingSha) { $body.sha = $existingSha }
+            try {
+              Invoke-RestMethod -Uri $uri -Headers $headers -Method Put -Body ($body | ConvertTo-Json -Compress) -ContentType 'application/json' | Out-Null
+              Write-Host "VS build status recorded: $($state.job_status) (run $($state.run_id))"
+              break
+            } catch {
+              if ($attempt -eq 4) { throw }
+              Start-Sleep -Seconds (2*$attempt)
+            }
+          }
