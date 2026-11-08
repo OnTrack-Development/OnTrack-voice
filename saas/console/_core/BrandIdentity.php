@@ -194,7 +194,7 @@ function brand_identity_upload_http(array $a):never {
             throw new InvalidArgumentException('لم تصل الصورة كاملة. جرّب شبكة مختلفة أو صورة أصغر.');
         $file=brand_identity_store_binary($a,$bytes);
         audit('brand.logo.uploaded',(int)$a['account_id'],['filename'=>$file,'size'=>$size]);
-        echo json_encode(['ok'=>true,'message'=>'تم رفع الشعار بنجاح.','logo_url'=>'/saas/console/brand-logo?v='.rawurlencode($file)],
+        echo json_encode(['ok'=>true,'message'=>'تم رفع الشعار بنجاح.','logo_url'=>'/brand-logo?v='.rawurlencode($file)],
             JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
     }catch(Throwable $e){
         $invalid=$e instanceof InvalidArgumentException;
