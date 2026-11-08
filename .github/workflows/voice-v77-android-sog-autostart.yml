@@ -1,15 +1,9 @@
 name: OnTrack Android SOG auto-answer v57 signed release
 # v57 is immutable historical release; v57 has an independent signed
 # native+UI OTA workflow. Never auto-republish v57 after source changes.
+# v57 immutable prior release. This historical workflow remains manual-only
+# to avoid re-publishing an older APK whenever voice source changes.
 on:
-  push:
-    branches: [feat/io-premium-native-v51-20261107]
-    paths:
-      - '.github/workflows/voice-v77-android-sog-autostart.yml'
-      - 'saas/mobile/audio-proof/**'
-      - 'saas/mobile/ota/native_release.json'
-      - 'saas/mobile/ota/release.json'
-      - 'tools/deploy_native_v57_direct_ssh.py'
   workflow_dispatch:
 permissions:
   contents: read
