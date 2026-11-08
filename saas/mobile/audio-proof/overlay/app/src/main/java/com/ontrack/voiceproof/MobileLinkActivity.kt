@@ -709,13 +709,16 @@ class MobileLinkActivity:ComponentActivity(){
             return
         }
         val input=EditText(this).apply {
-            hint="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
+            hint="000000"
             setText(initialCode)
-            inputType=android.text.InputType.TYPE_CLASS_TEXT or
-                android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+            inputType=if(initialCode.length>6)
+                android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                else android.text.InputType.TYPE_CLASS_NUMBER
+            if(initialCode.length<=6)
+                filters=arrayOf(android.text.InputFilter.LengthFilter(6))
         }
         AlertDialog.Builder(this).setTitle("ربط SIM ${slot+1} بحساب OnTrack")
-            .setMessage("أدخل الرمز المؤقت من لوحة الحساب. لا تستخدم مفتاح هاتف التجربة.")
+            .setMessage("اكتب الـ6 أرقام من الموقع. الكود صالح 10 دقائق.")
             .setView(input)
             .setPositiveButton("ربط") { _,_ ->
                 val code=input.text.toString()
@@ -755,7 +758,7 @@ class MobileLinkActivity:ComponentActivity(){
     private fun showTenantProfile(slot:Int,profile:JSONObject) {
         if(profile.optBoolean("verification_pending")) {
             AlertDialog.Builder(this).setTitle("SIM ${slot+1} — تم حفظ الربط")
-                .setMessage("السيرفر أصدر اعتماد الشريحة وتم حفظه مشفرًا على الهاتف، لكن التحقق اللاحق لم يكتمل. لا تعيد استخدام رمز QR؛ اضغط التحقق من ربط الشريحة بعد استعادة الاتصال. المكالمات تظل متوقفة.")
+                .setMessage("السيرفر أصدر اعتماد الشريحة وتم حفظه مشفرًا على الهاتف، لكن التحقق اللاحق لم يكتمل. ما تعيدش إدخال نفس الكود؛ اضغط تحديث حالة الشريحة بعد استعادة الاتصال. المكالمات تظل متوقفة.")
                 .setPositiveButton("حسنًا",null).show()
             return
         }
@@ -1029,6 +1032,12 @@ class MobileLinkActivity:ComponentActivity(){
                     "openScenario" -> showScenarioMenu()
                     "openAnswerSettings" -> openConsole("answering")
                     "tenantMenu" -> showTenantMenu()
+                    "tenantPairSlot" -> {
+                        val slot=msg.getInt("sim_slot")
+                        TenantPairingContract.slot(slot)
+                        check(!MobileLinkService.inCall){"انتظر انتهاء المكالمة قبل الربط"}
+                        showTenantPairDialog(slot,"")
+                    }
                     "tenantQrScan" -> scanTenantQr()
                     "tenantRefresh" -> requestTenantStatusRefresh()
                     "tenantTest" -> testTenantReadiness()
