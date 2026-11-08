@@ -209,6 +209,19 @@ if($path==='/admin'&&$a['kind']!=='platform')deny();
 if($path==='/reseller'&&$a['kind']!=='reseller')deny();
 if($path==='/workspace'&&$a['kind']!=='customer'&&$a['kind']!=='platform'&&
     !($a['kind']==='reseller'&&console_view_mode($a)==='user'))deny();
+// Printable invoices are fully scoped to the authenticated tenant.
+if(($_GET['tab']??'')==='invoices' && isset($_GET['print'])){
+    require_once __DIR__.'/_core/BillingInvoices.php';
+    $invoiceId=filter_var($_GET['print'],FILTER_VALIDATE_INT,
+        ['options'=>['min_range'=>1]])?:0;
+    try{
+        $invoice=billing_invoice_get_visible($a,(int)$invoiceId);
+    }catch(InvalidArgumentException){deny(404,'الفاتورة غير متاحة');}
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: private,no-store');
+    header('Content-Security-Policy: default-src \'none\'; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'');
+    echo billing_invoice_html($invoice);exit;
+}
 $tab=(string)($_GET['tab']??'overview');
 if(!array_key_exists($tab,nav_entries($a['kind'])))$tab='overview';
 layout_open($a,$tab);
@@ -232,6 +245,7 @@ try {
         case 'integrations':render_integrations($a);break;
         case 'domains':render_domains($a);break;
         case 'billing':render_billing($a);break;
+        case 'invoices':render_invoices($a);break;
         case 'releases':render_releases($a);break;
         case 'settings':render_settings($a);break;
         default:render_overview($a);
