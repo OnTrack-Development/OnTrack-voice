@@ -54,17 +54,14 @@ def patch_customer_views(live:str,candidate:str)->str:
     end=live.find('function render_plans(array $a):void{',start)
     if start<0 or end<=start:raise RuntimeError('accounts_view_anchors_missing')
     account=live[start:end]
-    header="""function render_accounts(array $a):void{
-    if(!in_array($a['kind'],['platform','reseller'],true))deny();
-    require_once __DIR__.'/BillingUsage.php';"""
-    header_new=header+"""
+    header="function render_accounts(array $a):void{"
+    if 'render_customer_detail($a,$selected)' not in account:
+        injection="""function render_accounts(array $a):void{
     require_once __DIR__.'/CustomerAccounts.php';
     $selected=max(0,(int)($_GET['customer_id']??0));
     if($selected>0){render_customer_detail($a,$selected);return;}"""
-    if account.count(header)==1 and header_new not in account:
-        account=account.replace(header,header_new,1)
-    elif header_new not in account:
-        raise RuntimeError('customer_accounts_header_conflict')
+        if account.count(header)!=1:raise RuntimeError('accounts_header_missing')
+        account=account.replace(header,injection,1)
     create="    echo card('إنشاء حساب جديد',form_start('create_account','/?tab=accounts')."
     create_new="""    if(in_array($a['role'],['owner','admin'],true)&&!active_support()&&
        console_view_mode($a)==='admin')echo card('إنشاء حساب جديد',form_start('create_account','/?tab=accounts')."""
