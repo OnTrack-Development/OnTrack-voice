@@ -71,7 +71,7 @@ assert "Number(s.nativeCode)>=23" in ui, 'Do not enable new native commands on o
 assert "Number(s.nativeCode)>=24" in ui, 'SIM controls must require Android 0.3.3'
 for el in ('id="tenantDeviceCenter"', 'id="tenantMenu"', 'id="tenantQr"', 'id="tenantRefresh"', 'id="tenantSim1"', 'id="tenantSim2"'):
     assert el in ui, 'Unified SIM panel missing '+el
-for command in ("send('tenantMenu')", "send('tenantQrScan')", "send('tenantRefresh')"):
+for command in ("send('tenantMenu')", "send('tenantQuickPair')", "send('tenantRefresh')"):
     assert command in ui, 'Native Android SIM bridge not wired: '+command
 inline=ui.split('<script>',1)[1].split('</script>',1)[0]
 subprocess.run(['node','--check'],input=inline,text=True,check=True)
