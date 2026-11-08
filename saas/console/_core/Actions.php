@@ -599,7 +599,9 @@ function act():void {
                 unset($_SESSION['support']);
                 session_regenerate_id(true);go('/?tab=overview');
             case 'create_account':
-                if(!in_array($kind,['platform','reseller'],true)||!in_array($a['role'],['owner','admin'],true))deny();
+                if(!in_array($kind,['platform','reseller'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
                 $type=field('kind',20);if($kind==='reseller')$type='customer';
                 if(!in_array($type,['reseller','customer'],true))throw new InvalidArgumentException('نوع الحساب');
                 if($type==='reseller'&&!platform_resellers_visible())deny(404);
@@ -1306,19 +1308,74 @@ function act():void {
                 execute('UPDATE campaigns SET name=?,status=? WHERE id=? AND account_id=?',[required('name',140),$status,$camp['id'],$id]);
                 audit('campaign.updated',$id,['campaign'=>$camp['id'],'status'=>$status]);break;
             case 'edit_account':
-                if(!in_array($kind,['platform','reseller'],true)||!in_array($a['role'],['owner','admin'],true))deny();
-                $target=scoped_customer(intfield('account_id'));
-                if($target['kind']==='platform'||($kind==='reseller'&&$target['kind']!=='customer'))deny();
-                execute('UPDATE accounts SET name=? WHERE id=?',[required('name',120),$target['id']]);
+                if(!in_array($kind,['platform','reseller'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                require_once __DIR__.'/CustomerAccounts.php';
+                $target=customer_accounts_scope($a,intfield('account_id'));
+                $profile=customer_accounts_profile((int)$target['id']);
+                $profile['name']=required('name',120);
+                customer_accounts_update($a,(int)$target['id'],$profile);
                 audit('account.renamed',$target['id']);break;
             case 'set_account_status':
-                if(!in_array($kind,['platform','reseller'],true)||!in_array($a['role'],['owner','admin'],true))deny();
-                $target=scoped_customer(intfield('account_id'));
-                if($target['kind']==='platform')deny();
+                if(!in_array($kind,['platform','reseller'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                require_once __DIR__.'/CustomerAccounts.php';
+                $target=customer_accounts_scope($a,intfield('account_id'));
                 $status=field('status',12);
-                if(!in_array($status,['active','suspended'],true))deny();
-                execute('UPDATE accounts SET status=? WHERE id=?',[$status,$target['id']]);
+                customer_accounts_status($a,(int)$target['id'],$status);
                 audit('account.status',$target['id'],['status'=>$status]);break;
+            case 'customer_profile_save':
+                if(!in_array($kind,['platform','reseller'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                require_once __DIR__.'/CustomerAccounts.php';
+                $target=customer_accounts_scope($a,intfield('customer_id'));
+                customer_accounts_update($a,(int)$target['id'],[
+                    'name'=>required('name',120),
+                    'contact_name'=>field('contact_name',190),
+                    'contact_email'=>field('contact_email',190),
+                    'phone'=>field('phone',45),
+                    'address'=>field('address',800),
+                    'notes'=>field('notes',2000)
+                ]);
+                audit('customer.profile.updated',(int)$target['id']);
+                $success='تم حفظ بيانات العميل.';
+                break;
+            case 'customer_owner_email':
+                if(!in_array($kind,['platform','reseller'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                require_once __DIR__.'/CustomerAccounts.php';
+                $target=customer_accounts_scope($a,intfield('customer_id'));
+                customer_accounts_change_login($a,(int)$target['id'],required('owner_email',190));
+                audit('customer.owner_email.updated',(int)$target['id']);
+                $success='تم تغيير بريد دخول مالك العميل.';
+                break;
+            case 'customer_delete':
+                if(!in_array($kind,['platform','reseller'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                require_once __DIR__.'/CustomerAccounts.php';
+                $target=customer_accounts_scope($a,intfield('customer_id'));
+                if(field('confirm',12)!=='DELETE')throw new InvalidArgumentException('تأكيد الحذف مطلوب');
+                $result=customer_accounts_delete($a,(int)$target['id']);
+                audit('customer.'.$result,(int)$target['id']);
+                $success=$result==='deleted'
+                    ?'تم حذف الحساب الفارغ نهائيًا وإلغاء ارتباط تسجيل الدخول.'
+                    :'تمت أرشفة العميل وتعطيل دخوله وخدماته مع الاحتفاظ بفواتيره وسجله.';
+                break;
+            case 'customer_restore':
+                if(!in_array($kind,['platform','reseller'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                require_once __DIR__.'/CustomerAccounts.php';
+                $target=customer_accounts_scope($a,intfield('customer_id'));
+                customer_accounts_restore($a,(int)$target['id']);
+                audit('customer.restored_suspended',(int)$target['id']);
+                $success='تمت استعادة العميل بحالة موقوف؛ يمكن تفعيله بعد المراجعة.';
+                break;
             case 'edit_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
