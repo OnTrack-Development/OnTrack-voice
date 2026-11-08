@@ -30,6 +30,8 @@ public final class LiveCallService extends Service {
     public static volatile boolean active = false;
 
     private volatile boolean stopRequested;
+    private volatile boolean bridgeMutatedMicrophone;
+    private volatile boolean initialMicMuted;
     private volatile AudioRecord capture;
     private volatile VsCallBridge bridge;
     private Thread worker;
@@ -93,12 +95,14 @@ public final class LiveCallService extends Service {
             String apiKey = ConfigStore.apiKey(this);
             if (apiKey.length() < 10)
                 throw new IllegalStateException("اضبط مفتاح Fish Audio الأول");
+            initialMicMuted = manager.isMicrophoneMute();
             state("بفحص جسر الشريحة، بدون تسجيل أي مكالمة...");
             bridge = VsCallBridge.connect(this);
             String result = bridge.start();
             if (!result.startsWith("ACTIVE")) {
                 throw new IllegalStateException("رفض مسار الشريحة: " + result);
             }
+            bridgeMutatedMicrophone = true;
             // Confirm after global phone mic mute: if owner microphone becomes
             // silence we must STOP and restore immediately rather than silently
             // transmit an empty call.
@@ -209,12 +213,15 @@ public final class LiveCallService extends Service {
         }
         // Emergency rollback when the shell transport died: requires normal
         // MODIFY_AUDIO_SETTINGS permission and may still be refused by OEM.
-        try {
-            AudioManager audio = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
-            if (audio != null && audio.isMicrophoneMute())
-                audio.setMicrophoneMute(false);
-        } catch (Exception ignored) {}
-        state("VS متوقف؛ تم طلب إعادة الميكروفون الطبيعي");
+        if (bridgeMutatedMicrophone) {
+            try {
+                AudioManager audio = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+                if (audio != null && audio.isMicrophoneMute() != initialMicMuted)
+                    audio.setMicrophoneMute(initialMicMuted);
+            } catch (Exception ignored) {}
+        }
+        bridgeMutatedMicrophone = false;
+        state("VS متوقف؛ تم طلب استعادة حالة الميكروفون السابقة");
     }
 
     @Override public void onDestroy() {
