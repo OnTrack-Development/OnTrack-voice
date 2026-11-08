@@ -1303,8 +1303,7 @@ function act():void {
                 $simSlot=(int)$requestedSlot;
                 $code=device_pairing_create($id,$siteId,$agentId,(int)me()['id'],$simSlot);
                 audit('device.pairing.created',$id,['site_id'=>$siteId,'agent_id'=>$agentId,'sim_slot'=>$simSlot]);
-                flash('secret','رمز ربط SIM '.($simSlot+1).' — صالح 10 دقائق ولمرة واحدة: '.$code);
-                flash('device_pair_qr',$code);
+                flash('device_pair_code',$code);
                 break;
             case 'cancel_device_pairing':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
