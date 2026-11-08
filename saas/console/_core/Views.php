@@ -121,6 +121,8 @@ function nav_entries(string $type):array{
 function layout_open(array $a,string $tab):void{
     require_once __DIR__.'/ConsoleTypography.php';
     $accountFont=console_font_effective($a);
+    require_once __DIR__.'/ConsoleTheme.php';
+    $themeVars=console_theme_attribute((int)$a['account_id']);
     $u=me();$brand=brand($a);$items=nav_entries((string)$a['kind']);$heading=$items[$tab][1]??'الرئيسية';
     $role=white_label_context()
         ?(console_view_mode($a)==='user'?'مساحة العمل':'لوحة الإدارة')
@@ -133,7 +135,7 @@ function layout_open(array $a,string $tab):void{
     header('Cache-Control: private,no-store');
     // A stale CSS/JS cache must not render new server HTML with the old layout.
     $uiVersion=substr(hash('sha256',hash_file('sha256',__DIR__.'/../assets/css/app.css').hash_file('sha256',__DIR__.'/../assets/js/app.js')),0,12);
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css?v='.$uiVersion.'"><script src="/saas/console/assets/js/app.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/graph-routing.js?v='.$uiVersion.'"></script><script src="/saas/console/assets/js/flow-graph.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/qrcode.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/pairing-qr.js?v='.$uiVersion.'" defer></script></head><body data-ot-font="'.e($accountFont).'">';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#121215"><title>'.e($heading).' | '.e($brand['name']).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css?v='.$uiVersion.'"><script src="/saas/console/assets/js/app.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/graph-routing.js?v='.$uiVersion.'"></script><script src="/saas/console/assets/js/flow-graph.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/qrcode.js?v='.$uiVersion.'" defer></script><script src="/saas/console/assets/js/pairing-qr.js?v='.$uiVersion.'" defer></script></head><body data-ot-font="'.e($accountFont).'" data-ot-account="'.(int)$a['account_id'].'"'.$themeVars.'>';
     echo '<div class="app-shell"><aside class="sidebar" id="mainNavigation" aria-label="القائمة الرئيسية"><button type="button" class="nav-close" id="navClose" aria-label="إغلاق القائمة">×</button><a href="/saas/console/" class="brand"><span class="brand-logo">';
     if(!empty($brand['logo'])) echo '<img src="/saas/console/brand-logo" alt="">';else echo '<b>'.e(mb_substr($brand['name'],0,1)).'</b>';
     echo '</span><span class="brand-lines"><strong>'.e($brand['name']).'</strong><small>'.e($role).'</small></span></a>';
@@ -257,12 +259,14 @@ function login_page(?string $error=null):void{
     $portal=white_label_context();
     require_once __DIR__.'/ConsoleTypography.php';
     $portalFont=$portal?console_font_tenant((int)$portal['id']):'plex';
+    require_once __DIR__.'/ConsoleTheme.php';
+    $portalTheme=console_theme_attribute($portal?(int)$portal['id']:0);
     $brand=white_label_identity();
     $name=(string)$brand['name'];
     $signup=white_label_url('/register');
     $login=white_label_url('/login');
     $forgot=white_label_url('/forgot-password');
-    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تسجيل الدخول | '.e($name).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script></head><body data-ot-font="'.e($portalFont).'" class="login-body'.($portal?' white-label-auth':'').'"><div class="login-backdrop"></div><main class="login-panel wl-auth-panel"><div class="login-brand">'.white_label_logo_html().'<div><strong>'.e($name).'</strong><small>'.($portal?'منصتك لإدارة أعمالك':'منصة الأعمال الذكية').'</small></div></div><div class="login-intro"><span class="eyebrow">'.($portal?'مرحباً بك في '.e($name):'SMART VOICE PLATFORM').'</span><h1>أهلاً برجوعك</h1><p>أدر حسابك وخدماتك وفريقك بسهولة من مكان واحد.</p></div>';
+    echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تسجيل الدخول | '.e($name).'</title><link rel="stylesheet" href="/saas/console/assets/css/app.css"><script src="/saas/console/assets/js/app.js" defer></script></head><body data-ot-font="'.e($portalFont).'"'.$portalTheme.' class="login-body'.($portal?' white-label-auth':'').'"><div class="login-backdrop"></div><main class="login-panel wl-auth-panel"><div class="login-brand">'.white_label_logo_html().'<div><strong>'.e($name).'</strong><small>'.($portal?'منصتك لإدارة أعمالك':'منصة الأعمال الذكية').'</small></div></div><div class="login-intro"><span class="eyebrow">'.($portal?'مرحباً بك في '.e($name):'SMART VOICE PLATFORM').'</span><h1>أهلاً برجوعك</h1><p>أدر حسابك وخدماتك وفريقك بسهولة من مكان واحد.</p></div>';
     if($error)echo '<div class="alert danger">'.e($error).'</div>';
     if($notice=flash('success'))echo '<div class="alert success">'.e($notice).'</div>';
     echo '<form method="post" action="'.e($login).'" class="stack"><input type="hidden" name="csrf" value="'.e(csrf()).'"><label class="field">البريد الإلكتروني<input required type="email" name="email" autocomplete="username" placeholder="name@company.com"></label><label class="field">كلمة المرور<div class="password-wrap"><input required type="password" name="password" autocomplete="current-password" id="loginPassword" placeholder="••••••••••"><button type="button" class="password-toggle" data-toggle-password>إظهار</button></div></label><button class="btn primary wide" type="submit">تسجيل الدخول</button></form><div class="wl-auth-links"><a href="'.e($forgot).'">نسيت كلمة المرور؟</a><a href="'.e($signup).'">إنشاء حساب جديد</a></div>';
@@ -2341,7 +2345,60 @@ function render_ai_relay_settings(array $a):void {
         echo card($heading,$content.$modelList);
     }
 }
+function render_console_theme_settings(array $a):void {
+    require_once __DIR__.'/ConsoleTheme.php';
+    $id=(int)$a['account_id'];
+    $own=console_theme_stored($id);
+    $current=console_theme_effective($id);
+    $canEdit=in_array((string)$a['role'],['owner','admin'],true)&&!active_support();
+    $label=$a['kind']==='platform'?'ألوان لوحة الأدمن':
+        ($a['kind']==='reseller'?'ألوان شركتي والبوابة الخاصة بي':'ألوان مساحة عملي');
+    $preview='<div class="ot-theme-preview" data-ot-palette-preview aria-label="معاينة ألوان الواجهة">'.
+        '<div class="ot-theme-preview-side"><strong>الشعار</strong><span>الرئيسية</span><span>العملاء</span><span>الإعدادات</span></div>'.
+        '<div class="ot-theme-preview-main"><strong>معاينة لوحة التحكم</strong><span>المحتوى والبطاقات</span>'.
+        '<button type="button" class="ot-theme-preview-button">زر أساسي</button></div></div>';
+    $msg='<p class="dim">نفس الوضعين المعروفين: فاتح وداكن. اختار لون القائمة الجانبية، والمحتوى، والأزرار لكل وضع، أو خليه لونًا واحدًا للقائمة والمحتوى. بدون عشرات الثيمات.</p>'.
+       '<p class="dim">كل التغييرات تظهر في المعاينة قبل الحفظ، ولن تغيّر ألوان الريسيلرز الآخرين أو موقع الأدمن.</p>';
+    if($a['kind']==='customer' && (int)($a['parent_id']??0)>0){
+        $msg.='<p class="dim">حسابك يرث ألوان الريسيلر افتراضيًا، وتقدر تختار ألوانك الخاصة.</p>';
+    }
+    if(!$canEdit){
+        echo card($label,$msg.$preview.'<p class="dim">يمكن للمالك أو مدير الحساب تعديل الهوية.</p>');
+        return;
+    }
+    $form=form_start('save_console_theme','/?tab=settings',
+        'class="ot-palette-form" data-ot-palette-editor data-no-ajax="1"').
+        $msg.
+        '<label class="field">تنسيق ألوان القائمة والمحتوى'.
+        '<select name="layout" data-ot-layout>'.
+        '<option value="split"'.($current['layout']==='split'?' selected':'').'>ألوان منفصلة: Sidebar والمحتوى</option>'.
+        '<option value="single"'.($current['layout']==='single'?' selected':'').'>لون موحد للقائمة والمحتوى</option>'.
+        '</select></label>';
+    foreach(['dark'=>'داكن','light'=>'فاتح'] as $mode=>$title){
+        $form.='<fieldset class="ot-palette-fieldset" data-ot-mode="'.e($mode).'">'.
+            '<legend>الوضع '.e($title).'</legend><div class="ot-palette-grid">';
+        foreach(['sidebar'=>'لون الـSidebar','content'=>'لون خلفية المحتوى','accent'=>'لون الأزرار والعناصر المهمة'] as $part=>$labelPart){
+            $field=$mode.'_'.$part;
+            $form.='<label class="ot-palette-input"><span>'.e($labelPart).'</span>'.
+                '<input type="color" name="'.e($field).'" data-ot-palette-input="'.$field.
+                '" value="'.e($current[$field]).'" required>'.
+                '<output data-ot-value-for="'.$field.'">'.e($current[$field]).'</output></label>';
+        }
+        $form.='</div></fieldset>';
+    }
+    $form.=$preview.
+        '<div class="ot-palette-actions">'.submit_btn('حفظ ألوان حسابي').'</div>';
+    if($own){
+        $form.='<p class="dim">ألوان خاصة محفوظة على هذا الحساب.</p>';
+    }
+    echo card($label,$form);
+    echo card('استعادة الألوان الافتراضية',
+        form_start('reset_console_theme','/?tab=settings','data-no-ajax="1"').
+        '<p class="dim">يرجع حسابك للأحمر والأسود والأبيض، أو لألوان الريسيلر إذا كنت عميلًا تابعًا له، دون المساس بباقي الإعدادات.</p>'.
+        '<button class="btn" type="submit" data-confirm="إعادة تعيين ألوان الحساب إلى الإعداد الافتراضي؟">إعادة تعيين الألوان</button></form>');
+}
 function render_settings(array $a):void{
+    render_console_theme_settings($a);
     require_once __DIR__.'/ConsoleTypography.php';
     console_font_init();
     $brand=brand($a);
