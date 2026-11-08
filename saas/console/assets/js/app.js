@@ -2,9 +2,12 @@
   'use strict';
   const body=document.body;
   const themeBtn=document.getElementById('themeToggle');
+  const themeStorageKey='ontrack-console-theme-'+(body.dataset.otAccount||'public');
   const theme=()=>{
-    try{return localStorage.getItem('ontrack-console-theme')==='light'?'light':'dark'}
-    catch{return 'dark'}
+    try{
+      const stored=localStorage.getItem(themeStorageKey);
+      return (stored===null?localStorage.getItem('ontrack-console-theme'):stored)==='light'?'light':'dark';
+    }catch{return 'dark'}
   };
   const setTheme=(mode)=>{
     body.classList.toggle('light',mode==='light');
@@ -14,8 +17,71 @@
   setTheme(theme());
   themeBtn?.addEventListener('click',()=>{
     const next=body.classList.contains('light')?'dark':'light';
-    setTheme(next);try{localStorage.setItem('ontrack-console-theme',next)}catch{}
+    setTheme(next);try{localStorage.setItem(themeStorageKey,next)}catch{}
   });
+  // v63: draft preview is local to the settings card until explicitly saved.
+  // The actual account theme remains server-owned; no CSS or URL injection.
+  const colorRatio=(hex)=>{
+    if(!/^#[0-9a-fA-F]{6}$/.test(hex))return 0;
+    const channels=[1,3,5].map(i=>{
+      const v=parseInt(hex.slice(i,i+2),16)/255;
+      return v<=0.04045?v/12.92:Math.pow((v+.055)/1.055,2.4);
+    });
+    return channels[0]*.2126+channels[1]*.7152+channels[2]*.0722;
+  };
+  const onColor=hex=>{
+    const light=colorRatio(hex)+.05;
+    return light/.05>=1.05/light?'#10131a':'#ffffff';
+  };
+  const setUpPaletteEditor=()=>{
+    document.querySelectorAll('[data-ot-palette-editor]').forEach(form=>{
+      if(form.dataset.otPaletteBound==='1')return;
+      form.dataset.otPaletteBound='1';
+      const preview=form.querySelector('[data-ot-palette-preview]');
+      const layout=form.querySelector('[data-ot-layout]');
+      if(!preview||!layout)return;
+      const inputs=Object.fromEntries(
+        [...form.querySelectorAll('[data-ot-palette-input]')].map(x=>[x.dataset.otPaletteInput,x])
+      );
+      const update=()=>{
+        const single=layout.value==='single';
+        for(const mode of ['dark','light']){
+          const sidebar=inputs[mode+'_sidebar'];
+          const content=inputs[mode+'_content'];
+          const accent=inputs[mode+'_accent'];
+          if(!sidebar||!content||!accent)return;
+          if(single)sidebar.value=content.value;
+          sidebar.setAttribute('aria-disabled',String(single));
+          sidebar.classList.toggle('ot-color-locked',single);
+          for(const field of [sidebar,content,accent]){
+            const out=form.querySelector('[data-ot-value-for="'+field.name+'"]');
+            if(out)out.textContent=field.value.toUpperCase();
+          }
+        }
+        const mode=body.classList.contains('light')?'light':'dark';
+        const content=inputs[mode+'_content'].value;
+        const sidebar=single?content:inputs[mode+'_sidebar'].value;
+        const accent=inputs[mode+'_accent'].value;
+        const vars={
+          '--ot-sidebar-active':sidebar,
+          '--ot-content-active':content,
+          '--ot-sidebar-ink':onColor(sidebar),
+          '--ot-content-ink':onColor(content),
+          '--accent':accent,
+          '--ot-on-accent':onColor(accent),
+        };
+        Object.entries(vars).forEach(([key,value])=>preview.style.setProperty(key,value));
+        preview.dataset.otPreviewMode=mode;
+      };
+      form.addEventListener('input',event=>{
+        if(event.target.closest('[data-ot-palette-input]'))update();
+      });
+      form.addEventListener('change',update);
+      themeBtn?.addEventListener('click',()=>requestAnimationFrame(update));
+      update();
+    });
+  };
+  setUpPaletteEditor();
   document.querySelectorAll('[data-toggle-password]').forEach(button=>button.addEventListener('click',()=>{
     const input=document.getElementById('loginPassword');if(!input)return;
     input.type=input.type==='password'?'text':'password';
