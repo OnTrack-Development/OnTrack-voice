@@ -227,9 +227,13 @@ public final class MainActivity extends Activity {
     }
     @Override public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(code, permissions, results);
-        if (code == 401 && results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED)
+        if (code == 401 && results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
             toggleRecording();
-        else info("يلزم إذن الميكروفون للتسجيل.");
+        } else if (code == 402) {
+            info(PermissionCheck.report(this));
+        } else if (code == 401) {
+            info("يلزم إذن الميكروفون للتسجيل.");
+        }
     }
     @Override protected void onResume() {
         super.onResume();
