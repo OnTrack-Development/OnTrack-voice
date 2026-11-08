@@ -94,3 +94,46 @@ jobs:
           $env:PATH='C:\Program Files\Git\usr\bin;'+$env:PATH
           & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_native import verify as n;from queue_mobile_ota import verify as u;_,_,a=n(Path('.build/artifact/native'));_,_,v=u(Path('.build/artifact/ota'));assert a['version_code']==56 and a['version_name']=='0.3.33' and v['revision']==56 and v['min_native']<=56<=v['max_native'];print('V68_SIGNED_ANDROID_V56_UI56_MANIFESTS_PASS')"
           if($LASTEXITCODE -ne 0){throw 'RSA-signed Android v56 OTA verification failed'}
+      - name: Stage signed native APK and signed HTML OTA over direct SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/deploy_native_v56_direct_ssh.py
+          if($LASTEXITCODE -ne 0){throw 'Host publisher invalid'}
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized production SSH key missing'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/native-v56'
+          & ssh.exe @flags -p 7195 $remote ('umask 077; mkdir -p '+$stage+'/ota '+$stage+'/native; chmod 700 '+$stage+' '+$stage+'/ota '+$stage+'/native')
+          if($LASTEXITCODE -ne 0){throw 'Private native stage inaccessible'}
+          $ui=((Get-Content -LiteralPath '.build/artifact/ota/latest.json' -Raw|ConvertFrom-Json).payload|ConvertFrom-Json)
+          $paths=@(
+            @('.build/artifact/OnTrack-Voice-0.3.33.apk',"$stage/OnTrack-Voice-0.3.33.apk"),
+            @('.build/artifact/ota/latest.json',"$stage/ota/latest.json"),
+            @('.build/artifact/ota/signing-cert.der',"$stage/ota/signing-cert.der"),
+            @('.build/artifact/ota/'+$ui.file,"$stage/ota/"+$ui.file),
+            @('.build/artifact/native/latest.json',"$stage/native/latest.json"),
+            @('.build/artifact/native/signing-cert.der',"$stage/native/signing-cert.der"),
+            @('tools/deploy_native_v56_direct_ssh.py',"$stage/publish.py")
+          )
+          foreach($pair in $paths){
+            & scp.exe @flags -P 7195 $pair[0] ($remote+':'+$pair[1])
+            if($LASTEXITCODE -ne 0){throw ('Failed to stage signed OTA '+$pair[0])}
+          }
+          Write-Host 'V68_NATIVE_SIGNED_OTA_PRIVATE_STAGING_PASS'
+      - name: Publish atomically and verify public Android 0.3.33 and UI revision 56
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          & ssh.exe @flags -p 7195 $remote 'python3 /home/appontrack/.ontrack-mobile/native-v56/publish.py'
+          if($LASTEXITCODE -ne 0){throw 'Signed release verification or atomic host install failed'}
+          $native=Invoke-RestMethod -Uri 'https://app.ontrackegy.com/mobile/updates/native/latest.json' -TimeoutSec 25
+          $ui=Invoke-RestMethod -Uri 'https://app.ontrackegy.com/mobile/updates/latest.json' -TimeoutSec 25
+          $n=$native.payload|ConvertFrom-Json
+          $u=$ui.payload|ConvertFrom-Json
+          if($n.version_code -ne 56 -or $n.version_name -ne '0.3.33' -or $u.revision -ne 56){
+            throw 'Real public signed OTA pointer not updated'
+          }
+          Write-Host 'V68_SIGNED_ANDROID_0_3_33_AND_UI_56_PUBLIC_PUBLISHED_PASS'
