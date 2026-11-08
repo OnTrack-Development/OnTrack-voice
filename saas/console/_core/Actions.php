@@ -923,6 +923,45 @@ function act():void {
                 $success=$changed['changed']?'تم تغيير باقتك المجانية.':
                     'الباقة دي مفعلة بالفعل؛ لم يتم تجديد الفترة مرتين.';
                 break;
+            case 'self_cancel_at_end':
+                if(!in_array($kind,['reseller','customer'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $ok=subscription_schedule_end($id);
+                audit('subscription.cancel_scheduled',$id,['changed'=>$ok]);
+                $success=$ok?'سجلنا إيقاف التجديد عند نهاية الفترة الحالية. لن يحصل خصم تلقائي؛ النظام يستخدم دفعًا يدويًا.':
+                    'لا يوجد اشتراك نشط لتحديد إلغائه عند النهاية.';
+                break;
+            case 'self_resume_renewal':
+                if(!in_array($kind,['reseller','customer'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $ok=subscription_unschedule_end($id);
+                audit('subscription.cancel_schedule_removed',$id,['changed'=>$ok]);
+                $success='تم سحب طلب الإلغاء عند نهاية الفترة؛ التجديد المدفوع يظل يدويًا.';
+                break;
+            case 'manager_cancel_customer_plan':
+                if(!in_array($kind,['platform','reseller'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                $target=scoped_customer(intfield('customer_id'));
+                if(!in_array($target['kind'],['reseller','customer'],true))deny();
+                $ok=subscription_cancel_now((int)$target['id']);
+                audit('subscription.manager_cancelled',(int)$target['id'],['changed'=>$ok]);
+                $success=$ok?'تم إلغاء اشتراك العميل.':'العميل ليس لديه اشتراك نشط.';
+                break;
+            case 'manager_renew_customer_free':
+                if(!in_array($kind,['platform','reseller'],true)||
+                   !in_array($a['role'],['owner','admin'],true)||
+                   active_support()||console_view_mode($a)!=='admin')deny();
+                $target=scoped_customer(intfield('customer_id'));
+                if(!in_array($target['kind'],['reseller','customer'],true))deny();
+                $plan=one('SELECT * FROM plans WHERE id=?',[intfield('plan_id')]);
+                if(!$plan||!plan_catalog_allowed($plan,$target)||$plan['price_minor']!=0)
+                    throw new InvalidArgumentException('تجديد العميل المجاني فقط؛ المدفوع يحتاج الدفع الموثق');
+                $result=subscription_renew_free((int)$target['id'],(int)$plan['id']);
+                audit('subscription.manager_free_renewed',(int)$target['id'],['changed'=>$result['changed']]);
+                $success=$result['changed']?'تم تجديد باقة العميل المجانية.':
+                    'الاشتراك لا يزال ساريًا؛ لا يوجد تمديد مكرر.';
+                break;
             case 'self_cancel_subscription':
                 if(!in_array($kind,['reseller','customer'],true)||
                    !in_array($a['role'],['owner','admin'],true)||active_support())deny();
