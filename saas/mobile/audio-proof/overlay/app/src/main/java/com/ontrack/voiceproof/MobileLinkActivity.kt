@@ -61,6 +61,8 @@ class MobileLinkActivity:ComponentActivity(){
     private var tenantStatusJob:Job?=null
     /** The user's explicit Start command may continue once Phone permission is granted. */
     private var startRequestedAfterPhonePermission=false
+    /** One-time code kept in memory only while Android asks for SIM permission. */
+    private var pendingTenantPair:Pair<Int,String>?=null
     private var splash:OnTrackLaunchScreen?=null
     private var ready=false
     private var generation=0
@@ -96,6 +98,12 @@ class MobileLinkActivity:ComponentActivity(){
     private val tenantSimPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
         val continueStart=startRequestedAfterPhonePermission
         startRequestedAfterPhonePermission=false
+        val pairing=pendingTenantPair
+        pendingTenantPair=null
+        if(granted && pairing!=null){
+            performTenantPair(pairing.first,pairing.second)
+            return@registerForActivityResult
+        }
         if(granted && continueStart){
             runCatching {
                 startTenantMonitor()
@@ -706,53 +714,59 @@ class MobileLinkActivity:ComponentActivity(){
     }
     private fun showTenantPairDialog(slot:Int,initialCode:String) {
         if(tenantEnrollment.paired(slot)) {
-            banner.text="SIM ${slot+1} مربوطة بالفعل. افصلها أولًا قبل ربط حساب آخر."
+            banner.text="SIM ${slot+1} مربوطة بالفعل. لو هتربط شريحة تانية، اختار رقمها."
             banner.visibility=View.VISIBLE
             return
         }
         val input=EditText(this).apply {
-            hint="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
+            hint="رمز الربط من موقع OnTrack"
             setText(initialCode)
             inputType=android.text.InputType.TYPE_CLASS_TEXT or
                 android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
         }
-        AlertDialog.Builder(this).setTitle("ربط SIM ${slot+1} بحساب OnTrack")
-            .setMessage("أدخل الرمز المؤقت من لوحة الحساب. لا تستخدم مفتاح هاتف التجربة.")
+        AlertDialog.Builder(this).setTitle("ربط SIM ${slot+1} بحسابك")
+            .setMessage("امسح QR من موقع OnTrack أو الصق رمز الربط هنا. مش محتاج مفتاح API.")
             .setView(input)
-            .setPositiveButton("ربط") { _,_ ->
-                val code=input.text.toString()
-                lifecycleScope.launch {
-                    try {
-                        check(!MobileLinkService.inCall) { "انتظر انتهاء المكالمة أولًا" }
-                        TenantPairingContract.codeForSlot(code,slot)
-                        if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,
-                                Manifest.permission.READ_PHONE_STATE)!=PackageManager.PERMISSION_GRANTED) {
-                            tenantSimPermission.launch(Manifest.permission.READ_PHONE_STATE)
-                            return@launch
-                        }
-                        // Block pilot dial immediately, including the in-flight lease-to-dial window.
-                        MobileLinkService.tenantPairingInProgress=true
-                        try {
-                            stopService(Intent(this@MobileLinkActivity,MobileLinkService::class.java))
-                            check(getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
-                                .putBoolean("campaign_opt_in",false).commit()) {
-                                "تعذر إيقاف حملات هاتف التجربة"
-                            }
-                            val profile=withContext(Dispatchers.IO) {
-                                tenantEnrollment.enroll(code,slot,android.os.Build.MODEL.ifBlank { "Android" })
-                            }
-                            showTenantProfile(slot,profile)
-                            requestTenantStatusRefresh()
-                        } finally {
-                            MobileLinkService.tenantPairingInProgress=false
-                        }
-                    } catch(t:Throwable) {
-                        if(t is CancellationException)throw t
-                        banner.text="تعذر ربط SIM ${slot+1}: "+(t.message?:"خطأ غير معروف")
-                        banner.visibility=View.VISIBLE
-                    }
+            .setPositiveButton("تأكيد الربط") { _,_ -> performTenantPair(slot,input.text.toString()) }
+            .setNegativeButton("إلغاء",null).show()
+    }
+    private fun performTenantPair(slot:Int,rawCode:String) {
+        lifecycleScope.launch {
+            try {
+                check(!MobileLinkService.inCall) { "انتظر انتهاء المكالمة أولًا" }
+                // Validate first. Permission prompt must not silently eat the
+                // one-time code or consume it on the server.
+                val code=TenantPairingContract.codeForSlot(rawCode,slot)
+                if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,
+                        Manifest.permission.READ_PHONE_STATE)!=PackageManager.PERMISSION_GRANTED) {
+                    pendingTenantPair=slot to code
+                    banner.text="اسمح للتطبيق بقراءة حالة الشريحة لإكمال الربط تلقائيًا"
+                    banner.visibility=View.VISIBLE
+                    tenantSimPermission.launch(Manifest.permission.READ_PHONE_STATE)
+                    return@launch
                 }
-            }.setNegativeButton("إلغاء",null).show()
+                check(!MobileLinkService.tenantPairingInProgress) { "الربط جارٍ بالفعل" }
+                MobileLinkService.tenantPairingInProgress=true
+                try {
+                    stopService(Intent(this@MobileLinkActivity,MobileLinkService::class.java))
+                    check(getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
+                        .putBoolean("campaign_opt_in",false).commit()) {
+                        "تعذر إيقاف حملات هاتف التجربة"
+                    }
+                    val profile=withContext(Dispatchers.IO) {
+                        tenantEnrollment.enroll(code,slot,android.os.Build.MODEL.ifBlank { "Android" })
+                    }
+                    showTenantProfile(slot,profile)
+                    requestTenantStatusRefresh()
+                } finally {
+                    MobileLinkService.tenantPairingInProgress=false
+                }
+            } catch(t:Throwable) {
+                if(t is CancellationException)throw t
+                banner.text="تعذر ربط SIM ${slot+1}: "+(t.message?:"خطأ غير معروف")
+                banner.visibility=View.VISIBLE
+            }
+        }
     }
     private fun showTenantProfile(slot:Int,profile:JSONObject) {
         if(profile.optBoolean("verification_pending")) {
