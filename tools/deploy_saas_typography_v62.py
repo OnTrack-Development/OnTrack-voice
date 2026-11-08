@@ -49,7 +49,7 @@ def patch_views(live:str,candidate:str)->str:
         if live.count(head)!=1:raise RuntimeError('main_layout_header_changed')
         live=live.replace(head,new_head,1)
     body_old="</head><body>';"
-    body_new='</head><body data-ot-font="'.e($accountFont).'">\';'
+    body_new = """</head><body data-ot-font="'.e($accountFont).'">';"""
     if body_new not in live:
         if live.count(body_old)!=1:raise RuntimeError('layout_body_unchanged_anchor_missing')
         live=live.replace(body_old,body_new,1)
