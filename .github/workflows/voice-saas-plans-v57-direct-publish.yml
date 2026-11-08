@@ -34,7 +34,7 @@ jobs:
           $ErrorActionPreference='Stop'
           & python -m py_compile tools/deploy_saas_subscription_v57.py
           if($LASTEXITCODE -ne 0){throw 'Direct SSH deploy script invalid'}
-          $paths=@('_core/SubscriptionPlans.php','_core/Checkout.php','_core/Bootstrap.php','_core/Actions.php','_core/Views.php')
+          $paths=@('_core/SubscriptionPlans.php','_core/Checkout.php','_core/Bootstrap.php','_core/Actions.php','_core/Views.php','_core/GoogleTenantKeys.php','_core/AiRelay.php')
           foreach($path in $paths){
             & php -l ('saas/console/'+$path)
             if($LASTEXITCODE -ne 0){throw ('Invalid PHP '+$path)}
@@ -59,7 +59,7 @@ jobs:
           $stage='/home/appontrack/.ontrack-mobile/saas-subscriptions-v57'
           & ssh.exe @ssh -p 7195 $remote ('umask 077; mkdir -p '+$stage+'/old/_core '+$stage+'/new/_core; chmod 700 '+$stage)
           if($LASTEXITCODE -ne 0){throw 'Direct SSH stage creation failed'}
-          $paths=@('SubscriptionPlans.php','Checkout.php','Bootstrap.php','Actions.php','Views.php')
+          $paths=@('SubscriptionPlans.php','Checkout.php','Bootstrap.php','Actions.php','Views.php','GoogleTenantKeys.php','AiRelay.php')
           foreach($name in $paths){
             $old='.build/plans-v57-baseline/saas/console/_core/'+$name
             $new='saas/console/_core/'+$name
