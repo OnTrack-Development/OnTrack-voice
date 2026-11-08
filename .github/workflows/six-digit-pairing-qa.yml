@@ -1,0 +1,43 @@
+name: Validate six-digit Android SIM pairing
+on:
+  push:
+    branches: [release/voice-v1-20261106]
+    paths:
+      - '.github/workflows/six-digit-pairing-qa.yml'
+      - 'saas/console/_core/DevicePairing.php'
+      - 'saas/console/_core/Actions.php'
+      - 'saas/console/_core/Views.php'
+      - 'saas/mobile/ota/ui.html'
+      - 'saas/mobile/audio-proof/overlay/app/src/main/**'
+      - 'tools/test_tenant_device_pairing.php'
+      - 'tools/test_mobile_ui_contract.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pairing_qa:
+    name: PHP backend, phone UI and pairing contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,sodium
+          coverage: none
+      - name: Check PHP enrollment source
+        run: |
+          php -l saas/console/_core/DevicePairing.php
+          php -l saas/console/_core/Actions.php
+          php -l saas/console/_core/Views.php
+          php -l saas/console/device/v1/index.php
+      - name: Verify mobile six-digit pairing UI and bridge
+        run: |
+          node --version
+          python3 tools/test_v1_mobile_shell.py
+          python3 tools/test_mobile_ui_contract.py
+      - name: Run isolated full SaaS regression including six-digit pairing
+        env:
+          ONTRACK_CI_NAMESPACE: six_digit_pairing_${{ github.run_id }}_${{ github.run_attempt }}
+        run: php tools/test_voice_saas_console.php
