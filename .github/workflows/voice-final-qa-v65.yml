@@ -110,8 +110,8 @@ jobs:
           $upload=Invoke-WebRequest -Uri ($base+'/?ot_brand_upload=1') -Method Post -Body $raw -ContentType 'image/png' -SkipHttpErrorCheck -MaximumRedirection 0 -TimeoutSec 25
           if([int]$upload.StatusCode -ne 401){throw ('Logo upload guard/WAF unexpected HTTP '+$upload.StatusCode)}
           $private=Invoke-WebRequest -Uri ($base+'/brand-logo') -SkipHttpErrorCheck -MaximumRedirection 0 -TimeoutSec 25
-          if([int]$private.StatusCode -ne 401){throw ('Private logo leakage or route error HTTP '+$private.StatusCode)}
-          Write-Host 'V65_EXTERNAL_BRAND_NO_403_LOGIN_CSS_JS_401_GUARDS_PASS'
+          if([int]$private.StatusCode -ne 404){throw ('Private logo leakage or unexpected response HTTP '+$private.StatusCode)}
+          Write-Host 'V65_EXTERNAL_BRAND_NO_403_LOGIN_CSS_JS_401_UPLOAD_AND_404_PRIVATE_IMAGE_PASS'
   signed-apk:
     name: Verify previously built and published v55 signed 0.3.32 Android OTA
     needs: isolated-regressions
