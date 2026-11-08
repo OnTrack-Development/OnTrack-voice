@@ -4,7 +4,10 @@ package com.ontrack.voiceproof
  * is usable WITHOUT live ADB or Wireless Debugging. Do not confuse pairing
  * memory with a live ADB connection, or UNKNOWN OEM settings with OFF. */
 internal enum class CheckState { READY, ACTION, UNKNOWN, OPTIONAL }
-internal enum class CheckAction { NONE, DEVICE_INFO, DEVELOPER, PAIR, RECONNECT, PHONE_PERMISSION, OPEN_VOICE }
+internal enum class CheckAction {
+    NONE, DEVICE_INFO, DEVELOPER, PAIR, RECONNECT, PHONE_PERMISSION, OPEN_VOICE,
+    APP_DETAILS, NOTIFICATIONS, OUTBOUND_CALLS, OVERLAY, INSTALL_UPDATES
+}
 internal data class VoiceSetupCheck(
     val id:String,val title:String,val state:CheckState,
     val detail:String,val action:CheckAction=CheckAction.NONE,
@@ -37,8 +40,10 @@ internal object OnTrackSetupChecklist {
             if(f.pcmDaemon)CheckState.READY else CheckState.ACTION,
             if(f.pcmDaemon)"محرك PCM المباشر بيرد، ومش محتاج تسجيل مكالمات أو ADB مفتوح طول الوقت."
             else "المحرك مش بيرد حاليًا؛ افحص الاتصال المحلي قبل تجربة المكالمات.",
-            if(f.pcmDaemon)CheckAction.NONE else CheckAction.RECONNECT,
-            if(f.pcmDaemon)"" else "محاولة اتصال آمنة")
+            if(f.pcmDaemon)CheckAction.NONE else
+                if(f.adbPaired)CheckAction.RECONNECT else CheckAction.PAIR,
+            if(f.pcmDaemon)"" else
+                if(f.adbPaired)"محاولة اتصال آمنة" else "اقتران أول مرة")
         if(f.pcmDaemon) {
             add("adb","اتصال ADB",
                 CheckState.OPTIONAL,
