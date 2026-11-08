@@ -18,13 +18,13 @@ if(!flock($lock,LOCK_EX|LOCK_NB)){fclose($lock);exit(0);}
 try{
     $recovered=wa_recover_stale_jobs(180,100);
     $jobs=all("SELECT j.id,j.account_id,j.conversation_id,w.ai_enabled,w.ai_agent_id,
-        w.whmcs_bridge_verified_at,w.onboarding_method
+        w.whmcs_bridge_verified_at,w.whmcs_bridge_url,w.onboarding_method
         FROM wa_ai_jobs j
         JOIN wa_connections w ON w.id=j.connection_id AND w.account_id=j.account_id
         JOIN accounts a ON a.id=j.account_id AND a.status='active'
         WHERE j.status='pending' AND j.attempts<2 AND w.state='verified'
         AND ((w.ai_enabled=1 AND w.ai_agent_id IS NOT NULL)
-             OR w.whmcs_bridge_verified_at IS NOT NULL)
+             OR (w.whmcs_bridge_verified_at IS NOT NULL AND w.whmcs_bridge_url IS NOT NULL))
         ORDER BY j.id ASC LIMIT 10");
     $counts=['native_sent'=>0,'bridge_sent'=>0,'skipped'=>0,'failed'=>0,
         'needs_review'=>0,'recovered'=>$recovered];
