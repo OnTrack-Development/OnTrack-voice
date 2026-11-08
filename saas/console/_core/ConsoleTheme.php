@@ -117,6 +117,16 @@ function console_theme_on(string $hex):string {
     $lum=console_theme_luminance($hex);
     return (($lum+0.05)/0.05)>=((1.05)/($lum+0.05))?'#10131a':'#ffffff';
 }
+function console_theme_mix(string $color,string $target,float $share):string {
+    $s=max(0.0,min(1.0,$share));
+    $pieces=[];
+    foreach([1,3,5] as $i){
+        $from=hexdec(substr($color,$i,2));
+        $to=hexdec(substr($target,$i,2));
+        $pieces[]=str_pad(dechex((int)round($from*(1.0-$s)+$to*$s)),2,'0',STR_PAD_LEFT);
+    }
+    return '#'.implode('',$pieces);
+}
 function console_theme_vars(array $palette):string {
     $p=console_theme_clean($palette);
     $names=[
@@ -127,8 +137,18 @@ function console_theme_vars(array $palette):string {
     ];
     $out=[];
     foreach($names as $field=>$cssName)$out[]=$cssName.':'.$p[$field];
-    foreach(['dark','light'] as $mode)
+    foreach(['dark','light'] as $mode){
+        $bg=$p[$mode.'_content'];
+        $bright=console_theme_luminance($bg)>.52;
+        $ink=console_theme_on($bg);
+        $panel=console_theme_mix($bg,$bright?'#ffffff':'#ffffff',$bright?.73:.085);
+        $secondary=console_theme_mix($bg,$bright?'#223046':'#ffffff',$bright?.07:.14);
         $out[]='--ot-'.$mode.'-on-accent:'.console_theme_on($p[$mode.'_accent']);
+        $out[]='--ot-'.$mode.'-on-sidebar:'.console_theme_on($p[$mode.'_sidebar']);
+        $out[]='--ot-'.$mode.'-on-content:'.$ink;
+        $out[]='--ot-'.$mode.'-panel:'.$panel;
+        $out[]='--ot-'.$mode.'-panel2:'.$secondary;
+    }
     return implode(';',$out).';';
 }
 function console_theme_attribute(int $accountId):string {
