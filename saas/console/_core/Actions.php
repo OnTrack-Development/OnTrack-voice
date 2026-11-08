@@ -543,6 +543,24 @@ function act():void {
                 $principal=intfield('caller_id');
                 if(!voice_staff_revoke($id,$principal))deny(404);
                 audit('voice.staff_phone.revoked',$id,['principal_id'=>$principal]);break;
+            case 'save_console_theme':
+                if(active_support())deny(403,'جلسة الدعم لا تسمح بتعديل الهوية.');
+                require_once __DIR__.'/ConsoleTheme.php';
+                $palette=['layout'=>field('layout',10)];
+                foreach(['dark_sidebar','dark_content','dark_accent',
+                          'light_sidebar','light_content','light_accent'] as $colorField)
+                    $palette[$colorField]=field($colorField,7);
+                console_theme_write($a,$palette,false);
+                audit('console.theme.updated',$id,['layout'=>$palette['layout']]);
+                $success='تم حفظ ألوان حسابك. تظهر الإعدادات للأعضاء فور تحديث الصفحة.';
+                break;
+            case 'reset_console_theme':
+                if(active_support())deny(403,'جلسة الدعم لا تسمح بتعديل الهوية.');
+                require_once __DIR__.'/ConsoleTheme.php';
+                console_theme_write($a,[],true);
+                audit('console.theme.reset',$id);
+                $success='رجعت ألوان حسابك للإعداد الافتراضي أو علامة الريسيلر.';
+                break;
             case 'save_console_font':
                 if(active_support())deny(403,'لا يمكن حفظ الخط أثناء جلسة الدعم.');
                 require_once __DIR__.'/ConsoleTypography.php';
