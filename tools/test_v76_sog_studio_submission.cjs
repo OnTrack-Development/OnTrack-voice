@@ -27,7 +27,7 @@ assert(app.includes("form.dispatchEvent(new CustomEvent('ontrack:studio-failed'"
   'Failed save never consumes AI proposal');
 assert(views.includes("hash_file('sha256',__DIR__.'/../assets/js/flow-graph.js')"),
   'Cache key must invalidate old Flow graph upload logic on SOG domain');
-const graphSave=studio.indexOf("const response=await fetch(editorForm.action");
+const graphSave=studio.indexOf("const response=await fetch(editorForm.getAttribute('action')");
 const graphNext=studio.indexOf("if(!response.ok",graphSave);
 assert(graphSave>=0 && graphNext>graphSave,'Legacy standalone graph send exists');
 assert(!studio.slice(graphSave,graphNext).includes('response.json()'),
