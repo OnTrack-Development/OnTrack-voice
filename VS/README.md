@@ -50,6 +50,16 @@ The owner has explicitly declared `VS/` a future, independent, **test-only place
 - **Unresolved acceptance gate**: full-duplex SIM microphone capture after original-mic mute, stable Fish ASR+TTS latency and actual uplink injection. Requires a separate VS-specific privileged audio bridge and real two-handset confirmation. The ordinary Android app does not get privileged uplink access merely through runtime permissions.
 - No JemRec, no call recordings, no call log and no reuse of OnTrack AI application code. The current Fish speech preview uses only volatile in-memory PCM and MP3.
 
+## Experimental VS 0.5.0 shell call bridge — NOT verified on handset
+
+- Implemented a separate VS-only minimal Android `app_process` ADB shell helper in `VS/shellbridge` (not JemRec). The Windows CI compiles this source with the Android SDK and embeds a DEX JAR as an APK asset.
+- In the app tap **تجهيز الجسر ونسخ أمر ADB** to export the helper into app-specific files and copy the exact `adb shell` command. Run the command using an already-authorized USB or Wireless Debugging connection to this owner's phone. The bridge must be re-launched after phone restart. No root, no Accessibility, and no phone-call recording.
+- With a regular active SIM call, tap green **تشغيل**. The shell helper checks for a real `TYPE_TELEPHONY` device, requests that audio route and reads it back using an inaudible PCM preflight. Only then does it try muting the original microphone, saving its prior state for rollback. It returns diagnostic errors on failure.
+- The VS microphone foreground service attempts `AudioRecord` while the SIM microphone is muted, in transient approximately two-second RAM chunks. Fish ASR transcribes only the user's speech, Drama 3 synthesizes it, MediaCodec decodes to PCM16 mono 48kHz, and the app sends that PCM via an authenticated abstract Unix socket to the VS shell helper. No caller/downlink audio is captured or saved by the bridge.
+- Press red **إيقاف** to close the session and restore the prior microphone state. Disconnect, permission denial, stream failure, or prolonged silence attempts the same rollback. A forced Android process kill may require manually unmuting the phone, so do not rely on this experimental feature for important calls.
+- **Acceptance gate NOT PASSED:** on the owner's Xiaomi device we still need to prove (a) shell helper can start under ADB, (b) audio is routed to the remote caller rather than a dead output, (c) the VS microphone remains audible to Fish after call mute, (d) zero original voice leakage, and (e) reliable fail-safe restoration, Wi-Fi and mobile data quality. Do not describe successful APK packaging or a route readback as end-to-end call voice conversion.
+- No code or secrets taken from OnTrack AI or its SaaS. Do not automatically add this experimental helper to the existing OnTrack Voice app.
+
 ## Status
 
 VS v0.1.0 APK **was built on the Windows runner** and installed/tested on the owner's handset. The owner observed local Fish voice playback but **the SIM call still transmitted the real microphone**. VS v0.2.0 adds UI, permission, and overlay fixes; compilation must be checked on its new commit before delivery. The intended SIM voice replacement is **FAILED / BLOCKED under current unprivileged Android constraints**, not implemented. No two-phone success proof exists.
