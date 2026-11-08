@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/../saas/console/database/Seed.php';
 require_once __DIR__.'/../saas/console/_core/SubscriptionPlans.php';
+require_once __DIR__.'/../saas/console/_core/TenantVoiceSession.php';
 if(is_dir('/home/appontrack')&&!getenv('ONTRACK_CI_NAMESPACE'))
     throw new RuntimeException('Isolated CI database only');
 function ccheck(bool $v,string $msg):void {if(!$v)throw new RuntimeException('PLAN_CATALOG_FAIL '.$msg);}
@@ -44,6 +45,32 @@ ccheck((int)one('SELECT price_minor FROM plans WHERE id=?',[$p])['price_minor']=
     'historical subscriber price not rewritten');
 ccheck((int)one('SELECT plan_id FROM subscriptions WHERE id=?',[$grant['subscription_id']])['plan_id']===$p,
     'old subscription continues with original plan');
+
+// A reseller editing an already-sold plan archives the catalog VERSION,
+// not the active customer's paid entitlement. Exercise the real voice gate
+// rather than checking only that subscription rows survived the edit.
+$voiceBinding=['account_id'=>5];
+ccheck(tenant_voice_entitled($voiceBinding),
+    'archived historical plan still grants active subscribed SIM voice access');
+ccheck(site_limit(5,'call_quota')===350,
+    'archived plan keeps its sold call quota and tenant limits');
+$activeUntil=(string)one('SELECT ends_at FROM subscriptions WHERE id=?',[$grant['subscription_id']])['ends_at'];
+execute('UPDATE subscriptions SET ends_at=? WHERE id=?',
+    [gmdate('Y-m-d H:i:s',time()-60),$grant['subscription_id']]);
+ccheck(!tenant_voice_entitled($voiceBinding),
+    'expired historical subscription never authorizes fresh voice sessions');
+execute('UPDATE subscriptions SET ends_at=? WHERE id=?',[$activeUntil,$grant['subscription_id']]);
+execute("UPDATE subscriptions SET status='cancelled' WHERE id=?",[$grant['subscription_id']]);
+ccheck(!tenant_voice_entitled($voiceBinding),
+    'cancelled historical subscription never authorizes fresh voice sessions');
+execute("UPDATE subscriptions SET status='active' WHERE id=?",[$grant['subscription_id']]);
+execute("UPDATE accounts SET status='suspended' WHERE id=5");
+ccheck(!tenant_voice_entitled($voiceBinding),
+    'suspended account cannot use historical subscription');
+execute("UPDATE accounts SET status='active' WHERE id=5");
+ccheck(tenant_voice_entitled($voiceBinding),
+    'restored eligible account can use unexpired historical plan');
+
 $duplicate=plan_catalog_save_reseller(2,$fields,$next);
 ccheck($duplicate===$next,'same submission idempotent');
 ccheck(plan_catalog_dispose($next,2,'delete')==='deleted','unused plan can be deleted');
