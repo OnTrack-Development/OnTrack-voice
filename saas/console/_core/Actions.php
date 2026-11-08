@@ -783,21 +783,68 @@ function act():void {
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 execute("UPDATE integrations SET status='revoked' WHERE id=? AND account_id=?",[intfield('integration_id'),$id]);
                 audit('integration.revoked',$id);break;
+            case 'admin_grant_plan':
+                // Explicit complimentary/administrative entitlement. This does
+                // NOT create a payment, paid order, receipt or billing webhook.
+                // Only a real platform owner/admin outside impersonation may
+                // grant a priced plan without charging the customer.
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||
+                    active_support()||console_view_mode($a)!=='admin')deny();
+                $customer=intfield('customer_id');
+                $target=scoped_customer($customer);
+                $plan=one('SELECT * FROM plans WHERE id=? AND status=?',[intfield('plan_id'),'active']);
+                if(!$plan || !subscription_admin_grant_allowed($a,$target,$plan,false,'admin'))
+                    throw new InvalidArgumentException('الباقة غير متوافقة مع نوع الحساب أو صلاحياتك');
+                $reason=required('grant_reason',200);
+                if(mb_strlen($reason)<5)throw new InvalidArgumentException('اكتب سبب المنحة الإدارية');
+                if(field('confirm_admin_grant',1)!=='1')
+                    throw new InvalidArgumentException('يجب تأكيد أن التعيين منحة إدارية وليست دفعة مسددة');
+                if($target['kind']==='customer'&&!empty($target['parent_id'])){
+                    $parent=(int)$target['parent_id'];
+                    $spent=(int)one("SELECT COALESCE(SUM(p.call_quota),0) n FROM subscriptions s JOIN plans p ON p.id=s.plan_id JOIN accounts a ON a.id=s.account_id WHERE a.parent_id=? AND a.id!=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?",[$parent,$customer,now(),now()])['n'];
+                    if($spent+(int)$plan['call_quota']>site_limit($parent,'call_quota'))
+                        throw new RuntimeException('الباقة تتجاوز رصيد الريسيلر؛ عدّل باقة الريسيلر أولًا');
+                }
+                $result=subscription_assign_demo($customer,(int)$plan['id']);
+                audit($result['changed']?'plan.admin_granted':'plan.admin_grant_noop',
+                    $customer,['plan_id'=>(int)$plan['id'],
+                        'subscription_id'=>$result['subscription_id'],
+                        'reason'=>$reason,'payment_recorded'=>false,
+                        'actor_user_id'=>(int)me()['id']]);
+                $success=$result['changed']
+                    ?'تم تفعيل باقة '.(string)$plan['name'].' لهذا الحساب الآن كمنحة إدارية، بدون تسجيل دفعة مالية.'
+                    :'الباقة المختارة مفعلة بالفعل، ولم تتغير مدة الاشتراك.';
+                break;
+            case 'self_select_free_plan':
+                if(!in_array($kind,['reseller','customer'],true)||
+                    !in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $plan=one('SELECT * FROM plans WHERE id=? AND status=?',[intfield('plan_id'),'active']);
+                if(!$plan||!subscription_self_free_allowed($a,$plan,false))
+                    throw new InvalidArgumentException('الباقات المدفوعة تحتاج تأكيد الدفع؛ الاختيار المباشر للمجانية فقط');
+                $result=subscription_assign_demo($id,(int)$plan['id']);
+                audit($result['changed']?'plan.free_selected':'plan.free_selection_noop',$id,[
+                    'plan_id'=>(int)$plan['id'],'subscription_id'=>$result['subscription_id']]);
+                $success=$result['changed']?'تم تفعيل الباقة المجانية بنجاح.':'الباقة المجانية مفعلة بالفعل.';
+                break;
             case 'assign_plan':
-                if(!in_array($kind,['reseller','platform'],true)||!in_array($a['role'],['owner','admin'],true))deny();
+                if(!in_array($kind,['reseller','platform'],true)||
+                    !in_array($a['role'],['owner','admin'],true)||active_support()||
+                    console_view_mode($a)!=='admin')deny();
                 $customer=intfield('customer_id');$target=scoped_customer($customer);
                 $plan=one("SELECT * FROM plans WHERE id=? AND kind=? AND status='active'",[intfield('plan_id'),$target['kind']==='reseller'?'reseller':'user']);
                 if(!$plan)deny();
                 if($kind==='reseller'&&$target['kind']!=='customer')deny();
                 $spent=(int)one("SELECT COALESCE(SUM(p.call_quota),0) n FROM subscriptions s JOIN plans p ON p.id=s.plan_id JOIN accounts a ON a.id=s.account_id WHERE a.parent_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>? AND a.id!=?",[$id,now(),now(),$customer])['n'];
                 if($kind==='reseller' && ($spent+(int)$plan['call_quota'])>site_limit($id,'call_quota'))throw new RuntimeException('سعة الباقة تتجاوز حصة الريسيلر');
-                // Manual assignment is a demo operation, not an alternative
-                // to verified payment for a priced commercial subscription.
+                // Reseller manual grants remain free/demo only. Commercial
+                // customer payments must be separately verified.
                 if((int)$plan['price_minor']>0 && !is_demo())
-                    throw new InvalidArgumentException('الباقة المدفوعة تحتاج طلب دفع معتمد أو بيئة Demo');
+                    throw new InvalidArgumentException('الباقة المدفوعة تحتاج طلب دفع معتمد');
                 $result=subscription_assign_demo($customer,(int)$plan['id']);
                 audit($result['changed']?'plan.assigned':'plan.assignment_replayed',
-                    $customer,['plan'=>$plan['id'],'subscription_id'=>$result['subscription_id']]);break;
+                    $customer,['plan'=>$plan['id'],'subscription_id'=>$result['subscription_id']]);
+                $success=$result['changed']?'تم تخصيص باقة العميل.':'نفس الباقة مفعلة بالفعل.';
+                break;
             case 'create_plan':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
