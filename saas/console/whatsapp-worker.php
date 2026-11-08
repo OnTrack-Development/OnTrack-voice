@@ -30,6 +30,12 @@ try{
     $counts=['native_sent'=>0,'bridge_sent'=>0,'skipped'=>0,'failed'=>0,
         'needs_review'=>0,'recovered'=>$recovered];
     foreach($jobs as $job){
+        // A queued message cannot outlive parent reseller authorization.
+        // Leave it pending while suspended; never consume its send attempts.
+        if(!account_service_active(account((int)$job['account_id']))){
+            $counts['skipped']++;
+            continue;
+        }
         $native=(int)$job['ai_enabled']===1&&(int)$job['ai_agent_id']>0;
         $result=$native?wa_native_run_job((int)$job['id'])
             :wa_whmcs_run_job((int)$job['id']);
