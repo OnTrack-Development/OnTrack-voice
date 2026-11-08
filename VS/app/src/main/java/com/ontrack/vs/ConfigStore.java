@@ -40,6 +40,13 @@ public final class ConfigStore {
         prefs(ctx).edit().putString("persona_voice_id_" + PersonaProfiles.validIndex(index),
             voiceId.trim()).apply();
     }
+    /** Drama 3 emotion direction: 0 natural, 1 gentle, 2 expressive but restrained. */
+    public static int emotionIntensity(Context ctx) {
+        return PersonaProfiles.validIntensity(prefs(ctx).getInt("emotion_intensity", 1));
+    }
+    public static void saveEmotionIntensity(Context ctx, int level) {
+        prefs(ctx).edit().putInt("emotion_intensity", PersonaProfiles.validIntensity(level)).apply();
+    }
     /** Preview state only. It never implies that SIM telephony audio has been routed. */
     public static boolean isPreviewPaused(Context ctx) {
         return prefs(ctx).getBoolean("preview_paused", false);
