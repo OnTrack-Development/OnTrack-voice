@@ -60,7 +60,7 @@ public final class OverlayService extends Service {
 
         bubble = VsUi.text(this, "VS", 19, VsUi.WHITE, true);
         bubble.setGravity(Gravity.CENTER);
-        root.addView(bubble, new LinearLayout.LayoutParams(d(58), d(58)));
+        root.addView(bubble, new LinearLayout.LayoutParams(d(44), d(44)));
 
         panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
@@ -123,7 +123,7 @@ public final class OverlayService extends Service {
             refresh();
         });
 
-        layout = new WindowManager.LayoutParams(d(58), d(58),
+        layout = new WindowManager.LayoutParams(d(44), d(44),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                 | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
@@ -169,11 +169,11 @@ public final class OverlayService extends Service {
         if (root == null || layout == null || manager == null) return;
         root.setBackground(VsUi.bg(this, next ? VsUi.CARD : VsUi.RED,
             next ? VsUi.EDGE : 0, next ? 17 : 29));
-        bubble.setText(next ? "VS  ▾" : "VS");
+        bubble.setText("VS");
         bubble.setBackground(VsUi.bg(this, next ? VsUi.RED : VsUi.RED, 0, 28));
         panel.setVisibility(next ? View.VISIBLE : View.GONE);
-        layout.width = d(next ? 244 : 58);
-        layout.height = next ? WindowManager.LayoutParams.WRAP_CONTENT : d(58);
+        layout.width = d(next ? 244 : 44);
+        layout.height = next ? WindowManager.LayoutParams.WRAP_CONTENT : d(44);
         try { manager.updateViewLayout(root, layout); } catch (Exception ignored) {}
     }
 
