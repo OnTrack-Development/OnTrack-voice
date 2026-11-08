@@ -65,10 +65,10 @@ pay_check((int)one("SELECT COUNT(*) n FROM subscriptions WHERE account_id=? AND 
     AND status='active'",[$a,$two['id']])['n']===1,
     'partial refund cannot revoke newer subscription');
 $rev=refund_body($first);
-pay_check(kashier_settle($rev,null)['status']==='refunded',
-    'verified full refund recorded for original payment');
-pay_check((string)one('SELECT status FROM orders WHERE id=?',[$first['id']])['status']==='refunded',
-    'original order refunded');
+pay_check(kashier_settle($rev,null)['status']==='review_required',
+    'historical carried-forward full refund requires human reconciliation');
+pay_check((string)one('SELECT status FROM orders WHERE id=?',[$first['id']])['status']==='active',
+    'historical payment cannot be falsely marked fully reversed while time is carried forward');
 pay_check((string)one('SELECT status FROM subscriptions WHERE id=?',[$two['id']])['status']==='active',
     'older refund cannot revoke newer live subscription');
 pay_check(kashier_settle($rev,null)['duplicate'],'refund replay idempotent');
