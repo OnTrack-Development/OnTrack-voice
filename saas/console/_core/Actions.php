@@ -276,17 +276,26 @@ function act():void {
                 require_once __DIR__.'/VoiceKnowledge.php';
                 $site=intfield('site_id');
                 $folder=intfield('knowledge_folder_id');
-                $name=required('name',150);$file=$_FILES['knowledge_file']??null;
-                $content='';$kind='note';
-                if(is_array($file)&&($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
+                $file=$_FILES['knowledge_file']??null;
+                $hasFile=is_array($file)&&($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE;
+                $text=field('knowledge_text',180000);
+                // Knowledge is not required for a published text scenario.
+                // Empty optional source forms must never block agent setup.
+                if(!$hasFile&&trim($text)===''){
+                    $success='قاعدة المعرفة اختيارية؛ لم تتم إضافة مصدر. تقدر تنشر السيناريو من غيرها.';
+                    break;
+                }
+                $name=required('name',150);
+                $content='';$sourceKind='note';
+                if($hasFile){
                     if(($file['error']??-1)!==UPLOAD_ERR_OK||
                        !is_uploaded_file((string)($file['tmp_name']??''))||
                        (int)($file['size']??0)>2097152||(int)($file['size']??0)<=0)
                         throw new InvalidArgumentException('ملف المعرفة غير صالح أو أكبر من 2MB');
-                    [$kind,$content]=voice_knowledge_extract_file((string)($file['name']??''),
+                    [$sourceKind,$content]=voice_knowledge_extract_file((string)($file['name']??''),
                         (string)$file['tmp_name'],(int)$file['size']);
-                }else{$content=field('knowledge_text',180000);}
-                $saved=voice_knowledge_add($id,$site,$name,$kind,$content,
+                }else{$content=$text;}
+                $saved=voice_knowledge_add($id,$site,$name,$sourceKind,$content,
                     field('knowledge_visibility',20),$folder);
                 audit('voice.knowledge.created',$id,['source_id'=>$saved,'site_id'=>$site,'folder_id'=>$folder]);
                 $success='تمت فهرسة النص وحفظ مصدر المعرفة.';
