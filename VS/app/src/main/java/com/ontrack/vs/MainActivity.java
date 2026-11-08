@@ -38,8 +38,8 @@ public final class MainActivity extends Activity {
     private final ExecutorService queue = Executors.newSingleThreadExecutor();
     private EditText keyField, voiceField, textField;
     private TextView status, personaDetail, permissionStatus, keyStatus;
-    private RadioGroup personaGroup;
-    private int selectedPersona;
+    private RadioGroup personaGroup, intensityGroup;
+    private int selectedPersona, selectedIntensity;
     private Button recordButton;
     private AudioRecord recorder;
     private ByteArrayOutputStream micSamples;
@@ -150,6 +150,7 @@ public final class MainActivity extends Activity {
         configCard.addView(keyStatus);
 
         selectedPersona = ConfigStore.selectedPersona(this);
+        selectedIntensity = ConfigStore.emotionIntensity(this);
         configCard.addView(VsUi.heading(this, "اختار أسلوب الأداء"));
         personaGroup = new RadioGroup(this);
         personaGroup.setOrientation(RadioGroup.VERTICAL);
@@ -166,6 +167,24 @@ public final class MainActivity extends Activity {
         configCard.addView(personaGroup);
         personaDetail = VsUi.text(this, PersonaProfiles.DESCRIPTIONS[selectedPersona], 14, VsUi.MUTED, false);
         configCard.addView(personaDetail);
+        configCard.addView(VsUi.heading(this, "قوة المشاعر في Fish Drama 3"));
+        intensityGroup = new RadioGroup(this);
+        intensityGroup.setOrientation(RadioGroup.HORIZONTAL);
+        intensityGroup.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        String[] intensities = {"طبيعي", "خفيف", "متوسط"};
+        for (int i = 0; i < intensities.length; i++) {
+            RadioButton choice = new RadioButton(this);
+            choice.setId(3000 + i);
+            choice.setText(intensities[i]);
+            choice.setTextColor(VsUi.WHITE);
+            choice.setTextSize(13);
+            choice.setButtonTintList(ColorStateList.valueOf(VsUi.RED));
+            intensityGroup.addView(choice);
+        }
+        configCard.addView(intensityGroup);
+        configCard.addView(VsUi.text(this,
+            "الوضع الافتراضي خفيف. من غير ضحك أو تنهيدات مصطنعة، وممكن تختار طبيعي تمامًا.",
+            12, VsUi.MUTED, false));
         configCard.addView(VsUi.heading(this, "Voice ID للشخصية"));
         voiceField = VsUi.input(this, "Fish reference_id", ConfigStore.voiceId(this, selectedPersona), false);
         voiceField.setTextDirection(View.TEXT_DIRECTION_LTR);
@@ -191,12 +210,12 @@ public final class MainActivity extends Activity {
         VsUi.addSection(root, previewCard, this);
 
         LinearLayout floatingCard = VsUi.card(this);
-        floatingCard.addView(VsUi.text(this, "03  /  الفقاعة العائمة", 19, VsUi.WHITE, true));
+        floatingCard.addView(VsUi.text(this, "03  /  فقاعة VS مصغرة", 19, VsUi.WHITE, true));
         gap(floatingCard, 7);
         floatingCard.addView(VsUi.text(this,
-            "زر «استلام» يوقف المعاينة ويظل ظاهرًا، ولا يتحكم في ميكروفون مكالمة الشريحة.", 13, VsUi.MUTED, false));
+            "فقاعة 58dp، اضغط عليها تفتح/تقفل واسحبها لأي مكان. تشغيل أخضر، إيقاف أحمر. حالة الشريحة منفصلة عن معاينة Fish.", 13, VsUi.MUTED, false));
         gap(floatingCard, 12);
-        floatingCard.addView(action("إظهار أدوات VS العائمة", true, v -> overlay()));
+        floatingCard.addView(action("إظهار فقاعة VS الصغيرة", true, v -> overlay()));
         gap(floatingCard, 8);
         floatingCard.addView(action("إيقاف المعاينة / استلام", false, v -> {
             ConfigStore.setPreviewPaused(this, true);
@@ -208,6 +227,9 @@ public final class MainActivity extends Activity {
             stopService(new Intent(this, OverlayService.class));
             info("تم إغلاق الفقاعة يدويًا.");
         }));
+        gap(floatingCard, 10);
+        floatingCard.addView(action("فحص حالة مكالمة الشريحة", false,
+            v -> info(SimAudioStatus.report(this))));
         VsUi.addSection(root, floatingCard, this);
 
         LinearLayout permissionsCard = VsUi.card(this);
@@ -226,6 +248,12 @@ public final class MainActivity extends Activity {
         setContentView(scroll);
         updateKeyStatus();
         personaGroup.check(2000 + selectedPersona);
+        intensityGroup.check(3000 + selectedIntensity);
+        intensityGroup.setOnCheckedChangeListener((group, id) -> {
+            selectedIntensity = PersonaProfiles.validIntensity(id - 3000);
+            ConfigStore.saveEmotionIntensity(this, selectedIntensity);
+            info("درجة المشاعر: " + new String[]{"طبيعي", "خفيف", "متوسط"}[selectedIntensity]);
+        });
         personaGroup.setOnCheckedChangeListener((group, id) -> choosePersona(id - 2000));
         IntentFilter filter = new IntentFilter(OverlayService.ACTION_TAKE_OVER);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(takeOver, filter, Context.RECEIVER_NOT_EXPORTED);
@@ -261,6 +289,7 @@ public final class MainActivity extends Activity {
             ConfigStore.saveApiKey(this, keyField.getText().toString().trim());
             ConfigStore.saveVoiceId(this, selectedPersona, voice);
             ConfigStore.saveSelectedPersona(this, selectedPersona);
+            ConfigStore.saveEmotionIntensity(this, selectedIntensity);
             keyField.setText("");
             updateKeyStatus();
             info("تم حفظ إعدادات Fish Audio بأمان. لا يوجد توصيل بمكالمة الشريحة.");
@@ -298,7 +327,7 @@ public final class MainActivity extends Activity {
         try {
             String key = ConfigStore.apiKey(this);
             byte[] mp3 = FishClient.synthesize(
-                PersonaProfiles.forTts(words, persona), key, ConfigStore.voiceId(this, persona));
+                PersonaProfiles.forTts(words, persona, selectedIntensity), key, ConfigStore.voiceId(this, persona));
             if (stopped || ConfigStore.isPreviewPaused(this)) {
                 Arrays.fill(mp3, (byte)0);
                 return;
@@ -480,7 +509,7 @@ public final class MainActivity extends Activity {
         Intent intent = new Intent(this, OverlayService.class);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent);
         else startService(intent);
-        info("الفقاعة ظهرت. زر «استلام» هيوقف المعاينة من غير ما يخفيها.");
+        info("فقاعة VS ظهرت بحجم صغير. اضغط لتفتح، واسحب لتغيّر مكانها. تشغيل المعاينة لا يحقن صوتًا في الشريحة.");
     }
 
     @Override public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
