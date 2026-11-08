@@ -39,6 +39,12 @@ function wa_job_reserve_send(array $job,string $text,bool $native):array {
     if(db()->inTransaction())throw new RuntimeException('wa_job_nested_transaction');
     db()->beginTransaction();
     try{
+        $currentJob=one('SELECT status FROM wa_ai_jobs WHERE id=? AND account_id=?',
+            [(int)$job['id'],(int)$job['account_id']]);
+        if(!$currentJob||$currentJob['status']!=='processing'){
+            db()->commit();
+            return ['send'=>false,'status'=>'not_pending'];
+        }
         $sql='SELECT * FROM wa_conversations WHERE id=? AND account_id=?';
         if(driver()==='mysql')$sql.=' FOR UPDATE';
         $conv=one($sql,[(int)$job['conversation_id'],(int)$job['account_id']]);
@@ -65,8 +71,10 @@ function wa_job_reserve_send(array $job,string $text,bool $native):array {
         }
         if(execute("UPDATE wa_ai_jobs SET status='sending',updated_at=? WHERE id=?
                 AND account_id=? AND status='processing'",[
-                now(),(int)$job['id'],(int)$job['account_id']])!==1)
-            throw new RuntimeException('whatsapp_send_claim_conflict');
+                now(),(int)$job['id'],(int)$job['account_id']])!==1){
+            db()->commit();
+            return ['send'=>false,'status'=>'claimed_elsewhere'];
+        }
         db()->commit();
         return ['send'=>true,'connection'=>$conn,'conversation'=>$conv];
     }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
