@@ -378,6 +378,23 @@ function memberships(int $uid):array{
         WHERE m.user_id=? AND a.status='active' ORDER BY a.id",[$uid]);
 }
 function account(int $id):?array{return one('SELECT * FROM accounts WHERE id=?',[$id]);}
+/** Suspend the reseller's operational services without modifying paid child
+ * subscriptions or mutating each child's account status. A parent reopening
+ * cannot reactivate an explicitly suspended child. Invalid parent chains fail
+ * closed, while billing/audit records remain queryable for review. */
+function account_service_active(?array $account):bool {
+    $visited=[];
+    for($depth=0;$depth<8;$depth++){
+        if(!$account||($account['status']??'')!=='active')return false;
+        $id=(int)($account['id']??0);
+        if($id<1||isset($visited[$id]))return false;
+        $visited[$id]=true;
+        $parentId=(int)($account['parent_id']??0);
+        if($parentId<1)return true;
+        $account=account($parentId);
+    }
+    return false;
+}
 function mine():?array{
     $u=me();if(!$u)return null;
     $id=(int)($_SESSION['account_id']??0);
