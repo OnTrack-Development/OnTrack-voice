@@ -8,6 +8,7 @@ declare(strict_types=1);
 require_once __DIR__.'/../../_core/Bootstrap.php';
 require_once __DIR__.'/../../_core/DevicePairing.php';
 require_once __DIR__.'/../../_core/TenantVoiceSession.php';
+require_once __DIR__.'/FishTtsFallbackPolicy.php';
 
 header('Cache-Control: no-store, max-age=0');
 header('X-Content-Type-Options: nosniff');
@@ -69,12 +70,18 @@ try {
 } catch(Throwable $e) {
     io_premium_error(503,'premium_voice_unavailable');
 }
-if(!function_exists('curl_init'))io_premium_error(503,'premium_voice_unavailable');
+// A depleted shared key must not incur a new paid request for every caller.
+// This is the *same authorized account/session*, only the TTS transport changes.
+$fingerprint=FishTtsFallbackPolicy::fingerprint($secret);
+if(($circuit=FishTtsFallbackPolicy::active($fingerprint))!==null)
+    io_premium_error(FishTtsFallbackPolicy::clientHttp($circuit),$circuit);
+if(!function_exists('curl_init'))io_premium_error(503,'premium_tts_provider_unavailable');
 $curl=curl_init('https://api.fish.audio/v1/tts');
 if($curl===false)io_premium_error(503,'premium_voice_unavailable');
 $upstreamStatus=502;
 $started=false;
 $sent=0;
+$errorBody='';
 $maxAudioBytes=44100*2*55; // upper bound per short TTS phrase
 // Fish PCM is headerless, signed 16-bit mono; fixed 44.1kHz.
 $payload=json_encode([
@@ -103,27 +110,38 @@ curl_setopt_array($curl,[
             $upstreamStatus=(int)$m[1];
         return strlen($header);
     },
-    CURLOPT_WRITEFUNCTION=>static function($ch,string $chunk)use(&$started,&$sent,&$upstreamStatus,$maxAudioBytes):int{
+    CURLOPT_WRITEFUNCTION=>static function($ch,string $chunk)use(&$started,&$sent,&$upstreamStatus,&$errorBody,$maxAudioBytes):int{
         $length=strlen($chunk);
+        // Never stream upstream error JSON as signed PCM (nor leak provider
+        // errors/credentials). The HTTP status is finalized only after cURL.
+        if($upstreamStatus<200||$upstreamStatus>=300){
+            if(strlen($errorBody)<4096)
+                $errorBody.=substr($chunk,0,4096-strlen($errorBody));
+            return $length;
+        }
         $sent+=$length;
         if($sent>$maxAudioBytes)return 0;
         if(!$started){
-            http_response_code($upstreamStatus>=200&&$upstreamStatus<300?200:502);
-            header('Content-Type: '.($upstreamStatus>=200&&$upstreamStatus<300
-                ?'application/octet-stream':'text/plain; charset=utf-8'));
-            if($upstreamStatus>=200&&$upstreamStatus<300){
-                header('X-PCM-Sample-Rate: 44100');
-                header('X-PCM-Channels: 1');
-                header('X-PCM-Format: s16le');
-            }
+            http_response_code(200);
+            header('Content-Type: application/octet-stream');
+            header('X-PCM-Sample-Rate: 44100');
+            header('X-PCM-Channels: 1');
+            header('X-PCM-Format: s16le');
             $started=true;
         }
-        if($upstreamStatus>=200&&$upstreamStatus<300)echo $chunk;
+        echo $chunk;
         @flush();
         return $length;
     }
 ]);
 $ok=curl_exec($curl);
+$curlStatus=(int)curl_getinfo($curl,CURLINFO_HTTP_CODE);
 curl_close($curl);
-if(!$ok&&!$started)io_premium_error(502,'premium_tts_network_error');
+$status=$curlStatus>0?$curlStatus:$upstreamStatus;
+if($status>=400){
+    $code=FishTtsFallbackPolicy::classify($status,$errorBody);
+    FishTtsFallbackPolicy::mark($fingerprint,$code);
+    io_premium_error(FishTtsFallbackPolicy::clientHttp($code),$code);
+}
+if(!$ok&&!$started)io_premium_error(503,'premium_tts_network_error');
 if(!$started)io_premium_error(502,'premium_tts_empty_audio');
