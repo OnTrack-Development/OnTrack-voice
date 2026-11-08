@@ -379,6 +379,23 @@ function act():void {
                     (int)$saved['session_id'],(int)$actor['id'],intfield('tool_request_id'));
                 $success='تم تحديث العقدة بناءً على نتيجة طلب API المحفوظة على السيرفر.';
                 break;
+            case 'voice_flow_device_tool_complete':
+                require_permission('agents.write');
+                if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceFlowRuntime.php';
+                $actor=me();if(!$actor)deny();
+                $sessionId=intfield('session_id');
+                $session=one("SELECT * FROM voice_flow_sessions
+                    WHERE id=? AND account_id=? AND source='device' AND status='awaiting_tool'",
+                    [$sessionId,$id]);
+                if(!$session || (int)$session['site_id']!==intfield('site_id'))
+                    throw new InvalidArgumentException('جلسة الشريحة المعلقة غير متاحة');
+                $output=voice_flow_complete_tool($id,$sessionId,(int)$actor['id'],
+                    intfield('tool_request_id'),(int)$session['device_binding_id']);
+                audit('voice.flow.device_tool_verified',$id,
+                    ['session_id'=>$sessionId,'status'=>$output['status']]);
+                $success='تم ربط نتيجة الأداة المؤكدة بعقدة الـFlow الحقيقية لنفس مكالمة الشريحة.';
+                break;
             case 'voice_openapi_discover':
                 require_permission('agents.write');
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
