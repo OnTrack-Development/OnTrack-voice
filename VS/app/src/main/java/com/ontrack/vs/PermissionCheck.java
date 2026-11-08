@@ -21,13 +21,13 @@ public final class PermissionCheck {
         boolean notification = Build.VERSION.SDK_INT < 33
             || activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
             == PackageManager.PERMISSION_GRANTED;
-        return "صلاحيات تطبيق VS (للتجربة فقط):\\n"
+        return "صلاحيات تطبيق VS (للتجربة فقط):\n"
             + (mic ? "✓" : "✗") + " الميكروفون: "
-            + (mic ? "مفعّل" : "غير مفعّل - مطلوب فقط لتجربة التسجيل") + "\\n"
+            + (mic ? "مفعّل" : "غير مفعّل - مطلوب فقط لتجربة التسجيل") + "\n"
             + (overlay ? "✓" : "✗") + " الظهور فوق التطبيقات: "
-            + (overlay ? "مفعّل" : "غير مفعّل - للفقاعة العائمة") + "\\n"
+            + (overlay ? "مفعّل" : "غير مفعّل - للفقاعة العائمة") + "\n"
             + (notification ? "✓" : "•") + " الإشعارات: "
-            + (notification ? "متاحة" : "اختيارية") + "\\n\\n"
+            + (notification ? "متاحة" : "اختيارية") + "\n\n"
             + "مسار إرسال الصوت داخل SIM: غير متاح للتطبيق العادي. "
             + "هذه ليست صلاحية ناقصة يمكن تفعيلها من الإعدادات. "
             + "الضغط على «تفعيل الإذن» يفتح إعدادات المعاينة فقط.";
