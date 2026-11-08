@@ -43,7 +43,8 @@ function act():void {
     require_login();require_csrf();
     $a=mine();if(!$a)deny();
     $action=(string)($_POST['action']??'');
-    if($a['role']==='support_viewer' && $action!=='support_leave')deny(403,'وضع الدعم للقراءة فقط');
+    if($a['role']==='support_viewer' && !in_array($action,['support_leave','set_support_view'],true))
+        deny(403,'وضع الدعم للقراءة فقط');
     $id=(int)$a['account_id'];$kind=$a['kind'];
     if(in_array($action,['flow_ai_history','flow_ai_propose','flow_ai_applied','flow_ai_profile_propose','flow_ai_profile_applied','flow_ai_discard','flow_ai_reset','flow_ai_job_status'],true)){
         header('Content-Type: application/json; charset=utf-8');
@@ -531,6 +532,18 @@ function act():void {
                 audit('platform.resellers.visibility',$id,['enabled'=>$enabled]);
                 flash('success',$enabled?'إظهار الريسيلرز مفعّل':'تم إخفاء الريسيلرز وخططهم وروابط تسجيلهم');
                 break;
+            case 'set_support_view':
+                if(!console_can_switch_support_view($a))
+                    deny(403,'تبديل مساحة الريسيلر متاح فقط من جلسة دعم مخوّلة للمنصة');
+                $view=(string)($_POST['view']??'');
+                if(!in_array($view,['admin','user'],true))
+                    throw new InvalidArgumentException('وضع عرض غير صالح');
+                $_SESSION['support']['view']=$view;
+                audit('console.support_reseller_view.changed',$id,[
+                    'view'=>$view,'actor_user_id'=>(int)me()['id'],
+                    'origin_id'=>(int)$_SESSION['support']['origin_id']]);
+                session_regenerate_id(true);
+                go('/?tab=overview');
             case 'set_view':
                 if(!console_can_switch_view($a))deny();
                 $view=(string)($_POST['view']??'');
@@ -553,7 +566,7 @@ function act():void {
                 $expiry=gmdate('Y-m-d H:i:s',time()+900);
                 insert("INSERT INTO support_grants(actor_user_id,target_account_id,reason,expires_at,created_at) VALUES (?,?,?,?,?)",[me()['id'],$target,$reason,$expiry,now()]);
                 $_SESSION['support']=['account_id'=>$target,'origin_id'=>$id,
-                    'origin_view'=>console_view_mode($a),'expires'=>time()+1800];
+                    'origin_view'=>console_view_mode($a),'view'=>'admin','expires'=>time()+1800];
                 audit('support.start',$target,['from'=>$id,'reason'=>$reason]);
                 session_regenerate_id(true);go('/');
             case 'support_leave':
