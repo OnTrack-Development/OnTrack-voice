@@ -51,7 +51,7 @@ assert 'session.optString("agent_name"' in session, 'Greeting must use agent dis
 assert 'id="key"' not in embedded and 'id="tenantWorkspaceSlot"' in embedded, 'Old Pilot UI bundled into Android APK'
 meta=json.loads(Path('saas/mobile/ota/release.json').read_text())
 assert meta['revision']>=40, 'A signed OTA revision must advance'
-assert meta['min_native']==34 and meta['max_native']==49, 'Signed UI must support native version 49 without dropping established legacy compatibility'
+assert meta['min_native']<=34 and meta['max_native']>=50, 'Signed UI must support current Android 50 without dropping version 34 compatibility'
 assert meta['runtime']==1
 for part in ('requestUiRefresh()', "send('checkUpdates')", "data-view=\"dashboard\"", 'body.light', "readUiTheme()"):
     assert part in ui, 'Missing UI-only capability: '+part
@@ -69,10 +69,12 @@ for command in ("send('openConsole')", "send('openScenario')", "send('workspaceS
     assert command in ui, 'Native Android bridge command not wired: '+command
 assert "Number(s.nativeCode)>=23" in ui, 'Do not enable new native commands on older APKs'
 assert "Number(s.nativeCode)>=24" in ui, 'SIM controls must require Android 0.3.3'
-for el in ('id="tenantDeviceCenter"', 'id="tenantMenu"', 'id="tenantQr"', 'id="tenantRefresh"', 'id="tenantSim1"', 'id="tenantSim2"'):
+for el in ('id="tenantDeviceCenter"', 'id="tenantMenu"', 'id="tenantQr"', 'id="tenantPair1"', 'id="tenantPair2"', 'id="tenantRefresh"', 'id="tenantSim1"', 'id="tenantSim2"'):
     assert el in ui, 'Unified SIM panel missing '+el
 for command in ("send('tenantMenu')", "send('tenantQrScan')", "send('tenantRefresh')"):
     assert command in ui, 'Native Android SIM bridge not wired: '+command
+assert '"tenantPairSlot" ->' in native and 'hint="000000"' in native, 'Native direct six-digit pairing dialog missing'
+assert "id=\"v1Pair2\"" in ui and "id=\"tenantPair1\"" in ui, 'Direct SIM pairing buttons missing'
 inline=ui.split('<script>',1)[1].split('</script>',1)[0]
 subprocess.run(['node','--check'],input=inline,text=True,check=True)
 assert "Number(s.nativeCode)>=25" in ui, 'Tenant runtime must remain gated to new native version'
