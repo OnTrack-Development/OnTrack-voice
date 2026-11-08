@@ -3,17 +3,21 @@ package com.ontrack.voiceproof
 /** The new tenant API is deliberately independent from the legacy pilot bearer. */
 object TenantPairingContract {
     const val ENDPOINT = "https://app.ontrackegy.com/saas/console/device/v1/index.php"
-    private val CODE = Regex("(?i)^[a-f0-9]{4}(?:-?[a-f0-9]{4}){5}$")
+    private val CODE = Regex("^[0-9]{6}$")
+    private val LEGACY_CODE = Regex("(?i)^[a-f0-9]{4}(?:-?[a-f0-9]{4}){5}$")
     private val TOKEN = Regex("^otdev_[a-f0-9]{64}$")
     fun code(raw: String): String {
         val value = raw.trim()
-        require(CODE.matches(value)) { "رمز الاقتران غير صالح (24 حرفًا)" }
+        require(CODE.matches(value) || LEGACY_CODE.matches(value)) { "اكتب كود الربط المكوّن من 6 أرقام" }
         return value.uppercase()
     }
-    /** Server locks a single-use code to exactly one SIM slot (92 random bits). */
+    /** The server binds a six-digit ticket to one SIM. Only legacy codes
+     * contain their old SIM nibble and need client-side slot checking. */
     fun codeForSlot(raw: String, selectedSlot: Int): String {
         val normalized = code(raw)
-        require(normalized[0] == ('0' + slot(selectedSlot))) { "رمز الربط مخصص للشريحة الأخرى" }
+        slot(selectedSlot)
+        if(LEGACY_CODE.matches(normalized))
+            require(normalized[0] == ('0' + selectedSlot)) { "رمز الربط مخصص للشريحة الأخرى" }
         return normalized
     }
     fun slot(value: Int): Int {
