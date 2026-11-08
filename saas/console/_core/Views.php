@@ -2130,14 +2130,14 @@ function render_billing(array $a):void{
                 number_format((int)$plan['price_minor']/100,2).' ج.م'];
         }
         if($options)echo card('Upgrade / Downgrade — تغيير باقتك',
-            '<p class="dim">نعرض فرق سعر 30 يوم وحسابًا نسبيًا للأيام المتبقية للمعاينة فقط، وليس رصيدًا أو خصمًا مطبقًا. الدفع الفعلي للباقة المدفوعة حاليًا يتم بسعر الفترة الكاملة عبر Kashier؛ المجانية تتغير فورًا مع حفظ نهاية الفترة.</p>'.
+            '<p class="dim">نعرض فرق سعر 30 يوم وتقدير الفرق النسبي للمعاينة فقط، وليس خصمًا نقديًا. الدفع عبر Kashier بسعر فترة 30 يوم كاملة، ويضاف 30 يومًا بعد تاريخ انتهاء اشتراكك الجاري دون ضياع الأيام المتبقية.</p>'.
             ($current?'<p>باقتك الحالية: <strong>'.e($current['name']).'</strong> · متبقي '.
                 (int)subscription_change_quote($current,$current)['remaining_days'].' يوم</p>':
                 '<p>ليس لديك اشتراك نشط حاليًا.</p>').
             tbl(['الباقة','نوع التغيير','فرق سعر 30 يوم','فرق المدة المتبقية (تقديري)','السعر الجديد'],$switchRows).
             form_start('self_change_plan','/?tab=billing').
             select_html('اختر الباقة الجديدة','plan_id',$options).
-            '<p class="dim">باقة مدفوعة: تفعيلها بعد الدفع فقط، ويبدأ تاريخ 30 يومًا بعد التأكيد. قد يضيع جزء من الفترة الحالية؛ لا يوجد رصيد نسبي مطبق حاليًا.</p>'.
+            '<p class="dim">باقة مدفوعة: التفعيل بعد إشعار دفع موثّق فقط. الفترة الجديدة تبدأ بعد نهاية الاشتراك الحالي المتبقي، وتُضاف 30 يومًا عند التجديد بدون خصم أو ضياع للأيام الحالية.</p>'.
             submit_btn('متابعة تغيير الباقة'));
         if($current){
             $schedule=subscription_scheduled_end($id,(int)$current['subscription_id']);
@@ -2169,6 +2169,36 @@ function render_billing(array $a):void{
             $rows[]=[e($o['account_name']),e($o['external_order_id']),$act,e($o['created_at'])];
         }
         echo card('طلبات الدفع والاعتماد',tbl(['العميل','رقم الطلب','الحالة/الإجراء','التاريخ'],$rows));
+        // Refund/reversal reviews are financial exceptions, not successful
+        // subscription cancellations. Never let a partial or historical
+        // refund silently change a paid entitlement without reconciliation.
+        require_once __DIR__.'/KashierWebhook.php';
+        kashier_refund_init();
+        $refunds=$a['kind']==='platform'
+            ?all("SELECT k.refund_reference,k.event_kind,k.amount_minor,k.status,
+                o.external_order_id,ac.name account_name FROM kashier_refund_events k
+                JOIN orders o ON o.id=k.order_id
+                JOIN accounts ac ON ac.id=o.account_id
+                WHERE k.status='review_required' ORDER BY k.created_at DESC LIMIT 50")
+            :all("SELECT k.refund_reference,k.event_kind,k.amount_minor,k.status,
+                o.external_order_id,ac.name account_name FROM kashier_refund_events k
+                JOIN orders o ON o.id=k.order_id
+                JOIN accounts ac ON ac.id=o.account_id AND ac.parent_id=?
+                WHERE k.status='review_required' ORDER BY k.created_at DESC LIMIT 50",[$id]);
+        if($refunds){
+            $exceptions=[];
+            foreach($refunds as $refund)
+                $exceptions[]=[
+                    e($refund['account_name']),
+                    e((string)$refund['external_order_id']),
+                    e((string)$refund['event_kind']),
+                    e(number_format(((int)$refund['amount_minor'])/100,2)).' ج.م',
+                    e((string)$refund['refund_reference']),
+                    'مراجعة مالية مطلوبة؛ لم يلغِ النظام اشتراكًا غير مؤكد'];
+            echo card('مراجعة استردادات Kashier غير المحسومة',
+                '<p class="info">الاسترداد الجزئي أو غير المحدد أو المتعلق باشتراك قديم لا يوقف الاشتراك تلقائيًا. افحص مرجع العملية من Kashier قبل أي تسوية يدوية.</p>'.
+                tbl(['العميل','الطلب','الحدث','القيمة','مرجع','الإجراء المطلوب'],$exceptions));
+        }
     }
     echo '<div class="info">مدفوعات Kashier الحقيقية لا تُفعّل من صفحة Success؛ التفعيل يتطلب Webhook موثّقًا أو موافقة دفع يدوي مسجلة.</div>';
 }
