@@ -33,6 +33,10 @@ try{
     if($operation==='pair'){
         $slot=$data['sim_slot']??null;
         if(!is_int($slot))device_answer(422,['ok'=>false,'error'=>'invalid_slot']);
+        device_pairing_rate_guard(
+            (string)($_SERVER['REMOTE_ADDR']??''),
+            (string)($data['installation_id']??'')
+        );
         $bound=device_pairing_redeem(
             (string)($data['code']??''),(string)($data['installation_id']??''),$slot,
             trim((string)($data['device_name']??''))
