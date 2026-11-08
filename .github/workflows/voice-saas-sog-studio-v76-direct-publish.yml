@@ -1,15 +1,7 @@
 name: OnTrack v76 SOG agent studio save and auto-answer verification
+# Historic v76 UI-only rollout is incompatible with v78 packed PHP transport.
+# Manual-only diagnostics; v78 deploys the dependent PHP+JS files atomically.
 on:
-  push:
-    branches: [feat/io-premium-native-v51-20261107]
-    paths:
-      - '.github/workflows/voice-saas-sog-studio-v76-direct-publish.yml'
-      - 'saas/console/assets/js/flow-graph.js'
-      - 'saas/console/assets/js/app.js'
-      - 'tools/test_v76_agent_save_e2e.py'
-      - 'tools/test_v76_sog_studio_submission.cjs'
-      - 'tools/deploy_saas_studio_v76.py'
-      - 'tools/host_v76_sog_voice_audit.php'
   workflow_dispatch:
 permissions:
   contents: read
