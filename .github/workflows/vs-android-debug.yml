@@ -22,17 +22,10 @@ jobs:
         working-directory: VS
     steps:
       - uses: actions/checkout@v4
-      - name: Use existing Java 21 on Windows runner
-        shell: powershell
-        run: |
-          $candidate = @(
-            'C:\Program Files\Java\jdk-21',
-            'C:\Program Files\Eclipse Adoptium\jdk-21',
-            'C:\Program Files\Microsoft\jdk-21.0.0'
-          )
-          $j = Get-Command java -ErrorAction SilentlyContinue
-          if ($j) { java -version }
-          else { throw 'Java is not installed in PATH' }
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Reuse installed Android SDK (skip broken setup-android action)
         shell: powershell
         run: |
