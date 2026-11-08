@@ -26,6 +26,7 @@ function refund_body(array $order,string $event='refund',?string $amount=null):a
     $d=$order['data'];
     $d['transactionId']='RF_'.bin2hex(random_bytes(16));
     $d['originalTransactionId']=$order['tx'];
+    $d['eventType']=$event; // Signed event type, not just untrusted outer JSON metadata.
     if($amount!==null)$d['amount']=$amount;
     unset($d['signatureKeys']);
     $d['signatureKeys']=array_values(array_filter(array_keys($d),'is_string'));
@@ -79,9 +80,19 @@ $denied=false;
 try{kashier_settle($bad,null);}catch(InvalidArgumentException){$denied=true;}
 pay_check($denied,'forged original reference fails even if signed structure valid');
 $secondRev=refund_body($second,'reversal');
-pay_check(kashier_settle($secondRev,null)['status']==='refunded','full reversal matched to latest subscription');
-pay_check((string)one('SELECT status FROM subscriptions WHERE id=?',[$two['id']])['status']==='cancelled',
-    'only matching active paid subscription revoked');
-pay_check((int)one('SELECT COUNT(*) n FROM kashier_refund_events')['n']===3,
-    'three distinct signed refund receipts retained');
+// An attacker can relabel the unsigned outer event but cannot alter the
+// signed eventType; that mismatch must not revoke a paid entitlement.
+$unsafe=$secondRev;$unsafe['event']='refund';
+pay_check(kashier_settle($unsafe,null)['status']==='review_required',
+    'unsigned outer event mismatch requires manual review rather than auto-reversal');
+pay_check((string)one('SELECT status FROM subscriptions WHERE id=?',[$two['id']])['status']==='active',
+    'relabelled webhook cannot revoke paid time');
+// A separate provider refund event for the same payment is now ambiguous
+// because one event is already under review, and must never double-reverse.
+pay_check(kashier_settle($secondRev,null)['status']==='review_required',
+    'multiple refund deliveries for one payment cannot silently revoke twice');
+pay_check((string)one('SELECT status FROM subscriptions WHERE id=?',[$two['id']])['status']==='active',
+    'ambiguous signed reversal requires reconciliation before cancellation');
+pay_check((int)one('SELECT COUNT(*) n FROM kashier_refund_events')['n']===4,
+    'four signed refund/review receipts retained without duplicate cancellation');
 echo "V67_PAID_TERM_CARRY_AND_TRANSACTION_LINKED_REVERSAL_PASS\n";
