@@ -46,6 +46,9 @@ function subscription_assign_demo(int $accountId,int $planId):array {
     $plan=one("SELECT id FROM plans WHERE id=? AND kind=? AND status='active'",
         [$planId,$kind]);
     if(!$plan)throw new InvalidArgumentException('subscription_plan_unavailable');
+    $full=one('SELECT * FROM plans WHERE id=?',[$planId]);
+    if(!$full||!plan_catalog_allowed($full,$account))
+        throw new InvalidArgumentException('subscription_plan_outside_reseller_catalog');
     if(db()->inTransaction())
         throw new RuntimeException('subscription_nested_transaction_denied');
     db()->beginTransaction();
