@@ -47,7 +47,9 @@ foreach(['','SVG<svg/>','<script>alert(1)</script>',str_repeat('X',3*1024*1024+1
 $name=brand_identity_store_binary($platform,$png);
 brand_check((bool)preg_match('/^logo-1-[a-f0-9]{12}\.png$/D',$name),'platform logo filename');
 brand_check(is_file(private_path().'/'.$name),'private file exists');
-brand_check((int)(fileperms(private_path().'/'.$name)&0777)===0600,'logo private permissions');
+if(PHP_OS_FAMILY!=='Windows')
+    brand_check((int)(fileperms(private_path().'/'.$name)&0777)===0600,
+        'logo private permissions on production Unix');
 brand_check(account(1)['logo_path']===$name,'platform logo linked in account');
 brand_identity_save($platform,'OnTrack Custom Image','image');
 brand_check(brand_identity_mode($platform)==='image','image only persisted');
