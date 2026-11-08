@@ -4,7 +4,7 @@
 **الفرع:** feat/io-premium-native-v51-20261107  
 **التاريخ:** 2026-11-08  
 **مكان النشر:** /home/appontrack/public_html/  
-**النشر المؤكد للسيرفر:** [GitHub Actions 42457589011](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42457589011) — SUCCESS، واختبارات PHP وعزل الحسابات وتحقق HTTPS وتسجيل cron PASS.  
+**النشر المؤكد للسيرفر:** [GitHub Actions 42458205969](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42458205969) — SUCCESS، اختبار كامل للدفع والـSSO والبريد والـOutbox وسياسات DNC/حملات الشريحة، مع تحقق PHP 8.3 وHTTPS وتسجيل Cron PASS.  
 **نسخة التطبيق:** v56 / 0.3.33 — لا تُعتبر منشورة إلا بعد نجاح بوابة Android والبصمة والنشر العام على مسار OTA.
 
 ## 1. الدفع الخارجي WHMCS/Laravel — استحقاق مدفوع حقيقي
@@ -26,8 +26,8 @@
 - `operational_event_receipts` سجل محلي دائم مستند إلى SHA-256 ومرجع outbox لا يمكن تكراره، ومهام `pending/processing/failed/delivered_local` تدعم انتهاء leases واسترداد المهام بأمان.
 - `delivered_local` معناه **سجل محلي تم قبوله**، وليس رسالة وصلت WHMCS أو Email.
 - worker مستقل مع lock لتشغيل Outbox والبريد، وworker Flow AI مستقل، وWhatsApp worker، وفحص Knowledge Sync؛ جميعها تكتب heartbeat وحالة آخر تشغيل للأدمن.
-- إعداد cron الخاص بهذه العمال في [v68 host publish](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42457589011) فقط، دون تفعيل Host-Link الموقوف أو مساس بإدخالات cron الأخرى.
-- اختبارات `V68_OUTBOX_RECOVERY_SMTP_RETRY_SECRET_ERASURE_AND_SIGNUP_PASS` PASS.
+- إعداد cron الخاص بهذه العمال في [v68 host publish](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42458205969) فقط، دون تفعيل Host-Link الموقوف أو مساس بإدخالات cron الأخرى.
+- اختبارات `V68_OUTBOX_RECOVERY_SMTP_RETRY_SECRET_ERASURE_AND_SIGNUP_PASS` PASS. اختبار استحقاقات الشريحة `V68_CAMPAIGN_PAIRED_SIM_CONSENT_DNC_E2E_GATE_UNCERTAIN_CALL_PASS` أيضًا PASS في قاعدة اختبار معزولة؛ **ليس** إثبات اتصال هاتفي في شبكة المحمول.
 
 ## 4. بريد التسجيل وإعادة كلمة السر
 - `EmailDelivery.php` يوفّر SMTP/TLS موثقًا عبر ملف خاص خارج webroot، أو PHP mail حسب الإعداد. لا توجد كلمات مرور SMTP داخل الريبو.
