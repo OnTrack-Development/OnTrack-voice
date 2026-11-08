@@ -1,0 +1,90 @@
+name: Deploy Fish credit failure detection for same-call Google fallback
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-fish-credit-v54-server-deploy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-fish-credit-server-v54
+  cancel-in-progress: false
+jobs:
+  live:
+    name: PHP quota tests, safe host patch and public endpoint health
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: e3405f0738bc487f18ade3698788accf19fd7a07
+          path: .build/fish-before
+          persist-credentials: false
+      - name: Validate PHP fallback policy and no-leak contract
+        run: |
+          $ErrorActionPreference='Stop'
+          & php -l saas/console/device/v1/FishTtsFallbackPolicy.php
+          if($LASTEXITCODE -ne 0){throw 'Fish fallback PHP class has syntax error'}
+          & php -l saas/console/device/v1/tts.php
+          if($LASTEXITCODE -ne 0){throw 'Fish TTS PHP endpoint has syntax error'}
+          & php tools/test_fish_tts_failover.php
+          if($LASTEXITCODE -ne 0){throw 'Quota classification and circuit breaker tests failed'}
+          & python -m py_compile tools/deploy_fish_credit_fallback_v54.py
+          if($LASTEXITCODE -ne 0){throw 'Host delta script syntax invalid'}
+          & python tools/test_fish_voice_failover_contract.py
+          if($LASTEXITCODE -ne 0){throw 'Voice fallback entitlement contract invalid'}
+          Write-Host 'FISH_CREDIT_FAILURE_CLASSIFICATION_AND_SECURITY_PASS'
+      - name: Stage only reviewed PHP changes with authorized SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(-not (Test-Path -LiteralPath $key)){throw 'Authorized SSH key unavailable'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
+            '-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/fish-fallback-v54'
+          & ssh.exe @flags -p 7195 $remote ("mkdir -p '"+$stage+"' && chmod 700 '"+$stage+"'")
+          if($LASTEXITCODE -ne 0){throw 'Private staging directory unavailable'}
+          $files=@(
+            @{src='.build/fish-before/saas/console/device/v1/tts.php';dest='old_tts.php'},
+            @{src='saas/console/device/v1/tts.php';dest='new_tts.php'},
+            @{src='saas/console/device/v1/FishTtsFallbackPolicy.php';dest='FishTtsFallbackPolicy.php'},
+            @{src='tools/deploy_fish_credit_fallback_v54.py';dest='deploy.py'}
+          )
+          foreach($f in $files){
+            & scp.exe @flags -P 7195 $f.src ($remote+':'+$stage+'/'+$f.dest)
+            if($LASTEXITCODE -ne 0){throw ('Failed stage '+$f.dest)}
+          }
+          Write-Host 'PRIVATE_REVIEWED_FISH_TTS_DELTA_STAGED'
+      - name: Atomically publish Fish credit errors and preserve rollback
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $remote='appontrack@65.21.208.232'
+          $opts=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
+            '-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $stage='/home/appontrack/.ontrack-mobile/fish-fallback-v54'
+          & ssh.exe @opts -p 7195 $remote ('python3 '+$stage+'/deploy.py')
+          if($LASTEXITCODE -ne 0){throw 'Fish fallback rejected unexpected host drift or failed atomic install'}
+          & ssh.exe @opts -p 7195 $remote '/opt/cpanel/ea-php83/root/usr/bin/php -l /home/appontrack/public_html/device/v1/tts.php'
+          if($LASTEXITCODE -ne 0){throw 'Installed PHP TTS syntax not valid'}
+          & ssh.exe @opts -p 7195 $remote '/opt/cpanel/ea-php83/root/usr/bin/php -l /home/appontrack/public_html/device/v1/FishTtsFallbackPolicy.php'
+          if($LASTEXITCODE -ne 0){throw 'Installed Fish failover policy syntax invalid'}
+          Write-Host 'LIVE_FISH_PROVIDER_QUOTA_ERRORS_PUBLISHED_PASS'
+      - name: Public endpoint still requires POST and authenticated device
+        run: |
+          $ErrorActionPreference='Stop'
+          $nonce=[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          $uri='https://app.ontrackegy.com/device/v1/tts.php?check='+$nonce
+          $response=Invoke-WebRequest -Uri $uri -Method GET -TimeoutSec 25 -SkipHttpErrorCheck
+          if([int]$response.StatusCode -ne 405){throw ('Live TTS route HTTP mismatch '+$response.StatusCode)}
+          $body=$response.Content|ConvertFrom-Json
+          if($body.error -ne 'method_not_allowed'){throw 'Unexpected production endpoint body'}
+          Write-Host 'LIVE_TTS_ROUTE_AUTH_AND_METHOD_GUARD_PASS'
