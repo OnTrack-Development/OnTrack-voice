@@ -90,6 +90,8 @@ function wa_whmcs_run_job(int $jobId,?callable $bridgeTransport=null,?callable $
     $job=one("SELECT * FROM wa_ai_jobs WHERE id=? AND status='pending'",[$jobId]);
     if(!$job)return ['status'=>'not_pending'];
     $accountId=(int)$job['account_id'];
+    if(!account_service_active(account($accountId)))
+        return ['status'=>'service_suspended'];
     $conv=wa_conversation((int)$job['conversation_id'],$accountId);
     $conn=wa_connection((int)$job['connection_id'],$accountId);
     if(empty($conn['whmcs_bridge_verified_at'])||$conn['state']!=='verified'||
