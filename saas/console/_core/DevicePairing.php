@@ -35,7 +35,7 @@ function device_pairing_create(int $accountId,int $siteId,int $agentId,int $user
     $account=account($accountId);
     $site=one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$siteId,$accountId]);
     $agent=one("SELECT id FROM agents WHERE id=? AND account_id=? AND site_id=? AND status!='archived'",[$agentId,$accountId,$siteId]);
-    if(!$account||$account['status']!=='active'||!$site||!$agent)
+    if(!account_service_active($account)||!$site||!$agent)
         throw new InvalidArgumentException('device_invalid_account_site_agent');
     $bucket=intdiv(time(),300);
     for($attempt=0;$attempt<40;$attempt++){
@@ -137,7 +137,7 @@ function device_pairing_redeem(string $code,string $installationId,int $simSlot,
         $site=one("SELECT id FROM sites WHERE id=? AND account_id=? AND status='active'",[$pair['site_id'],$pair['account_id']]);
         $agent=one("SELECT id FROM agents WHERE id=? AND account_id=? AND site_id=? AND status!='archived'",
             [$pair['agent_id'],$pair['account_id'],$pair['site_id']]);
-        if(!$a||$a['status']!=='active'||!$site||!$agent)
+        if(!account_service_active($a)||!$site||!$agent)
             throw new InvalidArgumentException('device_pairing_target_unavailable');
         // Reserve slot atomically using UNIQUE nullable slot_claim across tenants.
         $deviceId=insert("INSERT INTO device_bindings(account_id,site_id,agent_id,installation_id,sim_slot,slot_claim,device_name,token_hash,status,created_at)
@@ -163,11 +163,15 @@ function device_pairing_redeem(string $code,string $installationId,int $simSlot,
 /** Active token must be tied to a valid, current account, site and agent. */
 function device_binding_authorize(string $token):?array {
     if(!preg_match('/^otdev_[a-f0-9]{64}$/D',$token))return null;
-    return one("SELECT d.* FROM device_bindings d
+    $binding=one("SELECT d.* FROM device_bindings d
         JOIN accounts a ON a.id=d.account_id AND a.status='active'
         JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
         JOIN agents ag ON ag.id=d.agent_id AND ag.site_id=d.site_id AND ag.account_id=d.account_id AND ag.status!='archived'
         WHERE d.token_hash=? AND d.status='active'",[hash('sha256',$token)]);
+    // A child's paid SIM bearer must never outlive its reseller's suspension.
+    // This is an authorization check, not a destructive token revocation.
+    return $binding && account_service_active(account((int)$binding['account_id']))
+        ? $binding : null;
 }
 require_once __DIR__.'/PublishedFlow.php';
 function device_binding_profile(array $binding):array {
@@ -175,7 +179,7 @@ function device_binding_profile(array $binding):array {
         [$binding['agent_id'],$binding['account_id'],$binding['site_id']]);
     $site=one('SELECT id,name FROM sites WHERE id=? AND account_id=?',[$binding['site_id'],$binding['account_id']]);
     $tenant=account((int)$binding['account_id']);
-    if(!$agent||!$site||!$tenant||$tenant['status']!=='active')throw new RuntimeException('device_profile_unavailable');
+    if(!$agent||!$site||!account_service_active($tenant))throw new RuntimeException('device_profile_unavailable');
     $published=published_agent_flow((int)$binding['account_id'],(int)$binding['site_id'],(int)$binding['agent_id']);
     return ['flow_revision'=>$published?(int)$published['revision']:null,
         'flow_hash'=>$published?(string)$published['flow_hash']:null,
