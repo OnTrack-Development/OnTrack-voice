@@ -82,6 +82,83 @@
     });
   };
   setUpPaletteEditor();
+  // Raw binary upload keeps the image outside multipart/form-data: on some
+  // shared hosts their WAF rejected the old multipart brand request with 403.
+  document.addEventListener('change',async event=>{
+    const input=event.target.closest?.('[data-brand-file]');
+    if(!input||!input.files?.length)return;
+    const form=input.closest('[data-brand-form]');
+    const status=form?.querySelector('[data-brand-upload-status]');
+    const submit=form?.querySelector('[type="submit"]');
+    const csrf=form?.querySelector('input[name="csrf"]')?.value||'';
+    const original=input.files[0];
+    const valid=['image/png','image/jpeg','image/webp'];
+    if(!form||!csrf||!valid.includes(original.type)){
+      if(status)status.textContent='مسموح PNG أو JPEG أو WEBP فقط.';
+      input.value='';return;
+    }
+    const setStatus=text=>{if(status)status.textContent=text};
+    const isOversized=original.size>2.4*1024*1024;
+    submit?.setAttribute('disabled','disabled');
+    setStatus('جارٍ تجهيز الشعار وحفظه…');
+    try{
+      let blob=original;
+      if(isOversized){
+        // Large raster files are converted to WebP retaining transparency.
+        // No forced square crop. 4096px longest edge, never upscaled.
+        let bitmap;
+        try{
+          bitmap=await createImageBitmap(original);
+        }catch{
+          throw Error('المتصفح لم يقدر يقرأ الصورة. جرّب PNG أو WebP صالح.');
+        }
+        const width=bitmap.width,height=bitmap.height;
+        if(!width||!height||width>12000||height>12000){
+          bitmap.close?.();throw Error('أبعاد الصورة غير مقبولة.');
+        }
+        const scale=Math.min(1,4096/Math.max(width,height),Math.sqrt(24000000/(width*height)));
+        const canvas=document.createElement('canvas');
+        canvas.width=Math.max(1,Math.round(width*scale));
+        canvas.height=Math.max(1,Math.round(height*scale));
+        const ctx=canvas.getContext('2d');
+        if(!ctx){bitmap.close?.();throw Error('تعذر تجهيز الصورة على الجهاز.');}
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+        bitmap.close?.();
+        blob=await new Promise((resolve,reject)=>
+          canvas.toBlob(result=>result?resolve(result):reject(Error('فشل ضغط صورة الشعار.')),
+            'image/webp',.9)
+        );
+      }
+      if(blob.size>3*1024*1024)throw Error('الشعار ما زال أكبر من 3MB بعد التحسين؛ جرّب WebP أقل حجمًا.');
+      const response=await fetch('/saas/console/brand-upload',{
+        method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
+        headers:{'Content-Type':blob.type||original.type,'X-CSRF-Token':csrf,
+          'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},
+        body:blob
+      });
+      const type=(response.headers.get('Content-Type')||'').toLowerCase();
+      const payload=type.includes('application/json')
+        ?await response.json().catch(()=>null):null;
+      if(response.status===403)
+        throw Error('Forbidden 403 من طبقة الحماية/الاستضافة. مسار الرفع المباشر لم يصل لتطبيق PHP. راجع WAF لهذا المسار.');
+      if(response.status===401||response.status===419)
+        throw Error('انتهت صلاحية جلسة الدخول. افتح الإعدادات من جديد.');
+      if(!response.ok||payload?.ok!==true)
+        throw Error(payload?.error||'فشل رفع الصورة (HTTP '+response.status+').');
+      setStatus('اترفع شعارك بنجاح. بيتم تحديث المعاينة…');
+      input.value='';window.ontrackToast?.('تم حفظ صورة الشعار بنجاح');
+      // Reload guarantees all three placements update (sidebar/login/settings)
+      // without leaving an old cached logo on another tab.
+      window.location.reload();
+    }catch(error){
+      setStatus(error.message||'تعذر رفع الشعار.');
+      input.value='';
+      window.ontrackToast?.(error.message||'تعذر رفع الشعار.',{error:true});
+    }finally{
+      submit?.removeAttribute('disabled');
+    }
+  });
   document.querySelectorAll('[data-toggle-password]').forEach(button=>button.addEventListener('click',()=>{
     const input=document.getElementById('loginPassword');if(!input)return;
     input.type=input.type==='password'?'text':'password';
