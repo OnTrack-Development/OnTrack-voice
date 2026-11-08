@@ -495,6 +495,7 @@ class MobileLinkService:Service() {
                             val slot=job.optInt("sim_slot",-1)
                             val jobId=job.optInt("id",-1)
                             val safeToCall=current==null && managerCallback==null &&
+                                campaignInProgress==null && campaignClaim==null &&
                                 agentEnabled && !tenantPairingInProgress &&
                                 slot in 0..1 && enrollment.paired(slot) &&
                                 runCatching{enrollment.bindingId(slot)>0}.getOrDefault(false)
