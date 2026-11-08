@@ -8,6 +8,8 @@ try{
     require '/home/appontrack/public_html/_core/Bootstrap.php';
     $driver=driver();
     $pending=(int)(one("SELECT COUNT(*) n FROM wa_ai_jobs WHERE status='pending'")['n']??0);
+    $inflight=(int)(one("SELECT COUNT(*) n FROM wa_ai_jobs
+        WHERE status IN ('processing','sending')")['n']??0);
     $eligible=(int)(one("SELECT COUNT(*) n FROM wa_ai_jobs j
         JOIN wa_connections w ON w.id=j.connection_id AND w.account_id=j.account_id
         JOIN accounts a ON a.id=j.account_id AND a.status='active'
@@ -28,7 +30,8 @@ try{
     $heartbeat=one("SELECT worker,last_run_at,last_success_at FROM
         operational_worker_heartbeat WHERE worker='whatsapp_ai'");
     $report=['probe'=>'v73_wa_read_only','database_driver'=>$driver,
-        'pending_jobs_total'=>$pending,'potential_worker_jobs'=>$eligible,
+        'pending_jobs_total'=>$pending,'inflight_jobs_total'=>$inflight,
+        'potential_worker_jobs'=>$eligible,
         'whatsapp_heartbeat_seen'=>$heartbeat!==null,
         'last_run_age_seconds'=>$heartbeat!==null?
             max(0,time()-(int)strtotime((string)$heartbeat['last_run_at'].' UTC')):null,
