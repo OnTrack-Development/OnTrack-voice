@@ -45,6 +45,8 @@ jobs:
           $env:ANDROID_SDK_ROOT=$sdk
           "ANDROID_HOME=$sdk"|Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "ANDROID_SDK_ROOT=$sdk"|Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          & python tools/test_android_v58_permission_contract.py
+          if($LASTEXITCODE -ne 0){throw 'Minimal Voice permission source contract failed'}
           & python saas/mobile/audio-proof/prepare.py .build/jemrec
           if($LASTEXITCODE -ne 0){throw 'Android overlay failed'}
           & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
@@ -89,6 +91,19 @@ jobs:
           if($package -ne 'com.ontrack.voiceproof' -or $version -ne '58'){
             throw 'Android package or v58 code mismatch'
           }
+          $grants=(& $analyzer manifest permissions $apk | Out-String)
+          if($LASTEXITCODE -ne 0){throw 'Unable to inspect signed APK permissions'}
+          if(!$grants.Contains('android.permission.READ_PHONE_STATE')){
+            throw 'Signed Voice APK missing required SIM state permission'
+          }
+          foreach($redundant in @('RECORD_AUDIO','READ_MEDIA_AUDIO',
+            'READ_EXTERNAL_STORAGE','WRITE_EXTERNAL_STORAGE','READ_CALL_LOG',
+            'READ_CONTACTS','USE_FULL_SCREEN_INTENT')){
+            if($grants.Contains('android.permission.'+$redundant)){
+              throw ('Unnecessary recording/contact permission leaked into signed APK: '+$redundant)
+            }
+          }
+          Write-Host 'V58_SIGNED_APK_MINIMAL_RUNTIME_PERMISSION_AUDIT_PASS'
           & python tools/verify_shell_jar_packaging.py $apk '.build/jemrec/shellserver/ontrack-voiceproof-capture.jar'
           if($LASTEXITCODE -ne 0){throw 'Native PCM module missing'}
           & python tools/prepare_mobile_ota.py .build/artifact/ota
