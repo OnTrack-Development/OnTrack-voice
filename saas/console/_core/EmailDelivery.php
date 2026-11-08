@@ -36,7 +36,7 @@ function email_delivery_config():array{
     if($transport==='smtp'){
         $host=(string)($config['smtp_host']??'');
         $port=(int)($config['smtp_port']??0);
-        if(!preg_match('/^(?=.{4,190}$)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])$/DiD',$host)||
+        if(!preg_match('/^(?=.{4,190}$)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])$/iD',$host)||
            !str_contains($host,'.')||!in_array($port,[465,587],true)||
            strlen((string)($config['smtp_user']??''))<1||
            strlen((string)($config['smtp_password']??''))<1)
@@ -122,7 +122,8 @@ function email_delivery_transport(string $to,string $subject,string $body,
 function email_queue_submit(string $purpose,string $address,string $subject,string $body):bool{
     if(!in_array($purpose,['signup','password_reset'],true)||
        !filter_var($address,FILTER_VALIDATE_EMAIL)||
-       strlen($body)>8000||strlen($subject)>250)
+       strlen($body)>8000||strlen($subject)>250||
+       preg_match('/[\\r\\n]/',$subject.$address))
         throw new InvalidArgumentException('mail_job_invalid');
     email_delivery_init();
     $payload=json_encode(['to'=>$address,'subject'=>$subject,'body'=>$body],
