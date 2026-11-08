@@ -777,17 +777,10 @@ function act():void {
                 insert("INSERT INTO campaigns(account_id,site_id,name,status,created_at) VALUES (?,?,?,'draft',?)",[$id,$sid,required('name',140),now()]);
                 audit('campaign.draft_created',$id);break;
             case 'create_key':
-                if(!allowed('integrations.manage')&&$kind!=='platform')deny();
-                $sid=intfield('site_id');if($sid&&!owned_site($sid,$id))deny();
-                $name=required('name',90);$scope=field('scopes',150);
-                $allowedScopes=['agents:invoke','knowledge:read','leads:write','customers:create','plans:read','appointments:write'];
-                $parts=array_filter(array_map('trim',explode(',',$scope)));
-                if(!$parts||array_diff($parts,$allowedScopes))throw new InvalidArgumentException('صلاحيات API غير معروفة');
-                if(in_array('customers:create',$parts,true)&&$kind!=='reseller')deny();
-                $token='otv_'.bin2hex(random_bytes(30));
-                insert("INSERT INTO api_keys(account_id,site_id,name,prefix,token_hash,scopes,status,created_at,secret_enc) VALUES (?,?,?,?,?,?,'active',?,?)",[$id,$sid?:null,$name,substr($token,0,12),hash('sha256',$token),implode(',',$parts),now(),seal_secret($token)]);
-                audit('api_key.created',$id,['name'=>$name,'scopes'=>$scope,'site'=>$sid]);
-                flash('secret','API Key: '.$token.' — سيظهر مرة واحدة فقط');break;
+                // Product policy: phone pairing is account-scoped 6 digits.
+                // No more client-issued API credentials. Existing stored keys
+                // are not destroyed here because integrations may still use them.
+                deny(410,'إصدار مفاتيح API للعملاء متوقف. ربط الشرائح بالكود المكوّن من 6 أرقام فقط.');
             case 'revoke_key':
                 if(!allowed('integrations.manage')&&$kind!=='platform')deny();
                 execute("UPDATE api_keys SET status='revoked' WHERE id=? AND account_id=?",[intfield('key_id'),$id]);
@@ -1167,6 +1160,7 @@ function act():void {
             case 'reveal_secret':
                 if(!in_array($a['role'],['owner','admin'],true) || active_support())deny();
                 $kindKey=field('secret_type',20);
+                if($kindKey==='api')deny(410,'مفاتيح API القديمة لا تظهر أو تتدوّر؛ استخدم ربط الشريحة بكود من 6 أرقام.');
                 $tbl=$kindKey==='api'?'api_keys':($kindKey==='integration'?'integrations':null);
                 if(!$tbl)deny();
                 // Authenticated + CSRF-verified owner/admin, audit every secret reveal.
@@ -1179,6 +1173,7 @@ function act():void {
             case 'rotate_secret':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
                 $kindKey=field('secret_type',20);
+                if($kindKey==='api')deny(410,'مفاتيح API القديمة لا تظهر أو تتدوّر؛ استخدم ربط الشريحة بكود من 6 أرقام.');
                 $tbl=$kindKey==='api'?'api_keys':($kindKey==='integration'?'integrations':null);
                 if(!$tbl)deny();
                 $row=one('SELECT * FROM '.$tbl.' WHERE id=? AND account_id=? AND status=?',[intfield('secret_id'),$id,'active']);
@@ -1191,7 +1186,8 @@ function act():void {
                 flash('secret','تم إلغاء المفتاح السابق، المفتاح الجديد: '.$token);break;
             case 'rename_secret':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
-                $tbl=field('secret_type',20)==='api'?'api_keys':'integrations';
+                if(field('secret_type',20)==='api')deny(410,'إدارة إصدار مفاتيح العميل أُلغيت.');
+                $tbl='integrations';
                 execute('UPDATE '.$tbl.' SET name=? WHERE id=? AND account_id=?',[required('name',100),intfield('secret_id'),$id]);
                 audit('secret.renamed',$id,['type'=>$tbl]);break;
             case 'update_site':
@@ -1533,6 +1529,7 @@ function act():void {
                 $simSlot=(int)$requestedSlot;
                 $code=device_pairing_create($id,$siteId,$agentId,(int)me()['id'],$simSlot);
                 audit('device.pairing.created',$id,['site_id'=>$siteId,'agent_id'=>$agentId,'sim_slot'=>$simSlot]);
+                flash('device_pair_slot',(string)$simSlot);
                 flash('device_pair_code',$code);
                 break;
             case 'cancel_device_pairing':
