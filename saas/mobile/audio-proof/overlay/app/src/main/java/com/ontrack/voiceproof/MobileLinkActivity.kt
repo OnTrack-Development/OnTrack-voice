@@ -1090,7 +1090,17 @@ class MobileLinkActivity:ComponentActivity(){
                         contactsRequest(JSONObject().put("confirmed",true).put("id",id)
                             .put("blocked",msg.getBoolean("blocked")))
                     }
-                    "campaignAutoEnable"->error("الاتصال الجماعي معطل حتى تكتمل اختبارات سياسات الموافقة وDNC على SaaS؛ لن يستخدم مفتاح Pilot")
+                    "campaignAutoEnable"->{
+                        check(msg.optBoolean("confirmed")){"موافقة صاحب الجهاز وتكاليف المكالمات مطلوبة"}
+                        check(!MobileLinkService.inCall){"تشغيل الحملات مسموح والهاتف غير مشغول"}
+                        check(tenantEnrollment.hasAny()){"اربط الشريحة بحساب SaaS أولًا"}
+                        if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,
+                                Manifest.permission.CALL_PHONE)!=PackageManager.PERMISSION_GRANTED)
+                            campaignPhonePermission.launch(Manifest.permission.CALL_PHONE)
+                        else ContextCompat.startForegroundService(this@MobileLinkActivity,
+                            Intent(this@MobileLinkActivity,MobileLinkService::class.java)
+                                .setAction(MobileLinkService.ACTION_CAMPAIGN_ENABLE))
+                    }
                     "campaignAutoDisable"->ContextCompat.startForegroundService(this@MobileLinkActivity,
                         Intent(this@MobileLinkActivity,MobileLinkService::class.java)
                             .setAction(MobileLinkService.ACTION_CAMPAIGN_DISABLE))
