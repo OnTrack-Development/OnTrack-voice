@@ -471,7 +471,9 @@ function render_accounts(array $a):void{
     $adminCanGrant=$a['kind']==='platform'&&in_array($a['role'],['owner','admin'],true)
         &&!active_support()&&console_view_mode($a)==='admin';
     $planChoices=['user'=>[],'reseller'=>[]];
-    if($adminCanGrant)foreach(all("SELECT id,name,kind,price_minor,call_quota FROM plans WHERE status='active' ORDER BY kind,price_minor,id") as $p){
+    if($adminCanGrant)foreach(all("SELECT p.id,p.name,p.kind,p.price_minor,p.call_quota
+        FROM plans p LEFT JOIN reseller_plan_owners o ON o.plan_id=p.id
+        WHERE p.status='active' AND o.plan_id IS NULL ORDER BY p.kind,p.price_minor,p.id") as $p){
         if(!isset($planChoices[$p['kind']]))continue;
         $planChoices[$p['kind']][(string)$p['id']]=(string)$p['name'].' — '.
             (int)$p['call_quota'].' مكالمة · '.number_format((int)$p['price_minor']/100,2).' ج.م';
@@ -503,7 +505,14 @@ function render_plans(array $a):void{
     require_once __DIR__.'/GoogleTenantKeys.php';google_voice_key_schema();
     require_once __DIR__.'/AiRelay.php';ai_relay_assistant_limits_schema();
     $type=(string)$a['kind'];$id=(int)$a['account_id'];
-    $list=$type==='platform'?all(platform_resellers_visible()?'SELECT * FROM plans ORDER BY kind,id':"SELECT * FROM plans WHERE kind='user' ORDER BY kind,id"):all("SELECT * FROM plans WHERE kind='user' AND status='active' ORDER BY id");
+    plan_catalog_init();
+    $list=$type==='platform'
+        ?all("SELECT p.* FROM plans p LEFT JOIN reseller_plan_owners o ON o.plan_id=p.id
+            WHERE o.plan_id IS NULL".(platform_resellers_visible()?"":" AND p.kind='user'")." ORDER BY p.kind,p.id")
+        :all("SELECT p.* FROM plans p LEFT JOIN reseller_plan_owners o ON o.plan_id=p.id
+            WHERE p.kind='user' AND p.status='active'
+                AND (o.plan_id IS NULL OR o.reseller_account_id=?)
+            ORDER BY p.price_minor,p.id",[$id]);
     $rows=[];
     foreach($list as $p){
         $rows[]=[
@@ -537,12 +546,26 @@ function render_plans(array $a):void{
                 '<label class="field">عدد مفاتيح Google للعميل<input name="google_key_limit" type="number" min="0" max="1000" required value="'.(int)($plan['google_key_limit']??1).'"></label>'.
                 '<label class="field">مفاتيح Assistant Text للعميل<input name="assistant_key_limit" type="number" min="0" max="1000" required value="'.(int)($plan['assistant_key_limit']??0).'"></label>'.
                 '</div><div class="plan-actions"><button class="btn primary" type="submit">حفظ تغييرات الباقة</button></div></form>'.
+                form_start('platform_plan_dispose','/?tab=plans','class="plan-archive"').
+                '<input type="hidden" name="operation" value="delete"><input type="hidden" name="plan_id" value="'.(int)$plan['id'].'">'.
+                '<button class="btn small danger" type="submit" data-confirm="حذف الباقة إذا لم تستخدم؛ وإلا أرشفتها مع حفظ السجلات؟">حذف / أرشفة</button></form>'.
                 form_start('archive_plan','/?tab=plans','class="plan-archive"').
                 '<input type="hidden" name="plan_id" value="'.(int)$plan['id'].'">'.
                 '<button class="btn small danger" type="submit" data-confirm="إيقاف بيع الباقة؟ الاشتراكات الحالية ستظل محفوظة">إيقاف بيع الباقة</button></form>'.
                 '</div></details>';
         }
         echo '</div></section>';
+        $archived=array_values(array_filter($list,static fn($p)=>(string)$p['status']==='archived'));
+        if($archived){
+            $forms='';
+            foreach($archived as $plan){
+                $forms.='<div class="section-line"><span>'.e((string)$plan['name']).'</span>'.
+                    form_start('platform_plan_dispose','/?tab=plans','class="inline-form"').
+                    '<input type="hidden" name="operation" value="restore"><input type="hidden" name="plan_id" value="'.(int)$plan['id'].'">'.
+                    '<button class="btn small" type="submit">إعادة إتاحة الباقة</button></form></div>';
+            }
+            echo card('باقات مؤرشفة قابلة للاستعادة',$forms);
+        }
         echo card('إضافة باقة جديدة',
             form_start('create_plan','/?tab=plans').
             '<div class="form-grid">'.
@@ -559,6 +582,62 @@ function render_plans(array $a):void{
             '<label class="field">مفاتيح Assistant Text للعميل<input name="assistant_key_limit" type="number" min="0" max="1000" required value="0"></label>'.
             '</div>'.submit_btn('إنشاء الباقة'));
     }elseif($type==='reseller'){
+        $custom=plan_catalog_reseller_owned($id);
+        if(in_array($a['role'],['owner','admin'],true)&&!active_support()&&
+           console_view_mode($a)==='admin'){
+            echo card('إنشاء باقة خاصة لعملائي',
+                form_start('reseller_plan_save','/?tab=plans').
+                '<div class="form-grid">'.
+                field_html('اسم الباقة','name','text','باقة شركتي',true).
+                field_html('مكالمات شهرية','calls','number','200',true).
+                field_html('مواقع','sites','number','1',true).
+                field_html('مساعدون','agents','number','1',true).
+                field_html('موظفون','staff','number','1',true).
+                '<label class="field">سعر الباقة (قرش)<input type="number" name="price" min="0" max="1000000000" value="0" required></label>'.
+                '<label class="field">سعر المكالمة الإضافية (قرش)<input type="number" name="overage" min="0" value="0" required></label>'.
+                '<label class="field">عدد مفاتيح Google<input type="number" name="google_key_limit" min="0" value="1" required></label>'.
+                '<label class="field">مفاتيح مساعد النص<input type="number" name="assistant_key_limit" min="0" value="0" required></label>'.
+                '</div><p class="dim">الباقة خاصة بشركتك. التفعيل المدفوع يحتاج دفعًا موثّقًا؛ وإنفاق العملاء لا يتجاوز حصتك.</p>'.
+                submit_btn('إنشاء باقة العملاء'));
+            $global=all("SELECT p.id,p.name FROM plans p LEFT JOIN reseller_plan_owners o ON o.plan_id=p.id
+                WHERE p.kind='user' AND p.status='active' AND o.plan_id IS NULL ORDER BY p.id");
+            $opts=[];
+            foreach($global as $g)$opts[(string)$g['id']]=$g['name'];
+            if($opts)echo card('نسخ باقة عامة وتخصيصها',
+                form_start('reseller_plan_copy','/?tab=plans').
+                select_html('اختر القالب العام','plan_id',$opts).
+                '<p class="dim">ينشئ نسخة مستقلة لشركتك، ولا يغيّر باقات أدمن المنصة.</p>'.
+                submit_btn('نسخ الباقة إلى حسابي'));
+            $editors='';
+            foreach($custom as $p){
+                $pid=(int)$p['id'];
+                $editors.='<details class="plan-editor"><summary><strong>'.e((string)$p['name']).'</strong> — '.
+                    number_format((int)$p['price_minor']/100,2).' ج.م · '.e($p['status']).'</summary><div class="plan-editor-body">';
+                if($p['status']==='active'){
+                    $editors.=form_start('reseller_plan_save','/?tab=plans').
+                        '<input type="hidden" name="plan_id" value="'.$pid.'"><div class="form-grid">'.
+                        '<label class="field">اسم الباقة<input name="name" maxlength="120" required value="'.e($p['name']).'"></label>';
+                    foreach(['calls'=>['مكالمات شهرية','call_quota'],'sites'=>['المواقع','site_limit'],
+                      'agents'=>['المساعدون','agent_limit'],'staff'=>['الموظفون','staff_limit'],
+                      'price'=>['سعر الباقة (قرش)','price_minor'],
+                      'overage'=>['سعر المكالمة الإضافية','overage_minor'],
+                      'google_key_limit'=>['مفاتيح Google','google_key_limit'],
+                      'assistant_key_limit'=>['مفاتيح مساعد النص','assistant_key_limit']] as $field=>$detail){
+                        $editors.='<label class="field">'.e($detail[0]).'<input type="number" min="0" name="'.$field.
+                            '" value="'.(int)($p[$detail[1]]??0).'" required></label>';
+                    }
+                    $editors.='</div>'.submit_btn('حفظ تغييرات الباقة');
+                }
+                $op=$p['status']==='archived'?'restore':'delete';
+                $editors.=form_start('reseller_plan_dispose','/?tab=plans','class="inline-form"').
+                    '<input type="hidden" name="plan_id" value="'.$pid.'">'.
+                    '<input type="hidden" name="operation" value="'.$op.'">'.
+                    '<button type="submit" class="btn small" data-confirm="تأكيد إجراء الباقة؟">'.
+                    ($op==='restore'?'استعادة الباقة':'حذف إن لم تستخدم / أرشفة').'</button></form>'.
+                    '</div></details>';
+            }
+            echo card('إدارة باقات شركتي',$editors?:'<p class="dim">لم تنشئ أي باقات خاصة بعد.</p>');
+        }
         $customers=all("SELECT id,name FROM accounts WHERE parent_id=? AND kind='customer'",[$id]);
         $co=[];$po=[];
         foreach($customers as $c)$co[$c['id']]=$c['name'];
@@ -1830,8 +1909,7 @@ function render_billing(array $a):void{
 
     if(in_array($a['kind'],['reseller','customer'],true)
        &&in_array($a['role'],['owner','admin'],true)&&!active_support()){
-        $plans=all("SELECT id,name,price_minor,call_quota FROM plans WHERE kind=? AND status='active' ORDER BY price_minor,id",
-            [$a['kind']==='reseller'?'reseller':'user']);
+        $plans=plan_catalog_available(account($id));
         $free=[];$paid=[];
         foreach($plans as $plan){
             if((int)$plan['price_minor']===0)
@@ -1851,6 +1929,40 @@ function render_billing(array $a):void{
             submit_btn('متابعة الدفع الآمن'));
         if(!$free&&!$paid)echo card('اختيار الباقة',
             '<p class="dim">لا توجد باقات متاحة من نوع هذا الحساب حاليًا. تواصل مع أدمن المنصة لإنشاء أو تعيين باقة.</p>');
+        $current=one("SELECT p.*,s.ends_at,s.id subscription_id FROM subscriptions s
+            JOIN plans p ON p.id=s.plan_id WHERE s.account_id=? AND s.status='active'
+            AND s.starts_at<=? AND s.ends_at>? ORDER BY s.id DESC LIMIT 1",[$id,now(),now()]);
+        $switchRows=[];$options=[];
+        foreach($plans as $plan){
+            $options[(string)$plan['id']]=$plan['name'].' — '.
+                number_format((int)$plan['price_minor']/100,2).' ج.م / 30 يوم';
+            $q=subscription_change_quote($current,$plan);
+            $action=$current && (int)$current['id']===(int)$plan['id']
+                ?'الباقة الحالية':($q['direction']==='upgrade'?'ترقية':
+                    ($q['direction']==='downgrade'?'تخفيض':'تغيير'));
+            $switchRows[]=[e((string)$plan['name']),$action,
+                number_format($q['full_period_difference_minor']/100,2).' ج.م',
+                number_format((int)$plan['price_minor']/100,2).' ج.م'];
+        }
+        if($options)echo card('Upgrade / Downgrade — تغيير باقتك',
+            '<p class="dim">المقارنة بين أسعار الفترتين الكاملة، وليست خصمًا أو رصيدًا مكتسبًا. المدفوعات تمر ببوابة دفع موثّقة؛ المجانية تتغير فورًا مع حفظ نهاية الفترة الحالية.</p>'.
+            ($current?'<p>باقتك الحالية: <strong>'.e($current['name']).'</strong> · متبقي '.
+                (int)subscription_change_quote($current,$current)['remaining_days'].' يوم</p>':
+                '<p>ليس لديك اشتراك نشط حاليًا.</p>').
+            tbl(['الباقة','نوع التغيير','فرق سعر 30 يوم','السعر الجديد'],$switchRows).
+            form_start('self_change_plan','/?tab=billing').
+            select_html('اختر الباقة الجديدة','plan_id',$options).
+            '<p class="dim">باقة مدفوعة: تفعيلها بعد الدفع فقط، ويبدأ تاريخ 30 يومًا بعد التأكيد. قد يضيع جزء من الفترة الحالية؛ لا يوجد رصيد نسبي مطبق حاليًا.</p>'.
+            submit_btn('متابعة تغيير الباقة'));
+        if($current)echo card('إلغاء الاشتراك الحالي',
+            form_start('self_cancel_subscription','/?tab=billing').
+            '<p class="dim">الإلغاء فوري ويوقف الاستحقاقات، لكنه لا يحذف سجلات الدفع والاشتراك.</p>'.
+            '<button type="submit" class="btn danger" data-confirm="إلغاء اشتراكك فورًا وإيقاف المكالمات واستحقاقات الباقة؟">إلغاء الاشتراك</button></form>');
+        if($options)echo card('تجديد الاشتراك',
+            form_start('self_renew_subscription','/?tab=billing').
+            select_html('باقة التجديد','plan_id',$options).
+            '<p class="dim">التجديد المجاني لا يمدد الاشتراك النشط مرارًا. الباقات المدفوعة تمر للدفع الموّثق.</p>'.
+            submit_btn('تجديد الباقة'));
     }
     if(in_array($a['kind'],['platform','reseller'],true)&&console_view_mode($a)==='admin'){
         $orders=$a['kind']==='platform'?all('SELECT o.*,a.name account_name FROM orders o JOIN accounts a ON a.id=o.account_id ORDER BY o.id DESC LIMIT 60'):all('SELECT o.*,a.name account_name FROM orders o JOIN accounts a ON a.id=o.account_id WHERE a.parent_id=? ORDER BY o.id DESC LIMIT 60',[$id]);
