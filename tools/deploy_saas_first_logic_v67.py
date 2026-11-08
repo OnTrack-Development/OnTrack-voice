@@ -110,7 +110,22 @@ def main()->None:
             else:
                 base=read(STAGE/'old'/rel)
                 before=read(dst)
-                changed=merge(before,base,candidate,rel)
+                if rel=='_core/KashierWebhook.php' and 'function kashier_refund_settle(' in before:
+                    # v67 was already published; the second patch only changes
+                    # this exact refund function. Replace its whole function
+                    # instead of replaying an overlapping SequenceMatcher hunk.
+                    # Leave legacy callbacks and neighboring payment code intact.
+                    begin='function kashier_refund_settle('
+                    finish='/** A signed event does not activate a user'
+                    def region(text):
+                        if text.count(begin)!=1 or text.count(finish)!=1:
+                            raise RuntimeError('kashier_refund_function_anchors_missing')
+                        i=text.index(begin);j=text.index(finish,i)
+                        if i>=j:raise RuntimeError('kashier_refund_function_anchor_order')
+                        return text[i:j]
+                    changed=before.replace(region(before),region(candidate),1)
+                else:
+                    changed=merge(before,base,candidate,rel)
             if changed.count('<?php')!=1:
                 raise RuntimeError('unexpected_php_tags_'+rel)
             if rel=='_core/Checkout.php' and not all(x in changed for x in
