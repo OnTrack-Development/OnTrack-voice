@@ -35,6 +35,7 @@ internal class PremiumOfficialLive(
     private val caller:(String)->Unit,
     private val assistant:(String)->Unit,
     private val phrase:(String)->Unit,
+    private val googleAudio:(ByteArray,Int)->Unit,
     private val interrupted:()->Unit,
     private val disconnected:(String)->Unit,
 ) {
@@ -43,6 +44,47 @@ internal class PremiumOfficialLive(
     @Volatile private var socket:WebSocket?=null
     private var fullOutput=""
     private var spoken=""
+    // Google's AUDIO stream is generated in the SAME authorized Gemini Live
+    // session as Fish-backed output. Buffer ONLY a few seconds of its latest
+    // turn so quota errors can switch voices without new Google credentials,
+    // another phone call, or repeating the customer's speech.
+    private val audioGate=Any()
+    private val recentGooglePcm=ArrayDeque<Pair<ByteArray,Int>>()
+    private var recentBytes=0
+    private var newTurnPending=false
+    private var googleFallback=false
+    private val maxBufferedBytes=24_000*2*16
+
+    fun enableGoogleAudioFallback():Boolean = synchronized(audioGate){
+        if(stopped.get())return@synchronized false
+        if(googleFallback)return@synchronized true
+        googleFallback=true
+        for((audio,rate) in recentGooglePcm)googleAudio(audio,rate)
+        recentGooglePcm.clear()
+        recentBytes=0
+        true
+    }
+    private fun receiveGoogleAudio(audio:ByteArray,rate:Int){
+        if(audio.size<2 || audio.size%2!=0 || audio.size>maxBufferedBytes ||
+            rate !in setOf(16000,24000,48000))return
+        synchronized(audioGate){
+            if(stopped.get())return@synchronized
+            if(googleFallback){
+                googleAudio(audio,rate)
+            }else{
+                if(newTurnPending){
+                    recentGooglePcm.clear()
+                    recentBytes=0
+                    newTurnPending=false
+                }
+                recentGooglePcm.addLast(audio to rate)
+                recentBytes+=audio.size
+                while(recentBytes>maxBufferedBytes && recentGooglePcm.isNotEmpty()){
+                    recentBytes-=recentGooglePcm.removeFirst().first.size
+                }
+            }
+        }
+    }
     private fun failure(message:String) {
         if(!ready.isCompleted)ready.completeExceptionally(IllegalStateException(message))
         if(!stopped.get())disconnected(message)
@@ -90,14 +132,30 @@ internal class PremiumOfficialLive(
                         }
                     if(content.optBoolean("interrupted")){
                         fullOutput="";spoken=""
+                        synchronized(audioGate){
+                            recentGooglePcm.clear();recentBytes=0;newTurnPending=false
+                        }
                         interrupted()
-                    }else if(content.optBoolean("turnComplete")){
+                        return
+                    }
+                    val parts=content.optJSONObject("modelTurn")?.optJSONArray("parts")
+                    if(parts!=null)for(i in 0 until parts.length()){
+                        val inline=parts.optJSONObject(i)?.optJSONObject("inlineData")?:continue
+                        val mime=inline.optString("mimeType","")
+                        if(!mime.startsWith("audio/pcm"))continue
+                        val rate=Regex("rate=(\\d+)").find(mime)?.groupValues
+                            ?.getOrNull(1)?.toIntOrNull()?:24000
+                        receiveGoogleAudio(Base64.decode(inline.getString("data"),Base64.DEFAULT),rate)
+                    }
+                    if(content.optBoolean("turnComplete")){
                         val remainder=if(spoken.isNotEmpty()&&fullOutput.startsWith(spoken))
                             fullOutput.substring(spoken.length).trim() else fullOutput.trim()
                         if(remainder.isNotEmpty())phrase(remainder)
                         fullOutput="";spoken=""
+                        synchronized(audioGate){newTurnPending=true}
                     }
-                    // Deliberately discard modelTurn.inlineData: audible voice is Fish PCM.
+                    // Google audio is normally buffered, never emitted alongside
+                    // Fish PCM; only an explicit Fish provider error enables it.
                 }catch(_:Exception){failure("premium_live_invalid_message")}
             }
             override fun onMessage(webSocket:WebSocket,bytes:ByteString){
@@ -130,6 +188,7 @@ internal class PremiumOfficialLive(
         if(stopped.compareAndSet(false,true)){
             socket?.close(1000,"call ended")
             socket=null
+            synchronized(audioGate){recentGooglePcm.clear();recentBytes=0}
         }
     }
 }
