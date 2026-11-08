@@ -1,4 +1,5 @@
 @charset "UTF-8";
+@import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Tajawal:wght@400;500;600;700;800&display=swap");
 :root{--bg:#1b0b09;--panel:#280B08;--panel2:#371914;--border:#65413b;--text:#F9E7C9;--muted:#d4b7a6;--accent:#C92925;--accent2:#8f211e;--positive:#2E6F40;--warning:#dfb86c;--shadow:0 12px 32px -8px #280b0833,0 4px 12px -2px #280b081a;color-scheme:dark;--ot-bean:#280B08;--ot-champagne:#F9E7C9;--ot-scarlet:#C92925;--ot-canvas:#FBF7F0}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.7 system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;min-height:100vh}body.light{--bg:#FBF7F0;--panel:#fff;--panel2:#F9E7C9;--border:#E8DEC8;--text:#280B08;--muted:#6E5D57;--accent:#C92925;--accent2:#92211d;--positive:#2E6F40;--warning:#aa7b39;--shadow:0 12px 32px -8px #280b0812,0 4px 12px -2px #280b0808;color-scheme:light}
 a{color:inherit;text-decoration:none}button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}input,textarea,select{max-width:100%}h1,h2,h3,h4,p{margin-top:0}h1{font-size:25px;line-height:1.4}h2{font-size:23px}h3{font-size:17px;margin:0}small{font-size:11px}code{font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}::-webkit-scrollbar{height:7px;width:7px}::-webkit-scrollbar-thumb{background:#6668;border-radius:7px}
@@ -1427,3 +1428,109 @@ body.light .login-panel,body.light .login-panel.wl-auth-panel {
   *,*::before,*::after {scroll-behavior:auto!important;transition-duration:0s!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
 }
 /* OTV_STYLE_V61_END */
+
+/* OTV_TYPO_V62_BEGIN
+   Precise Egyptian Arabic typography: 3 real Unicode web fonts; no Tahoma/Arial.
+   Account/personal font code is a server-validated enum, not raw CSS injection.
+*/
+:root{
+  --ot-arabic-font:"IBM Plex Sans Arabic","Noto Sans Arabic",system-ui,sans-serif;
+}
+body[data-ot-font="plex"]{
+  --ot-arabic-font:"IBM Plex Sans Arabic","Noto Sans Arabic",system-ui,sans-serif;
+}
+body[data-ot-font="tajawal"]{
+  --ot-arabic-font:"Tajawal","Noto Sans Arabic",system-ui,sans-serif;
+}
+body[data-ot-font="cairo"]{
+  --ot-arabic-font:"Cairo","Noto Sans Arabic",system-ui,sans-serif;
+}
+body,
+body :where(button,input,select,textarea,.eyebrow,.nav-link,.nav-group-title,.card,
+  .field,.metric,.welcome,.topbar,.brand-lines,.pill,.chip,.btn,.graph-btn,.graph-type,
+  .graph-field,.graph-node,.graph-edge-pill text,.agent-builder-tab,.wa-mode-button,
+  .agent-studio-banner,.login-panel,.login-intro,.login-brand,.ot-confirm-dialog,
+  .ot-ui-toast,.quick-grid,.table-wrap,.ot-master-update) {
+  font-family:var(--ot-arabic-font)!important;
+}
+body {line-height:1.72}
+.headline h1,.card-head h3,.welcome h2,.login-intro h1,
+.wl-auth-panel .login-intro h1,.login-brand strong {
+  font-family:var(--ot-arabic-font)!important;
+  font-weight:700;
+  letter-spacing:0;
+  line-height:1.52;
+}
+.nav-group-title,.nav-link,.nav-group .nav-link {
+  font-weight:600;line-height:1.68;
+}
+.nav-link.selected,.nav-group .nav-link.selected {font-weight:700}
+.btn,.field,.metric-title,table td,table th,.table-wrap td,.table-wrap th {
+  line-height:1.7;
+}
+.btn {font-weight:700}
+.metric strong {font-weight:700;letter-spacing:0}
+.card p,.welcome p,.info,.alert,.dim,small {line-height:1.8}
+.field input,.field textarea,.field select {font-weight:500}
+code,pre,kbd,samp,
+body :where(code,pre,kbd,samp) {
+  font-family:ui-monospace,Consolas,Monaco,monospace!important;
+}
+.ot-font-options {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  width:100%;
+  margin:12px 0 18px;
+  direction:rtl;
+}
+.ot-font-option{
+  border:1px solid var(--border);
+  background:var(--panel2);
+  border-radius:12px;
+  padding:16px 14px;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:8px;
+  color:var(--text);
+}
+.ot-font-option strong {
+  font-size:15px;
+  font-weight:700;
+}
+.ot-font-option span {
+  font-size:16px;
+  line-height:1.95;
+  overflow-wrap:anywhere;
+}
+.ot-font-option small {
+  font-size:11px;
+  color:var(--muted);
+}
+.ot-font-option[data-font-sample="plex"],
+.ot-font-option[data-font-sample="plex"] *{
+  font-family:"IBM Plex Sans Arabic","Noto Sans Arabic",sans-serif!important;
+}
+.ot-font-option[data-font-sample="tajawal"],
+.ot-font-option[data-font-sample="tajawal"] *{
+  font-family:"Tajawal","Noto Sans Arabic",sans-serif!important;
+}
+.ot-font-option[data-font-sample="cairo"],
+.ot-font-option[data-font-sample="cairo"] *{
+  font-family:"Cairo","Noto Sans Arabic",sans-serif!important;
+}
+.ot-font-option:is(:hover,:focus-within) {
+  border-color:var(--accent);
+}
+@media(max-width:900px){
+  .ot-font-options {grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:560px){
+  .ot-font-options {grid-template-columns:minmax(0,1fr);gap:9px}
+  .ot-font-option {padding:13px}
+  .ot-font-option span {font-size:15px}
+  .headline h1 {line-height:1.5}
+}
+/* OTV_TYPO_V62_END */
