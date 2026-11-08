@@ -100,7 +100,12 @@ function kashier_refund_settle(array $body,?int $integrationId):array {
         }
         $status='review_required';
         $full=$minor===(int)$order['amount_minor'];
-        if($full && $order['integration_id']===null &&
+        // A prior partial refund, even if already reviewed, makes the
+        // financial total ambiguous. Never silently revoke unrelated paid
+        // renewal time or mark the whole order fully reconciled.
+        $priorRefund=one('SELECT refund_reference FROM kashier_refund_events WHERE order_id=? LIMIT 1',
+            [(int)$order['id']]);
+        if($full && !$priorRefund && $order['integration_id']===null &&
            $order['status']==='active' &&
            in_array($body['event'],['refund','reversal'],true)){
             // Only the exact paid subscription created by this payment may be
@@ -119,12 +124,14 @@ function kashier_refund_settle(array $body,?int $integrationId):array {
             }
             $subscription=$subId>0?one('SELECT id,account_id,status FROM subscriptions WHERE id=? AND account_id=?',
                 [$subId,(int)$order['account_id']]):null;
-            if($subscription){
-                // Already replaced subscriptions are historical and cannot be
-                // confused with newer purchases. Cancel only if still active.
-                execute("UPDATE subscriptions SET status='cancelled'
+            if($subscription && $subscription['status']==='active'){
+                // Never call a replaced/historical plan fully reconciled.
+                // Its unused paid time may have been carried into a newer
+                // subscription, requiring an explicit prorated adjustment.
+                if(execute("UPDATE subscriptions SET status='cancelled'
                     WHERE id=? AND account_id=? AND status='active'",
-                    [$subId,(int)$order['account_id']]);
+                    [$subId,(int)$order['account_id']])!==1)
+                    throw new RuntimeException('refund_subscription_write_conflict');
                 execute("UPDATE orders SET status='refunded'
                     WHERE id=? AND integration_id IS NULL AND status='active'",
                     [(int)$order['id']]);
