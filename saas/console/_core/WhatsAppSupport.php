@@ -388,9 +388,73 @@ function wa_ai_allowed(array $conversation):bool {
     return empty($conversation['human_locked_at']) &&
        (empty($conversation['ai_pause_until']) || strcmp((string)$conversation['ai_pause_until'],now())<=0);
 }
+/** An existing-webhook number needs an independently verified outbound sender.
+ * Inbound forwarding alone NEVER enables AI or staff replies.
+ */
+function wa_existing_outbound_ready(array $connection):bool {
+    return ($connection['onboarding_method']??'')==='existing_webhook' &&
+        ($connection['state']??'')==='verified' &&
+        !empty($connection['whmcs_bridge_verified_at']) &&
+        !empty($connection['webhook_relay_enabled']) &&
+        !str_starts_with((string)($connection['phone_number_id']??''),'pending_');
+}
+function wa_existing_outbound_request(array $connection,array $payload,?callable $transport=null):array {
+    $secret=unseal_secret($connection['webhook_relay_secret_enc']??null);
+    if(!is_string($secret)||!preg_match('/^[a-f0-9]{64}$/D',$secret))
+        throw new RuntimeException('existing_whatsapp_outbound_not_configured');
+    $url='https://services.ontrackegy.com/modules/addons/whatsapp_notifications/ontrack_outbound.php';
+    $payload['version']=1;
+    $payload['phone_number_id']=(string)($connection['phone_number_id']??'');
+    $raw=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+    if(strlen($raw)>12000)throw new RuntimeException('existing_whatsapp_outbound_payload_too_large');
+    $ts=(string)time();
+    $sig='sha256='.hash_hmac('sha256',$ts."\n".$raw,$secret);
+    if($transport!==null)$response=$transport($url,$ts,$sig,$raw);
+    else{
+        require_once __DIR__.'/VoiceConnectors.php';
+        $ip=voice_connector_public_ip('services.ontrackegy.com');
+        if(!function_exists('curl_init'))throw new RuntimeException('existing_whatsapp_outbound_curl_missing');
+        $ch=curl_init($url);
+        curl_setopt_array($ch,[
+            CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$raw,CURLOPT_RETURNTRANSFER=>true,
+            CURLOPT_HTTPHEADER=>['Content-Type: application/json','X-OnTrack-Outbound-Timestamp: '.$ts,
+                'X-OnTrack-Outbound-Signature: '.$sig],
+            CURLOPT_CONNECTTIMEOUT=>4,CURLOPT_TIMEOUT=>13,
+            CURLOPT_PROXY=>'',CURLOPT_RESOLVE=>['services.ontrackegy.com:443:'.$ip],
+            CURLOPT_FOLLOWLOCATION=>false,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2
+        ]);
+        $reply=curl_exec($ch);$http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
+        $err=curl_errno($ch);curl_close($ch);
+        if($err!==0)throw new RuntimeException('existing_whatsapp_sender_unreachable');
+        $response=['status'=>$http,'body'=>$reply];
+    }
+    $decoded=json_decode((string)($response['body']??''),true);
+    if((int)($response['status']??0)!==200||!is_array($decoded)||
+       ($decoded['channel']??'')!=='whatsapp'||
+       ($decoded['phone_number_id']??'')!==(string)$connection['phone_number_id'])
+        throw new RuntimeException('existing_whatsapp_sender_not_verified');
+    return $decoded;
+}
+function wa_existing_outbound_probe(int $accountId,int $connectionId,?callable $transport=null):array {
+    $conn=wa_connection($connectionId,$accountId);
+    if(($conn['onboarding_method']??'')!=='existing_webhook'||
+       str_starts_with((string)$conn['phone_number_id'],'pending_')||
+       empty($conn['webhook_relay_enabled']))
+        throw new RuntimeException('existing_whatsapp_signed_inbound_required');
+    $cap=wa_existing_outbound_request($conn,['action'=>'capabilities'],$transport);
+    if(($cap['capability']??'')!=='ontrack-whatsapp-existing-outbound-v1' ||
+        ($cap['send_supported']??false)!==true)
+        throw new RuntimeException('existing_whatsapp_outbound_adapter_not_ready');
+    execute("UPDATE wa_connections SET state='verified',whmcs_bridge_verified_at=?,updated_at=?
+        WHERE id=? AND account_id=? AND onboarding_method='existing_webhook'",
+        [now(),now(),$connectionId,$accountId]);
+    wa_audit($accountId,null,'whatsapp.existing.outbound_verified','existing module supports signed outbound v1');
+    return ['verified'=>true,'outbound_send'=>true];
+}
 function wa_meta_send(array $connection,string $destination,string $body,?callable $transport=null,array $buttons=[]):array {
-    if(($connection['onboarding_method']??'')==='existing_webhook')
-        throw new RuntimeException('الرقم مربوط بموديول خارجي؛ يجب تفعيل موصل إرسال الموديول قبل إرسال الرسائل، ولن نطلب مفاتيح Meta مكررة');
+    if(($connection['onboarding_method']??'')==='existing_webhook' &&
+       !wa_existing_outbound_ready($connection))
+        throw new RuntimeException('موصل إرسال الموديول الحالي لم ينجح اختباره؛ لن ندّعي إرسال رد.');
     if(!in_array($connection['state'],['verified','active'],true))
         throw new RuntimeException('whatsapp_connection_not_verified');
     $destination=wa_e164($destination);
@@ -417,6 +481,15 @@ function wa_meta_send(array $connection,string $destination,string $body,?callab
     }
     $payload=json_encode($message,
         JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+    if(($connection['onboarding_method']??'')==='existing_webhook'){
+        $sent=wa_existing_outbound_request($connection,[
+            'action'=>'send_message','to'=>$destination,'message'=>$message],$transport);
+        $messageId=(string)($sent['provider_message_id']??'');
+        if(($sent['accepted']??false)!==true||
+           !preg_match('/^[A-Za-z0-9._:-]{5,160}$/D',$messageId))
+            throw new RuntimeException('existing_whatsapp_sender_no_confirmed_message_id');
+        return ['provider_message_id'=>$messageId,'status'=>'accepted_not_delivered'];
+    }
     $key=unseal_secret($connection['access_token_enc']??null);
     if(!$key)throw new RuntimeException('whatsapp_token_missing');
     $endpoint='https://graph.facebook.com/'.$version.'/'.$phoneId.'/messages';
