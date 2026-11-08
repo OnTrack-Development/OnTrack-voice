@@ -2016,14 +2016,28 @@ function render_integrations(array $a):void{
             $mailStates=email_queue_status();
             $mailRows=[];foreach($mailStates as $row)
                 $mailRows[]=[e((string)$row['purpose']),e((string)$row['status']), (int)$row['amount']];
-            $heart=[];foreach($ops['workers'] as $worker)
-                $heart[]=[e((string)$worker['worker']),e((string)$worker['last_run_at']),
-                    e((string)($worker['last_success_at']??'لم ينجح بعد')),
+            $health=(array)($ops['health']??[]);
+            $healthStates=[
+                'healthy'=>'سليم','stale'=>'متأخر / متوقف',
+                'failed'=>'آخر تشغيل غير ناجح','missing'=>'لم يُرصد',
+                'invalid'=>'وقت غير صالح'
+            ];
+            $heart=[];
+            foreach(($health['workers']??[]) as $worker){
+                $state=(string)$worker['status'];
+                $age=$worker['age_seconds']===null?'—':(string)intdiv((int)$worker['age_seconds'],60).' دقيقة';
+                $heart[]=[e((string)$worker['worker']),e($healthStates[$state]??'غير معروف'),
+                    e($age),e((string)($worker['last_success_at']??'لم ينجح بعد')),
                     (int)$worker['delivered'],(int)$worker['failed']];
+            }
+            $overall=($health['all_healthy']??false)
+                ?'<p><strong>تم رصد جميع Workers خلال الفترة المتوقعة.</strong></p>'
+                :'<p><strong>تنبيه تشغيلي: Worker متوقف أو متأخر أو لم ينجح بعد.</strong> راجع حالات العمال أدناه وCron وسجلات التشغيل قبل الاعتماد.</p>';
             echo card('صحة Workers والبريد',
-                '<p class="dim">Accepted تعني أن SMTP أو برنامج البريد قبل الرسالة، وليس تأكيد وصولها إلى صندوق العميل. الأوقات UTC.</p>'.
+                $overall.
+                '<p class="dim">الحالة مشتقة من Heartbeat لكل Worker، وليست إثباتًا لوصول رسالة Meta أو البريد. الأوقات UTC.</p>'.
                 tbl(['نوع الرسالة','الحالة','العدد'],$mailRows).
-                tbl(['الـWorker','آخر محاولة','آخر نجاح','تمت المعالجة','فشل'],$heart));
+                tbl(['الـWorker','حالة التشغيل','آخر محاولة منذ','آخر نجاح UTC','تمت المعالجة','فشل'],$heart));
         }
     }
     if(in_array($a['role'],['owner','admin'],true)&&!active_support())
