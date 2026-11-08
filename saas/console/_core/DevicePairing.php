@@ -74,11 +74,11 @@ function device_pairing_rate_guard(string $peer,string $installationId):void {
     if(driver()==='mysql'){
         db()->exec("CREATE TABLE IF NOT EXISTS device_pair_attempts (
           bucket_hash CHAR(64) NOT NULL PRIMARY KEY,
-          attempts INT NOT NULL
+          window_epoch BIGINT NOT NULL, attempts INT NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     }else{
         db()->exec("CREATE TABLE IF NOT EXISTS device_pair_attempts (
-          bucket_hash TEXT PRIMARY KEY, attempts INTEGER NOT NULL)");
+          bucket_hash TEXT PRIMARY KEY, window_epoch INTEGER NOT NULL, attempts INTEGER NOT NULL)");
     }
     $window=intdiv(time(),300);
     foreach([
@@ -88,15 +88,18 @@ function device_pairing_rate_guard(string $peer,string $installationId):void {
     ] as [$subject,$max]){
         $key=hash_hmac('sha256','sim-rate:'.$window.':'.$subject,device_pairing_secret());
         if(driver()==='mysql'){
-            execute("INSERT INTO device_pair_attempts(bucket_hash,attempts) VALUES (?,1)
-              ON DUPLICATE KEY UPDATE attempts=attempts+1",[$key]);
+            execute("INSERT INTO device_pair_attempts(bucket_hash,window_epoch,attempts) VALUES (?,?,1)
+              ON DUPLICATE KEY UPDATE attempts=attempts+1",[$key,$window]);
         }else{
-            execute("INSERT INTO device_pair_attempts(bucket_hash,attempts) VALUES (?,1)
-              ON CONFLICT(bucket_hash) DO UPDATE SET attempts=attempts+1",[$key]);
+            execute("INSERT INTO device_pair_attempts(bucket_hash,window_epoch,attempts) VALUES (?,?,1)
+              ON CONFLICT(bucket_hash) DO UPDATE SET attempts=attempts+1",[$key,$window]);
         }
         $count=(int)(one("SELECT attempts FROM device_pair_attempts WHERE bucket_hash=?",[$key])['attempts']??999);
         if($count>$max)throw new InvalidArgumentException('device_pairing_rate_limited');
     }
+    // Expired rate buckets hold no active pairing credentials; keep table small.
+    if(random_int(0,31)===0)
+        execute('DELETE FROM device_pair_attempts WHERE window_epoch<?',[$window-3]);
 }
 function device_pairing_redeem(string $code,string $installationId,int $simSlot,string $label):array {
     $clean=trim($code);
