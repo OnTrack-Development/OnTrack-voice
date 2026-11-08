@@ -1042,20 +1042,24 @@ function act():void {
                     insert('INSERT INTO voice_grants(account_id,voice_id) VALUES (?,?)',[$target,$v['id']]);
                 audit('voice.granted',$target,['voice'=>$v['code']]);break;
             case 'brand':
-                if(!in_array($kind,['reseller','platform'],true)||!in_array($a['role'],['owner','admin'],true)||
-                    active_support())deny();
-                execute('UPDATE accounts SET brand_name=? WHERE id=?',[required('brand_name',100),$id]);
-                if(!empty($_FILES['logo']['tmp_name'])&&is_uploaded_file($_FILES['logo']['tmp_name'])){
-                    $f=$_FILES['logo'];if($f['size']>1024*1024||$f['error']!==UPLOAD_ERR_OK)throw new RuntimeException('الصورة أكبر من 1MB');
-                    $mime=(new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);
-                    $ext=['image/png'=>'png','image/jpeg'=>'jpg','image/webp'=>'webp'][$mime]??null;
-                    if(!$ext)throw new RuntimeException('نوع الصورة غير مسموح');
-                    $dst=private_path().'/logo-'.$id.'-'.bin2hex(random_bytes(6)).'.'.$ext;
-                    if(!move_uploaded_file($f['tmp_name'],$dst))throw new RuntimeException('تعذر حفظ اللوجو');
-                    chmod($dst,0600);
-                    execute('UPDATE accounts SET logo_path=? WHERE id=?',[basename($dst),$id]);
-                }
-                audit('brand.updated',$id);break;
+                require_once __DIR__.'/BrandIdentity.php';
+                if(!brand_identity_edit_allowed($a))deny();
+                // Legacy multipart fallback for browsers without JavaScript.
+                if(isset($_FILES['logo']) &&
+                   (int)($_FILES['logo']['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE)
+                    brand_identity_legacy_upload($a,$_FILES['logo']);
+                $mode=field('brand_display',8);
+                if($mode==='')$mode=brand_identity_mode($a);
+                brand_identity_save($a,required('brand_name',100),$mode);
+                audit('brand.updated',$id,['mode'=>$mode]);
+                $success='تم حفظ اسم العلامة وطريقة عرض الشعار.';
+                break;
+            case 'brand_logo_remove':
+                require_once __DIR__.'/BrandIdentity.php';
+                brand_identity_remove_logo($a);
+                audit('brand.logo.removed',$id);
+                $success='تم حذف صورة الشعار مع بقاء الاسم والشكل المختار. إذا كان صورة فقط، يتحول العرض للنص.';
+                break;
             case 'activate_domain_https':
                 if($kind!=='reseller'||!in_array($a['role'],['owner','admin'],true)||
                     active_support())deny();
