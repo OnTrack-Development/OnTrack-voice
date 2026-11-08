@@ -52,8 +52,11 @@ $platform=(int)$owner['id'];
 $_SESSION=['uid'=>$platform,'account_id'=>1,'console_view'=>'admin'];
 ob_start();render_overview(mine());$home=(string)ob_get_clean();
 six_ok(str_contains($home,'ربط الهاتف والشريحة بسهولة'),'SIM entry on platform owner home');
-six_ok(str_contains($home,'ربط SIM 1 الآن')&&str_contains($home,'ربط SIM 2 الآن'),
-    'visible buttons for both physical SIM slots');
+$_SESSION=['uid'=>(int)one("SELECT id FROM users WHERE email='user@direct.test'")['id'],
+    'account_id'=>4,'console_view'=>'admin'];
+ob_start();render_overview(mine());$customer=(string)ob_get_clean();
+six_ok(str_contains($customer,'ربط SIM 1 الآن')&&str_contains($customer,'ربط SIM 2 الآن'),
+    'customer with an agent sees both SIM pairing buttons');
 $_SESSION=['uid'=>(int)one("SELECT id FROM users WHERE email='reseller@delta.test'")['id'],
     'account_id'=>2,'console_view'=>'admin'];
 ob_start();render_overview(mine());$reseller=(string)ob_get_clean();
