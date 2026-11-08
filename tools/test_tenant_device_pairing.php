@@ -6,11 +6,10 @@ function test_tenant_device_pairing():void {
     $admin=one("SELECT id FROM users WHERE email='admin@ontrackegy.com'");
     $actor=(int)$admin['id'];
     $codeA=device_pairing_create(4,1,1,$actor,0);
-    ok((bool)preg_match('/^[A-F0-9]{4}(?:-[A-F0-9]{4}){5}$/D',$codeA),'device code long random one-time format');
-    ok($codeA[0]==='0','SIM 1 code carries server-locked slot marker');
+    ok((bool)preg_match('/^[0-9]{6}$/D',$codeA),'new pairing code exactly six digits');
     $storedA=one('SELECT status FROM device_pairings WHERE code_hash=?',
         [hash('sha256',strtolower(str_replace('-','',$codeA)))]);
-    ok($storedA['status']==='pending_sim0','database records intended SIM independently of QR');
+    ok($storedA['status']==='pending_sim0','database keeps SIM selection independent of six digits');
     $legacy=device_pairing_create(4,1,1,$actor,0);
     execute("UPDATE device_pairings SET status='pending' WHERE code_hash=?",
         [hash('sha256',strtolower(str_replace('-','',$legacy)))]);
@@ -21,7 +20,7 @@ function test_tenant_device_pairing():void {
     $wrongSlot=false;
     try{device_pairing_redeem($codeA,'wrong-slot-install-0000001',1,'Wrong SIM');}
     catch(InvalidArgumentException $e){$wrongSlot=$e->getMessage()==='device_pairing_slot_mismatch';}
-    ok($wrongSlot,'SIM 1 code cannot be redeemed on SIM 2, even before first use');
+    ok($wrongSlot,'six-digit SIM 1 code rejected for SIM 2');
     $invalidIssue=false;
     try{device_pairing_create(4,1,1,$actor,2);}catch(InvalidArgumentException $e){$invalidIssue=true;}
     ok($invalidIssue,'server rejects pairing ticket for nonexistent SIM slot');
@@ -55,7 +54,7 @@ function test_tenant_device_pairing():void {
     ok($used,'one-time code replay denied');
     $codeB0=device_pairing_create(5,3,3,$actor,0);
     $codeB=device_pairing_create(5,3,3,$actor,1);
-    ok($codeB[0]==='1','SIM 2 code carries server-locked slot marker');
+    ok((bool)preg_match('/^[0-9]{6}$/D',$codeB),'SIM 2 gets a six-digit ticket');
     $sameSlot=false;
     try{device_pairing_redeem($codeB0,$inst,0,'Collision');}
     catch(PDOException $e){$sameSlot=true;}
@@ -63,7 +62,7 @@ function test_tenant_device_pairing():void {
     $wrongB=false;
     try{device_pairing_redeem($codeB,$inst,0,'Wrong tenant slot');}
     catch(InvalidArgumentException $e){$wrongB=$e->getMessage()==='device_pairing_slot_mismatch';}
-    ok($wrongB,'SIM 2 ticket cannot be used to overwrite SIM 1 tenant binding');
+    ok($wrongB,'six-digit SIM 2 code rejected for SIM 1');
     $b=device_pairing_redeem($codeB,$inst,1,'Android test SIM 2');
     $sessionB=device_binding_authorize($b['device_token']);
     ok($sessionB!==null && (int)$sessionB['account_id']===5 && (int)$sessionB['sim_slot']===1,
@@ -148,5 +147,15 @@ function test_tenant_device_pairing():void {
     $newB=device_pairing_redeem($repaired,$inst,1,'SIM 2 after disconnect');
     ok($newB['device_id']!==$b['device_id'] && device_binding_authorize($newB['device_token'])!==null,
         'disconnected slot can enroll again without changing other slot');
+    $_SERVER['REMOTE_ADDR']='192.0.2.42';
+    $throttled=false;
+    for($i=0;$i<6;$i++){
+        try{device_pairing_redeem('999998','throttled-device-00001',0,'Rate limit test');}
+        catch(InvalidArgumentException $e){
+            if($e->getMessage()==='device_pairing_rate_limited')$throttled=true;
+        }
+    }
+    unset($_SERVER['REMOTE_ADDR']);
+    ok($throttled,'numeric code guessing is rate-limited');
     echo "TENANT_SIM_PAIRING_PASS\n";
 }
