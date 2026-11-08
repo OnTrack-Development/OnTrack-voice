@@ -56,6 +56,39 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Compile independent VS ADB shell bridge (no JemRec)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sdk = $env:ANDROID_HOME
+          $androidJar = Join-Path $sdk 'platforms/android-35/android.jar'
+          if (!(Test-Path $androidJar)) {
+            $androidJar = (Get-ChildItem (Join-Path $sdk 'platforms') -Directory |
+              Sort-Object Name -Descending |
+              ForEach-Object { Join-Path $_.FullName 'android.jar' } |
+              Where-Object { Test-Path $_ } |
+              Select-Object -First 1)
+          }
+          if (-not $androidJar) { throw 'Missing Android android.jar' }
+          $classDir = 'shellbridge/build/classes'
+          $dexDir = 'shellbridge/build/dex'
+          $assets = 'app/src/main/assets'
+          New-Item -ItemType Directory -Force -Path $classDir,$dexDir,$assets | Out-Null
+          javac -source 8 -target 8 -cp $androidJar -d $classDir 'shellbridge/src/com/ontrack/vs/shell/VsTelephonyShell.java'
+          if ($LASTEXITCODE -ne 0) { throw 'VS shell bridge javac failed' }
+          $d8 = Get-ChildItem (Join-Path $sdk 'build-tools') -Directory |
+            Sort-Object Name -Descending |
+            ForEach-Object { Join-Path $_.FullName 'd8.bat' } |
+            Where-Object { Test-Path $_ } |
+            Select-Object -First 1
+          if (-not $d8) { throw 'Missing Android d8' }
+          & $d8 --min-api 26 --lib $androidJar --output $dexDir "$classDir/com/ontrack/vs/shell/VsTelephonyShell.class"
+          if ($LASTEXITCODE -ne 0) { throw 'VS shell bridge dex failed' }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $jar = Join-Path $assets 'vs-bridge.jar'
+          if (Test-Path $jar) { Remove-Item $jar -Force }
+          [System.IO.Compression.ZipFile]::CreateFromDirectory((Resolve-Path $dexDir).Path, (Join-Path (Get-Location) $jar))
+          if (!(Test-Path $jar)) { throw 'VS shell bridge asset missing' }
+          Write-Host 'VS shell bridge included in APK assets (compiled solely from VS/shellbridge)'
       - name: Build VS only (not the OnTrack agent)
         run: gradle --no-daemon --stacktrace :app:assembleDebug
       - name: Validate output
