@@ -101,17 +101,10 @@ public final class LiveCallService extends Service {
             if (apiKey.length() < 10)
                 throw new IllegalStateException("اضبط مفتاح Fish Audio الأول");
             initialMicMuted = manager.isMicrophoneMute();
-            state("بفحص جسر الشريحة، بدون تسجيل أي مكالمة...");
-            bridge = VsCallBridge.connect(this);
-            String result = bridge.start();
-            if (!result.startsWith("ACTIVE")) {
-                throw new IllegalStateException("رفض مسار الشريحة: " + result);
-            }
-            bridgeMutatedMicrophone = true;
-            // Confirm after global phone mic mute: if owner microphone becomes
-            // silence we must STOP and restore immediately rather than silently
-            // transmit an empty call.
-            state("جسر الشريحة مؤقتًا نشط؛ اتكلم عشان نتحقق من مايك VS");
+            // Open the user's VS microphone FIRST, before asking the shell
+            // to mute the cellular call. On some OEMs the voice-call capture
+            // priority rejects a second microphone even before muting.
+            state("بفتح مايك VS المباشر، من غير تسجيل مكالمة...");
             int n = AudioRecord.getMinBufferSize(16000,
                 AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
             if (n <= 0) throw new IllegalStateException("المايك غير متاح أثناء المكالمة");
@@ -119,8 +112,17 @@ public final class LiveCallService extends Service {
                 AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
                 Math.max(n, 6400));
             if (capture.getState() != AudioRecord.STATE_INITIALIZED)
-                throw new IllegalStateException("مايك VS لم يتهيأ بعد كتم المكالمة");
+                throw new IllegalStateException("مايك VS لم يتهيأ أثناء المكالمة");
             capture.startRecording();
+            state("جاري فحص مسار الصوت وكتم مايك المكالمة فقط...");
+            bridge = VsCallBridge.connect(this);
+            String result = bridge.start();
+            if (!result.startsWith("ACTIVE")) {
+                throw new IllegalStateException("رفض مسار الشريحة: " + result);
+            }
+            bridgeMutatedMicrophone = true;
+            // If the OEM's global mute also silences the VS microphone,
+            // fail closed and promptly restore the original call.
             active = true;
             state("تشغيل تجريبي: المايك الأصلي مكتوم، ويتم فحص صوتك...");
             int emptyWindows = 0;
