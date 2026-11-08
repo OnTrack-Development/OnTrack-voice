@@ -96,43 +96,61 @@ jobs:
           $apk = 'app/build/outputs/apk/debug/app-debug.apk'
           if (!(Test-Path $apk)) { throw 'VS APK was not built' }
           Get-FileHash $apk -Algorithm SHA256 | Format-List
-      - name: Publish VS APK as GitHub prerelease (Actions artifacts quota exhausted)
+      - name: Publish VS APK (GitHub release or repository fallback)
         shell: powershell
         env:
           GH_VS_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
           $file = (Resolve-Path 'app/build/outputs/apk/debug/app-debug.apk').Path
-          $tag = "vs-debug-$env:GITHUB_RUN_ID"
+          $bytes = [System.IO.File]::ReadAllBytes($file)
           $headers = @{
             Authorization = "Bearer $env:GH_VS_TOKEN"
             Accept = 'application/vnd.github+json'
             'User-Agent' = 'VS-APK-Builder'
             'X-GitHub-Api-Version' = '2022-11-28'
           }
-          $body = @{
-            tag_name = $tag
-            target_commitish = $env:GITHUB_SHA
-            name = "VS Drama3 test APK - $env:GITHUB_RUN_ID"
-            body = 'VS 0.5 experimental independent ADB shell telephony bridge: Fish ASR/Drama3 to volatile PCM, compact overlay and guarded mic restoration. APK build is NOT proof of far-end SIM audio. Requires explicit ADB setup and two-phone test; no call recording or JemRec.'
-            draft = $false
-            prerelease = $true
-            generate_release_notes = $false
-          } | ConvertTo-Json -Compress
-          $api = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases"
-          $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -Body $body -ContentType 'application/json'
-          $upload = ($release.upload_url -replace '\{\?name,label\}$', '') + '?name=VS-Drama3-debug.apk'
-          $uploadHeaders = @{
-            Authorization = "Bearer $env:GH_VS_TOKEN"
-            Accept = 'application/vnd.github+json'
-            'User-Agent' = 'VS-APK-Builder'
-            'X-GitHub-Api-Version' = '2022-11-28'
+          $apkUrl = $null
+          try {
+            $tag = "vs-debug-$env:GITHUB_RUN_ID"
+            $body = @{
+              tag_name = $tag
+              target_commitish = $env:GITHUB_SHA
+              name = "VS Drama3 test APK - $env:GITHUB_RUN_ID"
+              body = 'VS 0.5 independent opt-in ADB shell telephony experiment, no JemRec or call recording. Build does not prove far-end audio delivery.'
+              draft = $false
+              prerelease = $true
+              generate_release_notes = $false
+            } | ConvertTo-Json -Compress
+            $api = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases"
+            $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -Body $body -ContentType 'application/json'
+            $upload = ($release.upload_url -replace '\{\?name,label\}$', '') + '?name=VS-Drama3-debug.apk'
+            $asset = Invoke-RestMethod -Method Post -Uri $upload -Headers $headers -Body $bytes -ContentType 'application/vnd.android.package-archive'
+            $apkUrl = $asset.browser_download_url
+            Write-Host "VS release asset published: $apkUrl"
+          } catch {
+            Write-Warning 'GitHub release publication failed; publishing compiled APK through Contents API instead.'
+            $location = 'VS-downloads/VS-Drama3-debug.apk'
+            $uri = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/contents/$location"
+            $existingSha = $null
+            try {
+              $old = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
+              $existingSha = $old.sha
+            } catch {
+              if ($_.Exception.Response.StatusCode.value__ -ne 404) { throw }
+            }
+            $payload = @{
+              message = "build(vs): publish verified debug APK from run $env:GITHUB_RUN_ID"
+              content = [Convert]::ToBase64String($bytes)
+              branch = 'main'
+            }
+            if ($existingSha) { $payload.sha = $existingSha }
+            Invoke-RestMethod -Uri $uri -Headers $headers -Method Put -Body ($payload | ConvertTo-Json -Compress) -ContentType 'application/json' | Out-Null
+            $apkUrl = "https://github.com/$env:GITHUB_REPOSITORY/raw/refs/heads/main/$location"
+            Write-Host "VS APK published through repository contents: $apkUrl"
           }
-          $bytes = [System.IO.File]::ReadAllBytes($file)
-          $asset = Invoke-RestMethod -Method Post -Uri $upload -Headers $uploadHeaders -Body $bytes -ContentType 'application/vnd.android.package-archive'
-          if (-not $asset.browser_download_url) { throw 'Release asset URL missing' }
-          "VS_APK_DOWNLOAD_URL=$($asset.browser_download_url)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding ascii
-          Write-Host "VS APK published: $($asset.browser_download_url)"
+          if (-not $apkUrl) { throw 'VS APK publication did not return a usable link' }
+          "VS_APK_DOWNLOAD_URL=$apkUrl" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding ascii
 
       - name: Publish VS build status for automatic review
         if: always()
