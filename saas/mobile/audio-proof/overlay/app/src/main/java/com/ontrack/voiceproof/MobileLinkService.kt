@@ -116,6 +116,10 @@ class MobileLinkService:Service() {
     override fun onCreate(){
         super.onCreate()
         overlay=CallOverlay(this)
+        // Never silently resume billable campaign dialing after OS process
+        // death, reboot, or OTA. An explicit on-device opt-in is required.
+        getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
+            .putBoolean("campaign_opt_in",false).apply()
         pendingDesired=null
         pendingSync=false
         getSystemService(NotificationManager::class.java).createNotificationChannel(
@@ -179,6 +183,27 @@ class MobileLinkService:Service() {
                     }else{
                         notice("لم تتصل جلسة صوت الإيجنت؛ لا يوجد صوت لاستلامه")
                     }
+                }
+                ACTION_CAMPAIGN_ENABLE->{
+                    val permission=androidx.core.content.ContextCompat.checkSelfPermission(
+                        this,android.Manifest.permission.CALL_PHONE)==
+                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                    val readPhone=androidx.core.content.ContextCompat.checkSelfPermission(
+                        this,android.Manifest.permission.READ_PHONE_STATE)==
+                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                    val safe=permission && readPhone && agentEnabled && !inCall
+                    if(safe){
+                        check(getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
+                            .putBoolean("campaign_opt_in",true).commit()){
+                            "تعذر حفظ تفعيل الحملات"
+                        }
+                        notice("تم اعتماد تشغيل حملات SIM؛ التنفيذ يتطلب موافقة السيرفر لكل محاولة")
+                    }else notice("الحملات متوقفة: شغل الإيجنت، امنح إذن الشريحة، وأنهِ المكالمة الحالية")
+                }
+                ACTION_CAMPAIGN_DISABLE->{
+                    getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
+                        .putBoolean("campaign_opt_in",false).commit()
+                    notice("تم إيقاف طلب مكالمات حملات جديدة؛ لا نقطع مكالمة جارية")
                 }
                 ACTION_SPEAKER->scope.launch{
                     runCatching{CaptureDaemon.linkControl(this@MobileLinkService,'S')}
@@ -302,6 +327,12 @@ class MobileLinkService:Service() {
         var managerCallback:JSONObject?=null
         var managerSawOffhook=false
         var managerDialAt=0L
+        var campaignClaim:Deferred<Result<Pair<Int,JSONObject>?>>?=null
+        var campaignInProgress:JSONObject?=null
+        var campaignSawOffhook=false
+        var campaignDialAt=0L
+        var campaignPhone=""
+        var lastCampaignPoll=0L
         var selected:Int?=null
         var lastState=TelephonyManager.CALL_STATE_IDLE
         var ringingAt=0L
@@ -377,6 +408,78 @@ class MobileLinkService:Service() {
                         delay(900);continue
                     }
                     val current=active.singleOrNull()
+                    if(campaignInProgress!=null && current?.state==TelephonyManager.CALL_STATE_OFFHOOK &&
+                       current.slot==campaignInProgress?.optInt("sim_slot",-1)){
+                        campaignSawOffhook=true
+                    }
+                    if(campaignClaim?.isCompleted==true){
+                        val proposal=campaignClaim?.await()?.getOrNull()
+                        campaignClaim=null
+                        if(proposal!=null){
+                            val slot=proposal.first
+                            val claim=proposal.second
+                            val attempt=claim.optString("id","")
+                            var dialWasRequested=false
+                            try{
+                                val optIn=getSharedPreferences("ontrack_link",MODE_PRIVATE)
+                                    .getBoolean("campaign_opt_in",false)
+                                check(optIn && agentEnabled && current==null && managerCallback==null &&
+                                    campaignInProgress==null && !tenantPairingInProgress &&
+                                    slot in 0..1 && enrollment.paired(slot)){"توقفت صلاحية الاتصال قبل التنفيذ"}
+                                check(attempt.matches(Regex("^[a-f0-9]{32}$"))){"معرف محاولة الحملة غير صالح"}
+                                val proof=enrollment.workspace(slot,"workspace_campaign_verify",
+                                    JSONObject().put("attempt_id",attempt))
+                                    .getJSONObject("verification")
+                                check(proof.optBoolean("allowed",false) &&
+                                    proof.optInt("sim_slot",-1)==slot &&
+                                    proof.optInt("must_dial_within_seconds",0) in 1..10){
+                                    "السيرفر رفض الموافقة النهائية على الرقم أو وقت الحملة"
+                                }
+                                // Only this approved phone from the server can
+                                // reach TelecomManager; never from the WebView
+                                // or Gemini-generated conversation text.
+                                val dialing=TenantCampaignDialer.e164(claim.getString("phone"))
+                                check(optIn && getSharedPreferences("ontrack_link",MODE_PRIVATE)
+                                    .getBoolean("campaign_opt_in",false)){"تم إيقاف الحملات"}
+                                dialWasRequested=true
+                                TenantCampaignDialer.place(this@MobileLinkService,slot,dialing)
+                                campaignInProgress=JSONObject(claim.toString()).put("sim_slot",slot)
+                                campaignPhone=dialing
+                                campaignSawOffhook=false
+                                campaignDialAt=SystemClock.elapsedRealtime()
+                                campaignInProgress!!.put("dial_started_wall_ms",System.currentTimeMillis())
+                                notice("تم طلب الاتصال من SIM ${slot+1} بعد تحقق الموافقة وDo Not Call")
+                            }catch(problem:Exception){
+                                if(slot in 0..1 && enrollment.paired(slot) && attempt.matches(Regex("^[a-f0-9]{32}$"))){
+                                    scope.launch(Dispatchers.IO){
+                                        runCatching{enrollment.workspace(slot,"workspace_campaign_finish",
+                                            JSONObject().put("attempt_id",attempt).put("result",
+                                                if(dialWasRequested)"unknown" else "failed"))}
+                                    }
+                                }
+                                notice("تم منع محاولة الحملة: "+problem.message.orEmpty().take(110))
+                            }
+                        }
+                    }
+                    if(current==null && campaignInProgress==null && campaignClaim==null &&
+                       managerCallback==null && managerClaim==null &&
+                       agentEnabled && getSharedPreferences("ontrack_link",MODE_PRIVATE)
+                           .getBoolean("campaign_opt_in",false) &&
+                       SystemClock.elapsedRealtime()-lastCampaignPoll>=10000L){
+                        lastCampaignPoll=SystemClock.elapsedRealtime()
+                        campaignClaim=scope.async(Dispatchers.IO){
+                            runCatching{
+                                var found:Pair<Int,JSONObject>?=null
+                                for(slot in 0..1){
+                                    if(!enrollment.paired(slot))continue
+                                    val reply=enrollment.workspace(slot,"workspace_campaign_claim")
+                                    val claim=reply.optJSONObject("claim")
+                                    if(claim!=null){found=slot to claim;break}
+                                }
+                                found
+                            }
+                        }
+                    }
                     // Never put network I/O in the 750ms telephony observer.
                     // The authenticated claim is fetched asynchronously and
                     // can be dialed ONLY after the physical SIM is fully idle.
@@ -463,6 +566,30 @@ class MobileLinkService:Service() {
                         }
                     }
                     if(current==null){
+                        val attempt=campaignInProgress
+                        if(attempt!=null &&
+                           (campaignSawOffhook ||
+                            SystemClock.elapsedRealtime()-campaignDialAt>=45000L)){
+                            val slot=attempt.optInt("sim_slot",-1)
+                            val attemptId=attempt.optString("id","")
+                            val hadOffhook=campaignSawOffhook
+                            val phone=campaignPhone
+                            val placedAt=attempt.optLong("dial_started_wall_ms",0L)
+                            campaignInProgress=null;campaignSawOffhook=false
+                            campaignPhone="";campaignDialAt=0L
+                            if(slot in 0..1 && enrollment.paired(slot) &&
+                               attemptId.matches(Regex("^[a-f0-9]{32}$"))){
+                                scope.launch(Dispatchers.IO){
+                                    delay(2000L) // CallLog may lag behind carrier idle.
+                                    val outcome=if(hadOffhook && placedAt>0L)
+                                        TenantCampaignDialer.finishResult(this@MobileLinkService,phone,placedAt)
+                                        else "unknown"
+                                    runCatching{enrollment.workspace(slot,"workspace_campaign_finish",
+                                        JSONObject().put("attempt_id",attemptId).put("result",outcome))}
+                                        .onFailure{notice("نتيجة مكالمة الحملة غير مؤكدة؛ يلزم مراجعة قبل تكرارها")}
+                                }
+                            }
+                        }
                         val callback=managerCallback
                         if(callback!=null){
                             if(managerSawOffhook ||
@@ -482,7 +609,8 @@ class MobileLinkService:Service() {
                                 managerDialAt=0L
                             }
                         }
-                        if(managerCallback==null && managerClaim==null && agentEnabled &&
+                        if(managerCallback==null && managerClaim==null &&
+                            campaignInProgress==null && campaignClaim==null && agentEnabled &&
                             SystemClock.elapsedRealtime()-lastManagerPoll>=4000L){
                             lastManagerPoll=SystemClock.elapsedRealtime()
                             managerClaim=scope.async(Dispatchers.IO){
