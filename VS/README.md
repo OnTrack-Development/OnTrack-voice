@@ -26,6 +26,15 @@ Fish TTS always uses the user's `drama-3` model and `/v1/tts` endpoint. The cue 
 
 The owner has explicitly declared `VS/` a future, independent, **test-only placeholder**. It is not part of the AI Voice Assistant codebase. During AI Voice Assistant development, **do not open, edit, copy, import, build, execute, test, deploy, or reuse anything in VS**. Also do not share code or other resources in the opposite direction without a specific, direct owner instruction. The earlier exploration of the existing voice bridge was only background research, **not permission to reuse code**. All agents must follow [AGENTS.md](AGENTS.md) for the complete prohibition and exception rule.
 
+## Handset findings — 2026-11-08
+
+- Owner tested v0.1.0 during an ordinary SIM call. The other person heard the original microphone, not the Fish audio. This is **confirmed failure of the intended voice-replacement requirement**, not a missing user permission.
+- The ordinary Android app has no ability to insert its playback into the cellular modem's uplink. Fish Audio preview plays locally only. Standard grants for microphone and overlay do not change this.
+- v0.2.0 scope: standalone native RTL dark/red design; Fish key status; preview-vs-call warnings; block local preview while a voice call is active; overlay remains visible after «استلام» and closes only by explicit action; permission audit differentiates preview grants from privileged phone routing.
+- **Do not claim end-to-end SIM voice replacement.** A new telephony bridge requires explicit separate owner authorization and supported elevated/vendor integration on this handset, followed by two-phone proof of exclusivity, voice leakage, latency, and handoff.
+- Do not copy any code from the OnTrack AI project into VS without a direct and specific owner instruction.
+- Successful CI build and APK packaging do not prove call functionality.
+
 ## Status
 
 Android **source prototype** exists in `VS/app/`: Fish TTS, experimental ASR recording, API-key storage, three personas, and preview controls. **APK build, runner execution, Windows checkout, Fish live response, cue quality and SIM-call audio-path isolation are NOT YET VERIFIED.** The preview plays on the device only; it is not a proven SIM-call voice replacement.
