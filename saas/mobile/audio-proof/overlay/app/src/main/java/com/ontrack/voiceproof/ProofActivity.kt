@@ -39,7 +39,6 @@ class ProofActivity:ComponentActivity(){
     private lateinit var status:TextView
     private var refreshChecks:(()->Unit)?=null
     private var firstResume=true
-    private var scanSequence=0
     private val phonePermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){
         refreshChecks?.invoke()
     }
@@ -309,13 +308,9 @@ class ProofActivity:ComponentActivity(){
             startActivity(Intent(this,MobileLinkActivity::class.java));finish()
         }
         stack.addView(open,LinearLayout.LayoutParams(-1,dp(52)).apply{bottomMargin=dp(14)})
-        card(stack,"فحص جاهزية الاتصال","فحص سريع لحالة مساعد Android. لو مكتمل، مش محتاج تدخل صفحات إعدادات المطور تاني.",
-            "فحص الاتصال"){
-            status.text=try{
-                if(CaptureDaemon.isSetUp(this))"الإعداد الأساسي مكتمل. افتح مركز الاتصال وشغّل الإيجنت."
-                else "الربط الأولي غير مكتمل؛ استخدم الخطوات السابقة."
-            }catch(_:Exception){"تعذر فحص المساعد الآن؛ راجع Wireless debugging والاقتران."}
-        }
+        card(stack,"فحص جاهزية الاتصال",
+            "اعرض الحالة الفعلية لكل صلاحية وربط SIM ومحرك الصوت؛ مش هنطلب إعادة اقتران لو PCM شغال.",
+            "إعادة فحص الاتصال والصلاحيات"){scan()}
         status.text="جهاز: ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}"
         scan()
     }
