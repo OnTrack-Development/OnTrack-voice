@@ -1534,3 +1534,185 @@ body :where(code,pre,kbd,samp) {
   .headline h1 {line-height:1.5}
 }
 /* OTV_TYPO_V62_END */
+
+/* OTV_TENANT_STYLE_V63_BEGIN
+   One light/dark theme per browser; independent safe tenant palette variables.
+   Server validates all CSS color inputs. Only six short hex tokens per company.
+*/
+body {
+  --ot-sidebar-active:var(--ot-dark-sidebar,#171c24);
+  --ot-content-active:var(--ot-dark-content,#0d1015);
+  --ot-sidebar-ink:var(--ot-dark-on-sidebar,#ffffff);
+  --ot-content-ink:var(--ot-dark-on-content,#ffffff);
+  --ot-card-active:var(--ot-dark-panel,#24282d);
+  --ot-panel2-active:var(--ot-dark-panel2,#282d36);
+  --ot-on-accent:var(--ot-dark-on-accent,#ffffff);
+  --accent:var(--ot-dark-accent,#cb2925);
+}
+body.light {
+  --ot-sidebar-active:var(--ot-light-sidebar,#ffffff);
+  --ot-content-active:var(--ot-light-content,#f5f7fa);
+  --ot-sidebar-ink:var(--ot-light-on-sidebar,#17202d);
+  --ot-content-ink:var(--ot-light-on-content,#17202d);
+  --ot-card-active:var(--ot-light-panel,#ffffff);
+  --ot-panel2-active:var(--ot-light-panel2,#edf1f5);
+  --ot-on-accent:var(--ot-light-on-accent,#ffffff);
+  --accent:var(--ot-light-accent,#bd2421);
+}
+body[data-ot-surface="single"] {
+  --ot-sidebar-active:var(--ot-content-active);
+  --ot-sidebar-ink:var(--ot-content-ink);
+}
+body .sidebar,body.light .sidebar {
+  background:var(--ot-sidebar-active)!important;
+  --text:var(--ot-sidebar-ink);
+  --muted:color-mix(in srgb,var(--ot-sidebar-ink) 83%,transparent);
+  border-color:color-mix(in srgb,var(--ot-sidebar-ink) 25%,transparent);
+}
+.sidebar .brand-lines strong,.sidebar .brand-logo b,
+.sidebar .nav-group-title,.sidebar .nav-link.selected,
+.sidebar .workspace-switcher-title,.sidebar .nav-close {color:var(--ot-sidebar-ink)!important}
+.sidebar .nav-link,.sidebar .brand-lines small,
+.sidebar .side-footer {color:color-mix(in srgb,var(--ot-sidebar-ink) 83%,transparent)!important}
+.sidebar .nav-link.selected {background:color-mix(in srgb,var(--accent) 18%,transparent)!important}
+.sidebar .nav-link:hover {background:color-mix(in srgb,var(--ot-sidebar-ink) 12%,transparent)!important}
+.sidebar .nav-group {
+  border-color:color-mix(in srgb,var(--ot-sidebar-ink) 23%,transparent);
+  background:transparent;
+}
+.sidebar .nav-group-title {border-color:color-mix(in srgb,var(--ot-sidebar-ink) 18%,transparent)}
+.sidebar .workspace-switcher {border-color:color-mix(in srgb,var(--ot-sidebar-ink) 24%,transparent)}
+.sidebar .workspace-switch-button {
+  background:color-mix(in srgb,var(--ot-sidebar-ink) 8%,transparent);
+  color:var(--ot-sidebar-ink);
+  border-color:color-mix(in srgb,var(--ot-sidebar-ink) 25%,transparent);
+}
+body .main-area,body.light .main-area,
+body .content,body.light .content {
+  background:var(--ot-content-active);
+}
+body .content,body.light .content {color:var(--ot-content-ink)}
+body .content .card,body.light .content .card,
+body .content .metric,body.light .content .metric,
+body .content .welcome,body.light .content .welcome {
+  background:var(--ot-card-active)!important;
+  --panel:var(--ot-card-active);
+  --panel2:var(--ot-panel2-active);
+  --text:var(--ot-content-ink);
+  --muted:color-mix(in srgb,var(--ot-content-ink) 77%,transparent);
+  border-color:color-mix(in srgb,var(--ot-content-ink) 22%,transparent);
+  color:var(--ot-content-ink);
+}
+body .content .card-head h3,
+body .content .welcome h2,body .content .metric strong {
+  color:var(--ot-content-ink);
+}
+body .btn.primary,body.light .btn.primary,
+body .graph-btn.primary,body.light .graph-btn.primary,
+body .ot-theme-preview-button {
+  background:var(--accent);
+  border-color:var(--accent);
+  color:var(--ot-on-accent)!important;
+}
+body .btn.primary:hover,body.light .btn.primary:hover {
+  filter:brightness(.94);
+  background:var(--accent);
+  border-color:var(--accent);
+}
+body .content .field input,body .content .field select,body .content .field textarea {
+  color:var(--ot-content-ink);
+  border-color:color-mix(in srgb,var(--ot-content-ink) 25%,transparent);
+}
+.ot-palette-form {gap:15px}
+.ot-palette-form fieldset {
+  min-width:0;
+  padding:17px 14px 14px;
+  margin:0;
+  border:1px solid var(--border);
+  border-radius:12px;
+}
+.ot-palette-form legend {font-weight:700;padding:0 10px}
+.ot-palette-grid {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+.ot-palette-input {
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:11px 12px;
+  background:var(--panel2);
+  min-width:0;
+}
+.ot-palette-input span {font-size:12px;line-height:1.8}
+.ot-palette-input output {
+  display:block;
+  font-size:12px;
+  direction:ltr;
+  text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+.ot-palette-input input[type="color"] {
+  display:block;
+  width:100%;height:44px;
+  min-width:0;
+  cursor:pointer;
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:3px;
+}
+.ot-palette-input input[type="color"]:disabled {opacity:.55;cursor:not-allowed}
+.ot-theme-preview {
+  display:grid;
+  grid-template-columns:minmax(110px,32%) 1fr;
+  min-height:185px;
+  overflow:hidden;
+  border-radius:12px;
+  border:1px solid var(--border);
+  direction:rtl;
+}
+.ot-theme-preview-side {
+  display:flex;
+  flex-direction:column;
+  gap:13px;
+  padding:16px 12px;
+  background:var(--ot-sidebar-active);
+  color:var(--ot-sidebar-ink);
+  border-inline-end:1px solid color-mix(in srgb,var(--ot-sidebar-ink) 20%,transparent);
+}
+.ot-theme-preview-side strong {font-weight:700}
+.ot-theme-preview-side span {font-size:12px;opacity:.8}
+.ot-theme-preview-main {
+  background:var(--ot-content-active);
+  color:var(--ot-content-ink);
+  padding:19px 15px;
+  display:flex;flex-direction:column;align-items:flex-start;
+  gap:12px;
+  min-width:0;
+}
+.ot-theme-preview-main strong {font-size:15px}
+.ot-theme-preview-main span {font-size:12px;opacity:.83}
+.ot-theme-preview-button {
+  margin-top:6px;
+  background:var(--accent);
+  color:var(--ot-on-accent);
+  border:1px solid var(--accent);
+  border-radius:10px;
+  padding:10px 16px;
+  min-height:40px;
+}
+.ot-palette-actions {display:flex;gap:10px;justify-content:flex-start}
+@media(max-width:760px){
+  .ot-palette-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:480px){
+  .ot-palette-grid {grid-template-columns:1fr}
+  .ot-palette-form fieldset {padding:12px}
+  .ot-theme-preview {grid-template-columns:minmax(95px,36%) 1fr;min-height:170px}
+  .ot-theme-preview-side {padding:13px 9px}
+  .ot-theme-preview-main {padding:14px 10px}
+}
+/* OTV_TENANT_STYLE_V63_END */
