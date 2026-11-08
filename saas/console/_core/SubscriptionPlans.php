@@ -86,6 +86,12 @@ function subscription_assign_demo(int $accountId,int $planId):array {
 function plan_catalog_init():void {
     static $ready=false;
     if($ready)return;
+    // These plan columns are additive legacy migrations and are required
+    // before a reseller can create its first private plan.
+    require_once __DIR__.'/GoogleTenantKeys.php';
+    google_voice_key_schema();
+    require_once __DIR__.'/AiRelay.php';
+    ai_relay_assistant_limits_schema();
     $marker=private_path().'/.schema.plans-catalog-v1';
     if(is_file($marker)){$ready=true;return;}
     $engine=driver()==='mysql'?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4':'';
