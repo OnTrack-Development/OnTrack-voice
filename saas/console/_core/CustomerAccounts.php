@@ -70,7 +70,9 @@ function customer_accounts_update(array $actor,int $id,array $data):void {
 }
 /** Owner email is a login identity, not merely invoice contact email. */
 function customer_accounts_change_login(array $actor,int $id,string $email):void {
-    customer_accounts_scope($actor,$id);
+    $target=customer_accounts_scope($actor,$id);
+    if(($target['status']??'')==='archived')
+        throw new InvalidArgumentException('archived_customer_not_editable');
     $email=strtolower(trim($email));
     if(!filter_var($email,FILTER_VALIDATE_EMAIL)||strlen($email)>190)
         throw new InvalidArgumentException('البريد الجديد غير صالح');
