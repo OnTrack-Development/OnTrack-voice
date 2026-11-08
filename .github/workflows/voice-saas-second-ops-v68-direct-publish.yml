@@ -1,0 +1,139 @@
+name: OnTrack v68 external paid claims, campaigns, workers and email
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-second-ops-v68-direct-publish.yml'
+      - 'tools/test_v68_external_claim.php'
+      - 'tools/test_v68_workers_email.php'
+      - 'tools/prepare_saas_second_ops_v68.py'
+      - 'tools/deploy_saas_second_ops_v68.py'
+      - 'tools/install_saas_workers_v68.py'
+      - 'saas/console/_core/ExternalOrderClaim.php'
+      - 'saas/console/_core/OperationalOutbox.php'
+      - 'saas/console/_core/EmailDelivery.php'
+      - 'saas/console/_core/Signup.php'
+      - 'saas/console/_core/Actions.php'
+      - 'saas/console/_core/Views.php'
+      - 'saas/console/_core/TenantWorkspace.php'
+      - 'saas/console/hooks/index.php'
+      - 'saas/console/operational-worker.php'
+      - 'saas/console/whatsapp-worker.php'
+      - 'saas/console/flow-ai-worker.php'
+      - 'saas/console/jobs/knowledge_sync.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-saas-v68-second-phase
+  cancel-in-progress: false
+jobs:
+  test-and-publish:
+    name: Test full second-phase logic batch and atomically publish to canonical host
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 50
+      - name: PHP syntax, published-source security and isolated financial/WhatsApp/Flow regressions
+        run: |
+          $ErrorActionPreference='Stop'
+          $paths=@(
+            'saas/console/_core/ExternalOrderClaim.php',
+            'saas/console/_core/OperationalOutbox.php',
+            'saas/console/_core/EmailDelivery.php',
+            'saas/console/_core/Signup.php',
+            'saas/console/_core/Actions.php',
+            'saas/console/_core/Views.php',
+            'saas/console/_core/TenantWorkspace.php',
+            'saas/console/hooks/index.php',
+            'saas/console/operational-worker.php',
+            'saas/console/whatsapp-worker.php',
+            'saas/console/flow-ai-worker.php',
+            'saas/console/jobs/knowledge_sync.php',
+            'tools/test_v68_external_claim.php',
+            'tools/test_v68_workers_email.php'
+          )
+          foreach($path in $paths){
+            & php -l $path
+            if($LASTEXITCODE -ne 0){throw ('PHP syntax invalid '+$path)}
+          }
+          & python -m py_compile tools/deploy_saas_first_logic_v68.py tools/prepare_saas_first_logic_v68.py
+          if($LASTEXITCODE -ne 0){throw 'Publisher syntax failed'}
+          $tests=@(
+            'tools/test_v68_external_claim.php',
+            'tools/test_v68_workers_email.php',
+            'tools/test_voice_sso.php',
+            'tools/test_v67_payment_renewal_refund.php',
+            'tools/test_v67_whatsapp_dispatch.php',
+            'tools/test_v67_voice_device_flow.php',
+            'tools/test_console_kashier_webhook.php'
+          )
+          $n=0
+          try{
+            foreach($test in $tests){
+              $n++
+              $env:ONTRACK_CI_NAMESPACE='v68_'+$env:GITHUB_RUN_ID+'_'+$n
+              & php $test
+              if($LASTEXITCODE -ne 0){throw ('Second-phase regression failed '+$test)}
+            }
+          }finally{
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          }
+          Write-Host 'V68_EXTERNAL_CLAIM_OUTBOX_EMAIL_ALL_ISOLATED_REGRESSIONS_PASS'
+      - name: Build pinned old-to-new patch ZIP and transfer to private staging via direct SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          $zip=Join-Path $env:RUNNER_TEMP 'ontrack-v68-second-ops.zip'
+          & python tools/prepare_saas_first_logic_v68.py $zip
+          if($LASTEXITCODE -ne 0){throw 'Pinned old/new patch package failed'}
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH key unavailable'}
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-second-ops-v68'
+          & ssh.exe @ssh -p 7195 $hostName ('umask 077; mkdir -p '+$stage+'; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Private staging not writable'}
+          & scp.exe @ssh -P 7195 $zip ($hostName+':'+$stage+'/bundle.zip')
+          if($LASTEXITCODE -ne 0){throw 'SaaS v68 patch bundle failed to upload'}
+          & scp.exe @ssh -P 7195 tools/deploy_saas_first_logic_v68.py ($hostName+':'+$stage+'/deploy.py')
+          if($LASTEXITCODE -ne 0){throw 'Atomic deploy script transfer failed'}
+          $extract='python3 -c "import zipfile; zipfile.ZipFile('+"'"+$stage+"/bundle.zip'"+').extractall('+"'"+$stage+"'"+')"'
+          & ssh.exe @ssh -p 7195 $hostName $extract
+          if($LASTEXITCODE -ne 0){throw 'Private ZIP extraction failed'}
+          Write-Host 'V68_PINNED_PRIVATE_STAGING_PASS'
+      - name: Atomic production patch, rollback, production lint and unauthenticated route smoke
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          & ssh.exe @ssh -p 7195 $hostName 'python3 /home/appontrack/.ontrack-mobile/saas-second-ops-v68/deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'v68 production aborted; no partial deployment should remain'}
+          & ssh.exe @ssh -p 7195 $hostName 'set -eu; cd /home/appontrack/public_html; /opt/cpanel/ea-php83/root/usr/bin/php -l _core/ExternalOrderClaim.php; /opt/cpanel/ea-php83/root/usr/bin/php -l _core/EmailDelivery.php; /opt/cpanel/ea-php83/root/usr/bin/php -l operational-worker.php; /opt/cpanel/ea-php83/root/usr/bin/php -l hooks/index.php; echo V68_LIVE_CANONICAL_PHP83_RECHECK_PASS'
+          if($LASTEXITCODE -ne 0){throw 'v68 production PHP lint failed'}
+          $site=Invoke-WebRequest -Uri ('https://app.ontrackegy.com/login?v=67-'+$env:GITHUB_RUN_ID) -SkipHttpErrorCheck -TimeoutSec 30 -MaximumRedirection 2
+          if([int]$site.StatusCode -ge 500){throw ('Login HTTP failure '+$site.StatusCode)}
+          $private=Invoke-WebRequest -Uri 'https://app.ontrackegy.com/device/v1/' -SkipHttpErrorCheck -TimeoutSec 20 -MaximumRedirection 0
+          if([int]$private.StatusCode -eq 200){throw 'Unauthenticated device endpoint exposure'}
+          Write-Host 'V68_LIVE_PAYMENT_CLAIM_EMAIL_WORKERS_HTTPS_SMOKE_PASS'
+      - name: Install only verified SaaS operational workers on host, preserve existing cron
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-second-ops-v68'
+          & scp.exe @ssh -P 7195 tools/install_saas_workers_v68.py ($hostName+':'+$stage+'/install_workers.py')
+          if($LASTEXITCODE -ne 0){throw 'Worker installer transfer failed'}
+          & ssh.exe @ssh -p 7195 $hostName ('python3 '+$stage+'/install_workers.py')
+          if($LASTEXITCODE -ne 0){throw 'Worker cron install or verification failed'}
+          Write-Host 'V68_OPERATIONAL_OUTBOX_EMAIL_FLOW_KB_WORKER_CRON_PASS'
