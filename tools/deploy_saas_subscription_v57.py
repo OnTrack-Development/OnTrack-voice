@@ -10,7 +10,8 @@ ROOT=Path('/home/appontrack/public_html')
 STAGE=Path('/home/appontrack/.ontrack-mobile/saas-subscriptions-v57')
 PHP='/opt/cpanel/ea-php83/root/usr/bin/php'
 FILES=['_core/SubscriptionPlans.php','_core/Actions.php','_core/Views.php',
-       '_core/Checkout.php','_core/Bootstrap.php']
+       '_core/Checkout.php','_core/Bootstrap.php',
+       '_core/GoogleTenantKeys.php','_core/AiRelay.php']
 
 def checksum(data:bytes)->str:
     return hashlib.sha256(data).hexdigest()
@@ -111,6 +112,9 @@ def main():
             )):raise RuntimeError('checkout_tenant_guard_missing')
             if rel=='_core/Bootstrap.php' and 'plan_catalog_init();' not in patched:
                 raise RuntimeError('schema_migration_bootstrap_missing')
+            if rel in ('_core/GoogleTenantKeys.php','_core/AiRelay.php') and (
+                "p.kind='user' AND p.status='active'" in patched
+            ):raise RuntimeError('archived_subscriber_entitlement_still_filtered')
             changed=patched.encode('utf-8')
             php_lint(changed,rel.replace('/','_'))
             plan[rel]=(destination,destination.read_bytes(),changed,stat.S_IMODE(destination.stat().st_mode))
