@@ -1,0 +1,46 @@
+name: VS - Android standalone debug APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'VS/**'
+      - '.github/workflows/vs-android-debug.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vs-debug:
+    name: Build VS APK independently
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: VS
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build VS only (not the OnTrack agent)
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Validate output
+        run: |
+          $apk = 'app/build/outputs/apk/debug/app-debug.apk'
+          if (!(Test-Path $apk)) { throw 'VS APK was not built' }
+          Get-FileHash $apk -Algorithm SHA256 | Format-List
+      - name: Upload VS APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VS-Drama3-debug-APK
+          path: VS/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
