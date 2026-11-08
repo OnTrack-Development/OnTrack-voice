@@ -40,7 +40,7 @@ function google_voice_key_limit(int $accountId):int {
     if(!$account||($account['status']??'')!=='active')return 0;
     if(in_array($account['kind'],['platform','reseller'],true))return 0;
     $subscription=one("SELECT p.google_key_limit FROM subscriptions s
-        JOIN plans p ON p.id=s.plan_id AND p.kind='user' AND p.status='active'
+        JOIN plans p ON p.id=s.plan_id AND p.kind='user'
         WHERE s.account_id=? AND s.status='active'
           AND s.starts_at<=? AND s.ends_at>?
         ORDER BY s.id DESC LIMIT 1",[$accountId,now(),now()]);
