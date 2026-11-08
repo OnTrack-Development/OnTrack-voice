@@ -403,10 +403,24 @@ function mine():?array{
     }
     return null;
 }
-/** The user workspace is a presentation mode for eligible account owners,
- * not an escalation or impersonation mechanism. The real account remains
- * unchanged, and support sessions take precedence over this preview.
+/** View changes are PRESENTATION ONLY; account identity, support policies,
+ * metering and real memberships never change. Support users can preview only
+ * the reseller they already opened from an authorized platform membership.
  */
+function console_can_switch_support_view(?array $context=null):bool {
+    $a=$context??mine();
+    $sp=active_support();
+    if(!$a || !$sp || ($a['kind']??'')!=='reseller' ||
+       (int)($a['account_id']??0)!==(int)($sp['account_id']??-1) ||
+       (int)($a['support_origin']??0)!==(int)($sp['origin_id']??-1))return false;
+    $u=me();
+    if(!$u)return false;
+    foreach(memberships((int)$u['id']) as $m){
+        if((int)$m['account_id']===(int)$sp['origin_id'] && $m['kind']==='platform'
+            && in_array($m['role'],['owner','admin','support'],true))return true;
+    }
+    return false;
+}
 function console_can_switch_view(?array $context=null):bool {
     $a=$context??mine();
     return $a!==null && in_array((string)($a['kind']??''),['platform','reseller'],true)
@@ -414,6 +428,10 @@ function console_can_switch_view(?array $context=null):bool {
         && active_support()===null;
 }
 function console_view_mode(?array $context=null):string {
+    if(console_can_switch_support_view($context)){
+        $sp=active_support();
+        return ($sp['view']??'admin')==='user'?'user':'admin';
+    }
     if(!console_can_switch_view($context))return 'admin';
     return ($_SESSION['console_view']??'admin')==='user'?'user':'admin';
 }
