@@ -73,6 +73,9 @@ def patch_views(live:str,candidate:str)->str:
     if "form_start('brand_logo_remove'" not in live:
         live=live.replace(select(live,sectionStart,sectionEnd),
                           select(candidate,sectionStart,sectionEnd),1)
+    # Dynamic /saas/console/ aliases serve static CSS, not PHP subroutes on
+    # this host; load uploaded images from the actual /brand-logo PHP route.
+    live=live.replace('src="/saas/console/brand-logo','src="/brand-logo')
     for proof in ('function render_settings','data-brand-form','brand_identity_edit_allowed',
                   'data-brand-display','brand-logo?v=','brand_identity_mode($a)'):
         if proof not in live:raise RuntimeError('brand_view_contract_missing_'+proof)
@@ -189,7 +192,11 @@ def main()->None:
             exists=path.exists()
             if rel=='_core/BrandIdentity.php':
                 before=read(path) if exists else ''
-                if before and before!=candidate:raise RuntimeError('existing_brand_module_conflict')
+                # The initial v64 is already live; this is the one-line
+                # canonical image URL correction, not an arbitrary overwrite.
+                if before and before!=candidate and (
+                  before.replace('/saas/console/brand-logo','/brand-logo')!=candidate
+                ):raise RuntimeError('existing_brand_module_conflict')
                 after=candidate
             else:
                 before=read(path)
