@@ -101,6 +101,30 @@ def main():
     })
     ensure(status == 200 and "تم حفظ ونشر سياسة الرد" in saved,
            "customer published 5 second answering policy through POST")
+    status, _, staff = request(customer, "/saas/console/?tab=staff")
+    ensure(status == 200 and "التحويل البشري وإبلاغ المدير" in staff
+           and 'value="human_contact_add"' in staff
+           and 'value="human_route_save"' in staff,
+           "customer staff and human handoff forms are live")
+    status, _, staff_saved = request(customer, "/saas/console/", {
+        "csrf": csrf(staff), "action": "human_contact_add",
+        "return": "/?tab=staff", "contact_name": "Synthetic manager NO DIAL",
+        "phone_e164": "+99900000124", "recipient_role": "manager"
+    })
+    ensure(status == 200 and "Synthetic manager NO DIAL" in staff_saved,
+           "owner saved synthetic manager contact")
+    contact_opt = re.search(
+        r'<option value="([0-9]+)"[^>]*>Synthetic manager NO DIAL',
+        staff_saved)
+    ensure(contact_opt is not None, "saved manager appears in agent route dropdown")
+    status, _, staff_route = request(customer, "/saas/console/", {
+        "csrf": csrf(staff_saved), "action": "human_route_save",
+        "return": "/?tab=staff", "agent_id": "1",
+        "contact_id": contact_opt.group(1),
+        "handoff_delay_seconds": "20"
+    })
+    ensure(status == 200 and "تم حفظ المسار مع إيقاف الاتصال التلقائي" in staff_route,
+           "owner saved manager callback route disabled; no phone dialing")
     status, campaign_url, campaigns = request(customer, "/saas/console/?tab=campaigns")
     if status != 200 or 'value="add_campaign"' not in campaigns:
         print("CAMPAIGN_RENDER_DIAG", {
