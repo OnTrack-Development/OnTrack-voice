@@ -1,4 +1,5 @@
 <?php
+header('Cache-Control: private, no-store, max-age=0');
 require_once __DIR__ . '/api/LiveSessionSecurity.php';
 $ontrackLiveCsrf = ontrack_live_demo_session();
 $config = require __DIR__ . '/api/demo_config.php';
@@ -214,6 +215,6 @@ $config = require __DIR__ . '/api/demo_config.php';
 <span id="statusDot" class="sr-only"></span>
 <span id="engineBadge" class="sr-only">جاهز للمكالمة</span>
 
-<script type="module" src="assets/app.js?v=063"></script>
+<script type="module" src="assets/app.js?v=064"></script>
 </body>
 </html>
