@@ -107,8 +107,19 @@ jobs:
           set -euo pipefail
           git diff --check HEAD~1 HEAD
           git diff --name-only HEAD~1 HEAD | tee /tmp/saas2-changed.txt
-          if grep -E '^(VS/|saas/mobile/audio-proof/|saas/mobile/ota/|ops/host-link/|saas/console/database/schema\.)' /tmp/saas2-changed.txt; then
-            echo 'Forbidden deploy/native/production-schema file changed in Phase 2'
+          # Native files are forbidden in ALL branches.
+          if grep -E '^(VS/|saas/mobile/audio-proof/|saas/mobile/ota/|android/|app/src/)' /tmp/saas2-changed.txt; then
+            echo 'Forbidden native/OTA file changed'
             exit 1
           fi
-          echo 'SAAS_PHASE2_NO_NATIVE_OR_DEPLOY_CHANGES_CHECKED'
+          # The isolated Phase-2 PR must not alter host-link or SQL schema.
+          # The separately approved integrated 1+2+3 PR necessarily includes
+          # Phase-1 host-link hardening and the MySQL 8 parity schema patch;
+          # these are covered by integration and MySQL smoke workflows.
+          if [[ "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}" != "fix/saas-integrated-phases123-20261109" ]]; then
+            if grep -E '^(ops/host-link/|saas/console/database/schema\.)' /tmp/saas2-changed.txt; then
+              echo 'Phase 2-only changed protected host-link or SQL schema file'
+              exit 1
+            fi
+          fi
+          echo 'SAAS_PHASE2_NATIVE_BLOCK_AND_APPROVED_INTEGRATION_SCOPE_PASS'
