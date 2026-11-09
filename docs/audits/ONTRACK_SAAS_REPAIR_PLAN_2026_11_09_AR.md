@@ -43,7 +43,7 @@
 - [x] نجاح بوابة اختبارات المرحلة الثانية Offline على [GitHub Actions #42555119910](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42555119910) بعد إصلاح إخفاقات Workflow وWhitespace.
 - [ ] **ما زال مطلوبًا:** Host/Physical SIM/Provider E2E واختبار الحفاظ على كل خاصية مؤكدة؛ لا Merge ولا Deploy قبلها.
 
-**المجموع بعد هذه الدفعة:** 31 مهمة عليا؛ **0 DONE بمعايير DoD**، **15 لديها تغييرات كود جزئية، منها 5 بنود Phase 2 اجتازت اختبارات Offline**، 16 لا يوجد لها إغلاق كودي موثق داخل هذين الفرعين. كل مربع [x] هو *جزء مكتوب من المهمة* وليس نجاحًا على السيرفر أو الهاتف.
+**المجموع بعد هذه الدفعة:** 31 مهمة عليا؛ **0 DONE بمعايير DoD**، **16 لديها تغييرات كود جزئية، منها 5 بنود Phase 2 وبند WEB-UX-02 اجتازت Offline CI**، 15 لا يوجد لها إغلاق كودي موثق داخل هذين الفرعين. كل مربع [x] هو *جزء مكتوب من المهمة* وليس نجاحًا على السيرفر أو الهاتف.
 
 ### ✅ مرحلة SaaS-2 — إغلاق أجزاء إضافية من كود التقارير والفوترة
 
@@ -54,6 +54,16 @@
 
 **الحالة العددية الجديدة:** 31 مهمة عامة؛ **0 DONE بمعايير Host/Device DoD**، **15 مهمة لها خطوات كود جزئية** (منها 5 مهام CORE-01/03/04/07/08 اجتازت اختبارات Offline)، و16 مهمة بلا إغلاق كودي ضمن هذين الفرعين.
 
+### ✅ تحديث المرحلة الثالثة — WEB-UX-02 (جزئي، CI فقط)
+
+- [x] إضافة شاشة Admin لإدارة اشتراكات الريسيلرز مع عرض الباقة الفعلية الحالية، ونموذج `assign_plan` الموجود والصالح، دون تعديل قيم Subscription الحالية أو SQL schema.
+- [x] تمكين صفحة الريسيلر من عرض باقته الخاصة والأسعار والحدود ورابط `Billing` لاختيار/تجديد باقة مع اعتماد دفع؛ عدم منح باقة تلقائيًا.
+- [x] ضوابط أمان: التعيين المباشر للباقات المجانية فقط خارج `ONTRACK_DEMO=1`، ومراجعة وصول Owner/Admin وميزة إظهار الريسيلرز.
+- [x] **CI Offline PASS:** [Actions #42556706732](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42556706732) لفحص واجهة الريسيلر والاشتراكات والشراء وتأكيد Kashier والمحافظة على بقية الواجهة.
+- [ ] **WEB-UX-02 DO D:** متصفح Host حقيقي، حساب ريسيلر فعلي، Checkout/Kashier sandbox، تاريخ الباقات، ومراجعة عدم تعطل أي إعداد سابق قبل Merge/Deploy.
+
+**الحالة الإجمالية:** من 31 مهمة: **16 مهمة بها تعديلات كود جزئية** (الأمن 7 + CORE 5 + UX 2 + تكامل Legacy من الفروع السابقة حسب سجل الإنجاز)، **0 مهام مغلقة Host E2E**. المصدر الجديد: [Stage 3 PR #81](https://github.com/OnTrack-Development/OnTrack-voice/pull/81) و[سجل Stage 3](https://github.com/OnTrack-Development/OnTrack-voice/blob/fix/saas-phase3-reseller-plan-ui-20261109/docs/audits/SAAS_PHASE3_RESELLER_PLAN_PROGRESS_2026_11_09_AR.md). فرع Stage3 مبني على Stage2؛ Stage1 غير مدموج.
+
 ### ⛔ شروط الإغلاق التي ما زالت مفتوحة
 
 - [ ] **WEB-SEC-01:** تدوير السر المتسرب على الهوست، إبطال النسخة القديمة، التحقق من Git History و`dev_bridge.php` وسجل الوصول.
@@ -63,7 +73,7 @@
 - [ ] **WEB-REL-01..07:** تشغيل الاختبارات، سجل Host SHA ونسخة رجوع، توافق Android الموثق، نشر متحكم فيه بعد قبول منع التراجع.
 - [ ] **لا Merge ولا Deploy:** PR #79 ما زال Draft وغير مدموج؛ لا إثبات نشر أو اختبارات حية. تشغيلات GitHub Actions التي جرى فحصها كانت `failure` وليست `PASS`.
 
-**العدّ الحالي:** **31 مهمة عليا** = 7 أمن + 9 تكامل + 8 واجهات/تجارة + 7 جودة ونشر. **المكتمل بمقياس DoD = 0/31**؛ **15 مهمة بها عمل كودي جزئي/مقدم**، و**16 مهمة ليس لها إغلاق ضمن هذين الفرعين**. وجود وظائف قديمة تعمل لا يُحوَّل تلقائيًا إلى علامة إغلاق لهذه الخطة.
+**العدّ الحالي:** **31 مهمة عليا** = 7 أمن + 9 تكامل + 8 واجهات/تجارة + 7 جودة ونشر. **المكتمل بمقياس DoD = 0/31**؛ **16 مهمة بها عمل كودي جزئي/مقدم**، و**15 مهمة ليس لها إغلاق ضمن الفروع**. وجود وظائف قديمة تعمل لا يُحوَّل تلقائيًا إلى علامة إغلاق لهذه الخطة.
 
 **شرط المالك:** الحفاظ على أي ميزة أو خيار تم تأكيد عمله؛ ممنوع كسر صوت أو ربط SIM أو تسجيل الدخول أو بيانات الباقات أو التوقيع نتيجة إصلاح الـSaaS. لا فرض 2FA أثناء التجارب.
 
@@ -132,7 +142,7 @@
 | ID | الحالة الحالية | المهمة | ملفاتها المرجعية | معايير القبول |
 |---|---|---|---|---|
 | WEB-UX-01 | 🟡 شاشة ضبط الرد عولجت بالكود؛ باقي الأزرار غير مُعتمدة | تدقيق كل زر ونموذج ورابط ومفتاح Toggle (وظائف فعلية لا شكلية) | `Views.php`، `Actions.php`، `assets/js/app.js`، `flow-graph.js` | لكل Action: click → CSRF/RBAC → DB/state → refresh → feedback → error path؛ لا زر dead؛ Mobile/Desktop RTL/Light/Dark محفوظ. |
-| WEB-UX-02 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | الباقات والإدارة والاشتراكات للريسيلر والعميل | `SubscriptionPlans.php`، `Views.php`، `Actions.php` | Admin يعدّل باقة Reseller، Reseller يختار/يعدل ضمن صلاحياته، الترقية/التخفيض/التجديد واضحة؛ preserve assigned plans & ledgers؛ لا اشتراك مدفوع تلقائي بسبب إنشاء الحساب إلا إذا Trial مصرح. |
+| WEB-UX-02 | 🟡 إدارة خطة الريسيلر + CI Offline PASS؛ Checkout/Host E2E باقي | الباقات والإدارة والاشتراكات للريسيلر والعميل | `SubscriptionPlans.php`، `Views.php`، `Actions.php` | Admin يعدّل باقة Reseller، Reseller يختار/يعدل ضمن صلاحياته، الترقية/التخفيض/التجديد واضحة؛ preserve assigned plans & ledgers؛ لا اشتراك مدفوع تلقائي بسبب إنشاء الحساب إلا إذا Trial مصرح. |
 | WEB-UX-03 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | End-to-end Billing/Kashier/manual/Wallet/Claim حسب القنوات المفعلة | Billing callbacks/`OrderClaim.php`/Outbox worker | Gateway webhook signature+amount+currency+invoice unique، paid_pending_claim قابل للربط الآمن، لا settlement وهمي؛ Refund/Retry/Expired tests؛ أي بوابة غير مفعلة لا تُعطل الحالية. |
 | WEB-UX-04 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | استكمال تسجيل/استعادة كلمة المرور دون MFA تجريبية | `Signup.php`، `index.php`، reset/email | Login البريد/كلمة المرور فقط، Reset token expiry، SSO signatures، Admin/Reseller/Customer، رسائل بريد حقيقية، عدم إزالة التسجيل حسب إعدادات Owner. |
 | WEB-UX-05 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | ريسيلرز وWhite-label domains | domain worker + `Views.php` + Host config | TXT ownership ثم DNS/TLS/Host routing فعلي؛ Reseller branded Login/Register/Logo، عزل تام، لا تغيير Domain قائم حتى ينجح البديل. |
