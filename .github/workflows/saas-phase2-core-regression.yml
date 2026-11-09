@@ -25,11 +25,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 2
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           extensions: pdo_sqlite,mbstring,pdo_mysql,curl,openssl,fileinfo,zip,dom
           coverage: none
+      - name: Install isolated PDF text extractor for real PDF fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+          test -x /usr/bin/pdftotext
       - name: PHP source syntax and direct contracts
         shell: bash
         run: |
