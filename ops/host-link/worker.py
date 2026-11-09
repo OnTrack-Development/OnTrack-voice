@@ -169,6 +169,20 @@ def validate_job(job, cfg):
         argv = job.get("argv")
         if not isinstance(argv, list) or not argv or len(argv) > 100 or any(not isinstance(x, str) or "\x00" in x for x in argv):
             raise ValueError("argv must be a nonempty array of strings")
+        # A valid signature is necessary but is not authorization for arbitrary
+        # host shell commands. A local private, operator-owned config must
+        # explicitly allow the entire argv vector. No network or default
+        # wildcard allowance: the stopped host link must not become an RCE
+        # interface when re-enabled with a signer accidentally exposed.
+        allowed = cfg.get("allowed_exec_argv")
+        if not isinstance(allowed, list) or not allowed or len(allowed) > 50:
+            raise ValueError("Exec argv allowlist not provisioned")
+        if any(not isinstance(row, list) or not row or len(row) > 100 or
+               any(not isinstance(x, str) or "\x00" in x for x in row)
+               for row in allowed):
+            raise ValueError("Invalid exec argv allowlist")
+        if argv not in allowed:
+            raise ValueError("Exec argv not allowlisted")
         cwd = Path(job.get("cwd", cfg["project_root"])).resolve()
         home = Path(cfg["account_home"]).resolve()
         if cwd != home and home not in cwd.parents:
