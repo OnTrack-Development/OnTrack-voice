@@ -39,7 +39,7 @@ try{
         );
         device_answer(201,['ok'=>true,'binding'=>$bound,'state'=>'paired_control_plane_only']);
     }
-    if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session','voice_failover','voice_preflight','caller_identify','caller_verify',
+    if(in_array($operation,['contract_probe','heartbeat','disconnect','published_flow','voice_session','voice_failover','voice_preflight','caller_identify','caller_verify',
         'workspace_contacts','workspace_contact_dnc','workspace_import','workspace_calls','workspace_call_transcript',
         'workspace_call_event','workspace_call_report','workspace_call_analysis','workspace_handoff_claim','workspace_handoff_ack','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_campaign_claim',
         'workspace_campaign_verify','workspace_campaign_finish','workspace_contact_consent',
@@ -87,6 +87,12 @@ try{
         if($operation==='disconnect'){
             if(!device_binding_disconnect($binding))device_answer(409,['ok'=>false,'error'=>'device_disconnect_conflict']);
             device_answer(200,['ok'=>true,'state'=>'revoked']);
+        }
+        if($operation==='contract_probe'){
+            // Safe, opt-in read-only diagnostic. No heartbeat update, provider
+            // token, user phone number, SIM action, or state mutation.
+            require_once __DIR__.'/../../_core/TenantDeviceContract.php';
+            device_answer(200,['ok'=>true,'contract_probe'=>tenant_device_contract_probe($binding)]);
         }
         if(str_starts_with($operation,'workspace_')){
             if($operation==='workspace_contacts')device_answer(200,['ok'=>true]+tenant_workspace_contacts($binding));
