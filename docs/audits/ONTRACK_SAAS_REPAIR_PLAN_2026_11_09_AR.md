@@ -1,0 +1,124 @@
+# OnTrack Voice — خطة إصلاح الـSaaS فقط مع ضمان عدم تعطيل الميزات القائمة
+**التاريخ:** 2026-11-09 | **النوع:** خطة تنفيذ مستقلة / PLANNING ONLY | **الحالة:** TODO / NOT IMPLEMENTED  
+**المستودع:** `OnTrack-Development/OnTrack-voice`  
+**قاعدة المقارنة:** `release/voice-v1-20261106` عند إعداد التقرير المجمّع؛ قبل كل مهمة يُقرأ HEAD الفعلي وHost Receipt بدل الاعتماد على تاريخ التقرير.  
+**المرجع الأساسي:** [التقرير المجمّع](ONTRACK_CONSOLIDATED_ZERO_ASSUMPTION_AUDIT_2026_11_09_AR.md).  
+**النطاق المسموح في هذه الخطة:** لوحة الـSaaS، API، قواعد البيانات، تكاملات الموقع، الباقات، الـBilling، الـTenancy، الـVoice session server-side، الاختبارات والتشغيل المرتبطين بالموقع.  
+**خارج النطاق:** تغيير Android/PCM/SIM/APK/OTA، تغيير توقيع الجوال، فتح `VS/` أو تشغيل/مراجعة محتوياته، أي نشر ضمن مهمة كتابة هذه الخطة.
+
+> ## شرط مالك المشروع الحاكم — NON-REGRESSION / PRESERVE WORKING FEATURES
+> **ممنوع إزالة أو تعطيل أو إخفاء أو إعادة ضبط أو استبدال أي ميزة أو خيار أو مسار تم تشغيله والتأكد منه، حتى لو وُجد في كود Legacy أو بدا غير مستخدم.** الإصلاح يكون إضافيًا ومتوافقًا إلى الخلف (additive/backward compatible) مع اختبارات إثبات. عند تعارض الحماية الأمنية مع استمرار وظيفة سليمة، **أغلق مسار الاستغلال فقط** وأبقِ الوظيفة المشروعة عبر توثيق/حدود صلاحية/ترحيل آمن. لا تُحذف نقطة API أو حقل DB أو خيار واجهة أو Provider أو Subscription أو Token مستخدم لمجرد أن بديلًا أحدث موجود.
+
+---
+
+## 0. بروتوكول الحماية الإلزامي قبل أي مهمة
+
+### 0.1 جرد «ما يعمل» وعقد السلوك
+- [ ] استخرج **source SHA** للفرع المعني، و**host SHA/Receipt** الفعلي، وآخر Browser/CI E2E، وقائمة Feature Flags والـAPI routes وDB migrations؛ لا تفترض تطابق الفرع مع الهوست.
+- [ ] التقط Baseline لسلوك Admin/Reseller/Customer، وLogin/Password Reset/SSO، والتسجيل، White-label، الباقات والاشتراكات، Agent Studio/Flow Builder/Knowledge، الإيجنتات والأصوات، API keys والمزودات، Campaigns/Contacts، Calls/Reports، إعدادات المكالمات (بما فيها **5 ثوانٍ** إن كان مفعّلًا)، الربط بالشريحة، WhatsApp/WHMCS/Laravel، الحجز والتذاكر، Billing، UI العربي/RTL، Dark/Light، Responsive.
+- [ ] صنّف كل ميزة `OWNER_CONFIRMED` أو `HOST_VERIFIED` أو `CODED_CI_PASS` أو `PARTIAL` أو `UNVERIFIED`؛ لا ترفع قيمة التأكيد من دون دليل. حافظ خصوصًا على وظائف الباقات/Flows/الأصوات/Knowledge/SSO/المكالمات التي سبق اختبارها.
+- [ ] خذ Backup قابل للاستعادة لقاعدة البيانات والملفات والإعدادات والمفاتيح المشفرة **من دون تصدير الأسرار إلى Git**؛ اختبر Restore معزولًا. سجّل حد الرجوع وقائمة ملفات النشر.
+- [ ] ثبّت عقد إصدار Client/API سابق يدعم الهاتف المثبت: لا تغيير صامت في `device/v1` أو payloads أو Bearer scheme أو عمليات الـPilot المطلوبة قبل Compat tests، ولا تغيير Prefix أو Domain مستخدم.
+- [ ] كل مهمة تُنفذ في فرع/commit مستقل مع diff محدود وFeature Flag افتراضي يُبقي السلوك السابق، ثم Unit/Contract/Browser + Host QA معزول؛ لا Merge/Deploy إن هبط أي اختبار حماية.
+
+### 0.2 قائمة «ممنوع المساس» مع حق الإصلاح الآمن
+1. **دخول الموقع خلال التجارب** بريد + كلمة مرور فقط لجميع الأدوار؛ **لا إعادة إلزام 2FA/OTP/TOTP** حتى قرار إطلاق تجاري جديد. أبقِ CSRF/session rotation/login throttling/signed SSO/email verification وSIM pairing مستقلين.
+2. **الحسابات/الريسيلرز/الدومينات**: لا حذف عملاء Demo أو Subscriptions أو Plans أو ريسيلرز أو إعدادات White-label، ولا إلغاء تحكم الأدمن؛ عزل المستأجرين دائم.
+3. **مفاتيح Providers**: Google Live/IO/Fish إن كانت مفعلة، ومجموعات Omnira A/B/NVIDIA/Custom للـAssistant كما هي وفق الصلاحيات؛ لا تغيير صوت أو Agent أو Provider افتراضي/تكاليف أو قائمة الأصوات دون اختبار وتغيير مقصود. لا تفترض أن مزود Text يملك Voice API.
+4. **الإيجنتات والسيناريوهات**: الحفاظ على النص المنشور، Draft، Flow JSON، Knowledge versions، Policies، واختيار صوت/Agent لكل SIM؛ لا تحوّل المسودات إلى نشر تلقائي، ولا تعطل النشر الحالي.
+5. **ربط الشريحة**: Token/device bindings الحالية، سياسات pairing ذات الستة أرقام، dual-SIM scope، Agent revision، وحق العميل في تشغيل/إيقاف الإيجنت؛ لا Unpair أو Rotate Tokens لمجرد إصلاح صفحة الويب.
+6. **التكاملات والفواتير**: لا تصفير quotas أو تعديل plan price أو إسناد اشتراك أو إرسال إشعارات مالية/واتساب أثناء اختبارات بلا fixture وموافقة؛ لا ترسل حملات فعلية.
+7. **الإصدارات**: أي Publish لموقع فقط يجب أن يثبت `signed_mobile_unchanged=true` ونسخ مؤشر native/OTA قبل وبعد؛ لا إرسال تحديث APK أو تشغيل Host-Link الموقوف.
+8. **الأمان**: لا يُستخدم مبدأ «عدم التعطيل» لإبقاء endpoint مفتوح للاستغلال؛ وفر بديلًا مصادقًا أو حظرًا انتقائيًا قبل غلق الوصول غير الموثق.
+
+**بوابة قبول موحدة لكل بند:** `CODE_READ → REPRO_OR_RISK_PROOF → PATCH_MINIMAL → TEST_NEW + REGRESSION_ALL → HOST_ISOLATED_QA → (AUTHORIZED DEPLOY ONLY) → HTTP/Browser/Owner E2E → RECEIPT → DONE`. إن نقص أي دليل: `PARTIAL/UNVERIFIED` لا `DONE`.
+
+---
+
+## Phase SaaS-1 — إغلاق الثغرات دون كسر API أو الديمو
+
+| ID | المهمة الدقيقة | المصدر/المسار | تنفيذ متوافق إلى الخلف + اختبار الإغلاق |
+|---|---|---|---|
+| WEB-SEC-01 (P0) | تدقيق توكن الصيانة المتسرب وحماية التهيئة | `UPLOAD_TO_ROOT.txt`، `api/setup_demo.php`، `api/diag.php`، private config | احصر التعرض والـcallers؛ انقل الوظيفة الإدارية إلى مسار داخلي مصادق، ثم دوّر التوكنات المتأثرة فقط بخطة rollback؛ اختبار `old token denied` و`authorized maintenance still works`؛ لا نشر قيمة السر. |
+| WEB-SEC-02 (P0) | حماية توليد Gemini ephemeral tokens | `api/live_session.php:7-19,110-176`، `TenantVoiceSession.php` | فصل ديمو المستخدم المخول عن Tenant SIM session؛ مصادقة + per-IP/user/tenant quota/rate limit وconstraints المدعومة فعليًا؛ الحفاظ على تجربة الديمو الشرعية؛ `401/429` لغير المخول، مكالمة مخولة تعمل، لا Prompt/مفاتيح خام في الأخطاء. |
+| WEB-SEC-03 (P0) | حماية أدوات الديمو/الفحص المنشورة | `omnira_api_tester.php`، `test.php`، `dev_bridge.php` حيث يوجد فعليًا | تحقق من Host access أولًا؛ انقل أدوات التشخيص إلى CLI أو Admin محمي؛ امنع proxy/setup عمومي؛ حافظ على فحوص Admin مصرح بها؛ HTTP external 403/404 مع اختبار admin-path pass. |
+| WEB-SEC-04 (P0/P1) | فصل التحكم في هوست GitHub job عن منطق الموقع | `ops/host-link/worker.py`، النشر/SSH pipelines | أثبت حالة STOP أولًا، لا تعاود التشغيل؛ إن استخدم مستقبلًا: signed jobs + allowlist + replay protection؛ لا تغيّر قناة النشر النشطة/SSH دون تحقق مماثل وrollback. |
+| WEB-SEC-05 (P1) | ضمان التوثيق ومنع brute force وتسرب الأخطاء | `saas/console/index.php:111-140`، `Bootstrap.php`، `api/v1/index.php`، Widget/hooks | اختبار أن DB login throttle الحالي يعمل بدل إعادة كتابته؛ إضافة missing endpoint throttles + bounded errors + CSRF/HMAC وscope؛ Browser Login/SSO/RBAC لا يتغير، no-cookie lock 429. |
+| WEB-SEC-06 (P1) | حماية Vault والنسخ الاحتياطية | `saas/console/_core/Bootstrap.php`، أدوات Admin | صلاحيات ملفات صارمة ومفتاح دائم خارج webroot ونسخ احتياطي مشفر؛ لا تستبدل Vault key على بيانات حالية؛ decrypt pre/post ومفاتيح متعددة واسترجاع backup بنجاح. |
+| WEB-SEC-07 (P1) | تقوية السجل والـAudit بدون تسريب | loggers/`VoiceCallEvidence.php`/`Actions.php` | Logs تحتوي operation/correlation/tenant/call IDs دون secrets وPII غير لازمة؛ رضا مالك المشروع عن تشخيص الأجهزة في التطوير؛ اختبار masking للأسرار دون إخفاء سبب العطل. |
+
+**DoD Phase-1:** لا endpoint عام ينشئ تكلفة Gemini/يغير إعدادًا حساسًا بلا صلاحية؛ لا توقف لأي جلسة ديمو مخولة، أو دخول/SSO/ربط قائم؛ اختبارات مسبقة ولاحقة وتقرير Host حقيقي بعد نشر مصرح فقط.
+
+---
+
+## Phase SaaS-2 — الربط والتشغيل المؤسسي والفصل بين المستأجرين
+
+| ID | المهمة الدقيقة | المصدر/المسار | DoD مع حظر التراجع |
+|---|---|---|---|
+| WEB-CORE-01 | فحص/تثبيت Contract بين Phone وSaaS | `saas/console/device/v1/index.php`، `DevicePairing.php`، `TenantVoiceSession.php`، API legacy | versioned contracts + response fields stable، Token per binding/SIM/revoke/heartbeat؛ ثبت عمل الاقتران الحالي، لا تبدّل Device ID أو SIM mapping ولا تمنع العميل القديم قبل version gate. |
+| WEB-CORE-02 | اختيار Agent وVoice والـPublished Policy لكل شريحة | `DevicePairing.php`، `PublishedFlow.php`، `Actions.php`، `VoiceCatalog.php` | تغيير الإيجنت من Console يظهر في heartbeat/session الجديدة؛ المكالمة الجارية تحتفظ بالـsnapshot؛ صوت/لهجة/answer_delay والبروفايل الحالي لا يُستبدلون بإعداد Demo. |
+| WEB-CORE-03 | استكمال Flow Runtime والأدوات الحقيقية | `TenantVoiceSession.php`، `PublishedFlow.php`، `FlowAi*.php`، `VoiceToolGateway.php` | Preserve draft/published separation، تطويع Ask/Condition/Collect/Handoff، فقط verified tools تكتب/تحجز، replay/idempotency، لا نطق «تم الحجز» بلا provider result، اختبارات real provider sandbox. |
+| WEB-CORE-04 | Knowledge indexing/PDF/API facts | `VoiceKnowledgeSearch.php`، `VoiceOpenApi.php`، knowledge services | الحفاظ على المصادر والنسخ وowner review/priority/Tenant scope؛ KB اختيارية ولا تمنع Agent إن كانت فارغة؛ PDF حقيقي على Host + Arabic ranking + handling conflicts/TTL + no cross-tenant leak. |
+| WEB-CORE-05 | موصلات WHMCS/Laravel/REST/WhatsApp | `VoiceToolGateway.php`، `VoiceOpenApi.php`، webhook handlers | لا تزيل العمليات الموجودة؛ Validate schema/signature/identity/tenant/caller permission؛ Booking/Ticket/Status callbacks with external IDs ورفض duplicate/replay؛ E2E على Sandbox قبل إنتاج. |
+| WEB-CORE-06 | إسعاف تباين Pilot وTenant دون كسر النسخ المثبتة | `saas/mobile/server/session.php`، `device/v1/index.php`، routing | سجّل استعمال المسار الفعلي، أنشئ adapter/redirect موثق إن لزم؛ لا تحذف Pilot حتى صفر استدعاءات مثبت لفترة قبول ومع نجاح Client compatibility matrix. |
+| WEB-CORE-07 | تقارير المكالمات وملخصها والمساعدة البشرية | `VoiceCallEvidence.php`، `TenantWorkspace.php`، Calls/Reports APIs | Audit timeline immutable، Caller/Agent speaker، Agent tool references، حالات human requested/acknowledged؛ إبلاغ المدير بعد 10s **فقط إذا كان الإجراء مفعّلًا ومصرحًا**؛ لا حجز/اتصال خارجي وهمي. |
+| WEB-CORE-08 | قاعدة الاستهلاك والأرصدة والمكالمات | `SubscriptionPlans.php`، `UsageLedger`/usage tables، `TenantCampaignQueue.php` | no-answer لا يُحسب متصلًا، quota atomic/idempotent، انقطاع الشبكة لا يكرر الخصم، لا reset لبيانات الاشتراكات، DNC لا يُعطّل. |
+| WEB-CORE-09 | اختيار Assistant/Voice keys والـFailover | `AiRelay.php`، `GoogleVoiceFailover.php`، provider profiles | احتفظ بكل المجموعات/المفاتيح المفعلة وبحدود الباقات الحالية؛ 429/503/timeout cooldown ~900s حسب السياسة، نفس Tenant/SIM/Context؛ لا تبديل إلى مفتاح غير مخول؛ E2E صوتي ما زال مطلوبًا. |
+
+**DoD Phase-2:** ربط شريحتين وحسابين بمعرفات/صلاحيات منفصلة، Agent published instructions الصحيحة، Call report/Tool ID/Quota متوافق مع المصدر؛ كل واجهة واختبار عمل سابق يحتفظ بنتيجته.
+
+---
+
+## Phase SaaS-3 — تجربة المستخدم والباقات والريسيلرز والفوترة
+
+| ID | المهمة | ملفاتها المرجعية | معايير القبول |
+|---|---|---|---|
+| WEB-UX-01 | تدقيق كل زر ونموذج ورابط ومفتاح Toggle (وظائف فعلية لا شكلية) | `Views.php`، `Actions.php`، `assets/js/app.js`، `flow-graph.js` | لكل Action: click → CSRF/RBAC → DB/state → refresh → feedback → error path؛ لا زر dead؛ Mobile/Desktop RTL/Light/Dark محفوظ. |
+| WEB-UX-02 | الباقات والإدارة والاشتراكات للريسيلر والعميل | `SubscriptionPlans.php`، `Views.php`، `Actions.php` | Admin يعدّل باقة Reseller، Reseller يختار/يعدل ضمن صلاحياته، الترقية/التخفيض/التجديد واضحة؛ preserve assigned plans & ledgers؛ لا اشتراك مدفوع تلقائي بسبب إنشاء الحساب إلا إذا Trial مصرح. |
+| WEB-UX-03 | End-to-end Billing/Kashier/manual/Wallet/Claim حسب القنوات المفعلة | Billing callbacks/`OrderClaim.php`/Outbox worker | Gateway webhook signature+amount+currency+invoice unique، paid_pending_claim قابل للربط الآمن، لا settlement وهمي؛ Refund/Retry/Expired tests؛ أي بوابة غير مفعلة لا تُعطل الحالية. |
+| WEB-UX-04 | استكمال تسجيل/استعادة كلمة المرور دون MFA تجريبية | `Signup.php`، `index.php`، reset/email | Login البريد/كلمة المرور فقط، Reset token expiry، SSO signatures، Admin/Reseller/Customer، رسائل بريد حقيقية، عدم إزالة التسجيل حسب إعدادات Owner. |
+| WEB-UX-05 | ريسيلرز وWhite-label domains | domain worker + `Views.php` + Host config | TXT ownership ثم DNS/TLS/Host routing فعلي؛ Reseller branded Login/Register/Logo، عزل تام، لا تغيير Domain قائم حتى ينجح البديل. |
+| WEB-UX-06 | صلاحيات الدعم وإدارة الموظفين | RBAC/`StaffInvitations.php`/support grants | Admin/Reseller/Staff صلاحيات دقيقة بمدة موحدة، audit، اختبارات Privilege Escalation، وعدم تعطيل دخول الدعم المصرح. |
+| WEB-UX-07 | اختبار الصوت على المتصفح إن كانت ميزة مفعلة | `saas/console/.htaccess`، `index.php`، Agent testing | `microphone=()` قد يحظر Test mic؛ اسمح للمسار الموثق الضروري فقط وبموافقة browser، ولا تفتح camera أو embed origins غير لازمة؛ اختبر Web Demo/Console على browsers مدعومة. |
+| WEB-UX-08 | خطط الحملات/جهات الاتصال/DNC والإشعارات | Campaign/Contacts/`TenantCampaignQueue.php` | Preview/Import/Mapping/Pause/Resume/Cancel/Arm وConsent؛ لا Calls صادرة غير مقصودة، DNC enforced، إرسال notifications idempotent، لا خلط قاعدة قديمة وجديدة. |
+
+**DoD Phase-3:** اختبارات مستخدم حقيقية على دور Admin + Reseller + Customer + Demo/Trial/Expired، واجهات وعناصر محفوظة، لا تغير في Defaults أو Permissions أو Account State دون فعل مصرح.
+
+---
+
+## Phase SaaS-4 — جودة الإنتاج، CI/CD، ونقل آمن للإصدارات
+
+- [ ] **WEB-REL-01:** Run جميع `tools/test_*` المرتبطة بـAuth/SSO/Tenants/Flow/KB/Billing/Voice/API، PHP 8.2/8.3 compatibility، JS lint، Browser role journeys؛ اختبارات smoke حية بعد تصريح نشر. احتفظ بحالة PASS/FAIL لكل suite **ولا تخلط Site CI مع SIM E2E**.
+- [ ] **WEB-REL-02:** طبّق CI source SHA == Publish package SHA == Host receipt SHA وSnapshot DB schema؛ لا يعتمد النشر على SHA تاريخي إلا rollback صريح.
+- [ ] **WEB-REL-03:** Migration additive/expand-contract: إضافة أعمدة/جداول أولًا، dual-read/write إن لزم، backfill batch قابل للاستئناف، تدقيق old/new rows، ثم cutover بموافقة؛ **ممنوع DROP/RENAME/إعادة seed على قاعدة حية** قبل تحقق مستقل.
+- [ ] **WEB-REL-04:** Endpoint/API versioning + feature flags لكل تغيير حساس، مع دعم إصدارات Android الحالية وPilot؛ اختبارات `401/403/409/429/500` وحالات الشبكة وUndo.
+- [ ] **WEB-REL-05:** خطوة نشر واحدة صغيرة على Staging/Host isolated QA؛ نسخة Restore/rollback، لوج منفصل، HTTP screenshots/API probes؛ **لا نشر موقع يولّد تغييرًا في Native/OTA**.
+- [ ] **WEB-REL-06:** مراقبة زمن استجابة voice-session والموصلات، error budgets، provider/tenant/host anomalies، retry/failover دون retry عشوائي يكرر رسومًا أو عمليات.
+- [ ] **WEB-REL-07:** اختبار مستقـل لمصفوفة التوافق مع Android دون تعديل كوده؛ يستلزم تأكيد فريق/مسار التطبيق أن كل payload/command ظل متوافقًا.
+
+---
+
+## مصفوفة اختبار منع التراجع — Mandatory SaaS Regression Gate
+
+| حالة يجب أن تبقى تعمل | معيار الاختبار قبل وبعد |
+|---|---|
+| حسابات وأدوار Admin/Reseller/Customer | Login/Logout/Reset/SSO/Auth/CSRF/RBAC؛ لا OTP تجريبية ولا كسر جلسة مشروعة |
+| التسجيل/التفعيل/دومينات الريسيلر | نفس الروابط والشعارات/الفورم ونطاقات الصلاحيات؛ Existing users preserved |
+| إنشاء/تعديل/نشر Agent/Flow | نفس Voice/Provider/Instructions/Published revision، Draft isolation، إضافة/حذف/حفظ كما كان |
+| Knowledge/Integrations | موجودة بنفس IDs وVersion/Priority/Access، Working connector responses محفوظة |
+| الباقات/الاشتراكات/الدفع/الاستحقاقات | لا تغيير أرصدة/حدود/مدفوعات سابقة؛ all transitions atomic |
+| مفاتيح Providers | لا Rotation غير مصرح؛ AES-GCM decrypt تعمل، Pool/scopes preserved |
+| الأجهزة/الشريحتان/المكالمات | paired devices تظل paired؛ update/heartbeat/voice_session requests تستمر بنفس contract |
+| الحملات/الجهات/DNC | لا اتصال جديد من الاختبار؛ قاعدة منع الاتصال محفوظة |
+| Call reports/handoff/notifications | أحداث Call IDs ومصدرها وحالاتها لم تتغير، لا false human completion |
+| واجهة الويب | RTL/Responsive/Dark-Light/Search/Filters/Buttons تعمل قبل وبعد |
+| قواعد الأمان | no-cross-tenant، malformed/webhook spoof، origin/cost controls، no-cookie throttle |
+
+**مقياس رفض الإصدار:** أي Broken feature سبق توثيق نجاحها = **RELEASE BLOCKER**، حتى لو نجح إصلاح ثغرة أو ظهرت نسخة واجهة أجمل. عند فشل Regression: rollback للكود/feature flag مع الإبقاء على DB المتوافق، تحليل السبب، ثم إعادة الاختبار. لا يُسمح بالادعاء أن «كل شيء شغال» اعتمادًا على CI فقط.
+
+## تسليم كل مهمة (الحد الأدنى الإلزامي)
+`Task ID | Before/After behavior | Source SHA | Affected routes/DB | Tests + exact outputs | Preserved features evidence | Security impact | Host receipt (if published) | Rollback | PASS/FAIL/UNVERIFIED`.
+
+### الحالة عند إنشاء هذه الخطة
+**التخطيط والتوثيق فقط؛ لم تُنفذ إصلاحات SaaS أو migrations أو deploy أو اختبارات E2E ضمن هذه المهمة.**  
+**لا تعديل ولا اطلاع على مجلد `VS/`.**
