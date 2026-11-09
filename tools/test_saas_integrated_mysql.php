@@ -143,4 +143,51 @@ $html=(string)ob_get_clean();
 mysql_qa(str_contains($html,'اشتراك الحساب') &&
     !str_contains($html,'لا توجد باقة نشطة'),
     'active plan rendered correctly with real MySQL');
+require_once __DIR__.'/../saas/console/_core/Checkout.php';
+require_once __DIR__.'/../saas/console/_core/KashierWebhook.php';
+require_once __DIR__.'/../saas/console/_core/OrderClaim.php';
+// Real InnoDB: paid renewal must add a term, never erase existing paid time.
+// The synthetic signature is local only; no Kashier HTTP call or real charge.
+$paidPlan=insert("INSERT INTO plans
+    (kind,name,call_quota,site_limit,agent_limit,staff_limit,reseller_customers,
+     price_minor,status,created_at)
+    VALUES ('user','CI paid renewal fixture',800,2,2,3,0,2575,'active',?)",[now()]);
+$priorPaidEnd=gmdate('Y-m-d H:i:s',time()+60*86400);
+execute("UPDATE subscriptions SET ends_at=? WHERE account_id=4 AND status='active'",
+    [$priorPaidEnd]);
+$paymentRef='ovc_'.bin2hex(random_bytes(16));
+$verifiedTx='TX_'.bin2hex(random_bytes(16));
+$payOrder=insert("INSERT INTO orders
+    (account_id,integration_id,external_order_id,plan_id,customer_name,customer_email,
+     amount_minor,status,created_at)
+    VALUES (?,NULL,?,?,?,?,?,'pending_payment',?)",
+    [4,$paymentRef,$paidPlan,'CI synthetic card','pay-ci@example.invalid',2575,now()]);
+execute('UPDATE plans SET price_minor=3500 WHERE id=?',[$paidPlan]);
+$webhook=['event'=>'pay','data'=>[
+    'merchantOrderId'=>$paymentRef,'amount'=>'25.75',
+    'currency'=>'EGP','status'=>'SUCCESS','transactionId'=>$verifiedTx,
+    'method'=>'card']];
+$webhook['data']['signatureKeys']=array_keys($webhook['data']);
+$signed=kashier_signature($webhook['data'],'CI-only-signing-key-not-real');
+mysql_qa(is_string($signed) &&
+    kashier_verified($webhook,$signed,'CI-only-signing-key-not-real'),
+    'synthetic Kashier event signature valid before MySQL settlement');
+$settled=kashier_settle($webhook,null);
+mysql_qa($settled['status']==='active' && $settled['duplicate']===false,
+    'price-change-after-checkout cannot strand a verified paid order');
+$newPaid=one("SELECT plan_id,ends_at FROM subscriptions
+    WHERE account_id=4 AND status='active' LIMIT 1");
+mysql_qa((int)$newPaid['plan_id']===$paidPlan &&
+    $newPaid['ends_at']===gmdate('Y-m-d H:i:s',strtotime($priorPaidEnd)+30*86400),
+    'real InnoDB carries 60 paid days and credits an additional 30 days');
+$duplicate=kashier_settle($webhook,null);
+mysql_qa($duplicate['duplicate']===true,'signed MySQL payment replay is idempotent');
+mysql_qa((int)one("SELECT COUNT(*) n FROM outbox
+    WHERE account_id=4 AND kind='subscription.activated'")['n']===1,
+    'exactly one paid subscription activation outbox event on InnoDB');
+mysql_qa((int)one("SELECT COUNT(*) n FROM orders
+    WHERE id=? AND status='active' AND amount_minor=2575",[$payOrder])['n']===1,
+    'order keeps its original signed 2575 minor-unit charge despite new public price');
+echo "SAAS_REAL_MYSQL_KASHIER_RENEWAL_ORDER_SNAPSHOT_PASS\n";
+
 echo "SAAS_REAL_MYSQL_MIGRATIONS_TENANCY_PLANS_FLOW_KB_SIM_CALLS_BILLING_PASS\n";
