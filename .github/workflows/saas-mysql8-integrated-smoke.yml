@@ -1,0 +1,60 @@
+name: SaaS real MySQL 8.0 host-parity smoke (ISOLATED / NO DEPLOY)
+on:
+  push:
+    branches:
+      - fix/saas-integrated-phases123-20261109
+    paths:
+      - 'saas/console/**'
+      - 'tools/test_saas_integrated_mysql.php'
+      - '.github/workflows/saas-mysql8-integrated-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mysql8:
+    name: MySQL 8 real PDO and migrations (ephemeral database)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: ontrack_saas_ci
+          MYSQL_USER: ontrack_ci
+          MYSQL_PASSWORD: CI-only-password-2026-TEST
+          MYSQL_ROOT_PASSWORD: CI-root-test-only-not-production
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pCI-root-test-only-not-production --silent"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql,mbstring,openssl,curl,pdo_sqlite,fileinfo,zip,dom
+          coverage: none
+      - name: Verify no external host or production secret is present
+        run: |
+          set -euo pipefail
+          php -l tools/test_saas_integrated_mysql.php
+          php -r 'if(!in_array("mysql",PDO::getAvailableDrivers(),true))exit(6);'
+      - name: Execute full schema+usage against ephemeral real MySQL server
+        env:
+          ONTRACK_CI_MYSQL_ENABLED: '1'
+          ONTRACK_CI_NAMESPACE: saasmysql_${{ github.run_id }}_${{ github.run_attempt }}
+          SAAS_CI_MYSQL_HOST: 127.0.0.1
+          SAAS_CI_MYSQL_DB: ontrack_saas_ci
+          SAAS_CI_MYSQL_USER: ontrack_ci
+          SAAS_CI_MYSQL_PASSWORD: CI-only-password-2026-TEST
+        run: |
+          set -euo pipefail
+          php tools/test_saas_integrated_mysql.php
+      - name: No external calls, deployment, credentials or phone mutation
+        run: |
+          echo 'MYSQL8_ISOLATED_CI_ONLY_NO_DEPLOY_PASS'
