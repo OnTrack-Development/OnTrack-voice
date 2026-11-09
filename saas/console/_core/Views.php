@@ -1838,6 +1838,59 @@ function render_billing(array $a):void{
         }
         echo card('طلبات الدفع والاعتماد',tbl(['العميل','رقم الطلب','الحالة/الإجراء','التاريخ'],$rows));
     }
+    // Additive finance visibility: never create/modify database schema
+    // or entitlements merely because an owner opens the Billing page.
+    if(in_array((string)($a['role']??''),['owner','admin'],true) && !active_support()){
+        try{
+            if($a['kind']==='platform'){
+                $adjustments=all("SELECT j.event_type,j.amount_minor,j.created_at,
+                        j.review_status,o.external_order_id,a.name account_name
+                    FROM kashier_payment_adjustments j
+                    JOIN orders o ON o.id=j.order_id AND o.account_id=j.account_id
+                    JOIN accounts a ON a.id=j.account_id
+                    ORDER BY j.created_at DESC,j.fingerprint DESC LIMIT 60");
+            }elseif($a['kind']==='reseller'){
+                $adjustments=all("SELECT j.event_type,j.amount_minor,j.created_at,
+                        j.review_status,o.external_order_id,a.name account_name
+                    FROM kashier_payment_adjustments j
+                    JOIN orders o ON o.id=j.order_id AND o.account_id=j.account_id
+                    JOIN accounts a ON a.id=j.account_id
+                    WHERE a.id=? OR a.parent_id=?
+                    ORDER BY j.created_at DESC,j.fingerprint DESC LIMIT 60",[$id,$id]);
+            }else{
+                $adjustments=all("SELECT j.event_type,j.amount_minor,j.created_at,
+                        j.review_status,o.external_order_id,a.name account_name
+                    FROM kashier_payment_adjustments j
+                    JOIN orders o ON o.id=j.order_id AND o.account_id=j.account_id
+                    JOIN accounts a ON a.id=j.account_id
+                    WHERE j.account_id=?
+                    ORDER BY j.created_at DESC,j.fingerprint DESC LIMIT 60",[$id]);
+            }
+        }catch(PDOException $error){
+            // The table is created only by an authenticated successful
+            // adjustment webhook; a host with no adjustments needn't migrate
+            // just to display its Billing view.
+            $tableMissing=driver()==='mysql'
+                ?$error->getCode()==='42S02'
+                :str_contains($error->getMessage(),'no such table: kashier_payment_adjustments');
+            if(!$tableMissing)throw $error;
+            $adjustments=[];
+        }
+        if($adjustments){
+            $rows=[];
+            foreach($adjustments as $adj){
+                $rows[]=[e((string)$adj['account_name']),
+                    e((string)$adj['external_order_id']),
+                    e((string)$adj['event_type']),
+                    e(number_format((int)$adj['amount_minor']/100,2)).' ج.م',
+                    e((string)$adj['review_status']),
+                    e((string)$adj['created_at'])];
+            }
+            echo card('مراجعات الاسترداد وعكس الدفع — تحتاج مطابقة مالية',
+                '<p class="dim">أحداث Kashier الموقعة تحفظ للمراجعة ولا تلغي اشتراكًا قائمًا أو ترد أموالًا تلقائيًا. تأكد من العملية داخل لوحة Kashier قبل أي قرار.</p>'.
+                tbl(['الحساب','الطلب','نوع العملية','المبلغ','المراجعة','التاريخ'],$rows));
+        }
+    }
     echo '<div class="info">مدفوعات Kashier الحقيقية لا تُفعّل من صفحة Success؛ التفعيل يتطلب Webhook موثّقًا أو موافقة دفع يدوي مسجلة.</div>';
 }
 function render_releases(array $a):void{
