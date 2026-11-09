@@ -96,6 +96,7 @@ jobs:
             tools/test_v1_site05_plan_transitions.php \
             tools/test_console_checkout.php \
             tools/test_console_kashier_webhook.php \
+            tools/test_saas_refund_review_render.php \
             tools/test_voice_flow_runtime.php \
             tools/test_voice_tool_gateway.php \
             tools/test_voice_kb_pdf_extract.php \
