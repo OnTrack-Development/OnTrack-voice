@@ -1,7 +1,7 @@
 # OnTrack Voice — سجل تنفيذ المرحلة الثانية للـSaaS
-**تاريخ التحديث:** 2026-11-09  
-**الحالة:** CODED PARTIAL · TESTS NOT VERIFIED · NOT DEPLOYED  
-**المرحلة:** SaaS-2: Tenancy / Device Contract / Flow Runtime / Knowledge / Integrations / Reports / Metering / Provider Failover  
+**تاريخ التحديث:** 2026-11-09
+**الحالة:** CODED PARTIAL · TESTS NOT VERIFIED · NOT DEPLOYED
+**المرحلة:** SaaS-2: Tenancy / Device Contract / Flow Runtime / Knowledge / Integrations / Reports / Metering / Provider Failover
 **الفرع:** `fix/saas-phase2-tenant-flow-compat-20261109` — مشتق من `release/voice-v1-20261106` **بشكل مستقل عن إصلاحات المرحلة الأولى غير المعتمدة في PR #79**.
 
 > **شرط المالك الملزم:** لا إزالة لأي ميزة/زر/أوبشن مثبت العمل؛ لا تغيير SIM/Agent/voice/Provider keys أو PIN، ولا حذف/إعادة ضبط بيانات أو خطط/حصص أو ربط هاتف، ولا تغيير Android/PCM/APK/OTA، ولا تشغيل حملات أو مكالمات حقيقية من اختبار.
