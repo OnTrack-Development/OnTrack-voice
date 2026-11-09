@@ -1717,9 +1717,15 @@ function render_billing(array $a):void{
         echo card('معدل استهلاك المكالمات المتصلة',
             '<p>حساب مالك المنصة لا يخضع لحصة مكالمات العملاء أو رسوم تجاوز الباقة.</p>');
     }else{
-        $sub=one("SELECT p.*,s.status sub_status,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.account_id=? ORDER BY s.id DESC LIMIT 1",[$id]);
-        $isActive=$sub && $sub['sub_status']==='active' &&
-            $sub['ends_at']>now();
+        // The newest history row is not necessarily the current entitlement:
+        // a prior active plan may still be valid while a later checkout was
+        // replaced or a future renewal is staged. Match BillingUsage exactly.
+        $sub=one("SELECT p.*,s.status sub_status,s.starts_at,s.ends_at
+            FROM subscriptions s JOIN plans p ON p.id=s.plan_id
+            WHERE s.account_id=? AND s.status='active'
+              AND s.starts_at<=? AND s.ends_at>?
+            ORDER BY s.id DESC LIMIT 1",[$id,now(),now()]);
+        $isActive=$sub!==null;
         $text=$isActive?'<div class="plan-panel"><span class="eyebrow">YOUR CURRENT PLAN</span><h2>'.e($sub['name']).'</h2><p>'.e((string)$sub['call_quota']).' مكالمة متصلة شهرياً · '.e((string)$sub['agent_limit']).' AI · '.e((string)$sub['site_limit']).' مواقع</p><small>تنتهي الفترة: '.e($sub['ends_at']).'</small></div>':'<p>لا توجد باقة نشطة. إنشاء الحساب لا يمنح اشتراكًا مدفوعًا تلقائيًا.</p>';
         echo card('اشتراك الحساب',$text);
         $usage=voice_usage_summary($id);
