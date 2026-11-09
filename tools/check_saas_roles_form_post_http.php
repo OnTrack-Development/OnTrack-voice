@@ -63,5 +63,20 @@ browser_post_ok($contact!==null && (int)$contact['dnc']===1 &&
 browser_post_ok((int)one("SELECT COUNT(*) n FROM contacts
     WHERE account_id=4 AND phone='+99900000123'")['n']===1,
     'unconsented contact was rejected without database write');
+$manager=one("SELECT id,status,phone_e164 FROM human_escalation_contacts
+    WHERE account_id=4 AND name='Synthetic manager NO DIAL' ORDER BY id DESC LIMIT 1");
+browser_post_ok($manager!==null && $manager['status']==='active'
+    && $manager['phone_e164']==='+99900000124',
+    'manager contact saved by actual owner form with exact synthetic number');
+$route=one('SELECT contact_id,enabled,delay_seconds FROM human_escalation_routes
+    WHERE account_id=4 AND agent_id=1 ORDER BY id DESC LIMIT 1');
+browser_post_ok($route!==null &&
+    (int)$route['contact_id']===(int)$manager['id'] &&
+    (int)$route['enabled']===0 && (int)$route['delay_seconds']===20,
+    'manager route delay persisted and auto-dial remains explicitly disabled');
+browser_post_ok((int)one('SELECT COUNT(*) n FROM human_escalation_jobs
+    WHERE account_id=4')['n']===0,
+    'no manager callback has been scheduled from a settings test');
+echo "SAAS_REAL_HTTP_MANAGER_DISABLED_HANDOFF_FORM_PASS\n";
 echo "SAAS_REAL_HTTP_CAMPAIGN_DNC_PERSISTED_NO_DIAL_PASS\n";
 echo "SAAS_REAL_HTTP_FORM_POST_SQLITE_PUBLISHED_STATE_PASS\n";
