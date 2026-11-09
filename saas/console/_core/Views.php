@@ -616,7 +616,7 @@ function render_human_escalation_settings(array $a):void {
             '<small class="dim">'.e($ag['site_name']).'</small>'.
             form_start('human_route_save','/?tab=staff').
             '<input type="hidden" name="agent_id" value="'.(int)$ag['id'].'">'.
-            select_html('موظف التحويل','contact_id',$routeOptions,$selected).
+            select_html('موظف التحويل','contact_id',$routeOptions,(string)$selected).
             '<label class="field"><input type="checkbox" name="enabled" value="1"'.
                 (!empty($ag['enabled'])?' checked':'').'> تفعيل الاتصال التلقائي للمسؤول عند طلب العميل</label>'.
             select_html('مهلة اتصال المدير بعد نهاية المكالمة','handoff_delay_seconds',$delayChoices,(string)($ag['delay_seconds']??10)).
