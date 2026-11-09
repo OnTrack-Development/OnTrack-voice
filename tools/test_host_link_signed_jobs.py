@@ -43,9 +43,20 @@ with tempfile.TemporaryDirectory(prefix="ontrack-hostlink-test-") as tmp:
          "created_at":now.isoformat(),
          "expires_at":(now+dt.timedelta(minutes=2)).isoformat()}
     cfg={"target":"test-host","allow_exec":True,"account_home":str(home),
-         "project_root":str(home),"operator_pubkey_path":str(public)}
+         "project_root":str(home),"operator_pubkey_path":str(public),
+         "allowed_exec_argv":[["/bin/true"]]}
     signed=signer.sign(job,str(private))
     worker.validate_job(signed,cfg)
+    expect_raises(lambda:worker.validate_job(signed,dict(cfg,allowed_exec_argv=[])),
+                  "missing local exec allowlist")
+    signed_other=signer.sign(dict(job,argv=["/bin/false"]),str(private))
+    expect_raises(lambda:worker.validate_job(signed_other,cfg),
+                  "valid signer cannot invoke a command outside exact local allowlist")
+    signed_arguments=signer.sign(dict(job,argv=["/bin/true","--unexpected"]),str(private))
+    expect_raises(lambda:worker.validate_job(signed_arguments,cfg),
+                  "allowed binary with unauthorized arguments")
+    expect_raises(lambda:worker.validate_job(signed,dict(cfg,allowed_exec_argv=[["/bin/true",42]])),
+                  "invalid local argv allowlist")
     expect_raises(lambda:worker.validate_job(job,cfg),"unsigned exec")
     changed=dict(signed,argv=["/bin/false"])
     expect_raises(lambda:worker.validate_job(changed,cfg),"modified signed argv")
@@ -62,4 +73,4 @@ with tempfile.TemporaryDirectory(prefix="ontrack-hostlink-test-") as tmp:
     probe=dict(job,action="probe")
     del probe["argv"]
     worker.validate_job(probe,dict(cfg,allow_exec=False))
-print("HOST_LINK_SIGNED_EXEC_TAMPER_REJECTION_PASS")
+print("HOST_LINK_SIGNED_EXEC_TAMPER_ALLOWLIST_AND_REPLAY_PASS")
