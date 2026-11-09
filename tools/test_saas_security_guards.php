@@ -19,6 +19,38 @@ sec_check(!ontrack_maintenance_authorized(['POST_TOKEN'=>$credential],$digest),
     'maintenance never accepts body token');
 sec_check(!ontrack_maintenance_authorized(['HTTP_X_MAINTENANCE_TOKEN'=>$credential],null),
     'maintenance fails closed without provisioned digest');
+$maintenanceDir=sys_get_temp_dir().'/ontrack-maintenance-perm-'.bin2hex(random_bytes(6));
+if(!mkdir($maintenanceDir,0700))throw new RuntimeException('maintenance_test_setup_failed');
+try{
+    $path=$maintenanceDir.'/token.sha256';
+    file_put_contents($path,$digest);
+    chmod($path,0600);
+    sec_check(ontrack_maintenance_private_digest_file($path)===$digest,
+        'private 0600 digest can authorize maintenance');
+    chmod($path,0644);
+    sec_check(ontrack_maintenance_private_digest_file($path)===null,
+        'world-readable maintenance digest rejected');
+    chmod($path,0600);
+    chmod($maintenanceDir,0755);
+    sec_check(ontrack_maintenance_private_digest_file($path)===null,
+        'world-searchable maintenance directory rejected');
+    chmod($maintenanceDir,0700);
+    $link=$maintenanceDir.'/token.link';
+    symlink($path,$link);
+    sec_check(ontrack_maintenance_private_digest_file($link)===null,
+        'symlinked digest refused');
+    unlink($link);
+    $newDigest=hash('sha256','rotated-token-not-the-original-credential-2026');
+    file_put_contents($path,$newDigest,LOCK_EX);
+    sec_check(ontrack_maintenance_private_digest_file($path)===$newDigest &&
+        !ontrack_maintenance_authorized(['HTTP_X_MAINTENANCE_TOKEN'=>$credential],$newDigest),
+        'old maintenance token denied after digest rotation without a bypass');
+}finally{
+    @chmod($maintenanceDir,0700);
+    @unlink($maintenanceDir.'/token.link');
+    @unlink($maintenanceDir.'/token.sha256');
+    @rmdir($maintenanceDir);
+}
 sec_check(ontrack_maintenance_browser_authorized([
     'PHP_AUTH_USER'=>'ontrack-maintenance','PHP_AUTH_PW'=>$credential],$digest),
     'browser tester available to authenticated operator');
