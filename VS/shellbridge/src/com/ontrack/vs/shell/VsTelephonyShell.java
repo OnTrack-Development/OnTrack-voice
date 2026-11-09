@@ -6,6 +6,8 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import java.io.DataInputStream;
@@ -30,6 +32,7 @@ public final class VsTelephonyShell {
     private final AudioManager audio;
     private final String secret;
     private AudioTrack track;
+    private AudioRecord capture;
     private boolean muted;
     private boolean previouslyMuted;
 
@@ -94,6 +97,22 @@ public final class VsTelephonyShell {
             } else if ("START".equals(command)) {
                 if (track != null) { out.writeUTF("ACTIVE"); }
                 else { out.writeUTF(probe(true)); }
+            } else if ("CAPTURE".equals(command)) {
+                // Mirror OnTrack Voice's shell-side VOICE_CALL capture, without
+                // recorders, files, audio uploads, or a saved call archive.
+                if (capture == null || track == null || !muted) {
+                    out.writeInt(-1);
+                } else {
+                    byte[] pcm = new byte[38400]; // 200 ms, 48 kHz stereo PCM16
+                    try {
+                        int n = capture.read(pcm, 0, pcm.length, AudioRecord.READ_BLOCKING);
+                        if (n <= 0 || (n & 3) != 0) throw new IOException("VOICE_CALL capture stopped: " + n);
+                        out.writeInt(n);
+                        out.write(pcm, 0, n);
+                    } finally {
+                        Arrays.fill(pcm, (byte) 0);
+                    }
+                }
             } else if ("PLAY".equals(command)) {
                 int length = in.readInt();
                 if (length <= 0 || length > 384000 || (length & 1) != 0)
@@ -154,6 +173,10 @@ public final class VsTelephonyShell {
             AudioDeviceInfo actual = trial.getRoutedDevice();
             if (actual == null || actual.getId() != uplink.getId()) return "UPLINK_NOT_ROUTED";
             if (!activate) return "ROUTE_CANDIDATE_ONLY";
+            // OnTrack Voice starts shell VOICE_CALL capture before muting
+            // the handset microphone. An ordinary app microphone is not
+            // equivalent and often receives silence during a SIM call.
+            startCapture();
             track = trial;
             trial = null;
             previouslyMuted = audio.isMicrophoneMute();
@@ -174,7 +197,36 @@ public final class VsTelephonyShell {
         }
     }
 
+    private void startCapture() throws IOException {
+        int min = AudioRecord.getMinBufferSize(RATE,
+            AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+        if (min <= 0) throw new IOException("VOICE_CALL PCM format is unsupported");
+        AudioRecord record = new AudioRecord(
+            MediaRecorder.AudioSource.VOICE_CALL, RATE,
+            AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT,
+            Math.max(min * 4, 38400));
+        if (record.getState() != AudioRecord.STATE_INITIALIZED) {
+            record.release();
+            throw new IOException("shell VOICE_CALL did not initialize");
+        }
+        try {
+            record.startRecording();
+            if (record.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING)
+                throw new IOException("shell VOICE_CALL was denied");
+            capture = record;
+        } catch (Exception ex) {
+            record.release();
+            throw new IOException("shell VOICE_CALL capture refused", ex);
+        }
+    }
+
     private void restore() {
+        AudioRecord record = capture;
+        capture = null;
+        if (record != null) {
+            try { record.stop(); } catch (Exception ignored) { }
+            try { record.release(); } catch (Exception ignored) { }
+        }
         if (track != null) {
             try { track.pause(); track.flush(); track.release(); }
             catch (Exception ignored) {}
