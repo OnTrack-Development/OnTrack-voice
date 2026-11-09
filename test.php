@@ -1,4 +1,9 @@
 <?php
+declare(strict_types=1);
+require_once __DIR__ . '/api/MaintenanceBrowser.php';
+// Diagnostics expose provider readiness and host configuration. Keep the
+// legacy test page for the operator, not for anonymous internet visitors.
+ontrack_maintenance_browser_require();
 $config = require __DIR__ . '/api/demo_config.php';
 $checks = [
   ['PHP >= 8.0', version_compare(PHP_VERSION, '8.0.0', '>=')],
