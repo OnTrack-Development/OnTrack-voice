@@ -1,6 +1,6 @@
 # OnTrack Voice — سجل تنفيذ المرحلة الثانية للـSaaS
 **تاريخ التحديث:** 2026-11-09
-**الحالة:** CODED PARTIAL · TESTS NOT VERIFIED · NOT DEPLOYED
+**الحالة:** CODED PARTIAL · GITHUB CI OFFLINE PASS · HOST/DEVICE E2E NOT VERIFIED · NOT DEPLOYED
 **المرحلة:** SaaS-2: Tenancy / Device Contract / Flow Runtime / Knowledge / Integrations / Reports / Metering / Provider Failover
 **الفرع:** `fix/saas-phase2-tenant-flow-compat-20261109` — مشتق من `release/voice-v1-20261106` **بشكل مستقل عن إصلاحات المرحلة الأولى غير المعتمدة في PR #79**.
 
@@ -10,16 +10,29 @@
 
 | رقم الخطة | الملف | ما تم | حالة القبول |
 |---|---|---|---|
-| **WEB-CORE-01** | `saas/console/_core/TenantDeviceContract.php`, `saas/console/device/v1/index.php` | إضافة `contract_probe` اختيارية **لجهاز مربوط مصادق عليه فقط**. تُرجع Tenant/SIM/Agent/Published revision ومعلومات دعم واجهات السيرفر بدون Token، ولا تُغير Heartbeat أو ربط أو Agent أو أي سياسة. تُعيد قراءة الربط الحالي وتمنع Revoked/Cross-tenant. **لا تعتبر صوت الهاتف فاشلًا أو ناجحًا؛ هي لا تختبر Carrier audio.** العمليات الحالية `heartbeat` و`published_flow` و`voice_session` كما هي. | **[x] كود فقط / [ ] E2E** |
+| **WEB-CORE-01** | `saas/console/_core/TenantDeviceContract.php`, `saas/console/device/v1/index.php` | إضافة `contract_probe` اختيارية **لجهاز مربوط مصادق عليه فقط**. تُرجع Tenant/SIM/Agent/Published revision ومعلومات دعم واجهات السيرفر بدون Token، ولا تُغير Heartbeat أو ربط أو Agent أو أي سياسة. تُعيد قراءة الربط الحالي وتمنع Revoked/Cross-tenant. **لا تعتبر صوت الهاتف فاشلًا أو ناجحًا؛ هي لا تختبر Carrier audio.** العمليات الحالية `heartbeat` و`published_flow` و`voice_session` كما هي. | **[x] كود + CI Offline PASS / [ ] Host/Device E2E** |
 | **WEB-CORE-03** | `saas/console/_core/VoiceFlowRuntime.php` | فحص Policy/Connector عند استخدام عقدة `tool/crm_lookup/crm_write/schedule`، حتى لو كانت مربوطة سابقًا. العقدة ذات سياسة مُلغاة أو غير صالحة أو قراءة/كتابة غير مناسبة **تتوقف بدون فعل خارجي**. إصلاح الحالة: أداة نجحت في آخر مسار تُنهيه بـ`completed` بدل `blocked`. حافظنا على الموافقة الصريحة وسجل الـTrace ونسخة Agent المنشورة. | **[x] كود فقط / [ ] Provider E2E** |
 | **WEB-CORE-04** | `saas/console/_core/VoiceKnowledgeWeb.php` | تنزيل HTML/TXT الخارجي أصبح محدودًا **أثناء البث** بحد 180KB؛ الطلب المفرط يفشل بدل تحميل ذاكرة كبيرة ثم رفضه لاحقًا. تظل موافقة المالك والفهرسة العامة/الخاصة والصلاحيات كما هي. لا تغيير في ملفات المعرفة أو PDF/Docx المرفوعة. | **[x] كود فقط / [ ] PDF وHost QA** |
 | **WEB-CORE-02/05/06/07/08/09** | لا تغيير لواجهات التشغيل القائمة | أُبقيت مسارات Agent، Fallback، WHMCS/Laravel/REST، Reports، Billing، Google Failover كما كانت على فرع الأساس. أُضيف تشغيل اختبارات Offline موجودة لتغطيتها ضمن CI (فور توفر runner). **لا يجوز اعتبارها انتهت** دون E2E. | **[ ] إغلاق شامل** |
 
-### اختبارات عدم التراجع التي تمت إضافتها (لم تثبت PASS)
+### اختبارات عدم التراجع التي نُفذت بنجاح (Offline CI فقط)
 - `tools/test_saas_phase2_flow_safety.php`: End-of-flow successful tool result، revoked/unverified connector، منع تحول `crm_lookup` إلى كتابة دون موافقة جديدة، منع Replay، وحفظ terminal status، بمزود وهمي فقط.
 - `tools/test_saas_phase2_contract_probe.php`: التحقق من الربط والـSIM والـTenant والـFlow المنشور، ومنع cross-site/slot وrevoked، وعدم تغيير token/last_seen أو ادعاء نجاح صوت فعلي.
 - `tools/test_saas_phase2_knowledge_safety.php`: التنزيل المقيد أثناء النقل، استرجاع Arabic aliases، التعامل مع تعارض Facts، وعمل Agent بدون KB.
-- `.github/workflows/saas-phase2-core-regression.yml`: PHP 8.3 + اختبارات جديدة واختبارات موجودة للـFlow والـTool Gateway وDevicePairing وCall Reports وKB/PDF وGoogle failover واشتراكات الباقات في **قواعد اختبار معزولة**؛ لا deploy ولا مكالمات ولا إرسال WhatsApp.
+- `.github/workflows/saas-phase2-core-regression.yml`: PHP 8.3 + اختبارات جديدة واختبارات موجودة للـFlow والـTool Gateway وDevicePairing وCall Reports وKB/PDF وGoogle failover واشتراكات الباقات في **قواعد اختبار معزولة**؛ لا deploy ولا مكالمات ولا إرسال WhatsApp. **تم إثبات PASS في GitHub Actions، وليس عبر هوست الإنتاج أو هاتف فعلي.**
+
+### شهادة الاختبارات في GitHub Actions
+
+- **Run موثق:** [SaaS Phase 2 — Actions #42555119910](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42555119910)؛ **Result: SUCCESS**، وجميع الخطوات المنفذة انتهت `success`.
+- **PHP Syntax:** نجاح فحص ملفات الـCore وتعديلات Contract/Runtime/Knowledge.
+- **Flow:** `SAAS_PHASE2_FLOW_NONREGRESSION_PASS`، `VOICE_FLOW_RUNTIME_STATES_AND_TRACES_PASS`، `VOICE_SITE_TOOL_GATEWAY_PASS`.
+- **Tenant/SIM:** `SAAS_PHASE2_TENANT_DEVICE_CONTRACT_NONREGRESSION_PASS`، `SIM_AGENT_SWITCH_AND_CALL_REPORTS_PASS`، واختبار pairing المعزول.
+- **Knowledge/PDF:** `SAAS_PHASE2_KNOWLEDGE_BOUNDED_FETCH_NONREGRESSION_PASS`، `SITE06_PDF_REAL_POPPLER_EXTRACTION_PASS` (Poppler مثبت على Runner الاختبار فقط)، `SITE06_PUBLIC_SCOPED_KNOWLEDGE_SEARCH_PASS`، `VOICE_KNOWLEDGE_WEB_AGENT_TTL_PASS`.
+- **Billing/Provider:** `SITE05_ATOMIC_SUBSCRIPTION_AND_OWNER_ENTITLEMENTS_PASS`، `GOOGLE_LIVE_MIDCALL_FAILOVER_TEST_PASS` من مفاتيح/استجابات **Mock**؛ لم تُجرَ مكالمة فعلية أو أي عملية دفع حقيقية.
+- **No Native/Deploy diff:** `SAAS_PHASE2_NO_NATIVE_OR_DEPLOY_CHANGES_CHECKED`.
+- التشغيل الأول فشل في CI hygiene بسبب `HEAD~1`/Whitespace في ملف Markdown، وتم إصلاحهما وإعادة التشغيل حتى SUCCESS. هذا الفشل **ليس دليلًا على فشل الوظائف نفسها**.
+
+**حدود شهادة CI:** جميع هذه الاختبارات على Runner/SQLite ومع mocks؛ لا تؤكد أداء مزود Google الفعلي أو وجود Poppler على الاستضافة الحالية أو جودة SIM audio. **ممنوع Merge/Deploy قبل Host QA والتوافق الفعلي والتأكد من أن ميزات المستخدم المؤكدة لم تتعطل**.
 
 ### بنود الإغلاق المتبقية — مرحلتنا الثانية (9 مهام)
 - [ ] **CORE-01:** تثبيت HTTP Contract/ACK على الجهاز الحقيقي وتجربة حسابين وشريحتين، والتحقق من نسخة الهاتف ونفس رقم Agent Revision.
