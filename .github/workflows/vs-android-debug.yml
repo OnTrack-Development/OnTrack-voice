@@ -56,6 +56,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Verify VS PCM parity using original OnTrack LinkPcm contract
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $classes = 'tests/build/classes'
+          New-Item -ItemType Directory -Force -Path $classes | Out-Null
+          & javac -d $classes 'app/src/main/java/com/ontrack/vs/CallPcm.java' 'tests/com/ontrack/vs/CallPcmParityTest.java'
+          if ($LASTEXITCODE -ne 0) { throw 'VS LinkPcm parity javac failed' }
+          & java -cp $classes com.ontrack.vs.CallPcmParityTest
+          if ($LASTEXITCODE -ne 0) { throw 'VS LinkPcm parity contract FAILED' }
       - name: Compile independent VS ADB shell bridge (no JemRec)
         run: |
           $ErrorActionPreference = 'Stop'
