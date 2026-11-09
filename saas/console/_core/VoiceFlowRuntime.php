@@ -202,6 +202,12 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
     $state=json_decode((string)$session['state_json'],true,32,JSON_THROW_ON_ERROR);
     if(!is_array($state))throw new RuntimeException('flow_state_invalid');
     $events=[];$pending=$state['pending_tool']??null;
+    // Build evidence locally first. Losing a step_version CAS race must not
+    // persist a fictitious node visit, reply or tool decision as if it won.
+    $traceQueue=[];
+    $recordTrace=static function(string $node,string $kind,string $detail) use (&$traceQueue):void {
+        $traceQueue[]=[$node,$kind,$detail];
+    };
     if($pending!==null){
         // Reconcile sessions created before the unbound-tool fix; never allow a policy_id=0
         // placeholder to wait indefinitely or be released by an unrelated tool request.
@@ -241,14 +247,14 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
                     (int)$session['site_id'],(int)$session['agent_id'],1200,$answer);
                 $events[]=['kind'=>'side_question','text'=>$facts!==''?$facts:
                     'لا توجد معلومات معتمدة كافية للإجابة على هذا السؤال الجانبي. نستكمل من نفس الخطوة.'];
-                voice_flow_trace($session,(string)$state['awaiting'],'side_question',
+                $recordTrace((string)$state['awaiting'],'side_question',
                     $facts!==''?'answered_from_approved_knowledge':'unverified_question');
             }
         }else{
             $old=(string)$state['awaiting'];
             if(($graph['nodes'][$old]['type']??'')==='collect_field')$state['fields'][$old]=$answer;
             $state['last_answer']=$answer;$state['cursor']=$next;$state['awaiting']=null;$state['turns']++;
-            voice_flow_trace($session,$old,'answered','transition_'.$next);
+            $recordTrace($old,'answered','transition_'.$next);
         }
     }elseif($reply!==null)throw new InvalidArgumentException('flow_not_waiting');
     if($state['awaiting']===null){
@@ -258,7 +264,7 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
             $node=$graph['nodes'][$state['cursor']??'']??null;
             if(!$node)throw new RuntimeException('flow_missing_cursor');
             $nodeId=(string)$node['id'];$type=(string)$node['type'];$message=trim((string)$node['text']);
-            voice_flow_trace($session,$nodeId,'visited',$type);
+            $recordTrace($nodeId,'visited',$type);
             if($type==='end'){
                 if($message!=='')$events[]=['kind'=>'agent','text'=>$message];
                 $state['done']=true;break;
@@ -281,7 +287,7 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
                 if(!$approvedPolicy){
                     $events[]=['kind'=>'notice','text'=>'هذه العقدة ليست مرتبطة بأداة معتمدة؛ أُوقف التنفيذ بأمان ولم تنفذ أي عملية.'];
                     $state['blocked']=true;$state['done']=true;
-                    voice_flow_trace($session,$nodeId,'tool_unbound','no approved policy binding');
+                    $recordTrace($nodeId,'tool_unbound','no approved policy binding');
                     break;
                 }
                 $state['pending_tool']=['node_id'=>$nodeId,'policy_id'=>(int)$approvedPolicy['id']];
@@ -313,6 +319,8 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
        json_encode($state,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$status,now(),
        $sessionId,$accountId,(int)$session['step_version']]);
     if($updated!==1)throw new RuntimeException('flow_session_write_conflict');
+    foreach($traceQueue as [$node,$kind,$detail])
+        voice_flow_trace($session,$node,$kind,$detail);
     return ['status'=>$status,'events'=>$events,'state'=>$state,'done'=>$state['done']];
 }
 /** Only server-confirmed, matching tool requests can release a paused node. */
