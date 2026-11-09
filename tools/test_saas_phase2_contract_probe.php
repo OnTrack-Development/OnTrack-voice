@@ -25,7 +25,7 @@ contract_ok(is_array($binding),'valid paired SIM token');
 $before=one('SELECT last_seen_at,token_hash,agent_revision FROM device_bindings WHERE id=?',[$bound['device_id']]);
 $profile=tenant_device_contract_probe($binding);
 contract_ok($profile['contract']==='tenant_device_v1' && $profile['control_plane_supported']===true
-    && $profile['carrier_audio_verified']===false,'probe does not fake carrier E2E');
+    && $profile['carrier_audio_tested_by_probe']===false,'probe does not fake carrier E2E');
 contract_ok($profile['account_id']===4 && $profile['site_id']===$site &&
     $profile['sim_slot']===0 && $profile['agent_id']===$aid,'exact tenant SIM identity');
 contract_ok($profile['published_flow_ready']===true &&
