@@ -14,17 +14,17 @@
 
 ## دليل الاختبارات المجمعة — منفذة فعلاً
 
-**[GitHub Actions #42558225733](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42558225733) — SUCCESS (آخر مصفوفة موسعة).**
+**[GitHub Actions #42569360881](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42569360881) — SUCCESS (آخر مصفوفة موسعة).**
 
 شمل التشغيل:
 - PHP syntax لجميع `saas/console` ومداخل الـAPI وJavaScript syntax + Python compile.
 - Session-CSRF/Origin/Rate limit لـGemini Live وLocal HTTP بدون طلب فعلي إلى Google؛ رفض غير المصرح وحفاظ Contract الموبايل.
 - Auth للصيانة وCSRF لأداة Omnira، تحقق توقيع Ed25519 لوظائف Host-Link دون تنفيذها.
-- 43 اختبار SQLite معزولًا **بالإضافة إلى اختبار MySQL 8.0 مستقل حقيقي**: Agent/Flow/KB، PDF حقيقي عبر Poppler المثبت على Runner، Tenant/SIM/Device Pairing، تقارير المكالمات والموظف، Google key failover بمزود Mock، اشتراكات/Checkout وكاشير، SSO، WHMCS/WhatsApp وDNC.
+- 44 اختبار SQLite معزولًا **بالإضافة إلى اختبار MySQL 8.0 مستقل حقيقي**: Agent/Flow/KB، PDF حقيقي عبر Poppler المثبت على Runner، Tenant/SIM/Device Pairing، تقارير المكالمات والموظف، Google key failover بمزود Mock، اشتراكات/Checkout وكاشير، SSO، WHMCS/WhatsApp وDNC.
 - UI static: Modal/AJAX، Graph Routing، Floating AI Flow وFullscreen، وQR.
 - **توسعة الاعتماد:** Auth login throttling، إخفاء وإظهار Reseller، تسجيل العملاء والتحقق من البريد وإعادة كلمة المرور، White-label/Domain isolation، Voice OpenAPI، Protected Engine signing، Device bootstrap، مفاتيح Assistant، سيناريوهات Agent، Dynamic Agent Studio وDNC Actions.
 - **SSO HTTP على localhost:** تسجيل دخول فعلي بجلسة Cookie وCSRF وتوقيع HMAC، رفض Replay وعزل الحسابات؛ `VOICE_SSO_HTTP_PASS`. لا استدعاء WHMCS خارجي.
-- أكد `SAAS_INTEGRATED_ISOLATED_MATRIX_PASS suite_count=43`، `FLOATING_FLOW_CHAT_AND_FULLSCREEN_CANVAS_PASS`، `SAAS_INTEGRATED_NO_NATIVE_APK_OTA_DEPLOY_PASS`.
+- أكد `SAAS_INTEGRATED_ISOLATED_MATRIX_PASS suite_count=44`، `FLOATING_FLOW_CHAT_AND_FULLSCREEN_CANVAS_PASS`، `SAAS_INTEGRATED_NO_NATIVE_APK_OTA_DEPLOY_PASS`.
 - جميعها **CI Offline**؛ ليس لها سلطة إثبات الصوت الحقيقي أو صلاحية مفاتيح Google أو مرور الدفع على الاستضافة.
 
 ## فحص MySQL 8 الحقيقي على بيئة مؤقتة (ليس هوست الإنتاج)
@@ -54,6 +54,15 @@
 - **HTTP+SQLite فعلي:** [Actions #42565839935 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42565839935). اختبر POST من User إلى إضافة حملة Draft، تحديث حالة الحملة إلى Paused، رفض Running دون موافقة، رفض Contact بدون Consent، حفظ DNC Opt-out، وعدم إنشاء أي مكالمة صادرة. أكد أيضًا أن إعداد Staff/Human Handoff يفتح في PHP 8.3 بأكثر من Agent.
 - **Manager routing through real forms:** [Actions #42566212892 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42566212892): حفظ رقم مدير اختباري غير قابل للاتصال الحقيقي، ثم اختيار المسؤول وحفظ مهلة 20 ثانية وحالة `enabled=0` عبر CSRF-authenticated POST؛ فحص SQLite بعد الطلب أثبت سلامة `human_escalation_routes` وأن جدول `human_escalation_jobs` فارغ، لذا **لم يُنشأ اتصال أو طلب هاتف**.
 - **لا يستنتج من الاختبارات:** حملات تلقائية تعمل على شريحة، أو موظف يستلم مكالمة ملخصة فعليًا، أو صوت حي على Oppo، أو WhatsApp/Meta real token؛ هذه بوابات Host/Phone مفتوحة.
+
+## المرحلة الجديدة — Kashier مدفوعات/استرداد/مراجعة Finance (Code + Offline CI فقط)
+
+- **[SaaS 44-suite #42569360881 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42569360881)**: تشغيل `test_verified_checkout_settlement` أظهر نجاح تجديد مدفوع فوق فترة 65 يومًا، ثم شراء ثانٍ منفصل دون إهدار اليوم المتبقي أو تكرار Outbox/Subscription؛ السعر المؤكد هو سعر الطلب القديم وقت إنشاء جلسة الدفع رغم تعديل سعر الكتالوج.
+- **[MySQL 8 Docker #42569360886 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42569360886)**: اختبار PDO حقيقي على InnoDB لتسلسل المدة، مع فحص استرداد موقّع يُحفظ مرة واحدة ولا يزيل الاشتراك النشط.
+- **إصلاح معالجة Kashier:** أحداث `refund`, `partial_refund`, `void`, `reversal` ذات الحالة `SUCCESS` بعد HMAC موثوق وبيانات مرجعية صحيحة تحفظ في جدول إضافة آمن `kashier_payment_adjustments`، مع Outbox `billing.adjustment_review`. لا مخازن مفاتيح/بيانات بطاقات في الجدول.
+- **منع تكرار وقلب التسلسل:** نفس معرّف المعاملة والحالة والنوع لا ينشئ حدثًا ثانيًا؛ لو `refund` سبق `pay` يُوضع الطلب في `payment_review` بدل تفعيل اشتراك على مبلغ مرتجع. Refund FAILED لا يعامل كنجاح؛ المبلغ/العملة غير المتطابقين يرفضان.
+- **عرض حسابات معزول:** اختبار `test_saas_refund_review_render.php` أثبت أن Owner العميل يرى مراجعته، والريسيلر يرى عملاءه، والأدمن يرى الجميع، وViewer ممنوع. فتح Billing لا يطلق عملية رد أموال أو أي تعديل مالي.
+- **ما لم يتم:** اختبارات Kashier Sandbox الفعلية وRefund مقابل دفع حقيقي وReconcile من البنك وWallet وManual review/Claim على الاستضافة، واسترجاع قاعدة Host الحالية. الميزة **PARTIAL** وقرار النشر **HOLD**.
 
 ## بوابات قبول قبل أي نشر / اختبار على النسخة الحية
 
