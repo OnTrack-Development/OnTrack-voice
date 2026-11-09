@@ -52,6 +52,7 @@
 - **Regressions أقوى:** بدل الاكتفاء بوجود محتوى Main، صار Chromium يُثبت أن رابط Sidebar المطلوب هو المحدد فعلًا وأن صفحة القسم لا تحتوي `تعذر عرض البيانات`.
 - **Chrome حقيقي:** [Actions #42565765700 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42565765700) بعد استعادة القائمة وإصلاح Strict Types: 237 قياسًا و0 مشاكل، وتأكد من وصول جميع التابات بحسب الدور.
 - **HTTP+SQLite فعلي:** [Actions #42565839935 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42565839935). اختبر POST من User إلى إضافة حملة Draft، تحديث حالة الحملة إلى Paused، رفض Running دون موافقة، رفض Contact بدون Consent، حفظ DNC Opt-out، وعدم إنشاء أي مكالمة صادرة. أكد أيضًا أن إعداد Staff/Human Handoff يفتح في PHP 8.3 بأكثر من Agent.
+- **Manager routing through real forms:** [Actions #42566212892 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42566212892): حفظ رقم مدير اختباري غير قابل للاتصال الحقيقي، ثم اختيار المسؤول وحفظ مهلة 20 ثانية وحالة `enabled=0` عبر CSRF-authenticated POST؛ فحص SQLite بعد الطلب أثبت سلامة `human_escalation_routes` وأن جدول `human_escalation_jobs` فارغ، لذا **لم يُنشأ اتصال أو طلب هاتف**.
 - **لا يستنتج من الاختبارات:** حملات تلقائية تعمل على شريحة، أو موظف يستلم مكالمة ملخصة فعليًا، أو صوت حي على Oppo، أو WhatsApp/Meta real token؛ هذه بوابات Host/Phone مفتوحة.
 
 ## بوابات قبول قبل أي نشر / اختبار على النسخة الحية
