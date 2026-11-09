@@ -219,8 +219,45 @@ public final class MainActivity extends Activity {
             + "لازم تهيئة الجسر مرة بعد تشغيل الموبايل، ثم تجربة مع طرف ثانٍ "
             + "للتأكد من وصول Fish وعدم تسرب صوتك الأصلي."));
         gap(shellCard, 10);
+        TextView bridgeStatus = VsUi.note(this,
+            "ربط الشريحة: لم يتم الفحص. تشغيل Fish محليًا لا يعني أن ADB متصل.");
+        shellCard.addView(bridgeStatus);
+        gap(shellCard, 8);
+        shellCard.addView(action("فتح إعدادات المطور — USB / Wireless Debugging", false, v -> {
+            try {
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
+                info("فعّل USB debugging أو Wireless debugging من خيارات المطور؛ "
+                    + "وافِق على إذن الجهاز أثناء الاقتران.");
+            } catch (Exception ex) {
+                info("تعذّر فتح خيارات المطور تلقائيًا. افتح الإعدادات يدويًا.");
+            }
+        }));
+        gap(shellCard, 8);
+        shellCard.addView(action("فحص الربط الفعلي الآن (بدون كتم)", true, v -> {
+            bridgeStatus.setText("جارٍ الاتصال بجسر VS المحلي...");
+            queue.execute(() -> {
+                String report;
+                try (VsCallBridge b = VsCallBridge.connect(this)) {
+                    report = "✓ جسر ADB متصل ومصرّح له: " + b.state()
+                        + "\\nاتصال الجسر وحده مش دليل على حقن الصوت في الشريحة.";
+                } catch (Exception ex) {
+                    report = "✕ الجسر غير متصل: " + ex.getClass().getSimpleName()
+                        + "\\nوصّل USB debugging أو Wireless debugging، وشغّل "
+                        + "VS/tools/Connect-VS.ps1 من الكمبيوتر مرة واحدة.";
+                }
+                final String result = report;
+                runOnUiThread(() -> bridgeStatus.setText(result));
+            });
+        }));
+        gap(shellCard, 9);
+        shellCard.addView(VsUi.text(this,
+            "ربط USB أو Wireless حاليًا من كمبيوتر مصرح له، عبر أداة الريبو "
+            + "VS/tools/Connect-VS.ps1. التطبيق لا يقترن لاسلكيًا من تلقاء نفسه بعد.",
+            12, VsUi.MUTED, false));
+        gap(shellCard, 10);
         TextView bridgeCommand = VsUi.note(this,
-            "اضغط تجهيز الجسر لنسخ أمر تشغيله على الكمبيوتر المتصل بالموبايل عبر USB أو Wireless Debugging.");
+            "اضغط تجهيز الجسر لنسخ أمر تشغيله، ثم شغّل VS/tools/Connect-VS.ps1 "
+            + "على الكمبيوتر واختر USB أو Wireless. لا يحتاج تسجيل مكالمات.");
         bridgeCommand.setTextDirection(View.TEXT_DIRECTION_LTR);
         bridgeCommand.setTextIsSelectable(true);
         shellCard.addView(bridgeCommand);
