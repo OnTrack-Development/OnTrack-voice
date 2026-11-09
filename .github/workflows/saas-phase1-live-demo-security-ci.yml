@@ -40,6 +40,24 @@ jobs:
           php -l tools/test_live_demo_security.php
       - name: Server-side CSRF, origin, quota, and legacy contract tests
         run: php tools/test_live_demo_security.php
+      - name: Local HTTP contract (never calls Gemini)
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -S 127.0.0.1:18796 -t . >/tmp/ontrack-live-http.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for i in {1..20}; do
+            if curl -fsS http://127.0.0.1:18796/index.php -c /tmp/ontrack-live-cookie -o /tmp/ontrack-live-index; then break; fi
+            sleep 0.1
+          done
+          csrf=$(grep -oE 'name="ontrack-live-csrf" content="[a-f0-9]{64}"' /tmp/ontrack-live-index | sed -E 's/.*content="([a-f0-9]{64})".*/\\1/' | head -1)
+          test "${#csrf}" -eq 64
+          denied=$(curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:18796/api/live_session.php -H 'Content-Type: application/json' -d '{}')
+          test "$denied" = 403
+          ok=$(curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:18796/api/live_session.php -b /tmp/ontrack-live-cookie -H "X-OnTrack-Live-CSRF: $csrf" -H 'Origin: http://127.0.0.1:18796' -H 'Content-Type: application/json' -d '{')
+          test "$ok" = 400
+          echo 'LIVE_DEMO_HTTP_CONTRACT_PASS no_google_requests=true'
       - name: JavaScript syntax and diff hygiene
         run: |
           node --check assets/app.js
