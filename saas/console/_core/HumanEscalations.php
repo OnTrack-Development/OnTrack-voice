@@ -267,10 +267,22 @@ function he_ack(array $b,int $jobId,string $stage):array {
         throw new InvalidArgumentException('manager_notification_not_claimed');
     if($stage==='call_ended_unverified'&&$job['status']!=='dial_started')
         throw new InvalidArgumentException('cannot_finish_undialed_manager_call');
-    execute("UPDATE human_escalation_jobs
+    $changed=execute("UPDATE human_escalation_jobs
         SET status=?,result=?,dial_at=CASE WHEN ?='dial_started' THEN ? ELSE dial_at END,
             finished_at=CASE WHEN ?='dial_started' THEN NULL ELSE ? END
-        WHERE id=? AND account_id=? AND device_binding_id=? AND status=?",
-        [$state,$stage,$state,now(),$state,now(),$jobId,$b['account_id'],$b['id'],$job['status']]);
+        WHERE id=? AND account_id=? AND site_id=? AND device_binding_id=?
+          AND sim_slot=? AND status=?",
+        [$state,$stage,$state,now(),$state,now(),$jobId,$b['account_id'],
+         $b['site_id'],$b['id'],$b['sim_slot'],$job['status']]);
+    if($changed!==1){
+        // Two workers may report the same callback concurrently. Do not
+        // pretend the previous state was overwritten if our CAS failed.
+        $latest=one("SELECT status FROM human_escalation_jobs WHERE id=?
+            AND account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=?",[
+            $jobId,$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']]);
+        if(($latest['status']??null)===$state)
+            return ['saved'=>true,'duplicate'=>true,'status'=>$state];
+        throw new RuntimeException('manager_notification_concurrent_transition');
+    }
     return ['saved'=>true,'duplicate'=>false,'status'=>$state];
 }
