@@ -143,6 +143,12 @@ async function main(){
       const route=role.prefix+'/?tab='+tab;
       await width(1440);
       await load(route);
+      // Earlier audits measured a valid overview layout even when a requested
+      // tab was missing from nav_entries() and silently fell back to overview.
+      // Assert the ACTUAL route and screen, not just the viewport dimensions.
+      const reached=await evaluate('(function(){const tab='+JSON.stringify(tab)+';const selected=document.querySelector(".nav-link.selected");const main=document.querySelector("main.content");return {selected:!!selected&&new URL(selected.href,location.href).searchParams.get("tab")===tab,serverError:!!main&&main.textContent.includes("تعذر عرض البيانات"),heading:document.title}})()');
+      if(!reached.selected||reached.serverError)
+        failures.push({label:role.email+' '+tab,error:'requested feature silently hidden or rendering failed',reached});
       if(role.email==='admin@ontrackegy.com'&&tab==='billing'){
         const ownerPlan=await evaluate('document.querySelector("main.content")?.innerText.includes("حساب مالك المنصة")');
         if(!ownerPlan)failures.push({label:role.email,error:'platform owner billing misidentified as a customer plan'});
