@@ -39,6 +39,26 @@ $seed=seed_console();
 mysql_qa(driver()==='mysql' && $seed['status']==='seeded','real MySQL schema and migrations seeded');
 mysql_qa((int)one('SELECT COUNT(*) n FROM accounts')['n']===7,'seven separated tenant accounts');
 mysql_qa((int)one('SELECT COUNT(*) n FROM plans')['n']>=4,'existing plans preserved');
+// Service-layer staff grants must obey exact-tenant admin roles on real PDO.
+require_once __DIR__.'/../saas/console/_core/StaffInvitations.php';
+$platformOwner=(int)one("SELECT user_id FROM memberships
+    WHERE account_id=1 AND role='owner' ORDER BY id LIMIT 1")['user_id'];
+$resellerOwner=(int)one("SELECT user_id FROM memberships
+    WHERE account_id=2 AND role='owner' ORDER BY id LIMIT 1")['user_id'];
+$foreignInviterDenied=false;
+try{
+    create_staff_invitation(1,'Cross tenant denial','mysql-no-invites@example.test',
+        'viewer',$resellerOwner);
+}catch(InvalidArgumentException $error){
+    $foreignInviterDenied=$error->getMessage()==='invalid_inviter';
+}
+mysql_qa($foreignInviterDenied,'real MySQL foreign inviter cannot create platform membership');
+$inviteId=create_staff_invitation(1,'MySQL only invitation','mysql-invite@example.test',
+    'viewer',$platformOwner);
+mysql_qa($inviteId>0 &&
+    (int)one("SELECT COUNT(*) n FROM staff_invitations WHERE id=? AND status='pending'",
+        [$inviteId])['n']===1,
+    'real MySQL account-locked owner invitation remains pending and creates no membership');
 
 // MySQL 8 rejected the historical TEXT+UNIQUE external_id schema: verify
 // real event deduplication works without truncating accepted 128-char IDs.
