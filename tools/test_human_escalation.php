@@ -74,8 +74,18 @@ try{
     he_ok($bad,'foreign device cannot claim dialing success');
     $ack=he_ack($b,(int)$claim['id'],'dial_started');
     he_ok($ack['saved']&&$ack['status']==='dial_started','start call is distinguished from answering');
+    $ackReplay=he_ack($b,(int)$claim['id'],'dial_started');
+    he_ok($ackReplay['saved']===true && $ackReplay['duplicate']===true,
+        'replayed staff dial_started acknowledgement is idempotent');
     $end=he_ack($b,(int)$claim['id'],'call_ended_unverified');
     he_ok($end['status']==='call_ended_unverified','call completion never proves manager heard briefing');
+    $endReplay=he_ack($b,(int)$claim['id'],'call_ended_unverified');
+    he_ok($endReplay['saved']===true && $endReplay['duplicate']===true,
+        'replayed terminal callback never triggers a second dial');
+    $stale=false;
+    try{he_ack($b,(int)$claim['id'],'dial_started');}
+    catch(InvalidArgumentException){$stale=true;}
+    he_ok($stale,'stale dial_started callback cannot resurrect completed notification');
     $filters=call_history_filters($account,['q'=>'c8e37392']);
     $rows=call_history_rows($filters);
     $mine=array_values(array_filter($rows,fn($row)=>$row['external_call_id']===$call));
