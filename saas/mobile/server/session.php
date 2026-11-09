@@ -19,6 +19,13 @@ $ontrackMobileInstruction=(string)$mobile['instruction']."\n\n".
 $pilotBuilder=__DIR__.'/pilot_api/live_session.php';
 if(is_file($pilotBuilder))require $pilotBuilder;
 else { // pre-migration installations only; bearer already verified by mobile_require_device().
+    // The bundled source path and the legacy flat host install have different
+    // nesting. Preserve the old flat target first; support nested sources too.
+    $legacyRootSession=dirname(__DIR__,2).'/api/live_session.php';
+    if(!is_file($legacyRootSession))
+        $legacyRootSession=dirname(__DIR__,3).'/api/live_session.php';
+    if(!is_file($legacyRootSession))
+        mobile_json(['ok'=>false,'error'=>'live_session_builder_unavailable'],503);
     define('ONTRACK_INTERNAL_MOBILE_LIVE_SESSION', true);
-    require dirname(__DIR__,2).'/api/live_session.php';
+    require $legacyRootSession;
 }
