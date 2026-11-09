@@ -37,11 +37,25 @@ $config = [
 $payload = "<?php
 return " . var_export($config, true) . ";
 ";
-$path = __DIR__ . '/demo_config.local.php';
-if (@file_put_contents($path, $payload, LOCK_EX) === false) {
-    finish(['ok' => false, 'error' => 'cannot_write_local_config'], 500);
+// Stage the replacement privately and commit it atomically. Keep any
+// legacy config untouched for rollback; never write new keys into webroot.
+$dir = '/home/appontrack/.ontrack-demo';
+if ((!is_dir($dir) && !@mkdir($dir,0700,true)) || is_link($dir)) {
+    finish(['ok' => false, 'error' => 'private_config_unavailable'], 503);
 }
-@chmod($path, 0600);
+@chmod($dir,0700);
+$path=$dir.'/demo_config.php';
+if (is_link($path))finish(['ok' => false, 'error' => 'private_config_unavailable'], 503);
+$temp=@tempnam($dir,'.ontrack-demo-');
+if ($temp===false)finish(['ok' => false, 'error' => 'private_config_unavailable'], 503);
+try {
+    if (@file_put_contents($temp,$payload,LOCK_EX)!==strlen($payload) ||
+        !@chmod($temp,0600) || !@rename($temp,$path)) {
+        finish(['ok' => false, 'error' => 'cannot_write_local_config'], 500);
+    }
+} finally {
+    if (is_file($temp)) @unlink($temp);
+}
 
 finish([
     'ok' => true,
