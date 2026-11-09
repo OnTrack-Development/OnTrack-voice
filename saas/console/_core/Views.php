@@ -449,7 +449,72 @@ function render_plans(array $a):void{
             '<label class="field">عدد مفاتيح Google للعميل<input name="google_key_limit" type="number" min="0" max="1000" required value="1"></label>'.
             '<label class="field">مفاتيح Assistant Text للعميل<input name="assistant_key_limit" type="number" min="0" max="1000" required value="0"></label>'.
             '</div>'.submit_btn('إنشاء الباقة'));
+        if(platform_resellers_visible() &&
+           in_array((string)$a['role'],['owner','admin'],true) && !active_support()){
+            // The action has always supported platform->reseller assignment,
+            // but there was no form to call it. Keep paid plans subject to
+            // existing verified-payment rules outside explicit Demo mode.
+            $resellers=all("SELECT id,name FROM accounts
+                WHERE kind='reseller' AND status='active' ORDER BY name,id");
+            $resellerOptions=[];$resellerRows=[];
+            foreach($resellers as $reseller){
+                $rid=(int)$reseller['id'];
+                $resellerOptions[(string)$rid]=(string)$reseller['name'];
+                $current=one("SELECT p.name,s.ends_at FROM subscriptions s
+                    JOIN plans p ON p.id=s.plan_id WHERE s.account_id=?
+                      AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
+                    ORDER BY s.id DESC LIMIT 1",[$rid,now(),now()]);
+                $resellerRows[]=[e((string)$reseller['name']),
+                    e((string)($current['name']??'لا توجد باقة فعالة')),
+                    e((string)($current['ends_at']??'—'))];
+            }
+            $resellerPlans=all("SELECT id,name,price_minor,call_quota FROM plans
+                WHERE kind='reseller' AND status='active' ORDER BY price_minor,id");
+            $directOptions=[];
+            foreach($resellerPlans as $plan){
+                if(!is_demo() && (int)$plan['price_minor']>0)continue;
+                $directOptions[(string)$plan['id']]=(string)$plan['name'].' — '.
+                    (int)$plan['call_quota'].' مكالمة';
+            }
+            if($resellerOptions){
+                $content='<p class="dim">تغيير باقة ريسيلر موجود دون حذف اشتراكاته القديمة. الباقات المدفوعة تتطلب دفعًا موثقًا؛ التعيين المباشر لها متاح في وضع Demo فقط.</p>'.
+                    tbl(['الريسيلر','الباقة الحالية','تنتهي'],$resellerRows);
+                if($directOptions)
+                    $content.=form_start('assign_plan','/?tab=plans').
+                        select_html('الريسيلر','customer_id',$resellerOptions).
+                        select_html('الباقة المسموح تعيينها','plan_id',$directOptions).
+                        submit_btn('حفظ باقة الريسيلر');
+                else $content.='<p class="dim">لا توجد باقة مجانية قابلة للتعيين المباشر حاليًا؛ اختيار الباقات المدفوعة يتم من صفحة دفع الريسيلر نفسه.</p>';
+                echo card('إدارة اشتراكات الريسيلرز',$content);
+            }
+        }
     }elseif($type==='reseller'){
+        // Surface the reseller's OWN subscription and available wholesale
+        // plans, instead of showing only plans they may assign to customers.
+        // This is read-only; paid changes must go through verified checkout.
+        $own=one("SELECT p.name,s.ends_at,p.call_quota,p.agent_limit,
+                p.reseller_customers FROM subscriptions s JOIN plans p ON p.id=s.plan_id
+            WHERE s.account_id=? AND s.status='active' AND s.starts_at<=?
+              AND s.ends_at>? ORDER BY s.id DESC LIMIT 1",[$id,now(),now()]);
+        $ownText=$own
+            ?'<h3>'.e((string)$own['name']).'</h3><p>'.
+                (int)$own['call_quota'].' مكالمة · '.(int)$own['agent_limit'].
+                ' إيجنت · '.(int)$own['reseller_customers'].' عميل</p>'.
+                '<small>تنتهي: '.e((string)$own['ends_at']).'</small>'
+            :'<p>لا توجد باقة ريسيلر فعالة حاليًا.</p>';
+        $availableWholesale=all("SELECT name,call_quota,agent_limit,price_minor
+            FROM plans WHERE kind='reseller' AND status='active' ORDER BY price_minor,id");
+        $wholesaleRows=[];
+        foreach($availableWholesale as $wholesale){
+            $wholesaleRows[]=[e((string)$wholesale['name']),
+                (int)$wholesale['call_quota'].' مكالمة',
+                (int)$wholesale['agent_limit'].' AI',
+                number_format((int)$wholesale['price_minor']/100,2).' ج.م'];
+        }
+        $ownText.='<p><a class="btn primary" href="/saas/console/?tab=billing">اختيار أو تجديد باقتك من صفحة الفوترة</a></p>'.
+            ($wholesaleRows?tbl(['باقة الريسيلر','الحصة','الإيجنتات','السعر'],$wholesaleRows):'').
+            '<p class="dim">لا يتم تفعيل باقة مدفوعة إلا بعد إثبات الدفع. باقات Demo المجانية يخصصها مالك المنصة.</p>';
+        echo card('باقة حسابك كريسيلر',$ownText);
         $customers=all("SELECT id,name FROM accounts WHERE parent_id=? AND kind='customer'",[$id]);
         $co=[];$po=[];
         foreach($customers as $c)$co[$c['id']]=$c['name'];
