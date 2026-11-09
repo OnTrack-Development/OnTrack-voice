@@ -87,6 +87,8 @@ public final class VsCallBridge implements AutoCloseable {
         return input.readUTF();
     }
 
+    /** Connection/readback proof only: never mutes, records, or injects audio. */
+    public synchronized String state() throws Exception { return request("STATE"); }
     public synchronized String probe() throws Exception { return request("PROBE"); }
     public synchronized String speaker() throws Exception { return request("SPEAKER"); }
 
