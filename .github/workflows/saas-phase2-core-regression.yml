@@ -42,7 +42,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for path in saas/console/_core/VoiceFlowRuntime.php saas/console/_core/VoiceKnowledgeWeb.php saas/console/_core/TenantDeviceContract.php saas/console/device/v1/index.php tools/test_saas_phase2_flow_safety.php tools/test_saas_phase2_knowledge_safety.php tools/test_saas_phase2_contract_probe.php; do
+          for path in saas/console/_core/VoiceFlowRuntime.php saas/console/_core/VoiceKnowledgeWeb.php saas/console/_core/TenantDeviceContract.php saas/console/device/v1/index.php tools/test_saas_phase2_flow_safety.php tools/test_saas_phase2_knowledge_safety.php tools/test_saas_phase2_contract_probe.php saas/console/_core/HumanEscalations.php saas/console/_core/Views.php tools/test_saas_phase2_billing_current_subscription.php tools/test_human_escalation.php; do
             php -l "$path"
           done
           php tools/test_saas_phase2_knowledge_safety.php
@@ -54,6 +54,7 @@ jobs:
           for test in \
             tools/test_saas_phase2_flow_safety.php \
             tools/test_saas_phase2_contract_probe.php \
+            tools/test_saas_phase2_billing_current_subscription.php \
             tools/test_voice_flow_runtime.php \
             tools/test_voice_tool_gateway.php \
             tools/test_tenant_device_pairing.php \
