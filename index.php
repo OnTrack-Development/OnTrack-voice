@@ -1,10 +1,13 @@
 <?php
+require_once __DIR__ . '/api/LiveSessionSecurity.php';
+$ontrackLiveCsrf = ontrack_live_demo_session();
 $config = require __DIR__ . '/api/demo_config.php';
 ?>
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
+  <meta name="ontrack-live-csrf" content="<?= htmlspecialchars($ontrackLiveCsrf, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#08090c">
   <meta name="description" content="OnTrack Live — مكالمة صوتية ذكية مباشرة">
