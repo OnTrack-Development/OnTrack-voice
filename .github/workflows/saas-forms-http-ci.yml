@@ -1,0 +1,53 @@
+name: SaaS authenticated forms HTTP + DB (ISOLATED, NO DEPLOY)
+on:
+  push:
+    branches:
+      - fix/saas-integrated-phases123-20261109
+    paths:
+      - 'saas/console/**'
+      - 'tools/test_saas_roles_form_post_http.py'
+      - 'tools/check_saas_roles_form_post_http.php'
+      - 'tools/seed_responsive_ui.php'
+      - 'tools/test_saas_ui_router.php'
+      - '.github/workflows/saas-forms-http-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  form-posts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      GITHUB_ACTIONS: 'true'
+      CI: 'true'
+      SAAS_RESPONSIVE_FIXTURE: '1'
+      ONTRACK_CI_NAMESPACE: ui_${{ github.run_id }}_${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,openssl,curl,sodium,dom
+          coverage: none
+      - name: Syntax + isolation gate
+        run: |
+          set -euo pipefail
+          php -l tools/seed_responsive_ui.php
+          php -l tools/check_saas_roles_form_post_http.php
+          python3 -m py_compile tools/test_saas_roles_form_post_http.py
+      - name: Real authenticated loopback forms + saved database state
+        run: |
+          set -euo pipefail
+          php tools/seed_responsive_ui.php
+          php -S 127.0.0.1:18773 -t saas/console tools/test_saas_ui_router.php >/tmp/ontrack-forms-ci-php.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:18773/login -o /dev/null 2>/dev/null; then break; fi
+            sleep 0.15
+          done
+          python3 tools/test_saas_roles_form_post_http.py
+          php tools/check_saas_roles_form_post_http.php
+          echo 'SAAS_OWNERS_FORMS_REAL_HTTP_PERSISTENCE_PASS'
