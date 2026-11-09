@@ -44,6 +44,16 @@
 - البنية: `tools/seed_responsive_ui.php` محمي بعزل CI؛ `tools/test_saas_roles_form_post_http.py` لا يستخدم إلا `http://127.0.0.1:18773`؛ `tools/check_saas_roles_form_post_http.php` يراجع قاعدة البيانات بعد POST. لم يعد الاختبار مقصورًا على Windows self-hosted runner؛ لم تُفتح صلاحيات seed على الـHost.
 - **النطاق:** نجاح Browser على CI **لا يثبت** أي حفظ على Host الحقيقي أو مكالمة 5 ثوانٍ على Oppo/Xiaomi أو جودة صوت الهاتف؛ تؤكد هذه الفحوص صحة مسار SaaS في الإصدار المرشح فقط.
 
+## إصلاحات UX المكتشفة أثناء اختبار وظيفي فعلي (WEB-UX-01/06/08)
+
+- **Root cause / Missing tabs:** الدالة `nav_entries()` كانت تُسقط بالفعل `campaigns` و`whatsapp` و`voices` و`staff` من قائمة العملاء، و`voices` من الريسيلر، و`voices` و`whatsapp_admin` من الأدمن. كذلك كان `flows` قابلًا للعرض في Controller وغير قابل للوصول بسبب غياب تبويب الملاحة. إذا طلب المستخدم مسارًا مخفيًا كان Controller يعيده صامتًا إلى `overview`، ولذلك كانت قياسات الصفحة العامة تمر رغم تعطل الزر.
+- **Source fix:** استعادة صفحات العمل الموجودة أصلًا بأدوارها الملائمة، وإظهار `flows` للعميل بدون تغيير RBAC أو الاشتراكات أو واجهات API/الهاتف.
+- **Bug فعلي في Staff:** `render_staff` كان يمرر أرقام التواصل ومهلة التحويل الصحيحة كـ`int` إلى `select_html(..., string $selected)` تحت `strict_types=1`، فتعطّل عرض صفحة الموظفين للعملاء ذوي Agents. تصحيح helper ليقبل `string|int`، وتحويل المدخلات النصية، وإصلاح إغلاقات HTML Forms غير المتوازنة، دون تغيير حالة الإشعارات أو أرقام الموظفين.
+- **Regressions أقوى:** بدل الاكتفاء بوجود محتوى Main، صار Chromium يُثبت أن رابط Sidebar المطلوب هو المحدد فعلًا وأن صفحة القسم لا تحتوي `تعذر عرض البيانات`.
+- **Chrome حقيقي:** [Actions #42565765700 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42565765700) بعد استعادة القائمة وإصلاح Strict Types: 237 قياسًا و0 مشاكل، وتأكد من وصول جميع التابات بحسب الدور.
+- **HTTP+SQLite فعلي:** [Actions #42565839935 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42565839935). اختبر POST من User إلى إضافة حملة Draft، تحديث حالة الحملة إلى Paused، رفض Running دون موافقة، رفض Contact بدون Consent، حفظ DNC Opt-out، وعدم إنشاء أي مكالمة صادرة. أكد أيضًا أن إعداد Staff/Human Handoff يفتح في PHP 8.3 بأكثر من Agent.
+- **لا يستنتج من الاختبارات:** حملات تلقائية تعمل على شريحة، أو موظف يستلم مكالمة ملخصة فعليًا، أو صوت حي على Oppo، أو WhatsApp/Meta real token؛ هذه بوابات Host/Phone مفتوحة.
+
 ## بوابات قبول قبل أي نشر / اختبار على النسخة الحية
 
 | البوابة | ما يجب فحصه | الحالة |
