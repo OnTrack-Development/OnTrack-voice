@@ -519,6 +519,7 @@ function audit_safe_details(mixed $value,int $depth=0):mixed{
         $value=mb_substr($value,0,700,'UTF-8');
         $value=preg_replace('/\\bBearer\\s+[A-Za-z0-9_.\\-]+/i','Bearer [REDACTED]',$value)??'[REDACTED]';
         $value=preg_replace('/\\b(?:AIza[A-Za-z0-9_\\-]{20,}|github_pat_[A-Za-z0-9_]+|omnira_sk_[A-Za-z0-9_\\-]+)\\b/','[REDACTED]',$value)??'[REDACTED]';
+        $value=preg_replace('~\\b(?:api[_-]?key|access[_-]?token|password|secret|token)\\s*[=:]\\s*[^\\s,;]+~i','[REDACTED]',$value)??'[REDACTED]';
         return $value;
     }
     return is_int($value)||is_float($value)||is_bool($value)||$value===null?$value:'[UNSUPPORTED]';
