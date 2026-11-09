@@ -88,6 +88,7 @@ public final class VsCallBridge implements AutoCloseable {
     }
 
     public synchronized String probe() throws Exception { return request("PROBE"); }
+    public synchronized String speaker() throws Exception { return request("SPEAKER"); }
 
     /** Live 48k stereo PCM from the same shell-side VOICE_CALL source as OnTrack. */
     public synchronized byte[] capture() throws Exception {
