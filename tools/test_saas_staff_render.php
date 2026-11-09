@@ -10,6 +10,9 @@ function staff_ui_ok(bool $condition,string $why):void {
     if(!$condition)throw new RuntimeException('STAFF_UI_FAIL '.$why);
 }
 seed_console();
+$integerSelect=select_html('ثوانٍ','delay',[10=>'10 seconds',20=>'20 seconds'],20);
+staff_ui_ok(str_contains($integerSelect,'value="20" selected'),
+    'numeric IDs and time values work under strict typed select_html');
 $owner=one("SELECT id FROM users WHERE email='user@direct.test'");
 staff_ui_ok($owner!==null,'customer owner exists');
 $_SESSION=['uid'=>(int)$owner['id'],'account_id'=>4];
