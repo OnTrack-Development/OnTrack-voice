@@ -110,7 +110,7 @@ if ($key !== '') {
         'http' => $code,
         'content_type' => $ctype,
         'curl_error' => ontrack_diag_transport_error($err),
-        'response' => $safe ?? ['status'=>'unparsed_upstream_response'], 
+        'response' => $safe ?? ['status'=>'unparsed_upstream_response'],
     ];
 }
 
