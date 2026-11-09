@@ -15,7 +15,13 @@ function create_staff_invitation(int $accountId,string $name,string $email,strin
         throw new InvalidArgumentException('invalid_staff_invitation');
     $account=account($accountId);
     if(!$account||$account['status']!=='active')throw new InvalidArgumentException('account_inactive');
-    $actor=one("SELECT id FROM users WHERE id=? AND status='active'",[$creatorId]);
+    // A direct invocation of this service must not bypass controller RBAC.
+    // Only a real, active owner/admin membership may issue invitations for
+    // this exact tenant; another platform account or staff member is not enough.
+    $actor=one("SELECT m.user_id FROM memberships m
+        JOIN users u ON u.id=m.user_id AND u.status='active'
+        WHERE m.user_id=? AND m.account_id=? AND m.role IN ('owner','admin')",
+        [$creatorId,$accountId]);
     if(!$actor)throw new InvalidArgumentException('invalid_inviter');
     db()->beginTransaction();
     try{
