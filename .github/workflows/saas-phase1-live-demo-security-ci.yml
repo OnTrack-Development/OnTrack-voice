@@ -51,7 +51,7 @@ jobs:
             if curl -fsS http://127.0.0.1:18796/index.php -c /tmp/ontrack-live-cookie -o /tmp/ontrack-live-index; then break; fi
             sleep 0.1
           done
-          csrf=$(grep -oE 'name="ontrack-live-csrf" content="[a-f0-9]{64}"' /tmp/ontrack-live-index | sed -E 's/.*content="([a-f0-9]{64})".*/\\1/' | head -1)
+          csrf=$(grep -oE 'name="ontrack-live-csrf" content="[a-f0-9]{64}"' /tmp/ontrack-live-index | sed -E 's/.*content="([a-f0-9]{64})".*/\1/' | head -1)
           test "${#csrf}" -eq 64
           denied=$(curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:18796/api/live_session.php -H 'Content-Type: application/json' -d '{}')
           test "$denied" = 403
