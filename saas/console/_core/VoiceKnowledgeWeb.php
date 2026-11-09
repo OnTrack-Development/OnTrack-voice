@@ -62,25 +62,42 @@ function voice_kb_web_add(int $accountId,int $siteId,string $name,string $url,
         status,interval_hours,created_at) VALUES (?,?,?,?,?,?,'draft',?,?)",
         [$accountId,$siteId,$folderId,$url,$name,$visibility,$intervalHours,now()]);
 }
+/**
+ * Abort oversized third-party knowledge downloads while they are streaming.
+ * A post-download strlen() check alone allows unbounded PHP memory growth.
+ * Do not truncate and approve partial content: return 0 to fail cURL.
+ */
+function voice_kb_bounded_chunk(string &$buffer,string $chunk,int $limit=180000):int {
+    $length=strlen($chunk);
+    if($limit<1 || $length>($limit-strlen($buffer)))return 0;
+    $buffer.=$chunk;
+    return $length;
+}
 /** Reject unsafe HTTP, redirects, huge bodies and any non-HTML or non-text response. */
 function voice_kb_web_fetch(string $url):string {
     $url=voice_kb_origin_url($url);
     $host=voice_connector_url($url)['host'];
     $ip=voice_connector_public_ip($host);
     if(!function_exists('curl_init'))throw new RuntimeException('knowledge_link_curl_missing');
+    $body='';
     $ch=curl_init($url);
+    if($ch===false)throw new RuntimeException('knowledge_link_curl_missing');
     curl_setopt_array($ch,[
-      CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_MAXREDIRS=>0,
+      CURLOPT_RETURNTRANSFER=>false,
+      CURLOPT_WRITEFUNCTION=>static function($handle,string $chunk)use(&$body):int{
+          return voice_kb_bounded_chunk($body,$chunk);
+      },
+      CURLOPT_FOLLOWLOCATION=>false,CURLOPT_MAXREDIRS=>0,
       CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>10,
       CURLOPT_SSL_VERIFYHOST=>2,CURLOPT_SSL_VERIFYPEER=>true,
       CURLOPT_HTTPHEADER=>['Accept: text/html,text/plain'],
       CURLOPT_PROXY=>'',CURLOPT_RESOLVE=>[$host.':443:'.$ip],
       CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_USERAGENT=>'OnTrack-Knowledge-Indexer/1.0'
     ]);
-    try{$body=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
+    try{$ok=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
         $mime=(string)curl_getinfo($ch,CURLINFO_CONTENT_TYPE);}
     finally{curl_close($ch);}
-    if(!is_string($body)||strlen($body)>180000||$status!==200)
+    if($ok!==true||strlen($body)>180000||$status!==200)
         throw new RuntimeException('knowledge_link_http_unverified');
     $mime=strtolower(trim(explode(';',$mime)[0]));
     if(!in_array($mime,['text/plain','text/html'],true))
