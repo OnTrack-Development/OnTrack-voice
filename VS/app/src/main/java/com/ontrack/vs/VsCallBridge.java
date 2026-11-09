@@ -89,6 +89,19 @@ public final class VsCallBridge implements AutoCloseable {
 
     public synchronized String probe() throws Exception { return request("PROBE"); }
 
+    /** Live 48k stereo PCM from the same shell-side VOICE_CALL source as OnTrack. */
+    public synchronized byte[] capture() throws Exception {
+        if (!active) throw new IllegalStateException("Bridge not active");
+        output.writeUTF("CAPTURE");
+        output.flush();
+        int count = input.readInt();
+        if (count <= 0 || count > 38400 || (count & 3) != 0)
+            throw new java.io.IOException("Shell VOICE_CALL capture unavailable: " + count);
+        byte[] pcm = new byte[count];
+        input.readFully(pcm);
+        return pcm;
+    }
+
     public synchronized String start() throws Exception {
         String response = request("START");
         active = "ACTIVE_MIC_MUTED_ROUTE_CANDIDATE".equals(response)
