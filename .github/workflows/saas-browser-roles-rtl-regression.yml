@@ -8,6 +8,8 @@ on:
       - 'tools/audit_saas_responsive.cjs'
       - 'tools/seed_responsive_ui.php'
       - 'tools/test_saas_ui_router.php'
+      - 'tools/test_saas_roles_form_post_http.py'
+      - 'tools/check_saas_roles_form_post_http.php'
       - '.github/workflows/saas-browser-roles-rtl-regression.yml'
   workflow_dispatch:
 permissions:
