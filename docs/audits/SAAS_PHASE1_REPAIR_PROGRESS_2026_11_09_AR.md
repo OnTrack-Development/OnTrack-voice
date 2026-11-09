@@ -27,3 +27,39 @@
 4. Host isolated QA + نسخة رجوع + SHA مطابق، ثم نشر مصرح فقط. لا يُغلق أي P0 بالاعتماد على Static code وحده.
 
 **قاعدة حفظ الوظائف:** أي Regression في زر/مسار/صوت سبق نجاحه يمنع الدمج؛ أصلحه أو ارجع التعديل قبل النشر.
+
+---
+
+## دفعة التنفيذ الإضافية: أمان الصيانة والتكامل وسياسة الرد
+
+**مهم:** الكود موجود على فرع الإصلاح فقط. لم يُنشر على الهوست، ولم تُجرَ اختبارات حية، ولا يجوز اعتباره DONE.
+
+| البند | حالة الكود | الدليل الدقيق / ما تبقى |
+|---|---|---|
+| WEB-SEC-01 | **CODED PARTIAL** | `api/MaintenanceAuth.php` يقرأ SHA-256 من Private Host أو Env؛ `setup_demo.php` و`diag.php` يرفضان توكنات GET، و`tools/provision_maintenance_token.php` CLI-only. **لا تدوير فعلي على الهوست ولا محو Git history**. |
+| WEB-SEC-02 | **CODED PARTIAL** | حارس CSRF/Origin/Atomic quotas للديمو وOutbound؛ `liveConnectConstraints` خلف علم معطل افتراضيًا حتى اختبار Google الحقيقي، ولا توجد شهادة Host/Browser E2E. |
+| WEB-SEC-03 | **CODED PARTIAL** | `omnira_api_tester.php` لا يقبل المستخدم المجهول؛ Basic Auth لمشغّل الصيانة + CSRF، مع الحفاظ على Basic/Stream/Tools/Models. `test.php` لم يُلغَ ولا يوفر API proxy. وصول `dev_bridge.php` على الهوست يحتاج فحصًا مستقلًا. |
+| WEB-SEC-04 | **CODED PARTIAL** | `ops/host-link/worker.py` يتطلب Ed25519 signature لكل `exec` قبل تشغيله، مع أداة توقيع محلية واختبار تزوير؛ **Host-Link يظل STOP** ولا تأكيد تثبيت public verifier أو تشغيل أي مهمة. |
+| WEB-SEC-05 | **CODED PARTIAL** | إضافة `ApiWriteGuard.php` للحد من طلبات `lead.create` الموثقة حسب API key/tenant، مع بقاء Auth/CSRF/SSO كما كانت؛ يجب اختبار الأحمال ومسارات التكامل الحية. |
+| WEB-SEC-06 | **CODED PARTIAL** | `Bootstrap.php` يرفض قاعدة إنتاج عابرة في `/tmp` عند غياب private home، و`demo_config.php` يفضّل مخزنًا خاصًا مع fallback للتهيئة القديمة؛ لم يُختبر Restore/Vault encryption على الهوست. |
+| WEB-SEC-07 | **PARTIAL** | أخطاء Google الخام لم تعد ترجع للمتصفح في مسار Root token؛ بقية Logger/PII/Call tracing تحتاج Audit مستقل وتغطية اختبارات. |
+| WEB-CORE-01/06 | **CODED PARTIAL** | `saas/mobile/server/session.php` يحافظ على Legacy authenticated fallback في layout مسطح أو متداخل، دون أي تعديل Android. Client/Host E2E ما زال UNVERIFIED. |
+| WEB-CORE-02 / WEB-UX-01 | **CODED PARTIAL** | إضافة حفظ/نشر مباشر لتأخير الرد 0–30 ثانية وAuto-answer **لكل إيجنت** في صفحة إعدادات الرد، مع الحفاظ على جميع بقية Policy وFlow وVoice وKB وSnapshot المنشور لحين قرار المستخدم. اختبار Fixture `test_saas_quick_answer_policy.php` مكتوب **ولم يثبت تشغيله**. |
+
+### الاختبارات التي أُضيفت ولا يجوز نسب نجاح إليها حتى تشغيلها
+- `tools/test_live_demo_security.php`: Session CSRF + Origin + quota + Legacy+Outbound contract.
+- `tools/test_saas_security_guards.php`: Header-only maintenance + Basic Auth + CSRF + Tenant API quotas + production path.
+- `tools/test_host_link_signed_jobs.py`: Ed25519 signed jobs + tamper/unsigned rejection؛ بلا تنفيذ أوامر على السيرفر.
+- `tools/test_saas_quick_answer_policy.php`: تأخير الرد 5 ثوانٍ، تغيير الرد التلقائي دون إسقاط باقي الخصائص، Preview Draft مقابل Publish.
+- `.github/workflows/saas-phase1-live-demo-security-ci.yml`: PHP syntax، Local HTTP بلا Gemini، JS syntax، Python signature، PHP SQLite isolated fixture.
+
+**فشل تشغيل Actions:** أحدث تشغيلات هذه الدفعة (ومنها `42551892658`) كانت `failure` قبل أي Steps ظاهرة، مع `runner_name` فارغ؛ **سبب إخفاق Provisioning/Runner لا يُعرف بعد**. لا يتم تحويله إلى إخفاق اختبار كود أو نجاح. غير موثّق PASS.
+
+### ما لم يُغلق من الخطة الشاملة (SaaS فقط)
+- **Phase 1:** إعداد أسرار الصيانة وتدويرها فعليًا، اختبار صفحة الصيانة والأدمن والـDemo والـAPI الحقيقي وVault Restore وسجلات HTTP، التحقق من `STOP` على الهوست، وانعدام تعرض Legacy Bridge.
+- **Phase 2:** E2E للحسابات/الشريحتين وFlow Runtime مع Google/Tool Providers، PDF/Knowledge الحقيقي، WHMCS/Laravel/WhatsApp/REST، Call reports/usage ledger على Call IDs من جهاز، Billing reconciliation، failover أثناء مكالمة فعلية.
+- **Phase 3:** إثبات كل زر/نموذج وPricing/Reseller/White-label DNS/TLS وRefund/Webhooks وBrowser Mic ودعم العملاء والحملات على إنتاج داخلي.
+- **Phase 4:** تشغيل اختبارات CI/Browser/PHP، MySQL E2E، Host preflight وBackup/Restore وsha receipt، فحص rollback، Live SIM compatibility. **لا يجوز دمج أو نشر هذه الدفعة قبل إغلاق بواباتها.**
+
+### منع التراجع
+لا تغييرات في `VS/` أو Android/PCM/APK/OTA/SIM أو هوية التوقيع. لا يُفصل أي جهاز ولا يُعاد تعيين صوت/مفتاح/حصة/اشتراك. لا يُمكّن Host-Link الموقوف. خطط الويب والفوترة القديمة بقيت في المصدر دون استبدال.
