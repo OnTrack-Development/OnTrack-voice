@@ -31,6 +31,19 @@
 - [x] إضافة ملفات اختبارات PHP/JS/Python وWorkflow معزول لهذه الدفعة (**كتابة الاختبارات فقط؛ ليس إثبات نجاحها**).
 - [x] إزالة `VS/` من نطاق خطة الـSaaS بعد تأكيد المالك أنه **حُذف من المشروع** (ليس مهمة إصلاح).
 
+### ✅ تحديث التنفيذ الفعلي — المرحلة الثانية (SaaS-2)
+
+**فرع العمل المستقل:** [Phase 2](https://github.com/OnTrack-Development/OnTrack-voice/tree/fix/saas-phase2-tenant-flow-compat-20261109) · [سجل الإصلاحات](https://github.com/OnTrack-Development/OnTrack-voice/blob/fix/saas-phase2-tenant-flow-compat-20261109/docs/audits/SAAS_PHASE2_REPAIR_PROGRESS_2026_11_09_AR.md). الفرع من `release/voice-v1-20261106` وليس من Phase 1 غير المعتمدة، لمنع إدخال تغييرات اختبارية غير موثقة إلى المسار الصوتي.
+
+- [x] **WEB-CORE-01 / جزئي:** إضافة `contract_probe` قراءة فقط، وبمصادقة توكن جهاز Tenant المرتبط؛ تأكيد Account/Site/SIM/Published Agent revision وعدم إرجاع مفاتيح أو تغيير حالة الربط. **لا اختبار Carrier Audio من هذه العملية**.
+- [x] **WEB-CORE-03 / جزئي:** إعادة فحص صلاحيات Connector/Tool عند تنفيذ عقد Flow، وإصلاح اعتبار أداة ناجحة في نهاية المسار `completed` بدل `blocked`؛ لا كتابة خارجية من غير الموافقة الصريحة.
+- [x] **WEB-CORE-04 / جزئي:** تحديد تنزيل مصادر المعرفة HTTPS أثناء النقل (180KB) لمنع استهلاك الذاكرة غير المحدود؛ لا تعديل في الملفات/المعرفة المنشورة.
+- [x] إضافة اختبارات معزولة وتغطية Regression للـFlow وKB وSIM contract وGoogle Failover وCall Reports وMetering وBilling؛ **كتابة الاختبارات ليست نتيجة PASS**.
+- [ ] اختبار Android/Browser/Host الحي لكل بند من CORE-01..09، بما فيه WHMCS/PDF/Flow Tools/Voices/Call Reports/Google Key Failover؛ لا إغلاق نهائي.
+- [ ] حل فشل/تعطّل GitHub Actions وتشغيل اختبارات CI بنجاح، ثم Merge/Deploy بعد إثبات الحفاظ على الوظائف والتوقيع والربط.
+
+**المجموع بعد هذه الدفعة:** 31 مهمة عليا؛ **0 DONE بمعايير DoD**، **13 لديها تغييرات كود جزئية**، 18 لا يوجد لها إغلاق كودي موثق داخل هذين الفرعين. كل مربع [x] هو *جزء مكتوب من المهمة* وليس نجاحًا على السيرفر أو الهاتف.
+
 ### ⛔ شروط الإغلاق التي ما زالت مفتوحة
 
 - [ ] **WEB-SEC-01:** تدوير السر المتسرب على الهوست، إبطال النسخة القديمة، التحقق من Git History و`dev_bridge.php` وسجل الوصول.
@@ -40,7 +53,7 @@
 - [ ] **WEB-REL-01..07:** تشغيل الاختبارات، سجل Host SHA ونسخة رجوع، توافق Android الموثق، نشر متحكم فيه بعد قبول منع التراجع.
 - [ ] **لا Merge ولا Deploy:** PR #79 ما زال Draft وغير مدموج؛ لا إثبات نشر أو اختبارات حية. تشغيلات GitHub Actions التي جرى فحصها كانت `failure` وليست `PASS`.
 
-**العدّ الحالي:** **31 مهمة عليا** = 7 أمن + 9 تكامل + 8 واجهات/تجارة + 7 جودة ونشر. **المكتمل بمقياس DoD = 0/31**؛ **11 مهمة بها عمل كودي جزئي/مقدم**، و**20 مهمة ليس لها إغلاق ضمن هذا المسار**. وجود وظائف قديمة تعمل لا يُحوَّل تلقائيًا إلى علامة إغلاق لهذه الخطة.
+**العدّ الحالي:** **31 مهمة عليا** = 7 أمن + 9 تكامل + 8 واجهات/تجارة + 7 جودة ونشر. **المكتمل بمقياس DoD = 0/31**؛ **13 مهمة بها عمل كودي جزئي/مقدم**، و**18 مهمة ليس لها إغلاق ضمن هذين الفرعين**. وجود وظائف قديمة تعمل لا يُحوَّل تلقائيًا إلى علامة إغلاق لهذه الخطة.
 
 **شرط المالك:** الحفاظ على أي ميزة أو خيار تم تأكيد عمله؛ ممنوع كسر صوت أو ربط SIM أو تسجيل الدخول أو بيانات الباقات أو التوقيع نتيجة إصلاح الـSaaS. لا فرض 2FA أثناء التجارب.
 
@@ -90,10 +103,10 @@
 
 | ID | الحالة الحالية | المهمة الدقيقة | المصدر/المسار | DoD مع حظر التراجع |
 |---|---|---|---|---|
-| WEB-CORE-01 | 🟡 توافق Legacy بالكود؛ Contract/SIM E2E باقي | فحص/تثبيت Contract بين Phone وSaaS | `saas/console/device/v1/index.php`، `DevicePairing.php`، `TenantVoiceSession.php`، API legacy | versioned contracts + response fields stable، Token per binding/SIM/revoke/heartbeat؛ ثبت عمل الاقتران الحالي، لا تبدّل Device ID أو SIM mapping ولا تمنع العميل القديم قبل version gate. |
+| WEB-CORE-01 | 🟡 توافق Legacy + Contract Probe مصادق بالكود؛ Phone/SIM E2E باقي | فحص/تثبيت Contract بين Phone وSaaS | `saas/console/device/v1/index.php`، `DevicePairing.php`، `TenantVoiceSession.php`، API legacy | versioned contracts + response fields stable، Token per binding/SIM/revoke/heartbeat؛ ثبت عمل الاقتران الحالي، لا تبدّل Device ID أو SIM mapping ولا تمنع العميل القديم قبل version gate. |
 | WEB-CORE-02 | 🟡 إعدادات الرد ونشرها بالكود؛ Voice/SIM E2E باقي | اختيار Agent وVoice والـPublished Policy لكل شريحة | `DevicePairing.php`، `PublishedFlow.php`، `Actions.php`، `VoiceCatalog.php` | تغيير الإيجنت من Console يظهر في heartbeat/session الجديدة؛ المكالمة الجارية تحتفظ بالـsnapshot؛ صوت/لهجة/answer_delay والبروفايل الحالي لا يُستبدلون بإعداد Demo. |
-| WEB-CORE-03 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | استكمال Flow Runtime والأدوات الحقيقية | `TenantVoiceSession.php`، `PublishedFlow.php`، `FlowAi*.php`، `VoiceToolGateway.php` | Preserve draft/published separation، تطويع Ask/Condition/Collect/Handoff، فقط verified tools تكتب/تحجز، replay/idempotency، لا نطق «تم الحجز» بلا provider result، اختبارات real provider sandbox. |
-| WEB-CORE-04 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | Knowledge indexing/PDF/API facts | `VoiceKnowledgeSearch.php`، `VoiceOpenApi.php`، knowledge services | الحفاظ على المصادر والنسخ وowner review/priority/Tenant scope؛ KB اختيارية ولا تمنع Agent إن كانت فارغة؛ PDF حقيقي على Host + Arabic ranking + handling conflicts/TTL + no cross-tenant leak. |
+| WEB-CORE-03 | 🟡 تحقق Tool Policy وإصلاح حالة terminal success بالكود؛ Provider E2E باقي | استكمال Flow Runtime والأدوات الحقيقية | `TenantVoiceSession.php`، `PublishedFlow.php`، `FlowAi*.php`، `VoiceToolGateway.php` | Preserve draft/published separation، تطويع Ask/Condition/Collect/Handoff، فقط verified tools تكتب/تحجز، replay/idempotency، لا نطق «تم الحجز» بلا provider result، اختبارات real provider sandbox. |
+| WEB-CORE-04 | 🟡 تحديد جلب مصادر المعرفة بالكود؛ PDF/Host E2E باقي | Knowledge indexing/PDF/API facts | `VoiceKnowledgeSearch.php`، `VoiceOpenApi.php`، knowledge services | الحفاظ على المصادر والنسخ وowner review/priority/Tenant scope؛ KB اختيارية ولا تمنع Agent إن كانت فارغة؛ PDF حقيقي على Host + Arabic ranking + handling conflicts/TTL + no cross-tenant leak. |
 | WEB-CORE-05 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | موصلات WHMCS/Laravel/REST/WhatsApp | `VoiceToolGateway.php`، `VoiceOpenApi.php`، webhook handlers | لا تزيل العمليات الموجودة؛ Validate schema/signature/identity/tenant/caller permission؛ Booking/Ticket/Status callbacks with external IDs ورفض duplicate/replay؛ E2E على Sandbox قبل إنتاج. |
 | WEB-CORE-06 | 🟡 Legacy fallback بالكود؛ ترحيل/Host E2E باقي | إسعاف تباين Pilot وTenant دون كسر النسخ المثبتة | `saas/mobile/server/session.php`، `device/v1/index.php`، routing | سجّل استعمال المسار الفعلي، أنشئ adapter/redirect موثق إن لزم؛ لا تحذف Pilot حتى صفر استدعاءات مثبت لفترة قبول ومع نجاح Client compatibility matrix. |
 | WEB-CORE-07 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | تقارير المكالمات وملخصها والمساعدة البشرية | `VoiceCallEvidence.php`، `TenantWorkspace.php`، Calls/Reports APIs | Audit timeline immutable، Caller/Agent speaker، Agent tool references، حالات human requested/acknowledged؛ إبلاغ المدير بعد 10s **فقط إذا كان الإجراء مفعّلًا ومصرحًا**؛ لا حجز/اتصال خارجي وهمي. |
