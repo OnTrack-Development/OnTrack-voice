@@ -56,7 +56,11 @@ try{
         answer(405,['ok'=>false,'error'=>'method']);
     }
     if($method==='POST'&&$operation==='lead.create'){
-        $raw=(string)file_get_contents('php://input');
+        // Bound memory before decoding: a malicious Content-Length or chunked
+        // request must not force PHP to allocate an unbounded JSON body.
+        if(isset($_SERVER['CONTENT_LENGTH']) && (int)$_SERVER['CONTENT_LENGTH']>2048)
+            answer(413,['ok'=>false,'error'=>'body_too_large']);
+        $raw=(string)file_get_contents('php://input',false,null,0,2049);
         if(strlen($raw)>2048)answer(413,['ok'=>false,'error'=>'body_too_large']);
         $p=json_decode($raw,true);
         if(!is_array($p))answer(422,['ok'=>false,'error'=>'json']);
