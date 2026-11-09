@@ -43,7 +43,7 @@
 - [x] نجاح بوابة اختبارات المرحلة الثانية Offline على [GitHub Actions #42555119910](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42555119910) بعد إصلاح إخفاقات Workflow وWhitespace.
 - [ ] **ما زال مطلوبًا:** Host/Physical SIM/Provider E2E واختبار الحفاظ على كل خاصية مؤكدة؛ لا Merge ولا Deploy قبلها.
 
-**المجموع بعد هذه الدفعة:** 31 مهمة عليا؛ **0 DONE بمعايير DoD**، **20 لديها تغييرات كود جزئية، منها 5 بنود Phase 2 وبند WEB-UX-02 اجتازت Offline CI**، 11 لا يوجد لها إغلاق كودي موثق داخل فروع الإصلاح الثلاثة. كل مربع [x] هو *جزء مكتوب من المهمة* وليس نجاحًا على السيرفر أو الهاتف.
+**المجموع بعد هذه الدفعة:** 31 مهمة عليا؛ **0 DONE بمعايير DoD**، **21 لديها تغييرات كود جزئية، منها 5 بنود Phase 2 وبند WEB-UX-02 اجتازت Offline CI**، 10 لا يوجد لها إغلاق كودي موثق داخل فروع الإصلاح الثلاثة. كل مربع [x] هو *جزء مكتوب من المهمة* وليس نجاحًا على السيرفر أو الهاتف.
 
 ### ✅ مرحلة SaaS-2 — إغلاق أجزاء إضافية من كود التقارير والفوترة
 
@@ -52,7 +52,7 @@
 - [x] **Regression أوسع:** 11 اختبارًا إضافيًا لـTenant/Calls/Reports/Handoff/Checkout/DNC/WhatsApp/WHMCS/Google Keys، وبدون اتصال حي أو تعديل بيانات إنتاج. [GitHub Actions #42556153166 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42556153166).
 - [ ] **لا يزال CORE-07/08 غير DONE على الهوست:** مكالمات فعلية، مراجعة الموظف المستهدف، وتأكيدات الاشتراكات والدفع والحصص على البيئة الحقيقية بلا تغيير حسابات أو باقات.
 
-**الحالة العددية الجديدة:** 31 مهمة عامة؛ **0 DONE بمعايير Host/Device DoD**، **20 مهمة لها خطوات كود جزئية**، منها CORE-01/03/04/07/08 وUX-02 اجتازت اختبارات Offline؛ 11 مهمة بلا إغلاق كودي ضمن فروع الإصلاح.
+**الحالة العددية الجديدة:** 31 مهمة عامة؛ **0 DONE بمعايير Host/Device DoD**، **21 مهمة لها خطوات كود جزئية**، منها CORE-01/03/04/07/08 وUX-02 اجتازت اختبارات Offline؛ 10 مهمة بلا إغلاق كودي ضمن فروع الإصلاح.
 
 ### ✅ تحديث المرحلة الثالثة — WEB-UX-02 (جزئي، CI فقط)
 
@@ -62,12 +62,12 @@
 - [x] **CI Offline PASS:** [Actions #42556706732](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42556706732) لفحص واجهة الريسيلر والاشتراكات والشراء وتأكيد Kashier والمحافظة على بقية الواجهة.
 - [ ] **WEB-UX-02 DO D:** متصفح Host حقيقي، حساب ريسيلر فعلي، Checkout/Kashier sandbox، تاريخ الباقات، ومراجعة عدم تعطل أي إعداد سابق قبل Merge/Deploy.
 
-**الحالة الإجمالية:** من 31 مهمة: **20 مهمة بها تعديلات كود جزئية** (الأمن 7 + CORE 5 + UX 2 + تكامل Legacy من الفروع السابقة حسب سجل الإنجاز)، **0 مهام مغلقة Host E2E**. المصدر الجديد: [Stage 3 PR #81](https://github.com/OnTrack-Development/OnTrack-voice/pull/81) و[سجل Stage 3](https://github.com/OnTrack-Development/OnTrack-voice/blob/fix/saas-phase3-reseller-plan-ui-20261109/docs/audits/SAAS_PHASE3_RESELLER_PLAN_PROGRESS_2026_11_09_AR.md). فرع Stage3 مبني على Stage2؛ Stage1 دُمج **على فرع تكامل SaaS مستقل فقط** ولم يدمج في release/production.
+**الحالة الإجمالية:** من 31 مهمة: **21 مهمة بها تعديلات كود جزئية** (الأمن 7 + CORE 5 + UX 2 + تكامل Legacy من الفروع السابقة حسب سجل الإنجاز)، **0 مهام مغلقة Host E2E**. المصدر الجديد: [Stage 3 PR #81](https://github.com/OnTrack-Development/OnTrack-voice/pull/81) و[سجل Stage 3](https://github.com/OnTrack-Development/OnTrack-voice/blob/fix/saas-phase3-reseller-plan-ui-20261109/docs/audits/SAAS_PHASE3_RESELLER_PLAN_PROGRESS_2026_11_09_AR.md). فرع Stage3 مبني على Stage2؛ Stage1 دُمج **على فرع تكامل SaaS مستقل فقط** ولم يدمج في release/production.
 
 ### ✅ تكامل مراحل SaaS 1+2+3 — اختبارات مشتركة ناجحة (NOT PRODUCTION)
 
 - [x] [فرع التكامل المشترك](https://github.com/OnTrack-Development/OnTrack-voice/tree/fix/saas-integrated-phases123-20261109): تم جمع تعديلات أمن Phase1 وTenant/Flow/Knowledge/Call/Billing Phase2 وReseller Plan UI Phase3، مع الحفاظ على Quick Answer وBilling/Plans عند تسوية `Views.php`.
-- [x] [CI موثق #42558225733 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42558225733): **43 اختبار PHP معزولًا** + HTTP محلي لـLive + **SSO HTTP فعلي على localhost (Cookies/CSRF/HMAC)** + Ed25519 + PHP/JS lint + اختبار AI Floating Flow/QR/RTL routing، بدون نشر أو اتصال أو مدفوعات حقيقية.
+- [x] [CI موثق #42569360881 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42569360881): **44 اختبار PHP معزولًا** + HTTP محلي لـLive + **SSO HTTP فعلي على localhost (Cookies/CSRF/HMAC)** + Ed25519 + PHP/JS lint + اختبار AI Floating Flow/QR/RTL routing، بدون نشر أو اتصال أو مدفوعات حقيقية.
 - [x] إصلاح اختبار AI Flow قديم كي يتحقق من توقيع `showProposal(g,baseline=null)` الفعلي والحماية من تغيير المسودة أثناء مراجعة اقتراح AI، بدل إجبار الكود على دالة قديمة تكسرها.
 - [x] تم توسيع الاختبارات لتشمل Login throttle، Signup/Reset، White-label Domains، OpenAPI، Device Bootstrap، Protected Engine، Assistant keys وReseller Visibility مع نتيجة CI PASS. **الاختبارات محلية ولا تغني عن فحص الهوست.**
 - [ ] **10 بوابات Host/Phone/Checkout** موثّقة في [تقرير التكامل والقبول](SAAS_INTEGRATED_PHASES123_CI_AND_ACCEPTANCE_2026_11_09_AR.md)، وبالذات تدوير سر الصيانة واختبار الصوت من الطرفين دون تعطيل ميزة شغالة.
@@ -75,7 +75,7 @@
 
 ### ✅ Phase SaaS-4 — فحص MySQL حقيقي وإثبات توافق تكامل الإصلاحات (Partial)
 
-- [x] **WEB-REL-01 / كود واختبار فقط:** تشغيل 43 اختبار PHP على SQLite معزولة، وSSO HTTP حقيقي على localhost، وفحوص JS/Flow/QR وCSRF وEd25519: [CI SUCCESS #42558225733](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42558225733). لم يُجر Host/Browser/Phone E2E.
+- [x] **WEB-REL-01 / كود واختبار فقط:** تشغيل 44 اختبار PHP على SQLite معزولة، وSSO HTTP حقيقي على localhost، وفحوص JS/Flow/QR وCSRF وEd25519: [CI SUCCESS #42569360881](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42569360881). لم يُجر Host/Browser/Phone E2E.
 - [x] **WEB-REL-03 / إصلاح MySQL 8 فعلي:** اختبار Docker/MySQL 8.0 كشف خطأ تركيب مؤكد في schema.mysql.sql — عمود events.external_id كان TEXT ومفهرسًا UNIQUE بلا طول، فكان يُعطّل إنشاء الجداول. تم تعديله إلى VARCHAR(190) بما يطابق event_id المدخل (<=128) دون DROP أو Reset للبيانات.
 - [x] **WEB-REL-03 / MySQL QA:** [GitHub Actions #42559141038 SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42559141038): مهاجرات/Seed كامل، Tenants/Plans/Flow/SIM/Knowledge/Call Reports/Usage/Staff، والتحقق من منع Duplicate Webhook على MySQL الحقيقي. لم يُستخدم هوست الإنتاج.
 - [ ] **REL-01/03 الإغلاق الكامل:** QA على نسخة من قاعدة الهوست الحالية، Backup+Restore، مقارنة Schema/IDs/Secrets، فحص الإصدار الجاري على الهاتف، ولا Merge/Deploy قبل اجتيازها.
@@ -96,6 +96,16 @@
 - [x] [Actions #42566212892](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42566212892) أثبت POST فعلي لحفظ رقم مسؤول تجريبي ومسار Agent بمهلة 20 ثانية و`enabled=0`، مع فحص DB أن `human_escalation_jobs` **صفر**. لا اتصالات صادرة.
 - [ ] **Host/SIM E2E:** القائمة والإجراءات نجحت في CI فقط؛ WhatsApp/Meta Live، مكالمات الحملة على SIM، الصوت/5 ثوانٍ على Oppo، ودفع Kashier الحقيقي لا تزال غير مثبتة ولا يُسمح بإطلاق تجاري.
 
+### ✅ WEB-UX-03 — Billing / Kashier — المرحلة الجزئية الجديدة
+
+- [x] **إصلاح التمديد المدفوع:** التسوية الموثقة تضيف 30 يومًا **بعد تاريخ انتهاء الاشتراك الموجود** بدل إعادة ضبط الاشتراك من لحظة الدفع وفقدان مدة مدفوعة. يتم تسلسل تسوية عمليات العميل على InnoDB باستخدام قفل حساب لعدم ضياع مدة مدفوعة عند تنفيذ طلبين مختلفين.
+- [x] **Order amount snapshot:** تحقق Webhook من `orders.amount_minor` الموقّع بقيمة الطلب التاريخية، لا من السعر الحالي المتغير للباقة. تغيير السعر بعد إنشاء جلسة الدفع لا يعطل طلبًا دُفع بالفعل. لم تتغير الأسعار أو الاشتراكات الحقيقية في هذه الاختبارات.
+- [x] **Refund/reversal review additive:** تحفظ إشعارات `refund`, `partial_refund`, `void`, `reversal` الناجحة في `kashier_payment_adjustments` بتوقيع Auth مفحوص قبل الوصول إلى التسوية؛ ضمان uniqueness للمعاملة، Outbox مراجعة مالية واحد لكل حدث؛ إلغاء فوري **غير مفعل** حتى لا يتم فك اشتراك شغال بغير مراجعة.
+- [x] إذا وصل استرداد موثّق قبل الدفع، يصبح الطلب `payment_review`، ورفض Pay متأخر عليه يمنع منح استحقاق بلا مقابل. أحداث FAILURE لا تفعّل حقًا أو تغير اشتراكًا.
+- [x] **واجهة الفوترة:** Admin يرى المراجعات، والريسيلر يرى عملاءه فقط، والعميل صاحب الحساب يرى مراجعاته، ومستخدم Viewer لا يرى البيانات المالية. عدم وجود جدول على هوست بلا Refund لا يفرض إنشاء جدول بمجرد فتح صفحة GET.
+- [x] [44 اختبار SQLite/HTTP/JS متكامل #42569360881 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42569360881) و[MySQL 8 PDO حقيقي #42569360886 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42569360886)؛ اختبار توقيع، 65 يومًا محفوظة + تجديدين، تغيير سعر، Refund Replay، وصول Refund قبل Pay، وعدم تسريب بيانات المراجعة بين الحسابات.
+- [ ] **DO D المفتوح:** اختبار حساب Kashier Sandbox وإرجاع حقيقي، Wallet/Manual/Claim، فحص Host active DB schema + Restore وواجهة Finance قبل Merge/Deploy. لا يجوز اعتبار عمليات الاسترداد **مكتملة ماليًا** لمجرد تسجيل Event.
+
 ### ⛔ شروط الإغلاق التي ما زالت مفتوحة
 
 - [ ] **WEB-SEC-01:** تدوير السر المتسرب على الهوست، إبطال النسخة القديمة، التحقق من Git History و`dev_bridge.php` وسجل الوصول.
@@ -108,7 +118,7 @@
 - [x] **دمج اختبار فقط:** Phase 1 + 2 + 3 جُمعت على فرع تكامل مستقل؛ نجاح [بوابة 30 اختبارًا وHTTP وJS على Actions #42557761596](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42557761596).
 - [ ] **لا Merge إلى release ولا Deploy:** PR #79 و#80 و#81 لم تُدمج في release، ولا يوجد إثبات Host/Physical SIM E2E أو إبطال سر الصيانة القديم.
 
-**العدّ الحالي:** **31 مهمة عليا** = 7 أمن + 9 تكامل + 8 واجهات/تجارة + 7 جودة ونشر. **المكتمل بمقياس DoD = 0/31**؛ **20 مهمة بها عمل كودي جزئي/مقدم**، و**11 مهمة ليس لها إغلاق ضمن الفروع**. وجود وظائف قديمة تعمل لا يُحوَّل تلقائيًا إلى علامة إغلاق لهذه الخطة.
+**العدّ الحالي:** **31 مهمة عليا** = 7 أمن + 9 تكامل + 8 واجهات/تجارة + 7 جودة ونشر. **المكتمل بمقياس DoD = 0/31**؛ **21 مهمة بها عمل كودي جزئي/مقدم**، و**10 مهمة ليس لها إغلاق ضمن الفروع**. وجود وظائف قديمة تعمل لا يُحوَّل تلقائيًا إلى علامة إغلاق لهذه الخطة.
 
 **شرط المالك:** الحفاظ على أي ميزة أو خيار تم تأكيد عمله؛ ممنوع كسر صوت أو ربط SIM أو تسجيل الدخول أو بيانات الباقات أو التوقيع نتيجة إصلاح الـSaaS. لا فرض 2FA أثناء التجارب.
 
@@ -178,7 +188,7 @@
 |---|---|---|---|---|
 | WEB-UX-01 | 🟡 إصلاح Hidden Tabs + Chrome Route 237 PASS + HTTP Forms + DB؛ باقي Host E2E | تدقيق كل زر ونموذج ورابط ومفتاح Toggle (وظائف فعلية لا شكلية) | `Views.php`، `Actions.php`، `assets/js/app.js`، `flow-graph.js` | لكل Action: click → CSRF/RBAC → DB/state → refresh → feedback → error path؛ لا زر dead؛ Mobile/Desktop RTL/Light/Dark محفوظ. |
 | WEB-UX-02 | 🟡 إدارة خطة الريسيلر + Chrome/HTTP Form POST/DB PASS؛ Checkout/Host E2E باقي | الباقات والإدارة والاشتراكات للريسيلر والعميل | `SubscriptionPlans.php`، `Views.php`، `Actions.php` | Admin يعدّل باقة Reseller، Reseller يختار/يعدل ضمن صلاحياته، الترقية/التخفيض/التجديد واضحة؛ preserve assigned plans & ledgers؛ لا اشتراك مدفوع تلقائي بسبب إنشاء الحساب إلا إذا Trial مصرح. |
-| WEB-UX-03 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | End-to-end Billing/Kashier/manual/Wallet/Claim حسب القنوات المفعلة | Billing callbacks/`OrderClaim.php`/Outbox worker | Gateway webhook signature+amount+currency+invoice unique، paid_pending_claim قابل للربط الآمن، لا settlement وهمي؛ Refund/Retry/Expired tests؛ أي بوابة غير مفعلة لا تُعطل الحالية. |
+| WEB-UX-03 | 🟡 Paid term/price snapshot + signed Refund/Replay/Review + CI 44 SQLite & MySQL PASS؛ Kashier sandbox/Wallet/Claim Host E2E باقي | End-to-end Billing/Kashier/manual/Wallet/Claim حسب القنوات المفعلة | Billing callbacks/`OrderClaim.php`/Outbox worker | Gateway webhook signature+amount+currency+invoice unique، paid_pending_claim قابل للربط الآمن، لا settlement وهمي؛ Refund/Retry/Expired tests؛ أي بوابة غير مفعلة لا تُعطل الحالية. |
 | WEB-UX-04 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | استكمال تسجيل/استعادة كلمة المرور دون MFA تجريبية | `Signup.php`، `index.php`، reset/email | Login البريد/كلمة المرور فقط، Reset token expiry، SSO signatures، Admin/Reseller/Customer، رسائل بريد حقيقية، عدم إزالة التسجيل حسب إعدادات Owner. |
 | WEB-UX-05 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | ريسيلرز وWhite-label domains | domain worker + `Views.php` + Host config | TXT ownership ثم DNS/TLS/Host routing فعلي؛ Reseller branded Login/Register/Logo، عزل تام، لا تغيير Domain قائم حتى ينجح البديل. |
 | WEB-UX-06 | 🟡 Staff/Handoff Strict Types + HTML Forms FIX / PHP+Chrome CI PASS؛ RBAC Host E2E باقي | صلاحيات الدعم وإدارة الموظفين | RBAC/`StaffInvitations.php`/support grants | Admin/Reseller/Staff صلاحيات دقيقة بمدة موحدة، audit، اختبارات Privilege Escalation، وعدم تعطيل دخول الدعم المصرح. |
