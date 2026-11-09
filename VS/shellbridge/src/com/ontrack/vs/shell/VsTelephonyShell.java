@@ -91,6 +91,16 @@ public final class VsTelephonyShell {
             lastRequest = SystemClock.elapsedRealtime();
             if ("STATE".equals(command)) {
                 out.writeUTF("MODE " + audio.getMode() + " MUTE " + audio.isMicrophoneMute());
+            } else if ("SPEAKER".equals(command)) {
+                if (audio.getMode() != AudioManager.MODE_IN_CALL) {
+                    out.writeUTF("NO_SIM_CALL");
+                } else {
+                    boolean previous = audio.isSpeakerphoneOn();
+                    audio.setSpeakerphoneOn(!previous);
+                    boolean current = audio.isSpeakerphoneOn();
+                    out.writeUTF(current == previous ? "مخرج الصوت غير مدعوم على الجهاز"
+                        : current ? "مكبر الصوت: تشغيل" : "مكبر الصوت: إيقاف");
+                }
             } else if ("PROBE".equals(command)) {
                 restore();
                 out.writeUTF(probe(false));
