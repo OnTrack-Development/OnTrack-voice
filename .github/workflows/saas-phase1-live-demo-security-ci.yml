@@ -17,6 +17,11 @@ on:
       - 'ops/host-link/worker.py'
       - 'ops/host-link/sign_job.py'
       - 'tools/test_host_link_signed_jobs.py'
+      - 'tools/test_saas_quick_answer_policy.php'
+      - 'saas/console/_core/Actions.php'
+      - 'saas/console/_core/Views.php'
+      - 'saas/console/_core/Bootstrap.php'
+      - 'api/demo_config.php'
       - 'api/MaintenanceAuth.php'
       - 'api/MaintenanceBrowser.php'
       - 'api/setup_demo.php'
@@ -43,7 +48,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: mbstring, curl
+          extensions: mbstring, curl, pdo_sqlite, pdo_mysql, openssl
           coverage: none
       - name: PHP syntax checks
         run: |
@@ -54,6 +59,11 @@ jobs:
           php -l saas/mobile/server/session.php
           php -l tools/test_live_demo_security.php
           php -l tools/test_saas_security_guards.php
+          php -l tools/test_saas_quick_answer_policy.php
+          php -l saas/console/_core/Actions.php
+          php -l saas/console/_core/Views.php
+          php -l saas/console/_core/Bootstrap.php
+          php -l api/demo_config.php
           php -l api/MaintenanceAuth.php
           php -l api/MaintenanceBrowser.php
           php -l api/setup_demo.php
@@ -66,6 +76,7 @@ jobs:
         run: |
           php tools/test_live_demo_security.php
           php tools/test_saas_security_guards.php
+          ONTRACK_CI_NAMESPACE="saasquick${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}" php tools/test_saas_quick_answer_policy.php
       - name: Local HTTP contract (never calls Gemini)
         shell: bash
         run: |
