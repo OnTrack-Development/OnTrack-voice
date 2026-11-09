@@ -1,0 +1,45 @@
+<?php
+declare(strict_types=1);
+/** Read-only evidence after browser form POSTs in the same disposable namespace. */
+$ns=(string)getenv('ONTRACK_CI_NAMESPACE');
+if(PHP_SAPI!=='cli'||is_dir('/home/appontrack')||
+   getenv('GITHUB_ACTIONS')!=='true'||getenv('CI')!=='true'||
+   !preg_match('/^ui_[0-9]+_[0-9]+$/D',$ns))
+    throw new RuntimeException('isolated_browser_ci_only');
+require_once __DIR__.'/../saas/console/database/Seed.php';
+require_once __DIR__.'/../saas/console/_core/PublishedFlow.php';
+function browser_post_ok(bool $ok,string $reason):void{
+    if(!$ok)throw new RuntimeException('SAAS_HTTP_FORM_STATE_FAIL '.$reason);
+}
+browser_post_ok(seed_console()['status']==='already_seeded',
+    'browser fixture already present and unchanged');
+$active=one("SELECT s.id,s.ends_at,s.plan_id FROM subscriptions s
+    WHERE s.account_id=2 AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
+    ORDER BY s.id DESC LIMIT 1",[now(),now()]);
+$old=one("SELECT ends_at,status FROM subscriptions
+    WHERE account_id=2 AND plan_id=1 ORDER BY id DESC LIMIT 1");
+browser_post_ok($active!==null&&(int)$active['plan_id']===2,
+    'real reseller plan assignment persisted to database');
+browser_post_ok($old!==null&&$old['status']==='replaced' &&
+    $old['ends_at']===$active['ends_at'],
+    'the old reseller subscription history and expiration are preserved');
+browser_post_ok((int)one("SELECT COUNT(*) n FROM subscriptions
+    WHERE account_id=2 AND status='active'")['n']===1,
+    'exactly one reseller subscription remains active');
+$policy=answer_policy_for_agent(4,1);
+browser_post_ok($policy['auto_answer']===true &&
+    (int)$policy['answer_delay_seconds']===5,
+    'five-second auto-answer stored by authenticated owner form');
+$published=published_agent_flow(4,1,1);
+browser_post_ok($published!==null&&(int)$published['revision']>=1,
+    'owner did publish a real agent revision');
+$p=answer_policy_normalize(json_decode((string)$published['answer_policy_json'],true));
+browser_post_ok($p['auto_answer']===true &&
+    (int)$p['answer_delay_seconds']===5,
+    'five-second auto-answer present in published SIM payload');
+$agent=one("SELECT voice,instructions,knowledge FROM agents WHERE id=1 AND account_id=4");
+browser_post_ok($agent!==null && $published['voice']===$agent['voice'] &&
+    $published['instructions']===$agent['instructions'] &&
+    $published['knowledge']===$agent['knowledge'],
+    'quick form did not reset voice, instructions or knowledge');
+echo "SAAS_REAL_HTTP_FORM_POST_SQLITE_PUBLISHED_STATE_PASS\n";
