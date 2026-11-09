@@ -15,6 +15,7 @@ import signal
 import subprocess
 import sys
 import time
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -94,6 +95,54 @@ class API:
             raise RuntimeError("GitHub did not confirm report commit")
 
 
+def verify_exec_job_signature(job, cfg):
+    """Reject unsigned/modified exec jobs even if the GitHub branch is writable.
+
+    The operator's Ed25519 public key is installed on the host outside Git.
+    The signature covers canonical JSON of all fields except 'signature'.
+    The worker never reads a private signing key.
+    """
+    signature = job.get("signature")
+    if not isinstance(signature, str) or len(signature) > 256:
+        raise ValueError("Signed host job required")
+    try:
+        sig = base64.b64decode(signature, validate=True)
+    except (ValueError, base64.binascii.Error):
+        raise ValueError("Invalid job signature encoding") from None
+    if len(sig) != 64:
+        raise ValueError("Invalid Ed25519 signature length")
+    account_home = Path(cfg["account_home"]).resolve()
+    key_path = Path(cfg.get("operator_pubkey_path", "")).expanduser()
+    if not key_path.is_file() or key_path.is_symlink():
+        raise ValueError("Operator public key not provisioned")
+    pub = key_path.resolve()
+    if pub.parent != account_home and account_home not in pub.parents:
+        raise ValueError("Operator key outside host account")
+    openssl = shutil.which("openssl")
+    if openssl is None:
+        raise ValueError("OpenSSL verification unavailable")
+    data = {k: v for k, v in job.items() if k != "signature"}
+    payload = json.dumps(data, ensure_ascii=False, sort_keys=True,
+                         separators=(",", ":")).encode("utf-8")
+    if len(payload) > 16384:
+        raise ValueError("Job payload too large")
+    with tempfile.TemporaryDirectory(prefix=".hostlink-verify-", dir=account_home) as folder:
+        folder = Path(folder)
+        message = folder / "message.json"
+        signature_file = folder / "signature.bin"
+        for path, content in ((message, payload), (signature_file, sig)):
+            fd = os.open(str(path), os.O_CREAT | os.O_WRONLY | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, "wb") as output:
+                output.write(content)
+        check = subprocess.run([openssl, "pkeyutl", "-verify", "-rawin",
+                                "-pubin", "-inkey", str(pub), "-in", str(message),
+                                "-sigfile", str(signature_file)],
+                               stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                               stderr=subprocess.DEVNULL, timeout=5, check=False)
+    if check.returncode != 0:
+        raise ValueError("Host job signature rejected")
+
+
 def validate_job(job, cfg):
     if not isinstance(job, dict) or job.get("schema") != 1:
         raise ValueError("Unsupported job schema")
@@ -116,6 +165,7 @@ def validate_job(job, cfg):
     if action == "exec":
         if cfg.get("allow_exec") is not True:
             raise ValueError("exec disabled in local configuration")
+        verify_exec_job_signature(job, cfg)
         argv = job.get("argv")
         if not isinstance(argv, list) or not argv or len(argv) > 100 or any(not isinstance(x, str) or "\x00" in x for x in argv):
             raise ValueError("argv must be a nonempty array of strings")
