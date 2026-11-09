@@ -92,6 +92,10 @@ $pair=device_pairing_create(4,$site,$agentId,$owner,0);
 $bound=device_pairing_redeem($pair,'mysql-test-phone-installation-001',0,'MySQL CI SIM');
 $b=device_binding_authorize((string)$bound['device_token']);
 mysql_qa($b!==null,'paired SIM authorized');
+$heartbeat1=device_binding_heartbeat($b);
+$heartbeat2=device_binding_heartbeat($b);
+mysql_qa($heartbeat1['device_id']===$heartbeat2['device_id'] &&
+    $heartbeat2['account_id']===4,'MySQL unchanged last_seen_at heartbeat remains valid');
 $probe=tenant_device_contract_probe($b);
 mysql_qa($probe['published_flow_ready']===true &&
     $probe['account_id']===4 && $probe['sim_slot']===0,
