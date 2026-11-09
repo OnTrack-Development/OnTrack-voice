@@ -3,7 +3,8 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-const TOKEN_HASH = '60a11e1fa3f8f0ddc9b4711cff115079450e4672b8a0f3c2c1435361f4bb67f7';
+require_once __DIR__.'/MaintenanceAuth.php';
+ontrack_maintenance_require('POST');
 
 function finish(array $data, int $status = 200): never {
     http_response_code($status);
@@ -11,12 +12,8 @@ function finish(array $data, int $status = 200): never {
     exit;
 }
 
-$token = (string)($_SERVER['HTTP_X_MAINTENANCE_TOKEN'] ?? ($_POST['token'] ?? $_GET['token'] ?? ''));
-if (!hash_equals(TOKEN_HASH, hash('sha256', $token))) {
-    finish(['ok' => false, 'error' => 'unauthorized'], 401);
-}
-
-$key = trim((string)($_POST['key'] ?? $_GET['key'] ?? ''));
+// Never accept maintenance credentials or API keys in a URL/query string.
+$key = trim((string)($_POST['key'] ?? ''));
 if ($key === '' || strlen($key) < 20) {
     finish(['ok' => false, 'error' => 'invalid_key'], 422);
 }
