@@ -88,6 +88,9 @@ sec_check(str_contains($tester,"data-test=\"stream\"") &&
     'existing tester buttons preserved');
 sec_check(str_contains($api,"saas_api_write_allowed((int)\$a['id'],(int)\$grant['id'],'lead.create')"),
     'lead create remains authenticated and bounded');
+sec_check(str_contains($api,"file_get_contents('php://input',false,null,0,2049)") &&
+    str_contains($api,"strlen(\$raw)>2048"),
+    'lead create JSON memory is bounded before body decode');
 $bootstrap=(string)file_get_contents($root.'/saas/console/_core/Bootstrap.php');
 sec_check(str_contains($bootstrap,"saas_private_storage_unavailable"),
     'non-CLI PHP server cannot silently create production SQLite database under shared tmp');
