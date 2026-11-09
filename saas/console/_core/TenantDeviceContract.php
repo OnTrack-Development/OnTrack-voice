@@ -28,7 +28,7 @@ function tenant_device_contract_probe(array $authorizedBinding):array {
     return [
         'contract'=>'tenant_device_v1',
         'control_plane_supported'=>true,
-        'carrier_audio_verified'=>false, // Not measured by this endpoint.
+        'carrier_audio_tested_by_probe'=>false, // Not measured by this endpoint.
         'device_id'=>$device,
         'account_id'=>$account,
         'site_id'=>$site,
