@@ -12,6 +12,15 @@ on:
       - 'UPLOAD_TO_ROOT.txt'
       - '.htaccess'
       - 'tools/test_live_demo_security.php'
+      - 'tools/test_saas_security_guards.php'
+      - 'tools/provision_maintenance_token.php'
+      - 'api/MaintenanceAuth.php'
+      - 'api/MaintenanceBrowser.php'
+      - 'api/setup_demo.php'
+      - 'api/diag.php'
+      - 'omnira_api_tester.php'
+      - 'saas/console/_core/ApiWriteGuard.php'
+      - 'saas/console/api/v1/index.php'
       - 'tools/check_mobile_live.py'
       - 'tests/browser.test.mjs'
       - 'saas/mobile/patch_live_session.py'
@@ -41,8 +50,19 @@ jobs:
           php -l index.php
           php -l saas/mobile/server/session.php
           php -l tools/test_live_demo_security.php
+          php -l tools/test_saas_security_guards.php
+          php -l api/MaintenanceAuth.php
+          php -l api/MaintenanceBrowser.php
+          php -l api/setup_demo.php
+          php -l api/diag.php
+          php -l omnira_api_tester.php
+          php -l saas/console/_core/ApiWriteGuard.php
+          php -l saas/console/api/v1/index.php
+          php -l tools/provision_maintenance_token.php
       - name: Server-side CSRF, origin, quota, and legacy contract tests
-        run: php tools/test_live_demo_security.php
+        run: |
+          php tools/test_live_demo_security.php
+          php tools/test_saas_security_guards.php
       - name: Local HTTP contract (never calls Gemini)
         shell: bash
         run: |
