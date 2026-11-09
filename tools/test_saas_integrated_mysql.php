@@ -1,0 +1,114 @@
+<?php
+declare(strict_types=1);
+/**
+ * MariaDB/MySQL real PDO regression; isolated GitHub Actions service only.
+ * Never run against /home/appontrack or a production database.
+ */
+if(PHP_SAPI!=='cli' || getenv('ONTRACK_CI_MYSQL_ENABLED')!=='1'
+   || is_dir('/home/appontrack')
+   || !preg_match('/^saasmysql_[A-Za-z0-9_]{8,55}$/D',
+       (string)(getenv('ONTRACK_CI_NAMESPACE')?:''))) {
+    throw new RuntimeException('mysql_fixture_only');
+}
+require_once __DIR__.'/../saas/console/database/Seed.php';
+require_once __DIR__.'/../saas/console/_core/SubscriptionPlans.php';
+require_once __DIR__.'/../saas/console/_core/DevicePairing.php';
+require_once __DIR__.'/../saas/console/_core/TenantDeviceContract.php';
+require_once __DIR__.'/../saas/console/_core/TenantWorkspace.php';
+require_once __DIR__.'/../saas/console/_core/Views.php';
+require_once __DIR__.'/../saas/console/_core/VoiceKnowledgeWeb.php';
+
+function mysql_qa(bool $pass,string $case):void {
+    if(!$pass)throw new RuntimeException('SAAS_MYSQL_REAL_PDO_FAIL '.$case);
+}
+$host=(string)getenv('SAAS_CI_MYSQL_HOST');
+$name=(string)getenv('SAAS_CI_MYSQL_DB');
+$user=(string)getenv('SAAS_CI_MYSQL_USER');
+$password=(string)getenv('SAAS_CI_MYSQL_PASSWORD');
+mysql_qa($host==='127.0.0.1' && $name==='ontrack_saas_ci'
+    && $user==='ontrack_ci' && $password!=='' &&
+    strlen($password)>12,'restricted to ephemeral GitHub service');
+$cfg=['driver'=>'mysql','host'=>$host,'port'=>3306,'database'=>$name,
+      'user'=>$user,'password'=>$password];
+$path=private_path().'/database.json';
+mysql_qa(file_put_contents($path,json_encode($cfg,JSON_THROW_ON_ERROR),LOCK_EX)!==false,
+    'private mysql test configuration written');
+chmod($path,0600);
+unset($cfg,$password);
+$seed=seed_console();
+mysql_qa(driver()==='mysql' && $seed['status']==='seeded','real MySQL schema and migrations seeded');
+mysql_qa((int)one('SELECT COUNT(*) n FROM accounts')['n']===7,'seven separated tenant accounts');
+mysql_qa((int)one('SELECT COUNT(*) n FROM plans')['n']>=4,'existing plans preserved');
+$owner=(int)one("SELECT user_id FROM memberships WHERE account_id=4 AND role='owner' LIMIT 1")['user_id'];
+$agent=one("SELECT id,site_id FROM agents WHERE account_id=4 AND site_id=1 LIMIT 1");
+mysql_qa(is_array($agent),'active seeded agent');
+$agentId=(int)$agent['id'];$site=(int)$agent['site_id'];
+$before=one("SELECT id,plan_id,ends_at FROM subscriptions WHERE account_id=4
+    AND status='active' AND starts_at<=? AND ends_at>? ORDER BY id DESC LIMIT 1",
+    [now(),now()]);
+mysql_qa($before!==null,'active customer subscription exists');
+$otherPlan=(int)one("SELECT id FROM plans WHERE kind='user' AND status='active'
+    AND id<>? ORDER BY id LIMIT 1",[(int)$before['plan_id']])['id'];
+$assigned=subscription_assign_demo(4,$otherPlan);
+mysql_qa($assigned['changed']===true,'atomic demo plan transition on real InnoDB');
+$again=subscription_assign_demo(4,$otherPlan);
+mysql_qa($again['changed']===false &&
+    $again['subscription_id']===$assigned['subscription_id'],'idempotent plan assignment');
+$current=one('SELECT ends_at FROM subscriptions WHERE id=?',[$assigned['subscription_id']]);
+mysql_qa($current['ends_at']===$before['ends_at'],
+    'switching plan cannot reset the already granted period');
+$old=one('SELECT status FROM subscriptions WHERE id=?',[$before['id']]);
+mysql_qa($old['status']==='replaced','historical plan retained');
+$published=publish_agent_flow(4,$agentId,$owner);
+mysql_qa($published['revision']>=1,'agent Flow published on MySQL');
+$pair=device_pairing_create(4,$site,$agentId,$owner,0);
+$bound=device_pairing_redeem($pair,'mysql-test-phone-installation-001',0,'MySQL CI SIM');
+$b=device_binding_authorize((string)$bound['device_token']);
+mysql_qa($b!==null,'paired SIM authorized');
+$probe=tenant_device_contract_probe($b);
+mysql_qa($probe['published_flow_ready']===true &&
+    $probe['account_id']===4 && $probe['sim_slot']===0,
+    'scoped published agent contract');
+$kb=voice_knowledge_add(4,$site,'مواعيد التجربة','txt',
+    'المواعيد: من التاسعة صباحا إلى الخامسة مساءً','public');
+mysql_qa($kb>0,'public scoped knowledge inserted with MySQL');
+$context=voice_kb_agent_context(4,$site,$agentId,1000,'مواعيد');
+mysql_qa(str_contains($context,'المواعيد'),'approved knowledge available only to own agent');
+$foreign=voice_kb_agent_context(5,$site,$agentId,1000,'مواعيد');
+mysql_qa($foreign==='','foreign tenant cannot access approved knowledge');
+$callId='ee11aa22-3344-4566-8899-aabbccddeeff';
+$events=[
+ ['call_id'=>$callId,'sequence'=>1,'phase'=>'ringing','duration_seconds'=>0],
+ ['call_id'=>$callId,'sequence'=>2,'phase'=>'active','duration_seconds'=>4],
+ ['call_id'=>$callId,'sequence'=>3,'phase'=>'ended','duration_seconds'=>21],
+];
+foreach($events as $e)mysql_qa(tenant_workspace_call_event($b,$e)['accepted']===true,
+    'real DB call event accepted');
+mysql_qa(tenant_workspace_call_event($b,$events[2])['duplicate']===true,
+    'duplicate terminal event ignored');
+mysql_qa((int)one("SELECT COUNT(*) n FROM usage_ledger WHERE account_id=4
+    AND kind='connected_call'")['n']===1,'answered+ended call billed at most once');
+$brief=tenant_workspace_call_report($b,[
+    'call_id'=>$callId,'summary'=>'ملخص مكالمة تجربة مؤكدة',
+    'handoff_status'=>'requested','handoff_reason'=>'طلب موظف مسؤول']);
+mysql_qa($brief['saved']===true,'call report persisted');
+$history=tenant_workspace_calls($b);
+mysql_qa(count($history['calls'])===1 &&
+    $history['calls'][0]['handoff_status']==='requested',
+    'call report on authorized SIM only');
+$st=he_contact_add(4,'مدير التجربة','+201001234567','manager');
+mysql_qa($st>0,'authorized manager contact only');
+he_route_configure(4,$agentId,$st,true,10);
+$notification=he_schedule($b,$callId);
+// Route created after call started: DO NOT queue retroactive manager call.
+mysql_qa($notification['queued']===false &&
+    $notification['reason']==='staff_route_configured_after_call',
+    'no retroactive staff dialing');
+mysql_qa((int)one('SELECT COUNT(*) n FROM human_escalation_jobs')['n']===0,
+    'no staff dialing job is scheduled by fixture');
+ob_start();render_billing(['account_id'=>4,'kind'=>'customer','role'=>'viewer']);
+$html=(string)ob_get_clean();
+mysql_qa(str_contains($html,'اشتراك الحساب') &&
+    !str_contains($html,'لا توجد باقة نشطة'),
+    'active plan rendered correctly with real MySQL');
+echo "SAAS_REAL_MYSQL_MIGRATIONS_TENANCY_PLANS_FLOW_KB_SIM_CALLS_BILLING_PASS\n";
