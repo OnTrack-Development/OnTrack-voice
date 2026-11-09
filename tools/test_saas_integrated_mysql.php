@@ -99,6 +99,11 @@ mysql_qa(count($history['calls'])===1 &&
 $st=he_contact_add(4,'مدير التجربة','+201001234567','manager');
 mysql_qa($st>0,'authorized manager contact only');
 he_route_configure(4,$agentId,$st,true,10);
+// MySQL timestamps only have second precision; if routing is configured
+// inside the same second as ringing, it is not provably "later". Force
+// the historical scenario explicitly so the guard is deterministic.
+execute("UPDATE human_escalation_routes SET updated_at=? WHERE account_id=? AND site_id=? AND agent_id=?",
+    [gmdate('Y-m-d H:i:s',time()+60),4,$site,$agentId]);
 $notification=he_schedule($b,$callId);
 // Route created after call started: DO NOT queue retroactive manager call.
 mysql_qa($notification['queued']===false &&
