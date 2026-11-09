@@ -7,6 +7,7 @@ on:
       - 'saas/console/**'
       - 'tools/test_saas_roles_form_post_http.py'
       - 'tools/check_saas_roles_form_post_http.php'
+      - 'tools/test_saas_staff_render.php'
       - 'tools/seed_responsive_ui.php'
       - 'tools/test_saas_ui_router.php'
       - '.github/workflows/saas-forms-http-ci.yml'
@@ -36,6 +37,7 @@ jobs:
           set -euo pipefail
           php -l tools/seed_responsive_ui.php
           php -l tools/check_saas_roles_form_post_http.php
+          php -l tools/test_saas_staff_render.php
           python3 -m py_compile tools/test_saas_roles_form_post_http.py
       - name: Real authenticated loopback forms + saved database state
         run: |
@@ -50,4 +52,5 @@ jobs:
           done
           python3 tools/test_saas_roles_form_post_http.py
           php tools/check_saas_roles_form_post_http.php
+          php tools/test_saas_staff_render.php
           echo 'SAAS_OWNERS_FORMS_REAL_HTTP_PERSISTENCE_PASS'
