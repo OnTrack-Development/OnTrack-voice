@@ -13,7 +13,8 @@
 | **WEB-CORE-01** | `saas/console/_core/TenantDeviceContract.php`, `saas/console/device/v1/index.php` | إضافة `contract_probe` اختيارية **لجهاز مربوط مصادق عليه فقط**. تُرجع Tenant/SIM/Agent/Published revision ومعلومات دعم واجهات السيرفر بدون Token، ولا تُغير Heartbeat أو ربط أو Agent أو أي سياسة. تُعيد قراءة الربط الحالي وتمنع Revoked/Cross-tenant. **لا تعتبر صوت الهاتف فاشلًا أو ناجحًا؛ هي لا تختبر Carrier audio.** العمليات الحالية `heartbeat` و`published_flow` و`voice_session` كما هي. | **[x] كود + CI Offline PASS / [ ] Host/Device E2E** |
 | **WEB-CORE-03** | `saas/console/_core/VoiceFlowRuntime.php` | فحص Policy/Connector عند استخدام عقدة `tool/crm_lookup/crm_write/schedule`، حتى لو كانت مربوطة سابقًا. العقدة ذات سياسة مُلغاة أو غير صالحة أو قراءة/كتابة غير مناسبة **تتوقف بدون فعل خارجي**. إصلاح الحالة: أداة نجحت في آخر مسار تُنهيه بـ`completed` بدل `blocked`. حافظنا على الموافقة الصريحة وسجل الـTrace ونسخة Agent المنشورة. | **[x] كود فقط / [ ] Provider E2E** |
 | **WEB-CORE-04** | `saas/console/_core/VoiceKnowledgeWeb.php` | تنزيل HTML/TXT الخارجي أصبح محدودًا **أثناء البث** بحد 180KB؛ الطلب المفرط يفشل بدل تحميل ذاكرة كبيرة ثم رفضه لاحقًا. تظل موافقة المالك والفهرسة العامة/الخاصة والصلاحيات كما هي. لا تغيير في ملفات المعرفة أو PDF/Docx المرفوعة. | **[x] كود فقط / [ ] PDF وHost QA** |
-| **WEB-CORE-02/05/06/07/08/09** | لا تغيير لواجهات التشغيل القائمة | أُبقيت مسارات Agent، Fallback، WHMCS/Laravel/REST، Reports، Billing، Google Failover كما كانت على فرع الأساس. أُضيف تشغيل اختبارات Offline موجودة لتغطيتها ضمن CI (فور توفر runner). **لا يجوز اعتبارها انتهت** دون E2E. | **[ ] إغلاق شامل** |
+| **WEB-CORE-07/08** | `HumanEscalations.php`, `Views.php` | منع ACK وهمي في إشعار الموظف، وعرض الاشتراك الحالي الصحيح بدل أحدث سجل غير نشط، مع اختبارات CI موسعة. | **[x] كود + CI / [ ] Host/SIM/Payment E2E** |
+| **WEB-CORE-02/05/06/09** | واجهات قائمة بلا تغيير في هذه الدفعة | بقيت Agent / WHMCS/Laravel / Pilot / Google failover قائمة ومغطاة باختبارات offline؛ لا تدعي تكاملًا حقيقيًا بلا E2E. | **[ ] إغلاق شامل** |
 
 ### اختبارات عدم التراجع التي نُفذت بنجاح (Offline CI فقط)
 - `tools/test_saas_phase2_flow_safety.php`: End-of-flow successful tool result، revoked/unverified connector، منع تحول `crm_lookup` إلى كتابة دون موافقة جديدة، منع Replay، وحفظ terminal status، بمزود وهمي فقط.
@@ -33,6 +34,17 @@
 - التشغيل الأول فشل في CI hygiene بسبب `HEAD~1`/Whitespace في ملف Markdown، وتم إصلاحهما وإعادة التشغيل حتى SUCCESS. هذا الفشل **ليس دليلًا على فشل الوظائف نفسها**.
 
 **حدود شهادة CI:** جميع هذه الاختبارات على Runner/SQLite ومع mocks؛ لا تؤكد أداء مزود Google الفعلي أو وجود Poppler على الاستضافة الحالية أو جودة SIM audio. **ممنوع Merge/Deploy قبل Host QA والتوافق الفعلي والتأكد من أن ميزات المستخدم المؤكدة لم تتعطل**.
+
+### دفعة إضافية — منع التراجع في الاتصال بالموظف والفوترة (Phase2 CORE-07/08)
+
+- [x] **CORE-07 / كود + CI:** `HumanEscalations::he_ack` أصبح يتأكد أن تعديل حالة Job تم فعليًا مع حساب/موقع/جهاز/SIM وحالته السابقة. في سباق الطلبات المتزامنة لا يعلن نجاحًا وهميًا؛ إذا سبق حفظ نفس الحالة يرجع `duplicate=true`؛ ويمنع ACK قديمًا من إعادة فتح طلب اتصال مغلق.
+- [x] **CORE-07 / اختبار:** `tools/test_human_escalation.php` يغطي تكرار `dial_started` و`call_ended_unverified` ومنع إعادة فتح الحالة النهائية، إضافة إلى فحص العزل ووقت الانتظار بعد المكالمة.
+- [x] **CORE-08 / كود + CI:** إصلاح `render_billing`: اختيار الاشتراك **النشط حاليًا** بدل أحدث سجل تاريخي قد يكون `replaced` أو اشتراكًا يبدأ مستقبلًا. العرض أصبح متفقًا مع `voice_usage_summary` دون أي تعديل في الباقات/الفواتير/الأسعار.
+- [x] **CORE-08 / اختبار:** `tools/test_saas_phase2_billing_current_subscription.php` يصنع سجل اشتراك تاريخي أحدث وتجديدًا مستقبليًا ويثبت بقاء اشتراك العميل النشط ظاهرًا، وعدم إعطاء حصة حين لا يوجد اشتراك صالح.
+- [x] **مصفوفة CI موسعة:** `test_voice_saas_console.php` و`test_tenant_workspace.php` و`test_tenant_voice_transcript_archive.php` و`test_tenant_call_ai_summary.php` و`test_voice_call_timeline.php` و`test_human_escalation.php` و`test_voice_dnc_ledger.php` و`test_google_tenant_keys.php` و`test_console_checkout.php` و`test_whatsapp_inbox.php` و`test_whatsapp_whmcs_bridge.php` كلها على قواعد/مزودات Mock معزولة.
+- [x] **تشغيل موثق جديد:** [GitHub Actions #42556153166](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42556153166) — `SUCCESS` لجميع خطوات PHP/Flow/Tenant/SIM/Knowledge/PDF/Handoff/Billing/Checkout/WhatsApp وNo-native-diff. هذه نتيجة CI فقط، ليست اعتماد هوست/هاتف.
+
+**التحقق المتبقي:** لا يوجد إثبات لدائرة الاتصال الهاتفي فعليًا، أو مدير تلقّى المكالمة واستمع للملخص، أو فاتورة دُفعت على بوابة الإنتاج. هذه النقاط تبقى `[ ]` وفق DoD.
 
 ### بنود الإغلاق المتبقية — مرحلتنا الثانية (9 مهام)
 - [ ] **CORE-01:** تثبيت HTTP Contract/ACK على الجهاز الحقيقي وتجربة حسابين وشريحتين، والتحقق من نسخة الهاتف ونفس رقم Agent Revision.
