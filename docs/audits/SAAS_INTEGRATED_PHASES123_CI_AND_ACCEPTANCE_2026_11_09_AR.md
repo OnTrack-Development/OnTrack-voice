@@ -14,15 +14,17 @@
 
 ## دليل الاختبارات المجمعة — منفذة فعلاً
 
-**[GitHub Actions #42557761596](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42557761596) — SUCCESS.**
+**[GitHub Actions #42558225733](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42558225733) — SUCCESS (آخر مصفوفة موسعة).**
 
 شمل التشغيل:
 - PHP syntax لجميع `saas/console` ومداخل الـAPI وJavaScript syntax + Python compile.
 - Session-CSRF/Origin/Rate limit لـGemini Live وLocal HTTP بدون طلب فعلي إلى Google؛ رفض غير المصرح وحفاظ Contract الموبايل.
 - Auth للصيانة وCSRF لأداة Omnira، تحقق توقيع Ed25519 لوظائف Host-Link دون تنفيذها.
-- 30 اختبار SQLite معزولًا: Agent/Flow/KB، PDF حقيقي عبر Poppler المثبت على Runner، Tenant/SIM/Device Pairing، تقارير المكالمات والموظف، Google key failover بمزود Mock، اشتراكات/Checkout وكاشير، SSO، WHMCS/WhatsApp وDNC.
+- 43 اختبار SQLite معزولًا: Agent/Flow/KB، PDF حقيقي عبر Poppler المثبت على Runner، Tenant/SIM/Device Pairing، تقارير المكالمات والموظف، Google key failover بمزود Mock، اشتراكات/Checkout وكاشير، SSO، WHMCS/WhatsApp وDNC.
 - UI static: Modal/AJAX، Graph Routing، Floating AI Flow وFullscreen، وQR.
-- أكد `SAAS_INTEGRATED_ISOLATED_MATRIX_PASS suite_count=30`، `FLOATING_FLOW_CHAT_AND_FULLSCREEN_CANVAS_PASS`، `SAAS_INTEGRATED_NO_NATIVE_APK_OTA_DEPLOY_PASS`.
+- **توسعة الاعتماد:** Auth login throttling، إخفاء وإظهار Reseller، تسجيل العملاء والتحقق من البريد وإعادة كلمة المرور، White-label/Domain isolation، Voice OpenAPI، Protected Engine signing، Device bootstrap، مفاتيح Assistant، سيناريوهات Agent، Dynamic Agent Studio وDNC Actions.
+- **SSO HTTP على localhost:** تسجيل دخول فعلي بجلسة Cookie وCSRF وتوقيع HMAC، رفض Replay وعزل الحسابات؛ `VOICE_SSO_HTTP_PASS`. لا استدعاء WHMCS خارجي.
+- أكد `SAAS_INTEGRATED_ISOLATED_MATRIX_PASS suite_count=43`، `FLOATING_FLOW_CHAT_AND_FULLSCREEN_CANVAS_PASS`، `SAAS_INTEGRATED_NO_NATIVE_APK_OTA_DEPLOY_PASS`.
 - جميعها **CI Offline**؛ ليس لها سلطة إثبات الصوت الحقيقي أو صلاحية مفاتيح Google أو مرور الدفع على الاستضافة.
 
 ## بوابات قبول قبل أي نشر / اختبار على النسخة الحية
