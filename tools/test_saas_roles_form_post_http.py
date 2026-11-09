@@ -101,7 +101,15 @@ def main():
     })
     ensure(status == 200 and "تم حفظ ونشر سياسة الرد" in saved,
            "customer published 5 second answering policy through POST")
-    status, _, campaigns = request(customer, "/saas/console/?tab=campaigns")
+    status, campaign_url, campaigns = request(customer, "/saas/console/?tab=campaigns")
+    if status != 200 or 'value="add_campaign"' not in campaigns:
+        print("CAMPAIGN_RENDER_DIAG", {
+            "status": status,
+            "route": urllib.parse.urlparse(campaign_url).path,
+            "actions": re.findall(r'name="action" value="([^"]+)"', campaigns)[:20],
+            "has_campaigns_heading": "الحملات" in campaigns,
+            "has_error": "تعذر عرض البيانات" in campaigns,
+        }, flush=True)
     ensure(status == 200 and 'value="add_campaign"' in campaigns,
            "customer has real campaigns creation form")
     status, _, new_campaign = request(customer, "/saas/console/", {
