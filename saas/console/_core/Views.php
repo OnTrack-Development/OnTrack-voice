@@ -81,7 +81,6 @@ function nav_entries(string $type):array{
         'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات المنصة']
         ];
-        unset($nav['whatsapp_admin'],$nav['voices']);
         if(!platform_resellers_visible())$nav['accounts']=['♧','الحسابات'];
         return $nav;
     }
@@ -99,19 +98,17 @@ function nav_entries(string $type):array{
         'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات الشركة']
         ];
-        unset($nav['voices']);
         return $nav;
     }
     $nav=[
         'overview'=>['⌂','الرئيسية'],'sites'=>['◈','مواقعي'],
-        'agents'=>['✧','استوديو المساعدين'],
+        'agents'=>['✧','استوديو المساعدين'],'flows'=>['⤳','Flow Builder'],
         'answering'=>['☷','إعدادات الرد'],'whatsapp'=>['✉','WhatsApp Inbox'],'campaigns'=>['▤','الحملات'],
         'calls'=>['☏','سجل المكالمات'],'contacts'=>['♧','جهات الاتصال'],'devices'=>['▣','الأجهزة والخطوط'],
         'voices'=>['♫','الأصوات'],'staff'=>['♙','الموظفون'],
         'keys'=>['⌘','مفاتيح API'],'integrations'=>['⇄','التكاملات'],'billing'=>['▣','الباقة والرصيد'],
         'releases'=>['↓','Android'],'settings'=>['⚙','الإعدادات']
     ];
-    unset($nav['campaigns'],$nav['whatsapp'],$nav['voices'],$nav['staff']);
     return $nav;
 }
 function layout_open(array $a,string $tab):void{
