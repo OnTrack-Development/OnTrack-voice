@@ -180,7 +180,7 @@ DONE → READY_VERIFIED فقط عند اجتياز الشروط الفعلية �
 | [ ] | P1-04 تجميد Host-Link غير الموقّع أو إصلاحه دون تشغيله | `ops/host-link/worker.py` وbranch/rules | STOP مُثبت على الهوست؛ لو أعيد: Ed25519 + replay prevention + allowlist واختبارات رفض job معدل. |
 | [ ] | P1-05 ضبط توقيع APK وUI OTA | `mobile-ui-ota.yml`، `android-audio-proof.yml`، build signing scripts | key release في Secrets، لا signing secret في Cache قابل للقراءة، سيناريو تحديث قائم أو إعادة تثبيت معلن، مقارنة SHA/cert/OTA على الجهاز. |
 | [ ] | P1-06 قفل الدخول والأسرار وواجهات API | `console/index.php`، `Bootstrap.php`، `api/v1`، `mobile/server` | no-cookie brute-force اختبار 429، Revocation لكل device، لا error details أو secret خارج scope. |
-| [ ] | P1-07 حماية مسار ADB التشخيصي | `MobileLinkActivity.kt`، `CaptureDaemon`، ``prepare.py` | منفذ 5555 لا يظل مكشوفًا دون اختيار واعٍ، ويغلق بعد الاختبار، ومنع تغيير المسار أثناء مكالمة. |
+| [ ] | P1-07 حماية مسار ADB التشخيصي | `MobileLinkActivity.kt`، `CaptureDaemon`، `prepare.py` | منفذ 5555 لا يظل مكشوفًا دون اختيار واعٍ، ويغلق بعد الاختبار، ومنع تغيير المسار أثناء مكالمة. |
 
 ## Phase 2 — Core SaaS–Android Integration & Real Calls
 
