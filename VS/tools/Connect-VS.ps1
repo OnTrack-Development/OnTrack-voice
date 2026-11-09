@@ -44,8 +44,7 @@ if ($Mode -eq 'Wireless') {
     $DeviceSerial=$DeviceAddress
 }
 $devices=@(& adb devices | Select-Object -Skip 1 |
-    Where-Object { $_ -match '^([^\s]+)\s+device\b' } |
-    ForEach-Object { $Matches[1] })
+    ForEach-Object { if ($_ -match '^([^\s]+)\s+device\b') { $Matches[1] } })
 if (-not $DeviceSerial) {
     if ($devices.Count -ne 1) {
         throw "Expected exactly one authorized Android device; found $($devices.Count). Specify -DeviceSerial."
@@ -59,11 +58,12 @@ Write-Host "Authorized ADB device: $DeviceSerial"
 Write-Host 'On the phone open VS > تجهيز الجسر ونسخ أمر ADB, then paste that command below.'
 $command=Read-Host 'Paste the VS bridge setup command'
 $pattern='^adb shell "cp (?<source>/[A-Za-z0-9_./-]+) /data/local/tmp/vs-bridge\.jar && chmod 600 /data/local/tmp/vs-bridge\.jar && CLASSPATH=/data/local/tmp/vs-bridge\.jar app_process / com\.ontrack\.vs\.shell\.VsTelephonyShell (?<token>[A-Za-z0-9_-]{40,100}) >/dev/null 2>&1 &"$'
-if ($command -cnotmatch $pattern) {
+if ($command -cmatch $pattern) {
+    $source=$Matches['source']
+    $token=$Matches['token']
+} else {
     throw 'VS command is missing or does not match the expected independent bridge. Nothing was executed.'
 }
-$source=$Matches['source']
-$token=$Matches['token']
 if (-not $source.EndsWith('/Android/data/com.ontrack.vs/files/vs-bridge.jar')) {
     throw 'Source path is not the VS APK private bridge export. Refusing.'
 }
