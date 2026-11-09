@@ -1,9 +1,9 @@
 # OnTrack Voice — خطة إصلاح الـSaaS فقط مع ضمان عدم تعطيل الميزات القائمة
-**التاريخ:** 2026-11-09 | **آخر تحديث متابعة:** 2026-11-09 | **النوع:** خطة إصلاح SaaS مستقلة | **الحالة:** IN PROGRESS — CODE PATCHES ON BRANCH / NO VERIFIED RELEASE  
-**المستودع:** `OnTrack-Development/OnTrack-voice`  
-**قاعدة المقارنة:** `release/voice-v1-20261106` عند إعداد التقرير المجمّع؛ قبل كل مهمة يُقرأ HEAD الفعلي وHost Receipt بدل الاعتماد على تاريخ التقرير.  
-**المرجع الأساسي:** [التقرير المجمّع](ONTRACK_CONSOLIDATED_ZERO_ASSUMPTION_AUDIT_2026_11_09_AR.md).  
-**النطاق المسموح في هذه الخطة:** لوحة الـSaaS، API، قواعد البيانات، تكاملات الموقع، الباقات، الـBilling، الـTenancy، الـVoice session server-side، الاختبارات والتشغيل المرتبطين بالموقع.  
+**التاريخ:** 2026-11-09 | **آخر تحديث متابعة:** 2026-11-09 | **النوع:** خطة إصلاح SaaS مستقلة | **الحالة:** IN PROGRESS — CODE PATCHES ON BRANCH / NO VERIFIED RELEASE
+**المستودع:** `OnTrack-Development/OnTrack-voice`
+**قاعدة المقارنة:** `release/voice-v1-20261106` عند إعداد التقرير المجمّع؛ قبل كل مهمة يُقرأ HEAD الفعلي وHost Receipt بدل الاعتماد على تاريخ التقرير.
+**المرجع الأساسي:** [التقرير المجمّع](ONTRACK_CONSOLIDATED_ZERO_ASSUMPTION_AUDIT_2026_11_09_AR.md).
+**النطاق المسموح في هذه الخطة:** لوحة الـSaaS، API، قواعد البيانات، تكاملات الموقع، الباقات، الـBilling، الـTenancy، الـVoice session server-side، الاختبارات والتشغيل المرتبطين بالموقع.
 **خارج النطاق:** تغيير Android/PCM/SIM/APK/OTA أو توقيع الجوال؛ **مجلد `VS/` اتشال من المشروع طبقًا لتأكيد المالك، وبالتالي لم يعد بندًا مطلوبًا ولا هدفًا للفحص/الإصلاح**؛ النشر ليس جزءًا من تحديث الخطة.
 
 > ## شرط مالك المشروع الحاكم — NON-REGRESSION / PRESERVE WORKING FEATURES
@@ -168,5 +168,5 @@
 `Task ID | Before/After behavior | Source SHA | Affected routes/DB | Tests + exact outputs | Preserved features evidence | Security impact | Host receipt (if published) | Rollback | PASS/FAIL/UNVERIFIED`.
 
 ### الحالة الحالية بعد التحديث
-**تم رفع تعديلات كود SaaS فعلية على فرع إصلاح مستقل، لكن لم تُدمج ولم تُنشر، ولم تثبت اختبارات CI/Host/E2E نجاح الإصلاحات.** لهذا لا تُوسم أي مهمة شاملة بـ `DONE` حتى تحقيق الـDoD المبين أعلاه. 
+**تم رفع تعديلات كود SaaS فعلية على فرع إصلاح مستقل، لكن لم تُدمج ولم تُنشر، ولم تثبت اختبارات CI/Host/E2E نجاح الإصلاحات.** لهذا لا تُوسم أي مهمة شاملة بـ `DONE` حتى تحقيق الـDoD المبين أعلاه.
 **تأكيد المالك:** تم حذف `VS/`، ولا توجد مهمة SaaS متبقية تخصه.
