@@ -24,6 +24,7 @@ import java.util.Arrays;
 public final class LiveCallService extends Service {
     public static final String ACTION_START = "com.ontrack.vs.LIVE_START";
     public static final String ACTION_STOP = "com.ontrack.vs.LIVE_STOP";
+    public static final String ACTION_SPEAKER = "com.ontrack.vs.LIVE_SPEAKER";
     public static volatile String status = "غير متصل بالشريحة";
     public static volatile boolean active = false;
     public static volatile boolean connecting = false;
@@ -69,6 +70,16 @@ public final class LiveCallService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
+        if (ACTION_SPEAKER.equals(action)) {
+            VsCallBridge activeBridge = bridge;
+            if (activeBridge != null && active) {
+                new Thread(() -> {
+                    try { state(activeBridge.speaker()); }
+                    catch (Exception e) { state("فشل تبديل مخرج الصوت"); }
+                }, "vs-speaker-toggle").start();
+            }
+            return START_NOT_STICKY;
+        }
         if (!ACTION_START.equals(action)) return START_NOT_STICKY;
         if (worker != null && worker.isAlive()) return START_NOT_STICKY;
         try {
@@ -106,6 +117,7 @@ public final class LiveCallService extends Service {
                 throw new IllegalStateException("رفض مسار الشريحة: " + result);
             }
             bridgeMutatedMicrophone = true;
+            connecting = false;
             // If the OEM's global mute also silences the VS microphone,
             // fail closed and promptly restore the original call.
             active = true;
