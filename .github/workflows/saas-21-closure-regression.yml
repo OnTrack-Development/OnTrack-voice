@@ -61,6 +61,8 @@ jobs:
             tools/test_google_live_failover.php \
             tools/test_google_tenant_keys.php \
             tools/test_tenant_device_pairing.php \
+            tools/test_pilot_workspace.php \
+            tools/test_mobile_call_ledger.php \
             tools/test_sim_agent_call_reports.php \
             tools/test_human_escalation.php \
             tools/test_tenant_voice_transcript_archive.php \
