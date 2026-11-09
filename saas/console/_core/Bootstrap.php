@@ -25,7 +25,15 @@ function private_path(): string {
                 throw new RuntimeException('unsafe_ci_namespace');
             $path=sys_get_temp_dir().'/ontrack-saas-ci-'.$tag;
         }else{
-            $path=is_dir('/home/appontrack')?SAAS_PRIVATE:sys_get_temp_dir().'/ontrack-saas-demo';
+            if(is_dir('/home/appontrack')){
+                $path=SAAS_PRIVATE;
+            }elseif(in_array(PHP_SAPI,['cli','cli-server'],true)){
+                // CI and localhost developer harnesses are the only allowed
+                // fallbacks; never create a production HTTP database in /tmp.
+                $path=sys_get_temp_dir().'/ontrack-saas-demo';
+            }else{
+                throw new RuntimeException('saas_private_storage_unavailable');
+            }
         }
     }
     if (!is_dir($path)) {mkdir($path,0700,true);}
