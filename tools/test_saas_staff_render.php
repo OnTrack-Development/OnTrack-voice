@@ -25,9 +25,10 @@ staff_ui_ok(substr_count($html,'value="human_route_save"')===2,
     'customer can configure both existing site agents independently');
 staff_ui_ok(str_contains($html,'name="handoff_delay_seconds"'),
     'handoff delay is editable rather than inert');
-staff_ui_ok(!str_contains($html,'</form></form>') &&
-            !str_contains($html,'</form></details>'),
-    'staff markup has no orphaned form or details closing tags');
+// A form legitimately ends directly before </details> when it is nested
+// inside a staff disclosure. Only a double </form> is always invalid.
+staff_ui_ok(!str_contains($html,'</form></form>'),
+    'staff markup has no duplicate form closing tags');
 staff_ui_ok(str_contains($html,'دعوة موظف') && str_contains($html,'حفظ مسار التحويل'),
     'staff invitations and route forms remain actionable');
 echo "SAAS_CUSTOMER_STAFF_AND_HUMAN_HANDOFF_RENDER_PASS\n";
