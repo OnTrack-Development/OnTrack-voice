@@ -43,7 +43,16 @@
 - [x] نجاح بوابة اختبارات المرحلة الثانية Offline على [GitHub Actions #42555119910](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42555119910) بعد إصلاح إخفاقات Workflow وWhitespace.
 - [ ] **ما زال مطلوبًا:** Host/Physical SIM/Provider E2E واختبار الحفاظ على كل خاصية مؤكدة؛ لا Merge ولا Deploy قبلها.
 
-**المجموع بعد هذه الدفعة:** 31 مهمة عليا؛ **0 DONE بمعايير DoD**، **13 لديها تغييرات كود جزئية، منها 3 بنود Phase 2 اجتازت اختبارات Offline**، 18 لا يوجد لها إغلاق كودي موثق داخل هذين الفرعين. كل مربع [x] هو *جزء مكتوب من المهمة* وليس نجاحًا على السيرفر أو الهاتف.
+**المجموع بعد هذه الدفعة:** 31 مهمة عليا؛ **0 DONE بمعايير DoD**، **15 لديها تغييرات كود جزئية، منها 5 بنود Phase 2 اجتازت اختبارات Offline**، 16 لا يوجد لها إغلاق كودي موثق داخل هذين الفرعين. كل مربع [x] هو *جزء مكتوب من المهمة* وليس نجاحًا على السيرفر أو الهاتف.
+
+### ✅ مرحلة SaaS-2 — إغلاق أجزاء إضافية من كود التقارير والفوترة
+
+- [x] **WEB-CORE-07 / Partial Code + CI:** التحقق من ACK فعلي عند تحديث حالة طلب الاتصال بالمدير، وحماية إعادة الإرسال والتزامن، وعدم إعادة فتح اتصال انتهى. نجح `tools/test_human_escalation.php` في CI.
+- [x] **WEB-CORE-08 / Partial Code + CI:** إصلاح اختيار الباقة النشطة الظاهرة للعميل بدل أحدث اشتراك تاريخي/مستقبلي. نجح `tools/test_saas_phase2_billing_current_subscription.php` في CI.
+- [x] **Regression أوسع:** 11 اختبارًا إضافيًا لـTenant/Calls/Reports/Handoff/Checkout/DNC/WhatsApp/WHMCS/Google Keys، وبدون اتصال حي أو تعديل بيانات إنتاج. [GitHub Actions #42556153166 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42556153166).
+- [ ] **لا يزال CORE-07/08 غير DONE على الهوست:** مكالمات فعلية، مراجعة الموظف المستهدف، وتأكيدات الاشتراكات والدفع والحصص على البيئة الحقيقية بلا تغيير حسابات أو باقات.
+
+**الحالة العددية الجديدة:** 31 مهمة عامة؛ **0 DONE بمعايير Host/Device DoD**، **15 مهمة لها خطوات كود جزئية** (منها 5 مهام CORE-01/03/04/07/08 اجتازت اختبارات Offline)، و16 مهمة بلا إغلاق كودي ضمن هذين الفرعين.
 
 ### ⛔ شروط الإغلاق التي ما زالت مفتوحة
 
@@ -54,7 +63,7 @@
 - [ ] **WEB-REL-01..07:** تشغيل الاختبارات، سجل Host SHA ونسخة رجوع، توافق Android الموثق، نشر متحكم فيه بعد قبول منع التراجع.
 - [ ] **لا Merge ولا Deploy:** PR #79 ما زال Draft وغير مدموج؛ لا إثبات نشر أو اختبارات حية. تشغيلات GitHub Actions التي جرى فحصها كانت `failure` وليست `PASS`.
 
-**العدّ الحالي:** **31 مهمة عليا** = 7 أمن + 9 تكامل + 8 واجهات/تجارة + 7 جودة ونشر. **المكتمل بمقياس DoD = 0/31**؛ **13 مهمة بها عمل كودي جزئي/مقدم**، و**18 مهمة ليس لها إغلاق ضمن هذين الفرعين**. وجود وظائف قديمة تعمل لا يُحوَّل تلقائيًا إلى علامة إغلاق لهذه الخطة.
+**العدّ الحالي:** **31 مهمة عليا** = 7 أمن + 9 تكامل + 8 واجهات/تجارة + 7 جودة ونشر. **المكتمل بمقياس DoD = 0/31**؛ **15 مهمة بها عمل كودي جزئي/مقدم**، و**16 مهمة ليس لها إغلاق ضمن هذين الفرعين**. وجود وظائف قديمة تعمل لا يُحوَّل تلقائيًا إلى علامة إغلاق لهذه الخطة.
 
 **شرط المالك:** الحفاظ على أي ميزة أو خيار تم تأكيد عمله؛ ممنوع كسر صوت أو ربط SIM أو تسجيل الدخول أو بيانات الباقات أو التوقيع نتيجة إصلاح الـSaaS. لا فرض 2FA أثناء التجارب.
 
@@ -110,8 +119,8 @@
 | WEB-CORE-04 | 🟡 كود + CI Offline PASS (بما فيه PDF Extract)؛ Host E2E باقي | Knowledge indexing/PDF/API facts | `VoiceKnowledgeSearch.php`، `VoiceOpenApi.php`، knowledge services | الحفاظ على المصادر والنسخ وowner review/priority/Tenant scope؛ KB اختيارية ولا تمنع Agent إن كانت فارغة؛ PDF حقيقي على Host + Arabic ranking + handling conflicts/TTL + no cross-tenant leak. |
 | WEB-CORE-05 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | موصلات WHMCS/Laravel/REST/WhatsApp | `VoiceToolGateway.php`، `VoiceOpenApi.php`، webhook handlers | لا تزيل العمليات الموجودة؛ Validate schema/signature/identity/tenant/caller permission؛ Booking/Ticket/Status callbacks with external IDs ورفض duplicate/replay؛ E2E على Sandbox قبل إنتاج. |
 | WEB-CORE-06 | 🟡 Legacy fallback بالكود؛ ترحيل/Host E2E باقي | إسعاف تباين Pilot وTenant دون كسر النسخ المثبتة | `saas/mobile/server/session.php`، `device/v1/index.php`، routing | سجّل استعمال المسار الفعلي، أنشئ adapter/redirect موثق إن لزم؛ لا تحذف Pilot حتى صفر استدعاءات مثبت لفترة قبول ومع نجاح Client compatibility matrix. |
-| WEB-CORE-07 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | تقارير المكالمات وملخصها والمساعدة البشرية | `VoiceCallEvidence.php`، `TenantWorkspace.php`، Calls/Reports APIs | Audit timeline immutable، Caller/Agent speaker، Agent tool references، حالات human requested/acknowledged؛ إبلاغ المدير بعد 10s **فقط إذا كان الإجراء مفعّلًا ومصرحًا**؛ لا حجز/اتصال خارجي وهمي. |
-| WEB-CORE-08 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | قاعدة الاستهلاك والأرصدة والمكالمات | `SubscriptionPlans.php`، `UsageLedger`/usage tables، `TenantCampaignQueue.php` | no-answer لا يُحسب متصلًا، quota atomic/idempotent، انقطاع الشبكة لا يكرر الخصم، لا reset لبيانات الاشتراكات، DNC لا يُعطّل. |
+| WEB-CORE-07 | 🟡 كود + CI Offline PASS لإشعارات الموظف؛ هاتف/Host E2E باقي | تقارير المكالمات وملخصها والمساعدة البشرية | `VoiceCallEvidence.php`، `TenantWorkspace.php`، Calls/Reports APIs | Audit timeline immutable، Caller/Agent speaker، Agent tool references، حالات human requested/acknowledged؛ إبلاغ المدير بعد 10s **فقط إذا كان الإجراء مفعّلًا ومصرحًا**؛ لا حجز/اتصال خارجي وهمي. |
+| WEB-CORE-08 | 🟡 كود + CI Offline PASS لعرض الباقة الحالية؛ Billing/Payment E2E باقي | قاعدة الاستهلاك والأرصدة والمكالمات | `SubscriptionPlans.php`، `UsageLedger`/usage tables، `TenantCampaignQueue.php` | no-answer لا يُحسب متصلًا، quota atomic/idempotent، انقطاع الشبكة لا يكرر الخصم، لا reset لبيانات الاشتراكات، DNC لا يُعطّل. |
 | WEB-CORE-09 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | اختيار Assistant/Voice keys والـFailover | `AiRelay.php`، `GoogleVoiceFailover.php`، provider profiles | احتفظ بكل المجموعات/المفاتيح المفعلة وبحدود الباقات الحالية؛ 429/503/timeout cooldown ~900s حسب السياسة، نفس Tenant/SIM/Context؛ لا تبديل إلى مفتاح غير مخول؛ E2E صوتي ما زال مطلوبًا. |
 
 **DoD Phase-2:** ربط شريحتين وحسابين بمعرفات/صلاحيات منفصلة، Agent published instructions الصحيحة، Call report/Tool ID/Quota متوافق مع المصدر؛ كل واجهة واختبار عمل سابق يحتفظ بنتيجته.
