@@ -18,6 +18,17 @@ try{
     $one=voice_call_timeline_store($ours,$entry);
     timeline_check($one['saved']===true&&!$one['duplicate'],'real device report stored');
     timeline_check(voice_call_timeline_store($ours,$entry)['duplicate']===true,'duplicate idempotent');
+    $stored=one('SELECT account_id,site_id,sim_slot,speaker,event_type,content,occurred_at
+      FROM voice_call_timeline WHERE device_binding_id=? AND call_id=? AND event_id=?',
+      [$ours['id'],$call,$entry['event_id']]);
+    timeline_check($stored!==null,'event available for concurrent collision check');
+    voice_call_timeline_assert_same_event($stored,[4,1,$ours['id'],0,$call],
+      'caller','transcript',trim($entry['text']),$entry['occurred_at']);
+    $changed=false;
+    try { voice_call_timeline_assert_same_event($stored,[4,1,$ours['id'],0,$call],
+      'caller','transcript','tampered',$entry['occurred_at']); }
+    catch(RuntimeException $e){$changed=$e->getMessage()==='timeline_replay_changed';}
+    timeline_check($changed,'concurrent event ID must not overwrite a different transcript');
     $denied=false;
     try{voice_call_timeline_store($other,$entry);}catch(InvalidArgumentException){$denied=true;}
     timeline_check($denied,'cannot fake foreign SIM');
