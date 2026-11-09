@@ -12,6 +12,9 @@ on:
       - 'UPLOAD_TO_ROOT.txt'
       - '.htaccess'
       - 'tools/test_live_demo_security.php'
+      - 'tools/check_mobile_live.py'
+      - 'tests/browser.test.mjs'
+      - 'saas/mobile/patch_live_session.py'
       - '.github/workflows/saas-phase1-live-demo-security-ci.yml'
   workflow_dispatch:
 permissions:
@@ -58,7 +61,25 @@ jobs:
           ok=$(curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:18796/api/live_session.php -b /tmp/ontrack-live-cookie -H "X-OnTrack-Live-CSRF: $csrf" -H 'Origin: http://127.0.0.1:18796' -H 'Content-Type: application/json' -d '{')
           test "$ok" = 400
           echo 'LIVE_DEMO_HTTP_CONTRACT_PASS no_google_requests=true'
+      - name: Preserve legacy mobile deploy adapter and diagnostics syntax
+        run: |
+          set -eu
+          python3 -m py_compile tools/check_mobile_live.py saas/mobile/patch_live_session.py
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          source=Path('api/live_session.php').read_text(encoding='utf-8')
+          spec=importlib.util.spec_from_file_location('mobile_patch','saas/mobile/patch_live_session.py')
+          mod=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+          patched=mod.patch(source)
+          assert "ontrack_live_demo_authorize();" in patched
+          assert "ontrackMobileInstruction" in patched
+          assert "ontrackMobileRequest" in patched
+          print('MOBILE_LEGACY_DEPLOY_ADAPTER_COMPAT_PASS')
+          PY
       - name: JavaScript syntax and diff hygiene
         run: |
           node --check assets/app.js
+          node --check tests/browser.test.mjs
           git diff --check HEAD~1 HEAD
