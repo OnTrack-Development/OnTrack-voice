@@ -540,7 +540,7 @@ function render_staff(array $a):void{
        $actions=pill($r['role']);
        if(!in_array($r['role'],['owner','admin'],true)&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
            $actions.=form_start('edit_staff','/?tab=staff','class="inline-form"').'<input type="hidden" name="user_id" value="'.$r['id'].'">'.
-                select_html('تغيير الدور','role',['manager'=>'مدير','operator'=>'مشغّل','reception'=>'استقبال','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).'<button class="btn small primary">حفظ</button></form></details>';
+                select_html('تغيير الدور','role',['manager'=>'مدير','operator'=>'مشغّل','reception'=>'استقبال','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).'<button class="btn small primary">حفظ</button></form>';
            $actions.=form_start('remove_staff','/?tab=staff','class="inline-form"').'<input type="hidden" name="user_id" value="'.$r['id'].'"><button class="btn small danger" data-confirm="إزالة الموظف من هذا الحساب؟">إزالة</button></form>';
        }
        $users[]=[e($r['name']),e($r['email']),$actions];
@@ -619,9 +619,9 @@ function render_human_escalation_settings(array $a):void {
             select_html('موظف التحويل','contact_id',$routeOptions,$selected).
             '<label class="field"><input type="checkbox" name="enabled" value="1"'.
                 (!empty($ag['enabled'])?' checked':'').'> تفعيل الاتصال التلقائي للمسؤول عند طلب العميل</label>'.
-            select_html('مهلة اتصال المدير بعد نهاية المكالمة','handoff_delay_seconds',$delayChoices,(int)($ag['delay_seconds']??10)).
+            select_html('مهلة اتصال المدير بعد نهاية المكالمة','handoff_delay_seconds',$delayChoices,(string)($ag['delay_seconds']??10)).
             '<p class="dim">لا يتصل بالمسؤول أثناء مكالمة العميل؛ المهلة تبدأ من وقت انتهائها.</p>'.
-            submit_btn('حفظ مسار التحويل').'</form></div>';
+            submit_btn('حفظ مسار التحويل').'</div>';
     }
     echo card('تحديد المسؤول لكل AI Agent',
         $routes?:'<p>أنشئ مساعدًا أولًا حتى تختار مسؤول التحويل الخاص به.</p>');
