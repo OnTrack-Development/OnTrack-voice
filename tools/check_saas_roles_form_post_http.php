@@ -42,4 +42,26 @@ browser_post_ok($agent!==null && $published['voice']===$agent['voice'] &&
     $published['instructions']===$agent['instructions'] &&
     $published['knowledge']===$agent['knowledge'],
     'quick form did not reset voice, instructions or knowledge');
+$draft=one("SELECT id,status FROM campaigns WHERE account_id=4 AND site_id=1
+    AND name='Browser safety campaign - no calls' ORDER BY id DESC LIMIT 1");
+browser_post_ok($draft!==null&&$draft['status']==='draft',
+    'real campaign create form saved only draft without dialing');
+browser_post_ok((string)one("SELECT status FROM campaigns
+    WHERE id=1 AND account_id=4")['status']==='paused',
+    'real pause form persisted and unsafe running state was rejected');
+browser_post_ok((int)one("SELECT COUNT(*) n FROM campaigns
+    WHERE account_id=4 AND status NOT IN ('draft','paused','archived')")['n']===0,
+    'no campaign was armed or running through test forms');
+browser_post_ok((int)one("SELECT COUNT(*) n FROM calls
+    WHERE account_id=4")['n']===2,
+    'forms did not create an outbound telephone call');
+$contact=one("SELECT id,dnc,name FROM contacts
+    WHERE account_id=4 AND phone='+99900000123'");
+browser_post_ok($contact!==null && (int)$contact['dnc']===1 &&
+    $contact['name']==='Synthetic DNC opt-out',
+    'only opted-out consented synthetic contact saved');
+browser_post_ok((int)one("SELECT COUNT(*) n FROM contacts
+    WHERE account_id=4 AND phone='+99900000123'")['n']===1,
+    'unconsented contact was rejected without database write');
+echo "SAAS_REAL_HTTP_CAMPAIGN_DNC_PERSISTED_NO_DIAL_PASS\n";
 echo "SAAS_REAL_HTTP_FORM_POST_SQLITE_PUBLISHED_STATE_PASS\n";
