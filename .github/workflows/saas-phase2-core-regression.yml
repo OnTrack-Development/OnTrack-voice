@@ -1,0 +1,84 @@
+name: SaaS Phase 2 tenant integration + Flow + Knowledge non-regression (NO DEPLOY)
+on:
+  push:
+    branches:
+      - fix/saas-phase2-tenant-flow-compat-20261109
+    paths:
+      - 'saas/console/**'
+      - 'tools/test_saas_phase2_*.php'
+      - '.github/workflows/saas-phase2-core-regression.yml'
+  pull_request:
+    branches:
+      - release/voice-v1-20261106
+    paths:
+      - 'saas/console/**'
+      - 'tools/test_saas_phase2_*.php'
+      - '.github/workflows/saas-phase2-core-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  php-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,curl,openssl,fileinfo,zip,dom
+          coverage: none
+      - name: PHP source syntax and direct contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in saas/console/_core/VoiceFlowRuntime.php saas/console/_core/VoiceKnowledgeWeb.php saas/console/_core/TenantDeviceContract.php saas/console/device/v1/index.php tools/test_saas_phase2_flow_safety.php tools/test_saas_phase2_knowledge_safety.php tools/test_saas_phase2_contract_probe.php; do
+            php -l "$path"
+          done
+          php tools/test_saas_phase2_knowledge_safety.php
+      - name: Isolated tenant Flow and SIM verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          n=0
+          for test in \
+            tools/test_saas_phase2_flow_safety.php \
+            tools/test_saas_phase2_contract_probe.php \
+            tools/test_voice_flow_runtime.php \
+            tools/test_voice_tool_gateway.php \
+            tools/test_tenant_device_pairing.php \
+            tools/test_sim_agent_call_reports.php; do
+            n=$((n+1))
+            echo "=== $test isolated fixture #$n ==="
+            ONTRACK_CI_NAMESPACE="saas2_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_$n" php "$test"
+          done
+      - name: Knowledge, subscriptions and provider failover regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          n=10
+          for test in \
+            tools/test_v1_knowledge.php \
+            tools/test_voice_kb_pdf_extract.php \
+            tools/test_voice_kb_search_index.php \
+            tools/test_voice_knowledge_web.php \
+            tools/test_voice_connector_cache.php \
+            tools/test_google_live_failover.php \
+            tools/test_v1_site05_plan_transitions.php; do
+            n=$((n+1))
+            echo "=== $test isolated fixture #$n ==="
+            ONTRACK_CI_NAMESPACE="saas2_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_$n" php "$test"
+          done
+      - name: Verify no native, production DB, SSH or deployment side effects
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check HEAD~1 HEAD
+          git diff --name-only HEAD~1 HEAD | tee /tmp/saas2-changed.txt
+          if grep -E '^(VS/|saas/mobile/audio-proof/|saas/mobile/ota/|ops/host-link/|saas/console/database/schema\.)' /tmp/saas2-changed.txt; then
+            echo 'Forbidden deploy/native/production-schema file changed in Phase 2'
+            exit 1
+          fi
+          echo 'SAAS_PHASE2_NO_NATIVE_OR_DEPLOY_CHANGES_CHECKED'
