@@ -36,6 +36,14 @@
 - **QA History:** أول تشغيل MySQL كشف خطأ Schema حقيقي، ثم أصلحنا Schema والـFixture واستمر اختبار Docker حتى PASS. لا بيانات من الاستضافة ولا اتصال Provider.
 - **قيد النشر:** شهادة MySQL 8 الجديدة لا تثبت سلامة migrations على قاعدة MySQL حيّة ببيانات، ولا أن Backup/Restore جرى على الهوست. يلزم Host preflight على نسخة معزولة من البيانات الحالية قبل التحديث.
 
+## نتيجة حقيقية للواجهة والنماذج — Chromium + HTTP + database
+
+- [GitHub Actions #42564618431 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42564618431): تشغيل Google Chrome الحقيقي على Ubuntu CI مع PHP 8.3 وSQLite معزولة؛ **237 قياس شاشة** من 320px حتى 1440px على تسجيل ودخول عام وإداري وريسيلر وعميل، ودعم RTL والموبايل، Theme persist، Drawer، وAJAX navigation — **0 فشل**.
+- **لم نكتفِ بالعرض:** من متصفح جلسة مصادق بها وPOST حقيقي مع CSRF، قام Admin بتغيير باقة ريسيلر من 1 إلى 2؛ ظهر التغيير في حساب الريسيلر؛ ومنع الطلب من حساب ريسيلر لتغيير باقة ريسيلر آخر.
+- حساب العميل نشر عبر النموذج الفعلي `update_answer_policy_quick` الرد التلقائي بعد 5 ثوانٍ؛ [فحص Persisted DB](https://github.com/OnTrack-Development/OnTrack-voice/blob/fix/saas-integrated-phases123-20261109/tools/check_saas_roles_form_post_http.php) أثبت وجود الإعداد في `published_agent_flow`، وعدم مسح الصوت أو التعليمات أو المعرفة أو تمديد باقة الريسيلر.
+- البنية: `tools/seed_responsive_ui.php` محمي بعزل CI؛ `tools/test_saas_roles_form_post_http.py` لا يستخدم إلا `http://127.0.0.1:18773`؛ `tools/check_saas_roles_form_post_http.php` يراجع قاعدة البيانات بعد POST. لم يعد الاختبار مقصورًا على Windows self-hosted runner؛ لم تُفتح صلاحيات seed على الـHost.
+- **النطاق:** نجاح Browser على CI **لا يثبت** أي حفظ على Host الحقيقي أو مكالمة 5 ثوانٍ على Oppo/Xiaomi أو جودة صوت الهاتف؛ تؤكد هذه الفحوص صحة مسار SaaS في الإصدار المرشح فقط.
+
 ## بوابات قبول قبل أي نشر / اختبار على النسخة الحية
 
 | البوابة | ما يجب فحصه | الحالة |
