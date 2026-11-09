@@ -38,6 +38,8 @@ jobs:
           set -euo pipefail
           php -l tools/seed_responsive_ui.php
           php -l tools/test_saas_ui_router.php
+          php -l tools/check_saas_roles_form_post_http.php
+          python3 -m py_compile tools/test_saas_roles_form_post_http.py
           node --check tools/audit_saas_responsive.cjs
           command -v php
           command -v node
@@ -68,6 +70,9 @@ jobs:
             exit 1
           }
           echo 'SAAS_REAL_CHROMIUM_ADMIN_RESELLER_CUSTOMER_BROWSER_PASS'
+          python3 tools/test_saas_roles_form_post_http.py
+          php tools/check_saas_roles_form_post_http.php
+          echo 'SAAS_REAL_BROWSER_AND_HTTP_FORMS_PERSISTED_PASS'
       - name: Assert no deployed code, mobile APK, keys or production state changed
         run: |
           echo 'SAAS_BROWSER_CI_DISPOSABLE_SQLITE_AND_NO_DEPLOY_PASS'
