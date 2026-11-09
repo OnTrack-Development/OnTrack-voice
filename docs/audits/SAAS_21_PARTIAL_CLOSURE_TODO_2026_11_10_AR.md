@@ -68,6 +68,7 @@ Host backup/restore; maintenance secret rotation/revoke; production MySQL snapsh
 - [x] **SEC-06** منع سباق إنشاء مفتاح Vault والتبديل الصامت، التحقق 0600 وعدم قبول symlink أو key تالف، AES-GCM roundtrip. `Bootstrap.php` + `tools/test_saas_vault_integrity.php`.
 - [x] **SEC-07** إخفاء الأسرار في audit وtool traces وprovider diagnostic errors مع الاحتفاظ بـcall/account IDs وأسباب HTTP. `Bootstrap.php` و`VoiceToolGateway.php`.
 - [x] **CORE-02** قفل MySQL لتخصيص immutable agent Flow revisions عند Publish متزامن، مع اختبار إعادة النشر idempotent وبقاء Voice/Policy snapshot. `PublishedFlow.php` + real MySQL8.
+- [x] **CORE-04** حماية إعادة فهرسة Knowledge على نفس المصدر من سباقات عمال MySQL/SQLite؛ لا يُكتب Index مكرر ولا يستبدل hash أحدث بآخر قديم. `VoiceKnowledgeSearch.php` + Arabic conflict/tenant/PDF search CI.
 - [x] **CORE-03** إرجاء كتابة Trace لأحداث Flow إلى ما بعد نجاح step_version CAS؛ خسارة السباق لا تسجل زيارة/ردًا موهومًا. `VoiceFlowRuntime.php` + Flow runtime regression.
 - [x] **CORE-01** إصلاح MySQL affected rows=0 عند تكرار heartbeat في نفس الثانية؛ إثبات MySQL8 حقيقي مع إصلاح الربط ومنع revocation الكاذب. `DevicePairing.php`.
 - [x] **CORE-07** سجل أحداث المكالمات immutable حتى عند duplicate INSERT المتزامن، ورفض تغيير event_id/content. `VoiceCallEvidence.php` + timeline test.
@@ -79,12 +80,11 @@ Host backup/restore; maintenance secret rotation/revoke; production MySQL snapsh
 - [x] **REL-03** تشغيل migrations وbilling وtenant وFlow وstaff وheartbeat ضد MySQL8 حقيقي معزول (وليس قاعدة الإنتاج). [MySQL8 #42720792937](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42720792937).
 
 ### بنود لها كود موجود في فرع الأساس ولم يثبت إغلاق جميع متطلباتها بعد
-- [ ] **CORE-04** فهرسة PDF ومصادر عربية/TTL/التعارض على بيئة هوست مطابقة.
 - [ ] **CORE-06** توافق مسارات Pilot مع سجل الطلبات الفعلية وعدم إزالة Legacy قبل صفر استخدام.
 - [ ] **CORE-08** موازنة Usage/Quota ومدة الاشتراك على بيانات حية مستنسخة مع فحص double-charge.
 - [ ] **UX-01** تدقيق كل زر ونموذج على الهوست، مع استمرار نجاح 237 قياس Chromium وعمليات POST على CI.
 
-**عدّ التقدم الكودي في هذه الدفعة:** 17 بندًا من الـ21 أُضيفت له حمايات/اختبارات فعلية جديدة على هذا الفرع؛ 4 تعتمد حاليًا على عمل فرع الأساس واختباراته، وتحتاج إغلاقًا أوسع. **21/21 اعتماد نهائي = غير مُدّعى**. عشر المهام الأخرى مؤجلة حسب أمر المالك. لا تمس Native أو Production حتى إقرار مستقل.
+**عدّ التقدم الكودي في هذه الدفعة:** 18 بندًا من الـ21 أُضيفت له حمايات/اختبارات فعلية جديدة على هذا الفرع؛ 3 تعتمد حاليًا على عمل فرع الأساس واختباراته، وتحتاج إغلاقًا أوسع. **21/21 اعتماد نهائي = غير مُدّعى**. عشر المهام الأخرى مؤجلة حسب أمر المالك. لا تمس Native أو Production حتى إقرار مستقل.
 
 ### أدلة CI على الفرع
 - [SaaS full code matrix](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42721145188) — SUCCESS.
