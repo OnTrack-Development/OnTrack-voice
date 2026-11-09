@@ -99,8 +99,15 @@ function record_verified_internal_checkout(array $order,string $reference):array
     if(!$account||$account['status']!=='active'||!$plan
         ||!in_array($account['kind'],['reseller','customer'],true)
         ||$plan['kind']!==($account['kind']==='reseller'?'reseller':'user')
-        ||(int)$plan['price_minor']!==(int)$order['amount_minor'])
+        ||(int)$order['amount_minor']<1)
         throw new InvalidArgumentException('checkout_account_or_plan_changed');
+    // The charge amount is the immutable order snapshot created BEFORE the
+    // gateway session. kashier_settle() matches it to the signed webhook.
+    // A later admin catalogue-price edit must not strand a fully paid order.
+    // Lock this account on MySQL so two different paid orders cannot both
+    // read the same expiration and silently erase one paid renewal.
+    if(driver()==='mysql')
+        one('SELECT id FROM accounts WHERE id=? FOR UPDATE',[(int)$order['account_id']]);
     if(one('SELECT id FROM orders WHERE payment_reference=? AND id<>?',[$reference,$order['id']]))
         throw new InvalidArgumentException('transaction_already_claimed');
     if($account['kind']==='customer'&&!empty($account['parent_id'])){
@@ -117,11 +124,20 @@ function record_verified_internal_checkout(array $order,string $reference):array
         WHERE id=? AND account_id=? AND integration_id IS NULL AND status='pending_payment'",[
         $reference,$order['id'],$order['account_id']]);
     if($changed!==1)throw new RuntimeException('payment_state_conflict');
+    $now=now();
+    $current=one("SELECT ends_at FROM subscriptions
+        WHERE account_id=? AND status='active' AND starts_at<=? AND ends_at>?
+        ORDER BY ends_at DESC,id DESC LIMIT 1",
+        [$order['account_id'],$now,$now]);
+    $base=max(time(),$current?strtotime((string)$current['ends_at']):0);
+    if(!$base)throw new RuntimeException('invalid_existing_subscription_expiration');
+    // A verified paid order purchases a fresh 30-day term. Never throw
+    // away previously paid days on early renewal or a plan change.
+    $endsAt=gmdate('Y-m-d H:i:s',$base+30*86400);
     execute("UPDATE subscriptions SET status='replaced' WHERE account_id=? AND status='active'",
         [$order['account_id']]);
     insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at)
-        VALUES (?,?,'active',?,?)",[$order['account_id'],$plan['id'],now(),
-        gmdate('Y-m-d H:i:s',time()+30*86400)]);
+        VALUES (?,?,'active',?,?)",[$order['account_id'],$plan['id'],$now,$endsAt]);
     insert("INSERT INTO outbox(account_id,integration_id,kind,payload,status,created_at)
         VALUES (?,NULL,?,?,'pending',?)",[(int)$order['account_id'],
         'subscription.activated',json_encode(['order_id'=>(int)$order['id'],
