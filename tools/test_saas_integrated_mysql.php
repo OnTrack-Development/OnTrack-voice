@@ -39,6 +39,28 @@ $seed=seed_console();
 mysql_qa(driver()==='mysql' && $seed['status']==='seeded','real MySQL schema and migrations seeded');
 mysql_qa((int)one('SELECT COUNT(*) n FROM accounts')['n']===7,'seven separated tenant accounts');
 mysql_qa((int)one('SELECT COUNT(*) n FROM plans')['n']>=4,'existing plans preserved');
+
+// MySQL 8 rejected the historical TEXT+UNIQUE external_id schema: verify
+// real event deduplication works without truncating accepted 128-char IDs.
+$seedIntegration=one('SELECT id FROM integrations ORDER BY id LIMIT 1');
+mysql_qa($seedIntegration!==null,'webhook integration seeded');
+$eventId=str_repeat('e',128);
+$event=insert("INSERT INTO events(integration_id,external_id,event_type,payload,status,created_at)
+    VALUES (?,?,?,?,?,?)",[
+    (int)$seedIntegration['id'],$eventId,'knowledge.snapshot','{}','received',now()
+]);
+mysql_qa($event>0,'128-character legitimate webhook event is indexable');
+$dedup=false;
+try {
+    insert("INSERT INTO events(integration_id,external_id,event_type,payload,status,created_at)
+        VALUES (?,?,?,?,?,?)",[
+        (int)$seedIntegration['id'],$eventId,'knowledge.snapshot','{}','received',now()
+    ]);
+} catch(PDOException $error) {
+    $dedup=(string)$error->getCode()==='23000';
+}
+mysql_qa($dedup,'duplicate webhook is rejected by MySQL unique key');
+
 $owner=(int)one("SELECT user_id FROM memberships WHERE account_id=4 AND role='owner' LIMIT 1")['user_id'];
 $agent=one("SELECT id,site_id FROM agents WHERE account_id=4 AND site_id=1 LIMIT 1");
 mysql_qa(is_array($agent),'active seeded agent');
