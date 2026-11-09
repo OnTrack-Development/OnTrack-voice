@@ -24,8 +24,16 @@ page.on('pageerror', error => pageErrors.push(error.message));
 const requests = [];
 
 // Validate the real PHP request path separately from the fake voice connection.
-assert.equal((await context.request.post(`${base}/api/live_session.php`, {data: {mode: 'outbound', mission: {}}})).status(), 400);
+assert.equal((await context.request.post(`${base}/api/live_session.php`, {data: {mode: 'outbound', mission: {}}})).status(), 403);
 assert.equal((await context.request.get(`${base}/api/live_session.php`)).status(), 405);
+const demoEntry = await context.request.get(base);
+assert.equal(demoEntry.status(), 200);
+const csrf = (await demoEntry.text()).match(/name="ontrack-live-csrf" content="([a-f0-9]{64})"/)?.[1];
+assert.ok(csrf, 'root demo must issue a session-bound CSRF token');
+assert.equal((await context.request.post(`${base}/api/live_session.php`, {
+  headers: {'X-OnTrack-Live-CSRF': csrf},
+  data: {mode: 'outbound', mission: {}}
+})).status(), 400);
 
 await page.addInitScript(() => {
   window.testLive = {sessions: []};
