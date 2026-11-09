@@ -1,0 +1,124 @@
+name: SaaS Phase 1 public Live demo security and non-regression
+on:
+  push:
+    branches:
+      - fix/saas-phase1-security-nonregression-20261109
+    paths:
+      - 'api/LiveSessionSecurity.php'
+      - 'api/live_session.php'
+      - 'index.php'
+      - 'assets/app.js'
+      - 'saas/mobile/server/session.php'
+      - 'UPLOAD_TO_ROOT.txt'
+      - '.htaccess'
+      - 'tools/test_live_demo_security.php'
+      - 'tools/test_saas_security_guards.php'
+      - 'tools/provision_maintenance_token.php'
+      - 'ops/host-link/worker.py'
+      - 'ops/host-link/sign_job.py'
+      - 'tools/test_host_link_signed_jobs.py'
+      - 'tools/test_saas_quick_answer_policy.php'
+      - 'saas/console/_core/Actions.php'
+      - 'saas/console/_core/Views.php'
+      - 'saas/console/_core/Bootstrap.php'
+      - 'api/demo_config.php'
+      - 'api/MaintenanceAuth.php'
+      - 'api/MaintenanceBrowser.php'
+      - 'api/setup_demo.php'
+      - 'api/diag.php'
+      - 'omnira_api_tester.php'
+      - 'saas/console/_core/ApiWriteGuard.php'
+      - 'saas/console/api/v1/index.php'
+      - 'tools/check_mobile_live.py'
+      - 'tests/browser.test.mjs'
+      - 'saas/mobile/patch_live_session.py'
+      - '.github/workflows/saas-phase1-live-demo-security-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    name: Root demo security checks (NO DEPLOY)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, curl, pdo_sqlite, pdo_mysql, openssl
+          coverage: none
+      - name: PHP syntax checks
+        run: |
+          set -eu
+          php -l api/LiveSessionSecurity.php
+          php -l api/live_session.php
+          php -l index.php
+          php -l saas/mobile/server/session.php
+          php -l tools/test_live_demo_security.php
+          php -l tools/test_saas_security_guards.php
+          php -l tools/test_saas_quick_answer_policy.php
+          php -l saas/console/_core/Actions.php
+          php -l saas/console/_core/Views.php
+          php -l saas/console/_core/Bootstrap.php
+          php -l api/demo_config.php
+          php -l api/MaintenanceAuth.php
+          php -l api/MaintenanceBrowser.php
+          php -l api/setup_demo.php
+          php -l api/diag.php
+          php -l omnira_api_tester.php
+          php -l saas/console/_core/ApiWriteGuard.php
+          php -l saas/console/api/v1/index.php
+          php -l tools/provision_maintenance_token.php
+      - name: Server-side CSRF, origin, quota, and legacy contract tests
+        run: |
+          php tools/test_live_demo_security.php
+          php tools/test_saas_security_guards.php
+          ONTRACK_CI_NAMESPACE="saasquick${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}" php tools/test_saas_quick_answer_policy.php
+      - name: Local HTTP contract (never calls Gemini)
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -S 127.0.0.1:18796 -t . >/tmp/ontrack-live-http.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for i in {1..20}; do
+            if curl -fsS http://127.0.0.1:18796/index.php -c /tmp/ontrack-live-cookie -o /tmp/ontrack-live-index; then break; fi
+            sleep 0.1
+          done
+          csrf=$(grep -oE 'name="ontrack-live-csrf" content="[a-f0-9]{64}"' /tmp/ontrack-live-index | sed -E 's/.*content="([a-f0-9]{64})".*/\1/' | head -1)
+          test "${#csrf}" -eq 64
+          denied=$(curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:18796/api/live_session.php -H 'Content-Type: application/json' -d '{}')
+          test "$denied" = 403
+          ok=$(curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:18796/api/live_session.php -b /tmp/ontrack-live-cookie -H "X-OnTrack-Live-CSRF: $csrf" -H 'Origin: http://127.0.0.1:18796' -H 'Content-Type: application/json' -d '{')
+          test "$ok" = 400
+          echo 'LIVE_DEMO_HTTP_CONTRACT_PASS no_google_requests=true'
+      - name: Preserve legacy mobile deploy adapter and diagnostics syntax
+        run: |
+          set -eu
+          python3 -m py_compile tools/check_mobile_live.py saas/mobile/patch_live_session.py
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          source=Path('api/live_session.php').read_text(encoding='utf-8')
+          spec=importlib.util.spec_from_file_location('mobile_patch','saas/mobile/patch_live_session.py')
+          mod=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+          patched=mod.patch(source)
+          assert "ontrack_live_demo_authorize();" in patched
+          assert "ontrackMobileInstruction" in patched
+          assert "ontrackMobileRequest" in patched
+          print('MOBILE_LEGACY_DEPLOY_ADAPTER_COMPAT_PASS')
+          PY
+      - name: Host-link signing and tamper tests (no real jobs)
+        run: |
+          python3 -m py_compile ops/host-link/worker.py ops/host-link/sign_job.py tools/test_host_link_signed_jobs.py
+          python3 tools/test_host_link_signed_jobs.py
+      - name: JavaScript syntax and diff hygiene
+        run: |
+          node --check assets/app.js
+          node --check tests/browser.test.mjs
+          git diff --check HEAD~1 HEAD

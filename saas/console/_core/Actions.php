@@ -712,6 +712,48 @@ function act():void {
                 audit('agent.updated',$id,['agent'=>$ag['id'],'published'=>$publishNow]);
                 if(!$publishNow)$success='تم حفظ إعدادات الإيجنت كمسودة بدون تحديث الصفحة.';
                 break;
+            case 'update_answer_policy_quick':
+                // Update only the two phone-answering fields. Reusing the full
+                // Agent Studio form here would reset omitted knowledge/Flow/
+                // handoff/provider settings to defaults and break working agents.
+                require_permission('agents.write');
+                $quickAgent=intfield('agent_id');
+                $quick=one("SELECT ag.id,ag.site_id FROM agents ag JOIN sites s
+                    ON s.id=ag.site_id AND s.account_id=ag.account_id
+                    WHERE ag.id=? AND ag.account_id=? AND ag.status!='archived'
+                      AND s.status='active'",[$quickAgent,$id]);
+                if(!$quick)deny(404);
+                $delayRaw=(string)($_POST['answer_delay_seconds']??'');
+                if(!preg_match('/\\A(?:[0-9]|[12][0-9]|30)\\z/D',$delayRaw))
+                    throw new InvalidArgumentException('مهلة الرد يجب أن تكون من 0 إلى 30 ثانية');
+                $previousPolicy=answer_policy_for_agent($id,$quickAgent);
+                $nextPolicy=$previousPolicy;
+                $nextPolicy['auto_answer']=isset($_POST['auto_answer']);
+                $nextPolicy['answer_delay_seconds']=(int)$delayRaw;
+                $quickPublish=($_POST['publish_now']??'')==='1';
+                if(db()->inTransaction())
+                    throw new RuntimeException('quick_answer_policy_nested_transaction');
+                db()->beginTransaction();
+                try {
+                    save_answer_policy($id,$quickAgent,$nextPolicy);
+                    $revision=null;
+                    if($quickPublish)
+                        $revision=publish_agent_flow($id,$quickAgent,(int)me()['id']);
+                    db()->commit();
+                }catch(Throwable $e){
+                    if(db()->inTransaction())db()->rollBack();
+                    throw $e;
+                }
+                audit('agent.answer_policy.quick_saved',$id,[
+                    'agent_id'=>$quickAgent,'auto_answer'=>$nextPolicy['auto_answer'],
+                    'answer_delay_seconds'=>(int)$nextPolicy['answer_delay_seconds'],
+                    'published'=>$quickPublish,
+                    'revision'=>$revision['revision']??null]);
+                $success=$quickPublish
+                    ?'تم حفظ ونشر سياسة الرد للإيجنت v'.(int)$revision['revision'].
+                        '؛ الشريحة تستلمها في المزامنة التالية، والرد الحقيقي يحتاج اختبار الجهاز.'
+                    :'تم حفظ سياسة الرد في المسودة فقط؛ الشريحة ستبقى على آخر نسخة منشورة.';
+                break;
             case 'restore_agent_flow_draft':
                 require_permission('agents.write');
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();

@@ -3,10 +3,14 @@ declare(strict_types=1);
 
 require __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/../lib/OutboundMission.php';
+require_once __DIR__ . '/LiveSessionSecurity.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     json_out(['ok' => false, 'error' => 'POST only'], 405);
 }
+
+// Protect public demo token minting without changing authenticated tenant/Pilot routes.
+ontrack_live_demo_authorize();
 
 try {
     $request = parse_live_request((string)file_get_contents('php://input', false, null, 0, 32769));
@@ -123,6 +127,12 @@ $tokenBody = [
     'newSessionExpireTime' => $newSessionExpireTime,
 ];
 
+// Keep the current dynamic demo/client setup unchanged; opt in to model locking
+// only after provider-compatibility E2E, so a security patch cannot break speech.
+if (getenv('ONTRACK_LIVE_LOCK_MODEL') === '1') {
+    $tokenBody['liveConnectConstraints'] = ['model' => 'models/'.$model];
+}
+
 $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/auth_tokens');
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
@@ -144,14 +154,14 @@ curl_close($ch);
 
 if ($raw === false || $http < 200 || $http >= 300) {
     $j = is_string($raw) ? json_decode($raw, true) : null;
+    // Never echo provider/cURL raw errors: these may contain URLs or credentials.
+    error_log('OnTrack Live token provisioning failed: HTTP '. $http . ' transport='.($curlError !== '' ? 'failed' : 'ok'));
 
     json_out([
         'ok' => false,
         'error' => 'live_session_failed',
         'status' => $http,
-        'detail' => $curlError !== ''
-            ? $curlError
-            : ($j['error']['message'] ?? 'Unable to prepare the live session'),
+        'detail' => 'تعذر اتصال خدمة الصوت. راجع إعدادات المزود والسجل الفني.',
         'google_status' => $j['error']['status'] ?? null,
     ], 502);
 }

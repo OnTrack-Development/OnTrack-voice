@@ -1,5 +1,5 @@
 Options -Indexes
-<FilesMatch "^(config\.php|demo_config\.php|demo_config\.local\.php|knowledge\.json|README_AR\.md|version\.json)$">
+<FilesMatch "^(config\.php|demo_config\.php|demo_config\.local\.php|knowledge\.json|README_AR\.md|version\.json|UPLOAD_TO_ROOT\.txt)$">
   Require all denied
 </FilesMatch>
 <IfModule mod_headers.c>

@@ -1,0 +1,72 @@
+name: SaaS Phase 3 reseller plans/checkout non-regression (NO DEPLOY)
+on:
+  push:
+    branches:
+      - fix/saas-phase3-reseller-plan-ui-20261109
+    paths:
+      - 'saas/console/**'
+      - 'tools/test_saas_phase3_*.php'
+      - '.github/workflows/saas-phase3-ux-billing-regression.yml'
+  pull_request:
+    branches:
+      - fix/saas-phase2-tenant-flow-compat-20261109
+    paths:
+      - 'saas/console/**'
+      - 'tools/test_saas_phase3_*.php'
+      - '.github/workflows/saas-phase3-ux-billing-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  saas-phase3-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,curl,openssl,fileinfo,zip,dom
+          coverage: none
+      - name: Lint changed billing UI and test
+        run: |
+          set -euo pipefail
+          php -l saas/console/_core/Views.php
+          php -l tools/test_saas_phase3_reseller_plan_controls.php
+          php -l saas/console/_core/Actions.php
+          php -l saas/console/_core/SubscriptionPlans.php
+          php -l saas/console/_core/Checkout.php
+      - name: Run isolated owner, reseller, subscription, checkout and tenant preservation matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          n=1
+          for test in \
+            tools/test_saas_phase3_reseller_plan_controls.php \
+            tools/test_console_pricing_ui.php \
+            tools/test_v1_site05_plan_transitions.php \
+            tools/test_console_checkout.php \
+            tools/test_console_kashier_webhook.php \
+            tools/test_saas_phase2_billing_current_subscription.php \
+            tools/test_voice_saas_console.php \
+            tools/test_voice_sso.php \
+            tools/test_human_escalation.php \
+            tools/test_saas_phase2_flow_safety.php \
+            tools/test_saas_phase2_contract_probe.php; do
+            n=$((n+1))
+            echo "=== test $test, isolated fixture $n ==="
+            ONTRACK_CI_NAMESPACE="saas3_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_$n" php "$test"
+          done
+      - name: No deployment, mobile, signing key or source secrets in change
+        run: |
+          set -euo pipefail
+          git diff --check HEAD~1 HEAD
+          git diff --name-only HEAD~1 HEAD > /tmp/saas3-changes.txt
+          if grep -E '^(VS/|saas/mobile/|ops/|api/|\.github/workflows/.*publish|saas/console/database/)' /tmp/saas3-changes.txt; then
+            echo 'Unexpected mobile/production integration/DB/deploy change'
+            exit 1
+          fi
+          echo 'SAAS_PHASE3_NO_DEVICE_OR_DEPLOY_CHANGES_PASS'

@@ -24,7 +24,10 @@ function field_html(string $label,string $name,string $type='text',string $place
     return '<label class="field">'.e($label).'<input name="'.e($name).'" type="'.e($type).'" placeholder="'.e($placeholder).'" '.($required?'required':'').' maxlength="190"></label>';
 }
 function submit_btn(string $label):string{return '<button type="submit" class="btn primary">'.e($label).'</button></form>';}
-function select_html(string $label,string $key,array $options,string $selected=''):string{
+function select_html(string $label,string $key,array $options,string|int $selected=''):string{
+    // Form select values are strings in HTML, but database IDs and time
+    // choices legitimately arrive as integers under PHP strict_types.
+    $selected=(string)$selected;
     $html='<label class="field">'.e($label).'<select name="'.e($key).'">';
     foreach($options as $val=>$desc)$html.='<option value="'.e((string)$val).'"'.((string)$val===$selected?' selected':'').'>'.e((string)$desc).'</option>';
     return $html.'</select></label>';
@@ -81,7 +84,6 @@ function nav_entries(string $type):array{
         'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات المنصة']
         ];
-        unset($nav['whatsapp_admin'],$nav['voices']);
         if(!platform_resellers_visible())$nav['accounts']=['♧','الحسابات'];
         return $nav;
     }
@@ -99,19 +101,17 @@ function nav_entries(string $type):array{
         'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات الشركة']
         ];
-        unset($nav['voices']);
         return $nav;
     }
     $nav=[
         'overview'=>['⌂','الرئيسية'],'sites'=>['◈','مواقعي'],
-        'agents'=>['✧','استوديو المساعدين'],
+        'agents'=>['✧','استوديو المساعدين'],'flows'=>['⤳','Flow Builder'],
         'answering'=>['☷','إعدادات الرد'],'whatsapp'=>['✉','WhatsApp Inbox'],'campaigns'=>['▤','الحملات'],
         'calls'=>['☏','سجل المكالمات'],'contacts'=>['♧','جهات الاتصال'],'devices'=>['▣','الأجهزة والخطوط'],
         'voices'=>['♫','الأصوات'],'staff'=>['♙','الموظفون'],
         'keys'=>['⌘','مفاتيح API'],'integrations'=>['⇄','التكاملات'],'billing'=>['▣','الباقة والرصيد'],
         'releases'=>['↓','Android'],'settings'=>['⚙','الإعدادات']
     ];
-    unset($nav['campaigns'],$nav['whatsapp'],$nav['voices'],$nav['staff']);
     return $nav;
 }
 function layout_open(array $a,string $tab):void{
@@ -449,7 +449,72 @@ function render_plans(array $a):void{
             '<label class="field">عدد مفاتيح Google للعميل<input name="google_key_limit" type="number" min="0" max="1000" required value="1"></label>'.
             '<label class="field">مفاتيح Assistant Text للعميل<input name="assistant_key_limit" type="number" min="0" max="1000" required value="0"></label>'.
             '</div>'.submit_btn('إنشاء الباقة'));
+        if(platform_resellers_visible() &&
+           in_array((string)$a['role'],['owner','admin'],true) && !active_support()){
+            // The action has always supported platform->reseller assignment,
+            // but there was no form to call it. Keep paid plans subject to
+            // existing verified-payment rules outside explicit Demo mode.
+            $resellers=all("SELECT id,name FROM accounts
+                WHERE kind='reseller' AND status='active' ORDER BY name,id");
+            $resellerOptions=[];$resellerRows=[];
+            foreach($resellers as $reseller){
+                $rid=(int)$reseller['id'];
+                $resellerOptions[(string)$rid]=(string)$reseller['name'];
+                $current=one("SELECT p.name,s.ends_at FROM subscriptions s
+                    JOIN plans p ON p.id=s.plan_id WHERE s.account_id=?
+                      AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
+                    ORDER BY s.id DESC LIMIT 1",[$rid,now(),now()]);
+                $resellerRows[]=[e((string)$reseller['name']),
+                    e((string)($current['name']??'لا توجد باقة فعالة')),
+                    e((string)($current['ends_at']??'—'))];
+            }
+            $resellerPlans=all("SELECT id,name,price_minor,call_quota FROM plans
+                WHERE kind='reseller' AND status='active' ORDER BY price_minor,id");
+            $directOptions=[];
+            foreach($resellerPlans as $plan){
+                if(!is_demo() && (int)$plan['price_minor']>0)continue;
+                $directOptions[(string)$plan['id']]=(string)$plan['name'].' — '.
+                    (int)$plan['call_quota'].' مكالمة';
+            }
+            if($resellerOptions){
+                $content='<p class="dim">تغيير باقة ريسيلر موجود دون حذف اشتراكاته القديمة. الباقات المدفوعة تتطلب دفعًا موثقًا؛ التعيين المباشر لها متاح في وضع Demo فقط.</p>'.
+                    tbl(['الريسيلر','الباقة الحالية','تنتهي'],$resellerRows);
+                if($directOptions)
+                    $content.=form_start('assign_plan','/?tab=plans').
+                        select_html('الريسيلر','customer_id',$resellerOptions).
+                        select_html('الباقة المسموح تعيينها','plan_id',$directOptions).
+                        submit_btn('حفظ باقة الريسيلر');
+                else $content.='<p class="dim">لا توجد باقة مجانية قابلة للتعيين المباشر حاليًا؛ اختيار الباقات المدفوعة يتم من صفحة دفع الريسيلر نفسه.</p>';
+                echo card('إدارة اشتراكات الريسيلرز',$content);
+            }
+        }
     }elseif($type==='reseller'){
+        // Surface the reseller's OWN subscription and available wholesale
+        // plans, instead of showing only plans they may assign to customers.
+        // This is read-only; paid changes must go through verified checkout.
+        $own=one("SELECT p.name,s.ends_at,p.call_quota,p.agent_limit,
+                p.reseller_customers FROM subscriptions s JOIN plans p ON p.id=s.plan_id
+            WHERE s.account_id=? AND s.status='active' AND s.starts_at<=?
+              AND s.ends_at>? ORDER BY s.id DESC LIMIT 1",[$id,now(),now()]);
+        $ownText=$own
+            ?'<h3>'.e((string)$own['name']).'</h3><p>'.
+                (int)$own['call_quota'].' مكالمة · '.(int)$own['agent_limit'].
+                ' إيجنت · '.(int)$own['reseller_customers'].' عميل</p>'.
+                '<small>تنتهي: '.e((string)$own['ends_at']).'</small>'
+            :'<p>لا توجد باقة ريسيلر فعالة حاليًا.</p>';
+        $availableWholesale=all("SELECT name,call_quota,agent_limit,price_minor
+            FROM plans WHERE kind='reseller' AND status='active' ORDER BY price_minor,id");
+        $wholesaleRows=[];
+        foreach($availableWholesale as $wholesale){
+            $wholesaleRows[]=[e((string)$wholesale['name']),
+                (int)$wholesale['call_quota'].' مكالمة',
+                (int)$wholesale['agent_limit'].' AI',
+                number_format((int)$wholesale['price_minor']/100,2).' ج.م'];
+        }
+        $ownText.='<p><a class="btn primary" href="/saas/console/?tab=billing">اختيار أو تجديد باقتك من صفحة الفوترة</a></p>'.
+            ($wholesaleRows?tbl(['باقة الريسيلر','الحصة','الإيجنتات','السعر'],$wholesaleRows):'').
+            '<p class="dim">لا يتم تفعيل باقة مدفوعة إلا بعد إثبات الدفع. باقات Demo المجانية يخصصها مالك المنصة.</p>';
+        echo card('باقة حسابك كريسيلر',$ownText);
         $customers=all("SELECT id,name FROM accounts WHERE parent_id=? AND kind='customer'",[$id]);
         $co=[];$po=[];
         foreach($customers as $c)$co[$c['id']]=$c['name'];
@@ -478,7 +543,7 @@ function render_staff(array $a):void{
        $actions=pill($r['role']);
        if(!in_array($r['role'],['owner','admin'],true)&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
            $actions.=form_start('edit_staff','/?tab=staff','class="inline-form"').'<input type="hidden" name="user_id" value="'.$r['id'].'">'.
-                select_html('تغيير الدور','role',['manager'=>'مدير','operator'=>'مشغّل','reception'=>'استقبال','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).'<button class="btn small primary">حفظ</button></form></details>';
+                select_html('تغيير الدور','role',['manager'=>'مدير','operator'=>'مشغّل','reception'=>'استقبال','finance'=>'مالية','support'=>'دعم','viewer'=>'مشاهد']).'<button class="btn small primary">حفظ</button></form>';
            $actions.=form_start('remove_staff','/?tab=staff','class="inline-form"').'<input type="hidden" name="user_id" value="'.$r['id'].'"><button class="btn small danger" data-confirm="إزالة الموظف من هذا الحساب؟">إزالة</button></form>';
        }
        $users[]=[e($r['name']),e($r['email']),$actions];
@@ -554,12 +619,12 @@ function render_human_escalation_settings(array $a):void {
             '<small class="dim">'.e($ag['site_name']).'</small>'.
             form_start('human_route_save','/?tab=staff').
             '<input type="hidden" name="agent_id" value="'.(int)$ag['id'].'">'.
-            select_html('موظف التحويل','contact_id',$routeOptions,$selected).
+            select_html('موظف التحويل','contact_id',$routeOptions,(string)$selected).
             '<label class="field"><input type="checkbox" name="enabled" value="1"'.
                 (!empty($ag['enabled'])?' checked':'').'> تفعيل الاتصال التلقائي للمسؤول عند طلب العميل</label>'.
-            select_html('مهلة اتصال المدير بعد نهاية المكالمة','handoff_delay_seconds',$delayChoices,(int)($ag['delay_seconds']??10)).
+            select_html('مهلة اتصال المدير بعد نهاية المكالمة','handoff_delay_seconds',$delayChoices,(string)($ag['delay_seconds']??10)).
             '<p class="dim">لا يتصل بالمسؤول أثناء مكالمة العميل؛ المهلة تبدأ من وقت انتهائها.</p>'.
-            submit_btn('حفظ مسار التحويل').'</form></div>';
+            submit_btn('حفظ مسار التحويل').'</div>';
     }
     echo card('تحديد المسؤول لكل AI Agent',
         $routes?:'<p>أنشئ مساعدًا أولًا حتى تختار مسؤول التحويل الخاص به.</p>');
@@ -1179,9 +1244,20 @@ function render_answering(array $a):void {
     foreach($agents as $agent){
         $policy=answer_policy_for_agent($id,(int)$agent['id']);
         $url='/?tab=agents&site='.(int)$agent['site_id'].'&agent='.(int)$agent['id'].'#agent-'.(int)$agent['id'];
+        $quickForm='';
+        if(allowed('agents.write')){
+            $quickForm=form_start('update_answer_policy_quick','/?tab=answering','class="inline-form"').
+                '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
+                '<label class="field">مهلة الرد (ثوانٍ)<input type="number" name="answer_delay_seconds" min="0" max="30" required value="'.(int)$policy['answer_delay_seconds'].'"></label>'.
+                '<label class="field"><input type="checkbox" name="auto_answer"'.
+                    ($policy['auto_answer']?' checked':'').'> رد تلقائي</label>'.
+                '<button class="btn small primary" type="submit" name="publish_now" value="1">حفظ ونشر للشريحة</button>'.
+                '<button class="btn small" type="submit" name="publish_now" value="0">حفظ كمسودة</button></form>';
+        }
         $rows[]=[e($agent['name']),$policy['auto_answer']?'مُعدّ للرد الآلي':'يدوي',
             (int)$policy['answer_delay_seconds'].' ثوانٍ',
-            '<a class="btn small primary" href="'.e($url).'">تعديل إعدادات الرد ←</a>'];
+            ($quickForm!==''?$quickForm:'').
+            '<a class="btn small" href="'.e($url).'">باقي إعدادات الإيجنت ←</a>'];
     }
     echo card('إعدادات الرد بحسب المساعد',tbl(['المساعد','السياسة','التأخير','التعديل'],$rows));
 }
@@ -1717,9 +1793,15 @@ function render_billing(array $a):void{
         echo card('معدل استهلاك المكالمات المتصلة',
             '<p>حساب مالك المنصة لا يخضع لحصة مكالمات العملاء أو رسوم تجاوز الباقة.</p>');
     }else{
-        $sub=one("SELECT p.*,s.status sub_status,s.ends_at FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.account_id=? ORDER BY s.id DESC LIMIT 1",[$id]);
-        $isActive=$sub && $sub['sub_status']==='active' &&
-            $sub['ends_at']>now();
+        // The newest history row is not necessarily the current entitlement:
+        // a prior active plan may still be valid while a later checkout was
+        // replaced or a future renewal is staged. Match BillingUsage exactly.
+        $sub=one("SELECT p.*,s.status sub_status,s.starts_at,s.ends_at
+            FROM subscriptions s JOIN plans p ON p.id=s.plan_id
+            WHERE s.account_id=? AND s.status='active'
+              AND s.starts_at<=? AND s.ends_at>?
+            ORDER BY s.id DESC LIMIT 1",[$id,now(),now()]);
+        $isActive=$sub!==null;
         $text=$isActive?'<div class="plan-panel"><span class="eyebrow">YOUR CURRENT PLAN</span><h2>'.e($sub['name']).'</h2><p>'.e((string)$sub['call_quota']).' مكالمة متصلة شهرياً · '.e((string)$sub['agent_limit']).' AI · '.e((string)$sub['site_limit']).' مواقع</p><small>تنتهي الفترة: '.e($sub['ends_at']).'</small></div>':'<p>لا توجد باقة نشطة. إنشاء الحساب لا يمنح اشتراكًا مدفوعًا تلقائيًا.</p>';
         echo card('اشتراك الحساب',$text);
         $usage=voice_usage_summary($id);
@@ -1755,6 +1837,59 @@ function render_billing(array $a):void{
             $rows[]=[e($o['account_name']),e($o['external_order_id']),$act,e($o['created_at'])];
         }
         echo card('طلبات الدفع والاعتماد',tbl(['العميل','رقم الطلب','الحالة/الإجراء','التاريخ'],$rows));
+    }
+    // Additive finance visibility: never create/modify database schema
+    // or entitlements merely because an owner opens the Billing page.
+    if(in_array((string)($a['role']??''),['owner','admin'],true) && !active_support()){
+        try{
+            if($a['kind']==='platform'){
+                $adjustments=all("SELECT j.event_type,j.amount_minor,j.created_at,
+                        j.review_status,o.external_order_id,a.name account_name
+                    FROM kashier_payment_adjustments j
+                    JOIN orders o ON o.id=j.order_id AND o.account_id=j.account_id
+                    JOIN accounts a ON a.id=j.account_id
+                    ORDER BY j.created_at DESC,j.fingerprint DESC LIMIT 60");
+            }elseif($a['kind']==='reseller'){
+                $adjustments=all("SELECT j.event_type,j.amount_minor,j.created_at,
+                        j.review_status,o.external_order_id,a.name account_name
+                    FROM kashier_payment_adjustments j
+                    JOIN orders o ON o.id=j.order_id AND o.account_id=j.account_id
+                    JOIN accounts a ON a.id=j.account_id
+                    WHERE a.id=? OR a.parent_id=?
+                    ORDER BY j.created_at DESC,j.fingerprint DESC LIMIT 60",[$id,$id]);
+            }else{
+                $adjustments=all("SELECT j.event_type,j.amount_minor,j.created_at,
+                        j.review_status,o.external_order_id,a.name account_name
+                    FROM kashier_payment_adjustments j
+                    JOIN orders o ON o.id=j.order_id AND o.account_id=j.account_id
+                    JOIN accounts a ON a.id=j.account_id
+                    WHERE j.account_id=?
+                    ORDER BY j.created_at DESC,j.fingerprint DESC LIMIT 60",[$id]);
+            }
+        }catch(PDOException $error){
+            // The table is created only by an authenticated successful
+            // adjustment webhook; a host with no adjustments needn't migrate
+            // just to display its Billing view.
+            $tableMissing=driver()==='mysql'
+                ?$error->getCode()==='42S02'
+                :str_contains($error->getMessage(),'no such table: kashier_payment_adjustments');
+            if(!$tableMissing)throw $error;
+            $adjustments=[];
+        }
+        if($adjustments){
+            $rows=[];
+            foreach($adjustments as $adj){
+                $rows[]=[e((string)$adj['account_name']),
+                    e((string)$adj['external_order_id']),
+                    e((string)$adj['event_type']),
+                    e(number_format((int)$adj['amount_minor']/100,2)).' ج.م',
+                    e((string)$adj['review_status']),
+                    e((string)$adj['created_at'])];
+            }
+            echo card('مراجعات الاسترداد وعكس الدفع — تحتاج مطابقة مالية',
+                '<p class="dim">أحداث Kashier الموقعة تحفظ للمراجعة ولا تلغي اشتراكًا قائمًا أو ترد أموالًا تلقائيًا. تأكد من العملية داخل لوحة Kashier قبل أي قرار.</p>'.
+                tbl(['الحساب','الطلب','نوع العملية','المبلغ','المراجعة','التاريخ'],$rows));
+        }
     }
     echo '<div class="info">مدفوعات Kashier الحقيقية لا تُفعّل من صفحة Success؛ التفعيل يتطلب Webhook موثّقًا أو موافقة دفع يدوي مسجلة.</div>';
 }

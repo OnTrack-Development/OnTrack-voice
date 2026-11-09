@@ -3,7 +3,8 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-const TOKEN_HASH = '60a11e1fa3f8f0ddc9b4711cff115079450e4672b8a0f3c2c1435361f4bb67f7';
+require_once __DIR__.'/MaintenanceAuth.php';
+ontrack_maintenance_require('POST');
 
 function finish(array $data, int $status = 200): never {
     http_response_code($status);
@@ -11,12 +12,8 @@ function finish(array $data, int $status = 200): never {
     exit;
 }
 
-$token = (string)($_SERVER['HTTP_X_MAINTENANCE_TOKEN'] ?? ($_POST['token'] ?? $_GET['token'] ?? ''));
-if (!hash_equals(TOKEN_HASH, hash('sha256', $token))) {
-    finish(['ok' => false, 'error' => 'unauthorized'], 401);
-}
-
-$key = trim((string)($_POST['key'] ?? $_GET['key'] ?? ''));
+// Never accept maintenance credentials or API keys in a URL/query string.
+$key = trim((string)($_POST['key'] ?? ''));
 if ($key === '' || strlen($key) < 20) {
     finish(['ok' => false, 'error' => 'invalid_key'], 422);
 }
@@ -40,11 +37,25 @@ $config = [
 $payload = "<?php
 return " . var_export($config, true) . ";
 ";
-$path = __DIR__ . '/demo_config.local.php';
-if (@file_put_contents($path, $payload, LOCK_EX) === false) {
-    finish(['ok' => false, 'error' => 'cannot_write_local_config'], 500);
+// Stage the replacement privately and commit it atomically. Keep any
+// legacy config untouched for rollback; never write new keys into webroot.
+$dir = '/home/appontrack/.ontrack-demo';
+if ((!is_dir($dir) && !@mkdir($dir,0700,true)) || is_link($dir)) {
+    finish(['ok' => false, 'error' => 'private_config_unavailable'], 503);
 }
-@chmod($path, 0600);
+@chmod($dir,0700);
+$path=$dir.'/demo_config.php';
+if (is_link($path))finish(['ok' => false, 'error' => 'private_config_unavailable'], 503);
+$temp=@tempnam($dir,'.ontrack-demo-');
+if ($temp===false)finish(['ok' => false, 'error' => 'private_config_unavailable'], 503);
+try {
+    if (@file_put_contents($temp,$payload,LOCK_EX)!==strlen($payload) ||
+        !@chmod($temp,0600) || !@rename($temp,$path)) {
+        finish(['ok' => false, 'error' => 'cannot_write_local_config'], 500);
+    }
+} finally {
+    if (is_file($temp)) @unlink($temp);
+}
 
 finish([
     'ok' => true,

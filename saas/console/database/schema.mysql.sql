@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE TABLE IF NOT EXISTS events (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   integration_id BIGINT,
-  external_id TEXT,
+  external_id VARCHAR(190),
   event_type VARCHAR(190),
   payload TEXT,
   status VARCHAR(190),

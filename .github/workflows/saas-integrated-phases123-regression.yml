@@ -1,0 +1,158 @@
+name: SaaS integrated phases 1+2+3 regression gate (NO DEPLOY)
+on:
+  push:
+    branches:
+      - fix/saas-integrated-phases123-20261109
+  pull_request:
+    branches:
+      - fix/saas-integrated-phases123-20261109
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  integrated-php-and-js:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,curl,openssl,fileinfo,zip,dom,sodium
+          coverage: none
+      - name: Install PDF text extractor for real fixture
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+          test -x /usr/bin/pdftotext
+      - name: Syntax scan every PHP path participating in this release candidate
+        run: |
+          set -euo pipefail
+          find saas/console -type f -name '*.php' -print0 | xargs -0 -n1 php -l > /tmp/php-lint.txt
+          for f in api/*.php index.php omnira_api_tester.php saas/mobile/server/session.php tools/test_saas_phase*.php tools/test_live_demo_security.php tools/test_saas_security_guards.php tools/test_host_link_signed_jobs.py; do
+            case "$f" in *.php) php -l "$f" ;; esac
+          done
+          node --check assets/app.js
+          node --check saas/console/assets/js/app.js
+          node --check saas/console/assets/js/flow-graph.js
+          node --check saas/console/assets/js/graph-routing.js
+          node --check tests/browser.test.mjs
+          python3 -m py_compile ops/host-link/worker.py ops/host-link/sign_job.py tools/check_mobile_live.py tools/test_host_link_signed_jobs.py saas/mobile/patch_live_session.py
+      - name: Phase 1 private maintenance, root Live, Session CSRF and signed host jobs
+        run: |
+          set -euo pipefail
+          php tools/test_live_demo_security.php
+          php tools/test_saas_security_guards.php
+          python3 tools/test_host_link_signed_jobs.py
+      - name: Legacy-root real HTTP contract without Google requests
+        run: |
+          set -euo pipefail
+          php -S 127.0.0.1:18796 -t . >/tmp/ontrack-integrated-live-http.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:18796/index.php -c /tmp/ot-live-cookie -o /tmp/ot-live-index; then break; fi
+            sleep 0.1
+          done
+          csrf=$(grep -oE 'name="ontrack-live-csrf" content="[a-f0-9]{64}"' /tmp/ot-live-index | sed -E 's/.*content="([a-f0-9]{64})".*/\1/' | head -1)
+          test "${#csrf}" -eq 64
+          denied=$(curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:18796/api/live_session.php -H 'Content-Type: application/json' -d '{}')
+          test "$denied" = 403
+          ok=$(curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:18796/api/live_session.php -b /tmp/ot-live-cookie -H "X-OnTrack-Live-CSRF: $csrf" -H 'Origin: http://127.0.0.1:18796' -H 'Content-Type: application/json' -d '{')
+          test "$ok" = 400
+          echo 'SAAS_INTEGRATED_PUBLIC_LIVE_HTTP_CONTRACT_PASS no_google_calls=true'
+      - name: Device pilot adapter remains compatible with authenticated root Live session
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          source=Path('api/live_session.php').read_text(encoding='utf-8')
+          spec=importlib.util.spec_from_file_location('mobile_patch','saas/mobile/patch_live_session.py')
+          mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+          patched=mod.patch(source)
+          assert 'ontrack_live_demo_authorize();' in patched
+          assert 'ontrackMobileInstruction' in patched
+          assert 'ontrackMobileRequest' in patched
+          print('SAAS_INTEGRATED_LEGACY_ADAPTER_CONTRACT_PASS')
+          PY
+      - name: Isolated SaaS full protected state-machine and UI matrix
+        run: |
+          set -euo pipefail
+          n=0
+          for test in \
+            tools/test_saas_quick_answer_policy.php \
+            tools/test_saas_phase2_flow_safety.php \
+            tools/test_saas_phase2_knowledge_safety.php \
+            tools/test_saas_phase2_contract_probe.php \
+            tools/test_saas_phase2_billing_current_subscription.php \
+            tools/test_saas_phase3_reseller_plan_controls.php \
+            tools/test_voice_saas_console.php \
+            tools/test_console_pricing_ui.php \
+            tools/test_v1_site05_plan_transitions.php \
+            tools/test_console_checkout.php \
+            tools/test_console_kashier_webhook.php \
+            tools/test_saas_refund_review_render.php \
+            tools/test_voice_flow_runtime.php \
+            tools/test_voice_tool_gateway.php \
+            tools/test_voice_kb_pdf_extract.php \
+            tools/test_voice_kb_search_index.php \
+            tools/test_voice_knowledge_web.php \
+            tools/test_voice_connector_cache.php \
+            tools/test_google_live_failover.php \
+            tools/test_google_tenant_keys.php \
+            tools/test_tenant_device_pairing.php \
+            tools/test_sim_agent_call_reports.php \
+            tools/test_human_escalation.php \
+            tools/test_tenant_voice_transcript_archive.php \
+            tools/test_tenant_call_ai_summary.php \
+            tools/test_voice_call_timeline.php \
+            tools/test_tenant_workspace.php \
+            tools/test_voice_dnc_ledger.php \
+            tools/test_voice_sso.php \
+            tools/test_whatsapp_inbox.php \
+            tools/test_whatsapp_whmcs_bridge.php \
+            tools/test_auth_login_throttle.php \
+            tools/test_v1_reseller_toggle.php \
+            tools/test_white_label_portal.php \
+            tools/test_voice_openapi.php \
+            tools/test_protected_engine_release.php \
+            tools/test_device_bootstrap.php \
+            tools/test_ai_assistant_tenant_keys.php \
+            tools/test_agent_scenario_modes.php \
+            tools/test_dynamic_agent_studio.php \
+            tools/test_voice_trial_and_ui.php \
+            tools/test_voice_dnc_actions.php \
+            tools/test_flow_ai_sources.php \
+            tools/test_flow_ai_chat.php; do
+            n=$((n+1))
+            echo "=== candidate fixture $n: $test ==="
+            ONTRACK_CI_NAMESPACE="saasall_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_$n" php "$test"
+          done
+          echo "SAAS_INTEGRATED_ISOLATED_MATRIX_PASS suite_count=$n"
+      - name: Isolated HTTP identity federation + real login/consent + anti-replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          ONTRACK_CI_NAMESPACE="saashttp${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}" python3 tools/test_voice_sso_http.py
+      - name: JS UI routing and static regression
+        run: |
+          set -euo pipefail
+          node tools/test_console_ajax_ui.cjs
+          node tools/test_graph_routing.cjs
+          node tools/test_floating_flow_ui.cjs
+          node tools/test_voice_qr.cjs
+      - name: No source whitespace mistakes and no device/Android/OTA edits
+        run: |
+          set -euo pipefail
+          git diff --check HEAD~1 HEAD
+          git diff --name-only HEAD~1 HEAD | tee /tmp/ontrack-saas-integrated-changes.txt
+          if grep -E '^(VS/|saas/mobile/ota/|saas/mobile/android/|android/|app/src/|saas/console/database/schema\.|\.github/workflows/.*publish)' /tmp/ontrack-saas-integrated-changes.txt; then
+            echo 'Unexpected mobile or deployment change in SaaS release candidate'
+            exit 1
+          fi
+          echo 'SAAS_INTEGRATED_NO_NATIVE_APK_OTA_DEPLOY_PASS'

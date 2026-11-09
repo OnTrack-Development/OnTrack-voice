@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../../_core/Bootstrap.php';
 require __DIR__.'/../../_core/DncGuard.php';
+require __DIR__.'/../../_core/ApiWriteGuard.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -69,6 +70,12 @@ try{
         $consent=$p['consent']??false;
         if($name===''||mb_strlen($name)>120||!preg_match('/^\+?[0-9 -]{8,25}$/D',$phone)||$consent!==true)
             answer(422,['ok'=>false,'error'=>'invalid_contact_or_consent']);
+        // Prevent authenticated API keys from being used as an unbounded
+        // lead-spam channel. Only successful, validated write attempts count.
+        if(!saas_api_write_allowed((int)$a['id'],(int)$grant['id'],'lead.create')){
+            header('Retry-After: 60');
+            answer(429,['ok'=>false,'error'=>'api_write_rate_limited']);
+        }
         $dnc=dnc_effective_flag((int)$a['id'],$phone,false);
         $id=insert('INSERT INTO contacts(account_id,site_id,name,phone,dnc,created_at) VALUES (?,?,?,?,?,?)',[$a['id'],$requested,$name,$phone,$dnc,now()]);
         answer(201,['ok'=>true,'contact_id'=>$id,'status'=>'created','dnc'=>$dnc===1,'dialed'=>false]);

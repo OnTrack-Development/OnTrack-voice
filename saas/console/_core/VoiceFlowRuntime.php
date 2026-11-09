@@ -57,6 +57,37 @@ function voice_flow_tool_bind(int $accountId,int $siteId,int $agentId,string $no
         (account_id,site_id,agent_id,node_id,policy_id,updated_at)
         VALUES (?,?,?,?,?,?)",[$accountId,$siteId,$agentId,$nodeId,$policyId,now()]);
 }
+/**
+ * Recheck the currently enabled, tenant-owned connector policy before
+ * allowing a published Flow node to wait on an external operation.
+ * A node binding written when a connector was verified is not perpetual
+ * authorization: its connector, enablement or operation may have changed.
+ *
+ * This is deliberately read-only and never sends an upstream request.
+ */
+function voice_flow_live_tool_policy(array $session,array $node):?array {
+    $id=(string)($node['id']??'');
+    $type=(string)($node['type']??'');
+    if(!in_array($type,['crm_lookup','crm_write','schedule','tool'],true))return null;
+    $binding=one("SELECT policy_id FROM voice_flow_node_tools
+        WHERE account_id=? AND site_id=? AND agent_id=? AND node_id=?",[
+        (int)$session['account_id'],(int)$session['site_id'],
+        (int)$session['agent_id'],$id]);
+    if(!$binding || (int)$binding['policy_id']<1)return null;
+    try {
+        $policy=voice_tool_policy((int)$session['account_id'],(int)$session['site_id'],
+            (int)$binding['policy_id']);
+    } catch(InvalidArgumentException $ignored) {
+        // Revoked/unverified policies remain unavailable; do not expose
+        // connector details to the AI or accidentally fall back.
+        return null;
+    }
+    $write=voice_tool_is_write((string)$policy['operation']);
+    if(($type==='crm_lookup'&&$write) ||
+       (in_array($type,['crm_write','schedule'],true)&&!$write))return null;
+    return $policy;
+}
+
 /** Real upstream request IDs may advance at most one flow node globally. */
 function voice_flow_tool_consumptions_init():void {
     $marker=private_path().'/.schema.voice-flow-tool-consumption.v1';
@@ -246,18 +277,16 @@ function voice_flow_process(int $accountId,int $sessionId,int $actorId=0,?string
                     'لا توجد معرفة عامة معتمدة مناسبة؛ لا تخترع معلومة.'];
                 $next=flow_preview_edge($graph,$nodeId,null);
             }elseif(in_array($type,['crm_lookup','crm_write','schedule','tool'],true)){
-                $binding=one("SELECT policy_id FROM voice_flow_node_tools
-                    WHERE account_id=? AND site_id=? AND agent_id=? AND node_id=?",[
-                    $session['account_id'],$session['site_id'],$session['agent_id'],$nodeId]);
-                if(!$binding){
+                $approvedPolicy=voice_flow_live_tool_policy($session,$node);
+                if(!$approvedPolicy){
                     $events[]=['kind'=>'notice','text'=>'هذه العقدة ليست مرتبطة بأداة معتمدة؛ أُوقف التنفيذ بأمان ولم تنفذ أي عملية.'];
                     $state['blocked']=true;$state['done']=true;
                     voice_flow_trace($session,$nodeId,'tool_unbound','no approved policy binding');
                     break;
                 }
-                $state['pending_tool']=['node_id'=>$nodeId,'policy_id'=>(int)$binding['policy_id']];
+                $state['pending_tool']=['node_id'=>$nodeId,'policy_id'=>(int)$approvedPolicy['id']];
                 $events[]=['kind'=>'tool_requires_approval','node_id'=>$nodeId,
-                    'policy_id'=>(int)$binding['policy_id'],
+                    'policy_id'=>(int)$approvedPolicy['id'],
                     'text'=>'الأداة تنتظر موافقة صريحة وتنفيذًا موثقًا؛ لا نتيجة مختلقة.'];
                 break;
             }elseif($type==='condition'||$type==='intent'||$type==='validation'){
@@ -317,7 +346,10 @@ function voice_flow_complete_tool(int $accountId,int $sessionId,int $actorId,int
     $state['pending_tool']=null;
     if($next!==null){$state['cursor']=$next;$state['awaiting']=null;}
     else{$state['done']=true;$state['awaiting']=null;}
-    $newStatus=($state['done']??false)?'blocked':'active';
+    // A confirmed tool at the terminal node completed successfully; only
+    // a failed/uncertain tool without an approved failure edge is blocked.
+    $newStatus=($state['done']??false)
+        ?($tool['status']==='succeeded'?'completed':'blocked'):'active';
     if(db()->inTransaction())throw new RuntimeException('flow_tool_nested_transaction');
     db()->beginTransaction();
     try{
