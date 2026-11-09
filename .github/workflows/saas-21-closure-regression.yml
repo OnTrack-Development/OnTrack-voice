@@ -87,6 +87,8 @@ jobs:
             ONTRACK_CI_NAMESPACE="saasall_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_$n" php "$test"
           done
           echo "SAAS_21_ISOLATED_MATRIX_PASS suite_count=$n"
+          ONTRACK_CI_NAMESPACE="saas_vault_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}" php tools/test_saas_vault_integrity.php
+          ONTRACK_CI_NAMESPACE="saas_timeline_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}" php tools/test_voice_call_timeline.php
       - name: JavaScript source syntax
         run: |
           set -euo pipefail
