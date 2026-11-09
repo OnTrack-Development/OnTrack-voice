@@ -12,7 +12,7 @@ declare(strict_types=1);
  * diagnostics before and after disabling the previous credential.
  */
 if(PHP_SAPI!=='cli')exit(1);
-if(!is_dir('/home/appontrack') || get_current_user()==='nobody') {
+if(!is_dir('/home/appontrack') || !function_exists('posix_geteuid') || posix_geteuid()!==2379) {
     fwrite(STDERR,"Production host account required\n");
     exit(2);
 }
