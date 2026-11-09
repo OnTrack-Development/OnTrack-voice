@@ -108,6 +108,10 @@ $old=one('SELECT status FROM subscriptions WHERE id=?',[$before['id']]);
 mysql_qa($old['status']==='replaced','historical plan retained');
 $published=publish_agent_flow(4,$agentId,$owner);
 mysql_qa($published['revision']>=1,'agent Flow published on MySQL');
+$publishAgain=publish_agent_flow(4,$agentId,$owner);
+mysql_qa($publishAgain['duplicate']===true &&
+    $publishAgain['revision']===$published['revision'],
+    'repeated MySQL publish cannot allocate an extra immutable revision');
 $pair=device_pairing_create(4,$site,$agentId,$owner,0);
 $bound=device_pairing_redeem($pair,'mysql-test-phone-installation-001',0,'MySQL CI SIM');
 $b=device_binding_authorize((string)$bound['device_token']);
