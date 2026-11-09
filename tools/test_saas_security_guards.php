@@ -103,6 +103,11 @@ $root=dirname(__DIR__);
 $setup=(string)file_get_contents($root.'/api/setup_demo.php');
 $diag=(string)file_get_contents($root.'/api/diag.php');
 $tester=(string)file_get_contents($root.'/omnira_api_tester.php');
+$legacyTest=(string)file_get_contents($root.'/test.php');
+sec_check(str_contains($legacyTest,'ontrack_maintenance_browser_require();'),
+    'legacy test.php provider diagnostics require authenticated operator');
+sec_check(!is_file($root.'/dev_bridge.php'),
+    'archived dev bridge must not exist in the active webroot');
 $api=(string)file_get_contents($root.'/saas/console/api/v1/index.php');
 sec_check(str_contains($setup,"ontrack_maintenance_require('POST')"),
     'maintenance setup requires header-authenticated POST');
