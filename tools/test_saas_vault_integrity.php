@@ -22,4 +22,15 @@ vault_check(is_string($raw),'base64 ciphertext');
 $raw[strlen($raw)-1]=chr(ord($raw[strlen($raw)-1])^1);
 vault_check(unseal_secret(base64_encode($raw))===null,'reject tampered GCM tag/ciphertext');
 vault_check(unseal_secret('not-valid-base64')===null,'malformed secret refused');
+$audit=audit_safe_details([
+    'account_id'=>42,'call_id'=>'call_test_123',
+    'api_key'=>'supersecret-key-value','pin'=>'123456',
+    'note'=>'Provider rejected Bearer abcdefghijklmnopqrstuvwxyz and token=private123',
+    'nested'=>['credentials'=>'sensitive','result'=>'timeout']
+]);
+vault_check($audit['account_id']===42 && $audit['call_id']==='call_test_123','audit IDs kept');
+vault_check($audit['api_key']==='[REDACTED]' && $audit['pin']==='[REDACTED]' &&
+    $audit['nested']['credentials']==='[REDACTED]','audit fields redacted');
+vault_check(!str_contains($audit['note'],'private123') &&
+    !str_contains($audit['note'],'abcdefghijklmnopqrstuvwxyz'),'inline secrets redacted');
 echo "SAAS_VAULT_FIRST_RUN_ENCRYPT_AND_RESTORE_PASS\n";
