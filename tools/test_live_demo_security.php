@@ -58,6 +58,30 @@ try {
     @rmdir($dir);
 }
 
+$sessionDir = sys_get_temp_dir().'/ontrack-live-session-test-'.bin2hex(random_bytes(8));
+try {
+    $t=strtotime('2026-11-09 12:00:00 UTC');
+    $limits=['hour_ip'=>10,'day_ip'=>10,'day_global'=>20,
+             'hour_session'=>2,'day_session'=>3];
+    expect_guard(ontrack_live_demo_quota($sessionDir,'198.51.100.11',$t,$limits,'nonce-A'),
+        'session mint first IP');
+    expect_guard(ontrack_live_demo_quota($sessionDir,'198.51.100.12',$t,$limits,'nonce-A'),
+        'same session across another IP');
+    expect_guard(!ontrack_live_demo_quota($sessionDir,'198.51.100.13',$t,$limits,'nonce-A'),
+        'same session cannot bypass hourly quota by changing IP');
+    expect_guard(ontrack_live_demo_quota($sessionDir,'198.51.100.13',$t,$limits,'nonce-B'),
+        'independent valid session remains allowed');
+    expect_guard(ontrack_live_demo_quota($sessionDir,'198.51.100.14',$t+3600,$limits,'nonce-A'),
+        'session hour resets without losing daily usage');
+    expect_guard(!ontrack_live_demo_quota($sessionDir,'198.51.100.15',$t+3600,$limits,'nonce-A'),
+        'session daily quota cannot be bypassed by rotating IP');
+    $contents=(string)file_get_contents($sessionDir.'/live-'.gmdate('Ymd',$t).'.json');
+    expect_guard(!str_contains($contents,'nonce-A') && !str_contains($contents,'nonce-B'),
+        'raw session nonce never persisted to quota storage');
+} finally {
+    foreach (glob($sessionDir.'/*') ?: [] as $path) @unlink($path);
+    @rmdir($sessionDir);
+}
 $root = dirname(__DIR__);
 $php = file_get_contents($root.'/api/live_session.php');
 $js = file_get_contents($root.'/assets/app.js');
