@@ -489,6 +489,32 @@ function render_plans(array $a):void{
             }
         }
     }elseif($type==='reseller'){
+        // Surface the reseller's OWN subscription and available wholesale
+        // plans, instead of showing only plans they may assign to customers.
+        // This is read-only; paid changes must go through verified checkout.
+        $own=one("SELECT p.name,s.ends_at,p.call_quota,p.agent_limit,
+                p.reseller_customers FROM subscriptions s JOIN plans p ON p.id=s.plan_id
+            WHERE s.account_id=? AND s.status='active' AND s.starts_at<=?
+              AND s.ends_at>? ORDER BY s.id DESC LIMIT 1",[$id,now(),now()]);
+        $ownText=$own
+            ?'<h3>'.e((string)$own['name']).'</h3><p>'.
+                (int)$own['call_quota'].' مكالمة · '.(int)$own['agent_limit'].
+                ' إيجنت · '.(int)$own['reseller_customers'].' عميل</p>'.
+                '<small>تنتهي: '.e((string)$own['ends_at']).'</small>'
+            :'<p>لا توجد باقة ريسيلر فعالة حاليًا.</p>';
+        $availableWholesale=all("SELECT name,call_quota,agent_limit,price_minor
+            FROM plans WHERE kind='reseller' AND status='active' ORDER BY price_minor,id");
+        $wholesaleRows=[];
+        foreach($availableWholesale as $wholesale){
+            $wholesaleRows[]=[e((string)$wholesale['name']),
+                (int)$wholesale['call_quota'].' مكالمة',
+                (int)$wholesale['agent_limit'].' AI',
+                number_format((int)$wholesale['price_minor']/100,2).' ج.م'];
+        }
+        $ownText.='<p><a class="btn primary" href="/saas/console/?tab=billing">اختيار أو تجديد باقتك من صفحة الفوترة</a></p>'.
+            ($wholesaleRows?tbl(['باقة الريسيلر','الحصة','الإيجنتات','السعر'],$wholesaleRows):'').
+            '<p class="dim">لا يتم تفعيل باقة مدفوعة إلا بعد إثبات الدفع. باقات Demo المجانية يخصصها مالك المنصة.</p>';
+        echo card('باقة حسابك كريسيلر',$ownText);
         $customers=all("SELECT id,name FROM accounts WHERE parent_id=? AND kind='customer'",[$id]);
         $co=[];$po=[];
         foreach($customers as $c)$co[$c['id']]=$c['name'];
