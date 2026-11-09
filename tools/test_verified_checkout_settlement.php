@@ -110,6 +110,17 @@ function test_verified_checkout_settlement():void {
         'signed full refund is retained for finance reconciliation');
     $reviewAgain=kashier_settle($refund,null);
     ok($reviewAgain['duplicate']===true,'refund webhook retry is idempotent');
+    $changedRefund=$refund;
+    $changedRefund['data']['amount']='1.00';
+    $changedSig=kashier_signature($changedRefund['data'],'11111');
+    ok(is_string($changedSig)&&kashier_verified($changedRefund,$changedSig,'11111'),
+        'changed refund amount still uses valid HMAC so state machine must validate replay');
+    $conflictRejected=false;
+    try{kashier_settle($changedRefund,null);}
+    catch(InvalidArgumentException $e){
+        $conflictRejected=$e->getMessage()==='adjustment_replay_amount_mismatch';
+    }
+    ok($conflictRejected,'signed refund transaction cannot replay with conflicting amount');
     $partial=$refund;
     $partial['event']='partial_refund';
     $partial['data']['transactionId']='RF_'.bin2hex(random_bytes(16));
