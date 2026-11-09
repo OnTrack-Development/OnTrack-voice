@@ -1,8 +1,8 @@
 # SaaS — Phase 1: سجل التنفيذ الأولي (9 نوفمبر 2026)
 
-**الحالة:** CODE CHANGED / TESTS NOT VERIFIED / NOT DEPLOYED  
-**فرع التنفيذ:** `fix/saas-phase1-security-nonregression-20261109`  
-**فرع الأصل:** `release/voice-v1-20261106`  
+**الحالة:** CODE CHANGED / TESTS NOT VERIFIED / NOT DEPLOYED
+**فرع التنفيذ:** `fix/saas-phase1-security-nonregression-20261109`
+**فرع الأصل:** `release/voice-v1-20261106`
 **المراجعة:** Draft PR #79، لا Merge أو نشر.
 
 ## ما نُفذ فعلاً في الكود
@@ -70,3 +70,9 @@
 - [x] إلغاء بند استبعاد `VS/` من الخطة لأن المالك أكد أنه محذوف بالفعل.
 - [ ] اعتماد كل مهمة عليا حسب DoD: **0/31** مغلقة نهائيًا؛ **11/31** بها خطوات كود جزئية (غير معتمدة)، **20/31** دون إغلاق مثبت.
 - [ ] إثبات CI/HTTP/Host/Regression PASS، تدوير سر الصيانة على الهوست، ودمج/نشر مع Receipt وRollback بعد التحقق.
+
+
+## Update — integrated CI verification (9 Nov 2026)
+- [x] Phase 1 security tests **PASSED** independently at [Actions #42557148060](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42557148060): Header-only MaintenanceAuth, protected demo CSRF/Origin quotas, local HTTP without Google calls, Pilot adapter compatibility, Ed25519 worker tamper check, and five-second quick reply policy.
+- [x] The integrated branches 1+2+3 passed **43 isolated PHP suites + real local SSO HTTP** at [Actions #42558225733](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42558225733).
+- [ ] **NOT Production Ready:** real host maintenance secret rotation, denied legacy key, Host MySQL/Browser/SSL/DNS/Pay and physical-device SIM/Live audio regression still require direct evidence before merge/deploy.
