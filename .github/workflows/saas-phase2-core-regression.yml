@@ -20,7 +20,7 @@ permissions:
 jobs:
   php-core:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -77,6 +77,27 @@ jobs:
             tools/test_v1_site05_plan_transitions.php; do
             n=$((n+1))
             echo "=== $test isolated fixture #$n ==="
+            ONTRACK_CI_NAMESPACE="saas2_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_$n" php "$test"
+          done
+      - name: Broader SaaS/WHMCS/call-report/DNC billing preservation matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          n=30
+          for test in \
+            tools/test_voice_saas_console.php \
+            tools/test_tenant_workspace.php \
+            tools/test_tenant_voice_transcript_archive.php \
+            tools/test_tenant_call_ai_summary.php \
+            tools/test_voice_call_timeline.php \
+            tools/test_human_escalation.php \
+            tools/test_voice_dnc_ledger.php \
+            tools/test_google_tenant_keys.php \
+            tools/test_console_checkout.php \
+            tools/test_whatsapp_inbox.php \
+            tools/test_whatsapp_whmcs_bridge.php; do
+            n=$((n+1))
+            echo "=== preserve $test isolated fixture #$n ==="
             ONTRACK_CI_NAMESPACE="saas2_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_$n" php "$test"
           done
       - name: Verify no native, production DB, SSH or deployment side effects
