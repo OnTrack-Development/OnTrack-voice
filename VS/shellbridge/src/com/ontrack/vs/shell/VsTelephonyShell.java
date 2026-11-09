@@ -35,6 +35,16 @@ public final class VsTelephonyShell {
     private AudioRecord capture;
     private boolean muted;
     private boolean previouslyMuted;
+    // OnTrack LivePcm keeps a capture reader alive in parallel with playback.
+    // VS also continuously drains VOICE_CALL so Fish HTTP latency never
+    // queues old microphone audio for the next speech window.
+    private final Object captureGate = new Object();
+    private volatile boolean captureRunning;
+    private Thread captureThread;
+    private byte[] newestCapture;
+    private long captureSequence;
+    private long deliveredSequence;
+    private volatile String captureFailure;
 
     private VsTelephonyShell(AudioManager audio, String secret) {
         this.audio = audio;
@@ -108,20 +118,16 @@ public final class VsTelephonyShell {
                 if (track != null) { out.writeUTF("ACTIVE"); }
                 else { out.writeUTF(probe(true)); }
             } else if ("CAPTURE".equals(command)) {
-                // Mirror OnTrack Voice's shell-side VOICE_CALL capture, without
-                // recorders, files, audio uploads, or a saved call archive.
-                if (capture == null || track == null || !muted) {
+                // A continuously draining, bounded single-frame queue matches
+                // OnTrack's parallel live capture/playback and drops old PCM.
+                if (capture == null || track == null || !muted || !captureRunning) {
                     out.writeInt(-1);
                 } else {
-                    byte[] pcm = new byte[38400]; // 200 ms, 48 kHz stereo PCM16
+                    byte[] pcm = nextCapture();
                     try {
-                        int n = capture.read(pcm, 0, pcm.length, AudioRecord.READ_BLOCKING);
-                        if (n <= 0 || (n & 3) != 0) throw new IOException("VOICE_CALL capture stopped: " + n);
-                        out.writeInt(n);
-                        out.write(pcm, 0, n);
-                    } finally {
-                        Arrays.fill(pcm, (byte) 0);
-                    }
+                        out.writeInt(pcm.length);
+                        out.write(pcm);
+                    } finally { Arrays.fill(pcm, (byte) 0); }
                 }
             } else if ("PLAY".equals(command)) {
                 int length = in.readInt();
@@ -224,18 +230,87 @@ public final class VsTelephonyShell {
             if (record.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING)
                 throw new IOException("shell VOICE_CALL was denied");
             capture = record;
+            captureFailure = null;
+            captureRunning = true;
+            synchronized (captureGate) {
+                newestCapture = null;
+                captureSequence = 0;
+                deliveredSequence = 0;
+            }
+            // Do not block the shell transport on Fish ASR/TTS or playback.
+            // This bounded reader is intentionally RAM-only, never a call archive.
+            captureThread = new Thread(() -> {
+                byte[] pcm = new byte[38400];
+                try {
+                    while (captureRunning) {
+                        int n = record.read(pcm, 0, pcm.length, AudioRecord.READ_BLOCKING);
+                        if (n <= 0 || n > pcm.length || (n & 3) != 0)
+                            throw new IOException("VOICE_CALL capture stopped: " + n);
+                        synchronized (captureGate) {
+                            if (!captureRunning) break;
+                            if (newestCapture != null) Arrays.fill(newestCapture, (byte) 0);
+                            newestCapture = Arrays.copyOf(pcm, n);
+                            captureSequence++;
+                            captureGate.notifyAll();
+                        }
+                    }
+                } catch (Throwable ex) {
+                    captureFailure = ex.getClass().getSimpleName();
+                } finally {
+                    captureRunning = false;
+                    Arrays.fill(pcm, (byte) 0);
+                    synchronized (captureGate) { captureGate.notifyAll(); }
+                }
+            }, "vs-live-pcm-capture");
+            captureThread.setDaemon(true);
+            captureThread.start();
         } catch (Exception ex) {
             record.release();
             throw new IOException("shell VOICE_CALL capture refused", ex);
         }
     }
 
+    private byte[] nextCapture() throws IOException {
+        long deadline = SystemClock.elapsedRealtime() + 3500;
+        synchronized (captureGate) {
+            while (captureRunning && deliveredSequence == captureSequence) {
+                long remaining = deadline - SystemClock.elapsedRealtime();
+                if (remaining <= 0) break;
+                try { captureGate.wait(Math.min(remaining, 500)); }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("VOICE_CALL capture interrupted", e);
+                }
+            }
+            if (!captureRunning || newestCapture == null
+                    || deliveredSequence == captureSequence)
+                throw new IOException("VOICE_CALL capture unavailable"
+                    + (captureFailure == null ? "" : ": " + captureFailure));
+            deliveredSequence = captureSequence;
+            return Arrays.copyOf(newestCapture, newestCapture.length);
+        }
+    }
+
     private void restore() {
+        captureRunning = false;
         AudioRecord record = capture;
         capture = null;
         if (record != null) {
             try { record.stop(); } catch (Exception ignored) { }
             try { record.release(); } catch (Exception ignored) { }
+        }
+        Thread reader = captureThread;
+        captureThread = null;
+        if (reader != null) {
+            reader.interrupt();
+            try { reader.join(400); } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        synchronized (captureGate) {
+            if (newestCapture != null) Arrays.fill(newestCapture, (byte) 0);
+            newestCapture = null;
+            captureGate.notifyAll();
         }
         if (track != null) {
             try { track.pause(); track.flush(); track.release(); }
