@@ -87,6 +87,14 @@
 - [x] اختبار حفظ ونشر سياسة الرد التلقائي بعد 5 ثوانٍ عبر HTTP Form حقيقي للعميل؛ فحص DB يثبت `published_agent_flow`، الحفاظ على Voice/Instructions/Knowledge، وعدم تمديد تاريخ الباقة أو تكرار الاشتراكات.
 - [ ] باقي واجهات الدفع وكاشير/دومينات وطلب موظف على الاستضافة والـPhysical Phone؛ لا إعتماد Host/Device حتى الآن. لا تُكرر إثبات Browser CI كإثبات ثبات الصوت على Oppo.
 
+### ✅ إصلاح اختفاء وظائف الـSaaS وعيب Strict Types (WEB-UX-01/06/08 Partial)
+
+- [x] **Navigation bug:** إعادة القوائم المخفية فعليًا للعملاء (Campaigns, WhatsApp Inbox, Voices, Staff)، وإظهار Flow Builder المباشر؛ واستعادة Voice/WhatsApp Settings للأدمن، وVoices للريسيلر. تمت إعادة المسارات الموجودة بالفعل، لا إنشاء أزرار غير موصولة.
+- [x] **Staff page crash:** إصلاح `select_html` ليقبل IDs وأزمنة صحيحة `int|string`، مع إزالة إغلاقات Form غير مطابقة، ومنع توقف إعدادات التحويل البشري عند عرض Agent حقيقي.
+- [x] **Browser route gate:** `tools/audit_saas_responsive.cjs` لا يعتبر الصفحة ناجحة بمجرد وجود Layout؛ يفحص أن `nav-link.selected` يطابق `tab` المقصود ولا يوجد `تعذر عرض البيانات`. [Chrome #42565765700 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42565765700).
+- [x] **حملات/جهات الاتصال:** [HTTP/DB CI #42565839935 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42565839935) لتغيير باقة ريسيلر وحفظ 5 ثوانٍ ونشرها، إنشاء حملة Draft ثم Pause، رفض Running من شاشة المسودة، رفض إدخال Contact بلا Consent، حفظ DNC، والتأكد من **صفر مكالمات صادرة منشأة**، وتحقق Staff/Handoff render للعميل.
+- [ ] **Host/SIM E2E:** القائمة والإجراءات نجحت في CI فقط؛ WhatsApp/Meta Live، مكالمات الحملة على SIM، الصوت/5 ثوانٍ على Oppo، ودفع Kashier الحقيقي لا تزال غير مثبتة ولا يُسمح بإطلاق تجاري.
+
 ### ⛔ شروط الإغلاق التي ما زالت مفتوحة
 
 - [ ] **WEB-SEC-01:** تدوير السر المتسرب على الهوست، إبطال النسخة القديمة، التحقق من Git History و`dev_bridge.php` وسجل الوصول.
@@ -167,14 +175,14 @@
 
 | ID | الحالة الحالية | المهمة | ملفاتها المرجعية | معايير القبول |
 |---|---|---|---|---|
-| WEB-UX-01 | 🟡 Chrome 237 فحص + نماذج تغيير باقات ورد 5 ثوانٍ مع إثبات DB؛ باقي الواجهات/Host E2E | تدقيق كل زر ونموذج ورابط ومفتاح Toggle (وظائف فعلية لا شكلية) | `Views.php`، `Actions.php`، `assets/js/app.js`، `flow-graph.js` | لكل Action: click → CSRF/RBAC → DB/state → refresh → feedback → error path؛ لا زر dead؛ Mobile/Desktop RTL/Light/Dark محفوظ. |
+| WEB-UX-01 | 🟡 إصلاح Hidden Tabs + Chrome Route 237 PASS + HTTP Forms + DB؛ باقي Host E2E | تدقيق كل زر ونموذج ورابط ومفتاح Toggle (وظائف فعلية لا شكلية) | `Views.php`، `Actions.php`، `assets/js/app.js`، `flow-graph.js` | لكل Action: click → CSRF/RBAC → DB/state → refresh → feedback → error path؛ لا زر dead؛ Mobile/Desktop RTL/Light/Dark محفوظ. |
 | WEB-UX-02 | 🟡 إدارة خطة الريسيلر + Chrome/HTTP Form POST/DB PASS؛ Checkout/Host E2E باقي | الباقات والإدارة والاشتراكات للريسيلر والعميل | `SubscriptionPlans.php`، `Views.php`، `Actions.php` | Admin يعدّل باقة Reseller، Reseller يختار/يعدل ضمن صلاحياته، الترقية/التخفيض/التجديد واضحة؛ preserve assigned plans & ledgers؛ لا اشتراك مدفوع تلقائي بسبب إنشاء الحساب إلا إذا Trial مصرح. |
 | WEB-UX-03 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | End-to-end Billing/Kashier/manual/Wallet/Claim حسب القنوات المفعلة | Billing callbacks/`OrderClaim.php`/Outbox worker | Gateway webhook signature+amount+currency+invoice unique، paid_pending_claim قابل للربط الآمن، لا settlement وهمي؛ Refund/Retry/Expired tests؛ أي بوابة غير مفعلة لا تُعطل الحالية. |
 | WEB-UX-04 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | استكمال تسجيل/استعادة كلمة المرور دون MFA تجريبية | `Signup.php`، `index.php`، reset/email | Login البريد/كلمة المرور فقط، Reset token expiry، SSO signatures، Admin/Reseller/Customer، رسائل بريد حقيقية، عدم إزالة التسجيل حسب إعدادات Owner. |
 | WEB-UX-05 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | ريسيلرز وWhite-label domains | domain worker + `Views.php` + Host config | TXT ownership ثم DNS/TLS/Host routing فعلي؛ Reseller branded Login/Register/Logo، عزل تام، لا تغيير Domain قائم حتى ينجح البديل. |
-| WEB-UX-06 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | صلاحيات الدعم وإدارة الموظفين | RBAC/`StaffInvitations.php`/support grants | Admin/Reseller/Staff صلاحيات دقيقة بمدة موحدة، audit، اختبارات Privilege Escalation، وعدم تعطيل دخول الدعم المصرح. |
+| WEB-UX-06 | 🟡 Staff/Handoff Strict Types + HTML Forms FIX / PHP+Chrome CI PASS؛ RBAC Host E2E باقي | صلاحيات الدعم وإدارة الموظفين | RBAC/`StaffInvitations.php`/support grants | Admin/Reseller/Staff صلاحيات دقيقة بمدة موحدة، audit، اختبارات Privilege Escalation، وعدم تعطيل دخول الدعم المصرح. |
 | WEB-UX-07 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | اختبار الصوت على المتصفح إن كانت ميزة مفعلة | `saas/console/.htaccess`، `index.php`، Agent testing | `microphone=()` قد يحظر Test mic؛ اسمح للمسار الموثق الضروري فقط وبموافقة browser، ولا تفتح camera أو embed origins غير لازمة؛ اختبر Web Demo/Console على browsers مدعومة. |
-| WEB-UX-08 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | خطط الحملات/جهات الاتصال/DNC والإشعارات | Campaign/Contacts/`TenantCampaignQueue.php` | Preview/Import/Mapping/Pause/Resume/Cancel/Arm وConsent؛ لا Calls صادرة غير مقصودة، DNC enforced، إرسال notifications idempotent، لا خلط قاعدة قديمة وجديدة. |
+| WEB-UX-08 | 🟡 Draft/Pause/Consent/DNC HTTP+DB PASS بلا Dial؛ SIM campaign E2E باقي | خطط الحملات/جهات الاتصال/DNC والإشعارات | Campaign/Contacts/`TenantCampaignQueue.php` | Preview/Import/Mapping/Pause/Resume/Cancel/Arm وConsent؛ لا Calls صادرة غير مقصودة، DNC enforced، إرسال notifications idempotent، لا خلط قاعدة قديمة وجديدة. |
 
 **DoD Phase-3:** اختبارات مستخدم حقيقية على دور Admin + Reseller + Customer + Demo/Trial/Expired، واجهات وعناصر محفوظة، لا تغير في Defaults أو Permissions أو Account State دون فعل مصرح.
 
