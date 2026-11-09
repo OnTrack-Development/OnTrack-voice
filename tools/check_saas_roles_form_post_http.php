@@ -69,7 +69,7 @@ browser_post_ok($manager!==null && $manager['status']==='active'
     && $manager['phone_e164']==='+99900000124',
     'manager contact saved by actual owner form with exact synthetic number');
 $route=one('SELECT contact_id,enabled,delay_seconds FROM human_escalation_routes
-    WHERE account_id=4 AND agent_id=1 ORDER BY id DESC LIMIT 1');
+    WHERE account_id=4 AND agent_id=1 LIMIT 1');
 browser_post_ok($route!==null &&
     (int)$route['contact_id']===(int)$manager['id'] &&
     (int)$route['enabled']===0 && (int)$route['delay_seconds']===20,
