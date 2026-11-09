@@ -67,8 +67,9 @@
 ### ✅ تكامل مراحل SaaS 1+2+3 — اختبارات مشتركة ناجحة (NOT PRODUCTION)
 
 - [x] [فرع التكامل المشترك](https://github.com/OnTrack-Development/OnTrack-voice/tree/fix/saas-integrated-phases123-20261109): تم جمع تعديلات أمن Phase1 وTenant/Flow/Knowledge/Call/Billing Phase2 وReseller Plan UI Phase3، مع الحفاظ على Quick Answer وBilling/Plans عند تسوية `Views.php`.
-- [x] [CI موثق #42557761596 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42557761596): **30 اختبار PHP معزولًا** + HTTP محلي لـLive + Ed25519 + PHP/JS lint + اختبار AI Floating Flow/QR/RTL routing، بدون نشر أو اتصال أو مدفوعات حقيقية.
+- [x] [CI موثق #42558225733 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42558225733): **43 اختبار PHP معزولًا** + HTTP محلي لـLive + **SSO HTTP فعلي على localhost (Cookies/CSRF/HMAC)** + Ed25519 + PHP/JS lint + اختبار AI Floating Flow/QR/RTL routing، بدون نشر أو اتصال أو مدفوعات حقيقية.
 - [x] إصلاح اختبار AI Flow قديم كي يتحقق من توقيع `showProposal(g,baseline=null)` الفعلي والحماية من تغيير المسودة أثناء مراجعة اقتراح AI، بدل إجبار الكود على دالة قديمة تكسرها.
+- [x] تم توسيع الاختبارات لتشمل Login throttle، Signup/Reset، White-label Domains، OpenAPI، Device Bootstrap، Protected Engine، Assistant keys وReseller Visibility مع نتيجة CI PASS. **الاختبارات محلية ولا تغني عن فحص الهوست.**
 - [ ] **10 بوابات Host/Phone/Checkout** موثّقة في [تقرير التكامل والقبول](SAAS_INTEGRATED_PHASES123_CI_AND_ACCEPTANCE_2026_11_09_AR.md)، وبالذات تدوير سر الصيانة واختبار الصوت من الطرفين دون تعطيل ميزة شغالة.
 - [ ] **لا إصدار أو نشر للـSaaS بعد:** CI offline pass ليس Host/Owner E2E، ويلزم Snapshot/Restore/Host SHA وrollback وخطة نشر مصرح.
 
