@@ -24,7 +24,10 @@ function field_html(string $label,string $name,string $type='text',string $place
     return '<label class="field">'.e($label).'<input name="'.e($name).'" type="'.e($type).'" placeholder="'.e($placeholder).'" '.($required?'required':'').' maxlength="190"></label>';
 }
 function submit_btn(string $label):string{return '<button type="submit" class="btn primary">'.e($label).'</button></form>';}
-function select_html(string $label,string $key,array $options,string $selected=''):string{
+function select_html(string $label,string $key,array $options,string|int $selected=''):string{
+    // Form select values are strings in HTML, but database IDs and time
+    // choices legitimately arrive as integers under PHP strict_types.
+    $selected=(string)$selected;
     $html='<label class="field">'.e($label).'<select name="'.e($key).'">';
     foreach($options as $val=>$desc)$html.='<option value="'.e((string)$val).'"'.((string)$val===$selected?' selected':'').'>'.e((string)$desc).'</option>';
     return $html.'</select></label>';
