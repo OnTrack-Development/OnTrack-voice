@@ -80,6 +80,13 @@
 - [x] **WEB-REL-03 / MySQL QA:** [GitHub Actions #42559141038 SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42559141038): مهاجرات/Seed كامل، Tenants/Plans/Flow/SIM/Knowledge/Call Reports/Usage/Staff، والتحقق من منع Duplicate Webhook على MySQL الحقيقي. لم يُستخدم هوست الإنتاج.
 - [ ] **REL-01/03 الإغلاق الكامل:** QA على نسخة من قاعدة الهوست الحالية، Backup+Restore، مقارنة Schema/IDs/Secrets، فحص الإصدار الجاري على الهاتف، ولا Merge/Deploy قبل اجتيازها.
 
+### ✅ WEB-UX-01 / WEB-UX-02 / WEB-CORE-02 — اختبارات متصفح حقيقية وPOST لم تعد مجرد Static Review
+
+- [x] [Actions #42564618431 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42564618431): Chrome/Chromium حقيقي على Linux CI، **237 صفحة/قياس** لحسابات الأدمن والريسيلر والعميل و9 أحجام شاشة؛ بدون مشاكل Overflow أو أعطال Theme/Drawer/AJAX Navigation.
+- [x] اختبار نموذج تغيير باقة ريسيلر حقيقي عبر جلسة Admin وPOST مع CSRF؛ حفظ الاشتراك وظهوره بحساب الريسيلر، ورفض تعديل ريسيلر آخر.
+- [x] اختبار حفظ ونشر سياسة الرد التلقائي بعد 5 ثوانٍ عبر HTTP Form حقيقي للعميل؛ فحص DB يثبت `published_agent_flow`، الحفاظ على Voice/Instructions/Knowledge، وعدم تمديد تاريخ الباقة أو تكرار الاشتراكات.
+- [ ] باقي واجهات الدفع وكاشير/دومينات وطلب موظف على الاستضافة والـPhysical Phone؛ لا إعتماد Host/Device حتى الآن. لا تُكرر إثبات Browser CI كإثبات ثبات الصوت على Oppo.
+
 ### ⛔ شروط الإغلاق التي ما زالت مفتوحة
 
 - [ ] **WEB-SEC-01:** تدوير السر المتسرب على الهوست، إبطال النسخة القديمة، التحقق من Git History و`dev_bridge.php` وسجل الوصول.
@@ -160,8 +167,8 @@
 
 | ID | الحالة الحالية | المهمة | ملفاتها المرجعية | معايير القبول |
 |---|---|---|---|---|
-| WEB-UX-01 | 🟡 شاشة ضبط الرد عولجت بالكود؛ باقي الأزرار غير مُعتمدة | تدقيق كل زر ونموذج ورابط ومفتاح Toggle (وظائف فعلية لا شكلية) | `Views.php`، `Actions.php`، `assets/js/app.js`، `flow-graph.js` | لكل Action: click → CSRF/RBAC → DB/state → refresh → feedback → error path؛ لا زر dead؛ Mobile/Desktop RTL/Light/Dark محفوظ. |
-| WEB-UX-02 | 🟡 إدارة خطة الريسيلر + CI Offline PASS؛ Checkout/Host E2E باقي | الباقات والإدارة والاشتراكات للريسيلر والعميل | `SubscriptionPlans.php`، `Views.php`، `Actions.php` | Admin يعدّل باقة Reseller، Reseller يختار/يعدل ضمن صلاحياته، الترقية/التخفيض/التجديد واضحة؛ preserve assigned plans & ledgers؛ لا اشتراك مدفوع تلقائي بسبب إنشاء الحساب إلا إذا Trial مصرح. |
+| WEB-UX-01 | 🟡 Chrome 237 فحص + نماذج تغيير باقات ورد 5 ثوانٍ مع إثبات DB؛ باقي الواجهات/Host E2E | تدقيق كل زر ونموذج ورابط ومفتاح Toggle (وظائف فعلية لا شكلية) | `Views.php`، `Actions.php`، `assets/js/app.js`، `flow-graph.js` | لكل Action: click → CSRF/RBAC → DB/state → refresh → feedback → error path؛ لا زر dead؛ Mobile/Desktop RTL/Light/Dark محفوظ. |
+| WEB-UX-02 | 🟡 إدارة خطة الريسيلر + Chrome/HTTP Form POST/DB PASS؛ Checkout/Host E2E باقي | الباقات والإدارة والاشتراكات للريسيلر والعميل | `SubscriptionPlans.php`، `Views.php`، `Actions.php` | Admin يعدّل باقة Reseller، Reseller يختار/يعدل ضمن صلاحياته، الترقية/التخفيض/التجديد واضحة؛ preserve assigned plans & ledgers؛ لا اشتراك مدفوع تلقائي بسبب إنشاء الحساب إلا إذا Trial مصرح. |
 | WEB-UX-03 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | End-to-end Billing/Kashier/manual/Wallet/Claim حسب القنوات المفعلة | Billing callbacks/`OrderClaim.php`/Outbox worker | Gateway webhook signature+amount+currency+invoice unique، paid_pending_claim قابل للربط الآمن، لا settlement وهمي؛ Refund/Retry/Expired tests؛ أي بوابة غير مفعلة لا تُعطل الحالية. |
 | WEB-UX-04 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | استكمال تسجيل/استعادة كلمة المرور دون MFA تجريبية | `Signup.php`، `index.php`، reset/email | Login البريد/كلمة المرور فقط، Reset token expiry، SSO signatures، Admin/Reseller/Customer، رسائل بريد حقيقية، عدم إزالة التسجيل حسب إعدادات Owner. |
 | WEB-UX-05 | ⬜ لا إغلاق موثّق ضمن خطة الإصلاح | ريسيلرز وWhite-label domains | domain worker + `Views.php` + Host config | TXT ownership ثم DNS/TLS/Host routing فعلي؛ Reseller branded Login/Register/Logo، عزل تام، لا تغيير Domain قائم حتى ينجح البديل. |
@@ -207,5 +214,5 @@
 `Task ID | Before/After behavior | Source SHA | Affected routes/DB | Tests + exact outputs | Preserved features evidence | Security impact | Host receipt (if published) | Rollback | PASS/FAIL/UNVERIFIED`.
 
 ### الحالة الحالية بعد التحديث
-**تم رفع تعديلات كود SaaS فعلية على فرع إصلاح مستقل، لكن لم تُدمج ولم تُنشر، ولم تثبت اختبارات CI/Host/E2E نجاح الإصلاحات.** لهذا لا تُوسم أي مهمة شاملة بـ `DONE` حتى تحقيق الـDoD المبين أعلاه.
+**تم رفع تعديلات SaaS على فرع إصلاح مستقل؛ اجتازت اختبارات CI/Chrome/HTTP/MySQL المعزولة، لكنها لم تُدمج في الإصدار ولم تُنشر ولم تجتز Host/Physical SIM/Payment E2E.** لهذا لا تُوسم أي مهمة شاملة بـ `DONE` حتى تحقيق الـDoD المبين أعلاه.
 **تأكيد المالك:** تم حذف `VS/`، ولا توجد مهمة SaaS متبقية تخصه.
