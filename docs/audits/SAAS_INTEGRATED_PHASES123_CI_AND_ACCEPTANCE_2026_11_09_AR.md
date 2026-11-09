@@ -20,12 +20,21 @@
 - PHP syntax لجميع `saas/console` ومداخل الـAPI وJavaScript syntax + Python compile.
 - Session-CSRF/Origin/Rate limit لـGemini Live وLocal HTTP بدون طلب فعلي إلى Google؛ رفض غير المصرح وحفاظ Contract الموبايل.
 - Auth للصيانة وCSRF لأداة Omnira، تحقق توقيع Ed25519 لوظائف Host-Link دون تنفيذها.
-- 43 اختبار SQLite معزولًا: Agent/Flow/KB، PDF حقيقي عبر Poppler المثبت على Runner، Tenant/SIM/Device Pairing، تقارير المكالمات والموظف، Google key failover بمزود Mock، اشتراكات/Checkout وكاشير، SSO، WHMCS/WhatsApp وDNC.
+- 43 اختبار SQLite معزولًا **بالإضافة إلى اختبار MySQL 8.0 مستقل حقيقي**: Agent/Flow/KB، PDF حقيقي عبر Poppler المثبت على Runner، Tenant/SIM/Device Pairing، تقارير المكالمات والموظف، Google key failover بمزود Mock، اشتراكات/Checkout وكاشير، SSO، WHMCS/WhatsApp وDNC.
 - UI static: Modal/AJAX، Graph Routing، Floating AI Flow وFullscreen، وQR.
 - **توسعة الاعتماد:** Auth login throttling، إخفاء وإظهار Reseller، تسجيل العملاء والتحقق من البريد وإعادة كلمة المرور، White-label/Domain isolation، Voice OpenAPI، Protected Engine signing، Device bootstrap، مفاتيح Assistant، سيناريوهات Agent، Dynamic Agent Studio وDNC Actions.
 - **SSO HTTP على localhost:** تسجيل دخول فعلي بجلسة Cookie وCSRF وتوقيع HMAC، رفض Replay وعزل الحسابات؛ `VOICE_SSO_HTTP_PASS`. لا استدعاء WHMCS خارجي.
 - أكد `SAAS_INTEGRATED_ISOLATED_MATRIX_PASS suite_count=43`، `FLOATING_FLOW_CHAT_AND_FULLSCREEN_CANVAS_PASS`، `SAAS_INTEGRATED_NO_NATIVE_APK_OTA_DEPLOY_PASS`.
 - جميعها **CI Offline**؛ ليس لها سلطة إثبات الصوت الحقيقي أو صلاحية مفاتيح Google أو مرور الدفع على الاستضافة.
+
+## فحص MySQL 8 الحقيقي على بيئة مؤقتة (ليس هوست الإنتاج)
+
+- **[GitHub Actions MySQL #42559141038](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42559141038): SUCCESS.** فحص حقيقي عبر PDO_mysql وMySQL 8.0.46 على خدمة Docker مؤقتة، وليس SQLite أو محاكاة SQL فقط.
+- **Bug فعلي مكتشف ومصلح:** ملف saas/console/database/schema.mysql.sql كان يحتوي events.external_id TEXT مع UNIQUE(integration_id,external_id) بدون طول Index، مما يعطل تثبيت قاعدة MySQL جديدة بخطأ SQLSTATE 42000 / 1170. أصبح العمود VARCHAR(190)، متوافقًا مع Validator الحالي في hooks/index.php الذي يحد event_id إلى 128 حرفًا، دون مسح صفوف أو تغيير جداول مثبتة.
+- فحص MySQL يغطي تنفيذ migrations الكامل، Seed لحسابات معزولة، Tenant separation، التغيير الذري للاشتراكات، نشر Flow، ربط SIM تجريبي، البحث في Knowledge ومنع تسريب المستأجر، تقرير المكالمة واستهلاك متصل مرة واحدة، منع إشعار موظف رجعي، وعرض باقة العميل النشطة.
+- تم التحقق من إضافة حدث Webhook بمعرّف 128 حرفًا في MySQL ورفض إعادة إرسال نفس المعرّف عبر Unique Index بخطأ 23000.
+- **QA History:** أول تشغيل MySQL كشف خطأ Schema حقيقي، ثم أصلحنا Schema والـFixture واستمر اختبار Docker حتى PASS. لا بيانات من الاستضافة ولا اتصال Provider.
+- **قيد النشر:** شهادة MySQL 8 الجديدة لا تثبت سلامة migrations على قاعدة MySQL حيّة ببيانات، ولا أن Backup/Restore جرى على الهوست. يلزم Host preflight على نسخة معزولة من البيانات الحالية قبل التحديث.
 
 ## بوابات قبول قبل أي نشر / اختبار على النسخة الحية
 
