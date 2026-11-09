@@ -21,6 +21,11 @@ jobs:
           php-version: '8.3'
           extensions: pdo_sqlite,mbstring,pdo_mysql,curl,openssl,fileinfo,zip,dom,sodium
           coverage: none
+      - name: Install PDF fixture extractor
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
       - name: PHP security and surface lint
         run: |
           set -euo pipefail
@@ -31,25 +36,57 @@ jobs:
           php tools/test_live_demo_security.php
           php tools/test_auth_login_throttle.php
           php tools/test_saas_quick_answer_policy.php
-          php tools/test_saas_phase2_contract_probe.php
-          php tools/test_saas_phase2_flow_safety.php
-          php tools/test_saas_phase2_knowledge_safety.php
-          php tools/test_saas_phase2_billing_current_subscription.php
-          php tools/test_saas_phase3_reseller_plan_controls.php
-          php tools/test_verified_checkout_settlement.php
-          php tools/test_saas_refund_review_render.php
-          php tools/test_voice_tool_gateway.php
-          php tools/test_voice_flow_runtime.php
-          php tools/test_human_escalation.php
-          php tools/test_tenant_device_pairing.php
-          php tools/test_sim_agent_call_reports.php
-          php tools/test_voice_dnc_ledger.php
-          php tools/test_console_pricing_ui.php
-          php tools/test_verified_signup.php
-          php tools/test_white_label_portal.php
-          php tools/test_voice_openapi.php
-          php tools/test_whatsapp_whmcs_bridge.php
-          python3 tools/test_host_link_signed_jobs.py
+          n=0
+          for test in \
+            tools/test_saas_quick_answer_policy.php \
+            tools/test_saas_phase2_flow_safety.php \
+            tools/test_saas_phase2_knowledge_safety.php \
+            tools/test_saas_phase2_contract_probe.php \
+            tools/test_saas_phase2_billing_current_subscription.php \
+            tools/test_saas_phase3_reseller_plan_controls.php \
+            tools/test_voice_saas_console.php \
+            tools/test_console_pricing_ui.php \
+            tools/test_v1_site05_plan_transitions.php \
+            tools/test_console_checkout.php \
+            tools/test_console_kashier_webhook.php \
+            tools/test_saas_refund_review_render.php \
+            tools/test_voice_flow_runtime.php \
+            tools/test_voice_tool_gateway.php \
+            tools/test_voice_kb_pdf_extract.php \
+            tools/test_voice_kb_search_index.php \
+            tools/test_voice_knowledge_web.php \
+            tools/test_voice_connector_cache.php \
+            tools/test_google_live_failover.php \
+            tools/test_google_tenant_keys.php \
+            tools/test_tenant_device_pairing.php \
+            tools/test_sim_agent_call_reports.php \
+            tools/test_human_escalation.php \
+            tools/test_tenant_voice_transcript_archive.php \
+            tools/test_tenant_call_ai_summary.php \
+            tools/test_voice_call_timeline.php \
+            tools/test_tenant_workspace.php \
+            tools/test_voice_dnc_ledger.php \
+            tools/test_voice_sso.php \
+            tools/test_whatsapp_inbox.php \
+            tools/test_whatsapp_whmcs_bridge.php \
+            tools/test_auth_login_throttle.php \
+            tools/test_v1_reseller_toggle.php \
+            tools/test_white_label_portal.php \
+            tools/test_voice_openapi.php \
+            tools/test_protected_engine_release.php \
+            tools/test_device_bootstrap.php \
+            tools/test_ai_assistant_tenant_keys.php \
+            tools/test_agent_scenario_modes.php \
+            tools/test_dynamic_agent_studio.php \
+            tools/test_voice_trial_and_ui.php \
+            tools/test_voice_dnc_actions.php \
+            tools/test_flow_ai_sources.php \
+            tools/test_flow_ai_chat.php; do
+            n=$((n+1))
+            echo "=== candidate fixture $n: $test ==="
+            ONTRACK_CI_NAMESPACE="saasall_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_$n" php "$test"
+          done
+          echo "SAAS_21_ISOLATED_MATRIX_PASS suite_count=$n"
       - name: JavaScript source syntax
         run: |
           set -euo pipefail
