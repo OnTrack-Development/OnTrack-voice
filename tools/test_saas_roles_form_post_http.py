@@ -101,6 +101,47 @@ def main():
     })
     ensure(status == 200 and "تم حفظ ونشر سياسة الرد" in saved,
            "customer published 5 second answering policy through POST")
+    status, _, campaigns = request(customer, "/saas/console/?tab=campaigns")
+    ensure(status == 200 and 'value="add_campaign"' in campaigns,
+           "customer has real campaigns creation form")
+    status, _, new_campaign = request(customer, "/saas/console/", {
+        "csrf": csrf(campaigns), "action": "add_campaign",
+        "return": "/?tab=campaigns", "site_id": "1",
+        "name": "Browser safety campaign - no calls"
+    })
+    ensure(status == 200 and "Browser safety campaign - no calls" in new_campaign,
+           "campaign draft created without dialing any contact")
+    status, _, paused = request(customer, "/saas/console/", {
+        "csrf": csrf(new_campaign), "action": "update_campaign",
+        "return": "/?tab=campaigns", "campaign_id": "1",
+        "name": "متابعة طلبات تجريبية", "status": "paused"
+    })
+    ensure(status == 200, "customer paused a seeded draft campaign")
+    status, _, refused_start = request(customer, "/saas/console/", {
+        "csrf": csrf(paused), "action": "update_campaign",
+        "return": "/?tab=campaigns", "campaign_id": "1",
+        "name": "متابعة طلبات تجريبية", "status": "running"
+    })
+    ensure(status in (200, 400, 422), "unsafe campaign start cannot crash service")
+    status, _, contacts = request(customer, "/saas/console/?tab=contacts")
+    ensure(status == 200 and 'value="add_contact"' in contacts,
+           "customer can view consent-gated contacts form")
+    phone = "+99900000123"
+    status, _, refused = request(customer, "/saas/console/", {
+        "csrf": csrf(contacts), "action": "add_contact",
+        "return": "/?tab=contacts", "site_id": "1",
+        "name": "Synthetic denied consent", "phone": phone
+    })
+    ensure(status in (200, 400, 422), "unconsented contact form handled safely")
+    status, _, kept = request(customer, "/saas/console/", {
+        "csrf": csrf(refused), "action": "add_contact",
+        "return": "/?tab=contacts", "site_id": "1",
+        "name": "Synthetic DNC opt-out", "phone": phone,
+        "consent": "1", "dnc": "1"
+    })
+    ensure(status == 200 and "Synthetic DNC opt-out" in kept,
+           "consented opt-out contact saved in customer workspace")
+    print("SAAS_REAL_HTTP_CAMPAIGN_DRAFT_DNC_AND_NO_DIAL_FORMS_PASS", flush=True)
     print("SAAS_REAL_HTTP_ADMIN_RESELLER_CUSTOMER_FORMS_PASS", flush=True)
 
 
