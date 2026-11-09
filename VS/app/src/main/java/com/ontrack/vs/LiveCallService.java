@@ -122,9 +122,11 @@ public final class LiveCallService extends Service {
             // fail closed and promptly restore the original call.
             active = true;
             state("مسار OnTrack Shell نشط تجريبيًا؛ يجري التحقق من الصوت...");
+            // Keep resampler state between shell packets and Fish windows, as in OnTrack Voice.
+            CallPcm converter = new CallPcm("right");
             int emptyWindows = 0;
             while (!stopRequested && manager.getMode() == AudioManager.MODE_IN_CALL) {
-                byte[] pcm = readSpeechWindow(bridge);
+                byte[] pcm = readSpeechWindow(bridge, converter);
                 if (stopRequested) { Arrays.fill(pcm, (byte)0); break; }
                 if (!containsSpeech(pcm)) {
                     emptyWindows++;
@@ -183,14 +185,14 @@ public final class LiveCallService extends Service {
      * right side for user's voice, three 48k frames averaged to one 16k
      * sample. Only small temporary RAM buffers; no recording files.
      */
-    private byte[] readSpeechWindow(VsCallBridge link) throws Exception {
+    private byte[] readSpeechWindow(VsCallBridge link, CallPcm converter) throws Exception {
         ByteArrayOutputStream speech = new ByteArrayOutputStream(64000);
         long deadline = android.os.SystemClock.elapsedRealtime() + 3500;
         while (!stopRequested && speech.size() < 64000
                 && android.os.SystemClock.elapsedRealtime() < deadline) {
             byte[] stereo = link.capture();
             try {
-                byte[] mono = CallPcm.fromStereo48k(stereo, true);
+                byte[] mono = converter.input(stereo);
                 try { speech.write(mono, 0, mono.length); }
                 finally { Arrays.fill(mono, (byte) 0); }
             } finally { Arrays.fill(stereo, (byte) 0); }
