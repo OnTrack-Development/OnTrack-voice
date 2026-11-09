@@ -1,0 +1,46 @@
+name: SaaS Phase 1 public Live demo security and non-regression
+on:
+  push:
+    branches:
+      - fix/saas-phase1-security-nonregression-20261109
+    paths:
+      - 'api/LiveSessionSecurity.php'
+      - 'api/live_session.php'
+      - 'index.php'
+      - 'assets/app.js'
+      - 'saas/mobile/server/session.php'
+      - 'UPLOAD_TO_ROOT.txt'
+      - '.htaccess'
+      - 'tools/test_live_demo_security.php'
+      - '.github/workflows/saas-phase1-live-demo-security-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    name: Root demo security checks (NO DEPLOY)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, curl
+          coverage: none
+      - name: PHP syntax checks
+        run: |
+          set -eu
+          php -l api/LiveSessionSecurity.php
+          php -l api/live_session.php
+          php -l index.php
+          php -l saas/mobile/server/session.php
+          php -l tools/test_live_demo_security.php
+      - name: Server-side CSRF, origin, quota, and legacy contract tests
+        run: php tools/test_live_demo_security.php
+      - name: JavaScript syntax and diff hygiene
+        run: |
+          node --check assets/app.js
+          git diff --check HEAD~1 HEAD
