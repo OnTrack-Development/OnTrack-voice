@@ -34,8 +34,8 @@ ux3_assert(str_contains($resellerView,'tab=billing') &&
 ux3_assert(!str_contains($resellerView,'إدارة اشتراكات الريسيلرز'),
     'reseller cannot see platform plan reassignment form');
 $_SESSION=['uid'=>(int)$admin['id'],'account_id'=>1,'console_view'=>'admin'];
-$plan=one("SELECT id,price_minor FROM plans WHERE kind='reseller' ORDER BY id LIMIT 1");
-ux3_assert($plan!==null,'active wholesale plan fixture');
+$originalResellerPrices=all("SELECT id,price_minor FROM plans WHERE kind='reseller' ORDER BY id");
+ux3_assert($originalResellerPrices!==[],'active wholesale plan fixture');
 try{
     execute("UPDATE plans SET price_minor=12345 WHERE kind='reseller'");
     putenv('ONTRACK_DEMO');
@@ -52,7 +52,8 @@ try{
     ux3_assert(!str_contains($hidden,'إدارة اشتراكات الريسيلرز'),
         'explicit reseller visibility toggle is respected, not bypassed');
 }finally {
-    execute("UPDATE plans SET price_minor=? WHERE id=?",[(int)$plan['price_minor'],(int)$plan['id']]);
+    foreach($originalResellerPrices as $row)
+        execute("UPDATE plans SET price_minor=? WHERE id=?",[(int)$row['price_minor'],(int)$row['id']]);
     platform_set_resellers_visible(true);
     putenv('ONTRACK_DEMO');
 }
