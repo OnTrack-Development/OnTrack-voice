@@ -18,4 +18,7 @@ $ontrackMobileInstruction=(string)$mobile['instruction']."\n\n".
 // New root layout keeps the legacy Pilot builder protected under /mobile.
 $pilotBuilder=__DIR__.'/pilot_api/live_session.php';
 if(is_file($pilotBuilder))require $pilotBuilder;
-else require dirname(__DIR__,2).'/api/live_session.php'; // pre-migration installations only
+else { // pre-migration installations only; bearer already verified by mobile_require_device().
+    define('ONTRACK_INTERNAL_MOBILE_LIVE_SESSION', true);
+    require dirname(__DIR__,2).'/api/live_session.php';
+}
