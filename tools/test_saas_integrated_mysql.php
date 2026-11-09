@@ -189,5 +189,31 @@ mysql_qa((int)one("SELECT COUNT(*) n FROM orders
     WHERE id=? AND status='active' AND amount_minor=2575",[$payOrder])['n']===1,
     'order keeps its original signed 2575 minor-unit charge despite new public price');
 echo "SAAS_REAL_MYSQL_KASHIER_RENEWAL_ORDER_SNAPSHOT_PASS\n";
+$refundBody=$webhook;
+$refundBody['event']='refund';
+$refundBody['data']['transactionId']='RF_'.bin2hex(random_bytes(16));
+$refundSigned=kashier_signature($refundBody['data'],'CI-only-signing-key-not-real');
+mysql_qa(kashier_verified($refundBody,(string)$refundSigned,
+    'CI-only-signing-key-not-real'),
+    'real MySQL refund fixture uses authenticated provider HMAC');
+$refundRecorded=kashier_settle($refundBody,null);
+mysql_qa($refundRecorded['status']==='adjustment_pending_review'
+    && !$refundRecorded['duplicate'],
+    'signed refund retained for finance review on real InnoDB');
+mysql_qa(kashier_settle($refundBody,null)['duplicate']===true,
+    'real InnoDB refund replay cannot create a second audit event');
+mysql_qa((int)one("SELECT COUNT(*) n FROM kashier_payment_adjustments
+    WHERE order_id=?",[$payOrder])['n']===1,
+    'unique refund audit row persisted on real MySQL');
+ob_start();
+render_billing(['account_id'=>4,'kind'=>'customer','role'=>'owner']);
+$financeHtml=(string)ob_get_clean();
+mysql_qa(str_contains($financeHtml,'مراجعات الاسترداد')
+    && str_contains($financeHtml,$paymentRef),
+    'customer finance owner can see signed adjustment in Billing');
+mysql_qa((string)one("SELECT status FROM orders WHERE id=?",[$payOrder])['status']==='active',
+    'signed refund does not silently revoke existing paid account');
+echo "SAAS_REAL_MYSQL_KASHIER_REFUND_REVIEW_AND_REPLAY_PASS\n";
+
 
 echo "SAAS_REAL_MYSQL_MIGRATIONS_TENANCY_PLANS_FLOW_KB_SIM_CALLS_BILLING_PASS\n";
