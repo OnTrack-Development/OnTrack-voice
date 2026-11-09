@@ -36,6 +36,10 @@ function test_tenant_device_pairing():void {
     $session=device_binding_authorize($a['device_token']);
     ok($session!==null && (int)$session['account_id']===4,'issued SIM token authenticates only its tenant');
     $profile=device_binding_heartbeat($session);
+    $repeatHeartbeat=device_binding_heartbeat($session);
+    ok($repeatHeartbeat['device_id']===$profile['device_id'] &&
+        $repeatHeartbeat['account_id']===$profile['account_id'],
+        'same-second repeated heartbeat stays authenticated');
     ok($profile['account_id']===4 && $profile['agent_name']==='مساعد المتجر',
         'heartbeat serves correct account and agent policy');
     ok($profile['account_name']===(string)account(4)['name'] && $profile['account_name']!=='',
