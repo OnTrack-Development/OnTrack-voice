@@ -14,6 +14,9 @@ on:
       - 'tools/test_live_demo_security.php'
       - 'tools/test_saas_security_guards.php'
       - 'tools/provision_maintenance_token.php'
+      - 'ops/host-link/worker.py'
+      - 'ops/host-link/sign_job.py'
+      - 'tools/test_host_link_signed_jobs.py'
       - 'api/MaintenanceAuth.php'
       - 'api/MaintenanceBrowser.php'
       - 'api/setup_demo.php'
@@ -98,6 +101,10 @@ jobs:
           assert "ontrackMobileRequest" in patched
           print('MOBILE_LEGACY_DEPLOY_ADAPTER_COMPAT_PASS')
           PY
+      - name: Host-link signing and tamper tests (no real jobs)
+        run: |
+          python3 -m py_compile ops/host-link/worker.py ops/host-link/sign_job.py tools/test_host_link_signed_jobs.py
+          python3 tools/test_host_link_signed_jobs.py
       - name: JavaScript syntax and diff hygiene
         run: |
           node --check assets/app.js
