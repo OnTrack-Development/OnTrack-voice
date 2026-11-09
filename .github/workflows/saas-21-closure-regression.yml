@@ -32,6 +32,7 @@ jobs:
           find api saas/console/_core -type f -name '*.php' -print0 | xargs -0 -n1 php -l >/tmp/saas-php-lint.txt
           php -l omnira_api_tester.php
           php tools/test_saas_diag_security.php
+          php tools/test_saas_trace_redaction.php
           php tools/test_saas_security_guards.php
           php tools/test_live_demo_security.php
           php tools/test_auth_login_throttle.php
