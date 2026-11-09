@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - fix/saas-integrated-phases123-20261109
+      - fix/saas-21-closure-20261110
     paths:
       - 'saas/console/**'
       - 'tools/audit_saas_responsive.cjs'
