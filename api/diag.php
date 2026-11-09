@@ -3,7 +3,8 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-const TOKEN_HASH = '60a11e1fa3f8f0ddc9b4711cff115079450e4672b8a0f3c2c1435361f4bb67f7';
+require_once __DIR__.'/MaintenanceAuth.php';
+ontrack_maintenance_require('GET');
 
 function out(array $data, int $status=200): never {
     http_response_code($status);
@@ -34,8 +35,7 @@ function curl_req(string $method, string $url, array $headers=[], ?string $body=
     return [$code, is_string($raw)?$raw:'', $ctype, $err];
 }
 
-$token=(string)($_SERVER['HTTP_X_MAINTENANCE_TOKEN'] ?? ($_GET['token'] ?? ''));
-if (!hash_equals(TOKEN_HASH, hash('sha256',$token))) out(['ok'=>false,'error'=>'unauthorized'],401);
+// Access is restricted to the operator's header credential, not URL tokens.
 
 $config = require __DIR__ . '/demo_config.php';
 $key = (string)($config['gemini_api_key'] ?? '');

@@ -533,7 +533,11 @@ async function stopMicrophone() {
 async function getEphemeralSession() {
   const r = await fetch('api/live_session.php', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {
+      'Content-Type': 'application/json',
+      'X-OnTrack-Live-CSRF': document.querySelector('meta[name="ontrack-live-csrf"]')?.content || ''
+    },
+    credentials: 'same-origin',
     body: JSON.stringify(sessionMode === 'outbound' ? {mode: 'outbound', mission: sessionMission} : {mode: 'demo'}),
     cache: 'no-store'
   });

@@ -6,6 +6,8 @@
  */
 declare(strict_types=1);
 
+require_once __DIR__.'/api/MaintenanceBrowser.php';
+$maintenanceCsrf=ontrack_maintenance_browser_require();
 const OMNIRA_ORIGIN = 'https://ai.omnira-ai.net';
 const RESPONSE_LIMIT = 300000;
 
@@ -47,6 +49,8 @@ function collectText(array $parsed): string {
     return implode("\n", $parts);
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!ontrack_maintenance_browser_csrf($_SERVER,$maintenanceCsrf))
+        ontrack_maintenance_fail(403,'maintenance_csrf_invalid');
     if (!extension_loaded('curl')) respond(['ok'=>false, 'error'=>'PHP cURL extension is not installed.']);
     if (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== 'OmniraTester') respond(['ok'=>false,'error'=>'Invalid request.']);
     $key = trim((string)($_POST['api_key'] ?? ''));
@@ -165,6 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8" />
+<meta name="ontrack-maintenance-csrf" content="<?= htmlspecialchars($maintenanceCsrf,ENT_QUOTES,'UTF-8') ?>" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <meta name="robots" content="noindex,nofollow" />
 <title>Omnira · API Diagnostics</title>
@@ -202,7 +207,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
    buttons.forEach(x=>x.disabled=true);$('text').textContent='جاري الاتصال...';$('raw').textContent='';setStatus('جارٍ الاختبار...',null);
    let data=new FormData();data.set('api_key',$('apiKey').value.trim());data.set('model',$('model').value.trim());data.set('auth',$('auth').value);data.set('prompt',$('prompt').value);data.set('test',b.dataset.test);
    try {
-     const r=await fetch(location.href,{method:'POST',body:data,credentials:'same-origin',headers:{'X-Requested-With':'OmniraTester','Accept':'application/json'},redirect:'error',cache:'no-store'});
+     const r=await fetch(location.href,{method:'POST',body:data,credentials:'same-origin',headers:{'X-Requested-With':'OmniraTester','Accept':'application/json','X-OnTrack-Maintenance-CSRF':document.querySelector('meta[name="ontrack-maintenance-csrf"]').content},redirect:'error',cache:'no-store'});
      const j=await r.json();last=j;setStatus(j.ok?'تم استلام رد ناجح':'الاختبار فشل أو رُفض',j.ok===true);
      $('http').textContent=j.http_status||'—';$('total').textContent=j.timing?.total_ms!=null?`${j.timing.total_ms} ms`:'—';$('ttfb').textContent=j.timing?.ttfb_ms!=null?`${j.timing.ttfb_ms} ms`:'—';
      $('text').textContent=j.text||j.json?.error?.message||j.error||j.curl_error?.message||j.raw_preview||'No text received';

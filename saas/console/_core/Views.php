@@ -1244,9 +1244,20 @@ function render_answering(array $a):void {
     foreach($agents as $agent){
         $policy=answer_policy_for_agent($id,(int)$agent['id']);
         $url='/?tab=agents&site='.(int)$agent['site_id'].'&agent='.(int)$agent['id'].'#agent-'.(int)$agent['id'];
+        $quickForm='';
+        if(allowed('agents.write')){
+            $quickForm=form_start('update_answer_policy_quick','/?tab=answering','class="inline-form"').
+                '<input type="hidden" name="agent_id" value="'.(int)$agent['id'].'">'.
+                '<label class="field">مهلة الرد (ثوانٍ)<input type="number" name="answer_delay_seconds" min="0" max="30" required value="'.(int)$policy['answer_delay_seconds'].'"></label>'.
+                '<label class="field"><input type="checkbox" name="auto_answer"'.
+                    ($policy['auto_answer']?' checked':'').'> رد تلقائي</label>'.
+                '<button class="btn small primary" type="submit" name="publish_now" value="1">حفظ ونشر للشريحة</button>'.
+                '<button class="btn small" type="submit" name="publish_now" value="0">حفظ كمسودة</button></form>';
+        }
         $rows[]=[e($agent['name']),$policy['auto_answer']?'مُعدّ للرد الآلي':'يدوي',
             (int)$policy['answer_delay_seconds'].' ثوانٍ',
-            '<a class="btn small primary" href="'.e($url).'">تعديل إعدادات الرد ←</a>'];
+            ($quickForm!==''?$quickForm:'').
+            '<a class="btn small" href="'.e($url).'">باقي إعدادات الإيجنت ←</a>'];
     }
     echo card('إعدادات الرد بحسب المساعد',tbl(['المساعد','السياسة','التأخير','التعديل'],$rows));
 }

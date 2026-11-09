@@ -5,10 +5,10 @@ ONTRACK VOICE TEMP DEV BRIDGE
 لا تنشئ فولدر جديد.
 
 Maintenance token:
-GF6_1W21Hc4khNPB53jz6n6UfX0ZUo94s0Diy_SDIEk
+REDACTED — maintenance secret must remain in the host's private store, never in Git.
 
 بعد الرفع افتح:
-https://YOUR-SUBDOMAIN/dev_bridge.php?action=status&token=GF6_1W21Hc4khNPB53jz6n6UfX0ZUo94s0Diy_SDIEk
+Legacy dev_bridge.php URL disabled for new setups. Use authenticated internal maintenance tools.
 
 المفروض يرجع JSON وفيه ok=true.
 بعدها ارجع للشات واكتب: تم

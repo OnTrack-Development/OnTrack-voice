@@ -9,6 +9,8 @@ import ssl
 import struct
 import urllib.parse
 import urllib.request
+from http.cookiejar import CookieJar
+import re
 
 
 def read_exact(stream, count):
@@ -31,8 +33,19 @@ def send(stream, payload, opcode=1):
 
 def attempt(encoded=True, version="v1alpha", method="BidiGenerateContentConstrained"):
     result = {'query_encoding':'percent' if encoded else 'sdk_literal','api_version':version,'method':method,'audio_sent':False}
-    request=urllib.request.Request('https://app.ontrackegy.com/api/live_session.php',data=b'{"mode":"demo"}',headers={'Content-Type':'application/json'})
-    with urllib.request.urlopen(request,timeout=15) as response:
+    # Respect the same browser session + nonce contract as index.php; never
+    # bypass the public session guard or log the ephemeral bearer.
+    opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(CookieJar()))
+    with opener.open('https://app.ontrackegy.com/', timeout=15) as page:
+        html=page.read(500000).decode('utf-8','replace')
+    nonce=re.search(r'name="ontrack-live-csrf" content="([a-f0-9]{64})"', html)
+    if not nonce:
+        raise RuntimeError('OnTrack Live session CSRF nonce unavailable')
+    request=urllib.request.Request('https://app.ontrackegy.com/api/live_session.php',
+        data=b'{"mode":"demo"}',
+        headers={'Content-Type':'application/json','X-OnTrack-Live-CSRF':nonce.group(1),
+                 'Origin':'https://app.ontrackegy.com'})
+    with opener.open(request,timeout=15) as response:
         result['session_http']=response.status
         info=json.loads(response.read(250000))
     token=info.get('token','')
