@@ -10,8 +10,6 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioManager;
-import android.media.AudioRecord;
-import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.IBinder;
 import java.io.ByteArrayOutputStream;
@@ -34,7 +32,6 @@ public final class LiveCallService extends Service {
     private volatile boolean bridgeMutatedMicrophone;
     private volatile boolean initialMicMuted;
     private volatile String lastError;
-    private volatile AudioRecord capture;
     private volatile VsCallBridge bridge;
     private Thread worker;
 
@@ -91,9 +88,7 @@ public final class LiveCallService extends Service {
 
     private void runSession() {
         try {
-            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-                != PackageManager.PERMISSION_GRANTED)
-                throw new IllegalStateException("إذن الميكروفون غير مفعّل");
+            // The ADB shell helper captures VOICE_CALL, not Android app MIC.
             AudioManager manager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
             if (manager == null || manager.getMode() != AudioManager.MODE_IN_CALL)
                 throw new IllegalStateException("مفيش مكالمة SIM نشطة");
@@ -101,20 +96,10 @@ public final class LiveCallService extends Service {
             if (apiKey.length() < 10)
                 throw new IllegalStateException("اضبط مفتاح Fish Audio الأول");
             initialMicMuted = manager.isMicrophoneMute();
-            // Open the user's VS microphone FIRST, before asking the shell
-            // to mute the cellular call. On some OEMs the voice-call capture
-            // priority rejects a second microphone even before muting.
-            state("بفتح مايك VS المباشر، من غير تسجيل مكالمة...");
-            int n = AudioRecord.getMinBufferSize(16000,
-                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
-            if (n <= 0) throw new IllegalStateException("المايك غير متاح أثناء المكالمة");
-            capture = new AudioRecord(MediaRecorder.AudioSource.MIC, 16000,
-                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
-                Math.max(n, 6400));
-            if (capture.getState() != AudioRecord.STATE_INITIALIZED)
-                throw new IllegalStateException("مايك VS لم يتهيأ أثناء المكالمة");
-            capture.startRecording();
-            state("جاري فحص مسار الصوت وكتم مايك المكالمة فقط...");
+            // Receive the same 48k stereo shell VOICE_CALL PCM path that
+            // OnTrack Voice uses, then isolate the user's configured channel.
+            // Never activate a parallel Android app MIC during a SIM call.
+            state("بفتح مسار صوت الشريحة من Shell، من غير تسجيل...");
             bridge = VsCallBridge.connect(this);
             String result = bridge.start();
             if (!result.startsWith("ACTIVE")) {
@@ -124,10 +109,10 @@ public final class LiveCallService extends Service {
             // If the OEM's global mute also silences the VS microphone,
             // fail closed and promptly restore the original call.
             active = true;
-            state("تشغيل تجريبي: المايك الأصلي مكتوم، ويتم فحص صوتك...");
+            state("مسار OnTrack Shell نشط تجريبيًا؛ يجري التحقق من الصوت...");
             int emptyWindows = 0;
             while (!stopRequested && manager.getMode() == AudioManager.MODE_IN_CALL) {
-                byte[] pcm = readSpeechWindow(capture);
+                byte[] pcm = readSpeechWindow(bridge);
                 if (stopRequested) { Arrays.fill(pcm, (byte)0); break; }
                 if (!containsSpeech(pcm)) {
                     emptyWindows++;
@@ -181,19 +166,24 @@ public final class LiveCallService extends Service {
         }
     }
 
-    private byte[] readSpeechWindow(AudioRecord mic) throws Exception {
-        ByteArrayOutputStream window = new ByteArrayOutputStream(64000);
-        byte[] block = new byte[3200];
-        long deadline = android.os.SystemClock.elapsedRealtime() + 2500;
-        try {
-            while (!stopRequested && window.size() < 64000
+    /**
+     * Same stereo VOICE_CALL-to-16k downmix as OnTrack Voice's LinkPcm:
+     * right side for user's voice, three 48k frames averaged to one 16k
+     * sample. Only small temporary RAM buffers; no recording files.
+     */
+    private byte[] readSpeechWindow(VsCallBridge link) throws Exception {
+        ByteArrayOutputStream speech = new ByteArrayOutputStream(64000);
+        long deadline = android.os.SystemClock.elapsedRealtime() + 3500;
+        while (!stopRequested && speech.size() < 64000
                 && android.os.SystemClock.elapsedRealtime() < deadline) {
-                int n = mic.read(block, 0, block.length);
-                if (n < 0) throw new IllegalStateException("انقطع مدخل الميكروفون");
-                if (n > 0) window.write(block, 0, n);
-            }
-            return window.toByteArray();
-        } finally { Arrays.fill(block, (byte)0); }
+            byte[] stereo = link.capture();
+            try {
+                byte[] mono = CallPcm.fromStereo48k(stereo, true);
+                try { speech.write(mono, 0, mono.length); }
+                finally { Arrays.fill(mono, (byte) 0); }
+            } finally { Arrays.fill(stereo, (byte) 0); }
+        }
+        return speech.toByteArray();
     }
 
     private boolean containsSpeech(byte[] pcm) {
@@ -211,12 +201,6 @@ public final class LiveCallService extends Service {
         stopRequested = true;
         active = false;
         connecting = false;
-        AudioRecord mic = capture;
-        capture = null;
-        if (mic != null) {
-            try { mic.stop(); } catch (Exception ignored) {}
-            try { mic.release(); } catch (Exception ignored) {}
-        }
         VsCallBridge b = bridge;
         bridge = null;
         if (b != null) {
