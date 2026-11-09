@@ -63,3 +63,9 @@ The owner has explicitly declared `VS/` a future, independent, **test-only place
 ## Status
 
 VS v0.1.0 APK **was built on the Windows runner** and installed/tested on the owner's handset. The owner observed local Fish voice playback but **the SIM call still transmitted the real microphone**. VS v0.2.0 adds UI, permission, and overlay fixes; compilation must be checked on its new commit before delivery. The intended SIM voice replacement is **FAILED / BLOCKED under current unprivileged Android constraints**, not implemented. No two-phone success proof exists.
+
+## VS 0.6.0 — OnTrack Voice call path parity (2026-11-09)
+
+The owner explicitly authorized taking the **same native floating-call UI** and **shell VOICE_CALL PCM path** from OnTrack Voice into isolated VS. VS now has a 58dp draggable button, expanded 284dp RTL 2×2 grid, real start/stop, takeover, speaker and app actions. The experimental VS helper now captures stereo PCM16 at 48 kHz from the **shell's VOICE_CALL source**, matching OnTrack Voice's phone capture rather than trying to record the app microphone during a SIM call. In-memory left/right-channel downmix uses the original LinkPcm 48k-to-16k approach (user channel right), then Fish ASR -> Drama 3 -> 48k PCM -> shell telephony media/uplink route. Temporary buffers are cleared; no call files, automatic recording, or call archives are added to VS. Fish ASR necessarily transmits the user's brief audio sample to Fish's API for conversion.
+
+**Remaining gate:** APK compilation and actual two-handset confirmation; the shell's audio route readback is not evidence that the far end hears exclusively Fish. Manual ADB helper start may still be necessary; OnTrack's fully automatic device-pairing lifecycle has not been ported. If the shell capture fails or post-mute audio becomes silent, VS stops and requests original mic restoration. The existing OnTrack Voice app, keys and SaaS are not changed.
