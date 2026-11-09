@@ -292,14 +292,39 @@ function active_support():?array{
  * Never write plaintext secrets to GitHub, an HTML data-attribute or audit logs.
  */
 function secret_key():string{
-    $path=private_path().'/console-vault.key';
-    if(!file_exists($path)){
-        $fh=@fopen($path,'x');
-        if($fh!==false){chmod($path,0600);fwrite($fh,random_bytes(32));fclose($fh);}
+    // First-run key generation must be serialized across PHP workers. An
+    // incomplete or symlinked key is an operational error, not a reason to
+    // silently rotate it and make encrypted production credentials unreadable.
+    $dir=private_path();
+    $path=$dir.'/console-vault.key';
+    $lockPath=$dir.'/.console-vault.lock';
+    if(is_link($path)||is_link($lockPath))
+        throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+    $lock=@fopen($lockPath,'c');
+    if(!is_resource($lock))throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+    try{
+        @chmod($lockPath,0600);
+        if(!flock($lock,LOCK_EX))throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+        if(is_link($path))throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+        if(!file_exists($path)){
+            $fh=@fopen($path,'x');
+            if(!is_resource($fh))throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+            try{
+                @chmod($path,0600);
+                $newKey=random_bytes(32);
+                if(fwrite($fh,$newKey)!==32||!fflush($fh))
+                    throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+            }finally{fclose($fh);}
+        }
+        $key=@file_get_contents($path);
+        if(!is_string($key)||strlen($key)!==32)
+            throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+        if(!@chmod($path,0600))throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+        return $key;
+    }finally{
+        flock($lock,LOCK_UN);
+        fclose($lock);
     }
-    $key=@file_get_contents($path);
-    if(!is_string($key)||strlen($key)!==32)throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
-    return $key;
 }
 function seal_secret(string $plain):string{
     $nonce=random_bytes(12);$tag='';
