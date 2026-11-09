@@ -43,7 +43,7 @@
 - [x] نجاح بوابة اختبارات المرحلة الثانية Offline على [GitHub Actions #42555119910](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42555119910) بعد إصلاح إخفاقات Workflow وWhitespace.
 - [ ] **ما زال مطلوبًا:** Host/Physical SIM/Provider E2E واختبار الحفاظ على كل خاصية مؤكدة؛ لا Merge ولا Deploy قبلها.
 
-**المجموع بعد هذه الدفعة:** 31 مهمة عليا؛ **0 DONE بمعايير DoD**، **16 لديها تغييرات كود جزئية، منها 5 بنود Phase 2 وبند WEB-UX-02 اجتازت Offline CI**، 15 لا يوجد لها إغلاق كودي موثق داخل فروع الإصلاح الثلاثة. كل مربع [x] هو *جزء مكتوب من المهمة* وليس نجاحًا على السيرفر أو الهاتف.
+**المجموع بعد هذه الدفعة:** 31 مهمة عليا؛ **0 DONE بمعايير DoD**، **18 لديها تغييرات كود جزئية، منها 5 بنود Phase 2 وبند WEB-UX-02 اجتازت Offline CI**، 13 لا يوجد لها إغلاق كودي موثق داخل فروع الإصلاح الثلاثة. كل مربع [x] هو *جزء مكتوب من المهمة* وليس نجاحًا على السيرفر أو الهاتف.
 
 ### ✅ مرحلة SaaS-2 — إغلاق أجزاء إضافية من كود التقارير والفوترة
 
@@ -52,7 +52,7 @@
 - [x] **Regression أوسع:** 11 اختبارًا إضافيًا لـTenant/Calls/Reports/Handoff/Checkout/DNC/WhatsApp/WHMCS/Google Keys، وبدون اتصال حي أو تعديل بيانات إنتاج. [GitHub Actions #42556153166 — SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42556153166).
 - [ ] **لا يزال CORE-07/08 غير DONE على الهوست:** مكالمات فعلية، مراجعة الموظف المستهدف، وتأكيدات الاشتراكات والدفع والحصص على البيئة الحقيقية بلا تغيير حسابات أو باقات.
 
-**الحالة العددية الجديدة:** 31 مهمة عامة؛ **0 DONE بمعايير Host/Device DoD**، **16 مهمة لها خطوات كود جزئية**، منها CORE-01/03/04/07/08 وUX-02 اجتازت اختبارات Offline؛ 15 مهمة بلا إغلاق كودي ضمن فروع الإصلاح.
+**الحالة العددية الجديدة:** 31 مهمة عامة؛ **0 DONE بمعايير Host/Device DoD**، **18 مهمة لها خطوات كود جزئية**، منها CORE-01/03/04/07/08 وUX-02 اجتازت اختبارات Offline؛ 13 مهمة بلا إغلاق كودي ضمن فروع الإصلاح.
 
 ### ✅ تحديث المرحلة الثالثة — WEB-UX-02 (جزئي، CI فقط)
 
@@ -62,7 +62,7 @@
 - [x] **CI Offline PASS:** [Actions #42556706732](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42556706732) لفحص واجهة الريسيلر والاشتراكات والشراء وتأكيد Kashier والمحافظة على بقية الواجهة.
 - [ ] **WEB-UX-02 DO D:** متصفح Host حقيقي، حساب ريسيلر فعلي، Checkout/Kashier sandbox، تاريخ الباقات، ومراجعة عدم تعطل أي إعداد سابق قبل Merge/Deploy.
 
-**الحالة الإجمالية:** من 31 مهمة: **16 مهمة بها تعديلات كود جزئية** (الأمن 7 + CORE 5 + UX 2 + تكامل Legacy من الفروع السابقة حسب سجل الإنجاز)، **0 مهام مغلقة Host E2E**. المصدر الجديد: [Stage 3 PR #81](https://github.com/OnTrack-Development/OnTrack-voice/pull/81) و[سجل Stage 3](https://github.com/OnTrack-Development/OnTrack-voice/blob/fix/saas-phase3-reseller-plan-ui-20261109/docs/audits/SAAS_PHASE3_RESELLER_PLAN_PROGRESS_2026_11_09_AR.md). فرع Stage3 مبني على Stage2؛ Stage1 دُمج **على فرع تكامل SaaS مستقل فقط** ولم يدمج في release/production.
+**الحالة الإجمالية:** من 31 مهمة: **18 مهمة بها تعديلات كود جزئية** (الأمن 7 + CORE 5 + UX 2 + تكامل Legacy من الفروع السابقة حسب سجل الإنجاز)، **0 مهام مغلقة Host E2E**. المصدر الجديد: [Stage 3 PR #81](https://github.com/OnTrack-Development/OnTrack-voice/pull/81) و[سجل Stage 3](https://github.com/OnTrack-Development/OnTrack-voice/blob/fix/saas-phase3-reseller-plan-ui-20261109/docs/audits/SAAS_PHASE3_RESELLER_PLAN_PROGRESS_2026_11_09_AR.md). فرع Stage3 مبني على Stage2؛ Stage1 دُمج **على فرع تكامل SaaS مستقل فقط** ولم يدمج في release/production.
 
 ### ✅ تكامل مراحل SaaS 1+2+3 — اختبارات مشتركة ناجحة (NOT PRODUCTION)
 
@@ -73,6 +73,13 @@
 - [ ] **10 بوابات Host/Phone/Checkout** موثّقة في [تقرير التكامل والقبول](SAAS_INTEGRATED_PHASES123_CI_AND_ACCEPTANCE_2026_11_09_AR.md)، وبالذات تدوير سر الصيانة واختبار الصوت من الطرفين دون تعطيل ميزة شغالة.
 - [ ] **لا إصدار أو نشر للـSaaS بعد:** CI offline pass ليس Host/Owner E2E، ويلزم Snapshot/Restore/Host SHA وrollback وخطة نشر مصرح.
 
+### ✅ Phase SaaS-4 — فحص MySQL حقيقي وإثبات توافق تكامل الإصلاحات (Partial)
+
+- [x] **WEB-REL-01 / كود واختبار فقط:** تشغيل 43 اختبار PHP على SQLite معزولة، وSSO HTTP حقيقي على localhost، وفحوص JS/Flow/QR وCSRF وEd25519: [CI SUCCESS #42558225733](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42558225733). لم يُجر Host/Browser/Phone E2E.
+- [x] **WEB-REL-03 / إصلاح MySQL 8 فعلي:** اختبار Docker/MySQL 8.0 كشف خطأ تركيب مؤكد في schema.mysql.sql — عمود events.external_id كان TEXT ومفهرسًا UNIQUE بلا طول، فكان يُعطّل إنشاء الجداول. تم تعديله إلى VARCHAR(190) بما يطابق event_id المدخل (<=128) دون DROP أو Reset للبيانات.
+- [x] **WEB-REL-03 / MySQL QA:** [GitHub Actions #42559141038 SUCCESS](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42559141038): مهاجرات/Seed كامل، Tenants/Plans/Flow/SIM/Knowledge/Call Reports/Usage/Staff، والتحقق من منع Duplicate Webhook على MySQL الحقيقي. لم يُستخدم هوست الإنتاج.
+- [ ] **REL-01/03 الإغلاق الكامل:** QA على نسخة من قاعدة الهوست الحالية، Backup+Restore، مقارنة Schema/IDs/Secrets، فحص الإصدار الجاري على الهاتف، ولا Merge/Deploy قبل اجتيازها.
+
 ### ⛔ شروط الإغلاق التي ما زالت مفتوحة
 
 - [ ] **WEB-SEC-01:** تدوير السر المتسرب على الهوست، إبطال النسخة القديمة، التحقق من Git History و`dev_bridge.php` وسجل الوصول.
@@ -80,11 +87,12 @@
 - [ ] ما زال مطلوبًا: Host/Browser/Google E2E، أدوات الصيانة الحية، Vault decrypt/restore وLogs، والتأكد من STOP الفعلي.
 - [ ] **WEB-CORE-01..09:** إثبات عقد Android/SaaS والـTenant/SIM والصوت وProvider/Flow/KB/Integrations/Call Evidence/Billing على اختبارات معزولة ثم E2E.
 - [ ] **WEB-UX-01..08:** فحص كامل للأزرار والباقات والريسيلرز والدفع والدومينات والصلاحيات والمايك والحملات؛ نجاح تغيير تأخير الرد بالكود لا يثبت باقي الواجهة.
-- [ ] **WEB-REL-01..07:** تشغيل الاختبارات، سجل Host SHA ونسخة رجوع، توافق Android الموثق، نشر متحكم فيه بعد قبول منع التراجع.
+- [x] **WEB-REL-01/03 جزئي:** CI Offline 43 test suite + MySQL 8 real Docker migrations and webhook uniqueness passed; no production deployment.
+- [ ] **WEB-REL-01..07 الإغلاق النهائي:** Host SHA ونسخة رجوع وMySQL existing-data restore وPhysical SIM compatibility وBrowser QA ونشر مصرح.
 - [x] **دمج اختبار فقط:** Phase 1 + 2 + 3 جُمعت على فرع تكامل مستقل؛ نجاح [بوابة 30 اختبارًا وHTTP وJS على Actions #42557761596](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42557761596).
 - [ ] **لا Merge إلى release ولا Deploy:** PR #79 و#80 و#81 لم تُدمج في release، ولا يوجد إثبات Host/Physical SIM E2E أو إبطال سر الصيانة القديم.
 
-**العدّ الحالي:** **31 مهمة عليا** = 7 أمن + 9 تكامل + 8 واجهات/تجارة + 7 جودة ونشر. **المكتمل بمقياس DoD = 0/31**؛ **16 مهمة بها عمل كودي جزئي/مقدم**، و**15 مهمة ليس لها إغلاق ضمن الفروع**. وجود وظائف قديمة تعمل لا يُحوَّل تلقائيًا إلى علامة إغلاق لهذه الخطة.
+**العدّ الحالي:** **31 مهمة عليا** = 7 أمن + 9 تكامل + 8 واجهات/تجارة + 7 جودة ونشر. **المكتمل بمقياس DoD = 0/31**؛ **18 مهمة بها عمل كودي جزئي/مقدم**، و**13 مهمة ليس لها إغلاق ضمن الفروع**. وجود وظائف قديمة تعمل لا يُحوَّل تلقائيًا إلى علامة إغلاق لهذه الخطة.
 
 **شرط المالك:** الحفاظ على أي ميزة أو خيار تم تأكيد عمله؛ ممنوع كسر صوت أو ربط SIM أو تسجيل الدخول أو بيانات الباقات أو التوقيع نتيجة إصلاح الـSaaS. لا فرض 2FA أثناء التجارب.
 
