@@ -42,19 +42,24 @@ mysql_qa((int)one('SELECT COUNT(*) n FROM plans')['n']>=4,'existing plans preser
 
 // MySQL 8 rejected the historical TEXT+UNIQUE external_id schema: verify
 // real event deduplication works without truncating accepted 128-char IDs.
-$seedIntegration=one('SELECT id FROM integrations ORDER BY id LIMIT 1');
-mysql_qa($seedIntegration!==null,'webhook integration seeded');
+$seedIntegrationId=insert("INSERT INTO integrations
+    (account_id,name,provider,token_hash,token_prefix,status,created_at)
+    VALUES (?,?,?,?,?,'active',?)",[
+    4,'MySQL fixture webhook','webhook',hash('sha256','mysql-ci-hook-fixture'),
+    'mysql-ci-fixture',now()
+]);
+mysql_qa($seedIntegrationId>0,'isolated webhook integration fixture created');
 $eventId=str_repeat('e',128);
 $event=insert("INSERT INTO events(integration_id,external_id,event_type,payload,status,created_at)
     VALUES (?,?,?,?,?,?)",[
-    (int)$seedIntegration['id'],$eventId,'knowledge.snapshot','{}','received',now()
+    $seedIntegrationId,$eventId,'knowledge.snapshot','{}','received',now()
 ]);
 mysql_qa($event>0,'128-character legitimate webhook event is indexable');
 $dedup=false;
 try {
     insert("INSERT INTO events(integration_id,external_id,event_type,payload,status,created_at)
         VALUES (?,?,?,?,?,?)",[
-        (int)$seedIntegration['id'],$eventId,'knowledge.snapshot','{}','received',now()
+        $seedIntegrationId,$eventId,'knowledge.snapshot','{}','received',now()
     ]);
 } catch(PDOException $error) {
     $dedup=(string)$error->getCode()==='23000';
