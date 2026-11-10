@@ -111,7 +111,7 @@ Host backup/restore; maintenance secret rotation/revoke; production MySQL snapsh
 | **GAP-7 — NEW** login canonical host and hidden subpaths | **OWNER-OBSERVED, NOT YET VERIFIED WITH HOST**: بعد الدخول من نطاق التطبيق الرئيسي ينتقل المتصفح إلى `/saas/console` بدل إبقاء الدومين ومسار الدخول canonical. المالك ذكر `app.entrakegy.com`؛ ناشر الريبو يسمي `app.ontrackegy.com`. يُحدَّد FQDN الصحيح من إعدادات Host/DNS قبل أي تغيير، دون افتراض أن أحدهما صحيح. | **P1 UX/ROUTING / SHARED DEPENDENCIES**: Laravel/Console/SSO/white-label/session cookie/device URLs / webhooks. | **مؤجل بقرار المالك الآن:** سجل 302 Location chain، canonical base URL، rewrite/proxy، session+CSRF+SSO callback، hash/relative links، الحفاظ على `/saas/console` و`/mobile` وAPI aliases للأجهزة الحالية حتى traffic+compatibility صفر مخاطر. لا تغيير Routing ولا حذف فولدر حاليًا. |
 
 ### معمارية الماب الجديدة المتحركة
-- [ ] إنشاء مجلد Host جديد **`/home/appontrack/public_html/architecture-map/`** للوحة عرض تفاعلية **محمية بصلاحيات Platform Owner/Admin**. لا تُنشر فجوات الأمان أو بنية خاصة لعامة الويب؛ لا ملفات Secrets/SSH/Reports داخل Webroot.
+- [ ] إنشاء مجلد Host جديد **`/home/appontrack/public_html/architecture-map/`** للوحة عرض تفاعلية **محمية بـPIN من ستة أرقام وجلسة مؤقتة (ليس Login حساب SaaS)**. لا تُنشر فجوات الأمان أو بنية خاصة لعامة الويب؛ لا ملفات Secrets/SSH/Reports داخل Webroot.
 - [ ] **Live dashboard data** في `/home/appontrack/.ontrack-gap-map/status.json` خارج Webroot، تزامن آمن من branch SHA وCI statuses؛ الصفحة تستعلم `status.php` كل ~20s وتعرض *آخر مزامنة حقيقية* ولا تختلق Streaming realtime.
 - [ ] خريطة 3 مسارات: **SaaS** / **MOBILE (Observation-only)** / **SHARED INTERFACES** مع Connections، severity، source refs، وتاريخ التحديث وCommit SHA، 21 tasks، 10 deferred، GAP-7.
 - [ ] إنشاء CI/host publish لـ**ملفات الماب وحدها** على الـWindows self-hosted runner عبر SSH موثق، دون نشر SaaS runtime، وبدون Android أو Host-Link القديم. Verify SHA وHTTP 401/200 auth gate.
@@ -122,3 +122,23 @@ Host backup/restore; maintenance secret rotation/revoke; production MySQL snapsh
 - وثيقة الصلاحيات الرسمية: `docs/ops/ONTRACK_DIRECT_SSH_DEPLOY_ACCESS_20261107_AR.md`.
 - Windows self-hosted runner `BEDIR`, SSH direct 7195 بمفتاح خاص **داخل حساب Runner فقط**، username `appontrack`، Host-Link STOP. لا حفظ المفتاح أو عرضه. نطاق صلاحيات السيرفر لحساب appontrack فقط.
 - **لا تستخدم Host-Link / queue_saas_console القديمة** ما دام STOP؛ workflow الماب لا يلمس APK/OTA/PCM/Android ولا يحاول نشر الموقع الأصلي.
+
+## GAP-8 — Voice Critical Path / Latency (2026-11-10)
+**التصنيف:** P0 Shared SaaS↔Mobile / قياس غير مكتمل، ليس إصلاحًا معتمدًا. أُضيفت الفجوة إلى `ops/gap-map/status.seed.json` مع اتصالات واضحة إلى `GAP-1/GAP-2/GAP-5/GAP-6`.
+
+**قاعدة تصميم ملزمة:** الهاتف المرتبط بشريحة ضمن Tenant وSIM فعال يستخدم **Device Bearer Token** الحالي، وليس Web Login أو session cookie أو مرورًا عبر Dashboard، ولا تُطلب جلسة تسجيل دخول لكل مكالمة أو لكل قطعة صوت. لا يُسقط ذلك تحقق حالة الربط والإلغاء أو عزل المستأجر أو المتطلبات التي لا يمكن حذفها (DNC/consent وحصة الاتصال قبل الاتصال الصادر).
+
+### تجربة وارد وصادر متوازية
+- [ ] **مسار وارد:** trigger استقبال المكالمة → إثبات device binding المحلي/الخادم → published Agent snapshot المستقر → Live provider session → first audio → streaming → event ledger غير متزامن → post-call report. سجل بداية ونهاية كل خطوة بـ monotonic clock؛ قِس 3G/H+/4G/5G/Wi-Fi.
+- [ ] **مسار صادر:** تحقق موافقة الحملة وDNC ومنع الأرقام والحصة قبل dial → binding → dial → session/stream → report. **لا bypass لبوابة consent/DNC أو لرفض الشريحة المسحوبة**.
+- [ ] **SaaS audit:** `saas/console/device/v1/index.php` يقرأ Bearer ويستدعي `device_binding_authorize`، و`TenantVoiceSession.php` يصدر Gemini Live token بطلب إلى Google. المطلوب قياس الكلفة الزمنية الحقيقية للـSQL والخطوة الخارجية، وفصل الضروري منها عن المتكرر.
+- [ ] **Fast-path:** prefetch/cached published snapshot وتهيئة provider connection قبل بداية الكلام حين يمكن، تحديث البروفايل بالخلفية، عدم إعادة KB index أو تحميل Dashboard أو OAuth/Login في loop الصوت، واستخدام idempotent async logs من دون فقد دليل الأحداث.
+- [ ] **Observability:** p50/p95/p99 وtrace_id لكل hop؛ `answer_delay`, `first_audio`, `speech_end_to_first_response`, `device_auth_ms`, `provider_token_ms`, `provider_connect_ms`, `db_wait_ms`, `RTT`, `jitter`, `loss`, `reconnect_count`.
+- [ ] **ميزانية قبول:** هدف المالك **≤2s** لتأخير التفاعل، وليس قيمة قياس حقيقية بعد. أي رقم 50ms×10 أو زمن مستنتج من الكود هو مثال فقط لا Evidence.
+- [ ] **اختبارات آلية آمنة:** محاكاة slow-provider/timeout/retry على SaaS، Assertions لعدم Login في call handler، وقياس بدون أجهزة؛ تجارب المكالمات الفعلية ومقارنة جودة Data/Wi-Fi مؤجلة لمرحلة موبايل مستقلة.
+
+### طلبات الماب التفاعلية الإضافية
+- [ ] PIN منفصل من 6 أرقام `150700` عند إنشاء الهوست، **لا تحفظ PIN كنص في Git أو webroot**؛ استخدم private password hash + CSRF + rate limiting + session TTL. PIN الحالي اختاره المالك؛ يفضَّل تغييره قبل مشاركة رابط المراقبة.
+- [ ] زر **تم التحقق منها** لكل GAP، يُحفظ مراجعة المالك + timestamp + source fingerprint في Host private ledger؛ عند تغيّر ملفات المصدر في Gap يعرض `recheck_required`، ولا يغيّر هذا تصنيف CI/Production إلى PASS تلقائيًا.
+- [ ] قسم **Simulation Journey** يشغّل اختبارات PHP/DB/Browser المعزولة فقط ويعرض `PASS/FAIL/BLOCKED/NOT_TESTED`؛ تسجيل/استعادة كلمة مرور، ريسيلر وباقات، تغيير باقة، Agent/Flow/KB، محاكاة مكالمة وحظر DNC، وتصنيف فشل كل Step وملفه المسؤول. لا تنفّذ مكالمات حقيقية أو رسوم أو رسائل بريد حقيقية تلقائيًا.
+- [ ] نشر ماب مستقلة `/architecture-map/` مع Live status من Snapshot ملف مُولّد من GitHub Actions، وتسجيل result بعد كل push، منفصلة تمامًا عن نشر Android/OTA أو إعادة تفعيل Host-Link.
