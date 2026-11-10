@@ -22,7 +22,7 @@
 
 ## 3. واجهة الماب والنشر
 - **مسار مستهدف، غير مثبت نشره الآن:** `https://app.ontrackegy.com/architecture-map/`، Host directory `/home/appontrack/public_html/architecture-map/`. **لا تقدّم هذا كـرابط شغال قبل رفع ومراجعة HTTPS**.
-- Source files: `ops/gap-map/web/_auth.php`, `status.php`, `verify.php`, `.htaccess`. **Status: IN DEVELOPMENT**؛ لا `index.php` أو واجهة مكتملة أو إيصال نشر أثبت نجاح الموقع في آخر مراجعة. لا تكتب "deployed" اعتمادًا على مجرد CreateFile في Git.
+- **مصدر الواجهة موجود الآن:** `ops/gap-map/web/index.php`, `style.css`, `app.js`, `_auth.php`, `status.php`, `verify.php`, `.htaccess`؛ حماية PIN وجلسة/CSRF وReview Ledger وواجهة RTL interactive SaaS/Mobile/Shared. `tools/run_gap_map_simulator.py` يشغّل 8 رحلات PHP/SQLite معزولة، و`tools/build_gap_map_snapshot.py` يعيد حساب Source Fingerprints ويربط الأدلة مع Snapshot. **CI SUCCESS** في [Run #42732197969](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42732197969)، مع Artifact `SaaS-Architecture-Gap-Map` على الـRun؛ **لكن Host deployment = UNVERIFIED** ولا رابط إنتاجي عامل حتى الرفع والفحص.
 - Host private storage: `/home/appontrack/.ontrack-gap-map/` (rate-limit, pin.hash, reviews.json, review-events.jsonl, status.json) **كلها خارج public_html**. امنع أي عرض أو طباعة للمفاتيح أو PIN.
 - النشر المباشر المثبت من **Windows self-hosted runner BEDIR** عبر SSH port 7195 للمستخدم `appontrack`، بالمفتاح الخاص الموجود **داخل ملف مستخدم Runner فقط**؛ Host-Link القديم **STOP** لا تشغله. نشر الماب فقط بدون نشر SaaS أو Android.
 - إضافة status snapshot فعلي بعد كل build/test/push، تحديث الصفحة Poll مثلاً 20 ثانية، واظهر `last_verified_at` و`commit` وأخطاء المزامنة. لا تدّع تدفقًا لحظيًا إن لا توجد telemetry.
