@@ -153,6 +153,24 @@
       "path": "saas/mobile/audio-proof/",
       "status": "observe_only",
       "detail": "إرسال أحداث المكالمة وفحص المنع قبل الاتصال، دون اختبار موبايل الآن"
+    },
+    {
+      "id": "voice_critical_path",
+      "label": "Voice Critical Path / Fast Lane",
+      "area": "shared",
+      "tier": 2,
+      "path": "saas/console/device/v1/index.php + TenantVoiceSession.php + api/live_session.php",
+      "status": "latency_unmeasured",
+      "detail": "ربط الشريحة مؤكد عبر Device Bearer قبل إعداد الجلسة؛ auth Google Live يحتاج شبكة، ولا يوجد دليل latency لكل hop. يُمنع Interactive Login في كل audio frame."
+    },
+    {
+      "id": "radio_network",
+      "label": "3G / H+ / 4G / 5G Network",
+      "area": "mobile",
+      "tier": 1,
+      "path": "saas/mobile/audio-proof/overlay/ (observe only)",
+      "status": "not_measured",
+      "detail": "RTT/jitter/packet loss/reconnect حسب الشبكة يجب قياسها؛ أرقام الأداء هدف تصميم لا نتائج اختبار."
     }
   ],
   "gaps": [
@@ -360,6 +378,154 @@
         "GAP-1",
         "GAP-2"
       ]
+    },
+    {
+      "id": "GAP-8",
+      "name": "Voice Critical Path: خطوات غير ضرورية وتأخير متراكم",
+      "severity": "critical",
+      "area": "shared",
+      "state": "analysis_required",
+      "confidence": "code_auth_separation_confirmed_latency_not_profiled",
+      "modules": [
+        "kotlin",
+        "radio_network",
+        "voice_critical_path",
+        "device_api",
+        "voice_api",
+        "mobile_backend",
+        "console",
+        "host"
+      ],
+      "tasks": [
+        "WEB-CORE-01",
+        "WEB-CORE-02",
+        "WEB-CORE-06",
+        "WEB-CORE-07",
+        "WEB-REL-01"
+      ],
+      "files": [
+        "saas/console/device/v1/index.php",
+        "saas/console/_core/DevicePairing.php",
+        "saas/console/_core/TenantVoiceSession.php",
+        "api/live_session.php",
+        "saas/mobile/audio-proof/overlay/"
+      ],
+      "description": "مستوى صوت فوري: يجب تجنب إعادة تسجيل الدخول بالويب، وفحص لوحة الحساب، وطلبات REST المتسلسلة غير اللازمة لكل مكالمة أو chunk. الكود يثبت وجود Device Bearer وطلب Google token؛ لم يُقَس زمن المراحل الفعلي ولا تُفترض عشر خطوات أو 50ms لكل خطوة.",
+      "next": "SaaS-first: افتح traces منفصلة للوارد/الصادر، قِس p50/p95/p99 لكل hop ومقدار RTT، احتفظ بتوثيق device binding وإيقاف الشريحة وDNC/consent/quota الضروري، جهّز published Agent config/token مبكرًا بتوقيت مناسب، وادفع audit/report والملخص إلى خارج حلقة الصوت دون فقد البيانات. لا تغير كود Android الآن.",
+      "links": [
+        "GAP-1",
+        "GAP-2",
+        "GAP-5",
+        "GAP-6"
+      ],
+      "voiceHotPath": {
+        "measurementStatus": "unmeasured_baseline",
+        "targets": {
+          "conversationResponseP95Ms": 2000,
+          "source": "owner_goal_not_verified"
+        },
+        "inbound": [
+          {
+            "phase": "incoming_call",
+            "owner": "mobile",
+            "essential": true
+          },
+          {
+            "phase": "device_binding_proof",
+            "owner": "shared",
+            "essential": true,
+            "note": "existing device bearer, no interactive login"
+          },
+          {
+            "phase": "published_agent_snapshot",
+            "owner": "saas",
+            "essential": true,
+            "note": "fetch/cache before pickup when possible, tenant-scoped"
+          },
+          {
+            "phase": "live_provider_handshake",
+            "owner": "shared",
+            "essential": true,
+            "note": "measured remote call"
+          },
+          {
+            "phase": "audio_stream_and_response",
+            "owner": "shared",
+            "essential": true
+          },
+          {
+            "phase": "durable_events_and_postcall_summary",
+            "owner": "saas",
+            "essential": true,
+            "note": "nonblocking asynchronous ingestion"
+          }
+        ],
+        "outbound": [
+          {
+            "phase": "explicit_campaign_and_consent",
+            "owner": "saas",
+            "essential": true
+          },
+          {
+            "phase": "dnc_and_quota_gate",
+            "owner": "saas",
+            "essential": true,
+            "note": "never bypass safety/billing"
+          },
+          {
+            "phase": "device_binding_proof",
+            "owner": "shared",
+            "essential": true
+          },
+          {
+            "phase": "call_setup",
+            "owner": "mobile",
+            "essential": true
+          },
+          {
+            "phase": "audio_stream_and_response",
+            "owner": "shared",
+            "essential": true
+          },
+          {
+            "phase": "durable_events_and_postcall_summary",
+            "owner": "saas",
+            "essential": true,
+            "note": "nonblocking"
+          }
+        ],
+        "avoidWhenNotNeeded": [
+          "web_login",
+          "browser_session_refresh",
+          "dashboard_loading",
+          "third_party_connector_requests_per_audio_chunk",
+          "sync_reports_before_first_audio",
+          "reindex_knowledge_during_call"
+        ],
+        "diagnostics": [
+          "start_to_answer",
+          "answered_to_first_audio",
+          "speech_end_to_first_response_audio",
+          "device_binding_ms",
+          "snapshot_lookup_ms",
+          "provider_auth_ms",
+          "provider_connect_ms",
+          "rtt_ms",
+          "jitter_ms",
+          "packet_loss",
+          "reconnect_count",
+          "db_wait_ms"
+        ],
+        "integrityControls": [
+          "active_device_bearer",
+          "tenant_binding_scope",
+          "revocation_policy",
+          "consent_dnc_before_outbound",
+          "quota_before_charge",
+          "verified_tool_results",
+          "durable_audit_events"
+        ]
+      }
     }
   ],
   "tasks": [
@@ -523,11 +689,13 @@
   "updatePolicy": "code_patch is NOT done; manual acceptance deferred; source code != deployed host",
   "priority": [
     "GAP-1",
+    "GAP-8",
     "GAP-5",
     "GAP-2",
     "GAP-7",
     "GAP-6",
     "GAP-4",
     "GAP-3"
-  ]
+  ],
+  "refreshNotes": "Status refresh is async polling only; 'GAP-8 voice hot path' is planned instrumentation, not measured performance."
 }
