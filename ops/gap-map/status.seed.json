@@ -657,10 +657,11 @@
       "patch_evidence": [
         "saas/console/_core/BillingUsage.php",
         "tools/test_saas_usage_period_reconciliation.php",
-        "tools/test_saas_integrated_mysql.php"
+        "tools/test_saas_integrated_mysql.php",
+        "tools/test_saas_usage_period_reconciliation.php — orphan callback negative fixture"
       ],
       "patch_summary": "إدخال الفاتورة مرة واحدة بعد دليل active+ended، رفض demo/missed/no-answer، ربط usage بتاريخ بدء المكالمة أثناء انقطاع 3G وتأخر الأحداث، حفظ استهلاك الخطة عند تغييرها في نفس الفترة، اختبار SQLite/MySQL8. مراجعة إنتاجية وحالات renewal/overage الأوسع متبقية.",
-      "next_action": "تدقيق expiry/replacement/cancelled والـpaid renewal عبر MySQL8 وكميات عالية، وربط quota gates بالمكالمة الصادرة دون تعطيل DNC أو إثبات المكالمات.",
+      "next_action": "Run SHA-matched SQLite/MySQL8/HTTP/Chromium CI, then audit renewal/cancel/expiry/overage/quota; host manual deferred.",
       "last_source_commit": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
       "ci_status": "automated_code_regression_passed",
       "updated_at": "2026-11-10",
@@ -668,7 +669,9 @@
         "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
         "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873"
       ],
-      "code_verified_sha": "0461878788c63766ba42ec281900e58faf73ff52"
+      "code_verified_sha": "0461878788c63766ba42ec281900e58faf73ff52",
+      "latest_unverified_patch_sha": "70192c77649a0b6465ebf9040d08f2293d9dd203",
+      "latest_patch_ci": "PENDING_NOT_VERIFIED"
     },
     {
       "id": "WEB-UX-01",
@@ -778,6 +781,8 @@
       "chrome": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42743633113",
       "http": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42743632856"
     },
-    "acceptance": "3 partial tickets have targeted code+tests; no host SaaS deploy, owner manual E2E deferred"
+    "acceptance": "3 partial tickets have targeted code+tests; no host SaaS deploy, owner manual E2E deferred",
+    "latest_unverified_patch_sha": "70192c77649a0b6465ebf9040d08f2293d9dd203",
+    "latest_patch_note": "CORE-08 orphan active evidence guard; CI and map deployment pending; no SaaS runtime deployment"
   }
 }
