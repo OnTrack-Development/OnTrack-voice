@@ -1,0 +1,533 @@
+{
+  "schema": 2,
+  "title": "OnTrack Voice — Architecture Gap Map v2",
+  "scope": "SAAS_FIRST_ANDROID_OBSERVATION_ONLY",
+  "branch": "fix/saas-21-closure-20261110",
+  "source": "owner_html_gap_map_20261110",
+  "vs": "removed_never_restore",
+  "canonicalHost": "app.ontrackegy.com",
+  "userReportedHost": "app.entrakegy.com (verify exact FQDN before route changes)",
+  "hostLink": "STOP",
+  "refresh": "per_code_push_with_CI_snapshot_and_browser_poll",
+  "modules": [
+    {
+      "id": "laravel",
+      "label": "Laravel SaaS",
+      "area": "saas",
+      "tier": 3,
+      "path": "saas/app/",
+      "status": "diverged",
+      "detail": "Controllers / Models / migrations: موجودة في المصدر؛ حالة نشرها الفعلية على Host غير مثبتة"
+    },
+    {
+      "id": "console",
+      "label": "Console Runtime",
+      "area": "saas",
+      "tier": 3,
+      "path": "saas/console/_core/",
+      "status": "active_source",
+      "detail": "نواة PHP للمنصة؛ ناشر الموقع الفعلي يوجه إلى Console"
+    },
+    {
+      "id": "console_db",
+      "label": "Console MySQL",
+      "area": "saas",
+      "tier": 4,
+      "path": "saas/console/database/",
+      "status": "active_source",
+      "detail": "مخططات مستقلة ومراحل Schema v1…v26"
+    },
+    {
+      "id": "laravel_db",
+      "label": "Laravel Schema",
+      "area": "saas",
+      "tier": 4,
+      "path": "saas/database/migrations/",
+      "status": "diverged",
+      "detail": "26 migration منفصلة عن Console schema"
+    },
+    {
+      "id": "login",
+      "label": "Login / Canonical URL",
+      "area": "saas",
+      "tier": 1,
+      "path": "saas/console/index.php",
+      "status": "owner_reported",
+      "detail": "المالك شاهد الانتقال من الدومين الرئيسي إلى /saas/console؛ الإصلاح مؤجل"
+    },
+    {
+      "id": "billing",
+      "label": "Billing & Usage",
+      "area": "saas",
+      "tier": 3,
+      "path": "SubscriptionPlans.php / BillingUsage.php",
+      "status": "code_patched",
+      "detail": "كاشير والحصص موجودة في مسارين؛ ما زال تدقيق مصدر الحقيقة وdouble charge مفتوحًا"
+    },
+    {
+      "id": "front",
+      "label": "RTL SaaS UI",
+      "area": "saas",
+      "tier": 1,
+      "path": "saas/console/_core/Views.php",
+      "status": "partial",
+      "detail": "اختبارات Chrome والنماذج نجحت؛ قائمة كل تفاعلات المستخدم لم تغلق"
+    },
+    {
+      "id": "device_api",
+      "label": "Console Device v1",
+      "area": "shared",
+      "tier": 2,
+      "path": "saas/console/device/v1/index.php",
+      "status": "code_patched",
+      "detail": "Bearer / tenant / SIM / published agent؛ التوافق مع Legacy ما زال قائمًا"
+    },
+    {
+      "id": "mobile_backend",
+      "label": "Mobile PHP Bridge",
+      "area": "shared",
+      "tier": 2,
+      "path": "saas/mobile/server/",
+      "status": "risk",
+      "detail": "تخزين ملفات/مصادقة hash قديمة وcompatibility adapters"
+    },
+    {
+      "id": "voice_api",
+      "label": "Root Voice API",
+      "area": "shared",
+      "tier": 2,
+      "path": "api/live_session.php",
+      "status": "code_patched",
+      "detail": "جلسات الصوت عبر مسارات منفصلة، مع تشديد التشخيص والـnonce"
+    },
+    {
+      "id": "security",
+      "label": "Security / Credentials",
+      "area": "shared",
+      "tier": 3,
+      "path": "api/diag.php + auth.sha256",
+      "status": "risk",
+      "detail": "أسرار في ملف متتبع ومسارات تشخيص؛ التعرض للعامة غير مثبت"
+    },
+    {
+      "id": "host",
+      "label": "Host Deploy + CI",
+      "area": "shared",
+      "tier": 5,
+      "path": ".github/workflows/",
+      "status": "partial",
+      "detail": "69 ملف Workflow على فرع العمل؛ النشر المباشر عبر Windows SSH والـHost-Link موقوف"
+    },
+    {
+      "id": "reference",
+      "label": "Reference Archives",
+      "area": "shared",
+      "tier": 5,
+      "path": "reference/voicecall-v0.6.3/",
+      "status": "risk",
+      "detail": "نسخة مرجعية قديمة ضمن الريبو؛ مطابقة bytes لم تثبت"
+    },
+    {
+      "id": "kotlin",
+      "label": "Kotlin Audio-Proof",
+      "area": "mobile",
+      "tier": 1,
+      "path": "saas/mobile/audio-proof/overlay/",
+      "status": "observe_only",
+      "detail": "تطبيق أندرويد الحالي؛ لا تعديل في نطاق SaaS"
+    },
+    {
+      "id": "ota",
+      "label": "Signed OTA / UI",
+      "area": "mobile",
+      "tier": 5,
+      "path": "saas/mobile/ota/",
+      "status": "observe_only",
+      "detail": "واجهة OTA ومسار التوقيع يُراجعان لاحقًا منفصلين"
+    },
+    {
+      "id": "calloutbox",
+      "label": "Call Outbox / DNC",
+      "area": "mobile",
+      "tier": 2,
+      "path": "saas/mobile/audio-proof/",
+      "status": "observe_only",
+      "detail": "إرسال أحداث المكالمة وفحص المنع قبل الاتصال، دون اختبار موبايل الآن"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "GAP-1",
+      "name": "Split-Brain: Laravel ↔ Console",
+      "severity": "critical",
+      "area": "saas",
+      "state": "confirmed_source",
+      "confidence": "verified_code_not_host",
+      "modules": [
+        "laravel",
+        "console",
+        "laravel_db",
+        "console_db",
+        "billing"
+      ],
+      "tasks": [
+        "WEB-CORE-08",
+        "WEB-UX-02",
+        "WEB-UX-03",
+        "WEB-REL-03"
+      ],
+      "files": [
+        "saas/routes/web.php",
+        "saas/console/_core/Bootstrap.php",
+        "saas/console/database/schema.mysql.sql",
+        "saas/database/migrations/"
+      ],
+      "description": "مصدران مختلفان للمنطق والبيانات في الريبو؛ لم يُثبت أن كليهما شغال على الإنتاج في الوقت نفسه.",
+      "next": "تثبيت route→runtime→database ownership، ومنع الخصم/التسوية مرتين؛ بدون حذف مسارات أو بيانات.",
+      "links": [
+        "GAP-2",
+        "GAP-7"
+      ]
+    },
+    {
+      "id": "GAP-2",
+      "name": "تشتت بوابات API والتوثيق",
+      "severity": "critical",
+      "area": "shared",
+      "state": "confirmed_source",
+      "confidence": "verified_code_not_traffic",
+      "modules": [
+        "mobile_backend",
+        "device_api",
+        "voice_api",
+        "kotlin",
+        "console",
+        "laravel"
+      ],
+      "tasks": [
+        "WEB-CORE-01",
+        "WEB-CORE-06",
+        "WEB-CORE-07"
+      ],
+      "files": [
+        "saas/mobile/server/common.php",
+        "saas/console/device/v1/index.php",
+        "api/live_session.php",
+        "saas/routes/web.php"
+      ],
+      "description": "بوابات مختلفة تتعامل مع الهاتف والموقع؛ الـLegacy authorization منفصل، ولم يثبت حجم مرور كل مسار.",
+      "next": "رصد المستهلكين ومصفوفة توافق payloads/versions، ثم adapter آمن يترك المسارات الحالية شغالة.",
+      "links": [
+        "GAP-1",
+        "GAP-5",
+        "GAP-7"
+      ]
+    },
+    {
+      "id": "GAP-3",
+      "name": "VS القديم أُلغي — متابعة OTA فقط",
+      "severity": "info",
+      "area": "mobile",
+      "state": "vs_removed",
+      "confidence": "verified_zero_vs_paths",
+      "modules": [
+        "kotlin",
+        "ota"
+      ],
+      "tasks": [],
+      "files": [
+        "saas/mobile/audio-proof/overlay/",
+        "saas/mobile/ota/"
+      ],
+      "description": "مجلد VS غير موجود إطلاقًا في main/release/فرع العمل. لا يُعتبر مشكلة متبقية. أي ازدواج OTA يُراجع لاحقًا بدون إحياء VS.",
+      "next": "لا يوجد عمل SaaS على تطبيق Android أو OTA في المرحلة الحالية.",
+      "links": [
+        "GAP-6"
+      ]
+    },
+    {
+      "id": "GAP-4",
+      "name": "أرشيف المرجع مقابل Root Voice",
+      "severity": "warning",
+      "area": "shared",
+      "state": "confirmed_paths",
+      "confidence": "byte_identity_unverified",
+      "modules": [
+        "reference",
+        "voice_api"
+      ],
+      "tasks": [
+        "WEB-SEC-03"
+      ],
+      "files": [
+        "reference/voicecall-v0.6.3/",
+        "api/",
+        "lib/"
+      ],
+      "description": "المسارات القديمة والحديثة موجودة معًا؛ ليس لدينا إثبات أنها نسخ مطابقة byte-by-byte أو أنها منشورة.",
+      "next": "منع تسرب أرشيفات المرجع إلى حزم النشر، وجرد الاستدعاءات قبل أي تنظيف.",
+      "links": [
+        "GAP-5",
+        "GAP-6"
+      ]
+    },
+    {
+      "id": "GAP-5",
+      "name": "الأسرار وملفات التشخيص",
+      "severity": "critical",
+      "area": "shared",
+      "state": "partially_mitigated",
+      "confidence": "tracked_hash_confirmed_exposure_unverified",
+      "modules": [
+        "security",
+        "mobile_backend",
+        "voice_api",
+        "host"
+      ],
+      "tasks": [
+        "WEB-SEC-01",
+        "WEB-SEC-03",
+        "WEB-SEC-06",
+        "WEB-SEC-07"
+      ],
+      "files": [
+        "saas/mobile/server/auth.sha256",
+        "test.php",
+        "omnira_api_tester.php",
+        "api/diag.php"
+      ],
+      "description": "auth.sha256 داخل Git ومسارات التشخيص موجودة في المصدر. تم تقوية جزء من المصادقة والإخفاء على فرع العمل، ولم يُثبت نشرها أو تعرّض endpoints للعامة.",
+      "next": "حصر نشر test routes، نقل hash خارج Git بطريقة توافقية وتدوير مضبوط قبل إلغاء القديم.",
+      "links": [
+        "GAP-2",
+        "GAP-4",
+        "GAP-6"
+      ]
+    },
+    {
+      "id": "GAP-6",
+      "name": "تشعّب CI/CD والنشر",
+      "severity": "warning",
+      "area": "shared",
+      "state": "confirmed_69_workflows",
+      "confidence": "verified_branch_tree",
+      "modules": [
+        "host",
+        "ota",
+        "reference"
+      ],
+      "tasks": [
+        "WEB-REL-01",
+        "WEB-REL-03"
+      ],
+      "files": [
+        ".github/workflows/",
+        "tools/deploy_saas_console.py",
+        "docs/ops/ONTRACK_DIRECT_SSH_DEPLOY_ACCESS_20261107_AR.md"
+      ],
+      "description": "خريطة المراجعة القديمة كتبت 16 Workflow؛ فرع الإصلاح الحالي يحتوي 69 ملف YAML. الـHost-Link STOP والنشر المباشر الموثق على Windows runner.",
+      "next": "فصل نشر الموقع عن الموبايل، وحصر workflows المفعلة، وعدم إعادة تشغيل Host-Link دون إذن.",
+      "links": [
+        "GAP-3",
+        "GAP-4",
+        "GAP-5"
+      ]
+    },
+    {
+      "id": "GAP-7",
+      "name": "تحويل Login إلى /saas/console",
+      "severity": "high",
+      "area": "saas",
+      "state": "owner_reported_deferred",
+      "confidence": "host_redirect_not_verified",
+      "modules": [
+        "login",
+        "front",
+        "console",
+        "device_api"
+      ],
+      "tasks": [
+        "WEB-UX-01"
+      ],
+      "files": [
+        "saas/console/index.php",
+        "saas/console/_core/Bootstrap.php",
+        "tools/deploy_saas_console.py"
+      ],
+      "description": "المالك شاهد انتقال تسجيل الدخول من الدومين الرئيسي إلى subpath قديم. الدومين المذكور نصًا مختلف عن app.ontrackegy.com الموجود في سكربت النشر؛ يلزم تأكيد hostname أولًا.",
+      "next": "مؤجل بأمر المالك: فحص Location chain/session/cookies/SSO ثم canonical routes، مع aliases آمنة للأجهزة وWebhooks.",
+      "links": [
+        "GAP-1",
+        "GAP-2"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "WEB-SEC-01",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-SEC-02",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-SEC-03",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-SEC-04",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-SEC-05",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-SEC-06",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-SEC-07",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-01",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-02",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-03",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-04",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-07",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-02",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-03",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-06",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-08",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-01",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-03",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-06",
+      "stage": "awaiting_code_gap_closure",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-08",
+      "stage": "awaiting_code_gap_closure",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-01",
+      "stage": "awaiting_code_gap_closure",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-05",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-09",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-04",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-05",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-07",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-02",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-04",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-05",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-06",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-07",
+      "stage": "deferred_10",
+      "fullClosure": false
+    }
+  ],
+  "ci": [],
+  "updatePolicy": "code_patch is NOT done; manual acceptance deferred; source code != deployed host",
+  "priority": [
+    "GAP-1",
+    "GAP-5",
+    "GAP-2",
+    "GAP-7",
+    "GAP-6",
+    "GAP-4",
+    "GAP-3"
+  ]
+}
