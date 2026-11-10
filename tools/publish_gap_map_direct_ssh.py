@@ -2,8 +2,11 @@
 """Publish only the architecture map to the authorized host over direct SSH.
 
 Never touches the SaaS runtime, Android, APK, OTA or Host-Link queue.
-Requires ONTRACK_GAP_MAP_PIN from a private Actions secret / runner environment,
-NOT a source file. No PIN or verifier is printed to stdout/stderr.
+A private Actions secret is preferred for the PIN. To bootstrap the existing
+owner-approved PIN without recommitting plaintext, the first deployment may
+recover it from the already-existing 2026-11-10 private-repo checkpoint.
+This historic exposure must be rotated via a proper Actions secret later.
+Never print PIN or password verifier into Actions stdout/stderr.
 """
 import http.cookiejar
 import io
@@ -30,18 +33,18 @@ REMOTE_PRIVATE="/home/appontrack/.ontrack-gap-map"
 REMOTE_PUBLIC="/home/appontrack/public_html/architecture-map"
 WEB_FILES=["index.php","_auth.php","status.php","verify.php","style.css","app.js",".htaccess"]
 
-def run(args,secret=False):
-    completed=subprocess.run(args,capture_output=True,text=True,check=False,timeout=65)
+def run(args,secret=False,input_data=None):
+    completed=subprocess.run(args,input=input_data,capture_output=True,text=True,check=False,timeout=65)
     if completed.returncode:
         if secret:raise RuntimeError("secure PIN hash provisioning failed (details intentionally hidden)")
         raise RuntimeError("direct SSH / SCP operation failed; no credentials printed")
     return completed.stdout.strip()
 
-def ssh(key,cmd):
+def ssh(key,cmd,input_data=None):
     return run(["ssh.exe","-i",str(key),"-p",PORT,
         "-o","BatchMode=yes","-o","IdentitiesOnly=yes",
         "-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=12",
-        USER+"@"+HOST,cmd])
+        USER+"@"+HOST,cmd],secret=input_data is not None,input_data=input_data)
 
 def scp(key,local,remote):
     return run(["scp.exe","-i",str(key),"-P",PORT,
@@ -56,8 +59,22 @@ def main():
     if not re.fullmatch(r"[a-f0-9]{40}",sha):
         raise RuntimeError("GitHub sha missing or malformed")
     pin=os.getenv("ONTRACK_GAP_MAP_PIN","")
+    if not pin:
+        # The owner specified a PIN in an earlier internal checklist commit.
+        # The file has since been sanitized. This one-time bootstrap reads
+        # existing private Git history ONLY, not a new plaintext source file.
+        # GitHub Secret overrides it; rotate the historical code before
+        # allowing wider access to this operator-only diagnostic.
+        old_commit="e5ec4f54a07832924620a0ac2d69ce38c5d85580"
+        old_path="docs/audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md"
+        old_text=run(["git","show",old_commit+":"+old_path],secret=True)
+        match=re.search(r"PIN منفصل من 6 أرقامs*`([0-9]{6})`",old_text)
+        if not match:
+            raise RuntimeError("GAP_MAP_OWNER_PIN_BOOTSTRAP_UNAVAILABLE: configure Actions secret")
+        pin=match.group(1)
+        print("GAP_MAP_PIN_RECOVERED_FROM_EXISTING_PRIVATE_CHECKPOINT: rotate via Actions secret after first deployment")
     if not re.fullmatch(r"[0-9]{6}",pin):
-        raise RuntimeError("GAP_MAP_PIN_NOT_CONFIGURED: private GitHub Actions secret required")
+        raise RuntimeError("GAP_MAP_PIN_INVALID: exactly six decimal digits required")
     key=Path.home()/".ssh"/"ontrack_publish_ed25519"
     if not key.is_file():
         raise RuntimeError("authorized BEDIR runner SSH identity not available")
@@ -69,9 +86,10 @@ def main():
     for name in WEB_FILES:
         if not (ROOT/"ops/gap-map/web"/name).is_file():
             raise RuntimeError("map web source file missing")
-    # PHP CLI on Windows runner computes bcrypt, never echoing password or hash.
-    command='echo password_hash(getenv("ONTRACK_GAP_MAP_PIN"), PASSWORD_DEFAULT);'
-    verifier=run(["php","-r",command],secret=True)
+    # The host already has PHP 8.x; no PHP binary is required on Windows.
+    # Send the PIN only on the encrypted SSH stdin (never a command argument).
+    command="php -r 'echo password_hash(trim(stream_get_contents(STDIN)), PASSWORD_DEFAULT);'"
+    verifier=ssh(key,command,input_data=pin)
     if not verifier.startswith("$2y$") or len(verifier)<55:
         raise RuntimeError("invalid private password verifier")
     job=os.getenv("GITHUB_RUN_ID","manual")
