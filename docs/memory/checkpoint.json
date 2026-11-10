@@ -189,6 +189,25 @@
     "map_url": "https://app.ontrackegy.com/architecture-map/",
     "map_deployment_run": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42739520075",
     "map_verified_sha": "b407c690fc3546c7eddc87c5e6265a3989d10fbe",
-    "map_host_private_pin": "PROVISIONED_SAFELY_FROM_PREEXISTING_REPO_HISTORY_ROTATE_ASAP"
+    "map_host_private_pin": "PROVISIONED_SAFELY_FROM_PREEXISTING_REPO_HISTORY_ROTATE_ASAP",
+    "code_wave": {
+      "at": "2026-11-10",
+      "source_sha": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
+      "tasks": [
+        "WEB-CORE-06",
+        "WEB-CORE-08",
+        "WEB-UX-01"
+      ],
+      "status": "PARTIAL_CI_PENDING",
+      "ci": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42743726116",
+      "hourly_automation": "CREATED_FOR_CONTINUATION",
+      "changes": [
+        "Pilot policy fail-closed and backward compatible",
+        "Usage period exact-once and same-term carryover",
+        "Explicit 404 tabs/503 incident errors"
+      ],
+      "production_saas": "NOT_DEPLOYED",
+      "map": "MAP_ONLY_PUBLISH_ON_GREEN_CI"
+    }
   }
 }

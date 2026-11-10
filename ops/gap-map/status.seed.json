@@ -201,10 +201,14 @@
         "saas/database/migrations/"
       ],
       "description": "مصدران مختلفان للمنطق والبيانات في الريبو؛ لم يُثبت أن كليهما شغال على الإنتاج في الوقت نفسه.",
-      "next": "تثبيت route→runtime→database ownership، ومنع الخصم/التسوية مرتين؛ بدون حذف مسارات أو بيانات.",
+      "next": "أُضيف usage ledger same-term carryover وout-of-order callbacks؛ ما زالت ازدواجية Laravel/Console مصدر مخاطرة وتتطلب معرفة runtime الفعلي على الهوست.",
       "links": [
         "GAP-2",
         "GAP-7"
+      ],
+      "code_mitigation": [
+        "WEB-CORE-08",
+        "saas/console/_core/BillingUsage.php"
       ]
     },
     {
@@ -234,11 +238,15 @@
         "saas/routes/web.php"
       ],
       "description": "بوابات مختلفة تتعامل مع الهاتف والموقع؛ الـLegacy authorization منفصل، ولم يثبت حجم مرور كل مسار.",
-      "next": "رصد المستهلكين ومصفوفة توافق payloads/versions، ثم adapter آمن يترك المسارات الحالية شغالة.",
+      "next": "أُضيفت مراجعة سياسة Pilot flat وfail-closed على SaaS، لكن ما زال يلزم تأكيد عملاء Legacy traffic، وعدم إزالة أي API أو تغيير تطبيق Android.",
       "links": [
         "GAP-1",
         "GAP-5",
         "GAP-7"
+      ],
+      "code_mitigation": [
+        "WEB-CORE-06",
+        "saas/console/_core/MobilePilot.php"
       ]
     },
     {
@@ -411,7 +419,7 @@
         "saas/mobile/audio-proof/overlay/"
       ],
       "description": "مستوى صوت فوري: يجب تجنب إعادة تسجيل الدخول بالويب، وفحص لوحة الحساب، وطلبات REST المتسلسلة غير اللازمة لكل مكالمة أو chunk. الكود يثبت وجود Device Bearer وطلب Google token؛ لم يُقَس زمن المراحل الفعلي ولا تُفترض عشر خطوات أو 50ms لكل خطوة.",
-      "next": "SaaS-first: افتح traces منفصلة للوارد/الصادر، قِس p50/p95/p99 لكل hop ومقدار RTT، احتفظ بتوثيق device binding وإيقاف الشريحة وDNC/consent/quota الضروري، جهّز published Agent config/token مبكرًا بتوقيت مناسب، وادفع audit/report والملخص إلى خارج حلقة الصوت دون فقد البيانات. لا تغير كود Android الآن.",
+      "next": "عزل أثر out-of-order cellular callback على اشتراك/Usage بدل وقت الوصول تم في SaaS، لكن قياسات latency p50/p95/p99 الحقيقية لم تبدأ، وAndroid خارج التعديل.",
       "links": [
         "GAP-1",
         "GAP-2",
@@ -525,7 +533,11 @@
           "verified_tool_results",
           "durable_audit_events"
         ]
-      }
+      },
+      "code_mitigation": [
+        "WEB-CORE-08",
+        "tools/test_saas_usage_period_reconciliation.php"
+      ]
     }
   ],
   "tasks": [
@@ -622,17 +634,45 @@
     {
       "id": "WEB-CORE-06",
       "stage": "awaiting_code_gap_closure",
-      "fullClosure": false
+      "fullClosure": false,
+      "patch_evidence": [
+        "saas/console/_core/MobilePilot.php",
+        "tools/test_saas_pilot_policy_compat.php"
+      ],
+      "patch_summary": "خادم SaaS Pilot القديم: الحفاظ على flat settings/legacy fields، 5s default، منع فقدان الإعدادات عند JSON فاسد أو symlink، مع اختبار fixture معزول. رصد المرور الفعلي والـACK والتوافق مع جميع clients متبقٍ.",
+      "next_action": "حصر إصدار الـPilot والأجهزة المتصلة وتوثيق مسارات flat/nested بلا إزالة Legacy؛ Host E2E مؤجل.",
+      "last_source_commit": "9548dba071c1b0f07544fe81faef6a8c60289049",
+      "ci_status": "pending_current_SHA_verification",
+      "updated_at": "2026-11-10"
     },
     {
       "id": "WEB-CORE-08",
       "stage": "awaiting_code_gap_closure",
-      "fullClosure": false
+      "fullClosure": false,
+      "patch_evidence": [
+        "saas/console/_core/BillingUsage.php",
+        "tools/test_saas_usage_period_reconciliation.php",
+        "tools/test_saas_integrated_mysql.php"
+      ],
+      "patch_summary": "إدخال الفاتورة مرة واحدة بعد دليل active+ended، رفض demo/missed/no-answer، ربط usage بتاريخ بدء المكالمة أثناء انقطاع 3G وتأخر الأحداث، حفظ استهلاك الخطة عند تغييرها في نفس الفترة، اختبار SQLite/MySQL8. مراجعة إنتاجية وحالات renewal/overage الأوسع متبقية.",
+      "next_action": "تدقيق expiry/replacement/cancelled والـpaid renewal عبر MySQL8 وكميات عالية، وربط quota gates بالمكالمة الصادرة دون تعطيل DNC أو إثبات المكالمات.",
+      "last_source_commit": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
+      "ci_status": "pending_current_SHA_verification",
+      "updated_at": "2026-11-10"
     },
     {
       "id": "WEB-UX-01",
       "stage": "awaiting_code_gap_closure",
-      "fullClosure": false
+      "fullClosure": false,
+      "patch_evidence": [
+        "saas/console/index.php",
+        "tools/test_saas_roles_form_post_http.py"
+      ],
+      "patch_summary": "بدل عرض overview كأنه نجاح عند tab غير موجود أو غير مصرح، إرجاع 404 صريح؛ إخفاء نص الاستثناء الخام وإرجاع 503 مع Incident ID، واختبار 404 عبر HTTP login/roles؛ باقي فحص كل زر والنشر الفعلي متبقٍ.",
+      "next_action": "التأكد من 237 Chrome viewport وauthenticated POST persistence لجميع الأدوار مع audit لكل actions؛ E2E مستخدم مؤجل.",
+      "last_source_commit": "34fbad0bbe5a5941d7038a95815ddc46701150a1",
+      "ci_status": "pending_current_SHA_verification",
+      "updated_at": "2026-11-10"
     },
     {
       "id": "WEB-CORE-05",
@@ -697,5 +737,21 @@
     "GAP-4",
     "GAP-3"
   ],
-  "refreshNotes": "Status refresh is async polling only; 'GAP-8 voice hot path' is planned instrumentation, not measured performance."
+  "refreshNotes": "Status refresh is async polling only; 'GAP-8 voice hot path' is planned instrumentation, not measured performance.",
+  "cycle": {
+    "at": "2026-11-10",
+    "scope": "saas_21_strict",
+    "phase": "CORE-06_CORE-08_UX-01_code_patch_regression",
+    "status": "CI_PENDING_FOR_LATEST_CODE",
+    "source_sha": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
+    "hourly_continuation": "scheduled_in_automations_not_repository_cron",
+    "host_runtime_deployment": "NOT_DEPLOYED",
+    "map_deployment": "AUTOMATED_MAP_ONLY_AFTER_SUCCESSFUL_CI",
+    "focus": [
+      "WEB-CORE-06",
+      "WEB-CORE-08",
+      "WEB-UX-01"
+    ],
+    "notes": "Do not change user login GAP-7; do not restore VS or modify Android."
+  }
 }

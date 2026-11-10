@@ -32,3 +32,6 @@
 
 ## Rule-based automatic findings
 `tools/build_gap_map_snapshot.py` adds `findings` on every source push with file evidence and linked GAP, without reading credential contents. SRC-001 (Laravel/Console), SRC-002 (API sprawl), SRC-003 (tracked hash filename), SRC-004 (diagnostic routes), SRC-005 (legacy login subpath), SRC-006 (Google auth request in voice session), SRC-007 (VS regression, should remain absent). All have `runtime_verified=false`; they are **review candidates**, not falsely verified service outages. UI has a separate clickable area. The last verified host deployment is [42739520075](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42739520075) with SHA `b407c690fc35`; subsequent deployments should preserve the host-private PIN verifier.
+
+## SaaS wave 2026-11-10 — status in map
+`WEB-CORE-06`, `WEB-CORE-08`, `WEB-UX-01` تظل **awaiting_code_gap_closure** ولكن لها `patch_evidence`, `patch_summary`, `next_action` في `status.seed.json`. الماب تبرز تحديثات كود Pilot flat compatibility وUsage call-start carryover وUI invalid-tab 404؛ **SaaS code was NOT deployed**. Snapshot/CI على HEAD التالي يعرض الوضع الفعلي، وعمليات النشر الخاصة بالماب لا تُغلق تذاكر SaaS تلقائيًا. الاختبارات اليدوية مؤجلة بطلب المالك.
