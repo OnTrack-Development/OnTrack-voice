@@ -21,6 +21,8 @@ jobs:
           php-version: '8.3'
           extensions: pdo_sqlite,mbstring,pdo_mysql,curl,openssl,fileinfo,zip,dom,sodium
           coverage: none
+      - name: Validate persistent architecture map and 21-ticket handoff
+        run: python3 tools/test_gap_map_handoff.py
       - name: Install PDF fixture extractor
         run: |
           set -euo pipefail
