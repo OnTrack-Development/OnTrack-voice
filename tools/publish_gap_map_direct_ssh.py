@@ -52,7 +52,7 @@ def scp(key,local,remote):
 def main():
     if os.getenv("GITHUB_ACTIONS")!="true" or os.getenv("GITHUB_REPOSITORY")!=REPO:
         raise RuntimeError("authorized GitHub Actions environment required")
-    sha=os.getenv("GITHUB_SHA","")
+    sha=os.getenv("ONTRACK_GAP_MAP_SOURCE_SHA") or os.getenv("GITHUB_SHA","")
     if not re.fullmatch(r"[a-f0-9]{40}",sha):
         raise RuntimeError("GitHub sha missing or malformed")
     pin=os.getenv("ONTRACK_GAP_MAP_PIN","")
