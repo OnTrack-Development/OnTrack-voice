@@ -35,14 +35,21 @@ assert not (ROOT/"VS").exists(),"VS folder must not be reintroduced"
 tasks=seed.get("tasks",[])
 ids=[t.get("id") for t in tasks]
 assert len(ids)==len(set(ids)),"duplicate task identifiers"
-patched={t["id"] for t in tasks if t.get("stage")=="code_patch_evidenced"}
-pending={t["id"] for t in tasks if t.get("stage")=="awaiting_code_gap_closure"}
+allowed_stages={"code_patch_evidenced","awaiting_code_gap_closure",
+    "code_complete","host_verified","user_verified","complete","blocked","deferred_10"}
+assert all(t.get("stage") in allowed_stages for t in tasks),"unknown task status"
 deferred={t["id"] for t in tasks if t.get("stage")=="deferred_10"}
-assert len(patched)==18 and len(pending)==3 and len(deferred)==10, (
-    f"outdated task baseline; update registry and TODO together: {len(patched)}/{len(pending)}/{len(deferred)}")
-assert pending=={"WEB-CORE-06","WEB-CORE-08","WEB-UX-01"},"pending identifiers differ from TODO"
-assert not (patched & pending or patched & deferred or pending & deferred),"overlapping task stages"
-assert all(t.get("fullClosure") is False for t in tasks),"do not infer FULL DONE from code fixtures"
+active={t["id"] for t in tasks if t.get("stage")!="deferred_10"}
+assert len(active)==21 and len(deferred)==10, (
+    f"wrong 21 active / 10 deferred task register: {len(active)}/{len(deferred)}")
+assert not(active & deferred),"overlapping active/deferred tasks"
+for task in tasks:
+    if task.get("fullClosure") is True:
+        if task.get("stage")!="complete" or not all(task.get(k) for k in
+                ("source_sha","ci_run","host_receipt","user_evidence")):
+            raise AssertionError("complete requires reproducible full acceptance evidence")
+    elif task.get("stage")=="complete":
+        raise AssertionError("complete stage without fullClosure");
 for id_ in ids:
     if id_ not in todo:
         raise AssertionError(f"task missing in TODO: {id_}")
