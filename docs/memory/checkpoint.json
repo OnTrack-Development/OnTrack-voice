@@ -152,5 +152,39 @@
     "build_evidence": "docs/mobile/MOBILE_OTA_BUILD_0_1_6.json",
     "publication_evidence": "docs/mobile/OTA_HOST_PUBLICATION_2026_10_30.json",
     "emulator_webview_verified": false
+  },
+  "saas_gap_map_latest": {
+    "date": "2026-11-10",
+    "authoritative": true,
+    "branch": "fix/saas-21-closure-20261110",
+    "pull_request": "https://github.com/OnTrack-Development/OnTrack-voice/pull/84",
+    "handoff": "docs/audits/ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md",
+    "todo": "docs/audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md",
+    "map_seed": "ops/gap-map/status.seed.json",
+    "publish_access": "docs/ops/ONTRACK_DIRECT_SSH_DEPLOY_ACCESS_20261107_AR.md",
+    "status_counts": {
+      "saas_tickets": 21,
+      "patched_not_fully_accepted": 18,
+      "needs_code_closure": 3,
+      "deferred_separate": 10,
+      "gaps": 8
+    },
+    "remaining": [
+      "WEB-CORE-06",
+      "WEB-CORE-08",
+      "WEB-UX-01"
+    ],
+    "map_host_path": "/home/appontrack/public_html/architecture-map/",
+    "map_status": "IN_DEVELOPMENT_NOT_HOST_VERIFIED",
+    "verification": "SaaS code fixtures and CI != host verified or owner E2E",
+    "mobile": "OBSERVE_ONLY_NO_NATIVE_CHANGE",
+    "vs": "REMOVED_NEVER_RESTORE",
+    "user_reported_login_redirect": "GAP-7_DEFERRED",
+    "voice_latency": "GAP-8_UNMEASURED_P0_SHARED",
+    "map_pin": "PRIVATE_HASH_ONLY_NO_PIN_IN_REPO",
+    "simulator": "ISOLATED_CI_ONLY_NO_REAL_CALL",
+    "host_link": "STOP",
+    "direct_ssh": "BEDIR_WINDOWS_SELF_HOSTED_DOCUMENTED",
+    "next_action": "Continue map frontend / deploy proof and 21-ticket code closure; update todo and registry after each verified patch"
   }
 }
