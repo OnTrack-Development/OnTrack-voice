@@ -2,6 +2,19 @@
 
 > **مصدر حقيقة للوصول المتاح للـAgent/CI:** القناة المباشرة من Windows GitHub Actions self-hosted runner؛ لا تخلطها مع قناة Host-Link القديمة. هذه وثيقة صلاحيات واتصال **وليست كلمة مرور أو مفتاحًا خاصًا**.
 
+## تحديث مرجع الصلاحيات والماب — 10 نوفمبر 2026
+
+**كل Coding Agent جديد لازم يبدأ** من [Gap Map Current Handoff](../audits/ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md)، ثم [SaaS 21 TODO](../audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md)، و`ops/gap-map/status.seed.json`. عند كل Commit ناجح/فاشل، لازم تحديث حالة البنود والفجوات وربط SHA وCI وHost receipt، وعدم اعتماد COMPLETE بمجرد مصدر كود أو اختبار CI.
+
+**مجلد النشر المستقل للماب:** `/home/appontrack/public_html/architecture-map/`؛ **ملفات الحالة والأسرار الخاصة بها:** `/home/appontrack/.ontrack-gap-map/` خارج webroot. لا تستنتج أن هذا المسار منشور من وجود ملف Git؛ الرابط المقترح `https://app.ontrackegy.com/architecture-map/` **UNVERIFIED حتى نجاح SSH upload + HTTP auth/200 مع PIN + SHA receipt**. لا تستخدم المسارات القديمة `/saas/console` للماب.
+
+**طريقة المصادقة للماب:** PIN ستة أرقام اختاره المالك في المحادثة؛ خزّن `password_hash` فقط في ملف خاص `pin.hash` بصلاحية 0600، لا تكتب PIN كنص في source/commit/docs/CI/log. لكل تأكيد فجوة خزّن fingerprint المصدر وتاريخ التأكيد في `reviews.json`، وارجع إلى RECHECK_REQUIRED إذا اختلف. احمِ كل نقاط API بنفس جلسة PIN/CSRF/rate limits؛ امنع نشر `status.json` أو audit ledger للويب مباشرة.
+
+**قناة النشر:** شغّل Job نشر الماب **فقط** من BEDIR Windows Runner عبر SSH المباشر المثبت في هذا الملف؛ لا تستخدم Host-Link (STOP)، لا تطبع مفاتيح أو بيئة runner؛ تحقّق هوية المضيف وSHA بعد upload، ورفض unauthorized HTTPS للزوار. لا ترفع APK ولا تعدل SaaS runtime أو Android أو OTA في Job الماب. صلاحيات الكتابة في `architecture-map/` لم يتم إثباتها مستقلاً بعد، لذلك لا تدعِ النشر حتى تُختبر. `VS/` محذوف وخارج المشروع.
+
+**GAP-7 (Canonical Login URL):** المالك طلب إخفاء `/saas/console` من دخول المستخدم النهائي؛ **تسجيل فقط دون تعديل Routing الآن**. **GAP-8:** تجنب Web Login والطلبات المتسلسلة غير الضرورية في Voice critical path؛ Device Bearer مع تحقق العزل والحصص وDNC ما زالت إلزامية.
+
+
 ## إعدادات الاتصال المثبتة بالتجربة
 
 | البند | القيمة |
