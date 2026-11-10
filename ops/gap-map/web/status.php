@@ -17,7 +17,9 @@ if(is_file($reviewFile)&&!is_link($reviewFile)&&is_readable($reviewFile)){
     $reviews=json_decode((string)@file_get_contents($reviewFile,false,null,0,65536),true);
     if(!is_array($reviews))$reviews=[];
 }
-foreach(($json['gaps']??[]) as &$gap){
+if(!isset($json['gaps'])||!is_array($json['gaps']))
+    gap_map_json(['ok'=>false,'error'=>'snapshot_gaps_invalid'],503);
+foreach($json['gaps'] as &$gap){
     if(!is_array($gap))continue;
     $id=(string)($gap['id']??'');
     $review=$reviews[$id]??null;
