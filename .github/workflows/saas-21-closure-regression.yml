@@ -23,6 +23,8 @@ jobs:
           coverage: none
       - name: Validate persistent architecture map and 21-ticket handoff
         run: python3 tools/test_gap_map_handoff.py
+      - name: SaaS role navigation and all form action dispatch contract
+        run: python3 tools/test_saas_nav_action_contract.py
       - name: Install PDF fixture extractor
         run: |
           set -euo pipefail
