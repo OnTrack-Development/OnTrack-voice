@@ -93,3 +93,32 @@ Host backup/restore; maintenance secret rotation/revoke; production MySQL snapsh
 - [Authenticated HTTP forms & persisted database](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42720552933) — SUCCESS.
 
 **Host/user manual E2E:** مؤجل بطلب المالك؛ لا يُكتب `Production Ready` أو `100%` قبل تحقق مستقل، ولا تغيير للـAndroid/APK/OTA أو النشر الحي.
+
+## GAP MAP v2 — مراجعة الخريطة القديمة وتوجيه مالك المشروع (2026-11-10)
+
+**المرجع:** الملف المرسل من المالك `ontrack_voice.html`، يتضمن ست فجوات أصلية وخمس طبقات. هذه **فرضيات بنيوية قديمة** يجب تأكيدها مقابل HEAD الفعلي قبل تصنيفها Complete. المصدر المرجعي للـSaaS هو هذا الفرع، وليس snapshot "OnTrack-voice-main" المرسوم.
+
+**VS/ خارج المشروع نهائيًا:** تأكد عدم وجود أي مسار يبدأ `VS/` في `main` و`release/voice-v1-20261106` وفرع `fix/saas-21-closure-20261110`. **لا يُعاد إنشاؤه أو ترحيله أو اختباره أو احتسابه GAP مفتوحة.** جزء GAP-3 الخاص بـVS obsolete؛ ازدواج واجهة Kotlin/OTA مش ضمن SaaS الحالية.
+
+| Gap | حالة التحقق من الكود | التأثير / التقاطع | المطلوب بعد مراجعة وربط الأوديت |
+|---|---|---|---|
+| **GAP-1** Laravel/Console منفصلان | **CODE DIVERGENCE CONFIRMED؛ انتشار Laravel على Host غير مثبت**؛ Laravel Controllers/Models/26 migrations جنب Console Core وMySQL schema. ناشر الموقع الحالي يستهدف Console فقط؛ لا نستنتج Live split-brain دون host evidence. | SaaS أساسي P0؛ CORE-08, UX-02/03, REL-03 وwebhook/billing/tenant IDs. | inventory route→runtime→DB→owner، تكوين مصدر حقيقة وحيد لكل workflow، منع double-settlement وdouble-usage قبل أي migration. **لا حذف/إيقاف Runtime يستخدمه عميل**. |
+| **GAP-2** 4 API domains / auth paths | **CONFIRMED IN SOURCE**: `saas/mobile/server/`, `console/device/v1`, root `api/`, Laravel `routes/web.php`؛ لا نفترض جميعها مستعملة فعليًا. | **SHARED SaaS↔MOBILE**؛ CORE-01/06/07/08، تحديث bearer/contract وحماية Pilot/Voice. | متتبع request path/method/auth/tenant/DB/consumer + adapter additive خلف مسارات موجودة؛ لا تعديل Android ولا كسر API قديمة. |
+| **GAP-3** VS وواجهات OTA | **VS OBSOLETE / ZERO FILES**، Kotlin/OTA views غير موحّدة في snapshot؛ غير مؤكد وجود divergence فعلي حاليًا. | MOBILE ONLY، deferred. | إخراج VS من أي ماب جديدة تمامًا؛ تحديث المصدر الوحيد للـUI لاحقًا ضمن خطة تطبيق مستقلة. |
+| **GAP-4** root vs `reference/voicecall-v0.6.3` | **DUPLICATE PATHS CONFIRMED، BYTE IDENTICAL غير مثبت**؛ snapshot غير release. | SHARED/MAINTAINABILITY؛ SEC-03/07، root voice deployment | audit deploy packaging / runtime references أولاً، منع نشر reference، لا حذف أرشيفات أثناء عمل الـ21. |
+| **GAP-5** diagnostic routes & static hash | **SOURCE CONFIRMED**: `test.php`, `omnira_api_tester.php`, `api/diag.php` وtracked `saas/mobile/server/auth.sha256`; تعرّضها للعامة **غير مثبت**. وثيقة الصور قد تحتاج مراجعة بحذر. | **P0 SECURITY / SHARED**؛ SEC-01..07 وmobile auth. | تأكد عبر public probes بلا تسريب؛ اعتماد أسرار private خارج webroot مع rotate+migration آمن بدون كسر الأجهزة، وربط diagnostics بـoperator auth؛ لا تسجل أي أسرار في التقرير/الماب. |
+| **GAP-6** متاهة Workflows | **STALE COUNT**: عدد Workflow YAML على فرع العمل **69 وليس 16**. | DevOps SHARED، mobile build خارج scope | audit actual triggers & publication overlap، عزل site-only وAndroid/no double publish، لا إلغاء workflows مثبتة دون مبرر. |
+| **GAP-7 — NEW** login canonical host and hidden subpaths | **OWNER-OBSERVED, NOT YET VERIFIED WITH HOST**: بعد الدخول من نطاق التطبيق الرئيسي ينتقل المتصفح إلى `/saas/console` بدل إبقاء الدومين ومسار الدخول canonical. المالك ذكر `app.entrakegy.com`؛ ناشر الريبو يسمي `app.ontrackegy.com`. يُحدَّد FQDN الصحيح من إعدادات Host/DNS قبل أي تغيير، دون افتراض أن أحدهما صحيح. | **P1 UX/ROUTING / SHARED DEPENDENCIES**: Laravel/Console/SSO/white-label/session cookie/device URLs / webhooks. | **مؤجل بقرار المالك الآن:** سجل 302 Location chain، canonical base URL، rewrite/proxy، session+CSRF+SSO callback، hash/relative links، الحفاظ على `/saas/console` و`/mobile` وAPI aliases للأجهزة الحالية حتى traffic+compatibility صفر مخاطر. لا تغيير Routing ولا حذف فولدر حاليًا. |
+
+### معمارية الماب الجديدة المتحركة
+- [ ] إنشاء مجلد Host جديد **`/home/appontrack/public_html/architecture-map/`** للوحة عرض تفاعلية **محمية بصلاحيات Platform Owner/Admin**. لا تُنشر فجوات الأمان أو بنية خاصة لعامة الويب؛ لا ملفات Secrets/SSH/Reports داخل Webroot.
+- [ ] **Live dashboard data** في `/home/appontrack/.ontrack-gap-map/status.json` خارج Webroot، تزامن آمن من branch SHA وCI statuses؛ الصفحة تستعلم `status.php` كل ~20s وتعرض *آخر مزامنة حقيقية* ولا تختلق Streaming realtime.
+- [ ] خريطة 3 مسارات: **SaaS** / **MOBILE (Observation-only)** / **SHARED INTERFACES** مع Connections، severity، source refs، وتاريخ التحديث وCommit SHA، 21 tasks، 10 deferred، GAP-7.
+- [ ] إنشاء CI/host publish لـ**ملفات الماب وحدها** على الـWindows self-hosted runner عبر SSH موثق، دون نشر SaaS runtime، وبدون Android أو Host-Link القديم. Verify SHA وHTTP 401/200 auth gate.
+- [ ] في كل push كودي على فرع الـ21: snapshot متجدد + smoke + نشر status في host؛ بعد أي CI gate تمييز passed/failed/queued، **لا مزامنة فعلية بين كل ثانية بدون backend**.
+- [ ] لا تصنيف GAP أو Ticket DONE بمجرد عدد commits/الـCI؛ فصل CODE PATCHED / CI VERIFIED / HOST VERIFIED / USER E2E DEFERRED.
+
+### الوصول والنشر المصرَّح
+- وثيقة الصلاحيات الرسمية: `docs/ops/ONTRACK_DIRECT_SSH_DEPLOY_ACCESS_20261107_AR.md`.
+- Windows self-hosted runner `BEDIR`, SSH direct 7195 بمفتاح خاص **داخل حساب Runner فقط**، username `appontrack`، Host-Link STOP. لا حفظ المفتاح أو عرضه. نطاق صلاحيات السيرفر لحساب appontrack فقط.
+- **لا تستخدم Host-Link / queue_saas_console القديمة** ما دام STOP؛ workflow الماب لا يلمس APK/OTA/PCM/Android ولا يحاول نشر الموقع الأصلي.
