@@ -14,7 +14,7 @@ function usage_fixture_call(int $account,int $site,int $binding,int $slot,string
           substr($raw,17,3).'-'.substr($raw,20,12);
     insert("INSERT INTO calls(account_id,site_id,device_binding_id,sim_slot,external_call_id,
         phone,name,duration_seconds,status,is_demo,created_at)
-        VALUES(?,?,?,?,?,'','',?,?,?,?,?)",
+        VALUES(?,?,?,?,?,'','',?,?,?,?)",
         [$account,$site,$binding,$slot,$call,$seconds,$status,$demo,$created]);
     return $call;
 }
