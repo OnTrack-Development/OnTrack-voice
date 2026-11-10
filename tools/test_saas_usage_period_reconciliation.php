@@ -36,6 +36,11 @@ $summary=voice_usage_summary($account);
 usage_check($summary['active']===true,'seed customer subscribed');
 $baseline=$summary['used'];
 $answered=usage_fixture_call($account,$site,$binding,$slot,'active',0,0,$at);
+// A forged/orphan active callback cannot plant evidence for a future call.
+$orphan='11111111-2222-4333-8444-555555555555';
+usage_check(!voice_usage_update($b,$orphan,'active'),'orphan active callback rejected');
+usage_check(!one('SELECT call_id FROM voice_call_answer_evidence WHERE device_binding_id=? AND call_id=?',
+    [$binding,$orphan]),'orphan callback must not persist answer evidence');
 usage_check(!voice_usage_update($b,$answered,'active'),'active alone never charges');
 execute("UPDATE calls SET status='ended', duration_seconds=19 WHERE external_call_id=?",[$answered]);
 usage_check(voice_usage_update($b,$answered,'ended'),'ended with answer evidence charges once');
