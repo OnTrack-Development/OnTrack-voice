@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 // This page is an operator-only architectural security diagnostic, not public product UI.
-require_once dirname(__DIR__, 2).'/_core/Bootstrap.php';
+require_once dirname(__DIR__).'/_core/Bootstrap.php';
 function gap_map_authorize(bool $json=false):void {
     header('Cache-Control: private, no-store, max-age=0');
     header('X-Content-Type-Options: nosniff');
