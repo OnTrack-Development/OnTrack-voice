@@ -49,9 +49,9 @@ function voice_usage_update(array $b,string $callId,string $phase):bool{
   if(!preg_match('/^20[0-9]{2}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01]) [0-2][0-9]:[0-5][0-9]:[0-5][0-9]$/D',$callStarted))
     return false;
   $covered=one("SELECT s.id FROM subscriptions s
-    WHERE s.account_id=? AND s.status='active'
+    WHERE s.account_id=? AND s.status IN ('active','replaced','expired')
       AND s.starts_at<=? AND s.ends_at>?
-    ORDER BY s.id DESC LIMIT 1",[$a,$callStarted,$callStarted]);
+    ORDER BY s.starts_at DESC,s.id DESC LIMIT 1",[$a,$callStarted,$callStarted]);
   if(!$covered)return false;
   $ref='voice-'.hash('sha256',$a.':'.$s.':'.$d.':'.$slot.':'.$callId);
   if(one('SELECT id FROM usage_ledger WHERE reference=?',[$ref]))return false;
@@ -68,9 +68,18 @@ function voice_usage_summary(int $account):array{
     WHERE s.account_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
     ORDER BY s.id DESC LIMIT 1",[$account,now(),now()]);
   if(!$sub)return ['active'=>false,'used'=>0,'quota'=>0,'remaining'=>0,'overage'=>0,'estimate_minor'=>0];
+  // A same-term demo plan change marks the previous subscription
+  // 'replaced' but does not reset its paid period. Carry the usage ledger
+  // forward across that exact billing term instead of granting a new quota
+  // whenever an admin flips a plan during the existing subscription.
+  $cycle=one("SELECT MIN(starts_at) cycle_start FROM subscriptions
+    WHERE account_id=? AND ends_at=? AND starts_at<=?
+      AND status IN ('active','replaced','expired')",
+    [$account,$sub['ends_at'],now()]);
+  $cycleStart=(string)($cycle['cycle_start']??$sub['starts_at']);
   $used=(int)(one("SELECT COALESCE(SUM(units),0) n FROM usage_ledger
     WHERE account_id=? AND kind='connected_call' AND created_at>=? AND created_at<?",
-    [$account,$sub['starts_at'],$sub['ends_at']])['n']??0);
+    [$account,$cycleStart,$sub['ends_at']])['n']??0);
   $quota=max(0,(int)$sub['call_quota']);$over=max(0,$used-$quota);
   return ['active'=>true,'used'=>$used,'quota'=>$quota,'remaining'=>max(0,$quota-$used),
     'overage'=>$over,'estimate_minor'=>$over*max(0,(int)$sub['overage_minor'])];
