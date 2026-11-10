@@ -113,3 +113,27 @@ jobs:
             exit 1
           fi
           echo SAAS_21_CODE_GUARD_PASS
+      - name: Gap-map frontend syntax and protected API lint
+        run: |
+          set -euo pipefail
+          find ops/gap-map/web -name '*.php' -type f -print0 | xargs -0 -n1 php -l
+          node --check ops/gap-map/web/app.js
+          python3 -m py_compile tools/build_gap_map_snapshot.py tools/run_gap_map_simulator.py tools/test_gap_map_handoff.py
+      - name: Run isolated user-journey simulator (no actual calls or payments)
+        env:
+          ONTRACK_SIMULATOR_ENABLE: '1'
+        run: |
+          set -euo pipefail
+          python3 tools/run_gap_map_simulator.py
+      - name: Rebuild source-backed map snapshot with simulation evidence
+        run: python3 tools/build_gap_map_snapshot.py
+      - name: Upload immutable architecture map evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: SaaS-Architecture-Gap-Map
+          path: |
+            dist/gap-map/status.json
+            dist/gap-map/simulation-report.json
+            ops/gap-map/web/
+          if-no-files-found: error
+          retention-days: 14
