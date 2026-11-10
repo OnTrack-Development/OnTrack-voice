@@ -68,7 +68,7 @@ def main():
         old_commit="e5ec4f54a07832924620a0ac2d69ce38c5d85580"
         old_path="docs/audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md"
         old_text=run(["git","show",old_commit+":"+old_path],secret=True)
-        match=re.search(r"PIN منفصل من 6 أرقامs*`([0-9]{6})`",old_text)
+        match=re.search(r"PIN منفصل من 6 أرقام[ \t]*`([0-9]{6})`",old_text)
         if not match:
             raise RuntimeError("GAP_MAP_OWNER_PIN_BOOTSTRAP_UNAVAILABLE: configure Actions secret")
         pin=match.group(1)
