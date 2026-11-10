@@ -34,17 +34,29 @@ function voice_usage_update(array $b,string $callId,string $phase):bool{
        (int)$evidence['site_id']!==$s||(int)$evidence['sim_slot']!==$slot))
       throw new RuntimeException('voice_usage_evidence_scope_mismatch');
   }
-  $row=one('SELECT status,duration_seconds,is_demo FROM calls
+  $row=one('SELECT status,duration_seconds,is_demo,created_at FROM calls
     WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? AND external_call_id=?',
     [$a,$s,$d,$slot,$callId]);
   if(!$row||$row['status']!=='ended'||(int)$row['duration_seconds']<1||(int)$row['is_demo']===1)return false;
   if(!one('SELECT call_id FROM voice_call_answer_evidence
     WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? AND call_id=?',
     [$a,$s,$d,$slot,$callId]))return false;
+  // A delayed 3G/H+ outbox callback must be charged to the subscription
+  // which covered the CALL, never the period in which its event arrived.
+  // An unlicensed/demo call cannot retroactively become billable when a
+  // reseller assigns a plan hours or days after the device first rang.
+  $callStarted=(string)($row['created_at']??'');
+  if(!preg_match('/^20[0-9]{2}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01]) [0-2][0-9]:[0-5][0-9]:[0-5][0-9]$/D',$callStarted))
+    return false;
+  $covered=one("SELECT s.id FROM subscriptions s
+    WHERE s.account_id=? AND s.status='active'
+      AND s.starts_at<=? AND s.ends_at>?
+    ORDER BY s.id DESC LIMIT 1",[$a,$callStarted,$callStarted]);
+  if(!$covered)return false;
   $ref='voice-'.hash('sha256',$a.':'.$s.':'.$d.':'.$slot.':'.$callId);
   if(one('SELECT id FROM usage_ledger WHERE reference=?',[$ref]))return false;
   try{insert('INSERT INTO usage_ledger(account_id,kind,units,reference,created_at)
-       VALUES(?,?,?,?,?)',[$a,'connected_call',1,$ref,now()]);return true;}
+       VALUES(?,?,?,?,?)',[$a,'connected_call',1,$ref,$callStarted]);return true;}
   catch(PDOException $ex){
     if(one('SELECT id FROM usage_ledger WHERE reference=?',[$ref]))return false;
     throw $ex;
