@@ -642,8 +642,13 @@
       "patch_summary": "خادم SaaS Pilot القديم: الحفاظ على flat settings/legacy fields، 5s default، منع فقدان الإعدادات عند JSON فاسد أو symlink، مع اختبار fixture معزول. رصد المرور الفعلي والـACK والتوافق مع جميع clients متبقٍ.",
       "next_action": "حصر إصدار الـPilot والأجهزة المتصلة وتوثيق مسارات flat/nested بلا إزالة Legacy؛ Host E2E مؤجل.",
       "last_source_commit": "9548dba071c1b0f07544fe81faef6a8c60289049",
-      "ci_status": "pending_current_SHA_verification",
-      "updated_at": "2026-11-10"
+      "ci_status": "automated_code_regression_passed",
+      "updated_at": "2026-11-10",
+      "ci_evidence": [
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873"
+      ],
+      "code_verified_sha": "0461878788c63766ba42ec281900e58faf73ff52"
     },
     {
       "id": "WEB-CORE-08",
@@ -657,8 +662,13 @@
       "patch_summary": "إدخال الفاتورة مرة واحدة بعد دليل active+ended، رفض demo/missed/no-answer، ربط usage بتاريخ بدء المكالمة أثناء انقطاع 3G وتأخر الأحداث، حفظ استهلاك الخطة عند تغييرها في نفس الفترة، اختبار SQLite/MySQL8. مراجعة إنتاجية وحالات renewal/overage الأوسع متبقية.",
       "next_action": "تدقيق expiry/replacement/cancelled والـpaid renewal عبر MySQL8 وكميات عالية، وربط quota gates بالمكالمة الصادرة دون تعطيل DNC أو إثبات المكالمات.",
       "last_source_commit": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
-      "ci_status": "pending_current_SHA_verification",
-      "updated_at": "2026-11-10"
+      "ci_status": "automated_code_regression_passed",
+      "updated_at": "2026-11-10",
+      "ci_evidence": [
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873"
+      ],
+      "code_verified_sha": "0461878788c63766ba42ec281900e58faf73ff52"
     },
     {
       "id": "WEB-UX-01",
@@ -671,8 +681,13 @@
       "patch_summary": "بدل عرض overview كأنه نجاح عند tab غير موجود أو غير مصرح، إرجاع 404 صريح؛ إخفاء نص الاستثناء الخام وإرجاع 503 مع Incident ID، واختبار 404 عبر HTTP login/roles؛ باقي فحص كل زر والنشر الفعلي متبقٍ.",
       "next_action": "التأكد من 237 Chrome viewport وauthenticated POST persistence لجميع الأدوار مع audit لكل actions؛ E2E مستخدم مؤجل.",
       "last_source_commit": "34fbad0bbe5a5941d7038a95815ddc46701150a1",
-      "ci_status": "pending_current_SHA_verification",
-      "updated_at": "2026-11-10"
+      "ci_status": "automated_code_regression_passed",
+      "updated_at": "2026-11-10",
+      "ci_evidence": [
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873"
+      ],
+      "code_verified_sha": "0461878788c63766ba42ec281900e58faf73ff52"
     },
     {
       "id": "WEB-CORE-05",
@@ -742,7 +757,7 @@
     "at": "2026-11-10",
     "scope": "saas_21_strict",
     "phase": "CORE-06_CORE-08_UX-01_code_patch_regression",
-    "status": "CI_PENDING_FOR_LATEST_CODE",
+    "status": "CODE_CI_PASS_MAP_HOST_VERIFIED",
     "source_sha": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
     "hourly_continuation": "scheduled_in_automations_not_repository_cron",
     "host_runtime_deployment": "NOT_DEPLOYED",
@@ -752,6 +767,17 @@
       "WEB-CORE-08",
       "WEB-UX-01"
     ],
-    "notes": "Do not change user login GAP-7; do not restore VS or modify Android."
+    "notes": "Do not change user login GAP-7; do not restore VS or modify Android.",
+    "code_verified_sha": "0461878788c63766ba42ec281900e58faf73ff52",
+    "source_code_latest": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
+    "map_host_verified": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
+    "ci": {
+      "full": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
+      "integrated": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873",
+      "mysql": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42743633011",
+      "chrome": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42743633113",
+      "http": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42743632856"
+    },
+    "acceptance": "3 partial tickets have targeted code+tests; no host SaaS deploy, owner manual E2E deferred"
   }
 }

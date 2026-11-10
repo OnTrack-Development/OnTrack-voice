@@ -187,8 +187,8 @@
     "direct_ssh": "BEDIR_WINDOWS_SELF_HOSTED_DOCUMENTED",
     "next_action": "Complete 21 SaaS tickets; update map/repair TODO after verified changes; map host auth already proven",
     "map_url": "https://app.ontrackegy.com/architecture-map/",
-    "map_deployment_run": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42739520075",
-    "map_verified_sha": "b407c690fc3546c7eddc87c5e6265a3989d10fbe",
+    "map_deployment_run": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
+    "map_verified_sha": "0461878788c63766ba42ec281900e58faf73ff52",
     "map_host_private_pin": "PROVISIONED_SAFELY_FROM_PREEXISTING_REPO_HISTORY_ROTATE_ASAP",
     "code_wave": {
       "at": "2026-11-10",
@@ -198,7 +198,7 @@
         "WEB-CORE-08",
         "WEB-UX-01"
       ],
-      "status": "PARTIAL_CI_PENDING",
+      "status": "CODE_TESTS_PASS_MAP_HOST_PUBLISHED_BUT_3_PARENT_TASKS_PARTIAL",
       "ci": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42743726116",
       "hourly_automation": "CREATED_FOR_CONTINUATION",
       "changes": [
@@ -207,7 +207,14 @@
         "Explicit 404 tabs/503 incident errors"
       ],
       "production_saas": "NOT_DEPLOYED",
-      "map": "MAP_ONLY_PUBLISH_ON_GREEN_CI"
+      "map": "MAP_ONLY_PUBLISH_ON_GREEN_CI",
+      "verified_sha": "0461878788c63766ba42ec281900e58faf73ff52",
+      "ci_full": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
+      "ci_integrated": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873",
+      "mysql_ci": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42743633011",
+      "navigation_actions_verified": 103,
+      "navigation_tabs_verified": 21,
+      "php_isolated_suite_count": 49
     }
   }
 }

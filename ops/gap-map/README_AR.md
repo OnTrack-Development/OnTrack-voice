@@ -35,3 +35,6 @@
 
 ## SaaS wave 2026-11-10 — status in map
 `WEB-CORE-06`, `WEB-CORE-08`, `WEB-UX-01` تظل **awaiting_code_gap_closure** ولكن لها `patch_evidence`, `patch_summary`, `next_action` في `status.seed.json`. الماب تبرز تحديثات كود Pilot flat compatibility وUsage call-start carryover وUI invalid-tab 404؛ **SaaS code was NOT deployed**. Snapshot/CI على HEAD التالي يعرض الوضع الفعلي، وعمليات النشر الخاصة بالماب لا تُغلق تذاكر SaaS تلقائيًا. الاختبارات اليدوية مؤجلة بطلب المالك.
+
+## Latest Code-Wave Evidence 2026-11-10
+[49 suites + Map-only deploy #42744338630](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630) PASS at SHA `0461878788c6`: 103 view actions, 21 nav tabs, exact-once usage and flat Pilot legacy safety. Map `/architecture-map/` SSH/host private SHA verified, PIN preserved; all three CORE-06/CORE-08/UX-01 remain PARTIAL, not fully accepted SaaS features.
