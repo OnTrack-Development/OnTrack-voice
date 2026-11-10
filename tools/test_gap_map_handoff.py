@@ -50,6 +50,19 @@ for task in tasks:
             raise AssertionError("complete requires reproducible full acceptance evidence")
     elif task.get("stage")=="complete":
         raise AssertionError("complete stage without fullClosure");
+checkpoint=json.loads((ROOT/"docs/memory/checkpoint.json").read_text(encoding="utf-8"))
+current=checkpoint.get("saas_gap_map_latest",{})
+stats=current.get("status_counts",{})
+for field,expected in (
+    ("saas_tickets",len(active)),
+    ("deferred_separate",len(deferred)),
+    ("patched_not_fully_accepted",len([t for t in tasks if t.get("stage")=="code_patch_evidenced"])),
+    ("needs_code_closure",len([t for t in tasks if t.get("stage")=="awaiting_code_gap_closure"])),
+    ("gaps",len(gaps))):
+    if stats.get(field)!=expected:
+        raise AssertionError(f"checkpoint stale: {field} expected {expected}, found {stats.get(field)}")
+if current.get("handoff")!="docs/audits/ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md":
+    raise AssertionError("checkpoint handoff pointer stale")
 for id_ in ids:
     if id_ not in todo:
         raise AssertionError(f"task missing in TODO: {id_}")
