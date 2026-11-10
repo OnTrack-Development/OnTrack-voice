@@ -27,7 +27,7 @@ function pilot_json(string $name):array {
     $raw=@file_get_contents($path);
     if(!is_string($raw))throw new RuntimeException('pilot_file_unavailable');
     $data=json_decode($raw,true);
-    if(!is_array($data)||array_is_list($data)||
+    if(!is_array($data)||(array_is_list($data)&&$data!==[])||
        !str_starts_with(ltrim($raw),'{'))
         throw new RuntimeException('pilot_file_corrupt');
     return $data;
@@ -74,10 +74,12 @@ function pilot_write_policy(array $changes):int {
     try{
         $base=pilot_settings();
         $next=array_replace($base,$changes);
-        if(!is_int($base['revision'])||$base['revision']<0||
-           $base['revision']>PHP_INT_MAX-2)
+        $prior=$base['revision']??0;
+        if(is_string($prior)&&preg_match('/^[0-9]{1,10}$/D',$prior))
+            $prior=(int)$prior; // Legacy JSON sometimes stored revision as text.
+        if(!is_int($prior)||$prior<0||$prior>PHP_INT_MAX-2)
             throw new RuntimeException('pilot_revision_invalid');
-        $next['revision']=max(1,$base['revision']+1);
+        $next['revision']=max(1,$prior+1);
         $temp=tempnam($root,'console-');
         if(!$temp)throw new RuntimeException('تعذر حفظ سياسة الهاتف');
         try{
