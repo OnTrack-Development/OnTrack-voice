@@ -15,6 +15,12 @@ function voice_usage_update(array $b,string $callId,string $phase):bool{
   if(!in_array($phase,['active','ended'],true))return false;
   voice_usage_init();
   $a=(int)$b['account_id'];$s=(int)$b['site_id'];$d=(int)$b['id'];$slot=(int)$b['sim_slot'];
+  // Reject orphan active callbacks before persisting answer evidence. An
+  // unbound call ID must not become billable if a row is inserted later.
+  $row=one('SELECT status,duration_seconds,is_demo,created_at FROM calls
+    WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? AND external_call_id=?',
+    [$a,$s,$d,$slot,$callId]);
+  if(!$row)return false;
   if($phase==='active'){
     $evidence=one('SELECT account_id,site_id,sim_slot FROM voice_call_answer_evidence
       WHERE device_binding_id=? AND call_id=?',[$d,$callId]);
@@ -34,10 +40,7 @@ function voice_usage_update(array $b,string $callId,string $phase):bool{
        (int)$evidence['site_id']!==$s||(int)$evidence['sim_slot']!==$slot))
       throw new RuntimeException('voice_usage_evidence_scope_mismatch');
   }
-  $row=one('SELECT status,duration_seconds,is_demo,created_at FROM calls
-    WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? AND external_call_id=?',
-    [$a,$s,$d,$slot,$callId]);
-  if(!$row||$row['status']!=='ended'||(int)$row['duration_seconds']<1||(int)$row['is_demo']===1)return false;
+  if($row['status']!=='ended'||(int)$row['duration_seconds']<1||(int)$row['is_demo']===1)return false;
   if(!one('SELECT call_id FROM voice_call_answer_evidence
     WHERE account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=? AND call_id=?',
     [$a,$s,$d,$slot,$callId]))return false;
