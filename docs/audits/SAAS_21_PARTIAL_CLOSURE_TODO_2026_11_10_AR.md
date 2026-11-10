@@ -139,6 +139,14 @@ Host backup/restore; maintenance secret rotation/revoke; production MySQL snapsh
 - [ ] **ميزانية قبول:** هدف المالك **≤2s** لتأخير التفاعل، وليس قيمة قياس حقيقية بعد. أي رقم 50ms×10 أو زمن مستنتج من الكود هو مثال فقط لا Evidence.
 - [ ] **اختبارات آلية آمنة:** محاكاة slow-provider/timeout/retry على SaaS، Assertions لعدم Login في call handler، وقياس بدون أجهزة؛ تجارب المكالمات الفعلية ومقارنة جودة Data/Wi-Fi مؤجلة لمرحلة موبايل مستقلة.
 
+### تقدم كود الماب — 10 نوفمبر 2026 (ليس نشرًا على الهوست)
+- [x] مصدر واجهة RTL تفاعلية ضمن `ops/gap-map/web/index.php`, `style.css`, `app.js`: فصل SaaS/Mobile/Shared وخطوط GAP والعلاقات، العداد، PHP PIN/CSRF/session، زر «تم التحقق منها» مع private review ledger. **PHP/JS lint + regression PASS** [Run #42732197969](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42732197969).
+- [x] مصدر **الكشف التلقائي** `tools/build_gap_map_snapshot.py`: fingerprint ملفات كل فجوة، عدد ملفات الـWorkflow الحالي، رصد tracked auth hash من غير قراءة قيمته للنشر، مقارنة `VS/`, إظهار `source_scan.runtime_checked=false`.
+- [x] مصدر **Simulator CI** `tools/run_gap_map_simulator.py`: 8 اختبارات معزولة، PASS/FAIL وسبب الفشل/المكوّن، 4 مراحل خارجيّة NOT_TESTED/BLOCKED؛ **ليس مكالمة حية**.
+- [x] Workflow رفع Artifact `SaaS-Architecture-Gap-Map` إلى Actions بعد نجاح اختبارات الـSaaS؛ نتيجة Snapshot مرتبطة بـGitHub SHA.
+- [ ] **نشر الماب على Windows SSH host** والتحقق من PIN خاص/URL/HTTP/QA/SHA؛ **غير منجز**، لا تُعرض كصفحة عامة ناجحة.
+- [ ] Auto-publish إلى المجلد الخاص بعد كل دفعة متحقق منها؛ حالياً CI Artifact فقط، وليس مزامنة Host مثبتة.
+
 ### طلبات الماب التفاعلية الإضافية
 - [ ] PIN منفصل من 6 أرقام يحدده المالك في المحادثة ويُجهَّز على الهوست **دون إدراج الرمز كنص في الملفات أو الكوميتات**، **لا تحفظ PIN كنص في Git أو webroot**؛ استخدم private password hash + CSRF + rate limiting + session TTL. PIN الحالي اختاره المالك؛ يفضَّل تغييره قبل مشاركة رابط المراقبة.
 - [ ] زر **تم التحقق منها** لكل GAP، يُحفظ مراجعة المالك + timestamp + source fingerprint في Host private ledger؛ عند تغيّر ملفات المصدر في Gap يعرض `recheck_required`، ولا يغيّر هذا تصنيف CI/Production إلى PASS تلقائيًا.
