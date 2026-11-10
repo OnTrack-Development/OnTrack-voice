@@ -29,3 +29,6 @@
 - 21 بنود SaaS: `PARTIAL/CODE_COMPLETE/HOST_VERIFIED/USER_VERIFIED/COMPLETE` تبع evidence، 10 مؤجلة. CI 100% لا يساوي إنتاج 100%.
 - `VS/` محذوف نهائيًا، لا تعيده. `GAP-7` canonical URL مؤجل، `GAP-8` صوت غير مقاس فعليًا، مطلوب تجنب Web Login وجميع hops غير الضرورية مع حماية Device Bearer/DNC/Consent/Quota.
 - بعد كل إصلاح: تحديث To-Do + seed/status snapshot + دليل GitHub + ملف Handoff. لو 3 بنود أُغلقت كوديًا بمصفوفة قبول ناجحة، انقل 3 فقط إلى `code_complete` ولا ترفع عداد الجميع.
+
+## Rule-based automatic findings
+`tools/build_gap_map_snapshot.py` adds `findings` on every source push with file evidence and linked GAP, without reading credential contents. SRC-001 (Laravel/Console), SRC-002 (API sprawl), SRC-003 (tracked hash filename), SRC-004 (diagnostic routes), SRC-005 (legacy login subpath), SRC-006 (Google auth request in voice session), SRC-007 (VS regression, should remain absent). All have `runtime_verified=false`; they are **review candidates**, not falsely verified service outages. UI has a separate clickable area. The last verified host deployment is [42739520075](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42739520075) with SHA `b407c690fc35`; subsequent deployments should preserve the host-private PIN verifier.

@@ -183,6 +183,31 @@
     var note=h('p','footnote','التأكيد دليل مراجعة المالك للمصدر عند بصمته الحالية فقط؛ ليس تقرير نجاح CI أو مكالمة أو نشر.');
     box.appendChild(note);
   }
+  function renderFindings(){
+    var box=$('findings');clear(box);
+    var items=(map.findings||[]).filter(function(f){
+      return (area==='all'||f.area===area)&&match(f);
+    });
+    $('finding-count').textContent=txt((map.findings||[]).length);
+    if(!items.length){
+      box.appendChild(h('div','empty','لا توجد ملاحظات مصدر مطابقة للفلتر. هذا لا يعني خلو التشغيل الفعلي من المشاكل.'));
+      return;
+    }
+    items.forEach(function(f){
+      var card=h('div','gapcard'),top=h('div','gaptop');
+      top.appendChild(h('span','gap-id',f.id));top.appendChild(badge(f.severity));
+      card.appendChild(top);card.appendChild(h('h3','',f.title));
+      card.appendChild(h('p','',f.explanation));
+      var evidence=h('small','', 'المسؤول: '+f.area+' · مصدر: '+(f.evidence_paths||[]).slice(0,2).join('، '));
+      card.appendChild(evidence);
+      if(f.linked_gap){
+        var link=h('button','btn','افتح '+f.linked_gap);link.type='button';
+        link.addEventListener('click',function(){selected={type:'gap',id:f.linked_gap};draw();renderDetail();});
+        var actions=h('div','action');actions.appendChild(link);card.appendChild(actions);
+      }
+      box.appendChild(card);
+    });
+  }
   function renderTasks(){
     var list=$('tasks');clear(list);
     (map.tasks||[]).filter(function(t){return t.stage!=='deferred_10';}).forEach(function(t){
@@ -251,7 +276,7 @@
       if(!response.ok||data.ok===false)throw new Error(data.error||('HTTP '+response.status));
       if(data.schema!==2||!Array.isArray(data.gaps)||!Array.isArray(data.modules))
         throw new Error('Invalid architecture snapshot');
-      map=data;countTasks();loadMeta();renderLanes();renderGaps();renderDetail();renderTasks();renderSimulation();
+      map=data;countTasks();loadMeta();renderLanes();renderGaps();renderDetail();renderFindings();renderTasks();renderSimulation();
       $('health').className='health ready';
       $('sync-label').textContent='آخر Snapshot متاح';
     }catch(error){

@@ -40,6 +40,58 @@ def resolve(pattern, tracked):
         return [p for p in tracked if p.endswith("/"+pattern) or p==pattern][:MAX_FILES_PER_GAP]
     return []
 
+def detect_source_findings(tracked):
+    """Conservative, reproducible static observations, never runtime claims."""
+    entries=set(tracked)
+    findings=[]
+    def add(id_,title,linked,area,severity,source_paths,reason):
+        findings.append({
+            "id":id_,"title":title,"linked_gap":linked,"area":area,
+            "severity":severity,"status":"source_observation_requires_review",
+            "confidence":"tracked_paths_only_or_literal_source_check",
+            "evidence_paths":source_paths[:12],"explanation":reason,
+            "runtime_verified":False
+        })
+    laravel="saas/routes/web.php" in entries and any(
+        p.startswith("saas/app/Http/Controllers/") for p in entries)
+    console="saas/console/_core/Bootstrap.php" in entries and any(
+        p.startswith("saas/console/database/schema.") for p in entries)
+    if laravel and console:
+        add("SRC-001","Laravel وConsole في نفس المصدر","GAP-1","saas","critical",
+            ["saas/routes/web.php","saas/console/_core/Bootstrap.php",
+             "saas/console/database/schema.mysql.sql","saas/database/migrations/"],
+            "تعدد مصادر الشيفرة وSchema مؤكد؛ التشغيل المتزامن على الإنتاج غير مثبت.")
+    api=["saas/console/device/v1/index.php","saas/mobile/server/common.php",
+         "api/live_session.php","saas/routes/web.php"]
+    exists=[p for p in api if p in entries]
+    if len(exists)>=3:
+        add("SRC-002","واجهات API متعددة تحتاج Contract Matrix","GAP-2","shared",
+            "warning",exists,"وجود مسارات منفصلة مؤكد؛ حجم الترافيك والاستهلاك الحقيقي غير مقاس.")
+    if "saas/mobile/server/auth.sha256" in entries:
+        add("SRC-003","ملف Hash للموبايل متتبع في Git","GAP-5","shared",
+            "critical",["saas/mobile/server/auth.sha256"],
+            "رصد اسم ملف متتبع فقط، دون قراءة قيمته أو استنتاج أنه مكشوف عبر HTTP.")
+    diagnostics=[p for p in ["test.php","omnira_api_tester.php","api/diag.php"] if p in entries]
+    if diagnostics:
+        add("SRC-004","مسارات تشخيص على Webroot تحتاج بوابة موثقة","GAP-5","saas",
+            "warning",diagnostics,
+            "وجود ملفات المصدر مؤكد؛ حماية MaintenanceAuth مفحوصة آليًا لكن تعرضها الفعلي للعامة يحتاج اختبار Host.")
+    bootstrap=ROOT/"saas/console/_core/Bootstrap.php"
+    if bootstrap.is_file() and "'/saas/console'" in bootstrap.read_text(encoding="utf-8",errors="replace"):
+        add("SRC-005","روابط فرعية قديمة في مسار الدخول","GAP-7","saas",
+            "warning",["saas/console/_core/Bootstrap.php"],
+            "مرجع المسار موجود بالكود، لكن 302 Redirect من الدومين الرئيسي يحتاج اختبار Host؛ الإصلاح مؤجل.")
+    voice=ROOT/"saas/console/_core/TenantVoiceSession.php"
+    if voice.is_file() and "generativelanguage.googleapis.com" in voice.read_text(encoding="utf-8",errors="replace"):
+        add("SRC-006","اتصال Google على مسار إنشاء جلسة صوت","GAP-8","shared",
+            "warning",["saas/console/_core/TenantVoiceSession.php"],
+            "طلب خارجي مؤكد؛ زمن الشبكة على 3G/4G/5G غير مقاس ولا يعني أنه اتصال غير ضروري.")
+    if any(p.startswith("VS/") for p in tracked):
+        add("SRC-007","عودة مجلد VS المحذوف إلى المصدر","GAP-3","mobile",
+            "critical",["VS/"],
+            "خرق قرار المالك بمنع إعادة VS؛ يجب حذف المسارات الجديدة بعد مراجعة مصدرها.")
+    return findings
+
 def main():
     if not SEED.is_file():return 2
     seed=json.loads(SEED.read_text(encoding="utf-8"))
@@ -77,6 +129,8 @@ def main():
         processed.append(gap)
     result=dict(seed)
     result["gaps"]=processed
+    result["findings"]=detect_source_findings(tracked)
+    result["finding_count"]=len(result["findings"])
     result["commit"]=repo_sha
     result["generated_at"]=dt.datetime.now(dt.timezone.utc).isoformat()
     result["source_scan"]={

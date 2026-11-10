@@ -41,3 +41,5 @@
 
 ## 5. الخطوة التالية
 **إكمال واجهة الماب + الـSimulator/auto scanner والـCI deployment الآمن، فحص HTTP، ثم استكمال CORE-06 وCORE-08 وUX-01 ومطابقة بقية الـ18 مع Gap Map، من غير Android.** واجهة map ما زالت غير مثبتة النشر؛ الرابط مش نجاح لحد receipt.
+
+**Auto source detection now implemented:** `tools/build_gap_map_snapshot.py` emits `findings` (SRC-001..007), links each source-only observation to canonical GAP-1..8, and `web/app.js` shows findings separately. Source detection does **not** prove actual production failures. Host already verified on [Run #42739520075](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42739520075); later pushes preserve current host PIN and verify private Snapshot SHA.

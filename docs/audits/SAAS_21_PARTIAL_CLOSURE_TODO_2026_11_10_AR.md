@@ -169,3 +169,8 @@ Host backup/restore; maintenance secret rotation/revoke; production MySQL snapsh
 | COMPLETE | كل معايير قبول هذا البند تحققت | نعم على **البند الرئيسي**، بدون مبالغة |
 
 **آخر baseline موثق:** 18/21 عليها إصلاحات كود ولا يوجد إثبات إغلاق كامل بالمعيار أعلاه، CORE-06/CORE-08/UX-01 تحتاج مزيدًا من الكود؛ 10 مهام أخرى مؤجلة. الماب لم يثبت نشرها؛ وتأكيدات المالك لها سجل fingerprint مستقل. **هذه الأرقام أساس فقط ويجب إعادة فحص أحدث GitHub SHA والـCI بعد أي تنفيذ.**
+
+### Rule-based Source Detection — إغلاق جزء من الأتمتة (10 نوفمبر 2026)
+- [x] `tools/build_gap_map_snapshot.py` يضيف `findings[]` للـSnapshot تلقائيًا من كود HEAD الفعلي، مع `SRC-001..007`: Laravel/Console، تشتت APIs، ملف hash متتبع (دون قراءة قيمته)، diagnostics، legacy canonical URL، external Google Live token hop، وعودة `VS/` إن حدثت. النتائج تتضمن `evidence_paths`, `confidence`, `linked_gap`, `runtime_verified=false`، وتظهر في قسم منفصل بالماب.
+- [x] واجهة الماب تعرض نتائج الكشف وتربطها بالفجوات الأصلية؛ لا تُحوّل Source Candidate تلقائيًا إلى "خطأ مؤكد" ولا إلى تذكرة مغلقة.
+- [ ] تحليل أداء الصوت الفعلي والـDB/HTTP telemetry، واكتشاف الأخطاء الديناميكية على Host يحتاج Instrumentation مستقل؛ لا تُختلق قياسات أو تأكيدات.

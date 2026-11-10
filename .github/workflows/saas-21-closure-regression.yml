@@ -127,6 +127,20 @@ jobs:
           python3 tools/run_gap_map_simulator.py
       - name: Rebuild source-backed map snapshot with simulation evidence
         run: python3 tools/build_gap_map_snapshot.py
+      - name: Validate source gap auto-detectors and no credential leakage
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          obj=json.loads(Path("dist/gap-map/status.json").read_text(encoding="utf-8"))
+          ids={item.get("id") for item in obj.get("findings",[])}
+          assert {"SRC-001","SRC-002","SRC-003","SRC-004","SRC-006"}.issubset(ids),ids
+          assert obj["finding_count"]==len(obj["findings"])
+          assert all(f["runtime_verified"] is False and f.get("linked_gap") and f.get("evidence_paths") for f in obj["findings"])
+          assert "SRC-007" not in ids,"VS/ must remain deleted"
+          print("AUTO_SOURCE_FINDINGS_EVIDENCE_PASS count="+str(len(ids)))
+          PY
       - name: Upload immutable architecture map evidence
         uses: actions/upload-artifact@v4
         with:
