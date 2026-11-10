@@ -6,6 +6,8 @@ are separate security flows and are not disabled. Supersedes old Q02 MFA. -->
 <!-- ONTRACK_AI_AGENT_EXECUTION_POLICY_START -->
 > **قاعدة إلزامية — اقرأ أولًا قبل البحث أو كتابة أي كود (4 نوفمبر 2026):** هذه تعليمات المالك الدائمة لوكلاء البرمجة في OnTrack Voice، ومعيار العمل المطلوب في جميع مشاريع OnTrack اللاحقة. **لا تعتبر كتابة الكود، ولا نجاح Build، ولا نجاح Deploy وحدها إنجازًا؛ اعرض دليل الاختبار الفعلي والنتائج.** المرجع التنفيذي للجلسات: [CLAUDE.md](CLAUDE.md) ثم [AGENTS.md](AGENTS.md). لا تُعد تشغيل أي جدولة أوقفها المالك.
 
+> **مرجع الحالة الحية لمشروع OnTrack Voice (10 نوفمبر 2026):** في أي شات جديد، اقرأ أولاً [Architecture Gap Map — Current Handoff](docs/audits/ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md) ثم [SaaS 21-fix To-Do](docs/audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md) و[خريطة الكود](ops/gap-map/status.seed.json) و[الصلاحيات وSSH](docs/ops/ONTRACK_DIRECT_SSH_DEPLOY_ACCESS_20261107_AR.md). التوثيق يجب تحديثه مع كل Commit/اختبار، مع التمييز بين كود مكتمل، جزئي، CI، نشر، واختبار مستخدم. `VS/` محذوف وخارج المشروع، وAndroid مؤجل في المهمة الحالية. خريطة `/architecture-map/` ليست منشورة حتى إثبات HTTP/Host receipt؛ لا تعرض رابطًا غير متحقق منه على أنه يعمل. لا تحفظ PIN الخاص بالماب في Git.
+
 # تعليمات إلزامية لتطوير المشاريع باستخدام AI Coding Agents
 
 ## 1. اختبر كل نتيجة قبل اعتمادها
