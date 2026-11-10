@@ -64,6 +64,12 @@ def login(email, prefix):
 def main():
     assert_ci()
     admin = login("admin@ontrackegy.com", "/saas/console")
+    status, _, missing = request(admin, "/saas/console/?tab=unknown_dead_link")
+    ensure(status == 404 and "app-shell" not in missing,
+           "unknown console tab returns 404 rather than deceptive overview")
+    status, _, restricted = request(admin, "/saas/console/?tab=devices")
+    ensure(status == 404 and "app-shell" not in restricted,
+           "admin-only navigation rejects unavailable user workspace tab")
     status, _, plans = request(admin, "/saas/console/?tab=plans")
     ensure(status == 200
            and 'value="assign_plan"' in plans

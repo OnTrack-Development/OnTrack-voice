@@ -209,7 +209,9 @@ if($path==='/admin'&&$a['kind']!=='platform')deny();
 if($path==='/reseller'&&$a['kind']!=='reseller')deny();
 if($path==='/workspace'&&$a['kind']!=='customer'&&$a['kind']!=='platform')deny();
 $tab=(string)($_GET['tab']??'overview');
-if(!array_key_exists($tab,nav_entries($a['kind'])))$tab='overview';
+// Never serve the overview as a silent success for an invalid or forbidden
+// section: it hides broken UI links and gives misleading status to clients.
+if(!array_key_exists($tab,nav_entries($a['kind'])))deny(404,'القسم غير موجود أو غير متاح لهذا الحساب');
 layout_open($a,$tab);
 try {
     switch($tab){
@@ -236,6 +238,13 @@ try {
         default:render_overview($a);
     }
 }catch(Throwable $e){
-    echo '<section class="card"><h3>تعذر عرض البيانات</h3><p>'.e($e->getMessage()).'</p></section>';
+    // Runtime exceptions can contain SQL fragments or upstream secrets.
+    // The UI gets a stable incident reference, never the raw exception text.
+    $incident=bin2hex(random_bytes(6));
+    error_log('saas_render_failure incident='.$incident.' tab='.$tab.
+        ' class='.get_class($e));
+    http_response_code(503);
+    echo '<section class="card" role="alert"><h3>تعذر عرض البيانات</h3>'.
+        '<p>تعذر تحميل هذا القسم حاليًا. رقم المتابعة: '.e($incident).'</p></section>';
 }
 layout_close();
