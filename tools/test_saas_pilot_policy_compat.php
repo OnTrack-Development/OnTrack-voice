@@ -55,6 +55,22 @@ try {
   catch(RuntimeException $e){$refused=$e->getMessage()==='pilot_file_unavailable';}
   pilot_check($refused&&file_get_contents($root.'/secret.txt')==='private',
        'symlink file rejected without following or clobbering target');
+  // The lock file is also attacker-controlled filesystem input. Never follow
+  // a symlink when updating the shared legacy policy.
+  unlink($root.'/settings.json');
+  file_put_contents($root.'/settings.json','{}');
+  $lockPath=$root.'/.console-policy.lock';
+  if(is_file($lockPath))unlink($lockPath);
+  symlink($root.'/secret.txt',$lockPath);
+  $lockRejected=false;
+  try{pilot_write_policy(['enabled'=>false]);}
+  catch(RuntimeException $e){$lockRejected=$e->getMessage()==='pilot_policy_lock_unavailable';}
+  pilot_check($lockRejected && file_get_contents($root.'/secret.txt')==='private'
+    && file_get_contents($root.'/settings.json')==='{}',
+    'symlinked pilot lock rejected without changing settings or secret');
+  unlink($lockPath);
+  pilot_check(pilot_write_policy(['enabled'=>false])===2,
+    'safe policy update still works after rejecting symlink lock');
   echo "SAAS_PILOT_FLAT_POLICY_BACKWARD_COMPATIBILITY_FAIL_CLOSED_PASS\n";
 } finally {
    putenv('ONTRACK_CI_PILOT_ROOT');
