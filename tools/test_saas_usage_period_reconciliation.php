@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../saas/console/database/Seed.php';
 require __DIR__.'/../saas/console/_core/BillingUsage.php';
+require __DIR__.'/../saas/console/_core/SubscriptionPlans.php';
 // GitHub isolated fixtures only. Never use a production account or call.
 if(PHP_SAPI!=='cli'||!preg_match('/^saasall_[0-9_]+$/D',(string)(getenv('ONTRACK_CI_NAMESPACE')?:'')))
     throw new RuntimeException('isolated_usage_fixture_only');
@@ -27,7 +28,10 @@ $binding=insert("INSERT INTO device_bindings
  hash('sha256','usage-period-ci-fixture-00001|0'),'CI synthetic SIM',
  hash('sha256','fake-test-token-do-not-use'),now()]);
 $b=['id'=>$binding,'account_id'=>$account,'site_id'=>$site,'sim_slot'=>$slot];
-$at=now();
+// Keep the call's timestamp clearly earlier than the later plan switch.
+$at=gmdate('Y-m-d H:i:s',time()-120);
+execute("UPDATE subscriptions SET starts_at=? WHERE account_id=? AND status='active'",
+    [gmdate('Y-m-d H:i:s',time()-3600),$account]);
 $summary=voice_usage_summary($account);
 usage_check($summary['active']===true,'seed customer subscribed');
 $baseline=$summary['used'];
@@ -58,4 +62,28 @@ usage_check(!voice_usage_update($b,$reordered,'ended'),'duplicate reordered even
 usage_check(voice_usage_summary($account)['used']===$baseline+2,'all excluded events remain excluded');
 $foreign=['id'=>$binding,'account_id'=>5,'site_id'=>3,'sim_slot'=>1];
 usage_check(!voice_usage_update($foreign,$answered,'ended'),'foreign scope cannot charge');
+// Switching a plan mid-term must not reset the used count. A terminal
+// callback delivered later over cellular belongs to the previous paid term.
+$oldSub=one("SELECT s.id,s.plan_id,s.ends_at FROM subscriptions s
+    WHERE s.account_id=? AND s.status='active' ORDER BY s.id DESC LIMIT 1",[$account]);
+$plan=one("SELECT id FROM plans WHERE kind='user' AND status='active' AND id!=?
+    ORDER BY id ASC LIMIT 1",[(int)$oldSub['plan_id']]);
+usage_check((bool)$plan,'second compatible plan available');
+$delayed=usage_fixture_call($account,$site,$binding,$slot,'active',0,0,$at);
+usage_check(!voice_usage_update($b,$delayed,'active'),'pending old call not yet charged');
+$assigned=subscription_assign_demo($account,(int)$plan['id']);
+usage_check($assigned['changed']===true,'same-period plan reassignment applies');
+usage_check(one("SELECT status FROM subscriptions WHERE id=?",[$oldSub['id']])['status']==='replaced',
+    'old plan retained as historical replaced evidence');
+$carried=voice_usage_summary($account);
+usage_check($carried['used']===$baseline+2,'same term plan change cannot reset used quota');
+execute("UPDATE calls SET status='ended',duration_seconds=17 WHERE external_call_id=?",[$delayed]);
+usage_check(voice_usage_update($b,$delayed,'ended'),
+    'delayed callback remains billable against historical replaced plan');
+usage_check(!voice_usage_update($b,$delayed,'ended'),
+    'historical delayed callback is idempotent');
+$after=voice_usage_summary($account);
+usage_check($after['used']===$baseline+3 &&
+    $after['remaining']===max(0,$after['quota']-$after['used']),
+    'quota across replaced subscription reconciles and remaining is correct');
 echo "SAAS_USAGE_PERIOD_EXACT_ONCE_NO_ANSWER_DEMO_REORDERED_CROSS_TENANT_PASS\n";
