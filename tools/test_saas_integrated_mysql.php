@@ -166,9 +166,11 @@ $brief=tenant_workspace_call_report($b,[
     'handoff_status'=>'requested','handoff_reason'=>'طلب موظف مسؤول']);
 mysql_qa($brief['saved']===true,'call report persisted');
 $history=tenant_workspace_calls($b);
-mysql_qa(count($history['calls'])===1 &&
-    $history['calls'][0]['handoff_status']==='requested',
-    'call report on authorized SIM only');
+$matching=array_values(array_filter($history['calls'],
+    static fn(array $row):bool=>($row['call_id']??'')===$callId));
+mysql_qa(count($matching)===1 &&
+    $matching[0]['handoff_status']==='requested',
+    'call report on authorized SIM only, independent of unrelated historical calls');
 $st=he_contact_add(4,'مدير التجربة','+201001234567','manager');
 mysql_qa($st>0,'authorized manager contact only');
 he_route_configure(4,$agentId,$st,true,10);
