@@ -670,17 +670,20 @@
       "patch_summary": "إدخال الفاتورة مرة واحدة بعد دليل active+ended، رفض demo/missed/no-answer، ربط usage بتاريخ بدء المكالمة أثناء انقطاع 3G وتأخر الأحداث، حفظ استهلاك الخطة عند تغييرها في نفس الفترة، اختبار SQLite/MySQL8. مراجعة إنتاجية وحالات renewal/overage الأوسع متبقية.",
       "next_action": "Current SHA MySQL8/SQLite/signed-payment and overage regression pending verification; financial sandbox/production restoration and owner QA remain open.",
       "last_source_commit": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
-      "ci_status": "automated_code_regression_passed",
+      "ci_status": "latest_code_regression_passed",
       "updated_at": "2026-11-10",
       "ci_evidence": [
         "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
-        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873"
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842618",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842610",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839204255"
       ],
-      "code_verified_sha": "0461878788c63766ba42ec281900e58faf73ff52",
+      "code_verified_sha": "ce5adf9dde89f4214021fbc78de836d540873990",
       "latest_unverified_patch_sha": "80428309232632b2fcc16f686907a2e959f9a6db",
       "latest_patch_ci": "PENDING_SHA_MATCHED_GATES",
       "ci_blocker_run": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42816474554",
-      "latest_patch_status": "PENDING_CI_NO_HOST_SAAS_DEPLOY"
+      "latest_patch_status": "CODE_CI_PASS_HOST_SAAS_UNVERIFIED"
     },
     {
       "id": "WEB-UX-01",
@@ -694,14 +697,17 @@
       "patch_summary": "بدل عرض overview كأنه نجاح عند tab غير موجود أو غير مصرح، إرجاع 404 صريح؛ إخفاء نص الاستثناء الخام وإرجاع 503 مع Incident ID، واختبار 404 عبر HTTP login/roles؛ باقي فحص كل زر والنشر الفعلي متبقٍ.",
       "next_action": "Re-run real Chrome/237 breakpoints after isolated CDP port fix, then inspect actual role-specific UI gaps and host E2E. Browser CI failure 42838487385 was CDP fetch unreachable, not a proven app failure.",
       "last_source_commit": "34fbad0bbe5a5941d7038a95815ddc46701150a1",
-      "ci_status": "automated_code_regression_passed",
+      "ci_status": "latest_code_regression_passed",
       "updated_at": "2026-11-10",
       "ci_evidence": [
         "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
-        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873"
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842618",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842610",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839204255"
       ],
-      "code_verified_sha": "0461878788c63766ba42ec281900e58faf73ff52",
-      "latest_patch_status": "PENDING_SHA_MATCHED_BROWSER_CI"
+      "code_verified_sha": "ce5adf9dde89f4214021fbc78de836d540873990",
+      "latest_patch_status": "CODE_CI_PASS_HOST_SAAS_UNVERIFIED"
     },
     {
       "id": "WEB-CORE-05",
@@ -770,9 +776,9 @@
   "cycle": {
     "at": "2026-11-10",
     "scope": "saas_21_strict",
-    "phase": "CORE-08_sqlite_mysql_paid_renewal_overage_regression",
-    "status": "SOURCE_PATCH_CI_PENDING",
-    "source_sha": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
+    "phase": "CORE-08_paid_renewal_quota_and_UX-01_chromium_code_verified",
+    "status": "CODE_CI_PASS_MAP_HOST_PUBLISHED_SAAS_RUNTIME_NOT_DEPLOYED",
+    "source_sha": "ce5adf9dde89f4214021fbc78de836d540873990",
     "hourly_continuation": "scheduled_in_automations_not_repository_cron",
     "host_runtime_deployment": "NOT_DEPLOYED",
     "map_deployment": "AUTOMATED_MAP_ONLY_AFTER_GREEN_CI",
@@ -782,17 +788,16 @@
       "WEB-UX-01"
     ],
     "notes": "Do not change user login GAP-7; do not restore VS or modify Android.",
-    "code_verified_sha": "0461878788c63766ba42ec281900e58faf73ff52",
+    "code_verified_sha": "ce5adf9dde89f4214021fbc78de836d540873990",
     "source_code_latest": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
-    "map_host_verified": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
+    "map_host_verified": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842618",
     "ci": {
-      "full": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
-      "integrated": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873",
-      "mysql": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42743633011",
-      "chrome": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42743633113",
-      "http": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42743632856"
+      "full": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842618",
+      "mysql": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842610",
+      "chrome": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839204255",
+      "integrated": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839213608"
     },
-    "acceptance": "3 partial tickets have targeted code+tests; no host SaaS deploy, owner manual E2E deferred",
+    "acceptance": "Manual host+accounting+Legacy still open; no fullClosure",
     "latest_unverified_patch_sha": "70192c77649a0b6465ebf9040d08f2293d9dd203",
     "latest_patch_note": "CORE-08 orphan active evidence guard; CI and map deployment pending; no SaaS runtime deployment"
   }
