@@ -217,3 +217,8 @@ Host backup/restore; maintenance secret rotation/revoke; production MySQL snapsh
 ### 2026-11-10 — UX-01 Chromium browser audit reliability
 - [x] توثيق سبب فشل [Chromium #42838487385](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42838487385): `TypeError: fetch failed` عند فتح Chrome CDP debugger؛ سيرفر PHP المحلي بدأ. **ده فشل في بيئة الفحص وليس دليل عطل في واجهة العميل.**
 - [ ] إضافة Chrome debugger port ديناميكي `--remote-debugging-port=0` مع قراءة `DevToolsActivePort` وصحة debugger قبل 237 viewport؛ منع نجاح وهمي/فشل غير مشخص، و`--disable-dev-shm-usage` للـrunner. النتيجة تُقفل بعد CI على أحدث SHA، بدون لمس UI أو Android.
+
+### 2026-11-10 — CORE-08 تكامل التجديد المبكر + الزيادة (MySQL8 وSQLite)
+- [ ] اختبار MySQL8 المعزول يربط كشف حصة المكالمات بعد مكالمة مجابة فعلًا بمسار `kashier_settle` الموقّع، ويتأكد إن أول تجديد مبكر لا يصفر الاستخدام وإن refund review لا يصفّره، ويثبت مدة 60+30 يوم؛ يبدأ تاريخ الـ60 يوم من بداية الاشتراك الأصلية بدل ساعة الـCI الحالية لتجنب حدود وهمية بالثواني.
+- [ ] اختبار SQLite يثبت أن `overage` مجرد تقدير صحيح بالقرش، لا يكتب تحصيلًا آليًا في `usage_ledger`؛ مع استمرار اختبارات no-answer/duplicate/3G reorder.
+- **الحالة:** source patch مُرفوع، **التحقق على SHA الحالي قيد التنفيذ**؛ جميع التحويلات مالية محاكاة ومعزولة وليست مدفوعات أو مكالمات فعلية. WEB-CORE-08 لا تزال PARTIAL حتى التسوية النهائية وHost/User acceptance.

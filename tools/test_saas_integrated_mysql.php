@@ -200,9 +200,18 @@ $paidPlan=insert("INSERT INTO plans
     (kind,name,call_quota,site_limit,agent_limit,staff_limit,reseller_customers,
      price_minor,status,created_at)
     VALUES ('user','CI paid renewal fixture',800,2,2,3,0,2575,'active',?)",[now()]);
-$priorPaidEnd=gmdate('Y-m-d H:i:s',time()+60*86400);
+// Anchor the synthetic two-term entitlement to the actual first paid
+// start, not the CI wall clock; otherwise a few seconds of test execution
+// can create a fake quota boundary after a real answered call.
+$firstTermStart=(string)one("SELECT MIN(starts_at) t FROM subscriptions
+    WHERE account_id=4 AND status='active'")['t'];
+$priorPaidEnd=gmdate('Y-m-d H:i:s',
+    strtotime($firstTermStart.' UTC')+60*86400);
 execute("UPDATE subscriptions SET ends_at=? WHERE account_id=4 AND status='active'",
     [$priorPaidEnd]);
+$usedBeforePaid=voice_usage_summary(4);
+mysql_qa($usedBeforePaid['active'] && $usedBeforePaid['used']>=1,
+    'MySQL current paid term contains answered-call ledger evidence');
 $paymentRef='ovc_'.bin2hex(random_bytes(16));
 $verifiedTx='TX_'.bin2hex(random_bytes(16));
 $payOrder=insert("INSERT INTO orders
@@ -228,6 +237,8 @@ $newPaid=one("SELECT plan_id,ends_at FROM subscriptions
 mysql_qa((int)$newPaid['plan_id']===$paidPlan &&
     $newPaid['ends_at']===gmdate('Y-m-d H:i:s',strtotime($priorPaidEnd)+30*86400),
     'real InnoDB carries 60 paid days and credits an additional 30 days');
+mysql_qa(voice_usage_summary(4)['used']===$usedBeforePaid['used'],
+    'MySQL signed early renewal keeps current 30-day usage before period boundary');
 $duplicate=kashier_settle($webhook,null);
 mysql_qa($duplicate['duplicate']===true,'signed MySQL payment replay is idempotent');
 mysql_qa((int)one("SELECT COUNT(*) n FROM outbox
@@ -261,6 +272,8 @@ mysql_qa(str_contains($financeHtml,'مراجعات الاسترداد')
     'customer finance owner can see signed adjustment in Billing');
 mysql_qa((string)one("SELECT status FROM orders WHERE id=?",[$payOrder])['status']==='active',
     'signed refund does not silently revoke existing paid account');
+mysql_qa(voice_usage_summary(4)['used']===$usedBeforePaid['used'],
+    'signed refund review must not reset used quota or create duplicate charge');
 echo "SAAS_REAL_MYSQL_KASHIER_REFUND_REVIEW_AND_REPLAY_PASS\n";
 
 

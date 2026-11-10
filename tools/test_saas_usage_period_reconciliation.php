@@ -130,4 +130,19 @@ $twice=voice_usage_summary($account);
 usage_check($twice['used']===$baseline+3 &&
     $twice['remaining']===max(0,$twice['quota']-$twice['used']),
     'multiple early renewals cannot grant quota repeatedly in current term');
+// Overages remain informational until a verified settlement; never
+// auto-charge on an out-of-order cellular callback.
+$activePlan=one("SELECT plan_id FROM subscriptions WHERE account_id=?
+    AND status='active' ORDER BY id DESC LIMIT 1",[$account]);
+$limit=max(0,(int)$twice['used']-1);
+execute("UPDATE plans SET call_quota=?,overage_minor=? WHERE id=?",
+    [$limit,125,(int)$activePlan['plan_id']]);
+$excess=voice_usage_summary($account);
+usage_check($excess['used']===$twice['used'] &&
+    $excess['overage']===1 && $excess['remaining']===0 &&
+    $excess['estimate_minor']===125,
+    'overage amounts reconcile in minor units without automatic billing');
+usage_check(!one("SELECT id FROM usage_ledger WHERE account_id=?
+    AND kind='overage_charge'",[$account]),
+    'overage is not collected automatically from the voice callback');
 echo "SAAS_USAGE_PERIOD_EXACT_ONCE_NO_ANSWER_DEMO_REORDERED_CROSS_TENANT_PASS\n";

@@ -663,10 +663,12 @@
         "tools/test_voice_call_timeline.php — foreign-scope no-op and corrupt-evidence fail-closed regression",
         "saas/console/_core/BillingUsage.php — 30-day paid early-renewal cycle accounting",
         "tools/test_saas_usage_period_reconciliation.php — multiple early renewal and exact term boundary fixtures",
-        "tools/test_verified_checkout_settlement.php — signed simulated Kashier renewals preserve usage quota twice"
+        "tools/test_verified_checkout_settlement.php — signed simulated Kashier renewals preserve usage quota twice",
+        "tools/test_saas_integrated_mysql.php — signed InnoDB early-renewal usage reconciliation and refund no-reset",
+        "tools/test_saas_usage_period_reconciliation.php — overage minor-unit estimate never auto-charged"
       ],
       "patch_summary": "إدخال الفاتورة مرة واحدة بعد دليل active+ended، رفض demo/missed/no-answer، ربط usage بتاريخ بدء المكالمة أثناء انقطاع 3G وتأخر الأحداث، حفظ استهلاك الخطة عند تغييرها في نفس الفترة، اختبار SQLite/MySQL8. مراجعة إنتاجية وحالات renewal/overage الأوسع متبقية.",
-      "next_action": "Cross-check signed settlement + usage fixture on current GitHub SHA, MySQL8 and Chromium; host reconciliation/period migration pending.",
+      "next_action": "Current SHA MySQL8/SQLite/signed-payment and overage regression pending verification; financial sandbox/production restoration and owner QA remain open.",
       "last_source_commit": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
       "ci_status": "automated_code_regression_passed",
       "updated_at": "2026-11-10",
@@ -768,8 +770,8 @@
   "cycle": {
     "at": "2026-11-10",
     "scope": "saas_21_strict",
-    "phase": "CORE-08_verified_renewal_plus_UX-01_stable_Chrome_CDP",
-    "status": "CI_PENDING_FOR_NEW_SHA",
+    "phase": "CORE-08_sqlite_mysql_paid_renewal_overage_regression",
+    "status": "SOURCE_PATCH_CI_PENDING",
     "source_sha": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
     "hourly_continuation": "scheduled_in_automations_not_repository_cron",
     "host_runtime_deployment": "NOT_DEPLOYED",
