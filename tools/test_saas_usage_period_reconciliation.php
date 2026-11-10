@@ -28,10 +28,27 @@ $binding=insert("INSERT INTO device_bindings
  hash('sha256','usage-period-ci-fixture-00001|0'),'CI synthetic SIM',
  hash('sha256','fake-test-token-do-not-use'),now()]);
 $b=['id'=>$binding,'account_id'=>$account,'site_id'=>$site,'sim_slot'=>$slot];
-// Keep the call's timestamp clearly earlier than the later plan switch.
+// Align the seeded 30-day billing window before simulating an early
+// customer plan switch; all timestamps are synthetic and UTC.
+$periodStart=gmdate('Y-m-d H:i:s',time()-3600);
+$periodEnd=gmdate('Y-m-d H:i:s',time()-3600+30*86400);
 $at=gmdate('Y-m-d H:i:s',time()-120);
-execute("UPDATE subscriptions SET starts_at=? WHERE account_id=? AND status='active'",
-    [gmdate('Y-m-d H:i:s',time()-3600),$account]);
+execute("UPDATE subscriptions SET starts_at=?,ends_at=?
+    WHERE account_id=? AND status='active'",[$periodStart,$periodEnd,$account]);
+// Deterministic boundary probes: two early paid renewals do not reset quota
+// until the prior 30-day cycle expires; an initial 15-day trial is clamped.
+usage_check(voice_usage_cycle_start('2026-03-02 00:00:00',
+    '2026-01-01 00:00:00',strtotime('2026-01-15 12:00:00 UTC'))==='2026-01-01 00:00:00',
+    'paid early renewal retains original cycle until previous expiry');
+usage_check(voice_usage_cycle_start('2026-03-02 00:00:00',
+    '2026-01-01 00:00:00',strtotime('2026-01-31 00:00:00 UTC'))==='2026-01-31 00:00:00',
+    'metering quota resets only when next 30-day term begins');
+usage_check(voice_usage_cycle_start('2026-04-01 00:00:00',
+    '2026-01-01 00:00:00',strtotime('2026-02-15 00:00:00 UTC'))==='2026-01-31 00:00:00',
+    'second early renewal cannot create third free cycle');
+usage_check(voice_usage_cycle_start('2026-02-15 00:00:00',
+    '2026-01-01 00:00:00',strtotime('2026-01-10 00:00:00 UTC'))==='2026-01-01 00:00:00',
+    'short first term cannot count events earlier than actual subscription start');
 $summary=voice_usage_summary($account);
 usage_check($summary['active']===true,'seed customer subscribed');
 $baseline=$summary['used'];
@@ -91,4 +108,26 @@ $after=voice_usage_summary($account);
 usage_check($after['used']===$baseline+3 &&
     $after['remaining']===max(0,$after['quota']-$after['used']),
     'quota across replaced subscription reconciles and remaining is correct');
+// Match the existing *verified checkout* persistence contract exactly, but
+// without gateway requests, charges or external callbacks. An early paid
+// renewal extends the end by 30 days, and replaces the active row immediately.
+$preRenewal=one("SELECT plan_id,ends_at FROM subscriptions WHERE account_id=?
+    AND status='active' ORDER BY id DESC LIMIT 1",[$account]);
+$paidEnd=gmdate('Y-m-d H:i:s',strtotime((string)$preRenewal['ends_at'].' UTC')+30*86400);
+execute("UPDATE subscriptions SET status='replaced'
+    WHERE account_id=? AND status='active'",[$account]);
+insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at)
+    VALUES (?,?,'active',?,?)",[$account,$preRenewal['plan_id'],now(),$paidEnd]);
+$early=voice_usage_summary($account);
+usage_check($early['used']===$baseline+3,
+    'early paid renewal cannot reset monthly used calls before old cycle expiry');
+$secondEnd=gmdate('Y-m-d H:i:s',strtotime($paidEnd.' UTC')+30*86400);
+execute("UPDATE subscriptions SET status='replaced'
+    WHERE account_id=? AND status='active'",[$account]);
+insert("INSERT INTO subscriptions(account_id,plan_id,status,starts_at,ends_at)
+    VALUES (?,?,'active',?,?)",[$account,$preRenewal['plan_id'],now(),$secondEnd]);
+$twice=voice_usage_summary($account);
+usage_check($twice['used']===$baseline+3 &&
+    $twice['remaining']===max(0,$twice['quota']-$twice['used']),
+    'multiple early renewals cannot grant quota repeatedly in current term');
 echo "SAAS_USAGE_PERIOD_EXACT_ONCE_NO_ANSWER_DEMO_REORDERED_CROSS_TENANT_PASS\n";

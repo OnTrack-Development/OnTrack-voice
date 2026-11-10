@@ -208,7 +208,8 @@
       ],
       "code_mitigation": [
         "WEB-CORE-08",
-        "saas/console/_core/BillingUsage.php"
+        "saas/console/_core/BillingUsage.php",
+        "WEB-CORE-08 — early paid renewal cycle metering"
       ]
     },
     {
@@ -659,10 +660,12 @@
         "tools/test_saas_usage_period_reconciliation.php",
         "tools/test_saas_integrated_mysql.php",
         "tools/test_saas_usage_period_reconciliation.php — orphan callback negative fixture",
-        "tools/test_voice_call_timeline.php — foreign-scope no-op and corrupt-evidence fail-closed regression"
+        "tools/test_voice_call_timeline.php — foreign-scope no-op and corrupt-evidence fail-closed regression",
+        "saas/console/_core/BillingUsage.php — 30-day paid early-renewal cycle accounting",
+        "tools/test_saas_usage_period_reconciliation.php — multiple early renewal and exact term boundary fixtures"
       ],
       "patch_summary": "إدخال الفاتورة مرة واحدة بعد دليل active+ended، رفض demo/missed/no-answer، ربط usage بتاريخ بدء المكالمة أثناء انقطاع 3G وتأخر الأحداث، حفظ استهلاك الخطة عند تغييرها في نفس الفترة، اختبار SQLite/MySQL8. مراجعة إنتاجية وحالات renewal/overage الأوسع متبقية.",
-      "next_action": "Verify current HEAD integrated CI, SQLite/MySQL8/HTTP/Chromium and map-only publish; then full renewal/cancel/expiry/overage quota audit. No host signoff.",
+      "next_action": "Code patch pending SHA-matched SQLite/MySQL8/CI: verify early paid renewals preserve used quota until true 30-day boundary; host/financial reconciliation still required.",
       "last_source_commit": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
       "ci_status": "automated_code_regression_passed",
       "updated_at": "2026-11-10",
@@ -673,7 +676,8 @@
       "code_verified_sha": "0461878788c63766ba42ec281900e58faf73ff52",
       "latest_unverified_patch_sha": "80428309232632b2fcc16f686907a2e959f9a6db",
       "latest_patch_ci": "PENDING_SHA_MATCHED_GATES",
-      "ci_blocker_run": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42816474554"
+      "ci_blocker_run": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42816474554",
+      "latest_patch_status": "PENDING_CI_NO_HOST_SAAS_DEPLOY"
     },
     {
       "id": "WEB-UX-01",
@@ -761,12 +765,12 @@
   "cycle": {
     "at": "2026-11-10",
     "scope": "saas_21_strict",
-    "phase": "CORE-06_CORE-08_UX-01_code_patch_regression",
-    "status": "CODE_CI_PASS_MAP_HOST_VERIFIED",
+    "phase": "CORE-08_early_verified_renewal_quota_continuity",
+    "status": "SOURCE_PATCH_CI_PENDING",
     "source_sha": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
     "hourly_continuation": "scheduled_in_automations_not_repository_cron",
     "host_runtime_deployment": "NOT_DEPLOYED",
-    "map_deployment": "AUTOMATED_MAP_ONLY_AFTER_SUCCESSFUL_CI",
+    "map_deployment": "AUTOMATED_MAP_ONLY_AFTER_GREEN_CI",
     "focus": [
       "WEB-CORE-06",
       "WEB-CORE-08",

@@ -65,21 +65,47 @@ function voice_usage_update(array $b,string $callId,string $phase):bool{
     throw $ex;
   }
 }
+/**
+ * Compute the current 30-day metering window independently of the date an
+ * EARLY verified renewal was paid. Checkout extends ends_at by exact 30-day
+ * terms and starts the new entitlement immediately; using that new starts_at
+ * would grant a fresh quota before the previously paid cycle actually ends.
+ *
+ * Returns UTC SQL timestamp; accepts an explicit clock for deterministic CI.
+ * The first recorded entitled start clamps older/custom-length legacy terms.
+ * This runs only for usage summaries, never on the PCM/audio hot path.
+ */
+function voice_usage_cycle_start(string $endsAt,string $firstStart,int $epoch):string{
+  $zone=new DateTimeZone('UTC');
+  $format='Y-m-d H:i:s';
+  $end=DateTimeImmutable::createFromFormat('!'.$format,$endsAt,$zone);
+  $first=DateTimeImmutable::createFromFormat('!'.$format,$firstStart,$zone);
+  if(!$end||$end->format($format)!==$endsAt||!$first||
+     $first->format($format)!==$firstStart)
+      throw new RuntimeException('usage_cycle_invalid_timestamp');
+  $endEpoch=$end->getTimestamp();
+  if($endEpoch<=$epoch||$first->getTimestamp()>$epoch)
+      throw new RuntimeException('usage_cycle_not_active');
+  $days30=30*86400;
+  $termsAhead=intdiv($endEpoch-$epoch-1,$days30)+1;
+  $boundary=$endEpoch-$termsAhead*$days30;
+  return gmdate($format,max($boundary,$first->getTimestamp()));
+}
 function voice_usage_summary(int $account):array{
   $sub=one("SELECT s.starts_at,s.ends_at,p.call_quota,p.overage_minor
     FROM subscriptions s JOIN plans p ON p.id=s.plan_id
     WHERE s.account_id=? AND s.status='active' AND s.starts_at<=? AND s.ends_at>?
     ORDER BY s.id DESC LIMIT 1",[$account,now(),now()]);
   if(!$sub)return ['active'=>false,'used'=>0,'quota'=>0,'remaining'=>0,'overage'=>0,'estimate_minor'=>0];
-  // A same-term demo plan change marks the previous subscription
-  // 'replaced' but does not reset its paid period. Carry the usage ledger
-  // forward across that exact billing term instead of granting a new quota
-  // whenever an admin flips a plan during the existing subscription.
-  $cycle=one("SELECT MIN(starts_at) cycle_start FROM subscriptions
-    WHERE account_id=? AND ends_at=? AND starts_at<=?
-      AND status IN ('active','replaced','expired')",
-    [$account,$sub['ends_at'],now()]);
-  $cycleStart=(string)($cycle['cycle_start']??$sub['starts_at']);
+  // Replaced demo plans keep the same ends_at; early verified paid
+  // renewals extend ends_at by an exact 30 days. In BOTH cases, meter calls
+  // inside the true paid cycle, not from the early payment/upgrade timestamp.
+  // The historic first entitlement clamps legacy short/custom first terms.
+  $history=one("SELECT MIN(starts_at) first_start FROM subscriptions
+    WHERE account_id=? AND starts_at<=?
+      AND status IN ('active','replaced','expired')",[$account,now()]);
+  $firstStart=(string)($history['first_start']??$sub['starts_at']);
+  $cycleStart=voice_usage_cycle_start((string)$sub['ends_at'],$firstStart,time());
   $used=(int)(one("SELECT COALESCE(SUM(units),0) n FROM usage_ledger
     WHERE account_id=? AND kind='connected_call' AND created_at>=? AND created_at<?",
     [$account,$cycleStart,$sub['ends_at']])['n']??0);
