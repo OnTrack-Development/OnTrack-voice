@@ -662,10 +662,11 @@
         "tools/test_saas_usage_period_reconciliation.php — orphan callback negative fixture",
         "tools/test_voice_call_timeline.php — foreign-scope no-op and corrupt-evidence fail-closed regression",
         "saas/console/_core/BillingUsage.php — 30-day paid early-renewal cycle accounting",
-        "tools/test_saas_usage_period_reconciliation.php — multiple early renewal and exact term boundary fixtures"
+        "tools/test_saas_usage_period_reconciliation.php — multiple early renewal and exact term boundary fixtures",
+        "tools/test_verified_checkout_settlement.php — signed simulated Kashier renewals preserve usage quota twice"
       ],
       "patch_summary": "إدخال الفاتورة مرة واحدة بعد دليل active+ended، رفض demo/missed/no-answer، ربط usage بتاريخ بدء المكالمة أثناء انقطاع 3G وتأخر الأحداث، حفظ استهلاك الخطة عند تغييرها في نفس الفترة، اختبار SQLite/MySQL8. مراجعة إنتاجية وحالات renewal/overage الأوسع متبقية.",
-      "next_action": "Code patch pending SHA-matched SQLite/MySQL8/CI: verify early paid renewals preserve used quota until true 30-day boundary; host/financial reconciliation still required.",
+      "next_action": "Cross-check signed settlement + usage fixture on current GitHub SHA, MySQL8 and Chromium; host reconciliation/period migration pending.",
       "last_source_commit": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
       "ci_status": "automated_code_regression_passed",
       "updated_at": "2026-11-10",
@@ -765,7 +766,7 @@
   "cycle": {
     "at": "2026-11-10",
     "scope": "saas_21_strict",
-    "phase": "CORE-08_early_verified_renewal_quota_continuity",
+    "phase": "CORE-08_early_paid_renewal_with_signed_settlement_regression",
     "status": "SOURCE_PATCH_CI_PENDING",
     "source_sha": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
     "hourly_continuation": "scheduled_in_automations_not_repository_cron",
