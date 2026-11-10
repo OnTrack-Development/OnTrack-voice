@@ -53,3 +53,8 @@
 
 ## 2026-11-10 CORE-08 orphan evidence follow-up — UNVERIFIED CI
 Source-only fix prevents an orphan `active` callback from creating billing evidence before a scoped call row exists (`BillingUsage.php`). Isolated regression assertion added in `test_saas_usage_period_reconciliation.php`. Source commits `202ee48f85ea2ad6b8ada9b3e94c0270e582aad4` and `70192c77649a0b6465ebf9040d08f2293d9dd203`. CORE-08 remains PARTIAL; SQLite/MySQL8/HTTP/Chromium CI on new HEAD, paid renewal/cancel/expiry/overage and host/user verification NOT YET PROVEN. Gap-map sync job not claimed as run; no SaaS runtime deployment. GAP-7 routing untouched; Android/OTA/PCM/VS untouched.
+
+## 2026-11-10 — CI blocker: foreign billing evidence regression
+- Integrated CI run `42816474554` failed at `tools/test_voice_call_timeline.php` because the CORE-08 orphan-callback fix now rejects a foreign call scope with `false` **before** reading the evidence; the older test expected `voice_usage_evidence_scope_mismatch` exception. This is a test expectation mismatch, not proof of billing success.
+- Test updated at `80428309232632b2fcc16f686907a2e959f9a6db`: foreign account/site/SIM callbacks must be no-ops, and a deliberately corrupted existing evidence row must still throw the scope mismatch exception. SQLite/MySQL8/HTTP/Chromium gates and map-only publish remain **UNVERIFIED until current HEAD CI finishes**.
+- `WEB-CORE-08`, `WEB-CORE-06`, `WEB-UX-01` remain **PARTIAL**; no SaaS production deploy, no host/user signoff; GAP-7 and Android untouched.
