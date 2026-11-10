@@ -65,6 +65,7 @@ jobs:
             tools/test_google_tenant_keys.php \
             tools/test_tenant_device_pairing.php \
             tools/test_pilot_workspace.php \
+            tools/test_saas_pilot_policy_compat.php \
             tools/test_mobile_call_ledger.php \
             tools/test_sim_agent_call_reports.php \
             tools/test_human_escalation.php \
