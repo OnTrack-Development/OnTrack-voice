@@ -2,10 +2,9 @@
 """Publish only the architecture map to the authorized host over direct SSH.
 
 Never touches the SaaS runtime, Android, APK, OTA or Host-Link queue.
-A private Actions secret is preferred for the PIN. To bootstrap the existing
-owner-approved PIN without recommitting plaintext, the first deployment may
-recover it from the already-existing 2026-11-10 private-repo checkpoint.
-This historic exposure must be rotated via a proper Actions secret later.
+Reuses the existing private host PIN verifier for routine source updates.
+Explicit PIN rotation requires a configured Actions secret: never recover
+a PIN from Git history after the first successful bootstrap.
 Never print PIN or password verifier into Actions stdout/stderr.
 """
 import http.cookiejar
@@ -59,22 +58,8 @@ def main():
     if not re.fullmatch(r"[a-f0-9]{40}",sha):
         raise RuntimeError("GitHub sha missing or malformed")
     pin=os.getenv("ONTRACK_GAP_MAP_PIN","")
-    if not pin:
-        # The owner specified a PIN in an earlier internal checklist commit.
-        # The file has since been sanitized. This one-time bootstrap reads
-        # existing private Git history ONLY, not a new plaintext source file.
-        # GitHub Secret overrides it; rotate the historical code before
-        # allowing wider access to this operator-only diagnostic.
-        old_commit="e5ec4f54a07832924620a0ac2d69ce38c5d85580"
-        old_path="docs/audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md"
-        old_text=run(["git","show",old_commit+":"+old_path],secret=True)
-        match=re.search(r"PIN منفصل من 6 أرقام[ \t]*`([0-9]{6})`",old_text)
-        if not match:
-            raise RuntimeError("GAP_MAP_OWNER_PIN_BOOTSTRAP_UNAVAILABLE: configure Actions secret")
-        pin=match.group(1)
-        print("GAP_MAP_PIN_RECOVERED_FROM_EXISTING_PRIVATE_CHECKPOINT: rotate via Actions secret after first deployment")
-    if not re.fullmatch(r"[0-9]{6}",pin):
-        raise RuntimeError("GAP_MAP_PIN_INVALID: exactly six decimal digits required")
+    if pin and not re.fullmatch(r"[0-9]{6}",pin):
+        raise RuntimeError("GAP_MAP_PIN_INVALID: exactly six digits required")
     key=Path.home()/".ssh"/"ontrack_publish_ed25519"
     if not key.is_file():
         raise RuntimeError("authorized BEDIR runner SSH identity not available")
@@ -86,12 +71,19 @@ def main():
     for name in WEB_FILES:
         if not (ROOT/"ops/gap-map/web"/name).is_file():
             raise RuntimeError("map web source file missing")
-    # The host already has PHP 8.x; no PHP binary is required on Windows.
-    # Send the PIN only on the encrypted SSH stdin (never a command argument).
-    command="php -r 'echo password_hash(trim(stream_get_contents(STDIN)), PASSWORD_DEFAULT);'"
-    verifier=ssh(key,command,input_data=pin)
-    if not verifier.startswith("$2y$") or len(verifier)<55:
-        raise RuntimeError("invalid private password verifier")
+    # Prefer the existing host-private hash so normal updates cannot reset a
+    # PIN that was changed intentionally after the bootstrap deployment.
+    if pin:
+        command="php -r 'echo password_hash(trim(stream_get_contents(STDIN)), PASSWORD_DEFAULT);'"
+        verifier=ssh(key,command,input_data=pin)
+        if not verifier.startswith("$2y$") or len(verifier)<55:
+            raise RuntimeError("invalid private password verifier")
+    else:
+        existing=ssh(key,"test -s "+REMOTE_PRIVATE+"/pin.hash && test ! -L "+
+                     REMOTE_PRIVATE+"/pin.hash && echo HOST_PIN_EXISTS")
+        if "HOST_PIN_EXISTS" not in existing:
+            raise RuntimeError("GAP_MAP_PIN_NOT_PROVISIONED: supply private Actions secret")
+        verifier=None
     job=os.getenv("GITHUB_RUN_ID","manual")
     if not re.fullmatch(r"\d{4,20}",job):
         raise RuntimeError("invalid GitHub Actions job ID")
@@ -101,9 +93,10 @@ def main():
             for name in WEB_FILES:
                 archive.add(ROOT/"ops/gap-map/web"/name,arcname="web/"+name,recursive=False)
             archive.add(status,arcname="status.json",recursive=False)
-            raw=(verifier+"\n").encode("utf-8")
-            meta=tarfile.TarInfo("pin.hash");meta.size=len(raw);meta.mode=0o600
-            archive.addfile(meta,io.BytesIO(raw))
+            if verifier is not None:
+                raw=(verifier+"\n").encode("utf-8")
+                meta=tarfile.TarInfo("pin.hash");meta.size=len(raw);meta.mode=0o600
+                archive.addfile(meta,io.BytesIO(raw))
         # Only append an archive into an account-owned private folder.
         prep=("set -eu; umask 077; "
             "test ! -L "+REMOTE_PRIVATE+"; "
@@ -124,7 +117,7 @@ def main():
             "cp -a \"$target/.\" \"$backup/\" 2>/dev/null || true; "
             "if test -f \"$base/pin.hash\"; then cp -p \"$base/pin.hash\" \"$backup/old-pin.hash\"; fi; "
             "if test -f \"$base/status.json\"; then cp -p \"$base/status.json\" \"$backup/old-status.json\"; fi; "
-            "install -m 0600 \"$stage/pin.hash\" \"$base/pin.hash\"; "
+            "if test -f \"$stage/pin.hash\"; then install -m 0600 \"$stage/pin.hash\" \"$base/pin.hash\"; else test -s \"$base/pin.hash\"; fi; "
             "install -m 0600 \"$stage/status.json\" \"$base/status.json.new-"+job+"\"; "
             "mv \"$base/status.json.new-"+job+"\" \"$base/status.json\"; "
             "for p in index.php _auth.php status.php verify.php style.css app.js .htaccess; do "
@@ -150,15 +143,23 @@ def main():
         raise RuntimeError("anonymous map status unexpectedly public")
     except urllib.error.HTTPError as exc:
         if exc.code!=401:raise RuntimeError("unexpected anonymous map auth status "+str(exc.code))
-    fields=urllib.parse.urlencode({"pin":pin,"csrf":csrf.group(1)}).encode()
-    with opener.open(urllib.request.Request(ORIGIN+"/architecture-map/",data=fields),timeout=20) as response:
-        if response.status!=200 or "/architecture-map/" not in response.geturl():
-            raise RuntimeError("private PIN session handshake failed")
-    with opener.open(ORIGIN+"/architecture-map/status.php",timeout=20) as response:
-        data=json.loads(response.read(131073))
-        if response.status!=200 or data.get("commit")!=sha or data.get("ok") is not True:
-            raise RuntimeError("private map JSON snapshot SHA verification failed")
-    print("GAP_MAP_DIRECT_SSH_PUBLISHED_AND_PIN_HTTP_VERIFIED sha="+sha[:12]+" url="+ORIGIN+"/architecture-map/")
+    if pin:
+        fields=urllib.parse.urlencode({"pin":pin,"csrf":csrf.group(1)}).encode()
+        with opener.open(urllib.request.Request(ORIGIN+"/architecture-map/",data=fields),timeout=20) as response:
+            if response.status!=200 or "/architecture-map/" not in response.geturl():
+                raise RuntimeError("private PIN session handshake failed")
+        with opener.open(ORIGIN+"/architecture-map/status.php",timeout=20) as response:
+            data=json.loads(response.read(131073))
+            if response.status!=200 or data.get("commit")!=sha or data.get("ok") is not True:
+                raise RuntimeError("private map JSON snapshot SHA verification failed")
+        print("GAP_MAP_PIN_ROTATION_AND_AUTH_VERIFIED")
+    else:
+        # Direct SSH verifies SHA of host-private JSON on routine deployments.
+        remote_check="php -r 'echo (json_decode(file_get_contents(\""+REMOTE_PRIVATE+"/status.json\"), true)[\"commit\"] ?? \"\");'"
+        if ssh(key,remote_check)!=sha:
+            raise RuntimeError("host private snapshot SHA does not match the published commit")
+        print("GAP_MAP_EXISTING_PIN_PRESERVED_HOST_PRIVATE_SHA_VERIFIED")
+    print("GAP_MAP_DIRECT_SSH_PUBLISHED sha="+sha[:12]+" url="+ORIGIN+"/architecture-map/")
     return 0
 
 if __name__=="__main__":

@@ -175,7 +175,7 @@
       "WEB-UX-01"
     ],
     "map_host_path": "/home/appontrack/public_html/architecture-map/",
-    "map_status": "IN_DEVELOPMENT_NOT_HOST_VERIFIED",
+    "map_status": "HOST_VERIFIED_PIN_HTTPS_AND_SHA_20261110",
     "verification": "SaaS code fixtures and CI != host verified or owner E2E",
     "mobile": "OBSERVE_ONLY_NO_NATIVE_CHANGE",
     "vs": "REMOVED_NEVER_RESTORE",
@@ -185,6 +185,10 @@
     "simulator": "ISOLATED_CI_ONLY_NO_REAL_CALL",
     "host_link": "STOP",
     "direct_ssh": "BEDIR_WINDOWS_SELF_HOSTED_DOCUMENTED",
-    "next_action": "Continue map frontend / deploy proof and 21-ticket code closure; update todo and registry after each verified patch"
+    "next_action": "Complete 21 SaaS tickets; update map/repair TODO after verified changes; map host auth already proven",
+    "map_url": "https://app.ontrackegy.com/architecture-map/",
+    "map_deployment_run": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42739520075",
+    "map_verified_sha": "b407c690fc3546c7eddc87c5e6265a3989d10fbe",
+    "map_host_private_pin": "PROVISIONED_SAFELY_FROM_PREEXISTING_REPO_HISTORY_ROTATE_ASAP"
   }
 }

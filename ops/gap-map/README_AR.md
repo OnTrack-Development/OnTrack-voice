@@ -1,3 +1,5 @@
+> **LIVE MAP DEPLOY CONFIRMED — 2026-11-10:** [Architecture Map](https://app.ontrackegy.com/architecture-map/) منشورة ومحمية بالـPIN؛ [GitHub Actions #42739520075](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42739520075) نجح عليه JOB النشر على BEDIR، إيصال `GAP_MAP_DIRECT_SSH_PUBLISHED_AND_PIN_HTTP_VERIFIED` لكود `b407c690fc35` مع 200 صفحة PIN، 401 API مجهول، و200 API بمفتاح جلسة PIN، وSHA مطابق. هذا **إثبات نشر الماب فقط**، لا اكتمال إصلاحات SaaS ولا الصوت. بعد أول نشر **احتفظ بالـPIN hash الموجود على الهوست**، والتغيير يكون من Actions Secret فقط؛ لا ترجع إلى PIN مكشوف بتاريخ Git. رابط التطبيق الرئيسي `app.ontrackegy.com`؛ لم تُنفذ إعادة هيكلة المسارات `GAP-7`.
+
 # OnTrack Voice — Architecture Gap Map v2
 
 **Reference first:** [Current Handoff](../../docs/audits/ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md) · [21-task SaaS repair To-Do](../../docs/audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md) · [Direct SSH permission file](../../docs/ops/ONTRACK_DIRECT_SSH_DEPLOY_ACCESS_20261107_AR.md).

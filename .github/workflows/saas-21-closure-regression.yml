@@ -1,4 +1,4 @@
-name: SaaS 21 fixes regression (NO DEPLOY / NO ANDROID)
+name: SaaS 21 regression + Map-only publish (NO SAAS / ANDROID DEPLOY)
 on:
   push:
     branches: [fix/saas-21-closure-20261110]
@@ -157,13 +157,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-          fetch-depth: 0
+          fetch-depth: 2
       - name: Fetch approved source scan + simulation artifact
         uses: actions/download-artifact@v4
         with:
           name: SaaS-Architecture-Gap-Map
           path: .
-      - name: Publish map only over authorized SSH using private PIN bootstrap or Actions secret
+      - name: Publish map over authorized SSH preserving existing PIN or rotating through Actions secret
         env:
           ONTRACK_GAP_MAP_PIN: ${{ secrets.ONTRACK_GAP_MAP_PIN }}
           ONTRACK_GAP_MAP_SOURCE_SHA: ${{ github.sha }}
