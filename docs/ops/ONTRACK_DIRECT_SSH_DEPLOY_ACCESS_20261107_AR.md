@@ -72,3 +72,10 @@ ssh.exe -i $key -p 7195 -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyC
 - اختبر syntax/tests والتوقيع، ثم انشر الموقع/صوت IO Premium عند الموافقة، ثم `signed UI` و`native` للمستخدم، وتأكّد HTTP والمقارنة SHA/manifest، وبعدها فقط أعلن نجاح تحديث OTA.
 - لا تفترض أن GitHub Actions green يعني أن التحديث وصل للهاتف؛ لا تدّعي E2E صوت SIM دون تجربة الجهاز.
 - المالك أوقف جدولة المونيتورينج وHost-Link؛ **لا تفعّل أيًا منهما تلقائيًا**. استخدم الاتصال المباشر الموثّق.
+
+
+### مسار نشر الـArchitecture Gap Map — أحدث تنفيذ المصدر
+- Source publisher: `tools/publish_gap_map_direct_ssh.py`، Python PowerShell Windows BEDIR، لا يطبع PIN أو verifier ويستهدف `/architecture-map/` فقط.
+- Workflow: `.github/workflows/saas-21-closure-regression.yml` job `publish-gap-map` يعتمد نجاح `php-security-and-core`.
+- **حماية التشغيل:** `ONTRACK_GAP_MAP_DEPLOY_ENABLED` GitHub Actions variable يجب أن يساوي `true`، والـActions secret `ONTRACK_GAP_MAP_PIN` يجب أن يكون 6 أرقام محفوظًا سرًا. غير ذلك يبقى Job تخطي (SKIPPED) أو يفشل بوضوح، ويظل الربط غير منشور؛ لا تخزن الرقم في أي ملف Repo. المالك حدّد PIN في المحادثة، وليس مُتاحًا للنشر من GitHub بدون Secret مُصرّح.
+- بعد النجاح فقط: تحقق GET anonymous status=401، صفحة الدخول PIN=200، authenticated status=200، `commit` يساوي SHA، وPrivate `reviews.json` خارج Webroot. **هذا توثيق طريقة نشر لا إيصال بأن النشر حصل**.
