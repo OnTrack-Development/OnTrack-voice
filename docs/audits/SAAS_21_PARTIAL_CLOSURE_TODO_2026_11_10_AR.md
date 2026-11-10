@@ -200,3 +200,8 @@ Host backup/restore; maintenance secret rotation/revoke; production MySQL snapsh
 - Production patch: reject missing scoped call rows before recording answer evidence in `saas/console/_core/BillingUsage.php`; preserve reordered ended→active callbacks for already-existing rows.
 - Added isolated negative fixture in `tools/test_saas_usage_period_reconciliation.php` asserting orphan active callbacks neither bill nor persist evidence.
 - Source commits: `202ee48f85ea2ad6b8ada9b3e94c0270e582aad4`, `70192c77649a0b6465ebf9040d08f2293d9dd203`. **CI pending/unverified for latest SHA**; no MySQL8/HTTP/Chromium run claimed, no SaaS production deployment. CORE-08 remains PARTIAL; paid renewal/cancel/expiry/overage and end-to-end quota gates remain open. Map-only deployment must await successful SHA-matched CI.
+
+## 2026-11-10 — CI blocker: foreign billing evidence regression
+- Integrated CI run `42816474554` failed at `tools/test_voice_call_timeline.php` because the CORE-08 orphan-callback fix now rejects a foreign call scope with `false` **before** reading the evidence; the older test expected `voice_usage_evidence_scope_mismatch` exception. This is a test expectation mismatch, not proof of billing success.
+- Test updated at `80428309232632b2fcc16f686907a2e959f9a6db`: foreign account/site/SIM callbacks must be no-ops, and a deliberately corrupted existing evidence row must still throw the scope mismatch exception. SQLite/MySQL8/HTTP/Chromium gates and map-only publish remain **UNVERIFIED until current HEAD CI finishes**.
+- `WEB-CORE-08`, `WEB-CORE-06`, `WEB-UX-01` remain **PARTIAL**; no SaaS production deploy, no host/user signoff; GAP-7 and Android untouched.
