@@ -143,6 +143,24 @@ mysql_qa(tenant_workspace_call_event($b,$events[2])['duplicate']===true,
     'duplicate terminal event ignored');
 mysql_qa((int)one("SELECT COUNT(*) n FROM usage_ledger WHERE account_id=4
     AND kind='connected_call'")['n']===1,'answered+ended call billed at most once');
+$usageRef='voice-'.hash('sha256','4:'.$site.':'.$b['id'].':0:'.$callId);
+$ledgerStart=one('SELECT created_at FROM usage_ledger WHERE reference=?',[$usageRef]);
+$callStart=one('SELECT created_at FROM calls WHERE device_binding_id=? AND external_call_id=?',
+    [$b['id'],$callId]);
+mysql_qa($ledgerStart!==null && $callStart!==null &&
+    $ledgerStart['created_at']===$callStart['created_at'],
+    'real MySQL ledger uses original call start for subscription period');
+$oldCall='bb22cc33-4455-4677-8899-aabbccddee01';
+insert("INSERT INTO calls(account_id,site_id,device_binding_id,sim_slot,
+    external_call_id,phone,name,duration_seconds,status,is_demo,created_at)
+    VALUES(?,?,?,?,?,'','',?,?,0,?)",
+    [4,$site,$b['id'],0,$oldCall,23,'ended','2020-01-01 00:00:00']);
+voice_usage_update($b,$oldCall,'active');
+mysql_qa(voice_usage_update($b,$oldCall,'ended')===false,
+    'real MySQL old calls cannot be retroactively charged to current plan');
+mysql_qa((int)one("SELECT COUNT(*) n FROM usage_ledger WHERE account_id=4
+    AND kind='connected_call'")['n']===1,
+    'real MySQL unlicensed historical call never increments current usage');
 $brief=tenant_workspace_call_report($b,[
     'call_id'=>$callId,'summary'=>'ملخص مكالمة تجربة مؤكدة',
     'handoff_status'=>'requested','handoff_reason'=>'طلب موظف مسؤول']);
