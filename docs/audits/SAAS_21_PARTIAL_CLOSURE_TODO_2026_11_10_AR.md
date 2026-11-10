@@ -213,3 +213,7 @@ Host backup/restore; maintenance secret rotation/revoke; production MySQL snapsh
 - **Status:** **WEB-CORE-08 PARTIAL / CODE PATCH CI PENDING**. The feature is not deployed to production SaaS; manual accounting reconciliation and customer acceptance remain open. No closed task count is changed from unverified evidence.
 
 **مصفوفة مالية متقاطعة إضافية — 10 نوفمبر 2026:** تم إدراج اختبار داخل `tools/test_verified_checkout_settlement.php` يستخدم مسار `kashier_settle` الموقّع (بيانات محاكاة فقط، دون اتصال خارجي) لتأكيد أن تجديدًا مدفوعًا أو اثنين قبل انتهاء الاشتراك **لا يصفر استخدام المكالمات** حتى مع استمرار إضافة 30 يوم لكل أمر. هذا يربط إصدار الفاتورة والـUsage في اختبار End-to-End محلي. **كود المصدر على GitHub؛ لا يعني تشغيل SaaS على الهوست.**
+
+### 2026-11-10 — UX-01 Chromium browser audit reliability
+- [x] توثيق سبب فشل [Chromium #42838487385](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42838487385): `TypeError: fetch failed` عند فتح Chrome CDP debugger؛ سيرفر PHP المحلي بدأ. **ده فشل في بيئة الفحص وليس دليل عطل في واجهة العميل.**
+- [ ] إضافة Chrome debugger port ديناميكي `--remote-debugging-port=0` مع قراءة `DevToolsActivePort` وصحة debugger قبل 237 viewport؛ منع نجاح وهمي/فشل غير مشخص، و`--disable-dev-shm-usage` للـrunner. النتيجة تُقفل بعد CI على أحدث SHA، بدون لمس UI أو Android.
