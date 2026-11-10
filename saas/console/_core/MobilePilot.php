@@ -69,8 +69,19 @@ function pilot_write_policy(array $changes):int {
         throw new InvalidArgumentException('pilot_answer_delay_invalid');
     $root=pilot_root();
     if(!is_dir($root)||is_link($root))throw new RuntimeException('هاتف التجربة غير مجهز');
-    $lock=fopen($root.'/.console-policy.lock','c');
-    if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('تعذر حجز حالة الهاتف');
+    // Refuse a pre-planted lock symlink: fopen('c') would otherwise follow it
+    // and let a policy update lock an unrelated private file.
+    $lockPath=$root.'/.console-policy.lock';
+    if(is_link($lockPath) || (file_exists($lockPath) && !is_file($lockPath)))
+        throw new RuntimeException('pilot_policy_lock_unavailable');
+    $lock=@fopen($lockPath,'c');
+    if(!$lock)throw new RuntimeException('تعذر حجز حالة الهاتف');
+    if(!flock($lock,LOCK_EX)){fclose($lock);throw new RuntimeException('تعذر حجز حالة الهاتف');}
+    // Recheck under the lock before touching settings.json.
+    if(is_link($lockPath) || !is_file($lockPath)){
+        flock($lock,LOCK_UN);fclose($lock);
+        throw new RuntimeException('pilot_policy_lock_unavailable');
+    }
     try{
         $base=pilot_settings();
         $next=array_replace($base,$changes);
