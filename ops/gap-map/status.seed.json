@@ -801,4 +801,18 @@
     "latest_unverified_patch_sha": "70192c77649a0b6465ebf9040d08f2293d9dd203",
     "latest_patch_note": "CORE-08 orphan active evidence guard; CI and map deployment pending; no SaaS runtime deployment"
   }
+  ,"incrementalWork": {
+    "id": "PR-85",
+    "scope": "saas_console_bridge_and_pilot_server",
+    "status": "CODE_CI_PASS_HOST_UNVERIFIED",
+    "source_sha": "720673e5bccd20ba4582ae2bbd65c24589567623",
+    "ci_evidence": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42936466496",
+    "host_deployment": "NOT_DEPLOYED",
+    "map_deployment": "NOT_DEPLOYED_FOR_PR",
+    "identity_mapping": "EXPLICIT_PRIVATE_ONLY_NO_CROSS_DB_DNC_SYNC",
+    "pilot_auth": "ENV_PRIVATE_LEGACY_FALLBACK",
+    "pilot_call_ledger": "BOUNDED_256_LOCK_STRIPES_RESPONSE_UNCHANGED",
+    "reference_cleanup": "BLOCKED_BY_VERIFY_REPOSITORY_MANIFEST",
+    "voice_hot_path_latency": "UNMEASURED"
+  }
 }
