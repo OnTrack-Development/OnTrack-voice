@@ -25,8 +25,8 @@ internal class MobileLiveCall(
     private val ready=CompletableDeferred<Unit>()
     private val playback=Channel<Pair<Int,ByteArray>>(72)
     // Socket callbacks enqueue reports without writing SharedPreferences or waiting on disk.
-    private val pendingTranscripts=Channel<Pair<String,String>>(256)
-    private val transcriptWorker=scope.launch(Dispatchers.IO) {
+    private val pendingTranscripts=Channel<Pair<String,String>>(Channel.UNLIMITED)
+    private val transcriptWorker=CoroutineScope(SupervisorJob()+Dispatchers.IO).launch {
         for((role,text) in pendingTranscripts) {
             runCatching { onTranscript(role,text) }
                 .onFailure { notice("تعذر حفظ جزء من تفريغ المكالمة") }
