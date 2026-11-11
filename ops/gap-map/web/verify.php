@@ -1,0 +1,64 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__.'/_auth.php';
+gap_map_authorize(true);
+if(($_SERVER['REQUEST_METHOD']??'GET')!=='POST')
+    gap_map_json(['ok'=>false,'error'=>'method_not_allowed'],405);
+$origin=(string)($_SERVER['HTTP_ORIGIN']??'');
+$host=(string)($_SERVER['HTTP_HOST']??'');
+if($origin!==''){
+    $url=parse_url($origin);
+    if(!is_array($url)||strtolower((string)($url['scheme']??''))!=='https'
+       ||strcasecmp((string)($url['host']??''),preg_replace('/:\d+$/','',$host))!==0)
+        gap_map_json(['ok'=>false,'error'=>'origin_mismatch'],403);
+}
+if(!gap_map_valid_csrf($_SERVER['HTTP_X_GAP_CSRF']??null))
+    gap_map_json(['ok'=>false,'error'=>'csrf_invalid'],403);
+$raw=(string)file_get_contents('php://input',false,null,0,4097);
+if(strlen($raw)>4096)gap_map_json(['ok'=>false,'error'=>'request_too_large'],413);
+$request=json_decode($raw,true);
+$id=is_array($request)?(string)($request['gap_id']??''):'';
+$basis=is_array($request)?(string)($request['basis_hash']??''):'';
+$action=is_array($request)?(string)($request['action']??'confirm'):'';
+if(!preg_match('/\AGAP-[1-9][0-9]{0,2}\z/D',$id)
+  ||!preg_match('/\A[a-f0-9]{64}\z/D',$basis)
+  ||!in_array($action,['confirm','revoke'],true))
+    gap_map_json(['ok'=>false,'error'=>'invalid_action'],422);
+$snapshotPath=GAP_PRIVATE.'/status.json';
+if(is_link($snapshotPath)||!is_file($snapshotPath))
+    gap_map_json(['ok'=>false,'error'=>'snapshot_unavailable'],503);
+$snapshot=json_decode((string)@file_get_contents($snapshotPath,false,null,0,131073),true);
+if(!is_array($snapshot)||($snapshot['schema']??null)!==2)
+    gap_map_json(['ok'=>false,'error'=>'snapshot_invalid'],503);
+$found=null;
+foreach($snapshot['gaps']??[] as $item){
+    if(is_array($item)&&($item['id']??null)===$id){$found=$item;break;}
+}
+if(!$found)gap_map_json(['ok'=>false,'error'=>'gap_not_found'],404);
+if(!hash_equals((string)($found['basis_hash']??''),$basis))
+    gap_map_json(['ok'=>false,'error'=>'source_changed_reload'],409);
+$path=GAP_PRIVATE.'/reviews.json';
+if(is_link($path))gap_map_json(['ok'=>false,'error'=>'review_file_untrusted'],503);
+$handle=@fopen($path,'c+');
+if(!is_resource($handle))gap_map_json(['ok'=>false,'error'=>'review_storage_unavailable'],503);
+try{
+    @chmod($path,0600);
+    if(!flock($handle,LOCK_EX))gap_map_json(['ok'=>false,'error'=>'review_lock_unavailable'],503);
+    $existing=stream_get_contents($handle);
+    $reviews=json_decode(is_string($existing)?$existing:'',true);
+    if(!is_array($reviews))$reviews=[];
+    $record=['state'=>$action==='confirm'?'confirmed_by_owner':'revoked_by_owner',
+       'basis_hash'=>$basis,'verified_at'=>gmdate('Y-m-d\TH:i:s\Z'),
+       'verified_commit'=>(string)($snapshot['commit']??''),
+       'kind'=>'owner_review'];
+    $reviews[$id]=$record;
+    if(count($reviews)>200)gap_map_json(['ok'=>false,'error'=>'review_limit'],507);
+    $output=json_encode($reviews,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+    rewind($handle);ftruncate($handle,0);fwrite($handle,$output);fflush($handle);
+    // Keep a separate append-only audit trail outside webroot.
+    $event=json_encode(['event'=>'gap_'.($action==='confirm'?'confirmed':'revoked'),
+        'gap_id'=>$id,'basis_hash'=>$basis,'at'=>$record['verified_at'],
+        'commit'=>$record['verified_commit']],JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES)."\n";
+    @file_put_contents(GAP_PRIVATE.'/review-events.jsonl',$event,FILE_APPEND|LOCK_EX);
+}finally{flock($handle,LOCK_UN);fclose($handle);}
+gap_map_json(['ok'=>true,'gap_id'=>$id,'verification'=>$record]);

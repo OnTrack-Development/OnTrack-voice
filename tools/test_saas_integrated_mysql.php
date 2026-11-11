@@ -39,6 +39,26 @@ $seed=seed_console();
 mysql_qa(driver()==='mysql' && $seed['status']==='seeded','real MySQL schema and migrations seeded');
 mysql_qa((int)one('SELECT COUNT(*) n FROM accounts')['n']===7,'seven separated tenant accounts');
 mysql_qa((int)one('SELECT COUNT(*) n FROM plans')['n']>=4,'existing plans preserved');
+// Service-layer staff grants must obey exact-tenant admin roles on real PDO.
+require_once __DIR__.'/../saas/console/_core/StaffInvitations.php';
+$platformOwner=(int)one("SELECT user_id FROM memberships
+    WHERE account_id=1 AND role='owner' ORDER BY id LIMIT 1")['user_id'];
+$resellerOwner=(int)one("SELECT user_id FROM memberships
+    WHERE account_id=2 AND role='owner' ORDER BY id LIMIT 1")['user_id'];
+$foreignInviterDenied=false;
+try{
+    create_staff_invitation(1,'Cross tenant denial','mysql-no-invites@example.test',
+        'viewer',$resellerOwner);
+}catch(InvalidArgumentException $error){
+    $foreignInviterDenied=$error->getMessage()==='invalid_inviter';
+}
+mysql_qa($foreignInviterDenied,'real MySQL foreign inviter cannot create platform membership');
+$inviteId=create_staff_invitation(1,'MySQL only invitation','mysql-invite@example.test',
+    'viewer',$platformOwner);
+mysql_qa($inviteId>0 &&
+    (int)one("SELECT COUNT(*) n FROM staff_invitations WHERE id=? AND status='pending'",
+        [$inviteId])['n']===1,
+    'real MySQL account-locked owner invitation remains pending and creates no membership');
 
 // MySQL 8 rejected the historical TEXT+UNIQUE external_id schema: verify
 // real event deduplication works without truncating accepted 128-char IDs.
@@ -88,10 +108,18 @@ $old=one('SELECT status FROM subscriptions WHERE id=?',[$before['id']]);
 mysql_qa($old['status']==='replaced','historical plan retained');
 $published=publish_agent_flow(4,$agentId,$owner);
 mysql_qa($published['revision']>=1,'agent Flow published on MySQL');
+$publishAgain=publish_agent_flow(4,$agentId,$owner);
+mysql_qa($publishAgain['duplicate']===true &&
+    $publishAgain['revision']===$published['revision'],
+    'repeated MySQL publish cannot allocate an extra immutable revision');
 $pair=device_pairing_create(4,$site,$agentId,$owner,0);
 $bound=device_pairing_redeem($pair,'mysql-test-phone-installation-001',0,'MySQL CI SIM');
 $b=device_binding_authorize((string)$bound['device_token']);
 mysql_qa($b!==null,'paired SIM authorized');
+$heartbeat1=device_binding_heartbeat($b);
+$heartbeat2=device_binding_heartbeat($b);
+mysql_qa($heartbeat1['device_id']===$heartbeat2['device_id'] &&
+    $heartbeat2['account_id']===4,'MySQL unchanged last_seen_at heartbeat remains valid');
 $probe=tenant_device_contract_probe($b);
 mysql_qa($probe['published_flow_ready']===true &&
     $probe['account_id']===4 && $probe['sim_slot']===0,
@@ -115,14 +143,34 @@ mysql_qa(tenant_workspace_call_event($b,$events[2])['duplicate']===true,
     'duplicate terminal event ignored');
 mysql_qa((int)one("SELECT COUNT(*) n FROM usage_ledger WHERE account_id=4
     AND kind='connected_call'")['n']===1,'answered+ended call billed at most once');
+$usageRef='voice-'.hash('sha256','4:'.$site.':'.$b['id'].':0:'.$callId);
+$ledgerStart=one('SELECT created_at FROM usage_ledger WHERE reference=?',[$usageRef]);
+$callStart=one('SELECT created_at FROM calls WHERE device_binding_id=? AND external_call_id=?',
+    [$b['id'],$callId]);
+mysql_qa($ledgerStart!==null && $callStart!==null &&
+    $ledgerStart['created_at']===$callStart['created_at'],
+    'real MySQL ledger uses original call start for subscription period');
+$oldCall='bb22cc33-4455-4677-8899-aabbccddee01';
+insert("INSERT INTO calls(account_id,site_id,device_binding_id,sim_slot,
+    external_call_id,phone,name,duration_seconds,status,is_demo,created_at)
+    VALUES(?,?,?,?,?,'','',?,?,0,?)",
+    [4,$site,$b['id'],0,$oldCall,23,'ended','2020-01-01 00:00:00']);
+voice_usage_update($b,$oldCall,'active');
+mysql_qa(voice_usage_update($b,$oldCall,'ended')===false,
+    'real MySQL old calls cannot be retroactively charged to current plan');
+mysql_qa((int)one("SELECT COUNT(*) n FROM usage_ledger WHERE account_id=4
+    AND kind='connected_call'")['n']===1,
+    'real MySQL unlicensed historical call never increments current usage');
 $brief=tenant_workspace_call_report($b,[
     'call_id'=>$callId,'summary'=>'ملخص مكالمة تجربة مؤكدة',
     'handoff_status'=>'requested','handoff_reason'=>'طلب موظف مسؤول']);
 mysql_qa($brief['saved']===true,'call report persisted');
 $history=tenant_workspace_calls($b);
-mysql_qa(count($history['calls'])===1 &&
-    $history['calls'][0]['handoff_status']==='requested',
-    'call report on authorized SIM only');
+$matching=array_values(array_filter($history['calls'],
+    static fn(array $row):bool=>($row['call_id']??'')===$callId));
+mysql_qa(count($matching)===1 &&
+    $matching[0]['handoff_status']==='requested',
+    'call report on authorized SIM only, independent of unrelated historical calls');
 $st=he_contact_add(4,'مدير التجربة','+201001234567','manager');
 mysql_qa($st>0,'authorized manager contact only');
 he_route_configure(4,$agentId,$st,true,10);
@@ -152,9 +200,18 @@ $paidPlan=insert("INSERT INTO plans
     (kind,name,call_quota,site_limit,agent_limit,staff_limit,reseller_customers,
      price_minor,status,created_at)
     VALUES ('user','CI paid renewal fixture',800,2,2,3,0,2575,'active',?)",[now()]);
-$priorPaidEnd=gmdate('Y-m-d H:i:s',time()+60*86400);
+// Anchor the synthetic two-term entitlement to the actual first paid
+// start, not the CI wall clock; otherwise a few seconds of test execution
+// can create a fake quota boundary after a real answered call.
+$firstTermStart=(string)one("SELECT MIN(starts_at) t FROM subscriptions
+    WHERE account_id=4 AND status='active'")['t'];
+$priorPaidEnd=gmdate('Y-m-d H:i:s',
+    strtotime($firstTermStart.' UTC')+60*86400);
 execute("UPDATE subscriptions SET ends_at=? WHERE account_id=4 AND status='active'",
     [$priorPaidEnd]);
+$usedBeforePaid=voice_usage_summary(4);
+mysql_qa($usedBeforePaid['active'] && $usedBeforePaid['used']>=1,
+    'MySQL current paid term contains answered-call ledger evidence');
 $paymentRef='ovc_'.bin2hex(random_bytes(16));
 $verifiedTx='TX_'.bin2hex(random_bytes(16));
 $payOrder=insert("INSERT INTO orders
@@ -180,6 +237,8 @@ $newPaid=one("SELECT plan_id,ends_at FROM subscriptions
 mysql_qa((int)$newPaid['plan_id']===$paidPlan &&
     $newPaid['ends_at']===gmdate('Y-m-d H:i:s',strtotime($priorPaidEnd)+30*86400),
     'real InnoDB carries 60 paid days and credits an additional 30 days');
+mysql_qa(voice_usage_summary(4)['used']===$usedBeforePaid['used'],
+    'MySQL signed early renewal keeps current 30-day usage before period boundary');
 $duplicate=kashier_settle($webhook,null);
 mysql_qa($duplicate['duplicate']===true,'signed MySQL payment replay is idempotent');
 mysql_qa((int)one("SELECT COUNT(*) n FROM outbox
@@ -213,6 +272,8 @@ mysql_qa(str_contains($financeHtml,'مراجعات الاسترداد')
     'customer finance owner can see signed adjustment in Billing');
 mysql_qa((string)one("SELECT status FROM orders WHERE id=?",[$payOrder])['status']==='active',
     'signed refund does not silently revoke existing paid account');
+mysql_qa(voice_usage_summary(4)['used']===$usedBeforePaid['used'],
+    'signed refund review must not reset used quota or create duplicate charge');
 echo "SAAS_REAL_MYSQL_KASHIER_REFUND_REVIEW_AND_REPLAY_PASS\n";
 
 

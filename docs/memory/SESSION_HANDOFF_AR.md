@@ -1,3 +1,21 @@
+> **2026-11-10 LATEST SHA `ce5adf9dde89`:** CORE-08 signed early renewal and overage code **CI PASS** [49 suite + Map Host publish](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842618) [MySQL8](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842610); UX-01 Chrome audit now **PASS** [237 responsive](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839204255), CORE-06 pilot tests already PASS. The PIN-gated [Gap Map](https://app.ontrackegy.com/architecture-map/) was published on BEDIR with private SHA receipt. **Full SaaS production approval NOT DONE**; keep 3 parent tickets PARTIAL, 10 deferred, Android/VS untouched.
+
+> **LATEST VERIFIED 2026-11-10:** [SaaS 21 full CI + map publish #42744338630](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630) و[Integrated #42744344873](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873) نجحا، SHA `0461878788c6`؛ ماب الاستضافة محدثة، و49 suites و103 form actions و21 tabs اتراجعت آليًا. CORE-06/08/UX-01 لا تزال جزئية، لا نشر SaaS أو لمس Android، والحلقات المجدولة كل ساعة تتابع الخطة وتحدث السجل.
+
+> **UPDATE 2026-11-10 — SaaS CODE WAVE:** مراجعة CORE-06/08 وUX-01 أضافت Pilot backward compatibility، Usage period/carryover، 404/503 safe UI مع اختبارات CI. أحدث نقطة مرجعية [الماب](../audits/ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md) و[To-Do](../audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md)؛ **3/3 لا تزال PARTIAL حتى CI والقبول الحقيقي**. Automation كل ساعة لمتابعة الخطة. Android/VS لا تعديل.
+
+> **LIVE MAP DEPLOY CONFIRMED — 2026-11-10:** [Architecture Map](https://app.ontrackegy.com/architecture-map/) منشورة ومحمية بالـPIN؛ [GitHub Actions #42739520075](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42739520075) نجح عليه JOB النشر على BEDIR، إيصال `GAP_MAP_DIRECT_SSH_PUBLISHED_AND_PIN_HTTP_VERIFIED` لكود `b407c690fc35` مع 200 صفحة PIN، 401 API مجهول، و200 API بمفتاح جلسة PIN، وSHA مطابق. هذا **إثبات نشر الماب فقط**، لا اكتمال إصلاحات SaaS ولا الصوت. بعد أول نشر **احتفظ بالـPIN hash الموجود على الهوست**، والتغيير يكون من Actions Secret فقط؛ لا ترجع إلى PIN مكشوف بتاريخ Git. رابط التطبيق الرئيسي `app.ontrackegy.com`؛ لم تُنفذ إعادة هيكلة المسارات `GAP-7`.
+
+## 2026-11-10 — SaaS Architecture Gap Map handoff (الأحدث)
+
+**عند بدء أي محادثة جديدة:** افتح [ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md](../audits/ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md) أولاً، ثم [SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md](../audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md)، `ops/gap-map/status.seed.json` و[ملف الوصول المباشر](../ops/ONTRACK_DIRECT_SSH_DEPLOY_ACCESS_20261107_AR.md). هذه الفقرة **تحل محل** التوجيه التاريخي أدناه بتشغيل Host-Link وطابور الوظائف أو افتراض أن نشر الماب تم.
+
+**النطاق الحالي:** SaaS-only على `fix/saas-21-closure-20261110` / PR #84 Draft. 18/21 بنود عليها code patches و3 CORE-06/CORE-08/UX-01 تحتاج إغلاق كودي، 10 منفصلة مؤجلة. لا تعلن 21 DONE؛ لا اختبار هاتف يدوي ولا Android/OTA ولا استعادة `VS/`. Gap Map الجديدة فيها GAP-1..8، PIN منفصل hashed private، زر تأكيد المالك وسجل timestamp/source fingerprint، محاكاة معزولة، وVoice Latency hot path. `GAP-7` تحويل URL تسجيل الدخول مسجّل للإصلاح لاحقاً فقط؛ Host-Link قديم **STOP**، وBEDIR direct SSH موثق، و`/architecture-map/` **غير مثبت نشرها بعد**.
+
+**قاعدة العمل:** بعد كل تغيير متحقق، حدث To-Do وGap Map بنفس الشيفرة ودليل الاختبار، مع `OPEN/PARTIAL/CODE_COMPLETE/HOST_VERIFIED/USER_VERIFIED/COMPLETE` وsource SHA وNext Action. لا تكرر تحديثات "تم" غير مثبتة، ولا تحفظ PIN أو private key في GitHub.
+
+---
+
 # استلام جلسة جديدة
 
 1. افتح نفس الريبو الخاص واقرأ AGENTS.md ثم CHECKPOINT.md و checkpoint.json وأحدث السجلات والقضايا.

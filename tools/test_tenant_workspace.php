@@ -97,6 +97,34 @@ try{
     $armedResult=tenant_workspace_campaign_action($b,['confirmed'=>true,
         'id'=>$campaign2,'action'=>'arm']);
     tw_check($armedResult['campaign']['status']==='ready','explicit consented campaign armed');
+    // Duplicate contact ids in an import must never become multiple calls.
+    $campaignFixture=one('SELECT * FROM tenant_campaigns WHERE id=? AND account_id=?',
+        [$campaign2,$b['account_id']]);
+    $duplicates=$campaignFixture;
+    $duplicates['contact_ids_json']=json_encode([$approvedContact['id'],$approvedContact['id']]);
+    $preview=tcq_preview($b,$duplicates);
+    tw_check(count($preview['eligible'])===1 && $preview['excluded']===1,
+        'campaign duplicate targets are de-duplicated');
+    $oversized=$campaignFixture;
+    $oversized['contact_ids_json']=json_encode(array_fill(0,2001,$approvedContact['id']));
+    $rejected=false;try{tcq_targets($b,$oversized);}catch(InvalidArgumentException){$rejected=true;}
+    tw_check($rejected,'explicit campaign target list bounded to 2000');
+    // A stale tab cannot re-arm a campaign cancelled after its form loaded.
+    $stale=one('SELECT * FROM tenant_campaigns WHERE id=? AND account_id=?',
+        [$allCampaign,$b['account_id']]);
+    $stale['status']='draft';
+    execute("UPDATE tenant_campaigns SET status='cancelled' WHERE id=? AND account_id=?",
+        [$allCampaign,$b['account_id']]);
+    $staleDenied=false;try{tcq_arm($b,$stale);}catch(RuntimeException $e){
+        $staleDenied=$e->getMessage()==='campaign_status_changed';
+    }
+    tw_check($staleDenied &&
+        one('SELECT status FROM tenant_campaigns WHERE id=?',[$allCampaign])['status']==='cancelled',
+        'stale browser request must not resurrect cancelled campaign');
+    // Restore the synthetic fixture only so the rest of this isolated CI
+    // matrix can exercise its two independent consented campaign claims.
+    execute("UPDATE tenant_campaigns SET status='ready' WHERE id=? AND account_id=?",
+        [$allCampaign,$b['account_id']]);
     putenv('ONTRACK_TENANT_CAMPAIGN_DIAL_ENABLED');
     $disabled=false;
     try{tenant_workspace_campaign_claim($b);}catch(RuntimeException){$disabled=true;}

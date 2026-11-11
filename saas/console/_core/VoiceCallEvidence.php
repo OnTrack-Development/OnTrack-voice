@@ -18,6 +18,18 @@ function voice_call_timeline_init():void {
         UNIQUE(device_binding_id,call_id,event_id))".$engine);
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
+/** Reject changed evidence under the same event ID, including concurrent retries. */
+function voice_call_timeline_assert_same_event(array $prev,array $scope,string $speaker,
+    string $event,string $content,string $at):void {
+    if((int)$prev['account_id']!==$scope[0]||
+       (int)$prev['site_id']!==$scope[1]||
+       (int)$prev['sim_slot']!==$scope[3]||
+       $prev['speaker']!==$speaker||
+       $prev['event_type']!==$event||
+       $prev['content']!==$content||
+       $prev['occurred_at']!==$at)
+        throw new RuntimeException('timeline_replay_changed');
+}
 function voice_call_timeline_store(array $binding,array $payload):array {
     voice_call_timeline_init();
     $callId=(string)($payload['call_id']??'');
@@ -46,17 +58,9 @@ function voice_call_timeline_store(array $binding,array $payload):array {
       FROM voice_call_timeline WHERE device_binding_id=? AND call_id=? AND event_id=?',
       [(int)$binding['id'],$callId,$eventId]);
     if($prev){
-        // An event_id is an immutable evidence record, not just a text dedupe key.
-        // Retries may repeat the identical utterance, never change its identity,
-        // speaker, type, SIM, timestamp or contents after it was accepted.
-        if((int)$prev['account_id']!==$scope[0]||
-           (int)$prev['site_id']!==$scope[1]||
-           (int)$prev['sim_slot']!==$scope[3]||
-           $prev['speaker']!==$speaker||
-           $prev['event_type']!==$event||
-           $prev['content']!==trim($content)||
-           $prev['occurred_at']!==$at)
-            throw new RuntimeException('timeline_replay_changed');
+        // An event_id is an immutable evidence record, including when clients
+        // retry the same update after a network timeout.
+        voice_call_timeline_assert_same_event($prev,$scope,$speaker,$event,trim($content),$at);
         return ['saved'=>true,'duplicate'=>true];
     }
     // Reject impossible UTC dates and 24:00 rollovers rather than silently
@@ -65,10 +69,23 @@ function voice_call_timeline_store(array $binding,array $payload):array {
     if(!$stamp||$stamp->format('Y-m-d H:i:s')!==$at||
        abs(time()-$stamp->getTimestamp())>24*3600)
         throw new InvalidArgumentException('timeline_timestamp_invalid');
-    insert("INSERT INTO voice_call_timeline
-      (account_id,site_id,device_binding_id,sim_slot,call_id,event_id,speaker,event_type,
-       content,origin,occurred_at,received_at) VALUES (?,?,?,?,?,?,?,?,?,'device_reported',?,?)",
-      [...$scope,$eventId,$speaker,$event,trim($content),$at,now()]);
+    try {
+        insert("INSERT INTO voice_call_timeline
+          (account_id,site_id,device_binding_id,sim_slot,call_id,event_id,speaker,event_type,
+           content,origin,occurred_at,received_at) VALUES (?,?,?,?,?,?,?,?,?,'device_reported',?,?)",
+          [...$scope,$eventId,$speaker,$event,trim($content),$at,now()]);
+    } catch (PDOException $error) {
+        // A second authenticated report can race between SELECT and INSERT.
+        // Only the same unique (device,call,event) with identical content is
+        // idempotent; a changed replay remains an integrity error.
+        if(!in_array((string)$error->getCode(),['23000','19'],true)) throw $error;
+        $duplicate=one('SELECT account_id,site_id,sim_slot,speaker,event_type,content,occurred_at
+          FROM voice_call_timeline WHERE device_binding_id=? AND call_id=? AND event_id=?',
+          [(int)$binding['id'],$callId,$eventId]);
+        if(!$duplicate) throw $error;
+        voice_call_timeline_assert_same_event($duplicate,$scope,$speaker,$event,trim($content),$at);
+        return ['saved'=>true,'duplicate'=>true];
+    }
     return ['saved'=>true,'duplicate'=>false];
 }
 

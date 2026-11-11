@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/DncLedger.php';
+require_once __DIR__.'/TenantAccountBridge.php';
 
 /**
  * Account-scoped DNC protection for inbound contact ingestion.
@@ -23,20 +24,7 @@ function dnc_phone_key(string $phone):string {
 
 /** Returns true only for opt-outs belonging to the SAME account. */
 function dnc_is_suppressed(int $accountId,string $phone):bool {
-    $key=dnc_phone_key($phone);
-    if($accountId<=0||strlen($key)<8||strlen($key)>40)
-        throw new InvalidArgumentException('invalid_dnc_lookup');
-    if(dnc_ledger_contains($accountId,$key))return true;
-    // Legacy direct imports may have created opted-out contacts after the
-    // initial backfill. Preserve the old fail-closed lookup and heal the ledger.
-    $blocked=all('SELECT phone FROM contacts WHERE account_id=? AND dnc=1',[$accountId]);
-    foreach($blocked as $row){
-        if(dnc_phone_key((string)$row['phone'])===$key){
-            dnc_record_suppression($accountId,$phone,'legacy_contact');
-            return true;
-        }
-    }
-    return false;
+    return TenantAccountBridge::isSuppressed($accountId,$phone);
 }
 
 /** Explicit opt-out persists independently of the contact row. */

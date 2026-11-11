@@ -22,6 +22,13 @@ function subscription_assign_demo(int $accountId,int $planId):array {
         throw new RuntimeException('subscription_nested_transaction_denied');
     db()->beginTransaction();
     try{
+        // Serialize admin plan changes for this tenant. Without a row lock,
+        // two concurrent submissions can both see the same old entitlement
+        // and create competing active subscriptions on InnoDB.
+        if(driver()==='mysql'){
+            $locked=one("SELECT id FROM accounts WHERE id=? AND status='active' FOR UPDATE",[$accountId]);
+            if(!$locked)throw new InvalidArgumentException('subscription_account_unavailable');
+        }
         $current=one("SELECT id,plan_id,ends_at FROM subscriptions
             WHERE account_id=? AND status='active' AND starts_at<=? AND ends_at>?
             ORDER BY id DESC LIMIT 1",[$accountId,now(),now()]);

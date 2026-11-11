@@ -65,12 +65,37 @@ function voice_kb_search_reindex(int $accountId,int $siteId,int $limit=200):arra
         $old=one('SELECT source_id,content_hash FROM voice_kb_search_index
             WHERE source_id=? AND account_id=? AND site_id=?',[$id,$accountId,$siteId]);
         if($old && hash_equals((string)$old['content_hash'],(string)$row['sha256']))continue;
-        if($old)execute('UPDATE voice_kb_search_index SET content_hash=?,terms_json=?,indexed_at=?
-            WHERE source_id=? AND account_id=? AND site_id=?',
-            [$row['sha256'],$json,now(),$id,$accountId,$siteId]);
-        else insert('INSERT INTO voice_kb_search_index
-            (source_id,account_id,site_id,content_hash,terms_json,indexed_at)
-            VALUES (?,?,?,?,?,?)',[$id,$accountId,$siteId,$row['sha256'],$json,now()]);
+        if($old) {
+            $changed=execute('UPDATE voice_kb_search_index SET content_hash=?,terms_json=?,indexed_at=?
+                WHERE source_id=? AND account_id=? AND site_id=?',
+                [$row['sha256'],$json,now(),$id,$accountId,$siteId]);
+            if($changed!==1){
+                // The row may have been concurrently removed or reindexed.
+                // Never report an index as written if the update did not stick.
+                $latest=one('SELECT content_hash FROM voice_kb_search_index
+                    WHERE source_id=? AND account_id=? AND site_id=?',
+                    [$id,$accountId,$siteId]);
+                if(!$latest||!hash_equals((string)$latest['content_hash'],(string)$row['sha256']))
+                    throw new RuntimeException('knowledge_reindex_write_conflict');
+                continue;
+            }
+        } else {
+            try {
+                insert('INSERT INTO voice_kb_search_index
+                    (source_id,account_id,site_id,content_hash,terms_json,indexed_at)
+                    VALUES (?,?,?,?,?,?)',[$id,$accountId,$siteId,$row['sha256'],$json,now()]);
+            }catch(PDOException $e){
+                // Concurrent index workers can both observe a missing row.
+                // The exact same source hash is a harmless replay; a newer
+                // hash must never be replaced by this stale worker.
+                $latest=one('SELECT content_hash FROM voice_kb_search_index
+                    WHERE source_id=? AND account_id=? AND site_id=?',
+                    [$id,$accountId,$siteId]);
+                if(!$latest||!hash_equals((string)$latest['content_hash'],(string)$row['sha256']))
+                    throw $e;
+                continue;
+            }
+        }
         $written++;
     }
     // Archived/review/staff rows cannot remain in the searchable index.

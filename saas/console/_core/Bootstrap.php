@@ -292,14 +292,39 @@ function active_support():?array{
  * Never write plaintext secrets to GitHub, an HTML data-attribute or audit logs.
  */
 function secret_key():string{
-    $path=private_path().'/console-vault.key';
-    if(!file_exists($path)){
-        $fh=@fopen($path,'x');
-        if($fh!==false){chmod($path,0600);fwrite($fh,random_bytes(32));fclose($fh);}
+    // First-run key generation must be serialized across PHP workers. An
+    // incomplete or symlinked key is an operational error, not a reason to
+    // silently rotate it and make encrypted production credentials unreadable.
+    $dir=private_path();
+    $path=$dir.'/console-vault.key';
+    $lockPath=$dir.'/.console-vault.lock';
+    if(is_link($path)||is_link($lockPath))
+        throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+    $lock=@fopen($lockPath,'c');
+    if(!is_resource($lock))throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+    try{
+        @chmod($lockPath,0600);
+        if(!flock($lock,LOCK_EX))throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+        if(is_link($path))throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+        if(!file_exists($path)){
+            $fh=@fopen($path,'x');
+            if(!is_resource($fh))throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+            try{
+                @chmod($path,0600);
+                $newKey=random_bytes(32);
+                if(fwrite($fh,$newKey)!==32||!fflush($fh))
+                    throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+            }finally{fclose($fh);}
+        }
+        $key=@file_get_contents($path);
+        if(!is_string($key)||strlen($key)!==32)
+            throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+        if(!@chmod($path,0600))throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
+        return $key;
+    }finally{
+        flock($lock,LOCK_UN);
+        fclose($lock);
     }
-    $key=@file_get_contents($path);
-    if(!is_string($key)||strlen($key)!==32)throw new RuntimeException('مفتاح خزنة الأسرار غير متاح');
-    return $key;
 }
 function seal_secret(string $plain):string{
     $nonce=random_bytes(12);$tag='';
@@ -476,9 +501,32 @@ function brand(array $a):array{
     }
     return ['name'=>'OnTrack Voice','logo'=>'','accent'=>'#e11d39'];
 }
+/** Bounded, non-destructive audit sanitization. Keep IDs and decisions visible. */
+function audit_safe_details(mixed $value,int $depth=0):mixed{
+    if($depth>4)return '[TRUNCATED]';
+    if(is_array($value)){
+        $safe=[];
+        foreach(array_slice($value,0,40,true) as $key=>$entry){
+            if(is_string($key) && preg_match('/(?:password|secret|credential|authorization|api[_-]?key|access[_-]?token|bearer|private[_-]?key|pin|otp)/i',$key)){
+                $safe[$key]='[REDACTED]';
+            }else{
+                $safe[$key]=audit_safe_details($entry,$depth+1);
+            }
+        }
+        return $safe;
+    }
+    if(is_string($value)){
+        $value=mb_substr($value,0,700,'UTF-8');
+        $value=preg_replace('/\\bBearer\\s+[A-Za-z0-9_.\\-]+/i','Bearer [REDACTED]',$value)??'[REDACTED]';
+        $value=preg_replace('/\\b(?:AIza[A-Za-z0-9_\\-]{20,}|github_pat_[A-Za-z0-9_]+|omnira_sk_[A-Za-z0-9_\\-]+)\\b/','[REDACTED]',$value)??'[REDACTED]';
+        $value=preg_replace('~\\b(?:api[_-]?key|access[_-]?token|password|secret|token)\\s*[=:]\\s*[^\\s,;]+~i','[REDACTED]',$value)??'[REDACTED]';
+        return $value;
+    }
+    return is_int($value)||is_float($value)||is_bool($value)||$value===null?$value:'[UNSUPPORTED]';
+}
 function audit(string $action,?int $accountId=null,array $details=[]):void{
     $actor=me();if(!$actor)return;
-    $info=json_encode($details,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+    $info=json_encode(audit_safe_details($details),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_INVALID_UTF8_SUBSTITUTE);
     insert('INSERT INTO audit_events(actor_user_id,account_id,action,detail,created_at) VALUES (?,?,?,?,?)',[$actor['id'],$accountId,$action,$info,now()]);
 }
 function site_limit(int $accountId,string $key):int{

@@ -1,0 +1,43 @@
+name: Inspect SaaS host runtime before Laravel migration (READ ONLY)
+on:
+  push:
+    branches: [fix/saas-21-closure-20261110]
+    paths: ['.github/workflows/saas-host-preflight.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 6
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Inspect authorized host paths and anonymous HTTP contracts
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $key = Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if (-not (Test-Path -LiteralPath $key -PathType Leaf)) { throw 'Authorized SSH identity missing on runner' }
+          $probe = @'
+          set -eu
+          test "$(id -un)" = appontrack
+          for root in /home/appontrack/saas /home/appontrack/public_html/saas /home/appontrack/apps/ontrack/saas; do
+            if test -f "$root/artisan" && test -f "$root/vendor/autoload.php"; then
+              printf 'LARAVEL_RUNTIME_PRESENT=%s\n' "$root"
+            else
+              printf 'LARAVEL_RUNTIME_ABSENT=%s\n' "$root"
+            fi
+          done
+          if test -d /home/appontrack/public_html/saas/console; then echo CONSOLE_DIRECTORY_PRESENT; else echo CONSOLE_DIRECTORY_ABSENT; fi
+          if test -f /home/appontrack/public_html/index.php; then echo ROOT_INDEX_PRESENT; else echo ROOT_INDEX_ABSENT; fi
+          find /home/appontrack -maxdepth 5 -type f -name artisan -print 2>/dev/null | head -10
+          for route in saas/console/ saas/mobile/server/status.php saas/mobile/server/device.php; do
+            code=$(curl --silent --show-error --max-time 12 --output /dev/null --write-out '%{http_code}' "https://app.ontrackegy.com/$route") || code=000
+            target=$(curl --silent --max-time 12 --output /dev/null --write-out '%{redirect_url}' "https://app.ontrackegy.com/$route") || target=unavailable
+            printf 'ANONYMOUS_GET %s %s redirect=%s\n' "$route" "$code" "$target"
+          done
+          '@
+          $probe = $probe -replace "`r", ''
+          & ssh.exe -i $key -p 7195 -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 appontrack@65.21.208.232 $probe
+          if ($LASTEXITCODE -ne 0) { throw 'Read-only host probe failed' }

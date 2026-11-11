@@ -1,6 +1,21 @@
+> **LIVE MAP DEPLOY CONFIRMED — 2026-11-10:** [Architecture Map](https://app.ontrackegy.com/architecture-map/) منشورة ومحمية بالـPIN؛ [GitHub Actions #42739520075](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42739520075) نجح عليه JOB النشر على BEDIR، إيصال `GAP_MAP_DIRECT_SSH_PUBLISHED_AND_PIN_HTTP_VERIFIED` لكود `b407c690fc35` مع 200 صفحة PIN، 401 API مجهول، و200 API بمفتاح جلسة PIN، وSHA مطابق. هذا **إثبات نشر الماب فقط**، لا اكتمال إصلاحات SaaS ولا الصوت. بعد أول نشر **احتفظ بالـPIN hash الموجود على الهوست**، والتغيير يكون من Actions Secret فقط؛ لا ترجع إلى PIN مكشوف بتاريخ Git. رابط التطبيق الرئيسي `app.ontrackegy.com`؛ لم تُنفذ إعادة هيكلة المسارات `GAP-7`.
+
 # OnTrack Voice — وصول SSH مباشر للنشر (تأكيد 7 نوفمبر 2026)
 
 > **مصدر حقيقة للوصول المتاح للـAgent/CI:** القناة المباشرة من Windows GitHub Actions self-hosted runner؛ لا تخلطها مع قناة Host-Link القديمة. هذه وثيقة صلاحيات واتصال **وليست كلمة مرور أو مفتاحًا خاصًا**.
+
+## تحديث مرجع الصلاحيات والماب — 10 نوفمبر 2026
+
+**كل Coding Agent جديد لازم يبدأ** من [Gap Map Current Handoff](../audits/ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md)، ثم [SaaS 21 TODO](../audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md)، و`ops/gap-map/status.seed.json`. عند كل Commit ناجح/فاشل، لازم تحديث حالة البنود والفجوات وربط SHA وCI وHost receipt، وعدم اعتماد COMPLETE بمجرد مصدر كود أو اختبار CI.
+
+**مجلد النشر المستقل للماب:** `/home/appontrack/public_html/architecture-map/`؛ **ملفات الحالة والأسرار الخاصة بها:** `/home/appontrack/.ontrack-gap-map/` خارج webroot. لا تستنتج أن هذا المسار منشور من وجود ملف Git؛ الرابط المقترح `https://app.ontrackegy.com/architecture-map/` **UNVERIFIED حتى نجاح SSH upload + HTTP auth/200 مع PIN + SHA receipt**. لا تستخدم المسارات القديمة `/saas/console` للماب.
+
+**طريقة المصادقة للماب:** PIN ستة أرقام اختاره المالك في المحادثة؛ خزّن `password_hash` فقط في ملف خاص `pin.hash` بصلاحية 0600، لا تكتب PIN كنص في source/commit/docs/CI/log. لكل تأكيد فجوة خزّن fingerprint المصدر وتاريخ التأكيد في `reviews.json`، وارجع إلى RECHECK_REQUIRED إذا اختلف. احمِ كل نقاط API بنفس جلسة PIN/CSRF/rate limits؛ امنع نشر `status.json` أو audit ledger للويب مباشرة.
+
+**قناة النشر:** شغّل Job نشر الماب **فقط** من BEDIR Windows Runner عبر SSH المباشر المثبت في هذا الملف؛ لا تستخدم Host-Link (STOP)، لا تطبع مفاتيح أو بيئة runner؛ تحقّق هوية المضيف وSHA بعد upload، ورفض unauthorized HTTPS للزوار. لا ترفع APK ولا تعدل SaaS runtime أو Android أو OTA في Job الماب. صلاحيات الكتابة في `architecture-map/` لم يتم إثباتها مستقلاً بعد، لذلك لا تدعِ النشر حتى تُختبر. `VS/` محذوف وخارج المشروع.
+
+**GAP-7 (Canonical Login URL):** المالك طلب إخفاء `/saas/console` من دخول المستخدم النهائي؛ **تسجيل فقط دون تعديل Routing الآن**. **GAP-8:** تجنب Web Login والطلبات المتسلسلة غير الضرورية في Voice critical path؛ Device Bearer مع تحقق العزل والحصص وDNC ما زالت إلزامية.
+
 
 ## إعدادات الاتصال المثبتة بالتجربة
 
@@ -59,3 +74,10 @@ ssh.exe -i $key -p 7195 -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyC
 - اختبر syntax/tests والتوقيع، ثم انشر الموقع/صوت IO Premium عند الموافقة، ثم `signed UI` و`native` للمستخدم، وتأكّد HTTP والمقارنة SHA/manifest، وبعدها فقط أعلن نجاح تحديث OTA.
 - لا تفترض أن GitHub Actions green يعني أن التحديث وصل للهاتف؛ لا تدّعي E2E صوت SIM دون تجربة الجهاز.
 - المالك أوقف جدولة المونيتورينج وHost-Link؛ **لا تفعّل أيًا منهما تلقائيًا**. استخدم الاتصال المباشر الموثّق.
+
+
+### مسار نشر الـArchitecture Gap Map — أحدث تنفيذ المصدر
+- Source publisher: `tools/publish_gap_map_direct_ssh.py`، Python PowerShell Windows BEDIR، لا يطبع PIN أو verifier ويستهدف `/architecture-map/` فقط.
+- Workflow: `.github/workflows/saas-21-closure-regression.yml` job `publish-gap-map` يعتمد نجاح `php-security-and-core`.
+- **حماية التشغيل:** `ONTRACK_GAP_MAP_DEPLOY_ENABLED` GitHub Actions variable يجب أن يساوي `true`، والـActions secret `ONTRACK_GAP_MAP_PIN` يجب أن يكون 6 أرقام محفوظًا سرًا. غير ذلك يبقى Job تخطي (SKIPPED) أو يفشل بوضوح، ويظل الربط غير منشور؛ لا تخزن الرقم في أي ملف Repo. المالك حدّد PIN في المحادثة، وليس مُتاحًا للنشر من GitHub بدون Secret مُصرّح.
+- بعد النجاح فقط: تحقق GET anonymous status=401، صفحة الدخول PIN=200، authenticated status=200، `commit` يساوي SHA، وPrivate `reviews.json` خارج Webroot. **هذا توثيق طريقة نشر لا إيصال بأن النشر حصل**.

@@ -1,0 +1,197 @@
+name: SaaS 21 regression + Map-only publish (NO SAAS / ANDROID DEPLOY)
+on:
+  push:
+    branches: [fix/saas-21-closure-20261110]
+  pull_request:
+    branches: [fix/saas-21-closure-20261110]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  php-security-and-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,curl,openssl,fileinfo,zip,dom,sodium
+          coverage: none
+      - name: Validate persistent architecture map and 21-ticket handoff
+        run: python3 tools/test_gap_map_handoff.py
+      - name: SaaS role navigation and all form action dispatch contract
+        run: python3 tools/test_saas_nav_action_contract.py
+      - name: Install PDF fixture extractor
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+      - name: PHP security and surface lint
+        run: |
+          set -euo pipefail
+          find api saas/console/_core -type f -name '*.php' -print0 | xargs -0 -n1 php -l >/tmp/saas-php-lint.txt
+          find saas/app saas/database/migrations saas/tests/Feature -type f -name '*.php' -print0 | xargs -0 -n1 php -l >/tmp/saas-laravel-lint.txt
+          php -l omnira_api_tester.php
+          php tools/test_saas_diag_security.php
+          php tools/test_saas_trace_redaction.php
+          php tools/test_saas_security_guards.php
+          php tools/test_mobile_auth_fallback.php
+          php tools/test_tenant_account_bridge.php
+          php tools/test_voice_laravel_mirror_contract.php
+          php tools/test_laravel_dnc_bridge_contract.php
+          php tools/test_live_demo_security.php
+          php tools/test_auth_login_throttle.php
+          php tools/test_saas_quick_answer_policy.php
+          n=0
+          for test in \
+            tools/test_saas_quick_answer_policy.php \
+            tools/test_saas_phase2_flow_safety.php \
+            tools/test_saas_phase2_knowledge_safety.php \
+            tools/test_saas_phase2_contract_probe.php \
+            tools/test_saas_phase2_billing_current_subscription.php \
+            tools/test_saas_usage_period_reconciliation.php \
+            tools/test_saas_phase3_reseller_plan_controls.php \
+            tools/test_voice_saas_console.php \
+            tools/test_console_pricing_ui.php \
+            tools/test_v1_site05_plan_transitions.php \
+            tools/test_console_checkout.php \
+            tools/test_console_kashier_webhook.php \
+            tools/test_verified_checkout_settlement.php \
+            tools/test_saas_refund_review_render.php \
+            tools/test_voice_flow_runtime.php \
+            tools/test_voice_tool_gateway.php \
+            tools/test_voice_kb_pdf_extract.php \
+            tools/test_voice_kb_search_index.php \
+            tools/test_voice_knowledge_web.php \
+            tools/test_voice_connector_cache.php \
+            tools/test_google_live_failover.php \
+            tools/test_google_tenant_keys.php \
+            tools/test_tenant_device_pairing.php \
+            tools/test_pilot_workspace.php \
+            tools/test_saas_pilot_policy_compat.php \
+            tools/test_mobile_call_ledger.php \
+            tools/test_sim_agent_call_reports.php \
+            tools/test_human_escalation.php \
+            tools/test_tenant_voice_transcript_archive.php \
+            tools/test_tenant_call_ai_summary.php \
+            tools/test_voice_call_timeline.php \
+            tools/test_tenant_workspace.php \
+            tools/test_voice_dnc_ledger.php \
+            tools/test_voice_sso.php \
+            tools/test_whatsapp_inbox.php \
+            tools/test_whatsapp_whmcs_bridge.php \
+            tools/test_auth_login_throttle.php \
+            tools/test_v1_reseller_toggle.php \
+            tools/test_white_label_portal.php \
+            tools/test_voice_openapi.php \
+            tools/test_protected_engine_release.php \
+            tools/test_device_bootstrap.php \
+            tools/test_ai_assistant_tenant_keys.php \
+            tools/test_agent_scenario_modes.php \
+            tools/test_dynamic_agent_studio.php \
+            tools/test_voice_trial_and_ui.php \
+            tools/test_voice_dnc_actions.php \
+            tools/test_flow_ai_sources.php \
+            tools/test_flow_ai_chat.php; do
+            n=$((n+1))
+            echo "=== candidate fixture $n: $test ==="
+            ONTRACK_CI_NAMESPACE="saasall_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_$n" php "$test"
+          done
+          echo "SAAS_21_ISOLATED_MATRIX_PASS suite_count=$n"
+          ONTRACK_CI_NAMESPACE="saas_vault_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}" php tools/test_saas_vault_integrity.php
+          ONTRACK_CI_NAMESPACE="saas_timeline_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}" php tools/test_voice_call_timeline.php
+          python3 tools/test_host_link_signed_jobs.py
+      - name: JavaScript source syntax
+        run: |
+          set -euo pipefail
+          node --check assets/app.js
+          node --check saas/console/assets/js/app.js
+          node --check saas/console/assets/js/flow-graph.js
+          node tools/test_console_ajax_ui.cjs
+          node tools/test_graph_routing.cjs
+      - name: Guard native, OTA and deploy source
+        run: |
+          set -euo pipefail
+          git diff --check HEAD~1 HEAD
+          if git diff --name-only HEAD~1 HEAD | grep -E '^(VS/|android/|app/src/|saas/mobile/android/|saas/mobile/ota/|saas/mobile/server/|\.github/workflows/.*publish)' | grep -Ev '^saas/mobile/server/(common|call_ledger)\.php$'; then
+            echo 'Forbidden native/deploy changes in SaaS-only branch'
+            exit 1
+          fi
+          echo SAAS_21_CODE_GUARD_PASS
+      - name: Gap-map frontend syntax and protected API lint
+        run: |
+          set -euo pipefail
+          find ops/gap-map/web -name '*.php' -type f -print0 | xargs -0 -n1 php -l
+          node --check ops/gap-map/web/app.js
+          python3 -m py_compile tools/build_gap_map_snapshot.py tools/run_gap_map_simulator.py tools/test_gap_map_handoff.py
+      - name: Run isolated user-journey simulator (no actual calls or payments)
+        env:
+          ONTRACK_SIMULATOR_ENABLE: '1'
+        run: |
+          set -euo pipefail
+          python3 tools/run_gap_map_simulator.py
+      - name: Rebuild source-backed map snapshot with simulation evidence
+        run: python3 tools/build_gap_map_snapshot.py
+      - name: Validate source gap auto-detectors and no credential leakage
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          obj=json.loads(Path("dist/gap-map/status.json").read_text(encoding="utf-8"))
+          ids={item.get("id") for item in obj.get("findings",[])}
+          assert {"SRC-001","SRC-002","SRC-003","SRC-004","SRC-006"}.issubset(ids),ids
+          assert obj["finding_count"]==len(obj["findings"])
+          assert all(f["runtime_verified"] is False and f.get("linked_gap") and f.get("evidence_paths") for f in obj["findings"])
+          assert "SRC-007" not in ids,"VS/ must remain deleted"
+          print("AUTO_SOURCE_FINDINGS_EVIDENCE_PASS count="+str(len(ids)))
+          PY
+      - name: Upload immutable architecture map evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: SaaS-Architecture-Gap-Map
+          path: |
+            dist/gap-map/status.json
+            dist/gap-map/simulation-report.json
+            ops/gap-map/web/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-gap-map:
+    name: Publish PIN-protected map only (no SaaS runtime or Android)
+    needs: php-security-and-core
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/fix/saas-21-closure-20261110' }}
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 15
+    concurrency:
+      group: ontrack-architecture-map-host-publish
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Fetch approved source scan + simulation artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: SaaS-Architecture-Gap-Map
+          path: .
+      - name: Publish map over authorized SSH preserving existing PIN or rotating through Actions secret
+        env:
+          ONTRACK_GAP_MAP_PIN: ${{ secrets.ONTRACK_GAP_MAP_PIN }}
+          ONTRACK_GAP_MAP_SOURCE_SHA: ${{ github.sha }}
+          PYTHONUTF8: '1'
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/publish_gap_map_direct_ssh.py
+          if ($LASTEXITCODE -ne 0) { throw 'Map-only SSH publishing or private HTTPS/PIN/SHA verification failed' }

@@ -80,6 +80,7 @@ function tcq_allowed(array $b,int $contactId):bool{
 function tcq_targets(array $b,array $campaign):array {
     $list=json_decode((string)$campaign['contact_ids_json'],true);
     if(!is_array($list)||!array_is_list($list))throw new InvalidArgumentException('invalid_campaign_targets');
+    if(count($list)>2000)throw new InvalidArgumentException('campaign_targets_limit');
     if($list!==[])return $list;
     $rows=all('SELECT id FROM contacts WHERE account_id=? AND site_id=? ORDER BY id ASC LIMIT 2000',
         [$b['account_id'],$b['site_id']]);
@@ -87,9 +88,11 @@ function tcq_targets(array $b,array $campaign):array {
 }
 function tcq_preview(array $b,array $campaign):array{
     tcq_init();$list=tcq_targets($b,$campaign);
-    $eligible=[];$excluded=0;
+    $eligible=[];$excluded=0;$seen=[];
     foreach($list as $opaque){
         try{$id=tenant_workspace_parse_id($opaque);}catch(InvalidArgumentException){$excluded++;continue;}
+        if(isset($seen[$id])){$excluded++;continue;}
+        $seen[$id]=true;
         if(tcq_allowed($b,$id))$eligible[]=['id'=>$opaque];else $excluded++;
     }
     return ['eligible'=>$eligible,'excluded'=>$excluded,'dialed'=>false,'dispatch_enabled'=>tcq_enabled()];
@@ -102,9 +105,12 @@ function tcq_arm(array $b,array $campaign):array{
     if($end<=gmdate('Y-m-d H:i:s'))throw new InvalidArgumentException('campaign_expired');
     $preview=tcq_preview($b,$campaign);
     if(!$preview['eligible'])throw new InvalidArgumentException('no_consented_contacts');
-    execute("UPDATE tenant_campaigns SET status='ready'
-      WHERE id=? AND account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=?",
-      [$campaign['id'],$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']]);
+    // Guard against a stale browser form resurrecting a paused/deleted campaign.
+    if(execute("UPDATE tenant_campaigns SET status='ready'
+      WHERE id=? AND account_id=? AND site_id=? AND device_binding_id=? AND sim_slot=?
+        AND status IN ('draft','paused')",
+      [$campaign['id'],$b['account_id'],$b['site_id'],$b['id'],$b['sim_slot']])!==1)
+        throw new RuntimeException('campaign_status_changed');
     return ['campaign'=>['id'=>$campaign['id'],'status'=>'ready'],
         'calls_started'=>0,'dispatch_enabled'=>tcq_enabled()];
 }
@@ -120,6 +126,15 @@ function tcq_claim(array $b):array{
     if(!tcq_enabled())throw new RuntimeException('campaign_device_e2e_gate_disabled');
     $db=db();$db->beginTransaction();
     try{
+        // InnoDB must serialize claims for this physical SIM before selecting
+        // eligible campaigns; a unique contact constraint alone is not enough.
+        if(driver()==='mysql'){
+            $owner=one("SELECT id FROM device_bindings
+                WHERE id=? AND account_id=? AND site_id=? AND sim_slot=?
+                  AND status='active' FOR UPDATE",
+                [$b['id'],$b['account_id'],$b['site_id'],$b['sim_slot']]);
+            if(!$owner)throw new RuntimeException('campaign_device_revoked');
+        }
         $active=all("SELECT id,leased_epoch FROM tenant_campaign_attempts WHERE
           account_id=? AND device_binding_id=? AND sim_slot=? AND status IN ('leased','verified')",
           [$b['account_id'],$b['id'],$b['sim_slot']]);
@@ -212,8 +227,16 @@ function tcq_finish(array $b,string $attemptId,string $result):array{
     if($a['status']!=='verified' && in_array($result,['completed','busy','no_answer'],true))
         throw new InvalidArgumentException('campaign_result_requires_verified_dial');
     $stored=$result==='unknown'?'unknown':'finished';
-    execute("UPDATE tenant_campaign_attempts SET status=?,result=?,finished_at=?
+    $updated=execute("UPDATE tenant_campaign_attempts SET status=?,result=?,finished_at=?
       WHERE id=? AND account_id=? AND device_binding_id=? AND status IN ('leased','verified')",
       [$stored,$result,now(),$attemptId,$b['account_id'],$b['id']]);
+    if($updated!==1){
+        // Another worker may have finalized this attempt after our scoped read.
+        $current=tcq_attempt($b,$attemptId);
+        if($current && in_array($current['status'],['finished','unknown'],true)
+           && $current['result']===$result)
+            return ['saved'=>true,'duplicate'=>true,'result'=>$result];
+        throw new RuntimeException('campaign_attempt_state_changed');
+    }
     return ['saved'=>true,'duplicate'=>false,'result'=>$result];
 }

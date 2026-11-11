@@ -96,6 +96,13 @@ $inviteCols=driver()==='sqlite'?array_column(all('PRAGMA table_info(staff_invita
 ok(driver()!=='sqlite'||in_array('accepted_by',$inviteCols,true),'v4 staff invitations migration');
 $usersBefore=(int)one('SELECT COUNT(*) n FROM users')['n'];
 $membersBefore=(int)one('SELECT COUNT(*) n FROM memberships')['n'];
+$crossInviterDenied=false;
+try{
+    create_staff_invitation(2,'Forged Admin','foreign-test@example.invalid','manager',(int)$admin['id']);
+}catch(InvalidArgumentException $ex){
+    $crossInviterDenied=$ex->getMessage()==='invalid_inviter';
+}
+ok($crossInviterDenied,'cross-account actor cannot invite staff by calling service directly');
 $inviteId=create_staff_invitation(2,'Targeted Admin','ADMIN@ONTRACKEGY.COM','manager',(int)$reseller['id']);
 ok((int)one('SELECT COUNT(*) n FROM users')['n']===$usersBefore,'staff invitation does not create unverified user');
 ok((int)one('SELECT COUNT(*) n FROM memberships')['n']===$membersBefore,'staff invitation does not grant existing user membership');

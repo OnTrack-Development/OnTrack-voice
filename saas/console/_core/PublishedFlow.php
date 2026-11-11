@@ -43,6 +43,18 @@ function publish_agent_flow(int $accountId,int $agentId,int $actorId):array {
     $own=!db()->inTransaction();
     if($own)db()->beginTransaction();
     try{
+        // Serialize immutable revision allocation on InnoDB. Otherwise two
+        // concurrent publishes can both choose revision N+1 and collide,
+        // or publish the same draft twice with different timestamps.
+        if(driver()==='mysql'){
+            $locked=one("SELECT ag.* FROM agents ag
+                JOIN sites s ON s.id=ag.site_id AND s.account_id=ag.account_id AND s.status='active'
+                JOIN accounts a ON a.id=ag.account_id AND a.status='active'
+                WHERE ag.id=? AND ag.account_id=? AND ag.status!='archived'
+                FOR UPDATE",[$agentId,$accountId]);
+            if(!$locked)throw new InvalidArgumentException('agent_not_available');
+            $agent=$locked;
+        }
         $prior=published_agent_flow($accountId,(int)$agent['site_id'],$agentId);
         $policy=json_encode($policyData,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
         $snapshot=hash('sha256',$normalized."\n".(string)$agent['voice']."\n".(string)$agent['instructions']."\n".(string)$agent['knowledge']."\n".$policy);

@@ -1,3 +1,5 @@
+> **LIVE MAP DEPLOY CONFIRMED — 2026-11-10:** [Architecture Map](https://app.ontrackegy.com/architecture-map/) منشورة ومحمية بالـPIN؛ [GitHub Actions #42739520075](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42739520075) نجح عليه JOB النشر على BEDIR، إيصال `GAP_MAP_DIRECT_SSH_PUBLISHED_AND_PIN_HTTP_VERIFIED` لكود `b407c690fc35` مع 200 صفحة PIN، 401 API مجهول، و200 API بمفتاح جلسة PIN، وSHA مطابق. هذا **إثبات نشر الماب فقط**، لا اكتمال إصلاحات SaaS ولا الصوت. بعد أول نشر **احتفظ بالـPIN hash الموجود على الهوست**، والتغيير يكون من Actions Secret فقط؛ لا ترجع إلى PIN مكشوف بتاريخ Git. رابط التطبيق الرئيسي `app.ontrackegy.com`؛ لم تُنفذ إعادة هيكلة المسارات `GAP-7`.
+
 <!-- ONTRACK_MANDATORY_AGENT_RULES_START -->
 # تعليمات المالك الملزمة لكل Coding Agent — اقرأ قبل أي تعديل
 
@@ -19,6 +21,15 @@
 **Safety:** حافظ على أسرار الحسابات، عزل العملاء والشريحتين، وعدم استبدال هوية SIM أو تخطي التحقق؛ لا تنفذ حذفًا أو تغيير إنتاجيًا خطرًا خارج التفويض. **لا تعاود تشغيل جدولة التطوير كل ساعة التي أوقفها المالك.** لا تصنع توثيقًا مكررًا: README.md للعقد الكامل، CLAUDE.md للقاعدة التنفيذية والقرارات المعمارية المختصرة، والكود مصدر الحقيقة.
 
 <!-- ONTRACK_MANDATORY_AGENT_RULES_END -->
+
+## Active SaaS gap-map and repair workflow — 2026-11-10
+
+This supersedes historical "Android-first", `VS/`, old SaaS path, and Host-Link queue directions when they conflict with the **current SaaS-only owner task**. Always read these files in order: [Gap Map handoff](docs/audits/ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md) → [21-fix TODO](docs/audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md) → [Gap Map registry](ops/gap-map/status.seed.json) → [Runner/SSH access](docs/ops/ONTRACK_DIRECT_SSH_DEPLOY_ACCESS_20261107_AR.md). GitHub working branch `fix/saas-21-closure-20261110`, PR #84 DRAFT.
+
+After **each** code/test/deploy change: inspect current SHA and CI results, update every impacted task and `GAP-N` with changed files, exact evidence, status OPEN/PARTIAL/CODE_COMPLETE/HOST_VERIFIED/USER_VERIFIED/COMPLETE, and remaining action; commit updates alongside the fix. A subcheck [x] does not close its parent task. Source-code improvements: 18/21 addressed by patches, 3 (CORE-06, CORE-08, UX-01) still need closure; all 21 need independent final host/user verification. Do not touch the 10 deferred tasks early. **Do not mark complete on the strength of CI alone.**
+
+Map goal: separately show SaaS, Mobile observe-only, Shared API/hot-path connections; automatic scanner + owner confirmation button with per-file source fingerprint, safe isolated simulator and chronological evidence. The six-digit map PIN must be hashed outside webroot and never written in Git. **Map publication has no verified receipt yet: never invent a live website URL.** Use BEDIR Windows runner authorized direct SSH rather than the STOPped Host-Link. `VS/` has been deleted: never restore or cite as current gap. `GAP-7` login redirect is recorded but routing change explicitly deferred; `GAP-8` voice latency should avoid web Login and unnecessary synchronous hops without skipping bearer binding, revocation, DNC, consent and quota checks. Any real calls/charge/Android changes require separate authorization and E2E proof.
+
 
 ## Owner-approved v1.0.0 corrections — 2026-11-06
 

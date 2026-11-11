@@ -2,14 +2,14 @@
 const {spawn}=require('node:child_process');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
-const port=18773,chromePort=18774;
+const port=18773; // PHP app port, Chromium debugger is OS-assigned per run
 const chromePath=process.env.CHROME_BIN;
 if(!chromePath||!fs.existsSync(chromePath))throw Error('CHROME_NOT_FOUND');
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'voice-ui-chrome-'));
 const chrome=spawn(chromePath,[
   '--headless=new','--no-first-run','--no-default-browser-check',
-  '--no-sandbox','--disable-extensions','--disable-gpu',
-  '--remote-debugging-address=127.0.0.1','--remote-debugging-port='+chromePort,
+  '--no-sandbox','--disable-dev-shm-usage','--disable-extensions','--disable-gpu',
+  '--remote-debugging-address=127.0.0.1','--remote-debugging-port=0',
   '--user-data-dir='+tmp,'about:blank'
 ],{stdio:'ignore',windowsHide:true});
 let ws,uid=0;const pending=new Map();
@@ -103,11 +103,31 @@ async function signIn(email,prefix){
   throw Error('login did not reach dashboard: '+email+' at '+(await evaluate('location.href')));
 }
 async function main(){
-  for(let i=0;i<80;i++){
-    try{const r=await fetch('http://127.0.0.1:'+chromePort+'/json/version');if(r.ok)break}catch{}
-    await wait(160);
+  // Fixed debug port caused intermittent "fetch failed" when Chrome failed to
+  // bind or a previous test was still closing. Chrome writes its OS-assigned
+  // port into the private profile; never proceed after a failed startup.
+  const activeFile=path.join(tmp,'DevToolsActivePort');
+  let debugPort=0;
+  for(let i=0;i<160;i++){
+    if(chrome.exitCode!==null)
+      throw Error('CHROME_HEADLESS_EXITED_BEFORE_CDP status='+chrome.exitCode);
+    if(fs.existsSync(activeFile)){
+      const candidate=Number(fs.readFileSync(activeFile,'utf8').split(/\r?\n/)[0]);
+      if(Number.isSafeInteger(candidate)&&candidate>1024&&candidate<65536){
+        try{
+          const r=await fetch('http://127.0.0.1:'+candidate+'/json/version');
+          if(r.ok){debugPort=candidate;break}
+        }catch{}
+      }
+    }
+    await wait(120);
   }
-  const target=await fetch('http://127.0.0.1:'+chromePort+'/json/new?about:blank',{method:'PUT'}).then(r=>r.json());
+  if(!debugPort)throw Error('CHROME_REMOTE_DEBUGGER_UNAVAILABLE after health gate');
+  const endpoint='http://127.0.0.1:'+debugPort;
+  const target=await fetch(endpoint+'/json/new?about:blank',{method:'PUT'}).then(r=>{
+    if(!r.ok)throw Error('CHROME_TARGET_CREATE_HTTP_'+r.status);
+    return r.json();
+  });
   ws=new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve,reject)=>{ws.addEventListener('open',resolve,{once:true});ws.addEventListener('error',reject,{once:true})});
   ws.addEventListener('message',e=>{

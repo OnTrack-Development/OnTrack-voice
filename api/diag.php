@@ -4,6 +4,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 require_once __DIR__.'/MaintenanceAuth.php';
+require_once __DIR__.'/DiagnosticsSafety.php';
 ontrack_maintenance_require('GET');
 
 function out(array $data, int $status=200): never {
@@ -13,10 +14,21 @@ function out(array $data, int $status=200): never {
 }
 
 function curl_req(string $method, string $url, array $headers=[], ?string $body=null, int $timeout=25): array {
+    // Fixed HTTPS destinations only. Never forward Gemini credentials through a redirect.
+    if (!str_starts_with($url, 'https://')) return [0, '', '', 'invalid_transport'];
     $ch = curl_init($url);
+    $boundedBody = '';
     $opts = [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_RETURNTRANSFER => false,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+        CURLOPT_WRITEFUNCTION => static function($handle, string $chunk) use (&$boundedBody): int {
+            if (strlen($boundedBody) + strlen($chunk) > 32768) return 0;
+            $boundedBody .= $chunk;
+            return strlen($chunk);
+        },
         CURLOPT_CONNECTTIMEOUT => 8,
         CURLOPT_TIMEOUT => $timeout,
         CURLOPT_USERAGENT => 'OnTrackVoiceDiag/0.3.7',
@@ -32,7 +44,7 @@ function curl_req(string $method, string $url, array $headers=[], ?string $body=
     $ctype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
     $err = curl_error($ch);
     curl_close($ch);
-    return [$code, is_string($raw)?$raw:'', $ctype, $err];
+    return [$code, $boundedBody, $ctype, $err];
 }
 
 // Access is restricted to the operator's header credential, not URL tokens.
@@ -75,7 +87,8 @@ if ($key !== '') {
             $safe = [
                 'code' => $j['error']['code'] ?? null,
                 'status' => $j['error']['status'] ?? null,
-                'message' => $j['error']['message'] ?? null,
+                // Raw provider messages may reflect credentials and prompt input.
+                'message' => ontrack_diag_scrub((string)($j['error']['message'] ?? ''), $key),
             ];
         } else {
             $text='';
@@ -88,7 +101,7 @@ if ($key !== '') {
             $safe = [
                 'id' => $j['id'] ?? null,
                 'status' => $j['status'] ?? null,
-                'text' => mb_substr(trim($text),0,120,'UTF-8'),
+                'text' => ontrack_diag_scrub(mb_substr(trim($text),0,120,'UTF-8'), $key),
             ];
         }
     }
@@ -96,8 +109,8 @@ if ($key !== '') {
     $result['gemini'] = [
         'http' => $code,
         'content_type' => $ctype,
-        'curl_error' => $err ?: null,
-        'response' => $safe ?? mb_substr($raw,0,500,'UTF-8'),
+        'curl_error' => ontrack_diag_transport_error($err),
+        'response' => $safe ?? ['status'=>'unparsed_upstream_response'],
     ];
 }
 
@@ -126,9 +139,9 @@ foreach ($targets as $name=>$url) {
     $result['voicetut'][$name] = [
         'http' => $code,
         'content_type' => $ctype,
-        'curl_error' => $err ?: null,
+        'curl_error' => ontrack_diag_transport_error($err),
         'info' => $extra,
-        'body_preview' => $extra ? null : mb_substr($raw,0,250,'UTF-8'),
+        'body_preview' => $extra ? null : '[unparsed_upstream_response]',
     ];
 }
 

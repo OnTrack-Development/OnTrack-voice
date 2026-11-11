@@ -152,5 +152,70 @@
     "build_evidence": "docs/mobile/MOBILE_OTA_BUILD_0_1_6.json",
     "publication_evidence": "docs/mobile/OTA_HOST_PUBLICATION_2026_10_30.json",
     "emulator_webview_verified": false
+  },
+  "saas_gap_map_latest": {
+    "date": "2026-11-10",
+    "authoritative": true,
+    "branch": "fix/saas-21-closure-20261110",
+    "pull_request": "https://github.com/OnTrack-Development/OnTrack-voice/pull/84",
+    "handoff": "docs/audits/ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md",
+    "todo": "docs/audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md",
+    "map_seed": "ops/gap-map/status.seed.json",
+    "publish_access": "docs/ops/ONTRACK_DIRECT_SSH_DEPLOY_ACCESS_20261107_AR.md",
+    "status_counts": {
+      "saas_tickets": 21,
+      "patched_not_fully_accepted": 18,
+      "needs_code_closure": 3,
+      "deferred_separate": 10,
+      "gaps": 8
+    },
+    "remaining": [
+      "WEB-CORE-06",
+      "WEB-CORE-08",
+      "WEB-UX-01"
+    ],
+    "map_host_path": "/home/appontrack/public_html/architecture-map/",
+    "map_status": "HOST_VERIFIED_PIN_PRIVATE_SHA_20261110",
+    "verification": "SaaS code fixtures and CI != host verified or owner E2E",
+    "mobile": "OBSERVE_ONLY_NO_NATIVE_CHANGE",
+    "vs": "REMOVED_NEVER_RESTORE",
+    "user_reported_login_redirect": "GAP-7_DEFERRED",
+    "voice_latency": "GAP-8_UNMEASURED_P0_SHARED",
+    "map_pin": "PRIVATE_HASH_ONLY_NO_PIN_IN_REPO",
+    "simulator": "ISOLATED_CI_ONLY_NO_REAL_CALL",
+    "host_link": "STOP",
+    "direct_ssh": "BEDIR_WINDOWS_SELF_HOSTED_DOCUMENTED",
+    "next_action": "Close CORE-06 legacy runtime compatibility, CORE-08 finance/host reconciliation, UX-01 exhaustive role POST/browser; keep 10 deferred until 21 code gates satisfied. Automated hourly continuation enabled.",
+    "map_url": "https://app.ontrackegy.com/architecture-map/",
+    "map_deployment_run": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842618",
+    "map_verified_sha": "ce5adf9dde89f4214021fbc78de836d540873990",
+    "map_host_private_pin": "PROVISIONED_SAFELY_FROM_PREEXISTING_REPO_HISTORY_ROTATE_ASAP",
+    "code_wave": {
+      "at": "2026-11-10",
+      "source_sha": "ce5adf9dde89f4214021fbc78de836d540873990",
+      "tasks": [
+        "WEB-CORE-06",
+        "WEB-CORE-08",
+        "WEB-UX-01"
+      ],
+      "status": "CODE_AND_49_CI_MYSQL8_CHROMIUM_PASS_MAP_HOST_VERIFIED_MANUAL_OPEN",
+      "ci": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42743726116",
+      "hourly_automation": "CREATED_FOR_CONTINUATION",
+      "changes": [
+        "Pilot policy fail-closed and backward compatible",
+        "Usage period exact-once and same-term carryover",
+        "Explicit 404 tabs/503 incident errors"
+      ],
+      "production_saas": "NOT_DEPLOYED",
+      "map": "MAP_ONLY_PUBLISH_ON_GREEN_CI",
+      "verified_sha": "ce5adf9dde89f4214021fbc78de836d540873990",
+      "ci_full": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842618",
+      "ci_integrated": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839213608",
+      "mysql_ci": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842610",
+      "navigation_actions_verified": 103,
+      "navigation_tabs_verified": 21,
+      "php_isolated_suite_count": 49,
+      "browser_ci": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839204255"
+    }
   }
 }

@@ -8,6 +8,7 @@ use App\Models\VoiceCampaign;
 use App\Models\VoiceCampaignEntry;
 use App\Models\Workspace;
 use App\Support\VoiceEntitlements;
+use App\Support\VoiceDncBridge;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 
@@ -59,7 +60,7 @@ class VoiceCampaignController extends Controller
             ->filter();
 
         $existing = VoiceCampaignEntry::where('tenant_id', $ws->tenant_id)->pluck('phone_e164')->flip();
-        $added = 0; $invalid = 0; $duplicate = 0;
+        $added = 0; $invalid = 0; $duplicate = 0; $blocked = 0;
 
         foreach ($lines as $line) {
             // One number per line, or "name,number" — do not guess-fix corrupted Excel numbers.
@@ -75,12 +76,18 @@ class VoiceCampaignController extends Controller
                 $duplicate++;
                 continue;
             }
+            if (VoiceDncBridge::isSuppressed((int)$ws->tenant_id,$normalized)) {
+                $blocked++;
+                VoiceCampaignEntry::create(['tenant_id'=>$ws->tenant_id,'campaign_id'=>$campaign->id,'phone_e164'=>$normalized,'display_name'=>$name ?: null,'source_fields'=>['original'=>$line,'blocked'=>'dnc'],'queue_status'=>'invalid']);
+                $existing[$normalized] = true;
+                continue;
+            }
             $existing[$normalized] = true;
             VoiceCampaignEntry::create(['tenant_id'=>$ws->tenant_id,'campaign_id'=>$campaign->id,'phone_e164'=>$normalized,'display_name'=>$name ?: null,'source_fields'=>['original'=>$line],'queue_status'=>'pending','next_attempt_at'=>now()]);
             $added++;
         }
 
-        return back()->with('status', sprintf('استوردنا %d رقمًا، %d خاطئًا، و%d مكررًا (حُفظت القيم الأصلية دون تخمين إصلاحها).', $added, $invalid, $duplicate));
+        return back()->with('status', sprintf('استوردنا %d رقمًا، %d خاطئًا، %d مكررًا، و%d محظورًا (حُفظت القيم الأصلية دون تخمين إصلاحها).', $added, $invalid, $duplicate, $blocked));
     }
 
     private function normalize(string $raw): ?string

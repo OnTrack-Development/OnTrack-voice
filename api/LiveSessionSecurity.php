@@ -60,10 +60,12 @@ function ontrack_live_demo_request_allowed(array $server, string $expected, stri
  * requests without relying on cookies or attacker-controlled forwarded IP.
  * Return false (fail-closed) when storage is not writable.
  */
-function ontrack_live_demo_quota(string $directory, string $ip, int $timestamp, array $limits = []): bool {
+function ontrack_live_demo_quota(string $directory, string $ip, int $timestamp, array $limits = [], string $sessionId = ''): bool {
     $hourLimit = max(1, (int)($limits['hour_ip'] ?? 80));
     $dayLimit = max(1, (int)($limits['day_ip'] ?? 180));
     $globalLimit = max(1, (int)($limits['day_global'] ?? 250));
+    $sessionHourLimit = max(1, (int)($limits['hour_session'] ?? 80));
+    $sessionDayLimit = max(1, (int)($limits['day_session'] ?? 180));
     if (!is_dir($directory) && !@mkdir($directory, 0700, true) && !is_dir($directory)) return false;
     if (is_link($directory) || !is_writable($directory)) return false;
 
@@ -91,9 +93,30 @@ function ontrack_live_demo_quota(string $directory, string $ip, int $timestamp, 
             if ((int)$entry['hour_count'] >= $hourLimit ||
                 (int)$entry['day_count'] >= $dayLimit ||
                 (int)($state['global'] ?? 0) >= $globalLimit) return false;
+            // CSRF session binding closes a distributed-IP bypass. Existing
+            // fixtures calling with no sessionId retain their old counters.
+            $sessionHash = $sessionId === '' ? null : hash('sha256', $sessionId);
+            $sessionEntry = null;
+            if ($sessionHash !== null) {
+                $sessionEntry = $state['sessions'][$sessionHash] ??
+                    ['hour'=>$hour,'hour_count'=>0,'day_count'=>0];
+                if ((int)$sessionEntry['hour'] !== $hour) {
+                    $sessionEntry['hour'] = $hour;
+                    $sessionEntry['hour_count'] = 0;
+                }
+                if ((int)$sessionEntry['hour_count'] >= $sessionHourLimit ||
+                    (int)$sessionEntry['day_count'] >= $sessionDayLimit) return false;
+            }
             ++$entry['hour_count'];
             ++$entry['day_count'];
             $state['ips'][$ipHash] = $entry;
+            if ($sessionHash !== null && is_array($sessionEntry)) {
+                ++$sessionEntry['hour_count'];
+                ++$sessionEntry['day_count'];
+                if (!isset($state['sessions']) || !is_array($state['sessions']))
+                    $state['sessions'] = [];
+                $state['sessions'][$sessionHash] = $sessionEntry;
+            }
             ++$state['global'];
             $encoded = json_encode($state, JSON_THROW_ON_ERROR);
             if (strlen($encoded) > 130000) return false;
@@ -132,7 +155,7 @@ function ontrack_live_demo_authorize(): void {
     // Release the PHP session lock before the slow upstream HTTP request.
     session_write_close();
     $ip = (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown');
-    if (!ontrack_live_demo_quota(ontrack_live_demo_guard_dir(), $ip, time())) {
+    if (!ontrack_live_demo_quota(ontrack_live_demo_guard_dir(), $ip, time(), [], $expected)) {
         header('Retry-After: 3600');
         json_out(['ok'=>false,'error'=>'live_demo_quota_exceeded'],429);
     }

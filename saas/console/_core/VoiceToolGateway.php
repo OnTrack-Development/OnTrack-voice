@@ -152,11 +152,20 @@ function voice_tool_actor(int $accountId,int $userId):array {
         throw new RuntimeException('tool_actor_requires_owner_or_manager');
     return ['id'=>$userId,'role'=>$principal['role']];
 }
+function voice_tool_safe_trace_detail(string $detail):string {
+    // Provider errors are untrusted: never persist their credential fragments.
+    // Preserve non-secret failure codes and call/operation correlation IDs.
+    $value=mb_substr($detail,0,1000,'UTF-8');
+    $value=preg_replace('/\\bBearer\\s+[A-Za-z0-9_.\\-]+/i','Bearer [REDACTED]',$value)??'[REDACTED]';
+    $value=preg_replace('/\\b(?:AIza[A-Za-z0-9_\\-]{20,}|github_pat_[A-Za-z0-9_]+|omnira_sk_[A-Za-z0-9_\\-]+)\\b/','[REDACTED]',$value)??'[REDACTED]';
+    $value=preg_replace('~\\b(?:api[_-]?key|access[_-]?token|password|secret|token)\\s*[=:]\\s*[^\\s,;]+~i','[REDACTED]',$value)??'[REDACTED]';
+    return mb_substr($value,0,250,'UTF-8');
+}
 function voice_tool_trace(array $request,string $state,string $detail):void {
     insert("INSERT INTO voice_tool_traces(account_id,site_id,request_id,call_id,operation,status,detail,created_at)
         VALUES (?,?,?,?,?,?,?,?)",[(int)$request['account_id'],(int)$request['site_id'],
         (int)$request['id'],(string)$request['call_id'],(string)$request['operation'],
-        $state,mb_substr($detail,0,250),now()]);
+        $state,voice_tool_safe_trace_detail($detail),now()]);
 }
 
 /**

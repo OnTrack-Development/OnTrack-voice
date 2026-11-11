@@ -59,6 +59,8 @@ class MobileLinkActivity:ComponentActivity(){
     private var tenantServerState="checking"
     private var tenantAgentCards=JSONArray()
     private var tenantStatusJob:Job?=null
+    private var deferredNativeCheck=false
+    private var deferredUiCheck=false
     /** The user's explicit Start command may continue once Phone permission is granted. */
     private var startRequestedAfterPhonePermission=false
     private var splash:OnTrackLaunchScreen?=null
@@ -368,7 +370,7 @@ class MobileLinkActivity:ComponentActivity(){
             checkNativeUpdates()
             var polls=0
             while(isActive){
-                if(polls++%5==0){
+                if(polls++%5==0 && !MobileLinkService.inCall){
                     val state=withContext(Dispatchers.IO){
                         val sw=com.ontrack.voiceproof.capture.StartWithoutWifi
                         Pair(sw.enabled(this@MobileLinkActivity),sw.ready(this@MobileLinkActivity))
@@ -377,9 +379,13 @@ class MobileLinkActivity:ComponentActivity(){
                     wifiFreeReadyState=state.second
                 }
                 sendState()
-                if(polls%10==1)requestTenantStatusRefresh()
-                // Foreground-only periodic release check; never downloads without consent.
-                if(polls>0 && polls%900==0 && hasWindowFocus())checkNativeUpdates()
+                if(MobileLinkService.inCall)tenantStatusJob?.cancel()
+                else{
+                    if(polls%10==1)requestTenantStatusRefresh()
+                    if(deferredUiCheck){deferredUiCheck=false;checkUpdates()}
+                    if(deferredNativeCheck){deferredNativeCheck=false;checkNativeUpdates()}
+                    if(polls>0 && polls%900==0 && hasWindowFocus())checkNativeUpdates()
+                }
                 if(pending!=null && !MobileLinkService.inCall){val next=pending!!;pending=null;activate(next)}
                 delay(1000)
             }
@@ -424,8 +430,9 @@ class MobileLinkActivity:ComponentActivity(){
     }
     /** Authenticated, scoped SIM heartbeats. No device bearer reaches WebView. */
     private fun requestTenantStatusRefresh() {
-        if(tenantStatusJob?.isActive==true)return
+        if(MobileLinkService.inCall || tenantStatusJob?.isActive==true)return
         tenantStatusJob=lifecycleScope.launch {
+            if(MobileLinkService.inCall)return@launch
             val report=withContext(Dispatchers.IO) {
                 val cards=JSONArray()
                 var checked=0
@@ -444,6 +451,7 @@ class MobileLinkActivity:ComponentActivity(){
                         TenantPairingContract.statusLine(slot,true,error=hardwareIssue)
                     }else try {
                         checked++
+                        if(MobileLinkService.inCall)throw CancellationException("Call active; defer UI heartbeat")
                         val profile=tenantEnrollment.heartbeat(slot)
                         ok++
                         // Only published instructions are returned by the SaaS profile;
@@ -495,6 +503,7 @@ class MobileLinkActivity:ComponentActivity(){
                 }
                 Triple(lines,cards,health)
             }
+            if(MobileLinkService.inCall)return@launch
             tenantStatusLines=report.first.toTypedArray()
             tenantAgentCards=report.second
             tenantServerState=report.third
@@ -861,6 +870,7 @@ class MobileLinkActivity:ComponentActivity(){
         show(withContext(Dispatchers.IO){ota.stage(bundle)});banner.text="تم تحميل تحديث الواجهة؛ جاري التحقق من تشغيله…"
     }
     private suspend fun checkUpdates(){
+        if(MobileLinkService.inCall){deferredUiCheck=true;return}
         if(updateBusy)return;updateBusy=true
         try{
             val next=withContext(Dispatchers.IO){
@@ -882,6 +892,7 @@ class MobileLinkActivity:ComponentActivity(){
         finally{updateBusy=false}
     }
     private suspend fun checkNativeUpdates() {
+        if(MobileLinkService.inCall){deferredNativeCheck=true;return}
         if(nativeBusy)return
         nativeBusy=true
         lastNativeCheckMs=android.os.SystemClock.elapsedRealtime()

@@ -1,3 +1,5 @@
+> **LIVE MAP DEPLOY CONFIRMED — 2026-11-10:** [Architecture Map](https://app.ontrackegy.com/architecture-map/) منشورة ومحمية بالـPIN؛ [GitHub Actions #42739520075](https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42739520075) نجح عليه JOB النشر على BEDIR، إيصال `GAP_MAP_DIRECT_SSH_PUBLISHED_AND_PIN_HTTP_VERIFIED` لكود `b407c690fc35` مع 200 صفحة PIN، 401 API مجهول، و200 API بمفتاح جلسة PIN، وSHA مطابق. هذا **إثبات نشر الماب فقط**، لا اكتمال إصلاحات SaaS ولا الصوت. بعد أول نشر **احتفظ بالـPIN hash الموجود على الهوست**، والتغيير يكون من Actions Secret فقط؛ لا ترجع إلى PIN مكشوف بتاريخ Git. رابط التطبيق الرئيسي `app.ontrackegy.com`؛ لم تُنفذ إعادة هيكلة المسارات `GAP-7`.
+
 <!-- OnTrack Voice website authentication override — owner decision 2026-11-04:
 No second-factor prompts or TOTP codes at sign-in for any platform, admin,
 reseller or customer account. Password + CSRF + rate limits + signed SSO
@@ -5,6 +7,8 @@ remain. SIM binding QR, API keys, and new-account email confirmation
 are separate security flows and are not disabled. Supersedes old Q02 MFA. -->
 <!-- ONTRACK_AI_AGENT_EXECUTION_POLICY_START -->
 > **قاعدة إلزامية — اقرأ أولًا قبل البحث أو كتابة أي كود (4 نوفمبر 2026):** هذه تعليمات المالك الدائمة لوكلاء البرمجة في OnTrack Voice، ومعيار العمل المطلوب في جميع مشاريع OnTrack اللاحقة. **لا تعتبر كتابة الكود، ولا نجاح Build، ولا نجاح Deploy وحدها إنجازًا؛ اعرض دليل الاختبار الفعلي والنتائج.** المرجع التنفيذي للجلسات: [CLAUDE.md](CLAUDE.md) ثم [AGENTS.md](AGENTS.md). لا تُعد تشغيل أي جدولة أوقفها المالك.
+
+> **مرجع الحالة الحية لمشروع OnTrack Voice (10 نوفمبر 2026):** في أي شات جديد، اقرأ أولاً [Architecture Gap Map — Current Handoff](docs/audits/ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md) ثم [SaaS 21-fix To-Do](docs/audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md) و[خريطة الكود](ops/gap-map/status.seed.json) و[الصلاحيات وSSH](docs/ops/ONTRACK_DIRECT_SSH_DEPLOY_ACCESS_20261107_AR.md). التوثيق يجب تحديثه مع كل Commit/اختبار، مع التمييز بين كود مكتمل، جزئي، CI، نشر، واختبار مستخدم. `VS/` محذوف وخارج المشروع، وAndroid مؤجل في المهمة الحالية. خريطة `/architecture-map/` ليست منشورة حتى إثبات HTTP/Host receipt؛ لا تعرض رابطًا غير متحقق منه على أنه يعمل. لا تحفظ PIN الخاص بالماب في Git.
 
 # تعليمات إلزامية لتطوير المشاريع باستخدام AI Coding Agents
 

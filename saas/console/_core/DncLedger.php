@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/TenantAccountBridge.php';
 
 /**
  * Durable account-scoped opt-out ledger. Unlike contacts, these records are
@@ -63,7 +64,9 @@ function dnc_insert_ledger_key(int $accountId,string $key,string $source):void {
 
 function dnc_record_suppression(int $accountId,string $phone,string $source='contact_optout'):void {
     dnc_init_ledger();
-    dnc_insert_ledger_key($accountId,dnc_phone_key($phone),$source);
+    $key=dnc_phone_key($phone);
+    dnc_insert_ledger_key($accountId,$key,$source);
+    TenantAccountBridge::mirrorDncToLaravel($accountId,$key,$source);
 }
 
 function dnc_ledger_contains(int $accountId,string $key):bool {

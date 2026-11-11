@@ -18,6 +18,17 @@ try{
     $one=voice_call_timeline_store($ours,$entry);
     timeline_check($one['saved']===true&&!$one['duplicate'],'real device report stored');
     timeline_check(voice_call_timeline_store($ours,$entry)['duplicate']===true,'duplicate idempotent');
+    $stored=one('SELECT account_id,site_id,sim_slot,speaker,event_type,content,occurred_at
+      FROM voice_call_timeline WHERE device_binding_id=? AND call_id=? AND event_id=?',
+      [$ours['id'],$call,$entry['event_id']]);
+    timeline_check($stored!==null,'event available for concurrent collision check');
+    voice_call_timeline_assert_same_event($stored,[4,1,$ours['id'],0,$call],
+      'caller','transcript',trim($entry['text']),$entry['occurred_at']);
+    $changed=false;
+    try { voice_call_timeline_assert_same_event($stored,[4,1,$ours['id'],0,$call],
+      'caller','transcript','tampered',$entry['occurred_at']); }
+    catch(RuntimeException $e){$changed=$e->getMessage()==='timeline_replay_changed';}
+    timeline_check($changed,'concurrent event ID must not overwrite a different transcript');
     $denied=false;
     try{voice_call_timeline_store($other,$entry);}catch(InvalidArgumentException){$denied=true;}
     timeline_check($denied,'cannot fake foreign SIM');
@@ -51,10 +62,29 @@ try{
     require_once __DIR__.'/../saas/console/_core/BillingUsage.php';
     timeline_check(!voice_usage_update($ours,$call,'active'),'ringing call not billed');
     timeline_check(!voice_usage_update($ours,$call,'active'),'duplicate active callback idempotent');
+    // The billing gate rejects foreign account/site/SIM before it can read
+    // or reuse answer evidence. A foreign callback is a harmless no-op.
     $tampered=$ours;$tampered['account_id']=5;
-    $denied=false;try{voice_usage_update($tampered,$call,'active');}
+    timeline_check(!voice_usage_update($tampered,$call,'active'),
+        'answered evidence cannot be reused across tenants');
+    $tampered=$ours;$tampered['site_id']=3;
+    timeline_check(!voice_usage_update($tampered,$call,'active'),
+        'answered evidence cannot be reused across sites');
+    $tampered=$ours;$tampered['sim_slot']=1;
+    timeline_check(!voice_usage_update($tampered,$call,'active'),
+        'answered evidence cannot be reused across SIM slots');
+    timeline_check((int)(one('SELECT COUNT(*) n FROM voice_call_answer_evidence WHERE device_binding_id=? AND call_id=?',
+        [$ours['id'],$call])['n']??0)===1,
+        'foreign callbacks cannot plant or duplicate answer evidence');
+    // If an existing evidence record itself is corrupt, fail closed even
+    // when the call row belongs to the authenticated device.
+    execute('UPDATE voice_call_answer_evidence SET account_id=? WHERE device_binding_id=? AND call_id=?',
+        [5,$ours['id'],$call]);
+    $denied=false;try{voice_usage_update($ours,$call,'active');}
     catch(RuntimeException $ex){$denied=$ex->getMessage()==='voice_usage_evidence_scope_mismatch';}
-    timeline_check($denied,'answered evidence cannot be reused across tenants');
+    timeline_check($denied,'corrupt stored answer evidence fails closed');
+    execute('UPDATE voice_call_answer_evidence SET account_id=? WHERE device_binding_id=? AND call_id=?',
+        [$ours['account_id'],$ours['id'],$call]);
     $bad=$entry;$bad['event_id']='utterance-000002';$bad['event_type']='spoken_text';$bad['speaker']='caller';
     $denied=false;try{voice_call_timeline_store($ours,$bad);}catch(InvalidArgumentException){$denied=true;}
     timeline_check($denied,'caller cannot be claimed as agent spoken text');

@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Guard the current SaaS repair handoff / architecture map against drift.
+
+This checks source registries and persistent entrypoints. It does NOT pretend
+to establish host or device success, nor auto-close issues from green CI.
+"""
+from pathlib import Path
+import json
+import re
+
+ROOT=Path(__file__).resolve().parents[1]
+HANDOFF=ROOT/"docs/audits/ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md"
+TODO=ROOT/"docs/audits/SAAS_21_PARTIAL_CLOSURE_TODO_2026_11_10_AR.md"
+SEED=ROOT/"ops/gap-map/status.seed.json"
+ENTRIES=[
+    ROOT/"README.md", ROOT/"AGENTS.md", ROOT/"CLAUDE.md",
+    ROOT/"docs/memory/CHECKPOINT.md", ROOT/"docs/memory/SESSION_HANDOFF_AR.md",
+    ROOT/"docs/ops/ONTRACK_DIRECT_SSH_DEPLOY_ACCESS_20261107_AR.md",
+]
+for file in [HANDOFF,TODO,SEED,*ENTRIES]:
+    if not file.is_file():
+        raise AssertionError(f"required_gap_handoff_missing: {file.relative_to(ROOT)}")
+    if file.stat().st_size<100:
+        raise AssertionError(f"empty_gap_handoff: {file.relative_to(ROOT)}")
+body=HANDOFF.read_text(encoding="utf-8")
+todo=TODO.read_text(encoding="utf-8")
+seed=json.loads(SEED.read_text(encoding="utf-8"))
+assert seed.get("schema")==2,"unsupported map data schema"
+gaps=seed.get("gaps",[])
+gap_ids=[g.get("id") for g in gaps]
+assert gap_ids==list(dict.fromkeys(gap_ids)),"duplicate GAP IDs"
+assert set(gap_ids)=={f"GAP-{i}" for i in range(1,9)},"map must include 8 documented gaps"
+assert seed.get("vs")=="removed_never_restore","VS removal not persisted"
+assert not (ROOT/"VS").exists(),"VS folder must not be reintroduced"
+tasks=seed.get("tasks",[])
+ids=[t.get("id") for t in tasks]
+assert len(ids)==len(set(ids)),"duplicate task identifiers"
+allowed_stages={"code_patch_evidenced","awaiting_code_gap_closure",
+    "code_complete","host_verified","user_verified","complete","blocked","deferred_10"}
+assert all(t.get("stage") in allowed_stages for t in tasks),"unknown task status"
+deferred={t["id"] for t in tasks if t.get("stage")=="deferred_10"}
+active={t["id"] for t in tasks if t.get("stage")!="deferred_10"}
+assert len(active)==21 and len(deferred)==10, (
+    f"wrong 21 active / 10 deferred task register: {len(active)}/{len(deferred)}")
+assert not(active & deferred),"overlapping active/deferred tasks"
+for task in tasks:
+    if task.get("fullClosure") is True:
+        if task.get("stage")!="complete" or not all(task.get(k) for k in
+                ("source_sha","ci_run","host_receipt","user_evidence")):
+            raise AssertionError("complete requires reproducible full acceptance evidence")
+    elif task.get("stage")=="complete":
+        raise AssertionError("complete stage without fullClosure");
+checkpoint=json.loads((ROOT/"docs/memory/checkpoint.json").read_text(encoding="utf-8"))
+current=checkpoint.get("saas_gap_map_latest",{})
+stats=current.get("status_counts",{})
+for field,expected in (
+    ("saas_tickets",len(active)),
+    ("deferred_separate",len(deferred)),
+    ("patched_not_fully_accepted",len([t for t in tasks if t.get("stage")=="code_patch_evidenced"])),
+    ("needs_code_closure",len([t for t in tasks if t.get("stage")=="awaiting_code_gap_closure"])),
+    ("gaps",len(gaps))):
+    if stats.get(field)!=expected:
+        raise AssertionError(f"checkpoint stale: {field} expected {expected}, found {stats.get(field)}")
+if current.get("handoff")!="docs/audits/ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md":
+    raise AssertionError("checkpoint handoff pointer stale")
+for id_ in ids:
+    if id_ not in todo:
+        raise AssertionError(f"task missing in TODO: {id_}")
+for gap_id in gap_ids:
+    if gap_id not in todo and gap_id not in body:
+        raise AssertionError(f"gap not mentioned in current plan: {gap_id}")
+for entry in ENTRIES:
+    text=entry.read_text(encoding="utf-8")
+    if "ARCHITECTURE_GAP_MAP_CURRENT_HANDOFF_AR.md" not in text:
+        raise AssertionError(f"future-chat entrypoint does not link map handoff: {entry.relative_to(ROOT)}")
+if "150700" in todo or "150700" in body or "150700" in json.dumps(seed):
+    raise AssertionError("map PIN must never appear in tracked documentation/registry")
+required=[
+    "ops/gap-map/status.seed.json",
+    "WEB-CORE-06","WEB-CORE-08","WEB-UX-01",
+    "GAP-7","GAP-8","architecture-map",
+]
+for name in required:
+    if name not in body:
+        raise AssertionError(f"missing critical handoff topic: {name}")
+# Check status/owner confirmation API exists but do not call it on CI.
+web=ROOT/"ops/gap-map/web"
+for item in ["_auth.php","status.php","verify.php"]:
+    if not (web/item).is_file():
+        raise AssertionError(f"missing map source component: {item}")
+assert "gap_map_authorize(true)" in (web/"verify.php").read_text(encoding="utf-8")
+print("ONTRACK_GAP_MAP_HANDOFF_8_GAPS_21_SAAS_TASKS_AND_ACCESS_PASS")

@@ -9,12 +9,25 @@ declare(strict_types=1);
  * Legacy authorized clients can use the SAME token via X-Maintenance-Token
  * after its digest is provisioned; never transmit it as GET or POST fields.
  */
+function ontrack_maintenance_private_digest_file(string $file): ?string {
+    // A readable digest is not sufficient: a world-readable file or symlink
+    // defeats the operator's private maintenance credential store.
+    $dir=dirname($file);
+    clearstatcache(true,$file);
+    if(!is_file($file)||is_link($file)||!is_readable($file)||
+       !is_dir($dir)||is_link($dir))return null;
+    $fileMode=@fileperms($file);$dirMode=@fileperms($dir);
+    if(!is_int($fileMode)||!is_int($dirMode)||
+       ($fileMode & 0077)!==0||($dirMode & 0077)!==0)
+        return null;
+    $configured=trim((string)@file_get_contents($file,false,null,0,80));
+    return preg_match('/\A[a-f0-9]{64}\z/D',$configured) ? $configured : null;
+}
 function ontrack_maintenance_digest(): ?string {
     $configured=trim((string)(getenv('ONTRACK_MAINTENANCE_TOKEN_SHA256')?:''));
     if($configured==='') {
-        $file='/home/appontrack/.ontrack-maintenance/token.sha256';
-        if(!is_file($file) || is_link($file) || !is_readable($file))return null;
-        $configured=trim((string)@file_get_contents($file,false,null,0,80));
+        return ontrack_maintenance_private_digest_file(
+            '/home/appontrack/.ontrack-maintenance/token.sha256');
     }
     return preg_match('/\A[a-f0-9]{64}\z/D',$configured) ? $configured : null;
 }

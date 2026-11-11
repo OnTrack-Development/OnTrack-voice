@@ -95,9 +95,13 @@ function kashier_record_adjustment(array $body,?int $integrationId):array {
             one('SELECT id FROM orders WHERE id=? FOR UPDATE',[(int)$order['id']]);
         $fingerprint=hash('sha256',
             (int)$order['id'].':'.$event.':'.$transactionId.':SUCCESS');
-        $existing=one('SELECT fingerprint FROM kashier_payment_adjustments
+        $existing=one('SELECT fingerprint,amount_minor FROM kashier_payment_adjustments
             WHERE fingerprint=?',[$fingerprint]);
         if($existing){
+            // Exact replay is safe; a signed reuse of the same event/transaction
+            // with a different amount is a financial conflict, not a duplicate.
+            if((int)$existing['amount_minor']!==$amount)
+                throw new InvalidArgumentException('adjustment_replay_amount_mismatch');
             db()->commit();
             return ['status'=>'adjustment_pending_review','duplicate'=>true,
                 'order_id'=>(int)$order['id']];

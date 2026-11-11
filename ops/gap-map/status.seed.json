@@ -1,0 +1,827 @@
+{
+  "schema": 2,
+  "title": "OnTrack Voice — Architecture Gap Map v2",
+  "scope": "SAAS_FIRST_ANDROID_OBSERVATION_ONLY",
+  "branch": "fix/saas-21-closure-20261110",
+  "source": "owner_html_gap_map_20261110",
+  "vs": "removed_never_restore",
+  "canonicalHost": "app.ontrackegy.com",
+  "userReportedHost": "app.entrakegy.com (verify exact FQDN before route changes)",
+  "hostLink": "STOP",
+  "refresh": "per_code_push_with_CI_snapshot_and_browser_poll",
+  "modules": [
+    {
+      "id": "laravel",
+      "label": "Laravel SaaS",
+      "area": "saas",
+      "tier": 3,
+      "path": "saas/app/",
+      "status": "diverged",
+      "detail": "Controllers / Models / migrations: موجودة في المصدر؛ حالة نشرها الفعلية على Host غير مثبتة"
+    },
+    {
+      "id": "console",
+      "label": "Console Runtime",
+      "area": "saas",
+      "tier": 3,
+      "path": "saas/console/_core/",
+      "status": "active_source",
+      "detail": "نواة PHP للمنصة؛ ناشر الموقع الفعلي يوجه إلى Console"
+    },
+    {
+      "id": "console_db",
+      "label": "Console MySQL",
+      "area": "saas",
+      "tier": 4,
+      "path": "saas/console/database/",
+      "status": "active_source",
+      "detail": "مخططات مستقلة ومراحل Schema v1…v26"
+    },
+    {
+      "id": "laravel_db",
+      "label": "Laravel Schema",
+      "area": "saas",
+      "tier": 4,
+      "path": "saas/database/migrations/",
+      "status": "diverged",
+      "detail": "26 migration منفصلة عن Console schema"
+    },
+    {
+      "id": "login",
+      "label": "Login / Canonical URL",
+      "area": "saas",
+      "tier": 1,
+      "path": "saas/console/index.php",
+      "status": "owner_reported",
+      "detail": "المالك شاهد الانتقال من الدومين الرئيسي إلى /saas/console؛ الإصلاح مؤجل"
+    },
+    {
+      "id": "billing",
+      "label": "Billing & Usage",
+      "area": "saas",
+      "tier": 3,
+      "path": "SubscriptionPlans.php / BillingUsage.php",
+      "status": "code_patched",
+      "detail": "كاشير والحصص موجودة في مسارين؛ ما زال تدقيق مصدر الحقيقة وdouble charge مفتوحًا"
+    },
+    {
+      "id": "front",
+      "label": "RTL SaaS UI",
+      "area": "saas",
+      "tier": 1,
+      "path": "saas/console/_core/Views.php",
+      "status": "partial",
+      "detail": "اختبارات Chrome والنماذج نجحت؛ قائمة كل تفاعلات المستخدم لم تغلق"
+    },
+    {
+      "id": "device_api",
+      "label": "Console Device v1",
+      "area": "shared",
+      "tier": 2,
+      "path": "saas/console/device/v1/index.php",
+      "status": "code_patched",
+      "detail": "Bearer / tenant / SIM / published agent؛ التوافق مع Legacy ما زال قائمًا"
+    },
+    {
+      "id": "mobile_backend",
+      "label": "Mobile PHP Bridge",
+      "area": "shared",
+      "tier": 2,
+      "path": "saas/mobile/server/",
+      "status": "risk",
+      "detail": "تخزين ملفات/مصادقة hash قديمة وcompatibility adapters"
+    },
+    {
+      "id": "voice_api",
+      "label": "Root Voice API",
+      "area": "shared",
+      "tier": 2,
+      "path": "api/live_session.php",
+      "status": "code_patched",
+      "detail": "جلسات الصوت عبر مسارات منفصلة، مع تشديد التشخيص والـnonce"
+    },
+    {
+      "id": "security",
+      "label": "Security / Credentials",
+      "area": "shared",
+      "tier": 3,
+      "path": "api/diag.php + auth.sha256",
+      "status": "risk",
+      "detail": "أسرار في ملف متتبع ومسارات تشخيص؛ التعرض للعامة غير مثبت"
+    },
+    {
+      "id": "host",
+      "label": "Host Deploy + CI",
+      "area": "shared",
+      "tier": 5,
+      "path": ".github/workflows/",
+      "status": "partial",
+      "detail": "69 ملف Workflow على فرع العمل؛ النشر المباشر عبر Windows SSH والـHost-Link موقوف"
+    },
+    {
+      "id": "reference",
+      "label": "Reference Archives",
+      "area": "shared",
+      "tier": 5,
+      "path": "reference/voicecall-v0.6.3/",
+      "status": "risk",
+      "detail": "نسخة مرجعية قديمة ضمن الريبو؛ مطابقة bytes لم تثبت"
+    },
+    {
+      "id": "kotlin",
+      "label": "Kotlin Audio-Proof",
+      "area": "mobile",
+      "tier": 1,
+      "path": "saas/mobile/audio-proof/overlay/",
+      "status": "observe_only",
+      "detail": "تطبيق أندرويد الحالي؛ لا تعديل في نطاق SaaS"
+    },
+    {
+      "id": "ota",
+      "label": "Signed OTA / UI",
+      "area": "mobile",
+      "tier": 5,
+      "path": "saas/mobile/ota/",
+      "status": "observe_only",
+      "detail": "واجهة OTA ومسار التوقيع يُراجعان لاحقًا منفصلين"
+    },
+    {
+      "id": "calloutbox",
+      "label": "Call Outbox / DNC",
+      "area": "mobile",
+      "tier": 2,
+      "path": "saas/mobile/audio-proof/",
+      "status": "observe_only",
+      "detail": "إرسال أحداث المكالمة وفحص المنع قبل الاتصال، دون اختبار موبايل الآن"
+    },
+    {
+      "id": "voice_critical_path",
+      "label": "Voice Critical Path / Fast Lane",
+      "area": "shared",
+      "tier": 2,
+      "path": "saas/console/device/v1/index.php + TenantVoiceSession.php + api/live_session.php",
+      "status": "latency_unmeasured",
+      "detail": "ربط الشريحة مؤكد عبر Device Bearer قبل إعداد الجلسة؛ auth Google Live يحتاج شبكة، ولا يوجد دليل latency لكل hop. يُمنع Interactive Login في كل audio frame."
+    },
+    {
+      "id": "radio_network",
+      "label": "3G / H+ / 4G / 5G Network",
+      "area": "mobile",
+      "tier": 1,
+      "path": "saas/mobile/audio-proof/overlay/ (observe only)",
+      "status": "not_measured",
+      "detail": "RTT/jitter/packet loss/reconnect حسب الشبكة يجب قياسها؛ أرقام الأداء هدف تصميم لا نتائج اختبار."
+    }
+  ],
+  "gaps": [
+    {
+      "id": "GAP-1",
+      "name": "Split-Brain: Laravel ↔ Console",
+      "severity": "critical",
+      "area": "saas",
+      "state": "confirmed_source",
+      "confidence": "verified_code_not_host",
+      "modules": [
+        "laravel",
+        "console",
+        "laravel_db",
+        "console_db",
+        "billing"
+      ],
+      "tasks": [
+        "WEB-CORE-08",
+        "WEB-UX-02",
+        "WEB-UX-03",
+        "WEB-REL-03"
+      ],
+      "files": [
+        "saas/routes/web.php",
+        "saas/console/_core/Bootstrap.php",
+        "saas/console/database/schema.mysql.sql",
+        "saas/database/migrations/"
+      ],
+      "description": "مصدران مختلفان للمنطق والبيانات في الريبو؛ لم يُثبت أن كليهما شغال على الإنتاج في الوقت نفسه.",
+      "next": "أُضيف usage ledger same-term carryover وout-of-order callbacks؛ ما زالت ازدواجية Laravel/Console مصدر مخاطرة وتتطلب معرفة runtime الفعلي على الهوست.",
+      "links": [
+        "GAP-2",
+        "GAP-7"
+      ],
+      "code_mitigation": [
+        "WEB-CORE-08",
+        "saas/console/_core/BillingUsage.php",
+        "WEB-CORE-08 — early paid renewal cycle metering"
+      ]
+    },
+    {
+      "id": "GAP-2",
+      "name": "تشتت بوابات API والتوثيق",
+      "severity": "critical",
+      "area": "shared",
+      "state": "confirmed_source",
+      "confidence": "verified_code_not_traffic",
+      "modules": [
+        "mobile_backend",
+        "device_api",
+        "voice_api",
+        "kotlin",
+        "console",
+        "laravel"
+      ],
+      "tasks": [
+        "WEB-CORE-01",
+        "WEB-CORE-06",
+        "WEB-CORE-07"
+      ],
+      "files": [
+        "saas/mobile/server/common.php",
+        "saas/console/device/v1/index.php",
+        "api/live_session.php",
+        "saas/routes/web.php"
+      ],
+      "description": "بوابات مختلفة تتعامل مع الهاتف والموقع؛ الـLegacy authorization منفصل، ولم يثبت حجم مرور كل مسار.",
+      "next": "أُضيفت مراجعة سياسة Pilot flat وfail-closed على SaaS، لكن ما زال يلزم تأكيد عملاء Legacy traffic، وعدم إزالة أي API أو تغيير تطبيق Android.",
+      "links": [
+        "GAP-1",
+        "GAP-5",
+        "GAP-7"
+      ],
+      "code_mitigation": [
+        "WEB-CORE-06",
+        "saas/console/_core/MobilePilot.php"
+      ]
+    },
+    {
+      "id": "GAP-3",
+      "name": "VS القديم أُلغي — متابعة OTA فقط",
+      "severity": "info",
+      "area": "mobile",
+      "state": "vs_removed",
+      "confidence": "verified_zero_vs_paths",
+      "modules": [
+        "kotlin",
+        "ota"
+      ],
+      "tasks": [],
+      "files": [
+        "saas/mobile/audio-proof/overlay/",
+        "saas/mobile/ota/"
+      ],
+      "description": "مجلد VS غير موجود إطلاقًا في main/release/فرع العمل. لا يُعتبر مشكلة متبقية. أي ازدواج OTA يُراجع لاحقًا بدون إحياء VS.",
+      "next": "لا يوجد عمل SaaS على تطبيق Android أو OTA في المرحلة الحالية.",
+      "links": [
+        "GAP-6"
+      ]
+    },
+    {
+      "id": "GAP-4",
+      "name": "أرشيف المرجع مقابل Root Voice",
+      "severity": "warning",
+      "area": "shared",
+      "state": "confirmed_paths",
+      "confidence": "byte_identity_unverified",
+      "modules": [
+        "reference",
+        "voice_api"
+      ],
+      "tasks": [
+        "WEB-SEC-03"
+      ],
+      "files": [
+        "reference/voicecall-v0.6.3/",
+        "api/",
+        "lib/"
+      ],
+      "description": "المسارات القديمة والحديثة موجودة معًا؛ ليس لدينا إثبات أنها نسخ مطابقة byte-by-byte أو أنها منشورة.",
+      "next": "منع تسرب أرشيفات المرجع إلى حزم النشر، وجرد الاستدعاءات قبل أي تنظيف.",
+      "links": [
+        "GAP-5",
+        "GAP-6"
+      ]
+    },
+    {
+      "id": "GAP-5",
+      "name": "الأسرار وملفات التشخيص",
+      "severity": "critical",
+      "area": "shared",
+      "state": "partially_mitigated",
+      "confidence": "tracked_hash_confirmed_exposure_unverified",
+      "modules": [
+        "security",
+        "mobile_backend",
+        "voice_api",
+        "host"
+      ],
+      "tasks": [
+        "WEB-SEC-01",
+        "WEB-SEC-03",
+        "WEB-SEC-06",
+        "WEB-SEC-07"
+      ],
+      "files": [
+        "saas/mobile/server/auth.sha256",
+        "test.php",
+        "omnira_api_tester.php",
+        "api/diag.php"
+      ],
+      "description": "auth.sha256 داخل Git ومسارات التشخيص موجودة في المصدر. تم تقوية جزء من المصادقة والإخفاء على فرع العمل، ولم يُثبت نشرها أو تعرّض endpoints للعامة.",
+      "next": "حصر نشر test routes، نقل hash خارج Git بطريقة توافقية وتدوير مضبوط قبل إلغاء القديم.",
+      "links": [
+        "GAP-2",
+        "GAP-4",
+        "GAP-6"
+      ]
+    },
+    {
+      "id": "GAP-6",
+      "name": "تشعّب CI/CD والنشر",
+      "severity": "warning",
+      "area": "shared",
+      "state": "confirmed_69_workflows",
+      "confidence": "verified_branch_tree",
+      "modules": [
+        "host",
+        "ota",
+        "reference"
+      ],
+      "tasks": [
+        "WEB-REL-01",
+        "WEB-REL-03"
+      ],
+      "files": [
+        ".github/workflows/",
+        "tools/deploy_saas_console.py",
+        "docs/ops/ONTRACK_DIRECT_SSH_DEPLOY_ACCESS_20261107_AR.md"
+      ],
+      "description": "خريطة المراجعة القديمة كتبت 16 Workflow؛ فرع الإصلاح الحالي يحتوي 69 ملف YAML. الـHost-Link STOP والنشر المباشر الموثق على Windows runner.",
+      "next": "فصل نشر الموقع عن الموبايل، وحصر workflows المفعلة، وعدم إعادة تشغيل Host-Link دون إذن.",
+      "links": [
+        "GAP-3",
+        "GAP-4",
+        "GAP-5"
+      ]
+    },
+    {
+      "id": "GAP-7",
+      "name": "تحويل Login إلى /saas/console",
+      "severity": "high",
+      "area": "saas",
+      "state": "owner_reported_deferred",
+      "confidence": "host_redirect_not_verified",
+      "modules": [
+        "login",
+        "front",
+        "console",
+        "device_api"
+      ],
+      "tasks": [
+        "WEB-UX-01"
+      ],
+      "files": [
+        "saas/console/index.php",
+        "saas/console/_core/Bootstrap.php",
+        "tools/deploy_saas_console.py"
+      ],
+      "description": "المالك شاهد انتقال تسجيل الدخول من الدومين الرئيسي إلى subpath قديم. الدومين المذكور نصًا مختلف عن app.ontrackegy.com الموجود في سكربت النشر؛ يلزم تأكيد hostname أولًا.",
+      "next": "مؤجل بأمر المالك: فحص Location chain/session/cookies/SSO ثم canonical routes، مع aliases آمنة للأجهزة وWebhooks.",
+      "links": [
+        "GAP-1",
+        "GAP-2"
+      ]
+    },
+    {
+      "id": "GAP-8",
+      "name": "Voice Critical Path: خطوات غير ضرورية وتأخير متراكم",
+      "severity": "critical",
+      "area": "shared",
+      "state": "analysis_required",
+      "confidence": "code_auth_separation_confirmed_latency_not_profiled",
+      "modules": [
+        "kotlin",
+        "radio_network",
+        "voice_critical_path",
+        "device_api",
+        "voice_api",
+        "mobile_backend",
+        "console",
+        "host"
+      ],
+      "tasks": [
+        "WEB-CORE-01",
+        "WEB-CORE-02",
+        "WEB-CORE-06",
+        "WEB-CORE-07",
+        "WEB-REL-01"
+      ],
+      "files": [
+        "saas/console/device/v1/index.php",
+        "saas/console/_core/DevicePairing.php",
+        "saas/console/_core/TenantVoiceSession.php",
+        "api/live_session.php",
+        "saas/mobile/audio-proof/overlay/"
+      ],
+      "description": "مستوى صوت فوري: يجب تجنب إعادة تسجيل الدخول بالويب، وفحص لوحة الحساب، وطلبات REST المتسلسلة غير اللازمة لكل مكالمة أو chunk. الكود يثبت وجود Device Bearer وطلب Google token؛ لم يُقَس زمن المراحل الفعلي ولا تُفترض عشر خطوات أو 50ms لكل خطوة.",
+      "next": "عزل أثر out-of-order cellular callback على اشتراك/Usage بدل وقت الوصول تم في SaaS، لكن قياسات latency p50/p95/p99 الحقيقية لم تبدأ، وAndroid خارج التعديل.",
+      "links": [
+        "GAP-1",
+        "GAP-2",
+        "GAP-5",
+        "GAP-6"
+      ],
+      "voiceHotPath": {
+        "measurementStatus": "unmeasured_baseline",
+        "targets": {
+          "conversationResponseP95Ms": 2000,
+          "source": "owner_goal_not_verified"
+        },
+        "inbound": [
+          {
+            "phase": "incoming_call",
+            "owner": "mobile",
+            "essential": true
+          },
+          {
+            "phase": "device_binding_proof",
+            "owner": "shared",
+            "essential": true,
+            "note": "existing device bearer, no interactive login"
+          },
+          {
+            "phase": "published_agent_snapshot",
+            "owner": "saas",
+            "essential": true,
+            "note": "fetch/cache before pickup when possible, tenant-scoped"
+          },
+          {
+            "phase": "live_provider_handshake",
+            "owner": "shared",
+            "essential": true,
+            "note": "measured remote call"
+          },
+          {
+            "phase": "audio_stream_and_response",
+            "owner": "shared",
+            "essential": true
+          },
+          {
+            "phase": "durable_events_and_postcall_summary",
+            "owner": "saas",
+            "essential": true,
+            "note": "nonblocking asynchronous ingestion"
+          }
+        ],
+        "outbound": [
+          {
+            "phase": "explicit_campaign_and_consent",
+            "owner": "saas",
+            "essential": true
+          },
+          {
+            "phase": "dnc_and_quota_gate",
+            "owner": "saas",
+            "essential": true,
+            "note": "never bypass safety/billing"
+          },
+          {
+            "phase": "device_binding_proof",
+            "owner": "shared",
+            "essential": true
+          },
+          {
+            "phase": "call_setup",
+            "owner": "mobile",
+            "essential": true
+          },
+          {
+            "phase": "audio_stream_and_response",
+            "owner": "shared",
+            "essential": true
+          },
+          {
+            "phase": "durable_events_and_postcall_summary",
+            "owner": "saas",
+            "essential": true,
+            "note": "nonblocking"
+          }
+        ],
+        "avoidWhenNotNeeded": [
+          "web_login",
+          "browser_session_refresh",
+          "dashboard_loading",
+          "third_party_connector_requests_per_audio_chunk",
+          "sync_reports_before_first_audio",
+          "reindex_knowledge_during_call"
+        ],
+        "diagnostics": [
+          "start_to_answer",
+          "answered_to_first_audio",
+          "speech_end_to_first_response_audio",
+          "device_binding_ms",
+          "snapshot_lookup_ms",
+          "provider_auth_ms",
+          "provider_connect_ms",
+          "rtt_ms",
+          "jitter_ms",
+          "packet_loss",
+          "reconnect_count",
+          "db_wait_ms"
+        ],
+        "integrityControls": [
+          "active_device_bearer",
+          "tenant_binding_scope",
+          "revocation_policy",
+          "consent_dnc_before_outbound",
+          "quota_before_charge",
+          "verified_tool_results",
+          "durable_audit_events"
+        ]
+      },
+      "code_mitigation": [
+        "WEB-CORE-08",
+        "tools/test_saas_usage_period_reconciliation.php"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "WEB-SEC-01",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-SEC-02",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-SEC-03",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-SEC-04",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-SEC-05",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-SEC-06",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-SEC-07",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-01",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-02",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-03",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-04",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-07",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-02",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-03",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-06",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-08",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-01",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-03",
+      "stage": "code_patch_evidenced",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-06",
+      "stage": "awaiting_code_gap_closure",
+      "fullClosure": false,
+      "patch_evidence": [
+        "saas/console/_core/MobilePilot.php",
+        "tools/test_saas_pilot_policy_compat.php"
+      ],
+      "patch_summary": "خادم SaaS Pilot القديم: الحفاظ على flat settings/legacy fields، 5s default، منع فقدان الإعدادات عند JSON فاسد أو symlink، مع اختبار fixture معزول. رصد المرور الفعلي والـACK والتوافق مع جميع clients متبقٍ.",
+      "next_action": "حصر إصدار الـPilot والأجهزة المتصلة وتوثيق مسارات flat/nested بلا إزالة Legacy؛ Host E2E مؤجل.",
+      "last_source_commit": "9548dba071c1b0f07544fe81faef6a8c60289049",
+      "ci_status": "automated_code_regression_passed",
+      "updated_at": "2026-11-10",
+      "ci_evidence": [
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873"
+      ],
+      "code_verified_sha": "0461878788c63766ba42ec281900e58faf73ff52"
+    },
+    {
+      "id": "WEB-CORE-08",
+      "stage": "awaiting_code_gap_closure",
+      "fullClosure": false,
+      "patch_evidence": [
+        "saas/console/_core/BillingUsage.php",
+        "tools/test_saas_usage_period_reconciliation.php",
+        "tools/test_saas_integrated_mysql.php",
+        "tools/test_saas_usage_period_reconciliation.php — orphan callback negative fixture",
+        "tools/test_voice_call_timeline.php — foreign-scope no-op and corrupt-evidence fail-closed regression",
+        "saas/console/_core/BillingUsage.php — 30-day paid early-renewal cycle accounting",
+        "tools/test_saas_usage_period_reconciliation.php — multiple early renewal and exact term boundary fixtures",
+        "tools/test_verified_checkout_settlement.php — signed simulated Kashier renewals preserve usage quota twice",
+        "tools/test_saas_integrated_mysql.php — signed InnoDB early-renewal usage reconciliation and refund no-reset",
+        "tools/test_saas_usage_period_reconciliation.php — overage minor-unit estimate never auto-charged"
+      ],
+      "patch_summary": "إدخال الفاتورة مرة واحدة بعد دليل active+ended، رفض demo/missed/no-answer، ربط usage بتاريخ بدء المكالمة أثناء انقطاع 3G وتأخر الأحداث، حفظ استهلاك الخطة عند تغييرها في نفس الفترة، اختبار SQLite/MySQL8. مراجعة إنتاجية وحالات renewal/overage الأوسع متبقية.",
+      "next_action": "Current SHA MySQL8/SQLite/signed-payment and overage regression pending verification; financial sandbox/production restoration and owner QA remain open.",
+      "last_source_commit": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
+      "ci_status": "latest_code_regression_passed",
+      "updated_at": "2026-11-10",
+      "ci_evidence": [
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842618",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842610",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839204255"
+      ],
+      "code_verified_sha": "ce5adf9dde89f4214021fbc78de836d540873990",
+      "latest_unverified_patch_sha": "80428309232632b2fcc16f686907a2e959f9a6db",
+      "latest_patch_ci": "PENDING_SHA_MATCHED_GATES",
+      "ci_blocker_run": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42816474554",
+      "latest_patch_status": "CODE_CI_PASS_HOST_SAAS_UNVERIFIED"
+    },
+    {
+      "id": "WEB-UX-01",
+      "stage": "awaiting_code_gap_closure",
+      "fullClosure": false,
+      "patch_evidence": [
+        "saas/console/index.php",
+        "tools/test_saas_roles_form_post_http.py",
+        "tools/audit_saas_responsive.cjs — ephemeral Chrome CDP port and explicit startup health gate"
+      ],
+      "patch_summary": "بدل عرض overview كأنه نجاح عند tab غير موجود أو غير مصرح، إرجاع 404 صريح؛ إخفاء نص الاستثناء الخام وإرجاع 503 مع Incident ID، واختبار 404 عبر HTTP login/roles؛ باقي فحص كل زر والنشر الفعلي متبقٍ.",
+      "next_action": "Re-run real Chrome/237 breakpoints after isolated CDP port fix, then inspect actual role-specific UI gaps and host E2E. Browser CI failure 42838487385 was CDP fetch unreachable, not a proven app failure.",
+      "last_source_commit": "34fbad0bbe5a5941d7038a95815ddc46701150a1",
+      "ci_status": "latest_code_regression_passed",
+      "updated_at": "2026-11-10",
+      "ci_evidence": [
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744338630",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42744344873",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842618",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842610",
+        "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839204255"
+      ],
+      "code_verified_sha": "ce5adf9dde89f4214021fbc78de836d540873990",
+      "latest_patch_status": "CODE_CI_PASS_HOST_SAAS_UNVERIFIED"
+    },
+    {
+      "id": "WEB-CORE-05",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-CORE-09",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-04",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-05",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-UX-07",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-02",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-04",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-05",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-06",
+      "stage": "deferred_10",
+      "fullClosure": false
+    },
+    {
+      "id": "WEB-REL-07",
+      "stage": "deferred_10",
+      "fullClosure": false
+    }
+  ],
+  "ci": [],
+  "updatePolicy": "code_patch is NOT done; manual acceptance deferred; source code != deployed host",
+  "priority": [
+    "GAP-1",
+    "GAP-8",
+    "GAP-5",
+    "GAP-2",
+    "GAP-7",
+    "GAP-6",
+    "GAP-4",
+    "GAP-3"
+  ],
+  "refreshNotes": "Status refresh is async polling only; 'GAP-8 voice hot path' is planned instrumentation, not measured performance.",
+  "cycle": {
+    "at": "2026-11-10",
+    "scope": "saas_21_strict",
+    "phase": "CORE-08_paid_renewal_quota_and_UX-01_chromium_code_verified",
+    "status": "CODE_CI_PASS_MAP_HOST_PUBLISHED_SAAS_RUNTIME_NOT_DEPLOYED",
+    "source_sha": "ce5adf9dde89f4214021fbc78de836d540873990",
+    "hourly_continuation": "scheduled_in_automations_not_repository_cron",
+    "host_runtime_deployment": "NOT_DEPLOYED",
+    "map_deployment": "AUTOMATED_MAP_ONLY_AFTER_GREEN_CI",
+    "focus": [
+      "WEB-CORE-06",
+      "WEB-CORE-08",
+      "WEB-UX-01"
+    ],
+    "notes": "Do not change user login GAP-7; do not restore VS or modify Android.",
+    "code_verified_sha": "ce5adf9dde89f4214021fbc78de836d540873990",
+    "source_code_latest": "9a18a84c7384a69ba2211967b4c3008e56ecf306",
+    "map_host_verified": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842618",
+    "ci": {
+      "full": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842618",
+      "mysql": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839842610",
+      "chrome": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839204255",
+      "integrated": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42839213608"
+    },
+    "acceptance": "Manual host+accounting+Legacy still open; no fullClosure",
+    "latest_unverified_patch_sha": "70192c77649a0b6465ebf9040d08f2293d9dd203",
+    "latest_patch_note": "CORE-08 orphan active evidence guard; CI and map deployment pending; no SaaS runtime deployment"
+  },
+  "incrementalWork": {
+    "id": "PR-85",
+    "scope": "saas_console_bridge_and_pilot_server",
+    "status": "MERGED_CODE_CI_PASS_HOST_LARAVEL_BLOCKED",
+    "source_sha": "d8d9db5c125ee90633873c913ef7bce298950a40",
+    "ci_evidence": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42939113833",
+    "host_deployment": "NOT_DEPLOYED_NO_LARAVEL_RUNTIME_FOUND",
+    "map_deployment": "NOT_DEPLOYED_FOR_PR",
+    "identity_mapping": "EXPLICIT_PRIVATE_ACCOUNT_TENANT_MAP_DUAL_READ_OPTIONAL_DNC_MIRROR",
+    "pilot_auth": "ENV_PRIVATE_LEGACY_FALLBACK",
+    "pilot_call_ledger": "PER_CALL_LOCK_RESPONSE_UNCHANGED",
+    "reference_cleanup": "BLOCKED_BY_VERIFY_REPOSITORY_MANIFEST",
+    "voice_hot_path_latency": "UNMEASURED",
+    "dnc_laravel": "MIGRATION_MODELS_IMPORT_GATE_BEST_EFFORT_MIRROR_NO_ATOMIC_CROSS_DB",
+    "pairing_laravel": "OBSERVATIONAL_MIRROR_CONSOLE_BEARER_AUTHORITY",
+    "laravel_feature": "SOURCE_ONLY_NOT_EXECUTABLE_WITHOUT_SAAS_RUNTIME",
+    "ci_verified_head": "c4048d66fe317d1c2a3cb68f9b9057683f0540ce",
+    "merge_sha": "05ece955f6661076273a52bedb5394f317265914",
+    "host_preflight": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42943238475",
+    "host_smoke": "ANONYMOUS_GET_303_TO_SAAS_CONSOLE_LOGIN_NO_AUTHENTICATED_200",
+    "laravel_migration": "NOT_RUN_NO_VERIFIED_RUNTIME_OR_DATABASE_TARGET",
+    "android_overlay": "READ_ONLY_ASSESSMENT_HOLD_UNTIL_SERVER_VERIFIED"
+  }
+}
