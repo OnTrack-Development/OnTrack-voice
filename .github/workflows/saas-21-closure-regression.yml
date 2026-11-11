@@ -42,6 +42,7 @@ jobs:
           php tools/test_mobile_auth_fallback.php
           php tools/test_tenant_account_bridge.php
           php tools/test_voice_laravel_mirror_contract.php
+          php tools/test_laravel_dnc_bridge_contract.php
           php tools/test_live_demo_security.php
           php tools/test_auth_login_throttle.php
           php tools/test_saas_quick_answer_policy.php
