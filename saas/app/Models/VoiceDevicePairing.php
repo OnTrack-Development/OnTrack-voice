@@ -19,9 +19,9 @@ class VoiceDevicePairing extends Model
     {
         return $query->where('tenant_id', $tenantId);
     }
-    public static function activeForTenant(int $tenantId, string $deviceId): ?self
+    // Mirror status is observational; Console remains the bearer authority.
+    public static function observedForTenant(int $tenantId, string $deviceId): ?self
     {
-        return self::query()->forTenant($tenantId)
-            ->where('device_id', $deviceId)->where('status', 'active')->first();
+        return self::query()->forTenant($tenantId)->where('device_id', $deviceId)->first();
     }
 }
