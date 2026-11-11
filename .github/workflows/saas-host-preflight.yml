@@ -35,5 +35,6 @@ jobs:
             printf 'ANONYMOUS_GET %s %s\n' "$route" "$code"
           done
           '@
+          $probe = $probe -replace "`r", ''
           & ssh.exe -i $key -p 7195 -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 appontrack@65.21.208.232 $probe
           if ($LASTEXITCODE -ne 0) { throw 'Read-only host probe failed' }
