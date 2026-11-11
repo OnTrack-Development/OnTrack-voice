@@ -811,7 +811,7 @@
     "map_deployment": "NOT_DEPLOYED_FOR_PR",
     "identity_mapping": "EXPLICIT_PRIVATE_ONLY_NO_CROSS_DB_DNC_SYNC",
     "pilot_auth": "ENV_PRIVATE_LEGACY_FALLBACK",
-    "pilot_call_ledger": "BOUNDED_256_LOCK_STRIPES_RESPONSE_UNCHANGED",
+    "pilot_call_ledger": "PER_CALL_LOCK_RESPONSE_UNCHANGED",
     "reference_cleanup": "BLOCKED_BY_VERIFY_REPOSITORY_MANIFEST",
     "voice_hot_path_latency": "UNMEASURED"
   }
