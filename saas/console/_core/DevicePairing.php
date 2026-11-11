@@ -106,13 +106,9 @@ function device_pairing_redeem(string $code,string $installationId,int $simSlot,
     }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
 }
 /** Active token must be tied to a valid, current account, site and agent. */
+require_once __DIR__.'/TenantAccountBridge.php';
 function device_binding_authorize(string $token):?array {
-    if(!preg_match('/^otdev_[a-f0-9]{64}$/D',$token))return null;
-    return one("SELECT d.* FROM device_bindings d
-        JOIN accounts a ON a.id=d.account_id AND a.status='active'
-        JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
-        JOIN agents ag ON ag.id=d.agent_id AND ag.site_id=d.site_id AND ag.account_id=d.account_id AND ag.status!='archived'
-        WHERE d.token_hash=? AND d.status='active'",[hash('sha256',$token)]);
+    return TenantAccountBridge::authorizeBinding($token);
 }
 require_once __DIR__.'/PublishedFlow.php';
 function device_binding_profile(array $binding):array {
