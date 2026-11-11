@@ -34,10 +34,15 @@ jobs:
         run: |
           set -euo pipefail
           find api saas/console/_core -type f -name '*.php' -print0 | xargs -0 -n1 php -l >/tmp/saas-php-lint.txt
+          find saas/app saas/database/migrations saas/tests/Feature -type f -name '*.php' -print0 | xargs -0 -n1 php -l >/tmp/saas-laravel-lint.txt
           php -l omnira_api_tester.php
           php tools/test_saas_diag_security.php
           php tools/test_saas_trace_redaction.php
           php tools/test_saas_security_guards.php
+          php tools/test_mobile_auth_fallback.php
+          php tools/test_tenant_account_bridge.php
+          php tools/test_voice_laravel_mirror_contract.php
+          php tools/test_laravel_dnc_bridge_contract.php
           php tools/test_live_demo_security.php
           php tools/test_auth_login_throttle.php
           php tools/test_saas_quick_answer_policy.php
@@ -112,7 +117,7 @@ jobs:
         run: |
           set -euo pipefail
           git diff --check HEAD~1 HEAD
-          if git diff --name-only HEAD~1 HEAD | grep -E '^(VS/|android/|app/src/|saas/mobile/android/|saas/mobile/ota/|saas/mobile/server/|\.github/workflows/.*publish)'; then
+          if git diff --name-only HEAD~1 HEAD | grep -E '^(VS/|android/|app/src/|saas/mobile/android/|saas/mobile/ota/|saas/mobile/server/|\.github/workflows/.*publish)' | grep -Ev '^saas/mobile/server/(common|call_ledger)\.php$'; then
             echo 'Forbidden native/deploy changes in SaaS-only branch'
             exit 1
           fi

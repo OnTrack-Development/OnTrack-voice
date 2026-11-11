@@ -101,18 +101,15 @@ function device_pairing_redeem(string $code,string $installationId,int $simSlot,
             [$deviceId,now(),$pair['id'],'pending_sim'.$simSlot,now()]);
         if($changed!==1)throw new RuntimeException('device_pairing_race');
         db()->commit();
+        TenantAccountBridge::mirrorDeviceToLaravel((int)$pair['account_id'],(int)$deviceId,(string)$pair['code_hash']);
         return ['device_id'=>$deviceId,'device_token'=>$token,'sim_slot'=>$simSlot,
             'site_id'=>(int)$pair['site_id'],'agent_id'=>(int)$pair['agent_id']];
     }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
 }
 /** Active token must be tied to a valid, current account, site and agent. */
+require_once __DIR__.'/TenantAccountBridge.php';
 function device_binding_authorize(string $token):?array {
-    if(!preg_match('/^otdev_[a-f0-9]{64}$/D',$token))return null;
-    return one("SELECT d.* FROM device_bindings d
-        JOIN accounts a ON a.id=d.account_id AND a.status='active'
-        JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
-        JOIN agents ag ON ag.id=d.agent_id AND ag.site_id=d.site_id AND ag.account_id=d.account_id AND ag.status!='archived'
-        WHERE d.token_hash=? AND d.status='active'",[hash('sha256',$token)]);
+    return TenantAccountBridge::authorizeBinding($token);
 }
 require_once __DIR__.'/PublishedFlow.php';
 function device_binding_profile(array $binding):array {
@@ -218,7 +215,10 @@ function device_binding_halt_campaigns(int $accountId,int $deviceId):void {
 function device_binding_revoke(int $accountId,int $deviceId):bool {
     $changed=execute("UPDATE device_bindings SET status='revoked',slot_claim=NULL,revoked_at=? WHERE id=? AND account_id=? AND status='active'",
         [now(),$deviceId,$accountId]);
-    if($changed===1)device_binding_halt_campaigns($accountId,$deviceId);
+    if($changed===1){
+        device_binding_halt_campaigns($accountId,$deviceId);
+        TenantAccountBridge::revokeMirroredDevice($accountId,$deviceId);
+    }
     return $changed===1;
 }
 function device_pairing_cancel(int $accountId,int $pairingId):bool {
@@ -230,6 +230,9 @@ function device_pairing_cancel(int $accountId,int $pairingId):bool {
 function device_binding_disconnect(array $binding):bool {
     $changed=execute("UPDATE device_bindings SET status='revoked',slot_claim=NULL,revoked_at=? WHERE id=? AND account_id=? AND sim_slot=? AND status='active'",
         [now(),$binding['id'],$binding['account_id'],$binding['sim_slot']]);
-    if($changed===1)device_binding_halt_campaigns((int)$binding['account_id'],(int)$binding['id']);
+    if($changed===1){
+        device_binding_halt_campaigns((int)$binding['account_id'],(int)$binding['id']);
+        TenantAccountBridge::revokeMirroredDevice((int)$binding['account_id'],(int)$binding['id']);
+    }
     return $changed===1;
 }

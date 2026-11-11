@@ -800,5 +800,23 @@
     "acceptance": "Manual host+accounting+Legacy still open; no fullClosure",
     "latest_unverified_patch_sha": "70192c77649a0b6465ebf9040d08f2293d9dd203",
     "latest_patch_note": "CORE-08 orphan active evidence guard; CI and map deployment pending; no SaaS runtime deployment"
+  },
+  "incrementalWork": {
+    "id": "PR-85",
+    "scope": "saas_console_bridge_and_pilot_server",
+    "status": "CODE_CI_PASS_HOST_UNVERIFIED",
+    "source_sha": "d8d9db5c125ee90633873c913ef7bce298950a40",
+    "ci_evidence": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42939113833",
+    "host_deployment": "NOT_DEPLOYED",
+    "map_deployment": "NOT_DEPLOYED_FOR_PR",
+    "identity_mapping": "EXPLICIT_PRIVATE_ACCOUNT_TENANT_MAP_DUAL_READ_OPTIONAL_DNC_MIRROR",
+    "pilot_auth": "ENV_PRIVATE_LEGACY_FALLBACK",
+    "pilot_call_ledger": "PER_CALL_LOCK_RESPONSE_UNCHANGED",
+    "reference_cleanup": "BLOCKED_BY_VERIFY_REPOSITORY_MANIFEST",
+    "voice_hot_path_latency": "UNMEASURED",
+    "dnc_laravel": "MIGRATION_MODELS_IMPORT_GATE_BEST_EFFORT_MIRROR_NO_ATOMIC_CROSS_DB",
+    "pairing_laravel": "OBSERVATIONAL_MIRROR_CONSOLE_BEARER_AUTHORITY",
+    "laravel_feature": "SOURCE_ONLY_NOT_EXECUTABLE_WITHOUT_SAAS_RUNTIME",
+    "ci_verified_head": "c4048d66fe317d1c2a3cb68f9b9057683f0540ce"
   }
 }
