@@ -15,9 +15,9 @@ function ontrack_call_event(array $event, string $store): array {
     $duration=filter_var($event['duration_seconds']??0,FILTER_VALIDATE_INT);
     if ($duration===false || $duration<0 || $duration>172800) throw new InvalidArgumentException('invalid_duration');
     if (!is_dir($store) && !mkdir($store,0700,true) && !is_dir($store)) throw new RuntimeException('store_unavailable');
-    // Serialize events for the same call while allowing independent calls to
-    // progress. Fixed stripes bound private lock-file growth to 256 files.
-    $lockPath=$store.'/.ledger-'.substr(hash('sha256',$id),0,2).'.lock';
+    // Serialize events for this call only. Distinct call IDs never contend;
+    // keep the lock file stable because unlinking a live lock breaks flock.
+    $lockPath=$store.'/.ledger-'.$id.'.lock';
     $lock=fopen($lockPath,'c');
     if ($lock===false) throw new RuntimeException('store_locked');
     if (!flock($lock,LOCK_EX)) {
