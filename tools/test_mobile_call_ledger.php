@@ -6,7 +6,18 @@ $base=sys_get_temp_dir().'/ontrack-call-ledger-'.bin2hex(random_bytes(6));
 $id='a4c54816-859c-48f1-8d0c-30a4ae5e3207';
 try{
     $first=ontrack_call_event(['call_id'=>$id,'sequence'=>1,'phase'=>'ringing'],$base);
-    expect($first['ok']===true && !$first['duplicate'],'first event');
+    expect($first===['ok'=>true,'duplicate'=>false,'call_id'=>$id,'phase'=>'ringing'],'response contract');
+    $otherId='b4c54816-859c-48f1-8d0c-30a4ae5e3207';
+    $stripeA=substr(hash('sha256',$id),0,2);
+    $stripeB=substr(hash('sha256',$otherId),0,2);
+    expect($stripeA!==$stripeB,'fixture distinct lock stripes');
+    $held=fopen($base.'/.ledger-'.$stripeA.'.lock','c');
+    expect($held!==false && flock($held,LOCK_EX|LOCK_NB),'hold first call lock');
+    try {
+        $other=ontrack_call_event(['call_id'=>$otherId,'sequence'=>1,'phase'=>'ringing'],$base);
+        expect($other===['ok'=>true,'duplicate'=>false,'call_id'=>$otherId,'phase'=>'ringing'],
+            'independent call is not serialized behind first call');
+    } finally { flock($held,LOCK_UN);fclose($held); }
     $same=ontrack_call_event(['call_id'=>$id,'sequence'=>1,'phase'=>'ringing'],$base);
     expect($same['duplicate']===true,'dedupe');
     ontrack_call_event(['call_id'=>$id,'sequence'=>2,'phase'=>'active'],$base);
@@ -17,7 +28,8 @@ try{
         'duration_seconds'=>22,'phone_number'=>'+201012345678','contact_name'=>'أحمد علي'],$base);
     expect($sameMetadata['duplicate']===true,'idempotent metadata');
     $rows=ontrack_call_list($base);
-    expect(count($rows)===1,'one call');
+    expect(count($rows)===2,'two independent calls');
+    $rows=array_values(array_filter($rows,static fn(array $row):bool=>$row['call_id']===$id));
     expect($rows[0]['phase']==='ended' && $rows[0]['duration_seconds']===22,'terminal record');
     expect($rows[0]['answered_at_utc']!==null,'answered timestamp');
     expect($rows[0]['contact_name']==='أحمد علي'&&$rows[0]['phone_number']==='+201012345678','verified caller');
@@ -32,6 +44,7 @@ try{
     echo "Call ledger tests PASS\n";
 }finally{
     foreach(glob($base.'/*')?:[] as $p)if(is_file($p))unlink($p);
+    foreach(glob($base.'/.ledger-*.lock')?:[] as $p)unlink($p);
     if(is_file($base.'/.ledger.lock'))unlink($base.'/.ledger.lock');
     if(is_dir($base))rmdir($base);
 }
