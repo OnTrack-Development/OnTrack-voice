@@ -8,10 +8,7 @@ try{
     $first=ontrack_call_event(['call_id'=>$id,'sequence'=>1,'phase'=>'ringing'],$base);
     expect($first===['ok'=>true,'duplicate'=>false,'call_id'=>$id,'phase'=>'ringing'],'response contract');
     $otherId='b4c54816-859c-48f1-8d0c-30a4ae5e3207';
-    $stripeA=substr(hash('sha256',$id),0,2);
-    $stripeB=substr(hash('sha256',$otherId),0,2);
-    expect($stripeA!==$stripeB,'fixture distinct lock stripes');
-    $held=fopen($base.'/.ledger-'.$stripeA.'.lock','c');
+    $held=fopen($base.'/.ledger-'.$id.'.lock','c');
     expect($held!==false && flock($held,LOCK_EX|LOCK_NB),'hold first call lock');
     try {
         $other=ontrack_call_event(['call_id'=>$otherId,'sequence'=>1,'phase'=>'ringing'],$base);
