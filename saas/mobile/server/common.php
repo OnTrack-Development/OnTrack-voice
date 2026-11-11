@@ -23,7 +23,7 @@ function mobile_auth_digest(
     if (file_exists($privateFile) || is_link($privateFile)) {
         if (is_link($privateFile) || !is_file($privateFile) || !is_readable($privateFile)) return null;
         $mode=@fileperms($privateFile);
-        if (!is_int($mode) || ($mode & 0077)!==0) return null;
+        if (!is_int($mode) || (PHP_OS_FAMILY!=='Windows' && ($mode & 0077)!==0)) return null;
         $digest=trim((string)@file_get_contents($privateFile,false,null,0,80));
         return preg_match('/^[a-f0-9]{64}$/D',$digest) ? $digest : null;
     }
