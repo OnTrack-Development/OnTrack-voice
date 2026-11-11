@@ -101,6 +101,7 @@ function device_pairing_redeem(string $code,string $installationId,int $simSlot,
             [$deviceId,now(),$pair['id'],'pending_sim'.$simSlot,now()]);
         if($changed!==1)throw new RuntimeException('device_pairing_race');
         db()->commit();
+        TenantAccountBridge::mirrorDeviceToLaravel((int)$pair['account_id'],(int)$deviceId,(string)$pair['code_hash']);
         return ['device_id'=>$deviceId,'device_token'=>$token,'sim_slot'=>$simSlot,
             'site_id'=>(int)$pair['site_id'],'agent_id'=>(int)$pair['agent_id']];
     }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
@@ -214,7 +215,10 @@ function device_binding_halt_campaigns(int $accountId,int $deviceId):void {
 function device_binding_revoke(int $accountId,int $deviceId):bool {
     $changed=execute("UPDATE device_bindings SET status='revoked',slot_claim=NULL,revoked_at=? WHERE id=? AND account_id=? AND status='active'",
         [now(),$deviceId,$accountId]);
-    if($changed===1)device_binding_halt_campaigns($accountId,$deviceId);
+    if($changed===1){
+        device_binding_halt_campaigns($accountId,$deviceId);
+        TenantAccountBridge::revokeMirroredDevice($accountId,$deviceId);
+    }
     return $changed===1;
 }
 function device_pairing_cancel(int $accountId,int $pairingId):bool {
@@ -226,6 +230,9 @@ function device_pairing_cancel(int $accountId,int $pairingId):bool {
 function device_binding_disconnect(array $binding):bool {
     $changed=execute("UPDATE device_bindings SET status='revoked',slot_claim=NULL,revoked_at=? WHERE id=? AND account_id=? AND sim_slot=? AND status='active'",
         [now(),$binding['id'],$binding['account_id'],$binding['sim_slot']]);
-    if($changed===1)device_binding_halt_campaigns((int)$binding['account_id'],(int)$binding['id']);
+    if($changed===1){
+        device_binding_halt_campaigns((int)$binding['account_id'],(int)$binding['id']);
+        TenantAccountBridge::revokeMirroredDevice((int)$binding['account_id'],(int)$binding['id']);
+    }
     return $changed===1;
 }
