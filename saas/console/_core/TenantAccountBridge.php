@@ -15,7 +15,7 @@ final class TenantAccountBridge {
         $path=private_path().'/tenant-account-bridge.json';
         if(!is_file($path)||is_link($path))return $links;
         $mode=@fileperms($path);
-        if(!is_int($mode)||($mode & 0077)!==0)return $links;
+        if(!is_int($mode)||(PHP_OS_FAMILY!=='Windows' && ($mode & 0077)!==0))return $links;
         $data=json_decode((string)@file_get_contents($path,false,null,0,65537),true);
         if(!is_array($data)||!is_array($data['account_to_tenant']??null))return $links;
         $reverse=[];
