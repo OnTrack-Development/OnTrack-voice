@@ -804,10 +804,10 @@
   "incrementalWork": {
     "id": "PR-85",
     "scope": "saas_console_bridge_and_pilot_server",
-    "status": "CODE_CI_PASS_HOST_UNVERIFIED",
+    "status": "MERGED_CODE_CI_PASS_HOST_LARAVEL_BLOCKED",
     "source_sha": "d8d9db5c125ee90633873c913ef7bce298950a40",
     "ci_evidence": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42939113833",
-    "host_deployment": "NOT_DEPLOYED",
+    "host_deployment": "NOT_DEPLOYED_NO_LARAVEL_RUNTIME_FOUND",
     "map_deployment": "NOT_DEPLOYED_FOR_PR",
     "identity_mapping": "EXPLICIT_PRIVATE_ACCOUNT_TENANT_MAP_DUAL_READ_OPTIONAL_DNC_MIRROR",
     "pilot_auth": "ENV_PRIVATE_LEGACY_FALLBACK",
@@ -817,6 +817,11 @@
     "dnc_laravel": "MIGRATION_MODELS_IMPORT_GATE_BEST_EFFORT_MIRROR_NO_ATOMIC_CROSS_DB",
     "pairing_laravel": "OBSERVATIONAL_MIRROR_CONSOLE_BEARER_AUTHORITY",
     "laravel_feature": "SOURCE_ONLY_NOT_EXECUTABLE_WITHOUT_SAAS_RUNTIME",
-    "ci_verified_head": "c4048d66fe317d1c2a3cb68f9b9057683f0540ce"
+    "ci_verified_head": "c4048d66fe317d1c2a3cb68f9b9057683f0540ce",
+    "merge_sha": "05ece955f6661076273a52bedb5394f317265914",
+    "host_preflight": "https://github.com/OnTrack-Development/OnTrack-voice/actions/runs/42943238475",
+    "host_smoke": "ANONYMOUS_GET_303_TO_SAAS_CONSOLE_LOGIN_NO_AUTHENTICATED_200",
+    "laravel_migration": "NOT_RUN_NO_VERIFIED_RUNTIME_OR_DATABASE_TARGET",
+    "android_overlay": "READ_ONLY_ASSESSMENT_HOLD_UNTIL_SERVER_VERIFIED"
   }
 }
