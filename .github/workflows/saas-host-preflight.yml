@@ -30,9 +30,12 @@ jobs:
             fi
           done
           if test -d /home/appontrack/public_html/saas/console; then echo CONSOLE_DIRECTORY_PRESENT; else echo CONSOLE_DIRECTORY_ABSENT; fi
+          if test -f /home/appontrack/public_html/index.php; then echo ROOT_INDEX_PRESENT; else echo ROOT_INDEX_ABSENT; fi
+          find /home/appontrack -maxdepth 5 -type f -name artisan -print 2>/dev/null | head -10
           for route in saas/console/ saas/mobile/server/status.php saas/mobile/server/device.php; do
             code=$(curl --silent --show-error --max-time 12 --output /dev/null --write-out '%{http_code}' "https://app.ontrackegy.com/$route") || code=000
-            printf 'ANONYMOUS_GET %s %s\n' "$route" "$code"
+            target=$(curl --silent --max-time 12 --output /dev/null --write-out '%{redirect_url}' "https://app.ontrackegy.com/$route") || target=unavailable
+            printf 'ANONYMOUS_GET %s %s redirect=%s\n' "$route" "$code" "$target"
           done
           '@
           $probe = $probe -replace "`r", ''
