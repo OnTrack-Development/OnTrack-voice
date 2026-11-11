@@ -56,7 +56,9 @@ jobs:
       - uses: android-actions/setup-android@v4
       - name: Install pinned Android SDK
         run: |
-          sdkmanager --install "platforms;android-37" "platforms;android-36" "build-tools;36.0.0"
+          sdkmanager --install "platforms;android-37.0" || sdkmanager --install "platforms;android-37"
+          sdkmanager --install "platforms;android-36" || sdkmanager --install "platforms;android-36.0"
+          sdkmanager --install "build-tools;36.0.0"
           test -f "$ANDROID_HOME/platforms/android-36/android.jar"
       - uses: gradle/actions/setup-gradle@v4
       - name: Apply pinned source overlay
