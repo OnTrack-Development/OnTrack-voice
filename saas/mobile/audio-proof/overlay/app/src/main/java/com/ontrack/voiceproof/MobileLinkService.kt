@@ -67,9 +67,18 @@ class MobileLinkService:Service() {
         .connectTimeout(8,TimeUnit.SECONDS).readTimeout(15,TimeUnit.SECONDS).pingInterval(15,TimeUnit.SECONDS).build()
     private lateinit var overlay:CallOverlay
     private var call:MobileLiveCall?=null
+    private val deferredCallDrains=mutableListOf<MobileLiveCall>()
+    private fun stopLiveCall(){
+        call?.let{ live ->
+            live.stop()
+            synchronized(deferredCallDrains){deferredCallDrains.add(live)}
+        }
+        call=null
+    }
     private var loop:Job?=null
     private var callEventFlush:Job?=null
     private var callReportFlush:Job?=null
+    private var callLogEnrichment:Job?=null
     private var tenantEventOutbox:CallEventOutbox?=null
     @Volatile private var liveSimSlot:Int=-1
     private var connectivity:ConnectivityManager?=null
@@ -129,7 +138,7 @@ class MobileLinkService:Service() {
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
         startForeground(701,notification(latestStatus))
         if(tenantPairingInProgress){
-            call?.stop();call=null;agentEnabled=false;connected=false
+            stopLiveCall();agentEnabled=false;connected=false
             notice("ربط الشرائح قيد التنفيذ؛ الإيجنت متوقف لحين التحقق")
             stopSelf();return START_NOT_STICKY
         }
@@ -139,7 +148,7 @@ class MobileLinkService:Service() {
             when(action){
                 ACTION_DISABLE,ACTION_PAUSE,"STOP"->{
                     tenantPrefs().edit().putBoolean("enabled",false).commit()
-                    agentEnabled=false;call?.stop();call=null;audioReady=false;connected=false
+                    agentEnabled=false;stopLiveCall();audioReady=false;connected=false
                     notice("إيقاف محرك الشركات على هذا الجهاز")
                 }
                 ACTION_ENABLE->{
@@ -165,7 +174,7 @@ class MobileLinkService:Service() {
                             tenantEventOutbox?.recordHumanTakeover(slot,bindingId)
                         }.onFailure{notice("تعذر حفظ حدث الاستلام؛ تابع سجل المكالمة")}
                         humanControl=true
-                        call?.stop();call=null;audioReady=false;connected=false
+                        stopLiveCall();audioReady=false;connected=false
                         callProblem=""
                         notice("استلام بشري للمكالمة الحالية")
                     }else{
@@ -189,7 +198,7 @@ class MobileLinkService:Service() {
         // Native release 0.3.4: never start the global, legacy phone pilot for
         // an unpaired device. A SIM-specific verified tenant binding is required.
         agentEnabled=false;connected=false
-        call?.stop();call=null
+        stopLiveCall()
         notice("اربط شريحة SIM بحساب OnTrack وإيجنت منشور قبل تشغيل المكالمات")
         stopSelf()
         return START_NOT_STICKY
@@ -265,6 +274,8 @@ class MobileLinkService:Service() {
         tenantEventOutbox=tenantEvents
         val reportOutbox=CallReportOutbox(this)
         var lastReportAttempt=0L
+        var idleSince=0L
+        var lastCallLogAttempt=0L
         var lastManagerPoll=0L
         var managerClaim:Deferred<Result<JSONObject>>?=null
         var managerCallback:JSONObject?=null
@@ -316,7 +327,7 @@ class MobileLinkService:Service() {
                     agentEnabled=tenantPrefs().getBoolean("enabled",false)
                     if(!agentEnabled){
                         // Continue observing the SIM while the AI is disabled.
-                        call?.stop();call=null;tenantSession=null;connected=false;audioReady=false
+                        stopLiveCall();tenantSession=null;connected=false;audioReady=false
                     }
                     val states=currentSlotCalls()
                     val active=states.filter{it.state!=TelephonyManager.CALL_STATE_IDLE}
@@ -325,7 +336,7 @@ class MobileLinkService:Service() {
                         // Vendor telephony APIs can report the same call on both
                         // subscriptions. Never guess the tenant/SIM or claim a
                         // manual takeover that the user did not request.
-                        call?.stop();call=null;tenantSession=null
+                        stopLiveCall();tenantSession=null
                         sessionLoad?.cancel();sessionLoad=null
                         audioReady=false;connected=false
                         inCall=true;callAnswered=active.any{it.state==TelephonyManager.CALL_STATE_OFFHOOK}
@@ -379,12 +390,38 @@ class MobileLinkService:Service() {
                             }
                         }
                     }
+                    if(current==null){
+                        stopLiveCall()
+                        // Keep the active call ID until all accepted notes are persisted,
+                        // including sessions stopped earlier by manual takeover/retry.
+                        val draining=synchronized(deferredCallDrains){deferredCallDrains.toList()}
+                        if(draining.any{!it.awaitDeferredCallbacks()}){delay(100);continue}
+                        synchronized(deferredCallDrains){deferredCallDrains.removeAll(draining.toSet())}
+                    }
                     val observedBinding=current?.slot?.takeIf { enrollment.paired(it) }
                         ?.let { runCatching { enrollment.bindingId(it) }.getOrNull() }
                     tenantEvents.observe(if(observedBinding!=null)current!!.state else TelephonyManager.CALL_STATE_IDLE,
                         if(observedBinding!=null)current!!.slot else -1,observedBinding?:-1)
-                    runCatching{tenantEvents.enrichFromCallLog()}
-                    if(callEventFlush?.isActive!=true)callEventFlush=scope.launch {
+                    // observe() changes memory immediately; Android flushes its disk write.
+                    // CallLog lookups run only after 3s idle and never hold the outbox lock.
+                    val observedAt=SystemClock.elapsedRealtime()
+                    if(current==null){
+                        if(idleSince==0L)idleSince=observedAt
+                        if(observedAt-idleSince>=3000L && observedAt-lastCallLogAttempt>=3000L &&
+                            callLogEnrichment?.isActive!=true){
+                            lastCallLogAttempt=observedAt
+                            callLogEnrichment=scope.launch(Dispatchers.IO){
+                                try{
+                                    if(!inCall && !tenantPairingInProgress &&
+                                        currentSlotCalls().none{it.state!=TelephonyManager.CALL_STATE_IDLE}){
+                                        tenantEvents.enrichFromCallLog { !inCall && !tenantPairingInProgress }
+                                    }
+                                }catch(cancelled:CancellationException){throw cancelled}
+                                catch(error:Exception){notice("تعذر تعريف المكالمة؛ سيُعاد عند الخمول")}
+                            }
+                        }
+                    }else{idleSince=0L;callLogEnrichment?.cancel()}
+                    if(callEventFlush?.isActive!=true)callEventFlush=scope.launch(Dispatchers.IO) {
                         runCatching {
                             val event=tenantEvents.peekEligible { slot ->
                                 if(enrollment.paired(slot))runCatching { enrollment.bindingId(slot) }.getOrNull() else null
@@ -401,10 +438,10 @@ class MobileLinkService:Service() {
                     // A report is retried separately from call-state events. The
                     // original event may not have arrived yet; keep encrypted
                     // evidence until the server explicitly acknowledges saving.
-                    if(callReportFlush?.isActive!=true &&
+                    if(current==null && callReportFlush?.isActive!=true &&
                         SystemClock.elapsedRealtime()-lastReportAttempt>=6000L){
                         lastReportAttempt=SystemClock.elapsedRealtime()
-                        callReportFlush=scope.launch {
+                        callReportFlush=scope.launch(Dispatchers.IO) {
                             runCatching {
                                 val report=reportOutbox.peekEligible { slot ->
                                     if(enrollment.paired(slot))runCatching { enrollment.bindingId(slot) }.getOrNull() else null
@@ -462,7 +499,7 @@ class MobileLinkService:Service() {
                         sessionLoad?.cancel();sessionLoad=null
                         audioReady=false;callProblem="";audioDiagnostic=""
                         if(selected!=null){
-                            call?.stop();call=null;tenantSession=null;tenantFlow=null
+                            stopLiveCall();tenantSession=null;tenantFlow=null
                             selected=null;liveSimSlot=-1;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;outgoingCall=false;humanControl=false;policy=JSONObject()
                             ringingAt=0L;startedAt=0L;audioAttemptCount=0;nextAudioRetryAt=0L
                         }
@@ -484,7 +521,7 @@ class MobileLinkService:Service() {
                     // The observed SIM must be paired; other subscriptions remain human-only.
                     if(!enrollment.paired(current.slot)){
                         audioStart?.cancel();audioStart=null
-                        if(selected!=null){call?.stop();call=null}
+                        if(selected!=null){stopLiveCall()}
                         selected=null;tenantSession=null;connected=false;audioReady=false
                         delay(750);continue
                     }
@@ -715,7 +752,7 @@ class MobileLinkService:Service() {
                                 notice("PCM وGoogle Live جاهزين على SIM ${current.slot+1}؛ اختبار صوت الجهاز مطلوب")
                             }
                         }?.onFailure{problem->
-                            call?.stop();call=null;tenantSession=null
+                            stopLiveCall();tenantSession=null
                             audioReady=false;connected=false
                             nextAudioRetryAt=SystemClock.elapsedRealtime()+
                                 2500L*audioAttemptCount.coerceIn(1,3)
@@ -725,7 +762,7 @@ class MobileLinkService:Service() {
                     }
                     if(call!=null && !call!!.active){
                         audioStart?.cancel();audioStart=null
-                        call=null;tenantSession=null;audioReady=false;connected=false
+                        stopLiveCall();tenantSession=null;audioReady=false;connected=false
                         nextAudioRetryAt=SystemClock.elapsedRealtime()+
                             2500L*audioAttemptCount.coerceIn(1,3)
                         callProblem="انقطعت جلسة الصوت (${internetRoute()})؛ المكالمة على الهاتف بدون AI"
@@ -734,7 +771,7 @@ class MobileLinkService:Service() {
                     if(call!=null && startedAt>0 &&
                         SystemClock.elapsedRealtime()-startedAt>policy.optInt("max_call_minutes",10).coerceIn(1,30)*60000L){
                         audioStart?.cancel();audioStart=null
-                        call?.stop();call=null;audioReady=false;connected=false
+                        stopLiveCall();audioReady=false;connected=false
                         callProblem="انتهى الوقت المحدد لصوت الإيجنت؛ الهاتف ما زال متصلًا"
                         notice(callProblem)
                     }
@@ -746,7 +783,7 @@ class MobileLinkService:Service() {
                     // Continue monitoring the physical call and allow bounded
                     // voice reconnect when the default internet route returns.
                     audioStart?.cancel();audioStart=null
-                    call?.stop();call=null;tenantSession=null
+                    stopLiveCall();tenantSession=null
                     audioReady=false;connected=false
                     nextAudioRetryAt=SystemClock.elapsedRealtime()+
                         2500L*audioAttemptCount.coerceIn(1,3)
@@ -758,7 +795,7 @@ class MobileLinkService:Service() {
                     audioStart?.cancel();audioStart=null
                     // A transport/runtime failure is NOT an explicit takeover.
                     // Preserve diagnostic UI while keeping human MIC available.
-                    call?.stop();call=null;tenantSession=null
+                    stopLiveCall();tenantSession=null
                     audioReady=false;connected=false
                     nextAudioRetryAt=SystemClock.elapsedRealtime()+
                         2500L*audioAttemptCount.coerceIn(1,3)
@@ -770,14 +807,14 @@ class MobileLinkService:Service() {
                 }
             }
         }finally{
-            call?.stop();call=null;running=false;connected=false;audioReady=false;audioDiagnostic=""
+            stopLiveCall();running=false;connected=false;audioReady=false;audioDiagnostic=""
             inCall=false;callAnswered=false;agentEnabled=false;callProblem=""
         }
     }
     /** Never continue pilot AI/telephony after any tenant SIM starts enrollment. */
     override fun onDestroy(){
         networkListener?.let{runCatching{connectivity?.unregisterNetworkCallback(it)}}
-        call?.stop();scope.cancel();running=false;connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false;audioReady=false;callProblem="";audioDiagnostic="";audioDiagnostic=""
+        stopLiveCall();scope.cancel();running=false;connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false;audioReady=false;callProblem="";audioDiagnostic="";audioDiagnostic=""
         liveSimSlot=-1;tenantEventOutbox=null
         overlay.remove();latestStatus="الربط متوقف"
         super.onDestroy()
