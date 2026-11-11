@@ -24,6 +24,14 @@ internal class MobileLiveCall(
     private val stopped=AtomicBoolean(false)
     private val ready=CompletableDeferred<Unit>()
     private val playback=Channel<Pair<Int,ByteArray>>(72)
+    // Socket callbacks enqueue reports without writing SharedPreferences or waiting on disk.
+    private val pendingTranscripts=Channel<Pair<String,String>>(256)
+    private val transcriptWorker=scope.launch(Dispatchers.IO) {
+        for((role,text) in pendingTranscripts) {
+            runCatching { onTranscript(role,text) }
+                .onFailure { notice("تعذر حفظ جزء من تفريغ المكالمة") }
+        }
+    }
     @Volatile private var generation=0
     @Volatile private var pipe:Socket?=null
     @Volatile private var output:DataOutputStream?=null
@@ -140,8 +148,8 @@ internal class MobileLiveCall(
                     // These are Gemini Live's actual text transcripts, not invented call notes.
                     for((field,role) in listOf("inputTranscription" to "caller","outputTranscription" to "agent")) {
                         val messageText=content.optJSONObject(field)?.optString("text")?.trim().orEmpty()
-                        if(messageText.isNotBlank()) runCatching { onTranscript(role,messageText) }
-                            .onFailure { notice("تعذر حفظ جزء من تفريغ المكالمة") }
+                        if(messageText.isNotBlank() && !pendingTranscripts.trySend(role to messageText).isSuccess)
+                            notice("طابور تفريغ المكالمة ممتلئ")
                     }
                     val parts=content.optJSONObject("modelTurn")?.optJSONArray("parts")?:return
                     for(i in 0 until parts.length()) {
@@ -184,6 +192,7 @@ internal class MobileLiveCall(
         }
     }
     private fun fail(reason:String){if(!stopped.get()){notice(reason);ready.completeExceptionally(IllegalStateException(reason));stop()}}
-    fun stop(){if(stopped.compareAndSet(false,true)){socketReady=false;recovery?.cancel();runCatching{pipe?.close()};playback.close();worker?.cancel();ws?.close(1000,"call ended");ws=null;output=null}}
+    fun stop(){if(stopped.compareAndSet(false,true)){socketReady=false;recovery?.cancel();runCatching{pipe?.close()};playback.close();pendingTranscripts.close();worker?.cancel();ws?.close(1000,"call ended");ws=null;output=null}}
+    suspend fun awaitTranscripts() { withTimeoutOrNull(1200L) { transcriptWorker.join() } }
     val active:Boolean get()=!stopped.get()
 }

@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/TenantAccountBridge.php';
 
 /**
  * Multi-tenant Android SIM enrollment. This MUST NOT reuse the old pilot bearer.
@@ -51,18 +52,15 @@ function device_pairing_redeem(string $code,string $installationId,int $simSlot,
             [$deviceId,now(),$pair['id'],now()]);
         if($changed!==1)throw new RuntimeException('device_pairing_race');
         db()->commit();
+        // Console remains authoritative; the optional tenant mirror is best effort.
+        TenantAccountBridge::mirrorDeviceToLaravel((int)$pair['account_id'],(int)$deviceId,(string)$pair['code_hash']);
         return ['device_id'=>$deviceId,'device_token'=>$token,'sim_slot'=>$simSlot,
             'site_id'=>(int)$pair['site_id'],'agent_id'=>(int)$pair['agent_id'],'agent_revision'=>1];
     }catch(Throwable $e){if(db()->inTransaction())db()->rollBack();throw $e;}
 }
 /** Active token must be tied to a valid, current account, site and agent. */
 function device_binding_authorize(string $token):?array {
-    if(!preg_match('/^otdev_[a-f0-9]{64}$/D',$token))return null;
-    return one("SELECT d.* FROM device_bindings d
-        JOIN accounts a ON a.id=d.account_id AND a.status='active'
-        JOIN sites s ON s.id=d.site_id AND s.account_id=d.account_id AND s.status='active'
-        JOIN agents ag ON ag.id=d.agent_id AND ag.site_id=d.site_id AND ag.account_id=d.account_id AND ag.status!='archived'
-        WHERE d.token_hash=? AND d.status='active'",[hash('sha256',$token)]);
+    return TenantAccountBridge::authorizeBinding($token);
 }
 function device_binding_profile(array $binding):array {
     $agent=one('SELECT id,name,voice,instructions FROM agents WHERE id=? AND account_id=? AND site_id=?',
@@ -126,6 +124,7 @@ function device_binding_assign_agent(int $accountId,int $deviceId,int $agentId):
 function device_binding_revoke(int $accountId,int $deviceId):bool {
     $changed=execute("UPDATE device_bindings SET status='revoked',slot_claim=NULL,revoked_at=? WHERE id=? AND account_id=? AND status='active'",
         [now(),$deviceId,$accountId]);
+    if($changed===1)TenantAccountBridge::revokeMirroredDevice($accountId,$deviceId);
     return $changed===1;
 }
 function device_pairing_cancel(int $accountId,int $pairingId):bool {

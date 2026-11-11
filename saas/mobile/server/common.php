@@ -7,10 +7,33 @@ function mobile_json(array $data, int $status=200): never {
     http_response_code($status); header('Content-Type: application/json; charset=utf-8');
     echo json_encode($data, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); exit;
 }
+/**
+ * A configured digest is authoritative; a broken private value fails closed.
+ * Keep the protected legacy file as fallback until the host is migrated.
+ */
+function mobile_auth_digest(
+    string $legacyFile=__DIR__.'/auth.sha256',
+    string $privateFile=MOBILE_STORE.'/auth.sha256'
+): ?string {
+    $env=getenv('ONTRACK_MOBILE_AUTH_SHA256');
+    if ($env!==false && $env!=='') {
+        return preg_match('/^[a-f0-9]{64}$/D',$env) ? $env : null;
+    }
+    clearstatcache(true,$privateFile);
+    if (file_exists($privateFile) || is_link($privateFile)) {
+        if (is_link($privateFile) || !is_file($privateFile) || (PHP_OS_FAMILY!=='Windows' && !is_readable($privateFile))) return null;
+        $mode=@fileperms($privateFile);
+        if (!is_int($mode) || (PHP_OS_FAMILY!=='Windows' && ($mode & 0077)!==0)) return null;
+        $digest=trim((string)@file_get_contents($privateFile,false,null,0,80));
+        return preg_match('/^[a-f0-9]{64}$/D',$digest) ? $digest : null;
+    }
+    $digest=trim((string)@file_get_contents($legacyFile,false,null,0,80));
+    return preg_match('/^[a-f0-9]{64}$/D',$digest) ? $digest : null;
+}
 function mobile_authorized(string $key): bool {
-    $expected = trim((string)@file_get_contents(__DIR__.'/auth.sha256'));
-    return strlen($key) >= 24 && preg_match('/^[a-f0-9]{64}$/D', $expected)
-        && hash_equals($expected, hash('sha256', $key));
+    if (strlen($key)<24) return false;
+    $expected=mobile_auth_digest();
+    return $expected!==null && hash_equals($expected,hash('sha256',$key));
 }
 function mobile_require_device(): void {
     $header = (string)($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');

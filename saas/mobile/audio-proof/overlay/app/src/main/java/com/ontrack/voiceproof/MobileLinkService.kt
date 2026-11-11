@@ -60,6 +60,7 @@ class MobileLinkService:Service() {
     private var loop:Job?=null
     private var callEventFlush:Job?=null
     private var callReportFlush:Job?=null
+    private var callLogLookup:Job?=null
     private lateinit var callEventOutbox:CallEventOutbox
     private lateinit var campaignDialer:CampaignDialer
     private var connectivity:ConnectivityManager?=null
@@ -159,9 +160,11 @@ class MobileLinkService:Service() {
                 if(callAnswered && !humanControl){
                     takeoverRequested=true;humanControl=true
                     callEventOutbox.activeCallId()?.let { id ->
-                        runCatching { callEventOutbox.appendReport(
-                            id,"handoff","system","الموظف استلم التحكم في المكالمة الحالية يدويًا من الإيجنت."
-                        ) }
+                        scope.launch(Dispatchers.IO) {
+                            runCatching { callEventOutbox.appendReport(
+                                id,"handoff","system","الموظف استلم التحكم في المكالمة الحالية يدويًا من الإيجنت."
+                            ) }
+                        }
                     }
                     // The shell socket returns the microphone mute to its original state.
                     call?.stop();call=null
@@ -242,9 +245,10 @@ class MobileLinkService:Service() {
                     }
                     val raw=CaptureDaemon.linkControl(this@MobileLinkService,'Q')?:error("مساعد الشريحة غير متصل")
                     val state=raw.substringAfter("CALL ").toIntOrNull()?:error("حالة الاتصال غير مفهومة")
+                    // Deliver all accepted transcript callbacks before the outbox queues finalize.
+                    if(state==0 && lastState!=0){call?.stop();call?.awaitTranscripts()}
                     // Persist device-observed call transitions even when server delivery retries.
                     callEventOutbox.observe(state)
-                    runCatching { callEventOutbox.enrichFromCallLog() } // optional consented on-device contact matching
                     runCatching { campaignDialer.tick(state,agentEnabled) }
                         .onFailure { notice("فحص الحملات لم يكتمل: "+it.javaClass.simpleName) }
                     if(callEventFlush?.isActive!=true)callEventFlush=scope.launch {
@@ -265,6 +269,10 @@ class MobileLinkService:Service() {
                     connected=true
                     inCall=state==1||state==2
                     callAnswered=state==2
+                    if(state==0 && callLogLookup?.isActive!=true)callLogLookup=scope.launch(Dispatchers.IO) {
+                        delay(2600)
+                        if(!inCall)runCatching { callEventOutbox.enrichFromCallLog { !inCall } }
+                    }
                     if(state==1 && lastState!=1){
                         recoveringActiveCall=false // New call; previous manual handoff expired.
                     }
@@ -359,7 +367,8 @@ class MobileLinkService:Service() {
                 if(t is CancellationException)throw t
                 if(inCall)recoveringActiveCall=true
                 call?.stop();call=null
-                inCall=false;callAnswered=false;connected=false
+                // Retain the last telephony state until the next confirmed idle transition; an interrupted network connection is not the end of a call.
+                connected=false
                 // Keep human control of the same call after Wi-Fi recovery.
                 notice("إعادة الاتصال تلقائيًا • "+t.javaClass.simpleName)
                 withTimeoutOrNull(backoff){retryWake.receive()}

@@ -37,6 +37,8 @@ class MobileLinkActivity:ComponentActivity(){
     private lateinit var nativeUpdates:NativeUpdates
     private var nativeRelease:NativeUpdates.Release?=null
     private var nativeBusy=false
+    private var deferredUiCheck=false
+    private var deferredNativeCheck=false
     private var nativeStatus="جاري فحص تحديث Android"
     private var lastNativeInstallResult=""
     @Volatile private var wifiFreeEnabledState=false
@@ -309,8 +311,12 @@ class MobileLinkActivity:ComponentActivity(){
             checkUpdates()
             checkNativeUpdates()
             var polls=0
+            var wasCalling=false
             while(isActive){
-                if(polls++%5==0){
+                val calling=MobileLinkService.inCall
+                if(!calling && deferredUiCheck){deferredUiCheck=false;checkUpdates()}
+                if(!calling && deferredNativeCheck){deferredNativeCheck=false;checkNativeUpdates()}
+                if(!calling && polls++%5==0){
                     val state=withContext(Dispatchers.IO){
                         val sw=com.ontrack.voiceproof.capture.StartWithoutWifi
                         Pair(sw.enabled(this@MobileLinkActivity),sw.ready(this@MobileLinkActivity))
@@ -318,9 +324,11 @@ class MobileLinkActivity:ComponentActivity(){
                     wifiFreeEnabledState=state.first
                     wifiFreeReadyState=state.second
                 }
-                sendState()
-                if(pending!=null && !MobileLinkService.inCall){val next=pending!!;pending=null;activate(next)}
-                delay(1000)
+                // Keep one transition update; suspend periodic UI work during audio.
+                if(!calling || wasCalling!=calling)sendState()
+                wasCalling=calling
+                if(pending!=null && !calling){val next=pending!!;pending=null;activate(next)}
+                delay(if(calling)3000L else 1000L)
             }
         }
     }
@@ -357,6 +365,7 @@ class MobileLinkActivity:ComponentActivity(){
         show(withContext(Dispatchers.IO){ota.stage(bundle)});banner.text="تم تحميل تحديث الواجهة؛ جاري التحقق من تشغيله…"
     }
     private suspend fun checkUpdates(){
+        if(MobileLinkService.inCall){deferredUiCheck=true;return}
         if(updateBusy)return;updateBusy=true
         try{
             val next=withContext(Dispatchers.IO){ota.check()}
@@ -365,6 +374,7 @@ class MobileLinkActivity:ComponentActivity(){
         finally{updateBusy=false}
     }
     private suspend fun checkNativeUpdates() {
+        if(MobileLinkService.inCall){deferredNativeCheck=true;return}
         if(nativeBusy)return
         nativeBusy=true
         nativeStatus="جاري فحص نسخة Android…";sendState()
