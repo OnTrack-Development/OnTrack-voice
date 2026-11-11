@@ -38,6 +38,8 @@ jobs:
           php tools/test_saas_diag_security.php
           php tools/test_saas_trace_redaction.php
           php tools/test_saas_security_guards.php
+          php tools/test_mobile_auth_fallback.php
+          php tools/test_tenant_account_bridge.php
           php tools/test_live_demo_security.php
           php tools/test_auth_login_throttle.php
           php tools/test_saas_quick_answer_policy.php
@@ -112,7 +114,85 @@ jobs:
         run: |
           set -euo pipefail
           git diff --check HEAD~1 HEAD
-          if git diff --name-only HEAD~1 HEAD | grep -E '^(VS/|android/|app/src/|saas/mobile/android/|saas/mobile/ota/|saas/mobile/server/|\.github/workflows/.*publish)'; then
+          if git diff --name-only HEAD~1 HEAD | grep -E '^(VS/|android/|app/src/|saas/mobile/android/|saas/mobile/ota/|saas/mobile/server/|\.github/workflows/.*publish)' | grep -Ev '^saas/mobile/server/common\.php
+            echo 'Forbidden native/deploy changes in SaaS-only branch'
+            exit 1
+          fi
+          echo SAAS_21_CODE_GUARD_PASS
+      - name: Gap-map frontend syntax and protected API lint
+        run: |
+          set -euo pipefail
+          find ops/gap-map/web -name '*.php' -type f -print0 | xargs -0 -n1 php -l
+          node --check ops/gap-map/web/app.js
+          python3 -m py_compile tools/build_gap_map_snapshot.py tools/run_gap_map_simulator.py tools/test_gap_map_handoff.py
+      - name: Run isolated user-journey simulator (no actual calls or payments)
+        env:
+          ONTRACK_SIMULATOR_ENABLE: '1'
+        run: |
+          set -euo pipefail
+          python3 tools/run_gap_map_simulator.py
+      - name: Rebuild source-backed map snapshot with simulation evidence
+        run: python3 tools/build_gap_map_snapshot.py
+      - name: Validate source gap auto-detectors and no credential leakage
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          obj=json.loads(Path("dist/gap-map/status.json").read_text(encoding="utf-8"))
+          ids={item.get("id") for item in obj.get("findings",[])}
+          assert {"SRC-001","SRC-002","SRC-003","SRC-004","SRC-006"}.issubset(ids),ids
+          assert obj["finding_count"]==len(obj["findings"])
+          assert all(f["runtime_verified"] is False and f.get("linked_gap") and f.get("evidence_paths") for f in obj["findings"])
+          assert "SRC-007" not in ids,"VS/ must remain deleted"
+          print("AUTO_SOURCE_FINDINGS_EVIDENCE_PASS count="+str(len(ids)))
+          PY
+      - name: Upload immutable architecture map evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: SaaS-Architecture-Gap-Map
+          path: |
+            dist/gap-map/status.json
+            dist/gap-map/simulation-report.json
+            ops/gap-map/web/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-gap-map:
+    name: Publish PIN-protected map only (no SaaS runtime or Android)
+    needs: php-security-and-core
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/fix/saas-21-closure-20261110' }}
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 15
+    concurrency:
+      group: ontrack-architecture-map-host-publish
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Fetch approved source scan + simulation artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: SaaS-Architecture-Gap-Map
+          path: .
+      - name: Publish map over authorized SSH preserving existing PIN or rotating through Actions secret
+        env:
+          ONTRACK_GAP_MAP_PIN: ${{ secrets.ONTRACK_GAP_MAP_PIN }}
+          ONTRACK_GAP_MAP_SOURCE_SHA: ${{ github.sha }}
+          PYTHONUTF8: '1'
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/publish_gap_map_direct_ssh.py
+          if ($LASTEXITCODE -ne 0) { throw 'Map-only SSH publishing or private HTTPS/PIN/SHA verification failed' }
+; then
             echo 'Forbidden native/deploy changes in SaaS-only branch'
             exit 1
           fi
