@@ -15,9 +15,10 @@ try {
     file_put_contents($legacy,$legacyDigest);
     putenv('ONTRACK_MOBILE_AUTH_SHA256');
     auth_check(mobile_auth_digest($legacy,$private)===$legacyDigest,'missing private uses legacy');
-    file_put_contents($private,hash('sha256','replacement_credential_123456789'));
+    $privateDigest=hash('sha256','replacement_credential_123456789');
+    file_put_contents($private,$privateDigest);
     chmod($private,0600);
-    auth_check(mobile_auth_digest($legacy,$private)!==$legacyDigest,'private takes precedence');
+    auth_check(mobile_auth_digest($legacy,$private)===$privateDigest,'private takes precedence');
     file_put_contents($private,'invalid');
     auth_check(mobile_auth_digest($legacy,$private)===null,'invalid private fails closed');
     putenv('ONTRACK_MOBILE_AUTH_SHA256='.$legacyDigest);
