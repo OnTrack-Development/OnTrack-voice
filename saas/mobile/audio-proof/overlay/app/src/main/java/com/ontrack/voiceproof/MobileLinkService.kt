@@ -70,6 +70,7 @@ class MobileLinkService:Service() {
     private var loop:Job?=null
     private var callEventFlush:Job?=null
     private var callReportFlush:Job?=null
+    private var callLogEnrichment:Job?=null
     private var tenantEventOutbox:CallEventOutbox?=null
     @Volatile private var liveSimSlot:Int=-1
     private var connectivity:ConnectivityManager?=null
@@ -265,6 +266,8 @@ class MobileLinkService:Service() {
         tenantEventOutbox=tenantEvents
         val reportOutbox=CallReportOutbox(this)
         var lastReportAttempt=0L
+        var idleSince=0L
+        var lastCallLogAttempt=0L
         var lastManagerPoll=0L
         var managerClaim:Deferred<Result<JSONObject>>?=null
         var managerCallback:JSONObject?=null
@@ -379,12 +382,33 @@ class MobileLinkService:Service() {
                             }
                         }
                     }
+                    if(current==null && call!=null){
+                        val ending=call!!
+                        ending.stop()
+                        // Keep the active call ID until accepted notes are persisted.
+                        if(!ending.awaitDeferredCallbacks()){delay(100);continue}
+                    }
                     val observedBinding=current?.slot?.takeIf { enrollment.paired(it) }
                         ?.let { runCatching { enrollment.bindingId(it) }.getOrNull() }
                     tenantEvents.observe(if(observedBinding!=null)current!!.state else TelephonyManager.CALL_STATE_IDLE,
                         if(observedBinding!=null)current!!.slot else -1,observedBinding?:-1)
-                    runCatching{tenantEvents.enrichFromCallLog()}
-                    if(callEventFlush?.isActive!=true)callEventFlush=scope.launch {
+                    // observe() changes memory immediately; Android flushes its disk write.
+                    // CallLog lookups run only after 3s idle and never hold the outbox lock.
+                    val observedAt=SystemClock.elapsedRealtime()
+                    if(current==null){
+                        if(idleSince==0L)idleSince=observedAt
+                        if(observedAt-idleSince>=3000L && observedAt-lastCallLogAttempt>=3000L &&
+                            callLogEnrichment?.isActive!=true){
+                            lastCallLogAttempt=observedAt
+                            callLogEnrichment=scope.launch(Dispatchers.IO){
+                                runCatching{tenantEvents.enrichFromCallLog {
+                                    !inCall && !tenantPairingInProgress &&
+                                        currentSlotCalls().none{it.state!=TelephonyManager.CALL_STATE_IDLE}
+                                }}.onFailure{notice("تعذر تعريف المكالمة؛ سيُعاد عند الخمول")}
+                            }
+                        }
+                    }else{idleSince=0L;callLogEnrichment?.cancel()}
+                    if(callEventFlush?.isActive!=true)callEventFlush=scope.launch(Dispatchers.IO) {
                         runCatching {
                             val event=tenantEvents.peekEligible { slot ->
                                 if(enrollment.paired(slot))runCatching { enrollment.bindingId(slot) }.getOrNull() else null
@@ -401,10 +425,10 @@ class MobileLinkService:Service() {
                     // A report is retried separately from call-state events. The
                     // original event may not have arrived yet; keep encrypted
                     // evidence until the server explicitly acknowledges saving.
-                    if(callReportFlush?.isActive!=true &&
+                    if(current==null && callReportFlush?.isActive!=true &&
                         SystemClock.elapsedRealtime()-lastReportAttempt>=6000L){
                         lastReportAttempt=SystemClock.elapsedRealtime()
-                        callReportFlush=scope.launch {
+                        callReportFlush=scope.launch(Dispatchers.IO) {
                             runCatching {
                                 val report=reportOutbox.peekEligible { slot ->
                                     if(enrollment.paired(slot))runCatching { enrollment.bindingId(slot) }.getOrNull() else null

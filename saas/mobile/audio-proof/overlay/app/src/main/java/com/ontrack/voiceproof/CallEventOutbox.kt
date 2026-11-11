@@ -45,11 +45,8 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
             .put("handoff_reason",reason.trim().take(350))
             .put("customer_notes",notes.trim().take(700))
             .put("sim_slot",slot).put("device_id",deviceId))
-        check(prefs.edit().putString("pending",pending.toString())
-            .putInt("sequence",sequence)
-            .putString("customer_human_request_id",callId).commit()){
-            "Human request event persistence failed"
-        }
+        prefs.edit().putString("pending",pending.toString())
+            .putInt("sequence",sequence).putString("customer_human_request_id",callId).apply()
         return true
     }
 
@@ -76,8 +73,7 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
             .put("phase","agent_report").put("duration_seconds",0)
             .put("summary",safeSummary).put("customer_notes",safeNotes)
             .put("sim_slot",slot).put("device_id",deviceId))
-        check(prefs.edit().putString("pending",pending.toString())
-            .putInt("sequence",sequence).commit()){"Call note event persistence failed"}
+        prefs.edit().putString("pending",pending.toString()).putInt("sequence",sequence).apply()
         return true
     }
 
@@ -96,10 +92,8 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
         pending.put(JSONObject().put("call_id",callId).put("sequence",sequence)
             .put("phase","human_takeover").put("duration_seconds",0)
             .put("sim_slot",slot).put("device_id",deviceId))
-        check(prefs.edit().putString("pending",pending.toString())
-            .putInt("sequence",sequence).putString("handoff_recorded_id",callId).commit()){
-            "Human takeover event persistence failed"
-        }
+        prefs.edit().putString("pending",pending.toString())
+            .putInt("sequence",sequence).putString("handoff_recorded_id",callId).apply()
         return true
     }
 
@@ -129,7 +123,7 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
         }
         if(state==2 && previous!=2 && answered==0L)answered=SystemClock.elapsedRealtime()
         if(id.isEmpty()){
-            prefs.edit().putInt("last_state",state).commit()
+            prefs.edit().putInt("last_state",state).apply()
             return
         }
         val phase=when(state){
@@ -153,7 +147,7 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
                 .put("duration",duration).put("sim_slot",simSlot)
                 .put("device_id",originalDevice))
         }
-        check(prefs.edit().putString("pending",pending.toString())
+        prefs.edit().putString("pending",pending.toString())
             .putString("pending_lookup",lookups.toString())
             .putInt("last_state",state)
             .putString("active_id",if(state==0)"" else id)
@@ -162,49 +156,54 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
             .putInt("active_device_id",if(state==0)-1 else originalDevice)
             .putLong("started_elapsed",if(state==0)0L else began)
             .putLong("answered_elapsed",if(state==0)0L else answered)
-            .putLong("started_wall_ms",if(state==0)0L else beganWall).commit()){
-                "Call event persistence failed"
-            }
+            .putLong("started_wall_ms",if(state==0)0L else beganWall).apply()
     }
 
 
     /** Retry for eventual CallLog consistency; never guess from unrelated saved contacts. */
-    @Synchronized fun enrichFromCallLog() {
-        if(ContextCompat.checkSelfPermission(context,Manifest.permission.READ_CALL_LOG)!=PackageManager.PERMISSION_GRANTED)return
-        val lookups=JSONArray(prefs.getString("pending_lookup","[]")?:"[]")
-        if(lookups.length()==0)return
+    /** One post-call identity lookup per idle pass; ContentResolver never holds the outbox lock. */
+    fun enrichFromCallLog(allowLookup:()->Boolean = { true }) {
+        if(ContextCompat.checkSelfPermission(context,Manifest.permission.READ_CALL_LOG)!=PackageManager.PERMISSION_GRANTED || !allowLookup())return
         val now=System.currentTimeMillis()
-        val rest=JSONArray()
-        var consumed=false
-        for(i in 0 until lookups.length()){
-            val item=lookups.optJSONObject(i)?:continue
-            // Allow recovery of yesterday's call identities if the user grants
-            // READ_CALL_LOG only after seeing blank names in SaaS. A unique,
-            // timestamp- and duration-matched Android CallLog entry is still
-            // mandatory; withheld/ambiguous numbers are NEVER inferred.
-            if(now-item.optLong("ended")>86400000L)continue // bounded 24h lookup
-            if(consumed || now-item.optLong("ended")<2500L){rest.put(item);continue}
-            consumed=true
-            val identified=runCatching{matchingCall(item)}.getOrNull()
-            if(identified!=null){
-                val pending=JSONArray(prefs.getString("pending","[]")?:"[]")
-                if(pending.length()>=1000){rest.put(item);continue}
-                val event=JSONObject().put("call_id",item.getString("call_id"))
-                    .put("sequence",item.getInt("sequence"))
-                    .put("phase","identified")
-                    .put("duration_seconds",item.getInt("duration"))
-                    .put("sim_slot",item.optInt("sim_slot",-1))
-                    .put("device_id",item.optInt("device_id",-1))
-                    .put("phone_number",identified.first)
-                    .put("contact_name",identified.second)
-                pending.put(event)
-                check(prefs.edit().putString("pending",pending.toString()).commit()){"Identity event persistence failed"}
-            } else rest.put(item)
+        val candidate=synchronized(this) {
+            val lookups=JSONArray(prefs.getString("pending_lookup","[]")?:"[]")
+            (0 until lookups.length()).mapNotNull{lookups.optJSONObject(it)}
+                .firstOrNull{now-it.optLong("ended") in 2500L..86400000L}
+                ?.let{JSONObject(it.toString())}
+        } ?: return
+        if(!allowLookup())return
+        val identified=runCatching{matchingCall(candidate,allowLookup)}.getOrNull()
+        if(!allowLookup())return
+        synchronized(this){
+            val latest=JSONArray(prefs.getString("pending_lookup","[]")?:"[]")
+            val pending=JSONArray(prefs.getString("pending","[]")?:"[]")
+            val rest=JSONArray()
+            var removed=false
+            for(i in 0 until latest.length()){
+                val item=latest.optJSONObject(i)?:continue
+                if(now-item.optLong("ended")>86400000L)continue
+                val same=!removed && item.optString("call_id")==candidate.optString("call_id") &&
+                    item.optInt("sequence")==candidate.optInt("sequence") &&
+                    item.optInt("device_id",-1)==candidate.optInt("device_id",-1)
+                if(same && identified!=null && pending.length()<1000){
+                    pending.put(JSONObject().put("call_id",item.getString("call_id"))
+                        .put("sequence",item.getInt("sequence")).put("phase","identified")
+                        .put("duration_seconds",item.getInt("duration"))
+                        .put("sim_slot",item.optInt("sim_slot",-1))
+                        .put("device_id",item.optInt("device_id",-1))
+                        .put("phone_number",identified.first).put("contact_name",identified.second))
+                    removed=true
+                }else rest.put(item)
+            }
+            if(removed)check(prefs.edit().putString("pending",pending.toString())
+                .putString("pending_lookup",rest.toString()).commit()){"Identity event persistence failed"}
+            else if(rest.length()!=latest.length())
+                check(prefs.edit().putString("pending_lookup",rest.toString()).commit()){"Lookup state persistence failed"}
         }
-        check(prefs.edit().putString("pending_lookup",rest.toString()).commit()){"Lookup state persistence failed"}
     }
 
-    private fun matchingCall(item:JSONObject):Pair<String,String?>? {
+    private fun matchingCall(item:JSONObject,allowLookup:()->Boolean):Pair<String,String?>? {
+        if(!allowLookup())return null
         val start=item.optLong("started");val end=item.optLong("ended")
         val observed=item.optInt("duration")
         val projection=arrayOf(CallLog.Calls.DATE,CallLog.Calls.NUMBER,
@@ -220,6 +219,7 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
             val cached=cursor.getColumnIndexOrThrow(CallLog.Calls.CACHED_NAME)
             val type=cursor.getColumnIndexOrThrow(CallLog.Calls.TYPE)
             while(cursor.moveToNext()&&found.size<3){
+                if(!allowLookup())return null
                 val origin=cursor.getLong(date)
                 val phone=cursor.getString(number)?.trim().orEmpty()
                 val seconds=cursor.getLong(duration)
@@ -228,6 +228,7 @@ internal class CallEventOutbox(private val context: Context,storeName:String="on
                 if(kind !in listOf(CallLog.Calls.INCOMING_TYPE,CallLog.Calls.OUTGOING_TYPE,CallLog.Calls.MISSED_TYPE))continue
                 if(!phone.matches(Regex("[+0-9()\\s-]{3,40}")))continue
                 if(kotlin.math.abs(seconds-observed.toLong())>15L)continue
+                if(!allowLookup())return null
                 val name=resolveName(phone)?:cursor.getString(cached)?.trim()?.take(100)?.ifBlank{null}
                 found.add(phone to name)
             }

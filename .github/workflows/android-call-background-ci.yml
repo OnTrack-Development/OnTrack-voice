@@ -1,0 +1,66 @@
+name: Android call background isolation CI
+on:
+  push:
+    branches: ['fix/android-call-background-isolation-20261111']
+    paths:
+      - 'saas/mobile/audio-proof/overlay/**'
+      - '.github/workflows/android-call-background-ci.yml'
+  pull_request:
+    branches: ['fix/saas-21-closure-20261110']
+    paths:
+      - 'saas/mobile/audio-proof/overlay/**'
+      - '.github/workflows/android-call-background-ci.yml'
+permissions:
+  contents: read
+concurrency:
+  group: android-call-background-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android-and-mobile-http:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - name: Authenticated local mobile HTTP contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -d -m 0700 -o "$(id -un)" /home/appontrack/.ontrack-mobile
+          token="$(php -r 'echo bin2hex(random_bytes(32));')"
+          digest="$(printf %s "$token" | sha256sum | cut -d ' ' -f 1)"
+          ONTRACK_MOBILE_AUTH_SHA256="$digest" php -S 127.0.0.1:8765 -t saas/mobile/server >/tmp/ontrack-mobile-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; rm -f /home/appontrack/.ontrack-mobile/call-status.json /home/appontrack/.ontrack-mobile/device-seen.json' EXIT
+          for attempt in {1..25}; do
+            if curl -fsS -o /dev/null http://127.0.0.1:8765/common.php; then break; fi
+            sleep 0.2
+          done
+          unauth="$(curl -sS -o /tmp/ontrack-unauth.json -w '%{http_code}' http://127.0.0.1:8765/device.php)"
+          test "$unauth" = 401
+          device="$(curl -sS -o /tmp/ontrack-device.json -w '%{http_code}' -H "Authorization: Bearer $token" http://127.0.0.1:8765/device.php)"
+          test "$device" = 200
+          status="$(curl -sS -o /tmp/ontrack-status.json -w '%{http_code}' -H "Authorization: Bearer $token" -H 'Content-Type: application/json' --data '{"phase":"idle","revision":1}' http://127.0.0.1:8765/status.php)"
+          test "$status" = 200
+          php -r '$d=json_decode(file_get_contents("/tmp/ontrack-device.json"),true,512,JSON_THROW_ON_ERROR); if(($d["ok"]??false)!==true || !isset($d["settings"],$d["session_path"],$d["heartbeat_seconds"]))exit(1); $s=json_decode(file_get_contents("/tmp/ontrack-status.json"),true,512,JSON_THROW_ON_ERROR); if(($s["ok"]??false)!==true)exit(1);'
+          echo 'Mobile device/status authenticated HTTP contract PASS'
+      - uses: actions/checkout@v5
+        with:
+          repository: jemcik/JemRec
+          ref: f011062adfb3a2154c4d5a9cc4394032fb4345f2
+          path: .build/jemrec
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+      - name: Install pinned Android SDK
+        run: |
+          sdkmanager --install "platforms;android-37" "platforms;android-36" "build-tools;36.0.0"
+          test -f "$ANDROID_HOME/platforms/android-36/android.jar"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Apply pinned source overlay
+        run: python3 saas/mobile/audio-proof/prepare.py .build/jemrec
+      - name: Run all Android unit tests and compile debug APK
+        working-directory: .build/jemrec
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :daemon-tests:test :app:assembleDebug

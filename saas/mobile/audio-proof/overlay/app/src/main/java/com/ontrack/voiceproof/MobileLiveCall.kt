@@ -76,6 +76,32 @@ internal class MobileLiveCall(
     private val reportTranscript=StringBuilder()
     private val recentCallerText=StringBuilder()
     private val humanRequestReported=AtomicBoolean(false)
+    private sealed interface DeferredCallback {
+        data class Human(val reason:String,val notes:String):DeferredCallback
+        data class Note(val summary:String,val notes:String):DeferredCallback
+    }
+    private val deferredCallbacks=Channel<DeferredCallback>(32)
+    // One bounded IO consumer; accepted callbacks drain after the audio call stops.
+    private val callbackWorker=CoroutineScope(SupervisorJob()+Dispatchers.IO).launch {
+        for(event in deferredCallbacks) when(event){
+            is DeferredCallback.Human ->
+                if(!runCatching{onHumanRequested(event.reason,event.notes)}.getOrDefault(false)){
+                    humanRequestReported.set(false)
+                    notice("طلب الموظف لم يتأكد حفظه بعد؛ هيتم إعادة المحاولة")
+                }else notice("تم حفظ طلب الموظف بعد المكالمة")
+            is DeferredCallback.Note ->
+                if(!runCatching{onCallNote(event.summary,event.notes)}.getOrDefault(false))
+                    notice("تعذر حفظ ملاحظة الإيجنت")
+        }
+    }
+    private fun queueHuman(reason:String,notes:String):Boolean {
+        if(stopped.get())return false
+        if(!humanRequestReported.compareAndSet(false,true))return true
+        if(deferredCallbacks.trySend(DeferredCallback.Human(reason,notes)).isSuccess)return true
+        humanRequestReported.set(false);return false
+    }
+    private fun queueNote(summary:String,notes:String):Boolean =
+        !stopped.get() && deferredCallbacks.trySend(DeferredCallback.Note(summary,notes)).isSuccess
     // Conservative caller-only intent detector; final AI analysis can find
     // requests missed here, but a negative phrase must never auto-dial staff.
     private val humanRequestPattern=Regex(
@@ -93,15 +119,8 @@ internal class MobileLiveCall(
         for(match in humanRequestPattern.findAll(rolling)){
             val context=rolling.substring((match.range.first-16).coerceAtLeast(0),match.range.first)
             if(humanRequestNegation.containsMatchIn(context))continue
-            if(humanRequestReported.compareAndSet(false,true)){
-                val recorded=runCatching{
-                    onHumanRequested("المتصل طلب التحدث مع موظف بشري أثناء المكالمة.","")
-                }.getOrDefault(false)
-                if(!recorded){
-                    humanRequestReported.set(false)
-                    notice("طلب الموظف لم يتأكد حفظه بعد؛ هيتم إعادة المحاولة")
-                }
-            }
+            if(!queueHuman("المتصل طلب التحدث مع موظف بشري أثناء المكالمة.",""))
+                scope.launch(Dispatchers.IO){notice("طابور الملاحظات ممتلئ؛ طلب الموظف لم يُحفظ")}
             return
         }
     }
@@ -336,14 +355,11 @@ internal class MobileLiveCall(
                                     val reason=args.optString("reason","").trim().take(350)
                                         .ifBlank{"المتصل طلب التحدث مع موظف بشري"}
                                     val note=args.optString("customer_notes","").trim().take(700)
-                                    if(humanRequestReported.get())true else
-                                        runCatching{onHumanRequested(reason,note)}.getOrDefault(false)
-                                            .also{if(it)humanRequestReported.set(true)}
+                                    queueHuman(reason,note)
                                 }
-                                "save_call_note"->runCatching{
-                                    onCallNote(args.optString("summary","").trim().take(1000),
-                                        args.optString("customer_notes","").trim().take(1000))
-                                }.getOrDefault(false)
+                                "save_call_note"->queueNote(
+                                    args.optString("summary","").trim().take(1000),
+                                    args.optString("customer_notes","").trim().take(1000))
                                 else->false
                             }
                             val result=JSONObject().put("name",name)
@@ -352,8 +368,6 @@ internal class MobileLiveCall(
                             val id=item.optString("id","")
                             if(id.isNotBlank())result.put("id",id)
                             responses.put(result)
-                            if(name=="request_human_employee" && saved)
-                                notice("تم حفظ طلب موظف للمتابعة بعد نهاية المكالمة، وليس تحويلًا مباشرًا")
                         }
                         if(responses.length()>0 && !webSocket.send(JSONObject().put(
                             "toolResponse",JSONObject().put("functionResponses",responses)).toString()))
@@ -486,9 +500,13 @@ internal class MobileLiveCall(
             // if the Live service did not send enough transcription.
             if(transcription.length>=18)runCatching{onFinished(transcription)}
                 .onFailure{notice("تعذر حفظ نص المكالمة بأمان؛ التقرير غير متاح مؤقتًا")}
+            deferredCallbacks.close()
             diagnostics?.cancel();recovery?.cancel();runCatching{pipe?.close()};playback.close()
             worker?.cancel();ws?.close(1000,"call ended");ws=null;output=null
         }
     }
+    suspend fun awaitDeferredCallbacks():Boolean = withTimeoutOrNull(2000L){
+        callbackWorker.join();true
+    } ?: false
     val active:Boolean get()=!stopped.get()
 }
