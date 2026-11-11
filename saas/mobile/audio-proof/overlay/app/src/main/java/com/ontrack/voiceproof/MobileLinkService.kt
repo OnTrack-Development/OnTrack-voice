@@ -411,10 +411,13 @@ class MobileLinkService:Service() {
                             callLogEnrichment?.isActive!=true){
                             lastCallLogAttempt=observedAt
                             callLogEnrichment=scope.launch(Dispatchers.IO){
-                                runCatching{tenantEvents.enrichFromCallLog {
-                                    !inCall && !tenantPairingInProgress &&
-                                        currentSlotCalls().none{it.state!=TelephonyManager.CALL_STATE_IDLE}
-                                }}.onFailure{notice("تعذر تعريف المكالمة؛ سيُعاد عند الخمول")}
+                                try{
+                                    if(!inCall && !tenantPairingInProgress &&
+                                        currentSlotCalls().none{it.state!=TelephonyManager.CALL_STATE_IDLE}){
+                                        tenantEvents.enrichFromCallLog { !inCall && !tenantPairingInProgress }
+                                    }
+                                }catch(cancelled:CancellationException){throw cancelled}
+                                catch(error:Exception){notice("تعذر تعريف المكالمة؛ سيُعاد عند الخمول")}
                             }
                         }
                     }else{idleSince=0L;callLogEnrichment?.cancel()}

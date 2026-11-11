@@ -79,10 +79,13 @@ internal class MobileLiveCall(
     private sealed interface DeferredCallback {
         data class Human(val reason:String,val notes:String):DeferredCallback
         data class Note(val summary:String,val notes:String):DeferredCallback
+        data class Transcript(val text:String):DeferredCallback
     }
     private val deferredCallbacks=Channel<DeferredCallback>(32)
+    private val callbackScope=CoroutineScope(SupervisorJob()+Dispatchers.IO)
+    private var callbackCloser:Job?=null
     // One bounded IO consumer; accepted callbacks drain after the audio call stops.
-    private val callbackWorker=CoroutineScope(SupervisorJob()+Dispatchers.IO).launch {
+    private val callbackWorker=callbackScope.launch {
         for(event in deferredCallbacks) when(event){
             is DeferredCallback.Human ->
                 if(!runCatching{onHumanRequested(event.reason,event.notes)}.getOrDefault(false)){
@@ -92,6 +95,9 @@ internal class MobileLiveCall(
             is DeferredCallback.Note ->
                 if(!runCatching{onCallNote(event.summary,event.notes)}.getOrDefault(false))
                     notice("تعذر حفظ ملاحظة الإيجنت")
+            is DeferredCallback.Transcript ->
+                runCatching{onFinished(event.text)}
+                    .onFailure{notice("تعذر حفظ نص المكالمة بأمان؛ التقرير غير متاح مؤقتًا")}
         }
     }
     private fun queueHuman(reason:String,notes:String):Boolean {
@@ -498,14 +504,17 @@ internal class MobileLiveCall(
             val transcription=synchronized(transcriptLock){reportTranscript.toString().trim()}
             // Callback persists the text encrypted on device. No made-up summary
             // if the Live service did not send enough transcription.
-            if(transcription.length>=18)runCatching{onFinished(transcription)}
-                .onFailure{notice("تعذر حفظ نص المكالمة بأمان؛ التقرير غير متاح مؤقتًا")}
-            deferredCallbacks.close()
+            callbackCloser=callbackScope.launch {
+                try{
+                    if(transcription.length>=18)deferredCallbacks.send(DeferredCallback.Transcript(transcription))
+                }finally{deferredCallbacks.close()}
+            }
             diagnostics?.cancel();recovery?.cancel();runCatching{pipe?.close()};playback.close()
             worker?.cancel();ws?.close(1000,"call ended");ws=null;output=null
         }
     }
     suspend fun awaitDeferredCallbacks():Boolean = withTimeoutOrNull(2000L){
+        callbackCloser?.join()
         callbackWorker.join();true
     } ?: false
     val active:Boolean get()=!stopped.get()
