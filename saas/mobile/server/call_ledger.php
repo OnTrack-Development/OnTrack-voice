@@ -15,8 +15,15 @@ function ontrack_call_event(array $event, string $store): array {
     $duration=filter_var($event['duration_seconds']??0,FILTER_VALIDATE_INT);
     if ($duration===false || $duration<0 || $duration>172800) throw new InvalidArgumentException('invalid_duration');
     if (!is_dir($store) && !mkdir($store,0700,true) && !is_dir($store)) throw new RuntimeException('store_unavailable');
-    $lock=fopen($store.'/.ledger.lock','c');
-    if ($lock===false || !flock($lock,LOCK_EX)) throw new RuntimeException('store_locked');
+    // Serialize events for the same call while allowing independent calls to
+    // progress. Fixed stripes bound private lock-file growth to 256 files.
+    $lockPath=$store.'/.ledger-'.substr(hash('sha256',$id),0,2).'.lock';
+    $lock=fopen($lockPath,'c');
+    if ($lock===false) throw new RuntimeException('store_locked');
+    if (!flock($lock,LOCK_EX)) {
+        fclose($lock);
+        throw new RuntimeException('store_locked');
+    }
     try {
         $path=$store.'/'.$id.'.json';
         $existing=is_file($path)?json_decode((string)file_get_contents($path),true):null;
