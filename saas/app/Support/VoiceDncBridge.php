@@ -73,13 +73,12 @@ final class VoiceDncBridge
         $links=$data['account_to_tenant']??null;
         if(!is_array($links))return null;
         $found=null;
+        $seenTenants=[];
         foreach($links as $account=>$tenant) {
             if(!ctype_digit((string)$account)||filter_var($tenant,FILTER_VALIDATE_INT)===false)return null;
-            if((int)$account<=0||(int)$tenant<=0)return null;
-            if((int)$tenant===$tenantId) {
-                if($found!==null)return null;
-                $found=(int)$account;
-            }
+            if((int)$account<=0||(int)$tenant<=0||isset($seenTenants[(int)$tenant]))return null;
+            $seenTenants[(int)$tenant]=true;
+            if((int)$tenant===$tenantId)$found=(int)$account;
         }
         return $found;
     }
@@ -88,9 +87,13 @@ final class VoiceDncBridge
     {
         $dsn=getenv('ONTRACK_CONSOLE_DNC_DSN');
         if(!is_string($dsn)||!preg_match('/^(mysql|sqlite):/D',$dsn))return null;
+        $user=(string)(getenv('ONTRACK_CONSOLE_DNC_USER')?:'');
+        $password=(string)(getenv('ONTRACK_CONSOLE_DNC_PASSWORD')?:'');
+        static $connections=[];
+        $key=hash('sha256',$dsn."\0".$user."\0".$password);
+        if(isset($connections[$key]))return $connections[$key];
         try {
-            return new PDO($dsn,(string)(getenv('ONTRACK_CONSOLE_DNC_USER')?:''),
-                (string)(getenv('ONTRACK_CONSOLE_DNC_PASSWORD')?:''),
+            return $connections[$key]=new PDO($dsn,$user,$password,
                 [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
                  PDO::ATTR_TIMEOUT=>2]);
         } catch(Throwable $e) {
