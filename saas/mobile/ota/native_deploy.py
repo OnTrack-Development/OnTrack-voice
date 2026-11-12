@@ -100,7 +100,7 @@ def deploy(zip_url,manifest_b64,cert_b64,sha_expected):
                     finally:
                         if os.path.exists(staged):os.unlink(staged)
                     atomic(ROOT/"latest.apk",dest.read_bytes())
-                    atomic(ROOT/".htaccess",b'Options -Indexes\nAddType application/vnd.android.package-archive .apk\nSetEnvIfNoCase Request_URI \\.apk$ no-gzip dont-vary\n<IfModule mod_rewrite.c>\nRewriteEngine On\nRewriteRule ^ - [L]\n</IfModule>\n<IfModule mod_headers.c>\nHeader always set Accept-Ranges "bytes"\nHeader unset Content-Encoding\n<Files "latest.json">\nHeader set Cache-Control "no-store"\n</Files>\n<FilesMatch "\\.apk$">\nHeader set Cache-Control "public, max-age=86400"\n</FilesMatch>\n</IfModule>\n')
+                    atomic(ROOT/".htaccess",b'Options -Indexes\nAddType application/vnd.android.package-archive .apk\n<IfModule mod_setenvif.c>\nSetEnvIfNoCase Request_URI \\.(apk|json|html)$ no-gzip dont-vary no-brotli\n</IfModule>\n<IfModule mod_rewrite.c>\nRewriteEngine On\nRewriteRule ^ - [E=no-gzip:1,E=no-brotli:1,L]\n</IfModule>\n<IfModule mod_headers.c>\nHeader always set Accept-Ranges "bytes"\n<Files "latest.json">\nHeader set Cache-Control "no-store"\n</Files>\n<FilesMatch "\\.apk$">\nHeader set Cache-Control "public, max-age=86400"\n</FilesMatch>\n</IfModule>\n')
                     atomic(current,manifest)
     finally:
         if os.path.exists(tmp):os.unlink(tmp)

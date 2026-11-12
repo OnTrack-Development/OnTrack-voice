@@ -51,6 +51,6 @@ def deploy(encoded,expected):
         if dest.is_symlink():raise ValueError('Immutable file symlink')
         if dest.exists() and dest.read_bytes()!=html:raise ValueError('Immutable content conflict')
         atomic(dest,html)
-        atomic(target/'.htaccess',b'Options -Indexes\n<IfModule mod_headers.c>\n<Files "latest.json">\n Header set Cache-Control "no-store"\n</Files>\n</IfModule>\n')
+        atomic(target/'.htaccess',b'Options -Indexes\n<IfModule mod_setenvif.c>\nSetEnvIfNoCase Request_URI \\.(apk|json|html)$ no-gzip dont-vary no-brotli\n</IfModule>\n<IfModule mod_rewrite.c>\nRewriteEngine On\nRewriteRule ^ - [E=no-gzip:1,E=no-brotli:1,L]\n</IfModule>\n<IfModule mod_headers.c>\n<Files "latest.json">\nHeader set Cache-Control "no-store"\n</Files>\n</IfModule>\n')
         atomic(current,manifest.encode())  # publish pointer last
     print(json.dumps({'status':'installed','scope':'mobile/updates','revision':meta['revision'],'sha256':meta['sha256'],'runtime':meta['runtime'],'no_credentials_read':True,'root_api_unchanged':True}))

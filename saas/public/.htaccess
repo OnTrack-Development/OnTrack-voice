@@ -16,7 +16,7 @@ Options -Indexes
     RewriteRule ^saas/mobile/(.*)$ /mobile/$1 [L,QSA]
 
     # Static Direct Serve for mobile OTA/APK updates (bypass Laravel index.php)
-    RewriteRule ^mobile/updates/ - [L]
+    RewriteRule ^mobile/updates/ - [E=no-gzip:1,E=no-brotli:1,L]
 
     # Preserve Authorization Header for Android Bearer tokens
     RewriteCond %{HTTP:Authorization} .
@@ -29,13 +29,12 @@ Options -Indexes
 </IfModule>
 
 <IfModule mod_setenvif.c>
-    SetEnvIfNoCase Request_URI \.apk$ no-gzip dont-vary
+    SetEnvIfNoCase Request_URI \.(apk|json|html)$ no-gzip dont-vary no-brotli
 </IfModule>
 
 <FilesMatch "\.apk$">
     <IfModule mod_headers.c>
         Header always set Accept-Ranges "bytes"
-        Header unset Content-Encoding
     </IfModule>
 </FilesMatch>
 
