@@ -93,9 +93,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 65', 'versionCode')
+                        'versionCode = 66', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.3.42"', 'versionName')
+                        'versionName = "0.3.43"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
@@ -126,6 +126,47 @@ def main(root):
         '                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)\n'
         '                .build();',
         'low latency call uplink AudioTrack')
+    path.write_text(text)
+    path = root / 'shellserver/src/com/genymobile/scrcpy/audio/AudioDirectCapture.java'
+    text = replace_once(
+        path.read_text(),
+        'import android.media.AudioRecord;\n',
+        'import android.media.AudioRecord;\n'
+        'import android.media.audiofx.AcousticEchoCanceler;\n'
+        'import android.media.audiofx.NoiseSuppressor;\n',
+        'audio effects imports')
+    text = replace_once(
+        text,
+        '    private AudioRecordReader reader;\n',
+        '    private AudioRecordReader reader;\n'
+        '    private AcousticEchoCanceler aec;\n'
+        '    private NoiseSuppressor ns;\n',
+        'audio effects fields')
+    text = replace_once(
+        text,
+        '        recorder.startRecording();\n        reader = new AudioRecordReader(recorder);',
+        '        recorder.startRecording();\n'
+        '        try {\n'
+        '            int sessionId = recorder.getAudioSessionId();\n'
+        '            if (AcousticEchoCanceler.isAvailable()) {\n'
+        '                aec = AcousticEchoCanceler.create(sessionId);\n'
+        '                if (aec != null) aec.setEnabled(true);\n'
+        '            }\n'
+        '            if (NoiseSuppressor.isAvailable()) {\n'
+        '                ns = NoiseSuppressor.create(sessionId);\n'
+        '                if (ns != null) ns.setEnabled(true);\n'
+        '            }\n'
+        '        } catch (Throwable ignored) { }\n'
+        '        reader = new AudioRecordReader(recorder);',
+        'hardware AEC and NS attach')
+    text = replace_once(
+        text,
+        '    public void stop() {\n        if (recorder != null) {',
+        '    public void stop() {\n'
+        '        if (aec != null) { try { aec.release(); } catch (Throwable ignored) {} aec = null; }\n'
+        '        if (ns != null) { try { ns.release(); } catch (Throwable ignored) {} ns = null; }\n'
+        '        if (recorder != null) {',
+        'hardware AEC and NS release')
     path.write_text(text)
     path = root / 'shellserver/src/com/jemcik/jemrec/shell/Main.java'
     text = replace_once(path.read_text(), '        if (command == COMMAND_RECORD) {', '''        if (command == 'B') {

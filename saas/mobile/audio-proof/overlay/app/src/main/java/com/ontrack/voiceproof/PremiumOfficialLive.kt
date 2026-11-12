@@ -39,7 +39,7 @@ internal class PremiumOfficialLive(
     private val googleAudio:(ByteArray,Int)->Unit,
     private val interrupted:()->Unit,
     private val disconnected:(String)->Unit,
-    private val maxOutputTokens:Int=120,
+    private val maxOutputTokens:Int=LiveVadConfig.DEFAULT_MAX_OUTPUT_TOKENS,
 ) {
     private val stopped=AtomicBoolean(false)
     private val ready=CompletableDeferred<Unit>()
@@ -104,7 +104,7 @@ internal class PremiumOfficialLive(
                 val cleanModel=model.removePrefix("models/")
                 val generationConfig=JSONObject()
                     .put("responseModalities",JSONArray().put("AUDIO"))
-                    .put("maxOutputTokens",maxOutputTokens.coerceIn(40,200))
+                    .put("maxOutputTokens",LiveVadConfig.clampMaxOutputTokens(maxOutputTokens))
                 if(!cleanModel.contains("3.8-live",ignoreCase=true) && cleanModel.contains("2.5",ignoreCase=true))
                     generationConfig.put("thinkingConfig",JSONObject().put("thinkingBudget",0))
                 val setup=JSONObject().put("model","models/"+cleanModel)
@@ -113,8 +113,8 @@ internal class PremiumOfficialLive(
                         .put("disabled",false)
                         .put("startOfSpeechSensitivity","START_SENSITIVITY_HIGH")
                         .put("endOfSpeechSensitivity","END_SENSITIVITY_HIGH")
-                        .put("prefixPaddingMs",100)
-                        .put("silenceDurationMs",250)))
+                        .put("prefixPaddingMs",LiveVadConfig.PREFIX_PADDING_MS)
+                        .put("silenceDurationMs",LiveVadConfig.SILENCE_DURATION_MS)))
                     .put("systemInstruction",JSONObject().put("parts",
                         JSONArray().put(JSONObject().put("text",instruction))))
                     .put("inputAudioTranscription",JSONObject())

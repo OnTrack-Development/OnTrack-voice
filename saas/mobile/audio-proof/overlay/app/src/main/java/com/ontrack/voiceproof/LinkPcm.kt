@@ -64,3 +64,47 @@ internal class LinkPcm(private val channel: String) {
         }
     }
 }
+
+/**
+ * Adaptive 16 kHz mono uplink framer:
+ * - Wi-Fi / 4G LTE / 5G NR: 40 ms (1280 bytes = 640 samples)
+ * - 2G / 3G / HSPA+: 60 ms (1920 bytes = 960 samples) to lower header overhead
+ */
+internal class UplinkAudioFrameBuffer {
+    private val pending = ByteArrayOutputStream()
+
+    fun push(chunk: ByteArray, frameBytes: Int): List<ByteArray> {
+        require(frameBytes > 0 && frameBytes % 2 == 0)
+        if (chunk.isNotEmpty()) {
+            pending.write(chunk)
+        }
+        val current = pending.toByteArray()
+        if (current.size < frameBytes) return emptyList()
+        val ready = ArrayList<ByteArray>(current.size / frameBytes)
+        var offset = 0
+        while (offset + frameBytes <= current.size) {
+            ready.add(current.copyOfRange(offset, offset + frameBytes))
+            offset += frameBytes
+        }
+        pending.reset()
+        if (offset < current.size) {
+            pending.write(current, offset, current.size - offset)
+        }
+        return ready
+    }
+
+    fun flush(): ByteArray? {
+        if (pending.size() == 0) return null
+        val tail = pending.toByteArray()
+        pending.reset()
+        return tail
+    }
+
+    companion object {
+        const val FAST_FRAME_BYTES = 1280 // 40ms @ 16kHz 16-bit mono
+        const val SLOW_CELLULAR_FRAME_BYTES = 1920 // 60ms @ 16kHz 16-bit mono
+
+        fun targetBytes(cellular: Boolean, slowCellular: Boolean): Int =
+            if (cellular && slowCellular) SLOW_CELLULAR_FRAME_BYTES else FAST_FRAME_BYTES
+    }
+}

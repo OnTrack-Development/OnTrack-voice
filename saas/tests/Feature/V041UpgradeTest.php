@@ -187,7 +187,7 @@ class V041UpgradeTest extends TestCase
         $vs->publishAgent($accountId, $agentId, $user->id);
 
         $session = $vs->issueLiveVoiceSession($binding, static fn () => 'auth_tokens/test-token-v041');
-        $this->assertSame(120, $session['max_output_tokens']);
+        $this->assertSame(1024, $session['max_output_tokens']);
         $this->assertStringStartsWith('[قاعدة قِصر الرد الإلزامية]', $session['system_instruction']);
         $this->assertStringContainsString('[بروتوكول القائمة التفاعلية (IVR) وتوجيه الأقسام]', $session['system_instruction']);
         $this->assertTrue($session['ivr_enabled']);

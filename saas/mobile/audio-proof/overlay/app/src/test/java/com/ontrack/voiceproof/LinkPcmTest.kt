@@ -38,4 +38,32 @@ class LinkPcmTest {
     @Test fun outputPreservesSignedSamplesAndDuration() {
         assertArrayEquals(byteArrayOf(-1,-1,-1,-1,2,0,2,0),LinkPcm.output(byteArrayOf(-1,-1,2,0),24000))
     }
+
+    @Test fun adaptiveUplinkFramerBatches40msFastAnd60msSlowCellular() {
+        assertEquals(1280, UplinkAudioFrameBuffer.targetBytes(cellular = false, slowCellular = false))
+        assertEquals(1280, UplinkAudioFrameBuffer.targetBytes(cellular = true, slowCellular = false))
+        assertEquals(1920, UplinkAudioFrameBuffer.targetBytes(cellular = true, slowCellular = true))
+
+        val buffer = UplinkAudioFrameBuffer()
+        val p1 = ByteArray(640) { 1 }
+        val p2 = ByteArray(640) { 2 }
+        assertTrue(buffer.push(p1, UplinkAudioFrameBuffer.FAST_FRAME_BYTES).isEmpty())
+        val emittedFast = buffer.push(p2, UplinkAudioFrameBuffer.FAST_FRAME_BYTES)
+        assertEquals(1, emittedFast.size)
+        assertEquals(1280, emittedFast[0].size)
+
+        val slowBuf = UplinkAudioFrameBuffer()
+        assertTrue(slowBuf.push(ByteArray(1280), UplinkAudioFrameBuffer.SLOW_CELLULAR_FRAME_BYTES).isEmpty())
+        val emittedSlow = slowBuf.push(ByteArray(640), UplinkAudioFrameBuffer.SLOW_CELLULAR_FRAME_BYTES)
+        assertEquals(1, emittedSlow.size)
+        assertEquals(1920, emittedSlow[0].size)
+    }
+
+    @Test fun slowCellularClassifierDistinguishes2g3gFrom4g5g() {
+        assertTrue(CellularRadioStatus.isSlowCellularType(android.telephony.TelephonyManager.NETWORK_TYPE_EDGE))
+        assertTrue(CellularRadioStatus.isSlowCellularType(android.telephony.TelephonyManager.NETWORK_TYPE_HSPAP))
+        assertTrue(CellularRadioStatus.isSlowCellularType(android.telephony.TelephonyManager.NETWORK_TYPE_UMTS))
+        assertFalse(CellularRadioStatus.isSlowCellularType(android.telephony.TelephonyManager.NETWORK_TYPE_LTE))
+        assertFalse(CellularRadioStatus.isSlowCellularType(android.telephony.TelephonyManager.NETWORK_TYPE_NR))
+    }
 }

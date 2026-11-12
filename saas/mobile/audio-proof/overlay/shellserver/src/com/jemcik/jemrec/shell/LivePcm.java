@@ -10,7 +10,8 @@ import java.io.IOException;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -25,8 +26,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * not properties proven by successful JVM/Gradle builds.
  */
 final class LivePcm {
-    private static final int SLICE_BYTES = 1920; // 20 ms at 48 kHz mono 16-bit PCM
-    private static final int MAX_QUEUED_FRAMES = 900;
+    private static final int SLICE_BYTES = 960; // 10 ms at 48 kHz mono 16-bit PCM
+    private static final int MAX_QUEUED_FRAMES = 1200;
     private static final AtomicBoolean owned = new AtomicBoolean();
 
     private static final class Frame {
@@ -43,12 +44,15 @@ final class LivePcm {
         if (!owned.compareAndSet(false, true)) throw new IOException("live bridge already active");
         AtomicBoolean active = new AtomicBoolean(true);
         AtomicInteger playbackGen = new AtomicInteger(0);
-        ConcurrentLinkedQueue<Frame> playQueue = new ConcurrentLinkedQueue<>();
+        LinkedBlockingQueue<Frame> playQueue = new LinkedBlockingQueue<>(MAX_QUEUED_FRAMES);
         Object trackLock = new Object();
         AudioTrack track = null;
+        Thread player = null;
         boolean wasMuted = audio.isMicrophoneMute();
         try {
             socket.setSoTimeout(30_000);
+            socket.setTcpNoDelay(true);
+            socket.setPerformancePreferences(0, 2, 1);
             DataInputStream in = new DataInputStream(socket.getInputStream());
             int route = in.readUnsignedByte();
             track = route == 'S' ? GreetingPlayer.screeningTrack(audio) : GreetingPlayer.musicTrack(audio);
@@ -83,14 +87,17 @@ final class LivePcm {
             reader.setDaemon(true); reader.start();
 
             final AudioTrack playbackTrack = track;
-            Thread player = new Thread(() -> {
+            player = new Thread(() -> {
                 try {
                     while (active.get()) {
-                        Frame frame = playQueue.poll();
-                        if (frame == null) {
-                            Thread.sleep(2);
+                        Frame frame;
+                        try {
+                            frame = playQueue.poll(100, TimeUnit.MILLISECONDS);
+                        } catch (InterruptedException ignored) {
+                            if (!active.get()) break;
                             continue;
                         }
+                        if (frame == null) continue;
                         if (frame.gen != playbackGen.get()) continue;
                         int offset = 0;
                         while (active.get() && offset < frame.data.length && frame.gen == playbackGen.get()) {
@@ -98,13 +105,10 @@ final class LivePcm {
                             int written;
                             synchronized (trackLock) {
                                 if (!active.get() || frame.gen != playbackGen.get()) break;
-                                written = playbackTrack.write(frame.data, offset, chunk, AudioTrack.WRITE_NON_BLOCKING);
+                                written = playbackTrack.write(frame.data, offset, chunk, AudioTrack.WRITE_BLOCKING);
                             }
                             if (written < 0) throw new IOException("call playback failed: " + written);
-                            if (written == 0) {
-                                Thread.sleep(2);
-                                continue;
-                            }
+                            if (written == 0) continue;
                             offset += written;
                         }
                     }
@@ -134,15 +138,17 @@ final class LivePcm {
                 if (size < 0 || size > bytes.length || size % 2 != 0) throw new IOException("invalid live playback block");
                 in.readFully(bytes, 0, size);
                 int currentGen = playbackGen.get();
-                playQueue.offer(new Frame(currentGen, Arrays.copyOf(bytes, size)));
-                while (playQueue.size() > MAX_QUEUED_FRAMES) {
+                Frame frame = new Frame(currentGen, Arrays.copyOf(bytes, size));
+                if (!playQueue.offer(frame)) {
                     playQueue.poll();
+                    playQueue.offer(frame);
                 }
             }
         } finally {
             active.set(false);
             playbackGen.incrementAndGet();
             playQueue.clear();
+            if (player != null) player.interrupt();
             try { socket.close(); } catch (IOException ignored) { }
             try { capture.stop(); } catch (Throwable ignored) { }
             if (track != null) {

@@ -13,6 +13,10 @@ internal object FishTtsFailover {
         http==502 && code in setOf("premium_tts_empty_audio","premium_tts_generation_failed") -> "tts_failed"
         else -> null
     }
+    fun httpFallbackReason(http:Int,code:String):String? = reason(http,code) ?: when {
+        http in 500..504 -> "provider_unavailable"
+        else -> null
+    }
     fun label(reason:String):String = when(reason){
         "credit" -> "رصيد Fish Audio انتهى؛ تحويل صوت الإيجنت إلى Google Live داخل نفس المكالمة"
         "rate_limit" -> "Fish Audio مزدحم؛ تحويل الصوت إلى Google Live داخل نفس المكالمة"

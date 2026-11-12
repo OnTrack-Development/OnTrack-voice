@@ -315,12 +315,13 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 <div class="v1Buttons"><button type="button" id="v1PermissionSetup">فحص النواقص</button><button type="button" id="v1PermissionTest">فحص الجهاز</button></div></div>
 </section>
 <section class="card otPersistentUpdates" id="v1UpdateBox" aria-labelledby="v1UpdateHeading">
-<div class="section-title"><h2 id="v1UpdateHeading">تحديثات التطبيق</h2><span class="chip">0.3.42 · v65</span></div>
+<div class="section-title"><h2 id="v1UpdateHeading">تحديثات التطبيق</h2><span class="chip">0.3.43 · v66</span></div>
 <div class="otUpdateAvailability" id="v1UpdateBanner" role="status" aria-live="polite">
   <span class="otUpdateMark" aria-hidden="true">↧</span>
   <span><strong id="v1UpdateTitle">جارٍ التحقق من تحديث Android</strong><small id="v1UpdateVersion">يظهر رقم الإصدار بعد الفحص</small></span>
 </div>
 <div class="v1Buttons"><button type="button" id="v1CheckUpdates" class="outline">فحص التحديثات</button><button type="button" id="v1InstallUpdates" class="primary" disabled>تحميل وتثبيت التحديث</button></div>
+<button type="button" id="v1BrowserApkBtn" class="outline" style="margin-top:8px">🌐 تحميل الـ APK مباشرة عبر المتصفح</button>
 <p id="v1UpdateStatus" class="v1Hint" aria-live="polite">تحديث Android يتم بموافقتك، وبدون حذف بيانات الحساب.</p>
 <p class="v1Hint" style="margin:0">التحديث لا يبدأ أثناء مكالمة. بعد تنزيل APK الموقّع، Android نفسه يؤكد التثبيت.</p>
 </section>
@@ -406,6 +407,7 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 <p>الواجهة والإعدادات تتحدث مباشرة. عند تحديث محرك Android، التطبيق ينزّل النسخة ويطلب موافقة Android على التثبيت مرة واحدة.</p>
 <div class="status"><span class="indicator good"></span><div><strong style="font-size:15px">إصدار التطبيق</strong><span class="small" id="nativeUpdateStatus">جاري البحث عن تحديث جديد…</span></div></div>
 <div class="row"><button class="primary" id="upgradeAndroid" disabled>تثبيت تحديث Android</button><button id="scanAndroid" class="outline">فحص الإصدار</button></div>
+<button type="button" class="outline" id="browserApkBtn" style="margin-top:8px">🌐 تحميل الـ APK مباشرة عبر المتصفح</button>
 <button type="button" class="outline" id="enableUpdateNotice">تفعيل إشعارات تحديث Android</button>
 <p class="small" id="updateNotificationHint">الإشعار يظهر داخل التطبيق، ويمكن تفعيل إشعار Android عند توفر إصدار جديد أثناء فحص التطبيق.</p>
 <p class="small">لا يعاد تنزيل ملف سبق التحقق منه. التثبيت يتطلب موافقة Android، ولا يبدأ أثناء مكالمة.</p>
@@ -862,6 +864,8 @@ el('wifiFreeConsent').onchange=()=>{el('wifiFreeToggle').disabled=!!last.inCall|
 el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)return;send(last.wifiFreeEnabled?'wifiFreeDisable':'wifiFreeEnable')};
 el('scanAndroid').onclick=()=>send('checkNativeUpdates');
 el('upgradeAndroid').onclick=()=>send('installNativeUpdate');
+el('v1BrowserApkBtn').onclick=()=>send('openApkDownload');
+el('browserApkBtn').onclick=()=>send('openApkDownload');
 el('enableUpdateNotice').onclick=()=>{if(Number(last.nativeCode)>=36)send('enableUpdateNotifications')};
 function openUpdateCenter(){
  el('v1UpdateBox').hidden=false;

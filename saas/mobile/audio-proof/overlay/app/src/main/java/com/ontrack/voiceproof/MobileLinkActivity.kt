@@ -1304,6 +1304,9 @@ class MobileLinkActivity:ComponentActivity(){
                     "checkUpdates"->checkUpdates()
                     "checkNativeUpdates"->checkNativeUpdates()
                     "installNativeUpdate"->installNativeUpdate()
+                    "openApkDownload"->startActivity(
+                        Intent(Intent.ACTION_VIEW,Uri.parse("https://app.ontrackegy.com/mobile/updates/native/latest.apk"))
+                            .addCategory(Intent.CATEGORY_BROWSABLE))
                     "enableUpdateNotifications"->{
                         if(Build.VERSION.SDK_INT>=33 &&
                             ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)

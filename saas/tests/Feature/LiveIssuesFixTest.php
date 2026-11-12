@@ -120,9 +120,10 @@ class LiveIssuesFixTest extends TestCase
 
         $session = $vs->issueLiveVoiceSession($binding, fn () => 'auth_tokens/test_ephemeral_token_0123456789');
 
-        $this->assertSame(120, $session['max_output_tokens']);
+        $this->assertSame(1024, $session['max_output_tokens']);
         $this->assertStringStartsWith('[قاعدة قِصر الرد الإلزامية]', $session['system_instruction']);
         $this->assertStringContainsString('[قاعدة المقاطعة (Barge-In)]', $session['system_instruction']);
+        $this->assertStringContainsString('[قاعدة قفل اللغة العربية]', $session['system_instruction']);
     }
 
     public function test_call_analysis_uses_gemini_rest_json_and_syncs_calls_summary_and_ui(): void

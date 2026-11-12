@@ -273,35 +273,39 @@ class TenantDeviceEnrollment(private val context: Context) {
         // imposing a total-call timeout on ongoing audio chunks.
         val streamClient=client.newBuilder().connectTimeout(16,TimeUnit.SECONDS)
             .readTimeout(45,TimeUnit.SECONDS).build()
-        streamClient.newCall(req).execute().use{response->
-            if(response.code==401)throw SecurityException("ربط الشريحة لم يعد صالحًا")
-            if(!response.isSuccessful){
-                val code=runCatching{
-                    JSONObject(response.body?.string().orEmpty().take(1024)).optString("error","")
-                }.getOrDefault("")
-                val reason=FishTtsFailover.reason(response.code,code)
-                if(reason!=null)throw FishTtsFailoverException(reason)
-                // In particular: 403 due to a revoked subscription, voice grant
-                // or changed published agent never bypasses authorization.
-                error("IO Premium HTTP " + response.code + " " + code.take(64))
+        try {
+            streamClient.newCall(req).execute().use{response->
+                if(response.code==401)throw SecurityException("ربط الشريحة لم يعد صالحًا")
+                if(!response.isSuccessful){
+                    val code=runCatching{
+                        JSONObject(response.body?.string().orEmpty().take(1024)).optString("error","")
+                    }.getOrDefault("")
+                    val reason=FishTtsFailover.httpFallbackReason(response.code,code)
+                    if(reason!=null)throw FishTtsFailoverException(reason)
+                    // In particular: 403 due to a revoked subscription, voice grant
+                    // or changed published agent never bypasses authorization.
+                    error("IO Premium HTTP " + response.code + " " + code.take(64))
+                }
+                if(response.header("X-PCM-Sample-Rate")!="44100" ||
+                    response.header("X-PCM-Channels")!="1" ||
+                    response.header("X-PCM-Format")!="s16le") {
+                    throw FishTtsFailoverException("tts_failed")
+                }
+                val input=response.body?.byteStream()?:throw FishTtsFailoverException("tts_failed")
+                val chunk=ByteArray(4096)
+                var total=0
+                while(shouldContinue()){
+                    val size=input.read(chunk)
+                    if(size<0)break
+                    if(size==0)continue
+                    total+=size
+                    check(total<44100*2*55){"IO Premium: الصوت أطول من الحد"}
+                    onChunk(chunk.copyOf(size))
+                }
+                if(shouldContinue()&&total==0)throw FishTtsFailoverException("tts_failed")
             }
-            check(response.header("X-PCM-Sample-Rate")=="44100" &&
-                response.header("X-PCM-Channels")=="1" &&
-                response.header("X-PCM-Format")=="s16le") {
-                "IO Premium: نوع الصوت غير صالح"
-            }
-            val input=response.body?.byteStream()?:error("IO Premium: لا يوجد صوت")
-            val chunk=ByteArray(4096)
-            var total=0
-            while(shouldContinue()){
-                val size=input.read(chunk)
-                if(size<0)break
-                if(size==0)continue
-                total+=size
-                check(total<44100*2*55){"IO Premium: الصوت أطول من الحد"}
-                onChunk(chunk.copyOf(size))
-            }
-            if(shouldContinue()&&total==0)error("IO Premium: رد صوتي فارغ")
+        } catch (e: java.io.IOException) {
+            throw FishTtsFailoverException("provider_unavailable")
         }
     }
 

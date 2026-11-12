@@ -15,6 +15,12 @@ class FishTtsFailoverTest {
         assertNull(FishTtsFailover.reason(401,"device_not_authorized"))
         assertNull(FishTtsFailover.reason(402,"invalid_credit_claim"))
         assertNull(FishTtsFailover.reason(500,"internal_server_error"))
+        assertEquals("provider_unavailable",FishTtsFailover.httpFallbackReason(502,""))
+        assertEquals("provider_unavailable",FishTtsFailover.httpFallbackReason(503,""))
+        assertEquals("provider_unavailable",FishTtsFailover.httpFallbackReason(504,""))
+        assertNull(FishTtsFailover.httpFallbackReason(401,"device_not_authorized"))
+        assertNull(FishTtsFailover.httpFallbackReason(403,"voice_subscription_inactive"))
+        assertNull(FishTtsFailover.httpFallbackReason(404,"not_found"))
     }
     @Test fun failoverIsNeverExposedAsAnAuthenticationBypassOrSecret(){
         val reason=FishTtsFailover.label("credit")

@@ -503,9 +503,15 @@ class VoiceSessionService
             $callbackNote = '[بروتوكول تصعيد المدير والمعاودة الفورية (10 ثوانٍ)]: إذا طلب المتصل المدير أو استوفى شرط التحويل البشري، قل له بوضوح: "تم تسجيل طلبك وسيتواصل معك المدير فوراً بعد إنهاء المكالمة خلال 10 ثوانٍ" واستدعِ فوراً أداة request_human_employee وسجّل السبب وملخصاً دقيقاً.';
         }
 
+        $styleKey = (string) ($policy['response_style'] ?? 'egyptian_short');
+        $arabicLock = ! in_array($styleKey, ['english', 'bilingual', 'multilingual'], true)
+            ? '[قاعدة قفل اللغة العربية]: التزم باللغة العربية طوال المكالمة مهما بدا صوت المتصل مشوشاً على شبكة الهاتف؛ الكلمات القصيرة المشوشة مثل (Aló / Halo / Hallo) تعني (ألو) بالعربية — ممنوع التحول للإسبانية أو الألمانية أو أي لغة أخرى ما لم يطلب المتصل أو السيناريو ذلك صراحةً بجملة واضحة.'
+            : '';
+
         $parts = [
             '[قاعدة قِصر الرد الإلزامية]: أقصى طول لأي رد هو جملة واحدة قصيرة وسؤال واحد فقط (لا تتجاوزي 15 إلى 20 كلمة أبداً في الدور الواحد)، ثم اصمتي فوراً واتركي الفرصة للمتصل ليتكلم. ممنوع سرد عدة أسئلة أو فقرات متتالية.',
             '[قاعدة المقاطعة (Barge-In)]: إذا قاطعك المتصل توقفي فوراً ولا تعيدي الجملة الافتتاحية أو الجملة المقاطعة من بدايتها أبداً؛ استمعي لآخر كلامه وأكملي من حيث توقف الحديث برد قصير ومباشر.',
+            $arabicLock,
             $ivrBlock,
             $callbackNote,
             $isScenario
@@ -986,7 +992,7 @@ class VoiceSessionService
             'ivr_routes' => $compactPolicy['ivr_routes'] ?? [],
             'manager_callback_enabled' => (bool) ($compactPolicy['manager_callback_enabled'] ?? false),
             'manager_callback_phone' => (string) ($compactPolicy['manager_callback_phone'] ?? ''),
-            'max_output_tokens' => 120,
+            'max_output_tokens' => 1024,
             'transport' => 'tenant_gemini_live_preview',
         ] + $ticketPayload;
     }
