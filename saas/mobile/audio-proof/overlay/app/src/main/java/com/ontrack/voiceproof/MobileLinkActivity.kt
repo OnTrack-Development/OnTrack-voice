@@ -46,6 +46,8 @@ class MobileLinkActivity:ComponentActivity(){
     private var nativeRelease:NativeUpdates.Release?=null
     private var lastNativeCheckMs=0L
     private var nativeBusy=false
+    private var nativeDownloadProgress=-1
+    private var uiUpdateStatus=""
     private var deferredUiCheck=false
     private var deferredNativeCheck=false
     private var nativeStatus="جاري فحص تحديث Android"
@@ -335,8 +337,15 @@ class MobileLinkActivity:ComponentActivity(){
             javaScriptCanOpenWindowsAutomatically=false;setSupportMultipleWindows(false)
         }
         web.webViewClient=object:WebViewClient(){
-            override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest)=
-                localPage?.allows(request.url.toString(),request.isForMainFrame,request.method)!=true
+            override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest):Boolean {
+                val url=request.url.toString()
+                if(url.startsWith("https://app.ontrackegy.com/") &&
+                    (url.contains("/mobile/updates/native/") || url.endsWith(".apk"))){
+                    openExternalApkBrowser(url)
+                    return true
+                }
+                return localPage?.allows(url,request.isForMainFrame,request.method)!=true
+            }
             override fun shouldInterceptRequest(view:WebView,request:WebResourceRequest):WebResourceResponse {
                 val page=localPage
                 if(page!=null && page.allows(request.url.toString(),request.isForMainFrame,request.method)) {
@@ -345,6 +354,11 @@ class MobileLinkActivity:ComponentActivity(){
                         ByteArrayInputStream(page.html.toByteArray(Charsets.UTF_8)))
                 }
                 return WebResourceResponse("text/plain","UTF-8",403,"Blocked",mapOf(),ByteArrayInputStream(ByteArray(0)))
+            }
+        }
+        web.setDownloadListener { url, _, _, _, _ ->
+            if(url.startsWith("https://app.ontrackegy.com/")){
+                openExternalApkBrowser(url)
             }
         }
         // Explicit Android confirmation for consent, campaign arm and SIM charges.
@@ -600,9 +614,15 @@ class MobileLinkActivity:ComponentActivity(){
             builder.appendQueryParameter("site_id",siteId.toString())
                 .appendQueryParameter("agent_id",agentId.toString())
         }
-        startActivity(Intent(Intent.ACTION_VIEW,builder.build()).apply{
-            addCategory(Intent.CATEGORY_BROWSABLE)
-        })
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW,builder.build()).apply{
+                addCategory(Intent.CATEGORY_BROWSABLE)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+        }.onFailure {
+            banner.text="تعذر فتح المتصفح: "+(it.message?:it.javaClass.simpleName)
+            banner.visibility=View.VISIBLE
+        }
     }
     private fun showScenarioMenu(){
         darkAlert().setTitle("سيناريوهات الإيجنت")
@@ -953,32 +973,74 @@ class MobileLinkActivity:ComponentActivity(){
         }}
     }
     private suspend fun activate(bundle:MobileOta.Bundle){
-        if(MobileLinkService.inCall){pending=bundle;banner.text="التحديث جاهز؛ هيتطبق بعد المكالمة";return}
+        if(MobileLinkService.inCall){pending=bundle;uiUpdateStatus="التحديث جاهز؛ هيتطبق بعد المكالمة";banner.text=uiUpdateStatus;sendState();return}
+        uiUpdateStatus="تم تحميل تحديث الواجهة؛ جاري التطبيق…"
         show(withContext(Dispatchers.IO){ota.stage(bundle)});banner.text="تم تحميل تحديث الواجهة؛ جاري التحقق من تشغيله…"
     }
-    private suspend fun checkUpdates(){
+    private fun openExternalApkBrowser(url:String="https://app.ontrackegy.com/mobile/updates/native/latest.apk"){
+        val parsed=Uri.parse(url)
+        val browsable=Intent(Intent.ACTION_VIEW,parsed)
+            .addCategory(Intent.CATEGORY_BROWSABLE)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching{startActivity(browsable)}.onFailure{
+            val plain=Intent(Intent.ACTION_VIEW,parsed).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching{startActivity(plain)}.onFailure{err->
+                runCatching{
+                    startActivity(Intent.createChooser(plain,"تحميل IO Voice APK")
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }.onFailure{
+                    val msg="تعذر فتح المتصفح للتحميل: "+(err.message?:err.javaClass.simpleName)
+                    banner.text=msg
+                    banner.visibility=View.VISIBLE
+                    nativeStatus=msg
+                    sendState()
+                }
+            }
+        }
+    }
+    private suspend fun checkUpdates(fromUser:Boolean=false){
         if(MobileLinkService.inCall){deferredUiCheck=true;return}
         if(updateBusy)return;updateBusy=true
+        uiUpdateStatus="جاري فحص تحديث الواجهة…"
+        if(fromUser)sendState()
         try{
+            var lastUiPct=-1
             val next=withContext(Dispatchers.IO){
                 ota.check {received,total ->
                     // These are real downloaded bytes from a signed OTA manifest.
                     runOnUiThread {
                         if(initialUiUpdateCheckPending)splash?.downloadProgress(received,total)
+                        if(total>0L){
+                            val pct=((received*100L)/total).toInt().coerceIn(0,100)
+                            if(pct!=lastUiPct && (pct-lastUiPct>=5 || pct==100)){
+                                lastUiPct=pct
+                                uiUpdateStatus="تنزيل تحديث الواجهة: $pct%"
+                                if(fromUser)sendState()
+                            }
+                        }
                     }
                 }
             }
             if(next==null){
-                banner.text="الواجهة محدثة • OTA ${ota.revision}"
+                uiUpdateStatus="الواجهة محدثة • OTA ${ota.revision}"
+                banner.text=uiUpdateStatus
+                if(fromUser)banner.visibility=View.VISIBLE
                 if(initialUiUpdateCheckPending)splash?.message("الواجهة محدثة، جارٍ فتح IO Voice…")
             } else {
+                uiUpdateStatus="تم العثور على واجهة OTA ${next.revision}؛ جاري التشغيل…"
                 if(initialUiUpdateCheckPending)splash?.message("تم التحقق من التحديث، جارٍ تشغيله…")
                 activate(next)
             }
-        }catch(t:Throwable){if(t is CancellationException)throw t;banner.text="الواجهة الحالية تعمل؛ تعذر جلب التحديث الآن"}
-        finally{updateBusy=false}
+        }catch(t:Throwable){
+            if(t is CancellationException)throw t
+            val detail=(t.message?.takeIf{it.isNotBlank()}?:t.javaClass.simpleName).take(110)
+            uiUpdateStatus="تعذر فحص تحديث الواجهة: $detail"
+            banner.text=uiUpdateStatus
+            if(fromUser)banner.visibility=View.VISIBLE
+        }
+        finally{updateBusy=false;sendState()}
     }
-    private suspend fun checkNativeUpdates() {
+    private suspend fun checkNativeUpdates(fromUser:Boolean=false) {
         if(MobileLinkService.inCall){deferredNativeCheck=true;return}
         if(nativeBusy)return
         nativeBusy=true
@@ -991,40 +1053,57 @@ class MobileLinkActivity:ComponentActivity(){
             nativeRelease?.let { notifyAvailableUpdate(it) }
         }catch(t:Throwable){
             if(t is CancellationException)throw t
-            nativeStatus="تعذر فحص تحديث Android؛ جرّب مرة أخرى"
+            val detail=(t.message?.takeIf{it.isNotBlank()}?:t.javaClass.simpleName).take(110)
+            nativeStatus="تعذر فحص تحديث Android: $detail"
+            if(fromUser){banner.text=nativeStatus;banner.visibility=View.VISIBLE}
         }finally{nativeBusy=false;sendState()}
     }
     private suspend fun installNativeUpdate() {
         check(!MobileLinkService.inCall){"انتظر نهاية المكالمة قبل تثبيت Android"}
         check(!nativeBusy){"هناك تحديث قيد التنفيذ"}
-        if(nativeRelease==null)checkNativeUpdates()
-        val release=nativeRelease?:run{nativeStatus="أحدث إصدار مثبت بالفعل";sendState();return}
-        if(nativeUpdates.installPending()){
-            nativeStatus="تم تنزيل التحديث بالفعل؛ جاري انتظار تأكيد التثبيت من Android"
+        if(nativeRelease==null)checkNativeUpdates(true)
+        val release=nativeRelease?:run{
+            nativeStatus="أحدث إصدار مثبت بالفعل (${ota.nativeVersion})"
+            nativeDownloadProgress=-1
             sendState();return
         }
         if(!nativeUpdates.canInstallPackages()){
             nativeStatus="يلزم السماح بالتثبيت من IO Voice مرة واحدة بواسطة Android"
-            nativeUpdates.openInstallPermission()
+            runCatching{nativeUpdates.openInstallPermission()}.onFailure{
+                nativeStatus="تعذر فتح إعدادات التثبيت؛ جاري فتح التحميل المباشر في المتصفح…"
+                openExternalApkBrowser(nativeUpdates.latestApkUrl(release))
+            }
             sendState();return
         }
         nativeBusy=true
+        nativeDownloadProgress=0
         try{
             val already=withContext(Dispatchers.IO){nativeUpdates.cached(release)}
             nativeStatus=if(already)"ملف التحديث محفوظ ومُتحقق منه؛ جارٍ فتح مثبت Android…"
-                else "تنزيل تحديث Android من IO Voice…"
+                else "تنزيل تحديث Android: 0%"
+            if(already)nativeDownloadProgress=100
             sendState()
             val file=nativeUpdates.download(release){percentage->
-                runOnUiThread{nativeStatus="تحميل التحديث: $percentage%";sendState()}
+                runOnUiThread{
+                    nativeDownloadProgress=percentage.coerceIn(0,100)
+                    nativeStatus="تحميل التحديث: ${nativeDownloadProgress}%"
+                    sendState()
+                }
             }
+            nativeDownloadProgress=100
             check(!MobileLinkService.inCall){"المكالمة جارية؛ ثبّت بعد انتهائها"}
             val accepted=withContext(Dispatchers.IO){nativeUpdates.requestInstall(file)}
             nativeStatus=if(accepted)
-                "التحديث محفوظ؛ بانتظار موافقة Android على التثبيت (لا حاجة لإعادة التحميل)"
+                "التحديث جاهز (100%)؛ بانتظار موافقة Android على التثبيت"
             else "اسمح بالتثبيت من IO Voice؛ ملف التحديث سيظل محفوظًا"
         }catch(t:Throwable){
             if(t is CancellationException)throw t
-            nativeStatus="تعذّر تحديث Android: "+(t.message?:t.javaClass.simpleName)
+            nativeDownloadProgress=-1
+            val detail=(t.message?.takeIf{it.isNotBlank()}?:t.javaClass.simpleName).take(130)
+            nativeStatus="تعذّر التثبيت التلقائي: $detail — جاري التحميل المباشر في المتصفح"
+            banner.text=nativeStatus
+            banner.visibility=View.VISIBLE
+            openExternalApkBrowser(nativeUpdates.latestApkUrl(release))
         }finally{nativeBusy=false;sendState()}
     }
     private suspend fun setWifiFreeMode(enabled:Boolean) {
@@ -1092,6 +1171,8 @@ class MobileLinkActivity:ComponentActivity(){
             .put("overlayGranted",Settings.canDrawOverlays(this)).put("revision",ota.revision)
             .put("nativeUpdateAvailable",nativeRelease!=null).put("nativeUpdateBusy",nativeBusy)
             .put("nativeUpdateStatus",nativeStatus)
+            .put("nativeUpdateProgress",nativeDownloadProgress)
+            .put("uiUpdateStatus",uiUpdateStatus)
             .put("nativeInstallPending",nativeUpdates.installPending())
             .put("nativeInstallPermission",nativeUpdates.canInstallPackages())
             .put("nativeUpdateNotificationsEnabled",Build.VERSION.SDK_INT<33 ||
@@ -1301,12 +1382,13 @@ class MobileLinkActivity:ComponentActivity(){
                         check(msg.optBoolean("confirmed")){"راجع الأرقام وأكّد الرفع أولاً"}
                         uploadSelectedContacts()
                     }
-                    "checkUpdates"->checkUpdates()
-                    "checkNativeUpdates"->checkNativeUpdates()
+                    "checkUpdates"->checkUpdates(true)
+                    "checkNativeUpdates"->checkNativeUpdates(true)
                     "installNativeUpdate"->installNativeUpdate()
                     "openApkDownload"->startActivity(
-                        Intent(Intent.ACTION_VIEW,Uri.parse("https://app.ontrackegy.com/mobile/updates/native/latest.apk"))
-                            .addCategory(Intent.CATEGORY_BROWSABLE))
+                        Intent(Intent.ACTION_VIEW,Uri.parse(nativeUpdates.latestApkUrl(nativeRelease)))
+                            .addCategory(Intent.CATEGORY_BROWSABLE)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     "enableUpdateNotifications"->{
                         if(Build.VERSION.SDK_INT>=33 &&
                             ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
@@ -1323,10 +1405,14 @@ class MobileLinkActivity:ComponentActivity(){
                     "admin"->openConsole()
                     else->error("أمر الواجهة غير مدعوم")
                 }
-            }.onFailure{
-                banner.text=it.message?:"تعذر تنفيذ الطلب"
-                banner.visibility=View.VISIBLE
-                sendState()
+            }.onFailure{err->
+                if(err is android.content.ActivityNotFoundException){
+                    openExternalApkBrowser(nativeUpdates.latestApkUrl(nativeRelease))
+                } else {
+                    banner.text=err.message?:"تعذر تنفيذ الطلب"
+                    banner.visibility=View.VISIBLE
+                    sendState()
+                }
             }}}
         }
     }

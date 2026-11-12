@@ -114,8 +114,15 @@ internal class CallOverlay(private val context: Context) {
         }
     }
     private fun serviceAction(command:String){
-        context.startService(Intent(context,MobileLinkService::class.java).setAction(command))
-        collapse()
+        runCatching {
+            val actionIntent=Intent(context,MobileLinkService::class.java).setAction(command)
+            runCatching{context.startService(actionIntent)}.onFailure {
+                if(android.os.Build.VERSION.SDK_INT>=26){
+                    runCatching{androidx.core.content.ContextCompat.startForegroundService(context,actionIntent)}
+                }
+            }
+        }
+        runCatching{collapse()}
     }
     private fun collapse(){
         expand=false
@@ -211,35 +218,37 @@ internal class CallOverlay(private val context: Context) {
         }
         var startX=0;var startY=0;var touchX=0f;var touchY=0f
         circle.setOnTouchListener {_,event->
-            when(event.actionMasked){
-                MotionEvent.ACTION_DOWN->{
-                    startX=lp.x;startY=lp.y;touchX=event.rawX;touchY=event.rawY;true
-                }
-                MotionEvent.ACTION_MOVE->{
-                    lp.x=(startX+touchX-event.rawX).toInt().coerceIn(0,px(240))
-                    lp.y=(startY+event.rawY-touchY).toInt()
-                        .coerceIn(px(28),context.resources.displayMetrics.heightPixels-px(170))
-                    runCatching{window.updateViewLayout(container,lp)}
-                    true
-                }
-                MotionEvent.ACTION_UP->{
-                    if(abs(event.rawX-touchX)<px(12)&&abs(event.rawY-touchY)<px(12)){
-                        expand=!expand
-                        orbGlyph?.configure(if(expand)"close" else "power",white)
-                        sheet.visibility=if(expand)View.VISIBLE else View.GONE
-                        if(expand)renderActions()
-                        container.requestLayout()
+            runCatching {
+                when(event.actionMasked){
+                    MotionEvent.ACTION_DOWN->{
+                        startX=lp.x;startY=lp.y;touchX=event.rawX;touchY=event.rawY;true
+                    }
+                    MotionEvent.ACTION_MOVE->{
+                        lp.x=(startX+touchX-event.rawX).toInt().coerceIn(0,px(240))
+                        lp.y=(startY+event.rawY-touchY).toInt()
+                            .coerceIn(px(28),context.resources.displayMetrics.heightPixels-px(170))
                         runCatching{window.updateViewLayout(container,lp)}
-                    };true
+                        true
+                    }
+                    MotionEvent.ACTION_UP->{
+                        if(abs(event.rawX-touchX)<px(12)&&abs(event.rawY-touchY)<px(12)){
+                            expand=!expand
+                            orbGlyph?.configure(if(expand)"close" else "power",white)
+                            sheet.visibility=if(expand)View.VISIBLE else View.GONE
+                            if(expand)renderActions()
+                            container.requestLayout()
+                            runCatching{window.updateViewLayout(container,lp)}
+                        };true
+                    }
+                    MotionEvent.ACTION_CANCEL->true
+                    else->false
                 }
-                MotionEvent.ACTION_CANCEL->true
-                else->false
-            }
+            }.getOrDefault(false)
         }
         try{
             window.addView(container,lp)
             root=container;orb=circle;menu=sheet;params=lp
-        }catch(_:Exception){
+        }catch(_:Throwable){
             root=null;orb=null;menu=null;orbGlyph=null;params=null
         }
     }
@@ -274,9 +283,11 @@ internal class CallOverlay(private val context: Context) {
             if(model.canSwitchSpeaker)"تبديل السماعة" else "بعد الرد فقط",
             red,model.canSwitchSpeaker){serviceAction(MobileLinkService.ACTION_SPEAKER)}
         val home=iconTile("home","فتح التطبيق","التحكم الكامل",red,true){
-            collapse()
-            context.startActivity(Intent(context,MobileLinkActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            runCatching {
+                collapse()
+                context.startActivity(Intent(context,MobileLinkActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            }
         }
         fun add(row:LinearLayout,tile:LinearLayout,margin:Boolean){
             row.addView(tile,LinearLayout.LayoutParams(0,px(119),1f).apply{
@@ -288,28 +299,30 @@ internal class CallOverlay(private val context: Context) {
     }
     fun show(serviceReady:Boolean,enabled:Boolean,inCall:Boolean,answered:Boolean,human:Boolean,
              audioReady:Boolean,callProblem:String,audioDiagnostic:String){
-        if(!allowed()){remove();return}
-        if(root!=null&&themeLight()!=lightTheme)remove()
-        if(root==null)attach()
-        val ready=serviceReady
-        lastReady=ready;lastEnabled=enabled;lastCall=inCall
-        lastAnswered=answered;lastHuman=human
-        lastAudio=audioReady;lastCallProblem=callProblem;lastAudioDiagnostic=audioDiagnostic
-        val model=overlayUiModel(ready,enabled,inCall,answered,human,audioReady,callProblem,audioDiagnostic)
-        val color=if(model.running && callProblem.isBlank())green else red
-        val changed=color!=currentColor
-        currentColor=color
-        orb?.background=shape(color,60,if(lightTheme)white else black,2)
-        orbGlyph?.invalidate()
-        orb?.contentDescription=model.announcement
-        status?.apply{
-            text="● "+model.status
-            setTextColor(color)
-        }
-        if(expand){
-            // Only rebuild controls on real state changes; preserve focus and avoid UI flicker.
-            val token="$ready:$enabled:$inCall:$answered:$human:$audioReady:$callProblem:$audioDiagnostic:$lightTheme"
-            if(token!=renderedToken||changed){renderedToken=token;renderActions()}
+        runCatching {
+            if(!allowed()){remove();return}
+            if(root!=null&&themeLight()!=lightTheme)remove()
+            if(root==null)attach()
+            val ready=serviceReady
+            lastReady=ready;lastEnabled=enabled;lastCall=inCall
+            lastAnswered=answered;lastHuman=human
+            lastAudio=audioReady;lastCallProblem=callProblem;lastAudioDiagnostic=audioDiagnostic
+            val model=overlayUiModel(ready,enabled,inCall,answered,human,audioReady,callProblem,audioDiagnostic)
+            val color=if(model.running && callProblem.isBlank())green else red
+            val changed=color!=currentColor
+            currentColor=color
+            orb?.background=shape(color,60,if(lightTheme)white else black,2)
+            orbGlyph?.invalidate()
+            orb?.contentDescription=model.announcement
+            status?.apply{
+                text="● "+model.status
+                setTextColor(color)
+            }
+            if(expand){
+                // Only rebuild controls on real state changes; preserve focus and avoid UI flicker.
+                val token="$ready:$enabled:$inCall:$answered:$human:$audioReady:$callProblem:$audioDiagnostic:$lightTheme"
+                if(token!=renderedToken||changed){renderedToken=token;renderActions()}
+            }
         }
     }
     private var renderedToken=""

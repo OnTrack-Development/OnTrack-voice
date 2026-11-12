@@ -54,6 +54,7 @@ class MobileLinkService:Service() {
         @Volatile var audioReady=false
         @Volatile var audioDiagnostic=""
         @Volatile var callProblem=""
+        @Volatile var lastError=""
         @Volatile var latestStatus="الربط متوقف"
         @Volatile var campaignAutoEnabled=false
         @Volatile var campaignReadyCount=0
@@ -111,7 +112,15 @@ class MobileLinkService:Service() {
             return "https://app.ontrackegy.com/"
         }
     }
-    private val scope=CoroutineScope(SupervisorJob()+Dispatchers.IO)
+    private val serviceGuard=CoroutineExceptionHandler { _, error ->
+        if(error !is CancellationException){
+            val msg=error.message.orEmpty().ifBlank{error.javaClass.simpleName}.take(140)
+            Companion.lastError=msg
+            callProblem="خطأ مؤقت في خدمة الصوت: $msg"
+            runCatching{notice(callProblem)}
+        }
+    }
+    private val scope=CoroutineScope(SupervisorJob()+Dispatchers.IO+serviceGuard)
     private val main=Handler(Looper.getMainLooper())
     private val retryWake=Channel<Unit>(Channel.CONFLATED)
     private val client=OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
@@ -149,10 +158,10 @@ class MobileLinkService:Service() {
         linkPrefs.edit().putBoolean("campaign_opt_in",enabled).apply()
         campaignAutoEnabled=enabled
     }
-    private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(running,agentEnabled,inCall,callAnswered,humanControl,audioReady,callProblem,audioDiagnostic)}}
+    private fun showOverlay(){main.post{runCatching{if(::overlay.isInitialized)overlay.show(running,agentEnabled,inCall,callAnswered,humanControl,audioReady,callProblem,audioDiagnostic)}}}
     private fun notice(value:String){
         latestStatus=value
-        getSystemService(NotificationManager::class.java).notify(701,notification(value))
+        runCatching{getSystemService(NotificationManager::class.java)?.notify(701,notification(value))}
         showOverlay()
     }
     private fun pending(action:String,id:Int)=PendingIntent.getService(
@@ -343,36 +352,18 @@ class MobileLinkService:Service() {
             cellularTransport=caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)==true
         )
     }.getOrDefault(false)
-    private fun dataRadioLabel():String = runCatching {
-        val subscription=SubscriptionManager.getDefaultDataSubscriptionId()
-        val manager=getSystemService(TelephonyManager::class.java)
-        val forData=if(subscription>=0)manager.createForSubscriptionId(subscription) else manager
-        CellularRadioStatus.label(forData.dataNetworkType)
-    }.getOrDefault("شبكة خلوية (الجيل غير معروف)")
+    private fun dataRadioLabel():String = CellularRadioStatus.safeDataRadioLabel(this)
     private fun cellularCallNetworkHint(slot:Int):String = runCatching {
         if(NetworkRevive.onWifi(this) || internetAvailableForRetry())return@runCatching ""
-        val callSubscription=TenantSimHardware.subscriptionId(this,slot)
-        val dataSubscription=SubscriptionManager.getDefaultDataSubscriptionId()
-        val support=runCatching {
-            val manager=getSystemService(TelephonyManager::class.java)
-            val voice=if(callSubscription>=0)manager.createForSubscriptionId(callSubscription) else manager
-            voice.isConcurrentVoiceAndDataSupported
-        }.getOrNull()
+        val callSubscription=runCatching{TenantSimHardware.subscriptionId(this,slot)}.getOrDefault(-1)
+        val dataSubscription=runCatching{SubscriptionManager.getDefaultDataSubscriptionId()}.getOrDefault(-1)
+        val support=CellularRadioStatus.safeConcurrentVoiceAndData(this,callSubscription)
         CellularRadioStatus.voiceDataHint(
             dataInternetAvailable=false,
             simultaneousVoiceData=support,
             callSimEqualsDataSim=dataSubscription<0 || dataSubscription==callSubscription)
     }.getOrDefault("الداتا غير متاحة أثناء المكالمة؛ إعادة ربط الإيجنت عند عودتها")
-    private fun internetRoute():String = runCatching {
-        val cm=connectivity?:getSystemService(ConnectivityManager::class.java)
-        val caps=cm?.activeNetwork?.let { network -> cm.getNetworkCapabilities(network) }
-        when {
-            caps==null -> "offline"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> dataRadioLabel()
-            else -> "network"
-        }
-    }.getOrDefault("unknown")
+    private fun internetRoute():String = CellularRadioStatus.safeInternetRoute(this)
     /** 
      * Single-active-SIM devices use the established shell CALL Q source.
      * Q is global and cannot identify a SIM, so dual-active-SIM devices
@@ -1177,12 +1168,14 @@ class MobileLinkService:Service() {
                             } else null,
                             onIvrRouteSelected={ digit, label, transferPhone ->
                                 scope.launch(Dispatchers.Main) {
-                                    if(inCall && liveSimSlot==reportSlot && !humanControl && transferPhone.isNotBlank()){
-                                        ivrTransferPhone=transferPhone
-                                        ivrTransferLabel=label
-                                        val maskedTarget=transferPhone.trim().let{ if(it.length<=6) it else it.take(4)+"****"+it.takeLast(3) }
-                                        notice("IVR: قسم $label (زر $digit) — سيتم الاتصال بـ $maskedTarget بعد المكالمة بـ 10 ثوانٍ")
-                                        showOverlay()
+                                    runCatching {
+                                        if(inCall && liveSimSlot==reportSlot && !humanControl && transferPhone.isNotBlank()){
+                                            ivrTransferPhone=transferPhone
+                                            ivrTransferLabel=label
+                                            val maskedTarget=transferPhone.trim().let{ if(it.length<=6) it else it.take(4)+"****"+it.takeLast(3) }
+                                            notice("IVR: قسم $label (زر $digit) — سيتم الاتصال بـ $maskedTarget بعد المكالمة بـ 10 ثوانٍ")
+                                            showOverlay()
+                                        }
                                     }
                                 }
                             },
@@ -1199,9 +1192,11 @@ class MobileLinkService:Service() {
                             onAudioDiagnostics={ diagnostic ->
                                 // Gemini setup alone cannot prove the VoLTE modem
                                 // delivered audible PCM to the other party.
-                                if(inCall && liveSimSlot==reportSlot && !humanControl){
-                                    audioDiagnostic=diagnostic
-                                    showOverlay()
+                                runCatching {
+                                    if(inCall && liveSimSlot==reportSlot && !humanControl){
+                                        audioDiagnostic=diagnostic
+                                        showOverlay()
+                                    }
                                 }
                             }) { realTranscript ->
                             if(reportCallId!=null && callback==null)
@@ -1225,10 +1220,14 @@ class MobileLinkService:Service() {
                                 // the bounded voiceRetryDue path after internet
                                 // revalidates. Only real job cancellation
                                 // should stop the coroutine.
+                                runCatching{currentCall.stop()}
                                 Result.failure(IllegalStateException(
                                     "انتهت مهلة Google Live على ${internetRoute()}؛ إعادة محاولة الصوت",timeout))
                             }catch(cancelled:CancellationException){throw cancelled}
-                            catch(problem:Exception){Result.failure(problem)}
+                            catch(problem:Throwable){
+                                runCatching{currentCall.stop()}
+                                Result.failure(problem)
+                            }
                         }
                         startedAt=SystemClock.elapsedRealtime()
                         notice("الشريحة ${current.slot+1}: توصيل PCM وكتم الميكروفون قبل تجهيز Google Live")
@@ -1281,23 +1280,24 @@ class MobileLinkService:Service() {
                     notice(callProblem)
                     delay(1800)
                 }catch(cancelled:CancellationException){throw cancelled}
-                catch(error:Exception){
+                catch(error:Throwable){
                     audioStart?.cancel();audioStart=null
                     // A transport/runtime failure is NOT an explicit takeover.
                     // Preserve diagnostic UI while keeping human MIC available.
-                    call?.stop();call=null;tenantSession=null
+                    runCatching{call?.stop()};call=null;tenantSession=null
                     audioReady=false;connected=false
                     nextAudioRetryAt=SystemClock.elapsedRealtime()+
                         CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
-                    val msg=error.message.orEmpty().take(150)
+                    val msg=error.message.orEmpty().ifBlank{error.javaClass.simpleName}.take(150)
                     callProblem="تعذر اتصال صوت المكالمة (${internetRoute()}): "+msg
+                    Companion.lastError=msg
                     if(msg!=lastError){lastError=msg;notice(callProblem)}
                     showOverlay()
                     delay(1800)
                 }
             }
         }finally{
-            call?.stop();call=null;running=false;connected=false;audioReady=false;audioDiagnostic=""
+            runCatching{call?.stop()};call=null;running=false;connected=false;audioReady=false;audioDiagnostic=""
             inCall=false;callAnswered=false;agentEnabled=false;callProblem=""
         }
     }

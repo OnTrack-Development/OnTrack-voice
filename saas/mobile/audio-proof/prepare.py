@@ -93,9 +93,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 66', 'versionCode')
+                        'versionCode = 67', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.3.43"', 'versionName')
+                        'versionName = "0.3.44"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
@@ -117,14 +117,36 @@ def main(root):
     text = path.read_text().replace('private static AudioTrack musicTrack(', 'static AudioTrack musicTrack(').replace('private static AudioTrack screeningTrack(', 'static AudioTrack screeningTrack(')
     text = replace_once(
         text,
+        '        AudioTrack tr = new AudioTrack.Builder()\n'
+        '                .setAudioAttributes(new AudioAttributes.Builder()\n'
+        '                        .setUsage(AudioAttributes.USAGE_MEDIA)\n'
+        '                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)\n'
+        '                        .build())\n'
         '                .setAudioFormat(mono())\n'
         '                .setTransferMode(AudioTrack.MODE_STREAM)\n'
         '                .build();',
-        '                .setAudioFormat(mono())\n'
-        '                .setTransferMode(AudioTrack.MODE_STREAM)\n'
-        '                .setBufferSizeInBytes(Math.max(AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT), framesOf(40) * 2))\n'
-        '                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)\n'
-        '                .build();',
+        '        AudioAttributes attrs = new AudioAttributes.Builder()\n'
+        '                .setUsage(AudioAttributes.USAGE_MEDIA)\n'
+        '                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)\n'
+        '                .build();\n'
+        '        AudioTrack tr;\n'
+        '        try {\n'
+        '            int minBuf = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);\n'
+        '            int targetBuf = Math.max(Math.max(minBuf, 0), framesOf(40) * 2);\n'
+        '            tr = new AudioTrack.Builder()\n'
+        '                    .setAudioAttributes(attrs)\n'
+        '                    .setAudioFormat(mono())\n'
+        '                    .setTransferMode(AudioTrack.MODE_STREAM)\n'
+        '                    .setBufferSizeInBytes(targetBuf)\n'
+        '                    .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)\n'
+        '                    .build();\n'
+        '        } catch (Throwable ignored) {\n'
+        '            tr = new AudioTrack.Builder()\n'
+        '                    .setAudioAttributes(attrs)\n'
+        '                    .setAudioFormat(mono())\n'
+        '                    .setTransferMode(AudioTrack.MODE_STREAM)\n'
+        '                    .build();\n'
+        '        }',
         'low latency call uplink AudioTrack')
     path.write_text(text)
     path = root / 'shellserver/src/com/genymobile/scrcpy/audio/AudioDirectCapture.java'
@@ -146,17 +168,26 @@ def main(root):
         text,
         '        recorder.startRecording();\n        reader = new AudioRecordReader(recorder);',
         '        recorder.startRecording();\n'
-        '        try {\n'
-        '            int sessionId = recorder.getAudioSessionId();\n'
-        '            if (AcousticEchoCanceler.isAvailable()) {\n'
-        '                aec = AcousticEchoCanceler.create(sessionId);\n'
-        '                if (aec != null) aec.setEnabled(true);\n'
+        '        int sessionId = -1;\n'
+        '        try { sessionId = recorder.getAudioSessionId(); } catch (Throwable ignored) { }\n'
+        '        if (sessionId > 0) {\n'
+        '            try {\n'
+        '                if (AcousticEchoCanceler.isAvailable()) {\n'
+        '                    aec = AcousticEchoCanceler.create(sessionId);\n'
+        '                    if (aec != null) aec.setEnabled(true);\n'
+        '                }\n'
+        '            } catch (Throwable ignored) {\n'
+        '                if (aec != null) { try { aec.release(); } catch (Throwable ignored2) {} aec = null; }\n'
         '            }\n'
-        '            if (NoiseSuppressor.isAvailable()) {\n'
-        '                ns = NoiseSuppressor.create(sessionId);\n'
-        '                if (ns != null) ns.setEnabled(true);\n'
+        '            try {\n'
+        '                if (NoiseSuppressor.isAvailable()) {\n'
+        '                    ns = NoiseSuppressor.create(sessionId);\n'
+        '                    if (ns != null) ns.setEnabled(true);\n'
+        '                }\n'
+        '            } catch (Throwable ignored) {\n'
+        '                if (ns != null) { try { ns.release(); } catch (Throwable ignored2) {} ns = null; }\n'
         '            }\n'
-        '        } catch (Throwable ignored) { }\n'
+        '        }\n'
         '        reader = new AudioRecordReader(recorder);',
         'hardware AEC and NS attach')
     text = replace_once(

@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -33,6 +34,24 @@ internal object NativeDownloadResumePolicy {
         if (httpCode != 206 || expectedStart <= 0L) return false
         val range = contentRange?.trim() ?: return false
         return range.startsWith("bytes $expectedStart-")
+    }
+}
+
+internal object NativeInstallSessionPolicy {
+    const val STALE_AFTER_MS = 90_000L
+    const val DEFAULT_LATEST_APK_URL = "https://app.ontrackegy.com/mobile/updates/native/latest.apk"
+
+    fun isStale(createdAtMs: Long, nowMs: Long = System.currentTimeMillis()): Boolean =
+        createdAtMs > 0L && (nowMs - createdAtMs) > STALE_AFTER_MS
+
+    fun resolveApkDownloadUrl(root: String, releaseFile: String?): String {
+        val clean = releaseFile?.trim().orEmpty()
+        val chosen = if (clean.endsWith(".apk") && !clean.contains("..") && !clean.contains('/') && !clean.contains('\\')) {
+            clean
+        } else {
+            "latest.apk"
+        }
+        return root + chosen
     }
 }
 
@@ -74,15 +93,34 @@ internal class NativeUpdates(private val context: Context) {
     fun installPending():Boolean {
         val sessionId=installPrefs.getInt("session_id",-1)
         if(sessionId<=0)return false
+        val created=installPrefs.getLong("created_at",0L)
+        val stale=NativeInstallSessionPolicy.isStale(created)
         val current=runCatching{
             context.packageManager.packageInstaller.getSessionInfo(sessionId)
         }.getOrNull()
-        if(current==null){
-            installPrefs.edit().remove("session_id").remove("created_at").apply()
+        if(current==null || stale){
+            if(stale)runCatching{context.packageManager.packageInstaller.abandonSession(sessionId)}
+            clearPendingInstall()
             return false
         }
         return true
     }
+    fun clearPendingInstall(){
+        val sessionId=installPrefs.getInt("session_id",-1)
+        if(sessionId>0)runCatching{context.packageManager.packageInstaller.abandonSession(sessionId)}
+        installPrefs.edit().remove("session_id").remove("created_at").apply()
+    }
+    fun latestApkUrl(release:Release?=null):String =
+        NativeInstallSessionPolicy.resolveApkDownloadUrl(root,release?.file)
+    fun openApkWithFileProvider(file:File):Boolean = runCatching {
+        val uri=FileProvider.getUriForFile(context,"${context.packageName}.updates",file)
+        val intent=Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri,"application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+        true
+    }.getOrDefault(false)
     fun cached(release:Release):Boolean=verified(apk(release),release)
 
     private fun fetchManifest():ByteArray {
@@ -142,7 +180,11 @@ internal class NativeUpdates(private val context: Context) {
     }
     suspend fun download(release:Release,progress:(Int)->Unit):File=withContext(Dispatchers.IO){
         val target=apk(release)
-        if(verified(target,release))return@withContext target
+        if(verified(target,release)){
+            progress(100)
+            return@withContext target
+        }
+        progress(0)
         val temp=File(destination,".native-download.apk")
         val metaFile=File(destination,".native-download.meta")
         val metaToken=NativeDownloadResumePolicy.metaToken(release.sha256,release.size)
@@ -261,7 +303,8 @@ internal class NativeUpdates(private val context: Context) {
             return true
         }catch(t:Throwable) {
             runCatching{installer.abandonSession(sessionId)}
-            installPrefs.edit().remove("session_id").remove("created_at").apply()
+            clearPendingInstall()
+            if(openApkWithFileProvider(file))return true
             throw t
         }
     }

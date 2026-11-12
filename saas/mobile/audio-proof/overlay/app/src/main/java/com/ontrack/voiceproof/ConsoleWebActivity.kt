@@ -59,8 +59,18 @@ class ConsoleWebActivity:ComponentActivity(){
    CookieManager.getInstance().setAcceptCookie(true)
    CookieManager.getInstance().setAcceptThirdPartyCookies(web,false)
    web.webViewClient=object:WebViewClient(){
-     override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest)=
-       !allowed(request.url.toString())||request.method!="GET"
+     override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest):Boolean{
+       val url=request.url.toString()
+       if(url.startsWith("https://app.ontrackegy.com/")&&(url.contains("/mobile/updates/native/")||url.endsWith(".apk"))){
+         runCatching{
+           startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,request.url)
+             .addCategory(android.content.Intent.CATEGORY_BROWSABLE)
+             .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+         }
+         return true
+       }
+       return !allowed(url)||request.method!="GET"
+     }
      override fun shouldInterceptRequest(view:WebView,request:WebResourceRequest):WebResourceResponse?{
        if(allowed(request.url.toString()))return null
        return WebResourceResponse("text/plain","UTF-8",ByteArrayInputStream(ByteArray(0)))
@@ -84,6 +94,15 @@ class ConsoleWebActivity:ComponentActivity(){
            view.evaluateJavascript("(function(){var e=document.getElementById('agent-"+agentId+
              "');if(e){e.open=true;window.ontrackMountFlowEditors?.(e);setTimeout(function(){e.scrollIntoView({block:'start'});window.dispatchEvent(new Event('resize'));},180);}})();",null)
          }
+       }
+     }
+   }
+   web.setDownloadListener { url, _, _, _, _ ->
+     if(url.startsWith("https://app.ontrackegy.com/")){
+       runCatching{
+         startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(url))
+           .addCategory(android.content.Intent.CATEGORY_BROWSABLE)
+           .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
        }
      }
    }

@@ -1,12 +1,93 @@
 package com.ontrack.voiceproof
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 
 /** Label the actual Android data radio, not every cellular connection as 4G/5G.
  * Applies to all mobile operators and is deliberately independent of branding.
  * Unknown is not treated as offline: ConnectivityManager determines internet.
+ * All TelephonyManager / ConnectivityManager reads are wrapped to guarantee
+ * zero uncaught SecurityException or RuntimeException on Android 11+.
  */
 internal object CellularRadioStatus {
+    fun activeNetworkCapabilities(context: Context): NetworkCapabilities? = runCatching {
+        val cm = context.getSystemService(ConnectivityManager::class.java) ?: return@runCatching null
+        val network = cm.activeNetwork ?: return@runCatching null
+        cm.getNetworkCapabilities(network)
+    }.getOrNull()
+
+    fun activeNetworkCapabilities(cm: ConnectivityManager?): NetworkCapabilities? = runCatching {
+        val network = cm?.activeNetwork ?: return@runCatching null
+        cm.getNetworkCapabilities(network)
+    }.getOrNull()
+
+    fun isCellularLink(context: Context): Boolean = runCatching {
+        val capabilities = activeNetworkCapabilities(context) ?: return@runCatching false
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) &&
+            !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+    }.getOrDefault(false)
+
+    @Suppress("DEPRECATION")
+    fun safeDataNetworkType(telephony: TelephonyManager?, subscriptionId: Int = -1): Int = runCatching {
+        if (telephony == null) return@runCatching TelephonyManager.NETWORK_TYPE_UNKNOWN
+        val target = if (subscriptionId >= 0) {
+            runCatching { telephony.createForSubscriptionId(subscriptionId) }.getOrNull() ?: telephony
+        } else {
+            telephony
+        }
+        val dataType = runCatching { target.dataNetworkType }.getOrNull()
+        if (dataType != null && dataType != TelephonyManager.NETWORK_TYPE_UNKNOWN) {
+            dataType
+        } else {
+            runCatching { target.networkType }.getOrDefault(TelephonyManager.NETWORK_TYPE_UNKNOWN)
+        }
+    }.getOrDefault(TelephonyManager.NETWORK_TYPE_UNKNOWN)
+
+    fun safeDataNetworkType(context: Context): Int = runCatching {
+        val sub = runCatching { SubscriptionManager.getDefaultDataSubscriptionId() }.getOrDefault(-1)
+        val tm = context.getSystemService(TelephonyManager::class.java)
+        safeDataNetworkType(tm, sub)
+    }.getOrDefault(TelephonyManager.NETWORK_TYPE_UNKNOWN)
+
+    fun isSlowCellularLink(context: Context): Boolean = runCatching {
+        isCellularLink(context) && isSlowCellularType(safeDataNetworkType(context))
+    }.getOrDefault(false)
+
+    fun safeDataRadioLabel(context: Context): String = runCatching {
+        label(safeDataNetworkType(context))
+    }.getOrDefault("شبكة خلوية (الجيل غير معروف)")
+
+    fun safeDataRadioLabel(telephony: TelephonyManager?, subscriptionId: Int = -1): String = runCatching {
+        label(safeDataNetworkType(telephony, subscriptionId))
+    }.getOrDefault("شبكة خلوية (الجيل غير معروف)")
+
+    fun safeConcurrentVoiceAndData(context: Context, subscriptionId: Int = -1): Boolean? = runCatching {
+        safeConcurrentVoiceAndData(context.getSystemService(TelephonyManager::class.java), subscriptionId)
+    }.getOrNull()
+
+    fun safeConcurrentVoiceAndData(telephony: TelephonyManager?, subscriptionId: Int = -1): Boolean? = runCatching {
+        if (telephony == null) return@runCatching null
+        val voice = if (subscriptionId >= 0) {
+            runCatching { telephony.createForSubscriptionId(subscriptionId) }.getOrNull() ?: telephony
+        } else {
+            telephony
+        }
+        voice.isConcurrentVoiceAndDataSupported
+    }.getOrNull()
+
+    fun safeInternetRoute(context: Context): String = runCatching {
+        val caps = activeNetworkCapabilities(context)
+        when {
+            caps == null -> "offline"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> safeDataRadioLabel(context)
+            else -> "network"
+        }
+    }.getOrDefault("unknown")
+
     fun label(type:Int):String = when(type) {
         TelephonyManager.NETWORK_TYPE_GPRS -> "2G GPRS"
         TelephonyManager.NETWORK_TYPE_EDGE -> "2G EDGE"

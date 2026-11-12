@@ -48,7 +48,8 @@ final class LivePcm {
         Object trackLock = new Object();
         AudioTrack track = null;
         Thread player = null;
-        boolean wasMuted = audio.isMicrophoneMute();
+        boolean wasMuted = false;
+        try { wasMuted = audio.isMicrophoneMute(); } catch (Throwable ignored) { }
         try {
             socket.setSoTimeout(30_000);
             socket.setTcpNoDelay(true);
@@ -84,7 +85,12 @@ final class LivePcm {
                     try { socket.close(); } catch (IOException ignored) { }
                 }
             }, "ontrack-live-capture");
-            reader.setDaemon(true); reader.start();
+            reader.setDaemon(true);
+            reader.setUncaughtExceptionHandler((t, e) -> {
+                active.set(false);
+                try { socket.close(); } catch (Throwable ignored) { }
+            });
+            reader.start();
 
             final AudioTrack playbackTrack = track;
             player = new Thread(() -> {
@@ -114,10 +120,15 @@ final class LivePcm {
                     }
                 } catch (Throwable error) {
                     active.set(false);
-                    try { socket.close(); } catch (IOException ignored) { }
+                    try { socket.close(); } catch (Throwable ignored) { }
                 }
             }, "ontrack-live-playback");
-            player.setDaemon(true); player.start();
+            player.setDaemon(true);
+            player.setUncaughtExceptionHandler((t, e) -> {
+                active.set(false);
+                try { socket.close(); } catch (Throwable ignored) { }
+            });
+            player.start();
 
             byte[] bytes = new byte[65536];
             while (active.get()) {
@@ -127,9 +138,11 @@ final class LivePcm {
                     playQueue.clear();
                     synchronized (trackLock) {
                         if (active.get()) {
-                            track.pause();
-                            track.flush();
-                            track.play();
+                            try {
+                                track.pause();
+                                track.flush();
+                                track.play();
+                            } catch (Throwable ignored) { }
                         }
                     }
                     continue;

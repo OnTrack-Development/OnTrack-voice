@@ -244,6 +244,12 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
   background:#fff1f2}
 #v1InstallUpdates:not(:disabled){background:#E11D48;color:#fff;border-color:#E11D48}
 #v1UpdateBox[hidden]{display:block!important}
+.otUpdateProgressWrap{margin:10px 0 6px;display:grid;gap:6px}
+.otUpdateProgressMeta{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:750;color:var(--text)}
+.otUpdateProgressTrack{height:10px;border-radius:999px;background:var(--control);border:1px solid var(--border);overflow:hidden}
+.otUpdateProgressFill{height:100%;width:0%;background:linear-gradient(90deg,#E11D48,#fb7185);border-radius:999px;transition:width .2s ease}
+.otErrText{color:#fb7185!important;font-weight:700}
+body.light .otErrText{color:#be123c!important}
 @media(max-width:380px){#v1Minimal{gap:11px}#v1UpdateBox .v1Buttons{gap:7px}
 #v1UpdateBox .v1Buttons button{font-size:12px}}
 </style></head><body>
@@ -315,10 +321,14 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 <div class="v1Buttons"><button type="button" id="v1PermissionSetup">فحص النواقص</button><button type="button" id="v1PermissionTest">فحص الجهاز</button></div></div>
 </section>
 <section class="card otPersistentUpdates" id="v1UpdateBox" aria-labelledby="v1UpdateHeading">
-<div class="section-title"><h2 id="v1UpdateHeading">تحديثات التطبيق</h2><span class="chip">0.3.43 · v66</span></div>
+<div class="section-title"><h2 id="v1UpdateHeading">تحديثات التطبيق</h2><span class="chip">0.3.44 · v67</span></div>
 <div class="otUpdateAvailability" id="v1UpdateBanner" role="status" aria-live="polite">
   <span class="otUpdateMark" aria-hidden="true">↧</span>
   <span><strong id="v1UpdateTitle">جارٍ التحقق من تحديث Android</strong><small id="v1UpdateVersion">يظهر رقم الإصدار بعد الفحص</small></span>
+</div>
+<div id="v1UpdateProgressWrap" class="otUpdateProgressWrap" hidden>
+  <div class="otUpdateProgressMeta"><span>تقدّم تحميل التحديث</span><span id="v1UpdateProgressText" dir="ltr">0%</span></div>
+  <div class="otUpdateProgressTrack"><div id="v1UpdateProgressBar" class="otUpdateProgressFill"></div></div>
 </div>
 <div class="v1Buttons"><button type="button" id="v1CheckUpdates" class="outline">فحص التحديثات</button><button type="button" id="v1InstallUpdates" class="primary" disabled>تحميل وتثبيت التحديث</button></div>
 <button type="button" id="v1BrowserApkBtn" class="outline" style="margin-top:8px">🌐 تحميل الـ APK مباشرة عبر المتصفح</button>
@@ -405,8 +415,12 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 <section class="card" id="versionUpdates" data-panel="settings">
 <div class="section-title"><h2>تحديثات IO Voice</h2><span class="chip good">تحديثات آمنة</span></div>
 <p>الواجهة والإعدادات تتحدث مباشرة. عند تحديث محرك Android، التطبيق ينزّل النسخة ويطلب موافقة Android على التثبيت مرة واحدة.</p>
-<div class="status"><span class="indicator good"></span><div><strong style="font-size:15px">إصدار التطبيق</strong><span class="small" id="nativeUpdateStatus">جاري البحث عن تحديث جديد…</span></div></div>
-<div class="row"><button class="primary" id="upgradeAndroid" disabled>تثبيت تحديث Android</button><button id="scanAndroid" class="outline">فحص الإصدار</button></div>
+ <div class="status"><span class="indicator good"></span><div><strong style="font-size:15px">إصدار التطبيق</strong><span class="small" id="nativeUpdateStatus">جاري البحث عن تحديث جديد…</span></div></div>
+ <div id="nativeUpdateProgressWrap" class="otUpdateProgressWrap" hidden>
+   <div class="otUpdateProgressMeta"><span>تقدّم تحميل التحديث</span><span id="nativeUpdateProgressText" dir="ltr">0%</span></div>
+   <div class="otUpdateProgressTrack"><div id="nativeUpdateProgressBar" class="otUpdateProgressFill"></div></div>
+ </div>
+ <div class="row"><button class="primary" id="upgradeAndroid" disabled>تثبيت تحديث Android</button><button id="scanAndroid" class="outline">فحص الإصدار</button></div>
 <button type="button" class="outline" id="browserApkBtn" style="margin-top:8px">🌐 تحميل الـ APK مباشرة عبر المتصفح</button>
 <button type="button" class="outline" id="enableUpdateNotice">تفعيل إشعارات تحديث Android</button>
 <p class="small" id="updateNotificationHint">الإشعار يظهر داخل التطبيق، ويمكن تفعيل إشعار Android عند توفر إصدار جديد أثناء فحص التطبيق.</p>
@@ -686,6 +700,14 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  el('enable').setAttribute('aria-pressed',String(confirmedActive&&!isStarting));
  el('disable').setAttribute('aria-pressed',String(!enabled&&!isStarting));
  el('nativeUpdateStatus').textContent=s.nativeUpdateStatus||'جاري فحص تحديث Android…';
+ const nativeErr=/تعذّر|تعذر|فشل|خطأ/.test(String(s.nativeUpdateStatus||''));
+ el('nativeUpdateStatus').classList.toggle('otErrText',nativeErr);
+ const upPct=Number(s.nativeUpdateProgress);
+ const showUpPct=Number.isFinite(upPct)&&upPct>=0&&upPct<=100;
+ if(el('nativeUpdateProgressWrap')){
+  el('nativeUpdateProgressWrap').hidden=!showUpPct;
+  if(showUpPct){el('nativeUpdateProgressBar').style.width=upPct+'%';el('nativeUpdateProgressText').textContent=upPct+'%';}
+ }
   const available=!!s.nativeUpdateAvailable;
   el('updateNotice').hidden=!available;
   el('updateBell').hidden=!available;
@@ -693,10 +715,13 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
   if(available)el('updateNoticeVersion').textContent=s.nativeUpdateVersion||'الجديد';
  el('upgradeAndroid').disabled=!s.nativeUpdateAvailable||s.nativeUpdateBusy||call||!!s.nativeInstallPending;
  el('upgradeAndroid').textContent=s.nativeInstallPending?'بانتظار موافقة تثبيت Android':
-   s.nativeUpdateBusy?'جاري تجهيز التحديث…':
+   s.nativeUpdateBusy?(showUpPct?'جاري التحميل '+upPct+'%…':'جاري تجهيز التحديث…'):
    s.nativeInstallPermission===false?'إعداد إذن التثبيت لمرة واحدة':
    s.nativeUpdateAvailable?'فحص وتحميل أو استكمال تثبيت '+(s.nativeUpdateVersion||'الإصدار الجديد'):'Android محدّث';
  el('scanAndroid').disabled=s.nativeUpdateBusy||call;
+ if(s.uiUpdateStatus && el('uiPullStatus') && pullBusy){
+  pullMessage(String(s.uiUpdateStatus),3500);
+ }
  const androidNotify=Number(s.nativeCode)>=36;
  el('enableUpdateNotice').disabled=!androidNotify||!!s.nativeUpdateNotificationsEnabled;
  el('enableUpdateNotice').textContent=!androidNotify?'إشعارات النظام تتطلب Android 0.3.13':
@@ -738,13 +763,20 @@ function v1Render(s){
  el('v1Disable').disabled=!linked||!!s.updating||!s.agentEnabled;
  if(linked&&s.tenantServerState==='device')el('v1PermissionsBox').hidden=false;
  const updateReady=!!s.nativeUpdateAvailable;
+ const upPctV1=Number(s.nativeUpdateProgress);
+ const showPctV1=Number.isFinite(upPctV1)&&upPctV1>=0&&upPctV1<=100;
+ if(el('v1UpdateProgressWrap')){
+  el('v1UpdateProgressWrap').hidden=!showPctV1;
+  if(showPctV1){el('v1UpdateProgressBar').style.width=upPctV1+'%';el('v1UpdateProgressText').textContent=upPctV1+'%';}
+ }
  el('v1UpdateBanner').classList.toggle('has-update',updateReady);
- el('v1UpdateTitle').textContent=updateReady?'تحديث جديد جاهز للتنزيل':s.nativeUpdateBusy?'جارٍ فحص تحديث التطبيق':'مركز تحديثات Android';
+ el('v1UpdateTitle').textContent=showPctV1&&s.nativeUpdateBusy?'جاري تحميل التحديث '+upPctV1+'%…':updateReady?'تحديث جديد جاهز للتنزيل':s.nativeUpdateBusy?'جارٍ فحص تحديث التطبيق':'مركز تحديثات Android';
  el('v1UpdateVersion').textContent=updateReady?'الإصدار '+(s.nativeUpdateVersion||'الجديد')+' متاح':('المثبت: '+String(s.native||'جارٍ القراءة'));
  el('v1InstallUpdates').disabled=el('upgradeAndroid').disabled;
- el('v1InstallUpdates').textContent=updateReady?(s.nativeUpdateBusy?'جاري تجهيز التحديث…':'تحميل وتثبيت '+(s.nativeUpdateVersion||'التحديث')):'لا يوجد تحديث قابل للتثبيت';
+ el('v1InstallUpdates').textContent=s.nativeUpdateBusy?(showPctV1?'جاري التحميل '+upPctV1+'%…':'جاري تجهيز التحديث…'):updateReady?'تحميل وتثبيت '+(s.nativeUpdateVersion||'التحديث'):'لا يوجد تحديث قابل للتثبيت';
  el('v1CheckUpdates').disabled=!!s.nativeUpdateBusy||!!s.inCall;
  el('v1UpdateStatus').textContent=el('nativeUpdateStatus').textContent;
+ el('v1UpdateStatus').classList.toggle('otErrText',/تعذّر|تعذر|فشل|خطأ/.test(el('v1UpdateStatus').textContent));
  const campOn=!!s.campaignAutoEnabled;
  el('v1CampaignAutoToggle').checked=campOn;
  el('v1CampaignAutoToggle').disabled=!linked||!!s.inCall;
@@ -862,10 +894,10 @@ el('tenantTest').onclick=()=>send('tenantTest');
 el('openAnswerSettings').onclick=()=>send('openAnswerSettings');
 el('wifiFreeConsent').onchange=()=>{el('wifiFreeToggle').disabled=!!last.inCall||(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)};
 el('wifiFreeToggle').onclick=()=>{if(!last.wifiFreeEnabled&&!el('wifiFreeConsent').checked)return;send(last.wifiFreeEnabled?'wifiFreeDisable':'wifiFreeEnable')};
-el('scanAndroid').onclick=()=>send('checkNativeUpdates');
-el('upgradeAndroid').onclick=()=>send('installNativeUpdate');
-el('v1BrowserApkBtn').onclick=()=>send('openApkDownload');
-el('browserApkBtn').onclick=()=>send('openApkDownload');
+el('scanAndroid').onclick=()=>{el('v1UpdateStatus').textContent='جاري فحص التحديثات…';el('nativeUpdateStatus').textContent='جاري فحص التحديثات…';send('checkNativeUpdates');};
+el('upgradeAndroid').onclick=()=>{el('v1UpdateStatus').textContent='جاري بدء تحميل وتثبيت التحديث…';el('nativeUpdateStatus').textContent='جاري بدء تحميل وتثبيت التحديث…';send('installNativeUpdate');};
+el('v1BrowserApkBtn').onclick=()=>{el('v1UpdateStatus').textContent='جاري فتح رابط تحميل APK في المتصفح…';send('openApkDownload');};
+el('browserApkBtn').onclick=()=>{el('nativeUpdateStatus').textContent='جاري فتح رابط تحميل APK في المتصفح…';send('openApkDownload');};
 el('enableUpdateNotice').onclick=()=>{if(Number(last.nativeCode)>=36)send('enableUpdateNotifications')};
 function openUpdateCenter(){
  el('v1UpdateBox').hidden=false;
