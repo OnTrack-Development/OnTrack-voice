@@ -97,11 +97,13 @@ jobs:
       - name: Check Windows JDK 21, Android SDK, keystore and apply OnTrack overlay
         run: |
           $ErrorActionPreference = 'Stop'
-          $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $sdk = @($env:ANDROID_HOME, $env:ANDROID_SDK_ROOT, (Join-Path $env:LOCALAPPDATA 'Android\Sdk')) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+          if (-not $sdk) { $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
           $androidJar = Join-Path $sdk 'platforms\android-36\android.jar'
           $signer = Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
           $analyzer = Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
-          $key = Join-Path $env:USERPROFILE '.android\debug.keystore'
+          $key = @((Join-Path $env:USERPROFILE '.android\debug.keystore'), 'D:\ai\actions-runner\.android\debug.keystore') | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+          if (-not $key) { $key = Join-Path $env:USERPROFILE '.android\debug.keystore' }
           foreach ($required in @($androidJar, $signer, $analyzer, $key)) {
             if (-not (Test-Path -LiteralPath $required)) {
               throw ('Missing local Android prerequisite: ' + $required)
@@ -174,10 +176,12 @@ jobs:
         id: package
         run: |
           $ErrorActionPreference = 'Stop'
-          $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $sdk = @($env:ANDROID_HOME, $env:ANDROID_SDK_ROOT, (Join-Path $env:LOCALAPPDATA 'Android\Sdk')) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+          if (-not $sdk) { $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
           $signer = Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
           $analyzer = Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
-          $key = Join-Path $env:USERPROFILE '.android\debug.keystore'
+          $key = @((Join-Path $env:USERPROFILE '.android\debug.keystore'), 'D:\ai\actions-runner\.android\debug.keystore') | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+          if (-not $key) { $key = Join-Path $env:USERPROFILE '.android\debug.keystore' }
           $policy = Get-Content -LiteralPath 'saas/mobile/ota/native_release.json' -Raw | ConvertFrom-Json
           $releaseUi = Get-Content -LiteralPath 'saas/mobile/ota/release.json' -Raw | ConvertFrom-Json
           $verName = [string]$policy.version_name
@@ -257,8 +261,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
+          $key = @((Join-Path $env:USERPROFILE '.android\debug.keystore'), 'D:\ai\actions-runner\.android\debug.keystore') | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+          if (-not $key) { $key = Join-Path $env:USERPROFILE '.android\debug.keystore' }
           & python tools/prepare_mobile_ota.py .build/ota
-          & java tools/SignMobileOta.java "$env:USERPROFILE\.android\debug.keystore" .build/ota
+          & java tools/SignMobileOta.java $key .build/ota
           & python tools/queue_mobile_ota.py .build/ota
 
   publish_native:
