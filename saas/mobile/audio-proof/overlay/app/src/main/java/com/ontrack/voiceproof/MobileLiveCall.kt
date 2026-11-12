@@ -45,7 +45,9 @@ internal class MobileLiveCall(
                 .onFailure { notice("تعذر حفظ نص المكالمة بأمان؛ التقرير غير متاح مؤقتًا") }
         }
     }
-    @Volatile private var generation=0
+    private val playbackGen=BargeInGenerationController()
+    private val callMemory=CallMemoryTracker()
+    @Volatile private var sessionToken=0L
     @Volatile private var pipe:Socket?=null
     @Volatile private var output:DataOutputStream?=null
     @Volatile private var ws:WebSocket?=null
@@ -167,6 +169,7 @@ internal class MobileLiveCall(
         // This does not prove VoWiFi hardware mute: a real-device test is required.
         try {
             check(!stopped.get()){"voice call already stopped"}
+            sessionToken=ActiveCallSessionMutex.acquire { stop() }
             pipe=CaptureDaemon.livePcm(context,AnsweringMachine.route(context)==AnsweringMachine.ROUTE_SCREENING)
             val input=DataInputStream(pipe!!.getInputStream())
             check(input.readInt()==0x4f545631 && input.readInt()==48000 && input.readInt()==2){"invalid shell PCM format"}
@@ -178,11 +181,14 @@ internal class MobileLiveCall(
                     launch(Dispatchers.IO) {
                         for((g,bytes) in playback) {
                             while(isActive && !stopped.get() && outgoingCall && !remoteSpeechConfirmed) delay(40)
-                            if(!stopped.get() && g==generation && (!outgoingCall || remoteSpeechConfirmed))
+                            if(!stopped.get() && playbackGen.shouldPlay(g) && (!outgoingCall || remoteSpeechConfirmed))
                                 synchronized(writeLock){
-                                    output?.let { channel ->
-                                        channel.writeInt(bytes.size);channel.write(bytes);channel.flush()
-                                        submittedToShell.addAndGet(bytes.size.toLong())
+                                    if(!stopped.get() && playbackGen.shouldPlay(g)) {
+                                        output?.let { channel ->
+                                            lastAssistantAudioAt.set(SystemClock.elapsedRealtime())
+                                            channel.writeInt(bytes.size);channel.write(bytes);channel.flush()
+                                            submittedToShell.addAndGet(bytes.size.toLong())
+                                        }
                                     }
                                 }
                         }
@@ -270,18 +276,26 @@ internal class MobileLiveCall(
             throw error
         }
     }
+    private fun flushAudioGeneration() {
+        playbackGen.bump()
+        lastAssistantAudioAt.set(0)
+        while(playback.tryReceive().isSuccess){}
+        while(premiumPhrases.tryReceive().isSuccess){}
+        synchronized(writeLock){runCatching{output?.writeInt(-1);output?.flush()}}
+    }
     /** Audio-only fallback: no new telephony answer, no fresh Gemini Live
      * session and no Fish key on device. The same muted 48 kHz SIM conduit
      * receives authorized Google PCM after Fish TTS is unavailable.
      */
     private fun playFallbackGooglePcm(audio:ByteArray,rate:Int){
         if(stopped.get() || !googleVoiceFallback.get())return
-        val turn=generation
+        val turn=playbackGen.current()
         val pcm=LinkPcm.output(audio,rate)
-        if(pcm.isEmpty() || turn!=generation)return
+        if(pcm.isEmpty() || !playbackGen.isCurrent(turn))return
         modelAudioBytes.addAndGet(pcm.size.toLong())
         lastAssistantAudioAt.set(SystemClock.elapsedRealtime())
         for(pos in pcm.indices step LivePlaybackQueuePolicy.PACKET_BYTES){
+            if(stopped.get() || !playbackGen.isCurrent(turn))return
             val packet=pcm.copyOfRange(pos,
                 minOf(pos+LivePlaybackQueuePolicy.PACKET_BYTES,pcm.size))
             if(!playback.trySend(turn to packet).isSuccess)
@@ -293,9 +307,19 @@ internal class MobileLiveCall(
      */
     private fun startOfficialPremium() {
         check(premiumPcm!=null){"IO Premium PCM module not configured"}
+        val baseInstruction=session.getString("system_instruction")+
+            "\n\nتكيف مع جنس المتصل: ابدأ بصيغة المذكر ما لم تلاحظ أن المتصلة أنثى (من نبرتها أو كلامها أو قولها أنا بنت)، وفور أول إشارة لأنثى تحول فورًا لصيغة المؤنث واقفلها لنهاية المكالمة دون عودة للمذكر أبدًا. "+
+            "تذكر ما قاله المتصل واسمه وتقييمه عبر أدوار المكالمة ولا تكرر أسئلة مجابًا عنها."
         val sdk=PremiumOfficialLive(scope,client,session.getString("token"),
-            session.getString("model"),session.getString("system_instruction"),
+            session.getString("model"),baseInstruction,
             caller={spoken->
+                val now=SystemClock.elapsedRealtime()
+                if(LiveInterruptionPolicy.shouldCutPreviousSpeech(now,
+                    lastAssistantAudioAt.get(),lastLocalBargeAt.get(),spoken)){
+                    lastLocalBargeAt.set(now)
+                    flushAudioGeneration()
+                }
+                callMemory.observeCaller(spoken)
                 appendLiveTranscription("المتصل",spoken)
                 observeCallerIntent(spoken)
                 if(outgoingCall && !remoteSpeechConfirmed &&
@@ -304,16 +328,14 @@ internal class MobileLiveCall(
                     notice("تم سماع رد الطرف الآخر؛ الإيجنت يبدأ الحوار")
                 }
             },
-            assistant={spoken->appendLiveTranscription("الإيجنت",spoken)},
-            phrase={text->if(!stopped.get()&&!googleVoiceFallback.get())
-                premiumPhrases.trySend(generation to text)},
-            googleAudio={audio,rate->playFallbackGooglePcm(audio,rate)},
-            interrupted={
-                generation++
-                while(playback.tryReceive().isSuccess){}
-                while(premiumPhrases.tryReceive().isSuccess){}
-                synchronized(writeLock){runCatching{output?.writeInt(-1);output?.flush()}}
+            assistant={spoken->
+                callMemory.observeAssistant(spoken)
+                appendLiveTranscription("الإيجنت",spoken)
             },
+            phrase={text->if(!stopped.get()&&!googleVoiceFallback.get())
+                premiumPhrases.trySend(playbackGen.current() to text)},
+            googleAudio={audio,rate->playFallbackGooglePcm(audio,rate)},
+            interrupted={flushAudioGeneration()},
             disconnected={reason->if(!stopped.get())fail(reason)}
         )
         official=sdk
@@ -327,19 +349,20 @@ internal class MobileLiveCall(
         premiumSpeaker=scope.launch(Dispatchers.IO){
             for((turn,text) in premiumPhrases){
                 if(stopped.get())break
-                if(turn!=generation || text.isBlank() || googleVoiceFallback.get())continue
+                if(!playbackGen.isCurrent(turn) || text.isBlank() || googleVoiceFallback.get())continue
                 val resampler=PremiumPcm()
                 var started=false
                 try{
                     premiumPcm.invoke(text,{
-                        !stopped.get()&&!googleVoiceFallback.get()&&generation==turn
+                        !stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)
                     }){chunk->
-                        if(!stopped.get()&&!googleVoiceFallback.get()&&generation==turn){
+                        if(!stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)){
                         val pcm=resampler.convert(chunk)
                         if(pcm.isNotEmpty()){
                             if(!started){started=true;lastAssistantAudioAt.set(SystemClock.elapsedRealtime())}
                             modelAudioBytes.addAndGet(pcm.size.toLong())
                             for(pos in pcm.indices step LivePlaybackQueuePolicy.PACKET_BYTES){
+                                if(stopped.get() || !playbackGen.isCurrent(turn))break
                                 val packet=pcm.copyOfRange(pos,
                                     minOf(pos+LivePlaybackQueuePolicy.PACKET_BYTES,pcm.size))
                                 if(!playback.trySend(turn to packet).isSuccess){
@@ -356,19 +379,14 @@ internal class MobileLiveCall(
                             // This is a media-path change, NOT a new AI/chat
                             // session. Cancel old Fish audio and queued phrases
                             // while keeping the same Live conversation/context.
-                            generation++
-                            while(playback.tryReceive().isSuccess){}
-                            while(premiumPhrases.tryReceive().isSuccess){}
-                            synchronized(writeLock){
-                                runCatching{output?.writeInt(-1);output?.flush()}
-                            }
+                            flushAudioGeneration()
                             val message=FishTtsFailover.label(e.causeCode)
                             notice(message)
                             onAudioDiagnostics(message)
                             if(!sdk.enableGoogleAudioFallback())
                                 fail("تعذر تشغيل صوت Google Live البديل أثناء المكالمة")
                         }
-                    }else if(generation==turn && !googleVoiceFallback.get()){
+                    }else if(playbackGen.isCurrent(turn) && !googleVoiceFallback.get()){
                         notice("تعذر تشغيل IO Premium؛ استلم المكالمة لو الصوت غير مسموع")
                     }
                 }
@@ -387,8 +405,10 @@ internal class MobileLiveCall(
         if(stopped.get())return
         socketReady=false
         val handle=resumeHandle
+        ws?.close(1000,"superseded")
         ws=client.newWebSocket(Request.Builder().url(liveUrl).build(),object:WebSocketListener(){
             override fun onOpen(webSocket:WebSocket,response:Response) {
+                if(stopped.get() || webSocket!==ws)return
                 val scenarioMode=settings.optString("scenario_mode","builder")
                 val style=when(settings.optString("response_style","egyptian_short")){
                     "formal_ar"->"تحدث بالعربية الفصحى بأسلوب مهني وواضح."
@@ -410,13 +430,15 @@ internal class MobileLiveCall(
                     " التوصيفات بين قوسين (...) أو [...] إرشادات أداء صوتي غير منطوقة؛ لا تقرأها أبدًا."+
                     " استخدم سؤالًا واحدًا في كل دور ثم استمع للعميل، ولا تكرر التحية أو الأسئلة."+
                     " توقف فورًا عند المقاطعة، ولا تعيد الجملة التي قاطعها العميل. " +
+                    "تكيف مع جنس المتصل: ابدأ بصيغة المذكر ما لم تلاحظ أن المتصلة أنثى (من نبرتها أو كلامها أو قولها أنا بنت)، وفور أول إشارة لأنثى تحول فورًا لصيغة المؤنث واقفلها لنهاية المكالمة دون عودة للمذكر أبدًا. " +
+                    "تذكر ما قاله المتصل واسمه وتقييمه عبر أدوار المكالمة ولا تكرر أسئلة مجابًا عنها. " +
                     "عندما يطلب المتصل موظفًا بشريًا استخدم request_human_employee لتسجيل السبب والملاحظات، ثم أخبره أن طلب المتابعة تم تسجيله إذا نجحت الأداة فقط؛ لا تقل جاري تحويل أو تم تحويل المكالمة. " +
                     "احفظ ملخصًا موجزًا وملاحظات العملاء باستخدام save_call_note بعد المعلومات المهمة، لأن التفريغ النصي على بيانات المحمول قد يتأخر."
                 val instruction=if(switchedProvider || ready.isCompleted)
                     policy+"\n\n"+VoiceFailoverPolicy.restoredContext(
                         if(switchedProvider)contextBeforeSwitch else synchronized(transcriptLock){
                             reportTranscript.toString().takeLast(2800)
-                        })
+                        }, callMemory.buildReconnectSummary())
                 else policy
                 val cleanModel=session.getString("model").removePrefix("models/")
                 val generationConfig=JSONObject().put("responseModalities",org.json.JSONArray(listOf("AUDIO")))
@@ -429,8 +451,8 @@ internal class MobileLiveCall(
                         .put("disabled",false)
                         .put("startOfSpeechSensitivity","START_SENSITIVITY_HIGH")
                         .put("endOfSpeechSensitivity","END_SENSITIVITY_HIGH")
-                        .put("prefixPaddingMs",40)
-                        .put("silenceDurationMs",350)))
+                        .put("prefixPaddingMs",100)
+                        .put("silenceDurationMs",250)))
                     .put("systemInstruction",JSONObject().put("parts",org.json.JSONArray().put(JSONObject().put("text",instruction))))
                     .put("inputAudioTranscription",JSONObject()).put("outputAudioTranscription",JSONObject())
                     .put("sessionResumption",if(handle.isNullOrBlank())JSONObject() else JSONObject().put("handle",handle))
@@ -524,17 +546,19 @@ internal class MobileLiveCall(
                     // Gemini Live emits actual caller and agent speech transcriptions
                     // independently from PCM. Do not attempt speech recognition from
                     // the Android microphone or infer text from audio payload bytes.
+                    if(content.optBoolean("interrupted")) {
+                        flushAudioGeneration()
+                        return // Never enqueue stale audio from the interrupted server turn.
+                    }
                     content.optJSONObject("inputTranscription")
                         ?.optString("text","")?.let { spoken ->
                             val now=SystemClock.elapsedRealtime()
                             if(LiveInterruptionPolicy.shouldCutPreviousSpeech(now,
                                 lastAssistantAudioAt.get(),lastLocalBargeAt.get(),spoken)){
                                 lastLocalBargeAt.set(now)
-                                lastAssistantAudioAt.set(0)
-                                generation++
-                                while(playback.tryReceive().isSuccess){}
-                                synchronized(writeLock){output?.writeInt(-1);output?.flush()}
+                                flushAudioGeneration()
                             }
+                            callMemory.observeCaller(spoken)
                             appendLiveTranscription("المتصل",spoken)
                             observeCallerIntent(spoken)
                             if(outgoingCall && !remoteSpeechConfirmed &&
@@ -544,23 +568,25 @@ internal class MobileLiveCall(
                             }
                         }
                     content.optJSONObject("outputTranscription")
-                        ?.optString("text","")?.let{appendLiveTranscription("الإيجنت",it)}
-                    if(content.optBoolean("interrupted")) {
-                        generation++;while(playback.tryReceive().isSuccess) {}
-                        synchronized(writeLock){output?.writeInt(-1);output?.flush()}
-                        return // Never enqueue stale audio from the interrupted server turn.
-                    }
+                        ?.optString("text","")?.let{ spoken ->
+                            callMemory.observeAssistant(spoken)
+                            appendLiveTranscription("الإيجنت",spoken)
+                        }
+                    val turnGen=playbackGen.current()
                     val parts=content.optJSONObject("modelTurn")?.optJSONArray("parts")?:return
                     for(i in 0 until parts.length()) {
+                        if(stopped.get() || !playbackGen.isCurrent(turnGen))break
                         val inline=parts.getJSONObject(i).optJSONObject("inlineData")?:continue
                         val mime=inline.optString("mimeType")
                         if(!mime.startsWith("audio/pcm")) continue
                         val rate=Regex("rate=(\\d+)").find(mime)?.groupValues?.get(1)?.toInt()?:24000
                         val bytes=LinkPcm.output(Base64.decode(inline.getString("data"),Base64.DEFAULT),rate)
+                        if(stopped.get() || !playbackGen.isCurrent(turnGen))break
                         modelAudioBytes.addAndGet(bytes.size.toLong())
                         lastAssistantAudioAt.set(SystemClock.elapsedRealtime())
                         for(at in bytes.indices step LivePlaybackQueuePolicy.PACKET_BYTES) {
-                            val packet=generation to bytes.copyOfRange(at,
+                            if(stopped.get() || !playbackGen.isCurrent(turnGen))break
+                            val packet=turnGen to bytes.copyOfRange(at,
                                 minOf(at+LivePlaybackQueuePolicy.PACKET_BYTES,bytes.size))
                             if(!playback.trySend(packet).isSuccess){
                                 // Do not remove old, unsounded PCM and splice later words
@@ -591,9 +617,7 @@ internal class MobileLiveCall(
     private fun onTransportLost(failed:WebSocket,reason:String,failureCode:String?=null) {
         if(stopped.get() || failed!==ws)return
         socketReady=false
-        generation++
-        while(playback.tryReceive().isSuccess) {}
-        synchronized(writeLock){runCatching{output?.writeInt(-1);output?.flush()}}
+        flushAudioGeneration()
         if(recovery?.isActive==true)return
         recovery=scope.launch(Dispatchers.IO) {
             onAudioDiagnostics("اتصال Google Live اتقطع؛ محاولة رجوع الصوت تلقائيًا")
@@ -640,7 +664,9 @@ internal class MobileLiveCall(
     private fun fail(reason:String){if(!stopped.get()){notice(reason);ready.completeExceptionally(IllegalStateException(reason));stop()}}
     fun stop(){
         if(stopped.compareAndSet(false,true)){
+            ActiveCallSessionMutex.release(sessionToken)
             socketReady=false
+            flushAudioGeneration()
             val transcription=synchronized(transcriptLock){reportTranscript.toString().trim()}
             // Callback persists the text encrypted on device. No made-up summary
             // if the Live service did not send enough transcription.

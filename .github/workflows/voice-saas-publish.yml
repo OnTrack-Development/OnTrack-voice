@@ -23,6 +23,8 @@ on:
       - 'tools/test_tenant_call_ai_summary.php'
       - 'tools/test_sim_agent_call_reports.php'
       - 'tools/test_android_v58_permission_contract.py'
+      - 'tools/test_fish_voice_catalog_cache.php'
+      - 'tools/test_voice_picker_and_persona.cjs'
       - '.github/workflows/voice-saas-publish.yml'
   workflow_dispatch:
 permissions:
@@ -83,6 +85,9 @@ jobs:
             @('node', 'tools/test_floating_flow_ui.cjs'),
             @('node', 'tools/test_graph_routing.cjs'),
             @('node', 'tools/test_console_ajax_ui.cjs'),
+            @('node', 'tools/test_voice_picker_and_persona.cjs'),
+            @('php', 'tools/test_io_premium_shared_access.php'),
+            @('php', 'tools/test_fish_voice_catalog_cache.php'),
             @('php', 'tools/test_ai_agent_profile.php'),
             @('php', 'tools/test_flow_ai_live_thinking.php'),
             @('php', 'tools/test_flow_ai_live_text_editor.php'),

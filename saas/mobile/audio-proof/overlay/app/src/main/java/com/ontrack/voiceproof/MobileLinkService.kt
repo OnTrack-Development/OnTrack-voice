@@ -895,15 +895,22 @@ class MobileLinkService:Service() {
                         val sess=tenantSession!!
                         val selectedCode=sess.optString("voice",
                             tenantFlow?.optString("voice","google.aoede").orEmpty())
-                        val isIoPremium=selectedCode=="io.premium"
-                        if(isIoPremium)check(sess.optString("voice_engine")=="official_google_live_fish_pcm"){
-                            "اختيار IO Premium غير مدعوم في نسخة السيرفر الحالية"
+                        val isFishVoice=selectedCode=="io.premium" || selectedCode.startsWith("fish.")
+                        if(isFishVoice)check(sess.optString("voice_engine")=="official_google_live_fish_pcm"){
+                            "اختيار صوت Fish Audio غير مدعوم في نسخة السيرفر الحالية"
                         }
-                        val voice=if(isIoPremium)"Aoede"
+                        val voice=if(isFishVoice)"Aoede"
                             else selectedCode.substringAfterLast('.')
                                 .replaceFirstChar{it.uppercaseChar()}
+                        val voiceLabel=sess.optString("voice_label","").trim().ifBlank{
+                            when {
+                                selectedCode=="io.premium"->"IO Premium"
+                                selectedCode.startsWith("fish.")->"Fish Audio"
+                                else->voice
+                            }
+                        }
                         val liveSettings=JSONObject().put("voice",voice)
-                            .put("voice_label",if(isIoPremium)"IO Premium" else voice)
+                            .put("voice_label",voiceLabel)
                             .put("input_channel","mix")
                             .put("scenario_mode",policy.optString("scenario_mode","builder"))
                             .put("response_style",policy.optString("response_style","egyptian_short"))
@@ -926,7 +933,7 @@ class MobileLinkService:Service() {
                             rotateVoiceToken={ previous,failure ->
                                 enrollment.rotateVoiceSession(reportSlot,previous,failure)
                             },
-                            premiumPcm=if(isIoPremium) { text,keepRunning,chunk ->
+                            premiumPcm=if(isFishVoice) { text,keepRunning,chunk ->
                                 enrollment.streamPremiumPcm(reportSlot,text,keepRunning,chunk)
                             } else null,
                             onHumanRequested={ reason,notes ->

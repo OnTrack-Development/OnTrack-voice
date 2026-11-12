@@ -167,6 +167,8 @@ def deploy(download_url,tar_sha,source_commit):
             raise ValueError('missing_front_controller')
         changes=rewrite_root_urls(inner)
         shutil.copytree(ROOT/'mobile',inner/'mobile',symlinks=False)
+        if (ROOT/'assets/voice-samples').is_dir():
+            shutil.copytree(ROOT/'assets/voice-samples',inner/'assets/voice-samples',symlinks=False,dirs_exist_ok=True)
         if (ROOT/'.well-known').is_dir():shutil.copytree(ROOT/'.well-known',inner/'.well-known',symlinks=True)
         (inner/'saas').mkdir(exist_ok=True)
         (inner/'saas/mobile').symlink_to('../mobile',target_is_directory=True)

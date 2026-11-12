@@ -200,7 +200,13 @@ CREATE TABLE IF NOT EXISTS voices (
   provider TEXT,
   tier TEXT,
   ready INTEGER DEFAULT 0,
-  status TEXT DEFAULT 'active'
+  status TEXT DEFAULT 'active',
+  gender TEXT DEFAULT 'neutral',
+  dialect TEXT DEFAULT '',
+  source_ref_id TEXT DEFAULT '',
+  sample_path TEXT DEFAULT '',
+  sample_url TEXT DEFAULT '',
+  meta_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS voice_grants (

@@ -151,6 +151,7 @@ jobs:
             --tests 'com.ontrack.voiceproof.FishTtsFailoverTest' `
             --tests 'com.ontrack.voiceproof.LinkPcmTest' `
             --tests 'com.ontrack.voiceproof.LiveInterruptionPolicyTest' `
+            --tests 'com.ontrack.voiceproof.LiveBargeInAndSessionMutexTest' `
             --tests 'com.ontrack.voiceproof.LocalUiPageTest' `
             --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' `
             --tests 'com.ontrack.voiceproof.OnTrackPermissionChecklistTest' `

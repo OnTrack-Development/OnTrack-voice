@@ -200,7 +200,13 @@ CREATE TABLE IF NOT EXISTS voices (
   provider VARCHAR(190),
   tier VARCHAR(190),
   ready BIGINT DEFAULT 0,
-  status VARCHAR(80) DEFAULT 'active'
+  status VARCHAR(80) DEFAULT 'active',
+  gender VARCHAR(20) DEFAULT 'neutral',
+  dialect VARCHAR(80) DEFAULT '',
+  source_ref_id VARCHAR(120) DEFAULT '',
+  sample_path TEXT,
+  sample_url TEXT,
+  meta_json TEXT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS voice_grants (

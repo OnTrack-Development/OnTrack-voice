@@ -23,6 +23,8 @@ on:
       - 'tools/test_graph_routing.cjs'
       - 'tools/test_whatsapp_inbox.php'
       - 'tools/test_whatsapp_whmcs_bridge.php'
+      - 'tools/test_fish_voice_catalog_cache.php'
+      - 'tools/test_voice_picker_and_persona.cjs'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
@@ -48,7 +50,7 @@ jobs:
             & php -l $_.FullName | Out-Null
             if ($LASTEXITCODE -ne 0) { throw ('PHP lint failed: ' + $_.FullName) }
           }
-          foreach ($f in @('tools/test_voice_saas_console.php', 'tools/test_tenant_device_pairing.php', 'tools/test_tenant_account_bridge.php', 'tools/test_six_digit_sim_pairing.php', 'tools/test_reseller_parent_service_gate_v70.php', 'tools/test_admin_mfa.php', 'tools/test_console_kashier_webhook.php', 'tools/test_voice_sso.php')) {
+          foreach ($f in @('tools/test_voice_saas_console.php', 'tools/test_tenant_device_pairing.php', 'tools/test_tenant_account_bridge.php', 'tools/test_six_digit_sim_pairing.php', 'tools/test_reseller_parent_service_gate_v70.php', 'tools/test_admin_mfa.php', 'tools/test_console_kashier_webhook.php', 'tools/test_voice_sso.php', 'tools/test_fish_voice_catalog_cache.php')) {
             & php -l $f | Out-Null
             if ($LASTEXITCODE -ne 0) { throw ('PHP lint failed: ' + $f) }
           }
@@ -61,7 +63,7 @@ jobs:
             & node --check $js
             if ($LASTEXITCODE -ne 0) { throw ('node --check failed: ' + $js) }
           }
-          foreach ($cjs in @('tools/test_voice_qr.cjs', 'tools/test_floating_flow_ui.cjs', 'tools/test_graph_routing.cjs', 'tools/test_console_ajax_ui.cjs')) {
+          foreach ($cjs in @('tools/test_voice_qr.cjs', 'tools/test_floating_flow_ui.cjs', 'tools/test_graph_routing.cjs', 'tools/test_console_ajax_ui.cjs', 'tools/test_voice_picker_and_persona.cjs')) {
             & node $cjs
             if ($LASTEXITCODE -ne 0) { throw ('JS regression failed: ' + $cjs) }
           }
@@ -93,7 +95,9 @@ jobs:
             @('php', 'tools/test_ai_agent_profile.php'),
             @('php', 'tools/test_flow_ai_stress.php'),
             @('php', 'tools/test_whatsapp_inbox.php'),
-            @('php', 'tools/test_whatsapp_whmcs_bridge.php')
+            @('php', 'tools/test_whatsapp_whmcs_bridge.php'),
+            @('php', 'tools/test_io_premium_shared_access.php'),
+            @('php', 'tools/test_fish_voice_catalog_cache.php')
           )
           $i = 0
           foreach ($item in $suite) {

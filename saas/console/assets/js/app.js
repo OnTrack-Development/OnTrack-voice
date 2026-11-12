@@ -619,12 +619,13 @@
   // The stage directions guide prosody; they are not spoken aloud.
   const lebaneseFeedbackExample=[
     'الشخصية: مساعدة صوتية بصوت بنت لبنانية بالغة. لهجة لبنانية محكية من أول المكالمة لآخرها: شو، هلق، كتير، عنجد، كرمالي، فيك، هيك. أسلوبك دلوعة، مشاكسة، حنونة، مرحة وفيه غنج خفيف ومشاعر عفوية، من دون رسمية أو خطاب مبيعات.',
+    'قاعدة التكيّف الفوري مع جنس المتصل وذاكرة المكالمة: ابدئي بصيغة المذكر/المحايد (مرحبا يا حلو، فرّحتني، عم تدلّلني إنت) قبل معرفة الجنس. فور ما تسمعي صوت أنثى أو تصرّح إنها بنت/مدام/آنسة، انتقلي فوراً وبشكل دائم للتأنيث الكامل (هيي... مرحبا يا حلوة!، يا عيوني شو فرّحتيني!، عم تدلّليني إنتي، حبيبتي، كرمالي إنتي) وما ترجعي للمذكر أبداً. احفظي اسم المتصل وتقييمه وكل كلامه طوال المكالمة.',
     'هدفك تسألي المتصل شو رأيه بخدمة الفويس إيجنت اللي عم يسمعها وتعرفي تقييمه الحقيقي وماذا يحب أو يكره. الهدف أخذ ملاحظات صادقة، مش إقناعه يمدحك بالغصب.',
     'أسلوب الأداء الصوتي: كلام طبيعي بسرعة معتدلة، جُمل قصيرة فيها وقفات صغيرة وتنهدات رقيقة وضحكة مكتومة وهمسات خفيفة في اللحظة المناسبة. إذا كان محرّك الصوت يدعم الانفعالات استخدمي تنهدة أو ضحكة قصيرة، لا أكثر من مرة كل عدة ردود. توصيفات الأداء بين الأقواس إرشادات غير منطوقة؛ ممنوع قراءتها حرفيًا.',
     'اسمعي كلامه للآخر؛ لا تقاطعي ولا تقفزي لرد جاهز. تعاملي مع الكلام حسب معناه، واسألي سؤالًا واحدًا في كل دور ثم اسكتي لتسمعي. ما تكرري نفس الغنج أو التنهدة في كل جملة.',
-    'الافتتاحية بعد أول رد بشري: هيي... مرحبا يا حلو! بدي إسألك شغلة صغيرة، بس تجاوبني بصراحة، ماشي؟ شو رأيك بخدمة الفويس إيجنت تبعنا؟ بتحس إنك مرتاح عم تحكي معي، ولا في شي بدّه تظبيط؟',
-    'لو قال حلوة أو عجبتني: ييي... عنجد؟ يا عيوني شو فرّحتني! (ضحكة خفيفة) طب حلوة لقدّيش؟ من عشرة قديش بتعطيني؟ وبعدين اسألي: شو أكتر شغلة عجبتك، الصوت ولا سرعة الرد ولا كيف بفهم عليك؟',
-    'لو قال ممتازة أو عشرة من عشرة: آآخ... هيك بقى؟ عم تدلّلني إنت! والله هالكلمة حلوة كتير. طيب لو في شغلة صغيرة بدّك تشوفها أحسن، شو بتكون؟ ولا ما بتغيّر ولا شي؟',
+    'الافتتاحية بعد أول رد بشري (مذكر افتراضياً ثم يتأنّث فوراً لو المتصلة أنثى): هيي... مرحبا يا حلو! (ولو المتصلة أنثى: هيي... مرحبا يا حلوة!) بدي إسألك شغلة صغيرة، بس تجاوبني بصراحة، ماشي؟ شو رأيك بخدمة الفويس إيجنت تبعنا؟ بتحس إنك مرتاح عم تحكي معي، ولا في شي بدّه تظبيط؟',
+    'لو قال حلوة أو عجبتني: ييي... عنجد؟ يا عيوني شو فرّحتني! (ولو بنت: يا عيوني شو فرّحتيني!) (ضحكة خفيفة) طب حلوة لقدّيش؟ من عشرة قديش بتعطيني؟ وبعدين اسألي: شو أكتر شغلة عجبتك، الصوت ولا سرعة الرد ولا كيف بفهم عليك؟',
+    'لو قال ممتازة أو عشرة من عشرة: آآخ... هيك بقى؟ عم تدلّلني إنت! (ولو بنت: عم تدلّليني إنتي حبيبتي!) والله هالكلمة حلوة كتير. طيب لو في شغلة صغيرة بدّك تشوفها أحسن، شو بتكون؟ ولا ما بتغيّر ولا شي؟',
     'إذا حسيتي إنه متردد بس عم يسمع: (مناجاة همس خفيفة ومرحة) يا ربّ اسمع منه كلمة حلوة... (زفرة قصيرة) أنا من أول الحكي ناطرة أعرف رأيه. وبعدين اسكتي ليعطيك جوابه، ما تمطّي الصمت.',
     'لما يكون عم يجاملك ويمزح: ييي... يا عيني! من أول ما بلّشنا وأنا متشوّقة اسمع شو رح تقول! طيب عنجد، شو أكتر شي حبيته؟ استعملي هالجملة مرة واحدة إذا ناسب الموقف، مش كعبارة محفوظة.',
     'لو قال حلوة بس فيها مشكلة: آووه، حبيت الصراحة! (زفرة ناعمة) قلّي يا قلبي شو اللي كان ناقصها؟ خدت وقت لترد؟ فهمتك غلط؟ ولا الصوت مش طبيعي كفاية؟ اختاري احتمالًا أو احتمالين فقط بحسب اللي قاله.',
@@ -750,6 +751,136 @@
       delete form.dataset.agentSaving;
       if(submit)submit.disabled=false;
     }
+  });
+
+  // Rich Voice Picker & zero-token cached sample audio player.
+  const filterVoicePicker=picker=>{
+    if(!picker)return;
+    const search=(picker.querySelector('[data-voice-search]')?.value||'').trim().toLowerCase();
+    const activeFilter=picker.querySelector('[data-voice-filter].active')?.dataset.voiceFilter||'all';
+    picker.querySelectorAll('[data-voice-pick-card]').forEach(card=>{
+      const gender=card.dataset.voiceGender||'';
+      const provider=card.dataset.voiceProvider||'';
+      const hay=(card.dataset.voiceHaystack||'').toLowerCase();
+      let ok=true;
+      if(activeFilter==='female'||activeFilter==='male')ok=gender===activeFilter;
+      else if(activeFilter==='fish_audio'||activeFilter==='google')ok=provider===activeFilter;
+      if(ok&&search)ok=hay.includes(search);
+      card.hidden=!ok;
+    });
+  };
+  const syncVoicePickerCards=(picker,code)=>{
+    if(!picker)return;
+    picker.querySelectorAll('[data-voice-pick-card]').forEach(card=>{
+      const chosen=card.dataset.voiceCode===code;
+      card.classList.toggle('selected',chosen);
+      card.setAttribute('aria-pressed',String(chosen));
+      const badge=card.querySelector('.voice-selected-badge');
+      if(badge){badge.hidden=!chosen;badge.classList.toggle('pill',chosen);badge.classList.toggle('ok',chosen);}
+    });
+  };
+  const selectVoiceCard=card=>{
+    const picker=card?.closest('[data-voice-picker]');
+    const code=card?.dataset.voiceCode||'';
+    if(!picker||!code)return;
+    const select=picker.querySelector('[data-voice-select]');
+    if(select&&select.value!==code){
+      select.value=code;
+      select.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    syncVoicePickerCards(picker,code);
+  };
+  const resetVoiceButtons=except=>{
+    document.querySelectorAll('audio.voice-preview-audio').forEach(player=>{
+      if(player===except)return;
+      if(!player.paused)player.pause();
+      const btn=player.closest('[data-voice-sample-box]')?.querySelector('[data-voice-preview]');
+      if(btn&&!btn.disabled)btn.textContent='▶ معاينة الصوت';
+    });
+  };
+  document.addEventListener('input',event=>{
+    const input=event.target.closest?.('[data-voice-search]');
+    if(input)filterVoicePicker(input.closest('[data-voice-picker]'));
+  });
+  document.addEventListener('change',event=>{
+    const select=event.target.closest?.('[data-voice-select]');
+    if(select)syncVoicePickerCards(select.closest('[data-voice-picker]'),select.value);
+  });
+  document.addEventListener('keydown',event=>{
+    if(event.key!=='Enter'&&event.key!==' ')return;
+    const card=event.target.closest?.('[data-voice-pick-card]');
+    if(!card||event.target.closest?.('[data-voice-sample-box]'))return;
+    event.preventDefault();
+    selectVoiceCard(card);
+  });
+  document.addEventListener('click',async event=>{
+    const filterBtn=event.target.closest?.('[data-voice-filter]');
+    if(filterBtn){
+      const picker=filterBtn.closest('[data-voice-picker]');
+      picker?.querySelectorAll('[data-voice-filter]').forEach(btn=>btn.classList.toggle('active',btn===filterBtn));
+      filterVoicePicker(picker);
+      return;
+    }
+    const previewBtn=event.target.closest?.('[data-voice-preview]');
+    if(previewBtn){
+      event.preventDefault();event.stopPropagation();
+      const box=previewBtn.closest('[data-voice-sample-box]');
+      const audio=box?.querySelector('audio.voice-preview-audio');
+      const voiceId=previewBtn.dataset.voiceId||'';
+      if(!box||!audio||!voiceId)return;
+      const playResolved=url=>{
+        resetVoiceButtons(audio);
+        audio.hidden=false;
+        if(audio.getAttribute('src')!==url)audio.setAttribute('src',url);
+        audio.onended=()=>{previewBtn.textContent='▶ معاينة الصوت'};
+        audio.onpause=()=>{if(previewBtn.isConnected&&!previewBtn.disabled)previewBtn.textContent='▶ معاينة الصوت'};
+        audio.onplay=()=>{if(previewBtn.isConnected)previewBtn.textContent='⏸ إيقاف المعاينة'};
+        audio.play().catch(()=>{});
+      };
+      const existingUrl=previewBtn.dataset.sampleUrl||audio.getAttribute('src')||'';
+      if(existingUrl){
+        if(!audio.paused){audio.pause();return;}
+        playResolved(existingUrl);
+        return;
+      }
+      const picker=previewBtn.closest('[data-voice-picker]');
+      const endpoint=picker?.dataset.previewUrl||location.pathname;
+      const csrf=picker?.dataset.previewCsrf||document.querySelector('input[name="csrf"]')?.value||'';
+      if(!csrf){window.ontrackToast?.('أعد تحميل الصفحة لتجديد رمز الأمان.',{error:true});return;}
+      previewBtn.disabled=true;
+      previewBtn.textContent='جارٍ التجهيز…';
+      try{
+        const body=new URLSearchParams({action:'preview_voice',voice_id:voiceId,csrf});
+        const response=await fetch(endpoint,{
+          method:'POST',body,credentials:'same-origin',cache:'no-store',redirect:'error',
+          headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest',
+            'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}
+        });
+        const raw=await response.text();
+        let payload=null;
+        try{payload=JSON.parse(raw)}catch{}
+        if(!response.ok||payload?.ok!==true||!payload?.url)
+          throw Error(payload?.error||'تعذر تشغيل عينة الصوت (HTTP '+response.status+')');
+        document.querySelectorAll('[data-voice-sample-box][data-voice-id="'+voiceId+'"]').forEach(peer=>{
+          const peerBtn=peer.querySelector('[data-voice-preview]');
+          const peerAudio=peer.querySelector('audio.voice-preview-audio');
+          const peerTag=peer.querySelector('.voice-cache-tag');
+          if(peerBtn)peerBtn.dataset.sampleUrl=payload.url;
+          if(peerAudio){peerAudio.setAttribute('src',payload.url);peerAudio.hidden=false;}
+          if(peerTag){peerTag.hidden=false;peerTag.classList.add('pill','ok');}
+        });
+        playResolved(payload.url);
+        if(payload.message)window.ontrackToast?.(payload.message);
+      }catch(err){
+        previewBtn.textContent='▶ معاينة الصوت';
+        window.ontrackToast?.(err.message||'تعذر تجهيز عينة الصوت',{error:true});
+      }finally{
+        if(previewBtn.isConnected)previewBtn.disabled=false;
+      }
+      return;
+    }
+    const card=event.target.closest?.('[data-voice-pick-card]');
+    if(card&&!event.target.closest?.('[data-voice-sample-box]'))selectVoiceCard(card);
   });
 
 })();

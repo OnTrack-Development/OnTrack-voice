@@ -67,7 +67,7 @@ function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
 function init_schema():void {
     $done=private_path().'/schema.v1';
-    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_console_v24(); init_console_v25(); init_console_v26(); init_console_v27(); require_once __DIR__.'/VoiceKnowledgeWeb.php'; voice_kb_web_init(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1(); require_once __DIR__.'/SubscriptionPlans.php';plan_catalog_init(); require_once __DIR__.'/BillingInvoices.php';billing_invoice_init(); return; }
+    if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_console_v24(); init_console_v25(); init_console_v26(); init_console_v27(); init_console_v28(); require_once __DIR__.'/VoiceKnowledgeWeb.php'; voice_kb_web_init(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1(); require_once __DIR__.'/SubscriptionPlans.php';plan_catalog_init(); require_once __DIR__.'/BillingInvoices.php';billing_invoice_init(); return; }
     $path=__DIR__.'/../database/'.(driver()==='mysql'?'schema.mysql.sql':'schema.sqlite.sql');
     $text=(string)file_get_contents($path);
     $segments=array_filter(array_map('trim',explode(";\n",$text)));
@@ -76,7 +76,7 @@ function init_schema():void {
     chmod($done,0600);
     init_console_v2();
     init_console_v3();
-    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_console_v24(); init_console_v25(); init_console_v26(); init_console_v27(); require_once __DIR__.'/VoiceKnowledgeWeb.php'; voice_kb_web_init(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1(); require_once __DIR__.'/SubscriptionPlans.php';plan_catalog_init(); require_once __DIR__.'/BillingInvoices.php';billing_invoice_init();
+    init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_console_v24(); init_console_v25(); init_console_v26(); init_console_v27(); init_console_v28(); require_once __DIR__.'/VoiceKnowledgeWeb.php'; voice_kb_web_init(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1(); require_once __DIR__.'/SubscriptionPlans.php';plan_catalog_init(); require_once __DIR__.'/BillingInvoices.php';billing_invoice_init();
 }
 /** Safe incremental migration of the already-live demo DB (both supported PDO drivers). */
 function init_console_v2():void{
@@ -311,10 +311,10 @@ function csrf():string {
     if (empty($_SESSION['csrf'])) $_SESSION['csrf']=bin2hex(random_bytes(32));
     return $_SESSION['csrf'];
 }
-/** Agent Studio AJAX always gets a typed error even for auth/CSRF preflights. */
+/** Agent Studio & Voice Preview AJAX always get a typed JSON error even for auth/CSRF preflights. */
 function agent_studio_ajax_request():bool {
     return ($_SERVER['REQUEST_METHOD']??'')==='POST'
-        && ($_POST['action']??'')==='update_agent'
+        && in_array((string)($_POST['action']??''),['update_agent','preview_voice'],true)
         && ($_SERVER['HTTP_X_REQUESTED_WITH']??'')==='XMLHttpRequest';
 }
 function agent_studio_ajax_error(int $status,string $message):never {
@@ -1018,6 +1018,46 @@ function init_console_v27():void {
                 insert('INSERT INTO voice_grants(account_id,voice_id) VALUES (?,?)',[$accountId,$id]);
         }
     }
+    file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
+}
+
+/** Additive rich voice metadata and zero-token local sample cache columns. */
+function init_console_v28():void {
+    $marker=private_path().'/schema.v28';
+    if(is_file($marker))return;
+    $existing=driver()==='mysql'
+        ?array_column(all('SHOW COLUMNS FROM voices'),'Field')
+        :array_column(all('PRAGMA table_info(voices)'),'name');
+    foreach([
+        'gender'=>"VARCHAR(20) NOT NULL DEFAULT 'neutral'",
+        'dialect'=>"VARCHAR(80) NOT NULL DEFAULT ''",
+        'source_ref_id'=>"VARCHAR(120) NOT NULL DEFAULT ''",
+        'sample_path'=>'TEXT NULL',
+        'sample_url'=>'TEXT NULL',
+        'meta_json'=>'TEXT NULL',
+    ] as $field=>$type){
+        if(!in_array($field,$existing,true))
+            db()->exec('ALTER TABLE voices ADD COLUMN '.$field.' '.$type);
+    }
+    $femaleCodes=['google.aoede','google.kore','google.leda','google.zephyr','google.autonoe',
+        'google.erinome','google.laomedeia','google.despina','google.callirrhoe',
+        'google.pulcherrima','google.vindemiatrix','google.sulafat','google.sadachbia'];
+    $maleCodes=['google.orus','google.puck','google.fenrir','google.charon','google.umbriel',
+        'google.schedar','google.achird','google.enceladus','google.algieba','google.algenib',
+        'google.achernar','google.gacrux','google.zubenelgenubi','google.sadaltager',
+        'google.iapetus','google.rasalgethi','google.alnilam'];
+    foreach($femaleCodes as $code)
+        execute("UPDATE voices SET gender='female',dialect=CASE WHEN dialect IS NULL OR dialect='' THEN 'متعدد اللغات' ELSE dialect END WHERE code=? AND (gender IS NULL OR gender='' OR gender='neutral')",[$code]);
+    foreach($maleCodes as $code)
+        execute("UPDATE voices SET gender='male',dialect=CASE WHEN dialect IS NULL OR dialect='' THEN 'متعدد اللغات' ELSE dialect END WHERE code=? AND (gender IS NULL OR gender='' OR gender='neutral')",[$code]);
+    $cfg=private_path().'/voice-lab/owner-1.json';
+    $ioRef='';
+    if(is_file($cfg)&&!is_link($cfg)){
+        $json=json_decode((string)file_get_contents($cfg),true);
+        $cand=strtolower(trim((string)($json['settings']['voiceId']??'')));
+        if(preg_match('/^[0-9a-f]{32}$/D',$cand)===1)$ioRef=$cand;
+    }
+    execute("UPDATE voices SET dialect=CASE WHEN dialect IS NULL OR dialect='' THEN 'متعدد اللهجات' ELSE dialect END, source_ref_id=CASE WHEN (source_ref_id IS NULL OR source_ref_id='') AND ?<>'' THEN ? ELSE source_ref_id END WHERE code='io.premium'",[$ioRef,$ioRef]);
     file_put_contents($marker,now(),LOCK_EX);@chmod($marker,0600);
 }
 

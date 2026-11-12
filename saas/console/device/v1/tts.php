@@ -51,18 +51,30 @@ try {
     if(!tenant_voice_entitled($binding))io_premium_error(403,'voice_subscription_inactive');
     $published=published_agent_flow((int)$binding['account_id'],
         (int)$binding['site_id'],(int)$binding['agent_id']);
-    if(!$published||(string)$published['voice']!=='io.premium')
+    $publishedVoice=$published?(string)$published['voice']:'';
+    if(!$published||!tenant_voice_is_fish($publishedVoice))
         io_premium_error(403,'premium_voice_not_published');
     require_once __DIR__.'/../../_core/IoPremiumProvider.php';
-    if(!io_premium_access_allowed((int)$binding['account_id']))
-        io_premium_error(403,'premium_voice_not_available');
+    if($publishedVoice==='io.premium'){
+        if(!io_premium_access_allowed((int)$binding['account_id']))
+            io_premium_error(403,'premium_voice_not_available');
+    }else{
+        $voiceRow=one("SELECT id,source_ref_id,ready,status FROM voices WHERE code=?",[$publishedVoice]);
+        if(!$voiceRow||(int)$voiceRow['ready']!==1||(string)$voiceRow['status']!=='active')
+            io_premium_error(403,'premium_voice_not_available');
+        $acct=account((int)$binding['account_id']);
+        if(!$acct||(($acct['kind']??'')!=='platform'
+            && !one('SELECT id FROM voice_grants WHERE account_id=? AND voice_id=?',[(int)$binding['account_id'],(int)$voiceRow['id']])))
+            io_premium_error(403,'premium_voice_not_available');
+    }
     $cfg=private_path().'/voice-lab/owner-1.json';
     if(is_link($cfg)||!is_file($cfg))io_premium_error(503,'premium_voice_unavailable');
     $saved=json_decode((string)file_get_contents($cfg),true);
     $secret=is_array($saved)?($saved['keys']['fish']??null):null;
     $key=is_string($secret)?(unseal_secret($secret)??''):'';
-    $voice=is_array($saved)?strtolower((string)($saved['settings']['voiceId']??'')):'';
-    $model=is_array($saved)?(string)($saved['settings']['fishModel']??''):'';
+    $voice=tenant_voice_resolve_fish((int)$binding['account_id'],$publishedVoice)??'';
+    $model=is_array($saved)?(string)($saved['settings']['fishModel']??'drama-3'):'';
+    if($model==='')$model='drama-3';
     if($key===''||strlen($key)>2048||preg_match('/[\x00-\x1f\x7f]/',$key)
         ||!preg_match('/^[0-9a-f]{32}$/D',$voice)
         ||!in_array($model,['drama-3','s2.1-pro-free','s2.1-pro'],true))

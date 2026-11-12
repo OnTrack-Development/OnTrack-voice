@@ -232,6 +232,7 @@ function act():void {
         exit;
     }
     try {
+        $ajaxExtra=[];
         if($action==='update_agent')agent_studio_unpack_fields();
         // Migrate DNC outside a transaction (MySQL CREATE TABLE auto-commits).
         if(in_array($action,['add_contact','edit_contact','delete_contact'],true))dnc_init_ledger();
@@ -749,7 +750,9 @@ function act():void {
                     if(!io_premium_access_allowed($id))
                         throw new RuntimeException('IO Premium غير متاح لهذا الحساب حسب سياسة الأدمن');
                 }else{
-                    $v=one("SELECT * FROM voices WHERE code=? AND ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)",[$voice,$id]);
+                    $v=$kind==='platform'
+                        ?one("SELECT * FROM voices WHERE code=? AND ready=1 AND status='active'",[$voice])
+                        :one("SELECT * FROM voices WHERE code=? AND ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)",[$voice,$id]);
                     if(!$v && $kind!=='platform')throw new RuntimeException('الصوت غير متاح لهذه الباقة');
                     if(!$v && $kind==='platform')$voice='google.aoede';
                 }
@@ -791,8 +794,10 @@ function act():void {
                     if(!io_premium_access_allowed($id))
                         throw new InvalidArgumentException('IO Premium غير متاح لهذا الحساب حسب سياسة الأدمن');
                 }elseif($voice!==(string)$ag['voice']){
-                    $allowedVoice=one("SELECT id FROM voices WHERE code=? AND ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)",[$voice,$id]);
-                    if(!$allowedVoice && $kind!=='platform')throw new InvalidArgumentException('الصوت غير متاح لهذا الحساب');
+                    $allowedVoice=$kind==='platform'
+                        ?one("SELECT id FROM voices WHERE code=? AND ready=1 AND status='active'",[$voice])
+                        :one("SELECT id FROM voices WHERE code=? AND ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)",[$voice,$id]);
+                    if(!$allowedVoice)throw new InvalidArgumentException('الصوت غير متاح لهذا الحساب');
                 }
                 $ids=[];
                 foreach($decoded['nodes'] as $n){
@@ -1547,6 +1552,57 @@ function act():void {
                 audit('voice.io_premium.access_updated',$id,io_premium_access_policy());
                 $success='تم حفظ إتاحة IO Premium. المفتاح الرئيسي محفوظ ولم يتغير.';
                 break;
+            case 'sync_fish_voices':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceCatalog.php';
+                $res=fish_audio_sync_catalog(
+                    field('fish_sync_api_key',2048),
+                    field('fish_query',80),
+                    30,
+                    null,
+                    field('mark_ready',1)==='1'
+                );
+                audit('voices.fish_catalog_synced',$id,$res);
+                $success='تم جلب '.$res['synced'].' صوت من Fish Audio (جديد: '.$res['inserted'].'، محدّث: '.$res['updated'].').';
+                break;
+            case 'add_fish_voice':
+                if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                require_once __DIR__.'/VoiceCatalog.php';
+                $vid=fish_audio_add_custom(
+                    required('name',120),
+                    required('source_ref_id',32),
+                    field('gender',16),
+                    field('dialect',80),
+                    field('mark_ready',1)==='1'
+                );
+                audit('voices.fish_custom_added',$id,['voice_id'=>$vid]);
+                $success='تم حفظ صوت Fish Audio برقم المرجع بنجاح.';
+                break;
+            case 'preview_voice':
+                $vid=intfield('voice_id');
+                $voice=one('SELECT * FROM voices WHERE id=?',[$vid]);
+                if(!$voice)deny(404);
+                if($kind!=='platform'){
+                    if((int)$voice['ready']!==1||(string)$voice['status']!=='active')deny();
+                    if((string)$voice['code']==='io.premium'){
+                        require_once __DIR__.'/IoPremiumProvider.php';
+                        if(!io_premium_access_allowed($id))deny();
+                    }elseif(!one('SELECT id FROM voice_grants WHERE account_id=? AND voice_id=?',[$id,$vid])){
+                        deny();
+                    }
+                }
+                require_once __DIR__.'/VoiceCatalog.php';
+                $sample=voice_sample_cache_ensure($vid);
+                $ajaxExtra=[
+                    'url'=>$sample['url'],
+                    'cached'=>$sample['cached'],
+                    'tokens_used'=>$sample['tokens_used'],
+                    'voice_id'=>$vid,
+                ];
+                $success=$sample['cached']
+                    ?'عينة الصوت جاهزة من الكاش المحلي (0 توكن)'
+                    :'تم تجهيز وحفظ عينة الصوت محليًا بنجاح';
+                break;
             case 'set_voice_ready':
                 if($kind!=='platform'||!in_array($a['role'],['owner','admin'],true))deny();
                 $voice=one('SELECT id,code FROM voices WHERE id=?',[intfield('voice_id')]);if(!$voice)deny(404);
@@ -1845,17 +1901,16 @@ function act():void {
             default:throw new InvalidArgumentException('عملية غير معروفة');
         }
         $message=$success??'تم حفظ العملية بنجاح';
-        if($action==='update_agent'&&($_SERVER['HTTP_X_REQUESTED_WITH']??'')==='XMLHttpRequest'){
+        if(in_array($action,['update_agent','preview_voice'],true)&&($_SERVER['HTTP_X_REQUESTED_WITH']??'')==='XMLHttpRequest'){
             header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
-            echo json_encode(['ok'=>true,'message'=>$message,
-                'published'=>(($_POST['publish_now']??'')==='1')],
-                JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+            if($action==='preview_voice')echo json_encode(['ok'=>true,'message'=>$message]+$ajaxExtra,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+            else echo json_encode(['ok'=>true,'message'=>$message,'published'=>(($_POST['publish_now']??'')==='1')],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
             exit;
         }
         flash('success',$message);
     }catch(Throwable $e){
         $message=$e instanceof InvalidArgumentException?$e->getMessage():'تعذر تنفيذ العملية: '.$e->getMessage();
-        if($action==='update_agent'&&($_SERVER['HTTP_X_REQUESTED_WITH']??'')==='XMLHttpRequest'){
+        if(in_array($action,['update_agent','preview_voice'],true)&&($_SERVER['HTTP_X_REQUESTED_WITH']??'')==='XMLHttpRequest'){
             http_response_code($e instanceof InvalidArgumentException?422:500);
             header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
             echo json_encode(['ok'=>false,'error'=>$message],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);

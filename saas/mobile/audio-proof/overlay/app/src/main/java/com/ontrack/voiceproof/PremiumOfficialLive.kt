@@ -14,6 +14,7 @@ import okio.ByteString
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Secure short-lived Gemini Live socket for IO Premium.
@@ -41,6 +42,7 @@ internal class PremiumOfficialLive(
 ) {
     private val stopped=AtomicBoolean(false)
     private val ready=CompletableDeferred<Unit>()
+    private val turnGeneration=AtomicInteger(0)
     @Volatile private var socket:WebSocket?=null
     private var fullOutput=""
     private var spokenOffset=0
@@ -94,9 +96,10 @@ internal class PremiumOfficialLive(
         val url=HttpUrl.Builder().scheme("https").host("generativelanguage.googleapis.com")
             .addPathSegments("ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained")
             .addQueryParameter("access_token",token).build().toString().replaceFirst("https:","wss:")
+        socket?.close(1000,"superseded")
         socket=client.newWebSocket(Request.Builder().url(url).build(),object:WebSocketListener(){
             override fun onOpen(webSocket:WebSocket,response:Response) {
-                if(stopped.get())return
+                if(stopped.get() || webSocket!==socket)return
                 val cleanModel=model.removePrefix("models/")
                 val generationConfig=JSONObject().put("responseModalities",JSONArray().put("AUDIO"))
                 if(!cleanModel.contains("3.8-live",ignoreCase=true) && cleanModel.contains("2.5",ignoreCase=true))
@@ -107,8 +110,8 @@ internal class PremiumOfficialLive(
                         .put("disabled",false)
                         .put("startOfSpeechSensitivity","START_SENSITIVITY_HIGH")
                         .put("endOfSpeechSensitivity","END_SENSITIVITY_HIGH")
-                        .put("prefixPaddingMs",40)
-                        .put("silenceDurationMs",350)))
+                        .put("prefixPaddingMs",100)
+                        .put("silenceDurationMs",250)))
                     .put("systemInstruction",JSONObject().put("parts",
                         JSONArray().put(JSONObject().put("text",instruction))))
                     .put("inputAudioTranscription",JSONObject())
@@ -128,13 +131,24 @@ internal class PremiumOfficialLive(
                     }
                     if(message.has("setupComplete") && !ready.isCompleted)ready.complete(Unit)
                     val content=message.optJSONObject("serverContent")?:return
+                    if(content.optBoolean("interrupted")){
+                        turnGeneration.incrementAndGet()
+                        fullOutput="";spokenOffset=0
+                        synchronized(audioGate){
+                            recentGooglePcm.clear();recentBytes=0;newTurnPending=false
+                        }
+                        interrupted()
+                        return
+                    }
+                    val gen=turnGeneration.get()
                     content.optJSONObject("inputTranscription")?.optString("text","")
                         ?.takeIf{it.isNotBlank()}?.let(caller)
                     content.optJSONObject("outputTranscription")?.optString("text","")
                         ?.takeIf{it.isNotBlank()}?.let { text->
+                            if(turnGeneration.get()!=gen)return@let
                             fullOutput=PremiumPhrase.merge(fullOutput,text)
                             assistant(text)
-                            while(true){
+                            while(turnGeneration.get()==gen){
                                 val start=spokenOffset.coerceIn(0,fullOutput.length)
                                 val slice=fullOutput.substring(start)
                                 val lead=slice.indexOfFirst{!it.isWhitespace()}
@@ -144,30 +158,23 @@ internal class PremiumOfficialLive(
                                 if(prefix.isEmpty())break
                                 spokenOffset=(start+lead+prefix.length).coerceAtMost(fullOutput.length)
                                 val speak=PremiumPhrase.speakable(prefix)
-                                if(speak.isNotEmpty())phrase(speak)
+                                if(speak.isNotEmpty() && turnGeneration.get()==gen)phrase(speak)
                             }
                         }
-                    if(content.optBoolean("interrupted")){
-                        fullOutput="";spokenOffset=0
-                        synchronized(audioGate){
-                            recentGooglePcm.clear();recentBytes=0;newTurnPending=false
-                        }
-                        interrupted()
-                        return
-                    }
                     val parts=content.optJSONObject("modelTurn")?.optJSONArray("parts")
-                    if(parts!=null)for(i in 0 until parts.length()){
+                    if(parts!=null && turnGeneration.get()==gen)for(i in 0 until parts.length()){
                         val inline=parts.optJSONObject(i)?.optJSONObject("inlineData")?:continue
                         val mime=inline.optString("mimeType","")
                         if(!mime.startsWith("audio/pcm"))continue
                         val rate=Regex("rate=(\\d+)").find(mime)?.groupValues
                             ?.getOrNull(1)?.toIntOrNull()?:24000
+                        if(turnGeneration.get()!=gen)break
                         receiveGoogleAudio(Base64.decode(inline.getString("data"),Base64.DEFAULT),rate)
                     }
-                    if(content.optBoolean("turnComplete")){
+                    if(content.optBoolean("turnComplete") && turnGeneration.get()==gen){
                         val start=spokenOffset.coerceIn(0,fullOutput.length)
                         val remainder=PremiumPhrase.speakable(fullOutput.substring(start))
-                        if(remainder.isNotEmpty())phrase(remainder)
+                        if(remainder.isNotEmpty() && turnGeneration.get()==gen)phrase(remainder)
                         fullOutput="";spokenOffset=0
                         synchronized(audioGate){newTurnPending=true}
                     }

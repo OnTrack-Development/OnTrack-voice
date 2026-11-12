@@ -73,9 +73,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 60', 'versionCode')
+                        'versionCode = 61', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.3.37"', 'versionName')
+                        'versionName = "0.3.38"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
@@ -102,6 +102,7 @@ def main(root):
         '                .build();',
         '                .setAudioFormat(mono())\n'
         '                .setTransferMode(AudioTrack.MODE_STREAM)\n'
+        '                .setBufferSizeInBytes(Math.max(AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT), framesOf(40) * 2))\n'
         '                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)\n'
         '                .build();',
         'low latency call uplink AudioTrack')

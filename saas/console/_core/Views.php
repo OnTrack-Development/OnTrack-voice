@@ -1363,6 +1363,80 @@ function agent_studio_policy_fields(array $policy):string{
     }
     return $html.'</div></div>';
 }
+function voice_gender_label(string $g):string {
+    return match($g){'female'=>'أنثى','male'=>'ذكر',default=>'محايد'};
+}
+function voice_provider_label(string $p):string {
+    return match($p){
+        'fish_audio'=>'Fish Audio','gemini_tts'=>'Google TTS',
+        'gemini_live'=>'Gemini Live',default=>$p
+    };
+}
+function voice_sample_preview_control(array $voice):string {
+    $vid=(int)($voice['id']??0);
+    $rel=trim((string)($voice['sample_path']??''));
+    $cached=false;$sampleHref='';
+    if($rel!==''&&preg_match('/^assets\/voice-samples\/[A-Za-z0-9._-]{4,100}\.(mp3|wav|ogg)$/D',$rel)===1){
+        $local=__DIR__.'/../'.$rel;
+        if(is_file($local)&&filesize($local)>64){
+            $cached=true;
+            $sampleHref='/saas/console/'.$rel;
+        }
+    }
+    return '<div class="voice-sample-box" data-voice-sample-box data-voice-id="'.$vid.'">'.
+        '<button type="button" class="btn small voice-preview-btn" data-voice-preview data-voice-id="'.$vid.'"'.
+        ($sampleHref!==''?' data-sample-url="'.e($sampleHref).'"':'').'>▶ معاينة الصوت</button>'.
+        '<span class="'.($cached?'pill ok ':'').'voice-cache-tag"'.($cached?'':' hidden').'>كاش محلي · 0 توكن</span>'.
+        '<audio class="voice-preview-audio" controls preload="none"'.
+        ($sampleHref!==''?' src="'.e($sampleHref).'"':' hidden').'></audio>'.
+        '</div>';
+}
+function agent_voice_picker_html(string $selectHtml,array $voiceRows,string $selectedCode):string {
+    $selectHtml=str_replace('<select name="voice">','<select name="voice" data-voice-select>',$selectHtml);
+    $cards='';
+    foreach($voiceRows as $vr){
+        $code=(string)($vr['code']??'');
+        if($code==='')continue;
+        $label=(string)($vr['display_name']??$vr['name']??$code);
+        $gender=(string)($vr['gender']??'neutral');
+        if(!in_array($gender,['female','male','neutral'],true))$gender='neutral';
+        $dialect=trim((string)($vr['dialect']??''));
+        $provider=(string)($vr['provider']??'');
+        $providerGroup=str_starts_with($provider,'fish')?'fish_audio':'google';
+        $active=$code===$selectedCode;
+        $haystack=mb_strtolower($label.' '.$code.' '.$dialect.' '.$provider.' '.voice_gender_label($gender),'UTF-8');
+        $cards.='<div class="voice-picker-card'.($active?' selected':'').'" role="button" tabindex="0"'.
+            ' aria-pressed="'.($active?'true':'false').'"'.
+            ' data-voice-pick-card data-voice-code="'.e($code).'"'.
+            ' data-voice-gender="'.e($gender).'"'.
+            ' data-voice-provider="'.e($providerGroup).'"'.
+            ' data-voice-haystack="'.e($haystack).'">'.
+            '<div class="voice-picker-card-head"><strong>'.e($label).'</strong>'.
+            ($active?'<span class="pill ok voice-selected-badge">مختار</span>':'<span class="voice-selected-badge" hidden>مختار</span>').
+            '</div>'.
+            '<div class="voice-picker-badges">'.
+            '<span class="voice-badge gender-'.e($gender).'">'.e(voice_gender_label($gender)).'</span>'.
+            ($dialect!==''?'<span class="voice-badge dialect">'.e($dialect).'</span>':'').
+            '<span class="voice-badge provider">'.e(voice_provider_label($provider)).'</span>'.
+            '</div>'.
+            voice_sample_preview_control($vr).
+            '</div>';
+    }
+    $picker='<div class="voice-picker" data-voice-picker data-preview-url="/saas/console/" data-preview-csrf="'.e(csrf()).'">'.
+        $selectHtml.
+        '<div class="voice-picker-toolbar">'.
+        '<input type="search" class="voice-picker-search" data-voice-search placeholder="ابحث باسم الصوت أو اللهجة أو المزوّد...">'.
+        '<div class="voice-picker-filters" role="group" aria-label="تصفية الأصوات">'.
+        '<button type="button" class="btn small active" data-voice-filter="all">الكل</button>'.
+        '<button type="button" class="btn small" data-voice-filter="female">أنثى</button>'.
+        '<button type="button" class="btn small" data-voice-filter="male">ذكر</button>'.
+        '<button type="button" class="btn small" data-voice-filter="fish_audio">Fish Audio</button>'.
+        '<button type="button" class="btn small" data-voice-filter="google">Google</button>'.
+        '</div></div>'.
+        '<div class="voice-picker-grid">'.($cards?:'<p class="dim">استخدم القائمة أعلاه لاختيار الصوت المتاح.</p>').'</div>'.
+        '</div>';
+    return '<div class="voice-picker-wrap">'.$picker.'</div>';
+}
 function render_agents(array $a):void{
     require_once __DIR__.'/AgentAnswerPolicy.php';
     $id=(int)$a['account_id'];
@@ -1381,12 +1455,22 @@ function render_agents(array $a):void{
     echo '<div class="agent-studio-banner"><strong>مساعدك، بطريقتك</strong>'.
         '<p>حدّد هدف المساعد وطريقة كلامه، ثم صمّم المحادثة التي تناسب شغلك.</p></div>';
     require_once __DIR__.'/IoPremiumProvider.php';
-    $voices=[];
-    foreach(all("SELECT code,name FROM voices WHERE ready=1 AND status='active' AND id IN (SELECT voice_id FROM voice_grants WHERE account_id=?) ORDER BY name",[$id]) as $voice)
-        if($voice['code']!=='io.premium')$voices[$voice['code']]=$voice['name'];
-    if(io_premium_access_allowed($id)){
-        $premium=one("SELECT name FROM voices WHERE code='io.premium'");
-        if($premium)$voices['io.premium']=(string)$premium['name'].' · مفتاح المنصة';
+    $voiceQuery=$a['kind']==='platform'
+        ?"SELECT * FROM voices WHERE ready=1 AND status='active' ORDER BY tier DESC, provider DESC, name ASC"
+        :"SELECT * FROM voices WHERE ready=1 AND status='active' AND (code='io.premium' OR id IN (SELECT voice_id FROM voice_grants WHERE account_id=?)) ORDER BY tier DESC, provider DESC, name ASC";
+    $rawVoices=$a['kind']==='platform'?all($voiceQuery):all($voiceQuery,[$id]);
+    $voiceRows=[];$voices=[];
+    $ioAllowed=io_premium_access_allowed($id);
+    foreach($rawVoices as $vr){
+        $code=(string)$vr['code'];
+        if($code==='io.premium'){
+            if(!$ioAllowed)continue;
+            $vr['display_name']=(string)$vr['name'].' · مفتاح المنصة';
+        }else{
+            $vr['display_name']=(string)$vr['name'];
+        }
+        $voices[$code]=$vr['display_name'];
+        $voiceRows[$code]=$vr;
     }
     if(!$voices)$voices=['google.aoede'=>'Aoede'];
     $apiSources=['0'=>'بدون مصدر API'];
@@ -1396,10 +1480,11 @@ function render_agents(array $a):void{
         $apiSources[(string)$source['id']]=$source['name'].' ('.$source['type'].')';
     if(allowed('agents.write')){
         $defaults=answer_policy_defaults();
+        $defaultVoiceCode=(string)(array_key_first($voices)??'google.aoede');
         $create=form_start('add_agent','/?tab=agents&site='.(int)$selected['id'],'class="agent-studio-form-create"').
             '<div class="form-grid">'.field_html('اسم المساعد','name','text','مساعد خدمة العملاء',true).
-            select_html('الموقع','site_id',$map).
-            select_html('الصوت','voice',$voices).'</div>'.
+            select_html('الموقع','site_id',$map).'</div>'.
+            agent_voice_picker_html(select_html('الصوت','voice',$voices,$defaultVoiceCode),array_values($voiceRows),$defaultVoiceCode).
             '<label class="field">التعليمات وأسلوب الحديث<textarea name="instructions" rows="4" maxlength="5000" placeholder="اتكلم بالمصري وبأسلوب مهني..."></textarea></label>'.
             '<label class="field">معرفة المساعد<textarea name="knowledge" rows="4" maxlength="20000" placeholder="المنتجات، الخدمات والسياسات المعتمدة"></textarea></label>'.
             agent_scenario_mode_picker($defaults).
@@ -1465,8 +1550,8 @@ function render_agents(array $a):void{
                 agent_api_source_picker($policy,$apiSources).'</div>'.
                 '<div class="agent-builder-pane" data-builder-pane="voice" hidden>'.
                 '<div class="agent-studio-section"><div class="agent-studio-section-title"><strong>الصوت والرد والمكالمة</strong></div>'.
-                select_html('الصوت المستخدم لهذا المساعد','voice',$options,(string)$agent['voice']).
-                '<p class="dim">الصوت المختار بيتفعّل في المكالمات بعد الضغط على «نشر إعدادات المساعد»؛ IO Premium يحتاج تفعيل الأدمن ومنح الصلاحية للحساب.</p>'.
+                agent_voice_picker_html(select_html('الصوت المستخدم لهذا المساعد','voice',$options,(string)$agent['voice']),array_values($voiceRows),(string)$agent['voice']).
+                '<p class="dim">الصوت المختار بيتفعّل في المكالمات بعد الضغط على «نشر إعدادات المساعد»؛ أصوات Fish Audio وIO Premium تحتاج اعتماد الإدارة وإتاحة الصلاحية للحساب.</p>'.
                 '<div class="form-grid"><label class="field">مهلة الرد بالثواني<input name="answer_delay_seconds" type="number" min="0" max="30" value="'.(int)$policy['answer_delay_seconds'].'" required></label>'.
                 '<label class="field">المدة القصوى بالدقائق<input name="max_call_minutes" type="number" min="1" max="30" value="'.(int)$policy['max_call_minutes'].'" required></label>'.
                 select_html('الأسلوب','response_style',[
@@ -1922,7 +2007,7 @@ function render_devices(array $a):void {
 }
 function render_voices(array $a):void{
     require_once __DIR__.'/IoPremiumProvider.php';
-    $id=(int)$a['account_id'];$list=all('SELECT * FROM voices ORDER BY tier, id');
+    $id=(int)$a['account_id'];$list=all('SELECT * FROM voices ORDER BY tier DESC, provider DESC, id ASC');
     $grants=all('SELECT voice_id FROM voice_grants WHERE account_id=?',[$id]);$g=array_column($grants,'voice_id');
     $rows=[];
     $showProvider=$a['kind']==='platform';
@@ -1934,7 +2019,13 @@ function render_voices(array $a):void{
            ($v['code']==='io.premium'
              ?!io_premium_access_allowed($id)
              :!in_array($v['id'],$g))))continue;
+        $gender=(string)($v['gender']??'neutral');
+        if(!in_array($gender,['female','male','neutral'],true))$gender='neutral';
+        $dialect=trim((string)($v['dialect']??''));
+        $previewHtml=voice_sample_preview_control($v);
         if($showProvider){
+            $ref=trim((string)($v['source_ref_id']??''));
+            if($ref===''&&str_starts_with((string)$v['code'],'fish.'))$ref=substr((string)$v['code'],5);
             $last=form_start('toggle_voice','/?tab=voices','class="inline-form"').
                 '<input type="hidden" name="voice_id" value="'.$v['id'].'"><button class="btn small">إظهار/إخفاء</button></form>';
             $last.=form_start('set_voice_ready','/?tab=voices','class="inline-form"').
@@ -1943,18 +2034,46 @@ function render_voices(array $a):void{
                 '<input type="hidden" name="confirmed" value="1">'.
                 '<button class="btn small" data-confirm="هل اختبرت الصوت بنجاح على مزود الاتصال؟">'.
                 ((int)$v['ready']===1?'إلغاء الجاهزية':'اعتماد صوت').'</button></form>';
-            $rows[]=[e($v['name']),e($v['provider']),pill($v['tier']),
-                (int)$v['ready']?pill('جاهز'):pill('قيد الإعداد'),pill($v['status']),$last];
+            $nameCell='<strong>'.e((string)$v['name']).'</strong>'.
+                ($ref!==''?'<br><code class="dim" dir="ltr" title="'.e($ref).'">'.e(substr($ref,0,12)).'…</code>':'');
+            $provCell=e(voice_provider_label((string)$v['provider'])).' <span class="voice-badge gender-'.e($gender).'">'.e(voice_gender_label($gender)).'</span>';
+            $rows[]=[$nameCell,$provCell,$dialect!==''?e($dialect):'<span class="dim">—</span>',$previewHtml,pill((string)$v['tier']),
+                (int)$v['ready']?pill('جاهز'):pill('قيد الإعداد'),pill((string)$v['status']),$last];
         }else{
-            $rows[]=[e($v['name']),e((string)$v['tier']),'متاح'];
+            $typeCell='<span class="voice-badge gender-'.e($gender).'">'.e(voice_gender_label($gender)).'</span>'.
+                ($dialect!==''?' <span class="voice-badge dialect">'.e($dialect).'</span>':'');
+            $rows[]=[e((string)$v['name']),$typeCell,$previewHtml,e((string)$v['tier']),'متاح'];
         }
     }
     if($showProvider && in_array((string)$a['role'],['owner','admin'],true) && !active_support())
         echo render_io_premium_admin_provider();
+    echo '<div data-voice-picker data-preview-url="/saas/console/" data-preview-csrf="'.e(csrf()).'">';
     if($showProvider) echo card('إدارة كتالوج الأصوات',tbl(
-       ['الصوت','المزوّد','الفئة','الجاهزية','العرض','التحكم'],$rows));
-    else echo card('الأصوات المتاحة لك',tbl(['الصوت','الفئة','الحالة'],$rows));
-    if($a['kind']==='platform')
+       ['الصوت','المزوّد / النوع','اللهجة','المعاينة','الفئة','الجاهزية','العرض','التحكم'],$rows));
+    else echo card('الأصوات المتاحة لك',tbl(['الصوت','النوع واللهجة','المعاينة','الفئة','الحالة'],$rows));
+    echo '</div>';
+    if($a['kind']==='platform'){
+        if(in_array((string)$a['role'],['owner','admin'],true) && !active_support()){
+            echo card('جلب واستيراد مكتبة أصوات Fish Audio',
+                form_start('sync_fish_voices','/?tab=voices').
+                '<div class="form-grid">'.
+                '<label class="field">Fish Audio API Key (اختياري لو محفوظ في IO Premium)<input type="password" name="fish_sync_api_key" autocomplete="off" maxlength="2048" placeholder="سيُستخدم المفتاح المحفوظ تلقائيًا"></label>'.
+                '<label class="field">بحث بالكلمة أو اللهجة (اختياري)<input type="text" name="fish_query" maxlength="80" placeholder="مثال: Arabic أو Lebanese أو Khalid"></label>'.
+                '</div>'.
+                '<label class="field"><input type="checkbox" name="mark_ready" value="1"> اعتماد الأصوات المستوردة كجاهزة لاختيارها فورًا</label>'.
+                '<p class="dim">يتم حفظ الأصوات وعيناتها الصوتية في السيرفر (كاش دائم) لتشغيل المعاينة لاحقًا بدون استهلاك أي توكن من Fish Audio.</p>'.
+                submit_btn('استيراد وتحديث أصوات Fish Audio'));
+            echo card('إضافة صوت Fish Audio برقم المرجع (Reference ID)',
+                form_start('add_fish_voice','/?tab=voices').
+                '<div class="form-grid">'.
+                '<label class="field">اسم الصوت للمستخدم<input type="text" name="name" maxlength="120" required placeholder="مثال: لبناني أنثوي دافئ"></label>'.
+                '<label class="field">Reference ID (32 حرف hex)<input type="text" name="source_ref_id" dir="ltr" pattern="[a-fA-F0-9]{32}" maxlength="32" required placeholder="00000000000000000000000000000000"></label>'.
+                select_html('النوع','gender',['female'=>'أنثى','male'=>'ذكر','neutral'=>'محايد'],'female').
+                '<label class="field">اللهجة / اللغة<input type="text" name="dialect" maxlength="80" placeholder="مثال: لبناني / مصري / خليجي"></label>'.
+                '</div>'.
+                '<label class="field"><input type="checkbox" name="mark_ready" value="1" checked> اعتماد الصوت كجاهز للمنصة فورًا</label>'.
+                submit_btn('حفظ وإضافة الصوت'));
+        }
         echo card('Google Voice Discovery',form_start('sync_google_voices','/?tab=voices').
             '<p>استيراد كتالوج Google Gemini Live المنشور (30 صوتاً). كل صوت جديد يبقى غير مفعّل حتى التحقق من توافقه مع مزوّد الاتصال الفعلي.</p>'.
             submit_btn('مزامنة 30 صوت Google')).
@@ -1963,6 +2082,7 @@ function render_voices(array $a):void{
           '<label class="field">Google API Key (اختياري لو متسجّل في إعدادات الأدمن)<input type="password" name="google_api_key" autocomplete="off" minlength="16" placeholder="سيُستخدم مفتاح Google المحفوظ إن وجد"></label>'.
           '<p class="dim">استيراد الأصوات الحقيقية هيستخدم المفتاح المحفوظ. لو حساب Google لا يسمح بالـVoices API، هيظهر الكتالوج الأساسي مع توضيح المشكلة؛ مش هنقول المفتاح خاطئ.</p>'.
           submit_btn('مزامنة أصوات Google المتاحة'));
+    }
     if($a['kind']==='platform')echo '<div class="info">الأصوات الجديدة لا تُفعّل قبل اختبارها واعتمادها.</div>';
     if($a['kind']==='platform'||$a['kind']==='reseller'){
         $targets=$a['kind']==='platform'?all("SELECT id,name FROM accounts WHERE kind!='platform'"):all('SELECT id,name FROM accounts WHERE parent_id=?',[$id]);

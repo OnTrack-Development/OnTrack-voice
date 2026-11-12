@@ -179,6 +179,12 @@ function device_binding_profile(array $binding):array {
     $tenant=account((int)$binding['account_id']);
     if(!$agent||!$site||!account_service_active($tenant))throw new RuntimeException('device_profile_unavailable');
     $published=published_agent_flow((int)$binding['account_id'],(int)$binding['site_id'],(int)$binding['agent_id']);
+    $voiceCode=$published?(string)$published['voice']:null;
+    $voiceLabel=$voiceCode;
+    if($voiceCode!==null && $voiceCode!==''){
+        $voiceRow=one('SELECT name FROM voices WHERE code=?',[$voiceCode]);
+        if($voiceRow && trim((string)$voiceRow['name'])!=='')$voiceLabel=(string)$voiceRow['name'];
+    }
     return ['flow_revision'=>$published?(int)$published['revision']:null,
         'flow_hash'=>$published?(string)$published['flow_hash']:null,
         'flow_ready'=>$published!==null,
@@ -189,7 +195,8 @@ function device_binding_profile(array $binding):array {
         'agent_revision'=>(int)($binding['agent_revision']??1),
         // Draft agent changes must never leak through a bound SIM heartbeat.
         // Only a specifically published immutable revision can supply instructions.
-        'voice'=>$published?(string)$published['voice']:null,
+        'voice'=>$voiceCode,
+        'voice_label'=>$voiceLabel,
         'instruction'=>$published?(string)$published['instructions']:null,
         'answer_policy'=>$published?answer_policy_normalize((array)(json_decode((string)($published['answer_policy_json']??''),true)??[])):null,
         'sim_slot'=>(int)$binding['sim_slot'],'heartbeat_seconds'=>10,
