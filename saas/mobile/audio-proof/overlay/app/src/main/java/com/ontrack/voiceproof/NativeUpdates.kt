@@ -18,6 +18,25 @@ import java.security.cert.CertificateFactory
 import java.util.concurrent.TimeUnit
 
 /**
+ * Pure helper for resumable HTTP Range native APK download decisions.
+ */
+internal object NativeDownloadResumePolicy {
+    fun metaToken(sha256: String, size: Long): String = "${sha256.trim().lowercase()}:$size"
+
+    fun isPartialMetaValid(metaText: String?, sha256: String, size: Long): Boolean =
+        metaText?.trim() == metaToken(sha256, size)
+
+    fun rangeHeaderFor(existingBytes: Long, expectedSize: Long): String? =
+        if (existingBytes in 1L until expectedSize) "bytes=$existingBytes-" else null
+
+    fun shouldAppend206(httpCode: Int, contentRange: String?, expectedStart: Long): Boolean {
+        if (httpCode != 206 || expectedStart <= 0L) return false
+        val range = contentRange?.trim() ?: return false
+        return range.startsWith("bytes $expectedStart-")
+    }
+}
+
+/**
  * Native updates are distinct from signed UI OTA. Android itself confirms APK
  * installation. No silent install, Accessibility or elevated privileges.
  */
@@ -26,8 +45,15 @@ internal class NativeUpdates(private val context: Context) {
     private val root = "https://app.ontrackegy.com/mobile/updates/native/"
     private val client = OkHttpClient.Builder()
         .followRedirects(false).followSslRedirects(false)
-        .connectTimeout(8, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS)
-        .callTimeout(90, TimeUnit.SECONDS).build()
+        .connectTimeout(15, TimeUnit.SECONDS).readTimeout(25, TimeUnit.SECONDS)
+        .callTimeout(30, TimeUnit.SECONDS).build()
+    private val downloadClient = OkHttpClient.Builder()
+        .followRedirects(false).followSslRedirects(false)
+        .connectTimeout(30_000, TimeUnit.MILLISECONDS)
+        .readTimeout(180_000, TimeUnit.MILLISECONDS)
+        .writeTimeout(60_000, TimeUnit.MILLISECONDS)
+        .callTimeout(0, TimeUnit.MILLISECONDS)
+        .build()
     private val packageInfo = context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
     private val localVersion = packageInfo.longVersionCode
     private val signer = packageInfo.signingInfo!!.apkContentsSigners.single().toByteArray()
@@ -118,34 +144,79 @@ internal class NativeUpdates(private val context: Context) {
         val target=apk(release)
         if(verified(target,release))return@withContext target
         val temp=File(destination,".native-download.apk")
-        try {
-            val request=Request.Builder().url(root+release.file).build()
-            client.newCall(request).execute().use {response ->
-                require(response.code==200){"تعذر تحميل APK من IO Voice: HTTP ${response.code}"}
-                val body=response.body?:error("ملف التحديث فارغ")
-                var count=0L
-                FileOutputStream(temp).use{out->
-                    body.byteStream().use{input->
-                        val buffer=ByteArray(65536)
-                        while(true) {
-                            val n=input.read(buffer);if(n<0)break
-                            count+=n
-                            require(count<=release.size){"حجم ملف APK تجاوز الحجم الموقّع"}
-                            out.write(buffer,0,n)
-                            if(count%1048576<n)progress(((count*100)/release.size).toInt().coerceIn(0,100))
-                        }
-                    }
-                    out.fd.sync()
-                }
-                require(count==release.size){"تنزيل APK غير مكتمل"}
+        val metaFile=File(destination,".native-download.meta")
+        val metaToken=NativeDownloadResumePolicy.metaToken(release.sha256,release.size)
+        val existingMeta=runCatching{metaFile.takeIf{it.isFile}?.readText()}.getOrNull()
+        if(!NativeDownloadResumePolicy.isPartialMetaValid(existingMeta,release.sha256,release.size) ||
+            temp.length()>release.size){
+            runCatching{temp.delete()}
+        }
+        runCatching{metaFile.writeText(metaToken)}
+
+        val maxAttempts=6
+        var attempt=0
+        var lastError:Throwable?=null
+        while(attempt<maxAttempts && (!temp.isFile || temp.length()<release.size)){
+            attempt++
+            var existing=if(temp.isFile) temp.length().coerceAtMost(release.size) else 0L
+            if(existing==release.size)break
+            if(existing>0L)progress(((existing*100)/release.size).toInt().coerceIn(0,99))
+            val reqBuilder=Request.Builder()
+                .url(root+release.file)
+                .header("Accept-Encoding","identity")
+            NativeDownloadResumePolicy.rangeHeaderFor(existing,release.size)?.let{rangeVal->
+                reqBuilder.header("Range",rangeVal)
             }
-            require(verified(temp,release)){"توقيع APK أو بصمته لا تطابق إصدار IO Voice"}
-            if(target.exists() && !target.delete())error("تعذر استبدال ملف التحديث القديم")
-            require(temp.renameTo(target)){"تعذر تخزين التحديث"}
-            destination.listFiles()?.filter{it.name.endsWith(".apk") && it!=target}?.forEach{it.delete()}
-            progress(100)
-            target
-        }finally{if(temp.exists())temp.delete()}
+            try{
+                downloadClient.newCall(reqBuilder.build()).execute().use{response->
+                    if(response.code==416){
+                        runCatching{temp.delete()}
+                        existing=0L
+                        return@use
+                    }
+                    require(response.code==200 || response.code==206){
+                        "تعذر تحميل APK من IO Voice: HTTP ${response.code}"
+                    }
+                    val append=NativeDownloadResumePolicy.shouldAppend206(
+                        response.code,response.header("Content-Range"),existing)
+                    var count=if(append) existing else 0L
+                    val body=response.body?:error("ملف التحديث فارغ")
+                    FileOutputStream(temp,append).use{out->
+                        body.byteStream().use{input->
+                            val buffer=ByteArray(65536)
+                            while(true){
+                                val n=input.read(buffer);if(n<0)break
+                                count+=n
+                                require(count<=release.size){"حجم ملف APK تجاوز الحجم الموقّع"}
+                                out.write(buffer,0,n)
+                                if(count%262144L<n || count==release.size){
+                                    progress(((count*100)/release.size).toInt().coerceIn(0,99))
+                                }
+                            }
+                        }
+                        out.fd.sync()
+                    }
+                }
+                lastError=null
+            }catch(err:java.io.IOException){
+                lastError=err
+                if(attempt<maxAttempts)runCatching{Thread.sleep(1500L*attempt)}
+            }
+        }
+        if(!temp.isFile || temp.length()!=release.size){
+            val detail=lastError?.message?.takeIf{it.isNotBlank()}?.let{" ($it)"}?:""
+            error("تنزيل APK غير مكتمل بعد عدة محاولات$detail")
+        }
+        if(!verified(temp,release)){
+            runCatching{temp.delete()};runCatching{metaFile.delete()}
+            error("توقيع APK أو بصمته لا تطابق إصدار IO Voice")
+        }
+        if(target.exists() && !target.delete())error("تعذر استبدال ملف التحديث القديم")
+        require(temp.renameTo(target)){"تعذر تخزين التحديث"}
+        runCatching{metaFile.delete()}
+        destination.listFiles()?.filter{it.name.endsWith(".apk") && it!=target}?.forEach{it.delete()}
+        progress(100)
+        target
     }
 
     /**

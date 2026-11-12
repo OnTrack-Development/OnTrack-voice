@@ -15,6 +15,9 @@ Options -Indexes
     RewriteRule ^saas/console/login/?$ /login [R=302,L]
     RewriteRule ^saas/mobile/(.*)$ /mobile/$1 [L,QSA]
 
+    # Static Direct Serve for mobile OTA/APK updates (bypass Laravel index.php)
+    RewriteRule ^mobile/updates/ - [L]
+
     # Preserve Authorization Header for Android Bearer tokens
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
@@ -24,6 +27,17 @@ Options -Indexes
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L,QSA]
 </IfModule>
+
+<IfModule mod_setenvif.c>
+    SetEnvIfNoCase Request_URI \.apk$ no-gzip dont-vary
+</IfModule>
+
+<FilesMatch "\.apk$">
+    <IfModule mod_headers.c>
+        Header always set Accept-Ranges "bytes"
+        Header unset Content-Encoding
+    </IfModule>
+</FilesMatch>
 
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options nosniff
