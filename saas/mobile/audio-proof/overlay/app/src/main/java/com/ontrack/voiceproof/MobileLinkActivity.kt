@@ -52,9 +52,21 @@ class MobileLinkActivity:ComponentActivity(){
     private var deferredNativeCheck=false
     private var nativeStatus="جاري فحص تحديث Android"
     private var openUpdatesOnReady=false
+    private data class LocalBridgeSnapshot(
+        val wifiFreeEnabled:Boolean,
+        val wifiFreeReady:Boolean,
+        val onWifi:Boolean,
+        val internetRoute:String,
+        val daemonReady:Boolean,
+        val daemonIssue:String
+    )
     private var lastNativeInstallResult=""
     @Volatile private var wifiFreeEnabledState=false
     @Volatile private var wifiFreeReadyState=false
+    @Volatile private var onWifiState=true
+    @Volatile private var internetRouteState=""
+    @Volatile private var localDaemonReadyState=false
+    @Volatile private var localDaemonIssueState=""
     private lateinit var banner:TextView
     private lateinit var tenantEnrollment:TenantDeviceEnrollment
     private var tenantStatusLines=arrayOf("SIM 1 — جاري التحقق","SIM 2 — جاري التحقق")
@@ -408,12 +420,27 @@ class MobileLinkActivity:ComponentActivity(){
                 if(!calling && deferredUiCheck){deferredUiCheck=false;checkUpdates()}
                 if(!calling && deferredNativeCheck){deferredNativeCheck=false;checkNativeUpdates()}
                 if(!calling && polls++%5==0){
-                    val state=withContext(Dispatchers.IO){
+                    val snap=withContext(Dispatchers.IO){
                         val sw=com.ontrack.voiceproof.capture.StartWithoutWifi
-                        Pair(sw.enabled(this@MobileLinkActivity),sw.ready(this@MobileLinkActivity))
+                        val wifi=com.ontrack.voiceproof.capture.NetworkRevive.onWifi(this@MobileLinkActivity)
+                        val route=CellularRadioStatus.safeInternetRoute(this@MobileLinkActivity)
+                        val wEnabled=sw.enabled(this@MobileLinkActivity)
+                        val wReady=runCatching{sw.ready(this@MobileLinkActivity)}.getOrDefault(false)
+                        val dReady=if(MobileLinkService.running) MobileLinkService.daemonReady
+                            else runCatching{com.ontrack.voiceproof.capture.CaptureDaemon.isRunning(this@MobileLinkActivity)}.getOrDefault(false)
+                        val dIssue=if(MobileLinkService.running) MobileLinkService.daemonIssue
+                            else if(dReady) "" else {
+                                val setupOk=runCatching{com.ontrack.voiceproof.ui.Setup.isComplete(this@MobileLinkActivity)}.getOrDefault(false)
+                                CellularDaemonDiagnostics.diagnose(false,setupOk,wifi,wReady,false)
+                            }
+                        LocalBridgeSnapshot(wEnabled,wReady,wifi,route,dReady,dIssue)
                     }
-                    wifiFreeEnabledState=state.first
-                    wifiFreeReadyState=state.second
+                    wifiFreeEnabledState=snap.wifiFreeEnabled
+                    wifiFreeReadyState=snap.wifiFreeReady
+                    onWifiState=snap.onWifi
+                    internetRouteState=snap.internetRoute
+                    localDaemonReadyState=snap.daemonReady
+                    localDaemonIssueState=snap.daemonIssue
                 }
                 // Keep one transition update; suspend periodic UI work during audio.
                 if(!calling || wasCalling!=calling)sendState()
@@ -1106,6 +1133,46 @@ class MobileLinkActivity:ComponentActivity(){
             openExternalApkBrowser(nativeUpdates.latestApkUrl(release))
         }finally{nativeBusy=false;sendState()}
     }
+    private suspend fun reviveDaemonNow() {
+        check(!MobileLinkService.inCall){"لا يمكن إعادة تنشيط محرك الصوت أثناء المكالمة"}
+        banner.text="جاري فحص وتنشيط محرك الصوت المحلي…"
+        banner.visibility=View.VISIBLE
+        val snap=withContext(Dispatchers.IO){
+            val sw=com.ontrack.voiceproof.capture.StartWithoutWifi
+            val onWifi=com.ontrack.voiceproof.capture.NetworkRevive.onWifi(this@MobileLinkActivity)
+            val wEnabled=sw.enabled(this@MobileLinkActivity)
+            val wReady=runCatching{sw.ready(this@MobileLinkActivity)}.getOrDefault(false)
+            val ok=runCatching{
+                com.ontrack.voiceproof.capture.CaptureDaemon.revive(
+                    this@MobileLinkActivity,
+                    request=com.ontrack.voiceproof.capture.CaptureDaemon.Request.USER)
+            }.getOrDefault(false)
+            val setupOk=runCatching{com.ontrack.voiceproof.ui.Setup.isComplete(this@MobileLinkActivity)}.getOrDefault(false)
+            val wirelessOn=runCatching{Settings.Global.getInt(contentResolver,"adb_wifi_enabled",0)!=0}.getOrDefault(false)
+            val wifiRefused=onWifi && runCatching{com.ontrack.voiceproof.capture.NetworkRevive.stillRefusedHere(this@MobileLinkActivity,wirelessOn)}.getOrDefault(false)
+            val issue=if(ok) "" else CellularDaemonDiagnostics.diagnose(false,setupOk,onWifi,wReady,wifiRefused)
+            LocalBridgeSnapshot(wEnabled,wReady,onWifi,CellularRadioStatus.safeInternetRoute(this@MobileLinkActivity),ok,issue)
+        }
+        wifiFreeEnabledState=snap.wifiFreeEnabled
+        wifiFreeReadyState=snap.wifiFreeReady
+        onWifiState=snap.onWifi
+        internetRouteState=snap.internetRoute
+        localDaemonReadyState=snap.daemonReady
+        localDaemonIssueState=snap.daemonIssue
+        if(MobileLinkService.running){
+            MobileLinkService.daemonReady=snap.daemonReady
+            MobileLinkService.daemonIssue=snap.daemonIssue
+            runCatching{
+                ContextCompat.startForegroundService(this@MobileLinkActivity,
+                    Intent(this@MobileLinkActivity,MobileLinkService::class.java)
+                        .setAction(MobileLinkService.ACTION_REVIVE_DAEMON))
+            }
+        }
+        banner.text=if(snap.daemonReady)"محرك الصوت المحلي يعمل وجاهز (${snap.internetRoute})"
+            else snap.daemonIssue.ifBlank{"تعذر تنشيط محرك الصوت المحلي"}
+        banner.visibility=View.VISIBLE
+        sendState()
+    }
     private suspend fun setWifiFreeMode(enabled:Boolean) {
         check(!MobileLinkService.inCall){"لا يمكن تغيير مسار ADB أثناء مكالمة"}
         val feature=com.ontrack.voiceproof.capture.StartWithoutWifi
@@ -1119,19 +1186,40 @@ class MobileLinkActivity:ComponentActivity(){
                     this@MobileLinkActivity,
                     request=com.ontrack.voiceproof.capture.CaptureDaemon.Request.USER)
             }
-            if(!ok || !withContext(Dispatchers.IO){feature.ready(this@MobileLinkActivity)}){
+            val readyNow=withContext(Dispatchers.IO){feature.ready(this@MobileLinkActivity)}
+            if(!ok || !readyNow){
                 feature.setEnabled(this,false)
+                wifiFreeEnabledState=false
+                wifiFreeReadyState=false
+                sendState()
                 error("هذا الهاتف لم ينجح في تشغيل ADB المحلي الثابت؛ لم يُفعّل وضع بلا Wi-Fi")
             }
-            banner.text="وضع الاتصال بدون Wi-Fi مفعّل تجريبيًا. ينفتح ADB على 5555 عند تشغيل التصحيح؛ أوقفه إذا لم تحتاجه."
+            wifiFreeEnabledState=true
+            wifiFreeReadyState=true
+            localDaemonReadyState=true
+            localDaemonIssueState=""
+            if(MobileLinkService.running){
+                MobileLinkService.daemonReady=true
+                MobileLinkService.daemonIssue=""
+                runCatching{
+                    ContextCompat.startForegroundService(this@MobileLinkActivity,
+                        Intent(this@MobileLinkActivity,MobileLinkService::class.java)
+                            .setAction(MobileLinkService.ACTION_REVIVE_DAEMON))
+                }
+            }
+            banner.text="وضع الاتصال بدون Wi-Fi مفعّل بنجاح (منفذ 5555 جاهز لاستقبال المكالمات على الداتا)."
         }else{
             feature.setEnabled(this,false)
-            withContext(Dispatchers.IO){
+            val ok=withContext(Dispatchers.IO){
                 com.ontrack.voiceproof.capture.CaptureDaemon.revive(
                     this@MobileLinkActivity,
                     request=com.ontrack.voiceproof.capture.CaptureDaemon.Request.USER)
             }
-            banner.text=if(withContext(Dispatchers.IO){feature.ready(this@MobileLinkActivity)})
+            val stillReady=withContext(Dispatchers.IO){feature.ready(this@MobileLinkActivity)}
+            wifiFreeEnabledState=false
+            wifiFreeReadyState=stillReady
+            localDaemonReadyState=ok
+            banner.text=if(stillReady)
                 "المنفذ ما زال مفتوحًا؛ أوقف USB debugging من إعدادات المطوّر لإغلاقه"
             else "تم تعطيل مسار الاتصال بدون Wi-Fi"
         }
@@ -1189,6 +1277,10 @@ class MobileLinkActivity:ComponentActivity(){
             .put("tenantWorkspaceSlot",getSharedPreferences("ontrack_tenant_workspace",MODE_PRIVATE).getInt("sim_slot",-1))
             .put("wifiFreeEnabled",wifiFreeEnabledState)
             .put("wifiFreeReady",wifiFreeReadyState)
+            .put("onWifi",onWifiState)
+            .put("internetRoute",internetRouteState)
+            .put("daemonReady",if(MobileLinkService.running) MobileLinkService.daemonReady else localDaemonReadyState)
+            .put("daemonIssue",if(MobileLinkService.running) MobileLinkService.daemonIssue else localDaemonIssueState)
             .put("campaignAutoEnabled",MobileLinkService.campaignAutoEnabled || getSharedPreferences("ontrack_link",MODE_PRIVATE).getBoolean("campaign_opt_in",false))
             .put("campaignQueueCount",MobileLinkService.campaignReadyCount)
             .put("campaignActiveName",MobileLinkService.campaignActiveName)
@@ -1400,6 +1492,7 @@ class MobileLinkActivity:ComponentActivity(){
                     }
                     "wifiFreeEnable"->setWifiFreeMode(true)
                     "wifiFreeDisable"->setWifiFreeMode(false)
+                    "reviveDaemon"->reviveDaemonNow()
                     "rollback"->{check(!MobileLinkService.inCall){"انتظر نهاية المكالمة"};show(withContext(Dispatchers.IO){ota.rollback(false)});banner.text="تم الرجوع للواجهة السابقة"}
                     "diagnostics"->startActivity(Intent(this@MobileLinkActivity,ProofActivity::class.java))
                     "admin"->openConsole()

@@ -186,7 +186,9 @@ class ProofActivity:ComponentActivity(){
                         pcmDaemon=CaptureDaemon.isRunning(this@ProofActivity),
                         readPhone=ContextCompat.checkSelfPermission(this@ProofActivity,
                             Manifest.permission.READ_PHONE_STATE)==PackageManager.PERMISSION_GRANTED,
-                        pairedSim=TenantDeviceEnrollment(this@ProofActivity).hasAny()
+                        pairedSim=TenantDeviceEnrollment(this@ProofActivity).hasAny(),
+                        onWifi=NetworkRevive.onWifi(this@ProofActivity),
+                        wifiFreeReady=runCatching{StartWithoutWifi.ready(this@ProofActivity)}.getOrDefault(false)
                     )
                     val notificationManager=getSystemService(NotificationManager::class.java)
                     val notificationEnabled=notificationManager?.areNotificationsEnabled() ?: false

@@ -260,6 +260,8 @@ internal class CallOverlay(private val context: Context) {
     private var lastAudio=false
     private var lastCallProblem=""
     private var lastAudioDiagnostic=""
+    private var lastDaemonReady=true
+    private var lastDaemonIssue=""
     private fun renderActions(){
         val sheet=menu?:return
         if(!expand)return
@@ -273,7 +275,7 @@ internal class CallOverlay(private val context: Context) {
             if(powerOn)red else green,true){
             serviceAction(if(powerOn)MobileLinkService.ACTION_DISABLE else MobileLinkService.ACTION_ENABLE)
         }
-        val model=overlayUiModel(lastReady,lastEnabled,lastCall,lastAnswered,lastHuman,lastAudio,lastCallProblem,lastAudioDiagnostic)
+        val model=overlayUiModel(lastReady,lastEnabled,lastCall,lastAnswered,lastHuman,lastAudio,lastCallProblem,lastAudioDiagnostic,lastDaemonReady,lastDaemonIssue)
         val canTake=model.canTakeover
         val handoff=iconTile("person",
             model.takeoverTitle,model.takeoverHint,if(canTake)green else gray,canTake){
@@ -298,7 +300,8 @@ internal class CallOverlay(private val context: Context) {
         add(second,audio,false);add(second,home,true)
     }
     fun show(serviceReady:Boolean,enabled:Boolean,inCall:Boolean,answered:Boolean,human:Boolean,
-             audioReady:Boolean,callProblem:String,audioDiagnostic:String){
+             audioReady:Boolean,callProblem:String,audioDiagnostic:String,
+             daemonReady:Boolean=true,daemonIssue:String=""){
         runCatching {
             if(!allowed()){remove();return}
             if(root!=null&&themeLight()!=lightTheme)remove()
@@ -307,7 +310,8 @@ internal class CallOverlay(private val context: Context) {
             lastReady=ready;lastEnabled=enabled;lastCall=inCall
             lastAnswered=answered;lastHuman=human
             lastAudio=audioReady;lastCallProblem=callProblem;lastAudioDiagnostic=audioDiagnostic
-            val model=overlayUiModel(ready,enabled,inCall,answered,human,audioReady,callProblem,audioDiagnostic)
+            lastDaemonReady=daemonReady;lastDaemonIssue=daemonIssue
+            val model=overlayUiModel(ready,enabled,inCall,answered,human,audioReady,callProblem,audioDiagnostic,daemonReady,daemonIssue)
             val color=if(model.running && callProblem.isBlank())green else red
             val changed=color!=currentColor
             currentColor=color
@@ -320,7 +324,7 @@ internal class CallOverlay(private val context: Context) {
             }
             if(expand){
                 // Only rebuild controls on real state changes; preserve focus and avoid UI flicker.
-                val token="$ready:$enabled:$inCall:$answered:$human:$audioReady:$callProblem:$audioDiagnostic:$lightTheme"
+                val token="$ready:$enabled:$inCall:$answered:$human:$audioReady:$callProblem:$audioDiagnostic:$daemonReady:$daemonIssue:$lightTheme"
                 if(token!=renderedToken||changed){renderedToken=token;renderActions()}
             }
         }

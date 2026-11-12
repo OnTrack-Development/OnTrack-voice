@@ -167,5 +167,27 @@ class CrashProofAudioAndUpdateTest {
         assertTrue(activity.contains("\"openApkDownload\"->startActivity"))
         assertTrue(activity.contains("Intent.FLAG_ACTIVITY_NEW_TASK"))
         assertTrue(activity.contains("nativeUpdateProgress"))
+        assertTrue(activity.contains("\"reviveDaemon\"->reviveDaemonNow()"))
+        assertTrue(ui.contains("id=\"v1DataModeCard\""))
+        assertTrue(ui.contains("id=\"v1WifiFreeToggle\""))
+        assertTrue(ui.contains("id=\"v1ReviveDaemon\""))
+        assertTrue(ui.contains("send('reviveDaemon')"))
+    }
+
+    @Test
+    fun cellularDaemonDiagnosticsExplainsMissing5555AndXiaomiSecurity() {
+        assertEquals("", CellularDaemonDiagnostics.diagnose(true, true, false, false, false))
+        assertTrue(
+            CellularDaemonDiagnostics.diagnose(false, false, false, false, false).contains("ADB")
+        )
+        assertTrue(
+            CellularDaemonDiagnostics.diagnose(false, true, false, false, false).contains("5555")
+        )
+        assertTrue(
+            CellularDaemonDiagnostics.diagnose(false, true, false, true, false).contains("Security settings")
+        )
+        assertTrue(
+            CellularDaemonDiagnostics.diagnose(false, true, true, false, true).contains("Wireless Debugging")
+        )
     }
 }

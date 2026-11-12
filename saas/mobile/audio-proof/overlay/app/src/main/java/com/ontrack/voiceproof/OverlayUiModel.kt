@@ -14,9 +14,10 @@ internal data class OverlayUiModel(
 internal fun overlayUiModel(
     serviceReady: Boolean, enabled: Boolean, inCall: Boolean,
     answered: Boolean, humanControl: Boolean,
-    audioActive: Boolean = false, callFailure: String = "", audioDiagnostic: String = ""
+    audioActive: Boolean = false, callFailure: String = "", audioDiagnostic: String = "",
+    daemonReady: Boolean = true, daemonIssue: String = ""
 ): OverlayUiModel {
-    val running=serviceReady && enabled
+    val running=serviceReady && enabled && daemonReady
     val canTakeover=inCall && answered && !humanControl && enabled && audioActive
     val canSwitchSpeaker=inCall && answered
     val status=when {
@@ -28,6 +29,7 @@ internal fun overlayUiModel(
         inCall && !enabled -> "المكالمة تحت تحكم الهاتف — الإيجنت متوقف"
         inCall -> "المكالمة متصلة — جارٍ تجهيز صوت الإيجنت"
         !serviceReady -> "خدمة الهاتف غير نشطة — لم يتأكد التشغيل"
+        enabled && !daemonReady -> daemonIssue.ifBlank { "محرك الصوت متوقف على الداتا — فعّل وضع 5555 على Wi-Fi" }.take(115)
         enabled -> "الإيجنت نشط وجاهز"
         else -> "الإيجنت متوقف"
     }

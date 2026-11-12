@@ -17,7 +17,8 @@ internal data class VoiceSetupFacts(
     val developer:Boolean?,val usb:Boolean?,val wireless:Boolean?,
     val adbPaired:Boolean,val adbConnected:Boolean,
     val secureSettings:Boolean,val setupComplete:Boolean,
-    val pcmDaemon:Boolean,val readPhone:Boolean,val pairedSim:Boolean
+    val pcmDaemon:Boolean,val readPhone:Boolean,val pairedSim:Boolean,
+    val onWifi:Boolean=true,val wifiFreeReady:Boolean=false
 )
 internal object OnTrackSetupChecklist {
     fun evaluate(f:VoiceSetupFacts):List<VoiceSetupCheck> {
@@ -36,10 +37,15 @@ internal object OnTrackSetupChecklist {
             if(f.pairedSim)"بيانات الشريحة محفوظة ومشفرة على الهاتف." else "اربط SIM بكود حساب IO Voice، بدون مفاتيح API أو USB.",
             if(f.pairedSim)CheckAction.NONE else CheckAction.OPEN_VOICE,
             if(f.pairedSim)"" else "فتح ربط الشريحة")
+        val pcmDetail = when {
+            f.pcmDaemon -> "محرك PCM المباشر بيرد، ومش محتاج تسجيل مكالمات أو ADB مفتوح طول الوقت."
+            !f.onWifi && !f.wifiFreeReady -> "على الداتا بدون Wi-Fi: فعّل وضع التشغيل بدون Wi-Fi (منفذ 5555) مرة واحدة وأنت على Wi-Fi."
+            !f.onWifi && f.wifiFreeReady -> "منفذ 5555 مفعّل لكن محرك الصوت متوقف — تأكد من USB Debugging (وفي شاومي: USB debugging Security settings)."
+            else -> "المحرك مش بيرد حاليًا؛ افحص الاتصال المحلي قبل تجربة المكالمات."
+        }
         add("pcm","محرك نقل الصوت المباشر",
             if(f.pcmDaemon)CheckState.READY else CheckState.ACTION,
-            if(f.pcmDaemon)"محرك PCM المباشر بيرد، ومش محتاج تسجيل مكالمات أو ADB مفتوح طول الوقت."
-            else "المحرك مش بيرد حاليًا؛ افحص الاتصال المحلي قبل تجربة المكالمات.",
+            pcmDetail,
             if(f.pcmDaemon)CheckAction.NONE else
                 if(f.adbPaired)CheckAction.RECONNECT else CheckAction.PAIR,
             if(f.pcmDaemon)"" else

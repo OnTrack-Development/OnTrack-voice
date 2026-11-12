@@ -39,11 +39,14 @@ class MobileLinkService:Service() {
         const val ACTION_CAMPAIGN_ENABLE="com.ontrack.voiceproof.CAMPAIGN_ENABLE"
         const val ACTION_CAMPAIGN_DISABLE="com.ontrack.voiceproof.CAMPAIGN_DISABLE"
         const val ACTION_CAMPAIGN_PULL_NOW="com.ontrack.voiceproof.CAMPAIGN_PULL_NOW"
+        const val ACTION_REVIVE_DAEMON="com.ontrack.voiceproof.REVIVE_DAEMON"
         // Kept for pre-0.1.9 notifications, mapped to server disable.
         const val ACTION_PAUSE="com.ontrack.voiceproof.PAUSE"
         /** Blocks pilot telephony during a tenant enrollment, even before token persistence. */
         @Volatile var tenantPairingInProgress=false
         @Volatile var running=false
+        @Volatile var daemonReady=false
+        @Volatile var daemonIssue=""
         @Volatile var agentEnabled=false
         @Volatile var connected=false
         @Volatile var serverRevision=0
@@ -142,6 +145,7 @@ class MobileLinkService:Service() {
     @Volatile private var pendingDesired:Boolean?=null
     @Volatile private var recoveringActiveCall=false
     @Volatile private var triggerCampaignPollNow=false
+    @Volatile private var forceDaemonCheck=true
     private fun hasPermission(permission:String)=androidx.core.content.ContextCompat.checkSelfPermission(
         this,permission)==android.content.pm.PackageManager.PERMISSION_GRANTED
     private fun syncCampaignOptIn(){
@@ -158,7 +162,7 @@ class MobileLinkService:Service() {
         linkPrefs.edit().putBoolean("campaign_opt_in",enabled).apply()
         campaignAutoEnabled=enabled
     }
-    private fun showOverlay(){main.post{runCatching{if(::overlay.isInitialized)overlay.show(running,agentEnabled,inCall,callAnswered,humanControl,audioReady,callProblem,audioDiagnostic)}}}
+    private fun showOverlay(){main.post{runCatching{if(::overlay.isInitialized)overlay.show(running,agentEnabled,inCall,callAnswered,humanControl,audioReady,callProblem,audioDiagnostic,daemonReady,daemonIssue)}}}
     private fun notice(value:String){
         latestStatus=value
         runCatching{getSystemService(NotificationManager::class.java)?.notify(701,notification(value))}
@@ -238,6 +242,8 @@ class MobileLinkService:Service() {
                         "تعذر حفظ حالة تشغيل محرك الشركات"
                     }
                     agentEnabled=true
+                    forceDaemonCheck=true
+                    retryWake.trySend(Unit)
                     syncCampaignOptIn()
                     notice("مراقبة الشريحة مفعّلة؛ جلسة Google Live تبدأ عند المكالمة")
                 }
@@ -245,10 +251,17 @@ class MobileLinkService:Service() {
                     // Honor the last explicit user selection after process death/update.
                     // Never auto-enable a SIM the user deliberately switched off.
                     agentEnabled=tenantPrefs().getBoolean("enabled",false)
+                    forceDaemonCheck=true
+                    retryWake.trySend(Unit)
                     syncCampaignOptIn()
                     notice(if(agentEnabled)
                         "استُعيد تشغيل مراقبة الشرائح بعد فتح التطبيق"
                     else "الرد الآلي متوقف بقرار المستخدم؛ اضغط تشغيل لتفعيله")
+                }
+                ACTION_REVIVE_DAEMON->{
+                    forceDaemonCheck=true
+                    retryWake.trySend(Unit)
+                    notice("جاري فحص وتنشيط محرك الصوت المحلي…")
                 }
                 ACTION_TAKEOVER->{
                     val slot=liveSimSlot
@@ -379,7 +392,7 @@ class MobileLinkService:Service() {
         }.getOrDefault(emptyList())
         val boundSlots=(0..1).filter{enrollment.paired(it)}.toSet()
         val nativeSlot=TenantCallRouting.nativeSingleSimSlot(activeSlots,boundSlots)
-        if(nativeSlot!=null){
+        if(nativeSlot!=null && daemonReady){
             val nativeState=runCatching{
                 CaptureDaemon.linkControl(this,'Q')?.trim()
                     ?.let{Regex("^CALL ([012])$").matchEntire(it)?.groupValues?.get(1)?.toInt()}
@@ -406,6 +419,31 @@ class MobileLinkService:Service() {
             }
             SlotCall(slot,state)
         }
+    }
+    private suspend fun checkDaemonReadiness(allowRevive: Boolean): Pair<Boolean, String> {
+        val onWifiNow = NetworkRevive.onWifi(this)
+        val wifiFreeNow = runCatching { StartWithoutWifi.ready(this) }.getOrDefault(false)
+        val setupOk = runCatching { com.ontrack.voiceproof.ui.Setup.isComplete(this) }.getOrDefault(false)
+        var up = runCatching { CaptureDaemon.isRunning(this) }.getOrDefault(false)
+        if (!up && allowRevive && (onWifiNow || wifiFreeNow)) {
+            up = runCatching {
+                CaptureDaemon.revive(this, request = CaptureDaemon.Request.USER)
+            }.getOrDefault(false)
+        }
+        if (up) {
+            runCatching {
+                AnsweringMachine.setEnabled(this, false)
+                CaptureDaemon.setAnswering(this)
+                RecorderSwitch.set(this, false)
+                CaptureDaemon.setDaemonMode(this, CaptureDaemon.MODE_OFF)
+            }
+            return true to ""
+        }
+        val wirelessOn = runCatching {
+            android.provider.Settings.Global.getInt(contentResolver, "adb_wifi_enabled", 0) != 0
+        }.getOrDefault(false)
+        val wifiRefused = onWifiNow && runCatching { NetworkRevive.stillRefusedHere(this, wirelessOn) }.getOrDefault(false)
+        return false to CellularDaemonDiagnostics.diagnose(false, setupOk, onWifiNow, wifiFreeNow, wifiRefused)
     }
     private suspend fun tenantMonitor(){
         val enrollment=TenantDeviceEnrollment(this)
@@ -455,33 +493,22 @@ class MobileLinkService:Service() {
         var lastDefaultNetworkEpoch=dataNetworkEpoch
         var lastObservedRadio=internetRoute()
         var perCallNetworkResets=0
-        // 2026-11-04 field regression: handset OFFHOOK alone is NOT evidence
-        // that an agent answered, the microphone is muted, or Gemini receives
-        // caller PCM. Separately prove Q/A, signed per-SIM session, shell PCM
-        // header+mute and AI readiness. Never set humanControl on errors:
-        // only the explicit ACTION_TAKEOVER may record that user action.
-        //
-        // The working Pilot prepared and authenticated the local shell bridge
-        // BEFORE a phone rang. Restoring that readiness avoids a slow ADB
-        // handshake when the first incoming call needs an immediate answer.
-        runCatching {
-            check(CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)){
-                "الربط المحلي للصوت غير جاهز؛ أعد تشغيل Wireless debugging"
-            }
-            AnsweringMachine.setEnabled(this@MobileLinkService,false)
-            CaptureDaemon.setAnswering(this@MobileLinkService)
-            RecorderSwitch.set(this@MobileLinkService,false)
-            check(CaptureDaemon.setDaemonMode(this@MobileLinkService,CaptureDaemon.MODE_OFF)){
-                "تعذر وضع محرك الصوت في وضع التحكم المباشر"
-            }
-        }.onFailure {
-            val noWifiBridge=!NetworkRevive.onWifi(this@MobileLinkService) &&
-                !StartWithoutWifi.ready(this@MobileLinkService)
-            val action=if(noWifiBridge)
-                "؛ فعّل «بدء بدون Wi-Fi» مرة واحدة من إعدادات التطبيق وأنت على Wi-Fi موثوق"
-                else ""
-            callProblem="الربط المحلي للصوت غير جاهز: "+it.message.orEmpty().take(85)+action
-            notice(callProblem)
+        var daemonCheckJob:Deferred<Pair<Boolean,String>>?=null
+        var lastDaemonCheckAt=0L
+        var lastDaemonNetworkEpoch=dataNetworkEpoch
+        var lastDaemonOnWifi=NetworkRevive.onWifi(this@MobileLinkService)
+        var lastDaemonWifiFree=runCatching{StartWithoutWifi.ready(this@MobileLinkService)}.getOrDefault(false)
+        var nextLocalBridgeRetryAt=0L
+        runCatching{
+            val initial=checkDaemonReadiness(allowRevive=true)
+            daemonReady=initial.first
+            daemonIssue=initial.second
+            lastDaemonCheckAt=SystemClock.elapsedRealtime()
+            forceDaemonCheck=false
+            if(!daemonReady && daemonIssue.isNotBlank())notice(daemonIssue)
+        }.onFailure{
+            daemonReady=false
+            daemonIssue="تعذر فحص محرك الصوت المحلي"
         }
         try{
             while(scope.isActive && enrollment.hasAny() && !tenantPairingInProgress){
@@ -491,8 +518,45 @@ class MobileLinkService:Service() {
                         // Continue observing the SIM while the AI is disabled.
                         call?.stop();call=null;tenantSession=null;connected=false;audioReady=false
                     }
+                    if(daemonCheckJob?.isCompleted==true){
+                        val res=runCatching{daemonCheckJob?.await()}.getOrNull()
+                        daemonCheckJob=null
+                        if(res!=null){
+                            val changed=res.first!=daemonReady || res.second!=daemonIssue
+                            daemonReady=res.first
+                            daemonIssue=res.second
+                            if(changed){
+                                if(res.first)notice("محرك الصوت المحلي جاهز")
+                                else if(res.second.isNotBlank())notice(res.second)
+                                showOverlay()
+                            }
+                        }
+                    }
+                    val curOnWifi=NetworkRevive.onWifi(this@MobileLinkService)
+                    val curWifiFree=runCatching{StartWithoutWifi.ready(this@MobileLinkService)}.getOrDefault(false)
+                    if(forceDaemonCheck || curOnWifi!=lastDaemonOnWifi || curWifiFree!=lastDaemonWifiFree ||
+                        dataNetworkEpoch!=lastDaemonNetworkEpoch){
+                        forceDaemonCheck=false
+                        lastDaemonOnWifi=curOnWifi
+                        lastDaemonWifiFree=curWifiFree
+                        lastDaemonNetworkEpoch=dataNetworkEpoch
+                        lastDaemonCheckAt=0L
+                        nextLocalBridgeRetryAt=0L
+                    }
                     val states=currentSlotCalls()
                     val active=states.filter{it.state!=TelephonyManager.CALL_STATE_IDLE}
+                    if(active.isEmpty() && daemonCheckJob==null){
+                        val daemonNow=SystemClock.elapsedRealtime()
+                        val checkEveryMs=if(daemonReady)15000L else if(curOnWifi || curWifiFree)10000L else 18000L
+                        if(lastDaemonCheckAt==0L || daemonNow-lastDaemonCheckAt>=checkEveryMs){
+                            lastDaemonCheckAt=daemonNow
+                            daemonCheckJob=scope.async(Dispatchers.IO){
+                                runCatching{checkDaemonReadiness(allowRevive=true)}.getOrElse{
+                                    false to "تعذر فحص محرك الصوت المحلي"
+                                }
+                            }
+                        }
+                    }
                     if(active.size>1){
                         audioStart?.cancel();audioStart=null
                         // Vendor telephony APIs can report the same call on both
@@ -801,8 +865,8 @@ class MobileLinkService:Service() {
                             // Flush accumulated transcript segment into CallReportOutbox before idle finalization.
                             endedCall?.awaitReports()
                             tenantSession=null;tenantFlow=null
-                            selected=null;liveSimSlot=-1;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;autoAnswerAttempts=0;nextAutoAnswerRetryAt=0L;outgoingCall=false;humanControl=false;policy=JSONObject()
-                            ringingAt=0L;startedAt=0L;audioAttemptCount=0;nextAudioRetryAt=0L
+                            selected=null;liveSimSlot=-1;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;autoAnswerAttempts=0;nextAutoAnswerRetryAt=0L;nextLocalBridgeRetryAt=0L;outgoingCall=false;humanControl=false;policy=JSONObject()
+                            ringingAt=0L;startedAt=0L;audioAttemptCount=0;nextAudioRetryAt=0L;lastDaemonCheckAt=0L
                             if(!hadMgr && effectiveCbEnabled && effectiveCbPhone.isNotBlank() && agentEnabled && wasAgentAnswered){
                                 callbackScheduler.schedule(endedSlot,effectiveCbPhone,effectiveCbName,"",SystemClock.elapsedRealtime())
                                 pendingEventCbSlot=-1;pendingEventCbPhone=""
@@ -1008,17 +1072,47 @@ class MobileLinkService:Service() {
                         // acknowledged answers and OFFHOOK are never retried.
                         autoAnswerAttempts++
                         try{
-                            check(CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)){
-                                "جسر الرد الآلي غير جاهز؛ على الداتا راجع إعداد بدء التشغيل بدون Wi-Fi في التطبيق"
+                            val onWifiNow=NetworkRevive.onWifi(this@MobileLinkService)
+                            val wifiFreeNow=runCatching{StartWithoutWifi.ready(this@MobileLinkService)}.getOrDefault(false)
+                            var bridgeUp=runCatching{CaptureDaemon.isRunning(this@MobileLinkService)}.getOrDefault(false)
+                            if(!bridgeUp && (onWifiNow || wifiFreeNow)){
+                                bridgeUp=runCatching{CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)}.getOrDefault(false)
                             }
-                            val daemonState=CaptureDaemon.linkControl(this@MobileLinkService,'Q')
-                            check(daemonState=="CALL 1"){"رابط الرد الآلي لم يؤكد الرنين: "+(daemonState?:"لا توجد استجابة")}
-                            val ack=CaptureDaemon.linkControl(this@MobileLinkService,'A')
-                            check(ack!=null){"لم يؤكد رابط الهاتف أمر الرد التلقائي"}
-                            autoAnswerRequested=true
-                            callProblem=""
-                            notice("أُرسل أمر الرد للشريحة ${current.slot+1}؛ انتظار تأكيد OFFHOOK")
-                        }catch(problem:Exception){
+                            if(!bridgeUp){
+                                val setupOk=runCatching{com.ontrack.voiceproof.ui.Setup.isComplete(this@MobileLinkService)}.getOrDefault(false)
+                                val wirelessOn=runCatching{android.provider.Settings.Global.getInt(contentResolver,"adb_wifi_enabled",0)!=0}.getOrDefault(false)
+                                val wifiRefused=onWifiNow && runCatching{NetworkRevive.stillRefusedHere(this@MobileLinkService,wirelessOn)}.getOrDefault(false)
+                                val diag=CellularDaemonDiagnostics.diagnose(false,setupOk,onWifiNow,wifiFreeNow,wifiRefused)
+                                daemonReady=false
+                                daemonIssue=diag
+                                nextAutoAnswerRetryAt=SystemClock.elapsedRealtime()+
+                                    CellularCallRecoveryPolicy.answerRetryDelayMs(autoAnswerAttempts)
+                                callProblem="تعذر الرد التلقائي ("+internetRoute()+"): "+diag
+                                notice(callProblem+" — الرد اليدوي ما زال متاحًا للإيجنت")
+                            }else{
+                                daemonReady=true
+                                daemonIssue=""
+                                val daemonState=CaptureDaemon.linkControl(this@MobileLinkService,'Q')
+                                if(daemonState!="CALL 1"){
+                                    nextAutoAnswerRetryAt=SystemClock.elapsedRealtime()+
+                                        CellularCallRecoveryPolicy.answerRetryDelayMs(autoAnswerAttempts)
+                                    callProblem="رابط الرد الآلي لم يؤكد الرنين: "+(daemonState?:"لا توجد استجابة")
+                                    notice(callProblem+" — الرد اليدوي ما زال متاحًا للإيجنت")
+                                }else{
+                                    val ack=CaptureDaemon.linkControl(this@MobileLinkService,'A')
+                                    if(ack==null){
+                                        nextAutoAnswerRetryAt=SystemClock.elapsedRealtime()+
+                                            CellularCallRecoveryPolicy.answerRetryDelayMs(autoAnswerAttempts)
+                                        callProblem="لم يؤكد رابط الهاتف أمر الرد التلقائي"
+                                        notice(callProblem+" — الرد اليدوي ما زال متاحًا للإيجنت")
+                                    }else{
+                                        autoAnswerRequested=true
+                                        callProblem=""
+                                        notice("أُرسل أمر الرد للشريحة ${current.slot+1}؛ انتظار تأكيد OFFHOOK")
+                                    }
+                                }
+                            }
+                        }catch(problem:Throwable){
                             nextAutoAnswerRetryAt=SystemClock.elapsedRealtime()+
                                 CellularCallRecoveryPolicy.answerRetryDelayMs(autoAnswerAttempts)
                             callProblem="تعذر الرد التلقائي ("+internetRoute()+"): "+
@@ -1113,12 +1207,39 @@ class MobileLinkService:Service() {
                         }
                     }
                     if(current.state==TelephonyManager.CALL_STATE_OFFHOOK &&
-                        answeredByAgent && tenantSession!=null && call==null && !humanControl){
-                        check(CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)){
-                            "رابط الصوت المحلي لا يعمل بعد الرد"
+                        answeredByAgent && tenantSession!=null && call==null && !humanControl &&
+                        now>=nextLocalBridgeRetryAt){
+                        val onWifiNow=NetworkRevive.onWifi(this@MobileLinkService)
+                        val wifiFreeNow=runCatching{StartWithoutWifi.ready(this@MobileLinkService)}.getOrDefault(false)
+                        var bridgeUp=runCatching{CaptureDaemon.isRunning(this@MobileLinkService)}.getOrDefault(false)
+                        if(!bridgeUp && (onWifiNow || wifiFreeNow)){
+                            bridgeUp=runCatching{CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)}.getOrDefault(false)
                         }
-                        val daemonState=CaptureDaemon.linkControl(this@MobileLinkService,'Q')
-                        check(daemonState=="CALL 2"){"تعذر تأكيد وصول المكالمة إلى PCM: "+(daemonState?:"لا توجد استجابة")}
+                        if(!bridgeUp){
+                            val setupOk=runCatching{com.ontrack.voiceproof.ui.Setup.isComplete(this@MobileLinkService)}.getOrDefault(false)
+                            val wirelessOn=runCatching{android.provider.Settings.Global.getInt(contentResolver,"adb_wifi_enabled",0)!=0}.getOrDefault(false)
+                            val wifiRefused=onWifiNow && runCatching{NetworkRevive.stillRefusedHere(this@MobileLinkService,wirelessOn)}.getOrDefault(false)
+                            val diag=CellularDaemonDiagnostics.diagnose(false,setupOk,onWifiNow,wifiFreeNow,wifiRefused)
+                            daemonReady=false
+                            daemonIssue=diag
+                            callProblem=diag
+                            nextLocalBridgeRetryAt=now+if(onWifiNow || wifiFreeNow)4000L else 12000L
+                            notice(callProblem)
+                            showOverlay()
+                            withTimeoutOrNull(750L){retryWake.receiveCatching()}
+                            continue
+                        }
+                        daemonReady=true
+                        daemonIssue=""
+                        val daemonState=runCatching{CaptureDaemon.linkControl(this@MobileLinkService,'Q')}.getOrNull()
+                        if(daemonState!="CALL 2"){
+                            callProblem="تعذر تأكيد وصول المكالمة إلى PCM: "+(daemonState?:"لا توجد استجابة")
+                            nextLocalBridgeRetryAt=now+2500L
+                            notice(callProblem)
+                            showOverlay()
+                            withTimeoutOrNull(750L){retryWake.receiveCatching()}
+                            continue
+                        }
                         val sess=tenantSession!!
                         val selectedCode=sess.optString("voice",
                             tenantFlow?.optString("voice","google.aoede").orEmpty())
@@ -1281,7 +1402,7 @@ class MobileLinkService:Service() {
                     delay(1800)
                 }catch(cancelled:CancellationException){throw cancelled}
                 catch(error:Throwable){
-                    audioStart?.cancel();audioStart=null
+                    runCatching{audioStart?.cancel()};audioStart=null
                     // A transport/runtime failure is NOT an explicit takeover.
                     // Preserve diagnostic UI while keeping human MIC available.
                     runCatching{call?.stop()};call=null;tenantSession=null
@@ -1289,10 +1410,11 @@ class MobileLinkService:Service() {
                     nextAudioRetryAt=SystemClock.elapsedRealtime()+
                         CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
                     val msg=error.message.orEmpty().ifBlank{error.javaClass.simpleName}.take(150)
-                    callProblem="تعذر اتصال صوت المكالمة (${internetRoute()}): "+msg
+                    val route=runCatching{internetRoute()}.getOrDefault("شبكة")
+                    callProblem="تعذر اتصال صوت المكالمة ($route): "+msg
                     Companion.lastError=msg
-                    if(msg!=lastError){lastError=msg;notice(callProblem)}
-                    showOverlay()
+                    if(msg!=lastError){lastError=msg;runCatching{notice(callProblem)}}
+                    runCatching{showOverlay()}
                     delay(1800)
                 }
             }
@@ -1304,7 +1426,7 @@ class MobileLinkService:Service() {
     /** Never continue pilot AI/telephony after any tenant SIM starts enrollment. */
     override fun onDestroy(){
         networkListener?.let{runCatching{connectivity?.unregisterNetworkCallback(it)}}
-        call?.stop();scope.cancel();running=false;connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false;audioReady=false;callProblem="";audioDiagnostic="";audioDiagnostic=""
+        runCatching{call?.stop()};scope.cancel();running=false;daemonReady=false;daemonIssue="";connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false;audioReady=false;callProblem="";audioDiagnostic=""
         liveSimSlot=-1;tenantEventOutbox=null
         overlay.remove();latestStatus="الربط متوقف"
         super.onDestroy()

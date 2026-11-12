@@ -92,4 +92,13 @@ class OverlayUiModelTest {
         assertFalse(idle.status.contains("PCM"))
     }
 
+    @Test fun stoppedCellularDaemonDoesNotShowFalseGreenReady() {
+        val cellularDown=overlayUiModel(
+            serviceReady=true,enabled=true,inCall=false,answered=false,humanControl=false,
+            daemonReady=false,daemonIssue="على الداتا فقط وميزة التشغيل بدون Wi-Fi (5555) غير مفعلة"
+        )
+        assertFalse(cellularDown.running)
+        assertTrue(cellularDown.status.contains("5555"))
+    }
+
 }
