@@ -12,6 +12,7 @@ use App\Services\Security\VaultService;
 use App\Services\Voice\VoiceSessionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
@@ -129,6 +130,15 @@ class DeviceApiController extends Controller
                         return $this->deviceJson(['ok' => true] + $this->campaigns->deviceContactsList($binding), 200, $headers);
 
                     case 'workspace_calls':
+                        $cols = [
+                            'c.external_call_id', 'c.phone', 'c.name', 'c.status', 'c.direction',
+                            'c.duration_seconds', 'c.created_at', 'c.caller_gender', 'c.ai_rating', 'c.ai_mood',
+                            'r.summary', 'r.customer_notes', 'r.outcome', 'r.handoff_status', 'r.handoff_reason',
+                            't.transcript as raw_transcript',
+                        ];
+                        if (Schema::hasColumn('calls', 'summary')) {
+                            $cols[] = 'c.summary as call_summary';
+                        }
                         $rows = DB::table('calls as c')
                             ->leftJoin('tenant_call_reports as r', function ($join): void {
                                 $join->on('r.device_binding_id', '=', 'c.device_binding_id')
@@ -149,12 +159,7 @@ class DeviceApiController extends Controller
                             ->where('c.sim_slot', $simSlot)
                             ->orderByDesc('c.id')
                             ->limit(100)
-                            ->get([
-                                'c.external_call_id', 'c.phone', 'c.name', 'c.status', 'c.direction',
-                                'c.duration_seconds', 'c.created_at', 'c.caller_gender', 'c.ai_rating', 'c.ai_mood',
-                                'r.summary', 'r.customer_notes', 'r.outcome', 'r.handoff_status', 'r.handoff_reason',
-                                't.transcript as raw_transcript',
-                            ]);
+                            ->get($cols);
 
                         $calls = [];
                         foreach ($rows as $r) {
@@ -164,6 +169,9 @@ class DeviceApiController extends Controller
                                 $plain = $this->vault->unsealTranscript((string) $r->raw_transcript);
                                 $excerpt = is_string($plain) ? mb_substr($plain, 0, 240) : null;
                             }
+                            $resolvedSummary = trim((string) ($r->summary ?? '')) !== ''
+                                ? (string) $r->summary
+                                : (trim((string) ($r->call_summary ?? '')) !== '' ? (string) $r->call_summary : null);
                             $calls[] = [
                                 'id' => (string) $r->external_call_id,
                                 'call_id' => (string) $r->external_call_id,
@@ -176,11 +184,12 @@ class DeviceApiController extends Controller
                                 'duration_seconds' => (int) ($r->duration_seconds ?? 0),
                                 'started' => str_replace(' ', 'T', (string) $r->created_at).'Z',
                                 'started_at' => (string) $r->created_at,
+                                'started_at_cairo' => $this->calls->formatCairo((string) $r->created_at),
                                 'caller_gender' => $r->caller_gender,
                                 'ai_rating' => $r->ai_rating,
                                 'ai_mood' => $r->ai_mood,
                                 'identity_status' => ((string) ($r->phone ?? '')) !== '' ? 'available' : 'unverified',
-                                'summary' => $r->summary,
+                                'summary' => $resolvedSummary,
                                 'customer_notes' => $r->customer_notes,
                                 'has_transcript' => $hasTx,
                                 'transcript_excerpt' => $excerpt,
@@ -246,6 +255,19 @@ class DeviceApiController extends Controller
                                 'source' => 'gemini_live_device',
                                 'created_at' => $now,
                             ]);
+
+                            if (mb_strlen($text, 'UTF-8') >= 18) {
+                                try {
+                                    $this->voiceSession->analyzeCallTranscript(
+                                        $binding,
+                                        $callId,
+                                        $text,
+                                        fn (array $reportInput) => $this->calls->saveReport($accountId, $siteId, $deviceId, $reportInput['call_id'], $reportInput, 'device')
+                                    );
+                                } catch (Throwable) {
+                                    // Keep transcript ingestion resilient even if AI quota temporarily throttles
+                                }
+                            }
 
                             return $this->deviceJson(['ok' => true, 'saved' => true, 'duplicate' => false, 'call_id' => $callId], 200, $headers);
                         }
@@ -1028,7 +1050,9 @@ class DeviceApiController extends Controller
                             'updated_at' => $now,
                         ]);
                     } else {
-                        $replaceSummary = trim((string) $current->summary) === '' || str_starts_with((string) $current->summary, 'ملخص أولي غير مؤكد:');
+                        $replaceSummary = trim((string) $current->summary) === ''
+                            || str_starts_with((string) $current->summary, 'ملخص أولي غير مؤكد:')
+                            || str_starts_with((string) $current->summary, 'تعذر التلخيص الآلي');
                         DB::table('tenant_call_reports')
                             ->where('account_id', $accountId)
                             ->where('site_id', $siteId)
@@ -1040,6 +1064,19 @@ class DeviceApiController extends Controller
                                 'revision' => ((int) $current->revision) + 1,
                                 'updated_at' => $now,
                             ]);
+                    }
+                    if ($summary !== '' && Schema::hasColumn('calls', 'summary')) {
+                        DB::table('calls')
+                            ->where('account_id', $accountId)
+                            ->where('device_binding_id', $deviceId)
+                            ->where('external_call_id', $id)
+                            ->where(function ($q): void {
+                                $q->whereNull('summary')
+                                    ->orWhere('summary', '')
+                                    ->orWhere('summary', 'like', 'ملخص أولي غير مؤكد:%')
+                                    ->orWhere('summary', 'like', 'تعذر التلخيص الآلي%');
+                            })
+                            ->update(['summary' => $summary]);
                     }
                 }
             } elseif ($phase === 'identified') {
@@ -1115,6 +1152,62 @@ class DeviceApiController extends Controller
         });
 
         if (! $duplicate && $phase === 'ended') {
+            $callRow = DB::table('calls')->where('device_binding_id', $deviceId)->where('external_call_id', $id)->first();
+            $existingRep = DB::table('tenant_call_reports')
+                ->where('account_id', $accountId)
+                ->where('site_id', $siteId)
+                ->where('device_binding_id', $deviceId)
+                ->where('call_id', $id)
+                ->first();
+            $needsSummary = ! $existingRep
+                || trim((string) $existingRep->summary) === ''
+                || str_starts_with((string) $existingRep->summary, 'ملخص أولي غير مؤكد:')
+                || str_starts_with((string) $existingRep->summary, 'تعذر التلخيص الآلي');
+
+            if ($needsSummary) {
+                $txRow = DB::table('tenant_call_transcripts')
+                    ->where('account_id', $accountId)
+                    ->where('site_id', $siteId)
+                    ->where('device_binding_id', $deviceId)
+                    ->where('sim_slot', $simSlot)
+                    ->where('call_id', $id)
+                    ->first();
+
+                if ($txRow && ! empty($txRow->transcript)) {
+                    $plainTx = trim($this->vault->unsealTranscript((string) $txRow->transcript));
+                    if (mb_strlen($plainTx, 'UTF-8') >= 18) {
+                        try {
+                            $this->voiceSession->analyzeCallTranscript(
+                                $binding,
+                                $id,
+                                $plainTx,
+                                fn (array $reportInput) => $this->calls->saveReport($accountId, $siteId, $deviceId, $reportInput['call_id'], $reportInput, 'device')
+                            );
+                        } catch (Throwable) {
+                        }
+                    }
+                } elseif ($callRow && Schema::hasColumn('calls', 'summary') && trim((string) ($callRow->summary ?? '')) === '') {
+                    $tlLines = DB::table('voice_call_timeline')
+                        ->where('account_id', $accountId)
+                        ->where('device_binding_id', $deviceId)
+                        ->where('call_id', $id)
+                        ->orderBy('occurred_at')
+                        ->orderBy('id')
+                        ->get(['speaker', 'content'])
+                        ->map(fn ($t) => ($t->speaker === 'caller' ? 'المتصل' : 'الإيجنت').': '.$t->content)
+                        ->all();
+
+                    if (! empty($tlLines)) {
+                        $tlFallback = $this->voiceSession->buildExtractiveFallbackReport(implode("\n", $tlLines));
+                        DB::table('calls')->where('id', $callRow->id)->update(['summary' => $tlFallback['summary']]);
+                    } else {
+                        DB::table('calls')->where('id', $callRow->id)->update([
+                            'summary' => 'مكالمة انتهت بدون تفريغ نصي مسجل ('.((int) ($callRow->duration_seconds ?? $duration)).' ثانية).',
+                        ]);
+                    }
+                }
+            }
+
             $this->calls->scheduleHumanEscalation($binding, $id);
             $callRow = DB::table('calls')->where('device_binding_id', $deviceId)->where('external_call_id', $id)->first();
             $this->automation->evaluateAndExecute($accountId, 'call.ended', [

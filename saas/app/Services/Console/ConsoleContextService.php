@@ -314,6 +314,61 @@ class ConsoleContextService
             $theme = 'dark';
         }
 
+        // Determine user's highest-privilege origin account for multi-tenant quick switcher
+        $originAccount = $memberships[0];
+        foreach ($memberships as $m) {
+            if (($m['kind'] ?? '') === 'platform') {
+                $originAccount = $m;
+                break;
+            }
+            if (($m['kind'] ?? '') === 'reseller' && ($originAccount['kind'] ?? '') !== 'platform') {
+                $originAccount = $m;
+            }
+        }
+        if ($support && ! empty($support['origin_id'])) {
+            foreach ($memberships as $m) {
+                if ((int) $m['account_id'] === (int) $support['origin_id']) {
+                    $originAccount = $m;
+                    break;
+                }
+            }
+        }
+        $originAccountId = (int) $originAccount['account_id'];
+        $originKind = (string) ($originAccount['kind'] ?? 'customer');
+        $originIsPlatform = $originKind === 'platform';
+        $originIsReseller = $originKind === 'reseller';
+
+        $switchableAccounts = [];
+        if ($originIsPlatform) {
+            $switchableAccounts = DB::table('accounts')
+                ->orderByRaw("CASE kind WHEN 'platform' THEN 0 WHEN 'reseller' THEN 1 ELSE 2 END")
+                ->orderBy('id')
+                ->limit(100)
+                ->get(['id', 'name', 'kind', 'slug', 'parent_id', 'status'])
+                ->map(fn ($r) => (array) $r)
+                ->all();
+        } elseif ($originIsReseller) {
+            $switchableAccounts = DB::table('accounts')
+                ->where(function ($q) use ($originAccountId): void {
+                    $q->where('id', $originAccountId)->orWhere('parent_id', $originAccountId);
+                })
+                ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [$originAccountId])
+                ->orderBy('id')
+                ->limit(100)
+                ->get(['id', 'name', 'kind', 'slug', 'parent_id', 'status'])
+                ->map(fn ($r) => (array) $r)
+                ->all();
+        } elseif (count($memberships) > 1) {
+            $switchableAccounts = array_map(fn ($m) => [
+                'id' => (int) $m['account_id'],
+                'name' => (string) $m['name'],
+                'kind' => (string) $m['kind'],
+                'slug' => (string) $m['slug'],
+                'parent_id' => (int) ($m['parent_id'] ?? 0),
+                'status' => (string) $m['status'],
+            ], $memberships);
+        }
+
         return [
             'user' => $user,
             'account' => $activeAccount,
@@ -321,6 +376,11 @@ class ConsoleContextService
             'kind' => (string) ($activeAccount['kind'] ?? 'customer'),
             'role' => (string) ($activeAccount['role'] ?? 'viewer'),
             'memberships' => $memberships,
+            'switchable_accounts' => $switchableAccounts,
+            'origin_account_id' => $originAccountId,
+            'origin_kind' => $originKind,
+            'origin_is_platform' => $originIsPlatform,
+            'origin_is_reseller' => $originIsReseller,
             'sites' => $sites,
             'selected_site' => $selectedSite,
             'site_id' => (int) ($selectedSite['id'] ?? 0),

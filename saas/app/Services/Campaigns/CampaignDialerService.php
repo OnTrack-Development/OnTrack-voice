@@ -32,13 +32,80 @@ class CampaignDialerService
             $arr = (array) $r;
             $ids = json_decode((string) $r->contact_ids_json, true);
             $arr['target_count'] = is_array($ids) ? count($ids) : 0;
+            $arr['starts_at_cairo'] = $this->calls->formatCairo((string) ($r->starts_at ?? ''));
+            $arr['ends_at_cairo'] = $this->calls->formatCairo((string) ($r->ends_at ?? ''));
             $arr['attempts_done'] = DB::table('tenant_campaign_attempts')
                 ->where('campaign_id', $r->id)
-                ->whereIn('status', ['completed', 'failed', 'skipped_dnc'])
+                ->whereIn('status', ['finished', 'completed', 'failed', 'skipped_dnc'])
                 ->count();
 
             return $arr;
         })->all();
+    }
+
+    public function addContactsToCampaign(int $accountId, int $siteId, string $campaignId, array $input): int
+    {
+        $campaign = DB::table('tenant_campaigns')
+            ->where('id', $campaignId)
+            ->where('account_id', $accountId)
+            ->first();
+
+        if (! $campaign) {
+            throw new InvalidArgumentException('الحملة المطلوبة غير موجودة أو لا تتبع هذا الحساب.');
+        }
+
+        $targetSiteId = (int) ($campaign->site_id ?: $siteId);
+        $now = $this->ctx->now();
+        $selectedIds = array_values(array_unique(array_filter(array_map('intval', (array) ($input['contact_ids'] ?? [])))));
+
+        $validSelected = [];
+        if (! empty($selectedIds)) {
+            $rows = DB::table('contacts')
+                ->where('account_id', $accountId)
+                ->whereIn('id', $selectedIds)
+                ->where('dnc', 0)
+                ->get(['id', 'phone']);
+            foreach ($rows as $row) {
+                $key = $this->ctx->dncPhoneKey((string) $row->phone);
+                if (strlen($key) < 8) {
+                    continue;
+                }
+                $suppressed = DB::table('dnc_suppressions')->where('account_id', $accountId)->where('phone_key', $key)->exists();
+                if ($suppressed) {
+                    continue;
+                }
+                DB::table('tenant_campaign_consents')->insertOrIgnore([
+                    'account_id' => $accountId,
+                    'site_id' => $targetSiteId,
+                    'contact_id' => (int) $row->id,
+                    'phone_key' => $key,
+                    'method' => 'campaign_upload',
+                    'proof_hash' => hash('sha256', $accountId.'|'.((int) $row->id).'|'.$key),
+                    'created_at' => $now,
+                ]);
+                $validSelected[] = (int) $row->id;
+            }
+        }
+
+        if (! empty($input['raw_contacts'])) {
+            $imported = $this->importContactsBulk($accountId, $targetSiteId, (string) $input['raw_contacts'], true);
+            $validSelected = array_values(array_unique(array_merge($validSelected, $imported['contact_ids'])));
+        }
+
+        if (empty($validSelected)) {
+            throw new InvalidArgumentException('اختر جهة اتصال صالحة أو أضف أرقاماً جديدة (غير مدرجة في DNC).');
+        }
+
+        $existing = json_decode((string) $campaign->contact_ids_json, true);
+        $existingIds = is_array($existing) ? array_values(array_filter(array_map('intval', $existing))) : [];
+        $merged = array_values(array_unique(array_merge($existingIds, $validSelected)));
+
+        DB::table('tenant_campaigns')
+            ->where('id', $campaignId)
+            ->where('account_id', $accountId)
+            ->update(['contact_ids_json' => json_encode($merged, JSON_THROW_ON_ERROR)]);
+
+        return count($validSelected);
     }
 
     public function importContactsBulk(int $accountId, int $siteId, string $rawLines, bool $withConsent = true): array
@@ -158,7 +225,33 @@ class CampaignDialerService
             throw new InvalidArgumentException('الشريحة المختارة غير نشطة أو لا تتبع الحساب.');
         }
 
-        $contactIds = array_values(array_unique(array_filter(array_map('intval', (array) ($input['contact_ids'] ?? [])))));
+        $rawSelectedIds = array_values(array_unique(array_filter(array_map('intval', (array) ($input['contact_ids'] ?? [])))));
+        $contactIds = [];
+        if (! empty($rawSelectedIds)) {
+            $selectedRows = DB::table('contacts')
+                ->where('account_id', $accountId)
+                ->whereIn('id', $rawSelectedIds)
+                ->where('dnc', 0)
+                ->get(['id', 'phone']);
+            $suppressedKeys = array_flip(DB::table('dnc_suppressions')->where('account_id', $accountId)->pluck('phone_key')->all());
+            $now = $this->ctx->now();
+            foreach ($selectedRows as $row) {
+                $key = $this->ctx->dncPhoneKey((string) $row->phone);
+                if (strlen($key) < 8 || isset($suppressedKeys[$key])) {
+                    continue;
+                }
+                DB::table('tenant_campaign_consents')->insertOrIgnore([
+                    'account_id' => $accountId,
+                    'site_id' => (int) $binding->site_id,
+                    'contact_id' => (int) $row->id,
+                    'phone_key' => $key,
+                    'method' => 'campaign_upload',
+                    'proof_hash' => hash('sha256', $accountId.'|'.((int) $row->id).'|'.$key),
+                    'created_at' => $now,
+                ]);
+                $contactIds[] = (int) $row->id;
+            }
+        }
         if (! empty($input['raw_contacts'])) {
             $imported = $this->importContactsBulk($accountId, (int) $binding->site_id, (string) $input['raw_contacts'], true);
             $contactIds = array_values(array_unique(array_merge($contactIds, $imported['contact_ids'])));

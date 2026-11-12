@@ -39,6 +39,7 @@ internal class PremiumOfficialLive(
     private val googleAudio:(ByteArray,Int)->Unit,
     private val interrupted:()->Unit,
     private val disconnected:(String)->Unit,
+    private val maxOutputTokens:Int=120,
 ) {
     private val stopped=AtomicBoolean(false)
     private val ready=CompletableDeferred<Unit>()
@@ -101,7 +102,9 @@ internal class PremiumOfficialLive(
             override fun onOpen(webSocket:WebSocket,response:Response) {
                 if(stopped.get() || webSocket!==socket)return
                 val cleanModel=model.removePrefix("models/")
-                val generationConfig=JSONObject().put("responseModalities",JSONArray().put("AUDIO"))
+                val generationConfig=JSONObject()
+                    .put("responseModalities",JSONArray().put("AUDIO"))
+                    .put("maxOutputTokens",maxOutputTokens.coerceIn(40,200))
                 if(!cleanModel.contains("3.8-live",ignoreCase=true) && cleanModel.contains("2.5",ignoreCase=true))
                     generationConfig.put("thinkingConfig",JSONObject().put("thinkingBudget",0))
                 val setup=JSONObject().put("model","models/"+cleanModel)

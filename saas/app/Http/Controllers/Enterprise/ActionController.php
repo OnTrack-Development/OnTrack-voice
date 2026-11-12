@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 class ActionController extends Controller
@@ -68,6 +69,12 @@ class ActionController extends Controller
             }
 
             return $redirect;
+        } catch (HttpExceptionInterface $e) {
+            if ($isAjax) {
+                return response()->json(['ok' => false, 'error' => $e->getMessage() ?: 'forbidden'], $e->getStatusCode());
+            }
+
+            throw $e;
         } catch (InvalidArgumentException $e) {
             if ($isAjax) {
                 return response()->json(['ok' => false, 'error' => $e->getMessage()], 422);
@@ -109,6 +116,51 @@ class ActionController extends Controller
                     }
                 }
                 throw new InvalidArgumentException('لا تملك صلاحية التبديل إلى هذا الحساب.');
+
+            case 'quick_switch_tenant':
+                $targetId = (int) $r->input('target_account_id', 0);
+                if ($targetId < 1) {
+                    throw new InvalidArgumentException('اختر حساباً صالحاً للتبديل.');
+                }
+                if ($targetId === (int) ($ctx['origin_account_id'] ?? 0)) {
+                    session(['account_id' => $targetId]);
+                    session()->forget(['support', 'site_id']);
+
+                    return ['redirect' => '/?tab=overview', 'success' => 'تمت العودة إلى الحساب الرئيسي.'];
+                }
+                foreach ($ctx['memberships'] as $m) {
+                    if ((int) $m['account_id'] === $targetId) {
+                        session(['account_id' => $targetId]);
+                        session()->forget(['support', 'site_id']);
+
+                        return ['redirect' => '/?tab=overview', 'success' => 'تم التبديل إلى حساب: '.$m['name']];
+                    }
+                }
+                $originId = (int) ($ctx['origin_account_id'] ?? $accountId);
+                $canSwitch = ! empty($ctx['origin_is_platform'])
+                    || (! empty($ctx['origin_is_reseller']) && $this->ctx->isResellerChild($originId, $targetId));
+                if (! $canSwitch) {
+                    abort(403, 'لا تملك صلاحية الدخول إلى هذا الحساب.');
+                }
+                $target = $this->ctx->account($targetId);
+                if (! $target) {
+                    throw new InvalidArgumentException('الحساب المطلوب غير موجود.');
+                }
+                DB::table('support_grants')->insert([
+                    'actor_user_id' => $userId,
+                    'target_account_id' => $targetId,
+                    'reason' => 'Quick workspace switch',
+                    'expires_at' => gmdate('Y-m-d H:i:s', time() + 3600),
+                    'created_at' => $now,
+                ]);
+                session([
+                    'account_id' => $originId,
+                    'support' => ['origin_id' => $originId, 'account_id' => $targetId, 'expires' => time() + 3600, 'view' => 'admin'],
+                ]);
+                session()->forget('site_id');
+                $this->ctx->audit($userId, $targetId, 'support.enter', ['mode' => 'quick_switch']);
+
+                return ['redirect' => '/?tab=overview', 'success' => 'تم التبديل السريع إلى مساحة عمل: '.$target['name']];
 
             case 'switch_site':
                 $targetSite = (int) $r->input('target_site_id', 0);
@@ -158,9 +210,9 @@ class ActionController extends Controller
                 return ['redirect' => '/?tab=overview', 'success' => 'تم دخول جلسة الدعم لحساب: '.$target['name']];
 
             case 'support_leave':
-                session()->forget('support');
+                session()->forget(['support', 'site_id']);
 
-                return ['redirect' => '/?tab=accounts', 'success' => 'تم الخروج من وضع الدعم والعودة لحسابك.'];
+                return ['redirect' => '/', 'success' => 'تم الخروج من وضع الدعم والعودة لحسابك.'];
 
             case 'create_site':
                 $this->ctx->requirePermission($ctx, 'sites.write');
@@ -461,6 +513,17 @@ class ActionController extends Controller
 
                 return ['campaign_id' => $cid, 'success' => 'تم إنشاء الحملة الصادرة بنجاح.'];
 
+            case 'add_campaign_contacts':
+                $this->ctx->requirePermission($ctx, 'campaigns.write');
+                $added = $this->campaigns->addContactsToCampaign(
+                    $accountId,
+                    $siteId,
+                    (string) $r->input('campaign_id', ''),
+                    $r->all()
+                );
+
+                return ['added' => $added, 'success' => "تمت إضافة {$added} جهة اتصال إلى الحملة بنجاح."];
+
             case 'campaign_status':
                 $this->ctx->requirePermission($ctx, 'campaigns.write');
                 $this->campaigns->transitionStatus($accountId, (string) $r->input('campaign_id', ''), (string) $r->input('status', 'paused'));
@@ -721,6 +784,40 @@ class ActionController extends Controller
                 }
 
                 return ['plan_id' => $planId, 'success' => 'تمت إضافة الباقة: '.$name];
+
+            case 'reseller_allocate_plan':
+                if (! $ctx['is_platform'] && ! $ctx['is_reseller']) {
+                    abort(403);
+                }
+                $targetId = (int) $r->input('target_account_id', 0);
+                $planId = (int) $r->input('plan_id', 0);
+                $days = max(1, min(365, (int) $r->input('days', 30)));
+                $target = $this->ctx->account($targetId);
+                $plan = DB::table('plans')->where('id', $planId)->where('status', 'active')->first();
+                if (! $target || ! $plan) {
+                    throw new InvalidArgumentException('الحساب أو الباقة المختارة غير متاحة.');
+                }
+                if ($ctx['is_reseller'] && ! $this->ctx->isResellerChild($accountId, $targetId)) {
+                    abort(403, 'لا يمكنك تخصيص باقة إلا لعملائك التابعين.');
+                }
+                if ($ctx['is_reseller'] && $plan->kind !== 'user') {
+                    throw new InvalidArgumentException('لا يمكن للوكيل تخصيص باقات منصة أو باقات وكلاء.');
+                }
+                DB::table('subscriptions')
+                    ->where('account_id', $targetId)
+                    ->where('status', 'active')
+                    ->update(['status' => 'replaced']);
+                DB::table('subscriptions')->insert([
+                    'account_id' => $targetId,
+                    'plan_id' => $planId,
+                    'status' => 'active',
+                    'starts_at' => $now,
+                    'ends_at' => gmdate('Y-m-d H:i:s', time() + $days * 86400),
+                    'created_at' => $now,
+                ]);
+                $this->ctx->audit($userId, $targetId, 'plan.allocated', ['plan_id' => $planId, 'by_account' => $accountId, 'days' => $days]);
+
+                return ['success' => 'تم تخصيص باقة "'.$plan->name.'" للحساب: '.$target['name']];
 
             default:
                 throw new InvalidArgumentException('إجراء غير معروف: '.$action);

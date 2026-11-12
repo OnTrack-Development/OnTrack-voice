@@ -140,8 +140,11 @@
 
             <div id="scenarioTextPane" style="display:{{ ($policy['scenario_mode'] ?? 'builder') === 'scenario' ? 'block' : 'none' }}">
                 <div class="field">
-                    <span class="field-label">السيناريو الكامل للمكالمة (توصيفات الأداء بين أقواس غير منطوقة)</span>
-                    <textarea name="scenario_text" style="min-height:190px" placeholder="مثال: أهلاً بحضرتك معاك سارة من شركة...">{{ $policy['scenario_text'] ?? '' }}</textarea>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+                        <span class="field-label" style="margin:0">السيناريو الكامل للمكالمة (توصيفات الأداء بين أقواس غير منطوقة)</span>
+                        <button type="button" class="btn btn-sm" onclick="const ta=document.getElementById('scenarioTextArea');if(ta){ta.value='الدور: موظفة تقييم خدمة عملاء بلهجة لبنانية لطيفة.\nالأسلوب: رد قصير جداً (جملة واحدة + سؤال واحد) وتوقفي فوراً للاستماع.\n\n1. الترحيب (عند أول رد فقط): «مرحبا، معك انجي من الدعم. فينا ناخد رأيك بخدمة اليوم؟» ثم اسكتي.\n2. الاستماع: اسمعي إجابة المتصل أولاً.\n3. سؤال التقييم (بعد رده): «كيف كانت تجربة الخدمة بشكل عام من ١ لـ ١٠؟» ثم اسكتي.\n4. المتابعة: إذا كان مبسوطاً: «شو أكتر شي عجبك؟» — وإذا منزعجاً: «آسفة جداً، شو اللي ضايقك لنصلحو فوراً؟» ثم اسكتي.\n5. الختام: «ممنونة إلك كتير ونهارك سعيد!»';}">قالب تقييم لبناني مختصر (سؤال واحد)</button>
+                    </div>
+                    <textarea id="scenarioTextArea" name="scenario_text" style="min-height:190px" placeholder="مثال: أهلاً بحضرتك معاك سارة من شركة...">{{ $policy['scenario_text'] ?? '' }}</textarea>
                 </div>
             </div>
 

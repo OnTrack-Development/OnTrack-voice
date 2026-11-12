@@ -17,7 +17,7 @@
         <div class="field" style="margin:0"><span class="field-label">الحالة</span>
             <select name="status">
                 <option value="">الكل</option>
-                @foreach (['answered' => 'تم الرد', 'completed' => 'مكتملة', 'missed' => 'فائتة', 'ringing' => 'رنين'] as $st => $lb)
+                @foreach (['ended' => 'انتهت', 'answered' => 'تم الرد', 'completed' => 'مكتملة', 'missed' => 'فائتة', 'ringing' => 'رنين'] as $st => $lb)
                     <option value="{{ $st }}" {{ ($filters['status'] ?? '') === $st ? 'selected' : '' }}>{{ $lb }}</option>
                 @endforeach
             </select>
@@ -48,7 +48,7 @@
     <div class="table-wrap" style="border:none">
         <table class="data-table">
             <thead>
-                <tr><th>المتصل</th><th>التاريخ UTC</th><th>الإيجنت</th><th>الشريحة</th><th>المدة</th><th>النتيجة</th><th>التقييم</th><th>التفاصيل</th></tr>
+                <tr><th>المتصل</th><th>التاريخ (القاهرة)</th><th>الإيجنت</th><th>الشريحة</th><th>المدة</th><th>ملخص المكالمة</th><th>النتيجة</th><th>التقييم</th><th>التفاصيل</th></tr>
             </thead>
             <tbody>
                 @forelse ($data['calls'] ?? [] as $c)
@@ -57,16 +57,17 @@
                             <div style="font-weight:600">{{ $c['name'] ?: ($c['phone'] ?: 'غير محدد') }}</div>
                             <div class="mono" style="font-size:11.5px;color:var(--muted)" dir="ltr">{{ $c['phone'] }}</div>
                         </td>
-                        <td class="mono" style="font-size:12px">{{ $c['created_at'] }}</td>
+                        <td class="mono" style="font-size:12px" dir="ltr">{{ $c['created_at_cairo'] ?: $c['created_at'] }}</td>
                         <td>{{ $c['resolved_agent_name'] ?: '—' }}</td>
                         <td><span class="pill">SIM {{ ((int) ($c['sim_slot'] ?? 0)) + 1 }}</span></td>
                         <td class="tnum">{{ $c['duration_formatted'] }}</td>
+                        <td style="max-width:260px;font-size:12.5px;color:var(--muted)">{{ \Illuminate\Support\Str::limit($c['effective_summary'] ?: '—', 95) }}</td>
                         <td><span class="pill pill-crimson">{{ $c['outcome_label'] }}</span></td>
                         <td class="mono">{{ !empty($c['ai_rating']) ? '★ '.$c['ai_rating'].'/5' : '—' }}</td>
                         <td><button type="button" class="btn btn-sm" onclick="openCallDrawer({{ $c['id'] }})">عرض النص والتقرير</button></td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px">لا توجد مكالمات مطابقة للبحث.</td></tr>
+                    <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:28px">لا توجد مكالمات مطابقة للبحث.</td></tr>
                 @endforelse
             </tbody>
         </table>

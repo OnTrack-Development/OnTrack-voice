@@ -119,7 +119,7 @@
                     </td>
                     <td><span class="pill">{{ $c['status'] }}</span></td>
                     <td class="tnum">{{ $c['duration_formatted'] }}</td>
-                    <td style="max-width:260px;color:var(--muted)">{{ \Illuminate\Support\Str::limit($c['report_summary'] ?: '—', 70) }}</td>
+                    <td style="max-width:260px;color:var(--muted)">{{ \Illuminate\Support\Str::limit($c['effective_summary'] ?: ($c['report_summary'] ?: '—'), 70) }}</td>
                     <td><button type="button" class="btn btn-sm" onclick="openCallDrawer({{ $c['id'] }})">التفاصيل</button></td>
                 </tr>
             @empty

@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -59,6 +60,21 @@ class CallLedgerService
         }
 
         return $mins.' دقيقة و'.$rem.' ثانية';
+    }
+
+    public function formatCairo(?string $utc, string $format = 'Y-m-d H:i'): string
+    {
+        $raw = trim((string) $utc);
+        if ($raw === '') {
+            return '';
+        }
+        try {
+            $dt = new DateTimeImmutable(str_replace('T', ' ', $raw), new DateTimeZone('UTC'));
+
+            return $dt->setTimezone(new DateTimeZone('Africa/Cairo'))->format($format);
+        } catch (\Throwable) {
+            return $raw;
+        }
     }
 
     public function safeCsvCell(?string $val): string
@@ -184,6 +200,7 @@ class CallLedgerService
         }
 
         $callArr = (array) $call;
+        $callArr['created_at_cairo'] = $this->formatCairo($callArr['created_at'] ?? null);
         $callArr['duration_formatted'] = $this->formatDurationArabic((int) ($call->duration_seconds ?? 0));
         $callArr['outcome_label'] = self::OUTCOMES[$call->report_outcome ?? 'unknown'] ?? ($call->report_outcome ?? 'غير محدد');
         $callArr['handoff_label'] = self::HANDOFF_STATUSES[$call->handoff_status ?? 'not_requested'] ?? ($call->handoff_status ?? '');
@@ -279,6 +296,23 @@ class CallLedgerService
             && (string) $existing->handoff_status === $handoffStatus
             && (string) $existing->handoff_reason === $reason
         ) {
+            $syncDup = [];
+            if ($summary !== '' && Schema::hasColumn('calls', 'summary') && trim((string) ($call->summary ?? '')) !== $summary) {
+                $syncDup['summary'] = $summary;
+            }
+            if (isset($input['caller_gender']) && in_array($input['caller_gender'], ['male', 'female', 'unknown'], true) && empty($call->caller_gender)) {
+                $syncDup['caller_gender'] = $input['caller_gender'];
+            }
+            if (isset($input['ai_rating']) && is_numeric($input['ai_rating']) && empty($call->ai_rating)) {
+                $syncDup['ai_rating'] = max(1, min(5, (int) $input['ai_rating']));
+            }
+            if (isset($input['ai_mood']) && trim((string) $input['ai_mood']) !== '' && empty($call->ai_mood)) {
+                $syncDup['ai_mood'] = trim(mb_substr((string) $input['ai_mood'], 0, 30));
+            }
+            if (! empty($syncDup)) {
+                DB::table('calls')->where('id', $call->id)->update($syncDup);
+            }
+
             return [
                 'ok' => true,
                 'saved' => true,
@@ -339,8 +373,11 @@ class CallLedgerService
                 ]);
             }
 
-            // Update AI quality/gender/mood fields on call if supplied
+            // Update AI summary/quality/gender/mood fields on call record
             $callUpdates = [];
+            if ($summary !== '' && Schema::hasColumn('calls', 'summary')) {
+                $callUpdates['summary'] = $summary;
+            }
             if (isset($input['caller_gender']) && in_array($input['caller_gender'], ['male', 'female', 'unknown'], true)) {
                 $callUpdates['caller_gender'] = $input['caller_gender'];
             }
@@ -889,11 +926,11 @@ class CallLedgerService
         $rows = $this->filteredQuery($accountId, $filters)->limit(1000)->get();
         $out = fopen('php://temp', 'w+b');
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['ID', 'التاريخ UTC', 'الاتجاه', 'الهاتف', 'جهة الاتصال', 'الإيجنت', 'الشريحة', 'الحالة', 'المدة (ث)', 'النتيجة', 'التقييم', 'ملخص المكالمة']);
+        fputcsv($out, ['ID', 'التاريخ (القاهرة)', 'الاتجاه', 'الهاتف', 'جهة الاتصال', 'الإيجنت', 'الشريحة', 'الحالة', 'المدة (ث)', 'النتيجة', 'التقييم', 'ملخص المكالمة']);
         foreach ($rows as $r) {
             fputcsv($out, [
                 (string) $r->id,
-                $this->safeCsvCell((string) $r->created_at),
+                $this->safeCsvCell($this->formatCairo((string) $r->created_at, 'Y-m-d H:i:s')),
                 $this->safeCsvCell((string) ($r->direction ?? 'inbound')),
                 $this->safeCsvCell((string) $r->phone),
                 $this->safeCsvCell((string) $r->name),
@@ -903,7 +940,7 @@ class CallLedgerService
                 (string) ((int) ($r->duration_seconds ?? 0)),
                 $this->safeCsvCell(self::OUTCOMES[$r->report_outcome ?? 'unknown'] ?? (string) ($r->report_outcome ?? '')),
                 (string) ($r->ai_rating ?? ''),
-                $this->safeCsvCell((string) ($r->report_summary ?? '')),
+                $this->safeCsvCell((string) (($r->report_summary ?: ($r->summary ?? '')) ?: '')),
             ]);
         }
         rewind($out);

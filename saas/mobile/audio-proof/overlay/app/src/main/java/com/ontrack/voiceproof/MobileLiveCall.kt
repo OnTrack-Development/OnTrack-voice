@@ -31,6 +31,7 @@ internal class MobileLiveCall(
     private val onFinished:(String)->Unit = {},
 ) {
     private val stopped=AtomicBoolean(false)
+    private val firstTurnDispatched=AtomicBoolean(false)
     @Volatile private var remoteSpeechConfirmed=!outgoingCall
     private val ready=CompletableDeferred<Unit>()
     // Gemini may deliver several seconds of PCM in one websocket burst.
@@ -247,17 +248,17 @@ internal class MobileLiveCall(
         val agentName=session.optString("agent_name","مساعد IO Voice").trim().ifBlank{"مساعد IO Voice"}
         val scenarioMode=settings.optString("scenario_mode","builder")
         val responseStyle=settings.optString("response_style","egyptian_short")
-        if(OutboundFirstTurn.sendInitialGreeting(outgoingCall)) {
+        if(OutboundFirstTurn.sendInitialGreeting(outgoingCall) && firstTurnDispatched.compareAndSet(false,true)) {
             val manager=settings.optString("manager_briefing","").trim()
             val prompt=if(manager.isNotBlank())
                 "هذه مكالمة متابعة للمدير. انتظر حتى يرد الطرف الآخر واطلب تأكيد أنه المسؤول، " +
                 "وبعد التأكيد أخبره بسبب طلب الموظف وملخص المكالمة الآتي بهدوء. " +
                 "إن لم يكن المسؤول اعتذر دون ذكر بيانات العميل:\n" + manager
             else if(scenarioMode=="scenario" || responseStyle!="egyptian_short")
-                "ابدأ المكالمة فورًا بالافتتاحية والشخصية واللغة أو اللهجة المحددة في السيناريو المنشور باسم "+agentName+
-                " فقط، ولا تذكر رقم الإيجنت أو كلمة سيناريو أو تقرأ توصيفات الأداء بين قوسين (...)، ثم استمع لرد العميل."
-            else "ابدأ المكالمة بتحية مصرية قصيرة باسم "+agentName+
-                " فقط، ولا تنطق رقم الإيجنت أو نسخة السيناريو أو توصيفات الأداء بين قوسين (...). ثم اسمع رد العميل."
+                "ابدأ المكالمة بجملة ترحيب واحدة قصيرة وسؤال واحد فقط (بحد أقصى 15 إلى 20 كلمة) باللهجة والشخصية المحددة في السيناريو باسم "+agentName+
+                "، ثم اصمت فوراً لتستمع للمتصل، ولا تعيد هذه الافتتاحية أبداً لو قاطعك المتصل."
+            else "ابدأ المكالمة بتحية مصرية قصيرة واحدة وسؤال واحد (15-20 كلمة) باسم "+agentName+
+                " فقط، ثم اصمت فورًا واستمع للمتصل، ولا تعيد الترحيب عند المقاطعة."
             if(premium){
                 scope.launch(Dispatchers.IO){runCatching{official?.prompt(prompt)}}
             }else{
@@ -307,7 +308,10 @@ internal class MobileLiveCall(
      */
     private fun startOfficialPremium() {
         check(premiumPcm!=null){"IO Premium PCM module not configured"}
-        val baseInstruction=session.getString("system_instruction")+
+        val baseInstruction=
+            "[قاعدة قِصر الرد الإلزامية]: أقصى طول لأي رد هو جملة واحدة قصيرة وسؤال واحد فقط (15 إلى 20 كلمة بحد أقصى)، ثم اصمت فورًا واترك المتصل يتكلم.\n"+
+            "[قاعدة المقاطعة]: عند مقاطعة المتصل توقف فورًا ولا تعيد الجملة الافتتاحية أو المقاطعة من بدايتها؛ أجب مباشرة على كلامه الأخير.\n"+
+            session.getString("system_instruction")+
             "\n\nتكيف مع جنس المتصل: ابدأ بصيغة المذكر ما لم تلاحظ أن المتصلة أنثى (من نبرتها أو كلامها أو قولها أنا بنت)، وفور أول إشارة لأنثى تحول فورًا لصيغة المؤنث واقفلها لنهاية المكالمة دون عودة للمذكر أبدًا. "+
             "تذكر ما قاله المتصل واسمه وتقييمه عبر أدوار المكالمة ولا تكرر أسئلة مجابًا عنها."
         val sdk=PremiumOfficialLive(scope,client,session.getString("token"),
@@ -336,7 +340,8 @@ internal class MobileLiveCall(
                 premiumPhrases.trySend(playbackGen.current() to text)},
             googleAudio={audio,rate->playFallbackGooglePcm(audio,rate)},
             interrupted={flushAudioGeneration()},
-            disconnected={reason->if(!stopped.get())fail(reason)}
+            disconnected={reason->if(!stopped.get())fail(reason)},
+            maxOutputTokens=session.optInt("max_output_tokens",120).coerceIn(40,200)
         )
         official=sdk
         premiumSender=scope.launch(Dispatchers.IO){
@@ -428,8 +433,8 @@ internal class MobileLiveCall(
                     "\n\nتفاصيل الإبلاغ:\n" + manager
                 else session.getString("system_instruction")+"\n\n"+style+
                     " التوصيفات بين قوسين (...) أو [...] إرشادات أداء صوتي غير منطوقة؛ لا تقرأها أبدًا."+
-                    " استخدم سؤالًا واحدًا في كل دور ثم استمع للعميل، ولا تكرر التحية أو الأسئلة."+
-                    " توقف فورًا عند المقاطعة، ولا تعيد الجملة التي قاطعها العميل. " +
+                    " أقصى طول للرد جملة واحدة قصيرة وسؤال واحد فقط (15 إلى 20 كلمة بحد أقصى)، ثم اصمت فوراً واترك المتصل يتكلم."+
+                    " عند المقاطعة توقف فورًا، ولا تعيد الجملة الافتتاحية أو الجملة المقاطعة من البداية أبدًا؛ أجب مباشرة على كلام المتصل الأخير. " +
                     "تكيف مع جنس المتصل: ابدأ بصيغة المذكر ما لم تلاحظ أن المتصلة أنثى (من نبرتها أو كلامها أو قولها أنا بنت)، وفور أول إشارة لأنثى تحول فورًا لصيغة المؤنث واقفلها لنهاية المكالمة دون عودة للمذكر أبدًا. " +
                     "تذكر ما قاله المتصل واسمه وتقييمه عبر أدوار المكالمة ولا تكرر أسئلة مجابًا عنها. " +
                     "عندما يطلب المتصل موظفًا بشريًا استخدم request_human_employee لتسجيل السبب والملاحظات، ثم أخبره أن طلب المتابعة تم تسجيله إذا نجحت الأداة فقط؛ لا تقل جاري تحويل أو تم تحويل المكالمة. " +
@@ -441,7 +446,10 @@ internal class MobileLiveCall(
                         }, callMemory.buildReconnectSummary())
                 else policy
                 val cleanModel=session.getString("model").removePrefix("models/")
-                val generationConfig=JSONObject().put("responseModalities",org.json.JSONArray(listOf("AUDIO")))
+                val maxOutTokens=session.optInt("max_output_tokens",120).coerceIn(40,200)
+                val generationConfig=JSONObject()
+                    .put("responseModalities",org.json.JSONArray(listOf("AUDIO")))
+                    .put("maxOutputTokens",maxOutTokens)
                     .put("speechConfig",JSONObject().put("voiceConfig",JSONObject().put("prebuiltVoiceConfig",JSONObject().put("voiceName",settings.optString("voice","Aoede")))))
                 if(!cleanModel.contains("3.8-live",ignoreCase=true) && cleanModel.contains("2.5",ignoreCase=true))
                     generationConfig.put("thinkingConfig",JSONObject().put("thinkingBudget",0))

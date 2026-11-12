@@ -7,16 +7,16 @@
     <title>{{ $ctx['brand']['name'] ?? 'IO Voice' }} — لوحة التحكم</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/css/obsidian.css?v=62">
+    <link rel="stylesheet" href="/assets/css/obsidian.css?v=63">
 </head>
 <body>
 @if (!empty($ctx['support']))
     <div class="support-bar">
-        <span>وضع الدعم الفني النشط للحساب: <strong>{{ $ctx['account']['name'] ?? '' }}</strong> (الدور: {{ $ctx['role'] }})</span>
+        <span>مساحة العمل النشطة: <strong>{{ $ctx['account']['name'] ?? '' }}</strong> (الدور: {{ $ctx['role'] }})</span>
         <form method="POST" action="/console/action" style="margin:0">
             @csrf
             <input type="hidden" name="action" value="support_leave">
-            <button type="submit" class="btn btn-sm">إنهاء جلسة الدعم</button>
+            <button type="submit" class="btn btn-sm">العودة للحساب الرئيسي</button>
         </form>
     </div>
 @endif
@@ -75,11 +75,39 @@
                 <span>الإعدادات والفريق</span>
             </a>
 
-            @if (($ctx['is_platform'] || $ctx['is_reseller']) && $ctx['view_mode'] === 'admin')
-                <div class="nav-group">إدارة المنصة والوكلاء</div>
-                <a class="nav-item {{ in_array($activeTab, ['accounts', 'plans', 'releases'], true) ? 'active' : '' }}" href="/?tab=accounts">
+            @if ($ctx['is_reseller'] || $ctx['is_platform'])
+                <div class="nav-group">إدارة الوكلاء (Reseller)</div>
+                <a class="nav-item {{ $activeTab === 'reseller-tenants' ? 'active' : '' }}" href="/?tab=reseller-tenants">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    <span>الحسابات والباقات والإصدار</span>
+                    <span>العملاء التابعون</span>
+                </a>
+                <a class="nav-item {{ $activeTab === 'reseller-quotas' ? 'active' : '' }}" href="/?tab=reseller-quotas">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                    <span>الحصص والباقات المخصصة</span>
+                </a>
+                <a class="nav-item {{ $activeTab === 'domains' ? 'active' : '' }}" href="/?tab=domains">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <span>الهوية والنطاقات</span>
+                </a>
+            @endif
+
+            @if ($ctx['is_platform'])
+                <div class="nav-group">إدارة المنصة (Administration)</div>
+                <a class="nav-item {{ $activeTab === 'accounts' ? 'active' : '' }}" href="/?tab=accounts">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="13" y2="13"/></svg>
+                    <span>الحسابات والوكلاء</span>
+                </a>
+                <a class="nav-item {{ $activeTab === 'platform-ai' ? 'active' : '' }}" href="/?tab=platform-ai">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                    <span>الذكاء الاصطناعي والأصوات المركزية</span>
+                </a>
+                <a class="nav-item {{ in_array($activeTab, ['platform-plans', 'plans'], true) ? 'active' : '' }}" href="/?tab=platform-plans">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    <span>الباقات والفوترة والاعتماد</span>
+                </a>
+                <a class="nav-item {{ $activeTab === 'releases' ? 'active' : '' }}" href="/?tab=releases">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>النظام وإصدارات Android</span>
                 </a>
             @endif
         </nav>
@@ -117,14 +145,14 @@
             </div>
 
             <div class="topbar-right">
-                @if (count($ctx['memberships'] ?? []) > 1)
-                    <form method="POST" action="/console/action" style="margin:0">
+                @if (count($ctx['switchable_accounts'] ?? []) > 1)
+                    <form method="POST" action="/console/action" style="margin:0;display:flex;align-items:center;gap:6px">
                         @csrf
-                        <input type="hidden" name="action" value="switch_account">
-                        <select name="target_account_id" onchange="this.form.submit()" style="width:auto;min-width:160px;padding:6px 10px;font-size:12.5px">
-                            @foreach ($ctx['memberships'] as $m)
-                                <option value="{{ $m['account_id'] }}" {{ (int) $m['account_id'] === (int) $ctx['account_id'] ? 'selected' : '' }}>
-                                    {{ $m['name'] }} ({{ $m['kind'] }})
+                        <input type="hidden" name="action" value="quick_switch_tenant">
+                        <select name="target_account_id" aria-label="التبديل السريع لمساحة العمل" onchange="this.form.submit()" style="width:auto;min-width:190px;padding:6px 10px;font-size:12.5px">
+                            @foreach ($ctx['switchable_accounts'] as $sw)
+                                <option value="{{ $sw['id'] }}" {{ (int) $sw['id'] === (int) $ctx['account_id'] ? 'selected' : '' }}>
+                                    {{ $sw['name'] }} ({{ $sw['kind'] }})
                                 </option>
                             @endforeach
                         </select>
@@ -180,6 +208,10 @@
                     'accounts' => 'enterprise.tabs.admin',
                     'plans' => 'enterprise.tabs.admin',
                     'releases' => 'enterprise.tabs.admin',
+                    'reseller-tenants' => 'enterprise.tabs.admin',
+                    'reseller-quotas' => 'enterprise.tabs.admin',
+                    'platform-ai' => 'enterprise.tabs.admin',
+                    'platform-plans' => 'enterprise.tabs.admin',
                 ];
             @endphp
             @include($viewMap[$activeTab] ?? 'enterprise.tabs.overview', ['ctx' => $ctx, 'data' => $data, 'activeTab' => $activeTab])
@@ -198,6 +230,6 @@
     </div>
 </div>
 
-<script src="/assets/js/obsidian.js?v=62"></script>
+<script src="/assets/js/obsidian.js?v=63"></script>
 </body>
 </html>

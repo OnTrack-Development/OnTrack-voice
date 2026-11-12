@@ -178,6 +178,7 @@
             }
             const c = data.call || {};
             const transcript = data.transcript || 'لا يوجد تفريغ نصي مسجل لهذه المكالمة.';
+            const resolvedSummary = c.report_summary || c.summary || '';
             const audioHtml = c.recording_url
                 ? `<div class="card" style="padding:12px"><div class="field-label">تسجيل المكالمة</div><audio controls style="width:100%;margin-top:6px" src="${escapeHtml(c.recording_url)}"></audio></div>`
                 : '';
@@ -186,7 +187,7 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
                     <div>
                         <div style="font-size:17px;font-weight:700">${escapeHtml(c.name || c.phone || 'متصل غير مسجل')}</div>
-                        <div class="mono" style="color:var(--muted);font-size:12.5px">${escapeHtml(c.phone || '')} · SIM ${(Number(c.sim_slot || 0) + 1)}</div>
+                        <div class="mono" style="color:var(--muted);font-size:12.5px">${escapeHtml(c.phone || '')} · SIM ${(Number(c.sim_slot || 0) + 1)} · ${escapeHtml(c.created_at_cairo || c.created_at || '')}</div>
                     </div>
                     <span class="pill pill-crimson">${escapeHtml(c.outcome_label || c.status || '')}</span>
                 </div>
@@ -195,6 +196,7 @@
                     <div class="kpi-card" style="padding:10px"><div class="kpi-label">الإيجنت</div><div style="font-weight:700">${escapeHtml(c.resolved_agent_name || '-')}</div></div>
                     <div class="kpi-card" style="padding:10px"><div class="kpi-label">التقييم / الجنس</div><div style="font-weight:700">${c.ai_rating ? '★ ' + c.ai_rating + '/5' : '-'} · ${escapeHtml(c.caller_gender || '-')}</div></div>
                 </div>
+                ${resolvedSummary ? `<div class="card" style="padding:12px;border-right:3px solid var(--crimson)"><div class="field-label">الملخص التلقائي للمكالمة</div><div style="font-size:13px;line-height:1.65;margin-top:4px">${escapeHtml(resolvedSummary)}</div></div>` : ''}
                 ${audioHtml}
                 <div class="card" style="padding:14px">
                     <div class="field-label" style="margin-bottom:8px">النص الكامل للمحادثة (Transcript)</div>
@@ -240,7 +242,7 @@
                     </div>
                     <label class="check-row" style="margin-bottom:10px"><input type="checkbox" name="staff_acknowledged" value="1" ${c.handoff_status === 'completed' ? 'checked' : ''}> <span>تأكيد استلام وإغلاق المتابعة البشرية من قِبل الموظف</span></label>
                     <div class="field"><span class="field-label">سبب المتابعة البشرية</span><input type="text" name="handoff_reason" value="${escapeHtml(c.handoff_reason || '')}"></div>
-                    <div class="field"><span class="field-label">الملخص</span><textarea name="summary">${escapeHtml(c.report_summary || '')}</textarea></div>
+                    <div class="field"><span class="field-label">الملخص</span><textarea name="summary">${escapeHtml(resolvedSummary)}</textarea></div>
                     <div class="field"><span class="field-label">ملاحظات العميل</span><input type="text" name="customer_notes" value="${escapeHtml(c.report_notes || '')}"></div>
                     <button type="submit" class="btn btn-primary">حفظ التقرير</button>
                 </form>` : ''}

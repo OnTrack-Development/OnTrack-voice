@@ -20,6 +20,7 @@ class WorkspaceController extends Controller
         'overview', 'agents', 'voices', 'devices', 'calls', 'campaigns',
         'automations', 'billing', 'invoices', 'settings', 'whatsapp',
         'accounts', 'plans', 'domains', 'staff', 'integrations', 'releases',
+        'reseller-tenants', 'reseller-quotas', 'platform-ai', 'platform-plans',
     ];
 
     public function __construct(
@@ -67,6 +68,12 @@ class WorkspaceController extends Controller
         }
         if (! in_array($tab, self::VALID_TABS, true)) {
             $tab = 'overview';
+        }
+        if (in_array($tab, ['platform-ai', 'platform-plans', 'releases'], true) && ! $ctx['is_platform']) {
+            abort(403, 'هذا القسم مخصص لإدارة المنصة فقط.');
+        }
+        if (in_array($tab, ['accounts', 'plans', 'reseller-tenants', 'reseller-quotas'], true) && ! $ctx['is_platform'] && ! $ctx['is_reseller']) {
+            abort(403, 'هذا القسم مخصص لإدارة الوكلاء والمنصة فقط.');
         }
         // Unify /invoices into billing tab and /voices inside agents/studio or voices tab
         $accountId = (int) $ctx['account_id'];
@@ -138,7 +145,7 @@ class WorkspaceController extends Controller
                     : [],
             ],
             'settings', 'integrations', 'staff', 'domains', 'whatsapp' => $base + $this->settingsData($ctx, $accountId, $siteId),
-            'accounts', 'plans', 'releases' => $base + $this->adminData($ctx),
+            'accounts', 'plans', 'releases', 'reseller-tenants', 'reseller-quotas', 'platform-ai', 'platform-plans' => $base + $this->adminData($ctx),
             default => $base + $this->overviewData($accountId, $devices),
         };
     }
@@ -146,8 +153,10 @@ class WorkspaceController extends Controller
     private function overviewData(int $accountId, array $devices): array
     {
         $totalCalls = DB::table('calls')->where('account_id', $accountId)->where('is_demo', 0)->count();
-        $todayPrefix = gmdate('Y-m-d');
-        $todayCalls = DB::table('calls')->where('account_id', $accountId)->where('is_demo', 0)->where('created_at', 'like', $todayPrefix.'%')->count();
+        $tzCairo = new \DateTimeZone('Africa/Cairo');
+        $tzUtc = new \DateTimeZone('UTC');
+        $cairoTodayStart = (new \DateTimeImmutable('today', $tzCairo))->setTimezone($tzUtc)->format('Y-m-d H:i:s');
+        $todayCalls = DB::table('calls')->where('account_id', $accountId)->where('is_demo', 0)->where('created_at', '>=', $cairoTodayStart)->count();
         $answeredCalls = DB::table('calls')->where('account_id', $accountId)->where('is_demo', 0)->whereIn('status', ['answered', 'completed', 'ended'])->count();
         $avgDuration = (int) round((float) (DB::table('calls')->where('account_id', $accountId)->where('is_demo', 0)->where('duration_seconds', '>', 0)->avg('duration_seconds') ?? 0));
         $avgRating = round((float) (DB::table('calls')->where('account_id', $accountId)->whereNotNull('ai_rating')->avg('ai_rating') ?? 0), 1);
@@ -155,6 +164,10 @@ class WorkspaceController extends Controller
         $recentCalls = $this->calls->filteredQuery($accountId, [])->limit(8)->get()->map(function ($c) {
             $arr = (array) $c;
             $arr['duration_formatted'] = $this->calls->formatDurationArabic((int) ($c->duration_seconds ?? 0));
+            $arr['created_at_cairo'] = $this->calls->formatCairo((string) ($c->created_at ?? ''));
+            $arr['effective_summary'] = trim((string) ($c->report_summary ?? '')) !== ''
+                ? (string) $c->report_summary
+                : trim((string) ($c->summary ?? ''));
 
             return $arr;
         })->all();
@@ -284,6 +297,10 @@ class WorkspaceController extends Controller
         $rows = collect($paginator->items())->map(function ($r) {
             $arr = (array) $r;
             $arr['duration_formatted'] = $this->calls->formatDurationArabic((int) ($r->duration_seconds ?? 0));
+            $arr['created_at_cairo'] = $this->calls->formatCairo((string) ($r->created_at ?? ''));
+            $arr['effective_summary'] = trim((string) ($r->report_summary ?? '')) !== ''
+                ? (string) $r->report_summary
+                : trim((string) ($r->summary ?? ''));
             $arr['outcome_label'] = CallLedgerService::OUTCOMES[$r->report_outcome ?? 'unknown'] ?? ($r->report_outcome ?? 'غير محدد');
 
             return $arr;
@@ -342,13 +359,48 @@ class WorkspaceController extends Controller
             $acctQuery->where('parent_id', $ctx['account_id']);
         }
 
-        $accounts = $acctQuery->limit(100)->get()->map(fn ($a) => (array) $a)->all();
-        $plans = DB::table('plans')->orderBy('kind')->orderBy('price_minor')->get()->map(fn ($p) => (array) $p)->all();
+        $accounts = $acctQuery->limit(100)->get()->map(function ($a) {
+            $arr = (array) $a;
+            $sub = $this->billing->activeSubscription((int) $a->id);
+            $arr['active_plan_name'] = $sub['plan_name'] ?? 'بدون باقة نشطة';
+            $arr['active_call_quota'] = (int) ($sub['call_quota'] ?? 0);
 
-        return [
+            return $arr;
+        })->all();
+
+        $planQuery = DB::table('plans')->orderBy('kind')->orderBy('price_minor');
+        if ($ctx['is_reseller']) {
+            $planQuery->where('kind', 'user');
+        }
+        $plans = $planQuery->get()->map(fn ($p) => (array) $p)->all();
+
+        $data = [
             'accounts_list' => $accounts,
             'all_plans' => $plans,
         ];
+
+        if ($ctx['is_platform']) {
+            $data['platform_relay_entries'] = DB::table('ai_relay_entries')
+                ->where('account_id', $ctx['account_id'])
+                ->orderBy('scope')
+                ->orderBy('priority')
+                ->get()
+                ->map(fn ($r) => (array) $r)
+                ->all();
+            $data['manual_pending'] = DB::table('billing_invoices as i')
+                ->leftJoin('accounts as a', 'a.id', '=', 'i.account_id')
+                ->where('i.status', 'pending')
+                ->orderByDesc('i.id')
+                ->limit(30)
+                ->get(['i.*', 'a.name as account_name'])
+                ->map(fn ($r) => (array) $r)
+                ->all();
+            $data['global_voices'] = $this->voices->listVoicesForAccount((int) $ctx['account_id'], 'platform', []);
+            $data['io_state'] = $this->voices->ioPremiumState();
+            $data['io_access'] = $this->voices->ioPremiumAccessPolicy();
+        }
+
+        return $data;
     }
 
     public function callDetailJson(int $id)
