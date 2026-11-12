@@ -47,7 +47,8 @@ def artifact_url(artifact_id):
         raise RuntimeError("Artifact redirect domain rejected")
     raise RuntimeError("Expected GitHub artifact redirect")
 def main():
-    if os.environ["GITHUB_REF"]!="refs/heads/main":raise ValueError("Main branch only")
+    if os.environ["GITHUB_REF"]!="refs/heads/feat/voice-production-gap-20261103":
+        raise ValueError("Voice 0.3.10 reviewed release branch only")
     folder=pathlib.Path("dist/saas-console")
     sha=hashlib.sha256((folder/"release.tar.gz").read_bytes()).hexdigest()
     assert sha==(folder/"release.sha256").read_text().strip()
@@ -64,7 +65,7 @@ def main():
     now=datetime.datetime.now(datetime.timezone.utc)
     job={"schema":1,"id":job_id,"target":TARGET,"action":"exec","created_at":now.isoformat(),
          "expires_at":(now+datetime.timedelta(hours=3)).isoformat(),
-         "cwd":"/home/appontrack/public_html/saas","timeout_seconds":30,
+         "cwd":"/home/appontrack","timeout_seconds":30,
          "argv":["/bin/python3","-c",script,url,sha,os.environ["GITHUB_SHA"]]}
     body=json.dumps(job,indent=2).encode()
     if len(body)>16384:raise ValueError("Host job payload too large")

@@ -1,0 +1,102 @@
+name: OnTrack v69 reseller parent suspension and paid-child service guard
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-reseller-v69-direct-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-saas-v69-parent-suspension
+  cancel-in-progress: false
+jobs:
+  test-and-publish:
+    name: Test reseller hierarchy and atomically publish only three PHP sources
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP and Python syntax plus isolated paid-child and reseller authorization regression
+        run: |
+          $ErrorActionPreference='Stop'
+          $phpSources=@(
+            'saas/console/_core/Bootstrap.php',
+            'saas/console/_core/TenantVoiceSession.php',
+            'saas/console/_core/CustomerAccounts.php',
+            'tools/test_customer_accounts_v59.php',
+            'tools/test_reseller_subscription_catalog.php'
+          )
+          foreach($path in $phpSources){
+            & php -l $path
+            if($LASTEXITCODE -ne 0){throw ('Invalid reseller PHP syntax: '+$path)}
+          }
+          & python -m py_compile tools/deploy_saas_reseller_v69.py
+          if($LASTEXITCODE -ne 0){throw 'Invalid reseller host publisher'}
+          $tests=@(
+            'tools/test_customer_accounts_v59.php',
+            'tools/test_reseller_subscription_catalog.php',
+            'tools/test_g6_entitlements.php',
+            'tools/test_v67_payment_renewal_refund.php'
+          )
+          try{
+            $i=0
+            foreach($test in $tests){
+              $i++
+              $env:ONTRACK_CI_NAMESPACE='v69_'+$env:GITHUB_RUN_ID+'_'+$i
+              & php $test
+              if($LASTEXITCODE -ne 0){throw ('Reseller regression failed '+$test)}
+            }
+          }finally{
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          }
+          Write-Host 'V69_RESELLER_SUSPEND_RESTORE_CHILD_VOICE_AND_BILLING_ISOLATED_PASS'
+      - name: Stage verified PHP files over existing direct SSH without Host-Link
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Production SSH key unavailable on approved runner'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-reseller-v69'
+          & ssh.exe @flags -p 7195 $hostName ('umask 077; mkdir -p '+$stage+'; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Private reseller patch staging unavailable'}
+          $sources=@(
+            'saas/console/_core/Bootstrap.php',
+            'saas/console/_core/TenantVoiceSession.php',
+            'saas/console/_core/CustomerAccounts.php',
+            'tools/deploy_saas_reseller_v69.py'
+          )
+          foreach($source in $sources){
+            if(!(Test-Path -LiteralPath $source -PathType Leaf)){throw ('Missing PHP rollout file '+$source)}
+            $filename=Split-Path -Path $source -Leaf
+            $remoteName=$filename
+            if($filename -eq 'deploy_saas_reseller_v69.py'){$remoteName='deploy.py'}
+            $target='{0}:{1}/{2}' -f $hostName,$stage,$remoteName
+            & scp.exe @flags -P 7195 $source $target
+            if($LASTEXITCODE -ne 0){throw ('Reseller source staging failed '+$source)}
+          }
+          Write-Host 'V69_PRIVATE_PATCH_STAGING_PASS'
+      - name: Atomic host patch, rollback guard, PHP 8.3 and HTTPS smoke
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          & ssh.exe @flags -p 7195 $hostName 'python3 /home/appontrack/.ontrack-mobile/saas-reseller-v69/deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'Atomic reseller release failed'}
+          & ssh.exe @flags -p 7195 $hostName 'set -eu; cd /home/appontrack/public_html; /opt/cpanel/ea-php83/root/usr/bin/php -l _core/Bootstrap.php; /opt/cpanel/ea-php83/root/usr/bin/php -l _core/TenantVoiceSession.php; /opt/cpanel/ea-php83/root/usr/bin/php -l _core/CustomerAccounts.php; echo V69_CANONICAL_PHP83_ALL_THREE_PASS'
+          if($LASTEXITCODE -ne 0){throw 'Host PHP 8.3 check failed'}
+          $site=Invoke-WebRequest -Uri ('https://app.ontrackegy.com/login?v=69-'+$env:GITHUB_RUN_ID) -SkipHttpErrorCheck -TimeoutSec 30 -MaximumRedirection 2
+          if([int]$site.StatusCode -ge 500){throw ('Published login HTTP failure '+$site.StatusCode)}
+          $private=Invoke-WebRequest -Uri 'https://app.ontrackegy.com/device/v1/' -SkipHttpErrorCheck -TimeoutSec 20 -MaximumRedirection 0
+          if([int]$private.StatusCode -eq 200){throw 'Published device endpoint publicly exposed'}
+          Write-Host 'V69_RESELLER_PARENT_SERVICE_PUBLISHED_HTTP_PASS'

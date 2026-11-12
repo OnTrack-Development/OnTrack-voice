@@ -1,13 +1,80 @@
-# Register this one-time workflow on default branch.
-# The implementation lives on feat/voice-production-gap-20261103 and runs only on the owner's labeled Windows runner.
+# One-time owner-only recovery on the owner's Windows 11 machine.
+# No GitHub-hosted runner, APK publication, or artifact upload.
 name: Recover original Android signing key (local Windows only)
+run-name: Owner-only signing recovery
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/voice-production-gap-20261103
+    paths:
+      - .github/workflows/recover-original-android-signing.yml
+
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: ontrack-owner-key-recovery
+  cancel-in-progress: false
+
 jobs:
-  default-branch-disabled:
-    if: false
-    runs-on: ubuntu-latest
+  recover:
+    if: github.actor == 'ahmedbedir'
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 10
     steps:
-      - run: echo "Select the authorized feature branch to run the local recovery workflow."
+      - name: Confirm local GNU tar and zstd support
+        shell: powershell
+        run: |
+          $gnuTar = "C:\Program Files\Git\usr\bin"
+          if (-not (Test-Path (Join-Path $gnuTar 'tar.exe'))) {
+            throw "GNU tar missing. Install Git for Windows and retry."
+          }
+          $gnuTar | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          if (-not (Get-Command zstd.exe -ErrorAction SilentlyContinue)) {
+            $gitZstd = Join-Path $gnuTar 'zstd.exe'
+            if (-not (Test-Path $gitZstd)) {
+              throw "zstd missing. Install zstd for Windows, place it on PATH, and retry."
+            }
+          }
+      - name: Restore original signing identity from existing GitHub Actions cache
+        id: restored
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: ontrack-voiceproof-debug-signing-v1
+          enableCrossOsArchive: true
+          fail-on-cache-miss: true
+        env:
+          # Rewrite the one Linux archive member into this Windows job workspace.
+          # GNU tar honors TAR_OPTIONS even when actions/cache passes -P.
+          TAR_OPTIONS: '--verbose --transform=s#^.*/debug.keystore$#debug.keystore#'
+      - name: Validate remapped original key and keep it local
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $candidate = Join-Path $env:GITHUB_WORKSPACE 'debug.keystore'
+          if (-not (Test-Path -LiteralPath $candidate)) {
+            throw 'Cache archive extraction did not yield a workspace key. No keys were replaced.'
+          }
+          $cert = Join-Path $env:RUNNER_TEMP 'ontrack-cert-check.der'
+          try {
+            & keytool -exportcert -alias androiddebugkey -keystore $candidate -storepass android -file $cert | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to read restored signing certificate.' }
+            $actual = (Get-FileHash -LiteralPath $cert -Algorithm SHA256).Hash.ToLowerInvariant()
+            $expected = 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'
+            if ($actual -ne $expected) {
+              throw 'Wrong Android signing identity; refusing to install or copy.'
+            }
+            $destination = Join-Path $env:USERPROFILE '.android\debug.keystore'
+            if (Test-Path -LiteralPath $destination) {
+              throw 'Existing keystore at destination: refusing to overwrite.'
+            }
+            New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null
+            Copy-Item -LiteralPath $candidate -Destination $destination -ErrorAction Stop
+            Write-Host 'SIGNING_IDENTITY_VERIFIED: PASS'
+            Write-Host 'Original Android signing key verified and stored on this Windows workstation.'
+          } finally {
+            Remove-Item -LiteralPath $cert -Force -ErrorAction SilentlyContinue
+          }

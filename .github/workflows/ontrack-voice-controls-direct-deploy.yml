@@ -1,0 +1,72 @@
+name: Deploy OnTrack Agent voice choice and admin IO Premium key controls over SSH
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/ontrack-voice-controls-direct-deploy.yml'
+      - 'tools/io_premium_voice_controls_deploy.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-voice-controls-production-delta
+  cancel-in-progress: false
+jobs:
+  publish:
+    name: Atomic direct-SSH voice controls, PHP lint, production role smoke
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Source audit and preflight
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/io_premium_voice_controls_deploy.py
+          if($LASTEXITCODE -ne 0){throw 'Voice control patcher syntax failed'}
+          $views=Get-Content -LiteralPath saas/console/_core/Views.php -Raw
+          $actions=Get-Content -LiteralPath saas/console/_core/Actions.php -Raw
+          if(-not $views.Contains("render_io_premium_admin_provider()") -or -not $views.Contains("select_html('الصوت المستخدم لهذا المساعد','voice'")){throw 'Voice UI source changed unexpectedly'}
+          if(-not $actions.Contains("case 'save_io_premium_provider':")){throw 'Secure API key action missing'}
+          Write-Host 'IO_PREMIUM_VOICE_CONTROLS_SOURCE_AUDITED_PASS'
+      - name: Stage exact voice panels and transactional patcher on protected host
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $hostName='appontrack@65.21.208.232'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $stage='/home/appontrack/.ontrack-mobile/voice-controls-stage'
+          & ssh.exe @flags -p 7195 $hostName ('mkdir -p '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Private voice stage creation failed'}
+          $files=@(
+            @('saas/console/_core/Views.php',($stage+'/Views.php')),
+            @('saas/console/_core/Actions.php',($stage+'/Actions.php')),
+            @('saas/console/_core/IoPremiumProvider.php',($stage+'/IoPremiumProvider.php')),
+            @('tools/io_premium_voice_controls_deploy.py','/home/appontrack/.ontrack-mobile/io_premium_voice_controls_deploy.py'),
+            @('tools/io_premium_voice_controls_smoke.php','/home/appontrack/.ontrack-mobile/io_premium_voice_controls_smoke.php')
+          )
+          foreach($pair in $files) {
+            & scp.exe @flags -P 7195 $pair[0] ($hostName+':'+$pair[1])
+            if($LASTEXITCODE -ne 0){throw ('Unable to stage '+$pair[0])}
+          }
+          Write-Host 'IO_PREMIUM_VOICE_CONTROLS_STAGED_PASS'
+      - name: PHP lint all changed files, back up live originals, then atomic install
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          & ssh.exe -i $key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=12 -p 7195 'appontrack@65.21.208.232' 'python3 /home/appontrack/.ontrack-mobile/io_premium_voice_controls_deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'Safe voice controls delta refused: unchanged production preserved'}
+          Write-Host 'ONTRACK_VOICE_CONTROLS_LIVE_INSTALL_PASS'
+      - name: Verify live admin voice catalogue, Fish credential form and Agent voice selector
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          & ssh.exe -i $key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=12 -p 7195 'appontrack@65.21.208.232' '/opt/cpanel/ea-php83/root/usr/bin/php /home/appontrack/.ontrack-mobile/io_premium_voice_controls_smoke.php'
+          if($LASTEXITCODE -ne 0){throw 'Live role/voice/config smoke test failed'}
+          $resp=Invoke-WebRequest -Uri 'https://app.ontrackegy.com/saas/console/?tab=voices' -Method GET -SkipHttpErrorCheck -TimeoutSec 25
+          if([int]$resp.StatusCode -ge 500){throw ('Admin voice page HTTP server error: '+$resp.StatusCode)}
+          Write-Host 'ONTRACK_VOICE_CONTROLS_PRODUCTION_SMOKE_PASS'

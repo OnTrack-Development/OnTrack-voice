@@ -1,0 +1,104 @@
+name: OnTrack v71 suspend WhatsApp workers with reseller parent
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-wa-parent-v71-direct-publish.yml'
+      - 'tools/deploy_saas_wa_parent_v71.py'
+      - 'tools/test_v71_reseller_whatsapp_worker.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-saas-v71-wa-parent-suspension
+  cancel-in-progress: false
+jobs:
+  verify-and-publish:
+    name: Test WhatsApp routes, then atomically publish four files to canonical host
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP and Python syntax plus isolated suspended-reseller WhatsApp tests
+        run: |
+          $ErrorActionPreference='Stop'
+          $phpSources=@(
+            'saas/console/_core/WhatsAppNativeAgent.php',
+            'saas/console/_core/WhatsAppWhmcsBridge.php',
+            'saas/console/_core/WhatsAppJobSafety.php',
+            'saas/console/whatsapp-worker.php',
+            'tools/test_v71_reseller_whatsapp_worker.php'
+          )
+          foreach($path in $phpSources){
+            & php -l $path
+            if($LASTEXITCODE -ne 0){throw ('Invalid PHP syntax '+$path)}
+          }
+          & python -m py_compile tools/deploy_saas_wa_parent_v71.py
+          if($LASTEXITCODE -ne 0){throw 'Invalid v71 publisher'}
+          $tests=@(
+            'tools/test_v71_reseller_whatsapp_worker.php',
+            'tools/test_v67_whatsapp_dispatch.php',
+            'tools/test_whatsapp_native_agent.php',
+            'tools/test_whatsapp_whmcs_bridge.php',
+            'tools/test_reseller_parent_service_gate_v70.php'
+          )
+          try{
+            $index=0
+            foreach($test in $tests){
+              $index++
+              $env:ONTRACK_CI_NAMESPACE='v71_'+$env:GITHUB_RUN_ID+'_'+$index
+              & php $test
+              if($LASTEXITCODE -ne 0){throw ('WhatsApp parent E2E fixture failed '+$test)}
+            }
+          }finally{
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          }
+          Write-Host 'V71_WHATSAPP_PARENT_RESELLER_SUSPEND_NATIVE_WHMCS_SEND_REGRESSION_PASS'
+      - name: Stage only four WhatsApp sources and verified publisher via SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH key missing on approved runner'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-wa-parent-v71'
+          & ssh.exe @flags -p 7195 $hostName ('umask 077; mkdir -p '+$stage+'/_core; chmod 700 '+$stage+' '+$stage+'/_core')
+          if($LASTEXITCODE -ne 0){throw 'Private v71 staging inaccessible'}
+          $assets=@(
+            [pscustomobject]@{Source='saas/console/_core/WhatsAppNativeAgent.php';Dest="$stage/_core/WhatsAppNativeAgent.php"}
+            [pscustomobject]@{Source='saas/console/_core/WhatsAppWhmcsBridge.php';Dest="$stage/_core/WhatsAppWhmcsBridge.php"}
+            [pscustomobject]@{Source='saas/console/_core/WhatsAppJobSafety.php';Dest="$stage/_core/WhatsAppJobSafety.php"}
+            [pscustomobject]@{Source='saas/console/whatsapp-worker.php';Dest="$stage/whatsapp-worker.php"}
+            [pscustomobject]@{Source='tools/deploy_saas_wa_parent_v71.py';Dest="$stage/deploy.py"}
+          )
+          foreach($a in $assets){
+            $source=[string]$a.Source
+            $target='{0}:{1}' -f $hostName,[string]$a.Dest
+            if(!(Test-Path -LiteralPath $source -PathType Leaf)){throw ('Missing verified source '+$source)}
+            & scp.exe @flags -P 7195 $source $target
+            if($LASTEXITCODE -ne 0){throw ('SCP v71 staging failed '+$source)}
+          }
+          Write-Host 'V71_APPROVED_PRIVATE_SSH_STAGING_PASS'
+      - name: Atomic PHP 8.3 production deploy with rollback and HTTPS denial check
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          & ssh.exe @flags -p 7195 $hostName 'python3 /home/appontrack/.ontrack-mobile/saas-wa-parent-v71/deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'Atomic WhatsApp service-gate host deploy failed'}
+          & ssh.exe @flags -p 7195 $hostName 'set -eu; cd /home/appontrack/public_html; /opt/cpanel/ea-php83/root/usr/bin/php -l _core/WhatsAppNativeAgent.php; /opt/cpanel/ea-php83/root/usr/bin/php -l _core/WhatsAppWhmcsBridge.php; /opt/cpanel/ea-php83/root/usr/bin/php -l _core/WhatsAppJobSafety.php; /opt/cpanel/ea-php83/root/usr/bin/php -l whatsapp-worker.php; echo V71_LIVE_CANONICAL_WA_PHP83_PASS'
+          if($LASTEXITCODE -ne 0){throw 'Host v71 PHP 8.3 syntax failed'}
+          $login=Invoke-WebRequest -Uri ('https://app.ontrackegy.com/login?v71='+$env:GITHUB_RUN_ID) -SkipHttpErrorCheck -TimeoutSec 30 -MaximumRedirection 2
+          if([int]$login.StatusCode -ge 500){throw ('Live login HTTP unavailable: '+[int]$login.StatusCode)}
+          $api=Invoke-WebRequest -Uri 'https://app.ontrackegy.com/api/v1/' -SkipHttpErrorCheck -MaximumRedirection 0 -TimeoutSec 20
+          if([int]$api.StatusCode -ne 401){throw ('Live API public auth denial unexpected: '+[int]$api.StatusCode)}
+          Write-Host 'V71_WHATSAPP_PARENT_WORKER_HTTP_AUTH_AND_PHP83_DEPLOY_PASS'

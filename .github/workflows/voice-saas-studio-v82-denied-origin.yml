@@ -1,0 +1,62 @@
+name: OnTrack v82 SOG 404 origin log classification and real-size POST probe
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-studio-v82-denied-origin.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  routing:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Reproduce a typical encoded studio payload without login
+        run: |
+          $ErrorActionPreference='Stop'
+          $text='{"flow_json":"'
+          for($i=0;$i -lt 600;$i++){
+            $text+=("arabic_test_number_"+$i+"_aBcdEFGiJklMNopQRstUVwXyz0123456789_"+$i)
+          }
+          $text+='","scenario_text":"sample","agent_goal":"answer"}'
+          $raw=[System.Text.Encoding]::UTF8.GetBytes($text)
+          $encoded=[Convert]::ToBase64String($raw).TrimEnd('=').Replace('+','-').Replace('/','_')
+          $data=@{
+            action='update_agent';csrf='invalid';agent_id='9';name='SOG QA';
+            voice='io.premium';publish_now='1';auto_answer='on';
+            answer_delay_seconds='5';max_call_minutes='5';fallback='human';
+            scenario_mode='builder';studio_fields_b64=$encoded;
+            return='/?tab=agents&site=5'
+          }
+          $body=($data.GetEnumerator()|ForEach-Object{[Uri]::EscapeDataString($_.Key)+'='+[Uri]::EscapeDataString([string]$_.Value)}) -join '&'
+          foreach($route in @('/','/saas/console/','/studio-save')){
+            $url='https://app.ontrackegy.com'+$route
+            $resp=Invoke-WebRequest -Uri $url -Method Post -Headers @{
+              Accept='application/json';'X-Requested-With'='XMLHttpRequest'
+            } -ContentType 'application/x-www-form-urlencoded;charset=UTF-8' -Body $body -MaximumRedirection 0 -SkipHttpErrorCheck -TimeoutSec 20
+            Write-Host ('V82_REAL_SIZE_FORM '+$route+' bytes='+$body.Length+' status='+[int]$resp.StatusCode+' type='+($resp.Headers['Content-Type']|Out-String).Split(';')[0].Trim())
+          }
+          Write-Host 'V82_STUDIO_AUTHLESS_SAFE_HIGH_ENTROPY_FORM_PROBE_PASS'
+      - name: Inspect sanitized recent 404 POST path buckets on approved host
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/host_v82_denied_route_log.py
+          if($LASTEXITCODE -ne 0){throw 'Log analyzer syntax failed'}
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-studio-v82'
+          & ssh.exe @flags -p 7195 $remote ('umask 077; mkdir -p '+$stage+'; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Cannot stage sanitized log analyzer'}
+          & scp.exe @flags -P 7195 tools/host_v82_denied_route_log.py ($remote+':'+$stage+'/route.py')
+          if($LASTEXITCODE -ne 0){throw 'Route analyzer staging failed'}
+          & ssh.exe @flags -p 7195 $remote ('python3 '+$stage+'/route.py')
+          if($LASTEXITCODE -ne 0){throw 'Sanitized origin route audit failed'}
+          Write-Host 'V82_HOST_404_ORIGIN_BUCKET_AUDIT_PASS'

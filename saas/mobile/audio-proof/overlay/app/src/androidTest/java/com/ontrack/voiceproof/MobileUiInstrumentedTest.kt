@@ -36,17 +36,31 @@ class MobileUiInstrumentedTest {
     }
     @Test fun localMainDocumentRendersAndNativeBridgeInitializes(){
         val context=InstrumentationRegistry.getInstrumentation().targetContext
-        val fake="instrumentation_only_key_12345678"
-        context.getSharedPreferences("ontrack_link",0).edit().putString("base","https://app.ontrackegy.com/").putString("key",fake).commit()
-        // Model the failed0.1.6 OTA remembered on the owner phone.
+        // Seed a historical link solely to verify that an in-place update
+        // preserves private app data. The old bearer is not used by tenant voice.
+        // Never force re-enrollment merely because an APK update was installed.
+        context.getSharedPreferences("ontrack_link",0).edit()
+            .putString("key","instrumentation_only_key_12345678")
+            .putString("base","https://app.ontrackegy.com/").commit()
+        // Model the failed 0.1.6 OTA remembered on the owner phone.
         val cache=File(context.filesDir,"mobile-ota").apply{mkdirs()}
         File(cache,"state.json").writeText("{\"highest\":3,\"rejected\":3,\"pending\":false}")
         ActivityScenario.launch(MobileLinkActivity::class.java).use{scenario->
-            await(scenario,"document.title==='OnTrack Voice' && document.getElementById('key')?.value==='instrumentation_only_key_12345678'")
+            await(scenario,"document.title==='OnTrack Voice' && document.getElementById('tenantWorkspaceSlot')!==null && document.getElementById('key')===null && typeof window.onTrackState==='function'")
             scenario.onActivity{activity->assertTrue(find(activity.findViewById(android.R.id.content))!!.url!!.startsWith("https://ontrack-ui.invalid/ui/"))}
-            // No actual call or real connection key: test only visible local UI.
-            js(scenario,"document.getElementById('key').value='bad';document.getElementById('enable').disabled=false;document.getElementById('enable').click();true")
-            await(scenario,"document.getElementById('message').textContent.length>0")
+            // No SIM enrollment in this emulator: the UI must block enable
+            // without ever asking for a Pilot key or attempting a real call.
+            js(scenario,"document.getElementById('enable').disabled=false;document.getElementById('enable').click();true")
+            await(scenario,"document.getElementById('message').textContent.includes('SIM')")
+            assertEquals("true",js(scenario,"!document.getElementById('key') && !document.getElementById('copyKey') && !document.getElementById('pair')"))
+            assertEquals("Update must not erase the saved device data",
+                "instrumentation_only_key_12345678",
+                context.getSharedPreferences("ontrack_link",0).getString("key",null))
+            assertEquals("Update must not erase saved endpoint data",
+                "https://app.ontrackegy.com/",
+                context.getSharedPreferences("ontrack_link",0).getString("base",null))
+            // The old link remains dormant: no Pilot fields or buttons exist
+            // and an unpaired SIM cannot run the Android AI service.
             assertFalse(MobileLinkService.running)
             val state=JSONObject(File(cache,"state.json").readText())
             assertEquals(context.packageManager.getPackageInfo(context.packageName,0).longVersionCode,state.getLong("native_version"))

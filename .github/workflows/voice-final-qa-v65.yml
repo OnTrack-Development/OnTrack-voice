@@ -1,0 +1,172 @@
+name: OnTrack v65 final role, branding, billing, live site and signed Android acceptance
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-final-qa-v65.yml'
+      - 'tools/test_workspace_role_switch.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ontrack-v65-final-acceptance
+  cancel-in-progress: false
+jobs:
+  isolated-regressions:
+    name: Isolated admin/reseller/customer and invoice/branding regressions
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 18
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Syntax, CSS layout, JS and isolated tenant billing/brand tests
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($file in @(
+            'saas/console/_core/BrandIdentity.php','saas/console/_core/Bootstrap.php',
+            'saas/console/_core/Actions.php','saas/console/_core/Views.php',
+            'saas/console/_core/WhiteLabel.php','saas/console/_core/ConsoleTheme.php',
+            'saas/console/_core/BillingInvoices.php','saas/console/_core/SubscriptionPlans.php',
+            'saas/console/index.php'
+          )){
+            & php -l $file
+            if($LASTEXITCODE -ne 0){throw ('Invalid runtime PHP '+$file)}
+          }
+          & node --check saas/console/assets/js/app.js
+          if($LASTEXITCODE -ne 0){throw 'Invalid browser JS'}
+          foreach($test in @(
+            'tools/test_ui_precision_v61.py','tools/test_typography_css_v62.py',
+            'tools/test_theme_css_v63.py','tools/test_brand_css_v64.py'
+          )){
+            & python $test
+            if($LASTEXITCODE -ne 0){throw ('Layout regression '+$test)}
+          }
+          $tests=@(
+            'tools/test_customer_accounts_v59.php',
+            'tools/test_workspace_role_switch.php',
+            'tools/test_v1_reseller_toggle.php',
+            'tools/test_reseller_subscription_catalog.php',
+            'tools/test_admin_direct_plan_grants.php',
+            'tools/test_brand_identity_v64.php',
+            'tools/test_console_theme_v63.php',
+            'tools/test_console_typography_v62.php',
+            'tools/test_v1_site05_plan_transitions.php',
+            'tools/test_invoice_billing_v58.php',
+            'tools/test_verified_checkout_settlement.php',
+            'tools/test_g6_entitlements.php'
+          )
+          $n=0
+          try{
+            foreach($test in $tests){
+              $n++
+              $env:ONTRACK_CI_NAMESPACE='final65_'+$env:GITHUB_RUN_ID+'_'+$n
+              & php $test
+              if($LASTEXITCODE -ne 0){throw ('TENANT_BILLING_BRANDING_REGRESSION '+$test)}
+            }
+            Write-Host 'V65_ISOLATED_ROLES_BRANDING_BILLING_ACCEPTANCE_PASS'
+          }finally{
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          }
+  published-site:
+    name: Read-only SSH and external HTTP verification of already deployed v64
+    needs: isolated-regressions
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Verify canonical production live files via authorized direct SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'SSH key missing on authorized runner'}
+          $cmd='set -eu; test "$(id -u)" = 2379; cd /home/appontrack/public_html; /opt/cpanel/ea-php83/root/usr/bin/php -l index.php; /opt/cpanel/ea-php83/root/usr/bin/php -l _core/BrandIdentity.php; grep -Fq OTV_BRAND_LOGO_V64_BEGIN assets/css/app.css; grep -Fq OTV_TENANT_STYLE_V63_BEGIN assets/css/app.css; grep -Fq ot_brand_upload=1 assets/js/app.js; echo V65_SSH_PUBLISHED_BRAND_AND_THEME_PASS'
+          & ssh.exe -i $key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=12 -p 7195 'appontrack@65.21.208.232' $cmd
+          if($LASTEXITCODE -ne 0){throw 'Production SSH read-only acceptance failed'}
+      - name: External HTTPS login, CSS, JS, safe private routes and raw upload
+        run: |
+          $ErrorActionPreference='Stop'
+          $base='https://app.ontrackegy.com'
+          $nonce=$env:GITHUB_RUN_ID
+          $loginResponse=Invoke-WebRequest -Uri ($base+'/login?qa='+$nonce) -MaximumRedirection 2 -SkipHttpErrorCheck -TimeoutSec 30
+          if([int]$loginResponse.StatusCode -ge 500){throw ('Login HTTP 5xx: '+$loginResponse.StatusCode)}
+          $css=Invoke-WebRequest -Uri ($base+'/saas/console/assets/css/app.css?v='+$nonce) -SkipHttpErrorCheck -TimeoutSec 30
+          if([int]$css.StatusCode -ne 200){throw 'Public style not reachable'}
+          foreach($needle in @('OTV_BRAND_LOGO_V64_BEGIN','OTV_TENANT_STYLE_V63_BEGIN','OTV_TYPO_V62_BEGIN')){
+            if(!$css.Content.Contains($needle)){throw ('Published CSS missing '+$needle)}
+          }
+          $js=Invoke-WebRequest -Uri ($base+'/saas/console/assets/js/app.js?v='+$nonce) -SkipHttpErrorCheck -TimeoutSec 30
+          if([int]$js.StatusCode -ne 200 -or !$js.Content.Contains("fetch('/?ot_brand_upload=1'")){throw 'Published uploader JS not active'}
+          $raw=[byte[]](0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a)
+          $upload=Invoke-WebRequest -Uri ($base+'/?ot_brand_upload=1') -Method Post -Body $raw -ContentType 'image/png' -SkipHttpErrorCheck -MaximumRedirection 0 -TimeoutSec 25
+          if([int]$upload.StatusCode -ne 401){throw ('Logo upload guard/WAF unexpected HTTP '+$upload.StatusCode)}
+          $private=Invoke-WebRequest -Uri ($base+'/brand-logo') -SkipHttpErrorCheck -MaximumRedirection 0 -TimeoutSec 25
+          if([int]$private.StatusCode -ne 404){throw ('Private logo leakage or unexpected response HTTP '+$private.StatusCode)}
+          Write-Host 'V65_EXTERNAL_BRAND_NO_403_LOGIN_CSS_JS_401_UPLOAD_AND_404_PRIVATE_IMAGE_PASS'
+  signed-apk:
+    name: Verify previously built and published v55 signed 0.3.32 Android OTA
+    needs: isolated-regressions
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Verify successful native build/publish provenance and local signature
+        run: |
+          $ErrorActionPreference='Stop'
+          $headers=@{Authorization=('Bearer '+$env:GH_TOKEN);Accept='application/vnd.github+json';'User-Agent'='OnTrack-Final-QA'}
+          foreach($id in @('42436791685','42440293465')){
+            $run=Invoke-RestMethod -Uri ('https://api.github.com/repos/OnTrack-Development/OnTrack-voice/actions/runs/'+$id) -Headers $headers -TimeoutSec 25
+            if($run.status -ne 'completed' -or $run.conclusion -ne 'success' -or $run.head_branch -ne 'feat/io-premium-native-v51-20261107'){throw ('Native source/publish not verified '+$id)}
+          }
+          $apk='D:\ai\OnTrack-Voice-Builds\v1-candidates\42436791685\OnTrack-Voice-0.3.32.apk'
+          $report='D:\ai\OnTrack-Voice-Builds\v1-candidates\42436791685\size-report.json'
+          if(!(Test-Path -LiteralPath $apk) -or !(Test-Path -LiteralPath $report)){throw 'Pinned built APK or provenance report unavailable'}
+          $meta=Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+          $sha=(Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($meta.sha256 -ne $sha -or $meta.release -ne '0.3.32' -or $meta.signing_cert_verified -ne $true){throw 'Built APK provenance mismatch'}
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $apksigner=Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer=Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          $cert=(& $apksigner verify --print-certs $apk | Out-String).ToLowerInvariant()
+          if($LASTEXITCODE -ne 0 -or $cert -notlike '*d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f*'){throw 'Signed APK fingerprint changed'}
+          if((& $analyzer manifest version-code $apk | Out-String).Trim() -ne '55'){throw 'Signed code must be 55'}
+          if((& $analyzer manifest application-id $apk | Out-String).Trim() -ne 'com.ontrack.voiceproof'){throw 'Wrong Android package name'}
+          Write-Host 'V65_PINNED_NATIVE_BUILD_SIGNATURE_VERSION_PASS'
+      - name: Independently download current live signed APK and verify SHA, package and UI manifest
+        run: |
+          $ErrorActionPreference='Stop'
+          $base='https://app.ontrackegy.com/mobile/updates/'
+          $native=(Invoke-WebRequest -Uri ($base+'native/latest.json?v='+$env:GITHUB_RUN_ID) -Headers @{'Cache-Control'='no-cache'} -TimeoutSec 30).Content|ConvertFrom-Json
+          $m=$native.payload|ConvertFrom-Json
+          if($m.version_code -ne 55 -or $m.version_name -ne '0.3.32' -or $m.package -ne 'com.ontrack.voiceproof'){throw 'Public native manifest stale or wrong'}
+          $ui=(Invoke-WebRequest -Uri ($base+'latest.json?v='+$env:GITHUB_RUN_ID) -Headers @{'Cache-Control'='no-cache'} -TimeoutSec 30).Content|ConvertFrom-Json
+          $u=$ui.payload|ConvertFrom-Json
+          if($u.revision -lt 55 -or $u.min_native -gt 55 -or $u.max_native -lt 55){throw 'Signed UI OTA not compatible with native code55'}
+          $url=$base+'native/'+$m.file
+          $apk=Join-Path $env:RUNNER_TEMP 'ontrack-v65-public-apk.apk'
+          try{
+            Invoke-WebRequest -Uri $url -OutFile $apk -TimeoutSec 120
+            $sha=(Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
+            $size=(Get-Item -LiteralPath $apk).Length
+            if($sha -ne $m.sha256 -or $size -ne $m.size){throw 'Public APK payload hash or length mismatch'}
+            $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+            $apksigner=Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+            $signature=(& $apksigner verify --print-certs $apk|Out-String).ToLowerInvariant()
+            if($LASTEXITCODE -ne 0 -or $signature -notlike '*d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f*'){throw 'Public APK signer differs from original'}
+          }finally{Remove-Item -LiteralPath $apk -Force -ErrorAction SilentlyContinue}
+          Write-Host ('V65_LIVE_SIGNED_APK_URL='+$url)
+          Write-Host ('V65_LIVE_SIGNED_APK_SHA256='+$sha)
+          Write-Host 'V65_PUBLIC_SIGNED_APK_AND_UI_OTA_VERIFIED_PASS'

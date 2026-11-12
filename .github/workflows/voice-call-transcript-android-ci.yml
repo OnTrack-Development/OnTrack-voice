@@ -7,12 +7,20 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: 'utf-8'
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Checkout pinned, public telephony base
         uses: actions/checkout@v4
         with:
@@ -20,27 +28,35 @@ jobs:
           ref: f011062adfb3a2154c4d5a9cc4394032fb4345f2
           path: .build/jemrec
           persist-credentials: false
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-      - uses: android-actions/setup-android@v4
-      - name: Install compile platforms
+      - name: Configure Windows Android SDK and apply overlay
         run: |
-          sdkmanager --install "platforms;android-37.0" || sdkmanager --install "platforms;android-37"
-          sdkmanager --install "platforms;android-36" || sdkmanager --install "platforms;android-36.0"
-          sdkmanager --install "build-tools;36.0.0"
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Apply actual PR source
-        run: python3 saas/mobile/audio-proof/prepare.py .build/jemrec
+          $ErrorActionPreference = 'Stop'
+          $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $env:ANDROID_HOME = $sdk
+          $env:ANDROID_SDK_ROOT = $sdk
+          "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & python saas/mobile/audio-proof/prepare.py .build/jemrec
+          if ($LASTEXITCODE -ne 0) { throw 'Android overlay failed' }
+          & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
+          if (-not $?) { throw 'Shellserver build failed' }
+          $gradlePath = '.build\jemrec\app\build.gradle.kts'
+          $gradle = [IO.File]::ReadAllText((Resolve-Path $gradlePath).Path)
+          $anchor = '    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")'
+          if ($gradle.Contains($anchor)) {
+            $gradle = $gradle.Replace($anchor, '    implementation("androidx.fragment:fragment:1.6.2")' + [Environment]::NewLine + $anchor)
+            [IO.File]::WriteAllText((Resolve-Path $gradlePath).Path, $gradle, [Text.UTF8Encoding]::new($false))
+          }
       - name: Verify Kotlin unit tests and Android compilation (no release)
         working-directory: .build/jemrec
         run: |
-          ./gradlew --no-daemon :app:testDebugUnitTest \
-            --tests 'com.ontrack.voiceproof.PcmWavTest' \
-            --tests 'com.ontrack.voiceproof.LinkPcmTest' \
-            --tests 'com.ontrack.voiceproof.OverlayUiModelTest' \
-            --tests 'com.ontrack.voiceproof.LocalUiPageTest' \
-            --tests 'com.ontrack.voiceproof.SignedOtaTest' \
-            --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' \
+          $ErrorActionPreference = 'Stop'
+          & .\gradlew.bat --no-daemon :app:testDebugUnitTest `
+            --tests 'com.ontrack.voiceproof.PcmWavTest' `
+            --tests 'com.ontrack.voiceproof.LinkPcmTest' `
+            --tests 'com.ontrack.voiceproof.OverlayUiModelTest' `
+            --tests 'com.ontrack.voiceproof.LocalUiPageTest' `
+            --tests 'com.ontrack.voiceproof.SignedOtaTest' `
+            --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' `
             :app:assembleDebug
+          if ($LASTEXITCODE -ne 0) { throw 'Gradle unit tests / debug assembly failed' }

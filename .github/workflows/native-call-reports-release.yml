@@ -1,9 +1,5 @@
 name: Signed OnTrack Voice Call Reports OTA
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/native-call-reports-release.yml'
   workflow_dispatch:
 permissions:
   contents: read

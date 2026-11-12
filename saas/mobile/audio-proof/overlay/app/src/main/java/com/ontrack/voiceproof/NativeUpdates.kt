@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit
  */
 internal class NativeUpdates(private val context: Context) {
     data class Release(val versionCode: Long, val versionName: String, val size: Long, val sha256: String, val file: String)
-    private val root = "https://app.ontrackegy.com/saas/mobile/updates/native/"
+    private val root = "https://app.ontrackegy.com/mobile/updates/native/"
     private val client = OkHttpClient.Builder()
         .followRedirects(false).followSslRedirects(false)
         .connectTimeout(8, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS)

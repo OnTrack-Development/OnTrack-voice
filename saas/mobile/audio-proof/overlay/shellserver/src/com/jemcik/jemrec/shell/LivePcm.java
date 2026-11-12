@@ -11,7 +11,16 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Authenticated loopback only: capture 48k stereo, inject 48k mono. */
+/**
+ * Authenticated loopback: capture 48k stereo and inject 48k mono.
+ * 2026-11-04 regression: the previous caller microphone was NOT muted when
+ * Gemini setup failed before opening this bridge. The Android call owner
+ * must open and verify this PCM header before awaiting Gemini setup; only
+ * then may the UI claim an AI-controlled call. The mute is set before
+ * this header is written; finally restores its prior state on ALL exits.
+ * Physical VoWiFi/RIL mute and two-way audio remain device E2E checks,
+ * not properties proven by successful JVM/Gradle builds.
+ */
 final class LivePcm {
     private static final AtomicBoolean owned = new AtomicBoolean();
 
@@ -26,9 +35,12 @@ final class LivePcm {
             int route = in.readUnsignedByte();
             track = route == 'S' ? GreetingPlayer.screeningTrack(audio) : GreetingPlayer.musicTrack(audio);
             capture.checkCompatibility();
-            capture.start();
+            // The modem call must not expose the owner's mic while the
+            // capture engine initializes (especially over LTE/VoLTE).
+            // On any failure, finally restores the exact previous mute state.
             audio.setMicrophoneMute(true);
             if (!audio.isMicrophoneMute()) throw new IOException("microphone did not mute");
+            capture.start();
             track.play();
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
             out.writeInt(0x4f545631); out.writeInt(48000); out.writeInt(2); out.flush();

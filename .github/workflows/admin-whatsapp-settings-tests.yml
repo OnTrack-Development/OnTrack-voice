@@ -1,0 +1,41 @@
+name: Platform Admin Navigation and WhatsApp Settings Separation
+on:
+  push:
+    branches: [fix/admin-settings-navigation-separation-20261103]
+    paths:
+      - 'saas/console/_core/Views.php'
+      - 'saas/console/_core/Actions.php'
+      - 'saas/console/index.php'
+      - 'tools/test_admin_whatsapp_separation.php'
+      - '.github/workflows/admin-whatsapp-settings-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,pdo_mysql,mbstring,openssl,curl
+          coverage: none
+      - name: PHP syntax validation
+        run: |
+          set -eu
+          php -l saas/console/_core/Views.php
+          php -l saas/console/_core/Actions.php
+          php -l saas/console/index.php
+          php -l tools/test_admin_whatsapp_separation.php
+      - name: Platform, reseller and customer visibility
+        run: |
+          set -eu
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_admin_whatsapp_separation.php
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_workspace_role_switch.php
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_whatsapp_four_onboarding.php
+          node tools/test_console_ajax_ui.cjs

@@ -1,0 +1,55 @@
+name: Call Details and Manager Handoff Regression
+on:
+  pull_request:
+    branches: [feat/voice-production-gap-20261103]
+    paths:
+      - 'saas/console/_core/TenantWorkspace.php'
+      - 'saas/mobile/audio-proof/**'
+      - 'tools/test_tenant_call_ai_summary.php'
+      - '.github/workflows/call-details-handoff-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-qa-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: 'utf-8'
+jobs:
+  call_backend:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 18
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP lint and actual call-report/handoff regressions
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($f in @('saas/console/_core/TenantWorkspace.php',
+                          'saas/console/_core/HumanEscalations.php',
+                          'tools/test_tenant_call_ai_summary.php')) {
+            & php -l $f
+            if($LASTEXITCODE -ne 0){throw ('PHP lint failed: '+$f)}
+          }
+          foreach($f in @('tools/test_tenant_call_ai_summary.php',
+                          'tools/test_human_escalation.php',
+                          'tools/test_sim_agent_call_reports.php',
+                          'tools/test_tenant_voice_transcript_archive.php',
+                          'tools/test_mobile_call_ledger.php')) {
+            & php $f
+            if($LASTEXITCODE -ne 0){throw ('Call regression failed: '+$f)}
+          }
+          Write-Host 'CALL_REPORT_AND_MANAGER_HANDOFF_BACKEND_PASS'
+      - name: OTA and UI regression (does not build another APK)
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/test_mobile_ui_contract.py
+          if($LASTEXITCODE -ne 0){throw 'Mobile UI contract failed'}
+          & python tools/test_mobile_release_gate.py
+          if($LASTEXITCODE -ne 0){throw 'Native OTA gate failed'}
+          Write-Host 'CALL_REPORT_NATIVE_SOURCE_CONTRACT_PASS'

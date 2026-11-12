@@ -46,16 +46,46 @@ def main(root):
                 if patched != text:
                     path.write_text(patched)
                     changed.append(str(path.relative_to(root)))
+    # Android Settings > Wireless debugging > Paired devices uses the ADB
+    # client label, not our app launcher label. This upstream default was
+    # exposing JemRec on customer phones. Rename the DISPLAY name and the
+    # certificate subject for newly generated identities; NEVER reset the
+    # persisted keys/certificates because that would force every installed
+    # device to pair again. Source remains Apache-2.0 with attribution.
+    path = root / 'app/src/main/java/com/jemcik/jemrec/adb/AdbTransport.kt'
+    text = replace_once(path.read_text(),
+                        'override fun getDeviceName(): String = "JemRec"',
+                        'override fun getDeviceName(): String = "OnTrack Voice"',
+                        'wireless debugging client display name')
+    path.write_text(text)
+    path = root / 'app/src/main/java/com/jemcik/jemrec/adb/AdbIdentity.kt'
+    text = replace_once(path.read_text(),
+                        'private const val SUBJECT = "CN=JemRec, O=JemRec, C=US"',
+                        'private const val SUBJECT = "CN=OnTrack Voice, O=OnTrack Development, C=EG"',
+                        'new ADB identity certificate subject')
+    path.write_text(text)
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 32', 'versionCode')
+                        'versionCode = 59', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.3.9"', 'versionName')
+                        'versionName = "0.3.36"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
-    text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")\n    androidTestImplementation("androidx.test:runner:1.6.2")\n    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n    androidTestImplementation("androidx.test:core:1.6.1")', 'mobile websocket transport')
+    text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")\n    androidTestImplementation("androidx.test:runner:1.6.2")\n    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n    androidTestImplementation("androidx.test:core:1.6.1")', 'mobile websocket transport')
+    # Google GenAI brings several transitive Google Auth / Apache HttpClient
+    # jars sharing non-executable JAR metadata. Keep services and licenses:
+    # drop only duplicate indexes/dependency reports, and retain one copy
+    # of legally relevant notices if their paths collide.
+    text = replace_once(text,
+                        '        resources {\n            // BouncyCastle',
+                        '        resources {\n'
+                        '            excludes += setOf("META-INF/INDEX.LIST", "META-INF/DEPENDENCIES")\n'
+                        '            pickFirsts += setOf("META-INF/LICENSE", "META-INF/LICENSE.txt",\n'
+                        '                "META-INF/NOTICE", "META-INF/NOTICE.txt")\n'
+                        '            // BouncyCastle',
+                        'google auth/apache duplicated java resource metadata')
     path.write_text(text)
     path = root / 'shellserver/src/com/jemcik/jemrec/shell/GreetingPlayer.java'
     text = path.read_text().replace('private static AudioTrack musicTrack(', 'static AudioTrack musicTrack(').replace('private static AudioTrack screeningTrack(', 'static AudioTrack screeningTrack(')
@@ -68,6 +98,11 @@ def main(root):
             return;
         }
         if (command == 'J') {
+            // 2026-11-04 regression: Q is the old verified carrier state,
+            // but on dual-SIM it carries NO SIM identity. Android must
+            // bind Q to exactly one active, paired subscription; otherwise
+            // refuse guessing. A returns observed CALL state, not a proof
+            // that Gemini/PCM or microphone mute has started.
             int operation = client.getInputStream().read();
             if (operation == 'A') {
                 onMain(() -> { if (telecom != null) telecom.acceptRingingCall(); return null; });
@@ -99,23 +134,9 @@ def main(root):
 
     suspend fun connect(context: Context, timeoutMs: Int = 3_000): Socket''', 'native live bridge API')
     path.write_text(text)
-    # Upstream discards diagnostic-call recordings deliberately. Our proof
-    # needs the entire captured stream, including remote speech, for review.
-    # Preserve it and use the normal completed-file handoff (no message trim).
-    path = root / 'shellserver/src/com/jemcik/jemrec/shell/Main.java'
-    text = path.read_text()
-    start = text.index('        if (outcome != null && outcome.test) {', text.index('private static synchronized void stopRecording('))
-    end = text.index('        if (outcome != null) {', start)
-    text = text[:start] + (
-        '        if (outcome != null && outcome.test) {\n'
-        '            Ln.i("OnTrack proof: keeping complete test recording for local review");\n'
-        '            outcome = null; // retain the whole file, without message trimming\n'
-        '        }\n'
-    ) + text[end:]
-    stop_body = text[text.index('private static synchronized void stopRecording('):text.index('    /** Call end handling.')]
-    if '.delete()' in stop_body or 'wake(ACTION_CALL_ENDED, rec.incoming, name, rec.app);' not in stop_body:
-        raise SystemExit('Proof retention must preserve the completed-file handoff')
-    path.write_text(text)
+    # OnTrack Voice is a LIVE PCM bridge, never a call recorder. Keep the
+    # upstream diagnostic behavior which discards transient test recordings.
+    # Do not retain WAV/PCM files from user calls or test calls.
     path = root / 'shellserver/tests/src/com/jemcik/jemrec/shell/AnswerMachineTest.java'
     text = replace_once(path.read_text(), '    private void testCallGreeting() {',
                         '    @Test public void cancelledProofNeverAnswersTheNextRing() {\n'
@@ -138,9 +159,18 @@ def main(root):
                         '        assertTrue(world.did.contains("hang up"));\n    }\n\n'
                         '    private void testCallGreeting() {', 'proof cancel regression tests')
     path.write_text(text)
-    # Recording and automatic answering are off until an explicit one-call test.
+    # OnTrack has no call-recording feature. A legacy JemRec settings screen,
+    # Quick Settings widget, or stale saved toggle must NEVER enable a recording.
+    # Audio to/from the AI is handled by the separate authenticated live PCM
+    # socket ('B') and remains available with recorder mode MODE_OFF.
     path = root / 'app/src/main/java/com/jemcik/jemrec/capture/RecorderSwitch.kt'
-    text = replace_once(path.read_text(), 'getBoolean(KEY, true)', 'getBoolean(KEY, false)', 'recorder default')
+    text = replace_once(path.read_text(),
+                        'Prefs.of(context).getBoolean(KEY, true)',
+                        'false', 'disable all saved call-recording toggle states')
+    text = replace_once(text,
+                        '.edit { putBoolean(KEY, on) }',
+                        '.edit { putBoolean(KEY, false) }',
+                        'never persist call recording enabled')
     path.write_text(text)
     # Add a bounded cancel command; existing protocol authentication is retained.
     path = root / 'app/src/main/java/com/jemcik/jemrec/capture/CaptureDaemon.kt'
@@ -208,7 +238,24 @@ def main(root):
     path.write_text(text)
     # Upstream banner classifier no longer exists; remove its obsolete unit test.
     (root / 'app/src/test/java/com/jemcik/jemrec/capture/DebugNotificationCleanerTest.kt').unlink()
-    # Launcher becomes the Arabic proof screen; upstream setup remains available.
+    # JemRec setup was designed for a call-recording archive. For OnTrack's
+    # direct SIM <-> AI voice link, the ONLY mandatory Android runtime consent
+    # is READ_PHONE_STATE at SIM enrollment (requested by MobileLinkActivity).
+    # Notifications may be requested *later* from its own optional UI button.
+    # Never require recording-library/media permissions to finish ADB pairing.
+    path = root / 'app/src/main/java/com/jemcik/jemrec/ui/Setup.kt'
+    text = path.read_text()
+    text = replace_once(text,
+                        '    val RUNTIME_PERMISSIONS: Array<String> = buildList {',
+                        '    val LEGACY_RUNTIMES_UNUSED: Array<String> = buildList {',
+                        'legacy recording permissions')
+    text = replace_once(text,
+                        '    val ASK_PERMISSIONS = RUNTIME_PERMISSIONS + AudioAccess.PERMISSIONS',
+                        '    val RUNTIME_PERMISSIONS: Array<String> = emptyArray()\n'
+                        '    val ASK_PERMISSIONS = RUNTIME_PERMISSIONS',
+                        'remove obsolete recorder media permissions prompt')
+    path.write_text(text)
+    # Launcher becomes the Arabic guided connection/fault-check screen.
     path = root / 'app/src/main/AndroidManifest.xml'
     android = '{http://schemas.android.com/apk/res/android}'
     ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')
@@ -218,6 +265,37 @@ def main(root):
     for service in list(app.findall('service')):
         if service.get(android + 'permission') == 'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE':
             app.remove(service)
+    # Remove everything inherited solely for recording archives and contacts.
+    # We still need READ_PHONE_STATE for SIM identity, WRITE_SECURE_SETTINGS for
+    # optional ADB reconnect, and telephony's MANAGE_ONGOING_CALLS shell grant.
+    # Keep CALL_PHONE optional: campaigns/human callback ask only when used.
+    for permission in (
+        'READ_MEDIA_AUDIO', 'READ_EXTERNAL_STORAGE', 'WRITE_EXTERNAL_STORAGE',
+        'READ_CALL_LOG', 'READ_CONTACTS', 'USE_FULL_SCREEN_INTENT',
+        'FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+    ):
+        for node in list(manifest.getroot().findall('uses-permission')):
+            if node.get(android + 'name') == 'android.permission.' + permission:
+                manifest.getroot().remove(node)
+        ET.SubElement(manifest.getroot(), 'uses-permission', {
+            android + 'name': 'android.permission.' + permission,
+            '{http://schemas.android.com/tools}node': 'remove',
+        })
+    # The old recording Quick Settings tile can toggle recording without user
+    # ever opening OnTrack; remove it from the distributable Android manifest.
+    for service in list(app.findall('service')):
+        if service.get(android + 'permission') == 'android.permission.BIND_QUICK_SETTINGS_TILE':
+            app.remove(service)
+    # Explicitly request phone state; the upstream manifest had removed it as
+    # a legacy unnecessary recorder permission, but our SIM enrollment needs it.
+    for node in list(manifest.getroot().findall('uses-permission')):
+        if node.get(android + 'name') == 'android.permission.READ_PHONE_STATE':
+            manifest.getroot().remove(node)
+    # Optional Google Play services QR camera UI; manual code remains supported.
+    ET.SubElement(app, 'meta-data', {
+        android + 'name': 'com.google.mlkit.vision.DEPENDENCIES',
+        android + 'value': 'barcode_ui'
+    })
     app.set(android + 'label', 'OnTrack Voice')
     app.set(android + 'icon', '@drawable/ontrack_icon')
     app.set(android + 'roundIcon', '@drawable/ontrack_icon')
@@ -230,16 +308,24 @@ def main(root):
     intent = ET.SubElement(activity, 'intent-filter')
     ET.SubElement(intent, 'action', {android + 'name': 'android.intent.action.MAIN'})
     ET.SubElement(intent, 'category', {android + 'name': 'android.intent.category.LAUNCHER'})
+    # Camera QR scanners can open the app using this URI. It only pre-fills
+    # a native confirmation dialog; no automatic redemption or browser bridge.
+    qr = ET.SubElement(activity, 'intent-filter')
+    ET.SubElement(qr, 'action', {android + 'name': 'android.intent.action.VIEW'})
+    ET.SubElement(qr, 'category', {android + 'name': 'android.intent.category.DEFAULT'})
+    ET.SubElement(qr, 'category', {android + 'name': 'android.intent.category.BROWSABLE'})
+    ET.SubElement(qr, 'data', {android + 'scheme': 'ontrackvoice', android + 'host': 'pair'})
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.FOREGROUND_SERVICE_DATA_SYNC'})
     # User opt-in app overlay is unrelated to Accessibility and is never auto-granted.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.SYSTEM_ALERT_WINDOW'})
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.ACCESS_NETWORK_STATE'})
     # Native APK updates use the platform package installer after explicit consent.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.REQUEST_INSTALL_PACKAGES'})
-    # Explicit opt-in for importing all phone contacts, no background address-book access.
-    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.READ_CONTACTS'})
-    # Optional and user-consented; Android may restrict call-log access for non-default dialers.
-    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.READ_CALL_LOG'})
+    # Optional Android 13+ system notifications; requested only after user opt-in.
+    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.POST_NOTIFICATIONS'})
+    # Tenant SIM subscription-change detection; Android runtime consent required.
+    # No ICCID/IMSI/phone number is read or uploaded. Denial blocks enrollment.
+    ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.READ_PHONE_STATE'})
     # Outbound SIM placement is never enabled unless the owner explicitly opts in.
     ET.SubElement(manifest.getroot(), 'uses-permission', {android + 'name': 'android.permission.CALL_PHONE'})
     ET.SubElement(app, 'receiver', {
@@ -256,6 +342,7 @@ def main(root):
         android + 'name':'android.support.FILE_PROVIDER_PATHS',
         android + 'resource':'@xml/native_updates_paths'
     })
+    ET.SubElement(app, 'activity', {android + 'name': '.ConsoleWebActivity', android + 'exported': 'false'})
     ET.SubElement(app, 'activity', {android + 'name': '.ProofActivity', android + 'exported': 'false'})
     ET.SubElement(app, 'service', {android + 'name': '.MobileLinkService', android + 'exported': 'false', android + 'foregroundServiceType': 'dataSync'})
     # Upstream components use relative names under the new namespace; explicit
@@ -271,11 +358,8 @@ def main(root):
     for name in ['LICENSE', 'NOTICE.md']:
         shutil.copyfile(root / name, assets / ('UPSTREAM-' + name))
     (assets / 'ONTRACK-MODIFICATIONS.txt').write_text(
-        'OnTrack Development, 2026-10-30. Experimental derivative of JemRec at ' + LOCK['commit'] + '\n'
-        'Apache-2.0. Original attribution and notices retained.\n'
-        'Changes: separate application namespace/socket/files; Arabic proof launcher; local audio import;\n'
-        'one-call test cancellation; no automatic recording by default; explicit diagnostics export.\n'
-        'This build does not establish compatibility or full duplex AI conversation on any device.\n')
+        'OnTrack Development, 2026. This distribution contains modified Apache-2.0 licensed software.\\n'
+        'Copyright, license, and upstream notices are retained in the accompanying LICENSE and NOTICE.\\n')
     # Prove that the overlaid manifest does not request forbidden services.
     merged = (root / 'app/src/main/AndroidManifest.xml').read_text()
     if any(x in merged for x in ['BIND_ACCESSIBILITY_SERVICE', 'android.accessibilityservice',

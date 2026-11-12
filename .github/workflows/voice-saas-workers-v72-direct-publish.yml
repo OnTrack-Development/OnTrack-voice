@@ -1,0 +1,105 @@
+name: OnTrack v72 worker heartbeat dashboard and read-only DB readiness
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-workers-v72-direct-publish.yml'
+      - 'tools/test_v72_worker_health.php'
+      - 'tools/host_v72_readiness.php'
+      - 'tools/deploy_saas_worker_health_v72.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-saas-v72-workers
+  cancel-in-progress: false
+jobs:
+  test-and-publish:
+    name: Test worker freshness, deploy isolated UI fix and probe production read-only
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP syntax, isolated worker health and operational job regressions
+        run: |
+          $ErrorActionPreference='Stop'
+          $files=@(
+            'saas/console/_core/OperationalOutbox.php',
+            'saas/console/_core/Views.php',
+            'tools/test_v72_worker_health.php',
+            'tools/host_v72_readiness.php'
+          )
+          foreach($file in $files){
+            & php -l $file
+            if($LASTEXITCODE -ne 0){throw ('Invalid worker monitor PHP '+$file)}
+          }
+          & python -m py_compile tools/deploy_saas_worker_health_v72.py
+          if($LASTEXITCODE -ne 0){throw 'V72 publisher Python syntax invalid'}
+          $tests=@(
+            'tools/test_v72_worker_health.php',
+            'tools/test_v68_workers_email.php',
+            'tools/test_v67_whatsapp_dispatch.php',
+            'tools/test_v71_reseller_whatsapp_worker.php'
+          )
+          try{
+            $n=0
+            foreach($test in $tests){
+              $n++
+              $env:ONTRACK_CI_NAMESPACE='v72_'+$env:GITHUB_RUN_ID+'_'+$n
+              & php $test
+              if($LASTEXITCODE -ne 0){throw ('Worker readiness regression failed '+$test)}
+            }
+          }finally{
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          }
+          Write-Host 'V72_WORKER_FRESHNESS_OUTBOX_EMAIL_AND_RBAC_ISOLATED_PASS'
+      - name: Stage worker UI PHP, host probe, and atomic publisher via SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Approved production SSH key missing'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-worker-health-v72'
+          & ssh.exe @flags -p 7195 $hostName ('umask 077; mkdir -p '+$stage+'/_core; chmod 700 '+$stage+' '+$stage+'/_core')
+          if($LASTEXITCODE -ne 0){throw 'Private v72 staging failed'}
+          $files=@(
+            [pscustomobject]@{Source='saas/console/_core/OperationalOutbox.php';Dest="$stage/_core/OperationalOutbox.php"}
+            [pscustomobject]@{Source='saas/console/_core/Views.php';Dest="$stage/_core/Views.php"}
+            [pscustomobject]@{Source='tools/host_v72_readiness.php';Dest="$stage/check.php"}
+            [pscustomobject]@{Source='tools/deploy_saas_worker_health_v72.py';Dest="$stage/deploy.py"}
+          )
+          foreach($asset in $files){
+            $source=[string]$asset.Source
+            $target='{0}:{1}' -f $hostName,[string]$asset.Dest
+            if(!(Test-Path -LiteralPath $source -PathType Leaf)){throw ('Missing source '+$source)}
+            & scp.exe @flags -P 7195 $source $target
+            if($LASTEXITCODE -ne 0){throw ('V72 staging failed '+$source)}
+          }
+          Write-Host 'V72_SSH_PRIVATE_WORKER_PROBE_STAGING_PASS'
+      - name: Atomic PHP 8.3 deploy and read-only live MySQL worker readiness audit
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          & ssh.exe @flags -p 7195 $hostName 'python3 /home/appontrack/.ontrack-mobile/saas-worker-health-v72/deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'V72 atomic host deploy failed'}
+          & ssh.exe @flags -p 7195 $hostName 'set -eu; /opt/cpanel/ea-php83/root/usr/bin/php -l /home/appontrack/public_html/_core/OperationalOutbox.php; /opt/cpanel/ea-php83/root/usr/bin/php -l /home/appontrack/public_html/_core/Views.php; /opt/cpanel/ea-php83/root/usr/bin/php -l /home/appontrack/.ontrack-mobile/saas-worker-health-v72/check.php; echo V72_CANONICAL_HOST_PHP83_ALL_PASS'
+          if($LASTEXITCODE -ne 0){throw 'V72 canonical host PHP 8.3 lint failed'}
+          & ssh.exe @flags -p 7195 $hostName '/opt/cpanel/ea-php83/root/usr/bin/php /home/appontrack/.ontrack-mobile/saas-worker-health-v72/check.php'
+          if($LASTEXITCODE -ne 0){throw 'Read-only host readiness probe could not connect'}
+          Write-Host 'V72_READ_ONLY_PRODUCTION_DATABASE_AND_WORKER_HEALTH_PROBED_PASS'
+          $site=Invoke-WebRequest -Uri ('https://app.ontrackegy.com/login?v72='+$env:GITHUB_RUN_ID) -SkipHttpErrorCheck -TimeoutSec 25 -MaximumRedirection 2
+          if([int]$site.StatusCode -ge 500){throw ('Live site health HTTP '+[int]$site.StatusCode)}
+          $api=Invoke-WebRequest -Uri 'https://app.ontrackegy.com/api/v1/' -SkipHttpErrorCheck -MaximumRedirection 0 -TimeoutSec 20
+          if([int]$api.StatusCode -ne 401){throw ('Live unauthenticated API returned '+[int]$api.StatusCode)}
+          Write-Host 'V72_WORKER_HEALTH_DASHBOARD_HTTP_AND_API_AUTH_PASS'

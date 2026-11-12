@@ -1,0 +1,93 @@
+name: OnTrack v63 tenant brand sidebar and content colors direct SSH publish
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-theme-v63-direct-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-saas-theme-v63-direct
+  cancel-in-progress: false
+jobs:
+  validate-and-publish:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      # Re-run with corrected declaration-only font regression validator.
+      - name: Validate tenant brand themes, PHP and isolated customer/admin/reseller permissions
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/deploy_saas_theme_v63.py tools/test_theme_css_v63.py
+          & node --check saas/console/assets/js/app.js
+          if($LASTEXITCODE -ne 0){throw 'Theme JavaScript syntax failed'}
+          if($LASTEXITCODE -ne 0){throw 'theme delivery Python syntax failed'}
+          & python tools/test_theme_css_v63.py
+          if($LASTEXITCODE -ne 0){throw 'tenant color CSS contract failed'}
+          foreach($path in @('saas/console/_core/ConsoleTheme.php','saas/console/_core/Views.php','saas/console/_core/Actions.php')){
+            & php -l $path
+            if($LASTEXITCODE -ne 0){throw ('Invalid PHP '+$path)}
+          }
+          $counter=0
+          foreach($test in @('tools/test_console_theme_v63.php','tools/test_customer_accounts_v59.php','tools/test_invoice_billing_v58.php','tools/test_reseller_subscription_catalog.php')){
+            $counter++
+            $env:ONTRACK_CI_NAMESPACE='fonts62_'+$env:GITHUB_RUN_ID+'_'+$counter
+            & php $test
+            if($LASTEXITCODE -ne 0){throw ('Font/tenant regression failed '+$test)}
+          }
+          Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          Write-Host 'THEME_V63_ALL_ISOLATED_TESTS_PASS'
+      - name: Upload exact PHP and theme CSS to authorized production SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH identity unavailable'}
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-theme-v63'
+          & ssh.exe @ssh -p 7195 $remote ('umask 077; mkdir -p '+$stage+'/new/_core '+$stage+'/new/assets/css; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Could not create private stage'}
+          foreach($name in @('ConsoleTheme.php','Actions.php','Views.php')){
+            & scp.exe @ssh -P 7195 ('saas/console/_core/'+$name) ($remote+':'+$stage+'/new/_core/'+$name)
+            if($LASTEXITCODE -ne 0){throw ('PHP staging failed '+$name)}
+          }
+          & scp.exe @ssh -P 7195 saas/console/assets/css/app.css ($remote+':'+$stage+'/new/assets/css/app.css')
+          if($LASTEXITCODE -ne 0){throw 'CSS staging failed'}
+          & ssh.exe @ssh -p 7195 $remote ('umask 077; mkdir -p '+$stage+'/new/assets/js')
+          if($LASTEXITCODE -ne 0){throw 'JS staging directory unavailable'}
+          & scp.exe @ssh -P 7195 saas/console/assets/js/app.js ($remote+':'+$stage+'/new/assets/js/app.js')
+          if($LASTEXITCODE -ne 0){throw 'JS staging failed'}
+          & scp.exe @ssh -P 7195 tools/deploy_saas_theme_v63.py ($remote+':'+$stage+'/deploy.py')
+          if($LASTEXITCODE -ne 0){throw 'Publisher staging failed'}
+          Write-Host 'THEME_V63_DIRECT_SSH_STAGE_PASS'
+      - name: Publish and verify live tenant color settings, RTL and CSS
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          & ssh.exe @ssh -p 7195 $remote 'python3 /home/appontrack/.ontrack-mobile/saas-theme-v63/deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'Theme direct SSH publication did not succeed'}
+          $url='https://app.ontrackegy.com/saas/console/assets/css/app.css?v=63-'+$env:GITHUB_RUN_ID
+          $response=Invoke-WebRequest -Uri $url -TimeoutSec 40 -MaximumRedirection 1 -SkipHttpErrorCheck
+          if([int]$response.StatusCode -ne 200){throw ('Published CSS HTTP status '+$response.StatusCode)}
+          foreach($check in @('OTV_TENANT_STYLE_V63_BEGIN','--ot-sidebar-active','--ot-content-active','body.light')){
+            
+            if(-not $response.Content.Contains($check)){throw ('Missing published theme CSS '+$check)}
+          }
+          $jsUrl='https://app.ontrackegy.com/saas/console/assets/js/app.js?v=63-'+$env:GITHUB_RUN_ID
+          $jsResponse=Invoke-WebRequest -Uri $jsUrl -TimeoutSec 40 -MaximumRedirection 1 -SkipHttpErrorCheck
+          if([int]$jsResponse.StatusCode -ne 200 -or -not $jsResponse.Content.Contains('setUpPaletteEditor')){
+            throw 'Live browser script missing tenant preview'
+          }
+          Write-Host 'THEME_V63_PUBLIC_CSS_AND_LIVE_DATABASE_PASS'

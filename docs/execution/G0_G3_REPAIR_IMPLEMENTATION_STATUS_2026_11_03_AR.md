@@ -29,5 +29,5 @@
 ## أول عمل متبقٍ
 **R001** reconcile main/release branch؛ ثم **R021** real Gemini structured tool test، **R010/R011** physical owner SIM E2E، **R030/R034** Android executor with consent + DNC + scheduler and manual review of uncertain call. لا تفتح عملاء خارجية قبل تحقيق شروط G8/Q01.
 
-## Corrected G2 real test
-The experimental BLOCKING tool caused real Extended Thinking WebSocket error 1007 during setup, so feature branch changed back to NON_BLOCKING. Do not count tool setup tests as real proposal success; R021 stays E2E_FAILED. The synthetic demo job did not change published flows.
+## G2 provider experiment correction 05:45Z
+Actual isolated Google Live run was rejected with WebSocket 1007 at setup when tool behavior was BLOCKING. Extended Thinking model-specific official skill requires NON_BLOCKING; reverted experiment and CI assertions. **This is failed E2E, not a model success.** See FLOW_AI_ASYNC doc and redacted private host receipt. All published agent flows and phone voice session remain untouched.

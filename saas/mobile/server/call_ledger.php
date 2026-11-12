@@ -15,8 +15,13 @@ function ontrack_call_event(array $event, string $store): array {
     $duration=filter_var($event['duration_seconds']??0,FILTER_VALIDATE_INT);
     if ($duration===false || $duration<0 || $duration>172800) throw new InvalidArgumentException('invalid_duration');
     if (!is_dir($store) && !mkdir($store,0700,true) && !is_dir($store)) throw new RuntimeException('store_unavailable');
-    $lock=fopen($store.'/.ledger.lock','c');
-    if ($lock===false || !flock($lock,LOCK_EX)) throw new RuntimeException('store_locked');
+    // Serialize each call independently. Never unlink a live flock file.
+    $lock=fopen($store.'/.ledger-'.$id.'.lock','c');
+    if ($lock===false) throw new RuntimeException('store_locked');
+    if (!flock($lock,LOCK_EX)) {
+        fclose($lock);
+        throw new RuntimeException('store_locked');
+    }
     try {
         $path=$store.'/'.$id.'.json';
         $existing=is_file($path)?json_decode((string)file_get_contents($path),true):null;

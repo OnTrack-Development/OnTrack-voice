@@ -1,0 +1,63 @@
+{
+  "source": "stitch_ontrack_new_initiative.zip",
+  "sha256": "c7120fab9847a1d9a04410acd3c055bc013c22ec00b5603dd7610b2a5b69f492",
+  "entries": 32,
+  "referenceScreens": 9,
+  "paletteReference": "screenshot_2026_11_05_09_27_52_658_com.miui.gallery.png/screen.png",
+  "screens": [
+    {
+      "id": "01",
+      "topic": "مكالمة واردة ومتابعة الرد",
+      "html_sha256_prefix": "b18dd705b47dfacf",
+      "png_sha256_prefix": "c4188178f837ee35"
+    },
+    {
+      "id": "02",
+      "topic": "الرئيسية وحالة المساعد والشرائح",
+      "html_sha256_prefix": "ff04852bcad10cb2",
+      "png_sha256_prefix": "1d215f74281f14ff"
+    },
+    {
+      "id": "03",
+      "topic": "المكالمات والسجلات",
+      "html_sha256_prefix": "a7611041b562b378",
+      "png_sha256_prefix": "73063446fde63933"
+    },
+    {
+      "id": "04",
+      "topic": "إعدادات الصوت والإيجنت",
+      "html_sha256_prefix": "54204de34468d4dd",
+      "png_sha256_prefix": "4df72c79d6aaa5b2"
+    },
+    {
+      "id": "05",
+      "topic": "ملخص اتصال وذكاء المتصل",
+      "html_sha256_prefix": "c37630e572552201",
+      "png_sha256_prefix": "dafc274a370370ee"
+    },
+    {
+      "id": "06",
+      "topic": "مواعيد وجدولة",
+      "html_sha256_prefix": "3e0bb427e7fac58c",
+      "png_sha256_prefix": "86dae10fa25e5ecf"
+    },
+    {
+      "id": "07",
+      "topic": "ملف المحادثة وتفاصيل الاتصال",
+      "html_sha256_prefix": "aa8bba553836497e",
+      "png_sha256_prefix": "8566b32a50b8562e"
+    },
+    {
+      "id": "08",
+      "topic": "استعمال الباقة والمحاسبة",
+      "html_sha256_prefix": "3e4624a90be6174c",
+      "png_sha256_prefix": "cc132b7288138401"
+    },
+    {
+      "id": "09",
+      "topic": "مختبر محاكاة المساعد",
+      "html_sha256_prefix": "f8227d9e75c8b485",
+      "png_sha256_prefix": "94174444d96391e1"
+    }
+  ]
+}

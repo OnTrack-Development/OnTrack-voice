@@ -33,5 +33,7 @@ try{
 }finally{
     foreach(glob($base.'/*')?:[] as $p)if(is_file($p))unlink($p);
     if(is_file($base.'/.ledger.lock'))unlink($base.'/.ledger.lock');
+    // The per-call lock remains stable during production use; clean only this isolated fixture.
+    foreach(glob($base.'/.ledger-*.lock')?:[] as $p)if(is_file($p))unlink($p);
     if(is_dir($base))rmdir($base);
 }

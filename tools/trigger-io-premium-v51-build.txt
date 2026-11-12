@@ -1,0 +1,12 @@
+OnTrack Voice 0.3.28 / versionCode 51 — final signed mobile-data recovery build.
+Required regression gates:
+* LTE retry after Android data validation delay, with finite retries
+* Incoming 5s auto-answer retries only while ringing and only on no-ack
+* outgoing OFFHOOK/explicit human takeover preserved
+* earlier microphone mute before shell capture initialization
+* preserve voice capture integrity while allowing 64 KiB bounded LTE send bursts
+* official Google Live + Fish PCM IO Premium per-Agent voice
+* original signature + package + version + direct-SSH release unchanged until verification
+Source branch: feat/io-premium-native-v51-20261107.
+
+Run the FINAL source including LTE cellular fallback and 6-attempt bounded reconnect; build signed 0.3.28 code 51. Manual trigger 2026-11-07 after review; do not deploy until canonical IO Premium backend verified.

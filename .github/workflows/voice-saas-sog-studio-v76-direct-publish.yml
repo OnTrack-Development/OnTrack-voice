@@ -1,0 +1,115 @@
+name: OnTrack v76 SOG agent studio save and auto-answer verification
+# Historic v76 UI-only rollout is incompatible with v78 packed PHP transport.
+# Manual-only diagnostics; v78 deploys the dependent PHP+JS files atomically.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-saas-v76-sog-studio-save
+  cancel-in-progress: false
+jobs:
+  test-and-publish:
+    name: Test single AJAX response and real isolated SOG publish, deploy and verify live
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 28
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: JS syntax and single-form SOG Studio save contract
+        run: |
+          $ErrorActionPreference='Stop'
+          & node --check saas/console/assets/js/app.js
+          if($LASTEXITCODE -ne 0){throw 'Studio app JS invalid'}
+          & node --check saas/console/assets/js/flow-graph.js
+          if($LASTEXITCODE -ne 0){throw 'Flow Builder JS invalid'}
+          & node tools/test_console_ajax_ui.cjs
+          if($LASTEXITCODE -ne 0){throw 'Console AJAX regression failed'}
+          & node tools/test_v76_sog_studio_submission.cjs
+          if($LASTEXITCODE -ne 0){throw 'Double-save regression failed'}
+          & php -l saas/console/_core/Views.php
+          if($LASTEXITCODE -ne 0){throw 'Studio views PHP syntax failed'}
+          & php -l tools/host_v76_sog_voice_audit.php
+          if($LASTEXITCODE -ne 0){throw 'SOG read-only probe PHP invalid'}
+          & python -m py_compile tools/deploy_saas_studio_v76.py
+          if($LASTEXITCODE -ne 0){throw 'Atomic publisher syntax failed'}
+          Write-Host 'V76_SOG_STUDIO_SINGLE_REQUEST_JS_PHP_SYNTAX_PASS'
+      - name: Exercise real PHP AJAX save and published auto-answer with isolated customer data
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/test_agent_publish_ajax.py
+          if($LASTEXITCODE -ne 0){throw 'AJAX JSON preflight regression failed'}
+          & python tools/test_v76_agent_save_e2e.py
+          if($LASTEXITCODE -ne 0){throw 'SOG-style customer real draft/publish regression failed'}
+          $env:ONTRACK_CI_NAMESPACE='v76_'+$env:GITHUB_RUN_ID+'_dynamic'
+          try{
+            & php tools/test_dynamic_agent_studio.php
+            if($LASTEXITCODE -ne 0){throw 'Dynamic Agent Studio regression failed'}
+          }finally{
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          }
+          Write-Host 'V76_SOG_REAL_PHP_DRAFT_PUBLISH_AUTO_ANSWER_E2E_PASS'
+      - name: Stage only verified JS and PHP files and read-only SOG voice probe
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Approved server SSH identity missing'}
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-studio-v76'
+          & ssh.exe @ssh -p 7195 $remote ('umask 077; mkdir -p '+$stage+'/_core '+$stage+'/assets/js; chmod 700 '+$stage+' '+$stage+'/_core '+$stage+'/assets '+$stage+'/assets/js')
+          if($LASTEXITCODE -ne 0){throw 'Private stage directories inaccessible'}
+          $assets=@(
+            [pscustomobject]@{Source='saas/console/assets/js/app.js';Dest="$stage/assets/js/app.js"}
+            [pscustomobject]@{Source='saas/console/assets/js/flow-graph.js';Dest="$stage/assets/js/flow-graph.js"}
+            [pscustomobject]@{Source='saas/console/_core/Views.php';Dest="$stage/_core/Views.php"}
+            [pscustomobject]@{Source='tools/deploy_saas_studio_v76.py';Dest="$stage/deploy.py"}
+            [pscustomobject]@{Source='tools/host_v76_sog_voice_audit.php';Dest="$stage/sog-check.php"}
+          )
+          foreach($asset in $assets){
+            $source=[string]$asset.Source
+            $target='{0}:{1}' -f $remote,[string]$asset.Dest
+            if(!(Test-Path -LiteralPath $source -PathType Leaf)){throw ('Missing verified source '+$source)}
+            & scp.exe @ssh -P 7195 $source $target
+            if($LASTEXITCODE -ne 0){throw ('SOG Studio staging failed '+$source)}
+          }
+          Write-Host 'V76_APPROVED_SOG_STUDIO_PRIVATE_STAGING_PASS'
+      - name: Atomic host deploy and read-only SOG subscription/SIM/auto-answer inspection
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          & ssh.exe @ssh -p 7195 $remote 'python3 /home/appontrack/.ontrack-mobile/saas-studio-v76/deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'Atomic Studio JS PHP host publish failed'}
+          & ssh.exe @ssh -p 7195 $remote '/opt/cpanel/ea-php83/root/usr/bin/php /home/appontrack/.ontrack-mobile/saas-studio-v76/sog-check.php'
+          if($LASTEXITCODE -ne 0){throw 'SOG entitlement and SIM read-only inspection failed'}
+          Write-Host 'V76_SOG_STUDIO_HOST_DEPLOY_AND_VOICE_DIAG_PASS'
+      - name: Check live JavaScript and PHP JSON denial for unauthenticated save
+        run: |
+          $ErrorActionPreference='Stop'
+          $base='https://app.ontrackegy.com'
+          $app=Invoke-WebRequest -Uri ($base+'/saas/console/assets/js/app.js?v76='+$env:GITHUB_RUN_ID) -SkipHttpErrorCheck -TimeoutSec 25
+          if([int]$app.StatusCode -ne 200 -or !$app.Content.Contains('new URLSearchParams(data)')){
+            throw ('Live Studio app.js stale or HTTP '+[int]$app.StatusCode)
+          }
+          $flow=Invoke-WebRequest -Uri ($base+'/saas/console/assets/js/flow-graph.js?v76='+$env:GITHUB_RUN_ID) -SkipHttpErrorCheck -TimeoutSec 25
+          if([int]$flow.StatusCode -ne 200 -or !$flow.Content.Contains('ontrack:studio-saved')){
+            throw ('Live Flow Editor JS stale or HTTP '+[int]$flow.StatusCode)
+          }
+          $headers=@{'X-Requested-With'='XMLHttpRequest';'Accept'='application/json'}
+          $probe=Invoke-WebRequest -Uri ($base+'/?tab=agents') -Method Post -Headers $headers -ContentType 'application/x-www-form-urlencoded' -Body 'action=update_agent&csrf=missing' -SkipHttpErrorCheck -MaximumRedirection 0 -TimeoutSec 25
+          $contentType=($probe.Headers['Content-Type']|Out-String)
+          if([int]$probe.StatusCode -notin @(401,419) -or !$contentType.Contains('application/json')){
+            throw ('Unauthenticated Studio POST must get typed JSON, HTTP '+[int]$probe.StatusCode)
+          }
+          $body=$probe.Content | ConvertFrom-Json
+          if($body.ok -ne $false){throw 'Unauthenticated Studio JSON denial malformed'}
+          Write-Host 'V76_LIVE_SOG_STUDIO_ASSETS_AND_TYPED_AUTH_JSON_PASS'

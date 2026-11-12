@@ -1,0 +1,29 @@
+name: Fast six-digit pairing API and UI validation
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-sim6-smoke-fast.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax and six-digit backend test
+        run: |
+          set -eu
+          php -v
+          php -m | grep -i pdo_sqlite
+          for p in saas/console/_core/DevicePairing.php saas/console/_core/Actions.php saas/console/_core/Views.php saas/console/device/v1/index.php tools/test_six_digit_sim_pairing.php; do php -l "$p"; done
+          export ONTRACK_CI_NAMESPACE="sim6fast${GITHUB_RUN_ID}"
+          php tools/test_six_digit_sim_pairing.php
+      - name: App and console UI contracts
+        run: |
+          python3 tools/test_mobile_ui_contract.py
+          node tools/test_console_ajax_ui.cjs
+          python3 -m py_compile tools/deploy_sim_six_digit_v55.py tools/sim_six_digit_ota_install_v55.py
+          echo SIX_DIGIT_PAIRING_FAST_TESTS_PASS

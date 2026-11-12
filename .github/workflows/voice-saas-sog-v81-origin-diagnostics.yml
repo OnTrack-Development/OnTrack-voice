@@ -1,0 +1,62 @@
+name: OnTrack v81 SOG actual white-label host route and authenticated-only 404 cause
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-sog-v81-origin-diagnostics.yml'
+      - 'tools/host_v81_sog_origin_audit.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-routing:
+    name: Verify SOG active route and test anonymous POST to dedicated save destination
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Inspect exact SOG origin metadata (no secrets or customer data)
+        run: |
+          $ErrorActionPreference='Stop'
+          & php -l tools/host_v81_sog_origin_audit.php
+          if($LASTEXITCODE -ne 0){throw 'SOG audit PHP invalid'}
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Approved SSH identity missing'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-studio-v81'
+          & ssh.exe @flags -p 7195 $remote ('umask 077; mkdir -p '+$stage+'; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Private staging failed'}
+          & scp.exe @flags -P 7195 tools/host_v81_sog_origin_audit.php ($remote+':'+$stage+'/origin.php')
+          if($LASTEXITCODE -ne 0){throw 'SOG metadata stage failed'}
+          & ssh.exe @flags -p 7195 $remote ('/opt/cpanel/ea-php83/root/usr/bin/php '+$stage+'/origin.php')
+          if($LASTEXITCODE -ne 0){throw 'SOG route probe failed'}
+          Write-Host 'V81_SOG_ORIGIN_AND_RESELLER_CONTEXT_READ_ONLY_PASS'
+      - name: Verify full benign studio POST payload has PHP JSON origin
+        run: |
+          $ErrorActionPreference='Stop'
+          $headers=@{'Accept'='application/json';'X-Requested-With'='XMLHttpRequest'}
+          $fields=@{
+            'action'='update_agent';'csrf'='invalid';'agent_id'='9';
+            'name'='SOG QA';'voice'='io.premium';'return'='/?tab=agents&site=5';
+            'publish_now'='1';'auto_answer'='on';'answer_delay_seconds'='5';
+            'max_call_minutes'='5';'scenario_mode'='builder';
+            'response_style'='egyptian_short';'fallback'='human';
+            'studio_fields_b64'= ('e30'+('A'*16000))
+          }
+          $body=($fields.GetEnumerator()|ForEach-Object{[System.Uri]::EscapeDataString($_.Key)+'='+[System.Uri]::EscapeDataString([string]$_.Value)}) -join '&'
+          foreach($path in @('/','/saas/console/','/studio-save')){
+            try{
+              $r=Invoke-WebRequest -Uri ('https://app.ontrackegy.com'+$path) -Method Post -Headers $headers -ContentType 'application/x-www-form-urlencoded;charset=UTF-8' -Body $body -MaximumRedirection 0 -SkipHttpErrorCheck -TimeoutSec 20
+              $type=($r.Headers['Content-Type']|Out-String).Split(';')[0].Trim()
+              Write-Host ('V81_SAFE_REALISTIC_POST path='+$path+' status='+[int]$r.StatusCode+' type='+$type)
+            }catch{
+              Write-Host ('V81_SAFE_REALISTIC_POST path='+$path+' network='+$_.Exception.GetType().Name)
+            }
+          }
+          Write-Host 'V81_SOG_POST_ROUTE_MATRIX_COMPLETE'

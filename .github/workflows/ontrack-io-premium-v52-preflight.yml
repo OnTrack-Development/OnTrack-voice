@@ -1,0 +1,73 @@
+name: IO Premium v52 shared keys and canonical live preflight
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/ontrack-io-premium-v52-preflight.yml'
+      - 'tools/test_io_premium_shared_access.php'
+      - 'tools/io_premium_v52_host_probe.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: io-premium-v52-preflight
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Secure PHP and Android source checks
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($path in @(
+            'saas/console/_core/IoPremiumProvider.php',
+            'saas/console/_core/Actions.php',
+            'saas/console/_core/Views.php',
+            'saas/console/_core/TenantVoiceSession.php',
+            'saas/console/_core/GoogleTenantKeys.php',
+            'saas/console/device/v1/tts.php',
+            'tools/test_io_premium_shared_access.php'
+          )){
+            & php -l $path
+            if($LASTEXITCODE -ne 0){throw ('Invalid PHP syntax: '+$path)}
+          }
+          & python -m py_compile tools/io_premium_v52_host_probe.py
+          if($LASTEXITCODE -ne 0){throw 'Invalid production host probe'}
+          $android=Get-Content saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/PremiumOfficialLive.kt -Raw
+          if($android.Contains('import com.google.genai.kotlin.Client') -or -not $android.Contains('BidiGenerateContentConstrained')){
+            throw 'Unsafe Android Google SDK client is still active or ephemeral websocket is missing'
+          }
+          Write-Host 'IO_PREMIUM_V52_SOURCE_GUARDS_PASS'
+      - name: Automated inherited-key and entitlement tests
+        run: |
+          $ErrorActionPreference='Stop'
+          $env:ONTRACK_CI_NAMESPACE='iov52' + $env:GITHUB_RUN_ID
+          & php tools/test_io_premium_shared_access.php
+          if($LASTEXITCODE -ne 0){throw 'Global voice distribution regression'}
+          $env:ONTRACK_CI_NAMESPACE='failv52' + $env:GITHUB_RUN_ID
+          & php tools/test_google_live_failover.php
+          if($LASTEXITCODE -ne 0){throw 'Google voice failover regression'}
+          Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          Write-Host 'IO_PREMIUM_V52_INHERITED_ACCESS_TEST_PASS'
+      - name: Read-only canonical host duplicate-panel inspection over direct SSH
+        if: always()
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $remote='appontrack@65.21.208.232'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $stage='/home/appontrack/.ontrack-mobile/io-premium-v52-probe'
+          & ssh.exe @flags -p 7195 $remote ('mkdir -p '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Cannot stage read-only host probe'}
+          & scp.exe @flags -P 7195 tools/io_premium_v52_host_probe.py ($remote+':'+$stage+'/probe.py')
+          if($LASTEXITCODE -ne 0){throw 'Cannot transfer host probe'}
+          & ssh.exe @flags -p 7195 $remote ('python3 '+$stage+'/probe.py')
+          if($LASTEXITCODE -ne 0){throw 'Live source inspection refused'}
+          Write-Host 'IO_PREMIUM_LIVE_PROBE_COMPLETE'

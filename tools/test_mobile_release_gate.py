@@ -21,7 +21,7 @@ OK = {
     "exit_code": 0,
     "stdout": json.dumps({
         "status": "installed",
-        "scope": "saas/mobile/updates",
+        "scope": "mobile/updates",
         "revision": 18,
         "sha256": SHA,
     }),
@@ -56,10 +56,10 @@ class NativeReleaseGateTests(unittest.TestCase):
 
     def test_wrong_revision_or_artifact_sha_blocks_native(self):
         self.check_denied(report={**OK, "stdout": json.dumps({
-            "status": "installed", "scope": "saas/mobile/updates",
+            "status": "installed", "scope": "mobile/updates",
             "revision": 17, "sha256": SHA})})
         self.check_denied(report={**OK, "stdout": json.dumps({
-            "status": "installed", "scope": "saas/mobile/updates",
+            "status": "installed", "scope": "mobile/updates",
             "revision": 18, "sha256": "b"*64})})
         self.check_denied(envelope={"payload": json.dumps({"revision": 19, "sha256": SHA})})
 
@@ -67,7 +67,7 @@ class NativeReleaseGateTests(unittest.TestCase):
         self.check_denied(report={**OK, "stdout": "not-json"})
         self.check_denied(report={**OK, "stdout": "{}"})
         self.check_denied(report={**OK, "stdout": json.dumps({
-            "status": "installed", "scope": "saas/mobile/updates",
+            "status": "installed", "scope": "mobile/updates",
             "revision": "18", "sha256": SHA})})
         self.check_denied(envelope={"payload": "{}"})
 

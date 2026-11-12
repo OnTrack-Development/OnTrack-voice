@@ -1,0 +1,155 @@
+name: OnTrack Android campaign v56 build verification
+# v56 is immutable historical release; v57 has an independent signed
+# native+UI OTA workflow. Never auto-republish v56 after source changes.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-android-campaign-v56-build
+  cancel-in-progress: true
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: utf-8
+jobs:
+  compile:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: jemcik/JemRec
+          ref: f011062adfb3a2154c4d5a9cc4394032fb4345f2
+          path: .build/jemrec
+          persist-credentials: false
+      - name: Check pinned Android SDK and source overlay
+        run: |
+          $ErrorActionPreference='Stop'
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $env:ANDROID_HOME=$sdk
+          $env:ANDROID_SDK_ROOT=$sdk
+          "ANDROID_HOME=$sdk"|Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "ANDROID_SDK_ROOT=$sdk"|Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          & python saas/mobile/audio-proof/prepare.py .build/jemrec
+          if($LASTEXITCODE -ne 0){throw 'Android overlay failed'}
+          & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
+          if($LASTEXITCODE -ne 0){throw 'Carrier daemon compilation failed'}
+          $path='.build\jemrec\app\build.gradle.kts'
+          $gradle=[IO.File]::ReadAllText((Resolve-Path $path).Path)
+          $anchor='    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")'
+          if(!$gradle.Contains($anchor)){throw 'Fragment API dependency anchor missing'}
+          $gradle=$gradle.Replace($anchor,'    implementation("androidx.fragment:fragment:1.6.2")'+[Environment]::NewLine+$anchor)
+          [IO.File]::WriteAllText((Resolve-Path $path).Path,$gradle,[Text.UTF8Encoding]::new($false))
+          Write-Host 'V68_PINNED_ANDROID_SOURCE_AND_PCM_BRIDGE_PASS'
+      - name: Kotlin compiler and paired SIM unit tests
+        working-directory: .build/jemrec
+        run: |
+          $ErrorActionPreference='Stop'
+          & .\gradlew.bat --no-daemon :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.TenantCallRoutingTest' --tests 'com.ontrack.voiceproof.TenantPairingContractTest' --tests 'com.ontrack.voiceproof.LocalUiPageTest' :daemon-tests:test
+          if($LASTEXITCODE -ne 0){throw 'Android campaign Kotlin or SIM tests failed'}
+          & .\gradlew.bat --no-daemon :app:assembleRelease
+          if($LASTEXITCODE -ne 0){throw 'Native Android v56 release assembly failed'}
+          Write-Host 'V68_ANDROID_0_3_33_CAMPAIGN_COMPILE_AND_UNIT_PASS'
+      - name: Verify original signing key and sign v56 APK plus UI/native OTA
+        run: |
+          $ErrorActionPreference='Stop'
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $signer=Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer=Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
+          $cert=Join-Path $env:RUNNER_TEMP 'ontrack-native-v56-cert.der'
+          & keytool -exportcert -alias androiddebugkey -keystore $key -storepass android -file $cert | Out-Null
+          if($LASTEXITCODE -ne 0 -or (Get-FileHash $cert -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'){
+            throw 'Original Android owner signing certificate mismatch'
+          }
+          Remove-Item $cert -Force
+          New-Item -Path '.build\artifact' -ItemType Directory -Force | Out-Null
+          $apk='.build\artifact\OnTrack-Voice-0.3.33.apk'
+          & $signer sign --ks $key --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out $apk '.build\jemrec\app\build\outputs\apk\release\app-release-unsigned.apk'
+          if($LASTEXITCODE -ne 0){throw 'Native v56 APK signing failed'}
+          & $signer verify --verbose $apk
+          if($LASTEXITCODE -ne 0){throw 'Native v56 APK signature check failed'}
+          $package=(& $analyzer manifest application-id $apk|Out-String).Trim()
+          $version=(& $analyzer manifest version-code $apk|Out-String).Trim()
+          if($package -ne 'com.ontrack.voiceproof' -or $version -ne '56'){
+            throw 'Android package or v56 code mismatch'
+          }
+          & python tools/verify_shell_jar_packaging.py $apk '.build/jemrec/shellserver/ontrack-voiceproof-capture.jar'
+          if($LASTEXITCODE -ne 0){throw 'Native PCM module missing'}
+          & python tools/prepare_mobile_ota.py .build/artifact/ota
+          if($LASTEXITCODE -ne 0){throw 'Signed UI OTA prepare failed'}
+          & python tools/prepare_mobile_native.py $apk .build/artifact/native
+          if($LASTEXITCODE -ne 0){throw 'Signed native OTA prepare failed'}
+          & java tools/SignMobileOta.java $key .build/artifact/ota
+          if($LASTEXITCODE -ne 0){throw 'Original signer rejected UI OTA'}
+          & java tools/SignMobileOta.java $key .build/artifact/native
+          if($LASTEXITCODE -ne 0){throw 'Original signer rejected native OTA'}
+          $env:PATH='C:\Program Files\Git\usr\bin;'+$env:PATH
+          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_native import verify as n;from queue_mobile_ota import verify as u;_,_,a=n(Path('.build/artifact/native'));_,_,v=u(Path('.build/artifact/ota'));assert a['version_code']==56 and a['version_name']=='0.3.33' and v['revision']==56 and v['min_native']<=56<=v['max_native'];print('V68_SIGNED_ANDROID_V56_UI56_MANIFESTS_PASS')"
+          if($LASTEXITCODE -ne 0){throw 'RSA-signed Android v56 OTA verification failed'}
+      - name: Stage signed native APK and signed HTML OTA over direct SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/deploy_native_v56_direct_ssh.py
+          if($LASTEXITCODE -ne 0){throw 'Host publisher invalid'}
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized production SSH key missing'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/native-v56'
+          & ssh.exe @flags -p 7195 $remote ('umask 077; mkdir -p '+$stage+'/ota '+$stage+'/native; chmod 700 '+$stage+' '+$stage+'/ota '+$stage+'/native')
+          if($LASTEXITCODE -ne 0){throw 'Private native stage inaccessible'}
+          # Signed manifest is the only source of the immutable HTML filename.
+          $ui=((Get-Content -LiteralPath '.build/artifact/ota/latest.json' -Raw | ConvertFrom-Json).payload | ConvertFrom-Json)
+          $uiFile=[string]$ui.file
+          if($uiFile -cnotmatch '^ui-[0-9a-f]{64}\.html$'){throw 'Unsafe signed UI OTA filename'}
+          $uiSource=Join-Path '.build/artifact/ota' $uiFile
+          # Never use nested PowerShell arrays for source/destination pairs: array
+          # unrolling can pass both names as one scp source argument on Windows.
+          $assets=@(
+            [pscustomobject]@{ Source='.build/artifact/OnTrack-Voice-0.3.33.apk'; Destination="$stage/OnTrack-Voice-0.3.33.apk" }
+            [pscustomobject]@{ Source='.build/artifact/ota/latest.json'; Destination="$stage/ota/latest.json" }
+            [pscustomobject]@{ Source='.build/artifact/ota/signing-cert.der'; Destination="$stage/ota/signing-cert.der" }
+            [pscustomobject]@{ Source=$uiSource; Destination="$stage/ota/$uiFile" }
+            [pscustomobject]@{ Source='.build/artifact/native/latest.json'; Destination="$stage/native/latest.json" }
+            [pscustomobject]@{ Source='.build/artifact/native/signing-cert.der'; Destination="$stage/native/signing-cert.der" }
+            [pscustomobject]@{ Source='tools/deploy_native_v56_direct_ssh.py'; Destination="$stage/publish.py" }
+          )
+          if($assets.Count -ne 7){throw 'Expected exactly seven signed OTA staging assets'}
+          $destinations=[System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+          foreach($asset in $assets){
+            $source=[string]$asset.Source
+            $destination=[string]$asset.Destination
+            if([string]::IsNullOrWhiteSpace($source) -or [string]::IsNullOrWhiteSpace($destination) -or
+               $source.Contains([char]10) -or $destination.Contains([char]10) -or
+               !(Test-Path -LiteralPath $source -PathType Leaf)){
+              throw ("Missing or invalid signed OTA staging asset: "+$source)
+            }
+            if(!$destinations.Add($destination)){throw ("Duplicate staging destination: "+$destination)}
+            $remoteTarget='{0}:{1}' -f $remote,$destination
+            & scp.exe @flags -P 7195 $source $remoteTarget
+            if($LASTEXITCODE -ne 0){throw ("Failed to stage signed OTA "+$source)}
+          }
+          Write-Host 'V68_NATIVE_SIGNED_OTA_PRIVATE_STAGING_PASS'
+      - name: Publish atomically and verify public Android 0.3.33 and UI revision 56
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          & ssh.exe @flags -p 7195 $remote 'python3 /home/appontrack/.ontrack-mobile/native-v56/publish.py'
+          if($LASTEXITCODE -ne 0){throw 'Signed release verification or atomic host install failed'}
+          $native=Invoke-RestMethod -Uri 'https://app.ontrackegy.com/mobile/updates/native/latest.json' -TimeoutSec 25
+          $ui=Invoke-RestMethod -Uri 'https://app.ontrackegy.com/mobile/updates/latest.json' -TimeoutSec 25
+          $n=$native.payload|ConvertFrom-Json
+          $u=$ui.payload|ConvertFrom-Json
+          if($n.version_code -ne 56 -or $n.version_name -ne '0.3.33' -or $u.revision -ne 56){
+            throw 'Real public signed OTA pointer not updated'
+          }
+          Write-Host 'V68_SIGNED_ANDROID_0_3_33_AND_UI_56_PUBLIC_PUBLISHED_PASS'

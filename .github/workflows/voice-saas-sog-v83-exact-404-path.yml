@@ -1,0 +1,36 @@
+name: OnTrack v83 identify real SOG 404 POST route at screenshot minute
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-sog-v83-exact-404-path.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  classify:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read one sanitized 404 path only from user-owned access log over SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/host_v83_sog_404_route.py
+          if($LASTEXITCODE -ne 0){throw '404 route probe invalid'}
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-studio-v83'
+          & ssh.exe @ssh -p 7195 $hostName ('umask 077; mkdir -p '+$stage+'; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Cannot stage private diagnostic'}
+          & scp.exe @ssh -P 7195 tools/host_v83_sog_404_route.py ($hostName+':'+$stage+'/route.py')
+          if($LASTEXITCODE -ne 0){throw 'Cannot stage route analyzer'}
+          & ssh.exe @ssh -p 7195 $hostName ('python3 '+$stage+'/route.py')
+          if($LASTEXITCODE -ne 0){throw 'Could not inspect 404 route'}
+          Write-Host 'V83_REAL_SOG_404_ROUTE_IDENTIFIED_FROM_HOST_LOG_PASS'

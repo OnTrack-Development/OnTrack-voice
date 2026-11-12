@@ -1,0 +1,19 @@
+name: Release native v58 from superseded v57 signing job
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-v58-supersede-legacy-v57.yml'
+permissions:
+  contents: read
+concurrency:
+  # This ONLY cancels old in-progress v57 build, not the signed OTA already live.
+  # The new v58 build has independent immutable signed manifest.
+  group: ontrack-android-campaign-v57-build
+  cancel-in-progress: true
+jobs:
+  mark-superseded:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo 'V58_OLD_ANDROID_V57_BUILD_SUPERSEDED_NO_HOST_OR_APK_CHANGE'

@@ -19,8 +19,20 @@ def deploy(encoded,expected):
     html=bundle['html'].encode();name=meta['file']
     if len(html)>524288 or len(html)!=meta['size'] or hashlib.sha256(html).hexdigest()!=meta['sha256'] or name!='ui-'+meta['sha256']+'.html':raise ValueError('Invalid immutable OTA content')
     if os.getuid()!=2379:raise ValueError('Wrong account')
-    root=Path('/home/appontrack/public_html/saas/mobile');private=Path('/home/appontrack/.ontrack-mobile')
-    if not root.is_dir() or root.is_symlink() or private.is_symlink():raise ValueError('Wrong target')
+    # The canonical SaaS release is served from public_html/, not /saas/console/.
+    # Never recreate the retired /saas/mobile tree as a side effect of OTA.
+    webroot=Path('/home/appontrack/public_html')
+    root=webroot/'mobile'
+    private=Path('/home/appontrack/.ontrack-mobile')
+    if (not webroot.is_dir() or webroot.is_symlink()
+            or root.is_symlink() or not private.is_dir() or private.is_symlink()):
+        raise ValueError('Wrong target')
+    # Canonical root/mobile may not exist after migration from /saas/mobile.
+    # Create this fixed public directory only; preserve the old Pilot tree.
+    root.mkdir(mode=0o755,exist_ok=True)
+    if (not root.is_dir() or root.resolve().parent != webroot.resolve()):
+        raise ValueError('Wrong target')
+    os.chmod(root,0o755)
     target=root/'updates'
     if target.is_symlink():raise ValueError('Target symlink')
     target.mkdir(mode=0o755,exist_ok=True)
@@ -41,4 +53,4 @@ def deploy(encoded,expected):
         atomic(dest,html)
         atomic(target/'.htaccess',b'Options -Indexes\n<IfModule mod_headers.c>\n<Files "latest.json">\n Header set Cache-Control "no-store"\n</Files>\n</IfModule>\n')
         atomic(current,manifest.encode())  # publish pointer last
-    print(json.dumps({'status':'installed','scope':'saas/mobile/updates','revision':meta['revision'],'sha256':meta['sha256'],'runtime':meta['runtime'],'no_credentials_read':True,'root_api_unchanged':True}))
+    print(json.dumps({'status':'installed','scope':'mobile/updates','revision':meta['revision'],'sha256':meta['sha256'],'runtime':meta['runtime'],'no_credentials_read':True,'root_api_unchanged':True}))

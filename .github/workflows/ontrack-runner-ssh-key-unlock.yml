@@ -1,0 +1,47 @@
+name: Fix Windows deploy SSH key for unattended use (keep public key unchanged)
+on:
+  push:
+    branches: [feat/v1-io-premium-20261107]
+    paths: ['.github/workflows/ontrack-runner-ssh-key-unlock.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unlock:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 6
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Convert generated quoted-passphrase key to empty passphrase and reverify
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $pub=Get-Content -LiteralPath ($key+'.pub') -Raw
+          $ssh=(Get-Command ssh-keygen.exe).Source
+          function Run-SSHKeygen([string[]]$parameters){
+            $p=[System.Diagnostics.ProcessStartInfo]::new($ssh)
+            $p.UseShellExecute=$false;$p.CreateNoWindow=$true
+            $p.RedirectStandardOutput=$true;$p.RedirectStandardError=$true
+            foreach($arg in $parameters){$p.ArgumentList.Add($arg)}
+            $proc=[System.Diagnostics.Process]::Start($p)
+            $stdout=$proc.StandardOutput.ReadToEnd()
+            $stderr=$proc.StandardError.ReadToEnd()
+            if(-not $proc.WaitForExit(10000)){$proc.Kill();throw 'SSH-keygen exceeded timeout'}
+            return @{exit=$proc.ExitCode;stdout=$stdout;stderr=$stderr}
+          }
+          # Work around PowerShell native argument quoting in the original generator.
+          # The actual passphrase inadvertently consists of two quote characters.
+          $convert=Run-SSHKeygen @('-p','-P','""','-N','','-f',$key)
+          if($convert.exit -ne 0) {Write-Host 'KEY_CONVERSION_FAILED=True';exit 1}
+          $verify=Run-SSHKeygen @('-y','-P','','-f',$key)
+          if($verify.exit -ne 0) {Write-Host 'UNATTENDED_KEY_FAILED=True';exit 1}
+          if($verify.stdout.Trim().Split(' ')[1] -ne $pub.Trim().Split(' ')[1]) {
+            throw 'Key identity changed unexpectedly; do not authorize'
+          }
+          & icacls.exe $key '/inheritance:r' '/grant:r' "${env:USERNAME}:(R,W)" | Out-Null
+          if($LASTEXITCODE -ne 0){throw 'SSH key ACL invalid'}
+          Write-Host 'UNATTENDED_KEY_VERIFIED=True'
+          Write-Host 'PUBLIC_KEY_UNCHANGED=True'
+          Write-Host ('DEPLOY_PUBLIC_KEY='+$pub.Trim())

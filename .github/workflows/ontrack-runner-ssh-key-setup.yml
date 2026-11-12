@@ -1,0 +1,45 @@
+name: OnTrack hosting deploy - establish SSH public key on Windows runner
+on:
+  push:
+    branches: [feat/v1-io-premium-20261107]
+    paths: ['.github/workflows/ontrack-runner-ssh-key-setup.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-runner-host-ssh-identity
+  cancel-in-progress: false
+jobs:
+  setup:
+    name: Generate persistent dedicated SSH key (public key only in logs)
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 7
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Generate deployment key without exporting the private key
+        run: |
+          $ErrorActionPreference='Stop'
+          $sshDir=Join-Path $env:USERPROFILE '.ssh'
+          $privateKey=Join-Path $sshDir 'ontrack_publish_ed25519'
+          $publicKey=$privateKey+'.pub'
+          New-Item -ItemType Directory -Force -Path $sshDir | Out-Null
+          $existingPrivate=Test-Path -LiteralPath $privateKey
+          $existingPublic=Test-Path -LiteralPath $publicKey
+          if ($existingPrivate -xor $existingPublic) { throw 'Only one of the deployment key files exists; refusing to overwrite' }
+          if (-not $existingPrivate) {
+            $keygen=Get-Command ssh-keygen.exe -ErrorAction Stop
+            & $keygen.Source -q -t ed25519 -a 64 -N '""' -C 'ontrack-deploy-windows-runner' -f $privateKey
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to generate SSH keypair' }
+          }
+          & icacls.exe $privateKey '/inheritance:r' '/grant:r' "${env:USERNAME}:(R,W)" | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot lock down private key ACL' }
+          $public=Get-Content -LiteralPath $publicKey -Raw
+          $public=$public.Trim()
+          if ($public -notmatch '^ssh-ed25519 [A-Za-z0-9+/=]+ ontrack-deploy-windows-runner$') { throw 'Invalid public key' }
+          Write-Host ('DEPLOY_PUBLIC_KEY='+$public)
+          $fingerprint=& ssh-keygen.exe -lf $publicKey
+          Write-Host ('DEPLOY_FINGERPRINT='+$fingerprint)
+          Write-Host 'PRIVATE_KEY_RETAINED_ON_WINDOWS_RUNNER=True'
+          Write-Host 'HOST_LINK_UNTOUCHED=True'

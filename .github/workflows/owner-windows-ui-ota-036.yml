@@ -1,0 +1,85 @@
+# Owner-only signed HTML update. No APK install, no private key upload.
+name: Publish OnTrack Voice branded UI, agents and connection status revision 36
+run-name: Signed OnTrack UI 36 verify + host deployment
+on:
+  push:
+    branches:
+      - feat/voice-production-gap-20261103
+    paths:
+      - .github/workflows/owner-windows-ui-ota-036.yml
+permissions:
+  contents: write
+  actions: read
+env:
+  PYTHONUTF8: '1'
+concurrency:
+  group: ontrack-owner-ui-ota
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.actor == 'ahmedbedir'
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout reviewed OnTrack mobile UI
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify UI syntax, existing Android bridge, and signing identity
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & python tools/test_mobile_ui_contract.py
+          if ($LASTEXITCODE -ne 0) { throw 'UI navigation/OTA contract rejected.' }
+          $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
+          if (-not (Test-Path -LiteralPath $key)) { throw 'Original keystore not present locally.' }
+          $cert=Join-Path $env:RUNNER_TEMP 'ontrack-ui-check.der'
+          try {
+            & keytool -exportcert -alias androiddebugkey -keystore $key -storepass android -file $cert | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot read signing identity.' }
+            if ((Get-FileHash -LiteralPath $cert -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f') {
+              throw 'Wrong signing identity.'
+            }
+          } finally {
+            Remove-Item -LiteralPath $cert -Force -ErrorAction SilentlyContinue
+          }
+          Write-Host 'SIGNED_UI_PREFLIGHT: PASS'
+      - name: Sign incremental OTA revision 36
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
+          & python tools/prepare_mobile_ota.py .build/artifact/ota
+          if ($LASTEXITCODE -ne 0) { throw 'UI OTA preparation failed.' }
+          & java tools/SignMobileOta.java $key .build/artifact/ota
+          if ($LASTEXITCODE -ne 0) { throw 'Signed UI update creation failed.' }
+          $openssl='C:\Program Files\Git\usr\bin'
+          if (-not (Test-Path (Join-Path $openssl 'openssl.exe'))) { throw 'OpenSSL CLI not installed.' }
+          $openssl | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      - name: Verify signed OTA against original Android certificate
+        run: |
+          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_ota import verify;_,_,m=verify(Path('.build/artifact/ota'));assert m['revision']==36 and m['min_native']==34 and m['max_native']==37;print('UI_OTA_REV36_SIGNATURE_VERIFIED: PASS')"
+          if ($LASTEXITCODE -ne 0) { throw 'UI OTA signed manifest check failed.' }
+      - name: Upload signed UI bundle only, never a keystore
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnTrack-Voice-UI-OTA
+          path: .build/artifact/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Queue signed HTML update with existing OnTrack host worker
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MOBILE_OTA_ARTIFACT_NAME: OnTrack-Voice-UI-OTA
+        run: |
+          & python tools/queue_mobile_ota.py .build/artifact/ota
+          if ($LASTEXITCODE -ne 0) { throw 'UI host worker queue rejected update.' }
+          Write-Host 'SIGNED_UI_OTA_QUEUED: PASS'
+      - name: Verify actual host installed the signed UI revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & python tools/verify_mobile_ui_host_receipt.py .build/artifact/ota
+          if ($LASTEXITCODE -ne 0) { throw 'Host has not confirmed signed UI update.' }
+          Write-Host 'SIGNED_UI_OTA_SERVER_PUBLISHED: PASS'

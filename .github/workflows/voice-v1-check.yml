@@ -1,0 +1,55 @@
+name: OnTrack Voice v1.0.0 Candidate Validation
+on:
+  pull_request:
+    branches: [feat/voice-production-gap-20261103]
+    paths:
+      - 'saas/console/**'
+      - 'saas/mobile/ota/ui.html'
+      - 'saas/mobile/audio-proof/overlay/**'
+      - 'tools/test_v1_**'
+      - '.github/workflows/voice-v1-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  php-lint:
+    name: PHP source syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,openssl,fileinfo
+      - run: find saas/console -name '*.php' -type f -print0 | xargs -0 -n1 php -l
+  reseller-toggle:
+    name: Reseller feature and registration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,openssl,fileinfo
+      - run: rm -rf /tmp/ontrack-saas-demo && php tools/test_v1_reseller_toggle.php
+  mobile-ui:
+    name: Mobile UI and JavaScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python3 tools/test_v1_mobile_shell.py
+      - run: python3 tools/test_mobile_ui_contract.py
+  existing-regression:
+    name: Legacy SaaS regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,mbstring,pdo_mysql,openssl,fileinfo
+      - run: rm -rf /tmp/ontrack-saas-demo && php tools/test_console_pricing_ui.php
+      - run: rm -rf /tmp/ontrack-saas-demo && php tools/test_voice_saas_console.php

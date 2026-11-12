@@ -1,35 +1,106 @@
 name: OnTrack Voice SaaS PHP Console
 on:
   push:
-    branches: [main, voice-saas-console-staging, voice-saas-rework]
+    branches: [main, voice-saas-console-staging, voice-saas-rework, 'fix/voice-internal-staging-20261102', 'fix/console-pricing-connection-ui-20261102', 'fix/sim1-staging-ui-20261102', 'feat/tenant-only-mobile-workspace-20261102', 'fix/tenant-mix-session-parity-20261102', 'fix/flow-editor-ai-20261102', 'feat/voice-production-gap-20261103', 'feat/web-auth-complete-20261105']
     paths:
       - 'saas/console/**'
       - 'tools/test_voice_saas_console.php'
+      - 'tools/test_tenant_device_pairing.php'
+      - 'tools/test_tenant_account_bridge.php'
+      - 'tools/test_six_digit_sim_pairing.php'
+      - 'tools/test_reseller_parent_service_gate_v70.php'
+      - 'tools/test_tenant_workspace.php'
+      - 'tools/test_tenant_voice_transcript_archive.php'
+      - 'tools/test_tenant_call_ai_summary.php'
+      - 'tools/test_console_pricing_ui.php'
+      - 'tools/test_flow_ai_sources.php'
+      - 'tools/test_floating_flow_ui.cjs'
+      - 'tools/test_console_ajax_ui.cjs'
+      - 'tools/test_flow_ai_chat.php'
+      - 'tools/test_dynamic_agent_studio.php'
+      - 'tools/test_ai_agent_profile.php'
+      - 'tools/test_flow_ai_stress.php'
+      - 'tools/test_graph_routing.cjs'
+      - 'tools/test_whatsapp_inbox.php'
+      - 'tools/test_whatsapp_whmcs_bridge.php'
       - '.github/workflows/voice-saas-console.yml'
   pull_request:
     branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: 'utf-8'
 jobs:
   smoke:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - uses: actions/checkout@v4
-      - name: PHP 8.3 and database extensions
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: pdo_sqlite,mbstring,pdo_mysql,openssl,fileinfo
-          coverage: none
-      - name: PHP syntax for all runtime source files
+      - name: PHP syntax for all runtime source and test files
         run: |
-          set -eu
-          find saas/console -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-          php -l tools/test_voice_saas_console.php
-          php -l tools/test_tenant_device_pairing.php
-      - name: Validate JavaScript
-        run: node --check saas/console/assets/js/app.js
-      - name: Database, roles, demo users, branding and isolation smoke
-        run: php tools/test_voice_saas_console.php
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem 'saas\console' -Recurse -Filter '*.php' | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP lint failed: ' + $_.FullName) }
+          }
+          foreach ($f in @('tools/test_voice_saas_console.php', 'tools/test_tenant_device_pairing.php', 'tools/test_tenant_account_bridge.php', 'tools/test_six_digit_sim_pairing.php', 'tools/test_reseller_parent_service_gate_v70.php', 'tools/test_admin_mfa.php', 'tools/test_console_kashier_webhook.php', 'tools/test_voice_sso.php')) {
+            & php -l $f | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP lint failed: ' + $f) }
+          }
+          Write-Host 'CONSOLE_PHP_LINT_PASS'
+      - name: Validate JavaScript, routing, floating UI and templates
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:CI = 'true'
+          foreach ($js in @('saas/console/assets/js/app.js', 'saas/console/assets/js/flow-graph.js', 'saas/console/assets/js/graph-routing.js', 'saas/console/assets/js/pairing-qr.js', 'saas/console/assets/js/mfa-qr.js')) {
+            & node --check $js
+            if ($LASTEXITCODE -ne 0) { throw ('node --check failed: ' + $js) }
+          }
+          foreach ($cjs in @('tools/test_voice_qr.cjs', 'tools/test_floating_flow_ui.cjs', 'tools/test_graph_routing.cjs', 'tools/test_console_ajax_ui.cjs')) {
+            & node $cjs
+            if ($LASTEXITCODE -ne 0) { throw ('JS regression failed: ' + $cjs) }
+          }
+          $i = 0
+          foreach ($t in @('tools/test_flow_templates.php', 'tools/test_answer_policy.php', 'tools/test_google_provider_config.php', 'tools/test_voice_trial_and_ui.php')) {
+            $i++
+            $env:ONTRACK_CI_NAMESPACE = "consolejs-$env:GITHUB_RUN_ID-$i"
+            & php $t
+            if ($LASTEXITCODE -ne 0) { throw ('Test failed: ' + $t) }
+          }
+      - name: Run full SaaS database, isolation, pairing, SSO, AI studio and bridge suite
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:CI = 'true'
+          $suite = @(
+            @('php', 'tools/test_voice_saas_console.php'),
+            @('php', 'tools/test_tenant_account_bridge.php'),
+            @('php', 'tools/test_six_digit_sim_pairing.php'),
+            @('php', 'tools/test_reseller_parent_service_gate_v70.php'),
+            @('php', 'tools/test_console_pricing_ui.php'),
+            @('php', 'tools/test_tenant_workspace.php'),
+            @('php', 'tools/test_tenant_voice_transcript_archive.php'),
+            @('php', 'tools/test_tenant_call_ai_summary.php'),
+            @('php', 'tools/test_flow_ai_sources.php'),
+            @('php', 'tools/test_flow_ai_chat.php'),
+            @('php', 'tools/test_voice_sso.php'),
+            @('python', 'tools/test_voice_sso_http.py'),
+            @('php', 'tools/test_dynamic_agent_studio.php'),
+            @('php', 'tools/test_ai_agent_profile.php'),
+            @('php', 'tools/test_flow_ai_stress.php'),
+            @('php', 'tools/test_whatsapp_inbox.php'),
+            @('php', 'tools/test_whatsapp_whmcs_bridge.php')
+          )
+          $i = 0
+          foreach ($item in $suite) {
+            $i++
+            $env:ONTRACK_CI_NAMESPACE = "console-$env:GITHUB_RUN_ID-$i"
+            Write-Host ">>> [$i/$($suite.Count)] $($item[0]) $($item[1])"
+            & $item[0] $item[1]
+            if ($LASTEXITCODE -ne 0) { throw ('Console suite failed at: ' + $item[1]) }
+          }
+          Write-Host 'ALL_CONSOLE_SUITE_PASS'

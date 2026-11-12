@@ -27,3 +27,5 @@ __pycache__/
 # Explicitly reviewed reference archives only
 !reference/archives/agent-builder-handoff-v1.3-original.zip
 !reference/archives/voicecall-v0.6.3-sanitized.zip
+.build/
+dist/

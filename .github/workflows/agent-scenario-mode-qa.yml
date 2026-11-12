@@ -1,0 +1,49 @@
+name: Agent Studio Scenario Mode and API Locale QA
+on:
+  push:
+    branches: [feat/agent-scenario-text-api-language-20261106]
+  pull_request:
+    branches: [feat/voice-production-gap-20261103]
+    paths:
+      - 'saas/console/_core/AgentAnswerPolicy.php'
+      - 'saas/console/_core/TenantVoiceSession.php'
+      - 'saas/console/_core/PublishedFlow.php'
+      - 'saas/console/_core/Views.php'
+      - 'saas/console/assets/js/app.js'
+      - 'saas/console/assets/css/app.css'
+      - 'tools/test_agent_scenario_modes.php'
+      - '.github/workflows/agent-scenario-mode-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: agent-scenario-mode-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  studio_scenario:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 18
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP and JavaScript syntax
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach($path in @('saas/console/_core/AgentAnswerPolicy.php','saas/console/_core/TenantVoiceSession.php','saas/console/_core/PublishedFlow.php','saas/console/_core/Views.php','tools/test_agent_scenario_modes.php')) {
+            & php -l $path
+            if($LASTEXITCODE -ne 0){throw "PHP syntax: $path"}
+          }
+          & node --check saas/console/assets/js/app.js
+          if($LASTEXITCODE -ne 0){throw 'JavaScript syntax: scenario editor'}
+      - name: Published scenario, builder and multilingual connector contract
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & php tools/test_agent_scenario_modes.php
+          if($LASTEXITCODE -ne 0){throw 'Scenario mode regression'}
+          & php tools/test_dynamic_agent_studio.php
+          if($LASTEXITCODE -ne 0){throw 'Existing dynamic builder regression'}
+          Write-Host 'AGENT_SCENARIO_BUILDER_AND_API_LOCALE_QA_PASS'

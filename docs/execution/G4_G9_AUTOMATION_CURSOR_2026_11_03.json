@@ -57,8 +57,282 @@
   "final_reassessment_after": "R092",
   "final_report": "docs/execution/G0_G9_FINAL_REASSESSMENT_AR.md",
   "end_action": "disable_hourly_automation_after_verified_final_review",
-  "last_run": null,
-  "run_history": [],
+  "last_run": {
+    "requirement": "R040",
+    "date": "2026-11-04",
+    "status": "PARTIAL",
+    "activity": "Read four authoritative documents and R040 call-event backend/test. Checked fresh Actions: Android signed APK host publish 41751048068 SUCCESS at 28ba49ab7, but R8 preview 41753202486 is not deployed; v0.3.12 verified publish 41756337896 FAILED, SIM Audio Proof 41756151679 FAILED, OTA gate 41756114736 FAILED. No R040-specific green CI or matching root host receipt, and no physical Xiaomi reconnect reconciliation evidence. No code or deployment performed.",
+    "ci_runs": [
+      41751048068,
+      41753202486,
+      41756337896,
+      41756151679,
+      41756114736
+    ],
+    "ci_status_at_check": "APK_0311_PUBLISH_SUCCESS_UNRELATED; R040_REQUIRED_GATES_UNVERIFIED_OR_FAILED",
+    "root_host_receipt": null,
+    "device_e2e": false,
+    "blocker": "R040 idempotent device/server replay E2E absent; no current R040 release root host receipt/source hash/rollback verified; latest SIM Audio and OTA gates failed."
+  },
+  "run_history": [
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "feature_commit": "bcb933d7b9d88a007f48280575152a023e0da872",
+      "code_changes": [
+        "saas/console/_core/TenantWorkspace.php",
+        "tools/test_sim_agent_call_reports.php"
+      ],
+      "ci_runs": [
+        41592181504,
+        41592193642,
+        41592208929,
+        41592208970
+      ],
+      "ci_status_at_check": "queued/in_progress",
+      "host_receipt": null,
+      "device_e2e": false,
+      "blocker": "Pending green CI, matching host receipt, and real paired Xiaomi call event/reconnect E2E."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "feature_commit": "bcb933d7b9d88a007f48280575152a023e0da872",
+      "ci_runs": [
+        41592208929,
+        41592208970
+      ],
+      "ci_results": {
+        "root_deploy": "success",
+        "android_sim_audio_proof": "failure"
+      },
+      "host_receipt": "ops/host-link/results/appontrack-server11/saas-console-41592208929.json",
+      "host_exit_code": 0,
+      "host_source": "bcb933d7b9d8",
+      "rollback": "/home/appontrack/backup/releases/bcb933d7b9d8",
+      "device_e2e": false,
+      "blocker": "Android SIM Audio Proof native APK queue failed: ValueError Wrong target. No physical Xiaomi disconnect/reconnect event replay evidence; do not advance R041."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "verified actual host OTA failure root cause, no code or deployment change",
+      "feature_commit": "bcb933d7b9d88a007f48280575152a023e0da872",
+      "ci_runs": [
+        41592208929,
+        41592208970
+      ],
+      "root_host_receipt": "ops/host-link/results/appontrack-server11/saas-console-41592208929.json",
+      "root_host_exit_code": 0,
+      "android_ota_host_receipt": "ops/host-link/results/appontrack-server11/mobile-ota-41592208970.json",
+      "android_ota_host_exit_code": 1,
+      "android_ota_host_error": "Wrong target",
+      "device_e2e": false,
+      "blocker": "Verified Android workflow run 41592208970: build SUCCESS, publish_ota queue SUCCESS, publish_native FAILURE. Host mobile-ota-41592208970 receipt actually FAILED exit_code=1, ValueError Wrong target in saas/mobile/ota/deploy.py; guard requires /home/appontrack/public_html/saas/mobile while canonical app release is root /. Native job was never queued. This corrects earlier inaccurate attribution of Wrong target to native APK. No physical Xiaomi event replay proof. Do not advance."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "patched OTA target guard only; no deployment or physical E2E verified",
+      "feature_commit": "693339241348e6366116743d8a5b281ed8fa6a28",
+      "ci_runs": [],
+      "ci_status_at_check": "NOT_VERIFIED",
+      "root_host_receipt": null,
+      "root_host_exit_code": null,
+      "android_ota_host_receipt": null,
+      "android_ota_host_exit_code": null,
+      "device_e2e": false,
+      "blocker": "Need validate /home/appontrack/public_html/mobile on host; CI PASS for new commit, OTA host receipt exit_code 0 with matching source, native APK queue, and physical Xiaomi event retry/disconnect E2E. Prior OTA run 41592208970 failed Wrong target."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Rechecked authoritative branch, recent Actions runs and canonical OTA guard; no post-patch CI or host receipt exists in available evidence. Did not rerun old SHA because it would not test patched code.",
+      "feature_commit": "693339241348e6366116743d8a5b281ed8fa6a28",
+      "ci_runs": [],
+      "ci_status_at_check": "NO_MATCHING_RUN",
+      "last_observed_ci_run": 41592208929,
+      "last_observed_ci_sha": "bcb933d7b9d88a007f48280575152a023e0da872",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "No CI/deployment evidence for 69333924; root/mobile path existence unverified; OTA/native delivery and Xiaomi disconnect/reconnect event reconciliation unverified. GitHub Actions listing still shows only bcb933d7 as latest run for this branch."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Repaired stale OTA regression test fixture to canonical root and added legacy path negative test; enabled dedicated release gate workflow for feature branch and OTA deploy path without native APK publishing.",
+      "feature_commit": "a5a3c0276a6422b2f7765aed066893d09cf79ddb",
+      "test_commit": "8d9a25f001edc647ab60bdf60c7c059c980a1f57",
+      "ci_runs": [],
+      "ci_status_at_check": "NO_NEW_RUN_OBSERVED",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "New workflow run not visible in Actions; no CI success or host deployment receipt for OTA fix; canonical target existence unverified and physical Xiaomi disconnect/reconnect proof absent."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Investigated new GitHub Actions release gate failure with zero executed steps; corrected push paths for OTA deploy/test files only.",
+      "feature_commit": "f9901228c84330e1ecd53dbaae52c0d1b72442d8",
+      "ci_runs": [
+        41631532243
+      ],
+      "ci_status_at_check": "FAILED_BEFORE_STEPS",
+      "ci_failure_classification": "Runner unavailable/unstarted (runner_name empty, no steps); root cause unproven",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "No green CI for current OTA patch; latest gate job failed before steps, no root/OTA host receipt, and no physical Xiaomi disconnect/reconnect proof."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Verified next post-patch Actions run 41639628384; failed before steps, zero runner allocation; inspected workflow YAML, no new code changes or deployment.",
+      "feature_commit": "f9901228c84330e1ecd53dbaae52c0d1b72442d8",
+      "ci_runs": [
+        41639628384
+      ],
+      "ci_status_at_check": "FAILED_BEFORE_STEPS",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "GitHub-hosted test job did not execute (empty runner and steps); no matching green CI or OTA receipt, and no Xiaomi disconnect/reconnect evidence. Root cause of runner non-start not confirmed."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Checked authoritative branch, CI job and run timing; zero runner allocation confirmed; no code or deployment changes.",
+      "feature_commit": "f9901228c84330e1ecd53dbaae52c0d1b72442d8",
+      "ci_runs": [
+        41639628384
+      ],
+      "ci_job_id": 125929529724,
+      "ci_status_at_check": "FAILED_ZERO_RUNNER_EXECUTION",
+      "runner_id": 0,
+      "steps_executed": 0,
+      "billable_ubuntu_ms": 0,
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "Runner was never allocated; root cause unknown. No green CI for current patch, no matching OTA host receipt, no real Xiaomi disconnect/reconnect call-history reconciliation evidence."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Requested retry of failed CI jobs on existing workflow run; GitHub accepted retry. Immediate jobs listing empty while scheduling; no green result verified, no code or deployment change.",
+      "feature_commit": "f9901228c84330e1ecd53dbaae52c0d1b72442d8",
+      "ci_runs": [
+        41639628384
+      ],
+      "ci_status_at_check": "RERUN_ACCEPTED_PENDING",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "Await CI rerun execution/result, matching host deployment with rollback and source hash, and physical Xiaomi disconnect/reconnect reconciliation proof."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Verified rerun of GitHub Actions 41639628384: job 126031398043 completed failure with zero steps. Job logs 404 BlobNotFound; cannot establish runner failure root cause or source test result. No code/deployment change.",
+      "feature_commit": "f9901228c84330e1ecd53dbaae52c0d1b72442d8",
+      "ci_runs": [
+        41639628384
+      ],
+      "ci_job_id": 126031398043,
+      "ci_status_at_check": "RERUN_FAILED_ZERO_STEPS",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "CI rerun did not execute any test steps; job logs unavailable. Missing green CI, matching root/OTA receipt with source hash and rollback, and physical Xiaomi disconnect/reconnect reconciliation proof."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Verified latest known root and SaaS CI jobs: root run 41672301463 check job 126043578862 FAILED with steps=[], publish skipped; SaaS run 41672301305 smoke job 126043578766 FAILED with steps=[]. No executed tests or deploy receipt; no device evidence. No source change.",
+      "ci_runs": [
+        41672301463,
+        41672301305
+      ],
+      "ci_job_ids": [
+        126043578862,
+        126043578766
+      ],
+      "ci_status_at_check": "FAILED_ZERO_STEPS",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "Both latest known CI jobs failed before any recorded steps; cannot prove CI PASS. Missing matching host deployment receipt/rollback and Xiaomi disconnect/reconnect E2E."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-03",
+      "status": "PARTIAL",
+      "activity": "Rechecked current branch Actions: latest root deploy run 41707957548 (14ed4cfed) check failed, publish skipped; latest SaaS run 41707872978 (16945297f) smoke failed; latest Android audio run 41710317061 (a5e7a1eae) build failed and publish jobs skipped. No verified green CI, matching host receipt or physical Xiaomi event reconciliation. No source change.",
+      "ci_runs": [
+        41707957548,
+        41707872978,
+        41710317061
+      ],
+      "ci_job_ids": [
+        126168179512,
+        126167885624,
+        126176366074
+      ],
+      "ci_status_at_check": "FAILED",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "Current Actions gates failed; no matching source-hash/exit_code=0 host receipt and rollback or Xiaomi disconnect/reconnect E2E. R040 acceptance not met."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-04",
+      "status": "PARTIAL",
+      "activity": "Checked latest 100 branch workflow runs. Local Windows signed APK 0.3.11 run 41749227359 succeeded at SHA 7d1b1f65db8add1f495c3a3e7623319ff59a4ac9, but this is a signing/build workflow, not R040 call-history E2E or canonical root deployment. Most recent observed Root SaaS deploy 41707957548, Android SIM Audio Proof 41710317061, and Native OTA acknowledgement 41708478712 remain failed. No R040 code or deploy performed.",
+      "ci_runs": [
+        41749227359,
+        41707957548,
+        41710317061,
+        41708478712
+      ],
+      "ci_status_at_check": "SIGNED_APK_WORKFLOW_PASS_ONLY; REQUIRED_GATES_NOT_PASS",
+      "root_host_receipt": null,
+      "android_ota_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "No R040-specific green CI and canonical host receipt with matching SHA/rollback; no Xiaomi disconnect/reconnect call-event reconciliation. Signed APK success alone does not meet acceptance."
+    },
+    {
+      "requirement": "R040",
+      "date": "2026-11-04",
+      "status": "PARTIAL",
+      "activity": "Read four authoritative documents and R040 call-event backend/test. Checked fresh Actions: Android signed APK host publish 41751048068 SUCCESS at 28ba49ab7, but R8 preview 41753202486 is not deployed; v0.3.12 verified publish 41756337896 FAILED, SIM Audio Proof 41756151679 FAILED, OTA gate 41756114736 FAILED. No R040-specific green CI or matching root host receipt, and no physical Xiaomi reconnect reconciliation evidence. No code or deployment performed.",
+      "ci_runs": [
+        41751048068,
+        41753202486,
+        41756337896,
+        41756151679,
+        41756114736
+      ],
+      "ci_status_at_check": "APK_0311_PUBLISH_SUCCESS_UNRELATED; R040_REQUIRED_GATES_UNVERIFIED_OR_FAILED",
+      "root_host_receipt": null,
+      "device_e2e": false,
+      "blocker": "R040 idempotent device/server replay E2E absent; no current R040 release root host receipt/source hash/rollback verified; latest SIM Audio and OTA gates failed."
+    }
+  ],
   "blocks": [],
   "safety": [
     "Only demo/internal test accounts; never place unsolicited calls, send real customer messages, or charge live cards",

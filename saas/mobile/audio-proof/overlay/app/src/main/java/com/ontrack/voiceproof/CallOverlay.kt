@@ -204,7 +204,9 @@ internal class CallOverlay(private val context: Context) {
         val lp=WindowManager.LayoutParams(-2,-2,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT).apply{
-            gravity=Gravity.TOP or Gravity.END;x=px(14);y=px(110)
+            gravity=Gravity.TOP or Gravity.END;x=px(14)
+            // Default near bottom, not over the header/hero. Still freely draggable.
+            y=(context.resources.displayMetrics.heightPixels-px(240)).coerceAtLeast(px(170))
         }
         var startX=0;var startY=0;var touchX=0f;var touchY=0f
         circle.setOnTouchListener {_,event->
@@ -245,6 +247,9 @@ internal class CallOverlay(private val context: Context) {
     private var lastCall=false
     private var lastAnswered=false
     private var lastHuman=false
+    private var lastAudio=false
+    private var lastCallProblem=""
+    private var lastAudioDiagnostic=""
     private fun renderActions(){
         val sheet=menu?:return
         if(!expand)return
@@ -258,7 +263,7 @@ internal class CallOverlay(private val context: Context) {
             if(powerOn)red else green,true){
             serviceAction(if(powerOn)MobileLinkService.ACTION_DISABLE else MobileLinkService.ACTION_ENABLE)
         }
-        val model=overlayUiModel(lastReady,lastEnabled,lastCall,lastAnswered,lastHuman)
+        val model=overlayUiModel(lastReady,lastEnabled,lastCall,lastAnswered,lastHuman,lastAudio,lastCallProblem,lastAudioDiagnostic)
         val canTake=model.canTakeover
         val handoff=iconTile("person",
             model.takeoverTitle,model.takeoverHint,if(canTake)green else gray,canTake){
@@ -280,15 +285,17 @@ internal class CallOverlay(private val context: Context) {
         add(first,power,false);add(first,handoff,true)
         add(second,audio,false);add(second,home,true)
     }
-    fun show(serviceReady:Boolean,enabled:Boolean,inCall:Boolean,answered:Boolean,human:Boolean){
+    fun show(serviceReady:Boolean,enabled:Boolean,inCall:Boolean,answered:Boolean,human:Boolean,
+             audioReady:Boolean,callProblem:String,audioDiagnostic:String){
         if(!allowed()){remove();return}
         if(root!=null&&themeLight()!=lightTheme)remove()
         if(root==null)attach()
         val ready=serviceReady
         lastReady=ready;lastEnabled=enabled;lastCall=inCall
         lastAnswered=answered;lastHuman=human
-        val model=overlayUiModel(ready,enabled,inCall,answered,human)
-        val color=if(model.running)green else red
+        lastAudio=audioReady;lastCallProblem=callProblem;lastAudioDiagnostic=audioDiagnostic
+        val model=overlayUiModel(ready,enabled,inCall,answered,human,audioReady,callProblem,audioDiagnostic)
+        val color=if(model.running && callProblem.isBlank())green else red
         val changed=color!=currentColor
         currentColor=color
         orb?.background=shape(color,60,if(lightTheme)white else black,2)
@@ -300,7 +307,7 @@ internal class CallOverlay(private val context: Context) {
         }
         if(expand){
             // Only rebuild controls on real state changes; preserve focus and avoid UI flicker.
-            val token="$ready:$enabled:$inCall:$answered:$human:$lightTheme"
+            val token="$ready:$enabled:$inCall:$answered:$human:$audioReady:$callProblem:$audioDiagnostic:$lightTheme"
             if(token!=renderedToken||changed){renderedToken=token;renderActions()}
         }
     }

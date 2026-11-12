@@ -1,0 +1,64 @@
+name: OnTrack IO Premium root-site deploy with reviewed LF normalization
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths: ['.github/workflows/ontrack-io-premium-php-deploy.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-io-premium-canonical-site-deploy
+  cancel-in-progress: false
+jobs:
+  site:
+    name: Atomic three-file PHP deploy, catalog grant and public HTTP proof
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 14
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Stage exact PHP sources over authorized SSH and check live source revisions
+        run: |
+          $ErrorActionPreference='Stop'
+          $id=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $dest='appontrack@65.21.208.232'
+          $flags=@('-i',$id,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=10')
+          $stage='/home/appontrack/.ontrack-mobile/io-premium-v51-stage'
+          & ssh.exe @flags -p 7195 $dest ('mkdir -p '+$stage+'/_core '+$stage+'/device/v1')
+          if($LASTEXITCODE -ne 0){throw 'Cannot create protected stage'}
+          $uploads=@(
+             @('saas/console/_core/Bootstrap.php',($stage+'/_core/Bootstrap.php')),
+             @('saas/console/_core/TenantVoiceSession.php',($stage+'/_core/TenantVoiceSession.php')),
+             @('saas/console/device/v1/tts.php',($stage+'/device/v1/tts.php')),
+             @('tools/io_premium_atomic_php_deploy.py','/home/appontrack/.ontrack-mobile/io_premium_atomic_php_deploy.py'),
+             @('tools/io_premium_postdeploy.php','/home/appontrack/.ontrack-mobile/io_premium_postdeploy.php')
+          )
+          foreach($item in $uploads){
+             & scp.exe @flags -P 7195 $item[0] ($dest+':'+$item[1])
+             if($LASTEXITCODE -ne 0){throw ('Cannot stage '+$item[0])}
+          }
+          & ssh.exe @flags -p 7195 $dest 'python3 /home/appontrack/.ontrack-mobile/io_premium_atomic_php_deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'Live base revision is unexpected: deployment safely blocked'}
+          Write-Host 'IO_PREMIUM_BASE_REVISION_PREFLIGHT_PASS'
+      - name: Apply atomic PHP files with automatic rollback for copy failures
+        run: |
+          $ErrorActionPreference='Stop'
+          $id=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          & ssh.exe -i $id -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -p 7195 'appontrack@65.21.208.232' 'python3 /home/appontrack/.ontrack-mobile/io_premium_atomic_php_deploy.py --apply'
+          if($LASTEXITCODE -ne 0){throw 'Atomic IO Premium PHP install failed'}
+          Write-Host 'IO_PREMIUM_PHP_ATOMIC_INSTALLED_PASS'
+      - name: Initialize premium catalog and verify public route
+        run: |
+          $ErrorActionPreference='Stop'
+          $id=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          & ssh.exe -i $id -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -p 7195 'appontrack@65.21.208.232' '/opt/cpanel/ea-php83/root/usr/bin/php /home/appontrack/.ontrack-mobile/io_premium_postdeploy.php'
+          if($LASTEXITCODE -ne 0){throw 'IO Premium catalog bootstrap or grant verification failed'}
+          $url='https://app.ontrackegy.com/device/v1/tts.php'
+          $http=Invoke-WebRequest -Uri $url -Method GET -SkipHttpErrorCheck -TimeoutSec 20 -Headers @{'Cache-Control'='no-cache'}
+          if($http.StatusCode -ne 405){throw ('IO Premium endpoint HTTP unexpected '+$http.StatusCode)}
+          Write-Host 'IO_PREMIUM_TTS_HTTP_405_UNAUTHENTICATED_GET_PASS'
+          Write-Host 'IO_PREMIUM_CANONICAL_SITE_PUBLISHED_PASS'

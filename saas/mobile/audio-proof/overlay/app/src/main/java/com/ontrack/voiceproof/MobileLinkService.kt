@@ -4,10 +4,14 @@ import android.app.*
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.IBinder
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.os.Build
+import android.telephony.TelephonyManager
+import android.telephony.SubscriptionManager
 import androidx.core.app.NotificationCompat
 import com.ontrack.voiceproof.capture.*
 import kotlinx.coroutines.*
@@ -27,6 +31,7 @@ import java.util.concurrent.TimeUnit
 class MobileLinkService:Service() {
     companion object {
         const val ACTION_ENABLE="com.ontrack.voiceproof.ENABLE"
+        const val ACTION_RESTORE="com.ontrack.voiceproof.RESTORE_PREVIOUS_ENABLE"
         const val ACTION_DISABLE="com.ontrack.voiceproof.DISABLE"
         const val ACTION_TAKEOVER="com.ontrack.voiceproof.TAKEOVER"
         const val ACTION_SPEAKER="com.ontrack.voiceproof.SPEAKER"
@@ -34,6 +39,8 @@ class MobileLinkService:Service() {
         const val ACTION_CAMPAIGN_DISABLE="com.ontrack.voiceproof.CAMPAIGN_DISABLE"
         // Kept for pre-0.1.9 notifications, mapped to server disable.
         const val ACTION_PAUSE="com.ontrack.voiceproof.PAUSE"
+        /** Blocks pilot telephony during a tenant enrollment, even before token persistence. */
+        @Volatile var tenantPairingInProgress=false
         @Volatile var running=false
         @Volatile var agentEnabled=false
         @Volatile var connected=false
@@ -42,6 +49,9 @@ class MobileLinkService:Service() {
         @Volatile var callAnswered=false
         @Volatile var pendingSync=false
         @Volatile var humanControl=false
+        @Volatile var audioReady=false
+        @Volatile var audioDiagnostic=""
+        @Volatile var callProblem=""
         @Volatile var latestStatus="الربط متوقف"
         fun base(value:String):String {
             val uri=URI(value.trim())
@@ -54,34 +64,24 @@ class MobileLinkService:Service() {
     private val main=Handler(Looper.getMainLooper())
     private val retryWake=Channel<Unit>(Channel.CONFLATED)
     private val client=OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
-        .connectTimeout(8,TimeUnit.SECONDS).readTimeout(15,TimeUnit.SECONDS).pingInterval(15,TimeUnit.SECONDS).build()
+        .connectTimeout(16,TimeUnit.SECONDS).readTimeout(22,TimeUnit.SECONDS).pingInterval(15,TimeUnit.SECONDS).build()
     private lateinit var overlay:CallOverlay
     private var call:MobileLiveCall?=null
     private var loop:Job?=null
     private var callEventFlush:Job?=null
     private var callReportFlush:Job?=null
-    private lateinit var callEventOutbox:CallEventOutbox
-    private lateinit var campaignDialer:CampaignDialer
+    private var callLogLookup:Job?=null
+    private var tenantEventOutbox:CallEventOutbox?=null
+    @Volatile private var liveSimSlot:Int=-1
     private var connectivity:ConnectivityManager?=null
     private var networkListener:ConnectivityManager.NetworkCallback?=null
+    // A cellular radio can drop its packet network when a 3G/H+ call starts.
+    // Track real default-network reconnects, not a guessed 4G-only state.
+    @Volatile private var dataNetworkEpoch=0L
     @Volatile private var takeoverRequested=false
     @Volatile private var pendingDesired:Boolean?=null
     @Volatile private var recoveringActiveCall=false
-    private fun prefs()=getSharedPreferences("ontrack_link",MODE_PRIVATE)
-    private fun setPending(value:Boolean){
-        pendingDesired=value
-        pendingSync=true
-        // Offline STOP persists even if the OS kills the service before reconnect.
-        prefs().edit().putString("pending_agent_enabled",value.toString()).commit()
-    }
-    private fun confirmPending(value:Boolean) {
-        if(pendingDesired==value) {
-            prefs().edit().remove("pending_agent_enabled").commit()
-            pendingDesired=null
-            pendingSync=false
-        }
-    }
-    private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(connected,agentEnabled,inCall,callAnswered,humanControl)}}
+    private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(running,agentEnabled,inCall,callAnswered,humanControl,audioReady,callProblem,audioDiagnostic)}}
     private fun notice(value:String){
         latestStatus=value
         getSystemService(NotificationManager::class.java).notify(701,notification(value))
@@ -94,15 +94,17 @@ class MobileLinkService:Service() {
         val open=PendingIntent.getActivity(this,0,Intent(this,MobileLinkActivity::class.java),PendingIntent.FLAG_IMMUTABLE)
         val callLabel=when{
             inCall && humanControl->"أنت استلمت المكالمة من الإيجنت"
+            inCall && callProblem.isNotBlank()->callProblem
             inCall && !callAnswered->"مكالمة قيد الرنين أو الاتصال"
-            inCall && agentEnabled->"مكالمة متصلة — الإيجنت قيد التشغيل"
+            inCall && audioReady->"المكالمة متصلة — صوت الإيجنت يعمل"
+            inCall && agentEnabled->"المكالمة متصلة — جاري تجهيز صوت الإيجنت"
             else->value
         }
         val item=NotificationCompat.Builder(this,"ontrack_mobile_link")
             .setSmallIcon(android.R.drawable.ic_menu_call)
             .setContentTitle("OnTrack Voice").setContentText(callLabel)
             .setOngoing(true).setContentIntent(open)
-        if(inCall && callAnswered && agentEnabled && !humanControl)
+        if(inCall && callAnswered && audioReady && agentEnabled && !humanControl)
             item.addAction(android.R.drawable.ic_menu_myplaces,"استلام المكالمة من الإيجنت",pending(ACTION_TAKEOVER,1))
         if(inCall && callAnswered)
             item.addAction(android.R.drawable.ic_lock_silent_mode_off,"تبديل مخرج الصوت",pending(ACTION_SPEAKER,2))
@@ -115,22 +117,22 @@ class MobileLinkService:Service() {
     override fun onCreate(){
         super.onCreate()
         overlay=CallOverlay(this)
-        callEventOutbox=CallEventOutbox(this)
-        campaignDialer=CampaignDialer(this,{payload->
-            request(base(prefs().getString("base","")?:"")+"saas/mobile/campaigns_api.php",
-                prefs().getString("key","")?:"",payload)
-        },::notice)
-        pendingDesired=when(prefs().getString("pending_agent_enabled",null)){
-            "true"->true
-            "false"->false
-            else->null
-        }
-        pendingSync=pendingDesired!=null
+        // Never silently resume billable campaign dialing after OS process
+        // death, reboot, or OTA. An explicit on-device opt-in is required.
+        getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
+            .putBoolean("campaign_opt_in",false).apply()
+        pendingDesired=null
+        pendingSync=false
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel("ontrack_mobile_link","OnTrack Voice",NotificationManager.IMPORTANCE_LOW))
         connectivity=getSystemService(ConnectivityManager::class.java)
         val callback=object:ConnectivityManager.NetworkCallback(){
-            override fun onAvailable(network:Network){client.connectionPool.evictAll();retryWake.trySend(Unit)}
+            override fun onAvailable(network:Network){
+                dataNetworkEpoch++
+                client.connectionPool.evictAll()
+                retryWake.trySend(Unit)
+            }
+            override fun onCapabilitiesChanged(network:Network,caps:NetworkCapabilities){retryWake.trySend(Unit)}
             override fun onLost(network:Network){connected=false;retryWake.trySend(Unit)}
         }
         runCatching{connectivity?.registerDefaultNetworkCallback(callback)}
@@ -139,248 +141,911 @@ class MobileLinkService:Service() {
     override fun onBind(intent:Intent?):IBinder?=null
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
         startForeground(701,notification(latestStatus))
-        val action=intent?.action
-        when(action){
-            ACTION_CAMPAIGN_DISABLE->{
-                prefs().edit().putBoolean("campaign_opt_in",false).commit()
-                notice("تم إيقاف تنفيذ الحملات على الشريحة")
-                return START_STICKY
-            }
-            ACTION_CAMPAIGN_ENABLE->{
-                val permitted=androidx.core.content.ContextCompat.checkSelfPermission(
-                    this,android.Manifest.permission.CALL_PHONE)==android.content.pm.PackageManager.PERMISSION_GRANTED
-                if(permitted && prefs().getString("key","").orEmpty().length>=24) {
-                    prefs().edit().putBoolean("campaign_opt_in",true).commit()
-                    notice("الحملات مفعلة — للجدول المعتمد والأرقام المصرح بها فقط")
-                }else notice("يجب منح إذن الاتصال وربط الهاتف قبل تفعيل الحملات")
-                return START_STICKY
-            }
-            ACTION_TAKEOVER->{
-                if(callAnswered && !humanControl){
-                    takeoverRequested=true;humanControl=true
-                    callEventOutbox.activeCallId()?.let { id ->
-                        runCatching { callEventOutbox.appendReport(
-                            id,"handoff","system","الموظف استلم التحكم في المكالمة الحالية يدويًا من الإيجنت."
-                        ) }
-                    }
-                    // The shell socket returns the microphone mute to its original state.
-                    call?.stop();call=null
-                    notice("استلمت المكالمة من الإيجنت • التحكم بشري الآن، والمكالمة القادمة للـAI")
-                }
-                return START_STICKY
-            }
-            ACTION_SPEAKER->{
-                if(callAnswered)scope.launch{
-                    runCatching{CaptureDaemon.linkControl(this@MobileLinkService,'S')}
-                        .onSuccess{notice(if(it?.startsWith("SPEAKER ")==true)
-                            "السماعة: "+it.removePrefix("SPEAKER ") else "لم يؤكد الجهاز تغيير السماعة")}
-                        .onFailure{notice("السماعة غير متاحة في مسار المكالمة")}
-                }
-                return START_STICKY
-            }
-            ACTION_ENABLE,ACTION_DISABLE,ACTION_PAUSE,"STOP"->{
-                val value=action==ACTION_ENABLE
-                setPending(value)
-                if(!value) {
-                    agentEnabled=false
-                    if(inCall){takeoverRequested=true;humanControl=true;call?.stop();call=null}
-                }
-                notice(if(value)"جاري مزامنة التشغيل مع السيرفر…" else "جاري إيقاف الإيجنت على السيرفر…")
-                retryWake.trySend(Unit)
-            }
+        if(tenantPairingInProgress){
+            call?.stop();call=null;agentEnabled=false;connected=false
+            notice("ربط الشرائح قيد التنفيذ؛ الإيجنت متوقف لحين التحقق")
+            stopSelf();return START_NOT_STICKY
         }
-        if(loop?.isActive!=true){
-            running=true
-            loop=scope.launch{monitor()}
-        }
-        return START_STICKY
-    }
-    private suspend fun monitor(){
-        var backoff=2000L
-        // A single active monitor remains alive across Wi-Fi handoffs and server errors.
-        while(scope.isActive){
-            try{
-                val base=base(prefs().getString("base","")?:"")
-                val key=prefs().getString("key","")?:""
-                require(key.length>=24){"أدخل مفتاح اتصال الربط"}
-                pendingDesired?.let{desired->
-                    val result=request(base+"saas/mobile/control.php",key,JSONObject().put("enabled",desired))
-                    agentEnabled=result.getBoolean("enabled")
-                    serverRevision=result.getInt("revision")
-                    confirmPending(desired)
+        if(TenantDeviceEnrollment(this).hasAny()){
+            // Tenant mode NEVER executes the global pilot monitor or its session endpoint.
+            val action=intent?.action
+            when(action){
+                ACTION_DISABLE,ACTION_PAUSE,"STOP"->{
+                    tenantPrefs().edit().putBoolean("enabled",false).commit()
+                    agentEnabled=false;call?.stop();call=null;audioReady=false;connected=false
+                    notice("إيقاف محرك الشركات على هذا الجهاز")
                 }
-                // Re-attaches the local ADB assistant if its transport was lost on Wi-Fi switch.
-                check(CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)){
-                    "مساعد الاتصال يحتاج إعادة الاتصال؛ تحقق من Wireless debugging"
+                ACTION_ENABLE->{
+                    check(tenantPrefs().edit().putBoolean("enabled",true).commit()){
+                        "تعذر حفظ حالة تشغيل محرك الشركات"
+                    }
+                    agentEnabled=true
+                    notice("مراقبة الشريحة مفعّلة؛ جلسة Google Live تبدأ عند المكالمة")
                 }
-                AnsweringMachine.setEnabled(this@MobileLinkService,false)
-                CaptureDaemon.setAnswering(this@MobileLinkService)
-                RecorderSwitch.set(this@MobileLinkService,false)
-                check(CaptureDaemon.setDaemonMode(this@MobileLinkService,CaptureDaemon.MODE_OFF))
-                backoff=2000L
-                var settings=JSONObject()
-                var lastFetch=0L
-                var lastReport=0L
-                var lastState=-1
-                var callSeen=false
-                var ringingAt=0L
-                var answerIssued=false
-                while(scope.isActive){
-                    if(pendingDesired!=null){
-                        val desired=pendingDesired!!
-                        val result=request(base+"saas/mobile/control.php",key,JSONObject().put("enabled",desired))
-                        agentEnabled=result.getBoolean("enabled")
-                        serverRevision=result.getInt("revision")
-                        confirmPending(desired)
-                        lastFetch=0
-                    }
-                    if(SystemClock.elapsedRealtime()-lastFetch>=3000 || lastFetch==0L){
-                        settings=request(base+"saas/mobile/device.php",key,null).getJSONObject("settings")
-                        serverRevision=settings.optInt("revision",0)
-                        agentEnabled=settings.optBoolean("enabled",false) && pendingDesired!=false
-                        lastFetch=SystemClock.elapsedRealtime()
-                    }
-                    val raw=CaptureDaemon.linkControl(this@MobileLinkService,'Q')?:error("مساعد الشريحة غير متصل")
-                    val state=raw.substringAfter("CALL ").toIntOrNull()?:error("حالة الاتصال غير مفهومة")
-                    // Persist device-observed call transitions even when server delivery retries.
-                    callEventOutbox.observe(state)
-                    runCatching { callEventOutbox.enrichFromCallLog() } // optional consented on-device contact matching
-                    runCatching { campaignDialer.tick(state,agentEnabled) }
-                        .onFailure { notice("فحص الحملات لم يكتمل: "+it.javaClass.simpleName) }
-                    if(callEventFlush?.isActive!=true)callEventFlush=scope.launch {
-                        runCatching {
-                            val event=callEventOutbox.peek()?:return@runCatching
-                            request(base+"saas/mobile/call_event.php",key,event)
-                            callEventOutbox.acknowledge(event)
+                ACTION_RESTORE->{
+                    // Honor the last explicit user selection after process death/update.
+                    // Never auto-enable a SIM the user deliberately switched off.
+                    agentEnabled=tenantPrefs().getBoolean("enabled",false)
+                    notice(if(agentEnabled)
+                        "استُعيد تشغيل مراقبة الشرائح بعد فتح التطبيق"
+                    else "الرد الآلي متوقف بقرار المستخدم؛ اضغط تشغيل لتفعيله")
+                }
+                ACTION_TAKEOVER->{
+                    val slot=liveSimSlot
+                    if(slot in 0..1 && inCall && callAnswered && audioReady && call?.active==true){
+                        val bindingId=runCatching{TenantDeviceEnrollment(this).bindingId(slot)}.getOrNull()
+                        if(bindingId!=null)scope.launch(Dispatchers.IO) {
+                            runCatching{
+                                tenantEventOutbox?.recordHumanTakeover(slot,bindingId)
+                            }.onFailure{notice("تعذر حفظ حدث الاستلام؛ تابع سجل المكالمة")}
                         }
-                    }
-                    // A separate queue preserves transcripts when phone status calls retry.
-                    if(callReportFlush?.isActive!=true)callReportFlush=scope.launch {
-                        runCatching {
-                            val report=callEventOutbox.peekReport()?:return@runCatching
-                            request(base+"saas/mobile/call_report_event.php",key,report)
-                            callEventOutbox.acknowledgeReport(report)
-                        }
-                    }
-                    connected=true
-                    inCall=state==1||state==2
-                    callAnswered=state==2
-                    if(state==1 && lastState!=1){
-                        recoveringActiveCall=false // New call; previous manual handoff expired.
-                    }
-                    if(state==2 && recoveringActiveCall){
-                        // Do not attach a brand-new AI voice session in the middle of an old call.
-                        takeoverRequested=true;humanControl=true;callSeen=true
-                    }
-                    if(state==1 && lastState!=1){ringingAt=SystemClock.elapsedRealtime();answerIssued=false;callSeen=false;takeoverRequested=false;humanControl=false}
-                    if(state==2 && ringingAt!=0L && !answerIssued && !callSeen){
-                        takeoverRequested=true;humanControl=true;callSeen=true
-                    }
-                    if(!agentEnabled){
-                        call?.stop();call=null
-                        if(state==2){takeoverRequested=true;humanControl=true;callSeen=true}
+                        humanControl=true
+                        call?.stop();call=null;audioReady=false;connected=false
+                        callProblem=""
+                        notice("استلام بشري للمكالمة الحالية")
                     }else{
-                        if(state==1 && settings.optBoolean("auto_answer",false) && !answerIssued && !takeoverRequested){
-                            val wait=settings.optInt("answer_delay_seconds",5).coerceIn(0,30)*1000L
-                            if(SystemClock.elapsedRealtime()-ringingAt>=wait){
-                                answerIssued=true
-                                CaptureDaemon.linkControl(this@MobileLinkService,'A')
-                            }
+                        notice("لم تتصل جلسة صوت الإيجنت؛ لا يوجد صوت لاستلامه")
+                    }
+                }
+                ACTION_CAMPAIGN_ENABLE->{
+                    val permission=androidx.core.content.ContextCompat.checkSelfPermission(
+                        this,android.Manifest.permission.CALL_PHONE)==
+                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                    val readPhone=androidx.core.content.ContextCompat.checkSelfPermission(
+                        this,android.Manifest.permission.READ_PHONE_STATE)==
+                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                    val safe=permission && readPhone && agentEnabled && !inCall
+                    if(safe){
+                        check(getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
+                            .putBoolean("campaign_opt_in",true).commit()){
+                            "تعذر حفظ تفعيل الحملات"
                         }
-                        if(state==2 && !callSeen && !takeoverRequested){
-                            callSeen=true
+                        notice("تم اعتماد تشغيل حملات SIM؛ التنفيذ يتطلب موافقة السيرفر لكل محاولة")
+                    }else notice("الحملات متوقفة: شغل الإيجنت، امنح إذن الشريحة، وأنهِ المكالمة الحالية")
+                }
+                ACTION_CAMPAIGN_DISABLE->{
+                    getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
+                        .putBoolean("campaign_opt_in",false).commit()
+                    notice("تم إيقاف طلب مكالمات حملات جديدة؛ لا نقطع مكالمة جارية")
+                }
+                ACTION_SPEAKER->scope.launch{
+                    runCatching{CaptureDaemon.linkControl(this@MobileLinkService,'S')}
+                        .onSuccess{notice("تم طلب تبديل مخرج الصوت")}
+                        .onFailure{notice("تعذر تبديل الصوت على الجهاز")}
+                }
+            }
+            if(loop?.isActive!=true){
+                running=true
+                loop=scope.launch{tenantMonitor()}
+            }
+            // Google Live stays idle until a call; show the confirmed SIM-monitor state.
+            showOverlay()
+            return START_STICKY
+        }
+        // Native release 0.3.4: never start the global, legacy phone pilot for
+        // an unpaired device. A SIM-specific verified tenant binding is required.
+        agentEnabled=false;connected=false
+        call?.stop();call=null
+        notice("اربط شريحة SIM بحساب OnTrack وإيجنت منشور قبل تشغيل المكالمات")
+        stopSelf()
+        return START_NOT_STICKY
+    }
+    private fun tenantPrefs()=getSharedPreferences("ontrack_tenant_voice",MODE_PRIVATE)
+    /** Internet validity refers to Google Live's DEFAULT data path, not
+     * the carrier call state. The SIM can be OFFHOOK while LTE data is
+     * suspended (especially with another SIM as the data subscription).
+     * Never use a Wi-Fi-only precondition for already answered SIM calls.
+     */
+    private fun internetAvailableForRetry():Boolean = runCatching {
+        val cm=connectivity?:getSystemService(ConnectivityManager::class.java)
+        val caps=cm?.activeNetwork?.let { cm.getNetworkCapabilities(it) }
+        CellularCallRecoveryPolicy.mayRetryLive(
+            defaultNetworkPresent=caps!=null,
+            internetCapability=caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)==true,
+            validated=caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)==true,
+            cellularTransport=caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)==true
+        )
+    }.getOrDefault(false)
+    private fun dataRadioLabel():String = runCatching {
+        val subscription=SubscriptionManager.getDefaultDataSubscriptionId()
+        val manager=getSystemService(TelephonyManager::class.java)
+        val forData=if(subscription>=0)manager.createForSubscriptionId(subscription) else manager
+        CellularRadioStatus.label(forData.dataNetworkType)
+    }.getOrDefault("شبكة خلوية (الجيل غير معروف)")
+    private fun cellularCallNetworkHint(slot:Int):String = runCatching {
+        if(NetworkRevive.onWifi(this) || internetAvailableForRetry())return@runCatching ""
+        val callSubscription=TenantSimHardware.subscriptionId(this,slot)
+        val dataSubscription=SubscriptionManager.getDefaultDataSubscriptionId()
+        val support=runCatching {
+            val manager=getSystemService(TelephonyManager::class.java)
+            val voice=if(callSubscription>=0)manager.createForSubscriptionId(callSubscription) else manager
+            voice.isConcurrentVoiceAndDataSupported
+        }.getOrNull()
+        CellularRadioStatus.voiceDataHint(
+            dataInternetAvailable=false,
+            simultaneousVoiceData=support,
+            callSimEqualsDataSim=dataSubscription<0 || dataSubscription==callSubscription)
+    }.getOrDefault("الداتا غير متاحة أثناء المكالمة؛ إعادة ربط الإيجنت عند عودتها")
+    private fun internetRoute():String = runCatching {
+        val cm=connectivity?:getSystemService(ConnectivityManager::class.java)
+        val caps=cm?.activeNetwork?.let { network -> cm.getNetworkCapabilities(network) }
+        when {
+            caps==null -> "offline"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> dataRadioLabel()
+            else -> "network"
+        }
+    }.getOrDefault("unknown")
+    /** 
+     * Single-active-SIM devices use the established shell CALL Q source.
+     * Q is global and cannot identify a SIM, so dual-active-SIM devices
+     * continue to use subscription-scoped Android call states only.
+     */
+    private data class SlotCall(val slot:Int,val state:Int)
+    private suspend fun currentSlotCalls():List<SlotCall>{
+        check(Build.VERSION.SDK_INT>=31){"Android 12 أو أحدث مطلوب لعزل حالة المكالمة لكل شريحة"}
+        val enrollment=TenantDeviceEnrollment(this)
+        val activeSlots=runCatching{
+            getSystemService(SubscriptionManager::class.java)
+                ?.activeSubscriptionInfoList.orEmpty().map{it.simSlotIndex}
+        }.getOrDefault(emptyList())
+        val boundSlots=(0..1).filter{enrollment.paired(it)}.toSet()
+        val nativeSlot=TenantCallRouting.nativeSingleSimSlot(activeSlots,boundSlots)
+        if(nativeSlot!=null){
+            val nativeState=runCatching{
+                CaptureDaemon.linkControl(this,'Q')?.trim()
+                    ?.let{Regex("^CALL ([012])$").matchEntire(it)?.groupValues?.get(1)?.toInt()}
+            }.getOrNull()
+            if(nativeState!=null)return listOf(SlotCall(nativeSlot,nativeState))
+        }
+        // If Q is unavailable, fall back to OS telephony with explicit errors.
+        val telephony=getSystemService(TelephonyManager::class.java)
+            ?:error("خدمة الاتصال غير متاحة")
+        return (0..1).mapNotNull{slot->
+            val subscription=try{
+                TenantSimHardware.subscriptionId(this,slot)
+            }catch(error:Exception){
+                if(enrollment.paired(slot))throw IllegalStateException(
+                    "لا يمكن قراءة حالة SIM ${slot+1}: "+error.message.orEmpty().take(85),error)
+                return@mapNotNull null
+            }
+            val state=try{
+                telephony.createForSubscriptionId(subscription).callStateForSubscription
+            }catch(error:Exception){
+                if(enrollment.paired(slot))throw IllegalStateException(
+                    "حالة المكالمات غير متاحة لـ SIM ${slot+1}: "+error.message.orEmpty().take(85),error)
+                return@mapNotNull null
+            }
+            SlotCall(slot,state)
+        }
+    }
+    private suspend fun tenantMonitor(){
+        val enrollment=TenantDeviceEnrollment(this)
+        val tenantEvents=CallEventOutbox(this,"ontrack_tenant_call_events")
+        tenantEventOutbox=tenantEvents
+        val reportOutbox=CallReportOutbox(this)
+        var lastReportAttempt=0L
+        var lastManagerPoll=0L
+        var managerClaim:Deferred<Result<JSONObject>>?=null
+        var managerCallback:JSONObject?=null
+        var managerSawOffhook=false
+        var managerDialAt=0L
+        var campaignClaim:Deferred<Result<Pair<Int,JSONObject>?>>?=null
+        var campaignDial:Deferred<Result<String>>?=null
+        var campaignInProgress:JSONObject?=null
+        var campaignSawOffhook=false
+        var campaignDialAt=0L
+        var campaignPhone=""
+        var lastCampaignPoll=0L
+        var selected:Int?=null
+        var lastState=TelephonyManager.CALL_STATE_IDLE
+        var ringingAt=0L
+        var answeredByAgent=false
+        var ringAttempted=false
+        var autoAnswerRequested=false
+        var autoAnswerAttempts=0
+        var nextAutoAnswerRetryAt=0L
+        var outgoingCall=false
+        var startedAt=0L
+        var tenantFlow:JSONObject?=null
+        var tenantSession:JSONObject?=null
+        var policy=JSONObject()
+        var flowLoad:Deferred<Result<JSONObject>>?=null
+        var sessionLoad:Deferred<Result<Triple<JSONObject,JSONObject,JSONObject>>>?=null
+        var audioStart:Deferred<Result<Unit>>?=null
+        var audioAttemptCount=0
+        var nextAudioRetryAt=0L
+        var lastError=""
+        var mobileDataLostDuringCall=false
+        var lastDefaultNetworkEpoch=dataNetworkEpoch
+        var lastObservedRadio=internetRoute()
+        var perCallNetworkResets=0
+        // 2026-11-04 field regression: handset OFFHOOK alone is NOT evidence
+        // that an agent answered, the microphone is muted, or Gemini receives
+        // caller PCM. Separately prove Q/A, signed per-SIM session, shell PCM
+        // header+mute and AI readiness. Never set humanControl on errors:
+        // only the explicit ACTION_TAKEOVER may record that user action.
+        //
+        // The working Pilot prepared and authenticated the local shell bridge
+        // BEFORE a phone rang. Restoring that readiness avoids a slow ADB
+        // handshake when the first incoming call needs an immediate answer.
+        runCatching {
+            check(CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)){
+                "الربط المحلي للصوت غير جاهز؛ أعد تشغيل Wireless debugging"
+            }
+            AnsweringMachine.setEnabled(this@MobileLinkService,false)
+            CaptureDaemon.setAnswering(this@MobileLinkService)
+            RecorderSwitch.set(this@MobileLinkService,false)
+            check(CaptureDaemon.setDaemonMode(this@MobileLinkService,CaptureDaemon.MODE_OFF)){
+                "تعذر وضع محرك الصوت في وضع التحكم المباشر"
+            }
+        }.onFailure {
+            val noWifiBridge=!NetworkRevive.onWifi(this@MobileLinkService) &&
+                !StartWithoutWifi.ready(this@MobileLinkService)
+            val action=if(noWifiBridge)
+                "؛ فعّل «بدء بدون Wi-Fi» مرة واحدة من إعدادات التطبيق وأنت على Wi-Fi موثوق"
+                else ""
+            callProblem="الربط المحلي للصوت غير جاهز: "+it.message.orEmpty().take(85)+action
+            notice(callProblem)
+        }
+        try{
+            while(scope.isActive && enrollment.hasAny() && !tenantPairingInProgress){
+                try{
+                    agentEnabled=tenantPrefs().getBoolean("enabled",false)
+                    if(!agentEnabled){
+                        // Continue observing the SIM while the AI is disabled.
+                        call?.stop();call=null;tenantSession=null;connected=false;audioReady=false
+                    }
+                    val states=currentSlotCalls()
+                    val active=states.filter{it.state!=TelephonyManager.CALL_STATE_IDLE}
+                    if(active.size>1){
+                        audioStart?.cancel();audioStart=null
+                        // Vendor telephony APIs can report the same call on both
+                        // subscriptions. Never guess the tenant/SIM or claim a
+                        // manual takeover that the user did not request.
+                        call?.stop();call=null;tenantSession=null
+                        sessionLoad?.cancel();sessionLoad=null
+                        audioReady=false;connected=false
+                        inCall=true;callAnswered=active.any{it.state==TelephonyManager.CALL_STATE_OFFHOOK}
+                        val issue="حالة المكالمة ملتبسة بين شريحتين؛ لم يتم توصيل صوت الإيجنت"
+                        if(callProblem!=issue){callProblem=issue;notice(issue)}
+                        delay(900);continue
+                    }
+                    val current=active.singleOrNull()
+                    if(campaignInProgress!=null && current?.state==TelephonyManager.CALL_STATE_OFFHOOK &&
+                       current.slot==campaignInProgress?.optInt("sim_slot",-1)){
+                        campaignSawOffhook=true
+                    }
+                    if(campaignClaim?.isCompleted==true){
+                        val proposed=campaignClaim?.await()?.getOrNull()
+                        campaignClaim=null
+                        if(proposed!=null){
+                            val slot=proposed.first
+                            val claim=proposed.second
+                            val attempt=claim.optString("id","")
                             try{
-                                notice("جاري توصيل المكالمة بالإيجنت")
-                                val session=request(base+"saas/mobile/session.php",key,JSONObject().put("mode","demo"))
-                                val prefsNow=prefs()
-                                if(prefsNow.getBoolean("campaign_saw_active",false) &&
-                                    prefsNow.getString("campaign_pending_attempt","").orEmpty().isNotEmpty()) {
-                                    val scenario=prefsNow.getString("campaign_scenario","").orEmpty()
-                                    if(scenario.isNotBlank()) {
-                                        val fullName=prefsNow.getString("campaign_contact_name","").orEmpty()
-                                        val phone=prefsNow.getString("campaign_contact_phone","").orEmpty()
-                                        val firstName=fullName.trim().split(Regex("\\s+")).firstOrNull().orEmpty()
-                                        val personalized=scenario
-                                            .replace("{{contact.full_name}}",fullName.ifBlank{"حضرتك"})
-                                            .replace("{{contact.first_name}}",firstName.ifBlank{"حضرتك"})
-                                            .replace("{{contact.phone}}",phone)
-                                        val instruction=session.getString("system_instruction")
-                                        session.put("system_instruction",instruction+
-                                            "\\n\\nسيناريو حملة مُعتمدة للمكالمة الصادرة الحالية فقط: \\n"+
-                                            personalized.take(8000))
+                                check(slot in 0..1 && enrollment.paired(slot) &&
+                                    getSharedPreferences("ontrack_link",MODE_PRIVATE)
+                                        .getBoolean("campaign_opt_in",false) &&
+                                    agentEnabled && current==null && managerCallback==null &&
+                                    campaignInProgress==null && !tenantPairingInProgress){
+                                    "توقفت صلاحية الاتصال قبل التحقق النهائي"
+                                }
+                                check(attempt.matches(Regex("^[a-f0-9]{32}$"))){
+                                    "معرف محاولة الحملة غير صالح"
+                                }
+                                // Reserve this one attempt before starting network I/O.
+                                // The telephony observer MUST NEVER block on LTE.
+                                campaignInProgress=JSONObject(claim.toString()).put("sim_slot",slot)
+                                campaignDialAt=0L;campaignSawOffhook=false
+                                campaignDial=scope.async(Dispatchers.IO){
+                                    runCatching{
+                                        val verified=enrollment.workspace(slot,"workspace_campaign_verify",
+                                            JSONObject().put("attempt_id",attempt))
+                                            .getJSONObject("verification")
+                                        check(verified.optBoolean("allowed",false) &&
+                                            verified.optInt("sim_slot",-1)==slot &&
+                                            verified.optInt("must_dial_within_seconds",0) in 1..10){
+                                            "سيرفر الحملات رفض الموافقة الأخيرة"
+                                        }
+                                        check(getSharedPreferences("ontrack_link",MODE_PRIVATE)
+                                            .getBoolean("campaign_opt_in",false) &&
+                                            agentEnabled && enrollment.paired(slot) &&
+                                            currentSlotCalls().all{
+                                                it.state==TelephonyManager.CALL_STATE_IDLE
+                                            }){
+                                            "اتصال آخر بدأ أو تم إيقاف الحملة"
+                                        }
+                                        val phone=TenantCampaignDialer.e164(claim.getString("phone"))
+                                        TenantCampaignDialer.place(this@MobileLinkService,slot,phone)
+                                        phone
                                     }
                                 }
-                                if(!takeoverRequested && agentEnabled){
-                                    val observedCallId=callEventOutbox.activeCallId()
-                                    val newCall=MobileLiveCall(this@MobileLinkService,client,scope,session,settings,::notice,
-                                        {role,text->observedCallId?.let { id ->
-                                            callEventOutbox.appendReport(id,"transcript",role,text)
-                                        }})
-                                    call=newCall;newCall.start()
-                                    if(takeoverRequested || !agentEnabled){newCall.stop();call=null}
+                            }catch(problem:Exception){
+                                if(slot in 0..1 && enrollment.paired(slot) &&
+                                   attempt.matches(Regex("^[a-f0-9]{32}$"))){
+                                    scope.launch(Dispatchers.IO){
+                                        runCatching{enrollment.workspace(slot,"workspace_campaign_finish",
+                                            JSONObject().put("attempt_id",attempt)
+                                                .put("result","unknown"))}
+                                    }
                                 }
-                            }catch(t:Throwable){
-                                call?.stop();call=null
-                                notice("فشل جلسة الصوت، المكالمة تحت تحكم الهاتف")
+                                notice("اتمنعت محاولة الحملة: "+problem.message.orEmpty().take(100))
                             }
                         }
                     }
-                    if(state==0 && lastState!=0){
-                        call?.stop();call=null;callSeen=false;ringingAt=0;answerIssued=false
-                        takeoverRequested=false;humanControl=false;recoveringActiveCall=false
-                    }
-                    val telephonyStateChanged=state!=lastState
-                    lastState=state
-                    // Refresh notification actions when ringing turns into an answered call.
-                    // Without this, takeover/speaker controls can remain stale until another notice.
-                    if(telephonyStateChanged)getSystemService(NotificationManager::class.java)
-                        .notify(701,notification(latestStatus))
-                    if(SystemClock.elapsedRealtime()-lastReport>4000){
-                        lastReport=SystemClock.elapsedRealtime()
-                        val phase=when{
-                            state==0->"idle"
-                            state==1->"ringing"
-                            humanControl->"human"
-                            call?.active==true->"ai"
-                            else->"connecting"
+                    if(campaignDial?.isCompleted==true){
+                        val result=campaignDial?.await()
+                        campaignDial=null
+                        if(result?.isSuccess==true){
+                            campaignPhone=result.getOrThrow()
+                            campaignDialAt=SystemClock.elapsedRealtime()
+                            campaignInProgress?.put("dial_started_wall_ms",System.currentTimeMillis())
+                            notice("تم طلب اتصال حملة من شريحة معتمدة؛ انتهاء المكالمة لم يتأكد بعد")
+                        }else{
+                            val failed=campaignInProgress
+                            campaignInProgress=null
+                            campaignDialAt=0L;campaignSawOffhook=false;campaignPhone=""
+                            val slot=failed?.optInt("sim_slot",-1)?:-1
+                            val attempt=failed?.optString("id","").orEmpty()
+                            if(slot in 0..1 && enrollment.paired(slot) &&
+                               attempt.matches(Regex("^[a-f0-9]{32}$"))){
+                                scope.launch(Dispatchers.IO){
+                                    runCatching{enrollment.workspace(slot,"workspace_campaign_finish",
+                                        JSONObject().put("attempt_id",attempt)
+                                            .put("result","unknown"))}
+                                }
+                            }
+                            notice("مكالمة الحملة غير مؤكدة؛ محتاجة مراجعة قبل أي إعادة اتصال")
                         }
-                        val status=JSONObject().put("phase",phase)
-                            .put("agent_running",agentEnabled)
-                            .put("connected",connected)
-                            .put("pending_sync",pendingSync)
-                            .put("revision",serverRevision)
-                        scope.launch{runCatching{request(base+"saas/mobile/status.php",key,status)}}
                     }
-                    if(state==0)notice(if(agentEnabled)"متصل • الإيجنت جاهز" else "متصل • الإيجنت متوقف")
+                    if(current==null && campaignInProgress==null && campaignClaim==null &&
+                       managerCallback==null && managerClaim==null &&
+                       agentEnabled && getSharedPreferences("ontrack_link",MODE_PRIVATE)
+                           .getBoolean("campaign_opt_in",false) &&
+                       SystemClock.elapsedRealtime()-lastCampaignPoll>=10000L){
+                        lastCampaignPoll=SystemClock.elapsedRealtime()
+                        campaignClaim=scope.async(Dispatchers.IO){
+                            runCatching{
+                                var found:Pair<Int,JSONObject>?=null
+                                for(slot in 0..1){
+                                    if(!enrollment.paired(slot))continue
+                                    val reply=enrollment.workspace(slot,"workspace_campaign_claim")
+                                    val claim=reply.optJSONObject("claim")
+                                    if(claim!=null){found=slot to claim;break}
+                                }
+                                found
+                            }
+                        }
+                    }
+                    // Never put network I/O in the 750ms telephony observer.
+                    // The authenticated claim is fetched asynchronously and
+                    // can be dialed ONLY after the physical SIM is fully idle.
+                    if(managerCallback!=null && current?.state==TelephonyManager.CALL_STATE_OFFHOOK &&
+                        current.slot==managerCallback?.optInt("sim_slot",-1)){
+                        managerSawOffhook=true
+                    }
+                    if(managerClaim?.isCompleted==true) {
+                        val claimed=managerClaim?.await()
+                        managerClaim=null
+                        val job=claimed?.getOrNull()?.optJSONObject("job")
+                        if(job!=null){
+                            val slot=job.optInt("sim_slot",-1)
+                            val jobId=job.optInt("id",-1)
+                            val safeToCall=current==null && managerCallback==null &&
+                                campaignInProgress==null && campaignClaim==null &&
+                                agentEnabled && !tenantPairingInProgress &&
+                                slot in 0..1 && enrollment.paired(slot) &&
+                                runCatching{enrollment.bindingId(slot)>0}.getOrDefault(false)
+                            try {
+                                check(safeToCall){"مكالمة أخرى جارية أو الشريحة غير جاهزة"}
+                                check(jobId>0){"معرف إبلاغ غير صالح"}
+                                // Only the owner-configured phone from the server
+                                // may reach the native Android dialer.
+                                HumanEscalationDialer.placeOnPairedSim(this@MobileLinkService,
+                                    slot,job.getString("phone"))
+                                managerCallback=job
+                                managerSawOffhook=false
+                                managerDialAt=SystemClock.elapsedRealtime()
+                                scope.launch(Dispatchers.IO){
+                                    runCatching{enrollment.workspace(slot,"workspace_handoff_ack",
+                                        JSONObject().put("job_id",jobId).put("stage","dial_started"))}
+                                        .onFailure{notice("تعذر تحديث حالة اتصال المدير في السجل")}
+                                }
+                                notice("جاري الاتصال بـ"+job.optString("name","المسؤول")+
+                                    " لإبلاغه بطلب الموظف وملخص المكالمة")
+                            }catch(problem:Exception){
+                                if(slot in 0..1 && enrollment.paired(slot) && jobId>0)
+                                    scope.launch(Dispatchers.IO){
+                                        runCatching{enrollment.workspace(slot,"workspace_handoff_ack",
+                                            JSONObject().put("job_id",jobId).put("stage","failed"))}
+                                    }
+                                notice("تعذر إبلاغ المدير: "+problem.message.orEmpty().take(110))
+                            }
+                        }
+                    }
+                    val observedBinding=current?.slot?.takeIf { enrollment.paired(it) }
+                        ?.let { runCatching { enrollment.bindingId(it) }.getOrNull() }
+                    tenantEvents.observe(if(observedBinding!=null)current!!.state else TelephonyManager.CALL_STATE_IDLE,
+                        if(observedBinding!=null)current!!.slot else -1,observedBinding?:-1)
+                    if(callEventFlush?.isActive!=true)callEventFlush=scope.launch {
+                        runCatching {
+                            val event=tenantEvents.peekEligible { slot ->
+                                if(enrollment.paired(slot))runCatching { enrollment.bindingId(slot) }.getOrNull() else null
+                            }?:return@runCatching
+                            val slot=event.optInt("sim_slot",-1)
+                            if(slot !in 0..1 || !enrollment.paired(slot) ||
+                                event.optInt("device_id",-1)!=enrollment.bindingId(slot))return@runCatching
+                            val response=withContext(Dispatchers.IO){
+                                enrollment.workspace(slot,"workspace_call_event",event)
+                            }
+                            if(response.optBoolean("accepted"))tenantEvents.acknowledge(event)
+                        }.onFailure { notice("تعذر رفع حدث مكالمة SaaS؛ سيُعاد الإرسال دون تكرار") }
+                    }
+                    // A report is retried separately from call-state events. The
+                    // original event may not have arrived yet; keep encrypted
+                    // evidence until the server explicitly acknowledges saving.
+                    if(callReportFlush?.isActive!=true &&
+                        SystemClock.elapsedRealtime()-lastReportAttempt>=6000L){
+                        lastReportAttempt=SystemClock.elapsedRealtime()
+                        callReportFlush=scope.launch {
+                            runCatching {
+                                val report=reportOutbox.peekEligible { slot ->
+                                    if(enrollment.paired(slot))runCatching { enrollment.bindingId(slot) }.getOrNull() else null
+                                }?:return@runCatching
+                                val slot=report.optInt("sim_slot",-1)
+                                if(slot !in 0..1 || !enrollment.paired(slot) ||
+                                    report.optInt("device_id",-1)!=enrollment.bindingId(slot))return@runCatching
+                                val response=enrollment.workspace(slot,"workspace_call_analysis",report)
+                                if(response.optBoolean("saved"))reportOutbox.acknowledge(report)
+                            }.onFailure {
+                                notice("تعذر حفظ تحليل المكالمة؛ محفوظ مشفرًا وسيُعاد الإرسال")
+                            }
+                        }
+                    }
+                    if(current==null){
+                        val attempt=campaignInProgress
+                        if(attempt!=null && campaignDial==null && campaignDialAt>0L &&
+                           (campaignSawOffhook ||
+                            SystemClock.elapsedRealtime()-campaignDialAt>=45000L)){
+                            val slot=attempt.optInt("sim_slot",-1)
+                            val attemptId=attempt.optString("id","")
+                            val hadOffhook=campaignSawOffhook
+                            val phone=campaignPhone
+                            val placedAt=attempt.optLong("dial_started_wall_ms",0L)
+                            campaignInProgress=null;campaignSawOffhook=false
+                            campaignPhone="";campaignDialAt=0L
+                            if(slot in 0..1 && enrollment.paired(slot) &&
+                               attemptId.matches(Regex("^[a-f0-9]{32}$"))){
+                                scope.launch(Dispatchers.IO){
+                                    delay(2000L) // CallLog may lag behind carrier idle.
+                                    val outcome=if(hadOffhook && placedAt>0L)
+                                        TenantCampaignDialer.finishResult(this@MobileLinkService,phone,placedAt)
+                                        else "unknown"
+                                    runCatching{enrollment.workspace(slot,"workspace_campaign_finish",
+                                        JSONObject().put("attempt_id",attemptId).put("result",outcome))}
+                                        .onFailure{notice("نتيجة مكالمة الحملة غير مؤكدة؛ يلزم مراجعة قبل تكرارها")}
+                                }
+                            }
+                        }
+                        val callback=managerCallback
+                        if(callback!=null){
+                            if(managerSawOffhook ||
+                                SystemClock.elapsedRealtime()-managerDialAt>45000L) {
+                                val jobId=callback.optInt("id",-1)
+                                val slot=callback.optInt("sim_slot",-1)
+                                val status=if(managerSawOffhook)"call_ended_unverified" else "failed"
+                                if(jobId>0 && slot in 0..1 && enrollment.paired(slot))
+                                    scope.launch(Dispatchers.IO){
+                                        runCatching{
+                                            enrollment.workspace(slot,"workspace_handoff_ack",
+                                                JSONObject().put("job_id",jobId).put("stage",status))
+                                        }.onFailure{notice("تعذر توثيق نتيجة مكالمة المدير؛ راجع السجل")}
+                                    }
+                                managerCallback=null
+                                managerSawOffhook=false
+                                managerDialAt=0L
+                            }
+                        }
+                        if(managerCallback==null && managerClaim==null &&
+                            campaignInProgress==null && campaignClaim==null && agentEnabled &&
+                            SystemClock.elapsedRealtime()-lastManagerPoll>=4000L){
+                            lastManagerPoll=SystemClock.elapsedRealtime()
+                            managerClaim=scope.async(Dispatchers.IO){
+                                runCatching{
+                                    var result=JSONObject().put("job",JSONObject.NULL)
+                                    for(slot in 0..1){
+                                        if(!enrollment.paired(slot))continue
+                                        val candidate=enrollment.workspace(slot,"workspace_handoff_claim")
+                                        if(candidate.optJSONObject("job")!=null){
+                                            result=candidate
+                                            break
+                                        }
+                                    }
+                                    result
+                                }
+                            }
+                        }
+                        audioStart?.cancel();audioStart=null
+                        flowLoad?.cancel();flowLoad=null
+                        sessionLoad?.cancel();sessionLoad=null
+                        audioReady=false;callProblem="";audioDiagnostic=""
+                        if(selected!=null){
+                            val endedCall=call;call=null
+                            endedCall?.stop()
+                            // Flush accumulated transcript segment into CallReportOutbox before idle finalization.
+                            endedCall?.awaitReports()
+                            tenantSession=null;tenantFlow=null
+                            selected=null;liveSimSlot=-1;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;autoAnswerAttempts=0;nextAutoAnswerRetryAt=0L;outgoingCall=false;humanControl=false;policy=JSONObject()
+                            ringingAt=0L;startedAt=0L;audioAttemptCount=0;nextAudioRetryAt=0L
+                        }
+                        // The cellular call has ended. Only NOW submit the
+                        // encrypted, accumulated real-time text to summarization.
+                        runCatching{
+                            reportOutbox.finalizeAtIdle { slot ->
+                                if(enrollment.paired(slot))runCatching{enrollment.bindingId(slot)}.getOrNull()
+                                else null
+                            }
+                        }.onFailure{notice("نص المكالمة محفوظ؛ تعذر تجهيزه للملخص وسيُعاد بعد انشغال الخط")}
+                        inCall=false;callAnswered=false
+                        if(callLogLookup?.isActive!=true)callLogLookup=scope.launch(Dispatchers.IO) {
+                            delay(2600)
+                            if(!inCall)runCatching{tenantEvents.enrichFromCallLog { !inCall }}
+                        }
+                        // Running a monitor is not an authenticated voice connection.
+                        connected=false
+                        if(lastState!=TelephonyManager.CALL_STATE_IDLE)notice("مراقب الشرائح جاهز؛ اختبر Google والـFlow قبل المكالمة")
+                        lastState=TelephonyManager.CALL_STATE_IDLE
+                        delay(750);continue
+                    }
+                    // The observed SIM must be paired; other subscriptions remain human-only.
+                    if(!enrollment.paired(current.slot)){
+                        audioStart?.cancel();audioStart=null
+                        if(selected!=null){call?.stop();call=null}
+                        selected=null;tenantSession=null;connected=false;audioReady=false
+                        delay(750);continue
+                    }
+                    if(selected!=current.slot){
+                        audioStart?.cancel();audioStart=null
+                        flowLoad?.cancel();flowLoad=null
+                        sessionLoad?.cancel();sessionLoad=null
+                        audioReady=false;callProblem="";audioDiagnostic=""
+                        selected=current.slot;liveSimSlot=current.slot;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;autoAnswerAttempts=0;nextAutoAnswerRetryAt=0L;outgoingCall=false;tenantFlow=null;tenantSession=null
+                        ringingAt=SystemClock.elapsedRealtime();startedAt=0L;humanControl=false;policy=JSONObject()
+                        audioAttemptCount=0;nextAudioRetryAt=0L
+                    }
+                    inCall=true;callAnswered=current.state==TelephonyManager.CALL_STATE_OFFHOOK
+                    if(!agentEnabled){
+                        audioStart?.cancel();audioStart=null
+                        // Agent-off is NOT the same as an explicit human takeover.
+                        tenantFlow=null;tenantSession=null;audioReady=false;connected=false
+                        sessionLoad?.cancel();sessionLoad=null
+                        callProblem=""
+                        if(lastState!=current.state)notice("تم رصد مكالمة على SIM ${current.slot+1} — الإيجنت متوقف")
+                        lastState=current.state
+                        showOverlay()
+                        delay(750);continue
+                    }
+                    if(current.state==TelephonyManager.CALL_STATE_RINGING && !ringAttempted){
+                        ringAttempted=true
+                        outgoingCall=false
+                        val slot=current.slot
+                        // Load signed Flow/policy without pausing shell ring polling.
+                        flowLoad=scope.async(Dispatchers.IO){
+                            runCatching{enrollment.publishedFlow(slot)}
+                        }
+                        notice("الشريحة ${slot+1}: تم رصد الرنين؛ جاري تحميل سياسة الإيجنت")
+                    }
+                    if(flowLoad?.isCompleted==true){
+                        val result=flowLoad?.await()
+                        flowLoad=null
+                        result?.onSuccess { flow->
+                            tenantFlow=flow
+                            policy=flow.optJSONObject("answer_policy")?:JSONObject()
+                            val auto=policy.optBoolean("auto_answer",false)
+                            callProblem=if(auto) "" else "الرد التلقائي مغلق في إعدادات الإيجنت"
+                            if(auto && current.state==TelephonyManager.CALL_STATE_RINGING &&
+                                sessionLoad==null && tenantSession==null){
+                                // Warm the per-SIM authorized Gemini token during
+                                // ringing, so OFFHOOK doesn't wait on three HTTP
+                                // requests before the audio bridge can start.
+                                val slot=current.slot
+                                val snapshot=flow
+                                sessionLoad=scope.async(Dispatchers.IO){
+                                    runCatching{
+                                        Triple(snapshot,policy,enrollment.voiceSession(slot,snapshot))
+                                    }
+                                }
+                            }
+                            notice(if(auto) "سيتم الرد تلقائيًا على SIM ${current.slot+1} بعد المهلة المحددة"
+                                else "الرنين مرصود لكن الرد التلقائي مغلق في سياسة الإيجنت")
+                        }?.onFailure { problem->
+                            val message=problem.message.orEmpty().take(140)
+                            callProblem="تعذر تحميل سياسة الإيجنت: "+message
+                            if(message!=lastError){lastError=message;notice(callProblem)}
+                        }
+                    }
+                    if(TenantCallRouting.autoAnswerDue(
+                            current.state==TelephonyManager.CALL_STATE_RINGING,
+                            policy.optBoolean("auto_answer",false) && tenantFlow!=null && agentEnabled,
+                            SystemClock.elapsedRealtime()-ringingAt,
+                            policy.optInt("answer_delay_seconds",5),
+                            autoAnswerRequested,humanControl) &&
+                        CellularCallRecoveryPolicy.autoAnswerRetryAllowed(
+                            ringing=true,alreadyAcknowledged=autoAnswerRequested,
+                            attempts=autoAnswerAttempts,nowMs=SystemClock.elapsedRealtime(),
+                            nextRetryAtMs=nextAutoAnswerRetryAt)){
+                        // Retry temporary LTE bridge failures while ringing;
+                        // acknowledged answers and OFFHOOK are never retried.
+                        autoAnswerAttempts++
+                        try{
+                            check(CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)){
+                                "جسر الرد الآلي غير جاهز؛ على الداتا راجع إعداد بدء التشغيل بدون Wi-Fi في التطبيق"
+                            }
+                            val daemonState=CaptureDaemon.linkControl(this@MobileLinkService,'Q')
+                            check(daemonState=="CALL 1"){"رابط الرد الآلي لم يؤكد الرنين: "+(daemonState?:"لا توجد استجابة")}
+                            val ack=CaptureDaemon.linkControl(this@MobileLinkService,'A')
+                            check(ack!=null){"لم يؤكد رابط الهاتف أمر الرد التلقائي"}
+                            autoAnswerRequested=true
+                            callProblem=""
+                            notice("أُرسل أمر الرد للشريحة ${current.slot+1}؛ انتظار تأكيد OFFHOOK")
+                        }catch(problem:Exception){
+                            nextAutoAnswerRetryAt=SystemClock.elapsedRealtime()+
+                                CellularCallRecoveryPolicy.answerRetryDelayMs(autoAnswerAttempts)
+                            callProblem="تعذر الرد التلقائي ("+internetRoute()+"): "+
+                                problem.message.orEmpty().take(110)
+                            notice(callProblem+" — الرد اليدوي ما زال متاحًا للإيجنت")
+                        }
+                    }
+                    // Both incoming (automatic OR answered manually) and
+                    // outgoing calls enter here ONLY after the bound SIM has
+                    // moved to OFFHOOK. The original Pilot also issued its Live
+                    // session after answering instead of delaying the answer.
+                    // A failed Gemini/PCM attempt on LTE must not permanently
+                    // latch the OFFHOOK call into silence. Only retry after
+                    // default internet VALIDATES, and never repeat phone A/Q.
+                    val now=SystemClock.elapsedRealtime()
+                    // 3G/H+ voice calls can suspend packet data, then return it.
+                    // Reset a bounded exhausted AI-start budget only after a genuine
+                    // default network transition or an observed offline->online change.
+                    // Never answer the carrier call a second time or override takeover.
+                    if(current.state==TelephonyManager.CALL_STATE_OFFHOOK &&
+                        !humanControl && !audioReady){
+                        val dataReady=internetAvailableForRetry()
+                        if(!dataReady)mobileDataLostDuringCall=true
+                        val networkChanged=dataNetworkEpoch!=lastDefaultNetworkEpoch
+                        val currentRadio=internetRoute()
+                        // 4G -> H+ can keep the same Android Network object;
+                        // compare actual radio as well as onAvailable callbacks.
+                        val radioChanged=lastObservedRadio!=currentRadio &&
+                            lastObservedRadio.isNotBlank()
+                        lastObservedRadio=currentRadio
+                        if(dataReady && (mobileDataLostDuringCall || networkChanged || radioChanged) &&
+                            perCallNetworkResets<2 &&
+                            CellularCallRecoveryPolicy.canRearmAfterNetworkReturn(
+                                current.state==TelephonyManager.CALL_STATE_OFFHOOK,
+                                agentEnabled,humanControl,audioReady,audioAttemptCount)){
+                            mobileDataLostDuringCall=false
+                            perCallNetworkResets++
+                            audioAttemptCount=audioAttemptCount.coerceAtMost(1)
+                            nextAudioRetryAt=now+1000L
+                        }
+                        if(dataReady)lastDefaultNetworkEpoch=dataNetworkEpoch
+                    }
+                    if(call==null && tenantSession==null && sessionLoad==null && audioStart==null &&
+                       TenantCallRouting.voiceRetryDue(
+                           current.state==TelephonyManager.CALL_STATE_OFFHOOK,
+                           agentEnabled,humanControl,audioReady,answeredByAgent,
+                           audioAttemptCount,CellularCallRecoveryPolicy.MAX_VOICE_START_ATTEMPTS,
+                            internetAvailableForRetry(),now,nextAudioRetryAt)){
+                        answeredByAgent=false
+                        notice("عاد الإنترنت (${internetRoute()})؛ إعادة ربط صوت AI للمكالمة الجارية")
+                    }
+                    if(TenantCallRouting.attachAfterOffhook(
+                            current.state==TelephonyManager.CALL_STATE_OFFHOOK,
+                            agentEnabled,humanControl,answeredByAgent)){
+                        answeredByAgent=true // one attempt until a bounded, validated recovery
+                        audioAttemptCount++
+                        outgoingCall=!ringAttempted
+                        val slot=current.slot
+                        val preparedFlow=tenantFlow
+                        // Call-state polling must not block on SaaS, Gemini tokens
+                        // or a slow published Flow response after OFFHOOK.
+                        if(sessionLoad==null && tenantSession==null){
+                            sessionLoad=scope.async(Dispatchers.IO){
+                                runCatching {
+                                    val flow=preparedFlow?:enrollment.publishedFlow(slot)
+                                    val answer=flow.optJSONObject("answer_policy")?:JSONObject()
+                                    val session=enrollment.voiceSession(slot,flow)
+                                    Triple(flow,answer,session)
+                                }
+                            }
+                        }
+                        callProblem=""
+                        notice("الشريحة ${slot+1}: تم توصيل المكالمة؛ تجهيز تفويض صوت الإيجنت")
+                    }
+                    if(sessionLoad?.isCompleted==true){
+                        val result=sessionLoad?.await()
+                        sessionLoad=null
+                        result?.onSuccess { (flow,answer,session)->
+                            tenantFlow=flow;tenantSession=session;policy=answer
+                            callProblem=""
+                            if(current.state==TelephonyManager.CALL_STATE_OFFHOOK)
+                                notice("الشريحة ${current.slot+1}: جلسة الإيجنت صالحة؛ توصيل صوت المكالمة")
+                        }?.onFailure { problem ->
+                            tenantSession=null
+                            nextAudioRetryAt=SystemClock.elapsedRealtime()+
+                                CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
+                            val message=problem.message.orEmpty().take(140)
+                            val hint=cellularCallNetworkHint(current.slot)
+                            callProblem="تعذر تشغيل صوت الإيجنت ("+internetRoute()+"): "+message+
+                                (if(hint.isNotEmpty()) "؛ "+hint else "")
+                            if(message!=lastError){lastError=message;notice(callProblem)}
+                        }
+                    }
+                    if(current.state==TelephonyManager.CALL_STATE_OFFHOOK &&
+                        answeredByAgent && tenantSession!=null && call==null && !humanControl){
+                        check(CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)){
+                            "رابط الصوت المحلي لا يعمل بعد الرد"
+                        }
+                        val daemonState=CaptureDaemon.linkControl(this@MobileLinkService,'Q')
+                        check(daemonState=="CALL 2"){"تعذر تأكيد وصول المكالمة إلى PCM: "+(daemonState?:"لا توجد استجابة")}
+                        val sess=tenantSession!!
+                        val selectedCode=sess.optString("voice",
+                            tenantFlow?.optString("voice","google.aoede").orEmpty())
+                        val isIoPremium=selectedCode=="io.premium"
+                        if(isIoPremium)check(sess.optString("voice_engine")=="official_google_live_fish_pcm"){
+                            "اختيار IO Premium غير مدعوم في نسخة السيرفر الحالية"
+                        }
+                        val voice=if(isIoPremium)"Aoede"
+                            else selectedCode.substringAfterLast('.')
+                                .replaceFirstChar{it.uppercaseChar()}
+                        val liveSettings=JSONObject().put("voice",voice)
+                            .put("voice_label",if(isIoPremium)"IO Premium" else voice)
+                            .put("input_channel","mix")
+                            .put("response_style",policy.optString("response_style","egyptian_short"))
+                        val callback=managerCallback?.takeIf{
+                            it.optInt("sim_slot",-1)==current.slot
+                        }
+                        if(callback!=null){
+                            val brief="المسؤول: "+callback.optString("name","مدير الشركة").take(100)+
+                                "\nالعميل: "+callback.optString("customer_name","غير معروف").take(100)+
+                                "\nرقم العميل: "+callback.optString("customer_phone","غير متاح").take(30)+
+                                "\nسبب طلب الموظف: "+callback.optString("reason","غير مذكور").take(900)+
+                                "\nملخص المكالمة: "+callback.optString("summary","لم يتوفر تفريغ موثق").take(1200)
+                            liveSettings.put("manager_briefing",brief)
+                        }
+                        val reportCallId=tenantEvents.currentCallId(current.slot)
+                        val reportSlot=current.slot
+                        val reportBinding=enrollment.bindingId(reportSlot)
+                        val currentCall=MobileLiveCall(this@MobileLinkService,client,scope,
+                            sess,liveSettings,::notice,outgoingCall=outgoingCall,
+                            rotateVoiceToken={ previous,failure ->
+                                enrollment.rotateVoiceSession(reportSlot,previous,failure)
+                            },
+                            premiumPcm=if(isIoPremium) { text,keepRunning,chunk ->
+                                enrollment.streamPremiumPcm(reportSlot,text,keepRunning,chunk)
+                            } else null,
+                            onHumanRequested={ reason,notes ->
+                                if(reportCallId!=null && callback==null)
+                                    tenantEvents.recordCustomerHumanRequest(reportSlot,reportBinding,reason,notes)
+                                else false
+                            },
+                            onCallNote={ summary,notes ->
+                                if(reportCallId!=null && callback==null)
+                                    tenantEvents.recordAgentCallNote(reportSlot,reportBinding,summary,notes)
+                                else false
+                            },
+                            onAudioDiagnostics={ diagnostic ->
+                                // Gemini setup alone cannot prove the VoLTE modem
+                                // delivered audible PCM to the other party.
+                                if(inCall && liveSimSlot==reportSlot && !humanControl){
+                                    audioDiagnostic=diagnostic
+                                    showOverlay()
+                                }
+                            }) { realTranscript ->
+                            if(reportCallId!=null && callback==null)
+                                reportOutbox.appendLiveSegment(reportSlot,reportBinding,reportCallId,realTranscript)
+                        }
+                        // Regression 2026-11-04: synchronous 25s Gemini setup
+                        // froze the SIM ring/OFFHOOK polling loop, so loss of a
+                        // call or manual handoff was not observed promptly.
+                        // A Session token is not PCM-ready and cannot enable
+                        // the human-takeover button until start() succeeds.
+                        call=currentCall
+                        audioReady=false;audioDiagnostic="";connected=false
+                        audioStart=scope.async(Dispatchers.IO){
+                            try{
+                                currentCall.start()
+                                Result.success(Unit)
+                            }catch(timeout:TimeoutCancellationException){
+                                // A 25s Google setup timeout on LTE is a
+                                // recoverable media error, NOT cancellation of
+                                // this long-lived SIM monitor. Bubble it into
+                                // the bounded voiceRetryDue path after internet
+                                // revalidates. Only real job cancellation
+                                // should stop the coroutine.
+                                Result.failure(IllegalStateException(
+                                    "انتهت مهلة Google Live على ${internetRoute()}؛ إعادة محاولة الصوت",timeout))
+                            }catch(cancelled:CancellationException){throw cancelled}
+                            catch(problem:Exception){Result.failure(problem)}
+                        }
+                        startedAt=SystemClock.elapsedRealtime()
+                        notice("الشريحة ${current.slot+1}: توصيل PCM وكتم الميكروفون قبل تجهيز Google Live")
+                    }
+                    if(audioStart?.isCompleted==true){
+                        val result=audioStart?.await()
+                        audioStart=null
+                        result?.onSuccess{
+                            if(call?.active==true){
+                                audioReady=true;connected=true;callProblem=""
+                                notice("PCM وGoogle Live جاهزين على SIM ${current.slot+1}؛ اختبار صوت الجهاز مطلوب")
+                            }
+                        }?.onFailure{problem->
+                            call?.stop();call=null;tenantSession=null
+                            audioReady=false;connected=false
+                            nextAudioRetryAt=SystemClock.elapsedRealtime()+
+                                CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
+                            callProblem="فشل ربط الصوت (${internetRoute()}): "+problem.message.orEmpty().take(110)
+                            notice(callProblem)
+                        }
+                    }
+                    if(call!=null && !call!!.active){
+                        audioStart?.cancel();audioStart=null
+                        call=null;tenantSession=null;audioReady=false;connected=false
+                        nextAudioRetryAt=SystemClock.elapsedRealtime()+
+                            CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
+                        callProblem="انقطعت جلسة الصوت (${internetRoute()})؛ المكالمة على الهاتف بدون AI"
+                        notice(callProblem)
+                    }
+                    if(call!=null && startedAt>0 &&
+                        SystemClock.elapsedRealtime()-startedAt>policy.optInt("max_call_minutes",10).coerceIn(1,30)*60000L){
+                        audioStart?.cancel();audioStart=null
+                        call?.stop();call=null;audioReady=false;connected=false
+                        callProblem="انتهى الوقت المحدد لصوت الإيجنت؛ الهاتف ما زال متصلًا"
+                        notice(callProblem)
+                    }
+                    lastState=current.state
                     showOverlay()
-                    delay(800)
+                    withTimeoutOrNull(750L){retryWake.receiveCatching()}
+                }catch(timeout:TimeoutCancellationException){
+                    // An LTE/ADB timeout must not terminate the SIM observer.
+                    // Continue monitoring the physical call and allow bounded
+                    // voice reconnect when the default internet route returns.
+                    audioStart?.cancel();audioStart=null
+                    call?.stop();call=null;tenantSession=null
+                    audioReady=false;connected=false
+                    nextAudioRetryAt=SystemClock.elapsedRealtime()+
+                        CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
+                    callProblem="انتهت مهلة ربط الصوت (${internetRoute()})؛ محاولة استعادة"
+                    notice(callProblem)
+                    delay(1800)
+                }catch(cancelled:CancellationException){throw cancelled}
+                catch(error:Exception){
+                    audioStart?.cancel();audioStart=null
+                    // A transport/runtime failure is NOT an explicit takeover.
+                    // Preserve diagnostic UI while keeping human MIC available.
+                    call?.stop();call=null;tenantSession=null
+                    audioReady=false;connected=false
+                    nextAudioRetryAt=SystemClock.elapsedRealtime()+
+                        CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
+                    val msg=error.message.orEmpty().take(150)
+                    callProblem="تعذر اتصال صوت المكالمة (${internetRoute()}): "+msg
+                    if(msg!=lastError){lastError=msg;notice(callProblem)}
+                    showOverlay()
+                    delay(1800)
                 }
-            }catch(t:Throwable){
-                if(t is CancellationException)throw t
-                if(inCall)recoveringActiveCall=true
-                call?.stop();call=null
-                inCall=false;callAnswered=false;connected=false
-                // Keep human control of the same call after Wi-Fi recovery.
-                notice("إعادة الاتصال تلقائيًا • "+t.javaClass.simpleName)
-                withTimeoutOrNull(backoff){retryWake.receive()}
-                backoff=(backoff*2).coerceAtMost(30000L)
             }
+        }finally{
+            call?.stop();call=null;running=false;connected=false;audioReady=false;audioDiagnostic=""
+            inCall=false;callAnswered=false;agentEnabled=false;callProblem=""
         }
     }
-    private fun request(url:String,key:String,body:JSONObject?):JSONObject{
-        val builder=Request.Builder().url(url).header("Authorization","Bearer $key")
-        if(body!=null)builder.post(body.toString().toRequestBody("application/json".toMediaType()))
-        client.newCall(builder.build()).execute().use{
-            check(it.isSuccessful){"HTTP ${it.code}"}
-            val text=it.body?.string()?:error("empty response")
-            check(text.length<=200000){"response limit"}
-            val value=JSONObject(text);check(value.optBoolean("ok")){"server refused request"}
-            return value
-        }
-    }
+    /** Never continue pilot AI/telephony after any tenant SIM starts enrollment. */
     override fun onDestroy(){
         networkListener?.let{runCatching{connectivity?.unregisterNetworkCallback(it)}}
-        call?.stop();scope.cancel();running=false;connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false
+        call?.stop();scope.cancel();running=false;connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false;audioReady=false;callProblem="";audioDiagnostic="";audioDiagnostic=""
+        liveSimSlot=-1;tenantEventOutbox=null
         overlay.remove();latestStatus="الربط متوقف"
         super.onDestroy()
     }

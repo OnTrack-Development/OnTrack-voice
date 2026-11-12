@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Hotline | اتصال مباشر</title>
+<style>
+:root{font-family:system-ui,"Segoe UI",Tahoma,sans-serif;color:#f9f7fa;background:#09090e}*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:radial-gradient(ellipse at 50% -20%,#69304855,transparent 65%),#09090e}svg{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round;stroke-linecap:round}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #ff819b;outline-offset:3px}
+main{max-width:1170px;padding:22px 22px 40px;margin:auto}.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #ffffff17;padding-bottom:19px}.brand{display:flex;align-items:center;gap:12px}.brand-logo{height:44px;width:44px;flex-shrink:0;display:grid;place-items:center;color:white;background:linear-gradient(145deg,#f34768,#94152e);border-radius:13px;box-shadow:0 7px 27px #b7214755}.brand-logo svg{width:23px}.brand-copy{display:flex;flex-direction:column;gap:5px}.brand-name{font-size:18px;line-height:1;font-weight:900;letter-spacing:-.7px;direction:ltr}.brand-name b{color:#fa526f}.brand-subtitle{font-size:10px;color:#a4a0af}
+.toolbar{display:flex;align-items:center;gap:8px}.live-tag{font-size:10px;color:#c5bdca;background:#ffffff08;border:1px solid #ffffff18;border-radius:25px;padding:8px 12px;direction:ltr}.live-tag:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#f14a71;margin-right:7px;box-shadow:0 0 10px #e93a62}
+.tool-menu>summary{list-style:none;cursor:pointer;width:42px;height:42px;display:grid;place-items:center;color:#d8d2dd;border-radius:13px;border:1px solid #ffffff21;background:#1c1a23}.tool-menu>summary::-webkit-details-marker{display:none}.tool-menu>summary:hover,.tool-menu[open]>summary{color:#fff;background:#3b2131;border-color:#f04b7399}.tool-menu svg{width:19px}.tool-menu[open]>summary{position:relative;z-index:21}
+.popover-panel{display:none;position:fixed;z-index:20;top:78px;right:max(14px,calc((100vw - 1170px)/2 + 22px));width:min(525px,calc(100vw - 28px));max-height:calc(100dvh - 94px);overflow:auto;padding:22px;border-radius:22px;border:1px solid #51404d;background:#1b1922;box-shadow:0 27px 95px #000d}.tool-menu[open] .popover-panel{display:block}.popover-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.popover-heading strong{font-size:17px}.popover-heading small{font-size:11px;color:#9993a4}
+.workspace{display:grid;grid-template-columns:minmax(0,.97fr) minmax(0,1.03fr);gap:19px;margin-top:22px}.call-stage,.conversation{min-width:0;border-radius:27px;border:1px solid #ffffff16;background:linear-gradient(155deg,#1b1821,#101016 75%);box-shadow:0 18px 65px #0005}
+.call-stage{display:flex;align-items:center;flex-direction:column;position:relative;isolation:isolate;overflow:hidden;text-align:center;min-height:620px;padding:26px 25px 20px;background:radial-gradient(circle at 50% 40%,#78263f60,transparent 42%),linear-gradient(155deg,#1c1721,#100f15 72%)}
+.call-stage:before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(125deg,#ffffff09,transparent 35%)}.call-top{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:right}.call-top small{display:block;direction:ltr;color:#9b8e9f;letter-spacing:2px;font-size:10px;font-weight:900}.call-top strong{font-size:14px}.call-top em{font-style:normal;font-size:11px;color:#aca4b4}.call-top em:before{content:"●";color:#eb5474;padding-left:7px}
+.call-pill{display:flex;align-items:center;gap:8px;margin-top:34px;border:1px solid #ffffff1e;border-radius:40px;padding:8px 14px;background:#ffffff09;font-size:12px;color:#c9c0ce}.call-pill:before{content:"";width:7px;height:7px;background:#f25777;border-radius:50%;box-shadow:0 0 0 4px #f2577724}.call-stage[data-state="listening"] .call-pill:before,.call-stage[data-state="speaking"] .call-pill:before{background:#4fd4a1;box-shadow:0 0 0 4px #4fd4a122}
+.visualizer{display:grid;place-items:center;position:relative;width:230px;height:230px;flex-shrink:0}.signal-ring{position:absolute;inset:17px;border:1px solid #f155792a;border-radius:50%;box-shadow:inset 0 0 28px #d02a4620}.signal-ring:nth-child(2){inset:0}.signal-ring:nth-child(3){inset:35px;border-color:#f1557955}
+.call-stage:not([data-state="idle"]) .signal-ring{animation:ring 2.2s ease-in-out infinite}.call-stage:not([data-state="idle"]) .signal-ring:nth-child(2){animation-delay:.5s}.call-stage:not([data-state="idle"]) .signal-ring:nth-child(3){animation-delay:1s}@keyframes ring{0%,100%{opacity:.35;transform:scale(.93)}50%{opacity:1;transform:scale(1.1)}}
+.phone-avatar{z-index:1;width:132px;height:132px;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle at 30% 25%,#82314e,#341624 55%,#18111a);border:1px solid #fb69865c;box-shadow:0 0 50px #f1416725,inset 0 0 20px #fff1}.phone-avatar svg{width:54px;color:#ff819a;transform:rotate(-12deg);filter:drop-shadow(0 0 12px #e7466f)}
+.call-stage:not([data-state="idle"]) .phone-avatar svg{animation:ring-phone 2.2s ease-in-out infinite}@keyframes ring-phone{0%,100%{transform:rotate(-12deg)}8%,22%{transform:rotate(0deg)}15%,29%{transform:rotate(-24deg)}35%{transform:rotate(-12deg)}}
+.call-stage h1{font-size:clamp(23px,3vw,30px);margin:1px 0 6px}.description{font-size:12px;color:#aca2b1;line-height:1.8;margin:0}.call-clock{direction:ltr;color:#aaa0b0;font-size:20px;letter-spacing:2px;font-weight:600;margin-top:17px;font-variant-numeric:tabular-nums}
+.sound-bars{display:flex;align-items:center;justify-content:center;gap:4px;height:17px;margin:9px 0 5px}.sound-bars i{height:3px;width:3px;border-radius:10px;background:#f15c80}.call-stage[data-state="speaking"] .sound-bars i,.call-stage[data-state="listening"] .sound-bars i{animation:bar .8s ease-in-out infinite alternate}.sound-bars i:nth-child(even){animation-delay:.35s}@keyframes bar{from{height:3px}to{height:17px}}
+.status{min-height:41px;display:flex;align-items:center;justify-content:center;color:#d8cedb;font-size:12px;line-height:1.7}.call-controls{display:flex;align-items:center;justify-content:center;gap:15px;margin-top:auto}.orb{display:grid;place-items:center;width:68px;height:68px;border-radius:22px;border:0;background:linear-gradient(145deg,#fa536f,#c0193b);box-shadow:0 12px 30px #bd1f456a;color:#fff;transition:transform .2s}.orb:hover{transform:translateY(-2px)}.orb.active{border-radius:50%}.orb.active svg{transform:rotate(135deg)}.orb svg{width:29px}.control-copy{text-align:right;display:flex;flex-direction:column;gap:4px}.control-copy strong{font-size:13px}.control-copy small{font-size:11px;color:#ada4b4}.call-stage[data-state="idle"] .active-copy,.call-stage:not([data-state="idle"]) .idle-copy{display:none}#stop{display:none}
+.secondary-action{margin-top:21px;background:none;border:0;color:#b2a6b7;text-decoration:underline;text-underline-offset:4px;font-size:11px}.timing{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%;margin-top:19px;border-top:1px solid #ffffff15;padding-top:14px}.timing span{color:#97909e;line-height:1.65;font-size:10px;overflow-wrap:anywhere}
+.conversation{display:flex;flex-direction:column;min-height:620px;padding:24px}.conversation-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:19px;border-bottom:1px solid #ffffff15}.conversation-title{display:flex;align-items:center;gap:10px}.chat-icon{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:#e83c6324;color:#ff6385}.chat-icon svg{width:20px}.conversation h2{font-size:16px;margin:0 0 5px}.conversation small{font-size:11px;color:#938c9b}.secure-label{font-size:10px;color:#a59cac;border:1px solid #ffffff17;border-radius:20px;padding:6px 10px}
+#log{flex:1;display:flex;flex-direction:column;gap:12px;overflow:auto;max-height:465px;min-height:270px;padding:18px 2px;scrollbar-width:thin;scrollbar-color:#673448 transparent}.log-placeholder{margin:auto;display:flex;align-items:center;flex-direction:column;gap:10px;color:#9f98a8;text-align:center;font-size:12px;line-height:1.8}.log-placeholder svg{width:34px;color:#fa6b88}
+.bubble{max-width:88%;padding:12px 14px;border-radius:16px;border:1px solid #ffffff13;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9}.mine{align-self:flex-start;background:#5b2038;border-bottom-right-radius:4px}.theirs{align-self:flex-end;background:#292530;border-bottom-left-radius:4px}
+.send{display:flex;gap:9px;margin-top:auto;padding-top:14px;border-top:1px solid #ffffff16}.send input{flex:1;min-width:0}.send button{padding:0 18px;border:0;border-radius:12px;background:#ec3d60;color:#fff;font-weight:bold;font-size:12px}.input-note{margin:12px 0 0;text-align:center;color:#807684;font-size:10px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#d1cbd6}input,select{width:100%;min-width:0;background:#121019;border:1px solid #4a4050;border-radius:12px;color:#faf8fb;padding:11px;font-size:12px}input:focus,select:focus{border-color:#ed486a}input[type=checkbox]{width:auto;accent-color:#ee4569}.inline{flex-direction:row;align-items:flex-start;gap:9px;margin-top:14px;line-height:1.7}
+.help{color:#ada5b2;font-size:11px;line-height:1.9}.settings-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:17px 0 12px}.settings-actions button{color:#fff;background:#e73b60;border:0;border-radius:12px;padding:12px 14px;font-size:12px;font-weight:bold}.settings-state,.settings-note{color:#b8aebe;font-size:11px;line-height:1.8}#diagnosticLog{direction:ltr;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;background:#101017;color:#bec2d0;padding:13px;border-radius:12px;border:1px solid #433746;font:11px/1.7 ui-monospace,monospace}.trace-actions{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.ghost{background:#ffffff10;border:1px solid #ffffff22;border-radius:11px;color:#ded8e3;padding:10px 13px;font-size:12px}audio{display:none}#buildInfo{color:#77717e;font-size:10px;text-align:center;padding-top:15px}
+@media(max-width:720px){main{padding:14px 12px 28px}.topbar{padding-bottom:13px}.live-tag{display:none}.brand-name{font-size:16px}.brand-subtitle{font-size:9px}.tool-menu>summary{width:39px;height:39px}.workspace{grid-template-columns:1fr;gap:14px;margin-top:15px}.call-stage{min-height:468px;padding:18px 15px 15px}.call-pill{margin-top:18px}.visualizer{width:185px;height:185px}.phone-avatar{width:115px;height:115px}.call-stage h1{margin-top:0}.call-clock{margin-top:10px}.status{min-height:36px}.conversation{min-height:410px;padding:18px}.secure-label{display:none}#log{min-height:190px;max-height:390px}.grid{grid-template-columns:1fr}.popover-panel{top:68px;right:12px;max-height:calc(100dvh - 80px)}}
+@media(max-width:360px){.brand-name{font-size:14px}.brand-logo{width:38px;height:38px}.tool-menu>summary{width:36px;height:36px}.visualizer{width:165px;height:165px}.phone-avatar{width:100px;height:100px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Hotline call screen: phone UI only. Provider configuration and diagnostics stay behind header icons. */
+html,body{background:#050505!important;color:#f6f6f6}
+body{background-image:none!important}
+main{max-width:650px;min-height:100dvh;padding:16px 15px 32px}
+.topbar{border:0;padding:2px 4px 15px}
+.brand-logo{width:39px;height:39px;border:1px solid #303030;background:#121212;box-shadow:none;border-radius:12px}
+.brand-name{font-size:20px;letter-spacing:1.2px;font-weight:800}
+.brand-subtitle{color:#8b8b8b;font-size:10px}
+.tool-menu>summary{width:38px;height:38px;border-radius:50%;background:#111;border-color:#252525;color:#9c9c9c}
+.tool-menu>summary:hover,.tool-menu[open]>summary{background:#1b1b1b;border-color:#646464;color:#fff}
+.tool-menu>summary svg{width:17px;height:17px}
+.popover-panel{top:69px;right:max(12px,calc((100vw - 650px)/2 + 15px));background:#101010;border:1px solid #333;box-shadow:0 20px 80px #000}
+.popover-heading strong{color:#fff}
+.workspace{display:flex;flex-direction:column;gap:14px;align-items:center;margin-top:6px}
+.call-stage{width:min(100%,520px);min-height:min(740px,calc(100dvh - 130px));padding:31px 20px 26px;border:0;border-radius:25px;background:#080808;box-shadow:none}
+.call-stage:before{display:none}
+.call-top{padding:0 3px}
+.call-top small{font-size:10px;color:#646464;letter-spacing:2.3px}
+.call-top strong{font-size:14px;font-weight:600;color:#d9d9d9}
+.call-top em{color:#8e8e8e}
+.call-top em:before{color:#20cb72}
+.call-pill{margin-top:35px;background:#111;border:1px solid #222;color:#b7b7b7}
+.call-pill:before{background:#21c872;box-shadow:0 0 0 4px #20c8721b}
+.call-stage[data-state="connecting"] .call-pill:before{background:#f0b83d;box-shadow:0 0 0 4px #f0b83d21}
+.call-stage[data-state="listening"] .call-pill:before,.call-stage[data-state="speaking"] .call-pill:before{background:#20c870;box-shadow:0 0 0 4px #20c87022}
+.visualizer{width:235px;height:235px;margin:4px 0 0}
+.signal-ring,.signal-ring:nth-child(3){border-color:#272727;box-shadow:none}
+.call-stage:not([data-state="idle"]) .signal-ring{border-color:#2f2f2f}
+.call-stage[data-state="connecting"] .signal-ring{border-color:#20c8725b}
+.call-stage[data-state="speaking"] .signal-ring{border-color:#f03b4b55}
+.phone-avatar{background:linear-gradient(145deg,#242424,#0d0d0d);border:1px solid #303030;box-shadow:0 0 42px #111;width:138px;height:138px}
+.phone-avatar svg{color:#f5f5f5;filter:none;width:56px}
+.call-stage h1{font-size:clamp(26px,5vw,33px);font-weight:720;margin:2px 0 7px}
+.description{font-size:13px;color:#989898}
+.call-clock{color:#eee;font-size:28px;letter-spacing:3px;margin-top:16px}
+.sound-bars i{background:#25d176}
+.call-stage[data-state="speaking"] .sound-bars i{background:#ef4658}
+.status{font-size:13px;color:#ababab;padding:0 10px;max-width:430px}
+.call-controls{flex-direction:column;gap:14px;width:100%;padding:20px 0 0}
+.orb{width:84px;height:84px;border-radius:50%;color:#fff;background:#20c66a;box-shadow:0 10px 34px #17ad5d3b;transition:background .15s ease,box-shadow .15s ease,transform .15s ease}
+.orb:hover{background:#23d373;transform:scale(1.04)}
+.orb:active{transform:scale(.94)}
+.orb.active{background:#e83643;box-shadow:0 10px 34px #c5283b4b;border-radius:50%}
+.orb.active:hover{background:#f1434f}
+.orb svg{width:37px;height:37px;stroke-width:2.2}
+.orb.active svg{transform:rotate(135deg)}
+.control-copy{align-items:center;text-align:center}
+.control-copy strong{font-size:15px;font-weight:600}
+.control-copy small{display:none}
+#stop{display:none}
+.timing{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:12px;padding-top:12px;border-color:#303030}
+.timing span{color:#8c8c8c}
+.secondary-action{margin:16px 0 0;color:#b0b0b0;text-decoration:none;font-size:12px}
+.advanced-tools{margin-top:15px;border-top:1px solid #282828;padding-top:5px}
+.chat-drawer{width:min(100%,520px);background:#0c0c0c;border:1px solid #202020;border-radius:17px;overflow:hidden}
+.chat-drawer>summary{list-style:none;padding:16px 18px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:650;color:#ddd}
+.chat-drawer>summary::-webkit-details-marker{display:none}
+.chat-drawer>summary span{font-size:11px;color:#777;font-weight:400}
+.chat-drawer[open]>summary{border-bottom:1px solid #222}
+.conversation{width:100%;min-height:390px;background:#0c0c0c;border:0;border-radius:0;padding:18px;box-shadow:none}
+.conversation-head{border-bottom-color:#252525}
+.conversation h2{font-size:15px}
+.chat-icon{background:#181818;color:#e7e7e7}
+#log{min-height:165px;max-height:370px}
+.bubble.mine{background:#163c29;border-color:#25583c}
+.bubble.theirs{background:#202020;border-color:#303030}
+.send{border-top-color:#252525}
+.send button{background:#1baa60}
+.input-note{color:#777}
+input,select{background:#171717;border-color:#363636;color:#f4f4f4}
+.settings-actions button{background:#219e60}
+#diagnosticLog{background:#0b0b0b;border-color:#292929}
+#buildInfo{display:none}
+@media(max-width:720px){
+ main{padding:13px 12px 26px}
+ .workspace{gap:10px;margin-top:8px}
+ .call-stage{min-height:calc(100dvh - 172px);padding:22px 12px 18px;border-radius:20px}
+ .visualizer{height:205px;width:205px}
+ .phone-avatar{height:124px;width:124px}
+ .phone-avatar svg{width:50px}
+ .call-pill{margin-top:23px}
+ .call-clock{margin-top:8px}
+ .call-controls{padding-top:12px}
+ .orb{height:80px;width:80px}
+ .status{min-height:30px}
+ .popover-panel{top:64px;right:12px;max-height:calc(100dvh - 76px)}
+}
+@media(max-width:360px){.visualizer{height:170px;width:170px}.phone-avatar{width:102px;height:102px}.orb{width:73px;height:73px}}
+@media(prefers-reduced-motion:reduce){.orb{transition:none}}
+
+/* PIN access is a dedicated visual gate; all API access is enforced in PHP. */
+body.pin-locked main{pointer-events:none;user-select:none;filter:blur(6px);opacity:.3;min-height:100dvh}
+.pin-gate{position:fixed;z-index:100;inset:0;background:#050505ef;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}
+.pin-gate[hidden]{display:none}
+.pin-card{width:min(100%,380px);background:#101010;border:1px solid #2e2e2e;border-radius:26px;padding:33px 26px 29px;text-align:center;box-shadow:0 20px 70px #000}
+.pin-symbol{display:grid;place-items:center;margin:0 auto 21px;width:72px;height:72px;border-radius:50%;background:#183e2b;color:#32dc83}
+.pin-symbol svg{width:32px}
+.pin-card h1{font-size:24px;margin:0 0 10px;color:#fff}
+.pin-card p{color:#a3a3a3;font-size:13px;line-height:1.8;margin:0 0 24px}
+#pinForm{display:flex;flex-direction:column;align-items:stretch;gap:14px}
+#pinInput{direction:ltr;text-align:center;letter-spacing:13px;font:700 28px/1.3 system-ui,sans-serif;width:100%;border:1px solid #434343;background:#171717;border-radius:14px;padding:14px 4px;color:white;outline:0;font-variant-numeric:tabular-nums}
+#pinInput:focus{border-color:#26c977}
+#pinSubmit{width:100%;background:#20bb68;color:#fff;border:0;border-radius:14px;padding:15px;font-size:15px;font-weight:750}
+#pinSubmit:disabled{opacity:.5}
+#pinMessage{min-height:24px;color:#ff8993;font-size:12px;margin-top:15px;line-height:1.8}
+.pin-footer{margin-top:12px;font-size:11px;color:#666}
+[hidden]{display:none!important}
+</style>
+</head>
+<body class="pin-locked">
+<section id="pinGate" class="pin-gate" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+  <div class="pin-card">
+    <div class="pin-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></div>
+    <h1 id="pinTitle">دخول الخط المباشر</h1>
+    <p>اكتب كود الدخول المكوّن من 6 أرقام علشان تفتح شاشة الاتصال.</p>
+    <form id="pinForm">
+      <label for="pinInput" class="sr-only">كود الدخول</label>
+      <input id="pinInput" name="pin" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" minlength="6" autocomplete="one-time-code" aria-label="كود الدخول المكون من ستة أرقام" placeholder="••••••" required>
+      <button id="pinSubmit" type="submit">فتح الاتصال</button>
+    </form>
+    <div id="pinMessage" role="status" aria-live="polite">جاري التأكد من الاتصال...</div>
+    <div class="pin-footer">الكود صالح للدخول بدون حساب أدمن</div>
+  </div>
+</section>
+<main>
+
+<header class="topbar"><div class="brand"><div class="brand-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></div><div class="brand-copy"><span class="brand-name">HOTLINE</span><span class="brand-subtitle">اتصال صوتي مباشر</span></div></div>
+<div class="toolbar"><details class="tool-menu" id="diagnosticsDrawer"><summary title="سجل الاتصال" aria-label="سجل تشخيص الاتصال"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></summary><div class="popover-panel"><div class="popover-heading"><strong>سجل الاتصال</strong><small>Error Log</small></div>
+<p class="help">خطوات Gemini Live وFish Audio وأزمنتها وأكواد HTTP وWebSocket؛ بدون تسجيل المفاتيح أو النص أو الصوت. سجل السيرفر للأدمن فقط.</p>
+<div class="trace-actions"><button class="ghost" type="button" id="refreshDiagnostics">تحميل سجل السيرفر</button><button class="ghost" type="button" id="copyDiagnostics">نسخ السجل</button></div>
+<pre id="diagnosticLog">اضغط المايك لبدء التشخيص، أو حمّل سجل السيرفر.</pre><div class="timing"><span id="brainTime">Gemini: —</span><span id="firstAudio">أول صوت: —</span><span id="totalTime">إجمالي: —</span></div>
+</div></details>
+<details class="tool-menu" id="settingsDrawer"><summary title="الإعدادات" aria-label="إعدادات المكالمة"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M20 12a8 8 0 0 0-.1-1.2l1.4-1.1-2-3.5-1.7.7a8 8 0 0 0-2.1-1.2L15.2 4H9l-.3 1.7a8 8 0 0 0-2.1 1.2l-1.7-.7-2 3.5 1.4 1.1a8 8 0 0 0 0 2.4l-1.4 1.1 2 3.5 1.7-.7a8 8 0 0 0 2.1 1.2L9 20h6.2l.3-1.7a8 8 0 0 0 2.1-1.2l1.7.7 2-3.5-1.4-1.1A8 8 0 0 0 20 12Z"/></svg></summary><div class="popover-panel"><div class="popover-heading"><strong>إعدادات المكالمة</strong><small>Google Live × Fish Audio</small></div>
+<div class="grid">
+<label>مخ المحادثة <input type="text" value="Gemini 3.8 Live — يطلع النص" readonly></label>
+<label>الصوت <input type="text" value="Fish Audio — ينطق رد Gemini" readonly></label>
+<label>موديل Fish Audio<select id="fishModel"><option value="drama-3">Drama 3 — مشاعر وصوت مستنسخ</option><option value="s2.1-pro-free">S2.1 Pro Free</option><option value="s2.1-pro">S2.1 Pro</option></select></label>
+<label>Fish Audio API Key<input id="fishKey" type="password" autocomplete="new-password" placeholder="مفتاح جديد أو سيبه فاضي للمحفوظ"><span id="fishSaved" class="settings-note">جارٍ تحميل حالة مفتاح Fish...</span></label>
+<label>معرّف الصوت المستنسخ — Fish Voice ID<input id="voiceId" type="text" value="e3c2911a78404bcab3c6adce3c59e1d9" spellcheck="false" autocomplete="off"></label>
+<label>Google Gemini API Key<input id="googleKey" type="password" autocomplete="new-password" placeholder="مفتاح جديد أو سيبه فاضي لاستخدام المحفوظ"><span id="googleSaved" class="settings-note">جارٍ تحميل حالة المفتاح...</span></label>
+<label>مستوى المشاعر<select id="emotionLevel"><option value="intense">جياشة — تنهيدات وتعبير واضح</option><option value="expressive">معبرة — طبيعية ومتغيرة</option><option value="subtle">هادية — لمسات خفيفة</option></select></label>
+<label>إيقاف الاستماع بعد كل رد<select id="autoListen"><option value="no">لا — كمّل مكالمة تلقائيًا</option><option value="yes">نعم — اضغط المايك لكل جملة</option></select></label>
+</div>
+<label class="inline"><input id="emotions" type="checkbox" checked> توجيهات أداء ومشاعر بصوت Fish Drama 3</label>
+<div class="settings-actions"><button type="button" id="saveSettings">💾 حفظ مفتاحي Gemini وFish والإعدادات</button><span id="settingsStatus" class="settings-state" role="status" aria-live="polite">المفتاح بيتحفظ مشفر على السيرفر.</span></div>
+<label class="inline"><input id="removeFish" type="checkbox"> حذف مفتاح Fish المحفوظ عند الحفظ</label>
+<label class="inline"><input id="removeGoogle" type="checkbox"> حذف مفتاح Google المحفوظ عند الحفظ</label>
+<p class="help">Gemini 3.8 Live يستقبل الميكروفون عبر WebSocket مؤقت، ويرجع نص الرد من تفريغ مخرجات Live. الصوت المسموع من Fish Audio فقط، وليس صوت Gemini. مفاتيح Google وFish محفوظة مشفرة؛ سيب حقل المفتاح فاضي لاستخدام المحفوظ. لا يوجد Puter أو Flash أو مزود نص آخر.</p>
+<div class="advanced-tools"><button id="testVoice" class="secondary-action" type="button">تجربة صوت Fish فقط</button></div></div></details></div></header>
+<div class="workspace"><section id="callStage" class="call-stage" data-state="idle" aria-label="المكالمة الصوتية">
+<div class="call-top"><div><small>HOTLINE</small><strong>خط اتصال مباشر</strong></div><em>متاح للاتصال</em></div>
+<span id="callMode" class="call-pill">جاهز للاتصال</span>
+<div class="visualizer" aria-hidden="true"><span class="signal-ring"></span><span class="signal-ring"></span><span class="signal-ring"></span><span class="phone-avatar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></span></div>
+<h1>الخط المباشر</h1><p class="description">اضغط اتصال واتكلم على طول</p>
+<div id="callDuration" class="call-clock" aria-label="مدة المكالمة">00:00</div><div class="sound-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+<div id="status" class="status" role="status" aria-live="polite">جاهز للمكالمة</div>
+<div class="call-controls"><button id="mic" class="orb" type="button" aria-label="ابدأ مكالمة صوتية"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.7L8 10.9a16 16 0 0 0 5.1 5.1l1.7-1.9a2 2 0 0 1 1.7-.6l2.8.5A2 2 0 0 1 22 16.9Z"/></svg></button><div class="control-copy"><strong class="idle-copy">اتصال</strong><strong class="active-copy">إنهاء المكالمة</strong><small>مكالمة صوتية</small></div><button id="stop" class="ghost" type="button">إنهاء المكالمة</button></div>
+</section>
+<details class="chat-drawer" id="chatDrawer"><summary>المحادثة <span>عرض الرسائل</span></summary><section class="conversation" aria-label="نص المحادثة"><div class="conversation-head"><div class="conversation-title"><span class="chat-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.7 8.7 0 0 1-4-.96L3 21l1.85-5.55A8.5 8.5 0 1 1 21 11.5Z"/></svg></span><div><h2>نص المحادثة المباشر</h2><small>الكلام والردود أول بأول</small></div></div><span class="secure-label">TRANSCRIPT</span></div>
+<div id="log" aria-live="polite"><div class="log-placeholder" id="logPlaceholder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.7 8.7 0 0 1-4-.96L3 21l1.85-5.55A8.5 8.5 0 1 1 21 11.5Z"/></svg><strong>المكالمة لسه ما بدأتش</strong><span>اضغط زر التليفون واتكلم، أو اكتب رسالة من تحت.</span></div></div>
+<form id="textForm" class="send"><input id="textInput" type="text" autocomplete="off" placeholder="ابعت رسالة للمساعدة..." aria-label="رسالتك"><button type="submit">إرسال</button></form>
+<p class="input-note">اكتب رسالة أثناء المكالمة</p></section></details></div>
+<span id="buildInfo" hidden>Voice Lab 2026.11.07.14</span>
+<audio id="player" playsinline></audio>
+</main>
+<script type="module">
+import { GoogleGenAI, Modality } from "https://cdn.jsdelivr.net/npm/@google/genai@2.25.0/+esm";
+
+(function () {
+  'use strict';
+  const el = id => document.getElementById(id);
+  const ui = {
+    mic:el('mic'), stop:el('stop'), test:el('testVoice'), status:el('status'), log:el('log'),
+    textForm:el('textForm'), textInput:el('textInput'),
+    googleKey:el('googleKey'), googleSaved:el('googleSaved'),
+    fishKey:el('fishKey'),fishSaved:el('fishSaved'),fishModel:el('fishModel'),voiceId:el('voiceId'),removeFish:el('removeFish'),player:el('player'),
+    emotionLevel:el('emotionLevel'), autoListen:el('autoListen'), emotions:el('emotions'),
+    save:el('saveSettings'), settingsStatus:el('settingsStatus'), removeGoogle:el('removeGoogle'),
+    brain:el('brainTime'), first:el('firstAudio'), total:el('totalTime')
+  };
+  let csrf='',savedGoogle=false,savedFish=false,live=null,active=false,starting=false,tokenAbort=null;
+  let fishAbort=null,fishObjectUrl=null;
+  let traceAttempt='',traceLines=[];
+  const traceView=el('diagnosticLog');
+  function diagnostic(stage,meta={}){
+    const row={at:new Date().toISOString(),attempt:traceAttempt||'unknown',stage,meta};
+    traceLines.push(row);
+    if(traceLines.length>80)traceLines.shift();
+    traceView.textContent=traceLines.map(item=>JSON.stringify(item)).join('\n');
+    traceView.scrollTop=traceView.scrollHeight;
+    if(!csrf)return;
+    fetch('./diagnostics.php',{method:'POST',credentials:'same-origin',cache:'no-store',keepalive:true,
+      headers:{'Content-Type':'application/json','X-Voice-Lab-CSRF':csrf},
+      body:JSON.stringify(row)}).catch(()=>{});
+  }
+  el('refreshDiagnostics').addEventListener('click',async()=>{
+    try{
+      const response=await fetch('./diagnostics.php',{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)throw Error('HTTP '+response.status);
+      const result=await response.json();
+      if(!result.ok||!Array.isArray(result.entries))throw Error('رد السجل غير صالح');
+      traceLines=result.entries.slice(-80);
+      traceView.textContent=traceLines.length?traceLines.map(item=>JSON.stringify(item)).join('\n'):'السجل فاضي لسه.';
+      traceView.scrollTop=traceView.scrollHeight;
+    }catch(err){traceView.textContent='تعذّر تحميل السجل: '+(err.message||err);}
+  });
+  el('copyDiagnostics').addEventListener('click',async()=>{
+    try{await navigator.clipboard.writeText(traceView.textContent);status('تم نسخ سجل التشخيص');}
+    catch(err){status('المتصفح منع نسخ السجل؛ تقدر تحدده يدويًا');}
+  });
+  let settingsReady=Promise.resolve();
+  const AudioCtx=window.AudioContext||window.webkitAudioContext;
+  const stage=el('callStage'),callMode=el('callMode'),clock=el('callDuration');
+  let callStarted=0,clockHandle=null;
+  function setCallState(next){
+    stage.dataset.state=next;
+    callMode.textContent=({idle:'جاهز للاتصال',connecting:'جاري الاتصال...',listening:'المكالمة متصلة • بيسمعك',speaking:'المساعدة بتتكلم'})[next]||'مكالمة جارية';
+    if(next==='idle'){clearInterval(clockHandle);clockHandle=null;callStarted=0;clock.textContent='00:00';}
+    else if(!callStarted){callStarted=Date.now();const update=()=>{const sec=Math.floor((Date.now()-callStarted)/1000);clock.textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');};update();clockHandle=setInterval(update,1000);}
+  }
+  function status(message){
+    const raw=String(message);
+    const text=/Fish Audio بيتكلم/.test(raw)?'المتصل بيرد عليك...'
+      :/Fish Audio بيولّد|Gemini Live بيجهز/.test(raw)?'ثواني وبرد عليك...'
+      :/Gemini Live بيسمعك/.test(raw)?'سامعك... اتفضل'
+      :/Gemini Live متصل/.test(raw)?'المكالمة متصلة'
+      :raw.replace(/Gemini(?:\s+3\.8)?(?:\s+Live)?/gi,'الاتصال').replace(/Fish(?:\s+Audio)?/gi,'الصوت').replace(/Google(?:\s+WebSocket|\s+Live)?/gi,'الاتصال');
+    ui.status.textContent=text;
+    if(!active)return;
+    if(/بيتكلم|صوت رد|بينطق/.test(raw))setCallState('speaking');
+    else if(/بيسمعك|تقدر تبعت|المايك/.test(raw))setCallState('listening');
+  }
+  const toolMenus=[el('settingsDrawer'),el('diagnosticsDrawer')];
+  toolMenus.forEach(menu=>menu.addEventListener('toggle',()=>{if(menu.open)toolMenus.forEach(other=>{if(other!==menu)other.open=false;});}));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')toolMenus.forEach(menu=>menu.open=false);});
+  document.addEventListener('click',e=>{if(!toolMenus.some(menu=>menu.contains(e.target)))toolMenus.forEach(menu=>menu.open=false);});
+  function message(role,text){
+    if(!text)return;
+    const item=document.createElement('div');
+    item.className='bubble '+(role==='user'?'mine':'theirs');
+    item.textContent=(role==='user'?'أنت: ':'المساعدة: ')+text;
+    el('logPlaceholder')?.remove();ui.log.appendChild(item);
+    ui.log.scrollTop=ui.log.scrollHeight;
+  }
+  function keyLabel(){
+    ui.googleSaved.textContent=savedGoogle?'✓ مفتاح Google محفوظ مشفر على السيرفر':'لم يتم حفظ مفتاح Google';
+    ui.fishSaved.textContent=savedFish?'✓ مفتاح Fish Audio محفوظ مشفر على السيرفر':'لم يتم حفظ مفتاح Fish Audio';
+  }
+  async function loadSettings(){
+    const response=await fetch('./settings.php',{credentials:'same-origin',cache:'no-store'});
+    if(!response.ok)throw Error(response.status===401?'كود الدخول مطلوب':'تعذّر تحميل الإعدادات HTTP '+response.status);
+    const result=await response.json();
+    if(!result.ok||!result.csrf)throw Error('رد السيرفر غير صالح');
+    csrf=result.csrf;
+    if(result.guest){
+      for(const id of ['googleKey','fishKey','removeFish','removeGoogle'])el(id)?.closest('label')?.setAttribute('hidden','');
+      ui.save.textContent='حفظ تفضيلات المكالمة';
+    }
+    for(const name of ['emotionLevel','autoListen','fishModel']){
+      const value=result.settings?.[name];
+      if(typeof value==='string'&&Array.from(ui[name].options).some(option=>option.value===value))ui[name].value=value;
+    }
+    if(typeof result.settings?.emotions==='boolean')ui.emotions.checked=result.settings.emotions;
+    if(/^[a-f0-9]{32}$/i.test(result.settings?.voiceId||''))ui.voiceId.value=result.settings.voiceId;
+    savedGoogle=!!result.saved?.google;savedFish=!!result.saved?.fish;keyLabel();
+    ui.settingsStatus.textContent='الإعدادات اتحمّلت. سيب حقل المفتاح فاضي لاستخدام المحفوظ.';
+  }
+  async function secureHeaders(provider='google'){
+    await settingsReady;
+    if(!csrf)throw Error('لازم تدخل كود الاتصال الأول');
+    const headers={'Content-Type':'application/json','X-Voice-Lab-CSRF':csrf};
+    if(provider==='google'&&ui.googleKey.value.trim())headers['X-Gemini-API-Key']=ui.googleKey.value.trim();
+    if(provider==='fish'&&ui.fishKey.value.trim())headers['X-Fish-API-Key']=ui.fishKey.value.trim();
+    return headers;
+  }
+  function instructions(){
+    const mood=ui.emotionLevel.value;
+    const emotion=ui.emotions.checked
+      ? mood==='intense'?'عبّري عن المشاعر بوضوح، مع تنهيدات وضحكات وهمسات مناسبة من غير مبالغة.'
+      : mood==='subtle'?'مشاعر هادية وطبيعية وتغيير بسيط في النبرة.'
+      :'كوني ودودة ومرحة، بنبرة معبرة تتغير طبيعيًا حسب الكلام.'
+      :'اتكلمي بطبيعية وبلا تعليمات أداء.';
+    return 'إنتِ بنت مصرية بتتكلمي بالمصري بطلاقة وعفوية. استمعي للمستخدم للآخر بدون مقاطعة، وردّي بجمل قصيرة وواضحة، من غير تقديم رسمي أو حشو. ردك النصي هيتنطق بواسطة Fish Audio. ما تكتبيش أسماء الموديلات أو تعليمات تقنية. '+emotion;
+  }
+  function stopFish(){
+    if(fishAbort){fishAbort.abort();fishAbort=null;}
+    ui.player.pause();ui.player.removeAttribute('src');ui.player.load();
+    if(fishObjectUrl){URL.revokeObjectURL(fishObjectUrl);fishObjectUrl=null;}
+  }
+  function stopLive(){
+    if(tokenAbort){tokenAbort.abort();tokenAbort=null;}
+    stopFish();
+    const s=live;live=null;
+    if(!s)return;
+    s.closed=true;
+    clearTimeout(s.handshakeTimer);
+    if(s.node){s.node.onaudioprocess=null;try{s.node.disconnect();}catch(e){}}
+    if(s.silence)try{s.silence.disconnect();}catch(e){}
+    if(s.source)try{s.source.disconnect();}catch(e){}
+    if(s.media)for(const track of s.media.getTracks())track.stop();
+    if(s.inputContext)s.inputContext.close().catch(()=>{});
+    if(s.session)try{s.session.close();}catch(e){}
+  }
+  function reset(){
+    if(active||starting)diagnostic('call_stopped');
+    active=false;starting=false;stopLive();
+    ui.mic.classList.remove('active');ui.mic.setAttribute('aria-label','ابدأ مكالمة صوتية');setCallState('idle');
+    status('تم إنهاء المكالمة');
+  }
+  function appendText(existing,chunk){
+    const text=String(chunk||'').trim();
+    if(!text||text===existing||existing.endsWith(text))return existing;
+    if(!existing||text.startsWith(existing))return text;
+    return existing+' '+text;
+  }
+  function pcm16Base64(samples,sampleRate){
+    const length=Math.max(1,Math.floor(samples.length*16000/sampleRate));
+    const bytes=new Uint8Array(length*2), view=new DataView(bytes.buffer);
+    for(let i=0;i<length;i++){
+      const value=Math.max(-1,Math.min(1,samples[Math.min(samples.length-1,Math.floor(i*sampleRate/16000))]||0));
+      view.setInt16(i*2,value<0?value*32768:value*32767,true);
+    }
+    let binary='';for(let i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+  async function startMic(s){
+    if(!navigator.mediaDevices?.getUserMedia)throw Error('المايك يحتاج HTTPS ومتصفح حديث');
+    status('اسمح للمتصفح بالمايك...');
+    diagnostic('mic_permission_start');
+    const micRequestedAt=performance.now();
+    s.media=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+    if(live!==s||s.closed){s.media.getTracks().forEach(track=>track.stop());return;}
+    s.inputContext=new AudioCtx();
+    s.source=s.inputContext.createMediaStreamSource(s.media);
+    s.node=s.inputContext.createScriptProcessor(1024,1,1);
+    s.silence=s.inputContext.createGain();s.silence.gain.value=0;
+    s.node.onaudioprocess=event=>{
+      if(live!==s||s.closed||!s.ready||!s.session||s.speaking)return;
+      try{s.session.sendRealtimeInput({audio:{mimeType:'audio/pcm;rate=16000',data:pcm16Base64(event.inputBuffer.getChannelData(0),s.inputContext.sampleRate)}});}
+      catch(e){diagnostic('audio_error',{error_code:'sdk_send_failed'});reset();status('فشل إرسال صوت المايك إلى Gemini');}
+    };
+    s.source.connect(s.node);s.node.connect(s.silence);s.silence.connect(s.inputContext.destination);
+    await s.inputContext.resume();
+    diagnostic('mic_ready',{elapsed_ms:Math.round(performance.now()-micRequestedAt)});
+    status('Gemini 3.8 Live بيسمعك...');
+  }
+  function sendText(s,text){
+    if(!s.ready){s.pending.push(text);return;}
+    message('user',text);
+    s.turnStart=performance.now();ui.first.textContent='أول صوت: ...';
+    if(!s.session){s.pending.push(text);return;}
+    s.session.sendRealtimeInput({text});
+    diagnostic('text_sent');
+    status('Gemini 3.8 Live بيرد بالصوت...');
+  }
+
+  function fishScript(text){
+    let spoken=String(text||'').trim();
+    if(!spoken)return '';
+    if(!ui.emotions.checked||ui.fishModel.value!=='drama-3')
+      return spoken.replace(/\[[^\]\r\n]{1,120}\]/g,'').replace(/<\/?(?:whisper|soft|slow|emphasis)>/gi,'').trim();
+    const prefix=ui.emotionLevel.value==='intense'
+      ? '[warm expressive Egyptian Arabic, natural breathing] '
+      :ui.emotionLevel.value==='subtle'?'[gentle natural Egyptian Arabic] ':'[warm lively Egyptian Arabic] ';
+    return prefix+spoken;
+  }
+  // Speak a stable first phrase as soon as output transcription arrives,
+  // instead of waiting for the full Gemini model turn to finish.
+  function firstFishPhrase(text){
+    const value=String(text||'').trim();
+    if(value.length<8)return '';
+    const complete=value.match(/^([\s\S]{3,125}?[.!؟،؛\n])(?=\s|$)/u);
+    if(complete)return complete[1].trim();
+    if(value.length<74)return '';
+    const boundary=value.slice(0,88).lastIndexOf(' ');
+    return boundary>42?value.slice(0,boundary).trim():'';
+  }
+  function startEarlyFish(s){
+    if(!s||live!==s||s.closed||s.earlySpeech)return;
+    const first=firstFishPhrase(s.output);
+    if(!first)return;
+    const early={text:first,error:null,promise:null};
+    s.earlySpeech=early;
+    early.promise=speakFish(first,s).catch(err=>{early.error=err;});
+  }
+  function waitFishEnded(){
+    if(ui.player.ended)return Promise.resolve();
+    return new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{cleanup();reject(new Error('fish_audio_playback_timeout'));},90000);
+      function cleanup(){clearTimeout(timer);ui.player.removeEventListener('ended',done);ui.player.removeEventListener('error',failed);}
+      function done(){cleanup();resolve();}
+      function failed(){cleanup();reject(new Error('fish_audio_decode_error'));}
+      ui.player.addEventListener('ended',done,{once:true});ui.player.addEventListener('error',failed,{once:true});
+    });
+  }
+  async function speakFish(text,session=null){
+    const reference=ui.voiceId.value.trim().toLowerCase();
+    if(!/^[0-9a-f]{32}$/.test(reference))throw Error('Fish Voice ID لازم يكون 32 رمز');
+    const spoken=fishScript(text);
+    if(!spoken)throw Error('Gemini Live ما رجّعش نص صالح للنطق');
+    const begin=performance.now();
+    const headers=await secureHeaders('fish');
+    headers['X-Voice-Lab-Trace']=traceAttempt;
+    const controller=new AbortController();fishAbort=controller;
+    const callActive=()=>!controller.signal.aborted&&(!session||(live===session&&!session.closed));
+    diagnostic('fish_request_start');
+    status('Fish Audio بيولّد صوت رد Gemini...');
+    try{
+      const response=await fetch('./tts.php',{method:'POST',credentials:'same-origin',headers,
+        body:JSON.stringify({text:spoken,reference_id:reference,model:ui.fishModel.value,format:'mp3'}),
+        cache:'no-store',signal:controller.signal});
+      diagnostic('fish_http_response',{http_status:response.status,elapsed_ms:Math.round(performance.now()-begin)});
+      if(!response.ok)throw Error('Fish HTTP '+response.status+': '+(await response.text()).slice(0,160));
+      if(!callActive())return;
+      ui.first.textContent='أول صوت: ...';
+      stopFishAudioOnly();
+      const onStart=()=>{
+        if(!session||!session.firstAudio){
+          if(session)session.firstAudio=true;
+          diagnostic('fish_first_audio',{elapsed_ms:Math.round(performance.now()-begin)});
+          ui.first.textContent='Fish أول صوت: '+Math.round(performance.now()-begin)+'ms';
+        }
+        if(active)setCallState('speaking');status('Fish Audio بيتكلم...');
+      };
+      if(!response.body||!window.MediaSource||!MediaSource.isTypeSupported('audio/mpeg')){
+        const blob=await response.blob();
+        if(!callActive())return;
+        if(!blob.size)throw Error('Fish Audio رجّع ملف فاضي');
+        fishObjectUrl=URL.createObjectURL(blob);ui.player.src=fishObjectUrl;
+        await ui.player.play();onStart();await waitFishEnded();
+      }else{
+        const media=new MediaSource();fishObjectUrl=URL.createObjectURL(media);ui.player.src=fishObjectUrl;
+        await new Promise((resolve,reject)=>{
+          media.addEventListener('sourceopen',resolve,{once:true});
+          media.addEventListener('error',()=>reject(Error('fish_media_source_error')),{once:true});
+        });
+        if(!callActive())return;
+        const buffer=media.addSourceBuffer('audio/mpeg');
+        const reader=response.body.getReader();let started=false,bytes=0,playback=null;
+        const startPlayback=()=>{
+          if(playback)return;
+          // Never await play() inside the read loop: the browser may need
+          // more MP3 frames before it resolves, otherwise streaming stalls.
+          playback=ui.player.play().then(()=>{if(callActive())onStart();});
+        };
+        try{
+          while(true){
+            const chunk=await reader.read();if(chunk.done)break;
+            if(!callActive()){await reader.cancel();return;}
+            if(!chunk.value||!chunk.value.length)continue;
+            bytes+=chunk.value.length;
+            await new Promise((resolve,reject)=>{
+              buffer.addEventListener('updateend',resolve,{once:true});
+              try{buffer.appendBuffer(chunk.value);}catch(e){reject(e);}
+            });
+            if(!started&&bytes>=1536){
+              started=true;startPlayback();
+            }
+          }
+          if(media.readyState==='open'&&!buffer.updating)media.endOfStream();
+          if(!started){
+            if(!bytes)throw Error('fish_empty_audio');
+            started=true;startPlayback();
+          }
+          await playback;
+          if(!callActive())return;
+          await waitFishEnded();
+        }finally{reader.releaseLock();}
+      }
+      if(callActive()){
+        diagnostic('fish_complete',{elapsed_ms:Math.round(performance.now()-begin)});
+        ui.total.textContent='زمن Fish: '+Math.round(performance.now()-begin)+'ms';
+      }
+    }catch(e){
+      if(!controller.signal.aborted)diagnostic('fish_error',{error_code:String(e?.name||'fish_error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});
+      throw e;
+    }finally{
+      if(fishAbort===controller)fishAbort=null;
+    }
+  }
+  function stopFishAudioOnly(){
+    ui.player.pause();ui.player.removeAttribute('src');ui.player.load();
+    if(fishObjectUrl){URL.revokeObjectURL(fishObjectUrl);fishObjectUrl=null;}
+  }
+  async function finishTurn(s){
+    if(live!==s||s.closed)return;
+    const heard=s.input.trim(),spoken=s.output.trim(),early=s.earlySpeech;
+    s.input='';s.output='';s.earlySpeech=null;
+    if(heard&&!s.userBubble)message('user',heard);
+    if(!spoken){
+      if(early)await early.promise;
+      diagnostic('fish_error',{error_code:'empty_gemini_transcript'});
+      s.speaking=false;status('الاتصال ما رجّعش نص للنطق');
+      return;
+    }
+    s.speaking=true;if(!s.botBubble)message('assistant',spoken);
+    diagnostic('turn_complete',{elapsed_ms:Math.round(performance.now()-(s.turnStart||s.connectedAt))});
+    ui.brain.textContent='Gemini Live: النص جاهز';
+    try{
+      if(early)await early.promise;
+      if(live!==s||s.closed)return;
+      // A failed speculative request can be retried using the full
+      // transcript. Otherwise never repeat the already-spoken prefix.
+      const remaining=early&&!early.error&&spoken.startsWith(early.text)
+        ?spoken.slice(early.text.length).trim():spoken;
+      if(remaining)await speakFish(remaining,s);
+    }catch(e){if(live===s&&!s.closed){status('تعذّر تشغيل الرد: '+(e?.message||e));s.speaking=false;}return;}
+    if(live!==s||s.closed)return;
+    s.speaking=false;s.firstAudio=false;
+    if(ui.autoListen.value==='yes'&&s.withMic){reset();status('جاهز للجملة التالية — اضغط المايك');return;}
+    status(s.withMic?'Gemini 3.8 Live بيسمعك...':'تقدر تبعت رسالة تانية');
+  }
+  function transcriptChunk(s,role,text){
+    const name=role==='user'?'userBubble':'botBubble';
+    if(!s[name]){
+      const item=document.createElement('div');item.className='bubble '+(role==='user'?'mine':'theirs');
+      el('logPlaceholder')?.remove();ui.log.appendChild(item);s[name]=item;
+    }
+    s[name].textContent=(role==='user'?'أنت: ':'المساعدة: ')+text;
+    ui.log.scrollTop=ui.log.scrollHeight;
+  }
+  function activateSession(s){
+    if(live!==s||s.closed||!s.ready||!s.session||s.activated)return;
+    s.activated=true;
+    if(s.withMic)startMic(s).catch(e=>{diagnostic('mic_error',{error_code:e.name||'mic_error'});reset();status('مشكلة المايك: '+e.message);});
+    for(const text of s.pending.splice(0))sendText(s,text);
+  }
+  function receive(s,data){
+    if(live!==s||s.closed)return;
+    if(typeof data==='string'){try{data=JSON.parse(data);}catch(e){diagnostic('ws_invalid_message');return;}}
+    if(data?.error){
+      const reason=String(data.error.message||data.error.status||data.error.code||'provider_error').replace(/AIza[A-Za-z0-9_-]+/g,'[redacted]').slice(0,240);
+      diagnostic('provider_error',{error_code:String(data.error.status||data.error.code||'provider_error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});
+      reset();status('Google Live: '+reason);return;
+    }
+    if(data?.setupComplete){
+      clearTimeout(s.handshakeTimer);s.ready=true;s.connectedAt=performance.now();
+      diagnostic('setup_complete',{elapsed_ms:Math.round(performance.now()-s.wsStarted)});
+      setCallState('listening');status('Gemini Live متصل');activateSession(s);return;
+    }
+    const content=data?.serverContent||{};
+    if(content.inputTranscription?.text){
+      s.input=appendText(s.input,content.inputTranscription.text);
+      transcriptChunk(s,'user',s.input);
+    }
+    if(content.outputTranscription?.text){
+      s.output=appendText(s.output,content.outputTranscription.text);
+      transcriptChunk(s,'bot',s.output);
+      s.speaking=true;status('Gemini Live بيجهز النص لـFish Audio...');
+      startEarlyFish(s);
+    }
+    // Do not play Gemini modelTurn.inlineData audio: Fish is the only audible TTS.
+    if(content.interrupted){s.output='';s.earlySpeech=null;s.speaking=false;stopFish();s.botBubble=null;}
+    if(content.turnComplete){
+      s.queue=s.queue.then(async()=>{await finishTurn(s);s.userBubble=null;s.botBubble=null;})
+        .catch(e=>status('Gemini Live: '+e.message));
+    }
+  }
+  async function startLive(firstText=null){
+    if(live){if(firstText)sendText(live,firstText);return;}
+    if(starting)return;
+    if(!AudioCtx&&!firstText)throw Error('المتصفح لا يدعم AudioContext');
+    starting=true;traceAttempt=globalThis.crypto?.randomUUID?.()||String(Date.now());
+    diagnostic('call_start');
+    try{
+      const headers=await secureHeaders();headers['X-Voice-Lab-Trace']=traceAttempt;
+      const tokenStart=performance.now();diagnostic('token_fetch_start');
+      const abort=new AbortController();tokenAbort=abort;
+      const timeout=setTimeout(()=>abort.abort(),18000);
+      let response;
+      try{response=await fetch('./live-token.php',{method:'POST',headers,credentials:'same-origin',body:'{}',cache:'no-store',signal:abort.signal});}
+      catch(e){
+        diagnostic('token_fetch_error',{error_code:e.name==='AbortError'?'timeout':(e.name||'network_error'),elapsed_ms:Math.round(performance.now()-tokenStart)});
+        throw Error(e.name==='AbortError'?'طلب توكن Live انتهت مهلته':e.message);
+      }finally{clearTimeout(timeout);if(tokenAbort===abort)tokenAbort=null;}
+      if(!response.ok){
+        diagnostic('token_http_error',{http_status:response.status,elapsed_ms:Math.round(performance.now()-tokenStart)});
+        throw Error('التوكن HTTP '+response.status+': '+(await response.text()).slice(0,350));
+      }
+      let data;try{data=await response.json();}
+      catch(e){diagnostic('token_invalid_reply',{error_code:'invalid_json'});throw Error('رد توكن Google غير صالح');}
+      if(!data?.token){diagnostic('token_invalid_reply',{error_code:'missing_token'});throw Error('Google لم يرجع توكن Live');}
+      diagnostic('token_fetch_ok',{http_status:response.status,elapsed_ms:Math.round(performance.now()-tokenStart)});
+      if(!active)return;
+      const s={session:null,closed:false,ready:false,activated:false,socketOpened:false,withMic:!firstText,pending:firstText?[firstText]:[],
+        input:'',output:'',userBubble:null,botBubble:null,inputContext:null,source:null,node:null,silence:null,media:null,
+        speaking:false,firstAudio:false,earlySpeech:null,queue:Promise.resolve(),turnStart:performance.now(),connectedAt:performance.now()};
+      live=s;s.wsStarted=performance.now();
+      diagnostic('ws_connect_start',{phase:'google_sdk'});
+      s.handshakeTimer=setTimeout(()=>{
+        if(live!==s||s.closed||s.ready)return;
+        diagnostic('setup_timeout',{elapsed_ms:Math.round(performance.now()-s.wsStarted),phase:s.socketOpened?'setup':'websocket'});
+        reset();status((s.socketOpened?'Google اتصل لكن لم يؤكد إعداد الجلسة':'Google WebSocket لم يفتح')+' خلال 15 ثانية');
+      },15000);
+      const ai=new GoogleGenAI({apiKey:data.token});
+      diagnostic('setup_sent',{phase:'google_sdk'});
+      const session=await ai.live.connect({
+        model:data.model||'gemini-3.8-live',
+        config:{responseModalities:[Modality.AUDIO],inputAudioTranscription:{},outputAudioTranscription:{},systemInstruction:instructions()},
+        callbacks:{
+          onopen:()=>{if(live!==s||s.closed)return;s.socketOpened=true;diagnostic('ws_open',{elapsed_ms:Math.round(performance.now()-s.wsStarted)});status('Google WebSocket اتفتح');},
+          onmessage:message=>receive(s,message),
+          onerror:e=>{if(live!==s||s.closed)return;diagnostic('ws_error',{error_code:String(e?.type||'sdk_error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});status('Gemini SDK: خطأ اتصال، راجع Error Log');},
+          onclose:e=>{if(live!==s||s.closed)return;diagnostic('ws_close',{ws_code:e?.code||0,phase:s.ready?'connected':'handshake'});const why=String(e?.reason||'').replace(/AIza[A-Za-z0-9_-]+/g,'[redacted]').slice(0,160);reset();status('Google أغلق الاتصال ('+(e?.code||0)+') '+why);}
+        }
+      });
+      if(live!==s||s.closed){try{session.close();}catch(e){}return;}
+      s.session=session;activateSession(s);
+    }finally{starting=false;}
+  }
+  function failure(err){
+    diagnostic('call_error',{error_code:String(err?.name||'error').replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,60)});
+    reset();status('Gemini Live: '+(err?.message||String(err)));
+  }
+  ui.mic.addEventListener('click',()=>{
+    if(active){reset();return;}
+    active=true;ui.mic.classList.add('active');ui.mic.setAttribute('aria-label','إنهاء المكالمة');setCallState('connecting');
+    startLive().catch(failure);
+  });
+  ui.stop.addEventListener('click',reset);
+  ui.textForm.addEventListener('submit',event=>{
+    event.preventDefault();
+    const text=ui.textInput.value.trim();
+    if(!text)return;
+    ui.textInput.value='';
+    if(!active){active=true;ui.mic.classList.add('active');ui.mic.setAttribute('aria-label','إنهاء المكالمة');setCallState('connecting');}
+    startLive(text).catch(failure);
+  });
+  ui.test.addEventListener('click',async()=>{
+    if(fishAbort)return;
+    traceAttempt=globalThis.crypto?.randomUUID?.()||String(Date.now());
+    diagnostic('call_start',{phase:'fish_only'});
+    try{await speakFish('إزيك يا زميلي! وحشتني والله، عامل إيه النهارده؟');status('تجربة Fish Audio نجحت');}
+    catch(e){status('تجربة Fish فشلت: '+(e?.message||e));}
+  });
+  ui.save.addEventListener('click',async()=>{
+    ui.save.disabled=true;ui.settingsStatus.textContent='بحفظ إعدادات المكالمة...';
+    try{
+      await settingsReady;
+      if(!csrf)throw Error('سجّل الدخول أولًا');
+      const payload={
+        settings:{emotionLevel:ui.emotionLevel.value,autoListen:ui.autoListen.value,emotions:ui.emotions.checked,fishModel:ui.fishModel.value,voiceId:ui.voiceId.value.trim()},
+        keys:{google:ui.googleKey.value.trim(),fish:ui.fishKey.value.trim()},
+        remove:[...(ui.removeGoogle.checked?['google']:[]),...(ui.removeFish.checked?['fish']:[])]
+      };
+      const response=await fetch('./settings.php',{method:'POST',credentials:'same-origin',
+        headers:{'Content-Type':'application/json','X-Voice-Lab-CSRF':csrf},body:JSON.stringify(payload),cache:'no-store'});
+      const data=await response.json();
+      if(!response.ok||!data.ok)throw Error(data.error||'HTTP '+response.status);
+      savedGoogle=!!data.saved?.google;savedFish=!!data.saved?.fish;
+      ui.googleKey.value='';ui.fishKey.value='';ui.removeGoogle.checked=false;ui.removeFish.checked=false;
+      keyLabel();ui.settingsStatus.textContent='✓ تم حفظ تفضيلات المكالمة.';
+    }catch(e){ui.settingsStatus.textContent='تعذّر الحفظ: '+(e.message||e);}
+    finally{ui.save.disabled=false;}
+  });
+  async function unlockPinGate(){
+    el('pinGate').hidden=true;
+    document.body.classList.remove('pin-locked');
+    el('pinInput').value='';
+    settingsReady=loadSettings().catch(e=>{
+      keyLabel();ui.settingsStatus.textContent='تعذّر تحميل الإعدادات: '+(e.message||e);
+    });
+    await settingsReady;
+  }
+  let pinSetupCsrf='';
+  async function pinStatus(){
+    try{
+      const response=await fetch('./pin.php',{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)throw Error('تعذّر التحقق من صلاحية الدخول');
+      const data=await response.json();
+      if(data.authorized){await unlockPinGate();return;}
+      pinSetupCsrf=data.can_setup ? String(data.setup_csrf||'') : '';
+      el('pinSubmit').textContent=pinSetupCsrf?'تفعيل كود الدخول':'فتح الاتصال';
+      el('pinMessage').textContent=data.configured?'ادخل الكود علشان تبدأ'
+        :(pinSetupCsrf?'اختار كود من 6 أرقام لتفعيل الدخول أول مرة.'
+          :'الكود لسه مش متفعّل. صاحب الحساب يقدر يفعّله مرة واحدة.');
+      el('pinInput').focus();
+    }catch(e){el('pinMessage').textContent='تعذّر الاتصال بالسيرفر. حاول تاني.';}
+  }
+  el('pinForm').addEventListener('submit',async event=>{
+    event.preventDefault();
+    const code=el('pinInput').value.trim();
+    if(!/^[0-9]{6}$/.test(code)){el('pinMessage').textContent='اكتب 6 أرقام بالظبط.';return;}
+    const button=el('pinSubmit');button.disabled=true;
+    el('pinMessage').textContent='جاري فتح الاتصال...';
+    try{
+      const response=await fetch('./pin.php',{method:'POST',credentials:'same-origin',cache:'no-store',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify(pinSetupCsrf?{pin:code,setup:true,csrf:pinSetupCsrf}:{pin:code})});
+      const data=await response.json();
+      if(!response.ok||!data.authorized){
+        el('pinMessage').textContent=response.status===429?'محاولات كثيرة، جرّب بعد 15 دقيقة.':'الكود غير صحيح. حاول تاني.';
+        return;
+      }
+      await unlockPinGate();
+    }catch(e){el('pinMessage').textContent='تعذّر الاتصال بالسيرفر. حاول تاني.';}
+    finally{button.disabled=false;}
+  });
+  pinStatus();
+})();
+</script>
+</body></html>

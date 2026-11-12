@@ -11,7 +11,7 @@ function create_staff_invitation(int $accountId,string $name,string $email,strin
     $email=strtolower(trim($email));$name=trim($name);
     if(!filter_var($email,FILTER_VALIDATE_EMAIL)||strlen($email)>190||
        $name===''||mb_strlen($name)>120||
-       !in_array($role,['manager','operator','finance','support','viewer'],true))
+       !in_array($role,['manager','operator','reception','finance','support','viewer'],true))
         throw new InvalidArgumentException('invalid_staff_invitation');
     $account=account($accountId);
     if(!$account||$account['status']!=='active')throw new InvalidArgumentException('account_inactive');

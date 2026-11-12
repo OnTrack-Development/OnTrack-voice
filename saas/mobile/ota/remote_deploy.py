@@ -10,7 +10,9 @@ def remote_install(url, expected_ui_sha, expected_revision):
     parsed=urllib.parse.urlsplit(url)
     if parsed.scheme!="https" or not parsed.hostname or not (
         parsed.hostname.endswith(".blob.core.windows.net") or
-        parsed.hostname.endswith(".actions.githubusercontent.com")
+        parsed.hostname.endswith(".actions.githubusercontent.com") or
+        parsed.hostname=="release-assets.githubusercontent.com" or
+        parsed.hostname=="objects.githubusercontent.com"
     ):raise ValueError("Untrusted artifact host")
     req=urllib.request.Request(url,headers={"User-Agent":"OnTrack-Mobile-OTA-Host"})
     with urllib.request.urlopen(req,timeout=20) as response:

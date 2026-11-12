@@ -1,0 +1,69 @@
+name: OnTrack v74 WhatsApp CLI duplicate include fix
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-wa-v74-fix-publish.yml'
+      - 'saas/console/whatsapp-worker.php'
+      - 'tools/deploy_saas_wa_worker_v74.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-v74-whatsapp-safe-patch
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Isolated CLI worker bootstrap and syntax
+        run: |
+          $ErrorActionPreference='Stop'
+          & php -l saas/console/whatsapp-worker.php
+          if($LASTEXITCODE -ne 0){throw 'PHP syntax failed'}
+          & python -m py_compile tools/deploy_saas_wa_worker_v74.py
+          if($LASTEXITCODE -ne 0){throw 'Deployer syntax failed'}
+          $env:ONTRACK_CI_NAMESPACE='v74_'+$env:GITHUB_RUN_ID
+          try{
+            & php -q saas/console/whatsapp-worker.php
+            if($LASTEXITCODE -ne 0){throw 'Isolated WhatsApp worker bootstrap failed'}
+          }finally{
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          }
+          Write-Host 'V74_WHATSAPP_WORKER_ISOLATED_BOOTSTRAP_PASS'
+      - name: Stage scoped PHP source with rollback publisher
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH identity unavailable'}
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-wa-worker-v74'
+          & ssh.exe @ssh -p 7195 $remote ('umask 077; mkdir -p '+$stage+'; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Private host staging unavailable'}
+          & scp.exe @ssh -P 7195 'saas/console/whatsapp-worker.php' ($remote+':'+$stage+'/whatsapp-worker.php')
+          if($LASTEXITCODE -ne 0){throw 'Worker upload failed'}
+          & scp.exe @ssh -P 7195 'tools/deploy_saas_wa_worker_v74.py' ($remote+':'+$stage+'/deploy.py')
+          if($LASTEXITCODE -ne 0){throw 'Publisher upload failed'}
+          Write-Host 'V74_PRIVATE_WORKER_STAGE_PASS'
+      - name: Atomic one-file update and isolated host PHP smoke
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          & ssh.exe @ssh -p 7195 $remote 'python3 /home/appontrack/.ontrack-mobile/saas-wa-worker-v74/deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'Host patch or isolated runtime failed'}
+          & ssh.exe @ssh -p 7195 $remote '/opt/cpanel/ea-php83/root/usr/bin/php -l /home/appontrack/public_html/whatsapp-worker.php'
+          if($LASTEXITCODE -ne 0){throw 'Live PHP 8.3 syntax failed'}
+          Write-Host 'V74_WHATSAPP_WORKER_HOST_PUBLISHED_ISOLATED_PASS'

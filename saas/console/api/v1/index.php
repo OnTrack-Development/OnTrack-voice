@@ -18,7 +18,7 @@ try{
     $grant=one("SELECT * FROM api_keys WHERE token_hash=? AND status='active'",[hash('sha256',$key)]);
     if(!$grant)answer(401,['ok'=>false,'error'=>'invalid_api_key']);
     $a=account((int)$grant['account_id']);
-    if(!$a||$a['status']!=='active')answer(403,['ok'=>false,'error'=>'account_unavailable']);
+    if(!account_service_active($a))answer(403,['ok'=>false,'error'=>'account_unavailable']);
     $scopes=array_filter(explode(',',(string)$grant['scopes']));
     $site=(int)($grant['site_id']??0);
     // An API key scoped to a retired site must not retain access to that site.

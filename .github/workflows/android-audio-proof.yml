@@ -1,121 +1,293 @@
 name: Android SIM Audio Proof
-# SAFETY: legacy pipeline builds a fixed old SHA; manual only until an exact-HEAD signed release replaces it.
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'saas/mobile/audio-proof/**'
+      - 'tools/test_mobile_ui_contract.py'
+      - 'tools/test_v1_mobile_shell.py'
+      - 'tools/test_android_v58_permission_contract.py'
+      - 'tools/test_sim_agent_call_reports.php'
+      - 'tools/test_tenant_call_ai_summary.php'
+      - 'saas/mobile/ota/ui.html'
+      - 'saas/mobile/ota/release.json'
+      - '.github/workflows/android-audio-proof.yml'
+      - 'saas/mobile/patch_live_session.py'
+      - 'saas/mobile/ota/native_release.json'
+      - 'saas/mobile/ota/native_deploy.py'
+      - 'tools/prepare_mobile_native.py'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'saas/mobile/audio-proof/**'
+      - '.github/workflows/android-audio-proof.yml'
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
   group: android-proof-${{ github.ref }}
   cancel-in-progress: true
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: 'utf-8'
 jobs:
   build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    outputs:
+      version_name: ${{ steps.package.outputs.version_name }}
     steps:
-      # Build the exact triggering ref; do not silently build an old SHA.
-      - uses: actions/checkout@v5
-      - name: Validate mobile PHP endpoints
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate mobile PHP endpoints and source contracts
         run: |
-          for source in saas/mobile/server/*.php; do php -l "$source"; done
-          python3 -m py_compile saas/mobile/patch_live_session.py
-          python3 tools/test_mobile_ota.py
-          php tools/test_mobile_call_ledger.php
-          php tools/test_pilot_workspace.php
-          php tools/test_kashier_signature.php
-          find saas/app/Support saas/app/Http/Controllers/App saas/app/Http/Controllers/Api saas/database/migrations saas/config -name '*.php' -exec php -l {} \; >/dev/null
-          echo "Voice PHP, plan and Kashier syntax PASS"
-      - uses: actions/checkout@v5
+          $ErrorActionPreference = 'Stop'
+          $env:CI = 'true'
+          Get-ChildItem 'saas\mobile\server' -Filter '*.php' | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP syntax error: ' + $_.FullName) }
+          }
+          foreach ($dir in @('saas\app\Support', 'saas\app\Http\Controllers\App', 'saas\app\Http\Controllers\Api', 'saas\database\migrations', 'saas\config')) {
+            if (Test-Path -LiteralPath $dir) {
+              Get-ChildItem -LiteralPath $dir -Recurse -Filter '*.php' | ForEach-Object {
+                & php -l $_.FullName | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw ('PHP syntax error: ' + $_.FullName) }
+              }
+            }
+          }
+          & python -m py_compile saas/mobile/patch_live_session.py saas/mobile/ota/deploy.py saas/mobile/ota/native_deploy.py tools/prepare_mobile_ota.py tools/prepare_mobile_native.py tools/test_mobile_ota.py tools/check_mobile_manifest.py tools/verify_shell_jar_packaging.py
+          if ($LASTEXITCODE -ne 0) { throw 'Python syntax check failed' }
+          & python tools/test_mobile_ui_contract.py
+          if ($LASTEXITCODE -ne 0) { throw 'Mobile UI contract failed' }
+          & python tools/test_v1_mobile_shell.py
+          if ($LASTEXITCODE -ne 0) { throw 'V1 mobile shell contract failed' }
+          & python tools/test_android_v58_permission_contract.py
+          if ($LASTEXITCODE -ne 0) { throw 'Android minimal permission contract failed' }
+          & python tools/test_mobile_release_gate.py
+          if ($LASTEXITCODE -ne 0) { throw 'Mobile release gate failed' }
+          & python tools/verify_shell_jar_packaging.py --self-test
+          if ($LASTEXITCODE -ne 0) { throw 'Shell jar verifier self-test failed' }
+          $phpTests = @(
+            'tools/test_sim_agent_call_reports.php',
+            'tools/test_tenant_call_ai_summary.php',
+            'tools/test_tenant_voice_transcript_archive.php',
+            'tools/test_mobile_call_ledger.php',
+            'tools/test_mobile_auth_fallback.php',
+            'tools/test_pilot_workspace.php',
+            'tools/test_kashier_signature.php'
+          )
+          $idx = 0
+          foreach ($test in $phpTests) {
+            $idx++
+            $env:ONTRACK_CI_NAMESPACE = "androidproof-$env:GITHUB_RUN_ID-$idx"
+            & php $test
+            if ($LASTEXITCODE -ne 0) { throw ('PHP test failed: ' + $test) }
+          }
+          Write-Host 'MOBILE_PHP_AND_CONTRACTS_PASS'
+      - uses: actions/checkout@v4
         with:
           repository: jemcik/JemRec
           ref: f011062adfb3a2154c4d5a9cc4394032fb4345f2
           path: .build/jemrec
           persist-credentials: false
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'
-      - name: Keep the test signing identity for subsequent diagnostic updates
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: ontrack-voiceproof-debug-signing-v1
-      - uses: android-actions/setup-android@v4
-      - name: Install pinned Android build platforms
+      - name: Check Windows JDK 21, Android SDK, keystore and apply OnTrack overlay
         run: |
-          sdkmanager --install "platforms;android-37.0" || sdkmanager --install "platforms;android-37"
-          sdkmanager --install "platforms;android-36" || sdkmanager --install "platforms;android-36.0"
-          sdkmanager --install "build-tools;36.0.0"
-          test -f "$ANDROID_HOME/platforms/android-36/android.jar"
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Apply OnTrack source overlay
-        run: python3 saas/mobile/audio-proof/prepare.py .build/jemrec
-      - name: Test audio import and daemon state logic
+          $ErrorActionPreference = 'Stop'
+          $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $androidJar = Join-Path $sdk 'platforms\android-36\android.jar'
+          $signer = Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer = Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          $key = Join-Path $env:USERPROFILE '.android\debug.keystore'
+          foreach ($required in @($androidJar, $signer, $analyzer, $key)) {
+            if (-not (Test-Path -LiteralPath $required)) {
+              throw ('Missing local Android prerequisite: ' + $required)
+            }
+          }
+          $javaVersion = (& java -version 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $javaVersion -notmatch '(?m)(?:version "21[.\"]|openjdk 21(?:[.\s]|$))') {
+            throw ('JDK 21 is required, detected: ' + $javaVersion)
+          }
+          $cert = Join-Path $env:RUNNER_TEMP ('ontrack-cert-' + $env:GITHUB_RUN_ID + '.der')
+          try {
+            & keytool -exportcert -alias androiddebugkey -keystore $key -storepass android -file $cert | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot export signing certificate' }
+            $actual = (Get-FileHash -LiteralPath $cert -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f') {
+              throw 'Original Android owner signing certificate mismatch'
+            }
+          } finally {
+            Remove-Item -LiteralPath $cert -Force -ErrorAction SilentlyContinue
+          }
+          $env:ANDROID_HOME = $sdk
+          $env:ANDROID_SDK_ROOT = $sdk
+          "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & python saas/mobile/audio-proof/prepare.py .build/jemrec
+          if ($LASTEXITCODE -ne 0) { throw 'Android overlay failed' }
+          & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
+          if (-not $?) { throw 'Carrier daemon compilation failed' }
+          $gradlePath = '.build\jemrec\app\build.gradle.kts'
+          $gradle = [IO.File]::ReadAllText((Resolve-Path $gradlePath).Path)
+          $anchor = '    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")'
+          if ($gradle.Split([string[]]@($anchor), [System.StringSplitOptions]::None).Length -ne 2) {
+            throw 'Fragment API dependency anchor missing'
+          }
+          $gradle = $gradle.Replace($anchor, '    implementation("androidx.fragment:fragment:1.6.2")' + [Environment]::NewLine + $anchor)
+          [IO.File]::WriteAllText((Resolve-Path $gradlePath).Path, $gradle, [Text.UTF8Encoding]::new($false))
+          Write-Host 'ANDROID_OVERLAY_AND_DAEMON_PASS'
+      - name: Run Android unit tests and assemble release APK
         working-directory: .build/jemrec
-        run: ./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.PcmWavTest' --tests 'com.ontrack.voiceproof.SetupDiagnosticFormatTest' --tests 'com.ontrack.voiceproof.ProofExportTest' --tests 'com.ontrack.voiceproof.LinkPcmTest' --tests 'com.ontrack.voiceproof.SignedOtaTest' --tests 'com.ontrack.voiceproof.LocalUiPageTest' --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' --tests 'com.ontrack.voiceproof.OverlayUiModelTest' :daemon-tests:test
-      - name: Assert previously-installed Android signing identity
         run: |
-          set -euo pipefail
-          keytool -exportcert -alias androiddebugkey -keystore "$HOME/.android/debug.keystore" -storepass android > /tmp/ontrack-expected-cert.der
-          actual="$(sha256sum /tmp/ontrack-expected-cert.der | cut -d' ' -f1)"
-          test "$actual" = "d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f" || { echo "Refusing update: cached signing identity differs from installed 0.1.6"; exit 1; }
-      - name: Build installable debug APK
-        working-directory: .build/jemrec
-        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
-      - name: Enable KVM access for the Android WebView smoke test
+          $ErrorActionPreference = 'Stop'
+          & .\gradlew.bat --no-daemon :app:testDebugUnitTest `
+            --tests 'com.ontrack.voiceproof.CellularCallRecoveryPolicyTest' `
+            --tests 'com.ontrack.voiceproof.CellularRadioStatusTest' `
+            --tests 'com.ontrack.voiceproof.FishTtsFailoverTest' `
+            --tests 'com.ontrack.voiceproof.LinkPcmTest' `
+            --tests 'com.ontrack.voiceproof.LiveInterruptionPolicyTest' `
+            --tests 'com.ontrack.voiceproof.LocalUiPageTest' `
+            --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' `
+            --tests 'com.ontrack.voiceproof.OnTrackPermissionChecklistTest' `
+            --tests 'com.ontrack.voiceproof.OnTrackSetupChecklistTest' `
+            --tests 'com.ontrack.voiceproof.OutboundFirstTurnTest' `
+            --tests 'com.ontrack.voiceproof.OverlayUiModelTest' `
+            --tests 'com.ontrack.voiceproof.PcmWavTest' `
+            --tests 'com.ontrack.voiceproof.PremiumPcmTest' `
+            --tests 'com.ontrack.voiceproof.ProofExportTest' `
+            --tests 'com.ontrack.voiceproof.SetupDiagnosticFormatTest' `
+            --tests 'com.ontrack.voiceproof.SignedOtaTest' `
+            --tests 'com.ontrack.voiceproof.TenantAgentIdentityTest' `
+            --tests 'com.ontrack.voiceproof.TenantCallRoutingTest' `
+            --tests 'com.ontrack.voiceproof.TenantEngineRestorePolicyTest' `
+            --tests 'com.ontrack.voiceproof.TenantPairingContractTest' `
+            --tests 'com.ontrack.voiceproof.VoiceFailoverPolicyTest'
+          if ($LASTEXITCODE -ne 0) { throw 'Android OnTrack unit tests failed' }
+          & .\gradlew.bat --no-daemon :daemon-tests:test
+          if ($LASTEXITCODE -ne 0) { throw 'Android daemon tests failed' }
+          & .\gradlew.bat --no-daemon :app:assembleRelease
+          if ($LASTEXITCODE -ne 0) { throw 'Android release assembly failed' }
+      - name: Sign APK, audit permissions and generate signed UI/native OTA manifests
+        id: package
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - name: Render actual Android WebView and exercise ready/native init
-        uses: reactivecircus/android-emulator-runner@v2
+          $ErrorActionPreference = 'Stop'
+          $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $signer = Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer = Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          $key = Join-Path $env:USERPROFILE '.android\debug.keystore'
+          $policy = Get-Content -LiteralPath 'saas/mobile/ota/native_release.json' -Raw | ConvertFrom-Json
+          $releaseUi = Get-Content -LiteralPath 'saas/mobile/ota/release.json' -Raw | ConvertFrom-Json
+          $verName = [string]$policy.version_name
+          $verCode = [int]$policy.version_code
+          $uiRev = [int]$releaseUi.revision
+          $unsigned = '.build\jemrec\app\build\outputs\apk\release\app-release-unsigned.apk'
+          $jar = '.build\jemrec\shellserver\ontrack-voiceproof-capture.jar'
+          & python tools/verify_shell_jar_packaging.py $unsigned $jar
+          if ($LASTEXITCODE -ne 0) { throw 'Unsigned APK missing shell capture jar' }
+          New-Item -Path '.build\artifact' -ItemType Directory -Force | Out-Null
+          $apk = ".build\artifact\OnTrack-Voice-$verName.apk"
+          & $signer sign --ks $key --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out $apk $unsigned
+          if ($LASTEXITCODE -ne 0) { throw 'APK signing failed' }
+          $sigOut = (& $signer verify --print-certs $apk | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $sigOut.ToLowerInvariant() -notlike '*d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f*') {
+            throw 'Signed APK certificate verification failed'
+          }
+          $sigOut | Out-File -LiteralPath '.build\artifact\signature.txt' -Encoding utf8
+          & $signer verify --verbose $apk
+          if ($LASTEXITCODE -ne 0) { throw 'apksigner verbose verification failed' }
+          $appId = (& $analyzer manifest application-id $apk | Out-String).Trim()
+          $actualVer = (& $analyzer manifest version-code $apk | Out-String).Trim()
+          if ($appId -ne 'com.ontrack.voiceproof' -or $actualVer -ne [string]$verCode) {
+            throw ("Package/version mismatch: $appId/$actualVer vs expected $verCode")
+          }
+          $grants = (& $analyzer manifest permissions $apk | Out-String)
+          if ($LASTEXITCODE -ne 0 -or !$grants.Contains('android.permission.READ_PHONE_STATE')) {
+            throw 'Signed APK missing READ_PHONE_STATE'
+          }
+          foreach ($redundant in @('RECORD_AUDIO','READ_MEDIA_AUDIO','READ_EXTERNAL_STORAGE','WRITE_EXTERNAL_STORAGE','READ_CALL_LOG','READ_CONTACTS','USE_FULL_SCREEN_INTENT')) {
+            if ($grants.Contains('android.permission.' + $redundant)) {
+              throw ('Forbidden runtime permission leaked into signed APK: ' + $redundant)
+            }
+          }
+          & $analyzer manifest print $apk | Out-File -LiteralPath '.build\artifact\AndroidManifest.xml' -Encoding utf8
+          & python tools/check_mobile_manifest.py '.build\artifact\AndroidManifest.xml'
+          if ($LASTEXITCODE -ne 0) { throw 'Manifest contract check failed' }
+          & python tools/verify_shell_jar_packaging.py $apk $jar
+          if ($LASTEXITCODE -ne 0) { throw 'Signed APK missing shell capture jar' }
+          $sha = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$sha  OnTrack-Voice-$verName.apk" | Out-File -LiteralPath '.build\artifact\SHA256SUMS.txt' -Encoding ascii
+          Copy-Item '.build\jemrec\ontrack-build-source.json' '.build\artifact\'
+          Copy-Item '.build\jemrec\LICENSE' '.build\artifact\'
+          Copy-Item '.build\jemrec\NOTICE.md' '.build\artifact\'
+          & python tools/prepare_mobile_ota.py '.build\artifact\ota'
+          if ($LASTEXITCODE -ne 0) { throw 'prepare_mobile_ota failed' }
+          & java tools/SignMobileOta.java $key '.build\artifact\ota'
+          if ($LASTEXITCODE -ne 0) { throw 'SignMobileOta (UI) failed' }
+          & python tools/prepare_mobile_native.py $apk '.build\artifact\native'
+          if ($LASTEXITCODE -ne 0) { throw 'prepare_mobile_native failed' }
+          & java tools/SignMobileOta.java $key '.build\artifact\native'
+          if ($LASTEXITCODE -ne 0) { throw 'SignMobileOta (Native) failed' }
+          $env:PATH = 'C:\Program Files\Git\usr\bin;' + $env:PATH
+          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_ota import verify as u;from queue_mobile_native import verify as n;_,_,ui=u(Path('.build/artifact/ota'));_,_,ap=n(Path('.build/artifact/native'));assert ap['version_code']==$verCode and ap['version_name']=='$verName' and ui['revision']==$uiRev and ui['min_native']<=$verCode<=ui['max_native'];print('SIGNED_APK_AND_OTA_VERIFIED')"
+          if ($LASTEXITCODE -ne 0) { throw 'Signed manifest verification failed' }
+          "version_name=$verName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+      - uses: actions/upload-artifact@v4
         with:
-          api-level: 34
-          arch: x86_64
-          target: google_apis
-          disable-animations: true
-          emulator-options: -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save
-          script: .build/jemrec/gradlew -p .build/jemrec --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.ontrack.voiceproof.MobileUiInstrumentedTest
-      - name: Package provenance and verify signature
-        run: |
-          mkdir -p .build/artifact
-          # Re-sign the final APK with the cached original key, regardless of Gradle or emulator debug identities.
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
-            --ks "$HOME/.android/debug.keystore" \
-            --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android \
-            --out .build/artifact/OnTrack-Voice-0.3.1.apk \
-            .build/jemrec/app/build/outputs/apk/debug/app-debug.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs .build/artifact/OnTrack-Voice-0.3.1.apk > .build/artifact/signature.txt
-          grep -Fq 'Signer #1 certificate SHA-256 digest: d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f' .build/artifact/signature.txt
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose .build/artifact/OnTrack-Voice-0.3.1.apk
-          "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print .build/artifact/*.apk > .build/artifact/AndroidManifest.xml
-          python3 tools/check_mobile_manifest.py .build/artifact/AndroidManifest.xml
-          sha256sum .build/artifact/*.apk > .build/artifact/SHA256SUMS.txt
-          cp .build/jemrec/ontrack-build-source.json .build/artifact/
-          cp .build/jemrec/LICENSE .build/jemrec/NOTICE.md .build/artifact/
-          cp -r .build/jemrec/app/build/outputs/androidTest-results .build/artifact/
-      - name: Sign OTA UI with the existing Android signing identity
-        run: |
-          python3 tools/prepare_mobile_ota.py .build/artifact/ota
-          java tools/SignMobileOta.java "$HOME/.android/debug.keystore" .build/artifact/ota
-          python3 -c "import sys; sys.path.insert(0,'tools'); from queue_mobile_ota import verify; from pathlib import Path; verify(Path('.build/artifact/ota')); print('OTA signature and hashes verified')"
-      - name: Prepare and sign native Android OTA update
-        run: |
-          python3 tools/prepare_mobile_native.py .build/artifact/OnTrack-Voice-0.3.1.apk .build/artifact/native
-          java tools/SignMobileOta.java "$HOME/.android/debug.keystore" .build/artifact/native
-          python3 -c "import sys;sys.path.insert(0,'tools');from queue_mobile_native import verify;from pathlib import Path;verify(Path('.build/artifact/native'));print('Signed native release metadata verified')"
-      - uses: actions/upload-artifact@v5
-        with:
-          name: OnTrack-Voice-0.3.1
+          name: OnTrack-Voice-${{ steps.package.outputs.version_name }}
           path: .build/artifact/
           if-no-files-found: error
           retention-days: 30
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: android-proof-failure-reports
           path: |
             .build/jemrec/app/build/reports/
             .build/jemrec/shellserver/tests/build/reports/
-            .build/jemrec/app/build/outputs/androidTest-results/
           if-no-files-found: ignore
 
+  publish_ota:
+    if: github.repository == 'OnTrack-Development/OnTrack-voice' && github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    defaults:
+      run:
+        shell: pwsh
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: OnTrack-Voice-${{ needs.build.outputs.version_name }}
+          path: .build/downloaded
+      - name: Queue verified OTA files through host worker (manual dispatch only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/queue_mobile_ota.py .build/downloaded/ota
+
+  publish_native:
+    if: github.repository == 'OnTrack-Development/OnTrack-voice' && github.event_name == 'workflow_dispatch'
+    needs: [build, publish_ota]
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    defaults:
+      run:
+        shell: pwsh
+    timeout-minutes: 8
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: OnTrack-Voice-${{ needs.build.outputs.version_name }}
+          path: .build/downloaded
+      - name: Queue signed native APK through OnTrack worker (manual dispatch only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/queue_mobile_native.py .build/downloaded/native

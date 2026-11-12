@@ -1,0 +1,167 @@
+# Publish a previously verified Windows-signed APK via the existing host worker.
+# Called automatically after a successful build. The push trigger publishes the
+# first verified 0.3.11 build once, without rebuilding Android or exposing keys.
+name: Publish verified OnTrack Voice 0.3.11 to hosting
+run-name: Host-publish signed Android v0.3.11
+on:
+  push:
+    branches:
+      - feat/voice-production-gap-20261103
+    paths:
+      - .github/workflows/owner-windows-apk-publish.yml
+  workflow_call:
+    inputs:
+      source_run_id:
+        type: string
+        required: true
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: ontrack-voice-native-host-publish
+  cancel-in-progress: false
+env:
+  PYTHONUTF8: '1'
+  SOURCE_RUN_ID: ${{ inputs.source_run_id || '41749227359' }}
+jobs:
+  publish:
+    if: github.actor == 'ahmedbedir' && github.ref == 'refs/heads/feat/voice-production-gap-20261103'
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 50
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout authorized OnTrack publisher
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download signed APK from successful verified Windows build
+        uses: actions/download-artifact@v4
+        with:
+          repository: OnTrack-Development/OnTrack-voice
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          github-token: ${{ github.token }}
+          name: OnTrack-Voice-0.3.11-Windows-signed
+          path: .build/release
+      - name: Verify source run success, immutable APK checksum, and original signature
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $headers = @{
+            'Authorization' = "Bearer $env:GH_TOKEN"
+            'Accept' = 'application/vnd.github+json'
+            'X-GitHub-Api-Version' = '2022-11-28'
+            'User-Agent' = 'OnTrack-Voice-Owner-Release'
+          }
+          $uri = "https://api.github.com/repos/OnTrack-Development/OnTrack-voice/actions/runs/$env:SOURCE_RUN_ID"
+          $sourceRun = Invoke-RestMethod -Uri $uri -Headers $headers
+          if ($sourceRun.conclusion -ne 'success' -or
+              $sourceRun.path -ne '.github/workflows/owner-windows-apk-0311.yml' -or
+              $sourceRun.head_branch -ne 'feat/voice-production-gap-20261103' -or
+              $sourceRun.head_repository.full_name -ne 'OnTrack-Development/OnTrack-voice') {
+            throw 'Source workflow is not an authorized successful Windows Android build.'
+          }
+          if ($env:SOURCE_RUN_ID -eq '41749227359' -and
+              $sourceRun.head_sha -ne '7d1b1f65db8add1f495c3a3e7623319ff59a4ac9') {
+            throw 'Original signed build provenance mismatch.'
+          }
+          $apk = Join-Path $env:GITHUB_WORKSPACE '.build\release\OnTrack-Voice-0.3.11.apk'
+          $checksums = Join-Path $env:GITHUB_WORKSPACE '.build\release\SHA256SUMS.txt'
+          if (-not (Test-Path -LiteralPath $apk) -or -not (Test-Path -LiteralPath $checksums)) {
+            throw 'Original build artifact missing its signed APK or SHA256SUMS.txt.'
+          }
+          $line = (Get-Content -LiteralPath $checksums | Select-Object -First 1)
+          if ($line -notmatch '^SHA256 ([0-9a-f]{64})  OnTrack-Voice-0\.3\.11\.apk$') {
+            throw 'Unexpected original checksum report format.'
+          }
+          $expectedSha = $Matches[1]
+          $sha = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($sha -ne $expectedSha) { throw 'Downloaded APK SHA256 does not match signed build report.' }
+          if ($env:SOURCE_RUN_ID -eq '41749227359' -and
+              $sha -ne '11b5eabeb1cb79d9b5ebb9e1de7f00e7d7167a7b3b5991b7d47a1ae2bf6de0d7') {
+            throw 'Original known APK digest mismatch.'
+          }
+          $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $signer = Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $signature = & $signer verify --print-certs $apk
+          if ($LASTEXITCODE -ne 0 -or
+              ($signature | Out-String).ToLowerInvariant() -notlike '*d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f*') {
+            throw 'APK is not signed with the already-installed Android certificate.'
+          }
+          & $signer verify --verbose $apk
+          if ($LASTEXITCODE -ne 0) { throw 'APK verification failed.' }
+          $key = Join-Path $env:USERPROFILE '.android\debug.keystore'
+          if (-not (Test-Path -LiteralPath $key)) { throw 'Owner signing key missing.' }
+          $certPath = Join-Path $env:RUNNER_TEMP 'ontrack-publisher-cert.der'
+          try {
+            & keytool -exportcert -alias androiddebugkey -keystore $key -storepass android -file $certPath | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to verify owner signing key.' }
+            if ((Get-FileHash $certPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f') {
+              throw 'Owner signing key mismatch.'
+            }
+          } finally {
+            Remove-Item -LiteralPath $certPath -Force -ErrorAction SilentlyContinue
+          }
+          $envPath = $env:GITHUB_ENV
+          "RELEASE_SOURCE_SHA=$($sourceRun.head_sha)" | Out-File -FilePath $envPath -Encoding utf8 -Append
+          Write-Host 'SOURCE_SUCCESS_AND_SIGNATURE_VERIFIED: PASS'
+          Write-Host "APK_SHA256: $sha"
+      - name: Enable git-for-Windows OpenSSL and verify crypto tool
+        run: |
+          $gitTools = 'C:\Program Files\Git\usr\bin'
+          if (-not (Test-Path (Join-Path $gitTools 'openssl.exe'))) {
+            throw 'Git for Windows OpenSSL unavailable. Cannot verify signed OTA.'
+          }
+          $gitTools | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          & (Join-Path $gitTools 'openssl.exe') version
+          if ($LASTEXITCODE -ne 0) { throw 'OpenSSL CLI failed.' }
+      - name: Create signed immutable UI and APK OTA manifests
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = '.build\artifact'
+          New-Item -ItemType Directory -Path $out -Force | Out-Null
+          $apk = Join-Path $env:GITHUB_WORKSPACE '.build\release\OnTrack-Voice-0.3.11.apk'
+          Copy-Item -LiteralPath $apk -Destination (Join-Path $out 'OnTrack-Voice-0.3.11.apk')
+          $key = Join-Path $env:USERPROFILE '.android\debug.keystore'
+          # Use source APK commit (not the publishing workflow SHA) for immutable UI release provenance.
+          $env:GITHUB_SHA = $env:RELEASE_SOURCE_SHA
+          & python tools/prepare_mobile_ota.py .build/artifact/ota
+          if ($LASTEXITCODE -ne 0) { throw 'Preparing signed UI OTA failed.' }
+          & java tools/SignMobileOta.java $key .build/artifact/ota
+          if ($LASTEXITCODE -ne 0) { throw 'Signing UI OTA failed.' }
+          & python tools/prepare_mobile_native.py .build/artifact/OnTrack-Voice-0.3.11.apk .build/artifact/native
+          if ($LASTEXITCODE -ne 0) { throw 'Preparing signed Android native OTA failed.' }
+          & java tools/SignMobileOta.java $key .build/artifact/native
+          if ($LASTEXITCODE -ne 0) { throw 'Signing Android native OTA failed.' }
+          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_ota import verify as ui;from queue_mobile_native import verify as native;ui(Path('.build/artifact/ota'));native(Path('.build/artifact/native'));print('BOTH_OTA_SIGNATURES_VERIFIED: PASS')"
+          if ($LASTEXITCODE -ne 0) { throw 'Signed OTA verification failed.' }
+      - name: Upload signed release bundle without private keys
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnTrack-Voice-0.3.11
+          path: .build/artifact/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Queue signed UI OTA through the existing OnTrack hosting worker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & python tools/queue_mobile_ota.py .build/artifact/ota
+          if ($LASTEXITCODE -ne 0) { throw 'Hosting worker refused the UI OTA publication queue.' }
+          Write-Host 'UI_OTA_HOST_JOB_QUEUED: PASS'
+      - name: Queue signed APK only after matching UI host acknowledgement
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & python tools/queue_mobile_native.py .build/artifact/native
+          if ($LASTEXITCODE -ne 0) { throw 'No verified UI host acknowledgement; native APK was NOT queued.' }
+          Write-Host 'NATIVE_OTA_HOST_JOB_QUEUED: PASS'
+      - name: Wait for and verify the actual native deployment receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & python tools/verify_mobile_native_host_receipt.py .build/artifact/native
+          if ($LASTEXITCODE -ne 0) { throw 'Native APK was queued but successful hosting publication was not confirmed.' }
+          Write-Host 'ONTRACK_VOICE_SERVER_DEPLOYED: PASS'

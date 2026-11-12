@@ -1,0 +1,166 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__.'/../saas/console/database/Seed.php';
+require_once __DIR__.'/../saas/console/_core/VoiceConnectorCache.php';
+if(is_dir('/home/appontrack'))throw new RuntimeException('CI fixture only');
+function cached_check(bool $ok,string $what):void {
+    if(!$ok)throw new RuntimeException('SITE_PUBLIC_API_CACHE_FAIL '.$what);
+}
+seed_console();
+$site=(int)one("SELECT id FROM sites WHERE account_id=4 AND status='active' LIMIT 1")['id'];
+$conn=voice_connector_add(4,$site,'whmcs','Public hosting catalog',
+    'https://catalog.example.com','/includes/api.php','whmcs','id:secret');
+execute("UPDATE voice_data_connectors SET status='verified' WHERE id=? AND account_id=4",[$conn]);
+$fake=static fn()=>['result'=>'success','products'=>['product'=>[
+    ['name'=>'Demo Hosting Plan','description'=>'100 GB monthly','price'=>'199.00',
+     'email'=>'testprivate@example.com','password'=>'not-in-cache','domain'=>'private.example'],
+]]];
+$cache=voice_connector_cache_refresh(4,$site,$conn,60,$fake);
+cached_check($cache['status']==='refreshed'&&$cache['public_only'],'read-only snapshot');
+$content=voice_connector_cache_context(4,$site);
+cached_check(str_contains($content,'Demo Hosting Plan'),'public catalogue surfaced');
+cached_check(str_contains($content,'199.00'),'public price surfaced');
+cached_check(!str_contains($content,'testprivate@example.com')&&
+    !str_contains($content,'not-in-cache')&&
+    !str_contains($content,'private.example'),'PII and secrets excluded');
+cached_check(voice_connector_cache_context(5,$site)==='','cross tenant excluded');
+$wrong=false;try{voice_connector_cache_refresh(5,$site,$conn,60,$fake);}
+catch(InvalidArgumentException){$wrong=true;}
+cached_check($wrong,'cross tenant refresh denied');
+$wrong=false;try{voice_connector_cache_refresh(4,$site,$conn,1,$fake);}
+catch(InvalidArgumentException){$wrong=true;}
+cached_check($wrong,'unsafe TTL denied');
+execute("UPDATE voice_connector_public_cache SET expires_at=? WHERE connector_id=? AND account_id=4",
+    [gmdate('Y-m-d H:i:s',time()-60),$conn]);
+cached_check(!str_contains(voice_connector_cache_context(4,$site),'Demo Hosting Plan'),
+    'expired facts never read');
+$bad=false;try{voice_connector_cache_refresh(4,$site,$conn,60,
+    static fn()=>['result'=>'error','products'=>['product'=>[]]]);}
+catch(RuntimeException){$bad=true;}
+cached_check($bad,'provider error cannot refresh cache');
+cached_check(!str_contains(voice_connector_cache_context(4,$site),'Demo Hosting Plan'),
+    'failed refresh cannot extend stale information');
+cached_check(count(voice_connector_cache_rows(4,$site))===1,'cache UI status available');
+// Prioritization is scoped to an existing verified public connector.
+$prioritySource=voice_connector_add(4,$site,'custom','Second public catalogue',
+    'https://catalog.example.org','/public/catalog','bearer','fixture-token');
+execute("UPDATE voice_data_connectors SET status='verified' WHERE id=? AND account_id=4",[$prioritySource]);
+$measured=voice_connector_cache_refresh(4,$site,$prioritySource,60,
+    static fn()=>['products'=>['product'=>[['name'=>'High priority public source']]]]);
+cached_check(is_int($measured['duration_ms'])&&$measured['duration_ms']>=0,
+    'refresh measures latency without an invented duration');
+voice_connector_cache_priority_set(4,$site,$prioritySource,900);
+voice_connector_cache_priority_set(4,$site,$conn,10);
+cached_check(voice_connector_cache_priorities(4,$site)[$prioritySource]===900,
+    'source priority saved in tenant/site scope');
+$bad=false;try{voice_connector_cache_priority_set(5,$site,$prioritySource,999);}
+catch(InvalidArgumentException){$bad=true;}
+cached_check($bad,'cross-tenant source priority is rejected');
+$bad=false;try{voice_connector_cache_priority_set(4,$site,$prioritySource,0);}
+catch(InvalidArgumentException){$bad=true;}
+cached_check($bad,'invalid priority is rejected');
+
+// The scheduled worker refreshes only verified public catalogue snapshots.
+$site5=(int)one("SELECT id FROM sites WHERE account_id=5 AND status='active' LIMIT 1")['id'];
+$conn5=voice_connector_add(5,$site5,'whmcs','Tenant 5 catalogue',
+    'https://catalog.example.org','/includes/api.php','whmcs','id:secret');
+execute("UPDATE voice_data_connectors SET status='verified' WHERE id=? AND account_id=5",[$conn5]);
+// A verified generic endpoint is not a licence to crawl private APIs unattended.
+$privateApi=voice_connector_add(4,$site,'custom','Private account API',
+    'https://account.example.com','/private/account','bearer','fixture-token');
+execute("UPDATE voice_data_connectors SET status='verified' WHERE id=? AND account_id=4",[$privateApi]);
+$batch=voice_connector_cache_due_all(2,static fn(array $connector):array=>[
+    'result'=>'success','products'=>['product'=>[[
+        'name'=>'Tenant '.(int)$connector['account_id'].' public product',
+        'description'=>'Verified public catalogue'
+    ]]]
+]);
+cached_check($batch['checked']===2&&$batch['refreshed']===2&&$batch['failed']===0,
+    'bounded public snapshot auto refresh');
+cached_check(!one('SELECT connector_id FROM voice_connector_public_refresh_schedule
+    WHERE connector_id=? AND account_id=4',[$privateApi]),
+    'generic authenticated endpoint excluded from scheduled public crawling');
+cached_check(str_contains(voice_connector_cache_context(4,$site),'Tenant 4 public product'),
+    'first tenant refreshed');
+$ranked=voice_connector_cache_context(4,$site,4400);
+cached_check(strpos($ranked,'High priority public source')!==false &&
+    strpos($ranked,'Tenant 4 public product')!==false &&
+    strpos($ranked,'High priority public source')<strpos($ranked,'Tenant 4 public product'),
+    'priority wins over newest result on public facts only');
+cached_check(str_contains(voice_connector_cache_context(5,$site5),'Tenant 5 public product'),
+    'second tenant refreshed');
+cached_check(!str_contains(voice_connector_cache_context(4,$site),'Tenant 5 public product')&&
+    !str_contains(voice_connector_cache_context(5,$site5),'Tenant 4 public product'),
+    'scheduled cache never crosses tenant');
+cached_check(voice_connector_cache_due_all(2,static function():never {
+    throw new RuntimeException('unexpected network call');
+})['checked']===0,'fresh snapshots are never re-requested every tick');
+$old=gmdate('Y-m-d H:i:s',time()-60);
+execute('UPDATE voice_connector_public_cache SET expires_at=? WHERE connector_id=? AND account_id=4',
+    [$old,$conn]);
+execute('UPDATE voice_connector_public_refresh_schedule SET next_attempt_at=?
+    WHERE connector_id=? AND account_id=4',[$old,$conn]);
+$down=voice_connector_cache_due_all(1,static function():never {
+    throw new RuntimeException('synthetic api offline');
+});
+cached_check($down['checked']===1&&$down['failed']===1,'public cache failure reported');
+$retry=one('SELECT failures,next_attempt_at FROM voice_connector_public_refresh_schedule
+    WHERE connector_id=? AND account_id=4',[$conn]);
+cached_check((int)$retry['failures']===1&&$retry['next_attempt_at']>now(),
+    'failed public API gets a retry backoff');
+cached_check(!str_contains(voice_connector_cache_context(4,$site),'Tenant 4 public product'),
+    'failed refresh cannot make expired snapshot available');
+cached_check(voice_connector_cache_due_all(1,static function():never {
+    throw new RuntimeException('unexpected immediate retry');
+})['checked']===0,'failed provider is not hammered on every cron tick');
+// A second failure increments the counter; recovery resets it without
+// accidentally extending the TTL of the previously expired snapshot.
+execute('UPDATE voice_connector_public_refresh_schedule SET next_attempt_at=?
+    WHERE connector_id=? AND account_id=4',[$old,$conn]);
+$downAgain=voice_connector_cache_due_all(1,static function():never {
+    throw new RuntimeException('synthetic second failure');
+});
+cached_check($downAgain['checked']===1&&$downAgain['failed']===1,'repeated API failure counted');
+$retryAgain=one('SELECT failures,next_attempt_at FROM voice_connector_public_refresh_schedule
+    WHERE connector_id=? AND account_id=4',[$conn]);
+cached_check((int)$retryAgain['failures']===2&&$retryAgain['next_attempt_at']>now(),
+    'second public failure increments backoff counter');
+execute('UPDATE voice_connector_public_refresh_schedule SET next_attempt_at=?
+    WHERE connector_id=? AND account_id=4',[$old,$conn]);
+$recovered=voice_connector_cache_due_all(1,static fn():array=>[
+    'result'=>'success','products'=>['product'=>[['name'=>'Recovered hosting plan']]]
+]);
+cached_check($recovered['checked']===1&&$recovered['refreshed']===1,'public API recovers');
+$recoveryRow=one('SELECT failures FROM voice_connector_public_refresh_schedule
+    WHERE connector_id=? AND account_id=4',[$conn]);
+cached_check((int)$recoveryRow['failures']===0,'recovery resets retry counter');
+cached_check(str_contains(voice_connector_cache_context(4,$site),'Recovered hosting plan'),
+    'recovered public facts are available again');
+// Suspension is a hard tenant boundary for both cache reads and cron work.
+execute("UPDATE accounts SET status='suspended' WHERE id=4");
+cached_check(voice_connector_cache_context(4,$site)==='',
+    'suspended tenant cannot read its formerly valid public cache');
+$denied=false;
+try{voice_connector_cache_refresh(4,$site,$conn,60,static fn()=>[
+    'result'=>'success','products'=>['product'=>[['name'=>'should not run']]]]);}
+catch(InvalidArgumentException){$denied=true;}
+cached_check($denied,'suspended account cannot refresh its public cache');
+execute('UPDATE voice_connector_public_cache SET expires_at=? WHERE connector_id=? AND account_id=4',
+    [$old,$conn]);
+execute('UPDATE voice_connector_public_refresh_schedule SET next_attempt_at=?
+    WHERE connector_id=? AND account_id=4',[$old,$conn]);
+$skipped=voice_connector_cache_due_all(2,static function():never {
+    throw new RuntimeException('suspended account cannot call provider');
+});
+cached_check($skipped['checked']===0,
+    'cron skips due catalogue belonging to suspended tenant');
+execute("UPDATE accounts SET status='active' WHERE id=4");
+$restored=voice_connector_cache_due_all(1,static fn():array=>[
+    'result'=>'success','products'=>['product'=>[['name'=>'Restored tenant catalogue']]]
+]);
+cached_check($restored['checked']===1&&$restored['refreshed']===1,
+    'reactivated tenant refreshes previously due public catalogue');
+$bad=false;try{voice_connector_cache_due_all(9);}catch(InvalidArgumentException){$bad=true;}
+cached_check($bad,'global refresh budget enforced');
+
+echo "VOICE_PUBLIC_API_CACHE_TTL_AND_TENANT_PASS\n";

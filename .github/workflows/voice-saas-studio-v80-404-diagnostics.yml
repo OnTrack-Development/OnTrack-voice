@@ -1,0 +1,69 @@
+name: OnTrack v80 SOG Studio HTTP 404 WAF and route independent diagnosis
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-studio-v80-404-diagnostics.yml'
+      - 'tools/host_v80_studio_404_readonly.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-v80-studio-readonly
+  cancel-in-progress: true
+jobs:
+  host-request-diagnostics:
+    name: Detect Apache vs PHP rejection and audit hosted error logs without secrets
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 14
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - name: Read-only localhost-safe unauthorized request matrix
+        run: |
+          $ErrorActionPreference='Stop'
+          $base='https://app.ontrackegy.com'
+          $testCases=@(
+            [pscustomobject]@{Name='tiny_legacy';Path='/';Len=0;Extra=''},
+            [pscustomobject]@{Name='tiny_packed';Path='/';Len=3;Extra=''},
+            [pscustomobject]@{Name='medium_packed';Path='/';Len=4000;Extra=''},
+            [pscustomobject]@{Name='large_packed';Path='/';Len=32000;Extra=''},
+            [pscustomobject]@{Name='legacy_console';Path='/saas/console/';Len=3;Extra=''},
+            [pscustomobject]@{Name='portal_sog';Path='/portal/sog/';Len=3;Extra=''}
+          )
+          foreach($case in $testCases){
+            $body='action=update_agent&csrf=invalid&agent_id=0&publish_now=1'
+            if($case.Len -gt 0){$body+='&studio_fields_b64='+('Y' * [int]$case.Len)}
+            $headers=@{'X-Requested-With'='XMLHttpRequest';'Accept'='application/json'}
+            try{
+              $response=Invoke-WebRequest -Uri ($base+$case.Path) -Method Post -Headers $headers -ContentType 'application/x-www-form-urlencoded' -Body $body -SkipHttpErrorCheck -MaximumRedirection 0 -TimeoutSec 18
+              $status=[int]$response.StatusCode
+              $ct=($response.Headers['Content-Type']|Out-String).Split(';')[0].Trim()
+              $signature=($response.Content|Out-String).TrimStart()
+              $phpJson=$ct.Contains('application/json')
+              Write-Host ('V80_PROBE '+$case.Name+' HTTP='+$status+' CONTENT_TYPE='+$ct+' TYPED_JSON='+$phpJson+' RESPONSE_CHARS='+$signature.Length)
+            }catch{
+              Write-Host ('V80_PROBE '+$case.Name+' REQUEST_ERROR='+$_.Exception.GetType().Name)
+            }
+          }
+          Write-Host 'V80_SAFE_ANONYMOUS_ROUTE_WAF_MATRIX_COMPLETE'
+      - name: Inspect user-owned host log availability and 404 counts over SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/host_v80_studio_404_readonly.py
+          if($LASTEXITCODE -ne 0){throw 'Host probe invalid'}
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Approved SSH identity missing'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-studio-v80'
+          & ssh.exe @flags -p 7195 $remote ('umask 077; mkdir -p '+$stage+'; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Private diagnostics path unavailable'}
+          & scp.exe @flags -P 7195 tools/host_v80_studio_404_readonly.py ($remote+':'+$stage+'/inspect.py')
+          if($LASTEXITCODE -ne 0){throw 'Read-only tool stage failed'}
+          & ssh.exe @flags -p 7195 $remote ('python3 '+$stage+'/inspect.py')
+          if($LASTEXITCODE -ne 0){throw 'Host log inspection failed'}
+          Write-Host 'V80_AUTHORIZED_HOST_WAF_404_READ_ONLY_PROBE_PASS'

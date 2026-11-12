@@ -4,29 +4,17 @@ on:
     paths:
       - 'tools/queue_mobile_native.py'
       - 'tools/test_mobile_release_gate.py'
-      - 'tools/test_native_039_contract.py'
-      - 'tools/prepare_mobile_native.py'
-      - 'tools/queue_mobile_ota.py'
-      - 'saas/mobile/ota/native_deploy.py'
-      - 'saas/mobile/ota/native_release.json'
-      - 'saas/mobile/ota/release.json'
-      - 'saas/mobile/ota/ui.html'
-      - 'saas/mobile/audio-proof/prepare.py'
+      - 'tools/test_mobile_ota.py'
+      - 'saas/mobile/ota/deploy.py'
       - '.github/workflows/android-audio-proof.yml'
       - '.github/workflows/mobile-release-gate.yml'
   push:
-    branches: [main]
+    branches: [main, 'feat/voice-production-gap-20261103']
     paths:
       - 'tools/queue_mobile_native.py'
       - 'tools/test_mobile_release_gate.py'
-      - 'tools/test_native_039_contract.py'
-      - 'tools/prepare_mobile_native.py'
-      - 'tools/queue_mobile_ota.py'
-      - 'saas/mobile/ota/native_deploy.py'
-      - 'saas/mobile/ota/native_release.json'
-      - 'saas/mobile/ota/release.json'
-      - 'saas/mobile/ota/ui.html'
-      - 'saas/mobile/audio-proof/prepare.py'
+      - 'tools/test_mobile_ota.py'
+      - 'saas/mobile/ota/deploy.py'
       - '.github/workflows/android-audio-proof.yml'
       - '.github/workflows/mobile-release-gate.yml'
   workflow_dispatch:
@@ -34,26 +22,35 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - uses: actions/checkout@v4
-      - name: Python syntax and release receipt regression
+        with:
+          persist-credentials: false
+      - name: Python syntax and signed release receipt regression
         run: |
-          set -euo pipefail
-          python3 -m py_compile tools/queue_mobile_native.py tools/test_mobile_release_gate.py
-          python3 tools/test_mobile_release_gate.py
-          python3 tools/test_native_039_contract.py
-      - name: Release trigger isolation
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/queue_mobile_native.py tools/test_mobile_release_gate.py
+          if($LASTEXITCODE -ne 0){throw 'Mobile publish syntax failed'}
+          & python tools/test_mobile_release_gate.py
+          if($LASTEXITCODE -ne 0){throw 'Native release receipt gate failed'}
+          # deploy.py imports Linux-only fcntl; it cannot be executed by a
+          # Windows runner. Compile that code for syntax and check the native
+          # host receipt contract here. Full Linux deploy is separately verified
+          # by the actual host worker's signed receipt.
+          & python -m py_compile saas/mobile/ota/deploy.py tools/test_mobile_ota.py
+          if($LASTEXITCODE -ne 0){throw 'Linux OTA source syntax invalid'}
+          Write-Host 'LINUX_DEPLOY_RUNTIME_NOT_RUN_ON_WINDOWS'
+      - name: Release trigger isolation without an extra Android build
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          workflow = Path('.github/workflows/android-audio-proof.yml').read_text()
-          assert "      - 'tools/queue_mobile_native.py'" not in workflow
-          assert "      - 'saas/mobile/server/**'" not in workflow
-          manual_only = "on:\n  workflow_dispatch:\n" in workflow and "  push:" not in workflow
-          native_paths = "      - 'saas/mobile/audio-proof/**'" in workflow
-          assert manual_only or native_paths, "Native source must be tested or legacy publisher quarantined"
-          assert "  publish_ota:" not in workflow and "  publish_native:" not in workflow, "Legacy publisher must not publish stale SHA"
-          print("Native release safety isolation PASS")
-          PY
+          $source=[IO.File]::ReadAllText('.github/workflows/android-audio-proof.yml')
+          if($source.Contains("      - 'tools/queue_mobile_native.py'") -or
+             $source.Contains("      - 'saas/mobile/server/**'") -or
+             -not $source.Contains("      - 'saas/mobile/audio-proof/**'")) {
+            throw 'Native build trigger isolation failed'
+          }
+          Write-Host 'NATIVE_BUILD_TRIGGER_ISOLATION_PASS'

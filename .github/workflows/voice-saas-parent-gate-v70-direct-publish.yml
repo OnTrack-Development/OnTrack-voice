@@ -1,0 +1,104 @@
+name: OnTrack v70 reseller parent API and paired SIM suspension hardening
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-parent-gate-v70-direct-publish.yml'
+      - 'tools/deploy_saas_parent_v70.py'
+      - 'tools/test_reseller_parent_service_gate_v70.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-saas-v70-parent-api-device-hardening
+  cancel-in-progress: false
+jobs:
+  test-and-publish:
+    name: Regression-test all affected gates and atomically publish server code
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check PHP sources and isolated paid-child API SIM voice regressions
+        run: |
+          $ErrorActionPreference='Stop'
+          $phpFiles=@(
+            'saas/console/_core/Bootstrap.php',
+            'saas/console/_core/CustomerAccounts.php',
+            'saas/console/_core/TenantVoiceSession.php',
+            'saas/console/_core/DevicePairing.php',
+            'saas/console/api/v1/index.php',
+            'tools/test_reseller_parent_service_gate_v70.php'
+          )
+          foreach($file in $phpFiles){
+            & php -l $file
+            if($LASTEXITCODE -ne 0){throw ('Source syntax failed '+$file)}
+          }
+          & python -m py_compile tools/deploy_saas_parent_v70.py
+          if($LASTEXITCODE -ne 0){throw 'Atomic patch publisher syntax invalid'}
+          $tests=@(
+            'tools/test_reseller_parent_service_gate_v70.php',
+            'tools/test_customer_accounts_v59.php',
+            'tools/test_reseller_subscription_catalog.php',
+            'tools/test_g6_entitlements.php',
+            'tools/test_verified_checkout_settlement.php'
+          )
+          $i=0
+          try{
+            foreach($test in $tests){
+              $i++
+              $env:ONTRACK_CI_NAMESPACE='v70_'+$env:GITHUB_RUN_ID+'_'+$i
+              & php $test
+              if($LASTEXITCODE -ne 0){throw ('Tenant regression failed '+$test)}
+            }
+          }finally{
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          }
+          Write-Host 'V70_RESELLER_PARENT_ACCOUNT_API_SIM_VOICE_AND_BILLING_TESTS_PASS'
+      - name: Stage exactly two PHP files and deployer on authorized host
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH key missing'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-parent-v70'
+          & ssh.exe @flags -p 7195 $hostName ('umask 077; mkdir -p '+$stage+'/_core '+$stage+'/api/v1; chmod 700 '+$stage+' '+$stage+'/_core '+$stage+'/api '+$stage+'/api/v1')
+          if($LASTEXITCODE -ne 0){throw 'Private v70 staging unavailable'}
+          $files=@(
+            [pscustomobject]@{Source='saas/console/_core/DevicePairing.php';Destination="$stage/_core/DevicePairing.php"}
+            [pscustomobject]@{Source='saas/console/api/v1/index.php';Destination="$stage/api/v1/index.php"}
+            [pscustomobject]@{Source='tools/deploy_saas_parent_v70.py';Destination="$stage/deploy.py"}
+          )
+          foreach($item in $files){
+            $source=[string]$item.Source
+            $dest=[string]$item.Destination
+            if(!(Test-Path -LiteralPath $source -PathType Leaf)){throw ('Missing staged source '+$source)}
+            $target='{0}:{1}' -f $hostName,$dest
+            & scp.exe @flags -P 7195 $source $target
+            if($LASTEXITCODE -ne 0){throw ('SCP stage failed for '+$source)}
+          }
+          Write-Host 'V70_APPROVED_SSH_PRIVATE_STAGING_PASS'
+      - name: Deploy with rollback and verify host PHP 8.3 plus public auth denial
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostName='appontrack@65.21.208.232'
+          & ssh.exe @flags -p 7195 $hostName 'python3 /home/appontrack/.ontrack-mobile/saas-parent-v70/deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'Atomic v70 host deploy failed'}
+          & ssh.exe @flags -p 7195 $hostName 'set -eu; /opt/cpanel/ea-php83/root/usr/bin/php -l /home/appontrack/public_html/_core/DevicePairing.php; /opt/cpanel/ea-php83/root/usr/bin/php -l /home/appontrack/public_html/api/v1/index.php; echo V70_CANONICAL_HOST_PHP83_PASS'
+          if($LASTEXITCODE -ne 0){throw 'Live v70 PHP syntax failed'}
+          $api=Invoke-WebRequest -Uri ('https://app.ontrackegy.com/api/v1/?op=sites&v70='+$env:GITHUB_RUN_ID) -SkipHttpErrorCheck -TimeoutSec 25 -MaximumRedirection 0
+          if([int]$api.StatusCode -ne 401){throw ('Unauthenticated API status was '+[int]$api.StatusCode)}
+          $site=Invoke-WebRequest -Uri 'https://app.ontrackegy.com/login?v70=ok' -SkipHttpErrorCheck -TimeoutSec 25 -MaximumRedirection 2
+          if([int]$site.StatusCode -ge 500){throw ('Live login unavailable '+[int]$site.StatusCode)}
+          Write-Host 'V70_LIVE_API_ANONYMOUS_DENIED_AND_SITE_HTTP_PASS'

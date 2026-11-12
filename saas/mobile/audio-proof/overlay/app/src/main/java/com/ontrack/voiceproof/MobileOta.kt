@@ -57,23 +57,33 @@ class MobileOta(private val context: Context) {
         revision=1
         return Screen(context.assets.open("ontrack-ui.html").bufferedReader().use{it.readText()},1)
     }
-    private fun fetch(path:String,limit:Int):ByteArray {
-        client.newCall(Request.Builder().url("https://app.ontrackegy.com/saas/mobile/updates/$path").build()).execute().use { r ->
+    private fun fetch(path:String,limit:Int,progress:((Int)->Unit)?=null):ByteArray {
+        client.newCall(Request.Builder().url("https://app.ontrackegy.com/mobile/updates/$path").build()).execute().use { r ->
             check(r.isSuccessful){"تحديثات الموقع HTTP ${r.code}"}
             val bytes=r.body?.byteStream()?.use{input->
                 val out=ByteArrayOutputStream();val buffer=ByteArray(8192)
-                while(out.size()<=limit){val count=input.read(buffer,0,minOf(buffer.size,limit+1-out.size()));if(count<0)break;out.write(buffer,0,count)}
+                while(out.size()<=limit){
+                    val count=input.read(buffer,0,minOf(buffer.size,limit+1-out.size()))
+                    if(count<0)break
+                    out.write(buffer,0,count)
+                    progress?.invoke(out.size())
+                }
                 out.toByteArray()
             }?:error("ملف التحديث فارغ")
             require(bytes.size<=limit){"ملف التحديث أكبر من الحد"};return bytes
         }
     }
-    fun check():Bundle? {
-        val envelope=fetch("latest.json",16384).toString(Charsets.UTF_8);val meta=manifest(envelope)
+    fun check(progress:((Int,Int)->Unit)?=null):Bundle? {
+        val envelope=fetch("latest.json",16384).toString(Charsets.UTF_8)
+        val meta=manifest(envelope)
         synchronized(this){if(meta.revision<=state.optLong("highest",1))return null}
-        val bytes=fetch(meta.file,SignedOta.MAX_HTML)
+        // Only a cryptographically authenticated manifest determines the expected
+        // byte count. No pretend timer-based percentages or untrusted HTTP lengths.
         val p=JSONObject(JSONObject(envelope).getString("payload"))
-        require(bytes.size==p.getInt("size") && SignedOta.hash(bytes)==meta.hash){"بصمة تحديث الواجهة غير مطابقة"}
+        val expected=p.getInt("size")
+        progress?.invoke(0,expected)
+        val bytes=fetch(meta.file,SignedOta.MAX_HTML){received->progress?.invoke(received,expected)}
+        require(bytes.size==expected && SignedOta.hash(bytes)==meta.hash){"بصمة تحديث الواجهة غير مطابقة"}
         return meta.copy(bytes=bytes)
     }
     @Synchronized fun stage(bundle:Bundle):Screen {

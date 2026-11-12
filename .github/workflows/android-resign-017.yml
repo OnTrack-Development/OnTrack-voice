@@ -1,7 +1,5 @@
 name: Restore 0.1.7 Android update signing identity
 on:
-  push:
-    paths: ['.github/workflows/android-resign-017.yml']
   workflow_dispatch:
 permissions:
   contents: read

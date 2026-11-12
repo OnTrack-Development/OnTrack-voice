@@ -1,0 +1,91 @@
+name: Google Live In-Call Failover QA
+on:
+  pull_request:
+    branches:
+      - feat/voice-production-gap-20261103
+    paths:
+      - 'saas/console/_core/GoogleVoiceFailover.php'
+      - 'saas/console/_core/AiRelay.php'
+      - 'saas/console/_core/TenantVoiceSession.php'
+      - 'saas/mobile/audio-proof/**'
+      - 'tools/test_google_live_failover.php'
+      - 'tools/test_google_tenant_keys.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-qa-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: 'utf-8'
+jobs:
+  php_failover:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP syntax and tenant failover isolated tests
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($f in @('saas/console/_core/GoogleVoiceFailover.php',
+                          'saas/console/_core/AiRelay.php',
+                          'saas/console/_core/TenantVoiceSession.php',
+                          'saas/console/device/v1/index.php',
+                          'tools/test_google_live_failover.php')) {
+            & php -l $f
+            if($LASTEXITCODE -ne 0){throw ('PHP LINT FAILED: '+$f)}
+          }
+          & php tools/test_google_live_failover.php
+          if($LASTEXITCODE -ne 0){throw 'Mid-call Google key failover failed'}
+          & php tools/test_google_tenant_keys.php
+          if($LASTEXITCODE -ne 0){throw 'Cross-tenant key isolation failed'}
+          Write-Host 'GOOGLE_MIDCALL_FAILOVER_BACKEND_PASS'
+  android_compile:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: jemcik/JemRec
+          ref: f011062adfb3a2154c4d5a9cc4394032fb4345f2
+          path: .build/jemrec
+          persist-credentials: false
+      - name: Prepare pinned mobile audio overlay and compile tests
+        run: |
+          $ErrorActionPreference='Stop'
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          if(-not(Test-Path (Join-Path $sdk 'platforms\android-36\android.jar'))) {
+            throw 'Pinned Android SDK API36 missing'
+          }
+          "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & python saas/mobile/audio-proof/prepare.py .build/jemrec
+          if($LASTEXITCODE -ne 0){throw 'Android overlay preparation failed'}
+          & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
+          if($LASTEXITCODE -ne 0){throw 'Android shell server build failed'}
+          $gradle='.build\jemrec\app\build.gradle.kts'
+          $source=[IO.File]::ReadAllText((Resolve-Path $gradle).Path)
+          $anchor='    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")'
+          if($source.Split([string[]]@($anchor),[StringSplitOptions]::None).Length -ne 2) {
+            throw 'Gradle dependency patch anchor mismatch'
+          }
+          $source=$source.Replace($anchor,'    implementation("androidx.fragment:fragment:1.6.2")'+[Environment]::NewLine+$anchor)
+          [IO.File]::WriteAllText((Resolve-Path $gradle).Path,$source,[Text.UTF8Encoding]::new($false))
+          Push-Location .build/jemrec
+          try {
+            & .\gradlew.bat --no-daemon :app:compileDebugKotlin :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.VoiceFailoverPolicyTest' --tests 'com.ontrack.voiceproof.TenantPairingContractTest' --tests 'com.ontrack.voiceproof.TenantCallRoutingTest'
+            if($LASTEXITCODE -ne 0){throw 'Kotlin compilation or unit tests failed'}
+          }finally{Pop-Location}
+          Write-Host 'GOOGLE_MIDCALL_FAILOVER_ANDROID_COMPILE_PASS'

@@ -1,0 +1,100 @@
+name: Fix SOG assistant IO Premium and optional text-scenario knowledge v57
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-sog-optional-kb-v57-publish.yml'
+      - 'tools/verify_live_optional_knowledge_sog_v57.php'
+      - 'tools/test_optional_scenario_knowledge.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-sog-kb-v57-public
+  cancel-in-progress: false
+jobs:
+  publish:
+    name: Test scenario-only runtime, patch three PHP files, inspect live host
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 18
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 7dce7034febfcc0669f4a1ce76c591e1e47a9dff
+          path: .build/kb-previous
+          persist-credentials: false
+      - name: PHP lint plus isolated scenario without knowledge
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($file in @(
+            'saas/console/_core/Actions.php',
+            'saas/console/_core/Views.php',
+            'saas/console/_core/TenantVoiceSession.php',
+            'tools/test_optional_scenario_knowledge.php',
+            'tools/verify_live_optional_knowledge_sog_v57.php'
+          )){
+            & php -l $file
+            if($LASTEXITCODE -ne 0){throw ('PHP syntax invalid: '+$file)}
+          }
+          $env:ONTRACK_CI_NAMESPACE='sogkb'+$env:GITHUB_RUN_ID
+          & php tools/test_optional_scenario_knowledge.php
+          if($LASTEXITCODE -ne 0){throw 'Optional KB, SOG or scenario test failed'}
+          & php tools/test_agent_scenario_modes.php
+          if($LASTEXITCODE -ne 0){throw 'Existing text scenario publish regression'}
+          Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          & python -m py_compile tools/deploy_optional_knowledge_sog_v57.py
+          if($LASTEXITCODE -ne 0){throw 'Production patch script invalid'}
+          Write-Host 'OPTIONAL_KB_AND_SOG_IO_PREMIUM_TESTS_PASS'
+      - name: Stage audited 3 PHP file delta safely over SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(-not (Test-Path -LiteralPath $key)){throw 'Authorized SSH publish identity unavailable'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
+            '-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/optional-knowledge-sog-v57'
+          $dirs=@($stage,"${stage}/old","${stage}/old/_core",
+            "${stage}/new","${stage}/new/_core")
+          & ssh.exe @flags -p 7195 $remote ('mkdir -p '+($dirs -join ' ')+' && chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Private SSH staging failure'}
+          foreach($rel in @('_core/Views.php','_core/Actions.php','_core/TenantVoiceSession.php')){
+            foreach($version in @('old','new')){
+              $base=if($version -eq 'old'){'.build/kb-previous/saas/console/'}else{'saas/console/'}
+              & scp.exe @flags -P 7195 ($base+$rel) ($remote+':'+$stage+'/'+$version+'/'+$rel)
+              if($LASTEXITCODE -ne 0){throw ('Stage failed: '+$version+'/'+$rel)}
+            }
+          }
+          & scp.exe @flags -P 7195 tools/deploy_optional_knowledge_sog_v57.py ($remote+':'+$stage+'/publish.py')
+          if($LASTEXITCODE -ne 0){throw 'Could not stage safe publisher'}
+          & scp.exe @flags -P 7195 tools/verify_live_optional_knowledge_sog_v57.php ($remote+':'+$stage+'/smoke.php')
+          if($LASTEXITCODE -ne 0){throw 'Could not stage read-only smoke'}
+          Write-Host 'SOG_KB_THREE_PHP_DELTA_STAGED_PASS'
+      - name: Atomic patch preserving host customizations
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
+            '-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/optional-knowledge-sog-v57'
+          & ssh.exe @flags -p 7195 $remote ('python3 '+$stage+'/publish.py')
+          if($LASTEXITCODE -ne 0){throw 'Unsafe host diff rejected; live files unchanged or rolled back'}
+          Write-Host 'SOG_IO_PREMIUM_AND_OPTIONAL_KB_LIVE_PUBLISHED'
+      - name: Confirm live SOG renderer and scenario-only voice contract
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
+            '-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/optional-knowledge-sog-v57'
+          & ssh.exe @flags -p 7195 $remote ('/opt/cpanel/ea-php83/root/usr/bin/php '+$stage+'/smoke.php')
+          if($LASTEXITCODE -ne 0){throw 'SOG or knowledge-free scenario live proof failed'}
+          Write-Host 'LIVE_SOG_NO_UNDEFINED_IO_PREMIUM_AND_OPTIONAL_KB_PASS'

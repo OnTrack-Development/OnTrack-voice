@@ -1,0 +1,61 @@
+name: Publish IO Premium canonical SaaS without overwriting unrelated production edits
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/ontrack-io-premium-live-delta.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-io-premium-live-delta
+  cancel-in-progress: false
+jobs:
+  deploy:
+    name: Atomic minimal production delta over authorized SSH
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Stage exact reference PHP sources and safeguarded patcher
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $hostName='appontrack@65.21.208.232'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $stage='/home/appontrack/.ontrack-mobile/io-premium-v51-stage'
+          & ssh.exe @flags -p 7195 $hostName ('mkdir -p '+$stage+'/_core '+$stage+'/device/v1')
+          if($LASTEXITCODE -ne 0){throw 'Staging directories unavailable'}
+          $sources=@(
+            @('saas/console/_core/Bootstrap.php',($stage+'/_core/Bootstrap.php')),
+            @('saas/console/_core/TenantVoiceSession.php',($stage+'/_core/TenantVoiceSession.php')),
+            @('saas/console/device/v1/tts.php',($stage+'/device/v1/tts.php')),
+            @('tools/io_premium_live_delta_deploy.py','/home/appontrack/.ontrack-mobile/io_premium_live_delta_deploy.py'),
+            @('tools/io_premium_postdeploy.php','/home/appontrack/.ontrack-mobile/io_premium_postdeploy.php')
+          )
+          foreach($item in $sources){
+            & scp.exe @flags -P 7195 $item[0] ($hostName+':'+$item[1])
+            if($LASTEXITCODE -ne 0){throw ('Staging failed for '+$item[0])}
+          }
+          Write-Host 'IO_PREMIUM_LIVE_DELTA_STAGED_PASS'
+      - name: Patch only reviewed functions, preserve unrelated site code and back up
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          & ssh.exe -i $key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=12 -p 7195 'appontrack@65.21.208.232' 'python3 /home/appontrack/.ontrack-mobile/io_premium_live_delta_deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'Live delta refused unexpected production source; no unsafe overwrite performed'}
+          Write-Host 'IO_PREMIUM_SITE_FUNCTIONS_PUBLISHED_PASS'
+      - name: Initialize IO Premium voice grant and test HTTP endpoint
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          & ssh.exe -i $key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=12 -p 7195 'appontrack@65.21.208.232' '/opt/cpanel/ea-php83/root/usr/bin/php /home/appontrack/.ontrack-mobile/io_premium_postdeploy.php'
+          if($LASTEXITCODE -ne 0){throw 'IO Premium voice catalog or platform grant failed'}
+          $response=Invoke-WebRequest -Uri 'https://app.ontrackegy.com/device/v1/tts.php' -Method GET -SkipHttpErrorCheck -TimeoutSec 20
+          if([int]$response.StatusCode -ne 405){throw ('Premium TTS public route returned '+$response.StatusCode+' not expected 405')}
+          Write-Host 'IO_PREMIUM_CANONICAL_SITE_READY_PASS'

@@ -1,6 +1,6 @@
 package com.ontrack.voiceproof
 
-/** The same truthful action rules power both collapsed and expanded native controls. */
+/** The overlay reports observed PCM audio, not just a requested AI session. */
 internal data class OverlayUiModel(
     val running: Boolean,
     val status: String,
@@ -12,18 +12,22 @@ internal data class OverlayUiModel(
 )
 
 internal fun overlayUiModel(
-    connected: Boolean, enabled: Boolean, inCall: Boolean,
-    answered: Boolean, humanControl: Boolean
+    serviceReady: Boolean, enabled: Boolean, inCall: Boolean,
+    answered: Boolean, humanControl: Boolean,
+    audioActive: Boolean = false, callFailure: String = "", audioDiagnostic: String = ""
 ): OverlayUiModel {
-    val running=connected && enabled
-    val canTakeover=inCall && answered && !humanControl && enabled
+    val running=serviceReady && enabled
+    val canTakeover=inCall && answered && !humanControl && enabled && audioActive
     val canSwitchSpeaker=inCall && answered
     val status=when {
         inCall && humanControl -> "أنت استلمت المكالمة من الإيجنت"
+        inCall && callFailure.isNotBlank() -> callFailure.take(110)
         inCall && !answered -> "المكالمة قيد الرنين أو الاتصال"
-        inCall && enabled -> "المكالمة متصلة — الإيجنت قيد التشغيل"
-        inCall -> "المكالمة تحت تحكم الهاتف"
-        !connected -> "اتصال السيرفر غير متاح"
+        inCall && audioActive && audioDiagnostic.isNotBlank() -> audioDiagnostic.take(115)
+        inCall && audioActive -> "جلسة الصوت متصلة — سماع الطرف الآخر لم يُتحقق منه"
+        inCall && !enabled -> "المكالمة تحت تحكم الهاتف — الإيجنت متوقف"
+        inCall -> "المكالمة متصلة — جارٍ تجهيز صوت الإيجنت"
+        !serviceReady -> "خدمة الهاتف غير نشطة — لم يتأكد التشغيل"
         enabled -> "الإيجنت نشط وجاهز"
         else -> "الإيجنت متوقف"
     }
@@ -39,6 +43,7 @@ internal fun overlayUiModel(
             !inCall -> "عند وجود مكالمة"
             !answered -> "متاح بعد الرد"
             !enabled -> "الإيجنت متوقف"
+            !audioActive -> "بعد اتصال صوت الإيجنت"
             else -> "نقل المكالمة إليك"
         }
     )

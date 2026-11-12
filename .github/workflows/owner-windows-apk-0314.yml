@@ -1,0 +1,213 @@
+# Owner-only immutable 0.3.14 release already built and deployed. Disable redundant push rebuilds.
+# No Android signing keystore is committed, cached, or uploaded.
+# Builds from the exact triggering revision, using the pinned upstream commit.
+name: Build and verify size-optimized OnTrack Voice 0.3.14
+run-name: Signed Android v0.3.14 R8 build and tests
+on:
+  push:
+    branches:
+      - feat/voice-production-gap-20261103
+    paths:
+      - .github/workflows/owner-windows-apk-0314.yml
+      - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkActivity.kt
+      - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileOta.kt
+      - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/OnTrackLaunchScreen.kt
+      - saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/NativeInstallResultReceiver.kt
+      - saas/mobile/audio-proof/prepare.py
+      - saas/mobile/ota/ui.html
+      - tools/build_shellserver_windows.ps1
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+env:
+  PYTHONUTF8: '1'
+concurrency:
+  group: owner-windows-apk-0314
+  cancel-in-progress: true
+jobs:
+  build:
+    if: github.actor == 'ahmedbedir' && github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 110
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout exact OnTrack Voice revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned Android upstream
+        uses: actions/checkout@v4
+        with:
+          repository: jemcik/JemRec
+          ref: f011062adfb3a2154c4d5a9cc4394032fb4345f2
+          path: .build/jemrec
+          persist-credentials: false
+      - name: Check Windows JDK 21, Android SDK and exact signing certificate
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $androidJar = Join-Path $sdk 'platforms\android-36\android.jar'
+          $signer = Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer = Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          $key = Join-Path $env:USERPROFILE '.android\debug.keystore'
+          foreach ($required in @($androidJar, $signer, $analyzer, $key)) {
+            if (-not (Test-Path -LiteralPath $required)) {
+              throw ('Missing local build prerequisite: ' + $required)
+            }
+          }
+          $javaVersion = (& java -version 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $javaVersion -notmatch '(?m)(?:version "21[.\"]|openjdk 21(?:[.\s]|$))') {
+            throw ('JDK 21 is required, detected: ' + $javaVersion)
+          }
+          & python --version
+          if ($LASTEXITCODE -ne 0) { throw 'Python unavailable on local runner.' }
+          $env:ANDROID_HOME = $sdk
+          $env:ANDROID_SDK_ROOT = $sdk
+          "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $cert = Join-Path $env:RUNNER_TEMP 'ontrack-windows-build-signing-cert.der'
+          try {
+            & keytool -exportcert -alias androiddebugkey -keystore $key -storepass android -file $cert | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot export certificate for verification.' }
+            $actual = (Get-FileHash -LiteralPath $cert -Algorithm SHA256).Hash.ToLowerInvariant()
+            $expected = 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'
+            if ($actual -ne $expected) { throw 'Original signing identity mismatch. Refusing build.' }
+          } finally {
+            Remove-Item -LiteralPath $cert -Force -ErrorAction SilentlyContinue
+          }
+          Write-Host 'ORIGINAL_SIGNING_CERTIFICATE: PASS'
+          Write-Host 'LOCAL_BUILD_PREREQUISITES: PASS'
+      - name: Confirm pinned source and apply OnTrack Android overlay
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & python saas/mobile/audio-proof/prepare.py .build/jemrec
+          if ($LASTEXITCODE -ne 0) { throw 'OnTrack Android overlay failed.' }
+          $prepared = '.build/jemrec/ontrack-build-source.json'
+          if (-not (Test-Path -LiteralPath $prepared)) { throw 'No source provenance produced.' }
+          Write-Host 'ONTRACK_SOURCE_OVERLAY: PASS'
+      - name: Compile Android shell-side daemon with native Windows Java and D8
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
+          if (-not $?) { throw 'Windows shellserver compilation failed.' }
+      - name: Use compatible AndroidX Fragment dependency for ActivityResult permission APIs
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $gradle = '.build\jemrec\app\build.gradle.kts'
+          $source = [System.IO.File]::ReadAllText((Resolve-Path $gradle).Path)
+          $anchor = '    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")'
+          if ($source.Split([string[]]@($anchor), [System.StringSplitOptions]::None).Length -ne 2) {
+            throw 'Android dependency patch anchor mismatch; refusing to modify unrelated build code.'
+          }
+          # The release Lint fatal checker requires Fragment >= 1.3.0 when using
+          # ActivityResultContracts to request phone/contact/file permissions.
+          $source = $source.Replace($anchor, '    implementation("androidx.fragment:fragment:1.6.2")' + [Environment]::NewLine + $anchor)
+          [System.IO.File]::WriteAllText((Resolve-Path $gradle).Path, $source, [System.Text.UTF8Encoding]::new($false))
+          Write-Host 'FRAGMENT_ACTIVITY_RESULT_COMPATIBILITY: PASS'
+      - name: Verify UI notifications, signed OTA safety and navigation contracts
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & python tools/test_mobile_ui_contract.py
+          if ($LASTEXITCODE -ne 0) { throw 'UI or native bridge contract regression.' }
+          & python tools/test_mobile_release_gate.py
+          if ($LASTEXITCODE -ne 0) { throw 'Signed OTA acknowledgement regression.' }
+          # Host deployment uses Linux-only fcntl; on Windows validate publisher
+          # syntax and signed host acknowledgement gates instead.
+          & python -m py_compile tools/queue_mobile_ota.py tools/queue_mobile_native.py tools/verify_mobile_native_host_receipt.py
+          if ($LASTEXITCODE -ne 0) { throw 'Host publisher Python syntax failed.' }
+          Write-Host 'UI_AND_SIGNED_OTA_CONTRACTS: PASS'
+      - name: Run targeted OnTrack Android unit and daemon tests (matching Linux release gate)
+        working-directory: .build/jemrec
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\gradlew.bat --no-daemon :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.PcmWavTest' --tests 'com.ontrack.voiceproof.SetupDiagnosticFormatTest' --tests 'com.ontrack.voiceproof.ProofExportTest' --tests 'com.ontrack.voiceproof.LinkPcmTest' --tests 'com.ontrack.voiceproof.SignedOtaTest' --tests 'com.ontrack.voiceproof.LocalUiPageTest' --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' --tests 'com.ontrack.voiceproof.OverlayUiModelTest' --tests 'com.ontrack.voiceproof.TenantPairingContractTest' --tests 'com.ontrack.voiceproof.TenantAgentIdentityTest' --tests 'com.ontrack.voiceproof.OutboundFirstTurnTest' :daemon-tests:test
+          if ($LASTEXITCODE -ne 0) { throw 'Android tests failed; no APK may be published.' }
+          Write-Host 'ONTRACK_TARGETED_UNIT_TESTS: PASS'
+      - name: Compile Android minified release APK with code and resource shrinking
+        working-directory: .build/jemrec
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\gradlew.bat --no-daemon :app:assembleRelease
+          if ($LASTEXITCODE -ne 0) { throw 'Android APK compilation failed.' }
+          if (-not (Test-Path -LiteralPath 'app\build\outputs\apk\release\app-release-unsigned.apk')) {
+            throw 'Android build did not produce expected APK.'
+          }
+          Write-Host 'ANDROID_MINIFIED_APK_ASSEMBLED: PASS'
+      - name: Sign APK with original identity and verify final manifest
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $signer = Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer = Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          $key = Join-Path $env:USERPROFILE '.android\debug.keystore'
+          $output = 'D:\ai\OnTrack-Voice-Builds\0.3.14'
+          New-Item -Path $output -ItemType Directory -Force | Out-Null
+          $unsigned = Join-Path $env:GITHUB_WORKSPACE '.build\jemrec\app\build\outputs\apk\release\app-release-unsigned.apk'
+          $signed = Join-Path $output 'OnTrack-Voice-0.3.14.apk'
+          if (Test-Path -LiteralPath $signed) {
+            throw 'Signed APK already exists at destination: refusing to overwrite existing release.'
+          }
+          & $signer sign --ks $key --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out $signed $unsigned
+          if ($LASTEXITCODE -ne 0) { throw 'Signing failed.' }
+          $signature = & $signer verify --print-certs $signed
+          if ($LASTEXITCODE -ne 0) { throw 'Signature verification failed.' }
+          $expected = 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'
+          if (($signature | Out-String).ToLowerInvariant() -notlike "*$expected*") {
+            throw 'Final APK signing certificate does not match installed app.'
+          }
+          & $signer verify --verbose $signed
+          if ($LASTEXITCODE -ne 0) { throw 'APK verification failed.' }
+          $appId = (& $analyzer manifest application-id $signed | Out-String).Trim()
+          $ver = (& $analyzer manifest version-code $signed | Out-String).Trim()
+          if ($appId -ne 'com.ontrack.voiceproof' -or $ver -ne '37') {
+            throw 'Version Code 37 or package name missing from final APK. Refusing publication.'
+          }
+          $manifest = Join-Path $env:RUNNER_TEMP 'ontrack-final-android-manifest.xml'
+          & $analyzer manifest print $signed | Out-File -LiteralPath $manifest -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to read final APK manifest.' }
+          & python tools/check_mobile_manifest.py $manifest
+          if ($LASTEXITCODE -ne 0) { throw 'Final APK manifest safety contract failed.' }
+          $hash = (Get-FileHash -LiteralPath $signed -Algorithm SHA256).Hash.ToLowerInvariant()
+          "SHA256 $hash  OnTrack-Voice-0.3.14.apk" | Out-File -LiteralPath (Join-Path $output 'SHA256SUMS.txt') -Encoding ascii
+          Copy-Item -LiteralPath '.build\jemrec\ontrack-build-source.json' -Destination (Join-Path $output 'ontrack-build-source.json')
+          $original = 'D:\ai\OnTrack-Voice-Builds\0.3.11\OnTrack-Voice-0.3.11.apk'
+          if (-not (Test-Path -LiteralPath $original)) { throw 'Original 0.3.11 debug APK missing for size comparison.' }
+          $originalBytes = (Get-Item -LiteralPath $original).Length
+          $previewBytes = (Get-Item -LiteralPath $signed).Length
+          $reduction = [math]::Round(100*(1 - $previewBytes/$originalBytes),2)
+          $details = [ordered]@{
+            source_build_run = '41749227359'
+            release = '0.3.14'
+            original_debug_bytes = $originalBytes
+            minified_release_bytes = $previewBytes
+            size_reduction_pct = $reduction
+            signing_cert_verified = $true
+            sha256 = $hash
+            notice = 'Signed and verified release; host publication requires a successful signed UI and native receipt.'
+          }
+          ($details | ConvertTo-Json -Depth 4) | Out-File -LiteralPath (Join-Path $output 'size-report.json') -Encoding utf8
+          Write-Host ('ORIGINAL_APK_BYTES: ' + $originalBytes)
+          Write-Host ('MINIFIED_APK_BYTES: ' + $previewBytes)
+          Write-Host ('SIZE_REDUCTION_PERCENT: ' + $reduction)
+          if ($previewBytes -ge $originalBytes) { throw 'Minified build did not reduce APK size. Keeping previous version.' }
+          if ($previewBytes -gt 15728640) { throw 'Optimized signed APK unexpectedly exceeds 15 MiB. Refusing publication.' }
+          Write-Host 'MINIFIED_SIZE_REDUCTION: PASS'
+          Write-Host ('APK_LOCAL_PATH: ' + $signed)
+          Write-Host ('APK_SHA256: ' + $hash)
+          Write-Host 'SIGNED_APK_VERIFIED: PASS'
+      - name: Upload signed minified v0.3.14 Android APK and public provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnTrack-Voice-0.3.14-Windows-signed
+          path: |
+            D:\ai\OnTrack-Voice-Builds\0.3.14\OnTrack-Voice-0.3.14.apk
+            D:\ai\OnTrack-Voice-Builds\0.3.14\SHA256SUMS.txt
+            D:\ai\OnTrack-Voice-Builds\0.3.14\size-report.json
+            D:\ai\OnTrack-Voice-Builds\0.3.14\ontrack-build-source.json
+          if-no-files-found: error
+          retention-days: 14
+

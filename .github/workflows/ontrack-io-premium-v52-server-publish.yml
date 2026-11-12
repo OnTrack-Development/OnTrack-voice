@@ -1,0 +1,93 @@
+name: Publish shared IO Premium to canonical server via audited SSH delta
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/ontrack-io-premium-v52-server-publish.yml'
+      - 'tools/io_premium_v52_live_patch.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-io-premium-v52-server-production
+  cancel-in-progress: false
+jobs:
+  install:
+    name: PHP lint, safe diff, backup, publish and verified live access
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 1df5426a6268169292c990ebb31082e9c65d5b48
+          path: .build/io-premium-previous
+          persist-credentials: false
+      - name: Validate exact reviewed PHP and delta implementation
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/io_premium_v52_live_patch.py
+          if($LASTEXITCODE -ne 0){throw 'Unsafe or invalid delta publisher'}
+          $files=@('_core/IoPremiumProvider.php','_core/Views.php','_core/Actions.php',
+            '_core/GoogleTenantKeys.php','_core/TenantVoiceSession.php','device/v1/tts.php')
+          foreach($rel in $files){
+            & php -l ('saas/console/'+$rel)
+            if($LASTEXITCODE -ne 0){throw ('PHP lint failed: '+$rel)}
+            if(-not (Test-Path -LiteralPath ('.build/io-premium-previous/saas/console/'+$rel))){
+              throw ('Missing pinned base: '+$rel)
+            }
+          }
+          Write-Host 'SIX_PHP_SOURCE_AND_PINNED_BASE_PASS'
+      - name: Stage previous and new sources under private mode-0700 host directory
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(-not (Test-Path -LiteralPath $key)){throw 'Approved SSH key missing'}
+          $remote='appontrack@65.21.208.232'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
+            '-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $stage='/home/appontrack/.ontrack-mobile/io-premium-v52-delta-stage'
+          $dirs=@($stage, "${stage}/old", "${stage}/old/_core", "${stage}/old/device",
+            "${stage}/old/device/v1", "${stage}/new", "${stage}/new/_core",
+            "${stage}/new/device", "${stage}/new/device/v1")
+          & ssh.exe @flags -p 7195 $remote ('mkdir -p '+($dirs -join ' ')+'; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Remote private stage unavailable'}
+          $files=@('_core/IoPremiumProvider.php','_core/Views.php','_core/Actions.php',
+            '_core/GoogleTenantKeys.php','_core/TenantVoiceSession.php','device/v1/tts.php')
+          foreach($rel in $files){
+            foreach($version in @('old','new')){
+              $base=if($version -eq 'old'){'.build/io-premium-previous/saas/console/'}else{'saas/console/'}
+              $local=$base+$rel
+              $remotePath=$stage+'/'+$version+'/'+$rel
+              & scp.exe @flags -P 7195 $local ("${remote}:${remotePath}")
+              if($LASTEXITCODE -ne 0){throw ('Staging source refused: '+$version+'/'+$rel)}
+            }
+          }
+          & scp.exe @flags -P 7195 tools/io_premium_v52_live_patch.py ("${remote}:${stage}/patch.py")
+          if($LASTEXITCODE -ne 0){throw 'Cannot stage audited publisher'}
+          & scp.exe @flags -P 7195 tools/io_premium_v52_host_smoke.php ("${remote}:${stage}/smoke.php")
+          if($LASTEXITCODE -ne 0){throw 'Cannot stage real-host smoke test'}
+          Write-Host 'SOURCE_STAGE_PRESERVES_PRIVATE_CONFIG_PASS'
+      - name: Apply audited PHP delta to canonical root with backup and rollback
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $stage='/home/appontrack/.ontrack-mobile/io-premium-v52-delta-stage'
+          & ssh.exe -i $key -p 7195 -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=12 'appontrack@65.21.208.232' ('python3 '+$stage+'/patch.py')
+          if($LASTEXITCODE -ne 0){throw 'Reviewed delta rejected production drift; original live files preserved or rolled back'}
+          Write-Host 'IO_PREMIUM_V52_LIVE_DELTA_INSTALLED_PASS'
+      - name: Confirm actual inherited master key, admin controls and one Fish panel
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $stage='/home/appontrack/.ontrack-mobile/io-premium-v52-delta-stage'
+          & ssh.exe -i $key -p 7195 -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=12 'appontrack@65.21.208.232' ('/opt/cpanel/ea-php83/root/usr/bin/php '+$stage+'/smoke.php')
+          if($LASTEXITCODE -ne 0){throw 'Production inherited master access or single-panel smoke failed'}
+          $response=Invoke-WebRequest -Uri ('https://app.ontrackegy.com/device/v1/tts.php?verify='+$env:GITHUB_RUN_ID) -Method GET -SkipHttpErrorCheck -TimeoutSec 25
+          if([int]$response.StatusCode -ne 405){throw ('Premium TTS HTTP route unexpectedly returned '+$response.StatusCode)}
+          Write-Host 'IO_PREMIUM_GLOBAL_ACCESS_AND_ONE_PANEL_LIVE_PASS'

@@ -1,0 +1,94 @@
+name: OnTrack v84 fix SOG Studio form action HTMLInputElement shadow HTTP 404
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-studio-v84-shadowed-action-publish.yml'
+      - 'tools/deploy_saas_studio_v84.py'
+      - 'tools/test_v84_form_action_shadow.cjs'
+      - 'tools/test_v76_sog_studio_submission.cjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-saas-v84-sog-form-action
+  cancel-in-progress: false
+jobs:
+  verify-and-publish:
+    name: Reproduce actual 404, regression test, atomically publish JS and verify HTTPS
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify JavaScript syntax and action-shadow regression with existing full Studio tests
+        run: |
+          $ErrorActionPreference='Stop'
+          & node --check saas/console/assets/js/app.js
+          if($LASTEXITCODE -ne 0){throw 'Studio JavaScript syntax failed'}
+          & node --check saas/console/assets/js/flow-graph.js
+          if($LASTEXITCODE -ne 0){throw 'Flow Builder JavaScript syntax failed'}
+          & node tools/test_v84_form_action_shadow.cjs
+          if($LASTEXITCODE -ne 0){throw 'Real HTML action property shadow regression failed'}
+          & node tools/test_console_ajax_ui.cjs
+          if($LASTEXITCODE -ne 0){throw 'Existing AJAX interaction regression failed'}
+          & node tools/test_v76_sog_studio_submission.cjs
+          if($LASTEXITCODE -ne 0){throw 'SOG single-save contract regression failed'}
+          & python -m py_compile tools/deploy_saas_studio_v84.py
+          if($LASTEXITCODE -ne 0){throw 'Atomic JS publisher syntax invalid'}
+          Write-Host 'V84_SOG_ACTION_ATTRIBUTE_AND_BUILDER_AJAX_TESTS_PASS'
+      - name: Stage only two verified browser JS sources on approved SSH host
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH key unavailable'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-studio-v84'
+          & ssh.exe @flags -p 7195 $remote ('umask 077; mkdir -p '+$stage+'/assets/js; chmod 700 '+$stage+' '+$stage+'/assets '+$stage+'/assets/js')
+          if($LASTEXITCODE -ne 0){throw 'Cannot create private stage'}
+          $files=@(
+            [pscustomobject]@{Source='saas/console/assets/js/app.js';Dest="$stage/assets/js/app.js"}
+            [pscustomobject]@{Source='saas/console/assets/js/flow-graph.js';Dest="$stage/assets/js/flow-graph.js"}
+            [pscustomobject]@{Source='tools/deploy_saas_studio_v84.py';Dest="$stage/deploy.py"}
+          )
+          foreach($file in $files){
+            $src=[string]$file.Source
+            $target='{0}:{1}' -f $remote,[string]$file.Dest
+            & scp.exe @flags -P 7195 $src $target
+            if($LASTEXITCODE -ne 0){throw ('Stage failed '+$src)}
+          }
+          Write-Host 'V84_SOG_STUDIO_PRIVATE_JS_STAGING_PASS'
+      - name: Deploy atomically, verify host SHA-256 and HTTPS cache-busted JS
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          & ssh.exe @flags -p 7195 $remote 'python3 /home/appontrack/.ontrack-mobile/saas-studio-v84/deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'Atomic SOG action shadow patch failed'}
+          $base='https://app.ontrackegy.com/saas/console/assets/js'
+          foreach($name in @('app.js','flow-graph.js')){
+            $resp=Invoke-WebRequest -Uri ($base+'/'+$name+'?v84='+$env:GITHUB_RUN_ID) -SkipHttpErrorCheck -TimeoutSec 30
+            $script=[string]$resp.Content
+            if([int]$resp.StatusCode -ne 200 -or !$script.Contains("getAttribute('action')")){
+              throw ('Live browser JS stale or missing action fix: '+$name+' HTTP '+[int]$resp.StatusCode)
+            }
+            if($script.Contains('form.action') -or $script.Contains('editorForm.action') -or $script.Contains('id.form.action')){
+              throw ('Live browser JS still contains shadowed form action: '+$name)
+            }
+          }
+          Write-Host 'V84_LIVE_SOG_STUDIO_AND_FLOW_JS_HTTPS_VERSIONED_PASS'
+          $headers=@{'Accept'='application/json';'X-Requested-With'='XMLHttpRequest'}
+          $post=Invoke-WebRequest -Uri 'https://app.ontrackegy.com/' -Method Post -Headers $headers -ContentType 'application/x-www-form-urlencoded' -Body 'action=update_agent&csrf=invalid&agent_id=9' -SkipHttpErrorCheck -MaximumRedirection 0 -TimeoutSec 25
+          if([int]$post.StatusCode -ne 401 -or !(($post.Headers['Content-Type']|Out-String).Contains('application/json'))){
+            throw ('Canonical unauthenticated POST not typed JSON: '+[int]$post.StatusCode)
+          }
+          Write-Host 'V84_SOG_404_SHADOW_FIXED_LIVE_HOST_AND_ROUTE_PASS'

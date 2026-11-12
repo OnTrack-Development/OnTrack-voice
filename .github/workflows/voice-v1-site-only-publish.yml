@@ -1,0 +1,208 @@
+name: OnTrack Stable v1 SaaS-only Test and Publish
+on:
+  push:
+    branches:
+      - fix/v1-site-only-20261106
+      - feat/site-v1-remaining-20261106
+      - feat/site-v1-finish-20261106
+      - feat/site-v1-api-cache-20261106
+      - test/site-v1-browser-e2e-20261106
+      - release/voice-v1-20261106
+    paths:
+      - 'saas/console/**'
+      - 'tools/test_v1_knowledge.php'
+      - 'tools/test_voice_access.php'
+      - 'tools/test_v1_site05_plan_transitions.php'
+      - 'tools/test_console_ajax_ui.cjs'
+      - 'tools/test_voice_kb_search_index.php'
+      - 'tools/test_voice_kb_pdf_extract.php'
+      - 'tools/audit_saas_responsive.cjs'
+      - 'tools/test_auth_login_throttle.php'
+      - 'tools/test_v1_reseller_toggle.php'
+      - 'tools/test_verified_signup.php'
+      - 'tools/test_white_label_portal.php'
+      - 'tools/test_voice_tool_gateway.php'
+      - 'tools/test_voice_openapi.php'
+      - 'tools/test_voice_connector_cache.php'
+      - 'tools/test_voice_knowledge_web.php'
+      - 'tools/test_voice_flow_runtime.php'
+      - 'tools/test_google_live_failover.php'
+      - 'tools/test_ai_assistant_tenant_keys.php'
+      - 'tools/test_voice_call_timeline.php'
+      - 'tools/test_sim_agent_call_reports.php'
+      - 'tools/test_human_escalation.php'
+      - 'tools/test_protected_engine_release.php'
+      - 'tools/test_device_bootstrap.php'
+      - 'tools/test_tenant_call_ai_summary.php'
+      - 'tools/test_voice_sso.php'
+      - 'tools/test_stitch_theme_update.py'
+      - 'tools/test_voice_api_http.php'
+      - 'tools/test_voice_dnc_hooks_http.php'
+      - 'tools/test_agent_flow_preview_http.php'
+      - 'tools/deploy_saas_console.py'
+      - 'tools/publish_v1_one_shot.py'
+      - '.github/workflows/voice-v1-site-only-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-v1-site-only-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  site-smoke:
+    name: Windows self-hosted site-only source and UI checks
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Site source and JavaScript checks, no Android rebuild
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/publish_v1_one_shot.py tools/deploy_saas_console.py
+          if ($LASTEXITCODE -ne 0) { throw 'Site publisher syntax failed' }
+          & python tools/test_stitch_theme_update.py
+          if ($LASTEXITCODE -ne 0) { throw 'Stitch brand/update banner UI contract rejected' }
+          & node --check saas/console/assets/js/app.js
+          if ($LASTEXITCODE -ne 0) { throw 'Console JavaScript invalid' }
+          & node --check saas/console/assets/js/flow-graph.js
+          if ($LASTEXITCODE -ne 0) { throw 'Flow graph JavaScript invalid' }
+          & node --check saas/console/assets/js/graph-routing.js
+          if ($LASTEXITCODE -ne 0) { throw 'Flow routing JavaScript invalid' }
+          & node tools/test_console_ajax_ui.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Agent studio regression failed' }
+          & node tools/test_graph_routing.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Graph routing regression failed' }
+          $php=Get-Command php -ErrorAction SilentlyContinue
+          if ($php) {
+            & php -r 'echo "SITE20_RUNTIME_DIAG version=",PHP_VERSION," pdo=",implode(",",PDO::getAvailableDrivers())," sodium=",extension_loaded("sodium")?"yes":"no",PHP_EOL;'
+            & php -r 'if (PHP_VERSION_ID < 80200 || !in_array("sqlite", PDO::getAvailableDrivers(), true) || !extension_loaded("sodium")) exit(41); echo "SITE20_PHP82_SQLITE_SODIUM_PASS ", PHP_VERSION, PHP_EOL;'
+            if ($LASTEXITCODE -ne 0) { throw 'SITE-20 CI requires PHP 8.2+, SQLite PDO and sodium; host PHP 8.3 is verified separately by preflight' }
+            Get-ChildItem saas/console -Recurse -File -Filter '*.php' | ForEach-Object {
+              & php -l $_.FullName | Out-Null
+              if($LASTEXITCODE -ne 0){throw "Invalid PHP: $($_.FullName)"}
+            }
+            $suite=@(
+              'tools/test_v1_knowledge.php',
+              'tools/test_voice_kb_search_index.php',
+              'tools/test_voice_kb_pdf_extract.php',
+              'tools/test_v1_site05_plan_transitions.php',
+              'tools/test_voice_access.php',
+              'tools/test_auth_login_throttle.php',
+              'tools/test_voice_tool_gateway.php',
+              'tools/test_voice_openapi.php',
+              'tools/test_voice_connector_cache.php',
+              'tools/test_voice_knowledge_web.php',
+              'tools/test_voice_flow_runtime.php',
+              'tools/test_google_live_failover.php',
+              'tools/test_ai_assistant_tenant_keys.php',
+              'tools/test_voice_call_timeline.php',
+              'tools/test_sim_agent_call_reports.php',
+              'tools/test_human_escalation.php',
+              'tools/test_protected_engine_release.php',
+              'tools/test_device_bootstrap.php',
+              'tools/test_tenant_call_ai_summary.php',
+              'tools/test_voice_sso.php',
+              'tools/test_v1_reseller_toggle.php',
+              'tools/test_admin_mfa.php',
+              'tools/test_verified_signup.php',
+              'tools/test_white_label_portal.php',
+              'tools/test_flow_ai_sources.php',
+              'tools/test_dynamic_agent_studio.php',
+              'tools/test_agent_scenario_modes.php',
+              'tools/test_voice_saas_console.php'
+            )
+            $i=0
+            $passed=@()
+            foreach($test in $suite){
+              $i++
+              $env:ONTRACK_CI_NAMESPACE="v1site$($env:GITHUB_RUN_ID)_a$($env:GITHUB_RUN_ATTEMPT)_$i"
+              Write-Host "Running isolated SaaS regression $i - $test"
+              & php $test
+              if($LASTEXITCODE -ne 0){throw "SaaS regression failed: $test"}
+              $passed += $test
+            }
+            $required=@('test_protected_engine_release.php','test_voice_access.php',
+              'test_auth_login_throttle.php','test_voice_openapi.php',
+              'test_voice_tool_gateway.php','test_voice_flow_runtime.php',
+              'test_v1_knowledge.php','test_sim_agent_call_reports.php',
+              'test_human_escalation.php','test_device_bootstrap.php')
+            foreach($requiredName in $required){
+              if($passed -notcontains ("tools/"+$requiredName)){throw "SITE20 coverage missing: $requiredName"}
+            }
+            $matrix=@{
+              source_sha=$env:GITHUB_SHA
+              php_runner_version=(& php -r 'echo PHP_VERSION;')
+              host_php83='gated_by_isolated_host_preflight'
+              sqlite_pdo=$true
+              ed25519_sodium=$true
+              suites_passed=$passed.Count
+              suites=$passed
+              labels=@('auth','RBAC','CSRF','SSRF','flow','knowledge','tool-API',
+                'call-report','handoff','signed-engine','device-bootstrap')
+              mysql_live='unverified'
+              external_provider_e2e='unverified'
+              owner_device_sim_e2e='unverified'
+            } | ConvertTo-Json -Compress -Depth 5
+            Write-Host "SITE20_ISOLATED_SECURITY_MATRIX_PASS $matrix"
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          } else {
+            throw 'PHP CLI unavailable; cannot claim SITE-20 matrix without executed PHP tests'
+          }
+          Write-Host 'SITE_STATIC_AND_JS_PASS'
+      - name: Isolated authenticated browser RTL and mobile responsive audit
+        run: |
+          $ErrorActionPreference='Stop'
+          $chromePaths=@(
+            'C:\Program Files\Google\Chrome\Application\chrome.exe',
+            'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+            'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
+            'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
+          )
+          $browser=$chromePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $browser) { throw 'No local Chrome/Edge browser: cannot claim authenticated responsive E2E PASS' }
+          $env:CHROME_BIN=$browser
+          $env:SAAS_RESPONSIVE_FIXTURE='1'
+          $env:ONTRACK_CI_NAMESPACE="v1browser$($env:GITHUB_RUN_ID)_a$($env:GITHUB_RUN_ATTEMPT)"
+          & php tools/seed_responsive_ui.php
+          if ($LASTEXITCODE -ne 0) { throw 'Isolated browser fixture failed' }
+          $phpPath=(Get-Command php -ErrorAction Stop).Source
+          $server=Start-Process -FilePath $phpPath -ArgumentList @(
+            '-S','127.0.0.1:18773','-t','saas/console','tools/test_saas_ui_router.php'
+          ) -PassThru -NoNewWindow
+          try {
+            & node tools/audit_saas_responsive.cjs
+            if ($LASTEXITCODE -ne 0) { throw 'Authenticated Admin/Reseller/User browser responsive audit failed' }
+            Write-Host 'SITE21_ISOLATED_AUTH_UI_PASS roles=admin,reseller,user measurements=237'
+          } finally {
+            Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+            Remove-Item Env:\SAAS_RESPONSIVE_FIXTURE -ErrorAction SilentlyContinue
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          }
+  publish-site:
+    name: Run PHP host preflight, publish SaaS, verify native pointers unchanged
+    if: github.ref == 'refs/heads/release/voice-v1-20261106'
+    needs: site-smoke
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Publish site only through isolated host PHP preflight and verified Cron receipts
+        run: |
+          $ErrorActionPreference='Stop'
+          & python tools/publish_v1_one_shot.py site-only
+          if ($LASTEXITCODE -ne 0){throw 'Site publication or host preflight failed'}

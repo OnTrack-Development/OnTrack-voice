@@ -1,0 +1,164 @@
+name: OnTrack Voice signed PCM build and immediate verified OTA publish
+on:
+  push:
+    branches: [release/voice-v1-20261106]
+    paths:
+      - 'saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLiveCall.kt'
+      - 'saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/LinkPcm.kt'
+      - 'saas/mobile/audio-proof/overlay/app/src/test/java/com/ontrack/voiceproof/LinkPcmTest.kt'
+      - 'saas/mobile/audio-proof/prepare.py'
+      - 'saas/mobile/ota/native_release.json'
+  workflow_dispatch:
+permissions:
+  contents: write
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: utf-8
+concurrency:
+  group: ontrack-wifi-pcm-qa-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android_pcm:
+    name: Build, sign and auto-publish native OTA after verified test
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: jemcik/JemRec
+          ref: f011062adfb3a2154c4d5a9cc4394032fb4345f2
+          path: .build/jemrec
+          persist-credentials: false
+      - name: Apply latest audited OnTrack audio overlay
+        run: |
+          $ErrorActionPreference='Stop'
+          & python saas/mobile/audio-proof/prepare.py .build/jemrec
+          if($LASTEXITCODE -ne 0){throw 'Cannot apply audio source overlay'}
+          Write-Host 'OVERLAY_PREPARED_PASS'
+      - name: Resolve Android test and Fragment prerequisites
+        run: |
+          $ErrorActionPreference='Stop'
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $env:ANDROID_HOME=$sdk
+          $env:ANDROID_SDK_ROOT=$sdk
+          "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $gradle='.build/jemrec/app/build.gradle.kts'
+          $source=[System.IO.File]::ReadAllText((Resolve-Path $gradle).Path)
+          $anchor='    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")'
+          if($source.Split([string[]]@($anchor), [System.StringSplitOptions]::None).Length -ne 2){
+            throw 'AndroidX fragment dependency anchor mismatch'
+          }
+          $source=$source.Replace($anchor, '    implementation("androidx.fragment:fragment:1.6.2")' + [Environment]::NewLine + $anchor)
+          [System.IO.File]::WriteAllText((Resolve-Path $gradle).Path,$source,[System.Text.UTF8Encoding]::new($false))
+      - name: Compile original PCM shell bridge on Windows with JDK and D8
+        run: |
+          $ErrorActionPreference='Stop'
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
+          if(-not $?){throw 'Windows PCM shell bridge compilation failed'}
+          Write-Host 'PCM_SHELL_BRIDGE_COMPILED_PASS'
+      - name: Unit test full PCM burst order and compile mobile Kotlin
+        working-directory: .build/jemrec
+        run: |
+          $ErrorActionPreference='Stop'
+          & .\gradlew.bat --no-daemon :app:testDebugUnitTest --tests 'com.ontrack.voiceproof.LinkPcmTest'
+          if($LASTEXITCODE -ne 0){throw 'Gemini PCM burst regression test failed'}
+          & .\gradlew.bat --no-daemon :app:compileDebugKotlin
+          if($LASTEXITCODE -ne 0){throw 'Live voice Kotlin compilation failed'}
+          Write-Host 'WIFI_PCM_BURST_NO_EVICTION_QA_PASS'
+
+      - name: Build candidate APK with the original native PCM shell
+        working-directory: .build/jemrec
+        run: |
+          $ErrorActionPreference='Stop'
+          & .\gradlew.bat --no-daemon :app:assembleRelease
+          if($LASTEXITCODE -ne 0){throw 'Native APK assembleRelease failed'}
+          Write-Host 'AUDIO_FIXED_RELEASE_COMPILED'
+      - name: Verify native PCM and signing identity then sign v50
+        run: |
+          $ErrorActionPreference='Stop'
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $signer=Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer=Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
+          $source='.build\jemrec\app\build\outputs\apk\release\app-release-unsigned.apk'
+          $jar='.build\jemrec\shellserver\ontrack-voiceproof-capture.jar'
+          & python tools/verify_shell_jar_packaging.py $source $jar
+          if($LASTEXITCODE -ne 0){throw 'PCM shell missing from unsigned APK'}
+          $cert=Join-Path $env:RUNNER_TEMP 'original-voice-signing-cert.der'
+          & keytool -exportcert -alias androiddebugkey -keystore $key -storepass android -file $cert
+          if($LASTEXITCODE -ne 0){throw 'Original Android signing certificate unavailable'}
+          $actual=(Get-FileHash -LiteralPath $cert -Algorithm SHA256).Hash.ToLowerInvariant()
+          Remove-Item -LiteralPath $cert -Force -ErrorAction SilentlyContinue
+          if($actual -ne 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'){
+            throw 'Signing certificate does NOT match installed phone - refusing APK'
+          }
+          New-Item -ItemType Directory '.build\audio-fixed-release' -Force | Out-Null
+          $policy=Get-Content -LiteralPath 'saas/mobile/ota/native_release.json' -Raw | ConvertFrom-Json
+          $signed=".build\audio-fixed-release\OnTrack-Voice-$($policy.version_name).apk"
+          & $signer sign --ks $key --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out $signed $source
+          if($LASTEXITCODE -ne 0){throw 'Original identity APK signing failed'}
+          & $signer verify --verbose $signed
+          if($LASTEXITCODE -ne 0){throw 'Signed APK signature invalid'}
+          & python tools/verify_shell_jar_packaging.py $signed $jar
+          if($LASTEXITCODE -ne 0){throw 'PCM shell missing from signed APK'}
+          $appId=(& $analyzer manifest application-id $signed | Out-String).Trim()
+          $v=(& $analyzer manifest version-code $signed | Out-String).Trim()
+          if($appId -ne 'com.ontrack.voiceproof' -or $v -ne [string]$policy.version_code){
+            throw "Wrong package/version $appId/$v; expected original app with declared versionCode $($policy.version_code)"
+          }
+          $sha=(Get-FileHash -LiteralPath $signed -Algorithm SHA256).Hash.ToLowerInvariant()
+          "sha256=$sha" | Out-File -LiteralPath '.build\audio-fixed-release\SHA256.txt' -Encoding ascii
+          Copy-Item '.build\jemrec\ontrack-build-source.json' '.build\audio-fixed-release\ontrack-build-source.json'
+          Write-Host 'SIGNED_WIFI_PCM_FIX_APK_VERIFIED'
+          Write-Host ('APK_SHA256='+$sha)
+      - name: Upload validated APK to private prerelease, bypass artifact quota
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $policy=Get-Content -LiteralPath 'saas/mobile/ota/native_release.json' -Raw | ConvertFrom-Json
+          $source=".build\audio-fixed-release\OnTrack-Voice-$($policy.version_name).apk"
+          if(-not (Test-Path -LiteralPath $source)){throw 'Signed native APK missing after build'}
+          $sha=(Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
+          $size=(Get-Item -LiteralPath $source).Length
+          $name="OnTrack-Voice-$($policy.version_name)-AutoOTA-$env:GITHUB_RUN_ID.apk"
+          $headers=@{
+            Authorization="Bearer $env:GH_TOKEN"
+            Accept='application/vnd.github+json'
+            'X-GitHub-Api-Version'='2022-11-28'
+            'User-Agent'='OnTrack-native-automatic-OTA-delivery'
+          }
+          $release=Invoke-RestMethod -Uri 'https://api.github.com/repos/OnTrack-Development/OnTrack-voice/releases/tags/ontrack-native-v48' -Headers $headers
+          if(-not $release.prerelease -or $release.draft -or $release.immutable){throw 'Private Release not writable'}
+          $existing=@($release.assets | Where-Object {$_.name -eq $name})
+          if($existing.Count -gt 1){throw 'Duplicate release asset'}
+          if($existing.Count -eq 1){
+            $asset=$existing[0]
+          }else{
+            $url=($release.upload_url -split '\{')[0] + '?name=' + [uri]::EscapeDataString($name)
+            $asset=Invoke-RestMethod -Method Post -Uri $url -Headers $headers -ContentType 'application/vnd.android.package-archive' -InFile $source -TimeoutSec 150
+          }
+          if([int64]$asset.size -ne $size -or ($asset.digest -and $asset.digest -ne ('sha256:'+$sha))){
+            throw 'Private GitHub asset bytes/digest mismatch'
+          }
+          "ONTRACK_SIGNED_APK=$((Resolve-Path $source).Path)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ONTRACK_EXPECTED_APK_SHA256=$sha" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ONTRACK_PRIVATE_APK_ASSET=$name" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host 'AUTOMATIC_SIGNED_APK_RELEASE_VERIFIED'
+      - name: Immediately publish signed OTA on host and verify receipt plus public pointer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $env:PATH='C:\Program Files\Git\usr\bin;'+$env:PATH
+          & python tools/publish_signed_voice_ota.py
+          if($LASTEXITCODE -ne 0){throw 'Signed native APK was not deployed or host/public verification failed'}
+          Write-Host 'SIGNED_NATIVE_OTA_AVAILABLE_IN_APP'

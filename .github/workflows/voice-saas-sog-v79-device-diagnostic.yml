@@ -1,0 +1,35 @@
+name: OnTrack v79 SOG SIM heartbeat and published voice diagnostic
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-sog-v79-device-diagnostic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-saas-v79-sog-device-readonly
+  cancel-in-progress: false
+jobs:
+  host-sim-readonly:
+    name: Read exact SOG phone heartbeat from canonical DB, never call or change anything
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run approved SOG read-only diagnostic over host SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH key missing'}
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-studio-v76'
+          & ssh.exe @ssh -p 7195 $remote '/opt/cpanel/ea-php83/root/usr/bin/php /home/appontrack/.ontrack-mobile/saas-studio-v76/sog-check.php'
+          if($LASTEXITCODE -ne 0){throw 'SOG read-only PHP audit failed'}
+          Write-Host 'V79_SOG_LIVE_SIM_HEARTBEAT_READ_ONLY_PASS'

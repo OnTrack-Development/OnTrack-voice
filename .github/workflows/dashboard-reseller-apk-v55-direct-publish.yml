@@ -1,0 +1,103 @@
+name: Publish direct APK home buttons and reseller self-workspace switch v55
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/dashboard-reseller-apk-v55-direct-publish.yml'
+      - 'tools/test_dashboard_download_and_reseller_workspace.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-dashboard-reseller-apk-v55-public
+  cancel-in-progress: false
+jobs:
+  publish:
+    name: Test permissions, atomic PHP publish, and verify public APK button
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 18
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout latest reviewed source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact pre-change baseline without replacing current files
+        uses: actions/checkout@v4
+        with:
+          ref: 543a46f9c16c0dcd9f2ca01904a9895d17f478b7
+          path: .build/dashboard-previous
+          persist-credentials: false
+      - name: PHP lint and isolated customer, reseller, support role tests
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($file in @(
+            'saas/console/_core/Bootstrap.php',
+            'saas/console/_core/Actions.php',
+            'saas/console/_core/Views.php',
+            'saas/console/index.php',
+            'tools/test_dashboard_download_and_reseller_workspace.php',
+            'tools/verify_live_dashboard_apk_reseller_v55.php'
+          )){
+            & php -l $file
+            if($LASTEXITCODE -ne 0){throw ('PHP syntax invalid: '+$file)}
+          }
+          $env:ONTRACK_CI_NAMESPACE='dashapk'+$env:GITHUB_RUN_ID
+          & php tools/test_dashboard_download_and_reseller_workspace.php
+          if($LASTEXITCODE -ne 0){throw 'Customer/reseller APK or workspace switch test failed'}
+          Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          & node tools/test_console_ajax_ui.cjs
+          if($LASTEXITCODE -ne 0){throw 'Console UI regression failed'}
+          & python -m py_compile tools/deploy_dashboard_reseller_preview_v55.py
+          if($LASTEXITCODE -ne 0){throw 'Atomic dashboard publisher invalid'}
+          Write-Host 'CUSTOMER_RESELLER_SUPPORT_VIEW_AND_DIRECT_APK_TESTS_PASS'
+      - name: Securely stage four-file reviewed PHP delta and live smoke
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(-not (Test-Path -LiteralPath $key)){throw 'Authorized host SSH key not found'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
+            '-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $dest='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/dashboard-reseller-v55'
+          $dirs=@($stage, "${stage}/old", "${stage}/old/_core",
+            "${stage}/new", "${stage}/new/_core")
+          & ssh.exe @flags -p 7195 $dest ('mkdir -p '+($dirs -join ' ')+' && chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Private stage refused'}
+          $files=@('_core/Bootstrap.php','_core/Actions.php','_core/Views.php','index.php')
+          foreach($rel in $files){
+            foreach($variant in @('old','new')){
+              $base=if($variant -eq 'old'){'.build/dashboard-previous/saas/console/'}else{'saas/console/'}
+              & scp.exe @flags -P 7195 ($base+$rel) ($dest+':'+$stage+'/'+$variant+'/'+$rel)
+              if($LASTEXITCODE -ne 0){throw ('Unable to stage '+$variant+'/'+$rel)}
+            }
+          }
+          & scp.exe @flags -P 7195 tools/deploy_dashboard_reseller_preview_v55.py ($dest+':'+$stage+'/publish.py')
+          if($LASTEXITCODE -ne 0){throw 'Unable to stage publisher'}
+          & scp.exe @flags -P 7195 tools/verify_live_dashboard_apk_reseller_v55.php ($dest+':'+$stage+'/smoke.php')
+          if($LASTEXITCODE -ne 0){throw 'Unable to stage live verifier'}
+          Write-Host 'DASHBOARD_RESELLER_FOUR_FILE_REVIEWED_DELTA_STAGED'
+      - name: Publish atomically; refuse unexpected edits; retain rollback
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
+            '-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $dest='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/dashboard-reseller-v55'
+          & ssh.exe @flags -p 7195 $dest ('python3 '+$stage+'/publish.py')
+          if($LASTEXITCODE -ne 0){throw 'Live drift, PHP syntax or secure rollback safety prevented dashboard publish'}
+          Write-Host 'DASHBOARD_RESELLER_SELF_USER_PREVIEW_PUBLISHED'
+      - name: Confirm canonical live signed APK path and reseller switches
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
+            '-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $dest='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/dashboard-reseller-v55'
+          & ssh.exe @flags -p 7195 $dest ('/opt/cpanel/ea-php83/root/usr/bin/php '+$stage+'/smoke.php')
+          if($LASTEXITCODE -ne 0){throw 'Actual production APK and reseller switch validation failed'}
+          Write-Host 'LIVE_CUSTOMER_AND_RESELLER_HOME_APK_AND_SUPPORT_VIEW_PASS'

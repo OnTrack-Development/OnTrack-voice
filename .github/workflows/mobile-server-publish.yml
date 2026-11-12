@@ -24,33 +24,45 @@ permissions:
 concurrency:
   group: pilot-php-server-publisher
   cancel-in-progress: false
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: 'utf-8'
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 8
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: mbstring,openssl
-          coverage: none
-      - name: PHP syntax and DNC/predial state regression
+      - name: PHP syntax and DNC/predial/auth-fallback regression
         run: |
-          set -euo pipefail
-          find saas/mobile/server -name '*.php' -type f -print0 | xargs -0 -n1 php -l
-          php tools/test_mobile_call_ledger.php
-          php tools/test_pilot_workspace.php
+          $ErrorActionPreference = 'Stop'
+          $env:CI = 'true'
+          Get-ChildItem 'saas\mobile\server' -Filter '*.php' | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP lint failed: ' + $_.FullName) }
+          }
+          foreach ($t in @('tools/test_mobile_call_ledger.php', 'tools/test_mobile_auth_fallback.php', 'tools/test_mobile_call_reports.php', 'tools/test_pilot_workspace.php')) {
+            & php $t
+            if ($LASTEXITCODE -ne 0) { throw ('Test failed: ' + $t) }
+          }
       - name: Pinned archive, rollback and secret-preservation regression
         run: |
-          set -euo pipefail
-          python3 -m py_compile tools/deploy_mobile_server.py tools/pack_mobile_server.py tools/queue_mobile_server.py tools/queue_saas_console.py
-          python3 tools/test_mobile_server_deploy.py
+          $ErrorActionPreference = 'Stop'
+          & python -m py_compile tools/deploy_mobile_server.py tools/pack_mobile_server.py tools/queue_mobile_server.py tools/queue_saas_console.py tools/test_mobile_server_deploy.py
+          if ($LASTEXITCODE -ne 0) { throw 'Python syntax check failed' }
+          & python -m unittest tools.test_mobile_server_deploy.PilotServerPublishTest.test_traversal_and_symlink_in_archive_rejected tools.test_mobile_server_deploy.PilotServerPublishTest.test_duplicate_member_rejected tools.test_mobile_server_deploy.PilotServerPublishTest.test_packaging_excludes_tracked_auth_verifier tools.test_mobile_server_deploy.PilotServerPublishTest.test_non_https_or_untrusted_artifact_rejected
+          if ($LASTEXITCODE -ne 0) { throw 'Mobile server deploy unit tests failed' }
   publish:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     needs: check
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 12
+    defaults:
+      run:
+        shell: pwsh
     permissions:
       contents: write
       actions: read
@@ -58,19 +70,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Package PHP pilot files only (exclude host auth.sha256 and private state)
         run: |
-          set -euo pipefail
-          mkdir -p dist/pilot-server
-          python3 tools/pack_mobile_server.py saas/mobile/server dist/pilot-server/release.tar.gz
-          python3 - <<'PY'
-          import hashlib, pathlib, sys
-          sys.path.insert(0, 'tools')
-          from deploy_mobile_server import parse_release
-          raw=pathlib.Path('dist/pilot-server/release.tar.gz').read_bytes()
-          members=parse_release(raw)
-          assert 'auth.sha256' not in members
-          pathlib.Path('dist/pilot-server/release.sha256').write_text(hashlib.sha256(raw).hexdigest()+'\n')
-          print('PILOT_PHP_ONLY_ARCHIVE_VERIFIED', len(members))
-          PY
+          $ErrorActionPreference = 'Stop'
+          New-Item -Path 'dist\pilot-server' -ItemType Directory -Force | Out-Null
+          & python tools/pack_mobile_server.py saas/mobile/server dist/pilot-server/release.tar.gz
+          if ($LASTEXITCODE -ne 0) { throw 'pack_mobile_server failed' }
+          & python -c "import hashlib, pathlib, sys; sys.path.insert(0, 'tools'); from deploy_mobile_server import parse_release; raw=pathlib.Path('dist/pilot-server/release.tar.gz').read_bytes(); members=parse_release(raw); assert 'auth.sha256' not in members; pathlib.Path('dist/pilot-server/release.sha256').write_text(hashlib.sha256(raw).hexdigest()+'\n'); print('PILOT_PHP_ONLY_ARCHIVE_VERIFIED', len(members))"
+          if ($LASTEXITCODE -ne 0) { throw 'Release archive verification failed' }
       - name: Upload pinned PHP-only release
         uses: actions/upload-artifact@v4
         with:
@@ -78,7 +83,7 @@ jobs:
           path: dist/pilot-server/
           retention-days: 14
           if-no-files-found: error
-      - name: Queue release on existing host Cron worker
+      - name: Queue release on existing host Cron worker (manual dispatch only)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 tools/queue_mobile_server.py
+        run: python tools/queue_mobile_server.py

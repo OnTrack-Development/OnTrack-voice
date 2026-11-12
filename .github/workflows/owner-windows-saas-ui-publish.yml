@@ -1,0 +1,204 @@
+# Owner self-hosted fallback for GH-hosted Linux capacity failures.
+# Uses the existing audited, backup/rollback-capable OnTrack host worker.
+name: Verify and publish owner SaaS UI
+run-name: Owner Windows SaaS UI verified host deployment
+on:
+  push:
+    branches:
+      - feat/voice-production-gap-20261103
+      - feat/web-auth-complete-20261105
+      - fix/web-auth-root-routing-20261105
+      - fix/web-auth-root-publisher-20261105
+      - feat/white-label-reseller-portal-20261105
+    paths:
+      - .github/workflows/owner-windows-saas-ui-publish.yml
+      # Authenticated device API + report ingestion are part of the SaaS
+      # console and MUST deploy alongside the visible call-history UI.
+      - 'saas/console/**'
+      - tools/deploy_saas_console.py
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: ontrack-owner-saas-console-publisher
+  cancel-in-progress: true
+env:
+  PYTHONUTF8: '1'
+jobs:
+  web_auth_validate:
+    if: github.ref == 'refs/heads/feat/web-auth-complete-20261105' || github.ref == 'refs/heads/fix/web-auth-root-routing-20261105' || github.ref == 'refs/heads/fix/web-auth-root-publisher-20261105' || github.ref == 'refs/heads/feat/white-label-reseller-portal-20261105'
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 18
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify web signup, password recovery PHP syntax and tenant fixtures
+        run: |
+          $ErrorActionPreference='Stop'
+          $php=Get-Command php -ErrorAction SilentlyContinue
+          if (-not $php) { throw 'PHP is unavailable on this self-hosted runner; cannot claim web-auth validation.' }
+          $ext=(& php -m | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw 'PHP module inventory failed.' }
+          Get-ChildItem -Path saas/console -Filter '*.php' -File -Recurse | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP syntax failed: '+$_.FullName) }
+          }
+          & php -l tools/test_verified_signup.php
+          if ($LASTEXITCODE -ne 0) { throw 'Web auth test syntax failed.' }
+          Write-Host 'WEB_AUTH_PHP_LINT: PASS'
+          if ($ext -notmatch 'pdo_sqlite' -or $ext -notmatch 'mbstring') {
+            throw 'PHP PDO SQLite/mbstring unavailable; isolated E2E not run.'
+          }
+          $env:TEMP=Join-Path $env:RUNNER_TEMP ('web-auth-'+$env:GITHUB_RUN_ID)
+          New-Item -Path $env:TEMP -ItemType Directory -Force | Out-Null
+          $runnerCode=@'
+          <?php
+          declare(strict_types=1);
+          require getcwd().'/saas/console/database/Seed.php';
+          function ok(bool $value,string $label):void {
+              if(!$value)throw new RuntimeException('FAIL '.$label);
+              echo 'PASS '.$label.PHP_EOL;
+          }
+          seed_console();
+          require getcwd().'/tools/test_verified_signup.php';
+          test_signup();
+          '@
+          $runnerPath=Join-Path $env:RUNNER_TEMP ('web-auth-suite-'+$env:GITHUB_RUN_ID+'.php')
+          [System.IO.File]::WriteAllText($runnerPath,$runnerCode,[System.Text.UTF8Encoding]::new($false))
+          & php $runnerPath
+          if ($LASTEXITCODE -ne 0) { throw 'Scoped registration/recovery test failed.' }
+          Write-Host 'WEB_AUTH_TENANT_SQLITE_E2E: PASS'
+          & php tools/test_white_label_portal.php
+          if ($LASTEXITCODE -ne 0) { throw 'White-label tenant/domain suite failed.' }
+          Write-Host 'WHITE_LABEL_TENANT_AND_DOMAIN: PASS'
+          & python -m py_compile tools/deploy_saas_console.py
+          if ($LASTEXITCODE -ne 0) { throw 'SaaS root publisher syntax failed.' }
+          $rewriteTest=@'
+          import importlib.util,pathlib,shutil,tempfile
+          spec=importlib.util.spec_from_file_location('publisher','tools/deploy_saas_console.py')
+          publisher=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(publisher)
+          src=pathlib.Path('saas/console')
+          with tempfile.TemporaryDirectory() as t:
+              root=pathlib.Path(t)
+              (root/'_core').mkdir()
+              for relative in ('_core/Bootstrap.php','_core/Signup.php','_core/Views.php'):
+                  shutil.copy2(src/relative,root/relative)
+              changes=publisher.rewrite_root_urls(root)
+              bootstrap=(root/'_core/Bootstrap.php').read_text()
+              signup=(root/'_core/Signup.php').read_text()
+              views=(root/'_core/Views.php').read_text()
+              assert changes>=1,'source should rewrite at least the historic bootstrap prefix'
+              assert "in_array($route,$public,true)?'':''" in bootstrap,'public auth must route to root'
+              assert "header('Location: '.($path==='/'?($prefix===''?'/':$prefix):$prefix.$path),true,303);" in bootstrap,'root home and nested redirects must work'
+              assert '/saas/console/register' not in signup
+              assert "white_label_url('/register')" in signup and "white_label_url('/reset-password')" in signup
+              assert "white_label_url('/forgot-password')" in views
+          with tempfile.TemporaryDirectory() as t:
+              root=pathlib.Path(t)
+              (root/'_core').mkdir()
+              old="function go(string $path):never {header('Location: /saas/console'.($path==='/'?'':$path),true,303);exit;}"
+              (root/'_core/Bootstrap.php').write_text(old)
+              publisher.rewrite_root_urls(root)
+              assert "function go(string $path):never {header('Location: /'.ltrim" in (root/'_core/Bootstrap.php').read_text(), 'legacy redirect rewrite broken'
+          print('ROOT_URL_TRANSFORM_OLD_AND_SCOPED_GO_PASS')
+          '@
+          $rewriteTest | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Root URL deployer test failed; refusing release.' }
+
+  publish:
+    if: github.actor == 'ahmedbedir' && github.ref == 'refs/heads/feat/voice-production-gap-20261103'
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout exact reviewed portal
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify interactive studio scripts and source consistency
+        run: |
+          $ErrorActionPreference='Stop'
+          & node --check saas/console/assets/js/flow-graph.js
+          if ($LASTEXITCODE -ne 0) { throw 'Flow Builder JavaScript invalid.' }
+          & node --check saas/console/assets/js/app.js
+          if ($LASTEXITCODE -ne 0) { throw 'Console JavaScript invalid.' }
+          & node tools/test_graph_routing.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Flow graph routing regression.' }
+          & node tools/test_floating_flow_ui.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Floating Flow UI regression.' }
+          & node tools/test_console_ajax_ui.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'AJAX save and actions regression.' }
+          & python -m py_compile tools/package_saas_console.py tools/queue_saas_console.py tools/verify_saas_console_host_receipt.py
+          if ($LASTEXITCODE -ne 0) { throw 'Publisher Python syntax invalid.' }
+          $php=Get-Command php -ErrorAction SilentlyContinue
+          if ($php) {
+            Get-ChildItem -Path saas/console -Recurse -Filter '*.php' -File | ForEach-Object {
+              & php -l $_.FullName | Out-Null
+              if ($LASTEXITCODE -ne 0) { throw ('PHP syntax failed: ' + $_.FullName) }
+            }
+            Write-Host 'WINDOWS_PHP_LINT: PASS'
+            & php tools/test_device_bootstrap.php
+            if ($LASTEXITCODE -ne 0) { throw 'Device API bootstrap fatal or duplicate declaration; refuse voice release.' }
+            Write-Host 'DEVICE_V1_BOOTSTRAP_NO_REDECLARE_PASS'
+          } else {
+            Write-Host 'WINDOWS_PHP_NOT_PRESENT: host deployer must PHP-lint staged runtime before atomic swap; do not claim full PHP CI.'
+          }
+          Write-Host 'STUDIO_SCRIPT_REGRESSIONS: PASS'
+      # Storage quota is currently exhausted. Re-use only the immutable,
+      # SHA-verified artifact from the exact reviewed commit ecefdfbe.
+      # Fail closed if the cached runtime differs from checked-out sources.
+      - name: Retrieve immutable approved SaaS artifact from original run
+        uses: actions/download-artifact@v4
+        with:
+          name: OnTrack-SaaS-Console
+          run-id: 41999426418
+          repository: OnTrack-Development/OnTrack-voice
+          github-token: ${{ github.token }}
+          path: dist/saas-console
+      - name: Verify pinned archive hash and match checked-out runtime source
+        run: |
+          $ErrorActionPreference='Stop'
+          @'
+          import hashlib,pathlib,tarfile
+          p=pathlib.Path('dist/saas-console/release.tar.gz')
+          expected='9fd1d552c31d582759dbd93d0507eb4d12fde79bbdb70f93364e3ee7aaffa63f'
+          assert p.is_file() and p.with_name('release.sha256').read_text().strip()==expected,'missing_or_wrong_manifest'
+          assert hashlib.sha256(p.read_bytes()).hexdigest()==expected,'cached_artifact_digest_mismatch'
+          with tarfile.open(p,'r:gz') as tf:
+              files=[m for m in tf.getmembers() if m.isfile()]
+              assert len(files)>=50,'unexpectedly_small_artifact'
+              for m in files:
+                  rel=pathlib.PurePosixPath(m.name)
+                  assert rel.parts[0]=='console' and '..' not in rel.parts and not m.issym(),'unsafe_archive_entry'
+                  local=pathlib.Path('saas').joinpath(*rel.parts)
+                  assert local.is_file(),'missing_checkout_file:'+m.name
+                  assert tf.extractfile(m).read()==local.read_bytes(),'checkout_artifact_drift:'+m.name
+          print('SAAS_CACHED_ARTIFACT_PINNED_AND_CHECKOUT_MATCH: PASS')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Stored release is not identical to current reviewed SaaS runtime.' }
+      - name: Queue release with existing safe host worker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $env:GITHUB_RUN_ID='41999426418'
+          $env:GITHUB_SHA='ecefdfbe488fb4c357a60ee43a2684c9f72d1de2'
+          & python tools/queue_saas_console.py
+          if ($LASTEXITCODE -ne 0) { throw 'Host queue blocked; current site unchanged.' }
+          Write-Host 'SAAS_CONSOLE_QUEUED: PASS'
+      - name: Require exact host atomic deploy receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $env:GITHUB_RUN_ID='41999426418'
+          $env:GITHUB_SHA='ecefdfbe488fb4c357a60ee43a2684c9f72d1de2'
+          & python tools/verify_saas_console_host_receipt.py
+          if ($LASTEXITCODE -ne 0) { throw 'Host did not confirm safe SaaS deployment.' }
+          Write-Host 'SAAS_CONSOLE_DEPLOYED: PASS'

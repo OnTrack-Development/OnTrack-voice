@@ -1,107 +1,134 @@
-name: Publish OnTrack Voice Dynamic Agent Studio
+name: Deploy OnTrack Voice Root SaaS
 on:
   push:
-    branches: [main]
-    paths: ['.github/workflows/voice-saas-publish.yml']
+    branches: [main, 'feat/voice-production-gap-20261103']
+    paths:
+      - 'saas/console/**'
+      - 'tools/deploy_saas_console.py'
+      - 'tools/queue_saas_console.py'
+      - 'tools/test_flow_ai_transport.php'
+      - 'tools/test_flow_ai_live_thinking.php'
+      - 'tools/test_flow_ai_live_text_editor.php'
+      - 'tools/test_flow_ai_async_jobs.php'
+      - 'tools/test_flow_ai_chat.php'
+      - 'tools/test_ai_relay.php'
+      - 'tools/test_console_pricing_ui.php'
+      - 'tools/test_tenant_workspace.php'
+      - 'tools/test_voice_sso.php'
+      - 'tools/test_voice_sso_http.py'
+      - 'tools/test_whatsapp_whmcs_bridge.php'
+      - 'tools/test_voice_saas_console.php'
+      - 'tools/test_tenant_account_bridge.php'
+      - 'tools/test_tenant_device_pairing.php'
+      - 'tools/test_tenant_call_ai_summary.php'
+      - 'tools/test_sim_agent_call_reports.php'
+      - 'tools/test_android_v58_permission_contract.py'
+      - '.github/workflows/voice-saas-publish.yml'
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: ontrack-saas-production-release
+  group: ontrack-root-release-${{ github.ref }}
   cancel-in-progress: false
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: 'utf-8'
 jobs:
   check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: 2595bce13727ce909dcf375eff933d85a8e233c6
-          persist-credentials: false
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: pdo_sqlite,mbstring,pdo_mysql,openssl,fileinfo
-          coverage: none
-      - name: Validate pinned production console and user-isolated Agent Flows
+      - uses: actions/checkout@v4
+      - name: Syntax and full console/bridge/billing regression
         run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "2595bce13727ce909dcf375eff933d85a8e233c6"
-          find saas/console -name '*.php' -type f -print0 | xargs -0 -n1 php -l >/dev/null
-          node --check saas/console/assets/js/app.js
-          node --check saas/console/assets/js/flow-graph.js
-          node --check saas/console/assets/js/graph-routing.js
-          node tools/test_graph_routing.cjs
-          node --check saas/console/assets/js/pairing-qr.js
-          node --check saas/console/assets/js/mfa-qr.js
-          node tools/test_voice_qr.cjs
-          node tools/test_floating_flow_ui.cjs
-          php tools/test_flow_ai_chat.php
-          php tools/test_flow_ai_live_thinking.php
-          php tools/test_sim_agent_call_reports.php
-          php tools/test_tenant_call_ai_summary.php
-          node tools/test_console_ajax_ui.cjs
-          python3 -m py_compile tools/deploy_saas_console.py tools/queue_saas_console.py
-          # Each PHP integration suite uses an isolated, ephemeral SQLite demo fixture.
-          # The chat memory suite seeds schema/DNC markers; starting SaaS smoke with
-          # its preexisting marker would invalidate the legacy backfill regression.
-          rm -rf /tmp/ontrack-saas-demo
-          php tools/test_voice_saas_console.php
-          php tools/test_console_pricing_ui.php
-          php tools/test_tenant_workspace.php
-          php tools/test_tenant_device_pairing.php
-          php tools/test_published_agent_flow.php
-          php tools/test_admin_mfa.php
-          php tools/test_flow_templates.php
-          php tools/test_answer_policy.php
-          php tools/test_google_provider_config.php
-          php tools/test_voice_trial_and_ui.php
-          php tools/test_verified_signup.php
-          php tools/test_console_checkout.php
-          php tools/test_console_kashier_webhook.php
-          php tools/test_verified_checkout_settlement.php
-          php tools/test_voice_sso.php
-          python3 tools/test_voice_sso_http.py
-          php tools/test_agent_flow_preview.php
-          php tools/test_flow_ai_sources.php
-          php tools/test_voice_access.php
-          php tools/test_dynamic_agent_studio.php
-          php tools/test_ai_agent_profile.php
-          php tools/test_flow_ai_stress.php
-          php -l integrations/whatsapp-webhook-relay/forwarder.php
-          php tools/test_whatsapp_inbox.php
-          php tools/test_whatsapp_webhook_relay.php
-          php tools/test_whatsapp_four_onboarding.php
-          php tools/test_workspace_role_switch.php
-          php tools/test_admin_whatsapp_separation.php
-          php tools/test_whatsapp_native_agent.php
-
+          $ErrorActionPreference = 'Stop'
+          $env:CI = 'true'
+          Get-ChildItem 'saas\console' -Recurse -Filter '*.php' | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP lint failed: ' + $_.FullName) }
+          }
+          $checks = @(
+            @('php', 'tools/test_flow_ai_transport.php'),
+            @('php', 'tools/test_voice_saas_console.php'),
+            @('php', 'tools/test_tenant_account_bridge.php'),
+            @('php', 'tools/test_six_digit_sim_pairing.php'),
+            @('php', 'tools/test_reseller_parent_service_gate_v70.php'),
+            @('php', 'tools/test_sim_agent_call_reports.php'),
+            @('php', 'tools/test_tenant_call_ai_summary.php'),
+            @('python', 'tools/test_mobile_ui_contract.py'),
+            @('python', 'tools/test_v1_mobile_shell.py'),
+            @('python', 'tools/test_android_v58_permission_contract.py'),
+            @('php', 'tools/test_flow_ai_chat.php'),
+            @('php', 'tools/test_ai_relay.php'),
+            @('php', 'tools/test_admin_mfa.php'),
+            @('php', 'tools/test_console_kashier_webhook.php'),
+            @('php', 'tools/test_console_pricing_ui.php'),
+            @('php', 'tools/test_tenant_workspace.php'),
+            @('php', 'tools/test_tenant_voice_transcript_archive.php'),
+            @('php', 'tools/test_flow_ai_sources.php'),
+            @('php', 'tools/test_dynamic_agent_studio.php'),
+            @('php', 'tools/test_flow_ai_stress.php'),
+            @('php', 'tools/test_whatsapp_inbox.php'),
+            @('php', 'tools/test_whatsapp_whmcs_bridge.php'),
+            @('php', 'tools/test_voice_trial_and_ui.php'),
+            @('php', 'tools/test_flow_templates.php'),
+            @('php', 'tools/test_answer_policy.php'),
+            @('php', 'tools/test_google_provider_config.php'),
+            @('php', 'tools/test_voice_sso.php'),
+            @('python', 'tools/test_voice_sso_http.py'),
+            @('node', 'tools/test_voice_qr.cjs'),
+            @('node', 'tools/test_floating_flow_ui.cjs'),
+            @('node', 'tools/test_graph_routing.cjs'),
+            @('node', 'tools/test_console_ajax_ui.cjs'),
+            @('php', 'tools/test_ai_agent_profile.php'),
+            @('php', 'tools/test_flow_ai_live_thinking.php'),
+            @('php', 'tools/test_flow_ai_live_text_editor.php'),
+            @('php', 'tools/test_flow_ai_async_jobs.php')
+          )
+          $i = 0
+          foreach ($c in $checks) {
+            $i++
+            $env:ONTRACK_CI_NAMESPACE = "saaspub-$env:GITHUB_RUN_ID-$i"
+            Write-Host ">>> [$i/$($checks.Count)] $($c[0]) $($c[1])"
+            & $c[0] $c[1]
+            if ($LASTEXITCODE -ne 0) { throw ('Failed: ' + $c[1]) }
+          }
+          & node --check saas/console/assets/js/flow-graph.js
+          if ($LASTEXITCODE -ne 0) { throw 'flow-graph.js syntax failed' }
+          & node --check saas/console/assets/js/app.js
+          if ($LASTEXITCODE -ne 0) { throw 'app.js syntax failed' }
+          & python -m py_compile tools/deploy_saas_console.py tools/queue_saas_console.py
+          if ($LASTEXITCODE -ne 0) { throw 'Python deployer syntax failed' }
   publish:
+    if: github.event_name == 'workflow_dispatch'
     needs: check
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
     timeout-minutes: 12
+    defaults:
+      run:
+        shell: pwsh
     permissions:
       contents: write
       actions: read
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: 2595bce13727ce909dcf375eff933d85a8e233c6
-          persist-credentials: false
-      - name: Package pinned production console with rollback support
+      - uses: actions/checkout@v4
+      - name: Package pinned console runtime only
         run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "2595bce13727ce909dcf375eff933d85a8e233c6"
-          mkdir -p dist/saas-console
-          tar --format=ustar -czf dist/saas-console/release.tar.gz -C saas console
-          sha256sum dist/saas-console/release.tar.gz | awk '{print $1}' > dist/saas-console/release.sha256
-      - uses: actions/upload-artifact@v5
+          $ErrorActionPreference = 'Stop'
+          New-Item -Path 'dist\saas-console' -ItemType Directory -Force | Out-Null
+          & python -c "import hashlib, pathlib, tarfile; out=pathlib.Path('dist/saas-console/release.tar.gz'); src=pathlib.Path('saas/console'); tf=tarfile.open(out,'w:gz',format=tarfile.USTAR_FORMAT); [tf.add(p, arcname='console/'+p.relative_to(src).as_posix()) for p in sorted(src.rglob('*'))]; tf.close(); pathlib.Path('dist/saas-console/release.sha256').write_text(hashlib.sha256(out.read_bytes()).hexdigest()+'\n')"
+          if ($LASTEXITCODE -ne 0) { throw 'Packaging console bundle failed' }
+      - name: Upload immutable console bundle
+        uses: actions/upload-artifact@v4
         with:
           name: OnTrack-SaaS-Console
           path: dist/saas-console/
           retention-days: 14
           if-no-files-found: error
-      - name: Queue signed-source console release after acknowledged host job
+      - name: Queue safe deployment on existing host Cron worker (manual dispatch only)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: GITHUB_SHA=2595bce13727ce909dcf375eff933d85a8e233c6 python3 tools/queue_saas_console.py
+        run: python tools/queue_saas_console.py

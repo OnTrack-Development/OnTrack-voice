@@ -24,7 +24,7 @@ def verify(folder):
     return manifest,html.decode(),meta
 
 def main():
-    manifest,html,meta=verify(Path(sys.argv[1]));assert os.environ.get('GITHUB_REF')=='refs/heads/main'
+    manifest,html,meta=verify(Path(sys.argv[1]));assert os.environ.get('GITHUB_REF') in ('refs/heads/main','refs/heads/feat/voice-production-gap-20261103','refs/heads/release/voice-v1-20261106')
     queue_path='ops/host-link/jobs/'+TARGET+'.json'
     obj,raw=content(queue_path);current=json.loads(raw)
     if current.get('id')=='mobile-ota-'+os.environ['GITHUB_RUN_ID']:
@@ -46,16 +46,42 @@ def main():
     script="import base64,zlib;exec(zlib.decompress(base64.b64decode('"+compact+"')))"
     now=datetime.datetime.now(datetime.timezone.utc);job={'schema':1,'id':'mobile-ota-'+os.environ['GITHUB_RUN_ID'],'target':TARGET,'action':'exec','created_at':now.isoformat(),'expires_at':(now+datetime.timedelta(hours=24)).isoformat(),'cwd':'/home/appontrack/public_html/saas','timeout_seconds':25,'argv':['/bin/python3','-c',script,packed,hashlib.sha256(bundle).hexdigest()]}
     encoded=json.dumps(job,ensure_ascii=False,indent=2).encode()
-    if len(encoded)>16384:
+    if len(encoded)>16384 and os.environ.get('MOBILE_DIRECT_RELEASE_MODE')=='1':
+        # Artifact storage is full. Private GitHub Release ZIP carries the
+        # EXACT signed UI payload; the host re-verifies its certificate and
+        # digest before installing. No GitHub credential crosses the host link.
+        from mobile_direct_transport import asset_url
+        ui_zip=Path('.build/artifact/OnTrack-Voice-UI47.zip')
+        if not ui_zip.is_file():raise RuntimeError('SIGNED_UI_RELEASE_BUNDLE_MISSING')
+        url=asset_url(ui_zip.name,hashlib.sha256(ui_zip.read_bytes()).hexdigest(),ui_zip.stat().st_size)
+        program=(Path('saas/mobile/ota/deploy.py')).read_text()+'\n'+(Path('saas/mobile/ota/remote_deploy.py')).read_text()+'\nimport sys\nremote_install(sys.argv[1],sys.argv[2],sys.argv[3])\n'
+        compact=base64.b64encode(zlib.compress(program.encode(),9)).decode()
+        script="import base64,zlib;exec(zlib.decompress(base64.b64decode('"+compact+"')))"
+        job['timeout_seconds']=30
+        job['argv']=['/bin/python3','-c',script,url,meta['sha256'],str(meta['revision'])]
+        encoded=json.dumps(job,ensure_ascii=False,indent=2).encode()
+    elif len(encoded)>16384:
         # Upload transport is not a product dependency: fetch exact signed artifact from
         # the completed build via short-lived GitHub Actions blob redirect on the host.
         from queue_mobile_native import download_url
         source_run=os.environ.get('MOBILE_RELEASE_SOURCE_RUN_ID',os.environ['GITHUB_RUN_ID'])
         assert source_run.isdecimal() and int(source_run)>0, 'Invalid pinned Android release run'
         artifact=request('actions/runs/'+source_run+'/artifacts?per_page=100')['artifacts']
-        artifact_name=os.environ.get('MOBILE_OTA_ARTIFACT_NAME','OnTrack-Voice-0.3.1')
-        assert artifact_name in ('OnTrack-Voice-0.3.1','OnTrack-Voice-0.3.9','OnTrack-Voice-UI-OTA'), 'Unexpected OTA artifact name'
-        matches=[x for x in artifact if x['name']==artifact_name and not x['expired']]
+        # Regression 2026-11-04: v43 build passed but deployment selected
+        # historical v0.3.18 as its default signed artifact, causing 404.
+        # Derive the ONLY expected release name from the checked-in native
+        # version, then validate the exact source-run identity below.
+        declared=json.loads(Path('saas/mobile/ota/native_release.json').read_text())
+        artifact_name=os.environ.get('MOBILE_OTA_ARTIFACT_NAME',
+            'OnTrack-Voice-'+declared['version_name'])
+        assert artifact_name in ('OnTrack-Voice-0.3.11','OnTrack-Voice-0.3.12','OnTrack-Voice-0.3.16','OnTrack-Voice-0.3.17','OnTrack-Voice-0.3.18','OnTrack-Voice-0.3.19','OnTrack-Voice-0.3.20','OnTrack-Voice-0.3.21','OnTrack-Voice-0.3.22','OnTrack-Voice-0.3.23','OnTrack-Voice-UI-OTA'), 'Unexpected OTA artifact name'
+        source=request('actions/runs/'+source_run)
+        expected_sha=os.environ.get('MOBILE_RELEASE_SOURCE_SHA',os.environ.get('GITHUB_SHA'))
+        assert expected_sha and source.get('head_sha')==expected_sha and source.get('head_branch')==os.environ.get('GITHUB_REF_NAME'), 'OTA release source mismatch'
+        matches=[x for x in artifact if
+            x['name']==artifact_name and not x['expired']
+            and x.get('workflow_run',{}).get('id')==int(source_run)
+            and x.get('workflow_run',{}).get('head_sha')==expected_sha]
         assert len(matches)==1,'Signed Android artifact missing or ambiguous'
         url=download_url(matches[0]['id'])
         program=(Path('saas/mobile/ota/deploy.py')).read_text()+'\n'+(Path('saas/mobile/ota/remote_deploy.py')).read_text()+'\nimport sys\nremote_install(sys.argv[1],sys.argv[2],sys.argv[3])\n'
@@ -65,6 +91,21 @@ def main():
         job['argv']=['/bin/python3','-c',script,url,meta['sha256'],str(meta['revision'])]
         encoded=json.dumps(job,ensure_ascii=False,indent=2).encode()
     assert len(encoded)<=16384,f'Host job exceeds installed worker limit ({len(encoded)} bytes)'
-    request('contents/'+queue_path,'PUT',{'branch':BRANCH,'sha':obj['sha'],'message':'deploy: signed mobile OTA revision'+str(meta['revision']),'content':base64.b64encode(encoded).decode()})
+    try:
+        request('contents/'+queue_path,'PUT',{'branch':BRANCH,'sha':obj['sha'],
+            'message':'deploy: signed mobile OTA revision'+str(meta['revision']),
+            'content':base64.b64encode(encoded).decode()})
+    except urllib.error.HTTPError as exc:
+        if exc.code < 500:
+            raise
+        # A transient 5xx may occur after GitHub has already committed the job.
+        # Require exact readback of the intended bytes. Never queue a duplicate.
+        try:
+            _,posted=content(queue_path)
+        except Exception as read_error:
+            raise RuntimeError('OTA_QUEUE_WRITE_UNCONFIRMED') from read_error
+        if posted!=encoded:
+            raise RuntimeError('OTA_QUEUE_WRITE_AMBIGUOUS') from exc
+        print('OTA_QUEUE_5XX_RECOVERED_BY_EXACT_READBACK',flush=True)
     print(json.dumps({'status':'QUEUED_NOT_DEPLOYED','job_id':job['id'],'revision':meta['revision'],'bytes':len(encoded),'result_path':'ops/host-link/results/'+TARGET+'/'+job['id']+'.json'}))
 if __name__=='__main__':main()

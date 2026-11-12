@@ -1,9 +1,5 @@
 name: Release verified OnTrack Voice 0.3.10 to the installed app
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/release-verified-mobile.yml'
   workflow_dispatch:
 permissions:
   contents: write

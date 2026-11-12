@@ -5,8 +5,10 @@ on:
     paths:
       - 'saas/mobile/server/**'
       - 'tools/test_mobile_call_ledger.php'
+      - 'tools/test_mobile_auth_fallback.php'
       - 'tools/test_mobile_call_reports.php'
-      - 'tools/test_voice_call_history_ui.cjs'
+      - 'tools/test_mobile_ui_contract.py'
+      - 'tools/test_v1_mobile_shell.py'
       - 'saas/mobile/ota/ui.html'
       - 'saas/mobile/audio-proof/overlay/app/src/main/assets/ontrack-ui.html'
       - 'tools/test_pilot_workspace.php'
@@ -15,8 +17,10 @@ on:
     paths:
       - 'saas/mobile/server/**'
       - 'tools/test_mobile_call_ledger.php'
+      - 'tools/test_mobile_auth_fallback.php'
       - 'tools/test_mobile_call_reports.php'
-      - 'tools/test_voice_call_history_ui.cjs'
+      - 'tools/test_mobile_ui_contract.py'
+      - 'tools/test_v1_mobile_shell.py'
       - 'saas/mobile/ota/ui.html'
       - 'saas/mobile/audio-proof/overlay/app/src/main/assets/ontrack-ui.html'
       - 'tools/test_pilot_workspace.php'
@@ -24,24 +28,43 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: 'utf-8'
 jobs:
   test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 6
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: pwsh
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
       - name: PHP lint and isolated state-machine tests
         run: |
-          set -euo pipefail
-          for file in saas/mobile/server/*.php; do php -l "$file"; done
-          php tools/test_mobile_call_ledger.php
-          php tools/test_mobile_call_reports.php
-          php tools/test_pilot_workspace.php
-      - name: Check Android WebView report UI and JS parse
-        run: node tools/test_voice_call_history_ui.cjs
+          $ErrorActionPreference = 'Stop'
+          $env:CI = 'true'
+          Get-ChildItem 'saas\mobile\server' -Filter '*.php' | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP lint failed: ' + $_.FullName) }
+          }
+          foreach ($t in @('tools/test_mobile_call_ledger.php', 'tools/test_mobile_auth_fallback.php', 'tools/test_mobile_call_reports.php', 'tools/test_pilot_workspace.php')) {
+            & php $t
+            if ($LASTEXITCODE -ne 0) { throw ('Test failed: ' + $t) }
+          }
+      - name: Check Android WebView UI, JS parse and bridge contracts
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & python tools/test_mobile_ui_contract.py
+          if ($LASTEXITCODE -ne 0) { throw 'Mobile UI contract failed' }
+          & python tools/test_v1_mobile_shell.py
+          if ($LASTEXITCODE -ne 0) { throw 'V1 mobile shell contract failed' }
       - name: Verify opt-in and no-redial safety guards
         run: |
-          set -euo pipefail
-          grep -Fq "pilot_campaign_verify_claim" saas/mobile/server/pilot_workspace.php
-          grep -Fq "pilot_campaign_claim" saas/mobile/server/campaigns_api.php
-          grep -Fq "do_not_call" saas/mobile/server/pilot_workspace.php
+          $ErrorActionPreference = 'Stop'
+          $pw = [IO.File]::ReadAllText('saas/mobile/server/pilot_workspace.php')
+          $ca = [IO.File]::ReadAllText('saas/mobile/server/campaigns_api.php')
+          if (-not $pw.Contains('pilot_campaign_verify_claim') -or -not $pw.Contains('do_not_call') -or -not $ca.Contains('pilot_campaign_claim')) {
+            throw 'Opt-in / no-redial safety guards missing'
+          }
+          Write-Host 'PILOT_OPT_IN_AND_NO_REDIAL_GUARDS_PASS'

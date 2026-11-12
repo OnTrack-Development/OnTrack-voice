@@ -60,8 +60,9 @@ function test_voice_dnc_hooks_http():void {
     $port=(int)substr(strrchr($addr,':'),1);
     $root=realpath(__DIR__.'/../saas/console');
     $router=$root.'/hooks/index.php';
+    $nullDevice=PHP_OS_FAMILY==='Windows'?'NUL':'/dev/null';
     $proc=proc_open([PHP_BINARY,'-S','127.0.0.1:'.$port,'-t',$root,$router],
-        [0=>['pipe','r'],1=>['file','/dev/null','a'],2=>['file','/dev/null','a']],$pipes,dirname(__DIR__));
+        [0=>['pipe','r'],1=>['file',$nullDevice,'a'],2=>['file',$nullDevice,'a']],$pipes,dirname(__DIR__));
     if(!is_resource($proc))throw new RuntimeException('dnc_hook_server');
     fclose($pipes[0]);
     $url='http://127.0.0.1:'.$port.'/hooks/';

@@ -1,0 +1,53 @@
+name: OnTrack Voice Caller and Connector Security
+on:
+  push:
+    branches: ['fix/flow-editor-ai-20261102']
+    paths:
+      - 'saas/console/_core/VoiceAccess.php'
+      - 'saas/console/_core/Bootstrap.php'
+      - 'saas/console/_core/Actions.php'
+      - 'saas/console/_core/Views.php'
+      - 'saas/console/_core/FlowAi.php'
+      - 'saas/console/hooks/index.php'
+      - 'saas/console/device/v1/index.php'
+      - 'saas/console/_core/VoiceKnowledge.php'
+      - 'saas/console/_core/VoiceConnectors.php'
+      - 'tools/test_voice_access.php'
+      - '.github/workflows/voice-caller-connectors.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'saas/console/**'
+      - 'tools/test_voice_access.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  caller-and-scopes:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem 'saas\console' -Recurse -Filter '*.php' | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP lint failed: ' + $_.FullName) }
+          }
+          & php -l tools/test_voice_access.php | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'test_voice_access lint failed' }
+      - name: PIN, role downgrades, account isolation and existing SaaS compatibility
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:CI = 'true'
+          $i = 0
+          foreach ($t in @('tools/test_voice_access.php', 'tools/test_voice_saas_console.php', 'tools/test_flow_templates.php', 'tools/test_agent_flow_preview.php', 'tools/test_voice_trial_and_ui.php')) {
+            $i++
+            $env:ONTRACK_CI_NAMESPACE = "connectors-$env:GITHUB_RUN_ID-$i"
+            & php $t
+            if ($LASTEXITCODE -ne 0) { throw ('Test failed: ' + $t) }
+          }

@@ -1,0 +1,6 @@
+Options -Indexes
+<IfModule mod_headers.c>
+Header always unset Permissions-Policy
+Header always set Permissions-Policy "camera=(), microphone=(self), geolocation=()"
+Header always set Cache-Control "no-store"
+</IfModule>

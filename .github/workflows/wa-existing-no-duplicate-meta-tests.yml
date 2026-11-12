@@ -1,0 +1,45 @@
+name: WhatsApp Existing Connection and Full Workspace Reload
+on:
+  push:
+    branches: [fix/workspace-switch-full-reload-20261102]
+    paths:
+      - 'saas/console/**'
+      - 'tools/test_whatsapp_four_onboarding.php'
+      - 'tools/test_workspace_role_switch.php'
+      - 'tools/test_console_ajax_ui.cjs'
+      - '.github/workflows/wa-existing-no-duplicate-meta-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite,pdo_mysql,mbstring,openssl,curl
+          coverage: none
+      - name: Syntax checks
+        run: |
+          set -eu
+          for p in saas/console/_core/Bootstrap.php saas/console/_core/Views.php saas/console/_core/Actions.php saas/console/_core/WhatsAppSupport.php saas/console/whatsapp-webhook.php tools/test_whatsapp_four_onboarding.php tools/test_workspace_role_switch.php; do php -l "$p"; done
+          node --check saas/console/assets/js/app.js
+          node --check tools/test_console_ajax_ui.cjs
+      - name: Existing module mode, onboarding and isolation
+        run: |
+          set -eu
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_whatsapp_four_onboarding.php
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_whatsapp_webhook_relay.php
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_whatsapp_native_agent.php
+      - name: Workspace switch and AJAX guard
+        run: |
+          set -eu
+          rm -rf /tmp/ontrack-saas-demo
+          php tools/test_workspace_role_switch.php
+          node tools/test_console_ajax_ui.cjs

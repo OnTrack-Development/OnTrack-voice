@@ -1,9 +1,5 @@
 name: Deploy Lebanese feedback scenario to canonical root
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/voice-lebanese-feedback-live-deploy.yml'
   workflow_dispatch:
 permissions:
   contents: write

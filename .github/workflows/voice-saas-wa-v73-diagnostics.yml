@@ -1,0 +1,69 @@
+name: OnTrack v73 WhatsApp worker cron and runtime read-only diagnostics
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-wa-v73-diagnostics.yml'
+      - 'tools/host_v73_wa_runtime_probe.php'
+      - 'tools/host_v73_wa_cron_probe.py'
+      - 'tools/host_v73_wa_safe_run.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-saas-v73-wa-runtime-diagnostics
+  cancel-in-progress: false
+jobs:
+  inspect:
+    name: Verify WhatsApp runtime on real host without dispatching messages
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate diagnostic sources without executing outbound services
+        run: |
+          $ErrorActionPreference='Stop'
+          & php -l tools/host_v73_wa_runtime_probe.php
+          if($LASTEXITCODE -ne 0){throw 'Invalid WA probe PHP'}
+          & python -m py_compile tools/host_v73_wa_cron_probe.py tools/host_v73_wa_safe_run.py
+          if($LASTEXITCODE -ne 0){throw 'Invalid WA cron probe Python'}
+          & php -l saas/console/whatsapp-worker.php
+          if($LASTEXITCODE -ne 0){throw 'WhatsApp worker PHP invalid'}
+          Write-Host 'V73_WA_SAFE_PROBE_SOURCE_PASS'
+      - name: Stage probes and read production WhatsApp Cron and job counts via SSH
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Approved SSH identity missing'}
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-wa-diagnostics-v73'
+          & ssh.exe @flags -p 7195 $remote ('umask 077; mkdir -p '+$stage+'; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Read-only diagnostic stage unavailable'}
+          $assets=@(
+            [pscustomobject]@{Source='tools/host_v73_wa_runtime_probe.php';Dest="$stage/jobs.php"}
+            [pscustomobject]@{Source='tools/host_v73_wa_cron_probe.py';Dest="$stage/cron.py"}
+            [pscustomobject]@{Source='tools/host_v73_wa_safe_run.py';Dest="$stage/safe_run.py"}
+          )
+          foreach($asset in $assets){
+            $from=[string]$asset.Source
+            $to='{0}:{1}' -f $remote,[string]$asset.Dest
+            & scp.exe @flags -P 7195 $from $to
+            if($LASTEXITCODE -ne 0){throw ('Diagnostic transfer failed '+$from)}
+          }
+          & ssh.exe @flags -p 7195 $remote ('python3 '+$stage+'/cron.py')
+          if($LASTEXITCODE -ne 0){throw 'Cron read-only probe failed'}
+          & ssh.exe @flags -p 7195 $remote ('/opt/cpanel/ea-php83/root/usr/bin/php '+$stage+'/jobs.php')
+          if($LASTEXITCODE -ne 0){throw 'Database read-only probe failed'}
+          Write-Host 'V73_REAL_PRODUCTION_WA_CRON_AND_JOBS_READ_ONLY_PROBED_PASS'
+          & ssh.exe @flags -p 7195 $remote ('python3 '+$stage+'/safe_run.py')
+          if($LASTEXITCODE -ne 0){throw 'Isolated or zero-job guarded WhatsApp worker runtime failed'}
+          Write-Host 'V73_ISOLATED_AND_NO_JOB_LIVE_WORKER_DIAGNOSTIC_COMPLETE'

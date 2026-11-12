@@ -435,7 +435,7 @@
       "verified_e2e": false,
       "completion_evidence": [],
       "updated_on": "2026-11-03",
-      "implementation_note": "Actual Google Gemini 3.8 Live Extended Thinking BLOCKING editor experiment failed WS1007 at setup, no proposal; reverted NON_BLOCKING per official model-specific requirement. No successful structured tool E2E after revert.",
+      "implementation_note": "Real gemini-3.8-live-extended-thinking with BLOCKING setup returned WebSocket 1007 and no tool; reverted to required NON_BLOCKING. Prior NON_BLOCKING session connected but emitted audio not submit_editor_proposal; genuine graph still unverified.",
       "evidence_source_branch": "feat/voice-production-gap-20261103",
       "evidence_commit": "7c9d440fbfe60065969b1d2ec62c5e10d53917f4",
       "latest_real_provider_evidence": "ops/host-link/results/appontrack-server11/flow-blocking-state-202611030545.json"
@@ -733,7 +733,53 @@
       "evidence_or_pointer": "_core/TenantWorkspace.php + CallEventOutbox.kt",
       "verified_e2e": false,
       "completion_evidence": [],
-      "updated_on": "2026-11-03"
+      "updated_on": "2026-11-04",
+      "implementation_note": "OTA path guard patched in saas/mobile/ota/deploy.py to require canonical /home/appontrack/public_html/mobile/updates, not legacy /saas/mobile/updates, with fail-closed checks for symlinks/account/private dir. Commit 693339241348e6366116743d8a5b281ed8fa6a28. This is a code-only patch: no CI run or matching host deployment receipt yet; actual existence of canonical mobile directory on host unverified, native APK still not queued, and physical Xiaomi disconnect/reconnect event replay unverified. Do not mark DONE or advance R041. Recheck at 2026-11-03 12:53 Africa/Cairo: latest Actions branch runs 41592208929 (root PASS) and 41592208970 (Android FAIL) both use bcb933d7, NOT OTA guard patch 69333924. No matching CI/host receipt for patch; therefore cannot deploy or close. Root/mobile target existence and physical Xiaomi proof still unverified.\n13:55 Africa/Cairo run: fixed stale OTA unit fixture to canonical /public_html/mobile and added negative legacy-path fail-closed test (8d9a25f). Added scoped feature branch to Native OTA host acknowledgement gate and executes tools/test_mobile_ota.py (a5a3c02). GitHub Actions runs listing has no new run for patch, CI not proven; no host receipt, native OTA or physical Xiaomi E2E. Remains PARTIAL.\n14:53 Africa/Cairo: GitHub Actions run 41631532243 for a5a3c02 FAILED before any job step; runner_name empty, started/finished in 2 seconds, step list empty. Logs endpoint returned BlobNotFound (no test failure trace), so do not attribute to source test failure. Scoped workflow push filter omitted tools/test_mobile_ota.py and saas/mobile/ota/deploy.py; corrected filter at f9901228. No matching green CI or root/OTA receipt for f9901228; Xiaomi disconnect/reconnect E2E still absent. Remains PARTIAL.\n15:55 Africa/Cairo: Actions 41639628384 for f9901228 also FAILED before any steps (runner_name empty; job 12:54:14–12:54:16Z). The YAML .github/workflows/mobile-release-gate.yml uses ubuntu-latest and contains Python test steps, but none ran; no assertion about GitHub runner root cause. No matching green CI, OTA host receipt or physical Xiaomi reconciliation proof.\n16:48 Africa/Cairo: rechecked workflow run 41639628384 jobs and timing: job 125929529724 completed failure in 2s, runner_id=0, runner_name empty, steps=[], billable Ubuntu total_ms=0 and run_duration_ms=3000. This proves zero runner execution, NOT source test failure; reason for runner non-allocation remains unknown. No later matching run or host/device proof. No code/deployment change.\n17:55 Africa/Cairo: explicitly requested GitHub Actions rerun of failed jobs for run 41639628384; GitHub accepted rerun (success=true). Immediate jobs query returned [] while rerun was being scheduled, so CI result is PENDING, not PASS. No host receipt or Xiaomi proof. No code change.\n18:50 Africa/Cairo: rerun attempt of workflow 41639628384 completed FAILURE again (job 126031398043), with steps=[]; job logs unavailable (GitHub blob 404 BlobNotFound). No executed tests or evidence of green CI. No deployment or Xiaomi proof. R040 stays PARTIAL.\n21:51 Africa/Cairo: verified latest known root CI 41672301463 check job 126043578862 failure steps=[] (publish skipped), SaaS CI 41672301305 smoke job 126043578766 failure steps=[]. No test executed, no matching host receipt, rollback or Xiaomi replay proof. R040 remains PARTIAL; no new source patch.\n2026-11-03 22:46 Africa/Cairo: current root deploy 41707957548 check FAILED/publish SKIPPED (14ed4cfed); SaaS 41707872978 smoke FAILED (16945297f); Android audio 41710317061 build FAILED/publish SKIPPED (a5e7a1eae). No new deploy receipt or Xiaomi event replay. R040 remains PARTIAL; no code change.\n2026-11-04 02:55 Cairo: GitHub Actions Local Windows signed APK 0.3.11 run 41749227359 SUCCESS at 7d1b1f65, but this is not R040 call-history CI or root host deployment. Root 41707957548, Android SIM Audio 41710317061, OTA 41708478712 last observed FAILED. No matching root receipt/rollback or physical Xiaomi call-event disconnect/reconnect proof. R040 remains PARTIAL; R041 untouched.\n2026-11-04 03:47 Cairo: Fresh Actions: signed APK host-publish run 41751048068 SUCCESS, but not R040 E2E; R8 preview 41753202486 SUCCESS not deployed; v0.3.12 publish 41756337896 FAILED, SIM Audio 41756151679 FAILED, OTA gate 41756114736 FAILED. No R040 host receipt or physical Xiaomi reconciliation. Remains PARTIAL.",
+      "latest_feature_commit": "f9901228c84330e1ecd53dbaae52c0d1b72442d8",
+      "ci_verification": {
+        "run_id": 41592208929,
+        "conclusion": "success",
+        "head_sha": "bcb933d7b9d88a007f48280575152a023e0da872"
+      },
+      "host_deployment": {
+        "receipt": "ops/host-link/results/appontrack-server11/saas-console-41592208929.json",
+        "status": "success",
+        "exit_code": 0,
+        "source": "bcb933d7b9d8",
+        "target": "/",
+        "private_rollback": "/home/appontrack/backup/releases/bcb933d7b9d8"
+      },
+      "android_proof": {
+        "run_id": 41592208970,
+        "conclusion": "failure",
+        "build": "success",
+        "publish_ota_queue": "success_but_host_install_failed",
+        "publish_native": "failure",
+        "host_receipt": "ops/host-link/results/appontrack-server11/mobile-ota-41592208970.json",
+        "host_status": "failed",
+        "host_exit_code": 1,
+        "host_error": "ValueError: Wrong target",
+        "native_job_queued": false,
+        "device_e2e": false
+      },
+      "ci_verification_latest": {
+        "run_id": 41639628384,
+        "head_sha": "f9901228c84330e1ecd53dbaae52c0d1b72442d8",
+        "conclusion": "failure",
+        "job": "test",
+        "runner_name": "",
+        "steps_executed": 0,
+        "classification": "ZERO_RUNNER_EXECUTION_CAUSE_UNCONFIRMED",
+        "job_id": 125929529724,
+        "runner_id": 0,
+        "ubuntu_billable_ms": 0,
+        "run_duration_ms": 3000,
+        "rerun_requested": true,
+        "rerun_result": "FAILED_ZERO_STEPS",
+        "rerun_job_id": 126031398043,
+        "rerun_steps_executed": 0,
+        "rerun_logs": "404 BlobNotFound"
+      }
     },
     {
       "id": "R041",

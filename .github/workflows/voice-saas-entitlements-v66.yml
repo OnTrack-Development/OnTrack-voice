@@ -1,0 +1,85 @@
+name: OnTrack v66 archived reseller plan live voice entitlement repair
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-saas-entitlements-v66.yml'
+      - 'saas/console/_core/TenantVoiceSession.php'
+      - 'tools/test_reseller_subscription_catalog.php'
+      - 'tools/deploy_saas_entitlements_v66.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-v66-paid-subscription-live-voice
+  cancel-in-progress: false
+jobs:
+  test-and-deploy:
+    name: Validate historical paid entitlements, then patch canonical SaaS via SSH
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 18
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP syntax, SSH publisher and isolated sold-plan regressions
+        run: |
+          $ErrorActionPreference='Stop'
+          & php -l saas/console/_core/TenantVoiceSession.php
+          if($LASTEXITCODE -ne 0){throw 'Voice entitlement PHP syntax invalid'}
+          & python -m py_compile tools/deploy_saas_entitlements_v66.py
+          if($LASTEXITCODE -ne 0){throw 'Atomic publisher Python syntax invalid'}
+          $tests=@(
+            'tools/test_reseller_subscription_catalog.php',
+            'tools/test_v1_site05_plan_transitions.php',
+            'tools/test_g6_entitlements.php',
+            'tools/test_verified_checkout_settlement.php',
+            'tools/test_tenant_device_pairing.php',
+            'tools/test_google_live_failover.php'
+          )
+          $n=0
+          try{
+            foreach($test in $tests){
+              $n++
+              $env:ONTRACK_CI_NAMESPACE='v66_'+$env:GITHUB_RUN_ID+'_'+$n
+              & php $test
+              if($LASTEXITCODE -ne 0){throw ('Subscription or paired device regression '+$test)}
+            }
+          }finally{
+            Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          }
+          Write-Host 'V66_ARCHIVED_RESELLER_PLAN_VOICE_AND_RENEWAL_ISOLATED_TESTS_PASS'
+      - name: Stage only the corrected voice entitlement module and rollback publisher
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH key missing'}
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/saas-entitlements-v66'
+          & ssh.exe @ssh -p 7195 $remote ('umask 077; mkdir -p '+$stage+'/new/_core; chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Private v66 staging failed'}
+          & scp.exe @ssh -P 7195 'saas/console/_core/TenantVoiceSession.php' ($remote+':'+$stage+'/new/_core/TenantVoiceSession.php')
+          if($LASTEXITCODE -ne 0){throw 'Staging corrected voice entitlement source failed'}
+          & scp.exe @ssh -P 7195 'tools/deploy_saas_entitlements_v66.py' ($remote+':'+$stage+'/deploy.py')
+          if($LASTEXITCODE -ne 0){throw 'Staging atomic publisher failed'}
+          Write-Host 'V66_PRIVATE_SSH_STAGE_PASS'
+      - name: Publish single scoped PHP edit with rollback and verify production PHP 8.3
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $ssh=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $remote='appontrack@65.21.208.232'
+          & ssh.exe @ssh -p 7195 $remote 'python3 /home/appontrack/.ontrack-mobile/saas-entitlements-v66/deploy.py'
+          if($LASTEXITCODE -ne 0){throw 'v66 production publisher failed, check rollback logs'}
+          & ssh.exe @ssh -p 7195 $remote 'set -eu; /opt/cpanel/ea-php83/root/usr/bin/php -l /home/appontrack/public_html/_core/TenantVoiceSession.php; echo V66_LIVE_PHP83_VOICE_ENTITLEMENT_SYNTAX_PASS'
+          if($LASTEXITCODE -ne 0){throw 'v66 live PHP independent check failed'}
+          $response=Invoke-WebRequest -Uri 'https://app.ontrackegy.com/login?v=66' -SkipHttpErrorCheck -MaximumRedirection 2 -TimeoutSec 25
+          if([int]$response.StatusCode -ge 500){throw ('v66 login smoke HTTP '+$response.StatusCode)}
+          Write-Host 'V66_LIVE_SINGLE_FILE_PATCH_LOGIN_SMOKE_PASS'

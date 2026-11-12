@@ -2,6 +2,42 @@ package com.ontrack.voiceproof
 
 import java.io.ByteArrayOutputStream
 
+/**
+ * PCM contract: native shell emits 48kHz signed stereo 16-bit interleaved.
+ * Every 3 stereo frames -> one 16kHz mono sample for Gemini Live.
+ * Owner-confirmed Pilot input was "mix", NOT default "right": preserve
+ * (left+right)/2 until physical SIM/VoWiFi duplex tests prove otherwise.
+ * This arithmetic test does not establish carrier audio availability.
+ */
+/** Limit queued 16 kHz audio on unstable cellular uplinks.
+ *  A full WebSocket send queue means the caller's old PCM would reach Gemini
+ *  late; skip delayed samples instead of producing an ever-later conversation.
+ *  LTE now allows a bounded 64 KiB (~1.5 seconds of JSON/b64 PCM) to
+ *  absorb radio jitter without dropping whole words. Wi-Fi remains 192 KiB.
+ */
+internal object LiveAudioQueuePolicy {
+    const val CELLULAR_MAX_PENDING_BYTES = 64L * 1024
+    const val OTHER_MAX_PENDING_BYTES = 192L * 1024
+
+    fun canSend(cellular: Boolean, pendingBytes: Long): Boolean {
+        require(pendingBytes >= 0)
+        return pendingBytes < if (cellular) CELLULAR_MAX_PENDING_BYTES else OTHER_MAX_PENDING_BYTES
+    }
+}
+
+/**
+ * Downlink PCM is 48kHz mono signed 16-bit; each packet contains 25ms.
+ * Gemini websocket messages may batch seconds of audio. A 10-packet channel
+ * (250ms) is NOT a valid playback jitter buffer and audibly drops syllables.
+ * 800 packets = 20 seconds / <2 MiB, enough to preserve natural utterances.
+ */
+internal object LivePlaybackQueuePolicy {
+    const val PACKET_BYTES = 2400
+    const val OUTPUT_RATE = 48000
+    const val MAX_PACKETS = 800
+    const val MAX_QUEUED_MS = MAX_PACKETS * PACKET_BYTES * 1000 / (OUTPUT_RATE * 2)
+}
+
 internal class LinkPcm(private val channel: String) {
     private var sum = 0
     private var frames = 0

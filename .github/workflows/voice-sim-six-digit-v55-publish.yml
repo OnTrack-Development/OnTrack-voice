@@ -1,0 +1,171 @@
+name: Publish six-digit SIM linking 0.3.32 signed Android + website
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths:
+      - '.github/workflows/voice-sim-six-digit-v55-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: utf-8
+concurrency:
+  group: ontrack-sim6-v55-signed-direct-deploy
+  cancel-in-progress: false
+jobs:
+  publish:
+    name: Verify v55 signer, patch site, install signed APK and validate HTTPS
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/io-premium-native-v51-20261107
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 5e203be01c99afd2c4cdbae993b1f560c8d72389
+          path: .build/sim-six-baseline
+          persist-credentials: false
+      - name: PHP and native six-digit pairing contract regression
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($file in @('saas/console/_core/DevicePairing.php','saas/console/_core/Actions.php','saas/console/_core/Views.php','saas/console/device/v1/index.php','tools/test_six_digit_sim_pairing.php','tools/verify_live_sim_six_digit_v55.php')){
+            & php -l $file
+            if($LASTEXITCODE -ne 0){throw ('PHP syntax invalid: '+$file)}
+          }
+          $env:ONTRACK_CI_NAMESPACE='sim6release'+$env:GITHUB_RUN_ID
+          & php tools/test_six_digit_sim_pairing.php
+          if($LASTEXITCODE -ne 0){throw 'Six-digit pairing test failed; no deploy'}
+          Remove-Item Env:\ONTRACK_CI_NAMESPACE -ErrorAction SilentlyContinue
+          & python tools/test_mobile_ui_contract.py
+          if($LASTEXITCODE -ne 0){throw 'Mobile UI contract failed'}
+          & python -m py_compile tools/deploy_sim_six_digit_v55.py tools/sim_six_digit_ota_install_v55.py
+          if($LASTEXITCODE -ne 0){throw 'Python host publisher syntax invalid'}
+          Write-Host 'SIM6_PHP_AND_APP_UI_TESTS_PASS'
+      - name: Verify signed v55 APK from one pinned passing build
+        run: |
+          $ErrorActionPreference='Stop'
+          $sourceRun='42436791685'
+          $url='https://api.github.com/repos/OnTrack-Development/OnTrack-voice/actions/runs/'+$sourceRun
+          $headers=@{Authorization=('Bearer '+$env:GH_TOKEN);Accept='application/vnd.github+json';'User-Agent'='OnTrack-Sim6-Publisher'}
+          $run=Invoke-RestMethod -Uri $url -Headers $headers -TimeoutSec 25
+          if($run.status -ne 'completed' -or $run.conclusion -ne 'success' -or $run.head_branch -ne 'feat/io-premium-native-v51-20261107'){
+            throw 'Pinned signed Android v55 build is not successful. Refusing publish.'
+          }
+          $base=Join-Path 'D:\ai\OnTrack-Voice-Builds\v1-candidates' $sourceRun
+          $apk=Join-Path $base 'OnTrack-Voice-0.3.32.apk'
+          if(-not (Test-Path -LiteralPath $apk)){throw 'Signed Android v55 APK missing'}
+          $report=Get-Content -LiteralPath (Join-Path $base 'size-report.json') -Raw | ConvertFrom-Json
+          $digest=(Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
+          if([string]$report.source_build_run -ne $sourceRun -or $report.release -ne '0.3.32' -or $report.sha256 -ne $digest -or $report.signing_cert_verified -ne $true){throw 'Preserved signed v55 report invalid'}
+          $sdk=Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          $signer=Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer=Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          $cert=(& $signer verify --print-certs $apk | Out-String).ToLowerInvariant()
+          if($LASTEXITCODE -ne 0 -or $cert -notlike '*d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f*'){throw 'Original Android signing certificate mismatch'}
+          $version=(& $analyzer manifest version-code $apk|Out-String).Trim()
+          $appId=(& $analyzer manifest application-id $apk|Out-String).Trim()
+          if($version -ne '55' -or $appId -ne 'com.ontrack.voiceproof'){throw 'Unexpected Android package or version'}
+          Write-Host ('SIGNED_SIX_DIGIT_APK_V55_VERIFIED='+$digest)
+      - name: Sign separate native and UI OTA manifests using original identity
+        run: |
+          $ErrorActionPreference='Stop'
+          $base=Join-Path 'D:\ai\OnTrack-Voice-Builds\v1-candidates' '42436791685'
+          $apk=Join-Path $base 'OnTrack-Voice-0.3.32.apk'
+          $key=Join-Path $env:USERPROFILE '.android\debug.keystore'
+          $out='.build\sim6-v55-delivery'
+          & python tools/prepare_mobile_native.py $apk (Join-Path $out 'native')
+          if($LASTEXITCODE -ne 0){throw 'Native OTA preparation failed'}
+          & java tools/SignMobileOta.java $key (Join-Path $out 'native')
+          if($LASTEXITCODE -ne 0){throw 'Native OTA signing failed'}
+          & python tools/prepare_mobile_ota.py (Join-Path $out 'ui')
+          if($LASTEXITCODE -ne 0){throw 'UI OTA preparation failed'}
+          & java tools/SignMobileOta.java $key (Join-Path $out 'ui')
+          if($LASTEXITCODE -ne 0){throw 'UI OTA signing failed'}
+          & python tools/verify_sim_six_digit_v55_local.py .build/sim6-v55-delivery
+          if($LASTEXITCODE -ne 0){throw 'Signed manifest local verification failed'}
+      - name: Apply minimal verified site patch and prove six-digit server route
+        run: |
+          $ErrorActionPreference='Stop'
+          $id=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(-not (Test-Path -LiteralPath $id)){throw 'SSH publisher key not available'}
+          $ssh=@('-i',$id,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostTarget='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/sim-six-digit-v55'
+          $dirs=@($stage,($stage+'/old'),($stage+'/old/_core'),($stage+'/old/device'),($stage+'/old/device/v1'),($stage+'/new'),($stage+'/new/_core'),($stage+'/new/device'),($stage+'/new/device/v1'))
+          & ssh.exe @ssh -p 7195 $hostTarget ('mkdir -p '+($dirs -join ' ')+' && chmod 700 '+$stage)
+          if($LASTEXITCODE -ne 0){throw 'Private site staging refused'}
+          foreach($rel in @('_core/Actions.php','_core/Views.php','_core/DevicePairing.php','device/v1/index.php')){
+            foreach($version in @('old','new')){
+              $source=if($version -eq 'old'){'.build/sim-six-baseline/saas/console/'}else{'saas/console/'}
+              & scp.exe @ssh -P 7195 ($source+$rel) ($hostTarget+':'+$stage+'/'+$version+'/'+$rel)
+              if($LASTEXITCODE -ne 0){throw ('Unable to stage site source '+$rel)}
+            }
+          }
+          & scp.exe @ssh -P 7195 tools/deploy_sim_six_digit_v55.py ($hostTarget+':'+$stage+'/publish.py')
+          if($LASTEXITCODE -ne 0){throw 'Could not stage rollback-safe publisher'}
+          & scp.exe @ssh -P 7195 tools/verify_live_sim_six_digit_v55.php ($hostTarget+':'+$stage+'/smoke.php')
+          if($LASTEXITCODE -ne 0){throw 'Could not stage read-only smoke'}
+          & ssh.exe @ssh -p 7195 $hostTarget ('python3 '+$stage+'/publish.py')
+          if($LASTEXITCODE -ne 0){throw 'Unexpected site edits blocked atomic publish'}
+          & ssh.exe @ssh -p 7195 $hostTarget ('/opt/cpanel/ea-php83/root/usr/bin/php '+$stage+'/smoke.php')
+          if($LASTEXITCODE -ne 0){throw 'Live site six-digit verification failed'}
+          Write-Host 'SIM6_SITE_AND_API_PUBLISHED_PASS'
+      - name: Securely stage signed v55 APK and HTML for atomic OTA publication
+        run: |
+          $ErrorActionPreference='Stop'
+          $id=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $ssh=@('-i',$id,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $dest='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/sim-six-digit-v55-stage'
+          & ssh.exe @ssh -p 7195 $dest ('mkdir -p '+$stage+'/native '+$stage+'/ui')
+          if($LASTEXITCODE -ne 0){throw 'Private OTA stage unavailable'}
+          $base=Join-Path 'D:\ai\OnTrack-Voice-Builds\v1-candidates' '42436791685'
+          & scp.exe @ssh -P 7195 (Join-Path $base 'OnTrack-Voice-0.3.32.apk') ($dest+':'+$stage+'/native/OnTrack-Voice-0.3.32.apk')
+          if($LASTEXITCODE -ne 0){throw 'Signed APK stage failed'}
+          foreach($scope in @('native','ui')){
+            foreach($name in @('latest.json','signing-cert.der')){
+              & scp.exe @ssh -P 7195 (Join-Path ('.build\sim6-v55-delivery\'+$scope) $name) ($dest+':'+$stage+'/'+$scope+'/'+$name)
+              if($LASTEXITCODE -ne 0){throw ('Signed OTA stage failed '+$scope+'/'+$name)}
+            }
+          }
+          $meta=(Get-Content -LiteralPath '.build\sim6-v55-delivery\ui\latest.json' -Raw | ConvertFrom-Json).payload | ConvertFrom-Json
+          & scp.exe @ssh -P 7195 (Join-Path '.build\sim6-v55-delivery\ui' $meta.file) ($dest+':'+$stage+'/ui/'+$meta.file)
+          if($LASTEXITCODE -ne 0){throw 'Signed UI HTML stage failed'}
+          & scp.exe @ssh -P 7195 tools/sim_six_digit_ota_install_v55.py ($dest+':/home/appontrack/.ontrack-mobile/sim_six_digit_ota_install_v55.py')
+          if($LASTEXITCODE -ne 0){throw 'Signed OTA atomic installer stage failed'}
+          Write-Host 'SIGNED_SIM6_V55_OTA_STAGED'
+      - name: Verify signature on server, atomically install v55 UI and native update
+        run: |
+          $ErrorActionPreference='Stop'
+          $id=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          & ssh.exe -i $id -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=12 -p 7195 'appontrack@65.21.208.232' 'python3 /home/appontrack/.ontrack-mobile/sim_six_digit_ota_install_v55.py'
+          if($LASTEXITCODE -ne 0){throw 'Signed v55 OTA refused; existing app version retained'}
+          Write-Host 'SIGNED_SIM6_V55_PUBLIC_PUBLISH_PASS'
+      - name: Verify public APK download SHA256 and both OTA HTTPS manifests
+        run: |
+          $ErrorActionPreference='Stop'
+          $nonce=$env:GITHUB_RUN_ID
+          $uiExpected=(Get-Content -LiteralPath '.build\sim6-v55-delivery\ui\latest.json' -Raw).Trim()
+          $nativeExpected=(Get-Content -LiteralPath '.build\sim6-v55-delivery\native\latest.json' -Raw).Trim()
+          $ui=(Invoke-WebRequest -Uri ('https://app.ontrackegy.com/mobile/updates/latest.json?check='+$nonce) -Headers @{'Cache-Control'='no-cache'} -TimeoutSec 40).Content.Trim()
+          $native=(Invoke-WebRequest -Uri ('https://app.ontrackegy.com/mobile/updates/native/latest.json?check='+$nonce) -Headers @{'Cache-Control'='no-cache'} -TimeoutSec 40).Content.Trim()
+          if($ui -ne $uiExpected -or $native -ne $nativeExpected){throw 'Live signed OTA pointers do not match'}
+          $meta=($native | ConvertFrom-Json).payload | ConvertFrom-Json
+          if($meta.version_code -ne 55 -or $meta.version_name -ne '0.3.32'){throw 'Live OTA native version wrong'}
+          $file=Join-Path $env:RUNNER_TEMP 'ontrack-sim6-v55-public.apk'
+          $url='https://app.ontrackegy.com/mobile/updates/native/'+$meta.file
+          try {
+            Invoke-WebRequest -Uri $url -TimeoutSec 120 -OutFile $file
+            if((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $meta.sha256){throw 'Public APK SHA256 mismatch'}
+          }finally{Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue}
+          Write-Host ('ONTRACK_SIM6_V55_APK_URL='+$url)
+          Write-Host 'SIX_DIGIT_LINKING_SITE_UI_ANDROID_HTTPS_VERIFIED_PASS'

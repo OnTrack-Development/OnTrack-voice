@@ -1,0 +1,30 @@
+name: IO Premium Fish PCM smoke over direct SSH
+on:
+  push:
+    branches: [feat/io-premium-native-v51-20261107]
+    paths: ['.github/workflows/ontrack-io-premium-fish-smoke.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 7
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Probe Fish PCM 44k1 with existing protected credentials
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $hostName='appontrack@65.21.208.232'
+          $flags=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=10')
+          & scp.exe @flags -P 7195 'tools/io_premium_fish_pcm_probe.php' ($hostName+':/home/appontrack/.ontrack-mobile/io_premium_fish_pcm_probe.php')
+          if($LASTEXITCODE -ne 0){throw 'PCM probe staging failed'}
+          & ssh.exe @flags -p 7195 $hostName '/opt/cpanel/ea-php83/root/usr/bin/php /home/appontrack/.ontrack-mobile/io_premium_fish_pcm_probe.php'
+          if($LASTEXITCODE -ne 0){throw 'Fish PCM streaming test failed'}
+          Write-Host 'IO_PREMIUM_LIVE_PCM_STREAM_OK=True'

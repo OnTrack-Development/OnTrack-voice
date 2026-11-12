@@ -40,8 +40,8 @@ function sync_google_live_voices():int{
  * Caller supplies an API key for this one operation. Do not save or log it.
  */
 function fetch_google_provider_voices(string $apiKey):int {
-    if(!preg_match('/^[A-Za-z0-9_-]{12,256}$/D',$apiKey))
-        throw new InvalidArgumentException('مفتاح Google غير صالح');
+    if(!google_key_looks_valid($apiKey))
+        throw new InvalidArgumentException('أدخل مفتاح API كنص واحد بدون رموز تحكم أو ملف JSON.');
     if(!function_exists('curl_init'))throw new RuntimeException('cURL غير متاح على الاستضافة');
     $seen=[];$pageToken='';$count=0;
     for($page=0;$page<15;$page++){
@@ -55,7 +55,7 @@ function fetch_google_provider_voices(string $apiKey):int {
         try{
             $body=curl_exec($h);$status=(int)curl_getinfo($h,CURLINFO_HTTP_CODE);
         }finally{curl_close($h);}
-        if(!is_string($body)||$status!==200)throw new RuntimeException('تعذر جلب الكتالوج من Google (HTTP '.$status.')');
+        if(!is_string($body)||$status!==200)throw new RuntimeException(google_api_failure($status));
         $response=json_decode($body,true);
         if(!is_array($response)||!is_array($response['voices']??null))
             throw new RuntimeException('استجابة Google لا تحتوي على كتالوج أصوات');
@@ -79,4 +79,48 @@ function fetch_google_provider_voices(string $apiKey):int {
         $pageToken=$next;
     }
     return $count;
+}
+
+
+/** Distinguish valid Gemini API credentials from separate Live API capabilities. */
+function google_key_looks_valid(string $key):bool{
+    return preg_match('/\A[A-Za-z0-9._~-]{4,256}\z/D',trim($key))===1;
+}
+function google_api_failure(int $status):string{
+    return match($status){
+        400=>'Google رفض صيغة الطلب. مطلوب Gemini API Key وليس OAuth أو ملف خدمة JSON.',
+        401=>'Google رفض اعتماد المفتاح HTTP 401. راجع مفتاح Gemini API.',
+        403=>'Google رفض الصلاحية HTTP 403: تحقق من قيود المفتاح والمشروع وتفعيل Generative Language API. لا يعني أن المفتاح نفسه خاطئ.',
+        404=>'خدمة Google أو إصدار API غير متاح لهذا المفتاح حاليًا (404)، وليس دليلًا على خطأ المفتاح.',
+        429=>'الحد المسموح أو حصة Google انتهت مؤقتًا (429).',
+        0=>'السيرفر تعذر عليه الاتصال بخوادم Google؛ راجع DNS والاتصال وTLS.',
+        default=>'اتصال Google أعاد HTTP '.$status.'، راجع قيود المشروع والموديل.'
+    };
+}
+function google_api_probe(string $key, ?callable $transport=null):void{
+    // Only Google can determine whether an API key is authenticated and permitted.
+    $key=trim($key);
+    if(!google_key_looks_valid($key))
+        throw new InvalidArgumentException('المفتاح فارغ أو يحتوي على رموز غير صالحة للإرسال. الصق قيمة API Key فقط.');
+    if($transport!==null){
+        // Offline tests supply an explicit response; production always contacts Google.
+        $result=$transport($key);
+        if(!is_array($result))throw new RuntimeException('تعذر قراءة نتيجة اتصال Google.');
+        $status=(int)($result['status']??0);
+        $body=$result['body']??false;
+    }else{
+        if(!function_exists('curl_init'))throw new RuntimeException('مكتبة cURL غير متاحة على الاستضافة.');
+        $h=curl_init('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1');
+        if(!$h)throw new RuntimeException('تعذر بدء اتصال Google.');
+        curl_setopt_array($h,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HTTPGET=>true,
+            CURLOPT_HTTPHEADER=>['x-goog-api-key: '.$key,'Accept: application/json'],
+            CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>12,CURLOPT_FOLLOWLOCATION=>false,
+            CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2]);
+        try{$body=curl_exec($h);$status=(int)curl_getinfo($h,CURLINFO_RESPONSE_CODE);}
+        finally{curl_close($h);}
+    }
+    if(!is_string($body)||$status!==200)throw new RuntimeException(google_api_failure($status));
+    $json=json_decode($body,true);
+    if(!is_array($json)||!is_array($json['models']??null))
+        throw new RuntimeException('Google ردّ لكن قائمة الموديلات غير مفهومة. مش هنعتبر المفتاح غلط.');
 }
