@@ -298,7 +298,10 @@ class DevicePairingService
         $policy = null;
         if ($published && ! empty($published->answer_policy_json)) {
             $decoded = json_decode((string) $published->answer_policy_json, true);
-            $policy = is_array($decoded) ? $decoded : null;
+            if (is_array($decoded)) {
+                unset($decoded['scenario_text']);
+                $policy = $decoded;
+            }
         }
 
         return [
@@ -316,7 +319,7 @@ class DevicePairingService
             'agent_revision' => (int) ($fresh->agent_revision ?? 1),
             'voice' => $voiceCode,
             'voice_label' => $voiceLabel,
-            'instruction' => $published ? (string) $published->instructions : null,
+            'instruction' => $published ? mb_substr((string) $published->instructions, 0, 500, 'UTF-8') : null,
             'answer_policy' => $policy,
             'sim_slot' => (int) $binding['sim_slot'],
             'heartbeat_seconds' => 10,

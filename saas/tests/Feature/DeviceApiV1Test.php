@@ -120,11 +120,13 @@ class DeviceApiV1Test extends TestCase
 
         $authHeaders = ['Authorization' => 'Bearer '.$token];
 
-        // Heartbeat matches Android TenantDeviceEnrollment.kt expected JSON keys
-        $hb1 = $this->withHeaders($authHeaders)
+        // Heartbeat matches Android TenantDeviceEnrollment.kt expected JSON keys & compact size limits
+        $hb1Http = $this->withHeaders($authHeaders)
             ->postJson('/device/v1/index.php', ['operation' => 'heartbeat'])
-            ->assertOk()
-            ->json();
+            ->assertOk();
+        $this->assertLessThanOrEqual(16384, strlen($hb1Http->getContent()));
+        $this->assertStringNotContainsString('\\u06', $hb1Http->getContent());
+        $hb1 = $hb1Http->json();
 
         $this->assertTrue($hb1['ok']);
         $this->assertTrue($hb1['profile']['flow_ready']);
@@ -133,11 +135,13 @@ class DeviceApiV1Test extends TestCase
         $this->assertSame($pub1['revision'], $hb1['profile']['flow_revision']);
         $this->assertSame($pub1['hash'], $hb1['profile']['flow_hash']);
 
-        // Published flow matches Android verification fields
-        $flowResp = $this->withHeaders($authHeaders)
+        // Published flow matches Android verification fields & size limit
+        $flowHttp = $this->withHeaders($authHeaders)
             ->postJson('/device/v1/index.php', ['operation' => 'published_flow'])
-            ->assertOk()
-            ->json();
+            ->assertOk();
+        $this->assertLessThanOrEqual(65536, strlen($flowHttp->getContent()));
+        $this->assertStringNotContainsString('\\u06', $flowHttp->getContent());
+        $flowResp = $flowHttp->json();
 
         $this->assertSame($pub1['revision'], $flowResp['revision']);
         $this->assertSame($pub1['hash'], $flowResp['hash']);
@@ -578,5 +582,86 @@ class DeviceApiV1Test extends TestCase
         // Disconnect conflict on second call
         $this->withHeaders($authHeaders)->postJson('/device/v1/index.php', ['operation' => 'disconnect'])->assertOk();
         $this->withHeaders($authHeaders)->postJson('/device/v1/index.php', ['operation' => 'disconnect'])->assertStatus(401);
+    }
+
+    public function test_large_arabic_scenario_stays_compact_within_android_max_response_limits(): void
+    {
+        $now = gmdate('Y-m-d H:i:s');
+        $user = User::factory()->create();
+        $accountId = DB::table('accounts')->insertGetId([
+            'kind' => 'platform',
+            'parent_id' => 0,
+            'name' => 'شركة أون تراك',
+            'slug' => 'compact-test-co',
+            'status' => 'active',
+            'created_at' => $now,
+        ]);
+        $siteId = DB::table('sites')->insertGetId([
+            'account_id' => $accountId,
+            'name' => 'فرع القاهرة',
+            'domain' => 'compact.ontrackegy.com',
+            'status' => 'active',
+            'created_at' => $now,
+        ]);
+        DB::table('memberships')->insert([
+            'user_id' => $user->id,
+            'account_id' => $accountId,
+            'role' => 'owner',
+            'created_at' => $now,
+        ]);
+
+        $largeArabic = str_repeat("مرحباً بكم في خدماتنا المتميزة لتصميم المواقع والاستضافة الاحترافية. ", 120); // ~8,000+ chars
+        $agentId = DB::table('agents')->insertGetId([
+            'account_id' => $accountId,
+            'site_id' => $siteId,
+            'name' => 'سالي',
+            'kind' => 'voice',
+            'voice' => 'google.aoede',
+            'instructions' => $largeArabic,
+            'knowledge' => str_repeat("تفاصيل الباقات والأسعار السنوية والشهرية. ", 140),
+            'status' => 'draft',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        /** @var VoiceSessionService $vs */
+        $vs = app(VoiceSessionService::class);
+        $policy = $vs->defaultAnswerPolicy();
+        $policy['scenario_mode'] = 'scenario';
+        $policy['scenario_text'] = mb_substr($largeArabic, 0, 8000, 'UTF-8');
+        $vs->saveAnswerPolicy($accountId, $agentId, $policy);
+        $vs->publishAgent($accountId, $agentId, $user->id);
+        $vs->addRelayEntry($accountId, 'voice', 'gemini_live', 'Key 1', 'gemini-3.8-live', 'AIzaSyFakeCompactKey1234', 1);
+
+        /** @var DevicePairingService $pairing */
+        $pairing = app(DevicePairingService::class);
+        $code = $pairing->createPairing($accountId, $siteId, $agentId, $user->id, 0);
+        $pairResp = $this->postJson('/device/v1/index.php', [
+            'operation' => 'pair',
+            'code' => $code,
+            'installation_id' => 'xiaomi-compact-test-001',
+            'sim_slot' => 0,
+            'device_name' => 'Xiaomi Compact Probe',
+        ])->assertCreated()->json();
+
+        $token = $pairResp['binding']['device_token'];
+        $authHeaders = ['Authorization' => 'Bearer '.$token];
+
+        $hb = $this->withHeaders($authHeaders)->postJson('/device/v1/index.php', ['operation' => 'heartbeat'])->assertOk();
+        $this->assertLessThanOrEqual(16384, mb_strlen($hb->getContent(), 'UTF-8'));
+        $this->assertArrayNotHasKey('scenario_text', $hb->json('profile.answer_policy'));
+
+        $pf = $this->withHeaders($authHeaders)->postJson('/device/v1/index.php', ['operation' => 'published_flow'])->assertOk();
+        $this->assertLessThanOrEqual(65536, mb_strlen($pf->getContent(), 'UTF-8'));
+        $this->assertArrayNotHasKey('scenario_text', $pf->json('answer_policy'));
+
+        $bindingArr = $pairing->authorizeBearer('Bearer '.$token);
+        $session = $vs->issueLiveVoiceSession($bindingArr, fn () => 'auth_tokens/mock_compact_001');
+        $vsJson = json_encode(['ok' => true, 'session' => $session], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $this->assertLessThanOrEqual(65536, strlen($vsJson));
+        $this->assertLessThanOrEqual(65536, mb_strlen($vsJson, 'UTF-8'));
+        $this->assertArrayNotHasKey('scenario_text', $session['answer_policy']);
+        $this->assertArrayNotHasKey('scenario_text', $session['policy']);
+        $this->assertStringContainsString('مرحباً بكم في خدماتنا', $session['system_instruction']);
     }
 }

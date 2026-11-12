@@ -22,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'saas/console/api/v1/*',
             'saas/console/hooks/*',
             'saas/console/whatsapp-*',
+            'mobile/*',
+            'saas/mobile/*',
             'sso',
         ]);
         $middleware->alias([

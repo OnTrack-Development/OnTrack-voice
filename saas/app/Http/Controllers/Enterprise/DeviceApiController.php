@@ -37,21 +37,21 @@ class DeviceApiController extends Controller
         ];
 
         if ($request->method() !== 'POST') {
-            return response()->json(['ok' => false, 'error' => 'method_not_allowed'], 405, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'method_not_allowed'], 405, $headers);
         }
 
         if (! app()->runningUnitTests() && ! $request->isSecure()) {
-            return response()->json(['ok' => false, 'error' => 'https_required'], 426, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'https_required'], 426, $headers);
         }
 
         $raw = (string) $request->getContent();
         if (strlen($raw) > 1490000) {
-            return response()->json(['ok' => false, 'error' => 'request_too_large'], 413, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'request_too_large'], 413, $headers);
         }
 
         $data = json_decode($raw, true);
         if (! is_array($data)) {
-            return response()->json(['ok' => false, 'error' => 'invalid_json'], 422, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'invalid_json'], 422, $headers);
         }
 
         $operation = (string) ($data['operation'] ?? '');
@@ -63,14 +63,14 @@ class DeviceApiController extends Controller
             default => 8192,
         };
         if (strlen($raw) > $maxBody) {
-            return response()->json(['ok' => false, 'error' => 'request_too_large'], 413, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'request_too_large'], 413, $headers);
         }
 
         try {
             if ($operation === 'pair') {
                 $slot = $data['sim_slot'] ?? null;
                 if (! is_int($slot)) {
-                    return response()->json(['ok' => false, 'error' => 'invalid_slot'], 422, $headers);
+                    return $this->deviceJson(['ok' => false, 'error' => 'invalid_slot'], 422, $headers);
                 }
                 $this->pairing->rateGuard((string) ($request->ip() ?: '127.0.0.1'), (string) ($data['installation_id'] ?? ''));
                 $bound = $this->pairing->redeemPairing(
@@ -80,7 +80,7 @@ class DeviceApiController extends Controller
                     trim((string) ($data['device_name'] ?? 'Android Device'))
                 );
 
-                return response()->json(['ok' => true, 'binding' => $bound, 'state' => 'paired_control_plane_only'], 201, $headers);
+                return $this->deviceJson(['ok' => true, 'binding' => $bound, 'state' => 'paired_control_plane_only'], 201, $headers);
             }
 
             $supported = [
@@ -94,16 +94,16 @@ class DeviceApiController extends Controller
                 'flow_start', 'flow_step', 'flow_state',
             ];
             if (! in_array($operation, $supported, true)) {
-                return response()->json(['ok' => false, 'error' => 'unknown_operation'], 404, $headers);
+                return $this->deviceJson(['ok' => false, 'error' => 'unknown_operation'], 404, $headers);
             }
 
             $auth = (string) ($request->header('Authorization') ?? $request->server('REDIRECT_HTTP_AUTHORIZATION', ''));
             if (! str_starts_with($auth, 'Bearer ')) {
-                return response()->json(['ok' => false, 'error' => 'authorization_required'], 401, $headers);
+                return $this->deviceJson(['ok' => false, 'error' => 'authorization_required'], 401, $headers);
             }
             $binding = $this->pairing->authorizeBearer($auth);
             if (! $binding) {
-                return response()->json(['ok' => false, 'error' => 'device_not_authorized'], 401, $headers);
+                return $this->deviceJson(['ok' => false, 'error' => 'device_not_authorized'], 401, $headers);
             }
 
             $accountId = (int) $binding['account_id'];
@@ -112,21 +112,21 @@ class DeviceApiController extends Controller
             $simSlot = (int) $binding['sim_slot'];
 
             if ($operation === 'engine_manifest' || $operation === 'engine_download') {
-                return response()->json(['ok' => false, 'error' => 'engine_release_not_configured'], 409, $headers);
+                return $this->deviceJson(['ok' => false, 'error' => 'engine_release_not_configured'], 409, $headers);
             }
 
             if ($operation === 'disconnect') {
                 if (! $this->pairing->revokeDevice($accountId, $deviceId)) {
-                    return response()->json(['ok' => false, 'error' => 'device_disconnect_conflict'], 409, $headers);
+                    return $this->deviceJson(['ok' => false, 'error' => 'device_disconnect_conflict'], 409, $headers);
                 }
 
-                return response()->json(['ok' => true, 'state' => 'revoked'], 200, $headers);
+                return $this->deviceJson(['ok' => true, 'state' => 'revoked'], 200, $headers);
             }
 
             if (str_starts_with($operation, 'workspace_')) {
                 switch ($operation) {
                     case 'workspace_contacts':
-                        return response()->json(['ok' => true] + $this->campaigns->deviceContactsList($binding), 200, $headers);
+                        return $this->deviceJson(['ok' => true] + $this->campaigns->deviceContactsList($binding), 200, $headers);
 
                     case 'workspace_calls':
                         $rows = DB::table('calls as c')
@@ -190,7 +190,7 @@ class DeviceApiController extends Controller
                             ];
                         }
 
-                        return response()->json(['ok' => true, 'calls' => $calls, 'total' => count($calls)], 200, $headers);
+                        return $this->deviceJson(['ok' => true, 'calls' => $calls, 'total' => count($calls)], 200, $headers);
 
                     case 'workspace_call_transcript':
                         $callId = trim((string) ($data['call_id'] ?? ''));
@@ -233,7 +233,7 @@ class DeviceApiController extends Controller
                                         ->update(['transcript' => $this->vault->sealTranscript($before)]);
                                 }
 
-                                return response()->json(['ok' => true, 'saved' => true, 'duplicate' => true, 'call_id' => $callId], 200, $headers);
+                                return $this->deviceJson(['ok' => true, 'saved' => true, 'duplicate' => true, 'call_id' => $callId], 200, $headers);
                             }
 
                             DB::table('tenant_call_transcripts')->insertOrIgnore([
@@ -247,7 +247,7 @@ class DeviceApiController extends Controller
                                 'created_at' => $now,
                             ]);
 
-                            return response()->json(['ok' => true, 'saved' => true, 'duplicate' => false, 'call_id' => $callId], 200, $headers);
+                            return $this->deviceJson(['ok' => true, 'saved' => true, 'duplicate' => false, 'call_id' => $callId], 200, $headers);
                         }
 
                         $row = DB::table('tenant_call_transcripts')
@@ -277,7 +277,7 @@ class DeviceApiController extends Controller
                             }
                         }
 
-                        return response()->json([
+                        return $this->deviceJson([
                             'ok' => true,
                             'call_id' => $callId,
                             'transcript' => $plain,
@@ -285,21 +285,21 @@ class DeviceApiController extends Controller
                         ], 200, $headers);
 
                     case 'workspace_call_timeline':
-                        return response()->json(['ok' => true] + $this->calls->storeTimelineEvent($binding, $data), 200, $headers);
+                        return $this->deviceJson(['ok' => true] + $this->calls->storeTimelineEvent($binding, $data), 200, $headers);
 
                     case 'workspace_call_event':
                         if (array_key_exists('phase', $data) && array_key_exists('sequence', $data)) {
                             $out = $this->handleStructuredCallEvent($binding, $data);
 
-                            return response()->json(['ok' => true] + $out, 200, $headers);
+                            return $this->deviceJson(['ok' => true] + $out, 200, $headers);
                         }
 
-                        return response()->json($this->handleLegacyCallEvent($binding, $data), 200, $headers);
+                        return $this->deviceJson($this->handleLegacyCallEvent($binding, $data), 200, $headers);
 
                     case 'workspace_call_report':
                         $res = $this->calls->saveReport($accountId, $siteId, $deviceId, (string) ($data['call_id'] ?? ''), $data, 'device');
 
-                        return response()->json($res, 200, $headers);
+                        return $this->deviceJson($res, 200, $headers);
 
                     case 'workspace_call_analysis':
                         $res = $this->voiceSession->analyzeCallTranscript(
@@ -309,52 +309,52 @@ class DeviceApiController extends Controller
                             fn (array $reportInput) => $this->calls->saveReport($accountId, $siteId, $deviceId, $reportInput['call_id'], $reportInput, 'device')
                         );
 
-                        return response()->json(['ok' => true] + $res, 200, $headers);
+                        return $this->deviceJson(['ok' => true] + $res, 200, $headers);
 
                     case 'workspace_handoff_claim':
-                        return response()->json(['ok' => true] + $this->calls->claimHandoff($binding), 200, $headers);
+                        return $this->deviceJson(['ok' => true] + $this->calls->claimHandoff($binding), 200, $headers);
 
                     case 'workspace_handoff_ack':
-                        return response()->json(['ok' => true] + $this->calls->ackHandoff($binding, (int) ($data['job_id'] ?? 0), (string) ($data['stage'] ?? '')), 200, $headers);
+                        return $this->deviceJson(['ok' => true] + $this->calls->ackHandoff($binding, (int) ($data['job_id'] ?? 0), (string) ($data['stage'] ?? '')), 200, $headers);
 
                     case 'workspace_campaigns':
-                        return response()->json(['ok' => true] + $this->campaigns->deviceListCampaigns($binding), 200, $headers);
+                        return $this->deviceJson(['ok' => true] + $this->campaigns->deviceListCampaigns($binding), 200, $headers);
 
                     case 'workspace_campaign_claim':
-                        return response()->json(['ok' => true] + $this->campaigns->deviceClaimAttempt($binding), 200, $headers);
+                        return $this->deviceJson(['ok' => true] + $this->campaigns->deviceClaimAttempt($binding), 200, $headers);
 
                     case 'workspace_campaign_verify':
-                        return response()->json(['ok' => true, 'verification' => $this->campaigns->deviceVerifyAttempt($binding, (string) ($data['attempt_id'] ?? ''))], 200, $headers);
+                        return $this->deviceJson(['ok' => true, 'verification' => $this->campaigns->deviceVerifyAttempt($binding, (string) ($data['attempt_id'] ?? ''))], 200, $headers);
 
                     case 'workspace_campaign_finish':
-                        return response()->json(['ok' => true, 'attempt' => $this->campaigns->deviceFinishAttempt($binding, (string) ($data['attempt_id'] ?? ''), (string) ($data['result'] ?? ''))], 200, $headers);
+                        return $this->deviceJson(['ok' => true, 'attempt' => $this->campaigns->deviceFinishAttempt($binding, (string) ($data['attempt_id'] ?? ''), (string) ($data['result'] ?? ''))], 200, $headers);
                 }
 
                 if (($data['confirmed'] ?? false) !== true) {
-                    return response()->json(['ok' => false, 'error' => 'confirmation_required'], 422, $headers);
+                    return $this->deviceJson(['ok' => false, 'error' => 'confirmation_required'], 422, $headers);
                 }
 
                 switch ($operation) {
                     case 'workspace_import':
                         if (! is_array($data['contacts'] ?? null)) {
-                            return response()->json(['ok' => false, 'error' => 'invalid_contact_list'], 422, $headers);
+                            return $this->deviceJson(['ok' => false, 'error' => 'invalid_contact_list'], 422, $headers);
                         }
 
-                        return response()->json(['ok' => true, 'counts' => $this->campaigns->deviceImportContacts($binding, $data['contacts'])], 200, $headers);
+                        return $this->deviceJson(['ok' => true, 'counts' => $this->campaigns->deviceImportContacts($binding, $data['contacts'])], 200, $headers);
 
                     case 'workspace_file_import':
                         $name = (string) ($data['name'] ?? '');
                         $encoded = $data['data_b64'] ?? null;
                         if (preg_match('/^.{1,140}\.(csv|txt|xlsx)$/iD', $name) !== 1 || ! is_string($encoded)) {
-                            return response()->json(['ok' => false, 'error' => 'invalid_file'], 422, $headers);
+                            return $this->deviceJson(['ok' => false, 'error' => 'invalid_file'], 422, $headers);
                         }
                         $decoded = base64_decode($encoded, true);
                         if (! is_string($decoded) || strlen($decoded) < 1 || strlen($decoded) > 1048576) {
-                            return response()->json(['ok' => false, 'error' => 'invalid_file'], 422, $headers);
+                            return $this->deviceJson(['ok' => false, 'error' => 'invalid_file'], 422, $headers);
                         }
                         $file = tempnam(sys_get_temp_dir(), 'otv-tenant-');
                         if ($file === false) {
-                            return response()->json(['ok' => false, 'error' => 'temporary_file_failed'], 503, $headers);
+                            return $this->deviceJson(['ok' => false, 'error' => 'temporary_file_failed'], 503, $headers);
                         }
                         try {
                             if (file_put_contents($file, $decoded, LOCK_EX) === false) {
@@ -368,17 +368,17 @@ class DeviceApiController extends Controller
                             }
                         }
 
-                        return response()->json(['ok' => true, 'counts' => $counts], 200, $headers);
+                        return $this->deviceJson(['ok' => true, 'counts' => $counts], 200, $headers);
 
                     case 'workspace_contact_dnc':
                         if (! is_bool($data['blocked'] ?? null)) {
-                            return response()->json(['ok' => false, 'error' => 'invalid_blocked'], 422, $headers);
+                            return $this->deviceJson(['ok' => false, 'error' => 'invalid_blocked'], 422, $headers);
                         }
 
-                        return response()->json(['ok' => true] + $this->campaigns->deviceSetDnc($binding, $data['id'] ?? null, $data['blocked']), 200, $headers);
+                        return $this->deviceJson(['ok' => true] + $this->campaigns->deviceSetDnc($binding, $data['id'] ?? null, $data['blocked']), 200, $headers);
 
                     case 'workspace_contact_consent':
-                        return response()->json(['ok' => true] + $this->campaigns->deviceRecordConsent(
+                        return $this->deviceJson(['ok' => true] + $this->campaigns->deviceRecordConsent(
                             $binding,
                             (string) ($data['id'] ?? ''),
                             (string) ($data['method'] ?? ''),
@@ -386,10 +386,10 @@ class DeviceApiController extends Controller
                         ), 200, $headers);
 
                     case 'workspace_campaign_create':
-                        return response()->json(['ok' => true] + $this->campaigns->deviceCreateCampaign($binding, $data), 200, $headers);
+                        return $this->deviceJson(['ok' => true] + $this->campaigns->deviceCreateCampaign($binding, $data), 200, $headers);
 
                     case 'workspace_campaign_action':
-                        return response()->json(['ok' => true] + $this->campaigns->deviceCampaignAction($binding, $data), 200, $headers);
+                        return $this->deviceJson(['ok' => true] + $this->campaigns->deviceCampaignAction($binding, $data), 200, $headers);
                 }
             }
 
@@ -397,7 +397,7 @@ class DeviceApiController extends Controller
 
             switch ($operation) {
                 case 'heartbeat':
-                    return response()->json(['ok' => true, 'profile' => $profile], 200, $headers);
+                    return $this->deviceJson(['ok' => true, 'profile' => $profile], 200, $headers);
 
                 case 'caller_identify':
                     $phone = $this->normalizeVoicePhone((string) ($data['phone'] ?? ''));
@@ -412,7 +412,7 @@ class DeviceApiController extends Controller
                         ->where('u.status', 'active')
                         ->first(['v.id']);
 
-                    return response()->json([
+                    return $this->deviceJson([
                         'ok' => true,
                         'recognized' => $match !== null,
                         'pin_required' => true,
@@ -423,11 +423,11 @@ class DeviceApiController extends Controller
                 case 'caller_verify':
                     $pin = $data['pin'] ?? null;
                     if (! is_string($pin) || strlen($pin) > 10) {
-                        return response()->json(['ok' => false, 'error' => 'invalid_pin'], 422, $headers);
+                        return $this->deviceJson(['ok' => false, 'error' => 'invalid_pin'], 422, $headers);
                     }
                     $principal = $this->authenticateStaffCaller($accountId, (string) ($data['phone'] ?? ''), $pin);
                     if (! $principal) {
-                        return response()->json(['ok' => false, 'error' => 'caller_not_verified', 'facts' => []], 403, $headers);
+                        return $this->deviceJson(['ok' => false, 'error' => 'caller_not_verified', 'facts' => []], 403, $headers);
                     }
                     $facts = $this->visibleStaffFacts($principal, 45);
                     $this->ctx->audit($principal['user_id'], $principal['account_id'], 'voice.caller.verified', [
@@ -435,7 +435,7 @@ class DeviceApiController extends Controller
                         'categories' => $principal['scopes'],
                     ]);
 
-                    return response()->json([
+                    return $this->deviceJson([
                         'ok' => true,
                         'authenticated' => true,
                         'principal' => [
@@ -453,16 +453,16 @@ class DeviceApiController extends Controller
                     } catch (RuntimeException $e) {
                         $reason = $e->getMessage();
                         if (in_array($reason, ['voice_subscription_inactive', 'premium_voice_not_available'], true)) {
-                            return response()->json(['ok' => false, 'error' => $reason], 403, $headers);
+                            return $this->deviceJson(['ok' => false, 'error' => $reason], 403, $headers);
                         }
                         if (in_array($reason, ['voice_provider_not_configured', 'voice_all_keys_unavailable', 'voice_account_inactive'], true)) {
-                            return response()->json(['ok' => false, 'error' => $reason], 409, $headers);
+                            return $this->deviceJson(['ok' => false, 'error' => $reason], 409, $headers);
                         }
 
-                        return response()->json(['ok' => false, 'error' => 'voice_provider_unavailable'], 503, $headers);
+                        return $this->deviceJson(['ok' => false, 'error' => 'voice_provider_unavailable'], 503, $headers);
                     }
 
-                    return response()->json(['ok' => true, 'preflight' => $ready], 200, $headers);
+                    return $this->deviceJson(['ok' => true, 'preflight' => $ready], 200, $headers);
 
                 case 'voice_session':
                     try {
@@ -470,21 +470,21 @@ class DeviceApiController extends Controller
                     } catch (RuntimeException $e) {
                         $reason = $e->getMessage();
                         if (in_array($reason, ['voice_subscription_inactive', 'premium_voice_not_available'], true)) {
-                            return response()->json(['ok' => false, 'error' => $reason], 403, $headers);
+                            return $this->deviceJson(['ok' => false, 'error' => $reason], 403, $headers);
                         }
                         if (in_array($reason, ['voice_provider_not_configured', 'voice_all_keys_unavailable', 'voice_account_inactive'], true)) {
-                            return response()->json(['ok' => false, 'error' => $reason], 409, $headers);
+                            return $this->deviceJson(['ok' => false, 'error' => $reason], 409, $headers);
                         }
 
-                        return response()->json(['ok' => false, 'error' => 'voice_provider_unavailable'], 503, $headers);
+                        return $this->deviceJson(['ok' => false, 'error' => 'voice_provider_unavailable'], 503, $headers);
                     }
 
-                    return response()->json(['ok' => true, 'session' => $session], 200, $headers);
+                    return $this->deviceJson(['ok' => true, 'session' => $session], 200, $headers);
 
                 case 'voice_failover':
                     $generation = $data['failover_generation'] ?? null;
                     if (! is_int($generation)) {
-                        return response()->json(['ok' => false, 'error' => 'invalid_failover_generation'], 422, $headers);
+                        return $this->deviceJson(['ok' => false, 'error' => 'invalid_failover_generation'], 422, $headers);
                     }
                     try {
                         $rotated = $this->voiceSession->rotateLiveVoiceSession(
@@ -496,7 +496,7 @@ class DeviceApiController extends Controller
                     } catch (RuntimeException $e) {
                         $code = $e->getMessage();
                         if ($code === 'voice_subscription_inactive') {
-                            return response()->json(['ok' => false, 'error' => $code], 403, $headers);
+                            return $this->deviceJson(['ok' => false, 'error' => $code], 403, $headers);
                         }
                         if (in_array($code, [
                             'voice_failover_ticket_invalid_or_stale',
@@ -505,19 +505,19 @@ class DeviceApiController extends Controller
                             'voice_failover_concurrent_request',
                             'voice_failover_binding_revoked',
                         ], true)) {
-                            return response()->json(['ok' => false, 'error' => 'voice_failover_conflict'], 409, $headers);
+                            return $this->deviceJson(['ok' => false, 'error' => 'voice_failover_conflict'], 409, $headers);
                         }
 
-                        return response()->json(['ok' => false, 'error' => 'voice_failover_no_healthy_keys'], 503, $headers);
+                        return $this->deviceJson(['ok' => false, 'error' => 'voice_failover_no_healthy_keys'], 503, $headers);
                     }
 
-                    return response()->json(['ok' => true, 'session' => $rotated], 200, $headers);
+                    return $this->deviceJson(['ok' => true, 'session' => $rotated], 200, $headers);
 
                 case 'flow_start':
                 case 'flow_state':
                 case 'flow_step':
                     if (! $this->voiceSession->entitled($binding)) {
-                        return response()->json(['ok' => false, 'error' => 'voice_subscription_inactive'], 403, $headers);
+                        return $this->deviceJson(['ok' => false, 'error' => 'voice_subscription_inactive'], 403, $headers);
                     }
                     if ($operation === 'flow_start') {
                         $callId = (string) ($data['call_id'] ?? '');
@@ -529,7 +529,7 @@ class DeviceApiController extends Controller
                             $row = $this->voiceSession->flowSession($accountId, (int) $opened['session_id'], 0, $deviceId);
                         }
 
-                        return response()->json([
+                        return $this->deviceJson([
                             'ok' => true,
                             'session_id' => (int) $row['id'],
                             'status' => $row['status'],
@@ -544,13 +544,13 @@ class DeviceApiController extends Controller
 
                     $id = $data['session_id'] ?? null;
                     if (! is_int($id) || $id < 1) {
-                        return response()->json(['ok' => false, 'error' => 'flow_session_id_invalid'], 422, $headers);
+                        return $this->deviceJson(['ok' => false, 'error' => 'flow_session_id_invalid'], 422, $headers);
                     }
                     $row = $this->voiceSession->flowSession($accountId, $id, 0, $deviceId);
                     $this->voiceSession->flowRequireActiveContext($row);
 
                     if ($operation === 'flow_state') {
-                        return response()->json([
+                        return $this->deviceJson([
                             'ok' => true,
                             'session_id' => $id,
                             'status' => $row['status'],
@@ -562,19 +562,19 @@ class DeviceApiController extends Controller
                     $expected = $data['step_version'] ?? null;
                     $reply = $data['reply'] ?? null;
                     if (! is_int($expected) || $expected < 1 || $expected !== (int) $row['step_version']) {
-                        return response()->json([
+                        return $this->deviceJson([
                             'ok' => false,
                             'error' => 'flow_step_version_conflict',
                             'step_version' => (int) $row['step_version'],
                         ], 409, $headers);
                     }
                     if (! is_string($reply) || trim($reply) === '' || mb_strlen($reply) > 500) {
-                        return response()->json(['ok' => false, 'error' => 'flow_reply_invalid'], 422, $headers);
+                        return $this->deviceJson(['ok' => false, 'error' => 'flow_reply_invalid'], 422, $headers);
                     }
                     $out = $this->voiceSession->flowProcess($accountId, $id, 0, $reply, $deviceId);
                     $fresh = $this->voiceSession->flowSession($accountId, $id, 0, $deviceId);
 
-                    return response()->json([
+                    return $this->deviceJson([
                         'ok' => true,
                         'session_id' => $id,
                         'status' => $out['status'],
@@ -590,12 +590,15 @@ class DeviceApiController extends Controller
                         $def = $this->voiceSession->buildDefinitionForBinding($binding);
                     } catch (InvalidArgumentException $e) {
                         if ($e->getMessage() === 'agent_profile_not_published') {
-                            return response()->json(['ok' => false, 'error' => 'agent_flow_not_published'], 409, $headers);
+                            return $this->deviceJson(['ok' => false, 'error' => 'agent_flow_not_published'], 409, $headers);
                         }
                         throw $e;
                     }
 
-                    return response()->json([
+                    $compactPolicy = is_array($def['answer_policy'] ?? null) ? $def['answer_policy'] : [];
+                    unset($compactPolicy['scenario_text']);
+
+                    return $this->deviceJson([
                         'ok' => true,
                         'agent_id' => $def['agent_id'],
                         'site_id' => $def['site_id'],
@@ -604,9 +607,9 @@ class DeviceApiController extends Controller
                         'hash' => $def['hash'],
                         'voice' => $def['voice'],
                         'voice_label' => $def['voice_label'],
-                        'instructions' => $def['instructions'],
-                        'knowledge' => $def['knowledge'],
-                        'answer_policy' => $def['answer_policy'],
+                        'instructions' => mb_substr((string) $def['instructions'], 0, 1000, 'UTF-8'),
+                        'knowledge' => mb_substr((string) $def['knowledge'], 0, 1000, 'UTF-8'),
+                        'answer_policy' => $compactPolicy,
                         'conversation_mode' => 'dynamic',
                         'flow' => $def['flow'],
                         'execution' => 'dynamic_gemini_live_profile_legacy_graph_ignored',
@@ -614,14 +617,14 @@ class DeviceApiController extends Controller
             }
         } catch (InvalidArgumentException $e) {
             if ($e->getMessage() === 'device_pairing_rate_limited') {
-                return response()->json(['ok' => false, 'error' => 'device_pairing_rate_limited'], 429, $headers);
+                return $this->deviceJson(['ok' => false, 'error' => 'device_pairing_rate_limited'], 429, $headers);
             }
 
-            return response()->json(['ok' => false, 'error' => $e->getMessage()], 422, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => $e->getMessage()], 422, $headers);
         } catch (RuntimeException $e) {
-            return response()->json(['ok' => false, 'error' => $e->getMessage()], 409, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => $e->getMessage()], 409, $headers);
         } catch (Throwable $e) {
-            return response()->json(['ok' => false, 'error' => 'internal_error'], 500, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'internal_error'], 500, $headers);
         }
     }
 
@@ -635,42 +638,42 @@ class DeviceApiController extends Controller
         ];
 
         if ($request->method() !== 'POST') {
-            return response()->json(['ok' => false, 'error' => 'method_not_allowed'], 405, $headers + ['Allow' => 'POST']);
+            return $this->deviceJson(['ok' => false, 'error' => 'method_not_allowed'], 405, $headers + ['Allow' => 'POST']);
         }
         if (! app()->runningUnitTests() && ! $request->isSecure()) {
-            return response()->json(['ok' => false, 'error' => 'https_required'], 426, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'https_required'], 426, $headers);
         }
 
         $origin = (string) $request->header('Origin', '');
         $host = strtolower((string) $request->getHost());
         if ($origin !== '' && (parse_url($origin, PHP_URL_SCHEME) !== 'https' || strtolower((string) parse_url($origin, PHP_URL_HOST)) !== $host)) {
-            return response()->json(['ok' => false, 'error' => 'wrong_origin'], 403, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'wrong_origin'], 403, $headers);
         }
 
         $auth = (string) ($request->header('Authorization') ?? $request->server('REDIRECT_HTTP_AUTHORIZATION', ''));
         if (! str_starts_with($auth, 'Bearer ') || strlen($auth) > 128) {
-            return response()->json(['ok' => false, 'error' => 'device_authorization_required'], 401, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'device_authorization_required'], 401, $headers);
         }
 
         $raw = (string) $request->getContent();
         if ((int) ($request->header('Content-Length') ?? 0) > 2400 || strlen($raw) > 2400) {
-            return response()->json(['ok' => false, 'error' => 'request_too_large'], 413, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'request_too_large'], 413, $headers);
         }
 
         $body = json_decode($raw, true);
         $text = is_array($body) && is_string($body['text'] ?? null) ? trim($body['text']) : '';
         if ($text === '' || mb_strlen($text, 'UTF-8') > 400 || strlen($text) > 1600) {
-            return response()->json(['ok' => false, 'error' => 'invalid_premium_text'], 422, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'invalid_premium_text'], 422, $headers);
         }
 
         $binding = $this->pairing->authorizeBearer($auth);
         if (! $binding) {
-            return response()->json(['ok' => false, 'error' => 'device_not_authorized'], 401, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'device_not_authorized'], 401, $headers);
         }
         $this->pairing->heartbeat($binding);
         $binding = $this->pairing->authorizeBearer($auth);
         if (! $binding) {
-            return response()->json(['ok' => false, 'error' => 'device_not_authorized'], 401, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'device_not_authorized'], 401, $headers);
         }
 
         try {
@@ -678,19 +681,19 @@ class DeviceApiController extends Controller
         } catch (RuntimeException $e) {
             $msg = $e->getMessage();
             if (in_array($msg, ['voice_subscription_inactive', 'premium_voice_not_published', 'premium_voice_not_available'], true)) {
-                return response()->json(['ok' => false, 'error' => $msg], 403, $headers);
+                return $this->deviceJson(['ok' => false, 'error' => $msg], 403, $headers);
             }
 
-            return response()->json(['ok' => false, 'error' => 'premium_voice_unavailable'], 503, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'premium_voice_unavailable'], 503, $headers);
         }
 
         $circuit = $this->voiceSession->fishCircuitActive($cfg['secret_fingerprint']);
         if ($circuit !== null) {
-            return response()->json(['ok' => false, 'error' => $circuit], $this->voiceSession->fishClientHttp($circuit), $headers);
+            return $this->deviceJson(['ok' => false, 'error' => $circuit], $this->voiceSession->fishClientHttp($circuit), $headers);
         }
 
         if (! function_exists('curl_multi_init') || ! function_exists('curl_init')) {
-            return response()->json(['ok' => false, 'error' => 'premium_tts_provider_unavailable'], 503, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'premium_tts_provider_unavailable'], 503, $headers);
         }
 
         $payload = json_encode([
@@ -712,7 +715,7 @@ class DeviceApiController extends Controller
                 curl_multi_close($mh);
             }
 
-            return response()->json(['ok' => false, 'error' => 'premium_voice_unavailable'], 503, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'premium_voice_unavailable'], 503, $headers);
         }
 
         $upstreamStatus = 502;
@@ -801,13 +804,13 @@ class DeviceApiController extends Controller
                 $code = $this->voiceSession->fishClassifyError($status, $errorBody);
                 $this->voiceSession->fishCircuitMark($cfg['secret_fingerprint'], $code);
 
-                return response()->json(['ok' => false, 'error' => $code], $this->voiceSession->fishClientHttp($code), $headers);
+                return $this->deviceJson(['ok' => false, 'error' => $code], $this->voiceSession->fishClientHttp($code), $headers);
             }
             if ($curlErrno !== 0) {
-                return response()->json(['ok' => false, 'error' => 'premium_tts_network_error'], 503, $headers);
+                return $this->deviceJson(['ok' => false, 'error' => 'premium_tts_network_error'], 503, $headers);
             }
 
-            return response()->json(['ok' => false, 'error' => 'premium_tts_empty_audio'], 502, $headers);
+            return $this->deviceJson(['ok' => false, 'error' => 'premium_tts_empty_audio'], 502, $headers);
         }
 
         return response()->stream(function () use ($mh, $ch, &$firstBuffer, &$running): void {
@@ -1329,5 +1332,10 @@ class DeviceApiController extends Controller
             ->get(['f.category', 'f.fact_key', 'f.fact_value', 'f.updated_at', 'i.name as integration_name'])
             ->map(fn ($r) => (array) $r)
             ->all();
+    }
+
+    private function deviceJson(array $data, int $status = 200, array $headers = [])
+    {
+        return response()->json($data, $status, $headers, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 }

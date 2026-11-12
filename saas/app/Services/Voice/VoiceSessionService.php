@@ -779,6 +779,9 @@ class VoiceSessionService
             ];
         }
 
+        $compactPolicy = $def['policy'];
+        unset($compactPolicy['scenario_text']);
+
         return [
             'ok' => true,
             'account_id' => $accountId,
@@ -800,9 +803,9 @@ class VoiceSessionService
             'flow_hash' => $def['flow_hash'],
             'conversation_mode' => 'dynamic',
             'system_instruction' => $def['instruction'],
-            'instruction' => $def['instruction'],
-            'answer_policy' => $def['policy'],
-            'policy' => $def['policy'],
+            'instruction' => mb_substr($def['instruction'], 0, 500, 'UTF-8'),
+            'answer_policy' => $compactPolicy,
+            'policy' => $compactPolicy,
             'transport' => 'tenant_gemini_live_preview',
         ] + $ticketPayload;
     }
