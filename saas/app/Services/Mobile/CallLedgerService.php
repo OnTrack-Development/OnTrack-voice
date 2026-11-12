@@ -24,6 +24,7 @@ class CallLedgerService
         'satisfied' => 'عميل راضٍ',
         'unsatisfied' => 'عميل غير راضٍ',
         'follow_up' => 'متابعة لاحقة',
+        'follow_up_requested' => 'طلب متابعة مع المدير',
         'not_interested' => 'غير مهتم',
         'do_not_call' => 'رفض التواصل (DNC)',
         'callback_requested' => 'طلب معاودة اتصال',
@@ -447,6 +448,138 @@ class CallLedgerService
         ];
     }
 
+    public function resolveManagerCallbackConfig(int $accountId, int $siteId, int $agentId): array
+    {
+        $enabled = false;
+        $phone = '';
+        if ($agentId > 0 && Schema::hasTable('agents') && Schema::hasColumn('agents', 'manager_callback_enabled')) {
+            $ag = DB::table('agents')
+                ->where('id', $agentId)
+                ->where('account_id', $accountId)
+                ->first(['manager_callback_enabled', 'manager_callback_phone']);
+            if ($ag) {
+                $enabled = (bool) ($ag->manager_callback_enabled ?? false);
+                $phone = trim((string) ($ag->manager_callback_phone ?? ''));
+            }
+        }
+
+        if ((! $enabled || $phone === '') && $agentId > 0) {
+            $pRow = DB::table('agent_answer_policies')
+                ->where('account_id', $accountId)
+                ->where('agent_id', $agentId)
+                ->value('policy_json');
+            if (is_string($pRow) && $pRow !== '') {
+                $dec = json_decode($pRow, true);
+                if (is_array($dec)) {
+                    $enabled = $enabled || ! empty($dec['manager_callback_enabled']);
+                    if ($phone === '' && ! empty($dec['manager_callback_phone'])) {
+                        $phone = trim((string) $dec['manager_callback_phone']);
+                    }
+                }
+            }
+        }
+
+        if ($phone === '' && $siteId > 0 && Schema::hasTable('sites') && Schema::hasColumn('sites', 'manager_callback_phone')) {
+            $sitePhone = DB::table('sites')->where('id', $siteId)->where('account_id', $accountId)->value('manager_callback_phone');
+            if (is_string($sitePhone) && trim($sitePhone) !== '') {
+                $phone = trim($sitePhone);
+            }
+        }
+
+        if ($agentId > 0) {
+            $routePhone = DB::table('human_escalation_routes as ar')
+                ->join('human_escalation_contacts as co', function ($join): void {
+                    $join->on('co.id', '=', 'ar.contact_id')->on('co.account_id', '=', 'ar.account_id');
+                })
+                ->where('ar.account_id', $accountId)
+                ->where('ar.site_id', $siteId)
+                ->where('ar.agent_id', $agentId)
+                ->where('ar.enabled', 1)
+                ->where('co.status', 'active')
+                ->value('co.phone_e164');
+            if (is_string($routePhone) && trim($routePhone) !== '') {
+                $enabled = true;
+                if ($phone === '') {
+                    $phone = trim($routePhone);
+                }
+            }
+        }
+
+        return [
+            'enabled' => $enabled && $phone !== '',
+            'phone' => $phone,
+            'delay_seconds' => 10,
+        ];
+    }
+
+    public function syncAgentEscalationRoute(int $accountId, int $siteId, int $agentId, string $phone, bool $enabled, string $name = 'المدير المناوب', ?string $timestamp = null): void
+    {
+        if ($agentId < 1 || $accountId < 1 || $siteId < 1) {
+            return;
+        }
+        $ts = $timestamp ?: $this->ctx->now();
+        if (! $enabled || trim($phone) === '') {
+            DB::table('human_escalation_routes')
+                ->where('account_id', $accountId)
+                ->where('site_id', $siteId)
+                ->where('agent_id', $agentId)
+                ->update(['enabled' => 0, 'updated_at' => $ts]);
+
+            return;
+        }
+
+        $contact = DB::table('human_escalation_contacts')
+            ->where('account_id', $accountId)
+            ->where('phone_e164', $phone)
+            ->first();
+
+        if ($contact) {
+            $contactId = (int) $contact->id;
+            if ($contact->status !== 'active') {
+                DB::table('human_escalation_contacts')->where('id', $contactId)->update(['status' => 'active', 'updated_at' => $ts]);
+            }
+        } else {
+            $contactId = (int) DB::table('human_escalation_contacts')->insertGetId([
+                'account_id' => $accountId,
+                'name' => $name,
+                'phone_e164' => $phone,
+                'recipient_role' => 'manager',
+                'status' => 'active',
+                'created_at' => $ts,
+                'updated_at' => $ts,
+            ]);
+        }
+
+        $routeExists = DB::table('human_escalation_routes')
+            ->where('account_id', $accountId)
+            ->where('site_id', $siteId)
+            ->where('agent_id', $agentId)
+            ->exists();
+
+        if ($routeExists) {
+            DB::table('human_escalation_routes')
+                ->where('account_id', $accountId)
+                ->where('site_id', $siteId)
+                ->where('agent_id', $agentId)
+                ->update([
+                    'contact_id' => $contactId,
+                    'enabled' => 1,
+                    'delay_seconds' => 10,
+                    'updated_at' => $ts,
+                ]);
+        } else {
+            DB::table('human_escalation_routes')->insert([
+                'agent_id' => $agentId,
+                'account_id' => $accountId,
+                'site_id' => $siteId,
+                'contact_id' => $contactId,
+                'enabled' => 1,
+                'delay_seconds' => 10,
+                'updated_at' => $ts,
+            ]);
+        }
+    }
+
     public function scheduleHumanEscalation(array $binding, string $callId): array
     {
         $accountId = (int) $binding['account_id'];
@@ -503,11 +636,45 @@ class CallLedgerService
         if ($row->source === 'device_handoff') {
             return ['queued' => false, 'reason' => 'handset_takeover_not_customer_request'];
         }
-        if ((int) ($row->enabled ?? 0) !== 1 || ! $row->contact_id || $row->recipient_status !== 'active') {
-            return ['queued' => false, 'reason' => 'staff_routing_not_configured'];
+
+        $contactId = (int) ($row->contact_id ?? 0);
+        $delaySeconds = (int) ($row->delay_seconds ?? 10);
+        $hasRoute = (int) ($row->enabled ?? 0) === 1 && $contactId > 0 && $row->recipient_status === 'active';
+
+        if (! $hasRoute) {
+            $fallback = $this->resolveManagerCallbackConfig($accountId, $siteId, (int) ($row->agent_id ?? $binding['agent_id'] ?? 0));
+            if ($fallback['enabled'] && $fallback['phone'] !== '') {
+                $this->syncAgentEscalationRoute(
+                    $accountId,
+                    $siteId,
+                    (int) ($row->agent_id ?? $binding['agent_id']),
+                    $fallback['phone'],
+                    true,
+                    'المدير المناوب',
+                    (string) ($row->call_started_at ?: $this->ctx->now())
+                );
+                $synced = DB::table('human_escalation_routes')
+                    ->where('account_id', $accountId)
+                    ->where('site_id', $siteId)
+                    ->where('agent_id', (int) ($row->agent_id ?? $binding['agent_id']))
+                    ->first(['contact_id', 'enabled', 'delay_seconds']);
+                if ($synced && (int) $synced->enabled === 1 && (int) $synced->contact_id > 0) {
+                    $contactId = (int) $synced->contact_id;
+                    $delaySeconds = (int) ($synced->delay_seconds ?? 10);
+                    $hasRoute = true;
+                }
+            }
+        } elseif (! empty($row->route_updated_at) && (string) $row->call_started_at < (string) $row->route_updated_at) {
+            $agentFlag = Schema::hasTable('agents') && Schema::hasColumn('agents', 'manager_callback_enabled')
+                ? (bool) DB::table('agents')->where('id', (int) ($row->agent_id ?? 0))->value('manager_callback_enabled')
+                : false;
+            if (! $agentFlag) {
+                return ['queued' => false, 'reason' => 'staff_route_configured_after_call'];
+            }
         }
-        if (! empty($row->route_updated_at) && (string) $row->call_started_at < (string) $row->route_updated_at) {
-            return ['queued' => false, 'reason' => 'staff_route_configured_after_call'];
+
+        if (! $hasRoute) {
+            return ['queued' => false, 'reason' => 'staff_routing_not_configured'];
         }
 
         $existing = DB::table('human_escalation_jobs')
@@ -519,7 +686,7 @@ class CallLedgerService
         }
 
         $ended = strtotime((string) $row->ended_at.' UTC');
-        $due = max(time(), ($ended ?: time()) + max(10, min(120, (int) ($row->delay_seconds ?? 10))));
+        $due = max(time(), ($ended ?: time()) + max(10, min(120, $delaySeconds)));
 
         try {
             $id = (int) DB::table('human_escalation_jobs')->insertGetId([
@@ -528,7 +695,7 @@ class CallLedgerService
                 'device_binding_id' => $deviceId,
                 'sim_slot' => $simSlot,
                 'call_id' => $callId,
-                'contact_id' => (int) $row->contact_id,
+                'contact_id' => $contactId,
                 'due_epoch' => $due,
                 'status' => 'pending',
                 'created_at' => $this->ctx->now(),

@@ -163,11 +163,108 @@
                 <span class="field-label">معرفة مختصرة مرتبطة بالإيجنت</span>
                 <textarea name="knowledge" style="min-height:70px">{{ $selected['knowledge'] ?? '' }}</textarea>
             </div>
+        </div>
+    </div>
 
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-                <button type="submit" class="btn">حفظ المسودة</button>
-                <button type="submit" name="publish_now" value="1" class="btn btn-primary">حفظ ونشر للشرائح الآن</button>
+    @php
+        $ivrByDigit = [];
+        foreach ((array) ($policy['ivr_routes'] ?? []) as $rItem) {
+            if (!is_array($rItem)) {
+                continue;
+            }
+            $d = trim((string) ($rItem['digit'] ?? ''));
+            if ($d !== '') {
+                $ivrByDigit[$d] = $rItem;
+            }
+        }
+        $ivrDigits = array_values(array_unique(array_merge(['1', '2', '3', '4', '5', '0'], array_keys($ivrByDigit))));
+    @endphp
+
+    <div class="card">
+        <div class="card-head">
+            <div>
+                <h2 class="card-title">المعاودة الفورية مع المدير (10 ثوانٍ) وقائمة الرد التفاعلي (IVR)</h2>
+                <p class="card-sub">فعّل المعاودة التلقائية بعد المكالمة بـ 10 ثوانٍ على نفس الشريحة، وخصّص أقسام IVR الصوتية للتوجيه الذكي</p>
             </div>
+            <span class="pill {{ !empty($policy['ivr_enabled']) ? 'pill-green' : '' }}">{{ !empty($policy['ivr_enabled']) ? 'IVR مفعّل' : 'IVR غير مفعّل' }}</span>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:14px">
+            <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--bg)">
+                <div style="font-weight:700;font-size:13.5px;margin-bottom:8px">المعاودة التلقائية للمدير بعد المكالمة (10 ثوانٍ)</div>
+                <label class="check-row" style="margin-bottom:10px">
+                    <input type="checkbox" name="manager_callback_enabled" value="1" {{ !empty($policy['manager_callback_enabled']) ? 'checked' : '' }}>
+                    <span>تفعيل اتصال المعاودة التلقائي بعد انتهاء المكالمة بـ 10 ثوانٍ</span>
+                </label>
+                <div class="field" style="margin:0">
+                    <span class="field-label">رقم هاتف المدير / المشرف (E.164 مثل +2010...)</span>
+                    <input type="text" name="manager_callback_phone" dir="ltr" placeholder="+2010XXXXXXXX" value="{{ $policy['manager_callback_phone'] ?? '' }}">
+                </div>
+            </div>
+
+            <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--bg)">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+                    <span style="font-weight:700;font-size:13.5px">الترحيب الأولي للـ IVR</span>
+                    <button type="button" class="btn btn-sm" onclick="const ta=document.getElementById('ivrGreetingInput');if(ta){ta.value='أهلاً بك في شركة IO Voice. للمبيعات قُل المبيعات أو اضغط 1، للدعم الفني قُل الدعم أو اضغط 2، للتحدث مع المدير قُل المدير أو اضغط 0.';}">قالب ترحيب IVR جاهز</button>
+                </div>
+                <label class="check-row" style="margin-bottom:10px">
+                    <input type="checkbox" name="ivr_enabled" value="1" {{ !empty($policy['ivr_enabled']) ? 'checked' : '' }}>
+                    <span>تشغيل قائمة الرد التفاعلي التلقائي (Hybrid IVR) عند استلام المكالمة</span>
+                </label>
+                <div class="field" style="margin:0">
+                    <span class="field-label">رسالة الترحيب التفاعلية</span>
+                    <textarea id="ivrGreetingInput" name="ivr_greeting" style="min-height:66px">{{ $policy['ivr_greeting'] ?? \App\Services\Voice\VoiceSessionService::DEFAULT_IVR_GREETING }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table ivr-table">
+                <thead>
+                    <tr>
+                        <th style="width:60px">الرقم</th>
+                        <th style="width:170px">اسم القسم (Label)</th>
+                        <th>توجيه القسم للإيجنت (Prompt / Specialization)</th>
+                        <th style="width:175px">تحويل لإيجنت (اختياري)</th>
+                        <th style="width:145px">هاتف تحويل (اختياري)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($ivrDigits as $digit)
+                        @php $rItem = $ivrByDigit[$digit] ?? []; @endphp
+                        <tr>
+                            <td>
+                                <span class="ivr-digit-badge">{{ $digit }}</span>
+                                <input type="hidden" name="ivr_digit[]" value="{{ $digit }}">
+                            </td>
+                            <td>
+                                <input type="text" name="ivr_label[]" value="{{ $rItem['label'] ?? '' }}" placeholder="{{ $digit === '0' ? 'التحدث مع المدير' : 'مثال: المبيعات' }}">
+                            </td>
+                            <td>
+                                <input type="text" name="ivr_prompt[]" value="{{ $rItem['department_prompt'] ?? '' }}" placeholder="التخصص وتعليمات الرد لهذا القسم">
+                            </td>
+                            <td>
+                                <select name="ivr_target_agent_id[]">
+                                    <option value="0">نفس الإيجنت الحالي</option>
+                                    @foreach ($agents as $agOpt)
+                                        <option value="{{ $agOpt['id'] }}" {{ (int) ($rItem['target_agent_id'] ?? 0) === (int) $agOpt['id'] ? 'selected' : '' }}>
+                                            {{ $agOpt['name'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </td>
+                            <td>
+                                <input type="text" name="ivr_transfer_phone[]" dir="ltr" value="{{ $rItem['transfer_phone'] ?? '' }}" placeholder="+2010...">
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+            <button type="submit" class="btn">حفظ المسودة</button>
+            <button type="submit" name="publish_now" value="1" class="btn btn-primary">حفظ ونشر للشرائح الآن</button>
         </div>
     </div>
 </form>

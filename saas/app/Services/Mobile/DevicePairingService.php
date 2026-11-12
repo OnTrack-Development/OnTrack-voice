@@ -300,9 +300,27 @@ class DevicePairingService
             $decoded = json_decode((string) $published->answer_policy_json, true);
             if (is_array($decoded)) {
                 unset($decoded['scenario_text']);
+                if (isset($decoded['ivr_routes']) && is_array($decoded['ivr_routes'])) {
+                    $decoded['ivr_routes'] = array_map(static fn ($rt) => [
+                        'digit' => (string) ($rt['digit'] ?? ''),
+                        'label' => mb_substr((string) ($rt['label'] ?? ''), 0, 40, 'UTF-8'),
+                    ], array_slice($decoded['ivr_routes'], 0, 10));
+                }
                 $policy = $decoded;
             }
         }
+
+        $readyCampaigns = DB::table('tenant_campaigns')
+            ->where('account_id', (int) $binding['account_id'])
+            ->where('site_id', (int) $binding['site_id'])
+            ->where('device_binding_id', (int) $binding['id'])
+            ->where('sim_slot', (int) $binding['sim_slot'])
+            ->whereIn('status', ['ready', 'armed'])
+            ->orderBy('id')
+            ->get(['id', 'name', 'contact_ids_json']);
+
+        $activeCampaignName = $readyCampaigns->first()?->name ?? '';
+        $readyCampaignCount = $readyCampaigns->count();
 
         return [
             'ok' => true,
@@ -321,6 +339,11 @@ class DevicePairingService
             'voice_label' => $voiceLabel,
             'instruction' => $published ? mb_substr((string) $published->instructions, 0, 500, 'UTF-8') : null,
             'answer_policy' => $policy,
+            'campaigns_summary' => [
+                'ready_count' => $readyCampaignCount,
+                'active_name' => mb_substr((string) $activeCampaignName, 0, 80, 'UTF-8'),
+                'dial_enabled' => (bool) config('ontrack.campaign_dial_enabled', false) || getenv('ONTRACK_TENANT_CAMPAIGN_DIAL_ENABLED') === '1',
+            ],
             'sim_slot' => (int) $binding['sim_slot'],
             'heartbeat_seconds' => 10,
             'last_seen_at' => $now,

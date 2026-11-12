@@ -14,6 +14,14 @@ internal object TenantCampaignDialer {
     private val egyptian=Regex("^01[0-9]{9}$")
     private val digits=Regex("^[0-9]+$")
 
+    fun shouldDefaultOptIn(
+        paired:Boolean,
+        hasCallPhone:Boolean,
+        hasReadPhone:Boolean,
+        agentEnabled:Boolean,
+        userExplicitlyDisabled:Boolean,
+    ):Boolean = paired && hasCallPhone && hasReadPhone && agentEnabled && !userExplicitlyDisabled
+
     fun e164(raw:String):String {
         val value=raw.trim().replace(" ","").replace("-","")
         val normal=when {

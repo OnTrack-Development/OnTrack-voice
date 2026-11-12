@@ -211,6 +211,22 @@ internal class PremiumOfficialLive(
         if(socket?.send(JSONObject().put("realtimeInput",input).toString())!=true)
             failure("premium_live_text_send_failed")
     }
+    fun interruptLocalTurn(){
+        turnGeneration.incrementAndGet()
+        fullOutput="";spokenOffset=0
+        synchronized(audioGate){
+            recentGooglePcm.clear();recentBytes=0;newTurnPending=false
+        }
+    }
+    suspend fun sendClientContent(text:String){
+        if(stopped.get() || !ready.isCompleted || text.isBlank())return
+        val payload=JSONObject().put("clientContent",JSONObject()
+            .put("turns",JSONArray().put(JSONObject().put("role","user")
+                .put("parts",JSONArray().put(JSONObject().put("text",text)))))
+            .put("turnComplete",true)).toString()
+        if(socket?.send(payload)!=true)
+            failure("premium_live_text_send_failed")
+    }
     fun stop(){
         if(stopped.compareAndSet(false,true)){
             socket?.close(1000,"call ended")

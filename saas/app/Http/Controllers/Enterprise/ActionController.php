@@ -15,6 +15,7 @@ use App\Services\Voice\VoiceSessionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -288,6 +289,30 @@ class ActionController extends Controller
                     'updated_at' => $now,
                 ]);
 
+                $ivrRoutesRaw = $r->input('ivr_routes_json');
+                $ivrRoutesInput = [];
+                if (is_string($ivrRoutesRaw) && trim($ivrRoutesRaw) !== '') {
+                    $decodedRoutes = json_decode($ivrRoutesRaw, true);
+                    if (is_array($decodedRoutes)) {
+                        $ivrRoutesInput = $decodedRoutes;
+                    }
+                } else {
+                    $digits = (array) $r->input('ivr_digit', []);
+                    $labels = (array) $r->input('ivr_label', []);
+                    $prompts = (array) $r->input('ivr_prompt', []);
+                    $targetAgents = (array) $r->input('ivr_target_agent_id', []);
+                    $transferPhones = (array) $r->input('ivr_transfer_phone', []);
+                    foreach ($digits as $idx => $digitRaw) {
+                        $ivrRoutesInput[] = [
+                            'digit' => (string) $digitRaw,
+                            'label' => (string) ($labels[$idx] ?? ''),
+                            'department_prompt' => (string) ($prompts[$idx] ?? ''),
+                            'target_agent_id' => (int) ($targetAgents[$idx] ?? 0),
+                            'transfer_phone' => (string) ($transferPhones[$idx] ?? ''),
+                        ];
+                    }
+                }
+
                 $policyInput = [
                     'auto_answer' => $r->boolean('auto_answer'),
                     'answer_delay_seconds' => (int) $r->input('answer_delay_seconds', 5),
@@ -303,8 +328,20 @@ class ActionController extends Controller
                     'use_knowledge' => $r->boolean('use_knowledge'),
                     'use_signed_facts' => $r->boolean('use_signed_facts'),
                     'human_handoff' => $r->boolean('human_handoff'),
+                    'manager_callback_enabled' => $r->boolean('manager_callback_enabled'),
+                    'manager_callback_phone' => (string) $r->input('manager_callback_phone', ''),
+                    'ivr_enabled' => $r->boolean('ivr_enabled'),
+                    'ivr_greeting' => (string) $r->input('ivr_greeting', ''),
+                    'ivr_routes' => $ivrRoutesInput,
                 ];
-                $this->voiceSession->saveAnswerPolicy($accountId, $agentId, $policyInput);
+                $savedPolicy = $this->voiceSession->saveAnswerPolicy($accountId, $agentId, $policyInput);
+                $this->calls->syncAgentEscalationRoute(
+                    $accountId,
+                    (int) ($agent->site_id ?: $siteId),
+                    $agentId,
+                    (string) ($savedPolicy['manager_callback_phone'] ?? ''),
+                    ! empty($savedPolicy['manager_callback_enabled'])
+                );
 
                 if ($r->boolean('publish_now')) {
                     $pub = $this->voiceSession->publishAgent($accountId, $agentId, $userId);
@@ -818,6 +855,41 @@ class ActionController extends Controller
                 $this->ctx->audit($userId, $targetId, 'plan.allocated', ['plan_id' => $planId, 'by_account' => $accountId, 'days' => $days]);
 
                 return ['success' => 'تم تخصيص باقة "'.$plan->name.'" للحساب: '.$target['name']];
+
+            case 'update_manager_callback':
+                $this->ctx->requirePermission($ctx, 'agents.write');
+                $rawPhone = (string) $r->input('manager_callback_phone', '');
+                $normalized = $this->voiceSession->normalizePhoneE164($rawPhone);
+                if (trim($rawPhone) !== '' && $normalized === '') {
+                    throw new InvalidArgumentException('أدخل رقم هاتف دولي صحيحاً (مثال: +2010XXXXXXXX).');
+                }
+                if (Schema::hasColumn('sites', 'manager_callback_phone')) {
+                    DB::table('sites')->where('id', $siteId)->where('account_id', $accountId)->update([
+                        'manager_callback_phone' => $normalized,
+                    ]);
+                }
+                if ($normalized !== '') {
+                    $existingContact = DB::table('human_escalation_contacts')
+                        ->where('account_id', $accountId)
+                        ->where('site_id', $siteId)
+                        ->where('phone_e164', $normalized)
+                        ->first();
+                    if (! $existingContact) {
+                        DB::table('human_escalation_contacts')->insert([
+                            'account_id' => $accountId,
+                            'site_id' => $siteId,
+                            'label' => trim(mb_substr((string) $r->input('manager_label', 'المدير المناوب'), 0, 80)) ?: 'المدير المناوب',
+                            'phone_e164' => $normalized,
+                            'active' => 1,
+                            'created_at' => $now,
+                        ]);
+                    } elseif ((int) ($existingContact->active ?? 0) !== 1) {
+                        DB::table('human_escalation_contacts')->where('id', $existingContact->id)->update(['active' => 1]);
+                    }
+                }
+                $this->ctx->audit($userId, $accountId, 'site.manager_callback.updated', ['site_id' => $siteId, 'configured' => $normalized !== '']);
+
+                return ['manager_callback_phone' => $normalized, 'success' => $normalized !== '' ? 'تم حفظ الرقم الافتراضي لمعاودة المدير: '.$normalized : 'تم مسح الرقم الافتراضي لمعاودة المدير.'];
 
             default:
                 throw new InvalidArgumentException('إجراء غير معروف: '.$action);

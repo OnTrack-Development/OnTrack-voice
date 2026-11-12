@@ -291,11 +291,11 @@ class MobileLinkActivity:ComponentActivity(){
         // No silent re-pairing and no credential is exposed to the WebView.
 
         ota=MobileOta(this);nativeUpdates=NativeUpdates(this)
-        window.statusBarColor=Color.rgb(11,16,27);window.navigationBarColor=Color.rgb(11,16,27)
-        val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(11,16,27))}
+        window.statusBarColor=Color.rgb(9,9,11);window.navigationBarColor=Color.rgb(9,9,11)
+        val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(9,9,11))}
         banner=TextView(this).apply{
-            setPadding(20,14,20,12);setTextColor(Color.rgb(168,185,208))
-            setBackgroundColor(Color.rgb(18,27,42))
+            setPadding(20,14,20,12);setTextColor(Color.rgb(161,161,170))
+            setBackgroundColor(Color.rgb(18,18,21))
             textSize=12f;text="IO Voice • جاري تجهيز الاتصال"
         };root.addView(banner)
         web=WebView(this);root.addView(web,LinearLayout.LayoutParams(-1,0,1f))
@@ -441,6 +441,8 @@ class MobileLinkActivity:ComponentActivity(){
                 var checked=0
                 var ok=0
                 var hardwareFailures=0
+                var readyCampaignTotal=0
+                var firstActiveCampaign=""
                 val lines=(0..1).map { slot ->
                     val paired=tenantEnrollment.paired(slot)
                     val card=JSONObject().put("sim_slot",slot).put("paired",paired)
@@ -481,6 +483,20 @@ class MobileLinkActivity:ComponentActivity(){
                                 profile.optJSONObject("answer_policy")?.optBoolean("auto_answer",false)?:false)
                             .put("answer_delay_seconds",
                                 profile.optJSONObject("answer_policy")?.optInt("answer_delay_seconds",5)?:5)
+                            .put("ivr_enabled",
+                                profile.optJSONObject("answer_policy")?.optBoolean("ivr_enabled",false)?:false)
+                            .put("ivr_routes_count",
+                                profile.optJSONObject("answer_policy")?.optJSONArray("ivr_routes")?.length()?:0)
+                            .put("manager_callback_enabled",
+                                profile.optJSONObject("answer_policy")?.optBoolean("manager_callback_enabled",false)?:false)
+                            .put("manager_callback_phone",
+                                profile.optJSONObject("answer_policy")?.optString("manager_callback_phone","")?:"")
+                        val csum=profile.optJSONObject("campaigns_summary")
+                        if(csum!=null){
+                            readyCampaignTotal+=csum.optInt("ready_count",0)
+                            val cname=csum.optString("active_name","").trim()
+                            if(firstActiveCampaign.isBlank() && cname.isNotBlank())firstActiveCampaign=cname
+                        }
                         TenantPairingContract.statusLine(slot,true,
                             profile.optString("account_name"),profile.optString("site_name"),
                             profile.optString("agent_name")) +
@@ -509,6 +525,7 @@ class MobileLinkActivity:ComponentActivity(){
                     ok>0 -> "partial"
                     else -> "unreachable"
                 }
+                MobileLinkService.updateCampaignSummary(readyCampaignTotal,firstActiveCampaign)
                 Triple(lines,cards,health)
             }
             tenantStatusLines=report.first.toTypedArray()
@@ -1042,7 +1059,13 @@ class MobileLinkActivity:ComponentActivity(){
             .put("tenantWorkspaceSlot",getSharedPreferences("ontrack_tenant_workspace",MODE_PRIVATE).getInt("sim_slot",-1))
             .put("wifiFreeEnabled",wifiFreeEnabledState)
             .put("wifiFreeReady",wifiFreeReadyState)
-            .put("campaignAutoEnabled",getSharedPreferences("ontrack_link",MODE_PRIVATE).getBoolean("campaign_opt_in",false))
+            .put("campaignAutoEnabled",MobileLinkService.campaignAutoEnabled || getSharedPreferences("ontrack_link",MODE_PRIVATE).getBoolean("campaign_opt_in",false))
+            .put("campaignQueueCount",MobileLinkService.campaignReadyCount)
+            .put("campaignActiveName",MobileLinkService.campaignActiveName)
+            .put("managerCallbackActive",MobileLinkService.managerCallbackActive)
+            .put("managerCallbackCountdown",MobileLinkService.managerCallbackCountdownSeconds)
+            .put("managerCallbackPhone",MobileLinkService.managerCallbackTargetMasked)
+            .put("callPhoneGranted",ContextCompat.checkSelfPermission(this,Manifest.permission.CALL_PHONE)==PackageManager.PERMISSION_GRANTED)
             .put("contactsSupported",true)
             .put("callsSupported",true)
             .put("role","user")
@@ -1153,6 +1176,16 @@ class MobileLinkActivity:ComponentActivity(){
                     "campaignAutoDisable"->ContextCompat.startForegroundService(this@MobileLinkActivity,
                         Intent(this@MobileLinkActivity,MobileLinkService::class.java)
                             .setAction(MobileLinkService.ACTION_CAMPAIGN_DISABLE))
+                    "campaignPullNow"->{
+                        check(!MobileLinkService.inCall){"انتظر انتهاء المكالمة الحالية"}
+                        check(tenantEnrollment.hasAny()){"اربط الشريحة بحساب SaaS أولًا"}
+                        if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,
+                                Manifest.permission.CALL_PHONE)!=PackageManager.PERMISSION_GRANTED)
+                            campaignPhonePermission.launch(Manifest.permission.CALL_PHONE)
+                        else ContextCompat.startForegroundService(this@MobileLinkActivity,
+                            Intent(this@MobileLinkActivity,MobileLinkService::class.java)
+                                .setAction(MobileLinkService.ACTION_CAMPAIGN_PULL_NOW))
+                    }
                     "listCampaigns"->campaignRequest(null)
                     "campaignAction"->{
                         check(msg.optBoolean("confirmed")){"تأكيد العملية مطلوب"}

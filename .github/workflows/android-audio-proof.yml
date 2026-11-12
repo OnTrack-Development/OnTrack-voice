@@ -148,11 +148,13 @@ jobs:
           & .\gradlew.bat --no-daemon :app:testDebugUnitTest `
             --tests 'com.ontrack.voiceproof.CellularCallRecoveryPolicyTest' `
             --tests 'com.ontrack.voiceproof.CellularRadioStatusTest' `
+            --tests 'com.ontrack.voiceproof.DtmfGoertzelDetectorTest' `
             --tests 'com.ontrack.voiceproof.FishTtsFailoverTest' `
             --tests 'com.ontrack.voiceproof.LinkPcmTest' `
             --tests 'com.ontrack.voiceproof.LiveInterruptionPolicyTest' `
             --tests 'com.ontrack.voiceproof.LiveBargeInAndSessionMutexTest' `
             --tests 'com.ontrack.voiceproof.LocalUiPageTest' `
+            --tests 'com.ontrack.voiceproof.ManagerCallbackSchedulerTest' `
             --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' `
             --tests 'com.ontrack.voiceproof.OnTrackPermissionChecklistTest' `
             --tests 'com.ontrack.voiceproof.OnTrackSetupChecklistTest' `
@@ -165,6 +167,7 @@ jobs:
             --tests 'com.ontrack.voiceproof.SignedOtaTest' `
             --tests 'com.ontrack.voiceproof.TenantAgentIdentityTest' `
             --tests 'com.ontrack.voiceproof.TenantCallRoutingTest' `
+            --tests 'com.ontrack.voiceproof.TenantCampaignOptInTest' `
             --tests 'com.ontrack.voiceproof.TenantEngineRestorePolicyTest' `
             --tests 'com.ontrack.voiceproof.TenantPairingContractTest' `
             --tests 'com.ontrack.voiceproof.VoiceFailoverPolicyTest'

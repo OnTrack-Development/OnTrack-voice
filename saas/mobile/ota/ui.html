@@ -1,5 +1,5 @@
 <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#280B08"><title>IO Voice</title>
+<meta name="theme-color" content="#09090B"><title>IO Voice</title>
 <style>
 #legacyPilotConfig[hidden]{display:none!important}#accountLinkHint{font-size:12px;line-height:1.7;color:var(--muted)}
 :root{--bg:#0b101b;--panel:#171f2e;--border:#2c3648;--muted:#9cacc4;--text:#eff3fb;--accent:#e3304c;--green:#35cf9a;--yellow:#f0ad57}
@@ -193,34 +193,38 @@ body>.otWelcome,body>.otTabs,body>.otPageIntro,body>[data-panel],body>footer{dis
 .v1Hint{font-size:12px;line-height:1.8;color:var(--muted)}
 
 
-:root{--bg:#280B08;--panel:#351712;--border:#69453e;--muted:#d2b2a1;
-  --text:#F9E7C9;--accent:#C92925;--control:#48251e;
-  --green:#2E6F40;--yellow:#dfb86c;color-scheme:dark}
-body{background:#280B08;color:var(--text)}
-body.light{--bg:#FBF7F0;--panel:#fff;--border:#E8DEC8;--muted:#6E5D57;
-  --text:#280B08;--accent:#C92925;--control:#F9E7C9;
-  --green:#2E6F40;--yellow:#b48745;color-scheme:light;background:#FBF7F0}
-#v1Minimal .card,.card{border-radius:16px;border-color:var(--border)}
-body.light #v1Minimal .card{background:#fff;box-shadow:0 12px 32px -8px #280b0812,0 4px 12px -2px #280b0808}
-body.light button:not(.primary):not(.positive):not(.agent-on):not(.agent-off){color:#280B08}
-#v1Minimal button:focus-visible,button:focus-visible{outline:2px solid #C92925;outline-offset:3px}
-#v1Minimal .v1Buttons button{min-height:48px}
-#v1Minimal .section-title h2{font-weight:850;letter-spacing:-.2px}
+:root{--bg:#09090B;--panel:#121215;--border:#27272A;--muted:#A1A1AA;
+  --text:#FAFAFA;--accent:#E11D48;--control:#18181B;
+  --green:#10B981;--yellow:#F59E0B;color-scheme:dark}
+body{background:#09090B!important;color:var(--text)}
+body.light{--bg:#FAFAFA;--panel:#FFFFFF;--border:#E4E4E7;--muted:#52525B;
+  --text:#09090B;--accent:#E11D48;--control:#F4F4F5;
+  --green:#10B981;--yellow:#D97706;color-scheme:light;background:#FAFAFA!important}
+#v1Minimal .card,.card{background:#121215!important;border-radius:16px;border:1px solid #27272A!important;box-shadow:0 10px 30px #00000033}
+body.light #v1Minimal .card,body.light .card{background:#FFFFFF!important;border-color:#E4E4E7!important;box-shadow:0 10px 28px -8px #09090b10}
+body.light button:not(.primary):not(.positive):not(.agent-on):not(.agent-off){color:#09090B}
+#v1Minimal button:focus-visible,button:focus-visible{outline:2px solid #E11D48;outline-offset:3px}
+#v1Minimal .v1Buttons button{min-height:46px}
+#v1Minimal .section-title h2{font-weight:800;letter-spacing:-.2px}
+.otToggleRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 13px;border:1px solid var(--border);border-radius:13px;background:var(--control);margin:10px 0;cursor:pointer}
+.otToggleRow input[type="checkbox"]{width:20px;height:20px;accent-color:#10B981;flex:none;margin:0}
+.otCountdown{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 13px;border-radius:12px;background:#e11d481a;border:1px solid #e11d4855;color:#fecdd3;margin:10px 0;font-size:12px;font-weight:750}
+body.light .otCountdown{background:#fff1f2;color:#9f1239}
 #v1UpdateBox.otPersistentUpdates{display:block;scroll-margin-top:22px;
   border:1px solid var(--border);overflow:hidden}
 #v1UpdateBox .otUpdateAvailability{display:flex;align-items:center;gap:11px;
   border:1px solid var(--border);background:var(--control);border-radius:14px;
   padding:13px 14px;margin:10px 0 14px}
 #v1UpdateBox .otUpdateAvailability .otUpdateMark{height:43px;width:43px;
-  flex:none;border-radius:12px;background:#C9292522;display:grid;place-items:center;
-  color:#C92925;font-weight:900;font-size:23px}
+  flex:none;border-radius:12px;background:#E11D4822;display:grid;place-items:center;
+  color:#E11D48;font-weight:900;font-size:23px}
 #v1UpdateBox .otUpdateAvailability strong{display:block;font-size:14px}
 #v1UpdateBox .otUpdateAvailability small{display:block;font-size:11px;color:var(--muted)}
 #v1UpdateBox .otUpdateAvailability.has-update{
-  border-color:#C92925;background:linear-gradient(110deg,#C9292528,#F9E7C918)}
+  border-color:#E11D48;background:linear-gradient(110deg,#E11D4822,#121215)}
 body.light #v1UpdateBox .otUpdateAvailability.has-update{
-  background:#fff1e7}
-#v1InstallUpdates:not(:disabled){background:#C92925;color:#fff;border-color:#C92925}
+  background:#fff1f2}
+#v1InstallUpdates:not(:disabled){background:#E11D48;color:#fff;border-color:#E11D48}
 #v1UpdateBox[hidden]{display:block!important}
 @media(max-width:380px){#v1Minimal{gap:11px}#v1UpdateBox .v1Buttons{gap:7px}
 #v1UpdateBox .v1Buttons button{font-size:12px}}
@@ -230,40 +234,52 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 
 <header><div class="brand"><span class="logo">IO</span><div><h1>IO Voice</h1><div class="sub">IO Voice · مركز الاتصال الذكي</div></div></div><div class="otHeaderTools"><button id="updateBell" type="button" class="otUpdateBellButton" hidden aria-label="تحديث جديد — فتح شاشة التحديث">↑<span class="otNotifyDot"></span></button><button id="themeToggle" type="button" class="otThemeButton" aria-label="تبديل المظهر">☀</button><div class="minor" id="version" aria-label="إصدار التطبيق">جاري قراءة الإصدار…</div></div></header>
 <main id="v1Minimal" aria-label="IO Voice">
-<section class="card" id="v1PairAlways" aria-labelledby="v1PairHeading">
-<div class="section-title"><h2 id="v1PairHeading">ربط الشريحة بالحساب</h2><span class="chip" id="v1PairState">جاهز للربط</span></div>
-<p class="v1Hint">خطوتين: افتح حسابك وخد كود 6 أرقام، واكتبه هنا. مفيش QR ولا API Key.</p>
-<button type="button" class="primary" id="v1PairNow" style="width:100%;min-height:54px">ربط الشريحة بكود 6 أرقام</button>
-<button type="button" class="outline" id="v1PairWebsite" style="width:100%">افتح حسابي وأنشئ رمز الربط</button>
-<p class="v1Hint" id="v1PairHelp" aria-live="polite">بعد استخراج الكود من الموقع، اضغط ربط وأدخل الـ6 أرقام.</p>
-</section>
 <section class="card" id="v1Wizard" hidden><h2>تجهيز الهاتف لأول مرة</h2>
-<p class="v1Hint">الخطوات دي بتختفي بعد نجاح الربط، وتقدر ترجع لصلاحيات التشغيل عند الحاجة.</p>
+<p class="v1Hint">تختفي هذه الخطوات فور ربط الشريحة ومنح صلاحيات الهاتف.</p>
 <p><b>1. ربط الحساب والشريحة</b></p><button type="button" id="v1Pair">ربط الشريحة</button>
 <p><b>2. تفعيل الصلاحيات</b></p><button type="button" id="v1Setup">فحص وتجهيز الهاتف</button>
 <p><b>3. فحص الجاهزية</b></p><button type="button" id="v1Test">اختبار الجهاز</button></section>
-<section class="card"><div class="section-title"><h2>المساعد الصوتي</h2><span class="chip" id="v1State">جارٍ التحقق</span></div>
+<section class="card" id="v1CardSims" aria-labelledby="v1PairHeading">
+<div class="section-title"><h2 id="v1PairHeading">الشرائح والمساعد الصوتي</h2><span class="chip" id="v1State">جارٍ التحقق</span></div>
 <p id="v1Status" class="v1Hint">جاري فحص الاتصال...</p>
-<div class="v1Buttons"><button type="button" id="v1Enable" class="positive">تشغيل المساعد</button><button type="button" id="v1Disable" class="outline">إيقاف المساعد</button></div></section>
-<section class="card"><div class="section-title"><h2>الشرائح المرتبطة</h2><span id="v1LinkStatus" class="chip">جارٍ الفحص</span></div>
+<div class="v1Buttons"><button type="button" id="v1Enable" class="positive">تشغيل المساعد</button><button type="button" id="v1Disable" class="outline">إيقاف المساعد</button></div>
+<div class="divider"></div>
+<div class="section-title"><strong style="font-size:13px">ربط الشرائح</strong><span id="v1LinkStatus" class="chip">جارٍ الفحص</span><span class="chip" id="v1PairState" hidden>جاهز للربط</span></div>
 <div class="v1Pair"><b>SIM 1</b><span id="v1Sim1">جارٍ التحقق</span></div>
-<div class="v1Pair"><b>SIM 2</b><span id="v1Sim2">جارٍ التحقق</span></div></section>
-<section class="card"><h2>سيناريو التشغيل</h2><p class="v1Hint">السيناريو المخصص للشريحة، وسيناريو الموقع، وFlow الموقع بتتدار من لوحة الويب.</p>
-<button type="button" class="outline" id="v1OpenSite">فتح لوحة الموقع في المتصفح</button>
-<div class="v1Buttons"><button type="button" class="outline" id="v1Agent">السيناريوهات</button><button type="button" class="outline" id="v1Flow">Flow الموقع</button></div></section>
-<section class="card"><div class="v1Buttons"><button type="button" class="outline" id="v1Permissions">فحص الاتصال والصلاحيات</button><button type="button" class="outline" id="v1Refresh">تحديث الحالة</button></div>
+<div class="v1Pair"><b>SIM 2</b><span id="v1Sim2">جارٍ التحقق</span></div>
+<div class="v1Buttons"><button type="button" class="primary" id="v1PairNow">ربط شريحة بكود 6 أرقام</button><button type="button" class="outline" id="v1PairWebsite">إنشاء الكود من الموقع</button></div>
+<p class="v1Hint" id="v1PairHelp" aria-live="polite" style="margin:0">بعد استخراج الكود من الموقع، اضغط ربط وأدخل الـ6 أرقام.</p>
+</section>
+<section class="card" id="v1CardCampaigns">
+<div class="section-title"><h2>الحملات التلقائية ومعاودة المدير</h2><span class="chip" id="v1CampaignBadge">Auto-Dialer</span></div>
+<label class="otToggleRow" for="v1CampaignAutoToggle">
+  <span><strong style="display:block;font-size:13px">تشغيل الحملات الصادرة التلقائية (Auto-Dialer)</strong><small id="v1CampaignQueueText" style="color:var(--muted)">يبدأ السحب التلقائي عند جاهزية الإيجنت وصلاحية الاتصال</small></span>
+  <input type="checkbox" id="v1CampaignAutoToggle" checked>
+</label>
+<button type="button" class="primary" id="v1CampaignPullNow" style="width:100%">سحب الرقم التالي والاتصال الآن</button>
+<div id="v1ManagerCallbackBox" class="otCountdown" hidden role="status" aria-live="polite">
+  <span id="v1ManagerCallbackText">معاودة المدير خلال 10 ثوانٍ</span>
+  <span id="v1ManagerCallbackPhone" dir="ltr"></span>
+</div>
+</section>
+<section class="card" id="v1CardStudio">
+<div class="section-title"><h2>الاستوديو والتوجيه التفاعلي (IVR)</h2><span class="chip" id="v1IvrBadge">IVR حسب الإعداد</span></div>
+<p class="v1Hint">تحكم في السيناريو وقائمة الأقسام (IVR) والمخطط البصري مباشرة من لوحة IO Voice.</p>
+<button type="button" class="outline" id="v1OpenSite">فتح استوديو IO Voice في المتصفح</button>
+<div class="v1Buttons"><button type="button" class="outline" id="v1Agent">السيناريوهات وIVR</button><button type="button" class="outline" id="v1Flow">المخطط البصري (Flow)</button></div>
+<div class="v1Buttons"><button type="button" class="outline" id="v1Permissions">فحص الاتصال والصلاحيات</button><button type="button" class="outline" id="v1Refresh">تحديث الحالة</button></div>
 <div id="v1PermissionsBox" hidden><p class="v1Hint">لو نقص تصريح لازم للتشغيل، افتح التفعيل وفحص الجهاز.</p>
 <div class="v1Buttons"><button type="button" id="v1PermissionSetup">فحص النواقص</button><button type="button" id="v1PermissionTest">فحص الجهاز</button></div></div>
 </section>
 <section class="card otPersistentUpdates" id="v1UpdateBox" aria-labelledby="v1UpdateHeading">
-<div class="section-title"><h2 id="v1UpdateHeading">تحديثات التطبيق</h2><span class="chip">إصدار موثّق</span></div>
+<div class="section-title"><h2 id="v1UpdateHeading">تحديثات التطبيق</h2><span class="chip">0.3.40 · v63</span></div>
 <div class="otUpdateAvailability" id="v1UpdateBanner" role="status" aria-live="polite">
   <span class="otUpdateMark" aria-hidden="true">↧</span>
   <span><strong id="v1UpdateTitle">جارٍ التحقق من تحديث Android</strong><small id="v1UpdateVersion">يظهر رقم الإصدار بعد الفحص</small></span>
 </div>
 <div class="v1Buttons"><button type="button" id="v1CheckUpdates" class="outline">فحص التحديثات</button><button type="button" id="v1InstallUpdates" class="primary" disabled>تحميل وتثبيت التحديث</button></div>
 <p id="v1UpdateStatus" class="v1Hint" aria-live="polite">تحديث Android يتم بموافقتك، وبدون حذف بيانات الحساب.</p>
-<p class="v1Hint">التحديث لا يبدأ أثناء مكالمة. بعد تنزيل APK الموقّع، Android نفسه يؤكد التثبيت.</p>
+<p class="v1Hint" style="margin:0">التحديث لا يبدأ أثناء مكالمة. بعد تنزيل APK الموقّع، Android نفسه يؤكد التثبيت.</p>
 </section>
 </main>
 <div class="otWelcome" data-panel="dashboard"><div><span class="otEyebrow">لوحة التحكم</span><strong>مركز تشغيل المكالمات</strong><small>تابع المكالمات والمساعدين والشرائح بسهولة.</small></div><div class="otSpark">✦</div></div>
@@ -683,7 +699,32 @@ function v1Render(s){
  el('v1InstallUpdates').textContent=updateReady?(s.nativeUpdateBusy?'جاري تجهيز التحديث…':'تحميل وتثبيت '+(s.nativeUpdateVersion||'التحديث')):'لا يوجد تحديث قابل للتثبيت';
  el('v1CheckUpdates').disabled=!!s.nativeUpdateBusy||!!s.inCall;
  el('v1UpdateStatus').textContent=el('nativeUpdateStatus').textContent;
+ const campOn=!!s.campaignAutoEnabled;
+ el('v1CampaignAutoToggle').checked=campOn;
+ el('v1CampaignAutoToggle').disabled=!linked||!!s.inCall;
+ el('v1CampaignBadge').textContent=campOn?'يعمل تلقائيًا':'متوقف';
+ el('v1CampaignBadge').className='chip '+(campOn?'good':'warn');
+ const qCount=Number(s.campaignQueueCount)||0;
+ const qName=String(s.campaignActiveName||'').trim();
+ el('v1CampaignQueueText').textContent=qName?(qName+' · '+qCount+' رقم جاهز'):(qCount>0?(qCount+' رقم جاهز للحملة النشطة'):'يسحب المهام الجاهزة فور تفعيل الإيجنت وصلاحية الاتصال');
+ el('v1CampaignPullNow').disabled=!linked||!active||!!s.inCall;
+ const cbActive=!!s.managerCallbackActive && Number(s.managerCallbackCountdown)>0;
+ el('v1ManagerCallbackBox').hidden=!cbActive;
+ if(cbActive){
+  el('v1ManagerCallbackText').textContent='جاري العد التنازلي لمعاودة المدير خلال '+Number(s.managerCallbackCountdown)+' ثانية';
+  el('v1ManagerCallbackPhone').textContent=String(s.managerCallbackPhone||'');
+ }
+ const agentsList=Array.isArray(s.tenantAgents)?s.tenantAgents:[];
+ const ivrActive=agentsList.some(a=>a&&a.ivr_enabled);
+ const ivrCount=agentsList.reduce((sum,a)=>sum+(a&&Number(a.ivr_routes_count)||0),0);
+ el('v1IvrBadge').textContent=ivrActive?('IVR مفعّل · '+ivrCount+' قسم'):'IVR متوقف';
+ el('v1IvrBadge').className='chip '+(ivrActive?'good':'');
 }
+el('v1CampaignAutoToggle').onchange=()=>{
+ const on=el('v1CampaignAutoToggle').checked;
+ send(on?'campaignAutoEnable':'campaignAutoDisable',on?{confirmed:true}:{});
+};
+el('v1CampaignPullNow').onclick=()=>send('campaignPullNow');
 el('v1Enable').onclick=()=>el('enable').click();
 el('v1Disable').onclick=()=>el('disable').click();
 el('v1Pair').onclick=()=>send('tenantQuickPair');
@@ -754,7 +795,7 @@ document.querySelectorAll('.otTabs button').forEach(b=>{
 setView('dashboard');
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>setView(b.dataset.go));
 applyTheme(readUiTheme());
-function applyTheme(mode){const light=mode==='light';document.body.classList.toggle('light',light);el('themeToggle').textContent=light?'☾':'☀';el('themeToggle').setAttribute('aria-label',light?'تفعيل المظهر الداكن':'تفعيل المظهر الفاتح');document.querySelector('meta[name="theme-color"]').content=light?'#f7f7f8':'#0b0b0e';}
+function applyTheme(mode){const light=mode==='light';document.body.classList.toggle('light',light);el('themeToggle').textContent=light?'☾':'☀';el('themeToggle').setAttribute('aria-label',light?'تفعيل المظهر الداكن':'تفعيل المظهر الفاتح');document.querySelector('meta[name="theme-color"]').content=light?'#FAFAFA':'#09090B';}
 el('themeToggle').onclick=()=>{const theme=document.body.classList.contains('light')?'dark':'light';applyTheme(theme);
  try{document.cookie='ontrack_voice_theme='+theme+'; Max-Age=31536000; Secure; SameSite=Strict; Path=/ui/'}catch(e){}
  if(Number(last.nativeCode)>=21)send('setTheme',{theme});

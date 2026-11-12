@@ -335,6 +335,7 @@ class WorkspaceController extends Controller
     private function settingsData(array $ctx, int $accountId, int $siteId): array
     {
         return [
+            'site' => (array) (DB::table('sites')->where('id', $siteId)->where('account_id', $accountId)->first() ?: []),
             'profile' => (array) (DB::table('customer_profiles')->where('account_id', $accountId)->first() ?: []),
             'api_keys' => DB::table('api_keys')->where('account_id', $accountId)->orderByDesc('id')->get()->map(fn ($r) => (array) $r)->all(),
             'integrations' => DB::table('integrations')->where('account_id', $accountId)->orderByDesc('id')->get()->map(fn ($r) => (array) $r)->all(),

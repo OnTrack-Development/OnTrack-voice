@@ -359,6 +359,20 @@ table.data-table tbody tr:hover { background: var(--elevated); }
     flex-direction: column;
     box-shadow: var(--shadow);
 }
+.ivr-table input, .ivr-table select { padding: 6px 8px; font-size: 12.5px; }
+.ivr-digit-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    border: 1px solid rgba(225, 29, 72, 0.35);
+    background: var(--crimson-soft);
+    color: var(--crimson);
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+}
 .drawer-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .drawer-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
 

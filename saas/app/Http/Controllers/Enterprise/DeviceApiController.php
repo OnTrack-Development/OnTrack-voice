@@ -1208,7 +1208,7 @@ class DeviceApiController extends Controller
                 }
             }
 
-            $this->calls->scheduleHumanEscalation($binding, $id);
+            $escResult = $this->calls->scheduleHumanEscalation($binding, $id);
             $callRow = DB::table('calls')->where('device_binding_id', $deviceId)->where('external_call_id', $id)->first();
             $this->automation->evaluateAndExecute($accountId, 'call.ended', [
                 'call_id' => $id,
@@ -1219,6 +1219,22 @@ class DeviceApiController extends Controller
                 'duration_seconds' => (int) ($callRow->duration_seconds ?? $duration),
                 'ai_mood' => (string) ($callRow->ai_mood ?? ''),
             ]);
+
+            $cbConfig = $this->calls->resolveManagerCallbackConfig($accountId, $siteId, (int) ($callRow->agent_id ?? $binding['agent_id']));
+
+            return [
+                'accepted' => true,
+                'duplicate' => $duplicate,
+                'call_id' => $id,
+                'status' => $phase,
+                'escalation' => $escResult,
+                'manager_callback' => [
+                    'enabled' => $cbConfig['enabled'],
+                    'phone' => $cbConfig['phone'],
+                    'delay_seconds' => $cbConfig['delay_seconds'],
+                    'queued' => (bool) ($escResult['queued'] ?? false),
+                ],
+            ];
         }
 
         return ['accepted' => true, 'duplicate' => $duplicate, 'call_id' => $id, 'status' => $phase];

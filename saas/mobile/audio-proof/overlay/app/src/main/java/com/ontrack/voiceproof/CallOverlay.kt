@@ -28,11 +28,12 @@ import kotlin.math.abs
 internal class CallOverlay(private val context: Context) {
     private val window=context.getSystemService(WindowManager::class.java)
     private val dp=context.resources.displayMetrics.density
-    private val red=Color.rgb(220,20,45)
-    private val green=Color.rgb(27,178,103)
-    private val black=Color.rgb(15,15,18)
-    private val white=Color.WHITE
-    private val gray=Color.rgb(151,151,160)
+    private val red=Color.rgb(225,29,72)
+    private val green=Color.rgb(16,185,129)
+    private val black=Color.rgb(9,9,11)
+    private val cardSurface=Color.rgb(18,18,21)
+    private val white=Color.rgb(250,250,250)
+    private val gray=Color.rgb(161,161,170)
     private var root:LinearLayout?=null
     private var orb:FrameLayout?=null
     private var orbGlyph:Glyph?=null
@@ -124,9 +125,9 @@ internal class CallOverlay(private val context: Context) {
         params?.let{p->root?.let{v->runCatching{window.updateViewLayout(v,p)}}}
     }
     private fun iconTile(symbol:String,label:String,description:String,color:Int,enabled:Boolean,onClick:()->Unit):LinearLayout{
-        val foreground=if(lightTheme)Color.rgb(20,20,24) else white
-        val surface=if(lightTheme)Color.rgb(250,250,251) else Color.rgb(31,31,35)
-        val border=if(lightTheme)Color.rgb(225,225,229) else Color.rgb(61,61,65)
+        val foreground=if(lightTheme)Color.rgb(9,9,11) else white
+        val surface=if(lightTheme)Color.rgb(250,250,250) else cardSurface
+        val border=if(lightTheme)Color.rgb(228,228,231) else Color.rgb(39,39,42)
         return LinearLayout(context).apply{
             orientation=LinearLayout.VERTICAL
             gravity=Gravity.CENTER
@@ -155,8 +156,8 @@ internal class CallOverlay(private val context: Context) {
     }
     private fun attach(){
         lightTheme=themeLight()
-        val panelSurface=if(lightTheme)white else black
-        val border=if(lightTheme)Color.rgb(226,226,230) else Color.rgb(52,52,57)
+        val panelSurface=if(lightTheme)Color.WHITE else cardSurface
+        val border=if(lightTheme)Color.rgb(228,228,231) else Color.rgb(39,39,42)
         val container=LinearLayout(context).apply{
             orientation=LinearLayout.VERTICAL;gravity=Gravity.END
             layoutDirection=View.LAYOUT_DIRECTION_RTL

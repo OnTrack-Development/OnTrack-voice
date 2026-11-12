@@ -38,6 +38,7 @@ class MobileLinkService:Service() {
         const val ACTION_SPEAKER="com.ontrack.voiceproof.SPEAKER"
         const val ACTION_CAMPAIGN_ENABLE="com.ontrack.voiceproof.CAMPAIGN_ENABLE"
         const val ACTION_CAMPAIGN_DISABLE="com.ontrack.voiceproof.CAMPAIGN_DISABLE"
+        const val ACTION_CAMPAIGN_PULL_NOW="com.ontrack.voiceproof.CAMPAIGN_PULL_NOW"
         // Kept for pre-0.1.9 notifications, mapped to server disable.
         const val ACTION_PAUSE="com.ontrack.voiceproof.PAUSE"
         /** Blocks pilot telephony during a tenant enrollment, even before token persistence. */
@@ -54,6 +55,16 @@ class MobileLinkService:Service() {
         @Volatile var audioDiagnostic=""
         @Volatile var callProblem=""
         @Volatile var latestStatus="الربط متوقف"
+        @Volatile var campaignAutoEnabled=false
+        @Volatile var campaignReadyCount=0
+        @Volatile var campaignActiveName=""
+        @Volatile var managerCallbackActive=false
+        @Volatile var managerCallbackCountdownSeconds=0
+        @Volatile var managerCallbackTargetMasked=""
+        fun updateCampaignSummary(ready:Int,name:String){
+            campaignReadyCount=ready
+            campaignActiveName=name
+        }
         fun base(value:String):String {
             val uri=URI(value.trim())
             require(uri.scheme=="https" && uri.host=="app.ontrackegy.com" && uri.port in listOf(-1,443)
@@ -82,6 +93,23 @@ class MobileLinkService:Service() {
     @Volatile private var takeoverRequested=false
     @Volatile private var pendingDesired:Boolean?=null
     @Volatile private var recoveringActiveCall=false
+    @Volatile private var triggerCampaignPollNow=false
+    private fun hasPermission(permission:String)=androidx.core.content.ContextCompat.checkSelfPermission(
+        this,permission)==android.content.pm.PackageManager.PERMISSION_GRANTED
+    private fun syncCampaignOptIn(){
+        val linkPrefs=getSharedPreferences("ontrack_link",MODE_PRIVATE)
+        val userDisabled=linkPrefs.getBoolean("campaign_user_disabled",false)
+        val paired=runCatching{TenantDeviceEnrollment(this).hasAny()}.getOrDefault(false)
+        val enabled=TenantCampaignDialer.shouldDefaultOptIn(
+            paired=paired,
+            hasCallPhone=hasPermission(android.Manifest.permission.CALL_PHONE),
+            hasReadPhone=hasPermission(android.Manifest.permission.READ_PHONE_STATE),
+            agentEnabled=agentEnabled,
+            userExplicitlyDisabled=userDisabled
+        )
+        linkPrefs.edit().putBoolean("campaign_opt_in",enabled).apply()
+        campaignAutoEnabled=enabled
+    }
     private fun showOverlay(){main.post{if(::overlay.isInitialized)overlay.show(running,agentEnabled,inCall,callAnswered,humanControl,audioReady,callProblem,audioDiagnostic)}}
     private fun notice(value:String){
         latestStatus=value
@@ -99,6 +127,7 @@ class MobileLinkService:Service() {
             inCall && !callAnswered->"مكالمة قيد الرنين أو الاتصال"
             inCall && audioReady->"المكالمة متصلة — صوت الإيجنت يعمل"
             inCall && agentEnabled->"المكالمة متصلة — جاري تجهيز صوت الإيجنت"
+            managerCallbackActive && managerCallbackCountdownSeconds>0->"سيتم معاودة المدير خلال $managerCallbackCountdownSeconds ثانية"
             else->value
         }
         val item=NotificationCompat.Builder(this,"ontrack_mobile_link")
@@ -119,10 +148,8 @@ class MobileLinkService:Service() {
     override fun onCreate(){
         super.onCreate()
         overlay=CallOverlay(this)
-        // Never silently resume billable campaign dialing after OS process
-        // death, reboot, or OTA. An explicit on-device opt-in is required.
-        getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
-            .putBoolean("campaign_opt_in",false).apply()
+        agentEnabled=tenantPrefs().getBoolean("enabled",false)
+        syncCampaignOptIn()
         pendingDesired=null
         pendingSync=false
         getSystemService(NotificationManager::class.java).createNotificationChannel(
@@ -155,6 +182,7 @@ class MobileLinkService:Service() {
                 ACTION_DISABLE,ACTION_PAUSE,"STOP"->{
                     tenantPrefs().edit().putBoolean("enabled",false).commit()
                     agentEnabled=false;call?.stop();call=null;audioReady=false;connected=false
+                    campaignAutoEnabled=false
                     notice("إيقاف محرك الشركات على هذا الجهاز")
                 }
                 ACTION_ENABLE->{
@@ -162,12 +190,14 @@ class MobileLinkService:Service() {
                         "تعذر حفظ حالة تشغيل محرك الشركات"
                     }
                     agentEnabled=true
+                    syncCampaignOptIn()
                     notice("مراقبة الشريحة مفعّلة؛ جلسة Google Live تبدأ عند المكالمة")
                 }
                 ACTION_RESTORE->{
                     // Honor the last explicit user selection after process death/update.
                     // Never auto-enable a SIM the user deliberately switched off.
                     agentEnabled=tenantPrefs().getBoolean("enabled",false)
+                    syncCampaignOptIn()
                     notice(if(agentEnabled)
                         "استُعيد تشغيل مراقبة الشرائح بعد فتح التطبيق"
                     else "الرد الآلي متوقف بقرار المستخدم؛ اضغط تشغيل لتفعيله")
@@ -190,25 +220,42 @@ class MobileLinkService:Service() {
                     }
                 }
                 ACTION_CAMPAIGN_ENABLE->{
-                    val permission=androidx.core.content.ContextCompat.checkSelfPermission(
-                        this,android.Manifest.permission.CALL_PHONE)==
-                        android.content.pm.PackageManager.PERMISSION_GRANTED
-                    val readPhone=androidx.core.content.ContextCompat.checkSelfPermission(
-                        this,android.Manifest.permission.READ_PHONE_STATE)==
-                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                    val permission=hasPermission(android.Manifest.permission.CALL_PHONE)
+                    val readPhone=hasPermission(android.Manifest.permission.READ_PHONE_STATE)
                     val safe=permission && readPhone && agentEnabled && !inCall
                     if(safe){
                         check(getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
+                            .putBoolean("campaign_user_disabled",false)
                             .putBoolean("campaign_opt_in",true).commit()){
                             "تعذر حفظ تفعيل الحملات"
                         }
-                        notice("تم اعتماد تشغيل حملات SIM؛ التنفيذ يتطلب موافقة السيرفر لكل محاولة")
-                    }else notice("الحملات متوقفة: شغل الإيجنت، امنح إذن الشريحة، وأنهِ المكالمة الحالية")
+                        campaignAutoEnabled=true
+                        triggerCampaignPollNow=true
+                        retryWake.trySend(Unit)
+                        notice("تم تفعيل الاتصال التلقائي للحملات (Auto-Dialer)")
+                    }else notice("الحملات متوقفة: شغل الإيجنت، امنح إذن الاتصال والشريحة، وأنهِ المكالمة الحالية")
                 }
                 ACTION_CAMPAIGN_DISABLE->{
                     getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
+                        .putBoolean("campaign_user_disabled",true)
                         .putBoolean("campaign_opt_in",false).commit()
+                    campaignAutoEnabled=false
                     notice("تم إيقاف طلب مكالمات حملات جديدة؛ لا نقطع مكالمة جارية")
+                }
+                ACTION_CAMPAIGN_PULL_NOW->{
+                    val permission=hasPermission(android.Manifest.permission.CALL_PHONE)
+                    val readPhone=hasPermission(android.Manifest.permission.READ_PHONE_STATE)
+                    if(permission && readPhone && agentEnabled && !inCall){
+                        getSharedPreferences("ontrack_link",MODE_PRIVATE).edit()
+                            .putBoolean("campaign_user_disabled",false)
+                            .putBoolean("campaign_opt_in",true).apply()
+                        campaignAutoEnabled=true
+                        triggerCampaignPollNow=true
+                        retryWake.trySend(Unit)
+                        notice("جاري سحب الرقم التالي من الحملة الآن...")
+                    }else{
+                        notice("تعذر سحب رقم الحملة: تأكد من تشغيل الإيجنت ومنح إذن الاتصال وانتهاء المكالمة")
+                    }
                 }
                 ACTION_SPEAKER->scope.launch{
                     runCatching{CaptureDaemon.linkControl(this@MobileLinkService,'S')}
@@ -332,6 +379,13 @@ class MobileLinkService:Service() {
         var managerCallback:JSONObject?=null
         var managerSawOffhook=false
         var managerDialAt=0L
+        val callbackScheduler=ManagerCallbackScheduler()
+        var dueManagerDial:Deferred<Result<JSONObject>>?=null
+        var pendingEventCbSlot=-1
+        var pendingEventCbPhone=""
+        var ivrTransferPhone=""
+        var ivrTransferLabel=""
+        var lastCountdownNotified=0
         var campaignClaim:Deferred<Result<Pair<Int,JSONObject>?>>?=null
         var campaignDial:Deferred<Result<String>>?=null
         var campaignInProgress:JSONObject?=null
@@ -501,8 +555,14 @@ class MobileLinkService:Service() {
                             notice("مكالمة الحملة غير مؤكدة؛ محتاجة مراجعة قبل أي إعادة اتصال")
                         }
                     }
+                    if(triggerCampaignPollNow){
+                        triggerCampaignPollNow=false
+                        lastCampaignPoll=0L
+                    }
+                    syncCampaignOptIn()
                     if(current==null && campaignInProgress==null && campaignClaim==null &&
                        managerCallback==null && managerClaim==null &&
+                       !callbackScheduler.active && dueManagerDial==null &&
                        agentEnabled && getSharedPreferences("ontrack_link",MODE_PRIVATE)
                            .getBoolean("campaign_opt_in",false) &&
                        SystemClock.elapsedRealtime()-lastCampaignPoll>=10000L){
@@ -582,6 +642,14 @@ class MobileLinkService:Service() {
                                 enrollment.workspace(slot,"workspace_call_event",event)
                             }
                             if(response.optBoolean("accepted"))tenantEvents.acknowledge(event)
+                            val srvCb=response.optJSONObject("manager_callback")
+                            if(srvCb!=null && srvCb.optBoolean("enabled",false)){
+                                val srvPhone=srvCb.optString("phone","").trim()
+                                if(srvPhone.isNotBlank()){
+                                    pendingEventCbSlot=slot
+                                    pendingEventCbPhone=srvPhone
+                                }
+                            }
                         }.onFailure { notice("تعذر رفع حدث مكالمة SaaS؛ سيُعاد الإرسال دون تكرار") }
                     }
                     // A report is retried separately from call-state events. The
@@ -649,7 +717,114 @@ class MobileLinkService:Service() {
                                 managerDialAt=0L
                             }
                         }
+                        audioStart?.cancel();audioStart=null
+                        flowLoad?.cancel();flowLoad=null
+                        sessionLoad?.cancel();sessionLoad=null
+                        audioReady=false;callProblem="";audioDiagnostic=""
+                        if(selected!=null){
+                            val endedSlot=selected!!
+                            val hadMgr=managerCallback!=null
+                            val selectedTransferPhone=ivrTransferPhone.trim()
+                            val selectedTransferLabel=ivrTransferLabel.trim()
+                            ivrTransferPhone="";ivrTransferLabel=""
+                            val cbEnabled=(tenantSession?.optBoolean("manager_callback_enabled",false)==true) ||
+                                policy.optBoolean("manager_callback_enabled",false)
+                            val cbPhone=tenantSession?.optString("manager_callback_phone","")?.trim()
+                                ?.ifBlank{policy.optString("manager_callback_phone","").trim()}.orEmpty()
+                            val effectiveCbEnabled=selectedTransferPhone.isNotBlank() || cbEnabled
+                            val effectiveCbPhone=selectedTransferPhone.ifBlank{cbPhone}
+                            val effectiveCbName=if(selectedTransferPhone.isNotBlank()){
+                                if(selectedTransferLabel.isNotBlank())"قسم: $selectedTransferLabel" else "القسم / المدير"
+                            } else "المدير المناوب"
+                            val wasAgentAnswered=answeredByAgent
+                            val endedCall=call;call=null
+                            endedCall?.stop()
+                            // Flush accumulated transcript segment into CallReportOutbox before idle finalization.
+                            endedCall?.awaitReports()
+                            tenantSession=null;tenantFlow=null
+                            selected=null;liveSimSlot=-1;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;autoAnswerAttempts=0;nextAutoAnswerRetryAt=0L;outgoingCall=false;humanControl=false;policy=JSONObject()
+                            ringingAt=0L;startedAt=0L;audioAttemptCount=0;nextAudioRetryAt=0L
+                            if(!hadMgr && effectiveCbEnabled && effectiveCbPhone.isNotBlank() && agentEnabled && wasAgentAnswered){
+                                callbackScheduler.schedule(endedSlot,effectiveCbPhone,effectiveCbName,"",SystemClock.elapsedRealtime())
+                                pendingEventCbSlot=-1;pendingEventCbPhone=""
+                                notice("ستتم معاودة $effectiveCbName خلال 10 ثوانٍ على شريحة SIM ${endedSlot+1}")
+                            }
+                        }
+                        if(pendingEventCbSlot in 0..1 && pendingEventCbPhone.isNotBlank()){
+                            if(!callbackScheduler.active && managerCallback==null && agentEnabled){
+                                callbackScheduler.schedule(pendingEventCbSlot,pendingEventCbPhone,"المدير المناوب","",SystemClock.elapsedRealtime())
+                                notice("ستتم معاودة المدير خلال 10 ثوانٍ على شريحة SIM ${pendingEventCbSlot+1}")
+                            }
+                            pendingEventCbSlot=-1;pendingEventCbPhone=""
+                        }
+                        val cbNow=SystemClock.elapsedRealtime()
+                        val cbRem=callbackScheduler.remainingSeconds(cbNow)
+                        managerCallbackActive=callbackScheduler.active
+                        managerCallbackCountdownSeconds=cbRem
+                        managerCallbackTargetMasked=if(callbackScheduler.active) callbackScheduler.maskedPhone() else ""
+                        if(callbackScheduler.active && cbRem>0 && cbRem!=lastCountdownNotified){
+                            lastCountdownNotified=cbRem
+                            notice("معاودة المدير خلال $cbRem ثانية (SIM ${callbackScheduler.pendingSlot+1})")
+                        }else if(!callbackScheduler.active){
+                            lastCountdownNotified=0
+                        }
+                        if(dueManagerDial?.isCompleted==true){
+                            val fetched=dueManagerDial?.await()
+                            dueManagerDial=null
+                            val job=fetched?.getOrNull()
+                            if(job!=null){
+                                val slot=job.optInt("sim_slot",-1)
+                                val jobId=job.optInt("id",0)
+                                val safeToCall=current==null && managerCallback==null &&
+                                    campaignInProgress==null && agentEnabled && !tenantPairingInProgress &&
+                                    slot in 0..1 && enrollment.paired(slot)
+                                try{
+                                    check(safeToCall){"مكالمة أخرى جارية أو الشريحة غير جاهزة"}
+                                    HumanEscalationDialer.placeOnPairedSim(this@MobileLinkService,slot,job.getString("phone"))
+                                    managerCallback=job
+                                    managerSawOffhook=false
+                                    managerDialAt=SystemClock.elapsedRealtime()
+                                    if(jobId>0)scope.launch(Dispatchers.IO){
+                                        runCatching{enrollment.workspace(slot,"workspace_handoff_ack",
+                                            JSONObject().put("job_id",jobId).put("stage","dial_started"))}
+                                    }
+                                    notice("جاري معاودة المدير ("+job.optString("name","المسؤول")+") على SIM ${slot+1}")
+                                }catch(problem:Exception){
+                                    if(jobId>0 && slot in 0..1 && enrollment.paired(slot))scope.launch(Dispatchers.IO){
+                                        runCatching{enrollment.workspace(slot,"workspace_handoff_ack",
+                                            JSONObject().put("job_id",jobId).put("stage","failed"))}
+                                    }
+                                    notice("تعذر معاودة المدير تلقائيًا: "+problem.message.orEmpty().take(110))
+                                }
+                            }
+                        }
+                        val dueNow=callbackScheduler.consumeDue(SystemClock.elapsedRealtime())
+                        if(dueNow!=null){
+                            managerCallbackActive=false
+                            managerCallbackCountdownSeconds=0
+                            managerCallbackTargetMasked=""
+                            lastCountdownNotified=0
+                            if(managerCallback==null && campaignInProgress==null && agentEnabled && !tenantPairingInProgress){
+                                dueManagerDial=scope.async(Dispatchers.IO){
+                                    runCatching{
+                                        val claimed=runCatching{enrollment.workspace(dueNow.slot,"workspace_handoff_claim")}.getOrNull()
+                                        val srvJob=claimed?.optJSONObject("job")
+                                        if(srvJob!=null){
+                                            if(dueNow.name.startsWith("قسم:") && dueNow.phone.isNotBlank()){
+                                                srvJob.put("phone",dueNow.phone).put("name",dueNow.name)
+                                            }
+                                            srvJob
+                                        }else JSONObject()
+                                            .put("id",0)
+                                            .put("sim_slot",dueNow.slot)
+                                            .put("phone",dueNow.phone)
+                                            .put("name",dueNow.name)
+                                    }
+                                }
+                            }
+                        }
                         if(managerCallback==null && managerClaim==null &&
+                            !callbackScheduler.active && dueManagerDial==null &&
                             campaignInProgress==null && campaignClaim==null && agentEnabled &&
                             SystemClock.elapsedRealtime()-lastManagerPoll>=4000L){
                             lastManagerPoll=SystemClock.elapsedRealtime()
@@ -668,19 +843,6 @@ class MobileLinkService:Service() {
                                 }
                             }
                         }
-                        audioStart?.cancel();audioStart=null
-                        flowLoad?.cancel();flowLoad=null
-                        sessionLoad?.cancel();sessionLoad=null
-                        audioReady=false;callProblem="";audioDiagnostic=""
-                        if(selected!=null){
-                            val endedCall=call;call=null
-                            endedCall?.stop()
-                            // Flush accumulated transcript segment into CallReportOutbox before idle finalization.
-                            endedCall?.awaitReports()
-                            tenantSession=null;tenantFlow=null
-                            selected=null;liveSimSlot=-1;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;autoAnswerAttempts=0;nextAutoAnswerRetryAt=0L;outgoingCall=false;humanControl=false;policy=JSONObject()
-                            ringingAt=0L;startedAt=0L;audioAttemptCount=0;nextAudioRetryAt=0L
-                        }
                         // The cellular call has ended. Only NOW submit the
                         // encrypted, accumulated real-time text to summarization.
                         runCatching{
@@ -696,7 +858,7 @@ class MobileLinkService:Service() {
                         }
                         // Running a monitor is not an authenticated voice connection.
                         connected=false
-                        if(lastState!=TelephonyManager.CALL_STATE_IDLE)notice("مراقب الشرائح جاهز؛ اختبر Google والـFlow قبل المكالمة")
+                        if(lastState!=TelephonyManager.CALL_STATE_IDLE && !callbackScheduler.active)notice("مراقب الشرائح جاهز؛ اختبر Google والـFlow قبل المكالمة")
                         lastState=TelephonyManager.CALL_STATE_IDLE
                         delay(750);continue
                     }
@@ -708,6 +870,12 @@ class MobileLinkService:Service() {
                         delay(750);continue
                     }
                     if(selected!=current.slot){
+                        callbackScheduler.cancel()
+                        dueManagerDial?.cancel();dueManagerDial=null
+                        pendingEventCbSlot=-1;pendingEventCbPhone=""
+                        ivrTransferPhone="";ivrTransferLabel=""
+                        managerCallbackActive=false;managerCallbackCountdownSeconds=0;managerCallbackTargetMasked=""
+                        lastCountdownNotified=0
                         audioStart?.cancel();audioStart=null
                         flowLoad?.cancel();flowLoad=null
                         sessionLoad?.cancel();sessionLoad=null
@@ -914,6 +1082,9 @@ class MobileLinkService:Service() {
                             .put("input_channel","mix")
                             .put("scenario_mode",policy.optString("scenario_mode","builder"))
                             .put("response_style",policy.optString("response_style","egyptian_short"))
+                            .put("ivr_enabled",sess.optBoolean("ivr_enabled",policy.optBoolean("ivr_enabled",false)))
+                            .put("ivr_greeting",sess.optString("ivr_greeting",policy.optString("ivr_greeting","")))
+                            .put("ivr_routes",sess.optJSONArray("ivr_routes")?:policy.optJSONArray("ivr_routes")?:org.json.JSONArray())
                         val callback=managerCallback?.takeIf{
                             it.optInt("sim_slot",-1)==current.slot
                         }
@@ -936,6 +1107,17 @@ class MobileLinkService:Service() {
                             premiumPcm=if(isFishVoice) { text,keepRunning,chunk ->
                                 enrollment.streamPremiumPcm(reportSlot,text,keepRunning,chunk)
                             } else null,
+                            onIvrRouteSelected={ digit, label, transferPhone ->
+                                scope.launch(Dispatchers.Main) {
+                                    if(inCall && liveSimSlot==reportSlot && !humanControl && transferPhone.isNotBlank()){
+                                        ivrTransferPhone=transferPhone
+                                        ivrTransferLabel=label
+                                        val maskedTarget=transferPhone.trim().let{ if(it.length<=6) it else it.take(4)+"****"+it.takeLast(3) }
+                                        notice("IVR: قسم $label (زر $digit) — سيتم الاتصال بـ $maskedTarget بعد المكالمة بـ 10 ثوانٍ")
+                                        showOverlay()
+                                    }
+                                }
+                            },
                             onHumanRequested={ reason,notes ->
                                 if(reportCallId!=null && callback==null)
                                     tenantEvents.recordCustomerHumanRequest(reportSlot,reportBinding,reason,notes)

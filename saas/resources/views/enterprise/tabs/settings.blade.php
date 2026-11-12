@@ -5,7 +5,37 @@
     </div>
 </div>
 
-@php $prof = $data['profile'] ?? []; @endphp
+@php
+    $prof = $data['profile'] ?? [];
+    $siteRow = $data['site'] ?? [];
+@endphp
+<div class="card">
+    <div class="card-head">
+        <div>
+            <h2 class="card-title">الرقم الافتراضي لمعاودة المدير بعد المكالمة (10 ثوانٍ)</h2>
+            <p class="card-sub">يُستخدم تلقائياً لأي إيجنت يفعّل المعاودة التلقائية بدون رقم مخصص، وتتم المعاودة بعد 10 ثوانٍ على نفس الشريحة</p>
+        </div>
+        @if (!empty($siteRow['manager_callback_phone']))
+            <span class="pill pill-green mono" dir="ltr">{{ $siteRow['manager_callback_phone'] }}</span>
+        @else
+            <span class="pill">غير محدد بعد</span>
+        @endif
+    </div>
+    <form method="POST" action="/console/action" class="form-grid" style="align-items:end">
+        @csrf
+        <input type="hidden" name="action" value="update_manager_callback">
+        <div class="field" style="margin:0">
+            <span class="field-label">رقم المدير الافتراضي (E.164)</span>
+            <input type="text" name="manager_callback_phone" dir="ltr" placeholder="+2010XXXXXXXX" value="{{ $siteRow['manager_callback_phone'] ?? '' }}">
+        </div>
+        <div class="field" style="margin:0">
+            <span class="field-label">تسمية جهة التصعيد</span>
+            <input type="text" name="manager_label" value="المدير المناوب">
+        </div>
+        <div><button type="submit" class="btn btn-primary btn-sm">حفظ رقم المعاودة الافتراضي</button></div>
+    </form>
+</div>
+
 <div class="grid-2">
     <div class="card">
         <h2 class="card-title" style="margin-bottom:10px">بيانات المنشأة والهوية</h2>
