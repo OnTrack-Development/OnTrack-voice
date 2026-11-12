@@ -114,8 +114,8 @@
             </form>
         </div>
         @forelse ($data['api_keys'] ?? [] as $k)
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
-                <div><strong>{{ $k['name'] }}</strong> <span class="mono" style="font-size:11.5px;color:var(--muted)">{{ $k['prefix'] }}***</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
+                <div style="min-width:0;max-width:100%"><strong>{{ $k['name'] }}</strong> <span class="mono" style="font-size:11.5px;color:var(--muted);overflow-wrap:anywhere">{{ $k['prefix'] }}***</span></div>
                 @if ($k['status'] === 'active')
                     <form method="POST" action="/console/action" style="margin:0">@csrf<input type="hidden" name="action" value="revoke_api_key"><input type="hidden" name="key_id" value="{{ $k['id'] }}"><button class="btn btn-sm btn-danger">إلغاء</button></form>
                 @else
@@ -139,8 +139,8 @@
             <div style="display:flex;align-items:end"><button type="submit" class="btn btn-sm btn-primary">دعوة موظف</button></div>
         </form>
         @foreach ($data['staff_members'] ?? [] as $m)
-            <div style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
-                <span><strong>{{ $m['name'] }}</strong> <span class="mono" style="font-size:11.5px;color:var(--muted)">({{ $m['email'] }})</span></span>
+            <div style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
+                <span style="min-width:0;max-width:100%;overflow-wrap:anywhere"><strong>{{ $m['name'] }}</strong> <span class="mono" style="font-size:11.5px;color:var(--muted)">({{ $m['email'] }})</span></span>
                 <span class="pill pill-crimson">{{ $m['role'] }}</span>
             </div>
         @endforeach

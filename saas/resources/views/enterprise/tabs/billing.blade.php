@@ -41,11 +41,11 @@
                 @else
                     <div style="display:flex;flex-direction:column;gap:6px">
                         <form method="POST" action="/console/action">@csrf<input type="hidden" name="action" value="checkout_kashier"><input type="hidden" name="plan_id" value="{{ $plan['id'] }}"><button class="btn btn-primary btn-sm" style="width:100%">دفع إلكتروني (Kashier)</button></form>
-                        <form method="POST" action="/console/action" style="display:flex;gap:5px">
+                        <form method="POST" action="/console/action" style="display:flex;gap:5px;flex-wrap:wrap">
                             @csrf
                             <input type="hidden" name="action" value="request_manual_invoice">
                             <input type="hidden" name="plan_id" value="{{ $plan['id'] }}">
-                            <input type="text" name="payment_reference" placeholder="مرجع إنستاباي/تحويل" style="padding:5px 8px;font-size:12px">
+                            <input type="text" name="payment_reference" placeholder="مرجع إنستاباي/تحويل" style="padding:5px 8px;font-size:12px;flex:1 1 130px">
                             <button class="btn btn-sm">فاتورة</button>
                         </form>
                     </div>

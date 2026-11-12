@@ -6,7 +6,7 @@
     <title>تسجيل الدخول — IO Voice</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/css/obsidian.css?v=62">
+    <link rel="stylesheet" href="/assets/css/obsidian.css?v=68">
 </head>
 <body>
 <div class="auth-wrap">

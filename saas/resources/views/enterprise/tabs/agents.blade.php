@@ -14,10 +14,10 @@
         <p class="card-sub">صمّم الشخصية، اضبط السيناريو أو المخطط البصري، واختر الصوت مع المعاينة المحلية الفورية</p>
     </div>
     @if (!empty($data['can_create_agent']))
-        <form method="POST" action="/console/action" style="display:flex;gap:8px;align-items:center">
+        <form method="POST" action="/console/action" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:100%">
             @csrf
             <input type="hidden" name="action" value="create_agent">
-            <input type="text" name="name" placeholder="اسم الإيجنت الجديد..." required style="width:190px;padding:7px 10px">
+            <input type="text" name="name" placeholder="اسم الإيجنت الجديد..." required style="width:190px;max-width:100%;flex:1 1 150px;padding:7px 10px">
             <button type="submit" class="btn btn-primary btn-sm">+ إنشاء إيجنت</button>
         </form>
     @endif
@@ -276,8 +276,8 @@
             <h2 class="card-title">كتالوج الأصوات والمعاينة المحلية (0 توكن للعينات المحفوظة)</h2>
             <p class="card-sub">ابحث أو صفّي حسب المزود والجنس، استمع للعينة، واضغط على بطاقة الصوت لاختياره في الاستوديو</p>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <input type="text" id="voiceSearchInput" oninput="filterVoiceCards()" placeholder="بحث بالاسم أو اللهجة..." style="width:170px;padding:6px 10px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;max-width:100%">
+            <input type="text" id="voiceSearchInput" oninput="filterVoiceCards()" placeholder="بحث بالاسم أو اللهجة..." style="width:170px;max-width:100%;flex:1 1 140px;padding:6px 10px">
             <select id="voiceProviderFilter" onchange="filterVoiceCards()" style="width:auto;padding:6px 10px">
                 <option value="">كل المزودين</option>
                 <option value="fish_audio">Fish Audio / IO Premium</option>
@@ -337,8 +337,8 @@
             <button type="submit" class="btn btn-sm">إضافة لقاعدة المعرفة</button>
         </form>
         @foreach ($data['kb_sources'] ?? [] as $kb)
-            <div style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
-                <span style="font-weight:600;font-size:13px">{{ $kb['name'] }}</span>
+            <div style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
+                <span style="font-weight:600;font-size:13px;overflow-wrap:anywhere">{{ $kb['name'] }}</span>
                 <span class="mono" style="font-size:11px;color:var(--dim)">{{ $kb['created_at'] }}</span>
             </div>
         @endforeach
@@ -347,10 +347,10 @@
     <div class="card">
         <h2 class="card-title" style="margin-bottom:10px">إصدارات الإيجنت المنشورة (Revisions)</h2>
         @forelse ($data['revisions'] ?? [] as $rev)
-            <div style="padding:9px 11px;border:1px solid var(--border);border-radius:8px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center">
-                <div>
+            <div style="padding:9px 11px;border:1px solid var(--border);border-radius:8px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
+                <div style="min-width:0;max-width:100%">
                     <strong class="mono">#Rev {{ $rev['revision'] }}</strong>
-                    <span class="mono" style="font-size:11.5px;color:var(--muted);margin-right:8px">{{ $rev['voice'] }}</span>
+                    <span class="mono" style="font-size:11.5px;color:var(--muted);margin-right:8px;overflow-wrap:anywhere">{{ $rev['voice'] }}</span>
                 </div>
                 <span class="mono" style="font-size:11px;color:var(--dim)">{{ $rev['published_at'] }}</span>
             </div>

@@ -7,7 +7,7 @@
     <title>{{ $ctx['brand']['name'] ?? 'IO Voice' }} — لوحة التحكم</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/css/obsidian.css?v=64">
+    <link rel="stylesheet" href="/assets/css/obsidian.css?v=68">
 </head>
 <body>
 @if (!empty($ctx['support']))
@@ -146,10 +146,10 @@
 
             <div class="topbar-right">
                 @if (count($ctx['switchable_accounts'] ?? []) > 1)
-                    <form method="POST" action="/console/action" style="margin:0;display:flex;align-items:center;gap:6px">
+                    <form method="POST" action="/console/action" class="topbar-switch-form">
                         @csrf
                         <input type="hidden" name="action" value="quick_switch_tenant">
-                        <select name="target_account_id" aria-label="التبديل السريع لمساحة العمل" onchange="this.form.submit()" style="width:auto;min-width:190px;padding:6px 10px;font-size:12.5px">
+                        <select name="target_account_id" aria-label="التبديل السريع لمساحة العمل" onchange="this.form.submit()" class="topbar-switch-select">
                             @foreach ($ctx['switchable_accounts'] as $sw)
                                 <option value="{{ $sw['id'] }}" {{ (int) $sw['id'] === (int) $ctx['account_id'] ? 'selected' : '' }}>
                                     {{ $sw['name'] }} ({{ $sw['kind'] }})
@@ -159,7 +159,7 @@
                     </form>
                 @endif
 
-                <a href="{{ config('ontrack.apk_download_path', '/mobile/updates/native/IOVoice-v62.apk') }}" class="btn btn-sm">تحميل APK</a>
+                <a href="{{ config('ontrack.apk_download_path', '/mobile/updates/native/IOVoice-v62.apk') }}" download="OnTrack-Voice-{{ config('ontrack.apk_version_name', '0.3.44') }}.apk" class="btn btn-sm">تحميل APK</a>
 
                 <button type="button" class="btn btn-icon" data-theme-icon onclick="toggleIoTheme()" aria-label="تبديل المظهر">
                     <svg class="icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>

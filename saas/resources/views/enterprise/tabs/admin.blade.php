@@ -237,9 +237,9 @@
             </form>
             <div style="margin-top:12px">
                 @foreach ($data['platform_relay_entries'] ?? [] as $rel)
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
-                        <div><strong>{{ $rel['label'] }}</strong> <span class="mono" style="font-size:11px;color:var(--muted)">{{ $rel['model'] }}</span></div>
-                        <div style="display:flex;gap:6px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
+                        <div style="min-width:0;max-width:100%"><strong>{{ $rel['label'] }}</strong> <span class="mono" style="font-size:11px;color:var(--muted);overflow-wrap:anywhere">{{ $rel['model'] }}</span></div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap">
                             <span class="pill {{ $rel['enabled'] ? 'pill-green' : 'pill-crimson' }}">{{ $rel['enabled'] ? 'مفعل' : 'متوقف' }}</span>
                             <form method="POST" action="/console/action" style="margin:0">@csrf<input type="hidden" name="action" value="toggle_relay_entry"><input type="hidden" name="relay_id" value="{{ $rel['id'] }}"><button class="btn btn-sm">{{ $rel['enabled'] ? 'تعطيل' : 'تفعيل' }}</button></form>
                         </div>
@@ -280,7 +280,7 @@
                 <h2 class="card-title">إصدار تطبيق الهاتف الرسمي (IO Voice Android)</h2>
                 <p class="card-sub mono" dir="ltr">Version {{ config('ontrack.apk_version_name') }} · versionCode={{ config('ontrack.apk_version_code') }} · OTA Rev {{ config('ontrack.ota_revision') }}</p>
             </div>
-            <a href="{{ config('ontrack.apk_download_path') }}" class="btn btn-primary btn-sm">تحميل APK الرسمي الآن</a>
+            <a href="{{ config('ontrack.apk_download_path') }}" download="OnTrack-Voice-{{ config('ontrack.apk_version_name', '0.3.44') }}.apk" class="btn btn-primary btn-sm">تحميل APK الرسمي الآن</a>
         </div>
     </div>
 @endif

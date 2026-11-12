@@ -6,10 +6,10 @@
     <title>IO Voice — منصة الوكلاء الصوتيين الذكيين | OnTrack</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/css/obsidian.css?v=62">
+    <link rel="stylesheet" href="/assets/css/obsidian.css?v=68">
 </head>
 <body>
-<header class="topbar" style="padding:0 28px">
+<header class="topbar portal-topbar">
     <div class="topbar-left">
         <div class="brand-mark">
             <img src="/brand-logo" alt="IO Voice" style="width:28px;height:28px">
@@ -31,12 +31,12 @@
     </div>
 </header>
 
-<main style="max-width:1120px;margin:0 auto;padding:56px 24px">
+<main class="portal-main">
     <div style="text-align:center;max-width:740px;margin:0 auto 48px">
         <span class="pill pill-crimson" style="margin-bottom:14px">
             <span class="dot online"></span> IO Voice · Android Dual-SIM & Live Cloud Studio
         </span>
-        <h1 style="font-size:38px;line-height:1.25;margin:12px 0 14px;font-weight:700;letter-spacing:-0.02em">
+        <h1 class="portal-hero-title">
             أتمتة المكالمات الهاتفية بذكاء اصطناعي فوري الاستجابة عبر شرائح الهاتف مباشرة
         </h1>
         <p style="color:var(--muted);font-size:16px;margin:0 0 26px">
@@ -45,7 +45,7 @@
         <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap">
             <a href="/login" class="btn btn-primary" style="padding:11px 22px;font-size:14.5px">دخول لوحة التحكم</a>
             <a href="/register" class="btn" style="padding:11px 22px;font-size:14.5px">إنشاء حساب شركة</a>
-            <a href="{{ config('ontrack.apk_download_path', '/mobile/updates/native/IOVoice-v62.apk') }}" class="btn btn-ghost">تحميل تطبيق Android v{{ config('ontrack.apk_version_name', '0.3.39') }}</a>
+            <a href="{{ config('ontrack.apk_download_path', '/mobile/updates/native/IOVoice-v62.apk') }}" download="OnTrack-Voice-{{ config('ontrack.apk_version_name', '0.3.44') }}.apk" class="btn btn-ghost">تحميل تطبيق Android v{{ config('ontrack.apk_version_name', '0.3.39') }}</a>
         </div>
     </div>
 
