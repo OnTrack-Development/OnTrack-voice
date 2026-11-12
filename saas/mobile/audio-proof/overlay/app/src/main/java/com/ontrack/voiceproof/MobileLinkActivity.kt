@@ -544,8 +544,12 @@ class MobileLinkActivity:ComponentActivity(){
         }
     }
     private fun openConsole(section:String="",siteId:Int=0,agentId:Int=0){
-        val tab=if(section in setOf("agents","flows","answering","devices"))section else "overview"
-        val builder=Uri.parse("https://app.ontrackegy.com/saas/console/").buildUpon()
+        val tab=when(section){
+            "agents","flows","answering"->"agents"
+            "devices"->"devices"
+            else->"overview"
+        }
+        val builder=Uri.parse("https://app.ontrackegy.com/").buildUpon()
             .appendQueryParameter("tab",tab)
         if(tab=="agents" && siteId>0 && agentId>0){
             builder.appendQueryParameter("site_id",siteId.toString())

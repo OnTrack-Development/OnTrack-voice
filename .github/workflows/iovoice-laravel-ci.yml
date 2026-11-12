@@ -1,0 +1,69 @@
+name: IO Voice Enterprise Laravel CI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'saas/app/**'
+      - 'saas/bootstrap/**'
+      - 'saas/config/**'
+      - 'saas/database/**'
+      - 'saas/public/**'
+      - 'saas/resources/**'
+      - 'saas/routes/**'
+      - 'saas/tests/**'
+      - 'saas/composer.json'
+      - 'saas/composer.lock'
+      - 'saas/phpunit.xml'
+      - '.github/workflows/iovoice-laravel-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'saas/app/**'
+      - 'saas/routes/**'
+      - 'saas/database/**'
+      - 'saas/resources/**'
+      - 'saas/tests/**'
+      - '.github/workflows/iovoice-laravel-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: iovoice-laravel-ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  laravel_test:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Lint PHP sources and frontend JS
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem -Recurse -Include *.php 'saas\app', 'saas\routes', 'saas\database', 'saas\config' | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP syntax error: ' + $_.FullName) }
+          }
+          if (Test-Path -LiteralPath 'saas\public\assets\js\obsidian.js') {
+            & node --check 'saas\public\assets\js\obsidian.js'
+            if ($LASTEXITCODE -ne 0) { throw 'obsidian.js syntax error' }
+          }
+          Write-Host 'PHP_AND_JS_SYNTAX_PASS'
+      - name: Install Composer dependencies if needed and run PHPUnit suite
+        working-directory: saas
+        env:
+          APP_ENV: testing
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path -LiteralPath 'vendor\autoload.php')) {
+            & composer install --no-interaction --prefer-dist --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'Composer install failed' }
+          }
+          & php vendor\bin\phpunit -c phpunit.xml --testdox
+          if ($LASTEXITCODE -ne 0) { throw 'Laravel PHPUnit test suite failed' }
+          Write-Host 'IOVOICE_LARAVEL_PHPUNIT_PASS'
+

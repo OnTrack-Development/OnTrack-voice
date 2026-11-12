@@ -51,7 +51,7 @@ jobs:
             & php -l $_.FullName | Out-Null
             if ($LASTEXITCODE -ne 0) { throw ('PHP syntax error: ' + $_.FullName) }
           }
-          foreach ($dir in @('saas\app\Support', 'saas\app\Http\Controllers\App', 'saas\app\Http\Controllers\Api', 'saas\database\migrations', 'saas\config')) {
+          foreach ($dir in @('saas\app\Support', 'saas\app\Http\Controllers\App', 'saas\app\Http\Controllers\Api', 'saas\app\Http\Controllers\Enterprise', 'saas\app\Services', 'saas\app\Console', 'saas\app\Models', 'saas\routes', 'saas\database\migrations', 'saas\config')) {
             if (Test-Path -LiteralPath $dir) {
               Get-ChildItem -LiteralPath $dir -Recurse -Filter '*.php' | ForEach-Object {
                 & php -l $_.FullName | Out-Null

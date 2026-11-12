@@ -18,6 +18,6 @@ class HomeController extends Controller
 
         abort_if(! $membership || ! $membership->workspace, 403, 'لا توجد مساحة عمل مرتبطة بحسابك.');
 
-        return redirect()->route('app.overview', ['workspace' => $membership->workspace->slug]);
+        return redirect('/');
     }
 }

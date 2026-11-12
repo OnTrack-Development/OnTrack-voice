@@ -35,15 +35,13 @@ $src = Join-Path $dir 'src'
 $sources = @(Get-ChildItem -LiteralPath $src,$(Join-Path $build 'gen') -Recurse -File -Filter '*.java')
 if ($sources.Count -lt 10) { throw 'Java sources were unexpectedly missing.' }
 $sourceArgs = Join-Path $build 'sources.txt'
-@($sources | ForEach-Object { '"' + $_.FullName.Replace('\','/') + '"' }) |
-  Set-Content -LiteralPath $sourceArgs -Encoding utf8
+[System.IO.File]::WriteAllLines($sourceArgs, [string[]]@($sources | ForEach-Object { '"' + $_.FullName.Replace('\','/') + '"' }), [System.Text.UTF8Encoding]::new($false))
 & javac --release 17 -nowarn -cp $androidJar -d $classes "@$sourceArgs"
 if ($LASTEXITCODE -ne 0) { throw 'Java 17-compatible shellserver compilation failed.' }
 $classFiles = @(Get-ChildItem -LiteralPath $classes -Recurse -File -Filter '*.class')
 if ($classFiles.Count -lt 10) { throw 'Compiled shellserver classes missing.' }
 $classArgs = Join-Path $build 'classes.txt'
-@($classFiles | ForEach-Object { $_.FullName.Replace('\','/') }) |
-  Set-Content -LiteralPath $classArgs -Encoding utf8
+[System.IO.File]::WriteAllLines($classArgs, [string[]]@($classFiles | ForEach-Object { $_.FullName.Replace('\','/') }), [System.Text.UTF8Encoding]::new($false))
 & $d8 --lib $androidJar --min-api 31 --output $jar "@$classArgs"
 if ($LASTEXITCODE -ne 0) { throw 'D8 shellserver dex compilation failed.' }
 if (-not (Test-Path -LiteralPath $jar)) { throw 'D8 did not produce shellserver jar.' }

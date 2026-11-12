@@ -10,14 +10,23 @@ return new class extends Migration
     {
         Schema::create('agents', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('project_id')->constrained()->cascadeOnDelete();
-            $table->string('name', 120);
+            $table->foreignId('tenant_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignId('project_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->unsignedBigInteger('account_id')->nullable()->index();
+            $table->unsignedBigInteger('site_id')->nullable()->index();
+            $table->string('name', 190);
             $table->string('kind', 40)->default('custom');
-            $table->string('status', 24)->default('draft');
+            $table->text('voice')->nullable();
+            $table->longText('instructions')->nullable();
+            $table->longText('knowledge')->nullable();
+            $table->longText('flow_json')->nullable();
+            $table->longText('persona')->nullable();
+            $table->string('status', 32)->default('draft');
+            $table->timestamp('published_at')->nullable();
             $table->timestamps();
 
             $table->index(['tenant_id', 'status']);
+            $table->index(['account_id', 'site_id', 'status']);
         });
     }
 

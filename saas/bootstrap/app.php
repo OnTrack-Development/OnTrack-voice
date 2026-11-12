@@ -13,8 +13,17 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Kashier authenticates this server-to-server endpoint with a verified HMAC, not browser CSRF.
-        $middleware->validateCsrfTokens(except: ['api/billing/kashier/webhook']);
+        // Server-to-server webhooks, device control plane API & signed SSO callbacks use HMAC / Bearer tokens
+        $middleware->validateCsrfTokens(except: [
+            'api/*',
+            'hooks/*',
+            'device/v1/*',
+            'saas/console/device/v1/*',
+            'saas/console/api/v1/*',
+            'saas/console/hooks/*',
+            'saas/console/whatsapp-*',
+            'sso',
+        ]);
         $middleware->alias([
             'platform.admin' => EnsurePlatformAdmin::class,
             'workspace.member' => EnsureWorkspaceMembership::class,

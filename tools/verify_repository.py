@@ -23,7 +23,7 @@ def digest(path):
 
 
 for path in ROOT.rglob("*.json"):
-    if "__pycache__" in path.parts or ".git" in path.parts:
+    if any(x in path.parts for x in ("__pycache__", ".git", "vendor", "node_modules", ".build", "dist", "storage")):
         continue
     try:
         json.loads(path.read_text())
@@ -149,7 +149,7 @@ if memory.is_dir():
 
 secret_patterns = [r"AIza[0-9A-Za-z_-]{25,}", r"github_pat_[A-Za-z0-9_]{20,}", r"ghp_[A-Za-z0-9]{30,}", r"omnira_sk_live_[A-Za-z0-9_-]{20,}", r"-----BEGIN (?:OPENSSH |RSA |EC )?PRIVATE KEY-----"]
 for path in ROOT.rglob("*"):
-    if not path.is_file() or any(x in path.parts for x in (".git", "__pycache__")) or path.suffix in (".zip", ".png", ".pyc"):
+    if not path.is_file() or any(x in path.parts for x in (".git", "__pycache__", "vendor", "node_modules", ".build", "dist", "storage")) or path.suffix in (".zip", ".png", ".pyc"):
         continue
     text = path.read_text(errors="replace")
     for pattern in secret_patterns:

@@ -1,0 +1,37 @@
+Options -Indexes
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP_HOST} ^app\.ontrackegy\.com$ [NC]
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+    # Legacy alias preservation without breaking POST/Bearer Android APIs
+    RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+    RewriteRule ^saas/console/login/?$ /login [R=302,L]
+    RewriteRule ^saas/mobile/(.*)$ /mobile/$1 [L,QSA]
+
+    # Preserve Authorization Header for Android Bearer tokens
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Preserve existing static files and mobile scripts
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+    Header always set Referrer-Policy strict-origin-when-cross-origin
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>
+
+<FilesMatch "^\.(?!htaccess|\.well-known).*|\.(bak|sql|log|sqlite|env|ini)$">
+    Require all denied
+</FilesMatch>

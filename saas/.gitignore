@@ -6,4 +6,13 @@
 /node_modules/
 /public/build/
 /storage/logs/*.log
+/storage/app/ontrack-vault/
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitkeep
+/storage/framework/views/*
+!/storage/framework/views/.gitkeep
+/storage/framework/cache/data/*
+!/storage/framework/cache/data/.gitkeep
 /bootstrap/cache/*.php
+/database/database.sqlite
+/.phpunit.result.cache
