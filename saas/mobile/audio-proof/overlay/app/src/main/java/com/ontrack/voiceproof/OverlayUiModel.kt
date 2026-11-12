@@ -34,7 +34,7 @@ internal fun overlayUiModel(
     return OverlayUiModel(
         running=running,
         status=status,
-        announcement="OnTrack Voice، $status، اضغط لفتح عناصر التحكم",
+        announcement="IO Voice، $status، اضغط لفتح عناصر التحكم",
         canTakeover=canTakeover,
         canSwitchSpeaker=canSwitchSpeaker,
         takeoverTitle=if(humanControl)"التحكم معاك" else "استلام من الإيجنت",

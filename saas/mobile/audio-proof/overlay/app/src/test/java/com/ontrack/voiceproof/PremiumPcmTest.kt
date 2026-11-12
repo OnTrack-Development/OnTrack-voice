@@ -35,4 +35,14 @@ class PremiumPcmTest {
         assertEquals("",PremiumPhrase.prefix("تمام"))
         assertEquals("أهلًا بيك يا زميلي",PremiumPhrase.merge("أهلًا بيك","أهلًا بيك يا زميلي"))
     }
+    @Test fun speakableStripsStageDirectionsAndStreamsMultiClause() {
+        assertEquals("أهلاً يا قلبي!",PremiumPhrase.speakable("(ضحكة خفيفة) أهلاً يا قلبي! (زفرة ناعمة)"))
+        assertEquals("مرحبا يا حلو!",PremiumPhrase.speakable("[همسة] مرحبا يا حلو!"))
+        val sample="(ضحكة خفيفة) أهلاً بك معنا! كيف أستطيع مساعدتك في طلبك اليوم؟ وهل تفضل التواصل باللهجة اللبنانية"
+        val first=PremiumPhrase.prefix(sample)
+        assertEquals("(ضحكة خفيفة) أهلاً بك معنا!",first)
+        assertEquals("أهلاً بك معنا!",PremiumPhrase.speakable(first))
+        val second=PremiumPhrase.prefix(sample.removePrefix(first).trimStart())
+        assertEquals("كيف أستطيع مساعدتك في طلبك اليوم؟",second)
+    }
 }

@@ -87,7 +87,7 @@ class ConsoleWebActivity:ComponentActivity(){
    web.webChromeClient=object:WebChromeClient(){
      override fun onJsConfirm(view:WebView?,url:String?,message:String?,result:JsResult?):Boolean{
        if(!allowed(url.orEmpty())){result?.cancel();return true}
-       AlertDialog.Builder(this@ConsoleWebActivity).setTitle("تأكيد إجراء OnTrack")
+       AlertDialog.Builder(this@ConsoleWebActivity).setTitle("تأكيد إجراء IO Voice")
          .setMessage(message.orEmpty().take(300))
          .setPositiveButton("تأكيد"){_,_->result?.confirm()}
          .setNegativeButton("إلغاء"){_,_->result?.cancel()}
@@ -96,7 +96,7 @@ class ConsoleWebActivity:ComponentActivity(){
      }
      override fun onJsAlert(view:WebView?,url:String?,message:String?,result:JsResult?):Boolean{
        if(!allowed(url.orEmpty())){result?.cancel();return true}
-       AlertDialog.Builder(this@ConsoleWebActivity).setTitle("OnTrack Voice")
+       AlertDialog.Builder(this@ConsoleWebActivity).setTitle("IO Voice")
          .setMessage(message.orEmpty().take(300))
          .setPositiveButton("حسنًا"){_,_->result?.confirm()}
          .setOnCancelListener{result?.cancel()}.show()

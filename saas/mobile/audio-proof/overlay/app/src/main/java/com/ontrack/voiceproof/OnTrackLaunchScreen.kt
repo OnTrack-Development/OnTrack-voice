@@ -37,7 +37,7 @@ internal class OnTrackLaunchScreen(private val activity:Activity, private val pa
     private val mark=ImageView(activity).apply {
         setImageResource(R.drawable.ontrack_icon)
         scaleType=ImageView.ScaleType.FIT_CENTER
-        contentDescription="OnTrack Voice"
+        contentDescription="IO Voice"
     }
     private val glint=View(activity).apply {
         background=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
@@ -46,7 +46,7 @@ internal class OnTrackLaunchScreen(private val activity:Activity, private val pa
         }
     }
     private val wordmark=TextView(activity).apply {
-        text="OnTrack"
+        text="IO Voice"
         textSize=30f
         letterSpacing=.02f
         typeface=Typeface.create("sans-serif-medium",Typeface.BOLD)
@@ -61,7 +61,7 @@ internal class OnTrackLaunchScreen(private val activity:Activity, private val pa
         setTextColor(0xFFE86A7D.toInt())
     }
     private val status=TextView(activity).apply {
-        text="جارٍ تجهيز OnTrack Voice…"
+        text="جارٍ تجهيز IO Voice…"
         textSize=12f
         setTextColor(0xFFC4C4C8.toInt())
         gravity=Gravity.CENTER

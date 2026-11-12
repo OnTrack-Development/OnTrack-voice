@@ -38,13 +38,13 @@ def main(root):
     for parent in ['app', 'shellserver', 'gradle']:
         for path in (root / parent).rglob('*'):
             if path.is_file() and path.suffix in suffixes:
-                text = path.read_text()
+                text = path.read_text(encoding='utf-8')
                 patched = (text.replace(OLD, NEW)
                            .replace('[c]om.jemcik.jemrec', '[c]om.ontrack.voiceproof')
                            .replace('jemrec-', 'ontrack-voiceproof-')
                            .replace('jemrec_rec_', 'ontrack_voiceproof_rec_'))
                 if patched != text:
-                    path.write_text(patched)
+                    path.write_text(patched, encoding='utf-8')
                     changed.append(str(path.relative_to(root)))
     # Android Settings > Wireless debugging > Paired devices uses the ADB
     # client label, not our app launcher label. This upstream default was
@@ -55,21 +55,27 @@ def main(root):
     path = root / 'app/src/main/java/com/jemcik/jemrec/adb/AdbTransport.kt'
     text = replace_once(path.read_text(),
                         'override fun getDeviceName(): String = "JemRec"',
-                        'override fun getDeviceName(): String = "OnTrack Voice"',
+                        'override fun getDeviceName(): String = "IO Voice"',
                         'wireless debugging client display name')
     path.write_text(text)
     path = root / 'app/src/main/java/com/jemcik/jemrec/adb/AdbIdentity.kt'
     text = replace_once(path.read_text(),
                         'private const val SUBJECT = "CN=JemRec, O=JemRec, C=US"',
-                        'private const val SUBJECT = "CN=OnTrack Voice, O=OnTrack Development, C=EG"',
+                        'private const val SUBJECT = "CN=IO Voice, O=OnTrack Development, C=EG"',
                         'new ADB identity certificate subject')
+    path.write_text(text)
+    path = root / 'app/src/main/res/values/strings.xml'
+    text = replace_once(path.read_text(),
+                        '<string name="app_name">JemRec</string>',
+                        '<string name="app_name">IO Voice</string>',
+                        'app_name string resource')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 59', 'versionCode')
+                        'versionCode = 60', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.3.36"', 'versionName')
+                        'versionName = "0.3.37"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
@@ -89,6 +95,16 @@ def main(root):
     path.write_text(text)
     path = root / 'shellserver/src/com/jemcik/jemrec/shell/GreetingPlayer.java'
     text = path.read_text().replace('private static AudioTrack musicTrack(', 'static AudioTrack musicTrack(').replace('private static AudioTrack screeningTrack(', 'static AudioTrack screeningTrack(')
+    text = replace_once(
+        text,
+        '                .setAudioFormat(mono())\n'
+        '                .setTransferMode(AudioTrack.MODE_STREAM)\n'
+        '                .build();',
+        '                .setAudioFormat(mono())\n'
+        '                .setTransferMode(AudioTrack.MODE_STREAM)\n'
+        '                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)\n'
+        '                .build();',
+        'low latency call uplink AudioTrack')
     path.write_text(text)
     path = root / 'shellserver/src/com/jemcik/jemrec/shell/Main.java'
     text = replace_once(path.read_text(), '        if (command == COMMAND_RECORD) {', '''        if (command == 'B') {
@@ -296,9 +312,9 @@ def main(root):
         android + 'name': 'com.google.mlkit.vision.DEPENDENCIES',
         android + 'value': 'barcode_ui'
     })
-    app.set(android + 'label', 'OnTrack Voice')
-    app.set(android + 'icon', '@drawable/ontrack_icon')
-    app.set(android + 'roundIcon', '@drawable/ontrack_icon')
+    app.set(android + 'label', 'IO Voice')
+    app.set(android + 'icon', '@mipmap/ic_launcher')
+    app.set(android + 'roundIcon', '@mipmap/ic_launcher_round')
     for activity in app.findall('activity'):
         if activity.get(android + 'name') == '.MainActivity':
             for intent in list(activity.findall('intent-filter')):
@@ -348,6 +364,15 @@ def main(root):
     # Upstream components use relative names under the new namespace; explicit
     # intents inside shell source were rewritten above. No Accessibility added.
     manifest.write(path, encoding='utf-8', xml_declaration=True)
+    for obsolete in (
+        'app/src/main/res/mipmap-anydpi/ic_launcher.xml',
+        'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+        'app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml',
+        'app/src/main/res/drawable/ic_launcher_foreground.xml',
+        'app/src/main/res/drawable/ic_launcher_monochrome.xml',
+        'app/src/main/res/drawable/ontrack_icon.xml',
+    ):
+        (root / obsolete).unlink(missing_ok=True)
     for source in (HERE / 'overlay').rglob('*'):
         if source.is_file():
             target = root / source.relative_to(HERE / 'overlay')

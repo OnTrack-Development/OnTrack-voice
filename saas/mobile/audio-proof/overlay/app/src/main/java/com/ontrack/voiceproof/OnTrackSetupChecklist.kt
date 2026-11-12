@@ -33,7 +33,7 @@ internal object OnTrackSetupChecklist {
             if(f.readPhone)"" else "تفعيل إذن الهاتف")
         add("sim","ربط الشريحة بالحساب",
             if(f.pairedSim)CheckState.READY else CheckState.ACTION,
-            if(f.pairedSim)"بيانات الشريحة محفوظة ومشفرة على الهاتف." else "اربط SIM بكود حساب OnTrack، بدون مفاتيح API أو USB.",
+            if(f.pairedSim)"بيانات الشريحة محفوظة ومشفرة على الهاتف." else "اربط SIM بكود حساب IO Voice، بدون مفاتيح API أو USB.",
             if(f.pairedSim)CheckAction.NONE else CheckAction.OPEN_VOICE,
             if(f.pairedSim)"" else "فتح ربط الشريحة")
         add("pcm","محرك نقل الصوت المباشر",

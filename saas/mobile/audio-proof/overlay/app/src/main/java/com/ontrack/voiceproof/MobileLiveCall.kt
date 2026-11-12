@@ -238,15 +238,20 @@ internal class MobileLiveCall(
                         if(dropped>0) "؛ تم تجاوز $dropped حزمة صوت متأخرة بسبب ازدحام الشبكة" else "")
                 }
             }
-        val agentName=session.optString("agent_name","مساعد OnTrack").trim().ifBlank{"مساعد OnTrack"}
+        val agentName=session.optString("agent_name","مساعد IO Voice").trim().ifBlank{"مساعد IO Voice"}
+        val scenarioMode=settings.optString("scenario_mode","builder")
+        val responseStyle=settings.optString("response_style","egyptian_short")
         if(OutboundFirstTurn.sendInitialGreeting(outgoingCall)) {
             val manager=settings.optString("manager_briefing","").trim()
             val prompt=if(manager.isNotBlank())
-                "دي مكالمة متابعة للمدير. استنى لما الطرف الآخر يرد واطلب تأكيد إنه المسؤول، " +
-                "وبعد ما يأكد قل له سبب طلب الموظف وملخص المكالمة الآتي بهدوء. " +
-                "لو مش المسؤول اعتذر من غير ذكر بيانات العميل:\n" + manager
+                "هذه مكالمة متابعة للمدير. انتظر حتى يرد الطرف الآخر واطلب تأكيد أنه المسؤول، " +
+                "وبعد التأكيد أخبره بسبب طلب الموظف وملخص المكالمة الآتي بهدوء. " +
+                "إن لم يكن المسؤول اعتذر دون ذكر بيانات العميل:\n" + manager
+            else if(scenarioMode=="scenario" || responseStyle!="egyptian_short")
+                "ابدأ المكالمة فورًا بالافتتاحية والشخصية واللغة أو اللهجة المحددة في السيناريو المنشور باسم "+agentName+
+                " فقط، ولا تذكر رقم الإيجنت أو كلمة سيناريو أو تقرأ توصيفات الأداء بين قوسين (...)، ثم استمع لرد العميل."
             else "ابدأ المكالمة بتحية مصرية قصيرة باسم "+agentName+
-                " فقط، ولا تنطق رقم الإيجنت أو نسخة السيناريو. ثم اسمع رد العميل."
+                " فقط، ولا تنطق رقم الإيجنت أو نسخة السيناريو أو توصيفات الأداء بين قوسين (...). ثم اسمع رد العميل."
             if(premium){
                 scope.launch(Dispatchers.IO){runCatching{official?.prompt(prompt)}}
             }else{
@@ -384,11 +389,15 @@ internal class MobileLiveCall(
         val handle=resumeHandle
         ws=client.newWebSocket(Request.Builder().url(liveUrl).build(),object:WebSocketListener(){
             override fun onOpen(webSocket:WebSocket,response:Response) {
+                val scenarioMode=settings.optString("scenario_mode","builder")
                 val style=when(settings.optString("response_style","egyptian_short")){
                     "formal_ar"->"تحدث بالعربية الفصحى بأسلوب مهني وواضح."
                     "english"->"Speak in clear and concise English."
                     "bilingual"->"تحدث بالعربية أو الإنجليزية حسب لغة العميل."
-                    else->"تحدث باللهجة المصرية بصورة طبيعية ومختصرة."
+                    "multilingual"->"التزم تمامًا باللغة أو اللهجة المحددة في السيناريو أو التي يتحدث بها المتصل، ولا تفرض لهجة أخرى."
+                    else->if(scenarioMode=="scenario")
+                        "التزم التزامًا حرفيًا باللهجة والشخصية المحددة في السيناريو المنشور؛ وإن لم يحدد لهجة فاستخدم العربية المصرية الطبيعية."
+                    else "تحدث باللهجة المصرية بصورة طبيعية ومختصرة."
                 }
                 val manager=settings.optString("manager_briefing","").trim()
                 val policy=if(manager.isNotBlank())
@@ -398,9 +407,10 @@ internal class MobileLiveCall(
                     "قل السبب والملخص فقط، ولا تطلب PIN أو كلمة سر. " + style +
                     "\n\nتفاصيل الإبلاغ:\n" + manager
                 else session.getString("system_instruction")+"\n\n"+style+
+                    " التوصيفات بين قوسين (...) أو [...] إرشادات أداء صوتي غير منطوقة؛ لا تقرأها أبدًا."+
                     " استخدم سؤالًا واحدًا في كل دور ثم استمع للعميل، ولا تكرر التحية أو الأسئلة."+
                     " توقف فورًا عند المقاطعة، ولا تعيد الجملة التي قاطعها العميل. " +
-                    "لما العميل يطلب موظف استخدم request_human_employee لتسجيل السبب والملاحظات، ثم قل إن طلب المتابعة اتسجل إذا نجحت الأداة فقط؛ لا تقل جاري تحويل أو تم تحويل المكالمة. " +
+                    "عندما يطلب المتصل موظفًا بشريًا استخدم request_human_employee لتسجيل السبب والملاحظات، ثم أخبره أن طلب المتابعة تم تسجيله إذا نجحت الأداة فقط؛ لا تقل جاري تحويل أو تم تحويل المكالمة. " +
                     "احفظ ملخصًا موجزًا وملاحظات العملاء باستخدام save_call_note بعد المعلومات المهمة، لأن التفريغ النصي على بيانات المحمول قد يتأخر."
                 val instruction=if(switchedProvider || ready.isCompleted)
                     policy+"\n\n"+VoiceFailoverPolicy.restoredContext(
@@ -408,9 +418,19 @@ internal class MobileLiveCall(
                             reportTranscript.toString().takeLast(2800)
                         })
                 else policy
-                val setup=JSONObject().put("model","models/"+session.getString("model").removePrefix("models/"))
-                    .put("generationConfig",JSONObject().put("responseModalities",org.json.JSONArray(listOf("AUDIO")))
-                        .put("speechConfig",JSONObject().put("voiceConfig",JSONObject().put("prebuiltVoiceConfig",JSONObject().put("voiceName",settings.optString("voice","Aoede"))))))
+                val cleanModel=session.getString("model").removePrefix("models/")
+                val generationConfig=JSONObject().put("responseModalities",org.json.JSONArray(listOf("AUDIO")))
+                    .put("speechConfig",JSONObject().put("voiceConfig",JSONObject().put("prebuiltVoiceConfig",JSONObject().put("voiceName",settings.optString("voice","Aoede")))))
+                if(!cleanModel.contains("3.8-live",ignoreCase=true) && cleanModel.contains("2.5",ignoreCase=true))
+                    generationConfig.put("thinkingConfig",JSONObject().put("thinkingBudget",0))
+                val setup=JSONObject().put("model","models/"+cleanModel)
+                    .put("generationConfig",generationConfig)
+                    .put("realtimeInputConfig",JSONObject().put("automaticActivityDetection",JSONObject()
+                        .put("disabled",false)
+                        .put("startOfSpeechSensitivity","START_SENSITIVITY_HIGH")
+                        .put("endOfSpeechSensitivity","END_SENSITIVITY_HIGH")
+                        .put("prefixPaddingMs",40)
+                        .put("silenceDurationMs",350)))
                     .put("systemInstruction",JSONObject().put("parts",org.json.JSONArray().put(JSONObject().put("text",instruction))))
                     .put("inputAudioTranscription",JSONObject()).put("outputAudioTranscription",JSONObject())
                     .put("sessionResumption",if(handle.isNullOrBlank())JSONObject() else JSONObject().put("handle",handle))

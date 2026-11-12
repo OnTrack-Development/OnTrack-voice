@@ -1332,7 +1332,10 @@ function agent_scenario_text_editor(string $value):string {
     return '<div class="agent-builder-intro"><strong>السيناريو النصي</strong><p>اكتب طريقة بدء المكالمة، الأسئلة، الردود، الاعتراضات، والإنهاء. المساعد يفهم النص ويمشي عليه بشكل طبيعي، بدون تحويله إلى بلوكات.</p></div>'.
         '<label class="field">نص السيناريو (حد أقصى 8000 حرف)'.
         '<textarea name="scenario_text" data-scenario-text rows="14" maxlength="8000" dir="auto" placeholder="ابدأ بالترحيب... اسأل عن احتياج العميل... وضّح الخدمة... تعامل مع الاعتراضات... أنهِ المكالمة...">'.e($value).'</textarea></label>'.
+        '<div class="row" style="gap:8px;flex-wrap:wrap">'.
         '<button class="btn" type="button" data-scenario-example="dog-sale">تحميل مثال ديمو بيع كلب (قابل للتعديل)</button>'.
+        '<button class="btn" type="button" data-scenario-example="lebanese-feedback">تقييم خدمة Voice Agent · لبناني ودلع (قابل للتعديل)</button>'.
+        '</div>'.
         '<small class="dim">ده مثال جديد بنفس فكرة ديمو البيع، مش استرجاع حرفي لنص الديمو القديم. السيناريو بيتحفظ حتى وإنت مشغّل البيلدر.</small>';
 }
 function agent_api_source_picker(array $policy,array $sources):string {

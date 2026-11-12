@@ -282,7 +282,7 @@ class MobileLinkActivity:ComponentActivity(){
         openUpdatesOnReady=intent?.getBooleanExtra("open_updates",false)==true
         getSystemService(android.app.NotificationManager::class.java)
             .createNotificationChannel(android.app.NotificationChannel(
-                "ontrack_voice_updates","تحديثات OnTrack Voice",
+                "ontrack_voice_updates","تحديثات IO Voice",
                 android.app.NotificationManager.IMPORTANCE_DEFAULT))
         // Never erase an existing device link during an in-place signed OTA.
         // Legacy Pilot cannot launch in tenant mode, but its credential remains
@@ -296,7 +296,7 @@ class MobileLinkActivity:ComponentActivity(){
         banner=TextView(this).apply{
             setPadding(20,14,20,12);setTextColor(Color.rgb(168,185,208))
             setBackgroundColor(Color.rgb(18,27,42))
-            textSize=12f;text="OnTrack Voice • جاري تجهيز الاتصال"
+            textSize=12f;text="IO Voice • جاري تجهيز الاتصال"
         };root.addView(banner)
         web=WebView(this);root.addView(web,LinearLayout.LayoutParams(-1,0,1f))
         val layer=FrameLayout(this)
@@ -347,7 +347,7 @@ class MobileLinkActivity:ComponentActivity(){
                     result?.cancel();return true
                 }
                 AlertDialog.Builder(this@MobileLinkActivity)
-                    .setTitle("تأكيد OnTrack")
+                    .setTitle("تأكيد IO Voice")
                     .setMessage(message.orEmpty().take(300))
                     .setPositiveButton("تأكيد"){_,_->result?.confirm()}
                     .setNegativeButton("إلغاء"){_,_->result?.cancel()}
@@ -360,7 +360,7 @@ class MobileLinkActivity:ComponentActivity(){
                     result?.cancel();return true
                 }
                 AlertDialog.Builder(this@MobileLinkActivity)
-                    .setTitle("OnTrack Voice")
+                    .setTitle("IO Voice")
                     .setMessage(message.orEmpty().take(300))
                     .setPositiveButton("حسنًا"){_,_->result?.confirm()}
                     .setOnCancelListener{result?.cancel()}
@@ -847,8 +847,9 @@ class MobileLinkActivity:ComponentActivity(){
         val pending=android.app.PendingIntent.getActivity(this,1200,open,
             android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
         val alert=NotificationCompat.Builder(this,"ontrack_voice_updates")
-            .setSmallIcon(android.R.drawable.stat_sys_download_done)
-            .setContentTitle("تحديث OnTrack Voice متاح")
+            .setSmallIcon(R.drawable.ic_stat_io_voice)
+            .setLargeIcon(android.graphics.BitmapFactory.decodeResource(resources,R.mipmap.ic_launcher))
+            .setContentTitle("تحديث IO Voice متاح")
             .setContentText("الإصدار "+release.versionName+" جاهز. اضغط لفتح شاشة التحديث.")
             .setContentIntent(pending).setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT).build()
@@ -883,7 +884,7 @@ class MobileLinkActivity:ComponentActivity(){
         },320)
     }
     private fun show(screen:MobileOta.Screen){
-        ready=false;splash?.reveal();splash?.message("جارٍ تجهيز واجهة OnTrack…");val current=++generation
+        ready=false;splash?.reveal();splash?.message("جارٍ تجهيز واجهة IO Voice…");val current=++generation
         screenNonce=java.util.UUID.randomUUID().toString()
         require(screen.html.contains("<head>")){"صيغة واجهة التحديث غير صالحة"}
         val content=screen.html.replaceFirst("<head>","<head><script>window.OTA_NONCE="+JSONObject.quote(screenNonce)+";</script>")
@@ -891,7 +892,7 @@ class MobileLinkActivity:ComponentActivity(){
         localPage=page
         web.loadUrl(page.url)
         lifecycleScope.launch{delay(10000);if(!ready && current==generation){
-            if(screen.revision>1){banner.text="تعذر بدء واجهة OnTrack الجديدة؛ حاول تحديث الصفحة من إعدادات التطبيق. لن نعيد الواجهة القديمة تلقائيًا";splash?.hide()}
+            if(screen.revision>1){banner.text="تعذر بدء واجهة IO Voice الجديدة؛ حاول تحديث الصفحة من إعدادات التطبيق. لن نعيد الواجهة القديمة تلقائيًا";splash?.hide()}
             else banner.text="تعذر فتح الواجهة؛ استخدم إعدادات الهاتف من شاشة التشخيص"
             splash?.hide()
         }}
@@ -914,7 +915,7 @@ class MobileLinkActivity:ComponentActivity(){
             }
             if(next==null){
                 banner.text="الواجهة محدثة • OTA ${ota.revision}"
-                if(initialUiUpdateCheckPending)splash?.message("الواجهة محدثة، جارٍ فتح OnTrack…")
+                if(initialUiUpdateCheckPending)splash?.message("الواجهة محدثة، جارٍ فتح IO Voice…")
             } else {
                 if(initialUiUpdateCheckPending)splash?.message("تم التحقق من التحديث، جارٍ تشغيله…")
                 activate(next)
@@ -948,7 +949,7 @@ class MobileLinkActivity:ComponentActivity(){
             sendState();return
         }
         if(!nativeUpdates.canInstallPackages()){
-            nativeStatus="يلزم السماح بالتثبيت من OnTrack مرة واحدة بواسطة Android"
+            nativeStatus="يلزم السماح بالتثبيت من IO Voice مرة واحدة بواسطة Android"
             nativeUpdates.openInstallPermission()
             sendState();return
         }
@@ -956,7 +957,7 @@ class MobileLinkActivity:ComponentActivity(){
         try{
             val already=withContext(Dispatchers.IO){nativeUpdates.cached(release)}
             nativeStatus=if(already)"ملف التحديث محفوظ ومُتحقق منه؛ جارٍ فتح مثبت Android…"
-                else "تنزيل تحديث Android من OnTrack…"
+                else "تنزيل تحديث Android من IO Voice…"
             sendState()
             val file=nativeUpdates.download(release){percentage->
                 runOnUiThread{nativeStatus="تحميل التحديث: $percentage%";sendState()}
@@ -965,7 +966,7 @@ class MobileLinkActivity:ComponentActivity(){
             val accepted=withContext(Dispatchers.IO){nativeUpdates.requestInstall(file)}
             nativeStatus=if(accepted)
                 "التحديث محفوظ؛ بانتظار موافقة Android على التثبيت (لا حاجة لإعادة التحميل)"
-            else "اسمح بالتثبيت من OnTrack؛ ملف التحديث سيظل محفوظًا"
+            else "اسمح بالتثبيت من IO Voice؛ ملف التحديث سيظل محفوظًا"
         }catch(t:Throwable){
             if(t is CancellationException)throw t
             nativeStatus="تعذّر تحديث Android: "+(t.message?:t.javaClass.simpleName)

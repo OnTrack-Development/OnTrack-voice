@@ -43,7 +43,7 @@ internal class PremiumOfficialLive(
     private val ready=CompletableDeferred<Unit>()
     @Volatile private var socket:WebSocket?=null
     private var fullOutput=""
-    private var spoken=""
+    private var spokenOffset=0
     // Google's AUDIO stream is generated in the SAME authorized Gemini Live
     // session as Fish-backed output. Buffer ONLY a few seconds of its latest
     // turn so quota errors can switch voices without new Google credentials,
@@ -97,9 +97,18 @@ internal class PremiumOfficialLive(
         socket=client.newWebSocket(Request.Builder().url(url).build(),object:WebSocketListener(){
             override fun onOpen(webSocket:WebSocket,response:Response) {
                 if(stopped.get())return
-                val setup=JSONObject().put("model","models/"+model.removePrefix("models/"))
-                    .put("generationConfig",JSONObject()
-                        .put("responseModalities",JSONArray().put("AUDIO")))
+                val cleanModel=model.removePrefix("models/")
+                val generationConfig=JSONObject().put("responseModalities",JSONArray().put("AUDIO"))
+                if(!cleanModel.contains("3.8-live",ignoreCase=true) && cleanModel.contains("2.5",ignoreCase=true))
+                    generationConfig.put("thinkingConfig",JSONObject().put("thinkingBudget",0))
+                val setup=JSONObject().put("model","models/"+cleanModel)
+                    .put("generationConfig",generationConfig)
+                    .put("realtimeInputConfig",JSONObject().put("automaticActivityDetection",JSONObject()
+                        .put("disabled",false)
+                        .put("startOfSpeechSensitivity","START_SENSITIVITY_HIGH")
+                        .put("endOfSpeechSensitivity","END_SENSITIVITY_HIGH")
+                        .put("prefixPaddingMs",40)
+                        .put("silenceDurationMs",350)))
                     .put("systemInstruction",JSONObject().put("parts",
                         JSONArray().put(JSONObject().put("text",instruction))))
                     .put("inputAudioTranscription",JSONObject())
@@ -125,13 +134,21 @@ internal class PremiumOfficialLive(
                         ?.takeIf{it.isNotBlank()}?.let { text->
                             fullOutput=PremiumPhrase.merge(fullOutput,text)
                             assistant(text)
-                            if(spoken.isEmpty()){
-                                val prefix=PremiumPhrase.prefix(fullOutput)
-                                if(prefix.isNotEmpty()){spoken=prefix;phrase(prefix)}
+                            while(true){
+                                val start=spokenOffset.coerceIn(0,fullOutput.length)
+                                val slice=fullOutput.substring(start)
+                                val lead=slice.indexOfFirst{!it.isWhitespace()}
+                                if(lead<0)break
+                                val trimmed=slice.substring(lead)
+                                val prefix=PremiumPhrase.prefix(trimmed)
+                                if(prefix.isEmpty())break
+                                spokenOffset=(start+lead+prefix.length).coerceAtMost(fullOutput.length)
+                                val speak=PremiumPhrase.speakable(prefix)
+                                if(speak.isNotEmpty())phrase(speak)
                             }
                         }
                     if(content.optBoolean("interrupted")){
-                        fullOutput="";spoken=""
+                        fullOutput="";spokenOffset=0
                         synchronized(audioGate){
                             recentGooglePcm.clear();recentBytes=0;newTurnPending=false
                         }
@@ -148,10 +165,10 @@ internal class PremiumOfficialLive(
                         receiveGoogleAudio(Base64.decode(inline.getString("data"),Base64.DEFAULT),rate)
                     }
                     if(content.optBoolean("turnComplete")){
-                        val remainder=if(spoken.isNotEmpty()&&fullOutput.startsWith(spoken))
-                            fullOutput.substring(spoken.length).trim() else fullOutput.trim()
+                        val start=spokenOffset.coerceIn(0,fullOutput.length)
+                        val remainder=PremiumPhrase.speakable(fullOutput.substring(start))
                         if(remainder.isNotEmpty())phrase(remainder)
-                        fullOutput="";spoken=""
+                        fullOutput="";spokenOffset=0
                         synchronized(audioGate){newTurnPending=true}
                     }
                     // Google audio is normally buffered, never emitted alongside

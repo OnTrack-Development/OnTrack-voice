@@ -121,7 +121,7 @@ internal class NativeUpdates(private val context: Context) {
         try {
             val request=Request.Builder().url(root+release.file).build()
             client.newCall(request).execute().use {response ->
-                require(response.code==200){"تعذر تحميل APK من OnTrack: HTTP ${response.code}"}
+                require(response.code==200){"تعذر تحميل APK من IO Voice: HTTP ${response.code}"}
                 val body=response.body?:error("ملف التحديث فارغ")
                 var count=0L
                 FileOutputStream(temp).use{out->
@@ -139,7 +139,7 @@ internal class NativeUpdates(private val context: Context) {
                 }
                 require(count==release.size){"تنزيل APK غير مكتمل"}
             }
-            require(verified(temp,release)){"توقيع APK أو بصمته لا تطابق إصدار OnTrack"}
+            require(verified(temp,release)){"توقيع APK أو بصمته لا تطابق إصدار IO Voice"}
             if(target.exists() && !target.delete())error("تعذر استبدال ملف التحديث القديم")
             require(temp.renameTo(target)){"تعذر تخزين التحديث"}
             destination.listFiles()?.filter{it.name.endsWith(".apk") && it!=target}?.forEach{it.delete()}

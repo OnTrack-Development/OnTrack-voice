@@ -63,8 +63,11 @@ try {
     scenario_ok($live['scenario_mode']==='scenario'&&
         $live['routing_contract']==='published_text_scenario_prompt_guidance'&&
         str_contains($live['instruction'],$text)&&
-        !str_contains($live['instruction'],'اسأل عن نوع الخدمة من البيلدر'),
-        'published text scenario is exclusive active guide');
+        !str_contains($live['instruction'],'اسأل عن نوع الخدمة من البيلدر')&&
+        !str_contains($live['instruction'],'تكلم بشكل مهني')&&
+        !str_contains($live['instruction'],$policy['goal'])&&
+        str_contains($live['instruction'],'غير منطوقة'),
+        'published text scenario is exclusive active guide without builder instruction leakage or spoken stage directions');
     scenario_ok(str_contains($live['instruction'],'لغة العميل') &&
         str_contains($live['instruction'],'أي لغة'),'supports multilingual voice and API');
     $snapshot=published_agent_flow($account,$site,$agent);

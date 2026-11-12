@@ -1,5 +1,5 @@
 <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#280B08"><title>OnTrack Voice</title>
+<meta name="theme-color" content="#280B08"><title>IO Voice</title>
 <style>
 #legacyPilotConfig[hidden]{display:none!important}#accountLinkHint{font-size:12px;line-height:1.7;color:var(--muted)}
 :root{--bg:#0b101b;--panel:#171f2e;--border:#2c3648;--muted:#9cacc4;--text:#eff3fb;--accent:#e3304c;--green:#35cf9a;--yellow:#f0ad57}
@@ -226,10 +226,10 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 #v1UpdateBox .v1Buttons button{font-size:12px}}
 </style></head><body>
 <div id="uiPullStatus" hidden role="status" aria-live="polite">↻ جارٍ تحديث البيانات…</div>
-<div id="otSplash" role="status" aria-live="polite"><div class="otHalo"><div class="otMonogram">OT</div></div><div class="otTitle">ONTRACK</div><div class="otSubtitle">VOICE INTELLIGENCE</div><div class="otProgress"><span class="otPulse"></span>يرجى الانتظار · جارٍ تجهيز الاتصال</div></div>
+<div id="otSplash" role="status" aria-live="polite"><div class="otHalo"><div class="otMonogram">IO</div></div><div class="otTitle">IO VOICE</div><div class="otSubtitle">VOICE INTELLIGENCE</div><div class="otProgress"><span class="otPulse"></span>يرجى الانتظار · جارٍ تجهيز الاتصال</div></div>
 
-<header><div class="brand"><span class="logo">OT</span><div><h1>OnTrack Voice</h1><div class="sub">OnTrack Development · مركز الاتصال</div></div></div><div class="otHeaderTools"><button id="updateBell" type="button" class="otUpdateBellButton" hidden aria-label="تحديث جديد — فتح شاشة التحديث">↑<span class="otNotifyDot"></span></button><button id="themeToggle" type="button" class="otThemeButton" aria-label="تبديل المظهر">☀</button><div class="minor" id="version" aria-label="إصدار التطبيق">جاري قراءة الإصدار…</div></div></header>
-<main id="v1Minimal" aria-label="OnTrack Voice">
+<header><div class="brand"><span class="logo">IO</span><div><h1>IO Voice</h1><div class="sub">IO Voice · مركز الاتصال الذكي</div></div></div><div class="otHeaderTools"><button id="updateBell" type="button" class="otUpdateBellButton" hidden aria-label="تحديث جديد — فتح شاشة التحديث">↑<span class="otNotifyDot"></span></button><button id="themeToggle" type="button" class="otThemeButton" aria-label="تبديل المظهر">☀</button><div class="minor" id="version" aria-label="إصدار التطبيق">جاري قراءة الإصدار…</div></div></header>
+<main id="v1Minimal" aria-label="IO Voice">
 <section class="card" id="v1PairAlways" aria-labelledby="v1PairHeading">
 <div class="section-title"><h2 id="v1PairHeading">ربط الشريحة بالحساب</h2><span class="chip" id="v1PairState">جاهز للربط</span></div>
 <p class="v1Hint">خطوتين: افتح حسابك وخد كود 6 أرقام، واكتبه هنا. مفيش QR ولا API Key.</p>
@@ -343,7 +343,7 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 <button type="button" id="tenantRefresh" class="subtle-button">تحديث حالة الشرائح</button>
 </section>
 <section class="card" id="versionUpdates" data-panel="settings">
-<div class="section-title"><h2>تحديثات OnTrack</h2><span class="chip good">تحديثات آمنة</span></div>
+<div class="section-title"><h2>تحديثات IO Voice</h2><span class="chip good">تحديثات آمنة</span></div>
 <p>الواجهة والإعدادات تتحدث مباشرة. عند تحديث محرك Android، التطبيق ينزّل النسخة ويطلب موافقة Android على التثبيت مرة واحدة.</p>
 <div class="status"><span class="indicator good"></span><div><strong style="font-size:15px">إصدار التطبيق</strong><span class="small" id="nativeUpdateStatus">جاري البحث عن تحديث جديد…</span></div></div>
 <div class="row"><button class="primary" id="upgradeAndroid" disabled>تثبيت تحديث Android</button><button id="scanAndroid" class="outline">فحص الإصدار</button></div>
@@ -381,7 +381,7 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 <div class="row"><button id="contactsPick" class="outline">اختيار جهة اتصال</button><button id="contactsAll" class="outline">استعراض كل الأرقام</button></div>
 <div class="otMiniCard"><div><strong>معاينة قبل الرفع</strong><small id="contactPreview">لم تختَر أرقامًا بعد</small></div></div>
 <label style="display:flex;align-items:flex-start;gap:8px"><input type="checkbox" id="contactConsent" style="width:auto;margin-top:4px"><span>أؤكد موافقة أصحاب الأرقام المختارة على التواصل معهم لأغراض هذه الحملة.</span></label>
-<button id="contactsUpload" class="primary" disabled>رفع الأرقام المؤكدة إلى OnTrack</button>
+<button id="contactsUpload" class="primary" disabled>رفع الأرقام المؤكدة إلى IO Voice</button>
 <p class="small" id="contactResult">لا توجد أرقام مرفوعة في هذه الجلسة</p>
 <div class="divider"></div><h2>استيراد CSV / TXT / Excel</h2>
 <p>اختار الملف من موبايلك، وبعد ما تتأكد من الاسم وتوافق على التواصل اضغط استيراد. بحد أقصى 1 MB.</p>
@@ -419,7 +419,7 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 
 </section>
 <section id="voiceLibrary" data-panel="settings" hidden></section>
-<footer>OnTrack Development © 2026 · Voice Cloud</footer>
+<footer>IO Voice © 2026 · Voice Cloud</footer>
 <script>
 const el=id=>document.getElementById(id);
 let splashEnded=false;function finishSplash(){if(splashEnded)return;splashEnded=true;el('otSplash')?.classList.add('exit')}
@@ -702,7 +702,7 @@ el('v1CheckUpdates').onclick=()=>el('scanAndroid').click();
 el('v1InstallUpdates').onclick=()=>el('upgradeAndroid').click();
 el('enable').onclick=()=>{
  el('message').textContent='';
- if(!last.tenantLinked){el('message').textContent='اربط SIM بحساب OnTrack أولًا';return;}
+ if(!last.tenantLinked){el('message').textContent='اربط SIM بحساب IO Voice أولًا';return;}
  if(last.tenantPairingInProgress){el('message').textContent='جاري استكمال ربط الشريحة';return;}
  el('message').textContent='جاري إرسال أمر التشغيل للهاتف…';
  send('enable');

@@ -118,7 +118,7 @@ class ProofActivity:ComponentActivity(){
         }
         val scroll=ScrollView(this).apply{isFillViewport=true;addView(stack)}
         setContentView(scroll)
-        stack.addView(label("ONTRACK  /  VOICE",15f,red,true))
+        stack.addView(label("IO  /  VOICE",15f,red,true))
         stack.addView(label("إعداد اتصال الهاتف",26f,text,true))
         stack.addView(label("إعداد مرة واحدة فقط. هنفتح لك صفحات Android المناسبة ونخليك ترجع تكمل من نفس المكان.",14f,muted))
         status=label("",13f,muted)
@@ -209,7 +209,7 @@ class ProofActivity:ComponentActivity(){
                     .count{it.state==CheckState.ACTION}
                 status.text=if(needed==0)"✅ الأذونات الأساسية جاهزة. الخيارات الإضافية مش مطلوبة للمكالمة الواردة."
                     else "الفحص خلص: $needed خطوة أساسية ناقصة. كل خطوة فيها زر يصلحها."
-                diagnosticBox.addView(label("تصاريح OnTrack Voice — المفعّل والناقص",18f,text,true))
+                diagnosticBox.addView(label("تصاريح IO Voice — المفعّل والناقص",18f,text,true))
                 diagnosticBox.addView(label(
                     "الأحمر مطلوب للمكالمات الواردة، والرمادي ميزة اختيارية. اضغط على التصريح الناقص، وهنفحصه تاني لما ترجع.",
                     12f,muted))
@@ -300,11 +300,11 @@ class ProofActivity:ComponentActivity(){
         }
         card(manual,"02  اقتران الهاتف",
             "لما تخلص تفعيل Wireless debugging، اضغط هنا لفتح الاقتران واتبع الكود الظاهر من Android. لو الجهاز متصل بالفعل، تخطّى الخطوة دي.",
-            "ربط OnTrack تلقائيًا"){
+            "ربط IO Voice تلقائيًا"){
             try{startActivity(DeepLink.intent(this,DeepLink.Kind.PAIR_AGAIN))}
             catch(_:Exception){startActivity(Intent(this,MainActivity::class.java))}
         }
-        val open=button("العودة إلى مركز OnTrack Voice"){
+        val open=button("العودة إلى مركز IO Voice"){
             startActivity(Intent(this,MobileLinkActivity::class.java));finish()
         }
         stack.addView(open,LinearLayout.LayoutParams(-1,dp(52)).apply{bottomMargin=dp(14)})

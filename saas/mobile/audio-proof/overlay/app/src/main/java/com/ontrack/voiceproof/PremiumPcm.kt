@@ -51,14 +51,28 @@ internal class PremiumPcm(private val sourceRate:Int=44100) {
 }
 
 internal object PremiumPhrase {
+    fun speakable(text:String):String {
+        return text
+            .replace(Regex("\\([^)]{0,120}\\)")," ")
+            .replace(Regex("\\[[^\\]]{0,120}\\]")," ")
+            .replace(Regex("\\s+")," ")
+            .trim()
+    }
     fun prefix(text:String):String {
         val clean=text.trim()
         if(clean.length<3)return ""
         val found=Regex("^([\\s\\S]{3,120}?[.!؟،؛\\n])(?=\\s|$)").find(clean)
-        if(found!=null)return found.groupValues[1].trim()
-        if(clean.length<72)return ""
-        val cutoff=clean.take(88).lastIndexOf(' ')
-        return if(cutoff>38)clean.substring(0,cutoff).trim() else ""
+        if(found!=null) {
+            val candidate=found.groupValues[1].trim()
+            if(candidate.count{it=='('}==candidate.count{it==')'} &&
+                candidate.count{it=='['}==candidate.count{it==']'}) return candidate
+        }
+        if(clean.length<38)return ""
+        val cutoff=clean.take(54).lastIndexOf(' ')
+        if(cutoff<=20)return ""
+        val candidate=clean.substring(0,cutoff).trim()
+        return if(candidate.count{it=='('}==candidate.count{it==')'} &&
+            candidate.count{it=='['}==candidate.count{it==']'}) candidate else ""
     }
     fun merge(old:String,next:String):String {
         val current=old.trim();val chunk=next.trim()

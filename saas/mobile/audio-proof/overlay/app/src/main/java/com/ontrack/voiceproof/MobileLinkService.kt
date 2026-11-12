@@ -2,6 +2,7 @@ package com.ontrack.voiceproof
 
 import android.app.*
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -101,8 +102,9 @@ class MobileLinkService:Service() {
             else->value
         }
         val item=NotificationCompat.Builder(this,"ontrack_mobile_link")
-            .setSmallIcon(android.R.drawable.ic_menu_call)
-            .setContentTitle("OnTrack Voice").setContentText(callLabel)
+            .setSmallIcon(R.drawable.ic_stat_io_voice)
+            .setLargeIcon(BitmapFactory.decodeResource(resources,R.mipmap.ic_launcher))
+            .setContentTitle("IO Voice").setContentText(callLabel)
             .setOngoing(true).setContentIntent(open)
         if(inCall && callAnswered && audioReady && agentEnabled && !humanControl)
             item.addAction(android.R.drawable.ic_menu_myplaces,"استلام المكالمة من الإيجنت",pending(ACTION_TAKEOVER,1))
@@ -124,7 +126,7 @@ class MobileLinkService:Service() {
         pendingDesired=null
         pendingSync=false
         getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel("ontrack_mobile_link","OnTrack Voice",NotificationManager.IMPORTANCE_LOW))
+            NotificationChannel("ontrack_mobile_link","IO Voice",NotificationManager.IMPORTANCE_LOW))
         connectivity=getSystemService(ConnectivityManager::class.java)
         val callback=object:ConnectivityManager.NetworkCallback(){
             override fun onAvailable(network:Network){
@@ -226,7 +228,7 @@ class MobileLinkService:Service() {
         // an unpaired device. A SIM-specific verified tenant binding is required.
         agentEnabled=false;connected=false
         call?.stop();call=null
-        notice("اربط شريحة SIM بحساب OnTrack وإيجنت منشور قبل تشغيل المكالمات")
+        notice("اربط شريحة SIM بحساب IO Voice وإيجنت منشور قبل تشغيل المكالمات")
         stopSelf()
         return START_NOT_STICKY
     }
@@ -903,6 +905,7 @@ class MobileLinkService:Service() {
                         val liveSettings=JSONObject().put("voice",voice)
                             .put("voice_label",if(isIoPremium)"IO Premium" else voice)
                             .put("input_channel","mix")
+                            .put("scenario_mode",policy.optString("scenario_mode","builder"))
                             .put("response_style",policy.optString("response_style","egyptian_short"))
                         val callback=managerCallback?.takeIf{
                             it.optInt("sim_slot",-1)==current.slot

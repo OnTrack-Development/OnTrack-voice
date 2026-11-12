@@ -165,7 +165,7 @@ internal class CallOverlay(private val context: Context) {
             background=shape(black,60,red,2)
             elevation=px(7).toFloat()
             isClickable=true;isFocusable=true
-            contentDescription="فتح عناصر تحكم OnTrack Voice"
+            contentDescription="فتح عناصر تحكم IO Voice"
             accessibilityDelegate=object:View.AccessibilityDelegate(){
                 override fun onInitializeAccessibilityNodeInfo(host:View,info:AccessibilityNodeInfo){
                     super.onInitializeAccessibilityNodeInfo(host,info);info.className="android.widget.Button"
@@ -183,7 +183,7 @@ internal class CallOverlay(private val context: Context) {
             elevation=px(10).toFloat()
             visibility=View.GONE
         }
-        title=text("OnTrack Voice",16f,true,if(lightTheme)black else white)
+        title=text("IO Voice",16f,true,if(lightTheme)black else white)
         status=text("الحالة",12f,false,gray)
         val header=LinearLayout(context).apply{
             orientation=LinearLayout.VERTICAL

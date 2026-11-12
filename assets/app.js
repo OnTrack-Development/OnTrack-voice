@@ -735,21 +735,35 @@ async function startCall() {
 
     setStatus(liveState, 'بيتصل بـ Gemini Live');
 
+    const liveConfig = {
+      responseModalities: [Modality.AUDIO],
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: selectedVoice
+          }
+        }
+      },
+      realtimeInputConfig: {
+        automaticActivityDetection: {
+          disabled: false,
+          startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
+          endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
+          prefixPaddingMs: 40,
+          silenceDurationMs: 350
+        }
+      },
+      systemInstruction: info.system_instruction,
+      inputAudioTranscription: {},
+      outputAudioTranscription: {}
+    };
+    if (!/3\.8-live/i.test(String(info.model || '')) && /2\.5/i.test(String(info.model || ''))) {
+      liveConfig.thinkingConfig = { thinkingBudget: 0 };
+    }
+
     const connectedSession = await ai.live.connect({
       model: info.model,
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: {
-              voiceName: selectedVoice
-            }
-          }
-        },
-        systemInstruction: info.system_instruction,
-        inputAudioTranscription: {},
-        outputAudioTranscription: {}
-      },
+      config: liveConfig,
       callbacks: {
         onopen: () => {
           if (!active || generation !== callGeneration) return;

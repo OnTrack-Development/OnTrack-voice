@@ -46,7 +46,7 @@ class MobileUiInstrumentedTest {
         val cache=File(context.filesDir,"mobile-ota").apply{mkdirs()}
         File(cache,"state.json").writeText("{\"highest\":3,\"rejected\":3,\"pending\":false}")
         ActivityScenario.launch(MobileLinkActivity::class.java).use{scenario->
-            await(scenario,"document.title==='OnTrack Voice' && document.getElementById('tenantWorkspaceSlot')!==null && document.getElementById('key')===null && typeof window.onTrackState==='function'")
+            await(scenario,"document.title==='IO Voice' && document.getElementById('tenantWorkspaceSlot')!==null && document.getElementById('key')===null && typeof window.onTrackState==='function'")
             scenario.onActivity{activity->assertTrue(find(activity.findViewById(android.R.id.content))!!.url!!.startsWith("https://ontrack-ui.invalid/ui/"))}
             // No SIM enrollment in this emulator: the UI must block enable
             // without ever asking for a Pilot key or attempting a real call.
