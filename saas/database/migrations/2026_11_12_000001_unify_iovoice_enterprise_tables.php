@@ -960,7 +960,7 @@ return new class extends Migration
                 $table->string('retrieved_at', 19);
                 $table->string('expires_at', 19);
                 $table->string('updated_at', 19);
-                $table->primary(['account_id', 'site_id', 'connector_id']);
+                $table->primary(['account_id', 'site_id', 'connector_id'], 'pk_voice_conn_cache');
             });
         }
 

@@ -41,7 +41,7 @@ return new class extends Migration
             $table->string('verification_status', 24)->default('unverified');
             $table->timestamp('verified_at')->nullable();
             $table->timestamps();
-            $table->unique(['tenant_id', 'channel', 'external_subject_hash']);
+            $table->unique(['tenant_id', 'channel', 'external_subject_hash'], 'uq_contact_identities_subj');
         });
     }
 
