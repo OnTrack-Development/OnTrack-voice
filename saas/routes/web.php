@@ -80,6 +80,7 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/console/action', [ActionController::class, 'dispatch'])->name('enterprise.action');
     Route::get('/api/console/calls/{id}', [WorkspaceController::class, 'callDetailJson'])->whereNumber('id')->name('enterprise.call.detail');
+    Route::get('/api/console/campaigns/queue', [WorkspaceController::class, 'campaignQueueJson'])->name('enterprise.campaigns.queue');
     Route::get('/calls/csv', [WorkspaceController::class, 'exportCallsCsv'])->name('enterprise.calls.csv');
     Route::get('/invoices/{id}/print', [WorkspaceController::class, 'printInvoice'])->whereNumber('id')->name('enterprise.invoice.print');
     Route::post('/change-password', [AuthController::class, 'changePassword'])->name('password.change');

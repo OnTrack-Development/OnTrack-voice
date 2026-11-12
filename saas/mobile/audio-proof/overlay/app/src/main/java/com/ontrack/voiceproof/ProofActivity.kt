@@ -31,11 +31,11 @@ import com.ontrack.voiceproof.capture.*
  * debugging, never requests Accessibility or silently changes system settings.
  */
 class ProofActivity:ComponentActivity(){
-    private val red=Color.rgb(227,48,76)
-    private val bg=Color.rgb(11,16,27)
-    private val card=Color.rgb(25,35,54)
-    private val text=Color.rgb(245,248,252)
-    private val muted=Color.rgb(168,185,208)
+    private val red=Color.rgb(225,29,72)
+    private val bg=Color.rgb(9,9,11)
+    private val card=Color.rgb(18,18,22)
+    private val text=Color.rgb(244,244,245)
+    private val muted=Color.rgb(161,161,170)
     private lateinit var status:TextView
     private var refreshChecks:(()->Unit)?=null
     private var firstResume=true

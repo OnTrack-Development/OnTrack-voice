@@ -254,6 +254,8 @@ class MobileLinkActivity:ComponentActivity(){
         if(payload!=null)contactsRequest(null)
         else web.evaluateJavascript("window.onTrackContactsList && window.onTrackContactsList("+result.toString()+")",null)
     }
+    private fun darkAlert():AlertDialog.Builder = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+
     private suspend fun campaignRequest(payload:JSONObject?) {
         check(!MobileLinkService.inCall){"إدارة الحملات بعد انتهاء المكالمة"}
         val operation=when {
@@ -262,7 +264,9 @@ class MobileLinkActivity:ComponentActivity(){
             else->"workspace_campaign_create"
         }
         val result=tenantWorkspace(operation,payload?:JSONObject())
+        result.optJSONObject("queue")?.let{ MobileLinkService.updateCampaignQueue(it) }
         web.evaluateJavascript("window.onTrackCampaigns && window.onTrackCampaigns("+result.toString()+")",null)
+        sendState()
     }
     private suspend fun uploadSelectedContacts() {
         check(!MobileLinkService.inCall){"ارفع الأرقام بعد انتهاء المكالمة"}
@@ -291,14 +295,18 @@ class MobileLinkActivity:ComponentActivity(){
         // No silent re-pairing and no credential is exposed to the WebView.
 
         ota=MobileOta(this);nativeUpdates=NativeUpdates(this)
+        val linkPrefs=getSharedPreferences("ontrack_link",MODE_PRIVATE)
+        if(!linkPrefs.getBoolean("ui_theme_v65_dark_init",false)){
+            linkPrefs.edit().putString("ui_theme","dark").putBoolean("ui_theme_v65_dark_init",true).apply()
+        }
         window.statusBarColor=Color.rgb(9,9,11);window.navigationBarColor=Color.rgb(9,9,11)
         val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(9,9,11))}
         banner=TextView(this).apply{
             setPadding(20,14,20,12);setTextColor(Color.rgb(161,161,170))
-            setBackgroundColor(Color.rgb(18,18,21))
+            setBackgroundColor(Color.rgb(18,18,22))
             textSize=12f;text="IO Voice • جاري تجهيز الاتصال"
         };root.addView(banner)
-        web=WebView(this);root.addView(web,LinearLayout.LayoutParams(-1,0,1f))
+        web=WebView(this).apply{setBackgroundColor(Color.rgb(9,9,11))};root.addView(web,LinearLayout.LayoutParams(-1,0,1f))
         val layer=FrameLayout(this)
         layer.addView(root,FrameLayout.LayoutParams(-1,-1))
         tenantEnrollment=TenantDeviceEnrollment(this)
@@ -346,7 +354,7 @@ class MobileLinkActivity:ComponentActivity(){
                 if(url?.startsWith("https://ontrack-ui.invalid/ui/")!=true){
                     result?.cancel();return true
                 }
-                AlertDialog.Builder(this@MobileLinkActivity)
+                darkAlert()
                     .setTitle("تأكيد IO Voice")
                     .setMessage(message.orEmpty().take(300))
                     .setPositiveButton("تأكيد"){_,_->result?.confirm()}
@@ -359,7 +367,7 @@ class MobileLinkActivity:ComponentActivity(){
                 if(url?.startsWith("https://ontrack-ui.invalid/ui/")!=true){
                     result?.cancel();return true
                 }
-                AlertDialog.Builder(this@MobileLinkActivity)
+                darkAlert()
                     .setTitle("IO Voice")
                     .setMessage(message.orEmpty().take(300))
                     .setPositiveButton("حسنًا"){_,_->result?.confirm()}
@@ -396,7 +404,7 @@ class MobileLinkActivity:ComponentActivity(){
                 // Keep one transition update; suspend periodic UI work during audio.
                 if(!calling || wasCalling!=calling)sendState()
                 wasCalling=calling
-                if(!calling && polls%10==1)requestTenantStatusRefresh()
+                if(!calling && polls%5==1)requestTenantStatusRefresh()
                 // Foreground-only periodic release check; never downloads without consent.
                 if(!calling && polls>0 && polls%900==0 && hasWindowFocus())checkNativeUpdates()
                 if(pending!=null && !calling){val next=pending!!;pending=null;activate(next)}
@@ -421,12 +429,12 @@ class MobileLinkActivity:ComponentActivity(){
         }
         val slots=(0..1).filter { !tenantEnrollment.paired(it) }
         when(slots.size) {
-            0 -> AlertDialog.Builder(this).setTitle("الشرائح مربوطة بالفعل")
+            0 -> darkAlert().setTitle("الشرائح مربوطة بالفعل")
                 .setMessage("تقدر تفحص الربط أو تفصل شريحة من إدارة الشرائح.")
                 .setPositiveButton("إدارة الشرائح"){_,_->showTenantMenu()}
                 .setNegativeButton("إغلاق",null).show()
             1 -> showTenantPairDialog(slots.first(),"")
-            else -> AlertDialog.Builder(this).setTitle("اختار الشريحة")
+            else -> darkAlert().setTitle("اختار الشريحة")
                 .setItems(arrayOf("SIM 1","SIM 2")) { _,which ->
                     showTenantPairDialog(which,"")
                 }.setNegativeButton("إلغاء",null).show()
@@ -443,6 +451,8 @@ class MobileLinkActivity:ComponentActivity(){
                 var hardwareFailures=0
                 var readyCampaignTotal=0
                 var firstActiveCampaign=""
+                var latestQueue:JSONObject?=null
+                var dialRequestedEpoch=0L
                 val lines=(0..1).map { slot ->
                     val paired=tenantEnrollment.paired(slot)
                     val card=JSONObject().put("sim_slot",slot).put("paired",paired)
@@ -497,6 +507,11 @@ class MobileLinkActivity:ComponentActivity(){
                             val cname=csum.optString("active_name","").trim()
                             if(firstActiveCampaign.isBlank() && cname.isNotBlank())firstActiveCampaign=cname
                         }
+                        val q=profile.optJSONObject("campaign_queue_status")
+                        if(q!=null && (latestQueue==null || q.optJSONObject("next_contact")!=null)){
+                            latestQueue=q
+                            dialRequestedEpoch=maxOf(dialRequestedEpoch,q.optLong("dial_requested",0L))
+                        }
                         TenantPairingContract.statusLine(slot,true,
                             profile.optString("account_name"),profile.optString("site_name"),
                             profile.optString("agent_name")) +
@@ -525,12 +540,25 @@ class MobileLinkActivity:ComponentActivity(){
                     ok>0 -> "partial"
                     else -> "unreachable"
                 }
-                MobileLinkService.updateCampaignSummary(readyCampaignTotal,firstActiveCampaign)
-                Triple(lines,cards,health)
+                if(latestQueue!=null){
+                    MobileLinkService.updateCampaignQueue(latestQueue)
+                }else{
+                    MobileLinkService.updateCampaignSummary(readyCampaignTotal,firstActiveCampaign)
+                }
+                Triple(Triple(lines,cards,health),dialRequestedEpoch,Unit)
             }
-            tenantStatusLines=report.first.toTypedArray()
-            tenantAgentCards=report.second
-            tenantServerState=report.third
+            tenantStatusLines=report.first.first.toTypedArray()
+            tenantAgentCards=report.first.second
+            tenantServerState=report.first.third
+            val dialSignal=report.second
+            if(dialSignal>0L && dialSignal>MobileLinkService.lastDialRequestEpoch &&
+                !MobileLinkService.inCall &&
+                ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.CALL_PHONE)==PackageManager.PERMISSION_GRANTED){
+                MobileLinkService.lastDialRequestEpoch=dialSignal
+                ContextCompat.startForegroundService(this@MobileLinkActivity,
+                    Intent(this@MobileLinkActivity,MobileLinkService::class.java)
+                        .setAction(MobileLinkService.ACTION_CAMPAIGN_PULL_NOW))
+            }
             // The published SOG policy may have auto_answer=true even when
             // Android's local tenant monitor was never started after pairing.
             // Start once only for a freshly paired SIM with no prior local
@@ -577,7 +605,7 @@ class MobileLinkActivity:ComponentActivity(){
         })
     }
     private fun showScenarioMenu(){
-        AlertDialog.Builder(this).setTitle("سيناريوهات الإيجنت")
+        darkAlert().setTitle("سيناريوهات الإيجنت")
             .setItems(arrayOf("سيناريو SIM 1","سيناريو SIM 2","تعديل السيناريو من الموقع")){_,choice->
                 if(choice==2)openConsole("agents") else showTenantPublishedFlow(choice)
             }.setNegativeButton("إغلاق",null).show()
@@ -589,7 +617,7 @@ class MobileLinkActivity:ComponentActivity(){
             "التحقق من ربط SIM 1","التحقق من ربط SIM 2",
             "فصل SIM 1 من السيرفر","فصل SIM 2 من السيرفر",
             "عرض Flow المنشور لـ SIM 1","عرض Flow المنشور لـ SIM 2")
-        AlertDialog.Builder(this).setTitle("إدارة شرائح الشركات")
+        darkAlert().setTitle("إدارة شرائح الشركات")
             .setMessage("كل شريحة لها حساب وإيجنت مستقلان. هذا الربط لا يشغّل مكالمات AI تلقائيًا.")
             .setItems(items) { _,which ->
                 val slot=which%2
@@ -597,7 +625,7 @@ class MobileLinkActivity:ComponentActivity(){
                     0,1 -> showTenantPairDialog(slot,"")
                     2,3 -> runTenantOperation(slot,false)
                     6,7 -> showTenantPublishedFlow(slot)
-                    4,5 -> AlertDialog.Builder(this).setTitle("تأكيد فصل SIM ${slot+1}")
+                    4,5 -> darkAlert().setTitle("تأكيد فصل SIM ${slot+1}")
                         .setMessage("سيُلغى اعتماد هذه الشريحة على السيرفر، ولن يتأثر حساب الشريحة الأخرى.")
                         .setPositiveButton("فصل") { _,_ -> runTenantOperation(slot,true) }
                         .setNegativeButton("إلغاء",null).show()
@@ -687,7 +715,7 @@ class MobileLinkActivity:ComponentActivity(){
                     orientation=LinearLayout.VERTICAL
                     addView(preview,LinearLayout.LayoutParams(-1,(resources.displayMetrics.heightPixels*0.76).toInt()))
                 }
-                AlertDialog.Builder(this@MobileLinkActivity)
+                darkAlert()
                     .setTitle("الشريحة "+(slot+1)+" · المسار المنشور")
                     .setView(holder)
                     .setPositiveButton("تعديل المخطط"){_,_->
@@ -755,7 +783,7 @@ class MobileLinkActivity:ComponentActivity(){
             val message=if(results.isEmpty())
                 "مفيش SIM مربوطة. افتح حسابك، خد كود 6 أرقام واكتبه هنا."
                 else results.joinToString("\n")
-            AlertDialog.Builder(this@MobileLinkActivity)
+            darkAlert()
                 .setTitle("اختبار ربط الشريحة")
                 .setMessage(message+"\n\nالاختبار يثبت الربط وجاهزية الجلسة فقط؛ مش مكالمة صوتية فعلية.")
                 .setPositiveButton("فتح إعدادات الإيجنت"){_,_->openConsole("agents")}
@@ -773,10 +801,12 @@ class MobileLinkActivity:ComponentActivity(){
         val input=EditText(this).apply {
             hint="كود 6 أرقام"
             setText(initialCode)
+            setTextColor(Color.rgb(244,244,245))
+            setHintTextColor(Color.rgb(161,161,170))
             inputType=android.text.InputType.TYPE_CLASS_NUMBER
             filters=arrayOf(android.text.InputFilter.LengthFilter(6))
         }
-        AlertDialog.Builder(this).setTitle("ربط SIM ${slot+1} بحسابك")
+        darkAlert().setTitle("ربط SIM ${slot+1} بحسابك")
             .setMessage("اكتب الكود المكوّن من 6 أرقام من حسابك واضغط ربط. مش محتاج API Key.")
             .setView(input)
             .setPositiveButton("تأكيد الربط") { _,_ -> performTenantPair(slot,input.text.toString()) }
@@ -822,7 +852,7 @@ class MobileLinkActivity:ComponentActivity(){
     }
     private fun showTenantProfile(slot:Int,profile:JSONObject) {
         if(profile.optBoolean("verification_pending")) {
-            AlertDialog.Builder(this).setTitle("SIM ${slot+1} — تم حفظ الربط")
+            darkAlert().setTitle("SIM ${slot+1} — تم حفظ الربط")
                 .setMessage("السيرفر أصدر اعتماد الشريحة وتم حفظه مشفرًا على الهاتف، لكن التحقق اللاحق لم يكتمل. لا تعيد استخدام الكود؛ اضغط التحقق من ربط الشريحة بعد استعادة الاتصال. المكالمات تظل متوقفة.")
                 .setPositiveButton("حسنًا",null).show()
             return
@@ -830,7 +860,7 @@ class MobileLinkActivity:ComponentActivity(){
         val account=profile.optString("account_name","غير معروف")
         val site=profile.optString("site_name","غير معروف")
         val agent=profile.optString("agent_name","غير معروف")
-        AlertDialog.Builder(this).setTitle("SIM ${slot+1} — تم التحقق من الربط")
+        darkAlert().setTitle("SIM ${slot+1} — تم التحقق من الربط")
             .setMessage("الشركة: $account\nالموقع: $site\nالإيجنت: $agent\nتم تأكيد ربط الحساب فقط. تشغيل صوت الشريحة يتطلب اختبار الجهاز.")
             .setPositiveButton("حسنًا",null).show()
     }
@@ -1035,6 +1065,25 @@ class MobileLinkActivity:ComponentActivity(){
             MobileLinkService.running && MobileLinkService.agentEnabled){
             banner.text="مراقبة الشريحة تعمل — بانتظار مكالمة"
         }
+        val elapsedSec=if(MobileLinkService.campaignQueueSyncedAtMs>0L)
+            maxOf(0L,(System.currentTimeMillis()-MobileLinkService.campaignQueueSyncedAtMs)/1000L) else 0L
+        val adjustedSec=if(MobileLinkService.campaignSecondsUntilDial>=0L)
+            maxOf(0L,MobileLinkService.campaignSecondsUntilDial-elapsedSec) else -1L
+        val nextContactObj=if(MobileLinkService.campaignNextName.isNotBlank()||MobileLinkService.campaignNextPhone.isNotBlank()){
+            JSONObject().put("name",MobileLinkService.campaignNextName)
+                .put("phone",MobileLinkService.campaignNextPhone)
+                .put("scheduled_at_cairo",MobileLinkService.campaignScheduledAtCairo)
+                .put("seconds_until_dial",adjustedSec)
+        }else JSONObject.NULL
+        val queueObj=JSONObject().put("campaign_id",MobileLinkService.campaignId)
+            .put("campaign_name",MobileLinkService.campaignActiveName)
+            .put("campaign_status",MobileLinkService.campaignStatus)
+            .put("total_contacts",MobileLinkService.campaignTotalContacts)
+            .put("completed_calls",MobileLinkService.campaignCompletedCalls)
+            .put("remaining_contacts",MobileLinkService.campaignRemainingContacts)
+            .put("uncertain_pending",MobileLinkService.campaignUncertainPending)
+            .put("last_error",MobileLinkService.campaignLastError)
+            .put("next_contact",nextContactObj)
         val state=JSONObject().put("status",MobileLinkService.latestStatus).put("running",MobileLinkService.running)
             .put("inCall",MobileLinkService.inCall).put("callAnswered",MobileLinkService.callAnswered).put("humanControl",MobileLinkService.humanControl)
             .put("agentAudioReady",MobileLinkService.audioReady).put("callProblem",MobileLinkService.callProblem)
@@ -1062,6 +1111,7 @@ class MobileLinkActivity:ComponentActivity(){
             .put("campaignAutoEnabled",MobileLinkService.campaignAutoEnabled || getSharedPreferences("ontrack_link",MODE_PRIVATE).getBoolean("campaign_opt_in",false))
             .put("campaignQueueCount",MobileLinkService.campaignReadyCount)
             .put("campaignActiveName",MobileLinkService.campaignActiveName)
+            .put("campaignQueue",queueObj)
             .put("managerCallbackActive",MobileLinkService.managerCallbackActive)
             .put("managerCallbackCountdown",MobileLinkService.managerCallbackCountdownSeconds)
             .put("managerCallbackPhone",MobileLinkService.managerCallbackTargetMasked)
@@ -1190,10 +1240,26 @@ class MobileLinkActivity:ComponentActivity(){
                     "campaignAction"->{
                         check(msg.optBoolean("confirmed")){"تأكيد العملية مطلوب"}
                         val action=msg.optString("action")
-                        require(action in setOf("preview","pause","resume","cancel","arm")){"إجراء غير مدعوم"}
+                        require(action in setOf("preview","pause","resume","cancel","arm","start","dial_next_now")){"إجراء غير مدعوم"}
                         val id=msg.optString("id")
                         require(id.matches(Regex("[a-f0-9]{24}"))){"معرف الحملة غير صحيح"}
                         campaignRequest(JSONObject().put("confirmed",true).put("action",action).put("id",id))
+                        if(action=="dial_next_now" && !MobileLinkService.inCall &&
+                            ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.CALL_PHONE)==PackageManager.PERMISSION_GRANTED){
+                            ContextCompat.startForegroundService(this@MobileLinkActivity,
+                                Intent(this@MobileLinkActivity,MobileLinkService::class.java)
+                                    .setAction(MobileLinkService.ACTION_CAMPAIGN_PULL_NOW))
+                        }
+                    }
+                    "campaignDialNextNow"->{
+                        check(!MobileLinkService.inCall){"انتظر انتهاء المكالمة الحالية"}
+                        check(tenantEnrollment.hasAny()){"اربط الشريحة بحساب SaaS أولًا"}
+                        if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,
+                                Manifest.permission.CALL_PHONE)!=PackageManager.PERMISSION_GRANTED)
+                            campaignPhonePermission.launch(Manifest.permission.CALL_PHONE)
+                        else ContextCompat.startForegroundService(this@MobileLinkActivity,
+                            Intent(this@MobileLinkActivity,MobileLinkService::class.java)
+                                .setAction(MobileLinkService.ACTION_CAMPAIGN_PULL_NOW))
                     }
                     "createCampaign"->{
                         check(msg.optBoolean("confirmed")){"يجب مراجعة مسودة الحملة"}

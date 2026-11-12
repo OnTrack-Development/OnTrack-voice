@@ -340,7 +340,22 @@ class DeviceApiController extends Controller
                         return $this->deviceJson(['ok' => true] + $this->calls->ackHandoff($binding, (int) ($data['job_id'] ?? 0), (string) ($data['stage'] ?? '')), 200, $headers);
 
                     case 'workspace_campaigns':
-                        return $this->deviceJson(['ok' => true] + $this->campaigns->deviceListCampaigns($binding), 200, $headers);
+                        return $this->deviceJson([
+                            'ok' => true,
+                            'queue' => $this->campaigns->campaignQueueStatusForBinding($binding),
+                        ] + $this->campaigns->deviceListCampaigns($binding), 200, $headers);
+
+                    case 'workspace_campaign_queue':
+                        return $this->deviceJson([
+                            'ok' => true,
+                            'queue' => $this->campaigns->campaignQueueStatusForBinding($binding),
+                        ], 200, $headers);
+
+                    case 'workspace_campaign_dial_next':
+                        return $this->deviceJson([
+                            'ok' => true,
+                            'queue' => $this->campaigns->dialNextNowForBinding($binding, is_string($data['campaign_id'] ?? null) ? $data['campaign_id'] : null),
+                        ], 200, $headers);
 
                     case 'workspace_campaign_claim':
                         return $this->deviceJson(['ok' => true] + $this->campaigns->deviceClaimAttempt($binding), 200, $headers);

@@ -70,12 +70,32 @@ def main(root):
                         '<string name="app_name">IO Voice</string>',
                         'app_name string resource')
     path.write_text(text)
+    themes_path = root / 'app/src/main/res/values/themes.xml'
+    if themes_path.is_file():
+        t_text = themes_path.read_text()
+        t_text = replace_once(
+            t_text,
+            '    <style name="Theme.JemRec" parent="@android:style/Theme.DeviceDefault.DayNight">\n'
+            '        <item name="android:windowActionBar">false</item>\n'
+            '        <item name="android:windowNoTitle">true</item>\n'
+            '    </style>',
+            '    <style name="Theme.JemRec" parent="@android:style/Theme.DeviceDefault.NoActionBar">\n'
+            '        <item name="android:windowActionBar">false</item>\n'
+            '        <item name="android:windowNoTitle">true</item>\n'
+            '        <item name="android:windowBackground">#09090B</item>\n'
+            '        <item name="android:colorBackground">#09090B</item>\n'
+            '        <item name="android:statusBarColor">#09090B</item>\n'
+            '        <item name="android:navigationBarColor">#09090B</item>\n'
+            '        <item name="android:forceDarkAllowed">false</item>\n'
+            '    </style>',
+            'dark obsidian native theme')
+        themes_path.write_text(t_text)
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 64', 'versionCode')
+                        'versionCode = 65', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.3.41"', 'versionName')
+                        'versionName = "0.3.42"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'

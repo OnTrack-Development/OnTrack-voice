@@ -567,6 +567,19 @@ class ActionController extends Controller
 
                 return ['success' => 'تم تحديث حالة الحملة.'];
 
+            case 'campaign_dial_next':
+                $this->ctx->requirePermission($ctx, 'campaigns.write');
+                $cmpId = $r->input('campaign_id');
+                $queue = $this->campaigns->dialNextNowForAccount(
+                    $accountId,
+                    is_string($cmpId) && trim($cmpId) !== '' ? trim($cmpId) : null
+                );
+
+                return [
+                    'queue' => $queue,
+                    'success' => 'تم إرسال إشارة الاتصال الفوري للشريحة، وجارٍ سحب الرقم التالي الآن.',
+                ];
+
             case 'create_automation':
                 $this->ctx->requirePermission($ctx, 'agents.write');
                 $rid = $this->automation->createRule($accountId, $r->all() + ['site_id' => $siteId]);

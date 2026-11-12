@@ -31,8 +31,8 @@ internal class CallOverlay(private val context: Context) {
     private val red=Color.rgb(225,29,72)
     private val green=Color.rgb(16,185,129)
     private val black=Color.rgb(9,9,11)
-    private val cardSurface=Color.rgb(18,18,21)
-    private val white=Color.rgb(250,250,250)
+    private val cardSurface=Color.rgb(18,18,22)
+    private val white=Color.rgb(244,244,245)
     private val gray=Color.rgb(161,161,170)
     private var root:LinearLayout?=null
     private var orb:FrameLayout?=null

@@ -6,6 +6,7 @@ use App\Services\Console\ConsoleContextService;
 use App\Services\Mobile\CallLedgerService;
 use DateTimeImmutable;
 use DateTimeZone;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
@@ -13,6 +14,8 @@ use ZipArchive;
 
 class CampaignDialerService
 {
+    public const ACTIVE_STATUSES = ['ready', 'armed', 'running', 'active'];
+
     public function __construct(
         private readonly ConsoleContextService $ctx,
         private readonly CallLedgerService $calls,
@@ -209,6 +212,16 @@ class CampaignDialerService
     {
         $name = trim(mb_substr((string) ($input['name'] ?? ''), 0, 150));
         $deviceId = (int) ($input['device_binding_id'] ?? 0);
+        if ($deviceId < 1) {
+            $fallbackBinding = DB::table('device_bindings')
+                ->where('account_id', $accountId)
+                ->where('status', 'active')
+                ->orderBy('id')
+                ->first(['id']);
+            if ($fallbackBinding) {
+                $deviceId = (int) $fallbackBinding->id;
+            }
+        }
         $scenario = trim(mb_substr((string) ($input['scenario'] ?? ''), 0, 4000));
 
         if ($name === '' || $deviceId < 1 || $scenario === '') {
@@ -264,6 +277,9 @@ class CampaignDialerService
         $startsAt = $this->calls->cairoLocalToUtc($input['starts_at'] ?? null, '0 minutes');
         $endsAt = $this->calls->cairoLocalToUtc($input['ends_at'] ?? null, '+7 days');
         $campaignId = bin2hex(random_bytes(12));
+        $initialStatus = ! empty($input['arm_now'])
+            ? (($input['status'] ?? '') === 'running' ? 'running' : 'ready')
+            : 'draft';
 
         DB::table('tenant_campaigns')->insert([
             'id' => $campaignId,
@@ -276,7 +292,7 @@ class CampaignDialerService
             'ends_at' => $endsAt,
             'scenario' => $scenario,
             'contact_ids_json' => json_encode($contactIds, JSON_THROW_ON_ERROR),
-            'status' => ! empty($input['arm_now']) ? 'ready' : 'draft',
+            'status' => $initialStatus,
             'created_at' => $this->ctx->now(),
         ]);
 
@@ -285,7 +301,7 @@ class CampaignDialerService
 
     public function transitionStatus(int $accountId, string $campaignId, string $nextStatus): void
     {
-        $allowed = ['ready', 'armed', 'paused', 'cancelled'];
+        $allowed = ['ready', 'armed', 'running', 'active', 'paused', 'cancelled', 'completed'];
         if (! in_array($nextStatus, $allowed, true)) {
             throw new InvalidArgumentException('حالة حملة غير صالحة.');
         }
@@ -742,10 +758,13 @@ class CampaignDialerService
         if ($action === 'arm' || $action === 'resume') {
             return $this->armCampaign($binding, $rowArr);
         }
+        if ($action === 'start' || $action === 'dial_next_now') {
+            return ['queue' => $this->dialNextNowForBinding($binding, $id), 'campaign' => ['id' => $id, 'status' => 'running'], 'calls_started' => 0];
+        }
         if (! in_array($action, ['pause', 'cancel'], true)) {
             throw new InvalidArgumentException('campaign_action_denied');
         }
-        if ($action === 'pause' && ! in_array($rowArr['status'], ['ready', 'armed', 'draft'], true)) {
+        if ($action === 'pause' && ! in_array($rowArr['status'], ['ready', 'armed', 'running', 'active', 'draft'], true)) {
             throw new InvalidArgumentException('campaign_not_pausable');
         }
         if ($action === 'cancel' && $rowArr['status'] === 'cancelled') {
@@ -812,7 +831,7 @@ class CampaignDialerService
                 ->where('site_id', $s)
                 ->where('device_binding_id', $d)
                 ->where('sim_slot', $slot)
-                ->whereIn('status', ['ready', 'armed'])
+                ->whereIn('status', self::ACTIVE_STATUSES)
                 ->orderBy('created_at')
                 ->orderBy('id')
                 ->limit(20)
@@ -832,6 +851,7 @@ class CampaignDialerService
                     $alreadyTried = DB::table('tenant_campaign_attempts')
                         ->where('campaign_id', $campaign['id'])
                         ->where('contact_id', $contactId)
+                        ->where('status', '!=', 'cleared')
                         ->exists();
                     if ($alreadyTried || ! $this->contactAllowed($binding, $contactId)) {
                         continue;
@@ -857,6 +877,7 @@ class CampaignDialerService
                         'status' => 'leased',
                         'leased_epoch' => time(),
                     ]);
+                    Cache::forget($this->dialSignalCacheKey($d));
 
                     return [
                         'claim' => [
@@ -908,7 +929,7 @@ class CampaignDialerService
             ->where('device_binding_id', (int) $binding['id'])
             ->where('sim_slot', (int) $binding['sim_slot'])
             ->first();
-        if (! $campaign || ! in_array($campaign->status, ['ready', 'armed'], true) || ! $this->inCampaignWindow((array) $campaign, time())) {
+        if (! $campaign || ! in_array($campaign->status, self::ACTIVE_STATUSES, true) || ! $this->inCampaignWindow((array) $campaign, time())) {
             return ['allowed' => false, 'reason' => 'campaign_paused_or_outside_hours'];
         }
         if (! $this->contactAllowed($binding, (int) $a['contact_id'])) {
@@ -1123,5 +1144,307 @@ class CampaignDialerService
             ->first();
 
         return $row ? (array) $row : null;
+    }
+
+    public function dialSignalCacheKey(int $deviceId): string
+    {
+        return 'iovoice:dial_now:'.$deviceId;
+    }
+
+    public function campaignQueueStatusForAccount(int $accountId, ?string $campaignId = null): array
+    {
+        $bindingQuery = DB::table('device_bindings')
+            ->where('account_id', $accountId)
+            ->where('status', 'active')
+            ->orderBy('id');
+
+        if ($campaignId !== null && preg_match('/^[a-f0-9]{24}$/D', $campaignId) === 1) {
+            $cmp = DB::table('tenant_campaigns')->where('id', $campaignId)->where('account_id', $accountId)->first(['device_binding_id']);
+            if ($cmp && (int) $cmp->device_binding_id > 0) {
+                $target = DB::table('device_bindings')->where('id', (int) $cmp->device_binding_id)->where('account_id', $accountId)->first();
+                if ($target) {
+                    return $this->campaignQueueStatusForBinding((array) $target, $campaignId);
+                }
+            }
+        }
+
+        $activeBindings = $bindingQuery->get();
+        foreach ($activeBindings as $b) {
+            $hasActiveCampaign = DB::table('tenant_campaigns')
+                ->where('account_id', $accountId)
+                ->where('device_binding_id', (int) $b->id)
+                ->whereIn('status', self::ACTIVE_STATUSES)
+                ->exists();
+            if ($hasActiveCampaign) {
+                return $this->campaignQueueStatusForBinding((array) $b);
+            }
+        }
+
+        $firstBinding = $activeBindings->first();
+        if ($firstBinding) {
+            return $this->campaignQueueStatusForBinding((array) $firstBinding);
+        }
+
+        return [
+            'campaign_id' => null,
+            'campaign_name' => '',
+            'campaign_status' => 'idle',
+            'total_contacts' => 0,
+            'completed_calls' => 0,
+            'remaining_contacts' => 0,
+            'uncertain_pending' => 0,
+            'next_contact' => null,
+            'dispatch_enabled' => $this->dialEnabled(),
+            'dial_requested' => false,
+            'dial_requested_at' => 0,
+        ];
+    }
+
+    public function campaignQueueStatusForBinding(array $binding, ?string $preferredCampaignId = null): array
+    {
+        $a = (int) $binding['account_id'];
+        $s = (int) $binding['site_id'];
+        $d = (int) $binding['id'];
+        $slot = (int) $binding['sim_slot'];
+        $nowEpoch = time();
+
+        $uncertainPending = DB::table('tenant_campaign_attempts')
+            ->where('account_id', $a)
+            ->where('device_binding_id', $d)
+            ->where('sim_slot', $slot)
+            ->where('status', 'unknown')
+            ->count();
+
+        $dialEpoch = (int) Cache::get($this->dialSignalCacheKey($d), 0);
+        $dialRequested = $dialEpoch > 0 && ($nowEpoch - $dialEpoch) <= 60;
+
+        $campaign = null;
+        if ($preferredCampaignId !== null && preg_match('/^[a-f0-9]{24}$/D', $preferredCampaignId) === 1) {
+            $campaign = DB::table('tenant_campaigns')
+                ->where('id', $preferredCampaignId)
+                ->where('account_id', $a)
+                ->where('device_binding_id', $d)
+                ->where('sim_slot', $slot)
+                ->first();
+        }
+        if (! $campaign) {
+            $campaign = DB::table('tenant_campaigns')
+                ->where('account_id', $a)
+                ->where('site_id', $s)
+                ->where('device_binding_id', $d)
+                ->where('sim_slot', $slot)
+                ->whereIn('status', self::ACTIVE_STATUSES)
+                ->orderBy('created_at')
+                ->orderBy('id')
+                ->first();
+        }
+        if (! $campaign) {
+            $campaign = DB::table('tenant_campaigns')
+                ->where('account_id', $a)
+                ->where('site_id', $s)
+                ->where('device_binding_id', $d)
+                ->where('sim_slot', $slot)
+                ->where('status', '!=', 'cancelled')
+                ->orderByDesc('created_at')
+                ->first();
+        }
+
+        if (! $campaign) {
+            return [
+                'campaign_id' => null,
+                'campaign_name' => '',
+                'campaign_status' => 'idle',
+                'total_contacts' => 0,
+                'completed_calls' => 0,
+                'remaining_contacts' => 0,
+                'uncertain_pending' => $uncertainPending,
+                'next_contact' => null,
+                'dispatch_enabled' => $this->dialEnabled(),
+                'dial_requested' => $dialRequested,
+                'dial_requested_at' => $dialRequested ? $dialEpoch : 0,
+            ];
+        }
+
+        $cmpArr = (array) $campaign;
+        $targets = $this->campaignTargets($binding, $cmpArr);
+        $triedContactIds = array_flip(
+            DB::table('tenant_campaign_attempts')
+                ->where('campaign_id', $cmpArr['id'])
+                ->where('status', '!=', 'cleared')
+                ->pluck('contact_id')
+                ->map(fn ($v) => (int) $v)
+                ->all()
+        );
+        $completedCalls = DB::table('tenant_campaign_attempts')
+            ->where('campaign_id', $cmpArr['id'])
+            ->whereIn('status', ['finished', 'completed'])
+            ->count();
+
+        $startsRaw = (string) ($cmpArr['starts_at'] ?? '');
+        if (str_contains($startsRaw, 'T')) {
+            try {
+                $startsRaw = $this->cairoStrictToUtc($startsRaw);
+            } catch (InvalidArgumentException) {
+            }
+        }
+        $startDt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $startsRaw, new DateTimeZone('UTC'));
+        $startEpoch = $startDt ? $startDt->getTimestamp() : $nowEpoch;
+        $secondsUntilDial = max(0, $startEpoch - $nowEpoch);
+        $scheduledCairo = $this->calls->formatCairo($startsRaw);
+
+        $eligibleCount = 0;
+        $remainingCount = 0;
+        $nextContact = null;
+        foreach ($targets as $opaque) {
+            try {
+                $cid = $this->parseOpaqueId($opaque);
+            } catch (InvalidArgumentException) {
+                continue;
+            }
+            if (! $this->contactAllowed($binding, $cid)) {
+                continue;
+            }
+            $eligibleCount++;
+            if (isset($triedContactIds[$cid])) {
+                continue;
+            }
+            $remainingCount++;
+            if ($nextContact === null) {
+                $cRow = DB::table('contacts')
+                    ->where('id', $cid)
+                    ->where('account_id', $a)
+                    ->first(['id', 'name', 'display_name', 'phone', 'phone_e164']);
+                if ($cRow) {
+                    $cName = trim((string) ($cRow->display_name ?: $cRow->name ?: 'عميل'));
+                    $cPhone = trim((string) ($cRow->phone_e164 ?: $cRow->phone ?: ''));
+                    $nextContact = [
+                        'id' => $this->opaqueId($cid),
+                        'name' => mb_substr($cName, 0, 80, 'UTF-8'),
+                        'phone' => $cPhone,
+                        'scheduled_at' => $startsRaw,
+                        'scheduled_at_cairo' => $scheduledCairo,
+                        'seconds_until_dial' => $secondsUntilDial,
+                    ];
+                }
+            }
+        }
+
+        $rawStatus = (string) $cmpArr['status'];
+        if (in_array($rawStatus, self::ACTIVE_STATUSES, true)) {
+            $normalizedStatus = $remainingCount > 0 ? 'running' : 'completed';
+        } elseif ($rawStatus === 'paused') {
+            $normalizedStatus = 'paused';
+        } elseif ($rawStatus === 'draft') {
+            $normalizedStatus = 'paused';
+        } else {
+            $normalizedStatus = $rawStatus;
+        }
+
+        return [
+            'campaign_id' => (string) $cmpArr['id'],
+            'campaign_name' => mb_substr((string) ($cmpArr['name'] ?? ''), 0, 80, 'UTF-8'),
+            'campaign_status' => $normalizedStatus,
+            'raw_status' => $rawStatus,
+            'total_contacts' => $eligibleCount > 0 ? $eligibleCount : count($targets),
+            'completed_calls' => $completedCalls,
+            'remaining_contacts' => $remainingCount,
+            'uncertain_pending' => $uncertainPending,
+            'next_contact' => $nextContact,
+            'dispatch_enabled' => $this->dialEnabled(),
+            'dial_requested' => $dialRequested,
+            'dial_requested_at' => $dialRequested ? $dialEpoch : 0,
+        ];
+    }
+
+    public function dialNextNowForAccount(int $accountId, ?string $campaignId = null): array
+    {
+        $campaignQuery = DB::table('tenant_campaigns')
+            ->where('account_id', $accountId)
+            ->where('status', '!=', 'cancelled');
+        if ($campaignId !== null && preg_match('/^[a-f0-9]{24}$/D', $campaignId) === 1) {
+            $campaignQuery->where('id', $campaignId);
+        } else {
+            $campaignQuery->orderByRaw("CASE WHEN status IN ('ready','running','armed','active') THEN 0 ELSE 1 END")
+                ->orderByDesc('created_at');
+        }
+        $campaign = $campaignQuery->first();
+
+        $binding = null;
+        if ($campaign && (int) $campaign->device_binding_id > 0) {
+            $binding = DB::table('device_bindings')
+                ->where('id', (int) $campaign->device_binding_id)
+                ->where('account_id', $accountId)
+                ->where('status', 'active')
+                ->first();
+        }
+        if (! $binding) {
+            $binding = DB::table('device_bindings')
+                ->where('account_id', $accountId)
+                ->where('status', 'active')
+                ->orderBy('id')
+                ->first();
+        }
+        if (! $binding) {
+            throw new InvalidArgumentException('لا توجد شريحة SIM نشطة ومربوطة بهذا الحساب.');
+        }
+
+        return $this->dialNextNowForBinding((array) $binding, $campaign?->id);
+    }
+
+    public function dialNextNowForBinding(array $binding, ?string $campaignId = null): array
+    {
+        $a = (int) $binding['account_id'];
+        $d = (int) $binding['id'];
+        $slot = (int) $binding['sim_slot'];
+
+        $cmpQuery = DB::table('tenant_campaigns')
+            ->where('account_id', $a)
+            ->where('device_binding_id', $d)
+            ->where('sim_slot', $slot)
+            ->where('status', '!=', 'cancelled');
+        if ($campaignId !== null && preg_match('/^[a-f0-9]{24}$/D', $campaignId) === 1) {
+            $cmpQuery->where('id', $campaignId);
+        } else {
+            $cmpQuery->orderByRaw("CASE WHEN status IN ('ready','running','armed','active') THEN 0 ELSE 1 END")
+                ->orderByDesc('created_at');
+        }
+        $campaign = $cmpQuery->first();
+        if (! $campaign) {
+            throw new InvalidArgumentException('لا توجد حملة متاحة للتشغيل على هذه الشريحة.');
+        }
+
+        // Delete any stuck pre-dial 'failed', 'unknown', or stale 'leased'/'verified' attempts for this SIM
+        // (unique index on (campaign_id, contact_id) prevents re-claiming if the old row remains)
+        // while preserving genuinely completed/busy/no_answer attempts so customers are never redialed blindly.
+        DB::table('tenant_campaign_attempts')
+            ->where('account_id', $a)
+            ->where('device_binding_id', $d)
+            ->where('sim_slot', $slot)
+            ->where(function ($q): void {
+                $q->whereIn('status', ['unknown', 'leased', 'verified', 'cleared'])
+                    ->orWhere(function ($q2): void {
+                        $q2->where('status', 'finished')->where('result', 'failed');
+                    });
+            })
+            ->delete();
+
+        $nowUtc = gmdate('Y-m-d H:i:s');
+        $updates = ['status' => 'running'];
+        $startsAt = (string) ($campaign->starts_at ?? '');
+        if ($startsAt === '' || $startsAt > $nowUtc) {
+            $updates['starts_at'] = $nowUtc;
+        }
+        $endsAt = (string) ($campaign->ends_at ?? '');
+        if ($endsAt === '' || $endsAt <= $nowUtc) {
+            $updates['ends_at'] = gmdate('Y-m-d H:i:s', time() + 86400);
+        }
+        DB::table('tenant_campaigns')
+            ->where('id', $campaign->id)
+            ->where('account_id', $a)
+            ->update($updates);
+
+        Cache::put($this->dialSignalCacheKey($d), time(), 60);
+
+        return $this->campaignQueueStatusForBinding($binding, (string) $campaign->id);
     }
 }

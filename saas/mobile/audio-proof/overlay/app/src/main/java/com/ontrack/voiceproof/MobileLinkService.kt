@@ -58,12 +58,51 @@ class MobileLinkService:Service() {
         @Volatile var campaignAutoEnabled=false
         @Volatile var campaignReadyCount=0
         @Volatile var campaignActiveName=""
+        @Volatile var campaignId=""
+        @Volatile var campaignStatus="idle"
+        @Volatile var campaignTotalContacts=0
+        @Volatile var campaignCompletedCalls=0
+        @Volatile var campaignRemainingContacts=0
+        @Volatile var campaignUncertainPending=0
+        @Volatile var campaignNextName=""
+        @Volatile var campaignNextPhone=""
+        @Volatile var campaignScheduledAtCairo=""
+        @Volatile var campaignSecondsUntilDial=0
+        @Volatile var campaignQueueSyncedAtMs=0L
+        @Volatile var campaignLastError=""
+        @Volatile var lastDialRequestEpoch=0L
+        @Volatile var dialNextRequested=false
         @Volatile var managerCallbackActive=false
         @Volatile var managerCallbackCountdownSeconds=0
         @Volatile var managerCallbackTargetMasked=""
         fun updateCampaignSummary(ready:Int,name:String){
             campaignReadyCount=ready
             campaignActiveName=name
+        }
+        fun updateCampaignQueue(queue:JSONObject?){
+            if(queue==null)return
+            campaignId=queue.optString("campaign_id","")
+            campaignStatus=queue.optString("campaign_status","idle")
+            val qName=queue.optString("campaign_name","").trim()
+            if(qName.isNotBlank())campaignActiveName=qName
+            campaignTotalContacts=queue.optInt("total_contacts",0)
+            campaignCompletedCalls=queue.optInt("completed_calls",0)
+            campaignRemainingContacts=queue.optInt("remaining_contacts",0)
+            campaignUncertainPending=queue.optInt("uncertain_pending",0)
+            val next=queue.optJSONObject("next_contact")
+            if(next!=null){
+                campaignNextName=next.optString("name","")
+                campaignNextPhone=next.optString("phone","")
+                campaignScheduledAtCairo=next.optString("scheduled_at_cairo","")
+                campaignSecondsUntilDial=next.optInt("seconds_until_dial",0)
+            }else{
+                campaignNextName=""
+                campaignNextPhone=""
+                campaignScheduledAtCairo=""
+                campaignSecondsUntilDial=0
+            }
+            campaignQueueSyncedAtMs=System.currentTimeMillis()
+            if(campaignUncertainPending==0 && campaignStatus=="running" && campaignLastError.startsWith("uncertain"))campaignLastError=""
         }
         fun base(value:String):String {
             val uri=URI(value.trim())
@@ -250,11 +289,20 @@ class MobileLinkService:Service() {
                             .putBoolean("campaign_user_disabled",false)
                             .putBoolean("campaign_opt_in",true).apply()
                         campaignAutoEnabled=true
+                        dialNextRequested=true
+                        campaignLastError=""
                         triggerCampaignPollNow=true
                         retryWake.trySend(Unit)
                         notice("جاري سحب الرقم التالي من الحملة الآن...")
                     }else{
-                        notice("تعذر سحب رقم الحملة: تأكد من تشغيل الإيجنت ومنح إذن الاتصال وانتهاء المكالمة")
+                        val msg=when{
+                            inCall->"أنهِ المكالمة الحالية أولاً"
+                            !agentEnabled->"شغّل المساعد (الإيجنت) أولاً"
+                            !permission->"امنح إذن إجراء المكالمات (CALL_PHONE)"
+                            else->"امنح إذن قراءة الشريحة (READ_PHONE_STATE)"
+                        }
+                        campaignLastError=msg
+                        notice("تعذر سحب رقم الحملة: $msg")
                     }
                 }
                 ACTION_SPEAKER->scope.launch{
@@ -518,15 +566,17 @@ class MobileLinkService:Service() {
                                     }
                                 }
                             }catch(problem:Exception){
+                                val errMsg=problem.message.orEmpty().ifBlank{problem.javaClass.simpleName}.take(120)
+                                campaignLastError=errMsg
                                 if(slot in 0..1 && enrollment.paired(slot) &&
                                    attempt.matches(Regex("^[a-f0-9]{32}$"))){
                                     scope.launch(Dispatchers.IO){
                                         runCatching{enrollment.workspace(slot,"workspace_campaign_finish",
                                             JSONObject().put("attempt_id",attempt)
-                                                .put("result","unknown"))}
+                                                .put("result","failed"))}
                                     }
                                 }
-                                notice("اتمنعت محاولة الحملة: "+problem.message.orEmpty().take(100))
+                                notice("اتمنعت محاولة الحملة: "+errMsg)
                             }
                         }
                     }
@@ -534,11 +584,15 @@ class MobileLinkService:Service() {
                         val result=campaignDial?.await()
                         campaignDial=null
                         if(result?.isSuccess==true){
+                            campaignLastError=""
                             campaignPhone=result.getOrThrow()
                             campaignDialAt=SystemClock.elapsedRealtime()
                             campaignInProgress?.put("dial_started_wall_ms",System.currentTimeMillis())
-                            notice("تم طلب اتصال حملة من شريحة معتمدة؛ انتهاء المكالمة لم يتأكد بعد")
+                            notice("تم بدء اتصال الحملة عبر الشريحة؛ انتهاء المكالمة لم يتأكد بعد")
                         }else{
+                            val err=result?.exceptionOrNull()
+                            val errMsg=err?.message.orEmpty().ifBlank{err?.javaClass?.simpleName ?: "فشل بدء المكالمة"}.take(120)
+                            campaignLastError=errMsg
                             val failed=campaignInProgress
                             campaignInProgress=null
                             campaignDialAt=0L;campaignSawOffhook=false;campaignPhone=""
@@ -549,10 +603,10 @@ class MobileLinkService:Service() {
                                 scope.launch(Dispatchers.IO){
                                     runCatching{enrollment.workspace(slot,"workspace_campaign_finish",
                                         JSONObject().put("attempt_id",attempt)
-                                            .put("result","unknown"))}
+                                            .put("result","failed"))}
                                 }
                             }
-                            notice("مكالمة الحملة غير مؤكدة؛ محتاجة مراجعة قبل أي إعادة اتصال")
+                            notice("فشل بدء مكالمة الحملة: $errMsg")
                         }
                     }
                     if(triggerCampaignPollNow){
@@ -567,16 +621,30 @@ class MobileLinkService:Service() {
                            .getBoolean("campaign_opt_in",false) &&
                        SystemClock.elapsedRealtime()-lastCampaignPoll>=10000L){
                         lastCampaignPoll=SystemClock.elapsedRealtime()
+                        val forceDialNext=dialNextRequested
+                        dialNextRequested=false
                         campaignClaim=scope.async(Dispatchers.IO){
                             runCatching{
                                 var found:Pair<Int,JSONObject>?=null
                                 for(slot in 0..1){
                                     if(!enrollment.paired(slot))continue
+                                    if(forceDialNext){
+                                        runCatching{
+                                            val dialRes=enrollment.workspace(slot,"workspace_campaign_dial_next")
+                                            updateCampaignQueue(dialRes.optJSONObject("queue"))
+                                        }
+                                    }
                                     val reply=enrollment.workspace(slot,"workspace_campaign_claim")
                                     val claim=reply.optJSONObject("claim")
                                     if(claim!=null){found=slot to claim;break}
+                                    val reason=reply.optString("reason","").trim()
+                                    if(reason.isNotBlank() && forceDialNext){
+                                        campaignLastError=reason
+                                    }
                                 }
                                 found
+                            }.onFailure{err->
+                                campaignLastError=err.message.orEmpty().take(120)
                             }
                         }
                     }

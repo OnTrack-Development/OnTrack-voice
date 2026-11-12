@@ -408,4 +408,132 @@ class LiveIssuesFixTest extends TestCase
         $this->actingAs($customerUser)->get('/?tab=reseller-tenants')->assertStatus(403);
         $this->actingAs($customerUser)->get('/?tab=accounts')->assertStatus(403);
     }
+
+    public function test_v65_campaign_queue_status_dial_next_unblock_and_web_polling(): void
+    {
+        config(['ontrack.campaign_dial_enabled' => true]);
+
+        [$user, $accountId, $siteId, $agentId, $binding, $authHeaders] = $this->seedBoundDevice();
+
+        /** @var CampaignDialerService $dialer */
+        $dialer = app(CampaignDialerService::class);
+        $imported = $dialer->importContactsBulk($accountId, $siteId, "عميل أول,+201557275228\nعميل ثان,+201099887766", true);
+        $this->assertSame(2, $imported['imported_count']);
+
+        $tzCairo = new \DateTimeZone('Africa/Cairo');
+        $startFuture = (new \DateTimeImmutable('+30 minutes', $tzCairo))->format('Y-m-d\TH:i');
+        $endFuture = (new \DateTimeImmutable('+4 hours', $tzCairo))->format('Y-m-d\TH:i');
+
+        // 1. Auto-fallback when device_binding_id is omitted (< 1)
+        $campId = $dialer->createCampaign($accountId, $siteId, [
+            'name' => 'حملة الطابور الحي',
+            'device_binding_id' => 0,
+            'starts_at' => $startFuture,
+            'ends_at' => $endFuture,
+            'scenario' => 'أهلاً {name}',
+            'contact_ids' => $imported['contact_ids'],
+            'arm_now' => 1,
+        ]);
+        $rowCamp = DB::table('tenant_campaigns')->where('id', $campId)->first();
+        $this->assertSame((int) $binding['id'], (int) $rowCamp->device_binding_id);
+
+        // 2. Heartbeat carries campaign_queue_status <= 16KB and no \u06 escapes
+        $hb = $this->withHeaders($authHeaders)->postJson('/device/v1/index.php', [
+            'operation' => 'heartbeat',
+        ])->assertOk();
+        $rawBody = (string) $hb->getContent();
+        $this->assertLessThanOrEqual(16384, strlen($rawBody));
+        $this->assertStringNotContainsString('\u06', $rawBody);
+        $hbJson = $hb->json();
+        $this->assertSame($campId, $hbJson['profile']['campaign_queue_status']['campaign_id']);
+        $this->assertNotNull($hbJson['profile']['campaign_queue_status']['next_contact']);
+        $this->assertGreaterThan(0, $hbJson['profile']['campaign_queue_status']['next_contact']['seconds_until_dial']);
+
+        // 3. Simulate completed call on contact 1 + stuck unknown/pre-dial row on contact 0
+        $c0 = DB::table('contacts')->where('account_id', $accountId)->where('phone', '+201557275228')->first();
+        $c1 = DB::table('contacts')->where('account_id', $accountId)->where('phone', '+201099887766')->first();
+        $nowEpoch = time();
+        DB::table('tenant_campaign_attempts')->insert([
+            [
+                'id' => bin2hex(random_bytes(16)),
+                'campaign_id' => $campId,
+                'account_id' => $accountId,
+                'site_id' => $siteId,
+                'device_binding_id' => (int) $binding['id'],
+                'sim_slot' => 0,
+                'contact_id' => (int) $c0->id,
+                'phone_key' => '201557275228',
+                'status' => 'unknown',
+                'leased_epoch' => $nowEpoch - 120,
+            ],
+            [
+                'id' => bin2hex(random_bytes(16)),
+                'campaign_id' => $campId,
+                'account_id' => $accountId,
+                'site_id' => $siteId,
+                'device_binding_id' => (int) $binding['id'],
+                'sim_slot' => 0,
+                'contact_id' => (int) $c1->id,
+                'phone_key' => '201099887766',
+                'status' => 'completed',
+                'leased_epoch' => $nowEpoch - 300,
+            ],
+        ]);
+
+        // Claim blocked due to unknown attempt
+        $blocked = $this->withHeaders($authHeaders)->postJson('/device/v1/index.php', [
+            'operation' => 'workspace_campaign_claim',
+        ])->assertOk()->json();
+        $this->assertNull($blocked['claim']);
+        $this->assertSame('uncertain_call_requires_review', $blocked['reason']);
+
+        // 4. Web campaign_dial_next action clears stuck unknown row (preserving completed), bumps starts_at -> now, sets running
+        $this->actingAs($user)->post('/console/action', [
+            'action' => 'campaign_dial_next',
+            'campaign_id' => $campId,
+        ])->assertRedirect();
+
+        $this->assertSame('running', DB::table('tenant_campaigns')->where('id', $campId)->value('status'));
+        $this->assertNull(DB::table('tenant_campaign_attempts')->where('campaign_id', $campId)->where('contact_id', (int) $c0->id)->first());
+        $this->assertSame('completed', DB::table('tenant_campaign_attempts')->where('campaign_id', $campId)->where('contact_id', (int) $c1->id)->value('status'));
+
+        // 5. Web JSON queue endpoint reflects unblocked next contact with seconds_until_dial == 0
+        $queueRes = $this->actingAs($user)->getJson('/api/console/campaigns/queue')->assertOk()->json();
+        $this->assertTrue($queueRes['ok']);
+        $this->assertSame('+201557275228', $queueRes['queue']['next_contact']['phone']);
+        $this->assertSame(0, $queueRes['queue']['next_contact']['seconds_until_dial']);
+
+        // 6. Device can now claim contact 0 immediately (completed contact 1 is NOT re-claimed!)
+        $unblockedResp = $this->withHeaders($authHeaders)->postJson('/device/v1/index.php', [
+            'operation' => 'workspace_campaign_claim',
+        ]);
+        $this->assertSame(200, $unblockedResp->status(), (string) $unblockedResp->getContent());
+        $unblocked = $unblockedResp->json();
+        $this->assertNotNull($unblocked['claim']);
+        $this->assertSame('+201557275228', $unblocked['claim']['phone']);
+
+        // 7. Pause -> arm returns 'ready', start returns 'running'
+        $this->withHeaders($authHeaders)->postJson('/device/v1/index.php', [
+            'operation' => 'workspace_campaign_action',
+            'id' => $campId,
+            'action' => 'pause',
+            'confirmed' => true,
+        ])->assertOk()->assertJsonPath('campaign.status', 'paused');
+
+        $armRes = $this->withHeaders($authHeaders)->postJson('/device/v1/index.php', [
+            'operation' => 'workspace_campaign_action',
+            'id' => $campId,
+            'action' => 'arm',
+            'confirmed' => true,
+        ])->assertOk()->json();
+        $this->assertSame('ready', $armRes['campaign']['status']);
+
+        $startRes = $this->withHeaders($authHeaders)->postJson('/device/v1/index.php', [
+            'operation' => 'workspace_campaign_action',
+            'id' => $campId,
+            'action' => 'start',
+            'confirmed' => true,
+        ])->assertOk()->json();
+        $this->assertSame('running', $startRes['campaign']['status']);
+    }
 }

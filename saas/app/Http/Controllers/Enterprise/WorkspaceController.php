@@ -327,6 +327,7 @@ class WorkspaceController extends Controller
 
         return [
             'campaigns' => $this->campaigns->listCampaigns($accountId, 40),
+            'queue_status' => $this->campaigns->campaignQueueStatusForAccount($accountId),
             'contacts' => $contacts,
             'dnc_count' => DB::table('dnc_suppressions')->where('account_id', $accountId)->count(),
         ];
@@ -413,6 +414,21 @@ class WorkspaceController extends Controller
         $detail = $this->calls->callDetail((int) $ctx['account_id'], $id);
 
         return response()->json(['ok' => true] + $detail);
+    }
+
+    public function campaignQueueJson(Request $request)
+    {
+        $user = Auth::user();
+        $ctx = $this->ctx->resolve($user);
+        $this->ctx->requirePermission($ctx, 'read');
+        $cmpId = $request->query('campaign_id');
+
+        $queue = $this->campaigns->campaignQueueStatusForAccount(
+            (int) $ctx['account_id'],
+            is_string($cmpId) && trim($cmpId) !== '' ? trim($cmpId) : null
+        );
+
+        return response()->json(['ok' => true, 'queue' => $queue]);
     }
 
     public function exportCallsCsv(Request $request)

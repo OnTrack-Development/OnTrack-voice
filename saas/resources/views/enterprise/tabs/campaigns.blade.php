@@ -3,6 +3,10 @@
     $defaultStartCairo = (new \DateTimeImmutable('now', $tzCairo))->format('Y-m-d\TH:i');
     $defaultEndCairo = (new \DateTimeImmutable('+7 days', $tzCairo))->format('Y-m-d\TH:i');
     $selectableContacts = array_values(array_filter($data['contacts'] ?? [], fn ($ct) => empty($ct['dnc'])));
+    $q = $data['queue_status'] ?? [];
+    $qStatus = (string) ($q['campaign_status'] ?? 'idle');
+    $qNext = $q['next_contact'] ?? null;
+    $qSeconds = (int) ($qNext['seconds_until_dial'] ?? 0);
 @endphp
 
 <div class="card-head" style="margin-bottom:14px">
@@ -12,9 +16,97 @@
     </div>
 </div>
 
+<div class="card" id="liveCampaignQueueCard" style="border-color:rgba(225,29,72,.35);margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <div>
+            <h2 class="card-title" style="margin:0 0 4px">حالة جدولة الحملة الحية (Live Queue)</h2>
+            <div id="liveQueueHeadline" style="font-size:13.5px;color:#F4F4F5;font-weight:600">
+                @if (!empty($q['campaign_id']))
+                    @if ($qStatus === 'running')
+                        جدولة نشطة: حملة «{{ $q['campaign_name'] }}» — متبقي {{ (int) ($q['remaining_contacts'] ?? 0) }} من أصل {{ (int) ($q['total_contacts'] ?? 0) }} أرقام
+                    @elseif ($qStatus === 'paused')
+                        حملة موقوفة مؤقتاً: «{{ $q['campaign_name'] }}» — متبقي {{ (int) ($q['remaining_contacts'] ?? 0) }} رقم
+                    @elseif ($qStatus === 'completed')
+                        اكتملت الحملة: «{{ $q['campaign_name'] }}» ({{ (int) ($q['completed_calls'] ?? 0) }} / {{ (int) ($q['total_contacts'] ?? 0) }})
+                    @else
+                        الحملة: «{{ $q['campaign_name'] }}» ({{ $qStatus }})
+                    @endif
+                @else
+                    لا توجد حملة مجدولة على الشريحة حالياً
+                @endif
+            </div>
+        </div>
+        <span id="liveQueueBadge" class="pill {{ $qStatus === 'running' ? 'pill-green' : ($qStatus === 'paused' ? 'pill-amber' : '') }}">
+            {{ $qStatus === 'running' ? 'نشطة (Running)' : ($qStatus === 'paused' ? 'متوقفة مؤقتاً' : ($qStatus === 'completed' ? 'مكتملة' : 'غير نشطة')) }}
+        </span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-bottom:12px">
+        <div style="background:#09090B;border:1px solid #27272A;border-radius:10px;padding:10px 12px">
+            <div style="font-size:11.5px;color:#A1A1AA;margin-bottom:4px">الرقم التالي للاتصال</div>
+            <div id="liveNextContact" style="font-size:13.5px;color:#F4F4F5;font-weight:600">
+                @if ($qNext)
+                    {{ $qNext['name'] }} — <span class="mono" dir="ltr">{{ $qNext['phone'] }}</span>
+                @else
+                    لا يوجد رقم متبقٍ في الطابور
+                @endif
+            </div>
+        </div>
+        <div style="background:#09090B;border:1px solid #27272A;border-radius:10px;padding:10px 12px">
+            <div style="font-size:11.5px;color:#A1A1AA;margin-bottom:4px">العد التنازلي للمكالمة التالية</div>
+            <div id="liveQueueCountdown" class="mono" style="font-size:15px;color:#E11D48;font-weight:700">
+                @if ($qNext)
+                    {{ $qSeconds > 0 ? sprintf('%02d:%02d', intdiv($qSeconds, 60), $qSeconds % 60) : 'جاهز للاتصال الآن' }}
+                @else
+                    —
+                @endif
+            </div>
+        </div>
+    </div>
+
+    @if (!empty($q['uncertain_pending']))
+        <div id="liveQueueWarn" class="alert alert-warn" style="margin-bottom:10px">
+            يوجد {{ (int) $q['uncertain_pending'] }} محاولة سابقة بحالة غير مؤكدة أوقفت السحب التلقائي؛ اضغط «اتصال بالرقم التالي فوراً» لتصفير العائق وإرسال إشارة الاتصال للهاتف.
+        </div>
+    @else
+        <div id="liveQueueWarn" class="alert alert-warn" style="margin-bottom:10px;display:none"></div>
+    @endif
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        @if (!empty($q['campaign_id']))
+            @if ($qStatus === 'running')
+                <form method="POST" action="/console/action" style="margin:0">
+                    @csrf
+                    <input type="hidden" name="action" value="campaign_status">
+                    <input type="hidden" name="campaign_id" value="{{ $q['campaign_id'] }}">
+                    <input type="hidden" name="status" value="paused">
+                    <button type="submit" class="btn">⏸️ إيقاف مؤقت</button>
+                </form>
+            @else
+                <form method="POST" action="/console/action" style="margin:0">
+                    @csrf
+                    <input type="hidden" name="action" value="campaign_status">
+                    <input type="hidden" name="campaign_id" value="{{ $q['campaign_id'] }}">
+                    <input type="hidden" name="status" value="running">
+                    <button type="submit" class="btn">▶️ بدء الحملة الآن</button>
+                </form>
+            @endif
+        @endif
+        <form method="POST" action="/console/action" id="liveDialNextForm" style="margin:0">
+            @csrf
+            <input type="hidden" name="action" value="campaign_dial_next">
+            @if (!empty($q['campaign_id']))
+                <input type="hidden" name="campaign_id" value="{{ $q['campaign_id'] }}">
+            @endif
+            <button type="submit" class="btn btn-primary" id="liveDialNextBtn">📞 اتصال بالرقم التالي فوراً</button>
+        </form>
+        <span id="liveDialFeedback" style="font-size:12px;color:#A1A1AA"></span>
+    </div>
+</div>
+
 <div class="alert alert-warn" style="margin-bottom:14px">
     <div>
-        <strong>شرط التنفيذ الفعلي على الهاتف:</strong> السيرفر يُجدول الحملة فوراً بتوقيت القاهرة، ولكي يطلب الهاتف الأرقام وينفذ المكالمات تلقائياً يجب فتح تطبيق <strong>IO Voice</strong> ← تبويب <strong>الحملات</strong> ← تفعيل زر <strong>«تشغيل الحملات المعتمدة»</strong> ومنح صلاحية الهاتف (<code>CALL_PHONE</code>).
+        <strong>شرط التنفيذ الفعلي على الهاتف:</strong> السيرفر يُجدول الحملة فوراً بتوقيت القاهرة، ولكي يطلب الهاتف الأرقام وينفذ المكالمات تلقائياً يجب فتح تطبيق <strong>IO Voice</strong> وتفعيل الإيجنت ومنح صلاحية الهاتف (<code>CALL_PHONE</code>).
     </div>
 </div>
 
@@ -134,13 +226,14 @@
                         <td>{{ $cmp['device_name'] ?: ('#'.$cmp['device_binding_id']) }} (SIM {{ ((int) $cmp['sim_slot']) + 1 }})</td>
                         <td class="mono">{{ $cmp['attempts_done'] }} / {{ $cmp['target_count'] }}</td>
                         <td class="mono" style="font-size:11.5px" dir="ltr">{{ $cmp['starts_at_cairo'] ?: $cmp['starts_at'] }} → {{ $cmp['ends_at_cairo'] ?: $cmp['ends_at'] }}</td>
-                        <td><span class="pill {{ in_array($cmp['status'], ['ready', 'armed'], true) ? 'pill-green' : ($cmp['status'] === 'cancelled' ? 'pill-crimson' : 'pill-amber') }}">{{ $cmp['status'] }}</span></td>
+                        <td><span class="pill {{ in_array($cmp['status'], ['ready', 'armed', 'running', 'active'], true) ? 'pill-green' : ($cmp['status'] === 'cancelled' ? 'pill-crimson' : 'pill-amber') }}">{{ $cmp['status'] }}</span></td>
                         <td style="display:flex;gap:5px;flex-wrap:wrap">
-                            @if (! in_array($cmp['status'], ['ready', 'armed'], true))
-                                <form method="POST" action="/console/action" style="margin:0">@csrf<input type="hidden" name="action" value="campaign_status"><input type="hidden" name="campaign_id" value="{{ $cmp['id'] }}"><input type="hidden" name="status" value="ready"><button class="btn btn-sm">تشغيل</button></form>
+                            @if (! in_array($cmp['status'], ['ready', 'armed', 'running', 'active'], true))
+                                <form method="POST" action="/console/action" style="margin:0">@csrf<input type="hidden" name="action" value="campaign_status"><input type="hidden" name="campaign_id" value="{{ $cmp['id'] }}"><input type="hidden" name="status" value="running"><button class="btn btn-sm">تشغيل</button></form>
                             @else
                                 <form method="POST" action="/console/action" style="margin:0">@csrf<input type="hidden" name="action" value="campaign_status"><input type="hidden" name="campaign_id" value="{{ $cmp['id'] }}"><input type="hidden" name="status" value="paused"><button class="btn btn-sm">إيقاف مؤقت</button></form>
                             @endif
+                            <form method="POST" action="/console/action" style="margin:0">@csrf<input type="hidden" name="action" value="campaign_dial_next"><input type="hidden" name="campaign_id" value="{{ $cmp['id'] }}"><button class="btn btn-sm btn-primary">اتصال فوراً</button></form>
                             <form method="POST" action="/console/action" style="margin:0">@csrf<input type="hidden" name="action" value="campaign_status"><input type="hidden" name="campaign_id" value="{{ $cmp['id'] }}"><input type="hidden" name="status" value="cancelled"><button class="btn btn-sm btn-danger">إلغاء</button></form>
                         </td>
                     </tr>
@@ -180,3 +273,115 @@
         </table>
     </div>
 </div>
+<script>
+(function(){
+    let q = @json($q);
+    let remainingSec = q && q.next_contact ? Math.max(0, Number(q.next_contact.seconds_until_dial || 0)) : 0;
+    const headlineEl = document.getElementById('liveQueueHeadline');
+    const badgeEl = document.getElementById('liveQueueBadge');
+    const nextEl = document.getElementById('liveNextContact');
+    const cdEl = document.getElementById('liveQueueCountdown');
+    const warnEl = document.getElementById('liveQueueWarn');
+    const feedbackEl = document.getElementById('liveDialFeedback');
+    const dialForm = document.getElementById('liveDialNextForm');
+
+    function fmtSec(sec) {
+        if (sec <= 0) return 'جاهز للاتصال الآن';
+        const m = String(Math.floor(sec / 60)).padStart(2, '0');
+        const s = String(sec % 60).padStart(2, '0');
+        return 'الاتصال التالي بعد: ' + m + ':' + s;
+    }
+
+    function renderQueue() {
+        if (!q || !q.campaign_id) {
+            if (headlineEl) headlineEl.textContent = 'لا توجد حملة مجدولة على الشريحة حالياً';
+            if (badgeEl) { badgeEl.textContent = 'غير نشطة'; badgeEl.className = 'pill'; }
+            if (nextEl) nextEl.textContent = 'لا يوجد رقم متبقٍ في الطابور';
+            if (cdEl) cdEl.textContent = '—';
+            return;
+        }
+        const st = String(q.campaign_status || 'idle');
+        if (headlineEl) {
+            if (st === 'running') headlineEl.textContent = 'جدولة نشطة: حملة «' + q.campaign_name + '» — متبقي ' + q.remaining_contacts + ' من أصل ' + q.total_contacts + ' أرقام';
+            else if (st === 'paused') headlineEl.textContent = 'حملة موقوفة مؤقتاً: «' + q.campaign_name + '» — متبقي ' + q.remaining_contacts + ' رقم';
+            else if (st === 'completed') headlineEl.textContent = 'اكتملت الحملة: «' + q.campaign_name + '» (' + q.completed_calls + ' / ' + q.total_contacts + ')';
+            else headlineEl.textContent = 'الحملة: «' + q.campaign_name + '» (' + st + ')';
+        }
+        if (badgeEl) {
+            badgeEl.textContent = st === 'running' ? 'نشطة (Running)' : st === 'paused' ? 'متوقفة مؤقتاً' : st === 'completed' ? 'مكتملة' : 'غير نشطة';
+            badgeEl.className = 'pill ' + (st === 'running' ? 'pill-green' : st === 'paused' ? 'pill-amber' : '');
+        }
+        if (nextEl) {
+            if (q.next_contact) {
+                nextEl.textContent = '';
+                const nameTxt = document.createTextNode((q.next_contact.name || 'عميل') + ' — ');
+                const phSpan = document.createElement('span');
+                phSpan.className = 'mono';
+                phSpan.dir = 'ltr';
+                phSpan.textContent = q.next_contact.phone || '';
+                nextEl.appendChild(nameTxt);
+                nextEl.appendChild(phSpan);
+            } else {
+                nextEl.textContent = 'لا يوجد رقم متبقٍ في الطابور';
+            }
+        }
+        if (cdEl) {
+            cdEl.textContent = q.next_contact ? (st === 'paused' ? 'متوقفة مؤقتاً' : fmtSec(remainingSec)) : '—';
+        }
+        if (warnEl) {
+            if (Number(q.uncertain_pending || 0) > 0) {
+                warnEl.style.display = 'block';
+                warnEl.textContent = 'يوجد ' + q.uncertain_pending + ' محاولة سابقة بحالة غير مؤكدة أوقفت السحب التلقائي؛ اضغط «اتصال بالرقم التالي فوراً» لتصفير العائق وإرسال إشارة الاتصال للهاتف.';
+            } else {
+                warnEl.style.display = 'none';
+            }
+        }
+    }
+
+    setInterval(function () {
+        if (q && q.next_contact && q.campaign_status === 'running' && remainingSec > 0) {
+            remainingSec--;
+            renderQueue();
+        }
+    }, 1000);
+
+    setInterval(function () {
+        fetch('/api/console/campaigns/queue', { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (res) {
+                if (res && res.ok && res.queue) {
+                    q = res.queue;
+                    remainingSec = q.next_contact ? Math.max(0, Number(q.next_contact.seconds_until_dial || 0)) : 0;
+                    renderQueue();
+                }
+            }).catch(function () {});
+    }, 5000);
+
+    if (dialForm) {
+        dialForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const fd = new FormData(dialForm);
+            if (feedbackEl) feedbackEl.textContent = 'جاري إرسال إشارة الاتصال للهاتف…';
+            fetch('/console/action', {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd
+            }).then(function (r) { return r.json(); }).then(function (res) {
+                if (res && res.ok) {
+                    if (res.queue) {
+                        q = res.queue;
+                        remainingSec = q.next_contact ? Math.max(0, Number(q.next_contact.seconds_until_dial || 0)) : 0;
+                        renderQueue();
+                    }
+                    if (feedbackEl) feedbackEl.textContent = res.success || 'تم إرسال إشارة الاتصال الفوري للهاتف.';
+                } else {
+                    if (feedbackEl) feedbackEl.textContent = (res && res.error) || 'تعذر تنفيذ الطلب.';
+                }
+            }).catch(function () {
+                dialForm.submit();
+            });
+        });
+    }
+    renderQueue();
+})();
+</script>

@@ -2,6 +2,7 @@
 
 namespace App\Services\Mobile;
 
+use App\Services\Campaigns\CampaignDialerService;
 use App\Services\Console\ConsoleContextService;
 use App\Services\Security\VaultService;
 use Illuminate\Database\QueryException;
@@ -315,12 +316,13 @@ class DevicePairingService
             ->where('site_id', (int) $binding['site_id'])
             ->where('device_binding_id', (int) $binding['id'])
             ->where('sim_slot', (int) $binding['sim_slot'])
-            ->whereIn('status', ['ready', 'armed'])
+            ->whereIn('status', CampaignDialerService::ACTIVE_STATUSES)
             ->orderBy('id')
             ->get(['id', 'name', 'contact_ids_json']);
 
         $activeCampaignName = $readyCampaigns->first()?->name ?? '';
         $readyCampaignCount = $readyCampaigns->count();
+        $queueStatus = app(CampaignDialerService::class)->campaignQueueStatusForBinding($binding);
 
         return [
             'ok' => true,
@@ -344,6 +346,7 @@ class DevicePairingService
                 'active_name' => mb_substr((string) $activeCampaignName, 0, 80, 'UTF-8'),
                 'dial_enabled' => (bool) config('ontrack.campaign_dial_enabled', false) || getenv('ONTRACK_TENANT_CAMPAIGN_DIAL_ENABLED') === '1',
             ],
+            'campaign_queue_status' => $queueStatus,
             'sim_slot' => (int) $binding['sim_slot'],
             'heartbeat_seconds' => 10,
             'last_seen_at' => $now,

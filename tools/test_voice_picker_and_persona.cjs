@@ -59,8 +59,8 @@ assert(tenantSession.includes('التأنيث الدائم') && tenantSession.in
 assert(pilotSession.includes('التأنيث الدائم') && pilotSession.includes('اسم المتصل وتقييمه'),
   'saas/mobile/server/session.php missing female-lock or memory rules');
 assert(deployPy.includes("assets/voice-samples"), 'deploy_saas_console.py must preserve voice-samples');
-assert.equal(otaRelease.revision, 62, 'OTA release revision must be 62');
-assert.equal(otaRelease.max_native, 62, 'OTA release max_native must be 62');
-assert.equal(nativeRelease.version_code, 62, 'Native version_code must be 62');
+assert(otaRelease.revision >= 62, 'OTA release revision must be >= 62');
+assert.equal(otaRelease.max_native, nativeRelease.version_code, 'OTA max_native must match native version_code');
+assert(nativeRelease.version_code >= 62, 'Native version_code must be >= 62');
 
 console.log('VOICE_PICKER_AND_PERSONA_PASS');

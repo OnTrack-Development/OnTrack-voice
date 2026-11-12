@@ -27,8 +27,8 @@ import android.widget.TextView
 internal class OnTrackLaunchScreen(private val activity:Activity, private val parent:FrameLayout) {
     private val density=activity.resources.displayMetrics.density
     private fun dp(v:Int)=(v*density).toInt()
-    private val bg=Color.rgb(8,9,12)
-    private val red=Color.rgb(220,17,44)
+    private val bg=Color.rgb(9,9,11)
+    private val red=Color.rgb(225,29,72)
     private val root=FrameLayout(activity).apply {
         setBackgroundColor(bg)
         isClickable=true

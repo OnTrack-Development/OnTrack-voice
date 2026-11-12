@@ -193,16 +193,34 @@ body>.otWelcome,body>.otTabs,body>.otPageIntro,body>[data-panel],body>footer{dis
 .v1Hint{font-size:12px;line-height:1.8;color:var(--muted)}
 
 
-:root{--bg:#09090B;--panel:#121215;--border:#27272A;--muted:#A1A1AA;
-  --text:#FAFAFA;--accent:#E11D48;--control:#18181B;
+:root{--bg:#09090B;--panel:#121216;--border:#27272A;--muted:#A1A1AA;
+  --text:#F4F4F5;--accent:#E11D48;--control:#18181B;--raised:#121216;
   --green:#10B981;--yellow:#F59E0B;color-scheme:dark}
 body{background:#09090B!important;color:var(--text)}
 body.light{--bg:#FAFAFA;--panel:#FFFFFF;--border:#E4E4E7;--muted:#52525B;
-  --text:#09090B;--accent:#E11D48;--control:#F4F4F5;
+  --text:#09090B;--accent:#E11D48;--control:#F4F4F5;--raised:#FAFAFA;
   --green:#10B981;--yellow:#D97706;color-scheme:light;background:#FAFAFA!important}
-#v1Minimal .card,.card{background:#121215!important;border-radius:16px;border:1px solid #27272A!important;box-shadow:0 10px 30px #00000033}
+#v1Minimal .card,.card{background:#121216!important;border-radius:16px;border:1px solid #27272A!important;box-shadow:0 10px 30px #00000044}
 body.light #v1Minimal .card,body.light .card{background:#FFFFFF!important;border-color:#E4E4E7!important;box-shadow:0 10px 28px -8px #09090b10}
-body.light button:not(.primary):not(.positive):not(.agent-on):not(.agent-off){color:#09090B}
+button{background:#18181B;color:#F4F4F5;border:1px solid #27272A}
+button.primary,button.positive{background:#E11D48;color:#FFFFFF;border-color:#E11D48}
+button.outline{background:#18181B;color:#F4F4F5;border:1px solid #27272A}
+body.light button:not(.primary):not(.positive):not(.agent-on):not(.agent-off){color:#09090B;background:#F4F4F5;border-color:#E4E4E7}
+.otQueueBox{background:#09090B;border:1px solid #27272A;border-radius:14px;padding:13px;margin:10px 0 12px;display:grid;gap:10px}
+body.light .otQueueBox{background:#FAFAFA;border-color:#E4E4E7}
+.otQueueHead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.otQueueHead strong{font-size:14px;color:var(--text)}
+.otQueueStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.otQueueStat{background:#18181B;border:1px solid #27272A;border-radius:10px;padding:8px 6px;text-align:center}
+body.light .otQueueStat{background:#FFFFFF;border-color:#E4E4E7}
+.otQueueStat b{display:block;font-size:15px;color:var(--text)}
+.otQueueStat small{display:block;font-size:10px;color:var(--muted)}
+.otQueueNext{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#18181B;border:1px solid #27272A;border-radius:12px;padding:11px 12px}
+body.light .otQueueNext{background:#FFFFFF;border-color:#E4E4E7}
+.otQueueTimer{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:17px;font-weight:900;color:#E11D48;direction:ltr;white-space:nowrap}
+.otQueueErr{padding:9px 11px;border-radius:10px;background:#e11d481f;border:1px solid #e11d4866;color:#fecdd3;font-size:12px;line-height:1.6}
+body.light .otQueueErr{background:#fff1f2;color:#9f1239}
+@media(max-width:420px){.otQueueStats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 #v1Minimal button:focus-visible,button:focus-visible{outline:2px solid #E11D48;outline-offset:3px}
 #v1Minimal .v1Buttons button{min-height:46px}
 #v1Minimal .section-title h2{font-weight:800;letter-spacing:-.2px}
@@ -251,12 +269,37 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 <p class="v1Hint" id="v1PairHelp" aria-live="polite" style="margin:0">بعد استخراج الكود من الموقع، اضغط ربط وأدخل الـ6 أرقام.</p>
 </section>
 <section class="card" id="v1CardCampaigns">
-<div class="section-title"><h2>الحملات التلقائية ومعاودة المدير</h2><span class="chip" id="v1CampaignBadge">Auto-Dialer</span></div>
+<div class="section-title"><h2>الحملات التلقائية وحالة الطابور الحي</h2><span class="chip" id="v1CampaignBadge">Auto-Dialer</span></div>
+<div class="otQueueBox" id="v1QueueCard">
+  <div class="otQueueHead">
+    <strong id="v1QueueCampName">بانتظار حملة نشطة</strong>
+    <span class="chip" id="v1QueueStatePill">متوقف</span>
+  </div>
+  <div class="otQueueStats">
+    <div class="otQueueStat"><b id="v1QTotal">0</b><small>الإجمالي</small></div>
+    <div class="otQueueStat"><b id="v1QDone">0</b><small>تم الاتصال</small></div>
+    <div class="otQueueStat"><b id="v1QRem">0</b><small>المتبقي</small></div>
+    <div class="otQueueStat"><b id="v1QUnc">0</b><small>قيد المراجعة</small></div>
+  </div>
+  <div class="otQueueNext">
+    <div>
+      <small style="display:block;color:var(--muted);font-size:11px">العميل التالي للاتصال</small>
+      <strong id="v1QueueNextName" style="display:block;font-size:13px">لا يوجد رقم مجدول حالياً</strong>
+      <small id="v1QueueNextPhone" dir="ltr" style="color:var(--muted);font-size:12px">—</small>
+      <small id="v1QueueNextTime" style="display:block;color:var(--muted);font-size:11px"></small>
+    </div>
+    <div class="otQueueTimer" id="v1QueueCountdown">--:--</div>
+  </div>
+  <div class="otQueueErr" id="v1QueueError" hidden></div>
+</div>
 <label class="otToggleRow" for="v1CampaignAutoToggle">
   <span><strong style="display:block;font-size:13px">تشغيل الحملات الصادرة التلقائية (Auto-Dialer)</strong><small id="v1CampaignQueueText" style="color:var(--muted)">يبدأ السحب التلقائي عند جاهزية الإيجنت وصلاحية الاتصال</small></span>
   <input type="checkbox" id="v1CampaignAutoToggle" checked>
 </label>
-<button type="button" class="primary" id="v1CampaignPullNow" style="width:100%">سحب الرقم التالي والاتصال الآن</button>
+<div class="v1Buttons">
+  <button type="button" class="outline" id="v1CampaignToggleRun">بدء الحملة الآن</button>
+  <button type="button" class="primary" id="v1CampaignPullNow">اتصال بالرقم التالي فوراً</button>
+</div>
 <div id="v1ManagerCallbackBox" class="otCountdown" hidden role="status" aria-live="polite">
   <span id="v1ManagerCallbackText">معاودة المدير خلال 10 ثوانٍ</span>
   <span id="v1ManagerCallbackPhone" dir="ltr"></span>
@@ -272,7 +315,7 @@ body.light #v1UpdateBox .otUpdateAvailability.has-update{
 <div class="v1Buttons"><button type="button" id="v1PermissionSetup">فحص النواقص</button><button type="button" id="v1PermissionTest">فحص الجهاز</button></div></div>
 </section>
 <section class="card otPersistentUpdates" id="v1UpdateBox" aria-labelledby="v1UpdateHeading">
-<div class="section-title"><h2 id="v1UpdateHeading">تحديثات التطبيق</h2><span class="chip">0.3.41 · v64</span></div>
+<div class="section-title"><h2 id="v1UpdateHeading">تحديثات التطبيق</h2><span class="chip">0.3.42 · v65</span></div>
 <div class="otUpdateAvailability" id="v1UpdateBanner" role="status" aria-live="polite">
   <span class="otUpdateMark" aria-hidden="true">↧</span>
   <span><strong id="v1UpdateTitle">جارٍ التحقق من تحديث Android</strong><small id="v1UpdateVersion">يظهر رقم الإصدار بعد الفحص</small></span>
@@ -674,6 +717,7 @@ window.onTrackState=s=>{if(!splashEnded)setTimeout(finishSplash,520);
  if(first&&online)first=false;
  v1Render(s);
 };
+const campQueueState={id:'',status:'',hasNext:false,seconds:-1,syncedAt:0};
 function v1Render(s){
  const linked=!!s.tenantLinked,phoneReady=s.phonePermissionGranted!==false,active=!!s.agentEnabled&&s.tenantServiceRunning===true&&!s.tenantPairingInProgress;
  el('v1PairState').textContent=linked?'شريحة مرتبطة':'غير مربوط';
@@ -705,8 +749,41 @@ function v1Render(s){
  el('v1CampaignBadge').textContent=campOn?'يعمل تلقائيًا':'متوقف';
  el('v1CampaignBadge').className='chip '+(campOn?'good':'warn');
  const qCount=Number(s.campaignQueueCount)||0;
- const qName=String(s.campaignActiveName||'').trim();
- el('v1CampaignQueueText').textContent=qName?(qName+' · '+qCount+' رقم جاهز'):(qCount>0?(qCount+' رقم جاهز للحملة النشطة'):'يسحب المهام الجاهزة فور تفعيل الإيجنت وصلاحية الاتصال');
+ const qObj=(s.campaignQueue&&typeof s.campaignQueue==='object')?s.campaignQueue:{};
+ const qName=String(qObj.campaign_name||s.campaignActiveName||'').trim();
+ const qSt=String(qObj.campaign_status||'').trim();
+ const stLabels={running:'تعمل الآن',ready:'جاهزة للتشغيل',armed:'مفعّلة',active:'نشطة',paused:'متوقفة مؤقتًا',draft:'مسودة',completed:'مكتملة',cancelled:'ملغاة',idle:'لا توجد حملة'};
+ el('v1CampaignQueueText').textContent=qName?(qName+' · '+qCount+' رقم متاح'):(qCount>0?(qCount+' رقم جاهز للحملة النشطة'):'يسحب المهام الجاهزة فور تفعيل الإيجنت وصلاحية الاتصال');
+ el('v1QueueCampName').textContent=qName||'لا توجد حملة مجدولة';
+ el('v1QueueStatePill').textContent=stLabels[qSt]||(qName?'جاهز':'متوقف');
+ el('v1QueueStatePill').className='chip '+(['running','ready','armed','active'].includes(qSt)?'good':'warn');
+ el('v1QTotal').textContent=String(Number(qObj.total_contacts)||0);
+ el('v1QDone').textContent=String(Number(qObj.completed_calls)||0);
+ el('v1QRem').textContent=String(Number(qObj.remaining_contacts)||qCount||0);
+ el('v1QUnc').textContent=String(Number(qObj.uncertain_pending)||0);
+ const qErr=String(qObj.last_error||'').trim();
+ el('v1QueueError').hidden=!qErr;
+ if(qErr)el('v1QueueError').textContent='تنبيه آخر محاولة: '+qErr;
+ campQueueState.id=String(qObj.campaign_id||'');
+ campQueueState.status=qSt;
+ campQueueState.syncedAt=Date.now();
+ const nx=(qObj.next_contact&&typeof qObj.next_contact==='object')?qObj.next_contact:null;
+ campQueueState.hasNext=!!nx;
+ campQueueState.seconds=nx&&typeof nx.seconds_until_dial==='number'?Math.max(0,Math.floor(nx.seconds_until_dial)):-1;
+ if(nx){
+  el('v1QueueNextName').textContent=String(nx.name||'عميل بدون اسم');
+  el('v1QueueNextPhone').textContent=String(nx.phone||'—');
+  el('v1QueueNextTime').textContent=nx.scheduled_at_cairo?('موعد القاهرة: '+nx.scheduled_at_cairo):'';
+ }else{
+  el('v1QueueNextName').textContent=qCount>0?'جاهز للسحب على الشريحة':'لا يوجد رقم متبقي في الطابور';
+  el('v1QueueNextPhone').textContent='—';
+  el('v1QueueNextTime').textContent='';
+ }
+ renderCampCountdown();
+ const isRunning=['running','ready','armed','active'].includes(qSt);
+ const hasCamp=/^[a-f0-9]{24}$/.test(campQueueState.id);
+ el('v1CampaignToggleRun').disabled=!linked||!hasCamp||!!s.inCall;
+ el('v1CampaignToggleRun').textContent=isRunning?'إيقاف مؤقت للحملة':'بدء الحملة الآن';
  el('v1CampaignPullNow').disabled=!linked||!active||!!s.inCall;
  const cbActive=!!s.managerCallbackActive && Number(s.managerCallbackCountdown)>0;
  el('v1ManagerCallbackBox').hidden=!cbActive;
@@ -720,11 +797,28 @@ function v1Render(s){
  el('v1IvrBadge').textContent=ivrActive?('IVR مفعّل · '+ivrCount+' قسم'):'IVR متوقف';
  el('v1IvrBadge').className='chip '+(ivrActive?'good':'');
 }
+function renderCampCountdown(){
+ const box=el('v1QueueCountdown');
+ if(!box)return;
+ if(!campQueueState.hasNext||campQueueState.seconds<0){box.textContent='--:--';return;}
+ const elapsed=Math.floor((Date.now()-campQueueState.syncedAt)/1000);
+ const rem=Math.max(0,campQueueState.seconds-elapsed);
+ if(rem<=0){box.textContent='جاهز للاتصال';return;}
+ const m=String(Math.floor(rem/60)).padStart(2,'0');
+ const sec=String(rem%60).padStart(2,'0');
+ box.textContent=m+':'+sec;
+}
+setInterval(renderCampCountdown,1000);
 el('v1CampaignAutoToggle').onchange=()=>{
  const on=el('v1CampaignAutoToggle').checked;
  send(on?'campaignAutoEnable':'campaignAutoDisable',on?{confirmed:true}:{});
 };
-el('v1CampaignPullNow').onclick=()=>send('campaignPullNow');
+el('v1CampaignToggleRun').onclick=()=>{
+ if(!campQueueState.id)return;
+ const isRunning=['running','ready','armed','active'].includes(campQueueState.status);
+ send('campaignAction',{action:isRunning?'pause':'start',id:campQueueState.id,confirmed:true});
+};
+el('v1CampaignPullNow').onclick=()=>send('campaignDialNextNow');
 el('v1Enable').onclick=()=>el('enable').click();
 el('v1Disable').onclick=()=>el('disable').click();
 el('v1Pair').onclick=()=>send('tenantQuickPair');
@@ -875,10 +969,10 @@ window.onTrackCampaigns=payload=>{
   body.append(name,detail);card.append(body);
   if(Number(last.nativeCode)>=18 && /^[a-f0-9]{24}$/.test(String(c.id||''))){
    const actions=document.createElement('div');actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
-   const choices=c.status==='cancelled'?[]:c.status==='paused'?['preview','resume','cancel']:c.status==='draft'?['preview','arm','pause','cancel']:['preview','pause','cancel'];
+   const choices=c.status==='cancelled'?[]:c.status==='paused'?['preview','start','resume','dial_next_now','cancel']:c.status==='draft'?['preview','start','arm','pause','cancel']:['preview','dial_next_now','pause','cancel'];
    choices.forEach(a=>{
     const b=document.createElement('button');b.style.cssText='width:auto;padding:8px;font-size:11px';
-    b.textContent=({preview:'معاينة DNC',arm:'اعتماد للتشغيل',pause:'إيقاف',resume:'استئناف',cancel:'إلغاء'})[a];
+    b.textContent=({preview:'معاينة DNC',start:'بدء الآن',arm:'اعتماد للتشغيل',dial_next_now:'اتصال بالتالي',pause:'إيقاف',resume:'استئناف',cancel:'إلغاء'})[a];
     b.onclick=()=>{
       if(a!=='preview'&&!confirm('تأكيد '+b.textContent+' الحملة؟'))return;
       send('campaignAction',{action:a,id:c.id,confirmed:true});

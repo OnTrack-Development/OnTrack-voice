@@ -1,2 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources><color name="ic_launcher_background">#0B101B</color></resources>
+<resources>
+    <color name="ic_launcher_background">#09090B</color>
+    <color name="obsidian_bg">#09090B</color>
+    <color name="obsidian_card">#121216</color>
+    <color name="obsidian_border">#27272A</color>
+    <color name="obsidian_text">#F4F4F5</color>
+    <color name="obsidian_muted">#A1A1AA</color>
+    <color name="crimson_accent">#E11D48</color>
+</resources>
