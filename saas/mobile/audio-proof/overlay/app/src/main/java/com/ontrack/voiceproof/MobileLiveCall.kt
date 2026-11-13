@@ -901,10 +901,64 @@ internal class MobileLiveCall(
         }
     }
     fun onNetworkRouteChanged() {
-        if(isRecovering && recovery?.isActive==true) {
-            recovery?.cancel()
-            recovery=null
-            ws?.let { onTransportLost(it, "تغيرت شبكة الاتصال؛ جاري إعادة التوصيل فورًا") }
+        if(stopped.get())return
+        ResilientDns.clearCache()
+
+        val oldRecovery=recovery
+        recovery=null
+        oldRecovery?.cancel()
+
+        isRecovering=true
+        socketReady=false
+        telemetry.recordNetworkReconnect()
+        flushAudioGeneration()
+
+        ws?.let { oldWs->runCatching{oldWs.cancel()} }
+
+        recovery=scope.launch(Dispatchers.IO+callCoroutineGuard) {
+            try {
+                safeDiagnostics("تغير مسار الشبكة؛ جاري إعادة التوصيل بالمسار الجديد فورًا")
+                safeNotice("تغيرت شبكة الاتصال؛ جاري إعادة توصيل صوت الإيجنت")
+                contextBeforeSwitch=synchronized(transcriptLock){reportTranscript.toString().takeLast(2800)}
+
+                var attempt=0
+                while(isActive && !stopped.get() && !socketReady && attempt<5) {
+                    attempt++
+                    try {
+                        safeNotice("محاولة ربط الصوت بالمسار الجديد ($attempt/5)...")
+                        openSocket()
+                    } catch(retryErr:Throwable) {
+                        if(retryErr is CancellationException)throw retryErr
+                    }
+                    val waitStart=SystemClock.elapsedRealtime()
+                    while(!socketReady && !stopped.get() && SystemClock.elapsedRealtime()-waitStart<3500L){
+                        delay(150L)
+                    }
+                    if(socketReady)break
+                    val backoff=(750L shl attempt).coerceAtMost(3000L)
+                    delay(backoff)
+                }
+                if(!stopped.get() && !socketReady){
+                    isRecovering=false
+                    fail("تعذر استعادة صوت الإيجنت بعد تبديل مسار الشبكة؛ يمكن استلام المكالمة يدويًا")
+                } else {
+                    isRecovering=false
+                    safeNotice("تمت استعادة اتصال صوت الإيجنت بنجاح على المسار الجديد")
+                }
+            } catch(t:Throwable) {
+                isRecovering=false
+                if(t is CancellationException)throw t
+                fail("تعذر استعادة اتصال الصوت: "+t.javaClass.simpleName)
+            }
+        }
+    }
+
+    fun onNetworkLost() {
+        if(stopped.get())return
+        ResilientDns.clearCache()
+        if(socketReady && !isRecovering){
+            safeNotice("انقطع مسار الشبكة الحالي؛ بانتظار المسار البديل...")
+            ws?.let { onTransportLost(it, "انقطع مسار الشبكة الحالي") }
         }
     }
     private fun fail(reason:String){

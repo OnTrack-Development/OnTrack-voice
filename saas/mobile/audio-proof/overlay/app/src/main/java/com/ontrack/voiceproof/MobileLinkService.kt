@@ -216,6 +216,7 @@ class MobileLinkService:Service() {
             override fun onAvailable(network:Network){
                 dataNetworkEpoch++
                 forceDaemonCheck=true
+                ResilientDns.clearCache()
                 client.connectionPool.evictAll()
                 call?.onNetworkRouteChanged()
                 retryWake.trySend(Unit)
@@ -224,7 +225,13 @@ class MobileLinkService:Service() {
                 if(caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))forceDaemonCheck=true
                 retryWake.trySend(Unit)
             }
-            override fun onLost(network:Network){connected=false;forceDaemonCheck=true;retryWake.trySend(Unit)}
+            override fun onLost(network:Network){
+                connected=false
+                forceDaemonCheck=true
+                ResilientDns.clearCache()
+                call?.onNetworkLost()
+                retryWake.trySend(Unit)
+            }
         }
         runCatching{connectivity?.registerDefaultNetworkCallback(callback)}
             .onSuccess{networkListener=callback}
