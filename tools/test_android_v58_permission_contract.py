@@ -36,4 +36,19 @@ assert "CheckAction.OVERLAY" in logic
 assert "CheckAction.INSTALL_UPDATES" in logic
 assert "غير مطلوب" in logic and "تسجيل" in logic
 assert "فحص وتجهيز الهاتف" in ui
+# v72 source regression lock: restore v65 PCM, retain modern tenant SaaS route.
+voice=(mobile/"MobileLiveCall.kt").read_text(encoding="utf-8")
+pcm=(mobile/"LinkPcm.kt").read_text(encoding="utf-8")
+tenant=(mobile/"TenantDeviceEnrollment.kt").read_text(encoding="utf-8")
+service=(mobile/"MobileLinkService.kt").read_text(encoding="utf-8")
+assert "Base64.encodeToString(mono,Base64.NO_WRAP)" in voice, "v65 direct 16kHz uplink missing"
+assert "uplinkBuffer.push(" not in voice, "new 20/40ms adaptive batching sneaked into live call"
+assert "LinkPcm.output(rawPcm,rate)" in voice, "v65 direct downlink converter missing"
+assert "LinkPcm.output(audio,rate)" in voice, "v65 premium fallback converter missing"
+assert "firstPcmCaptured.await()" not in voice, "artificial 4s PCM gate may kill active SIM call"
+assert "const val PACKET_BYTES = 2400" in pcm and "const val MAX_PACKETS = 800" in pcm, "v65 25ms/20s FIFO missing"
+assert "enrollment.voiceSession(slot,flow)" in service, "modern tenant SaaS session flow must remain"
+assert "TenantPairingContract.ENDPOINT" in tenant and "OkHttpClient.Builder().followRedirects(false)" in tenant, "modern SaaS endpoint and original system DNS required"
+assert "onNetworkRouteChanged" not in service, "do not kill healthy websocket on network callback"
+print("V72_V65_PCM_AUDIO_PATH_RESTORED_WITH_MODERN_TENANT_SAAS_ROUTE_PASS")
 print("V58_ANDROID_MINIMAL_PERMISSIONS_UI_DEEP_LINKS_AND_NO_RECORDING_SOURCE_CONTRACT_PASS")

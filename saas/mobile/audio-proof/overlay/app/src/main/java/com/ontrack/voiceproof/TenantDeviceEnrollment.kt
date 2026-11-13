@@ -24,7 +24,7 @@ import javax.crypto.spec.GCMParameterSpec
  */
 class TenantDeviceEnrollment(private val context: Context) {
     private val prefs=context.getSharedPreferences("ontrack_tenant_pairing_v1",Context.MODE_PRIVATE)
-    private val client=OkHttpClient.Builder().dns(ResilientDns).followRedirects(false).followSslRedirects(false)
+    private val client=OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
         .connectTimeout(8,TimeUnit.SECONDS).readTimeout(12,TimeUnit.SECONDS).build()
     private val keyAlias="ontrack_tenant_sim_aes_v1"
     private fun key():SecretKey {
