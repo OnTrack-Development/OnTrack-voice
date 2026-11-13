@@ -216,15 +216,22 @@ internal class PremiumOfficialLive(
     }
     // A live 3G/HSPA call may be slower than the initial 25-second LTE path.
     suspend fun awaitConnected(){withTimeout(35000){ready.await()}}
-    suspend fun pushPcm(bytes:ByteArray){
-        if(stopped.get() || !ready.isCompleted || bytes.isEmpty())return
-        try {
+    // Never allow OkHttp's WebSocket queue to replay seconds of stale caller
+    // audio after a cellular stall. Premium and standard Live share this cap.
+    suspend fun pushPcm(bytes:ByteArray,cellular:Boolean):Boolean {
+        if(stopped.get() || !ready.isCompleted || bytes.isEmpty())return false
+        return try {
+            val current=socket ?: return false
+            if(!LiveAudioQueuePolicy.canSend(cellular,current.queueSize()))return false
             val audio=JSONObject().put("mimeType","audio/pcm;rate=16000")
                 .put("data",Base64.encodeToString(bytes,Base64.NO_WRAP))
-            if(socket?.send(JSONObject().put("realtimeInput",JSONObject().put("audio",audio)).toString())!=true)
+            if(!current.send(JSONObject().put("realtimeInput",JSONObject().put("audio",audio)).toString())) {
                 failure("premium_live_audio_send_failed")
+                false
+            }else true
         } catch(t:Throwable) {
             failure("premium_live_audio_"+t.javaClass.simpleName)
+            false
         }
     }
     suspend fun prompt(text:String){
