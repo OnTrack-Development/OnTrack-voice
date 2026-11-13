@@ -76,7 +76,8 @@
                     <span>الباقات والخطط والحدود</span>
                 </a>
             @endif
-            @if ($ctx['is_reseller'])
+            @if ($ctx['is_reseller'] || $ctx['is_platform'])
+                <div class="nav-group">إدارة الوكلاء (Reseller)</div>
                 <a class="nav-item {{ $activeTab === 'reseller-tenants' ? 'active' : '' }}" href="/?tab=reseller-tenants">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     <span>العملاء التابعون</span>
@@ -105,6 +106,7 @@
                 <span>الأتمتة والربط البرمجي</span>
             </a>
             @if ($ctx['is_platform'])
+                <div class="nav-group">إدارة المنصة (Administration)</div>
                 <a class="nav-item {{ $activeTab === 'platform-ai' ? 'active' : '' }}" href="/?tab=platform-ai">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                     <span>الذكاء الاصطناعي المركزي</span>

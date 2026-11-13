@@ -351,7 +351,24 @@ function ontrack_update_banner():string {
  */
 function render_sim_pair_quick_start(array $a,string $returnTab='overview'):void {
     $returnTab=in_array($returnTab,['overview','devices'],true)?$returnTab:'overview';
-    if(in_array((string)($a['kind']??''),['platform','reseller'],true)&&console_view_mode($a)!=='user')return;
+    // Keep SIM pairing discoverable in Admin/Reseller overview without enabling
+    // privileged SIM operations there. User Workspace owns the actual pairing.
+    if(in_array((string)($a['kind']??''),['platform','reseller'],true)&&console_view_mode($a)!=='user') {
+        $body='<p class="dim">ربط SIM 1 أو SIM 2 بكود 6 أرقام متاح من مساحة المستخدم، مع فصل صلاحيات إدارة المنصة.</p>';
+        if(console_can_switch_view($a) && !active_support()) {
+            $body.=form_start('set_view','/?tab=overview','data-no-ajax="1"').
+                '<input type="hidden" name="view" value="user">'.
+                '<button type="submit" class="btn primary">فتح مساحة المستخدم وربط الشريحة</button></form>';
+        } elseif(console_can_switch_support_view($a)) {
+            $body.=form_start('set_support_view','/?tab=overview','data-no-ajax="1"').
+                '<input type="hidden" name="view" value="user">'.
+                '<button type="submit" class="btn primary">فتح واجهة مستخدم الريسيلر للربط</button></form>';
+        } else {
+            $body.='<p><a class="btn" href="/saas/console/?tab=devices">فحص الشرائح والأجهزة</a></p>';
+        }
+        echo card('ربط الهاتف والشريحة بسهولة',$body);
+        return;
+    }
     if(!in_array((string)($a['kind']??''),['customer','reseller','platform'],true))return;
     $accountId=(int)$a['account_id'];
     $canPair=in_array((string)($a['role']??''),['owner','admin'],true)&&!active_support();
