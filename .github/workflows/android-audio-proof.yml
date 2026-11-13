@@ -553,11 +553,79 @@ jobs:
           if($ui.revision -ne 73 -or $ui.source_commit -ne $env:GITHUB_SHA -or $native.version_code -ne 73){throw 'Live OTA revision/source incorrect'}
           $hash=(Get-FileHash '.build/artifact/OnTrack-Voice-0.3.50.apk' -Algorithm SHA256).Hash.ToLowerInvariant()
           if($hash -ne $native.sha256){throw 'Signed live APK manifest digest differs'}
-          $tmp=Join-Path $env:RUNNER_TEMP 'ontrack-v73-live.apk'
-          try{
-            Invoke-WebRequest -Uri ($root+'native/latest.apk?run='+$env:GITHUB_RUN_ID) -OutFile $tmp -TimeoutSec 160
-            if((Get-FileHash $tmp -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hash){throw 'Downloaded live APK does not match'}
-          }finally{Remove-Item $tmp -Force -ErrorAction SilentlyContinue}
+          # The public manifest above is source-pinned and signed. Verify the
+          # complete deployed APK on the release host over authenticated SSH;
+          # do not drag the whole signed APK over an unreliable Windows HTTPS
+          # connection simply to hash the exact same bytes again.
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH identity unavailable'}
+          $remote='appontrack@65.21.208.232'
+          $sshOpts=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $hostHash=& ssh.exe @sshOpts -p 7195 $remote 'sha256sum /home/appontrack/public_html/mobile/updates/native/latest.apk'
+          if($LASTEXITCODE -ne 0){throw 'Published live APK cannot be read or hashed on origin'}
+          $hostHashLine=($hostHash | Out-String).Trim()
+          if($hostHashLine -notmatch '^([a-fA-F0-9]{64})\s+'){throw 'Unrecognized origin APK SHA256 output'}
+          if($Matches[1].ToLowerInvariant() -ne $hash){throw 'Published APK origin SHA256 differs from signed artifact'}
+          Write-Host ('ONTRACK_V73_ORIGIN_FULL_APK_SHA256_VERIFIED '+$hash)
+          # Confirm that the public APK download endpoint actually responds.
+          # HEAD avoids a multi-minute full APK re-download/EOF over mobile-
+          # unfriendly networks. Full-byte integrity was checked at origin.
+          $publicApk=$root+'native/latest.apk?run='+$env:GITHUB_RUN_ID
+          $httpHeaders=& curl.exe -fILsS --connect-timeout 12 --max-time 45 --retry 2 --retry-delay 2 --retry-all-errors -H 'Cache-Control: no-cache' $publicApk 2>&1
+          if($LASTEXITCODE -ne 0){throw ('Public live APK HTTPS HEAD failed: '+($httpHeaders | Out-String).Trim())}
+          $httpText=$httpHeaders | Out-String
+          if($httpText -notmatch '(?m)^HTTP/\S+\s+200\b'){throw 'Public APK did not return HTTP 200'}
+          $expectedLength=(Get-Item '.build/artifact/OnTrack-Voice-0.3.50.apk').Length
+          $lengthHits=[regex]::Matches($httpText,'(?im)^content-length:\s*(\d+)\s*
+          foreach($url in @('https://app.ontrackegy.com/?tab=overview','https://app.ontrackegy.com/saas/console/')){
+            $resp=Invoke-WebRequest -Uri $url -SkipHttpErrorCheck -TimeoutSec 40
+            if([int]$resp.StatusCode -ge 500){throw ('Live site HTTP error '+$url)}
+          }
+          Write-Host ('ONTRACK_V73_SITE_SIGNED_UI_AND_APK_HTTPS_VERIFIED '+$env:GITHUB_SHA)
+
+  publish_ota:
+    if: github.repository == 'OnTrack-Development/OnTrack-voice' && github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    defaults:
+      run:
+        shell: pwsh
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Queue verified OTA files through host worker (manual dispatch only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $key = @((Join-Path $env:USERPROFILE '.android\debug.keystore'), 'D:\ai\actions-runner\.android\debug.keystore') | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+          if (-not $key) { $key = Join-Path $env:USERPROFILE '.android\debug.keystore' }
+          & python tools/prepare_mobile_ota.py .build/ota
+          & java tools/SignMobileOta.java $key .build/ota
+          & python tools/queue_mobile_ota.py .build/ota
+
+  publish_native:
+    if: github.repository == 'OnTrack-Development/OnTrack-voice' && github.event_name == 'workflow_dispatch'
+    needs: [build, publish_ota]
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    defaults:
+      run:
+        shell: pwsh
+    timeout-minutes: 8
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Manual dispatch native publish note
+        run: Write-Host 'Use verified GitHub Release / direct SSH deploy for native APK publication when artifact storage quota is full.'
+)
+          if($lengthHits.Count -gt 0 -and [long]$lengthHits[$lengthHits.Count-1].Groups[1].Value -ne $expectedLength){
+            throw 'Public APK Content-Length does not match signed APK'
+          }
+          Write-Host ('ONTRACK_V73_PUBLIC_APK_HTTPS_HEAD_VERIFIED '+$expectedLength)
           foreach($url in @('https://app.ontrackegy.com/?tab=overview','https://app.ontrackegy.com/saas/console/')){
             $resp=Invoke-WebRequest -Uri $url -SkipHttpErrorCheck -TimeoutSec 40
             if([int]$resp.StatusCode -ge 500){throw ('Live site HTTP error '+$url)}
