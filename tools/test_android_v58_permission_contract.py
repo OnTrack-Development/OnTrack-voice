@@ -52,7 +52,8 @@ assert "TenantPairingContract.ENDPOINT" in tenant and "OkHttpClient.Builder().fo
 assert "onNetworkRouteChanged" not in service, "do not kill healthy websocket on network callback"
 shell=(root/"saas/mobile/audio-proof/overlay/shellserver/src/com/jemcik/jemrec/shell/LivePcm.java").read_text(encoding="utf-8")
 assert "PLAYBACK_STALL_TIMEOUT_MS" not in shell and "call playback stalled" not in shell, "new 2.5s audio stall must not kill live SIM bridge"
-assert "ConcurrentLinkedQueue<Frame>" in shell and "AudioTrack.WRITE_NON_BLOCKING" in shell, "original v65 modem bridge playback required"
+assert "AudioTrack.WRITE_BLOCKING" in shell and "ConcurrentLinkedQueue<Frame>" not in shell, "experiment must use v45 synchronous audio injection"
 assert "audio.setMicrophoneMute(true)" in shell and "audio.setMicrophoneMute(wasMuted)" in shell, "SIM mute safety must remain"
+assert shell.index("audio.setMicrophoneMute(true)") < shell.index("capture.start()"), "v45 original unsafe pre-mute capture order must be corrected"
 print("V72_V65_PCM_AUDIO_PATH_RESTORED_WITH_MODERN_TENANT_SAAS_ROUTE_PASS")
 print("V58_ANDROID_MINIMAL_PERMISSIONS_UI_DEEP_LINKS_AND_NO_RECORDING_SOURCE_CONTRACT_PASS")

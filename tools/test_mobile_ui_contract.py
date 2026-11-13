@@ -125,17 +125,13 @@ assert 'audioDiagnostic:String' in call_overlay and 'audioDiagnostic: String = "
 # Both transport layouts are valid: the original v65 SIM bridge, or the newer
 # bounded-queue bridge. v72 intentionally restores the original queue/player to
 # avoid terminating a live call after a short 2.5s AudioTrack stall.
-assert 'AudioTrack.WRITE_NON_BLOCKING' in bridge and 'SLICE_BYTES = 1920' in bridge, 'LivePcm must keep non-blocking 20ms AudioTrack PCM'
-assert (
-    ('LinkedBlockingQueue' in bridge and 'setTcpNoDelay(true)' in bridge)
-    or (
-        'ConcurrentLinkedQueue<Frame>' in bridge
-        and 'PLAYBACK_STALL_TIMEOUT_MS' not in bridge
-        and 'call playback stalled' not in bridge
-        and 'audio.setMicrophoneMute(true)' in bridge
-        and 'audio.setMicrophoneMute(wasMuted)' in bridge
-    )
-), 'LivePcm must be either modern fast TCP bridge or original v65 non-fatal-stall bridge'
+# Experimental v45 PCM bridge acceptance: original AudioTrack blocking
+# injection with no asynchronous queue, preserving verified mute-before-capture.
+assert 'AudioTrack.WRITE_BLOCKING' in bridge, 'v45 audio injection path required'
+assert 'LinkedBlockingQueue' not in bridge and 'ConcurrentLinkedQueue<Frame>' not in bridge, 'v45 bridge must not queue playback'
+assert bridge.index('audio.setMicrophoneMute(true)') < bridge.index('capture.start()'), 'capture must not start before owner mic mute'
+assert 'audio.setMicrophoneMute(wasMuted)' in bridge and 'capture.stop()' in bridge, 'mic restore and stream cleanup required'
+assert 'PLAYBACK_STALL_TIMEOUT_MS' not in bridge, 'audio stall must not force-close SIM'
 assert 'LiveInterruptionPolicy.shouldCutPreviousSpeech' not in session, 'Do not locally cut AI audio on echo inputTranscription'
 assert 'v1BrowserApkBtn' in ui and 'browserApkBtn' in ui and "send('openApkDownload')" in ui, 'Direct APK browser button missing from UI'
 assert '"openApkDownload"->startActivity' in native, 'Native bridge openApkDownload missing'
