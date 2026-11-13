@@ -40,7 +40,7 @@ function db(): PDO {
     if (($config['driver']??'')==='mysql') {
         $pdo = new PDO(
             'mysql:host='.($config['host']??'localhost').';port='.($config['port']??3306).';dbname='.($config['database']??'').';charset=utf8mb4',
-            (string)($config['user']??''),(string)($config['password']??''),
+            (string)($config['user']??$config['username']??''),(string)($config['password']??''),
             [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
              PDO::ATTR_EMULATE_PREPARES=>false]
         );

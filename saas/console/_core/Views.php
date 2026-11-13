@@ -238,6 +238,7 @@ function layout_open(array $a,string $tab):void{
     echo '<div class="profile"><span class="avatar">'.e(mb_substr($u['name'],0,1)).'</span><span><strong>'.e($u['name']).'</strong><small>'.e($a['role']??'').'</small></span></div>';
     echo form_start('logout','','class="compact"').'<button type="submit" class="logout-btn" title="تسجيل الخروج">↪</button></form>';
     echo '</div></header><main class="content">';
+    require_once __DIR__.'/StaffInvitations.php';
     $myInvites=pending_staff_invitations_for_user((int)$u['id']);
     if($myInvites && !$support)echo '<div class="alert success">لديك '.count($myInvites).' دعوة انضمام تنتظر قرارك. <a href="/saas/console/invitations">مراجعة الدعوات ←</a></div>';
     if($support)echo '<div class="support-context"><span>حساب '.e($a['name']).' · '.(support_mode((int)($a['support_origin']??0))==='read_only'?'قراءة فقط':'صلاحيات كاملة').'</span>'.form_start('support_leave','','data-no-ajax="1"').'<button class="btn small" type="submit">العودة للوحة الإدارة</button></form></div>';
