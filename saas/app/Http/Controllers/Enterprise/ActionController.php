@@ -389,7 +389,14 @@ class ActionController extends Controller
                 return ['success' => 'تم حفظ مصدر المعرفة وربطه بالموقع.'];
 
             case 'voice_sample_play':
-                return $this->voices->ensureVoiceSample((int) $r->input('voice_id', 0));
+                $vid = (int) $r->input('voice_id', 0);
+                $available = $this->voices->listVoicesForAccount($accountId, (string) $ctx['kind']);
+                $authorized = collect($available)->contains(static fn (array $v): bool =>
+                    (int) $v['id'] === $vid && (! empty($ctx['is_platform']) || ! empty($v['selectable'])));
+                if (! $authorized) {
+                    abort(403, 'معاينة الصوت غير مصرح بها لهذا الحساب.');
+                }
+                return $this->voices->ensureVoiceSample($vid);
 
             case 'sync_google_voices':
                 if (! $ctx['is_platform']) {
