@@ -164,8 +164,20 @@ internal class MobileLiveCall(
     private val lastAssistantAudioAt=AtomicLong(0)
     private val lastLocalBargeAt=AtomicLong(0)
     private val submittedToShell=AtomicLong(0)
+    private val downlinkResampler=DownlinkResampler()
+    private val downlinkLock=Any()
+    private val telemetry=LiveAudioTelemetry()
+    private val firstPcmCaptured=CompletableDeferred<Unit>()
+    @Volatile private var callStartElapsedMs=0L
+    @Volatile private var netConnectStartMs=0L
+    @Volatile private var firstUplinkSentAtMs=0L
     private var diagnostics:Job?=null
     private var worker:Job?=null
+    fun metricsSnapshot():AudioTelemetrySnapshot = telemetry.snapshot()
+    fun hasCallerPcm():Boolean = capturedPackets.get()>0L
+    fun hasCallerVoice():Boolean = audibleCapture.get()
+    fun hasAiAudioReceived():Boolean = modelAudioBytes.get()>0L
+    fun hasAiAudioPlayed():Boolean = submittedToShell.get()>0L
     private fun observedVoiceAudio(bytes:ByteArray):Boolean {
         if(bytes.size<2)return false
         for(i in 0 until bytes.size-1 step 2){
@@ -174,13 +186,17 @@ internal class MobileLiveCall(
         }
         return false
     }
-    private fun diagnosticMessage():String = when {
-        !socketReady -> "Google Live مش متصل؛ افحص الإنترنت أثناء مكالمة SIM"
-        capturedPackets.get()==0L -> "Google متصل لكن مفيش PCM من المكالمة؛ افحص التقاط VoLTE"
-        !audibleCapture.get() -> "PCM واصل لكن الصوت صامت؛ مسار VoLTE محتاج اختبار"
-        modelAudioBytes.get()==0L -> "صوت المكالمة واصل لـGoogle لكن مفيش رد صوتي من AI لسه"
-        submittedToShell.get()==0L -> "Google أرسل صوت لكنه لم يُسلّم لجسر المكالمة"
-        else -> "AI أرسل صوت للجسر؛ سماع الطرف التاني على VoLTE مش مؤكد"
+    private fun diagnosticMessage():String {
+        val t=telemetry.snapshot()
+        val timing=" [PCM:${t.pcmFirstFrameMs}ms/فجوات:${t.captureGapCount} · شبكة:${t.networkConnectMs}ms/AI:${t.aiFirstAudioMs}ms]"
+        return when {
+            !socketReady -> "Google Live مش متصل؛ افحص الإنترنت أثناء مكالمة SIM"
+            capturedPackets.get()==0L -> "Google متصل لكن مفيش PCM من المكالمة؛ افحص التقاط VoLTE"
+            !audibleCapture.get() -> "PCM واصل (${capturedPackets.get()}) لكن الصوت صامت؛ مسار VoLTE محتاج اختبار"
+            modelAudioBytes.get()==0L -> "صوت المكالمة واصل لـGoogle لكن مفيش رد صوتي من AI لسه"
+            submittedToShell.get()==0L -> "Google أرسل صوت لكنه لم يُسلّم لجسر المكالمة"
+            else -> "AI أرسل صوت للجسر؛ سماع الطرف التاني على VoLTE مش مؤكد"
+        }+timing
     }
     suspend fun start() {
         // Regression 2026-11-04: waiting up to 25s for Gemini BEFORE opening
@@ -190,6 +206,7 @@ internal class MobileLiveCall(
         // This does not prove VoWiFi hardware mute: a real-device test is required.
         try {
             check(!stopped.get()){"voice call already stopped"}
+            callStartElapsedMs=SystemClock.elapsedRealtime()
             liveUrl=googleLiveUrl(session.getString("token"))
             sessionToken=ActiveCallSessionMutex.acquire { stop() }
             pipe=CaptureDaemon.livePcm(context,AnsweringMachine.route(context)==AnsweringMachine.ROUTE_SCREENING)
@@ -197,6 +214,7 @@ internal class MobileLiveCall(
             val input=DataInputStream(pipe!!.getInputStream())
             check(input.readInt()==0x4f545631 && input.readInt()==48000 && input.readInt()==2){"invalid shell PCM format"}
             output=DataOutputStream(pipe!!.getOutputStream())
+            telemetry.recordPcmSetup(SystemClock.elapsedRealtime()-callStartElapsedMs)
         val transform=LinkPcm(settings.optString("input_channel","mix"))
         val uplinkBuffer=UplinkAudioFrameBuffer()
         worker=scope.launch(callCoroutineGuard) {
@@ -220,21 +238,35 @@ internal class MobileLiveCall(
                     launch(Dispatchers.IO+callCoroutineGuard) {
                         while(isActive && !stopped.get()) {delay(5000);synchronized(writeLock){output?.writeInt(0);output?.flush()}}
                     }
+                    var lastSocketWasReady=false
                     while(isActive && !stopped.get()) {
                         val size=input.readInt();check(size in 4..4096 && size%4==0){"invalid capture packet"}
                         val bytes=ByteArray(size);input.readFully(bytes)
+                        val capNow=SystemClock.elapsedRealtime()
                         val mono=transform.input(bytes)
                         if(mono.isNotEmpty()) {
-                            capturedPackets.incrementAndGet()
+                            val totalCap=capturedPackets.incrementAndGet()
+                            telemetry.recordPcmCaptureTick(capNow,if(totalCap==1L) capNow-callStartElapsedMs else null)
+                            if(totalCap==1L)firstPcmCaptured.complete(Unit)
                             if(!audibleCapture.get() && observedVoiceAudio(mono))
                                 audibleCapture.set(true)
                             if(socketReady && (ivrEnabledCached || (ivrRoutesCached?.length()?:0)>0)) {
                                 runCatching {
-                                    dtmfDetector.feedPcm16(mono,SystemClock.elapsedRealtime())?.let { d ->
+                                    dtmfDetector.feedPcm16(mono,capNow)?.let { d ->
                                         handleDtmfKeyPress(d.toString())
                                     }
                                 }
                             }
+                            if(!socketReady) {
+                                // While AI socket is connecting or reconnecting, keep tail clear so stale
+                                // pre-connect audio is never spliced into live speech.
+                                if(lastSocketWasReady){
+                                    uplinkBuffer.flush()
+                                    lastSocketWasReady=false
+                                }
+                                continue
+                            }
+                            lastSocketWasReady=true
                             val onCell=isCellularLink()
                             val targetBytes=UplinkAudioFrameBuffer.targetBytes(onCell,slowCellularLink)
                             val frames=uplinkBuffer.push(mono,targetBytes)
@@ -243,9 +275,13 @@ internal class MobileLiveCall(
                                 if(premium) {
                                     if(socketReady && !premiumInput.trySend(frame).isSuccess){
                                         skippedUplinkPackets.incrementAndGet()
+                                        telemetry.recordNetworkUplinkSkip()
+                                    }else if(firstUplinkSentAtMs==0L){
+                                        firstUplinkSentAtMs=capNow
                                     }
                                 }else if(socketReady && socket!=null &&
                                     LiveAudioQueuePolicy.canSend(onCell,socket.queueSize())) {
+                                    if(firstUplinkSentAtMs==0L)firstUplinkSentAtMs=capNow
                                     val sent=runCatching {
                                         socket.send(JSONObject().put("realtimeInput",JSONObject().put("audio",JSONObject()
                                             .put("mimeType","audio/pcm;rate=16000").put("data",Base64.encodeToString(frame,Base64.NO_WRAP)))).toString())
@@ -255,9 +291,21 @@ internal class MobileLiveCall(
                                     }
                                 }else if(socketReady){
                                     skippedUplinkPackets.incrementAndGet()
+                                    telemetry.recordNetworkUplinkSkip()
                                     val now=SystemClock.elapsedRealtime()
                                     if(now-lastWarning>=8000L){lastWarning=now;safeNotice("الشبكة ضعيفة؛ يتم تجاوز الصوت المتأخر")}
                                 }
+                            }
+                        }
+                    }
+                    // Flush trailing captured PCM tail cleanly so final syllables are preserved
+                    uplinkBuffer.flush()?.takeIf{it.isNotEmpty()}?.let { tail ->
+                        val s=ws
+                        if(socketReady && !stopped.get()){
+                            if(premium)premiumInput.trySend(tail)
+                            else if(s!=null && LiveAudioQueuePolicy.canSend(isCellularLink(),s.queueSize())){
+                                runCatching{s.send(JSONObject().put("realtimeInput",JSONObject().put("audio",JSONObject()
+                                    .put("mimeType","audio/pcm;rate=16000").put("data",Base64.encodeToString(tail,Base64.NO_WRAP)))).toString())}
                             }
                         }
                     }
@@ -267,11 +315,16 @@ internal class MobileLiveCall(
             // Start draining 48k PCM immediately after the shell's mute
             // acknowledgement. Frames recorded while Google is connecting
             // are discarded, never buffered and replayed as stale caller audio.
+            netConnectStartMs=SystemClock.elapsedRealtime()
             if(premium){
                 startOfficialPremium()
             }else openSocket()
             // During 3G/H+ fallback the Google Live TLS handshake may run slower.
             withTimeout(if(isCellularLink())35000L else 25000L){ready.await()}
+            // Never report PCM readiness solely from OTV1 header + Google setupComplete:
+            // require at least one real captured 48kHz PCM block from the shell bridge.
+            withTimeoutOrNull(4000L){firstPcmCaptured.await()}
+                ?: error("جسر PCM فتح لكن لم يصل صوت من المكالمة؛ افحص تقاط VoLTE/شاشة الحماية")
             check(!stopped.get())
             // A WebSocket setup and PCM header do not prove VoLTE uplink audio.
             // Report only aggregate stage counters after startup, never audio bytes.
@@ -324,9 +377,28 @@ internal class MobileLiveCall(
             throw error
         }
     }
+    private fun enqueueDownlinkPcm(turnGen:Int,bytes:ByteArray) {
+        if(bytes.isEmpty() || stopped.get() || !playbackGen.isCurrent(turnGen))return
+        modelAudioBytes.addAndGet(bytes.size.toLong())
+        val now=SystemClock.elapsedRealtime()
+        lastAssistantAudioAt.set(now)
+        if(netConnectStartMs>0L)telemetry.recordAiFirstAudio(now-(if(firstUplinkSentAtMs>0L) firstUplinkSentAtMs else netConnectStartMs))
+        for(at in bytes.indices step LivePlaybackQueuePolicy.PACKET_BYTES) {
+            if(stopped.get() || !playbackGen.isCurrent(turnGen))break
+            val packet=turnGen to bytes.copyOfRange(at,
+                minOf(at+LivePlaybackQueuePolicy.PACKET_BYTES,bytes.size))
+            if(!playback.trySend(packet).isSuccess){
+                telemetry.recordPcmDrop()
+                val overflows=playbackOverflowPackets.incrementAndGet()
+                if(overflows==1L || overflows%100L==0L)
+                    safeDiagnostics("AI playback queue overflow; PCM tail suppressed. packets=$overflows")
+            }
+        }
+    }
     private fun flushAudioGeneration() {
         playbackGen.bump()
         lastAssistantAudioAt.set(0)
+        synchronized(downlinkLock){downlinkResampler.reset()}
         while(playback.tryReceive().isSuccess){}
         while(premiumPhrases.tryReceive().isSuccess){}
         synchronized(writeLock){runCatching{output?.writeInt(-1);output?.flush()}}
@@ -373,17 +445,8 @@ internal class MobileLiveCall(
     private fun playFallbackGooglePcm(audio:ByteArray,rate:Int){
         if(stopped.get() || !googleVoiceFallback.get())return
         val turn=playbackGen.current()
-        val pcm=LinkPcm.output(audio,rate)
-        if(pcm.isEmpty() || !playbackGen.isCurrent(turn))return
-        modelAudioBytes.addAndGet(pcm.size.toLong())
-        lastAssistantAudioAt.set(SystemClock.elapsedRealtime())
-        for(pos in pcm.indices step LivePlaybackQueuePolicy.PACKET_BYTES){
-            if(stopped.get() || !playbackGen.isCurrent(turn))return
-            val packet=pcm.copyOfRange(pos,
-                minOf(pos+LivePlaybackQueuePolicy.PACKET_BYTES,pcm.size))
-            if(!playback.trySend(turn to packet).isSuccess)
-                playbackOverflowPackets.incrementAndGet()
-        }
+        val pcm=synchronized(downlinkLock){downlinkResampler.upsample(audio,rate)}
+        enqueueDownlinkPcm(turn,pcm)
     }
     private fun buildIvrInstruction():String {
         val enabled=settings.optBoolean("ivr_enabled",session.optBoolean("ivr_enabled",false))
@@ -476,19 +539,11 @@ internal class MobileLiveCall(
                             !stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)
                         }){chunk->
                             if(!stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)){
-                            val pcm=resampler.convert(chunk)
-                            if(pcm.isNotEmpty()){
-                                if(!started){started=true;lastAssistantAudioAt.set(SystemClock.elapsedRealtime())}
-                                modelAudioBytes.addAndGet(pcm.size.toLong())
-                                for(pos in pcm.indices step LivePlaybackQueuePolicy.PACKET_BYTES){
-                                    if(stopped.get() || !playbackGen.isCurrent(turn))break
-                                    val packet=pcm.copyOfRange(pos,
-                                        minOf(pos+LivePlaybackQueuePolicy.PACKET_BYTES,pcm.size))
-                                    if(!playback.trySend(turn to packet).isSuccess){
-                                        playbackOverflowPackets.incrementAndGet()
-                                    }
+                                val pcm=resampler.convert(chunk)
+                                if(pcm.isNotEmpty()){
+                                    started=true
+                                    enqueueDownlinkPcm(turn,pcm)
                                 }
-                            }
                             }
                         }
                     }catch(e:Throwable){
@@ -515,7 +570,10 @@ internal class MobileLiveCall(
             scope.launch(Dispatchers.IO+callCoroutineGuard){
                 try{
                     sdk.awaitConnected()
-                    if(!stopped.get()){socketReady=true;ready.complete(Unit)}
+                    if(!stopped.get()){
+                        if(netConnectStartMs>0L)telemetry.recordNetworkConnect(SystemClock.elapsedRealtime()-netConnectStartMs)
+                        socketReady=true;ready.complete(Unit)
+                    }
                 }catch(e:Throwable){if(!stopped.get())fail("IO Premium Live: تعذر تجهيز الاتصال")}
             }
         } catch(t:Throwable) {
@@ -527,6 +585,7 @@ internal class MobileLiveCall(
     private fun openSocket() {
         if(stopped.get())return
         socketReady=false
+        netConnectStartMs=SystemClock.elapsedRealtime()
         val handle=resumeHandle
         runCatching{ws?.close(1000,"superseded")}
         ws=runCatching{client.newWebSocket(Request.Builder().url(liveUrl).build(),object:WebSocketListener(){
@@ -619,6 +678,7 @@ internal class MobileLiveCall(
                     }
                     if(message.has("setupComplete")) {
                         val wasReady=ready.isCompleted
+                        if(netConnectStartMs>0L)telemetry.recordNetworkConnect(SystemClock.elapsedRealtime()-netConnectStartMs)
                         socketReady=true
                         ready.complete(Unit)
                         // No synthetic user turn on LTE reconnect. Sending
@@ -698,29 +758,22 @@ internal class MobileLiveCall(
                             appendLiveTranscription("الإيجنت",spoken)
                         }
                     val turnGen=playbackGen.current()
-                    val parts=content.optJSONObject("modelTurn")?.optJSONArray("parts")?:return@runCatching
-                    for(i in 0 until parts.length()) {
-                        if(stopped.get() || !playbackGen.isCurrent(turnGen))break
-                        val inline=parts.getJSONObject(i).optJSONObject("inlineData")?:continue
-                        val mime=inline.optString("mimeType")
-                        if(!mime.startsWith("audio/pcm")) continue
-                        val rate=Regex("rate=(\\d+)").find(mime)?.groupValues?.get(1)?.toInt()?:24000
-                        val bytes=LinkPcm.output(Base64.decode(inline.getString("data"),Base64.DEFAULT),rate)
-                        if(stopped.get() || !playbackGen.isCurrent(turnGen))break
-                        modelAudioBytes.addAndGet(bytes.size.toLong())
-                        lastAssistantAudioAt.set(SystemClock.elapsedRealtime())
-                        for(at in bytes.indices step LivePlaybackQueuePolicy.PACKET_BYTES) {
+                    val parts=content.optJSONObject("modelTurn")?.optJSONArray("parts")
+                    if(parts!=null) {
+                        for(i in 0 until parts.length()) {
                             if(stopped.get() || !playbackGen.isCurrent(turnGen))break
-                            val packet=turnGen to bytes.copyOfRange(at,
-                                minOf(at+LivePlaybackQueuePolicy.PACKET_BYTES,bytes.size))
-                            if(!playback.trySend(packet).isSuccess){
-                                // Do not remove old, unsounded PCM and splice later words
-                                // over it. Preserve order; record a saturation diagnosis.
-                                val overflows=playbackOverflowPackets.incrementAndGet()
-                                if(overflows==1L || overflows%100L==0L)
-                                    safeDiagnostics("AI playback queue overflow; PCM tail suppressed. packets=$overflows")
-                            }
+                            val inline=parts.getJSONObject(i).optJSONObject("inlineData")?:continue
+                            val mime=inline.optString("mimeType")
+                            if(!mime.startsWith("audio/pcm")) continue
+                            val rate=Regex("rate=(\\d+)").find(mime)?.groupValues?.get(1)?.toInt()?:24000
+                            val rawPcm=Base64.decode(inline.getString("data"),Base64.DEFAULT)
+                            val bytes=synchronized(downlinkLock){downlinkResampler.upsample(rawPcm,rate)}
+                            enqueueDownlinkPcm(turnGen,bytes)
                         }
+                    }
+                    if(content.optBoolean("turnComplete") && !stopped.get() && playbackGen.isCurrent(turnGen)) {
+                        val tail=synchronized(downlinkLock){downlinkResampler.flushTail()}
+                        if(tail.isNotEmpty())enqueueDownlinkPcm(turnGen,tail)
                     }
                 }.onFailure{fail(it.message?:"invalid live response")}
             }
@@ -750,6 +803,7 @@ internal class MobileLiveCall(
     private fun onTransportLost(failed:WebSocket,reason:String,failureCode:String?=null) {
         if(stopped.get() || failed!==ws)return
         socketReady=false
+        telemetry.recordNetworkReconnect()
         flushAudioGeneration()
         if(recovery?.isActive==true)return
         recovery=scope.launch(Dispatchers.IO+callCoroutineGuard) {

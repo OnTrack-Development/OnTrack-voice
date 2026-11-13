@@ -17,8 +17,10 @@ internal object LiveVadConfig {
     const val DEFAULT_MAX_OUTPUT_TOKENS = 1024
     const val MIN_OUTPUT_TOKENS = 512
     const val MAX_OUTPUT_TOKENS = 2048
-    const val PREFIX_PADDING_MS = 120
-    const val SILENCE_DURATION_MS = 400
+    // 160ms prefix padding preserves initial Arabic consonants without clipping onset;
+    // 320ms silence duration responds snappily without chopping trailing words.
+    const val PREFIX_PADDING_MS = 160
+    const val SILENCE_DURATION_MS = 320
 
     fun clampMaxOutputTokens(value: Int): Int =
         value.coerceIn(MIN_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS)

@@ -3,6 +3,7 @@ package com.ontrack.voiceproof.shell;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.MediaCodec;
+import android.os.SystemClock;
 import com.genymobile.scrcpy.audio.AudioCapture;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -26,8 +27,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * not properties proven by successful JVM/Gradle builds.
  */
 final class LivePcm {
-    private static final int SLICE_BYTES = 960; // 10 ms at 48 kHz mono 16-bit PCM
-    private static final int MAX_QUEUED_FRAMES = 1200;
+    private static final int SLICE_BYTES = 1920; // 20 ms at 48 kHz mono 16-bit PCM (matches HAL period)
+    private static final int MAX_QUEUED_FRAMES = 1000;
+    private static final long PLAYBACK_STALL_TIMEOUT_MS = 2500L;
     private static final AtomicBoolean owned = new AtomicBoolean();
 
     private static final class Frame {
@@ -65,6 +67,8 @@ final class LivePcm {
             if (!audio.isMicrophoneMute()) throw new IOException("microphone did not mute");
             capture.start();
             track.play();
+            // Prime HAL uplink ring buffer with 20ms silence so first AI syllable is not clipped
+            track.write(new byte[SLICE_BYTES], 0, SLICE_BYTES, AudioTrack.WRITE_NON_BLOCKING);
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
             out.writeInt(0x4f545631); out.writeInt(48000); out.writeInt(2); out.flush();
 
@@ -98,7 +102,7 @@ final class LivePcm {
                     while (active.get()) {
                         Frame frame;
                         try {
-                            frame = playQueue.poll(100, TimeUnit.MILLISECONDS);
+                            frame = playQueue.poll(25, TimeUnit.MILLISECONDS);
                         } catch (InterruptedException ignored) {
                             if (!active.get()) break;
                             continue;
@@ -106,15 +110,28 @@ final class LivePcm {
                         if (frame == null) continue;
                         if (frame.gen != playbackGen.get()) continue;
                         int offset = 0;
+                        long stallStartMs = 0L;
                         while (active.get() && offset < frame.data.length && frame.gen == playbackGen.get()) {
                             int chunk = Math.min(SLICE_BYTES, frame.data.length - offset);
                             int written;
+                            // Non-blocking write never holds trackLock across audio wait,
+                            // keeping barge-in flush (-1) sub-millisecond and deadlock-free.
                             synchronized (trackLock) {
                                 if (!active.get() || frame.gen != playbackGen.get()) break;
-                                written = playbackTrack.write(frame.data, offset, chunk, AudioTrack.WRITE_BLOCKING);
+                                written = playbackTrack.write(frame.data, offset, chunk, AudioTrack.WRITE_NON_BLOCKING);
                             }
                             if (written < 0) throw new IOException("call playback failed: " + written);
-                            if (written == 0) continue;
+                            if (written == 0) {
+                                long nowMs = SystemClock.elapsedRealtime();
+                                if (stallStartMs == 0L) {
+                                    stallStartMs = nowMs;
+                                } else if (nowMs - stallStartMs > PLAYBACK_STALL_TIMEOUT_MS) {
+                                    throw new IOException("call playback stalled");
+                                }
+                                Thread.sleep(2);
+                                continue;
+                            }
+                            stallStartMs = 0L;
                             offset += written;
                         }
                     }

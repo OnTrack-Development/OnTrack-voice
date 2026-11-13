@@ -56,6 +56,11 @@ class MobileLinkService:Service() {
         @Volatile var humanControl=false
         @Volatile var audioReady=false
         @Volatile var audioDiagnostic=""
+        @Volatile var stageCallerPcm=false
+        @Volatile var stageCallerVoice=false
+        @Volatile var stageAiReceived=false
+        @Volatile var stageAiPlayed=false
+        @Volatile var audioTelemetryText=""
         @Volatile var callProblem=""
         @Volatile var lastError=""
         @Volatile var latestStatus="الربط متوقف"
@@ -210,11 +215,15 @@ class MobileLinkService:Service() {
         val callback=object:ConnectivityManager.NetworkCallback(){
             override fun onAvailable(network:Network){
                 dataNetworkEpoch++
+                forceDaemonCheck=true
                 client.connectionPool.evictAll()
                 retryWake.trySend(Unit)
             }
-            override fun onCapabilitiesChanged(network:Network,caps:NetworkCapabilities){retryWake.trySend(Unit)}
-            override fun onLost(network:Network){connected=false;retryWake.trySend(Unit)}
+            override fun onCapabilitiesChanged(network:Network,caps:NetworkCapabilities){
+                if(caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))forceDaemonCheck=true
+                retryWake.trySend(Unit)
+            }
+            override fun onLost(network:Network){connected=false;forceDaemonCheck=true;retryWake.trySend(Unit)}
         }
         runCatching{connectivity?.registerDefaultNetworkCallback(callback)}
             .onSuccess{networkListener=callback}
@@ -233,7 +242,7 @@ class MobileLinkService:Service() {
             when(action){
                 ACTION_DISABLE,ACTION_PAUSE,"STOP"->{
                     tenantPrefs().edit().putBoolean("enabled",false).commit()
-                    agentEnabled=false;call?.stop();call=null;audioReady=false;connected=false
+                    agentEnabled=false;call?.stop();call=null;audioReady=false;connected=false;clearCallAudioStages()
                     campaignAutoEnabled=false
                     notice("إيقاف محرك الشركات على هذا الجهاز")
                 }
@@ -273,7 +282,7 @@ class MobileLinkService:Service() {
                             }.onFailure{notice("تعذر حفظ حدث الاستلام؛ تابع سجل المكالمة")}
                         }
                         humanControl=true
-                        call?.stop();call=null;audioReady=false;connected=false
+                        call?.stop();call=null;audioReady=false;connected=false;clearCallAudioStages()
                         callProblem=""
                         notice("استلام بشري للمكالمة الحالية")
                     }else{
@@ -365,6 +374,41 @@ class MobileLinkService:Service() {
             cellularTransport=caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)==true
         )
     }.getOrDefault(false)
+    private fun clearCallAudioStages() {
+        stageCallerPcm=false
+        stageCallerVoice=false
+        stageAiReceived=false
+        stageAiPlayed=false
+        audioTelemetryText=""
+    }
+    private fun syncLiveAudioStages() {
+        val activeCall=call
+        if(activeCall==null || !activeCall.active){
+            clearCallAudioStages()
+            return
+        }
+        stageCallerPcm=activeCall.hasCallerPcm()
+        stageCallerVoice=activeCall.hasCallerVoice()
+        stageAiReceived=activeCall.hasAiAudioReceived()
+        stageAiPlayed=activeCall.hasAiAudioPlayed()
+        val snap=activeCall.metricsSnapshot()
+        audioTelemetryText="PCM ${snap.pcmFirstFrameMs}ms (فجوات:${snap.captureGapCount}/سقوط:${snap.pcmDroppedPackets}) · شبكة ${snap.networkConnectMs}ms (AI:${snap.aiFirstAudioMs}ms/تجاوز:${snap.networkSkippedUplinkPackets})"
+        if(audioDiagnostic.isBlank() || audioDiagnostic.startsWith("ADB/5555:")){
+            audioDiagnostic=buildString {
+                append("ADB/5555:").append(if(daemonReady)"جاهز" else "متوقف")
+                append(" | المتصل:").append(when{
+                    stageCallerVoice->"صوت مسموع"
+                    stageCallerPcm->"PCM واصل"
+                    else->"لا يوجد PCM"
+                })
+                append(" | AI:").append(when{
+                    stageAiPlayed->"يُشغَّل"
+                    stageAiReceived->"مستلَم"
+                    else->"بانتظار الرد"
+                })
+            }
+        }
+    }
     private fun dataRadioLabel():String = CellularRadioStatus.safeDataRadioLabel(this)
     private fun cellularCallNetworkHint(slot:Int):String = runCatching {
         if(NetworkRevive.onWifi(this) || internetAvailableForRetry())return@runCatching ""
@@ -564,7 +608,7 @@ class MobileLinkService:Service() {
                         // manual takeover that the user did not request.
                         call?.stop();call=null;tenantSession=null
                         sessionLoad?.cancel();sessionLoad=null
-                        audioReady=false;connected=false
+                        audioReady=false;connected=false;clearCallAudioStages()
                         inCall=true;callAnswered=active.any{it.state==TelephonyManager.CALL_STATE_OFFHOOK}
                         val issue="حالة المكالمة ملتبسة بين شريحتين؛ لم يتم توصيل صوت الإيجنت"
                         if(callProblem!=issue){callProblem=issue;notice(issue)}
@@ -843,7 +887,7 @@ class MobileLinkService:Service() {
                         audioStart?.cancel();audioStart=null
                         flowLoad?.cancel();flowLoad=null
                         sessionLoad?.cancel();sessionLoad=null
-                        audioReady=false;callProblem="";audioDiagnostic=""
+                        audioReady=false;callProblem="";audioDiagnostic="";clearCallAudioStages()
                         if(selected!=null){
                             val endedSlot=selected!!
                             val hadMgr=managerCallback!=null
@@ -1002,7 +1046,7 @@ class MobileLinkService:Service() {
                         audioStart?.cancel();audioStart=null
                         flowLoad?.cancel();flowLoad=null
                         sessionLoad?.cancel();sessionLoad=null
-                        audioReady=false;callProblem="";audioDiagnostic=""
+                        audioReady=false;callProblem="";audioDiagnostic="";clearCallAudioStages()
                         selected=current.slot;liveSimSlot=current.slot;answeredByAgent=false;ringAttempted=false;autoAnswerRequested=false;autoAnswerAttempts=0;nextAutoAnswerRetryAt=0L;outgoingCall=false;tenantFlow=null;tenantSession=null
                         ringingAt=SystemClock.elapsedRealtime();startedAt=0L;humanControl=false;policy=JSONObject()
                         audioAttemptCount=0;nextAudioRetryAt=0L
@@ -1329,7 +1373,7 @@ class MobileLinkService:Service() {
                         // A Session token is not PCM-ready and cannot enable
                         // the human-takeover button until start() succeeds.
                         call=currentCall
-                        audioReady=false;audioDiagnostic="";connected=false
+                        audioReady=false;audioDiagnostic="";connected=false;clearCallAudioStages()
                         audioStart=scope.async(Dispatchers.IO){
                             try{
                                 currentCall.start()
@@ -1358,12 +1402,13 @@ class MobileLinkService:Service() {
                         audioStart=null
                         result?.onSuccess{
                             if(call?.active==true){
+                                syncLiveAudioStages()
                                 audioReady=true;connected=true;callProblem=""
                                 notice("PCM وGoogle Live جاهزين على SIM ${current.slot+1}؛ اختبار صوت الجهاز مطلوب")
                             }
                         }?.onFailure{problem->
                             call?.stop();call=null;tenantSession=null
-                            audioReady=false;connected=false
+                            audioReady=false;connected=false;clearCallAudioStages()
                             nextAudioRetryAt=SystemClock.elapsedRealtime()+
                                 CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
                             callProblem="فشل ربط الصوت (${internetRoute()}): "+problem.message.orEmpty().take(110)
@@ -1372,7 +1417,7 @@ class MobileLinkService:Service() {
                     }
                     if(call!=null && !call!!.active){
                         audioStart?.cancel();audioStart=null
-                        call=null;tenantSession=null;audioReady=false;connected=false
+                        call=null;tenantSession=null;audioReady=false;connected=false;clearCallAudioStages()
                         nextAudioRetryAt=SystemClock.elapsedRealtime()+
                             CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
                         callProblem="انقطعت جلسة الصوت (${internetRoute()})؛ المكالمة على الهاتف بدون AI"
@@ -1381,10 +1426,11 @@ class MobileLinkService:Service() {
                     if(call!=null && startedAt>0 &&
                         SystemClock.elapsedRealtime()-startedAt>policy.optInt("max_call_minutes",10).coerceIn(1,30)*60000L){
                         audioStart?.cancel();audioStart=null
-                        call?.stop();call=null;audioReady=false;connected=false
+                        call?.stop();call=null;audioReady=false;connected=false;clearCallAudioStages()
                         callProblem="انتهى الوقت المحدد لصوت الإيجنت؛ الهاتف ما زال متصلًا"
                         notice(callProblem)
                     }
+                    syncLiveAudioStages()
                     lastState=current.state
                     showOverlay()
                     withTimeoutOrNull(750L){retryWake.receiveCatching()}
@@ -1394,7 +1440,7 @@ class MobileLinkService:Service() {
                     // voice reconnect when the default internet route returns.
                     audioStart?.cancel();audioStart=null
                     call?.stop();call=null;tenantSession=null
-                    audioReady=false;connected=false
+                    audioReady=false;connected=false;clearCallAudioStages()
                     nextAudioRetryAt=SystemClock.elapsedRealtime()+
                         CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
                     callProblem="انتهت مهلة ربط الصوت (${internetRoute()})؛ محاولة استعادة"
@@ -1406,7 +1452,7 @@ class MobileLinkService:Service() {
                     // A transport/runtime failure is NOT an explicit takeover.
                     // Preserve diagnostic UI while keeping human MIC available.
                     runCatching{call?.stop()};call=null;tenantSession=null
-                    audioReady=false;connected=false
+                    audioReady=false;connected=false;clearCallAudioStages()
                     nextAudioRetryAt=SystemClock.elapsedRealtime()+
                         CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
                     val msg=error.message.orEmpty().ifBlank{error.javaClass.simpleName}.take(150)
@@ -1419,14 +1465,14 @@ class MobileLinkService:Service() {
                 }
             }
         }finally{
-            runCatching{call?.stop()};call=null;running=false;connected=false;audioReady=false;audioDiagnostic=""
+            runCatching{call?.stop()};call=null;running=false;connected=false;audioReady=false;audioDiagnostic="";clearCallAudioStages()
             inCall=false;callAnswered=false;agentEnabled=false;callProblem=""
         }
     }
     /** Never continue pilot AI/telephony after any tenant SIM starts enrollment. */
     override fun onDestroy(){
         networkListener?.let{runCatching{connectivity?.unregisterNetworkCallback(it)}}
-        runCatching{call?.stop()};scope.cancel();running=false;daemonReady=false;daemonIssue="";connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false;audioReady=false;callProblem="";audioDiagnostic=""
+        runCatching{call?.stop()};scope.cancel();running=false;daemonReady=false;daemonIssue="";connected=false;inCall=false;callAnswered=false;agentEnabled=false;humanControl=false;audioReady=false;callProblem="";audioDiagnostic="";clearCallAudioStages()
         liveSimSlot=-1;tenantEventOutbox=null
         overlay.remove();latestStatus="الربط متوقف"
         super.onDestroy()

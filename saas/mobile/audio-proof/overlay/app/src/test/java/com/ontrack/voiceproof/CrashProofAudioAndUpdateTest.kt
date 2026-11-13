@@ -190,4 +190,43 @@ class CrashProofAudioAndUpdateTest {
             CellularDaemonDiagnostics.diagnose(false, true, true, false, true).contains("Wireless Debugging")
         )
     }
+
+    @Test
+    fun v69AudioQualityAndReadinessGuardsAreEnforced() {
+        val rootDir = generateSequence(File(System.getProperty("user.dir") ?: ".")) { it.parentFile }
+            .firstOrNull { File(it, "saas/mobile/audio-proof/prepare.py").isFile }
+            ?: return
+        val prepare = File(rootDir, "saas/mobile/audio-proof/prepare.py").readText()
+        val livePcm = File(
+            rootDir,
+            "saas/mobile/audio-proof/overlay/shellserver/src/com/jemcik/jemrec/shell/LivePcm.java"
+        ).readText()
+        val liveCall = File(
+            rootDir,
+            "saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLiveCall.kt"
+        ).readText()
+        val service = File(
+            rootDir,
+            "saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkService.kt"
+        ).readText()
+
+        // 1. Hardware mic preprocessors must never be injected onto VOICE_CALL SIM capture
+        assertFalse(prepare.contains("AcousticEchoCanceler.create"))
+        assertFalse(prepare.contains("NoiseSuppressor.create"))
+        // 2. LivePcm uses non-blocking 20ms chunks + barge-in flush
+        assertTrue(livePcm.contains("AudioTrack.WRITE_NON_BLOCKING"))
+        assertTrue(livePcm.contains("SLICE_BYTES = 1920"))
+        assertTrue(livePcm.contains("PLAYBACK_STALL_TIMEOUT_MS"))
+        // 3. MobileLiveCall requires real firstPcmCaptured before ready & uses smooth DownlinkResampler + flushTail
+        assertTrue(liveCall.contains("firstPcmCaptured.await()"))
+        assertTrue(liveCall.contains("downlinkResampler.upsample("))
+        assertTrue(liveCall.contains("downlinkResampler.flushTail()"))
+        assertTrue(liveCall.contains("uplinkBuffer.flush()"))
+        // 4. Separate audio readiness & stage telemetry exist on service + VAD timings preserve speech ends
+        assertTrue(service.contains("stageCallerPcm"))
+        assertTrue(service.contains("stageAiPlayed"))
+        assertEquals(160, LiveVadConfig.PREFIX_PADDING_MS)
+        assertEquals(320, LiveVadConfig.SILENCE_DURATION_MS)
+        assertEquals(1024, LiveVadConfig.DEFAULT_MAX_OUTPUT_TOKENS)
+    }
 }

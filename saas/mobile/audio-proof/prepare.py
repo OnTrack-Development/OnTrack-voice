@@ -93,9 +93,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 68', 'versionCode')
+                        'versionCode = 69', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.3.45"', 'versionName')
+                        'versionName = "0.3.46"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
@@ -132,7 +132,7 @@ def main(root):
         '        AudioTrack tr;\n'
         '        try {\n'
         '            int minBuf = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);\n'
-        '            int targetBuf = Math.max(Math.max(minBuf, 0), framesOf(40) * 2);\n'
+        '            int targetBuf = Math.max(Math.max(minBuf, 0), framesOf(80) * 2);\n'
         '            tr = new AudioTrack.Builder()\n'
         '                    .setAudioAttributes(attrs)\n'
         '                    .setAudioFormat(mono())\n'
@@ -149,56 +149,28 @@ def main(root):
         '        }',
         'low latency call uplink AudioTrack')
     path.write_text(text)
-    path = root / 'shellserver/src/com/genymobile/scrcpy/audio/AudioDirectCapture.java'
-    text = replace_once(
-        path.read_text(),
-        'import android.media.AudioRecord;\n',
-        'import android.media.AudioRecord;\n'
-        'import android.media.audiofx.AcousticEchoCanceler;\n'
-        'import android.media.audiofx.NoiseSuppressor;\n',
-        'audio effects imports')
-    text = replace_once(
-        text,
-        '    private AudioRecordReader reader;\n',
-        '    private AudioRecordReader reader;\n'
-        '    private AcousticEchoCanceler aec;\n'
-        '    private NoiseSuppressor ns;\n',
-        'audio effects fields')
-    text = replace_once(
-        text,
-        '        recorder.startRecording();\n        reader = new AudioRecordReader(recorder);',
-        '        recorder.startRecording();\n'
-        '        int sessionId = -1;\n'
-        '        try { sessionId = recorder.getAudioSessionId(); } catch (Throwable ignored) { }\n'
-        '        if (sessionId > 0) {\n'
-        '            try {\n'
-        '                if (AcousticEchoCanceler.isAvailable()) {\n'
-        '                    aec = AcousticEchoCanceler.create(sessionId);\n'
-        '                    if (aec != null) aec.setEnabled(true);\n'
-        '                }\n'
-        '            } catch (Throwable ignored) {\n'
-        '                if (aec != null) { try { aec.release(); } catch (Throwable ignored2) {} aec = null; }\n'
-        '            }\n'
-        '            try {\n'
-        '                if (NoiseSuppressor.isAvailable()) {\n'
-        '                    ns = NoiseSuppressor.create(sessionId);\n'
-        '                    if (ns != null) ns.setEnabled(true);\n'
-        '                }\n'
-        '            } catch (Throwable ignored) {\n'
-        '                if (ns != null) { try { ns.release(); } catch (Throwable ignored2) {} ns = null; }\n'
-        '            }\n'
-        '        }\n'
-        '        reader = new AudioRecordReader(recorder);',
-        'hardware AEC and NS attach')
-    text = replace_once(
-        text,
-        '    public void stop() {\n        if (recorder != null) {',
-        '    public void stop() {\n'
-        '        if (aec != null) { try { aec.release(); } catch (Throwable ignored) {} aec = null; }\n'
-        '        if (ns != null) { try { ns.release(); } catch (Throwable ignored) {} ns = null; }\n'
-        '        if (recorder != null) {',
-        'hardware AEC and NS release')
-    path.write_text(text)
+    # 2026-11-13 Audio Quality Fix (0.3.46 / v69):
+    # NEVER attach AcousticEchoCanceler or NoiseSuppressor to AudioDirectCapture!
+    # Main captures AudioSource.VOICE_CALL (48kHz stereo cellular carrier audio)
+    # with AudioManager.setMicrophoneMute(true). Hardware AEC/NS treats carrier
+    # speech & AI overlap as mic noise/echo, clipping consonants and distorting PCM.
+    # Restore tenant SIM monitor + daemon recovery automatically on phone reboot.
+    boot_path = root / 'app/src/main/java/com/jemcik/jemrec/capture/BootReceiver.kt'
+    boot_text = replace_once(
+        boot_path.read_text(),
+        '                NetworkRevive.arm(context)',
+        '                NetworkRevive.arm(context)\n'
+        '                runCatching {\n'
+        '                    if (com.ontrack.voiceproof.TenantDeviceEnrollment(context).hasAny()) {\n'
+        '                        androidx.core.content.ContextCompat.startForegroundService(\n'
+        '                            context,\n'
+        '                            Intent(context, com.ontrack.voiceproof.MobileLinkService::class.java)\n'
+        '                                .setAction(com.ontrack.voiceproof.MobileLinkService.ACTION_RESTORE)\n'
+        '                        )\n'
+        '                    }\n'
+        '                }',
+        'restore tenant SIM service after reboot')
+    boot_path.write_text(boot_text)
     path = root / 'shellserver/src/com/jemcik/jemrec/shell/Main.java'
     text = replace_once(path.read_text(), '        if (command == COMMAND_RECORD) {', '''        if (command == 'B') {
             if (!callActive || activeRecording != null) throw new IOException("call not active or another capture owns audio");

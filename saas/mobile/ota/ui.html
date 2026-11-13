@@ -278,6 +278,8 @@ body.light .otErrText{color:#be123c!important}
 <div class="section-title"><h2 id="v1DataModeHeading">الاتصال على الداتا (4G/5G بدون Wi-Fi)</h2><span class="chip" id="v1DaemonBadge">جارٍ الفحص</span></div>
 <div class="status" style="padding:10px 0 4px"><span class="indicator" id="v1DaemonLamp"></span><div><strong id="v1DaemonTitle" style="font-size:15px">محرك الصوت المحلي</strong><span class="small" id="v1NetworkRoute">جاري فحص الشبكة…</span></div></div>
 <p class="v1Hint" id="v1DaemonIssue" aria-live="polite" style="margin:6px 0 8px">على الداتا فقط، يحتاج الهاتف تفعيل وضع التشغيل بدون Wi-Fi (منفذ 5555) مرة واحدة وهو متصل بالـ Wi-Fi.</p>
+<div class="v1Pair" id="v1AudioStagesRow" hidden style="gap:6px;flex-wrap:wrap;font-size:12px"><b>مراحل الصوت:</b><span id="v1StageAdb">ADB/5555: قيد الفحص</span><span>·</span><span id="v1StageCaller">المتصل: بانتظار مكالمة</span><span>·</span><span id="v1StageAi">AI: بانتظار الرد</span></div>
+<p class="v1Hint" id="v1AudioTelemetry" hidden style="margin:4px 0 8px;font-size:11px;direction:ltr;text-align:right"></p>
 <label class="otToggleRow" for="v1WifiFreeConsent">
   <span><strong style="display:block;font-size:13px">أوافق على تفعيل التشغيل بدون Wi-Fi (منفذ 5555)</strong><small id="v1WifiFreeNote" style="color:var(--muted)">يُفعّل لمرة واحدة أثناء اتصالك بالـ Wi-Fi، ويبقى جاهزاً على 4G/5G حتى إعادة تشغيل الهاتف</small></span>
   <input type="checkbox" id="v1WifiFreeConsent">
@@ -332,7 +334,7 @@ body.light .otErrText{color:#be123c!important}
 <div class="v1Buttons"><button type="button" id="v1PermissionSetup">فحص النواقص</button><button type="button" id="v1PermissionTest">فحص الجهاز</button></div></div>
 </section>
 <section class="card otPersistentUpdates" id="v1UpdateBox" aria-labelledby="v1UpdateHeading">
-<div class="section-title"><h2 id="v1UpdateHeading">تحديثات التطبيق</h2><span class="chip">0.3.45 · v68</span></div>
+<div class="section-title"><h2 id="v1UpdateHeading">تحديثات التطبيق</h2><span class="chip">0.3.46 · v69</span></div>
 <div class="otUpdateAvailability" id="v1UpdateBanner" role="status" aria-live="polite">
   <span class="otUpdateMark" aria-hidden="true">↧</span>
   <span><strong id="v1UpdateTitle">جارٍ التحقق من تحديث Android</strong><small id="v1UpdateVersion">يظهر رقم الإصدار بعد الفحص</small></span>
@@ -565,7 +567,7 @@ function updateConnectionHealth(s){
    server==='unlinked'?'اربط شريحة من تبويب الإيجنتات':
    server==='device'?'راجع هوية الشريحة والصلاحيات':'فحص السيرفر منفصل عن Google Live';
  el('simHealth').textContent=s.tenantServiceRunning&&s.agentEnabled&&!s.tenantPairingInProgress?'يعمل':s.tenantDesiredEnabled?'جارٍ التشغيل':'متوقف';
- el('voiceHealth').textContent=s.inCall?(s.connected?'متصل بالمكالمة':'تجهيز الجلسة'):'بانتظار مكالمة';
+ el('voiceHealth').textContent=s.inCall?(s.stageAiPlayed?'صوت AI يعمل':s.stageAiReceived?'استُلم صوت AI':s.stageCallerVoice?'صوت المتصل مسموع':s.stageCallerPcm?'جسر PCM متصل':s.connected?'جسر الصوت متصل':'تجهيز جسر PCM'):(s.daemonReady===false?'ADB/5555 متوقف':'بانتظار مكالمة');
 }
 let lastAgentsSnapshot='';
 function renderSimAgents(s){
@@ -790,6 +792,17 @@ function v1Render(s){
     (!onWifiNow&&!wifiFreeReadyNow?'على الداتا بدون Wi-Fi: فعّل (تشغيل بدون Wi-Fi 5555) لمرة واحدة وأنت متصل بالـ Wi-Fi عشان البوت يرد تلقائيًا على 4G/5G.':'اضغط إعادة تنشيط محرك الصوت، ولو على شاومي راجع USB Debugging (Security settings).');
   el('v1DaemonIssue').textContent=dIssue||defaultIssue;
   el('v1DaemonIssue').classList.toggle('otErrText',!dReady);
+  if(el('v1AudioStagesRow')){
+   el('v1AudioStagesRow').hidden=false;
+   el('v1StageAdb').textContent='ADB/5555: '+(dReady?'جاهز':(wifiFreeReadyNow?'منفذ 5555 جاهز':'متوقف'));
+   el('v1StageCaller').textContent='المتصل: '+(!s.inCall?'بانتظار مكالمة':s.stageCallerVoice?'صوت مسموع':s.stageCallerPcm?'PCM واصل':'لا يوجد PCM بعد');
+   el('v1StageAi').textContent='AI: '+(!s.inCall?'بانتظار مكالمة':s.stageAiPlayed?'يُشغَّل على الجسر':s.stageAiReceived?'مستلَم من Google':s.agentAudioReady?'متصل بانتظار الرد':'غير جاهز');
+  }
+  if(el('v1AudioTelemetry')){
+   const tel=String(s.audioTelemetryText||'').trim();
+   el('v1AudioTelemetry').hidden=!s.inCall||!tel;
+   if(tel)el('v1AudioTelemetry').textContent=tel;
+  }
   if(wifiFreeOn)el('v1WifiFreeConsent').checked=true;
   el('v1WifiFreeToggle').textContent=wifiFreeOn?'إيقاف وضع بدون Wi-Fi (5555)':'تشغيل بدون Wi-Fi (منفذ 5555)';
   const needWifiFirst=!wifiFreeOn&&!onWifiNow;
