@@ -50,5 +50,9 @@ assert "const val PACKET_BYTES = 2400" in pcm and "const val MAX_PACKETS = 800" 
 assert "enrollment.voiceSession(slot,flow)" in service, "modern tenant SaaS session flow must remain"
 assert "TenantPairingContract.ENDPOINT" in tenant and "OkHttpClient.Builder().followRedirects(false)" in tenant, "modern SaaS endpoint and original system DNS required"
 assert "onNetworkRouteChanged" not in service, "do not kill healthy websocket on network callback"
+shell=(root/"saas/mobile/audio-proof/overlay/shellserver/src/com/jemcik/jemrec/shell/LivePcm.java").read_text(encoding="utf-8")
+assert "PLAYBACK_STALL_TIMEOUT_MS" not in shell and "call playback stalled" not in shell, "new 2.5s audio stall must not kill live SIM bridge"
+assert "ConcurrentLinkedQueue<Frame>" in shell and "AudioTrack.WRITE_NON_BLOCKING" in shell, "original v65 modem bridge playback required"
+assert "audio.setMicrophoneMute(true)" in shell and "audio.setMicrophoneMute(wasMuted)" in shell, "SIM mute safety must remain"
 print("V72_V65_PCM_AUDIO_PATH_RESTORED_WITH_MODERN_TENANT_SAAS_ROUTE_PASS")
 print("V58_ANDROID_MINIMAL_PERMISSIONS_UI_DEEP_LINKS_AND_NO_RECORDING_SOURCE_CONTRACT_PASS")
