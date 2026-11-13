@@ -606,16 +606,8 @@ class VoiceCatalogService
                 $ext = $this->detectAudioExt($bytes);
             }
         } else {
-            // Provider sample URLs may use random speech. Only keep a
-            // previously generated fixed-text sample or synthesize our own.
-            $sampleUrl = '';
-            if ($sampleUrl !== '' && str_starts_with($sampleUrl, 'https://')) {
-                [$status, $body] = $this->httpGet($sampleUrl, []);
-                if ($status === 200 && is_string($body) && ($det = $this->detectAudioExt($body)) !== null) {
-                    $bytes = $body;
-                    $ext = $det;
-                }
-            }
+            // Never replay arbitrary third-party voice samples; every preview
+            // is synthesized from PREVIEW_TEXT and cached with -fixed-v2.
 
             if ($bytes === null && $voice->provider === 'fish_audio') {
                 $apiKey = $this->savedFishKey();
