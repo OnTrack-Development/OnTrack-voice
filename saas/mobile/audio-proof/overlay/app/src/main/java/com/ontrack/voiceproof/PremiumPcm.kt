@@ -61,7 +61,7 @@ internal object PremiumPhrase {
     fun prefix(text:String):String {
         val clean=text.trim()
         if(clean.length<3)return ""
-        val found=Regex("^([\\s\\S]{3,120}?[.!؟،؛\\n])(?=\\s|$)").find(clean)
+        val found=Regex("^([\\s\\S]{3,120}?[.!؟\\n])(?=\\s|$)").find(clean)
         if(found!=null) {
             val candidate=found.groupValues[1].trim()
             if(candidate.count{it=='('}==candidate.count{it==')'} &&

@@ -78,7 +78,7 @@ internal class MobileLiveCall(
     private var official:PremiumOfficialLive?=null
     private val googleVoiceFallback=AtomicBoolean(false)
     private val premiumPhrases=Channel<Pair<Int,String>>(64)
-    private val premiumInput=Channel<ByteArray>(32)
+    private val premiumInput=Channel<ByteArray>(16)
     private var premiumSpeaker:Job?=null
     private var premiumSender:Job?=null
     @Volatile private var socketReady=false
@@ -524,8 +524,12 @@ internal class MobileLiveCall(
             premiumSender=scope.launch(Dispatchers.IO+callCoroutineGuard){
                 for(pcm in premiumInput){
                     if(stopped.get())break
-                    try{sdk.pushPcm(pcm)}
-                    catch(e:Throwable){if(e !is CancellationException)fail("IO Premium: تعذر إرسال صوت المتصل")}
+                    try {
+                        if(!sdk.pushPcm(pcm,isCellularLink())){
+                            skippedUplinkPackets.incrementAndGet()
+                            telemetry.recordNetworkUplinkSkip()
+                        }
+                    }catch(e:Throwable){if(e !is CancellationException)fail("IO Premium: تعذر إرسال صوت المتصل")}
                 }
             }
             premiumSpeaker=scope.launch(Dispatchers.IO+callCoroutineGuard){
