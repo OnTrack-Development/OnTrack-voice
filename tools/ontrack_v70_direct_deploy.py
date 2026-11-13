@@ -26,6 +26,18 @@ def atomic(path,data):
   os.chmod(tmp,0o644);os.replace(tmp,path)
  finally:
   if os.path.exists(tmp):os.unlink(tmp)
+def atomic_link(path, filename):
+ # Point latest.apk at the verified, immutable APK in the same directory.
+ if filename != Path(filename).name or not filename.endswith('.apk'):
+  raise ValueError('invalid local APK symlink target')
+ import secrets
+ tmp=path.parent/('.ontrack-v70-link-'+secrets.token_hex(16))
+ try:
+  os.symlink(filename,tmp)
+  os.replace(tmp,path)
+ finally:
+  if tmp.is_symlink():tmp.unlink()
+
 def package(out):
  commit=os.environ.get('GITHUB_SHA','')
  if len(commit)!=40:raise ValueError('missing build sha')
@@ -89,16 +101,29 @@ def deploy(stage,commit):
   current=json.loads(json.loads(path.read_text())['payload']);version=current.get(key,0)
   if version>70 or (version==70 and path.read_bytes()!=blob):raise ValueError('OTA downgrade/reuse blocked')
  entries=list((SITE[rel],data) for rel,data in active_site.items())
- entries.extend([(uiroot/um['file'],html),(ul,ui),(nroot/nm['file'],apk),(nroot/'latest.apk',apk),(nl,native)])
+ entries.extend([(uiroot/um['file'],html),(ul,ui),(nroot/nm['file'],apk),(nl,native)])
+ latest_apk=nroot/'latest.apk'
+ if not latest_apk.is_symlink() or not latest_apk.resolve().is_relative_to(nroot.resolve()):
+  raise ValueError('latest.apk is not a safe symlink within native updates')
+ old_apk_link=os.readlink(latest_apk)
+ if not latest_apk.resolve().is_file():
+  raise ValueError('current live APK symlink target unavailable')
  for target,data in entries:
   if target.is_symlink() or not target.parent.is_dir():raise ValueError('unsafe target '+str(target))
   if target.name in (um['file'],nm['file']) and target.exists() and digest(target.read_bytes())!=digest(data):raise ValueError('immutable content conflict')
  backup=PRIVATE/'v70-backups'/commit;backup.mkdir(parents=True,exist_ok=True,mode=0o700);os.chmod(backup,0o700)
  journal=[]
+ link_change=False
  with (PRIVATE/'deploy.lock').open('a') as lock:
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
   try:
    for i,(target,data) in enumerate(entries):
+    if target == nl and os.readlink(latest_apk) != nm['file']:
+     (backup/'previous-latest-apk-link.txt').write_text(old_apk_link)
+     link_change=True
+     atomic_link(latest_apk,nm['file'])
+     if digest(latest_apk.read_bytes())!=digest(apk):
+      raise ValueError('new latest.apk symlink does not match signed APK')
     old=target.read_bytes() if target.is_file() else None
     if old==data:continue
     if old is not None:(backup/('%02d-'%i+target.name)).write_bytes(old)
@@ -106,6 +131,9 @@ def deploy(stage,commit):
     if digest(target.read_bytes())!=digest(data):raise ValueError('written SHA mismatch')
    subprocess.run([php,str(APP/'artisan'),'view:clear'],cwd=APP,check=True,timeout=30,stdout=subprocess.DEVNULL)
   except Exception:
+   if link_change:
+    try:atomic_link(latest_apk,old_apk_link)
+    except Exception:pass
    for target,old in reversed(journal):
     try:atomic(target,old) if old is not None else target.unlink(missing_ok=True)
     except Exception:pass
