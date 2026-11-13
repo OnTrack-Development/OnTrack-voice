@@ -171,10 +171,6 @@ internal class MobileLiveCall(
     @Volatile private var callStartElapsedMs=0L
     @Volatile private var netConnectStartMs=0L
     @Volatile private var firstUplinkSentAtMs=0L
-    @Volatile private var firstSpeakerPlaybackAtMs=0L
-    @Volatile private var firstModelAudioAtMs=0L
-    @Volatile var isRecovering:Boolean=false
-        private set
     private var diagnostics:Job?=null
     private var worker:Job?=null
     fun metricsSnapshot():AudioTelemetrySnapshot = telemetry.snapshot()
@@ -192,7 +188,7 @@ internal class MobileLiveCall(
     }
     private fun diagnosticMessage():String {
         val t=telemetry.snapshot()
-        val timing=" [OFFHOOK→PCM:${t.pcmSetupMs}ms · Net:${t.networkConnectMs}ms · In:${t.firstAudioInputMs}ms · AI:${t.aiFirstAudioMs}ms · Play:${t.speakerPlaybackMs}ms/فجوات:${t.captureGapCount}]"
+        val timing=" [PCM:${t.pcmFirstFrameMs}ms/فجوات:${t.captureGapCount} · شبكة:${t.networkConnectMs}ms/AI:${t.aiFirstAudioMs}ms]"
         return when {
             !socketReady -> "Google Live مش متصل؛ افحص الإنترنت أثناء مكالمة SIM"
             capturedPackets.get()==0L -> "Google متصل لكن مفيش PCM من المكالمة؛ افحص التقاط VoLTE"
@@ -231,12 +227,7 @@ internal class MobileLiveCall(
                                 synchronized(writeLock){
                                     if(!stopped.get() && playbackGen.shouldPlay(g)) {
                                         output?.let { channel ->
-                                            val now=SystemClock.elapsedRealtime()
-                                            if(firstSpeakerPlaybackAtMs==0L){
-                                                firstSpeakerPlaybackAtMs=now
-                                                if(callStartElapsedMs>0L)telemetry.recordSpeakerPlayback(now-callStartElapsedMs)
-                                            }
-                                            lastAssistantAudioAt.set(now)
+                                            lastAssistantAudioAt.set(SystemClock.elapsedRealtime())
                                             channel.writeInt(bytes.size);channel.write(bytes);channel.flush()
                                             submittedToShell.addAndGet(bytes.size.toLong())
                                         }
@@ -287,14 +278,10 @@ internal class MobileLiveCall(
                                         telemetry.recordNetworkUplinkSkip()
                                     }else if(firstUplinkSentAtMs==0L){
                                         firstUplinkSentAtMs=capNow
-                                        if(callStartElapsedMs>0L)telemetry.recordFirstAudioInput(capNow-callStartElapsedMs)
                                     }
                                 }else if(socketReady && socket!=null &&
                                     LiveAudioQueuePolicy.canSend(onCell,socket.queueSize())) {
-                                    if(firstUplinkSentAtMs==0L){
-                                        firstUplinkSentAtMs=capNow
-                                        if(callStartElapsedMs>0L)telemetry.recordFirstAudioInput(capNow-callStartElapsedMs)
-                                    }
+                                    if(firstUplinkSentAtMs==0L)firstUplinkSentAtMs=capNow
                                     val sent=runCatching {
                                         socket.send(JSONObject().put("realtimeInput",JSONObject().put("audio",JSONObject()
                                             .put("mimeType","audio/pcm;rate=16000").put("data",Base64.encodeToString(frame,Base64.NO_WRAP)))).toString())
@@ -395,11 +382,7 @@ internal class MobileLiveCall(
         modelAudioBytes.addAndGet(bytes.size.toLong())
         val now=SystemClock.elapsedRealtime()
         lastAssistantAudioAt.set(now)
-        if(firstModelAudioAtMs==0L){
-            firstModelAudioAtMs=now
-            if(callStartElapsedMs>0L)telemetry.recordAiFirstAudio(now-callStartElapsedMs)
-            else if(netConnectStartMs>0L)telemetry.recordAiFirstAudio(now-netConnectStartMs)
-        }
+        if(netConnectStartMs>0L)telemetry.recordAiFirstAudio(now-(if(firstUplinkSentAtMs>0L) firstUplinkSentAtMs else netConnectStartMs))
         for(at in bytes.indices step LivePlaybackQueuePolicy.PACKET_BYTES) {
             if(stopped.get() || !playbackGen.isCurrent(turnGen))break
             val packet=turnGen to bytes.copyOfRange(at,
@@ -813,18 +796,13 @@ internal class MobileLiveCall(
                 runCatching{onTransportLost(webSocket,"جلسة الصوت أغلقت: $code",if(code==1013)"503" else null)}
             }
         })}.getOrElse{error->
-            if(isRecovering){
-                throw error
-            }else{
-                fail("تعذر فتح اتصال Google Live: "+error.javaClass.simpleName)
-                null
-            }
+            fail("تعذر فتح اتصال Google Live: "+error.javaClass.simpleName)
+            null
         }
     }
     private fun onTransportLost(failed:WebSocket,reason:String,failureCode:String?=null) {
         if(stopped.get() || failed!==ws)return
         socketReady=false
-        isRecovering=true
         telemetry.recordNetworkReconnect()
         flushAudioGeneration()
         if(recovery?.isActive==true)return
@@ -840,11 +818,10 @@ internal class MobileLiveCall(
                         rotateVoiceToken.invoke(JSONObject(session.toString()),failureCode)
                     }catch(problem:Throwable){
                         if(problem is CancellationException)throw problem
-                        isRecovering=false
                         fail("استنفدت مفاتيح Google Live المتاحة للمكالمة؛ استلم المكالمة يدويًا")
                         return@launch
                     }
-                    if(stopped.get()){isRecovering=false;return@launch}
+                    if(stopped.get())return@launch
                     val newToken=rotated.getString("token")
                     contextBeforeSwitch=synchronized(transcriptLock){reportTranscript.toString().takeLast(2800)}
                     synchronized(session) {
@@ -856,109 +833,25 @@ internal class MobileLiveCall(
                     switchedProvider=true
                     liveUrl=googleLiveUrl(newToken)
                     safeNotice("تم تغيير مفتاح Google Live داخل نفس مكالمة الشريحة")
-                    runCatching { openSocket() }
-                    val waitStart=SystemClock.elapsedRealtime()
-                    while(!socketReady && !stopped.get() && SystemClock.elapsedRealtime()-waitStart<4500L){
-                        delay(200L)
-                    }
-                    if(!stopped.get() && !socketReady){
-                        isRecovering=false
+                    openSocket()
+                    delay(4500)
+                    if(!stopped.get() && !socketReady)
                         fail("Google Live لم يؤكد فتح الجلسة البديلة؛ استلم المكالمة يدويًا")
-                    } else {
-                        isRecovering=false
-                    }
                     return@launch
                 }
                 var attempt=0
-                while(isActive && !stopped.get() && !socketReady && attempt<5) {
-                    val backoff=(1000L shl attempt).coerceAtMost(5000L)
-                    delay(backoff)
+                while(isActive && !stopped.get() && !socketReady && attempt<6) {
+                    delay((1000L shl attempt).coerceAtMost(8000L))
                     if(stopped.get() || socketReady)break
                     attempt++
-                    try {
-                        safeNotice("محاولة استعادة صوت الإيجنت ($attempt/5)...")
-                        openSocket()
-                    } catch(retryErr:Throwable) {
-                        if(retryErr is CancellationException)throw retryErr
-                    }
-                    val waitStart=SystemClock.elapsedRealtime()
-                    while(!socketReady && !stopped.get() && SystemClock.elapsedRealtime()-waitStart<3500L){
-                        delay(200L)
-                    }
+                    openSocket()
+                    delay(4500)
                 }
-                if(!stopped.get() && !socketReady){
-                    isRecovering=false
-                    fail("تعذر استعادة AI؛ يمكن استلام المكالمة من الهاتف")
-                } else {
-                    isRecovering=false
-                    safeNotice("تمت استعادة اتصال صوت الإيجنت بنجاح")
-                }
+                if(!stopped.get() && !socketReady)fail("تعذر استعادة AI؛ يمكن استلام المكالمة من الهاتف")
             } catch(t:Throwable) {
-                isRecovering=false
                 if(t is CancellationException)throw t
                 fail("تعذر استعادة اتصال الصوت: "+t.javaClass.simpleName)
             }
-        }
-    }
-    fun onNetworkRouteChanged() {
-        if(stopped.get())return
-        ResilientDns.clearCache()
-
-        val oldRecovery=recovery
-        recovery=null
-        oldRecovery?.cancel()
-
-        isRecovering=true
-        socketReady=false
-        telemetry.recordNetworkReconnect()
-        flushAudioGeneration()
-
-        ws?.let { oldWs->runCatching{oldWs.cancel()} }
-
-        recovery=scope.launch(Dispatchers.IO+callCoroutineGuard) {
-            try {
-                safeDiagnostics("تغير مسار الشبكة؛ جاري إعادة التوصيل بالمسار الجديد فورًا")
-                safeNotice("تغيرت شبكة الاتصال؛ جاري إعادة توصيل صوت الإيجنت")
-                contextBeforeSwitch=synchronized(transcriptLock){reportTranscript.toString().takeLast(2800)}
-
-                var attempt=0
-                while(isActive && !stopped.get() && !socketReady && attempt<5) {
-                    attempt++
-                    try {
-                        safeNotice("محاولة ربط الصوت بالمسار الجديد ($attempt/5)...")
-                        openSocket()
-                    } catch(retryErr:Throwable) {
-                        if(retryErr is CancellationException)throw retryErr
-                    }
-                    val waitStart=SystemClock.elapsedRealtime()
-                    while(!socketReady && !stopped.get() && SystemClock.elapsedRealtime()-waitStart<3500L){
-                        delay(150L)
-                    }
-                    if(socketReady)break
-                    val backoff=(750L shl attempt).coerceAtMost(3000L)
-                    delay(backoff)
-                }
-                if(!stopped.get() && !socketReady){
-                    isRecovering=false
-                    fail("تعذر استعادة صوت الإيجنت بعد تبديل مسار الشبكة؛ يمكن استلام المكالمة يدويًا")
-                } else {
-                    isRecovering=false
-                    safeNotice("تمت استعادة اتصال صوت الإيجنت بنجاح على المسار الجديد")
-                }
-            } catch(t:Throwable) {
-                isRecovering=false
-                if(t is CancellationException)throw t
-                fail("تعذر استعادة اتصال الصوت: "+t.javaClass.simpleName)
-            }
-        }
-    }
-
-    fun onNetworkLost() {
-        if(stopped.get())return
-        ResilientDns.clearCache()
-        if(socketReady && !isRecovering){
-            safeNotice("انقطع مسار الشبكة الحالي؛ بانتظار المسار البديل...")
-            ws?.let { onTransportLost(it, "انقطع مسار الشبكة الحالي") }
         }
     }
     private fun fail(reason:String){
@@ -971,7 +864,6 @@ internal class MobileLiveCall(
     }
     fun stop(){
         if(stopped.compareAndSet(false,true)){
-            isRecovering=false
             runCatching{ActiveCallSessionMutex.release(sessionToken)}
             socketReady=false
             runCatching{flushAudioGeneration()}
