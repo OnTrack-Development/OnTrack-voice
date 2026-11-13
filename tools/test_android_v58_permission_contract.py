@@ -10,7 +10,8 @@ setup=(mobile/"OnTrackSetupChecklist.kt").read_text(encoding="utf-8")
 ui=(root/"saas/mobile/ota/ui.html").read_text(encoding="utf-8")
 import json
 release=json.loads((root/"saas/mobile/ota/native_release.json").read_text(encoding="utf-8"))
-assert release["version_code"] == 73 and release["version_name"] == "0.3.50", "expected signed v73 v45 blocking playback restore"
+assert isinstance(release["version_code"], int) and release["version_code"] > 73, "new signed Android OTA must advance beyond deployed v73"
+assert isinstance(release["version_name"], str) and release["version_name"].startswith("0.3."), "invalid signed Android version name"
 assert f'versionCode = {release["version_code"]}' in prepare
 assert f'versionName = "{release["version_name"]}"' in prepare
 assert "getBoolean(KEY, true)" in prepare and "'false', 'disable all saved call-recording toggle states'" in prepare
@@ -56,5 +57,5 @@ assert "AudioTrack.WRITE_BLOCKING" in shell and "ConcurrentLinkedQueue<Frame>" n
 assert "AudioTrack.WRITE_NON_BLOCKING" not in shell and "playQueue.poll()" not in shell, "cellular speech-clipping playback queue must be absent in v73"
 assert "audio.setMicrophoneMute(true)" in shell and "audio.setMicrophoneMute(wasMuted)" in shell, "SIM mute safety must remain"
 assert shell.index("audio.setMicrophoneMute(true)") < shell.index("capture.start()"), "v45 original unsafe pre-mute capture order must be corrected"
-print("V73_LEGACY_BLOCKING_PCM_WITH_TENANT_SAAS_ROUTE_PASS")
+print("LEGACY_BLOCKING_PCM_WITH_TENANT_SAAS_ROUTE_PASS")
 print("V58_ANDROID_MINIMAL_PERMISSIONS_UI_DEEP_LINKS_AND_NO_RECORDING_SOURCE_CONTRACT_PASS")
