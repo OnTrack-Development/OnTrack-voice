@@ -4,7 +4,7 @@
 Runner: package OUTPUT.zip. On authorized host: deploy PRIVATE_STAGE SOURCE_SHA.
 No DB, OAuth, host-link, or other services are touched.
 """
-import base64,fcntl,hashlib,json,os,subprocess,sys,tempfile,zipfile
+import base64,hashlib,json,os,subprocess,sys,tempfile,zipfile
 from pathlib import Path
 CERT='d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f'
 PRIVATE=Path('/home/appontrack/.ontrack-mobile')
@@ -48,6 +48,7 @@ def signed(folder):
   subprocess.run(['openssl','dgst','-sha256','-verify',str(t/'pub'),'-signature',str(t/'sig'),str(t/'payload')],check=True,timeout=8,stdout=subprocess.DEVNULL)
  return env,meta
 def deploy(stage,commit):
+ import fcntl  # Linux host only; packaging also runs on Windows
  if os.getuid()!=2379 or PRIVATE.is_symlink() or WEB.is_symlink() or APP.is_symlink():raise ValueError('wrong owner/host')
  if not PRIVATE.is_dir() or not WEB.is_dir() or not APP.is_dir():raise ValueError('missing canonical host paths')
  if stage.is_symlink() or not stage.resolve().is_relative_to(PRIVATE.resolve()):raise ValueError('unapproved stage')
