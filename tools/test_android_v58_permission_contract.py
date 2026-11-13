@@ -10,7 +10,7 @@ setup=(mobile/"OnTrackSetupChecklist.kt").read_text(encoding="utf-8")
 ui=(root/"saas/mobile/ota/ui.html").read_text(encoding="utf-8")
 import json
 release=json.loads((root/"saas/mobile/ota/native_release.json").read_text(encoding="utf-8"))
-assert release["version_code"] == 71 and release["version_name"] == "0.3.48", "expected signed v71 audio recovery hotfix"
+assert release["version_code"] == 72 and release["version_name"] == "0.3.49", "expected signed v72 restored v65 PCM release"
 assert f'versionCode = {release["version_code"]}' in prepare
 assert f'versionName = "{release["version_name"]}"' in prepare
 assert "getBoolean(KEY, true)" in prepare and "'false', 'disable all saved call-recording toggle states'" in prepare

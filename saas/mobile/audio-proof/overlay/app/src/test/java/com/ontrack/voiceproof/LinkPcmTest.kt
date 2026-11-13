@@ -27,10 +27,10 @@ class LinkPcmTest {
     }
     @Test fun playbackBufferPreservesFullBurstInOrderWithoutEvictingEarlySpeech() {
         assertEquals(20000, LivePlaybackQueuePolicy.MAX_QUEUED_MS)
-        assertEquals(20, LivePlaybackQueuePolicy.PACKET_BYTES * 1000 /
+        assertEquals(25, LivePlaybackQueuePolicy.PACKET_BYTES * 1000 /
             (LivePlaybackQueuePolicy.OUTPUT_RATE * 2))
         val queue=Channel<Int>(LivePlaybackQueuePolicy.MAX_PACKETS)
-        repeat(600) { assertTrue("packet $it dropped during 12s PCM burst",queue.trySend(it).isSuccess) }
+        repeat(600) { assertTrue("packet $it dropped during 15s PCM burst",queue.trySend(it).isSuccess) }
         repeat(600) { assertEquals("bursty PCM must remain in order",it,queue.tryReceive().getOrNull()) }
         assertTrue(queue.tryReceive().isFailure)
         queue.close()
