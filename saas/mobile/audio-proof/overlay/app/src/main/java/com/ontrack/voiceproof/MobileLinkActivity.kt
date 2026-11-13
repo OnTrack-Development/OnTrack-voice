@@ -149,10 +149,45 @@ class MobileLinkActivity:ComponentActivity(){
         // callback permission result. Voice calls run without either.
         sendState()
     }
-    private val campaignPhonePermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->
-        if(granted)ContextCompat.startForegroundService(this,
-            Intent(this,MobileLinkService::class.java).setAction(MobileLinkService.ACTION_CAMPAIGN_ENABLE))
-        else {banner.text="إذن الاتصال لم يُمنح؛ تنفيذ الحملات يظل متوقفًا";banner.visibility=View.VISIBLE}
+    // Campaigns require BOTH CALL_PHONE and READ_PHONE_STATE. The old one-
+    // permission callback silently failed on paired Xiaomi/dual-SIM devices.
+    // Keep the exact user-requested action: Pull Now must not become Enable.
+    private var pendingCampaignAction=MobileLinkService.ACTION_CAMPAIGN_ENABLE
+    private val campaignPermissions=registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){grants->
+        val missing=listOf(Manifest.permission.CALL_PHONE,Manifest.permission.READ_PHONE_STATE)
+            .filter{ContextCompat.checkSelfPermission(this,it)!=PackageManager.PERMISSION_GRANTED}
+        if(missing.isEmpty() && !MobileLinkService.inCall && tenantEnrollment.hasAny()) {
+            ContextCompat.startForegroundService(this,
+                Intent(this,MobileLinkService::class.java).setAction(pendingCampaignAction))
+            banner.text="صلاحيات SIM مكتملة؛ تم إرسال طلب التنفيذ، والاتصال الفعلي قيد التحقق"
+        } else {
+            banner.text="الحملات متوقفة: "+when {
+                Manifest.permission.CALL_PHONE in missing->"اسمح بإذن إجراء المكالمات (CALL_PHONE)"
+                Manifest.permission.READ_PHONE_STATE in missing->"اسمح بإذن حالة الهاتف (READ_PHONE_STATE)"
+                else->"تأكد من ربط الشريحة وأن الهاتف غير مشغول"
+            }+" من صلاحيات التطبيق ثم حاول مجددًا"
+        }
+        banner.visibility=View.VISIBLE
+        sendState()
+    }
+    private fun requestCampaignAction(action:String) {
+        check(!MobileLinkService.inCall){"لا يمكن بدء حملة أثناء مكالمة"}
+        check(tenantEnrollment.hasAny()){"اربط شريحة SIM بحساب SaaS أولًا"}
+        val missing=listOf(Manifest.permission.CALL_PHONE,Manifest.permission.READ_PHONE_STATE)
+            .filter{ContextCompat.checkSelfPermission(this,it)!=PackageManager.PERMISSION_GRANTED}
+        pendingCampaignAction=action
+        if(missing.isNotEmpty()){
+            banner.text="لازم تفعّل الصلاحيات الناقصة لتشغيل المكالمات: "+
+                missing.joinToString(" + "){it.substringAfterLast('.')}
+            banner.visibility=View.VISIBLE
+            campaignPermissions.launch(missing.toTypedArray())
+        }else{
+            ContextCompat.startForegroundService(this,
+                Intent(this,MobileLinkService::class.java).setAction(action))
+            banner.text="تم إرسال طلب تنفيذ الحملة لخدمة Android — لم يتم تأكيد الاتصال بعد"
+            banner.visibility=View.VISIBLE
+            sendState()
+        }
     }
     private val contactPicker=registerForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
         if(result.resultCode==RESULT_OK){
@@ -1395,12 +1430,7 @@ class MobileLinkActivity:ComponentActivity(){
                         check(msg.optBoolean("confirmed")){"موافقة صاحب الجهاز وتكاليف المكالمات مطلوبة"}
                         check(!MobileLinkService.inCall){"تشغيل الحملات مسموح والهاتف غير مشغول"}
                         check(tenantEnrollment.hasAny()){"اربط الشريحة بحساب SaaS أولًا"}
-                        if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,
-                                Manifest.permission.CALL_PHONE)!=PackageManager.PERMISSION_GRANTED)
-                            campaignPhonePermission.launch(Manifest.permission.CALL_PHONE)
-                        else ContextCompat.startForegroundService(this@MobileLinkActivity,
-                            Intent(this@MobileLinkActivity,MobileLinkService::class.java)
-                                .setAction(MobileLinkService.ACTION_CAMPAIGN_ENABLE))
+                        requestCampaignAction(MobileLinkService.ACTION_CAMPAIGN_ENABLE)
                     }
                     "campaignAutoDisable"->ContextCompat.startForegroundService(this@MobileLinkActivity,
                         Intent(this@MobileLinkActivity,MobileLinkService::class.java)
@@ -1408,12 +1438,7 @@ class MobileLinkActivity:ComponentActivity(){
                     "campaignPullNow"->{
                         check(!MobileLinkService.inCall){"انتظر انتهاء المكالمة الحالية"}
                         check(tenantEnrollment.hasAny()){"اربط الشريحة بحساب SaaS أولًا"}
-                        if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,
-                                Manifest.permission.CALL_PHONE)!=PackageManager.PERMISSION_GRANTED)
-                            campaignPhonePermission.launch(Manifest.permission.CALL_PHONE)
-                        else ContextCompat.startForegroundService(this@MobileLinkActivity,
-                            Intent(this@MobileLinkActivity,MobileLinkService::class.java)
-                                .setAction(MobileLinkService.ACTION_CAMPAIGN_PULL_NOW))
+                        requestCampaignAction(MobileLinkService.ACTION_CAMPAIGN_PULL_NOW)
                     }
                     "listCampaigns"->campaignRequest(null)
                     "campaignAction"->{
@@ -1423,22 +1448,13 @@ class MobileLinkActivity:ComponentActivity(){
                         val id=msg.optString("id")
                         require(id.matches(Regex("[a-f0-9]{24}"))){"معرف الحملة غير صحيح"}
                         campaignRequest(JSONObject().put("confirmed",true).put("action",action).put("id",id))
-                        if(action=="dial_next_now" && !MobileLinkService.inCall &&
-                            ContextCompat.checkSelfPermission(this@MobileLinkActivity,Manifest.permission.CALL_PHONE)==PackageManager.PERMISSION_GRANTED){
-                            ContextCompat.startForegroundService(this@MobileLinkActivity,
-                                Intent(this@MobileLinkActivity,MobileLinkService::class.java)
-                                    .setAction(MobileLinkService.ACTION_CAMPAIGN_PULL_NOW))
-                        }
+                        if(action=="dial_next_now")
+                            requestCampaignAction(MobileLinkService.ACTION_CAMPAIGN_PULL_NOW)
                     }
                     "campaignDialNextNow"->{
                         check(!MobileLinkService.inCall){"انتظر انتهاء المكالمة الحالية"}
                         check(tenantEnrollment.hasAny()){"اربط الشريحة بحساب SaaS أولًا"}
-                        if(ContextCompat.checkSelfPermission(this@MobileLinkActivity,
-                                Manifest.permission.CALL_PHONE)!=PackageManager.PERMISSION_GRANTED)
-                            campaignPhonePermission.launch(Manifest.permission.CALL_PHONE)
-                        else ContextCompat.startForegroundService(this@MobileLinkActivity,
-                            Intent(this@MobileLinkActivity,MobileLinkService::class.java)
-                                .setAction(MobileLinkService.ACTION_CAMPAIGN_PULL_NOW))
+                        requestCampaignAction(MobileLinkService.ACTION_CAMPAIGN_PULL_NOW)
                     }
                     "createCampaign"->{
                         check(msg.optBoolean("confirmed")){"يجب مراجعة مسودة الحملة"}

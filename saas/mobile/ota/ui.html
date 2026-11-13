@@ -184,7 +184,7 @@ body.light .otTabs button.active{background:#d20d28!important;color:#fff!importa
 #enable.agent-on{background:#147d47!important;border-color:#28a463!important;color:#fff!important;opacity:1!important;filter:none!important}
 #disable.agent-off{background:#b91c34!important;border-color:#e2384a!important;color:#fff!important;opacity:1!important;filter:none!important}
 #version{display:block!important;font-size:12px;font-weight:800;color:var(--text);white-space:nowrap}
-body>.otWelcome,body>.otTabs,body>.otPageIntro,body>[data-panel],body>footer{display:none!important}
+body>.otTabs{display:grid!important}.hidden-panel{display:none!important}.otPanelWrap{display:grid;gap:14px}.otPanelWrap.hidden-panel{display:none!important}
 #v1Minimal{max-width:650px;margin:0 auto 32px;display:grid;gap:14px}
 #v1Minimal>.card{margin:0}#v1Minimal [hidden]{display:none!important}
 #v1Minimal button{min-height:44px}.v1Pair{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--border);padding:13px 0}
@@ -258,6 +258,12 @@ body.light .otErrText{color:#be123c!important}
 
 <header><div class="brand"><span class="logo">IO</span><div><h1>IO Voice</h1><div class="sub">IO Voice · مركز الاتصال الذكي</div></div></div><div class="otHeaderTools"><button id="updateBell" type="button" class="otUpdateBellButton" hidden aria-label="تحديث جديد — فتح شاشة التحديث">↑<span class="otNotifyDot"></span></button><button id="themeToggle" type="button" class="otThemeButton" aria-label="تبديل المظهر">☀</button><div class="minor" id="version" aria-label="إصدار التطبيق">جاري قراءة الإصدار…</div></div></header>
 <main id="v1Minimal" aria-label="IO Voice">
+<div data-panel="dashboard" class="otPanelWrap">
+<button id="updateNotice" type="button" class="otUpdateNotice" data-panel="dashboard" hidden aria-live="polite">
+ <span class="otUpdateBell" aria-hidden="true">↑</span>
+ <span class="otUpdateCopy"><strong>تحديث جديد جاهز</strong><small>الإصدار <b id="updateNoticeVersion">الجديد</b> · اضغط للانتقال إلى شاشة التحديث</small></span>
+ <span class="otUpdateArrow" aria-hidden="true">‹</span>
+</button>
 <section class="card" id="v1Wizard" hidden><h2>تجهيز الهاتف لأول مرة</h2>
 <p class="v1Hint">تختفي هذه الخطوات فور ربط الشريحة ومنح صلاحيات الهاتف.</p>
 <p><b>1. ربط الحساب والشريحة</b></p><button type="button" id="v1Pair">ربط الشريحة</button>
@@ -274,6 +280,33 @@ body.light .otErrText{color:#be123c!important}
 <div class="v1Buttons"><button type="button" class="primary" id="v1PairNow">ربط شريحة بكود 6 أرقام</button><button type="button" class="outline" id="v1PairWebsite">إنشاء الكود من الموقع</button></div>
 <p class="v1Hint" id="v1PairHelp" aria-live="polite" style="margin:0">بعد استخراج الكود من الموقع، اضغط ربط وأدخل الـ6 أرقام.</p>
 </section>
+<section class="card" data-panel="dashboard">
+<div class="section-title"><h2>حالة المساعد</h2><span id="badge" class="chip">جاري التحقق</span></div>
+<div class="otStatusGrid" aria-live="polite">
+ <div class="otConnection"><span class="otConnectionLabel">اتصال السيرفر</span><strong id="serverHealth">جارٍ التحقق</strong><small id="serverHealthDetail">فحص ربط الشريحة</small></div>
+ <div class="otConnection"><span class="otConnectionLabel">الشرائح</span><strong id="simHealth">متوقف</strong><small>جاهزية الهاتف</small></div>
+ <div class="otConnection"><span class="otConnectionLabel">الصوت</span><strong id="voiceHealth">بانتظار مكالمة</strong><small>جاهز عند الاتصال</small></div>
+</div>
+<div class="status" aria-live="polite"><span class="indicator" id="dot"></span><div><strong id="mode">جاري التحميل…</strong><span class="small" id="status">التحقق من حالة الهاتف والسيرفر</span></div></div>
+<div class="divider"></div>
+<div class="row"><button class="positive" id="enable">تشغيل المساعد</button><button class="outline" id="disable">إيقاف المساعد</button></div>
+<div class="show-on-call" id="callActions">
+ <div class="divider"></div>
+ <h2 class="callControlHeading">التحكم أثناء المكالمة</h2>
+ <div class="row callQuickActions">
+  <button class="primary" id="takeover" type="button">
+   <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6.5" r="3"/><path d="M5 20v-2a7 7 0 0 1 14 0v2M4 11l2-2M4 11l2 2"/></svg>
+   <span>استلام المكالمة</span><small>التحكم البشري بالمكالمة</small>
+  </button>
+  <button class="outline" id="speaker" type="button">
+   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM17 9a5 5 0 0 1 0 6M20 6a9 9 0 0 1 0 12"/></svg>
+   <span>تبديل السماعة</span><small>تغيير مخرج الصوت</small>
+  </button>
+ </div>
+ <p id="callControlHint" class="small">الاستلام ينقل المكالمة الحالية من الإيجنت ليك. المكالمة التالية ترجع للإيجنت حسب الإعداد.</p>
+</div>
+<p id="message" role="alert"></p>
+</section>
 <section class="card" id="v1DataModeCard" aria-labelledby="v1DataModeHeading">
 <div class="section-title"><h2 id="v1DataModeHeading">الاتصال على الداتا (4G/5G بدون Wi-Fi)</h2><span class="chip" id="v1DaemonBadge">جارٍ الفحص</span></div>
 <div class="status" style="padding:10px 0 4px"><span class="indicator" id="v1DaemonLamp"></span><div><strong id="v1DaemonTitle" style="font-size:15px">محرك الصوت المحلي</strong><span class="small" id="v1NetworkRoute">جاري فحص الشبكة…</span></div></div>
@@ -287,6 +320,21 @@ body.light .otErrText{color:#be123c!important}
 <div class="v1Buttons"><button type="button" class="primary" id="v1WifiFreeToggle" disabled>تشغيل بدون Wi-Fi (5555)</button><button type="button" class="outline" id="v1ReviveDaemon">إعادة تنشيط محرك الصوت</button></div>
 <button type="button" class="subtle-button" id="v1DataDiagnostics">فحص شاومي والصلاحيات (USB Debugging Security)</button>
 </section>
+</div>
+<div data-panel="calls" class="otPanelWrap hidden-panel">
+<section class="card" data-panel="calls">
+<div class="section-title"><h2>سجل المكالمات</h2><span class="chip good">تسجيل الأحداث</span></div>
+<p>سجل المكالمات الفعلي. أسماء جهات الاتصال تظهر بعد السماح بقراءة جهات الاتصال وسجل المكالمات؛ لا نخمن هوية المتصل.</p><button id="enableCallNames" class="outline" type="button">تفعيل عرض أسماء جهات الاتصال</button><p id="callNamesStatus" class="small" aria-live="polite"></p>
+
+<div class="divider"></div>
+<label for="callsSearch">بحث بالاسم أو الرقم أو المعرف</label><input id="callsSearch" placeholder="اسم العميل أو رقم الهاتف" dir="auto">
+<label for="callsStatus">الحالة</label><select id="callsStatus" style="width:100%;padding:12px;background:#0d1523;color:#fff;border:1px solid #43516b;border-radius:12px"><option value="">كل الحالات</option><option value="ringing">رنين</option><option value="active">تم الرد</option><option value="ended">انتهت</option><option value="missed">لم يرد</option></select>
+<button class="outline" id="refreshCalls">تحديث السجل من الهاتف</button>
+<div id="callsList" aria-live="polite"><div class="otMiniCard"><div><strong>سجل المكالمات</strong><small>افتح القسم وسيتم تحميل آخر المكالمات المثبتة على السيرفر، بدون أرقام مختلقة.</small></div></div></div>
+
+</section>
+</div>
+<div data-panel="campaigns" class="otPanelWrap hidden-panel">
 <section class="card" id="v1CardCampaigns">
 <div class="section-title"><h2>الحملات التلقائية وحالة الطابور الحي</h2><span class="chip" id="v1CampaignBadge">Auto-Dialer</span></div>
 <div class="otQueueBox" id="v1QueueCard">
@@ -323,144 +371,6 @@ body.light .otErrText{color:#be123c!important}
   <span id="v1ManagerCallbackText">معاودة المدير خلال 10 ثوانٍ</span>
   <span id="v1ManagerCallbackPhone" dir="ltr"></span>
 </div>
-</section>
-<section class="card" id="v1CardStudio">
-<div class="section-title"><h2>الاستوديو والتوجيه التفاعلي (IVR)</h2><span class="chip" id="v1IvrBadge">IVR حسب الإعداد</span></div>
-<p class="v1Hint">تحكم في السيناريو وقائمة الأقسام (IVR) والمخطط البصري مباشرة من لوحة IO Voice.</p>
-<button type="button" class="outline" id="v1OpenSite">فتح استوديو IO Voice في المتصفح</button>
-<div class="v1Buttons"><button type="button" class="outline" id="v1Agent">السيناريوهات وIVR</button><button type="button" class="outline" id="v1Flow">المخطط البصري (Flow)</button></div>
-<div class="v1Buttons"><button type="button" class="outline" id="v1Permissions">فحص الاتصال والصلاحيات</button><button type="button" class="outline" id="v1Refresh">تحديث الحالة</button></div>
-<div id="v1PermissionsBox" hidden><p class="v1Hint">لو نقص تصريح لازم للتشغيل، افتح التفعيل وفحص الجهاز.</p>
-<div class="v1Buttons"><button type="button" id="v1PermissionSetup">فحص النواقص</button><button type="button" id="v1PermissionTest">فحص الجهاز</button></div></div>
-</section>
-<section class="card otPersistentUpdates" id="v1UpdateBox" aria-labelledby="v1UpdateHeading">
-<div class="section-title"><h2 id="v1UpdateHeading">تحديثات التطبيق</h2><span class="chip">0.3.46 · v69</span></div>
-<div class="otUpdateAvailability" id="v1UpdateBanner" role="status" aria-live="polite">
-  <span class="otUpdateMark" aria-hidden="true">↧</span>
-  <span><strong id="v1UpdateTitle">جارٍ التحقق من تحديث Android</strong><small id="v1UpdateVersion">يظهر رقم الإصدار بعد الفحص</small></span>
-</div>
-<div id="v1UpdateProgressWrap" class="otUpdateProgressWrap" hidden>
-  <div class="otUpdateProgressMeta"><span>تقدّم تحميل التحديث</span><span id="v1UpdateProgressText" dir="ltr">0%</span></div>
-  <div class="otUpdateProgressTrack"><div id="v1UpdateProgressBar" class="otUpdateProgressFill"></div></div>
-</div>
-<div class="v1Buttons"><button type="button" id="v1CheckUpdates" class="outline">فحص التحديثات</button><button type="button" id="v1InstallUpdates" class="primary" disabled>تحميل وتثبيت التحديث</button></div>
-<button type="button" id="v1BrowserApkBtn" class="outline" style="margin-top:8px">🌐 تحميل الـ APK مباشرة عبر المتصفح</button>
-<p id="v1UpdateStatus" class="v1Hint" aria-live="polite">تحديث Android يتم بموافقتك، وبدون حذف بيانات الحساب.</p>
-<p class="v1Hint" style="margin:0">التحديث لا يبدأ أثناء مكالمة. بعد تنزيل APK الموقّع، Android نفسه يؤكد التثبيت.</p>
-</section>
-</main>
-<div class="otWelcome" data-panel="dashboard"><div><span class="otEyebrow">لوحة التحكم</span><strong>مركز تشغيل المكالمات</strong><small>تابع المكالمات والمساعدين والشرائح بسهولة.</small></div><div class="otSpark">✦</div></div>
-
-<nav class="otTabs" aria-label="أقسام التطبيق" role="navigation">
- <button class="active" data-view="dashboard" aria-current="page"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg><span>الرئيسية</span></button>
- <button data-view="calls"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 3.5H5a2 2 0 0 0-2 2C3 14 10 21 18.5 21a2 2 0 0 0 2-2v-2.5l-5.3-2.3-2.2 2.2a17 17 0 0 1-5.4-5.4l2.2-2.2z"/></svg><span>المكالمات</span></button>
- <button data-view="agents"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M9 3h6M8 12h.01M16 12h.01M8 16c2.1 1.4 5.9 1.4 8 0"/></svg><span>المساعدون</span></button>
- <button data-view="campaigns"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>الحملات</span></button>
- <button data-view="settings"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 1.2 1.2-2.4 2.4-1.3-1.2a8 8 0 0 1-2.1.9V21h-3.4v-2.7a8 8 0 0 1-2.1-.9L8 18.6l-2.4-2.4L6.8 15a8 8 0 0 1-.9-2H3.2V9.6h2.7a8 8 0 0 1 .9-2L5.6 6.4 8 4l1.3 1.2a8 8 0 0 1 2.1-.9V1.6h3.4v2.7a8 8 0 0 1 2.1.9L18.2 4l2.4 2.4-1.2 1.2a8 8 0 0 1 .9 2H23v3.4h-2.7a8 8 0 0 1-.9 2z"/></svg><span>الإعدادات</span><span id="updateTabDot" class="otNotifyDot" hidden></span></button>
-</nav>
-<section class="otPageIntro" data-panel="agents"><span class="otEyebrow">مساحة العمل</span><h2>المساعدون</h2><p>المساعدون المرتبطون بشرائحك، ومهامهم ومسارات محادثاتهم.</p></section>
-<section class="otPageIntro" data-panel="settings"><span class="otEyebrow">التفضيلات</span><h2>التحديثات والإعدادات</h2><p>تحديثات التطبيق والأصوات والصلاحيات والاتصال.</p></section>
-<button id="updateNotice" type="button" class="otUpdateNotice" data-panel="dashboard" hidden aria-live="polite">
- <span class="otUpdateBell" aria-hidden="true">↑</span>
- <span class="otUpdateCopy"><strong>تحديث جديد جاهز</strong><small>الإصدار <b id="updateNoticeVersion">الجديد</b> · اضغط للانتقال إلى شاشة التحديث</small></span>
- <span class="otUpdateArrow" aria-hidden="true">‹</span>
-</button>
-<section class="card" data-panel="dashboard">
-<div class="section-title"><h2>حالة المساعد</h2><span id="badge" class="chip">جاري التحقق</span></div>
-<div class="otStatusGrid" aria-live="polite">
- <div class="otConnection"><span class="otConnectionLabel">اتصال السيرفر</span><strong id="serverHealth">جارٍ التحقق</strong><small id="serverHealthDetail">فحص ربط الشريحة</small></div>
- <div class="otConnection"><span class="otConnectionLabel">الشرائح</span><strong id="simHealth">متوقف</strong><small>جاهزية الهاتف</small></div>
- <div class="otConnection"><span class="otConnectionLabel">الصوت</span><strong id="voiceHealth">بانتظار مكالمة</strong><small>جاهز عند الاتصال</small></div>
-</div>
-<div class="status" aria-live="polite"><span class="indicator" id="dot"></span><div><strong id="mode">جاري التحميل…</strong><span class="small" id="status">التحقق من حالة الهاتف والسيرفر</span></div></div>
-<div class="divider"></div>
-<div class="row"><button class="positive" id="enable">تشغيل المساعد</button><button class="outline" id="disable">إيقاف المساعد</button></div>
-<div class="show-on-call" id="callActions">
- <div class="divider"></div>
- <h2 class="callControlHeading">التحكم أثناء المكالمة</h2>
- <div class="row callQuickActions">
-  <button class="primary" id="takeover" type="button">
-   <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6.5" r="3"/><path d="M5 20v-2a7 7 0 0 1 14 0v2M4 11l2-2M4 11l2 2"/></svg>
-   <span>استلام المكالمة</span><small>التحكم البشري بالمكالمة</small>
-  </button>
-  <button class="outline" id="speaker" type="button">
-   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM17 9a5 5 0 0 1 0 6M20 6a9 9 0 0 1 0 12"/></svg>
-   <span>تبديل السماعة</span><small>تغيير مخرج الصوت</small>
-  </button>
- </div>
- <p id="callControlHint" class="small">الاستلام ينقل المكالمة الحالية من الإيجنت ليك. المكالمة التالية ترجع للإيجنت حسب الإعداد.</p>
-</div>
-<p id="message" role="alert"></p>
-</section>
-<section class="card" data-panel="dashboard" id="homeAgentOverview">
- <div class="section-title"><h2>المساعدون المتصلون</h2><button type="button" data-go="agents" class="otTextAction">عرض الكل</button></div>
- 
- <div id="homeAgentCards" class="otAgentCards" aria-live="polite"><p>جارٍ التحقق من الشرائح...</p></div>
-</section>
-<section class="card" data-panel="dashboard"><div class="section-title"><h2>الوصول السريع</h2><span class="chip">الأكثر استخدامًا</span></div><div class="otActionGrid">
-<button type="button" data-go="calls" class="otAction"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 3.5H5a2 2 0 0 0-2 2C3 14 10 21 18.5 21a2 2 0 0 0 2-2v-2.5l-5.3-2.3-2.2 2.2a17 17 0 0 1-5.4-5.4l2.2-2.2z"/></svg><span>المكالمات</span></button>
-<button type="button" data-go="agents" class="otAction"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M9 3h6M8 12h.01M16 12h.01M8 16c2.1 1.4 5.9 1.4 8 0"/></svg><span>المساعدون</span></button>
-<button type="button" data-go="campaigns" class="otAction"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>الحملات</span></button>
-<button type="button" data-go="settings" class="otAction"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 1.2 1.2-2.4 2.4-1.3-1.2a8 8 0 0 1-2.1.9V21h-3.4v-2.7a8 8 0 0 1-2.1-.9L8 18.6l-2.4-2.4L6.8 15a8 8 0 0 1-.9-2H3.2V9.6h2.7a8 8 0 0 1 .9-2L5.6 6.4 8 4l1.3 1.2a8 8 0 0 1 2.1-.9V1.6h3.4v2.7a8 8 0 0 1 2.1.9L18.2 4l2.4 2.4-1.2 1.2a8 8 0 0 1 .9 2H23v3.4h-2.7a8 8 0 0 1-.9 2z"/></svg><span>الإعدادات</span></button>
-</div></section>
-<section class="card" data-panel="agents" id="agentBuilderHub">
- <div class="section-title"><h2>استوديو المساعدين</h2></div>
- <p>صمّم مسار المحادثة، وعدّل التعليمات والمهام من مكان واحد.</p>
- <div class="row"><button type="button" class="primary" id="openAgentStudio">إدارة المساعدين</button><button type="button" id="openFlowStudio" hidden>فتح المخطط</button></div>
-</section>
-<section class="card" data-panel="agents" id="agentAssignments">
- <div class="section-title"><h2>مساعدو الشرائح</h2><button type="button" class="otTextAction" id="refreshAgentCards">تحديث</button></div>
- <div id="agentCards" class="otAgentCards" aria-live="polite"><p>جارٍ تحميل المساعدين…</p></div>
-</section>
-<section class="card" data-panel="settings" id="tenantDeviceCenter">
-<div class="section-title"><h2>إدارة الشرائح</h2><span class="chip warn" id="tenantStateBadge">التحقق من الشرائح</span></div>
-<p>اربط كل شريحة بالمساعد الذي يعمل عليها.</p>
-<div class="tenant-sim-list" role="status" aria-live="polite">
-  <div class="tenant-sim"><strong>SIM 1</strong><span id="tenantSim1">جاري التحقق…</span></div>
-  <div class="tenant-sim"><strong>SIM 2</strong><span id="tenantSim2">جاري التحقق…</span></div>
-</div>
-<div class="row"><button type="button" id="tenantMenu" class="primary">إدارة الشرائح</button><button type="button" id="tenantQr" class="outline">إدخال كود 6 أرقام</button></div>
-<div class="row"><button type="button" id="openConsole" class="outline">لوحة الموقع</button><button type="button" id="openScenario" class="outline">المسارات المنشورة</button></div>
-<div class="row"><button type="button" id="openAnswerSettings" class="outline">إعدادات الرد واللغة</button></div>
-<div class="row"><button type="button" id="tenantTest" class="outline">تشخيص اتصال الشريحة والصوت</button></div>
-<button type="button" id="tenantRefresh" class="subtle-button">تحديث حالة الشرائح</button>
-</section>
-<section class="card" id="versionUpdates" data-panel="settings">
-<div class="section-title"><h2>تحديثات IO Voice</h2><span class="chip good">تحديثات آمنة</span></div>
-<p>الواجهة والإعدادات تتحدث مباشرة. عند تحديث محرك Android، التطبيق ينزّل النسخة ويطلب موافقة Android على التثبيت مرة واحدة.</p>
- <div class="status"><span class="indicator good"></span><div><strong style="font-size:15px">إصدار التطبيق</strong><span class="small" id="nativeUpdateStatus">جاري البحث عن تحديث جديد…</span></div></div>
- <div id="nativeUpdateProgressWrap" class="otUpdateProgressWrap" hidden>
-   <div class="otUpdateProgressMeta"><span>تقدّم تحميل التحديث</span><span id="nativeUpdateProgressText" dir="ltr">0%</span></div>
-   <div class="otUpdateProgressTrack"><div id="nativeUpdateProgressBar" class="otUpdateProgressFill"></div></div>
- </div>
- <div class="row"><button class="primary" id="upgradeAndroid" disabled>تثبيت تحديث Android</button><button id="scanAndroid" class="outline">فحص الإصدار</button></div>
-<button type="button" class="outline" id="browserApkBtn" style="margin-top:8px">🌐 تحميل الـ APK مباشرة عبر المتصفح</button>
-<button type="button" class="outline" id="enableUpdateNotice">تفعيل إشعارات تحديث Android</button>
-<p class="small" id="updateNotificationHint">الإشعار يظهر داخل التطبيق، ويمكن تفعيل إشعار Android عند توفر إصدار جديد أثناء فحص التطبيق.</p>
-<p class="small">لا يعاد تنزيل ملف سبق التحقق منه. التثبيت يتطلب موافقة Android، ولا يبدأ أثناء مكالمة.</p>
-</section>
-<section id="mobileDataMode" data-panel="settings" hidden>
- <span id="wifiFreeLamp"></span><span id="wifiFreeStatus"></span>
- <input id="wifiFreeConsent" type="checkbox"><button id="wifiFreeToggle" disabled></button>
- </section>
-<section class="card" data-panel="settings"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
-<section class="card" data-panel="settings"><h2>فحص وتجهيز الهاتف</h2><p>يعرض الناقص من ربط SIM والصلاحيات ومحرك PCM وADB. لا نحتاج Root أو Shizuku أو إذن تسجيل أو ميكروفون.</p><div class="row"><button id="setup">فحص وتجهيز الهاتف</button><button id="updates" class="outline">فحص تحديث الواجهة</button></div></section>
-<section class="card" data-panel="settings"><label for="tenantWorkspaceSlot">شريحة المكالمات وجهات الاتصال والحملات</label><select id="tenantWorkspaceSlot"><option value="">اختار الشريحة</option></select><p id="tenantWorkspaceHelp" class="small">كل شريحة مرتبطة بحسابها فقط.</p></section>
-<section class="card" data-panel="calls">
-<div class="section-title"><h2>سجل المكالمات</h2><span class="chip good">تسجيل الأحداث</span></div>
-<p>سجل المكالمات الفعلي. أسماء جهات الاتصال تظهر بعد السماح بقراءة جهات الاتصال وسجل المكالمات؛ لا نخمن هوية المتصل.</p><button id="enableCallNames" class="outline" type="button">تفعيل عرض أسماء جهات الاتصال</button><p id="callNamesStatus" class="small" aria-live="polite"></p>
-
-<div class="divider"></div>
-<label for="callsSearch">بحث بالاسم أو الرقم أو المعرف</label><input id="callsSearch" placeholder="اسم العميل أو رقم الهاتف" dir="auto">
-<label for="callsStatus">الحالة</label><select id="callsStatus" style="width:100%;padding:12px;background:#0d1523;color:#fff;border:1px solid #43516b;border-radius:12px"><option value="">كل الحالات</option><option value="ringing">رنين</option><option value="active">تم الرد</option><option value="ended">انتهت</option><option value="missed">لم يرد</option></select>
-<button class="outline" id="refreshCalls">تحديث السجل من الهاتف</button>
-<div id="callsList" aria-live="polite"><div class="otMiniCard"><div><strong>سجل المكالمات</strong><small>افتح القسم وسيتم تحميل آخر المكالمات المثبتة على السيرفر، بدون أرقام مختلقة.</small></div></div></div>
-
-</section>
-<section class="card" data-panel="campaigns">
-<div class="section-title"><h2>الجدولة والحملات</h2><span class="chip warn">تشغيل تدريجي</span></div>
-<p>إضافة الأرقام والأسماء، استيراد CSV/TXT/XLSX من مركز الويب، تحديد السيناريو ووقت البدء. التنفيذ على الشريحة لا يبدأ إلا بعد اعتماد منفذ الاتصال.</p>
-
 </section>
 <section class="card" data-panel="campaigns" id="campaignContacts"><div class="section-title"><h2>جهات الاتصال</h2><span class="chip">بموافقة المستخدم</span></div>
 <div id="nativeContactPanel" style="display:none">
@@ -506,7 +416,92 @@ body.light .otErrText{color:#be123c!important}
 <div class="divider"></div>
 
 </section>
+</div>
+<div data-panel="agents" class="otPanelWrap hidden-panel">
+<section class="card" id="v1CardStudio">
+<div class="section-title"><h2>الاستوديو والتوجيه التفاعلي (IVR)</h2><span class="chip" id="v1IvrBadge">IVR حسب الإعداد</span></div>
+<p class="v1Hint">تحكم في السيناريو وقائمة الأقسام (IVR) والمخطط البصري مباشرة من لوحة IO Voice.</p>
+<button type="button" class="outline" id="v1OpenSite">فتح استوديو IO Voice في المتصفح</button>
+<div class="v1Buttons"><button type="button" class="outline" id="v1Agent">السيناريوهات وIVR</button><button type="button" class="outline" id="v1Flow">المخطط البصري (Flow)</button></div>
+<div class="v1Buttons"><button type="button" class="outline" id="v1Permissions">فحص الاتصال والصلاحيات</button><button type="button" class="outline" id="v1Refresh">تحديث الحالة</button></div>
+<div id="v1PermissionsBox" hidden><p class="v1Hint">لو نقص تصريح لازم للتشغيل، افتح التفعيل وفحص الجهاز.</p>
+<div class="v1Buttons"><button type="button" id="v1PermissionSetup">فحص النواقص</button><button type="button" id="v1PermissionTest">فحص الجهاز</button></div></div>
+</section>
+<section class="card" data-panel="dashboard" id="homeAgentOverview">
+ <div class="section-title"><h2>المساعدون المتصلون</h2><button type="button" data-go="agents" class="otTextAction">عرض الكل</button></div>
+ 
+ <div id="homeAgentCards" class="otAgentCards" aria-live="polite"><p>جارٍ التحقق من الشرائح...</p></div>
+</section>
+<section class="card" data-panel="agents" id="agentAssignments">
+ <div class="section-title"><h2>مساعدو الشرائح</h2><button type="button" class="otTextAction" id="refreshAgentCards">تحديث</button></div>
+ <div id="agentCards" class="otAgentCards" aria-live="polite"><p>جارٍ تحميل المساعدين…</p></div>
+</section>
+<section class="card" data-panel="agents" id="agentBuilderHub">
+ <div class="section-title"><h2>استوديو المساعدين</h2></div>
+ <p>صمّم مسار المحادثة، وعدّل التعليمات والمهام من مكان واحد.</p>
+ <div class="row"><button type="button" class="primary" id="openAgentStudio">إدارة المساعدين</button><button type="button" id="openFlowStudio" hidden>فتح المخطط</button></div>
+</section>
+</div>
+<div data-panel="settings" class="otPanelWrap hidden-panel">
+<section class="card otPersistentUpdates" id="v1UpdateBox" aria-labelledby="v1UpdateHeading">
+<div class="section-title"><h2 id="v1UpdateHeading">تحديثات التطبيق</h2><span class="chip">0.3.46 · v69</span></div>
+<div class="otUpdateAvailability" id="v1UpdateBanner" role="status" aria-live="polite">
+  <span class="otUpdateMark" aria-hidden="true">↧</span>
+  <span><strong id="v1UpdateTitle">جارٍ التحقق من تحديث Android</strong><small id="v1UpdateVersion">يظهر رقم الإصدار بعد الفحص</small></span>
+</div>
+<div id="v1UpdateProgressWrap" class="otUpdateProgressWrap" hidden>
+  <div class="otUpdateProgressMeta"><span>تقدّم تحميل التحديث</span><span id="v1UpdateProgressText" dir="ltr">0%</span></div>
+  <div class="otUpdateProgressTrack"><div id="v1UpdateProgressBar" class="otUpdateProgressFill"></div></div>
+</div>
+<div class="v1Buttons"><button type="button" id="v1CheckUpdates" class="outline">فحص التحديثات</button><button type="button" id="v1InstallUpdates" class="primary" disabled>تحميل وتثبيت التحديث</button></div>
+<button type="button" id="v1BrowserApkBtn" class="outline" style="margin-top:8px">🌐 تحميل الـ APK مباشرة عبر المتصفح</button>
+<p id="v1UpdateStatus" class="v1Hint" aria-live="polite">تحديث Android يتم بموافقتك، وبدون حذف بيانات الحساب.</p>
+<p class="v1Hint" style="margin:0">التحديث لا يبدأ أثناء مكالمة. بعد تنزيل APK الموقّع، Android نفسه يؤكد التثبيت.</p>
+</section>
+<section class="card" data-panel="settings" id="tenantDeviceCenter">
+<div class="section-title"><h2>إدارة الشرائح</h2><span class="chip warn" id="tenantStateBadge">التحقق من الشرائح</span></div>
+<p>اربط كل شريحة بالمساعد الذي يعمل عليها.</p>
+<div class="tenant-sim-list" role="status" aria-live="polite">
+  <div class="tenant-sim"><strong>SIM 1</strong><span id="tenantSim1">جاري التحقق…</span></div>
+  <div class="tenant-sim"><strong>SIM 2</strong><span id="tenantSim2">جاري التحقق…</span></div>
+</div>
+<div class="row"><button type="button" id="tenantMenu" class="primary">إدارة الشرائح</button><button type="button" id="tenantQr" class="outline">إدخال كود 6 أرقام</button></div>
+<div class="row"><button type="button" id="openConsole" class="outline">لوحة الموقع</button><button type="button" id="openScenario" class="outline">المسارات المنشورة</button></div>
+<div class="row"><button type="button" id="openAnswerSettings" class="outline">إعدادات الرد واللغة</button></div>
+<div class="row"><button type="button" id="tenantTest" class="outline">تشخيص اتصال الشريحة والصوت</button></div>
+<button type="button" id="tenantRefresh" class="subtle-button">تحديث حالة الشرائح</button>
+</section>
+<section class="card" data-panel="settings"><label for="tenantWorkspaceSlot">شريحة المكالمات وجهات الاتصال والحملات</label><select id="tenantWorkspaceSlot"><option value="">اختار الشريحة</option></select><p id="tenantWorkspaceHelp" class="small">كل شريحة مرتبطة بحسابها فقط.</p></section>
+<section class="card" data-panel="settings"><h2>التحكم العائم</h2><p>نافذة صغيرة منظمة فوق المكالمات؛ تظهر وتختفي دون Accessibility، أو استخدم إشعار الهاتف.</p><button id="overlay">تفعيل التحكم العائم</button></section>
+<section class="card" data-panel="settings"><h2>فحص وتجهيز الهاتف</h2><p>يعرض الناقص من ربط SIM والصلاحيات ومحرك PCM وADB. لا نحتاج Root أو Shizuku أو إذن تسجيل أو ميكروفون.</p><div class="row"><button id="setup">فحص وتجهيز الهاتف</button><button id="updates" class="outline">فحص تحديث الواجهة</button></div></section>
+<section class="card" id="versionUpdates" data-panel="settings">
+<div class="section-title"><h2>تحديثات IO Voice</h2><span class="chip good">تحديثات آمنة</span></div>
+<p>الواجهة والإعدادات تتحدث مباشرة. عند تحديث محرك Android، التطبيق ينزّل النسخة ويطلب موافقة Android على التثبيت مرة واحدة.</p>
+ <div class="status"><span class="indicator good"></span><div><strong style="font-size:15px">إصدار التطبيق</strong><span class="small" id="nativeUpdateStatus">جاري البحث عن تحديث جديد…</span></div></div>
+ <div id="nativeUpdateProgressWrap" class="otUpdateProgressWrap" hidden>
+   <div class="otUpdateProgressMeta"><span>تقدّم تحميل التحديث</span><span id="nativeUpdateProgressText" dir="ltr">0%</span></div>
+   <div class="otUpdateProgressTrack"><div id="nativeUpdateProgressBar" class="otUpdateProgressFill"></div></div>
+ </div>
+ <div class="row"><button class="primary" id="upgradeAndroid" disabled>تثبيت تحديث Android</button><button id="scanAndroid" class="outline">فحص الإصدار</button></div>
+<button type="button" class="outline" id="browserApkBtn" style="margin-top:8px">🌐 تحميل الـ APK مباشرة عبر المتصفح</button>
+<button type="button" class="outline" id="enableUpdateNotice">تفعيل إشعارات تحديث Android</button>
+<p class="small" id="updateNotificationHint">الإشعار يظهر داخل التطبيق، ويمكن تفعيل إشعار Android عند توفر إصدار جديد أثناء فحص التطبيق.</p>
+<p class="small">لا يعاد تنزيل ملف سبق التحقق منه. التثبيت يتطلب موافقة Android، ولا يبدأ أثناء مكالمة.</p>
+</section>
+<section id="mobileDataMode" data-panel="settings" hidden>
+ <span id="wifiFreeLamp"></span><span id="wifiFreeStatus"></span>
+ <input id="wifiFreeConsent" type="checkbox"><button id="wifiFreeToggle" disabled></button>
+ </section>
 <section id="voiceLibrary" data-panel="settings" hidden></section>
+</div>
+</main>
+<nav class="otTabs" aria-label="أقسام التطبيق" role="navigation">
+ <button class="active" data-view="dashboard" aria-current="page"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg><span>الرئيسية</span></button>
+ <button data-view="calls"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 3.5H5a2 2 0 0 0-2 2C3 14 10 21 18.5 21a2 2 0 0 0 2-2v-2.5l-5.3-2.3-2.2 2.2a17 17 0 0 1-5.4-5.4l2.2-2.2z"/></svg><span>المكالمات</span></button>
+ <button data-view="campaigns"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>الحملات</span></button>
+ <button data-view="agents"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M9 3h6M8 12h.01M16 12h.01M8 16c2.1 1.4 5.9 1.4 8 0"/></svg><span>المساعدون</span></button>
+ <button data-view="settings"><svg class="navIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 1.2 1.2-2.4 2.4-1.3-1.2a8 8 0 0 1-2.1.9V21h-3.4v-2.7a8 8 0 0 1-2.1-.9L8 18.6l-2.4-2.4L6.8 15a8 8 0 0 1-.9-2H3.2V9.6h2.7a8 8 0 0 1 .9-2L5.6 6.4 8 4l1.3 1.2a8 8 0 0 1 2.1-.9V1.6h3.4v2.7a8 8 0 0 1 2.1.9L18.2 4l2.4 2.4-1.2 1.2a8 8 0 0 1 .9 2H23v3.4h-2.7a8 8 0 0 1-.9 2z"/></svg><span>الإعدادات</span><span id="updateTabDot" class="otNotifyDot" hidden></span></button>
+</nav>
 <footer>IO Voice © 2026 · Voice Cloud</footer>
 <script>
 const el=id=>document.getElementById(id);
@@ -836,7 +831,10 @@ function v1Render(s){
  const qName=String(qObj.campaign_name||s.campaignActiveName||'').trim();
  const qSt=String(qObj.campaign_status||'').trim();
  const stLabels={running:'تعمل الآن',ready:'جاهزة للتشغيل',armed:'مفعّلة',active:'نشطة',paused:'متوقفة مؤقتًا',draft:'مسودة',completed:'مكتملة',cancelled:'ملغاة',idle:'لا توجد حملة'};
- el('v1CampaignQueueText').textContent=qName?(qName+' · '+qCount+' رقم متاح'):(qCount>0?(qCount+' رقم جاهز للحملة النشطة'):'يسحب المهام الجاهزة فور تفعيل الإيجنت وصلاحية الاتصال');
+ const missingCampaignPermissions=[!s.callPhoneGranted?'CALL_PHONE':null,!s.phonePermissionGranted?'READ_PHONE_STATE':null].filter(Boolean);
+ el('v1CampaignQueueText').textContent=missingCampaignPermissions.length
+  ?('صلاحيات ناقصة: '+missingCampaignPermissions.join(' + ')+' — اضغط تشغيل الحملات للسماح بها')
+  :(qName?(qName+' · '+qCount+' رقم متاح'):(qCount>0?(qCount+' رقم جاهز للحملة النشطة'):'يسحب المهام الجاهزة فور تفعيل الإيجنت وصلاحية الاتصال'));
  el('v1QueueCampName').textContent=qName||'لا توجد حملة مجدولة';
  el('v1QueueStatePill').textContent=stLabels[qSt]||(qName?'جاهز':'متوقف');
  el('v1QueueStatePill').className='chip '+(['running','ready','armed','active'].includes(qSt)?'good':'warn');
@@ -964,6 +962,7 @@ el('v1BrowserApkBtn').onclick=()=>{el('v1UpdateStatus').textContent='جاري ف
 el('browserApkBtn').onclick=()=>{el('nativeUpdateStatus').textContent='جاري فتح رابط تحميل APK في المتصفح…';send('openApkDownload');};
 el('enableUpdateNotice').onclick=()=>{if(Number(last.nativeCode)>=36)send('enableUpdateNotifications')};
 function openUpdateCenter(){
+ setView('settings');
  el('v1UpdateBox').hidden=false;
  el('v1UpdateBox').scrollIntoView({behavior:'smooth',block:'start'});
 }
