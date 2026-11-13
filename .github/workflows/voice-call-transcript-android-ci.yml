@@ -31,7 +31,19 @@ jobs:
       - name: Configure Windows Android SDK and apply overlay
         run: |
           $ErrorActionPreference = 'Stop'
-          $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+          # Reuse the SDK configured on the self-hosted signing runner. The
+          # service account may have a different LOCALAPPDATA from the owner.
+          $sdkCandidates = @($env:ANDROID_HOME, $env:ANDROID_SDK_ROOT,
+            (Join-Path $env:LOCALAPPDATA 'Android\Sdk')) |
+            Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -Unique
+          $sdk = $sdkCandidates | Where-Object {
+            (Test-Path -LiteralPath (Join-Path $_ 'platforms\android-36\android.jar')) -and
+            (Test-Path -LiteralPath (Join-Path $_ 'build-tools\36.0.0\d8.bat'))
+          } | Select-Object -First 1
+          if (-not $sdk) {
+            throw ('Android SDK 36 / D8 prerequisites missing; checked ' +
+              ($sdkCandidates -join ', ') + '. Configure ANDROID_HOME/ANDROID_SDK_ROOT on this runner.')
+          }
           $env:ANDROID_HOME = $sdk
           $env:ANDROID_SDK_ROOT = $sdk
           "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
