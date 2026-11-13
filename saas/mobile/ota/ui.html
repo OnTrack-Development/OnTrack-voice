@@ -836,7 +836,10 @@ function v1Render(s){
  const qName=String(qObj.campaign_name||s.campaignActiveName||'').trim();
  const qSt=String(qObj.campaign_status||'').trim();
  const stLabels={running:'تعمل الآن',ready:'جاهزة للتشغيل',armed:'مفعّلة',active:'نشطة',paused:'متوقفة مؤقتًا',draft:'مسودة',completed:'مكتملة',cancelled:'ملغاة',idle:'لا توجد حملة'};
- el('v1CampaignQueueText').textContent=qName?(qName+' · '+qCount+' رقم متاح'):(qCount>0?(qCount+' رقم جاهز للحملة النشطة'):'يسحب المهام الجاهزة فور تفعيل الإيجنت وصلاحية الاتصال');
+ const missingCampaignPermissions=[!s.callPhoneGranted?'CALL_PHONE':null,!s.phonePermissionGranted?'READ_PHONE_STATE':null].filter(Boolean);
+ el('v1CampaignQueueText').textContent=missingCampaignPermissions.length
+  ?('صلاحيات ناقصة: '+missingCampaignPermissions.join(' + ')+' — اضغط تشغيل الحملات للسماح بها')
+  :(qName?(qName+' · '+qCount+' رقم متاح'):(qCount>0?(qCount+' رقم جاهز للحملة النشطة'):'يسحب المهام الجاهزة فور تفعيل الإيجنت وصلاحية الاتصال'));
  el('v1QueueCampName').textContent=qName||'لا توجد حملة مجدولة';
  el('v1QueueStatePill').textContent=stLabels[qSt]||(qName?'جاهز':'متوقف');
  el('v1QueueStatePill').className='chip '+(['running','ready','armed','active'].includes(qSt)?'good':'warn');
