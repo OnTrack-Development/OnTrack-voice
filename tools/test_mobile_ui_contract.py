@@ -122,7 +122,16 @@ assert 'audioAttemptCount=0;nextAudioRetryAt=0L' in service, 'Reset retries per 
 assert 'onAudioDiagnostics=' in service and 'audioDiagnostic=diagnostic' in service, 'Show audio stage without exposing PCM'
 assert 'capturedPackets.incrementAndGet()' in session and 'modelAudioBytes.addAndGet' in session and 'submittedToShell.addAndGet' in session, 'Capture/AI/shell stages must be separately observable'
 assert 'audioDiagnostic:String' in call_overlay and 'audioDiagnostic: String = ""' in overlay_model, 'Floating overlay must show which LTE audio leg failed'
-assert 'AudioTrack.WRITE_NON_BLOCKING' in bridge and 'SLICE_BYTES = 1920' in bridge and 'LinkedBlockingQueue' in bridge and 'setTcpNoDelay(true)' in bridge, 'LivePcm must use non-blocking 20ms AudioTrack + TCP_NODELAY'
+# Both transport layouts are valid: the original v65 SIM bridge, or the newer
+# bounded-queue bridge. v72 intentionally restores the original queue/player to
+# avoid terminating a live call after a short 2.5s AudioTrack stall.
+# Experimental v45 PCM bridge acceptance: original AudioTrack blocking
+# injection with no asynchronous queue, preserving verified mute-before-capture.
+assert 'AudioTrack.WRITE_BLOCKING' in bridge, 'v45 audio injection path required'
+assert 'LinkedBlockingQueue' not in bridge and 'ConcurrentLinkedQueue<Frame>' not in bridge, 'v45 bridge must not queue playback'
+assert bridge.index('audio.setMicrophoneMute(true)') < bridge.index('capture.start()'), 'capture must not start before owner mic mute'
+assert 'audio.setMicrophoneMute(wasMuted)' in bridge and 'capture.stop()' in bridge, 'mic restore and stream cleanup required'
+assert 'PLAYBACK_STALL_TIMEOUT_MS' not in bridge, 'audio stall must not force-close SIM'
 assert 'LiveInterruptionPolicy.shouldCutPreviousSpeech' not in session, 'Do not locally cut AI audio on echo inputTranscription'
 assert 'v1BrowserApkBtn' in ui and 'browserApkBtn' in ui and "send('openApkDownload')" in ui, 'Direct APK browser button missing from UI'
 assert '"openApkDownload"->startActivity' in native, 'Native bridge openApkDownload missing'

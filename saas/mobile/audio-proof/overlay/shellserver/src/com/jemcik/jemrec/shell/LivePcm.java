@@ -3,18 +3,13 @@ package com.ontrack.voiceproof.shell;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.MediaCodec;
-import android.os.SystemClock;
 import com.genymobile.scrcpy.audio.AudioCapture;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Authenticated loopback: capture 48k stereo and inject 48k mono.
@@ -27,51 +22,27 @@ import java.util.concurrent.atomic.AtomicInteger;
  * not properties proven by successful JVM/Gradle builds.
  */
 final class LivePcm {
-    private static final int SLICE_BYTES = 1920; // 20 ms at 48 kHz mono 16-bit PCM (matches HAL period)
-    private static final int MAX_QUEUED_FRAMES = 1000;
-    private static final long PLAYBACK_STALL_TIMEOUT_MS = 2500L;
     private static final AtomicBoolean owned = new AtomicBoolean();
-
-    private static final class Frame {
-        final int gen;
-        final byte[] data;
-
-        Frame(int gen, byte[] data) {
-            this.gen = gen;
-            this.data = data;
-        }
-    }
 
     static void run(Socket socket, AudioCapture capture, AudioManager audio) throws Exception {
         if (!owned.compareAndSet(false, true)) throw new IOException("live bridge already active");
         AtomicBoolean active = new AtomicBoolean(true);
-        AtomicInteger playbackGen = new AtomicInteger(0);
-        LinkedBlockingQueue<Frame> playQueue = new LinkedBlockingQueue<>(MAX_QUEUED_FRAMES);
-        Object trackLock = new Object();
         AudioTrack track = null;
-        Thread player = null;
-        boolean wasMuted = false;
-        try { wasMuted = audio.isMicrophoneMute(); } catch (Throwable ignored) { }
+        boolean wasMuted = audio.isMicrophoneMute();
         try {
             socket.setSoTimeout(30_000);
-            socket.setTcpNoDelay(true);
-            socket.setPerformancePreferences(0, 2, 1);
             DataInputStream in = new DataInputStream(socket.getInputStream());
             int route = in.readUnsignedByte();
             track = route == 'S' ? GreetingPlayer.screeningTrack(audio) : GreetingPlayer.musicTrack(audio);
             capture.checkCompatibility();
-            // The modem call must not expose the owner's mic while the
-            // capture engine initializes (especially over LTE/VoLTE).
-            // On any failure, finally restores the exact previous mute state.
+            // v45 playback/PCM route, with the verified modern safety fix:
+            // the owner mic is muted BEFORE capture starts or any OTV1 header.
             audio.setMicrophoneMute(true);
             if (!audio.isMicrophoneMute()) throw new IOException("microphone did not mute");
             capture.start();
             track.play();
-            // Prime HAL uplink ring buffer with 20ms silence so first AI syllable is not clipped
-            track.write(new byte[SLICE_BYTES], 0, SLICE_BYTES, AudioTrack.WRITE_NON_BLOCKING);
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
             out.writeInt(0x4f545631); out.writeInt(48000); out.writeInt(2); out.flush();
-
             Thread reader = new Thread(() -> {
                 ByteBuffer pcm = ByteBuffer.allocateDirect(4096);
                 MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
@@ -89,103 +60,25 @@ final class LivePcm {
                     try { socket.close(); } catch (IOException ignored) { }
                 }
             }, "ontrack-live-capture");
-            reader.setDaemon(true);
-            reader.setUncaughtExceptionHandler((t, e) -> {
-                active.set(false);
-                try { socket.close(); } catch (Throwable ignored) { }
-            });
-            reader.start();
-
-            final AudioTrack playbackTrack = track;
-            player = new Thread(() -> {
-                try {
-                    while (active.get()) {
-                        Frame frame;
-                        try {
-                            frame = playQueue.poll(25, TimeUnit.MILLISECONDS);
-                        } catch (InterruptedException ignored) {
-                            if (!active.get()) break;
-                            continue;
-                        }
-                        if (frame == null) continue;
-                        if (frame.gen != playbackGen.get()) continue;
-                        int offset = 0;
-                        long stallStartMs = 0L;
-                        while (active.get() && offset < frame.data.length && frame.gen == playbackGen.get()) {
-                            int chunk = Math.min(SLICE_BYTES, frame.data.length - offset);
-                            int written;
-                            // Non-blocking write never holds trackLock across audio wait,
-                            // keeping barge-in flush (-1) sub-millisecond and deadlock-free.
-                            synchronized (trackLock) {
-                                if (!active.get() || frame.gen != playbackGen.get()) break;
-                                written = playbackTrack.write(frame.data, offset, chunk, AudioTrack.WRITE_NON_BLOCKING);
-                            }
-                            if (written < 0) throw new IOException("call playback failed: " + written);
-                            if (written == 0) {
-                                long nowMs = SystemClock.elapsedRealtime();
-                                if (stallStartMs == 0L) {
-                                    stallStartMs = nowMs;
-                                } else if (nowMs - stallStartMs > PLAYBACK_STALL_TIMEOUT_MS) {
-                                    throw new IOException("call playback stalled");
-                                }
-                                Thread.sleep(2);
-                                continue;
-                            }
-                            stallStartMs = 0L;
-                            offset += written;
-                        }
-                    }
-                } catch (Throwable error) {
-                    active.set(false);
-                    try { socket.close(); } catch (Throwable ignored) { }
-                }
-            }, "ontrack-live-playback");
-            player.setDaemon(true);
-            player.setUncaughtExceptionHandler((t, e) -> {
-                active.set(false);
-                try { socket.close(); } catch (Throwable ignored) { }
-            });
-            player.start();
-
+            reader.setDaemon(true); reader.start();
             byte[] bytes = new byte[65536];
             while (active.get()) {
                 int size = in.readInt();
-                if (size == -1) {
-                    playbackGen.incrementAndGet();
-                    playQueue.clear();
-                    synchronized (trackLock) {
-                        if (active.get()) {
-                            try {
-                                track.pause();
-                                track.flush();
-                                track.play();
-                            } catch (Throwable ignored) { }
-                        }
-                    }
-                    continue;
-                }
-                if (size == 0) continue;
+                if (size == -1) { track.pause(); track.flush(); track.play(); continue; }
                 if (size < 0 || size > bytes.length || size % 2 != 0) throw new IOException("invalid live playback block");
                 in.readFully(bytes, 0, size);
-                int currentGen = playbackGen.get();
-                Frame frame = new Frame(currentGen, Arrays.copyOf(bytes, size));
-                if (!playQueue.offer(frame)) {
-                    playQueue.poll();
-                    playQueue.offer(frame);
+                int pos = 0;
+                while (pos < size) {
+                    int n = track.write(bytes, pos, size-pos, AudioTrack.WRITE_BLOCKING);
+                    if (n <= 0) throw new IOException("call playback failed: " + n);
+                    pos += n;
                 }
             }
         } finally {
             active.set(false);
-            playbackGen.incrementAndGet();
-            playQueue.clear();
-            if (player != null) player.interrupt();
             try { socket.close(); } catch (IOException ignored) { }
             try { capture.stop(); } catch (Throwable ignored) { }
-            if (track != null) {
-                synchronized (trackLock) {
-                    try { track.pause(); track.flush(); track.release(); } catch (Throwable ignored) { }
-                }
-            }
+            if (track != null) { try { track.pause(); track.flush(); track.release(); } catch (Throwable ignored) { } }
             try { audio.setMicrophoneMute(wasMuted); } catch (Throwable ignored) { }
             owned.set(false);
         }
