@@ -31,7 +31,10 @@ class PremiumPcmTest {
     }
     @Test fun earlyPhraseAndTranscriptMerge() {
         assertEquals("إزيك؟",PremiumPhrase.prefix("إزيك؟ عامل إيه؟"))
-        assertEquals("أهلًا يا فندم،",PremiumPhrase.prefix("أهلًا يا فندم، عندي اقتراح"))
+        // A comma no longer produces a separate Fish HTTP request/gap.
+        assertEquals("",PremiumPhrase.prefix("أهلًا يا فندم، عندي اقتراح"))
+        assertEquals("أهلًا يا فندم، عندي اقتراح واضح؟",
+            PremiumPhrase.prefix("أهلًا يا فندم، عندي اقتراح واضح؟"))
         assertEquals("",PremiumPhrase.prefix("تمام"))
         assertEquals("أهلًا بيك يا زميلي",PremiumPhrase.merge("أهلًا بيك","أهلًا بيك يا زميلي"))
     }

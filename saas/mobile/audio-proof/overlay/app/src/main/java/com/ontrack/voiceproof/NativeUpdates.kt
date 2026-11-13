@@ -63,10 +63,12 @@ internal class NativeUpdates(private val context: Context) {
     data class Release(val versionCode: Long, val versionName: String, val size: Long, val sha256: String, val file: String)
     private val root = "https://app.ontrackegy.com/mobile/updates/native/"
     private val client = OkHttpClient.Builder()
+        .dns(ResilientDns)
         .followRedirects(false).followSslRedirects(false)
         .connectTimeout(15, TimeUnit.SECONDS).readTimeout(25, TimeUnit.SECONDS)
         .callTimeout(30, TimeUnit.SECONDS).build()
     private val downloadClient = OkHttpClient.Builder()
+        .dns(ResilientDns)
         .followRedirects(false).followSslRedirects(false)
         .connectTimeout(30_000, TimeUnit.MILLISECONDS)
         .readTimeout(180_000, TimeUnit.MILLISECONDS)

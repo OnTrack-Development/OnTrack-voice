@@ -41,7 +41,9 @@ $text=is_array($body)&&is_string($body['text']??null)?trim($body['text']):'';
 if($text===''||mb_strlen($text)>400||strlen($text)>1600)
     io_premium_error(422,'invalid_premium_text');
 try {
-    init_schema();
+    // Schema migrations belong to bootstrap/deployment, not each PCM phrase.
+    // Preserve first-run initialization on an unprepared host.
+    if(!is_file(private_path().'/schema.v28'))init_schema();
     $binding=device_binding_authorize(substr($auth,7));
     if(!$binding)io_premium_error(401,'device_not_authorized');
     device_binding_heartbeat($binding);

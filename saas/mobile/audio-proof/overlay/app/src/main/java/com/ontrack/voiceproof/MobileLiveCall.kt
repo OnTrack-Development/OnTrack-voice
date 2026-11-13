@@ -78,7 +78,7 @@ internal class MobileLiveCall(
     private var official:PremiumOfficialLive?=null
     private val googleVoiceFallback=AtomicBoolean(false)
     private val premiumPhrases=Channel<Pair<Int,String>>(64)
-    private val premiumInput=Channel<ByteArray>(32)
+    private val premiumInput=Channel<ByteArray>(16)
     private var premiumSpeaker:Job?=null
     private var premiumSender:Job?=null
     @Volatile private var socketReady=false
@@ -216,7 +216,6 @@ internal class MobileLiveCall(
             output=DataOutputStream(pipe!!.getOutputStream())
             telemetry.recordPcmSetup(SystemClock.elapsedRealtime()-callStartElapsedMs)
         val transform=LinkPcm(settings.optString("input_channel","mix"))
-        val uplinkBuffer=UplinkAudioFrameBuffer()
         worker=scope.launch(callCoroutineGuard) {
             try {
                 coroutineScope {
@@ -238,7 +237,6 @@ internal class MobileLiveCall(
                     launch(Dispatchers.IO+callCoroutineGuard) {
                         while(isActive && !stopped.get()) {delay(5000);synchronized(writeLock){output?.writeInt(0);output?.flush()}}
                     }
-                    var lastSocketWasReady=false
                     while(isActive && !stopped.get()) {
                         val size=input.readInt();check(size in 4..4096 && size%4==0){"invalid capture packet"}
                         val bytes=ByteArray(size);input.readFully(bytes)
@@ -257,58 +255,36 @@ internal class MobileLiveCall(
                                     }
                                 }
                             }
-                            if(!socketReady) {
-                                // While AI socket is connecting or reconnecting, keep tail clear so stale
-                                // pre-connect audio is never spliced into live speech.
-                                if(lastSocketWasReady){
-                                    uplinkBuffer.flush()
-                                    lastSocketWasReady=false
-                                }
-                                continue
-                            }
-                            lastSocketWasReady=true
-                            val onCell=isCellularLink()
-                            val targetBytes=UplinkAudioFrameBuffer.targetBytes(onCell,slowCellularLink)
-                            val frames=uplinkBuffer.push(mono,targetBytes)
+                            // Restore v65 direct PCM (no artificial 20/40ms framing).
+                            // The WebSocket is opened by the existing tenant-scoped
+                            // enrollment / voiceSession flow, not the retired pilot API.
                             val socket=ws
-                            for(frame in frames) {
-                                if(premium) {
-                                    if(socketReady && !premiumInput.trySend(frame).isSuccess){
-                                        skippedUplinkPackets.incrementAndGet()
-                                        telemetry.recordNetworkUplinkSkip()
-                                    }else if(firstUplinkSentAtMs==0L){
-                                        firstUplinkSentAtMs=capNow
-                                    }
-                                }else if(socketReady && socket!=null &&
-                                    LiveAudioQueuePolicy.canSend(onCell,socket.queueSize())) {
-                                    if(firstUplinkSentAtMs==0L)firstUplinkSentAtMs=capNow
-                                    val sent=runCatching {
-                                        socket.send(JSONObject().put("realtimeInput",JSONObject().put("audio",JSONObject()
-                                            .put("mimeType","audio/pcm;rate=16000").put("data",Base64.encodeToString(frame,Base64.NO_WRAP)))).toString())
-                                    }.getOrDefault(false)
-                                    if(!sent){
-                                        onTransportLost(socket,"تعذر إرسال الصوت")
-                                    }
-                                }else if(socketReady){
+                            if(premium) {
+                                if(socketReady && !premiumInput.trySend(mono).isSuccess){
                                     skippedUplinkPackets.incrementAndGet()
                                     telemetry.recordNetworkUplinkSkip()
-                                    val now=SystemClock.elapsedRealtime()
-                                    if(now-lastWarning>=8000L){lastWarning=now;safeNotice("الشبكة ضعيفة؛ يتم تجاوز الصوت المتأخر")}
+                                }else if(socketReady && firstUplinkSentAtMs==0L){
+                                    firstUplinkSentAtMs=capNow
+                                }
+                            }else if(socketReady && socket!=null &&
+                                LiveAudioQueuePolicy.canSend(isCellularLink(),socket.queueSize())) {
+                                if(firstUplinkSentAtMs==0L)firstUplinkSentAtMs=capNow
+                                val sent=runCatching {
+                                    socket.send(JSONObject().put("realtimeInput",JSONObject().put("audio",JSONObject()
+                                        .put("mimeType","audio/pcm;rate=16000").put("data",Base64.encodeToString(mono,Base64.NO_WRAP)))).toString())
+                                }.getOrDefault(false)
+                                if(!sent)onTransportLost(socket,"تعذر إرسال الصوت")
+                            }else if(socketReady){
+                                skippedUplinkPackets.incrementAndGet()
+                                telemetry.recordNetworkUplinkSkip()
+                                if(capNow-lastWarning>=8000L){
+                                    lastWarning=capNow
+                                    safeNotice("الشبكة ضعيفة؛ يتم تجاوز الصوت المتأخر")
                                 }
                             }
                         }
                     }
-                    // Flush trailing captured PCM tail cleanly so final syllables are preserved
-                    uplinkBuffer.flush()?.takeIf{it.isNotEmpty()}?.let { tail ->
-                        val s=ws
-                        if(socketReady && !stopped.get()){
-                            if(premium)premiumInput.trySend(tail)
-                            else if(s!=null && LiveAudioQueuePolicy.canSend(isCellularLink(),s.queueSize())){
-                                runCatching{s.send(JSONObject().put("realtimeInput",JSONObject().put("audio",JSONObject()
-                                    .put("mimeType","audio/pcm;rate=16000").put("data",Base64.encodeToString(tail,Base64.NO_WRAP)))).toString())}
-                            }
-                        }
-                    }
+
                 }
             }catch(t:Throwable){if(t !is CancellationException)fail("تعذر تمرير صوت الشريحة: "+t.javaClass.simpleName)}
         }
@@ -321,10 +297,9 @@ internal class MobileLiveCall(
             }else openSocket()
             // During 3G/H+ fallback the Google Live TLS handshake may run slower.
             withTimeout(if(isCellularLink())35000L else 25000L){ready.await()}
-            // Never report PCM readiness solely from OTV1 header + Google setupComplete:
-            // require at least one real captured 48kHz PCM block from the shell bridge.
-            withTimeoutOrNull(4000L){firstPcmCaptured.await()}
-                ?: error("جسر PCM فتح لكن لم يصل صوت من المكالمة؛ افحص تقاط VoLTE/شاشة الحماية")
+            // v65 behavior: shell PCM header + successful Live setup starts the
+            // call. Do not terminate a live SIM session solely because a mobile
+            // carrier delays the first captured PCM block.
             check(!stopped.get())
             // A WebSocket setup and PCM header do not prove VoLTE uplink audio.
             // Report only aggregate stage counters after startup, never audio bytes.
@@ -445,7 +420,7 @@ internal class MobileLiveCall(
     private fun playFallbackGooglePcm(audio:ByteArray,rate:Int){
         if(stopped.get() || !googleVoiceFallback.get())return
         val turn=playbackGen.current()
-        val pcm=synchronized(downlinkLock){downlinkResampler.upsample(audio,rate)}
+        val pcm=LinkPcm.output(audio,rate) // exact v65 downlink conversion
         enqueueDownlinkPcm(turn,pcm)
     }
     private fun buildIvrInstruction():String {
@@ -524,8 +499,12 @@ internal class MobileLiveCall(
             premiumSender=scope.launch(Dispatchers.IO+callCoroutineGuard){
                 for(pcm in premiumInput){
                     if(stopped.get())break
-                    try{sdk.pushPcm(pcm)}
-                    catch(e:Throwable){if(e !is CancellationException)fail("IO Premium: تعذر إرسال صوت المتصل")}
+                    try {
+                        if(!sdk.pushPcm(pcm,isCellularLink())){
+                            skippedUplinkPackets.incrementAndGet()
+                            telemetry.recordNetworkUplinkSkip()
+                        }
+                    }catch(e:Throwable){if(e !is CancellationException)fail("IO Premium: تعذر إرسال صوت المتصل")}
                 }
             }
             premiumSpeaker=scope.launch(Dispatchers.IO+callCoroutineGuard){
@@ -767,14 +746,11 @@ internal class MobileLiveCall(
                             if(!mime.startsWith("audio/pcm")) continue
                             val rate=Regex("rate=(\\d+)").find(mime)?.groupValues?.get(1)?.toInt()?:24000
                             val rawPcm=Base64.decode(inline.getString("data"),Base64.DEFAULT)
-                            val bytes=synchronized(downlinkLock){downlinkResampler.upsample(rawPcm,rate)}
+                            val bytes=LinkPcm.output(rawPcm,rate) // exact v65 signed 16-bit PCM
                             enqueueDownlinkPcm(turnGen,bytes)
                         }
                     }
-                    if(content.optBoolean("turnComplete") && !stopped.get() && playbackGen.isCurrent(turnGen)) {
-                        val tail=synchronized(downlinkLock){downlinkResampler.flushTail()}
-                        if(tail.isNotEmpty())enqueueDownlinkPcm(turnGen,tail)
-                    }
+                    // v65 direct converter has no delayed tail to flush.
                 }.onFailure{fail(it.message?:"invalid live response")}
             }
             override fun onMessage(webSocket:WebSocket,bytes:ByteString){

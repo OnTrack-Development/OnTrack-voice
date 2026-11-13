@@ -36,15 +36,19 @@
         </div>
 
         <nav class="nav-scroll">
-            <div class="nav-group">التشغيل الأساسي</div>
+            <div class="nav-group">الرئيسية وحالة التشغيل</div>
             <a class="nav-item {{ $activeTab === 'overview' ? 'active' : '' }}" href="/?tab=overview">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-                <span>لوحة التحكم</span>
+                <span>الرئيسية وحالة التشغيل</span>
             </a>
+
+            <div class="nav-group">الإيجنتات والأصوات وFlow Builder</div>
             <a class="nav-item {{ in_array($activeTab, ['agents', 'voices'], true) ? 'active' : '' }}" href="/?tab=agents">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
-                <span>الإيجنت والأصوات</span>
+                <span>استوديو الإيجنت والأصوات</span>
             </a>
+
+            <div class="nav-group">الشرائح والمكالمات والحملات</div>
             <a class="nav-item {{ $activeTab === 'devices' ? 'active' : '' }}" href="/?tab=devices">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
                 <span>الشرائح والأجهزة</span>
@@ -61,20 +65,17 @@
                 <span>الحملات وجهات الاتصال</span>
             </a>
 
-            <div class="nav-group">الأتمتة والنظام</div>
-            <a class="nav-item {{ $activeTab === 'automations' ? 'active' : '' }}" href="/?tab=automations">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                <span>الأتمتة والربط البرمجي</span>
-            </a>
-            <a class="nav-item {{ in_array($activeTab, ['billing', 'invoices'], true) ? 'active' : '' }}" href="/?tab=billing">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                <span>الفواتير والباقات</span>
-            </a>
-            <a class="nav-item {{ in_array($activeTab, ['settings', 'integrations', 'staff', 'domains', 'whatsapp'], true) ? 'active' : '' }}" href="/?tab=settings">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.77 1.01 1.51 1H21a2 2 0 1 1 0 4h-.09c-.74 0-1.25.41-1.51 1z"/></svg>
-                <span>الإعدادات والفريق</span>
-            </a>
-
+            <div class="nav-group">العملاء والريسيلرز والباقات والفوترة</div>
+            @if ($ctx['is_platform'])
+                <a class="nav-item {{ $activeTab === 'accounts' ? 'active' : '' }}" href="/?tab=accounts">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="13" y2="13"/></svg>
+                    <span>الحسابات والريسيلرز</span>
+                </a>
+                <a class="nav-item {{ in_array($activeTab, ['platform-plans', 'plans'], true) ? 'active' : '' }}" href="/?tab=platform-plans">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    <span>الباقات والخطط والحدود</span>
+                </a>
+            @endif
             @if ($ctx['is_reseller'] || $ctx['is_platform'])
                 <div class="nav-group">إدارة الوكلاء (Reseller)</div>
                 <a class="nav-item {{ $activeTab === 'reseller-tenants' ? 'active' : '' }}" href="/?tab=reseller-tenants">
@@ -90,26 +91,31 @@
                     <span>الهوية والنطاقات</span>
                 </a>
             @endif
+            <a class="nav-item {{ in_array($activeTab, ['billing', 'invoices'], true) ? 'active' : '' }}" href="/?tab=billing">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                <span>الفوترة والاشتراكات</span>
+            </a>
 
+            <div class="nav-group">الإعدادات والتكاملات والإدارة</div>
+            <a class="nav-item {{ $activeTab === 'settings' ? 'active' : '' }}" href="/?tab=settings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.77 1.01 1.51 1H21a2 2 0 1 1 0 4h-.09c-.74 0-1.25.41-1.51 1z"/></svg>
+                <span>إعدادات النظام</span>
+            </a>
+            <a class="nav-item {{ $activeTab === 'automations' ? 'active' : '' }}" href="/?tab=automations">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span>الأتمتة والربط البرمجي</span>
+            </a>
             @if ($ctx['is_platform'])
                 <div class="nav-group">إدارة المنصة (Administration)</div>
-                <a class="nav-item {{ $activeTab === 'accounts' ? 'active' : '' }}" href="/?tab=accounts">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="13" y2="13"/></svg>
-                    <span>الحسابات والوكلاء</span>
-                </a>
                 <a class="nav-item {{ $activeTab === 'platform-ai' ? 'active' : '' }}" href="/?tab=platform-ai">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-                    <span>الذكاء الاصطناعي والأصوات المركزية</span>
-                </a>
-                <a class="nav-item {{ in_array($activeTab, ['platform-plans', 'plans'], true) ? 'active' : '' }}" href="/?tab=platform-plans">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                    <span>الباقات والفوترة والاعتماد</span>
-                </a>
-                <a class="nav-item {{ $activeTab === 'releases' ? 'active' : '' }}" href="/?tab=releases">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    <span>النظام وإصدارات Android</span>
+                    <span>الذكاء الاصطناعي المركزي</span>
                 </a>
             @endif
+            <a class="nav-item {{ $activeTab === 'releases' ? 'active' : '' }}" href="/?tab=releases">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>تطبيق Android والتحديثات</span>
+            </a>
         </nav>
 
         <div class="sidebar-foot">

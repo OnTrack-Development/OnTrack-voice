@@ -27,10 +27,10 @@ class LinkPcmTest {
     }
     @Test fun playbackBufferPreservesFullBurstInOrderWithoutEvictingEarlySpeech() {
         assertEquals(20000, LivePlaybackQueuePolicy.MAX_QUEUED_MS)
-        assertEquals(20, LivePlaybackQueuePolicy.PACKET_BYTES * 1000 /
+        assertEquals(25, LivePlaybackQueuePolicy.PACKET_BYTES * 1000 /
             (LivePlaybackQueuePolicy.OUTPUT_RATE * 2))
         val queue=Channel<Int>(LivePlaybackQueuePolicy.MAX_PACKETS)
-        repeat(600) { assertTrue("packet $it dropped during 12s PCM burst",queue.trySend(it).isSuccess) }
+        repeat(600) { assertTrue("packet $it dropped during 15s PCM burst",queue.trySend(it).isSuccess) }
         repeat(600) { assertEquals("bursty PCM must remain in order",it,queue.tryReceive().getOrNull()) }
         assertTrue(queue.tryReceive().isFailure)
         queue.close()
@@ -105,6 +105,8 @@ class LinkPcmTest {
         telemetry.recordPcmDrop()
         telemetry.recordNetworkConnect(310L)
         telemetry.recordAiFirstAudio(480L)
+        telemetry.recordFirstAudioInput(520L)
+        telemetry.recordSpeakerPlayback(750L)
         telemetry.recordNetworkUplinkSkip()
         telemetry.recordNetworkReconnect()
 
@@ -116,6 +118,8 @@ class LinkPcmTest {
         assertEquals(1L, snap.pcmDroppedPackets)
         assertEquals(310L, snap.networkConnectMs)
         assertEquals(480L, snap.aiFirstAudioMs)
+        assertEquals(520L, snap.firstAudioInputMs)
+        assertEquals(750L, snap.speakerPlaybackMs)
         assertEquals(1L, snap.networkSkippedUplinkPackets)
         assertEquals(1L, snap.networkReconnects)
     }
