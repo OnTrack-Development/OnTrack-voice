@@ -105,6 +105,8 @@ class LinkPcmTest {
         telemetry.recordPcmDrop()
         telemetry.recordNetworkConnect(310L)
         telemetry.recordAiFirstAudio(480L)
+        telemetry.recordFirstAudioInput(520L)
+        telemetry.recordSpeakerPlayback(750L)
         telemetry.recordNetworkUplinkSkip()
         telemetry.recordNetworkReconnect()
 
@@ -116,6 +118,8 @@ class LinkPcmTest {
         assertEquals(1L, snap.pcmDroppedPackets)
         assertEquals(310L, snap.networkConnectMs)
         assertEquals(480L, snap.aiFirstAudioMs)
+        assertEquals(520L, snap.firstAudioInputMs)
+        assertEquals(750L, snap.speakerPlaybackMs)
         assertEquals(1L, snap.networkSkippedUplinkPackets)
         assertEquals(1L, snap.networkReconnects)
     }

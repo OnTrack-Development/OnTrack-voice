@@ -201,7 +201,9 @@ internal data class AudioTelemetrySnapshot(
     val networkConnectMs: Long,
     val aiFirstAudioMs: Long,
     val networkSkippedUplinkPackets: Long,
-    val networkReconnects: Long
+    val networkReconnects: Long,
+    val firstAudioInputMs: Long = 0L,
+    val speakerPlaybackMs: Long = 0L
 )
 
 /**
@@ -213,6 +215,8 @@ internal class LiveAudioTelemetry {
     @Volatile var pcmFirstFrameMs: Long = 0L; private set
     @Volatile var networkConnectMs: Long = 0L; private set
     @Volatile var aiFirstAudioMs: Long = 0L; private set
+    @Volatile var firstAudioInputMs: Long = 0L; private set
+    @Volatile var speakerPlaybackMs: Long = 0L; private set
     private var lastCaptureAtMs: Long = 0L
     private var maxGapMs: Long = 0L
     private var gapCount: Long = 0L
@@ -235,6 +239,8 @@ internal class LiveAudioTelemetry {
     @Synchronized fun recordPcmDrop(count: Long = 1L) { pcmDropped += count.coerceAtLeast(0L) }
     @Synchronized fun recordNetworkConnect(elapsedMs: Long) { networkConnectMs = elapsedMs.coerceAtLeast(0L) }
     @Synchronized fun recordAiFirstAudio(elapsedMs: Long) { if (aiFirstAudioMs == 0L) aiFirstAudioMs = elapsedMs.coerceAtLeast(0L) }
+    @Synchronized fun recordFirstAudioInput(elapsedMs: Long) { if (firstAudioInputMs == 0L) firstAudioInputMs = elapsedMs.coerceAtLeast(0L) }
+    @Synchronized fun recordSpeakerPlayback(elapsedMs: Long) { if (speakerPlaybackMs == 0L) speakerPlaybackMs = elapsedMs.coerceAtLeast(0L) }
     @Synchronized fun recordNetworkUplinkSkip(count: Long = 1L) { netSkipped += count.coerceAtLeast(0L) }
     @Synchronized fun recordNetworkReconnect() { reconnects++ }
 
@@ -247,6 +253,8 @@ internal class LiveAudioTelemetry {
         networkConnectMs = networkConnectMs,
         aiFirstAudioMs = aiFirstAudioMs,
         networkSkippedUplinkPackets = netSkipped,
-        networkReconnects = reconnects
+        networkReconnects = reconnects,
+        firstAudioInputMs = firstAudioInputMs,
+        speakerPlaybackMs = speakerPlaybackMs
     )
 }

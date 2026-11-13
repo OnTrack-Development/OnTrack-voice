@@ -17,7 +17,7 @@ class MobileOta(private val context: Context) {
     data class Screen(val html:String,val revision:Long)
     private val folder=File(context.filesDir,"mobile-ota").apply{mkdirs()}
     private val stateFile=AtomicFile(File(folder,"state.json"))
-    private val client=OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
+    private val client=OkHttpClient.Builder().dns(ResilientDns).followRedirects(false).followSslRedirects(false)
         .connectTimeout(5,TimeUnit.SECONDS).readTimeout(8,TimeUnit.SECONDS).callTimeout(15,TimeUnit.SECONDS).build()
     private val info=context.packageManager.getPackageInfo(context.packageName,PackageManager.GET_SIGNING_CERTIFICATES)
     val nativeVersion:String get()=info.versionName.orEmpty()

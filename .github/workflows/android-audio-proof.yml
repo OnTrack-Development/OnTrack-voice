@@ -248,6 +248,163 @@ jobs:
           Get-Content -LiteralPath '.build\artifact\SHA256SUMS.txt'
           Get-Content -LiteralPath '.build\artifact\signature.txt'
 
+
+      - name: V70 site preflight and pinned release package
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 90 && github.head_ref == 'feat/audio-stability-p0-v69'
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/ontrack_v70_direct_deploy.py
+          if($LASTEXITCODE -ne 0){throw 'Invalid direct deploy script'}
+          foreach($src in @('saas/console/_core/Bootstrap.php','saas/console/_core/Views.php','saas/app/Http/Controllers/Enterprise/ActionController.php','saas/app/Services/Voice/VoiceCatalogService.php')){
+            & php -l $src | Out-Null
+            if($LASTEXITCODE -ne 0){throw ('PHP lint failed: '+$src)}
+          }
+          $env:ONTRACK_CI_NAMESPACE='v70site_'+$env:GITHUB_RUN_ID
+          foreach($test in @('tools/test_six_digit_sim_pairing.php','tools/test_admin_whatsapp_separation.php','tools/test_workspace_role_switch.php')){
+            & php $test
+            if($LASTEXITCODE -ne 0){throw ('SaaS regression failed: '+$test)}
+          }
+          & node tools/test_console_ajax_ui.cjs
+          if($LASTEXITCODE -ne 0){throw 'SaaS JavaScript regression'}
+          & python tools/ontrack_v70_direct_deploy.py package .build/artifact/site.zip
+          if($LASTEXITCODE -ne 0){throw 'Source-pinned site packaging failed'}
+      - name: V70 publish site and verified signed Android release over SSH
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 90 && github.head_ref == 'feat/audio-stability-p0-v69'
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH identity unavailable'}
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/v70-release-'+$env:GITHUB_SHA
+          $f=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          & ssh.exe @f -p 7195 $remote ("umask 077; mkdir -p "+$stage+"/native "+$stage+"/ui")
+          if($LASTEXITCODE -ne 0){throw 'Host staging unavailable'}
+          $ui=(Get-Content '.build/artifact/ota/latest.json' -Raw | ConvertFrom-Json).payload | ConvertFrom-Json
+          $native=(Get-Content '.build/artifact/native/latest.json' -Raw | ConvertFrom-Json).payload | ConvertFrom-Json
+          if($ui.revision -ne 70 -or $native.version_code -ne 70 -or $native.version_name -ne '0.3.47'){throw 'Signed version mismatch'}
+          $items=@(
+            @('.build/artifact/site.zip',"$stage/site.zip"),
+            @('tools/ontrack_v70_direct_deploy.py',"$stage/deploy.py"),
+            @('.build/artifact/ota/latest.json',"$stage/ui/latest.json"),
+            @('.build/artifact/ota/signing-cert.der',"$stage/ui/signing-cert.der"),
+            @((".build/artifact/ota/"+$ui.file),("$stage/ui/"+$ui.file)),
+            @('.build/artifact/native/latest.json',"$stage/native/latest.json"),
+            @('.build/artifact/native/signing-cert.der',"$stage/native/signing-cert.der"),
+            @('.build/artifact/OnTrack-Voice-0.3.47.apk',"$stage/native/OnTrack-Voice-0.3.47.apk")
+          )
+          foreach($entry in $items){
+            if(!(Test-Path -LiteralPath $entry[0] -PathType Leaf)){throw ('Missing signed source: '+$entry[0])}
+            $target=$remote+':'+$entry[1]
+            & scp.exe @f -P 7195 $entry[0] $target
+            if($LASTEXITCODE -ne 0){throw ('Upload failed: '+$entry[0])}
+          }
+          $output=& ssh.exe @f -p 7195 $remote ("python3 "+$stage+"/deploy.py deploy "+$stage+" "+$env:GITHUB_SHA)
+          if($LASTEXITCODE -ne 0){throw 'Host release failed; source preserved or rolled back'}
+          $receipt=$output | Where-Object { $_ -match 'SITE_UI_NATIVE_PUBLISHED' } | Select-Object -Last 1
+          if(!$receipt){throw 'No host publication receipt'}
+          $result=$receipt | ConvertFrom-Json
+          if($result.sha -ne $env:GITHUB_SHA -or $result.native_version_code -ne 70 -or $result.ui_revision -ne 70){throw 'Publication receipt mismatch'}
+          Write-Host ('ONTRACK_V70_HOST_PUBLISHED '+$receipt)
+      - name: V70 HTTPS release and OTA integrity gate
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 90 && github.head_ref == 'feat/audio-stability-p0-v69'
+        run: |
+          $ErrorActionPreference='Stop'
+          $root='https://app.ontrackegy.com/mobile/updates/'
+          $u=Invoke-RestMethod -Uri ($root+'latest.json?run='+$env:GITHUB_RUN_ID) -TimeoutSec 40
+          $n=Invoke-RestMethod -Uri ($root+'native/latest.json?run='+$env:GITHUB_RUN_ID) -TimeoutSec 40
+          $ui=$u.payload | ConvertFrom-Json;$native=$n.payload | ConvertFrom-Json
+          if($ui.revision -ne 70 -or $ui.source_commit -ne $env:GITHUB_SHA -or $native.version_code -ne 70){throw 'Live OTA revision/source incorrect'}
+          $hash=(Get-FileHash '.build/artifact/OnTrack-Voice-0.3.47.apk' -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($hash -ne $native.sha256){throw 'Signed live APK manifest digest differs'}
+          $tmp=Join-Path $env:RUNNER_TEMP 'ontrack-v70-live.apk'
+          try{
+            Invoke-WebRequest -Uri ($root+'native/latest.apk?run='+$env:GITHUB_RUN_ID) -OutFile $tmp -TimeoutSec 160
+            if((Get-FileHash $tmp -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hash){throw 'Downloaded live APK does not match'}
+          }finally{Remove-Item $tmp -Force -ErrorAction SilentlyContinue}
+          foreach($url in @('https://app.ontrackegy.com/?tab=overview','https://app.ontrackegy.com/saas/console/')){
+            $resp=Invoke-WebRequest -Uri $url -SkipHttpErrorCheck -TimeoutSec 40
+            if([int]$resp.StatusCode -ge 500){throw ('Live site HTTP error '+$url)}
+          }
+          Write-Host ('ONTRACK_V70_SITE_SIGNED_UI_AND_APK_HTTPS_VERIFIED '+$env:GITHUB_SHA)
+
+      - name: V71 site preflight and pinned release package
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 91 && github.head_ref == 'hotfix/voice-v71-restore-stable-audio-20261113'
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/ontrack_v71_direct_deploy.py
+          if($LASTEXITCODE -ne 0){throw 'Invalid direct deploy script'}
+          foreach($src in @('saas/console/_core/Bootstrap.php','saas/console/_core/Views.php','saas/app/Http/Controllers/Enterprise/ActionController.php','saas/app/Services/Voice/VoiceCatalogService.php')){
+            & php -l $src | Out-Null
+            if($LASTEXITCODE -ne 0){throw ('PHP lint failed: '+$src)}
+          }
+          $env:ONTRACK_CI_NAMESPACE='v71site_'+$env:GITHUB_RUN_ID
+          foreach($test in @('tools/test_six_digit_sim_pairing.php','tools/test_admin_whatsapp_separation.php','tools/test_workspace_role_switch.php')){
+            & php $test
+            if($LASTEXITCODE -ne 0){throw ('SaaS regression failed: '+$test)}
+          }
+          & node tools/test_console_ajax_ui.cjs
+          if($LASTEXITCODE -ne 0){throw 'SaaS JavaScript regression'}
+          & python tools/ontrack_v71_direct_deploy.py package .build/artifact/site.zip
+          if($LASTEXITCODE -ne 0){throw 'Source-pinned site packaging failed'}
+      - name: V71 publish site and verified signed Android release over SSH
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 91 && github.head_ref == 'hotfix/voice-v71-restore-stable-audio-20261113'
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH identity unavailable'}
+          $remote='appontrack@65.21.208.232'
+          $stage='/home/appontrack/.ontrack-mobile/v71-release-'+$env:GITHUB_SHA
+          $f=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          & ssh.exe @f -p 7195 $remote ("umask 077; mkdir -p "+$stage+"/native "+$stage+"/ui")
+          if($LASTEXITCODE -ne 0){throw 'Host staging unavailable'}
+          $ui=(Get-Content '.build/artifact/ota/latest.json' -Raw | ConvertFrom-Json).payload | ConvertFrom-Json
+          $native=(Get-Content '.build/artifact/native/latest.json' -Raw | ConvertFrom-Json).payload | ConvertFrom-Json
+          if($ui.revision -ne 71 -or $native.version_code -ne 71 -or $native.version_name -ne '0.3.48'){throw 'Signed version mismatch'}
+          $items=@(
+            @('.build/artifact/site.zip',"$stage/site.zip"),
+            @('tools/ontrack_v71_direct_deploy.py',"$stage/deploy.py"),
+            @('.build/artifact/ota/latest.json',"$stage/ui/latest.json"),
+            @('.build/artifact/ota/signing-cert.der',"$stage/ui/signing-cert.der"),
+            @((".build/artifact/ota/"+$ui.file),("$stage/ui/"+$ui.file)),
+            @('.build/artifact/native/latest.json',"$stage/native/latest.json"),
+            @('.build/artifact/native/signing-cert.der',"$stage/native/signing-cert.der"),
+            @('.build/artifact/OnTrack-Voice-0.3.48.apk',"$stage/native/OnTrack-Voice-0.3.48.apk")
+          )
+          foreach($entry in $items){
+            if(!(Test-Path -LiteralPath $entry[0] -PathType Leaf)){throw ('Missing signed source: '+$entry[0])}
+            $target=$remote+':'+$entry[1]
+            & scp.exe @f -P 7195 $entry[0] $target
+            if($LASTEXITCODE -ne 0){throw ('Upload failed: '+$entry[0])}
+          }
+          $output=& ssh.exe @f -p 7195 $remote ("python3 "+$stage+"/deploy.py deploy "+$stage+" "+$env:GITHUB_SHA)
+          if($LASTEXITCODE -ne 0){throw 'Host release failed; source preserved or rolled back'}
+          $receipt=$output | Where-Object { $_ -match 'SITE_UI_NATIVE_PUBLISHED' } | Select-Object -Last 1
+          if(!$receipt){throw 'No host publication receipt'}
+          $result=$receipt | ConvertFrom-Json
+          if($result.sha -ne $env:GITHUB_SHA -or $result.native_version_code -ne 71 -or $result.ui_revision -ne 71){throw 'Publication receipt mismatch'}
+          Write-Host ('ONTRACK_V71_HOST_PUBLISHED '+$receipt)
+      - name: V71 HTTPS release and OTA integrity gate
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 91 && github.head_ref == 'hotfix/voice-v71-restore-stable-audio-20261113'
+        run: |
+          $ErrorActionPreference='Stop'
+          $root='https://app.ontrackegy.com/mobile/updates/'
+          $u=Invoke-RestMethod -Uri ($root+'latest.json?run='+$env:GITHUB_RUN_ID) -TimeoutSec 40
+          $n=Invoke-RestMethod -Uri ($root+'native/latest.json?run='+$env:GITHUB_RUN_ID) -TimeoutSec 40
+          $ui=$u.payload | ConvertFrom-Json;$native=$n.payload | ConvertFrom-Json
+          if($ui.revision -ne 71 -or $ui.source_commit -ne $env:GITHUB_SHA -or $native.version_code -ne 71){throw 'Live OTA revision/source incorrect'}
+          $hash=(Get-FileHash '.build/artifact/OnTrack-Voice-0.3.48.apk' -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($hash -ne $native.sha256){throw 'Signed live APK manifest digest differs'}
+          $tmp=Join-Path $env:RUNNER_TEMP 'ontrack-v71-live.apk'
+          try{
+            Invoke-WebRequest -Uri ($root+'native/latest.apk?run='+$env:GITHUB_RUN_ID) -OutFile $tmp -TimeoutSec 160
+            if((Get-FileHash $tmp -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hash){throw 'Downloaded live APK does not match'}
+          }finally{Remove-Item $tmp -Force -ErrorAction SilentlyContinue}
+          foreach($url in @('https://app.ontrackegy.com/?tab=overview','https://app.ontrackegy.com/saas/console/')){
+            $resp=Invoke-WebRequest -Uri $url -SkipHttpErrorCheck -TimeoutSec 40
+            if([int]$resp.StatusCode -ge 500){throw ('Live site HTTP error '+$url)}
+          }
+          Write-Host ('ONTRACK_V71_SITE_SIGNED_UI_AND_APK_HTTPS_VERIFIED '+$env:GITHUB_SHA)
+
   publish_ota:
     if: github.repository == 'OnTrack-Development/OnTrack-voice' && github.event_name == 'workflow_dispatch'
     needs: build
