@@ -75,7 +75,6 @@ function nav_entries(string $type):array{
         'overview'=>['⌂','نظرة عامة'],
         'accounts'=>['♧','الحسابات والريسيلرز'],
         'plans'=>['◫','الخطط والحدود'],
-        'devices'=>['▣','الأجهزة والخطوط'],
         'billing'=>['▣','الفوترة'],
         'invoices'=>['▤','الفواتير'],
         'staff'=>['♙','فريق المنصة'],
@@ -85,7 +84,6 @@ function nav_entries(string $type):array{
         'releases'=>['↓','تطبيق Android'],
         'settings'=>['⚙','إعدادات المنصة']
         ];
-        unset($nav['whatsapp_admin']);
         if(!platform_resellers_visible())$nav['accounts']=['♧','الحسابات'];
         return $nav;
     }
@@ -94,7 +92,6 @@ function nav_entries(string $type):array{
         'overview'=>['⌂','نظرة عامة'],
         'accounts'=>['♧','عملائي'],
         'plans'=>['◫','باقات العملاء'],
-        'devices'=>['▣','الأجهزة والخطوط'],
         'billing'=>['▣','الاشتراكات'],
         'invoices'=>['▤','فواتير العملاء'],
         'staff'=>['♙','الفريق والأدوار'],
@@ -115,7 +112,6 @@ function nav_entries(string $type):array{
         'integrations'=>['⇄','التكاملات'],'billing'=>['▣','الباقة والرصيد'],'invoices'=>['▤','فواتيري'],
         'releases'=>['↓','Android'],'settings'=>['⚙','الإعدادات']
     ];
-    unset($nav['campaigns'],$nav['whatsapp'],$nav['staff']);
     return $nav;
 }
 function layout_open(array $a,string $tab):void{
@@ -151,13 +147,28 @@ function layout_open(array $a,string $tab):void{
     echo '<nav class="nav-list" aria-label="أقسام المنصة">';
     $administrative=in_array($a['kind'],['platform','reseller'],true)&&
         console_view_mode($a)==='admin'&&!$support;
-    $workspace=$administrative?($a['kind']==='platform'?['overview','whatsapp_admin']:['overview']):
-        ['overview','agents','flows','answering','whatsapp','calls','campaigns','contacts','devices','sites'];
-    $platform=['accounts','plans','billing','invoices','staff','domains'];
-    $settings=['voices','integrations','keys','releases','settings'];
-    $groups=['workspace'=>[$administrative?'لوحة الإدارة':'مساحة العمل',$workspace],
-        'platform'=>['الحسابات والإدارة',$platform],
-        'system'=>[$administrative?'إعدادات وإدارة المنصة':'الإعدادات والتكاملات',$settings]];
+    $groups=[
+        'overview'=>[
+            'الرئيسية وحالة التشغيل',
+            ['overview', 'sites']
+        ],
+        'agents'=>[
+            'الإيجنتات والأصوات وFlow Builder',
+            ['agents', 'flows', 'answering', 'voices']
+        ],
+        'telephony'=>[
+            'الشرائح والمكالمات والحملات',
+            ['devices', 'calls', 'campaigns', 'contacts']
+        ],
+        'clients_billing'=>[
+            $administrative ? 'العملاء والريسيلرز والباقات والفوترة' : 'الباقات والفوترة',
+            ['accounts', 'plans', 'billing', 'invoices', 'domains']
+        ],
+        'settings_admin'=>[
+            'الإعدادات والتكاملات والإدارة',
+            ['staff', 'whatsapp_admin', 'whatsapp', 'integrations', 'keys', 'releases', 'settings']
+        ]
+    ];
     foreach($groups as $group=>$groupData){
         $visible=array_intersect_key($items,array_flip($groupData[1]));
         if(!$visible)continue;
@@ -339,6 +350,7 @@ function ontrack_update_banner():string {
  */
 function render_sim_pair_quick_start(array $a,string $returnTab='overview'):void {
     $returnTab=in_array($returnTab,['overview','devices'],true)?$returnTab:'overview';
+    if(in_array((string)($a['kind']??''),['platform','reseller'],true)&&console_view_mode($a)!=='user')return;
     if(!in_array((string)($a['kind']??''),['customer','reseller','platform'],true))return;
     $accountId=(int)$a['account_id'];
     $canPair=in_array((string)($a['role']??''),['owner','admin'],true)&&!active_support();
@@ -437,7 +449,7 @@ function render_overview(array $a):void{
         $tips='<div class="quick-grid">'.
             '<a href="/saas/console/?tab=accounts"><b>♧</b><span>'.(platform_resellers_visible()?'الحسابات والريسيلرز':'حسابات العملاء').'</span><small>إدارة العملاء والشركات</small></a>'.
             '<a href="/saas/console/?tab=plans"><b>◫</b><span>الخطط والحدود</span><small>إدارة باقات المنصة</small></a>'.
-            '<a href="/saas/console/?tab=integrations"><b>⇄</b><span>التكاملات</span><small>ربط أنظمة العملاء</small></a>'.
+            '<a href="/saas/console/?tab=whatsapp_admin"><b>✉</b><span>إعدادات واتساب</span><small>ربط منصة Meta المركزية</small></a>'.
             '<a href="/saas/console/?tab=settings"><b>⚙</b><span>إعدادات المنصة</span><small>الهوية والتكاملات المركزية</small></a></div>';
     }elseif($kind==='reseller'){
         $tips='<div class="quick-grid">'.
@@ -2704,6 +2716,9 @@ function render_settings(array $a):void{
     // Owner decision 2026-11-04: no administrator 2FA/QR setup tile.
     // Auth uses password, session hardening and existing login rate limits.
     if($a['kind']==='platform'&&console_view_mode($a)==='admin'&&in_array($a['role'],['owner','admin'],true)&&!active_support()){
+        echo card('إعدادات منصة واتساب المركزية',
+            '<p class="dim">تكوين تطبيق Meta وEmbedded Signup وإعدادات الربط المركزي للمنصة في قسم مخصص.</p>'.
+            '<p><a class="btn primary" href="/saas/console/?tab=whatsapp_admin">إعدادات ربط واتساب ←</a></p>');
         echo card('إظهار الريسيلرز',form_start('platform_resellers_visibility','/?tab=settings').
             '<label class="field"><input type="checkbox" name="resellers_enabled" value="1" '.(platform_resellers_visible()?'checked':'').'> تفعيل وإظهار الريسيلرز وتسجيلهم وباقاتهم</label>'.
             '<p class="dim">عند الإيقاف تختفي خيارات الريسيلرز من لوحة الإدارة وروابط التسجيل والباقات، مع بقاء حساباتهم واشتراكاتهم دون حذف.</p>'.
