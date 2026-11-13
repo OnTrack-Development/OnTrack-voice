@@ -53,6 +53,7 @@ assert "onNetworkRouteChanged" not in service, "do not kill healthy websocket on
 shell=(root/"saas/mobile/audio-proof/overlay/shellserver/src/com/jemcik/jemrec/shell/LivePcm.java").read_text(encoding="utf-8")
 assert "PLAYBACK_STALL_TIMEOUT_MS" not in shell and "call playback stalled" not in shell, "new 2.5s audio stall must not kill live SIM bridge"
 assert "AudioTrack.WRITE_BLOCKING" in shell and "ConcurrentLinkedQueue<Frame>" not in shell, "experiment must use v45 synchronous audio injection"
+assert "AudioTrack.WRITE_NON_BLOCKING" not in shell and "playQueue.poll()" not in shell, "cellular speech-clipping playback queue must be absent in v73"
 assert "audio.setMicrophoneMute(true)" in shell and "audio.setMicrophoneMute(wasMuted)" in shell, "SIM mute safety must remain"
 assert shell.index("audio.setMicrophoneMute(true)") < shell.index("capture.start()"), "v45 original unsafe pre-mute capture order must be corrected"
 print("V73_LEGACY_BLOCKING_PCM_WITH_TENANT_SAAS_ROUTE_PASS")
