@@ -9,6 +9,10 @@ use RuntimeException;
 
 class VoiceCatalogService
 {
+    // One professional, identical transcript for all voice comparison previews.
+    // Saved samples are versioned to prevent stale provider demos being played.
+    public const PREVIEW_TEXT = 'أهلًا بحضرتك في آي أو فويس. يسعدني أساعدك وأجاوب عن استفسارك بوضوح وسرعة.';
+
     public const GOOGLE_LIVE_VOICES = [
         'Zephyr' => 'Bright', 'Kore' => 'Firm', 'Orus' => 'Firm', 'Autonoe' => 'Bright',
         'Umbriel' => 'Easy-going', 'Erinome' => 'Clear', 'Laomedeia' => 'Upbeat', 'Schedar' => 'Even',
@@ -569,7 +573,11 @@ class VoiceCatalogService
             throw new InvalidArgumentException('الصوت المطلوب غير موجود.');
         }
 
-        $cachedUrl = $this->resolveSampleUrl($voice);
+        if ($voice->status !== 'active') {
+            throw new InvalidArgumentException('هذا الصوت تم إخفاؤه من الكتالوج.');
+        }
+        $fixedSample = str_contains((string) ($voice->sample_path ?? ''), '-fixed-v2.');
+        $cachedUrl = $fixedSample ? $this->resolveSampleUrl($voice) : null;
         if ($cachedUrl !== null) {
             $clean = basename((string) $voice->sample_path);
             $pub = public_path('assets/voice-samples/'.$clean);
@@ -598,14 +606,8 @@ class VoiceCatalogService
                 $ext = $this->detectAudioExt($bytes);
             }
         } else {
-            $sampleUrl = trim((string) ($voice->sample_url ?? ''));
-            if ($sampleUrl !== '' && str_starts_with($sampleUrl, 'https://')) {
-                [$status, $body] = $this->httpGet($sampleUrl, []);
-                if ($status === 200 && is_string($body) && ($det = $this->detectAudioExt($body)) !== null) {
-                    $bytes = $body;
-                    $ext = $det;
-                }
-            }
+            // Never replay arbitrary third-party voice samples; every preview
+            // is synthesized from PREVIEW_TEXT and cached with -fixed-v2.
 
             if ($bytes === null && $voice->provider === 'fish_audio') {
                 $apiKey = $this->savedFishKey();
@@ -613,7 +615,7 @@ class VoiceCatalogService
                 if ($apiKey !== '' && preg_match('/^[0-9a-f]{32}$/D', $refId) === 1) {
                     $state = $this->ioPremiumState();
                     [$status, $body] = $this->httpPostJson('https://api.fish.audio/v1/tts', [
-                        'text' => 'أهلاً بك، معك المساعد الذكي من آي أو فويس.',
+                        'text' => self::PREVIEW_TEXT,
                         'reference_id' => $refId,
                         'format' => 'mp3',
                         'mp3_bitrate' => 128,
@@ -627,13 +629,53 @@ class VoiceCatalogService
                     }
                 }
             }
+            if ($bytes === null && $voice->provider === 'gemini_live') {
+                $platformId = DB::table('accounts')->where('kind', 'platform')
+                    ->where('status', 'active')->orderBy('id')->value('id');
+                $row = $platformId ? DB::table('ai_relay_entries')
+                    ->where('account_id', $platformId)->where('scope', 'voice')
+                    ->whereIn('driver', ['gemini_live', 'google_live'])
+                    ->where('enabled', 1)->orderBy('priority')->orderBy('id')->first() : null;
+                $key = $row ? (string) ($this->vault->unseal((string) $row->secret_enc) ?? '') : '';
+                if ($key === '') {
+                    $key = trim((string) config('ontrack.gemini_api_key', ''));
+                }
+                $chosenVoice = ucfirst(substr((string) $voice->code, strlen('google.')));
+                if ($key !== '' && array_key_exists($chosenVoice, self::GOOGLE_LIVE_VOICES)) {
+                    // TTS is intentionally separate from the Live SIM call path.
+                    // Legacy Gemini TTS returns headerless mono signed PCM 24k.
+                    // No Login, AI-relay round trip, or test call is performed.
+                    $model = 'gemini-2.5-flash-preview-tts';
+                    [$status, $body] = $this->httpPostJson(
+                        'https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent',
+                        [
+                            'contents' => [['parts' => [['text' => 'Say naturally in Arabic: '.self::PREVIEW_TEXT]]]],
+                            'generationConfig' => [
+                                'responseModalities' => ['AUDIO'],
+                                'speechConfig' => ['voiceConfig' => ['prebuiltVoiceConfig' => ['voiceName' => $chosenVoice]]],
+                            ],
+                        ],
+                        ['x-goog-api-key: '.$key]
+                    );
+                    if ($status === 200 && is_string($body) && strlen($body) < 6000000) {
+                        $payload = json_decode($body, true);
+                        $audio = $payload['candidates'][0]['content']['parts'][0]['inlineData']['data'] ?? null;
+                        $pcm = is_string($audio) ? base64_decode($audio, true) : false;
+                        if (is_string($pcm) && strlen($pcm) >= 128 &&
+                            strlen($pcm) <= 3000000 && strlen($pcm) % 2 === 0) {
+                            $bytes = $this->pcm24kToWav($pcm);
+                            $ext = 'wav';
+                        }
+                    }
+                }
+            }
         }
 
         if ($bytes === null || $ext === null) {
             throw new RuntimeException('تعذر توليد أو تحميل عينة صوتية صالحة لهذا الصوت حالياً. تأكد من مفاتيح المزود أو جرب صوتاً آخر.');
         }
 
-        $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', (string) $voice->code).'-'.$voiceId.'.'.$ext;
+        $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', (string) $voice->code).'-'.$voiceId.'-fixed-v2.'.$ext;
         $pubPath = public_path('assets/voice-samples/'.$filename);
         $vaultFile = $this->vault->vaultDir().'/voice-samples/'.$filename;
 
@@ -685,10 +727,21 @@ class VoiceCatalogService
 
             $arr['granted'] = $granted;
             $arr['selectable'] = $selectable;
-            $arr['sample_local_url'] = $this->resolveSampleUrl($row);
+            $arr['sample_local_url'] = str_contains((string) ($row->sample_path ?? ''), '-fixed-v2.')
+                ? $this->resolveSampleUrl($row) : null;
 
             return $arr;
         })->all();
+    }
+
+    private function pcm24kToWav(string $pcm): string
+    {
+        $n = strlen($pcm);
+        if ($n < 128 || $n > 3000000 || $n % 2 !== 0) {
+            throw new InvalidArgumentException('invalid_voice_pcm');
+        }
+        return pack('a4Va4a4VvvVVvva4V', 'RIFF', 36 + $n, 'WAVE',
+            'fmt ', 16, 1, 1, 24000, 48000, 2, 16, 'data', $n).$pcm;
     }
 
     private function atomicWriteBytes(string $dest, string $bytes, int $mode): void

@@ -26,14 +26,14 @@ internal object LiveAudioQueuePolicy {
 }
 
 /**
- * Downlink PCM is 48kHz mono signed 16-bit; each packet contains 20ms (1920B),
- * aligned 1:1 with LivePcm.SLICE_BYTES (1920B) and Android Audio HAL period.
- * 1000 packets = 20 seconds (< 2 MiB), preserving natural utterances without splice drops.
+ * Restored v65 25ms (2400B) packets with the same 20-second FIFO buffer.
+ * LivePcm accepts byte-aligned PCM chunks; preserve complete output and order.
+ * Do not drop the start of an utterance when the Google websocket bursts.
  */
 internal object LivePlaybackQueuePolicy {
-    const val PACKET_BYTES = 1920
+    const val PACKET_BYTES = 2400
     const val OUTPUT_RATE = 48000
-    const val MAX_PACKETS = 1000
+    const val MAX_PACKETS = 800
     const val MAX_QUEUED_MS = MAX_PACKETS * PACKET_BYTES * 1000 / (OUTPUT_RATE * 2)
 }
 
@@ -201,7 +201,9 @@ internal data class AudioTelemetrySnapshot(
     val networkConnectMs: Long,
     val aiFirstAudioMs: Long,
     val networkSkippedUplinkPackets: Long,
-    val networkReconnects: Long
+    val networkReconnects: Long,
+    val firstAudioInputMs: Long = 0L,
+    val speakerPlaybackMs: Long = 0L
 )
 
 /**
@@ -213,6 +215,8 @@ internal class LiveAudioTelemetry {
     @Volatile var pcmFirstFrameMs: Long = 0L; private set
     @Volatile var networkConnectMs: Long = 0L; private set
     @Volatile var aiFirstAudioMs: Long = 0L; private set
+    @Volatile var firstAudioInputMs: Long = 0L; private set
+    @Volatile var speakerPlaybackMs: Long = 0L; private set
     private var lastCaptureAtMs: Long = 0L
     private var maxGapMs: Long = 0L
     private var gapCount: Long = 0L
@@ -235,6 +239,8 @@ internal class LiveAudioTelemetry {
     @Synchronized fun recordPcmDrop(count: Long = 1L) { pcmDropped += count.coerceAtLeast(0L) }
     @Synchronized fun recordNetworkConnect(elapsedMs: Long) { networkConnectMs = elapsedMs.coerceAtLeast(0L) }
     @Synchronized fun recordAiFirstAudio(elapsedMs: Long) { if (aiFirstAudioMs == 0L) aiFirstAudioMs = elapsedMs.coerceAtLeast(0L) }
+    @Synchronized fun recordFirstAudioInput(elapsedMs: Long) { if (firstAudioInputMs == 0L) firstAudioInputMs = elapsedMs.coerceAtLeast(0L) }
+    @Synchronized fun recordSpeakerPlayback(elapsedMs: Long) { if (speakerPlaybackMs == 0L) speakerPlaybackMs = elapsedMs.coerceAtLeast(0L) }
     @Synchronized fun recordNetworkUplinkSkip(count: Long = 1L) { netSkipped += count.coerceAtLeast(0L) }
     @Synchronized fun recordNetworkReconnect() { reconnects++ }
 
@@ -247,6 +253,8 @@ internal class LiveAudioTelemetry {
         networkConnectMs = networkConnectMs,
         aiFirstAudioMs = aiFirstAudioMs,
         networkSkippedUplinkPackets = netSkipped,
-        networkReconnects = reconnects
+        networkReconnects = reconnects,
+        firstAudioInputMs = firstAudioInputMs,
+        speakerPlaybackMs = speakerPlaybackMs
     )
 }
