@@ -71,7 +71,7 @@ def deploy(stage,commit):
   site={p:z.read(p) for p in SITE}
   if any(digest(v)!=info['hashes'][p] or len(v)>2000000 for p,v in site.items()):raise ValueError('bad site hash')
  ui,um=signed(stage/'ui');native,nm=signed(stage/'native')
- if um.get('revision')!=71 or um.get('min_native',99)>70 or um.get('max_native',0)<70:raise ValueError('wrong UI revision')
+ if um.get('revision')!=71 or um.get('min_native',99)>70 or um.get('max_native',0)<71:raise ValueError('wrong UI revision')
  if nm.get('version_code')!=71 or nm.get('version_name')!='0.3.48' or nm.get('package')!='com.ontrack.voiceproof':raise ValueError('wrong native version')
  apk=(stage/'native/OnTrack-Voice-0.3.48.apk').read_bytes();html=(stage/'ui'/um['file']).read_bytes()
  if digest(apk)!=nm['sha256'] or len(apk)!=nm['size'] or nm['file']!='ontrack-voice-v71-'+digest(apk)+'.apk':raise ValueError('bad APK digest')
