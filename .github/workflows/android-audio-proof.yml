@@ -20,6 +20,9 @@ on:
     branches: [main]
     paths:
       - 'saas/mobile/audio-proof/**'
+      - 'tools/test_mobile_ui_contract.py'
+      - 'tools/test_v1_mobile_shell.py'
+      - 'tools/test_android_v58_permission_contract.py'
       - '.github/workflows/android-audio-proof.yml'
   workflow_dispatch:
 permissions:
