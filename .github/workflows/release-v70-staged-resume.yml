@@ -1,0 +1,98 @@
+name: OnTrack resume signed v70 and canonical SaaS release
+on:
+  push:
+    branches: ['ops/voice-v70-staged-resume-20261113']
+    paths: ['.github/workflows/release-v70-staged-resume.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ontrack-v70-staged-resume-20261113
+  cancel-in-progress: false
+jobs:
+  release-v70:
+    name: Verify previously signed v70 assets, safely publish, HTTPS verify
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 18
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      SOURCE_RUN_ID: '43380065065'
+      SOURCE_HEAD_SHA: '7adc1261417ea59edcca2142bd7d451226aac551'
+      SOURCE_BUILD_SHA: '23d779ee2386b78bcd5cc1823a2cc9fc08423f3f'
+      GH_TOKEN: ${{ github.token }}
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify v70 signed build from original PR run and exact source commit
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/ontrack_v70_direct_deploy.py
+          if($LASTEXITCODE -ne 0){throw 'Direct publisher syntax invalid'}
+          $headers=@{Authorization="Bearer $env:GH_TOKEN";Accept='application/vnd.github+json';'X-GitHub-Api-Version'='2022-11-28'}
+          $url="https://api.github.com/repos/OnTrack-Development/OnTrack-voice"
+          $run=Invoke-RestMethod -Uri "$url/actions/runs/$env:SOURCE_RUN_ID" -Headers $headers -TimeoutSec 30
+          if($run.head_sha -ne $env:SOURCE_HEAD_SHA -or $run.event -ne 'pull_request' -or $run.conclusion -ne 'failure'){
+            throw 'Original signed build run identity invalid'
+          }
+          $jobs=Invoke-RestMethod -Uri "$url/actions/runs/$env:SOURCE_RUN_ID/jobs?per_page=100" -Headers $headers -TimeoutSec 30
+          $original=$jobs.jobs | Where-Object {$_.name -eq 'build'} | Select-Object -First 1
+          if(!$original){throw 'Original verified build missing'}
+          foreach($required in @(
+            'Validate mobile PHP endpoints and source contracts',
+            'Check Windows JDK 21, Android SDK, keystore and apply OnTrack overlay',
+            'Run Android unit tests and assemble release APK',
+            'Sign APK, audit permissions and generate signed UI/native OTA manifests',
+            'V70 site preflight and pinned release package'
+          )){
+            $step=$original.steps | Where-Object {$_.name -eq $required} | Select-Object -First 1
+            if(!$step -or $step.conclusion -ne 'success'){throw ('Original build gate not verified: '+$required)}
+          }
+          Write-Host ('V70_SIGNED_SOURCE_BUILD_VERIFIED run='+$env:SOURCE_RUN_ID+' sha='+$env:SOURCE_HEAD_SHA)
+      - name: Upload audited host script, resume exact signed artifacts, require rollback-safe host receipt
+        run: |
+          $ErrorActionPreference='Stop'
+          $key=Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if(!(Test-Path -LiteralPath $key)){throw 'Authorized SSH identity unavailable'}
+          $remote='appontrack@65.21.208.232'
+          $f=@('-i',$key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=12')
+          $stage='/home/appontrack/.ontrack-mobile/v70-release-'+$env:SOURCE_BUILD_SHA
+          & scp.exe @f -P 7195 tools/ontrack_v70_direct_deploy.py ($remote+':'+$stage+'/deploy.py')
+          if($LASTEXITCODE -ne 0){throw 'Publisher upload failed'}
+          $output=& ssh.exe @f -p 7195 $remote ('python3 '+$stage+'/deploy.py deploy '+$stage+' '+$env:SOURCE_BUILD_SHA)
+          if($LASTEXITCODE -ne 0){throw 'Verified host release refused; old files left unchanged or rolled back'}
+          $receipt=$output | Where-Object {$_ -match 'SITE_UI_NATIVE_PUBLISHED'} | Select-Object -Last 1
+          if(!$receipt){throw 'No host publication receipt'}
+          $j=$receipt | ConvertFrom-Json
+          if($j.sha -ne $env:SOURCE_BUILD_SHA -or $j.native_version_code -ne 70 -or $j.ui_revision -ne 70 -or $j.site_files -lt 4){
+            throw 'Host publication receipt mismatch'
+          }
+          $j | ConvertTo-Json -Compress
+          Write-Host ('V70_PRODUCTION_SITE_AND_SIGNED_NATIVE_PUBLISHED run='+$env:SOURCE_RUN_ID)
+      - name: Prove HTTPS live UI v70 and exact signed APK bytes
+        run: |
+          $ErrorActionPreference='Stop'
+          $root='https://app.ontrackegy.com/mobile/updates/'
+          $ui=Invoke-RestMethod -Uri ($root+'latest.json?run='+$env:GITHUB_RUN_ID) -TimeoutSec 40
+          $na=Invoke-RestMethod -Uri ($root+'native/latest.json?run='+$env:GITHUB_RUN_ID) -TimeoutSec 40
+          $um=$ui.payload | ConvertFrom-Json
+          $nm=$na.payload | ConvertFrom-Json
+          if($um.revision -ne 70 -or $um.source_commit -ne $env:SOURCE_BUILD_SHA){
+            throw 'Live signed UI not at v70 or wrong release source'
+          }
+          if($nm.version_code -ne 70 -or $nm.version_name -ne '0.3.47' -or $nm.sha256 -notmatch '^[a-f0-9]{64}$'){
+            throw 'Live native signed update missing or wrong'
+          }
+          $tmp=Join-Path $env:RUNNER_TEMP ('otv70-live-'+$env:GITHUB_RUN_ID+'.apk')
+          try{
+            Invoke-WebRequest -Uri ($root+'native/latest.apk?run='+$env:GITHUB_RUN_ID) -OutFile $tmp -TimeoutSec 180
+            if((Get-FileHash -LiteralPath $tmp -Algorithm SHA256).Hash.ToLowerInvariant() -ne $nm.sha256){
+              throw 'Downloaded production APK bytes do not match signed manifest'
+            }
+          }finally{Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue}
+          $page=Invoke-WebRequest -Uri 'https://app.ontrackegy.com/?tab=overview' -SkipHttpErrorCheck -TimeoutSec 35
+          if([int]$page.StatusCode -ge 500){throw ('Canonical SaaS HTTP '+[int]$page.StatusCode)}
+          Write-Host ('V70_PRODUCTION_HTTPS_APK_SHA_AND_LARAVEL_VERIFIED source='+$env:SOURCE_BUILD_SHA+' sha256='+$nm.sha256)
