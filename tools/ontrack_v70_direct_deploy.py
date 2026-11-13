@@ -66,12 +66,21 @@ def deploy(stage,commit):
  if digest(html)!=um['sha256'] or len(html)!=um['size'] or um['file']!='ui-'+digest(html)+'.html':raise ValueError('bad HTML digest')
  php='/opt/cpanel/ea-php83/root/usr/bin/php'
  if not Path(php).is_file():raise ValueError('missing PHP83')
+ active_site={}
  for rel,data in site.items():
   dest=SITE[rel];base=WEB if rel.startswith('saas/console/') else APP
+  # Root Laravel is canonical; never recreate a retired PHP console or
+  # silently shadow Laravel's root router.
+  if rel.startswith('saas/console/') and not dest.exists():
+   print('SKIP_ABSENT_LEGACY_PHP_CONSOLE '+str(dest),flush=True)
+   continue
   if not dest.is_file() or dest.is_symlink() or not dest.resolve().is_relative_to(base.resolve()):raise ValueError('unsafe/missing '+str(dest))
   if rel.endswith('.php') and not rel.endswith('.blade.php'):
    with tempfile.NamedTemporaryFile(dir=PRIVATE,suffix='.php',delete=True) as tmp:
     tmp.write(data);tmp.flush();subprocess.run([php,'-l',tmp.name],check=True,timeout=20,stdout=subprocess.DEVNULL)
+  active_site[rel]=data
+ if not any(rel.startswith('saas/app/') or rel.startswith('saas/resources/') for rel in active_site):
+  raise ValueError('canonical Laravel app not found: no site publish')
  uiroot=WEB/'mobile/updates';nroot=uiroot/'native'
  if not uiroot.is_dir() or not nroot.is_dir() or uiroot.is_symlink() or nroot.is_symlink():raise ValueError('missing OTA directory')
  ul=uiroot/'latest.json';nl=nroot/'latest.json'
@@ -79,7 +88,7 @@ def deploy(stage,commit):
   if path.is_symlink() or not path.is_file():raise ValueError('missing manifest pointer')
   current=json.loads(json.loads(path.read_text())['payload']);version=current.get(key,0)
   if version>70 or (version==70 and path.read_bytes()!=blob):raise ValueError('OTA downgrade/reuse blocked')
- entries=list((SITE[rel],data) for rel,data in site.items())
+ entries=list((SITE[rel],data) for rel,data in active_site.items())
  entries.extend([(uiroot/um['file'],html),(ul,ui),(nroot/nm['file'],apk),(nroot/'latest.apk',apk),(nl,native)])
  for target,data in entries:
   if target.is_symlink() or not target.parent.is_dir():raise ValueError('unsafe target '+str(target))
@@ -101,7 +110,7 @@ def deploy(stage,commit):
     try:atomic(target,old) if old is not None else target.unlink(missing_ok=True)
     except Exception:pass
    raise
- print(json.dumps({'status':'SITE_UI_NATIVE_PUBLISHED','sha':commit,'site_files':len(SITE),'native_version':'0.3.47','native_version_code':70,'native_sha256':digest(apk),'ui_revision':70,'ui_sha256':digest(html),'rollback_dir':str(backup)}))
+ print(json.dumps({'status':'SITE_UI_NATIVE_PUBLISHED','sha':commit,'site_files':len(active_site),'legacy_console_skipped':len(SITE)-len(active_site),'native_version':'0.3.47','native_version_code':70,'native_sha256':digest(apk),'ui_revision':70,'ui_sha256':digest(html),'rollback_dir':str(backup)}))
 if __name__=='__main__':
  if len(sys.argv)==3 and sys.argv[1]=='package':package(Path(sys.argv[2]))
  elif len(sys.argv)==4 and sys.argv[1]=='deploy':deploy(Path(sys.argv[2]),sys.argv[3])
