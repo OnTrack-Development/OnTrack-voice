@@ -1,4 +1,5 @@
 name: OnTrack resume signed v70 and canonical SaaS release
+# Resume staged signed v70 after preserving the host's existing latest.apk symlink.
 on:
   push:
     branches: ['ops/voice-v70-staged-resume-20261113']
