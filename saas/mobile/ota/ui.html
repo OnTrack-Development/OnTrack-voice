@@ -325,6 +325,7 @@ body.light .otErrText{color:#be123c!important}
 <p class="v1Hint">قياس حقيقي 100% بالملي ثانية لكل مرحلة في الاتصال (DNS, TCP, TLS, Auth, Gemini Live, Fish Audio TTFB) واختبار ضغط متزامن حتى 100 مكالمة.</p>
 <div class="v1Buttons" style="margin-bottom:8px">
   <button type="button" class="primary" id="btnRunBenchmark" style="background:#e50914;color:#fff;font-weight:700">⚡ فحص مسار المكالمة الكامل (Wi-Fi vs 4G/3G)</button>
+  <button type="button" class="primary" id="btnRunTunnelComparison" style="background:#059669;color:#fff;font-weight:700">🚀 فحص نفق الصوت WSS الثنائي (v79) vs القديم</button>
   <button type="button" class="outline" id="btnRunMatrix">🌐 مقارنة شبكة Wi-Fi مع شبكة الداتا</button>
 </div>
 <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">
@@ -1233,6 +1234,32 @@ function renderBenchmarkTable(data) {
   const tbody = el('benchmarkTbody');
   tbody.innerHTML = '';
 
+  if (data.type === 'tunnel_comparison') {
+    lastBenchmarkData = data;
+    const rows = [
+      { name: '1. بروتوكول نقل الصوت (Protocol)', ms: 0, detail: data.protocol },
+      { name: '2. زمن مصافحة نفق WSS المباشر', ms: data.wssTunnelConnectMs, detail: 'Single Binary Socket (' + data.route + ')' },
+      { name: '3. زمن الاتصال في المسار السابق (HTTPS)', ms: data.legacyRouteConnectMs, detail: 'DNS + TCP + TLS + Auth + WS' },
+      { name: '⚡ الوفر في زمن استجابة الصوت (TTFA)', ms: data.latencyImprovementMs, detail: 'وفر فوري مقداره ' + data.latencyImprovementMs + ' ms' },
+      { name: '4. استهلاك الباندويث الصاعد (v79 Tunnel)', ms: data.tunnelUplinkKbps, detail: data.tunnelUplinkKbps + ' kbps (وفّر ' + data.bitrateReductionPercent + '%)' },
+      { name: '5. استهلاك المسار السابق (Base64 JSON)', ms: data.legacyUplinkKbps, detail: data.legacyUplinkKbps + ' kbps' },
+      { name: '6. ترحيل السيرفر إلى Gemini Live (Fiber)', ms: data.cloudRelayDatacenterMs, detail: 'Zero Mobile Tax (Multiplexed)' }
+    ];
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid #222';
+      const color = r.ms < 150 ? '#10b981' : (r.ms < 400 ? '#f59e0b' : '#ef4444');
+      const valStr = r.name.includes('استهلاك') ? r.ms + ' kbps' : (r.ms > 0 ? Number(r.ms).toFixed(1) + ' ms' : '✅ فوري');
+      tr.innerHTML = '<td style="padding:6px;font-weight:600">' + r.name + '</td>' +
+                     '<td style="padding:6px;text-align:center;color:' + color + ';font-weight:bold">' + valStr + '</td>' +
+                     '<td style="padding:6px;font-size:11px;color:#aaa">' + r.detail + '</td>';
+      tbody.appendChild(tr);
+    });
+    el('benchmarkBadge').textContent = 'نفق WSS ثنائي (' + data.bitrateReductionPercent + '% وفر)';
+    el('benchmarkBadge').className = 'chip good';
+    return;
+  }
+
   const isMatrix = !!data.wifiRoute || !!data.cellularRoute;
   const timing = isMatrix ? (data.cellularRoute && data.cellularRoute.success ? data.cellularRoute : data.wifiRoute) : data;
   lastBenchmarkData = data;
@@ -1307,6 +1334,14 @@ el('btnRunBenchmark').onclick = () => {
   el('stressKpiCards').style.display = 'none';
   el('benchmarkBadge').textContent = 'جارٍ القياس…';
   send('runBenchmark', { mode: 'wifi' });
+};
+
+el('btnRunTunnelComparison').onclick = () => {
+  el('benchmarkLoading').style.display = 'block';
+  el('benchmarkTableWrap').style.display = 'none';
+  el('stressKpiCards').style.display = 'none';
+  el('benchmarkBadge').textContent = 'نفق الصوت WSS…';
+  send('runTunnelBenchmark', { mode: 'cellular' });
 };
 
 el('btnRunMatrix').onclick = () => {

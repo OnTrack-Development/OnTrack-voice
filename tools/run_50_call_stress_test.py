@@ -23,7 +23,7 @@ def run_single_request(barrier, request_id):
         headers={
             'Content-Type': 'application/json',
             'Authorization': f'Bearer {TOKEN}',
-            'User-Agent': f'OnTrack-StressTester/0.3.55 (Call #{request_id})',
+            'User-Agent': f'OnTrack-StressTester/0.3.56 (Call #{request_id})',
             'Connection': 'keep-alive'
         }
     )

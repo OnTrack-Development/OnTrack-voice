@@ -73,7 +73,7 @@ internal object GreetingPcmCache {
     }
 
     fun put(context: Context?, agentId: String, voice: String, greetingText: String, pcm: ByteArray, slot: Int = -1) {
-        if (pcm.isEmpty() || pcm.size % 2 != 0) return
+        if (pcm.isEmpty() || pcm.size % 2 != 0 || greetingText.isBlank()) return
         if (greetingText.isNotBlank()) {
             val cacheKey = key(agentId, voice, greetingText)
             if (pcm.size <= MAX_CACHE_BYTES) {

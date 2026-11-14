@@ -77,6 +77,7 @@ internal class MobileLiveCall(
     private val premium=session.optString("voice_engine")=="official_google_live_fish_pcm"
     private var official:PremiumOfficialLive?=null
     private val googleVoiceFallback=AtomicBoolean(false)
+    private var binaryTunnel: BinaryVoiceTunnel? = null
     private class PrefetchedPhrase(
         val turn: Int,
         val epoch: Long,
@@ -292,8 +293,15 @@ internal class MobileLiveCall(
                             val onCell=isCellularLink()
                             val frames=uplinkBuffer.push(mono,UplinkAudioFrameBuffer.FAST_FRAME_BYTES)
                             val socket=ws
+                            val tunnel=binaryTunnel
                             for(frame in frames) {
-                                if(premium) {
+                                if(tunnel != null && tunnel.isConnected()) {
+                                    if(firstUplinkSentAtMs==0L){
+                                        firstUplinkSentAtMs=capNow
+                                        if(callStartElapsedMs>0L)telemetry.recordFirstAudioInput(capNow-callStartElapsedMs)
+                                    }
+                                    tunnel.sendAudioPcm(frame)
+                                } else if(premium) {
                                     val qSize = official?.queueSize ?: 0L
                                     val canSend = socketReady && LiveAudioQueuePolicy.canSend(onCell, qSize)
                                     if(canSend && premiumInput.trySend(frame).isSuccess){
@@ -330,8 +338,10 @@ internal class MobileLiveCall(
                     // Flush trailing captured PCM tail cleanly so final syllables are preserved
                     uplinkBuffer.flush()?.takeIf{it.isNotEmpty()}?.let { tail ->
                         val s=ws
+                        val tun=binaryTunnel
                         if(socketReady && !stopped.get()){
-                            if(premium)premiumInput.trySend(tail)
+                            if(tun != null && tun.isConnected()) tun.sendAudioPcm(tail)
+                            else if(premium)premiumInput.trySend(tail)
                             else if(s!=null && LiveAudioQueuePolicy.canSend(isCellularLink(),s.queueSize())){
                                 runCatching{s.send(JSONObject().put("realtimeInput",JSONObject().put("audio",JSONObject()
                                     .put("mimeType","audio/pcm;rate=16000").put("data",Base64.encodeToString(tail,Base64.NO_WRAP)))).toString())}
@@ -376,9 +386,62 @@ internal class MobileLiveCall(
                 }
             }
 
-            if(premium){
-                startOfficialPremium()
-            }else openSocket()
+            var tunnelConnected = false
+            val sessionTokenStr = session.optString("token", "")
+            if (sessionTokenStr.isNotBlank()) {
+                val relayUrl = settings.optString("relay_wss_url", session.optString("relay_wss_url", "wss://app.ontrackegy.com/ws-voice"))
+                val onCell = isCellularLink()
+                try {
+                    val tunnelDeferred = CompletableDeferred<Boolean>()
+                    val tunnel = BinaryVoiceTunnel(
+                        context = context,
+                        baseClient = resolveActiveClient(),
+                        token = sessionTokenStr,
+                        isCellular = onCell,
+                        onAudioChunkReceived = { pcmChunk ->
+                            if (!stopped.get()) {
+                                val turnGen = playbackGen.current()
+                                val pcm48k = synchronized(downlinkLock) {
+                                    downlinkResampler.upsample(pcmChunk, 48000)
+                                }
+                                enqueueDownlinkPcm(turnGen, pcm48k)
+                            }
+                        },
+                        onReady = {
+                            if (!tunnelDeferred.isCompleted) tunnelDeferred.complete(true)
+                        },
+                        onTurnComplete = {},
+                        onFallbackRequested = { reason ->
+                            safeDiagnostics("BinaryTunnel fallback: $reason")
+                            if (!tunnelDeferred.isCompleted) tunnelDeferred.complete(false)
+                        }
+                    )
+
+                    val ok = withTimeoutOrNull(800L) {
+                        tunnel.start()
+                        tunnelDeferred.await()
+                    } ?: false
+
+                    if (ok && tunnel.isConnected()) {
+                        binaryTunnel = tunnel
+                        tunnelConnected = true
+                        socketReady = true
+                        if (!ready.isCompleted) ready.complete(Unit)
+                        safeNotice("قناة الصوت: نفق ثنائي فائق السرعة WSS (Tier 1)")
+                    } else {
+                        tunnel.stop()
+                    }
+                } catch (t: Throwable) {
+                    safeDiagnostics("BinaryTunnel init failed ($t); falling back to Tier 2")
+                }
+            }
+
+            if (!tunnelConnected) {
+                // Tier 2 (Official Premium) or Tier 3 (Direct Legacy Gemini Live)
+                if(premium){
+                    startOfficialPremium()
+                }else openSocket()
+            }
             // During 3G/H+ fallback the Google Live TLS handshake may run slower.
             withTimeout(if(isCellularLink())35000L else 25000L){ready.await()}
             // Never report PCM readiness solely from OTV1 header + Google setupComplete:
@@ -463,6 +526,7 @@ internal class MobileLiveCall(
         }
     }
     private fun flushAudioGeneration() {
+        binaryTunnel?.sendBargeIn()
         currentTurnEpoch.incrementAndGet()
         playbackGen.bump()
         lastAssistantAudioAt.set(0)
@@ -1088,6 +1152,7 @@ internal class MobileLiveCall(
             runCatching{premiumInput.close()};runCatching{prefetchedPhrases.close()}
             runCatching{premiumSender?.cancel()};runCatching{premiumSpeaker?.cancel()}
             runCatching{official?.stop()};official=null
+            runCatching{binaryTunnel?.stop()};binaryTunnel=null
             runCatching{worker?.cancel()};runCatching{ws?.close(1000,"call ended")};ws=null;output=null
         }
     }

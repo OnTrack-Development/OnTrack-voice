@@ -1527,6 +1527,15 @@ class MobileLinkActivity:ComponentActivity(){
                             }
                         }
                     }
+                    "runTunnelBenchmark"->{
+                        val mode=msg.optString("mode","cellular")
+                        lifecycleScope.launch(Dispatchers.IO){
+                            val res=LivePipelineBenchmark.benchmarkTunnelComparison(this@MobileLinkActivity, mode=="cellular")
+                            runOnUiThread{
+                                web.evaluateJavascript("window.onTrackBenchmarkResult && window.onTrackBenchmarkResult($res)",null)
+                            }
+                        }
+                    }
                     "runBenchmarkMatrix"->{
                         lifecycleScope.launch(Dispatchers.IO){
                             val res=LivePipelineBenchmark.runNetworkMatrix(this@MobileLinkActivity)

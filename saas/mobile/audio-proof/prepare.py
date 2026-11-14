@@ -98,9 +98,9 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 78', 'versionCode')
+                        'versionCode = 79', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.3.55"', 'versionName')
+                        'versionName = "0.3.56"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
     text = replace_once(
         text,
@@ -337,8 +337,9 @@ def main(root):
     end = text.index('\n        )', start)
     text = text[:start] + '            "OnTrack does not read other apps\' notifications or collect messenger caller names.",' + text[end:]
     path.write_text(text)
-    # Upstream banner classifier no longer exists; remove its obsolete unit test.
-    (root / 'app/src/test/java/com/jemcik/jemrec/capture/DebugNotificationCleanerTest.kt').unlink()
+    # Upstream banner classifier & recorder switch no longer exist; remove obsolete unit tests.
+    (root / 'app/src/test/java/com/jemcik/jemrec/capture/DebugNotificationCleanerTest.kt').unlink(missing_ok=True)
+    (root / 'app/src/test/java/com/jemcik/jemrec/capture/BackgroundKillSwitchTest.kt').unlink(missing_ok=True)
     # JemRec setup was designed for a call-recording archive. For OnTrack's
     # direct SIM <-> AI voice link, the ONLY mandatory Android runtime consent
     # is READ_PHONE_STATE at SIM enrollment (requested by MobileLinkActivity).
