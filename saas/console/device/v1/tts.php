@@ -10,6 +10,11 @@ require_once __DIR__.'/../../_core/DevicePairing.php';
 require_once __DIR__.'/../../_core/TenantVoiceSession.php';
 require_once __DIR__.'/FishTtsFallbackPolicy.php';
 
+$t0 = hrtime(true);
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 header('Cache-Control: no-store, max-age=0');
 header('X-Content-Type-Options: nosniff');
 header('X-Accel-Buffering: no');
@@ -43,7 +48,10 @@ $text=is_array($body)&&is_string($body['text']??null)?trim($body['text']):'';
 if($text===''||mb_strlen($text)>400||strlen($text)>1600)
     io_premium_error(422,'invalid_premium_text');
 try {
+    $tAuth0 = hrtime(true);
     $binding=device_binding_authorize(substr($auth,7));
+    $authMs = (hrtime(true) - $tAuth0) / 1e6;
+    header('X-OnTrack-Auth-Ms: ' . number_format($authMs, 2, '.', ''));
     if(!$binding)io_premium_error(401,'device_not_authorized');
     if(!tenant_voice_entitled($binding))io_premium_error(403,'voice_subscription_inactive');
     $published=published_agent_flow((int)$binding['account_id'],
@@ -64,6 +72,7 @@ try {
             && !one('SELECT id FROM voice_grants WHERE account_id=? AND voice_id=?',[(int)$binding['account_id'],(int)$voiceRow['id']])))
             io_premium_error(403,'premium_voice_not_available');
     }
+    $tVault0 = hrtime(true);
     $cfg=private_path().'/voice-lab/owner-1.json';
     if(is_link($cfg)||!is_file($cfg))io_premium_error(503,'premium_voice_unavailable');
     $saved=json_decode((string)file_get_contents($cfg),true);
@@ -72,6 +81,8 @@ try {
     $voice=tenant_voice_resolve_fish((int)$binding['account_id'],$publishedVoice)??'';
     $model=is_array($saved)?(string)($saved['settings']['fishModel']??'drama-3'):'';
     if($model==='')$model='drama-3';
+    $vaultMs = (hrtime(true) - $tVault0) / 1e6;
+    header('X-OnTrack-Vault-Ms: ' . number_format($vaultMs, 2, '.', ''));
     if($key===''||strlen($key)>2048||preg_match('/[\x00-\x1f\x7f]/',$key)
         ||!preg_match('/^[0-9a-f]{32}$/D',$voice)
         ||!in_array($model,['drama-3','s2.1-pro-free','s2.1-pro'],true))
@@ -132,11 +143,18 @@ curl_setopt_array($curl,[
         $sent+=$length;
         if($sent>$maxAudioBytes)return 0;
         if(!$started){
+            $connectMs = ((float)curl_getinfo($curl, CURLINFO_CONNECT_TIME_T)) / 1000.0;
+            $ttfbMs = (hrtime(true) - $t0) / 1e6;
             http_response_code(200);
             header('Content-Type: application/octet-stream');
             header('X-PCM-Sample-Rate: 24000');
             header('X-PCM-Channels: 1');
             header('X-PCM-Format: s16le');
+            header('X-OnTrack-Auth-Ms: ' . number_format($authMs ?? 0.0, 2, '.', ''));
+            header('X-OnTrack-Vault-Ms: ' . number_format($vaultMs ?? 0.0, 2, '.', ''));
+            header('X-OnTrack-Fish-Connect-Ms: ' . number_format($connectMs, 2, '.', ''));
+            header('X-OnTrack-Fish-TTFB-Ms: ' . number_format($ttfbMs, 2, '.', ''));
+            header('X-OnTrack-Internal-Ms: ' . number_format($ttfbMs, 2, '.', ''));
             $started=true;
         }
         echo $chunk;

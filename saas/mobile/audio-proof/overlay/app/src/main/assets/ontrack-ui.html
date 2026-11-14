@@ -320,6 +320,56 @@ body.light .otErrText{color:#be123c!important}
 <div class="v1Buttons"><button type="button" class="primary" id="v1WifiFreeToggle" disabled>تشغيل بدون Wi-Fi (5555)</button><button type="button" class="outline" id="v1ReviveDaemon">إعادة تنشيط محرك الصوت</button></div>
 <button type="button" class="subtle-button" id="v1DataDiagnostics">فحص شاومي والصلاحيات (USB Debugging Security)</button>
 </section>
+<section class="card" id="benchmarkCard" aria-labelledby="benchmarkHeading">
+<div class="section-title"><h2 id="benchmarkHeading">⚡ مختبر الأداء الفعلي وضغط الـ API</h2><span class="chip" id="benchmarkBadge">جاهز للفحص</span></div>
+<p class="v1Hint">قياس حقيقي 100% بالملي ثانية لكل مرحلة في الاتصال (DNS, TCP, TLS, Auth, Gemini Live, Fish Audio TTFB) واختبار ضغط متزامن حتى 100 مكالمة.</p>
+<div class="v1Buttons" style="margin-bottom:8px">
+  <button type="button" class="primary" id="btnRunBenchmark" style="background:#e50914;color:#fff;font-weight:700">⚡ فحص مسار المكالمة الكامل (Wi-Fi vs 4G/3G)</button>
+  <button type="button" class="outline" id="btnRunMatrix">🌐 مقارنة شبكة Wi-Fi مع شبكة الداتا</button>
+</div>
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">
+  <button type="button" class="outline" id="btnStress10" style="flex:1;min-width:70px;padding:8px 4px;font-size:12px">🔥 10 مكالمات</button>
+  <button type="button" class="outline" id="btnStress25" style="flex:1;min-width:70px;padding:8px 4px;font-size:12px">🔥 25 مكالمة</button>
+  <button type="button" class="outline" id="btnStress50" style="flex:1;min-width:85px;padding:8px 4px;font-size:12px;border-color:#e50914;color:#e50914;font-weight:bold">🔥 50 متزامن</button>
+  <button type="button" class="outline" id="btnStressRamp" style="flex:1.2;min-width:110px;padding:8px 4px;font-size:12px">🚀 تدرج (10➔100)</button>
+</div>
+<div id="benchmarkLoading" style="display:none;padding:10px;text-align:center;color:#e50914;font-weight:bold" aria-live="polite">
+  ⏳ جارٍ القياس الحي عبر الشبكة والـ API الفعليين…
+</div>
+<div id="stressKpiCards" style="display:none;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:6px;margin:10px 0">
+  <div style="background:#161616;border:1px solid #2a2a2a;border-radius:6px;padding:8px;text-align:center">
+    <div style="font-size:11px;color:#888">نسبة النجاح</div>
+    <strong id="kpiSuccessRate" style="font-size:15px;color:#10b981">100%</strong>
+  </div>
+  <div style="background:#161616;border:1px solid #2a2a2a;border-radius:6px;padding:8px;text-align:center">
+    <div style="font-size:11px;color:#888">السعة المضمونة</div>
+    <strong id="kpiMaxCap" style="font-size:15px;color:#e50914">50 مكالمة</strong>
+  </div>
+  <div style="background:#161616;border:1px solid #2a2a2a;border-radius:6px;padding:8px;text-align:center">
+    <div style="font-size:11px;color:#888">متوسط (Avg)</div>
+    <strong id="kpiAvgMs" style="font-size:15px;color:#fff">-- ms</strong>
+  </div>
+  <div style="background:#161616;border:1px solid #2a2a2a;border-radius:6px;padding:8px;text-align:center">
+    <div style="font-size:11px;color:#888">وسيط p50 / p95</div>
+    <strong id="kpiP95Ms" style="font-size:15px;color:#f59e0b">-- ms</strong>
+  </div>
+</div>
+<div id="benchmarkTableWrap" style="display:none;margin-top:10px;overflow-x:auto">
+  <table style="width:100%;border-collapse:collapse;font-size:12px;text-align:right" id="benchmarkTable">
+    <thead>
+      <tr style="border-bottom:1px solid #333;color:#888">
+        <th style="padding:6px">المرحلة</th>
+        <th style="padding:6px;text-align:center">الزمن (ms)</th>
+        <th style="padding:6px">الحالة / التفاصيل</th>
+      </tr>
+    </thead>
+    <tbody id="benchmarkTbody"></tbody>
+  </table>
+</div>
+<div style="display:flex;gap:8px;margin-top:10px">
+  <button type="button" class="outline" id="btnCopyReport" style="display:none;width:100%">📋 نسخ التقرير الهندسي الكامل (JSON + ملخص)</button>
+</div>
+</section>
 </div>
 <div data-panel="calls" class="otPanelWrap hidden-panel">
 <section class="card" data-panel="calls">
@@ -1173,5 +1223,135 @@ el('contactsPick').onclick=()=>send('contactsPick');
 el('contactsAll').onclick=()=>send('contactsAll');
 el('contactConsent').onchange=()=>{el('contactsUpload').disabled=!stagedCount||!el('contactConsent').checked;el('uploadContactsFile').disabled=!stagedFile||!el('contactConsent').checked};
 el('contactsUpload').onclick=()=>{if(stagedCount&&el('contactConsent').checked)send('contactsUpload',{confirmed:true})};
+
+let lastBenchmarkData = null;
+
+function renderBenchmarkTable(data) {
+  el('benchmarkLoading').style.display = 'none';
+  el('benchmarkTableWrap').style.display = 'block';
+  el('btnCopyReport').style.display = 'block';
+  const tbody = el('benchmarkTbody');
+  tbody.innerHTML = '';
+
+  const isMatrix = !!data.wifiRoute || !!data.cellularRoute;
+  const timing = isMatrix ? (data.cellularRoute && data.cellularRoute.success ? data.cellularRoute : data.wifiRoute) : data;
+  lastBenchmarkData = data;
+
+  const rows = [
+    { name: '1. DNS Lookup (ResilientDns)', ms: timing.dnsLookupMs, detail: (timing.dnsIp ? timing.dnsIp + ' (' + (timing.dnsFamily || 'IPv4') + ')' : 'OK') },
+    { name: '2. TCP Connect (Port 443)', ms: timing.tcpConnectMs, detail: 'Socket Opened' },
+    { name: '3. TLS Handshake (SSL)', ms: timing.tlsHandshakeMs, detail: 'Encrypted' },
+    { name: '4. Voice Session API', ms: timing.voiceSessionApiMs, detail: 'Auth: ' + (timing.voiceSessionAuthMs||0) + 'ms · Vault: ' + (timing.voiceSessionVaultMs||0) + 'ms' },
+    { name: '5. Gemini WS Connect & Setup', ms: ((timing.geminiWsConnectMs||0) + (timing.geminiSetupMs||0)), detail: 'Connect: ' + (timing.geminiWsConnectMs||0) + 'ms · Setup: ' + (timing.geminiSetupMs||0) + 'ms' },
+    { name: '6. Audio Uplink & First Token', ms: ((timing.uplinkSendMs||0) + (timing.geminiFirstTextMs||0)), detail: 'Send: ' + (timing.uplinkSendMs||0) + 'ms · Token: ' + (timing.geminiFirstTextMs||0) + 'ms' },
+    { name: '7. Fish Audio TTFB & Connect', ms: timing.fishTtfbMs, detail: 'Fish Connect: ' + (timing.fishConnectMs||0) + 'ms · TTFB: ' + (timing.fishTtfbMs||0) + 'ms' },
+    { name: '8. Audio Stream Download', ms: timing.ttsStreamDownloadMs, detail: 'Max Gap: ' + (timing.maxInterChunkGapMs||0) + 'ms ' + (timing.interChunkJitterAlert ? '⚠️ Jitter' : '✅ Smooth') },
+    { name: '9. Greeting Cache & AudioTrack', ms: ((timing.greetingCacheReadMs||0) + (timing.audioTrackWriteMs||0)), detail: 'Cache Read: ' + (timing.greetingCacheReadMs||0) + 'ms · Track: ' + (timing.audioTrackWriteMs||0) + 'ms' },
+    { name: '⚡ إجمالي زمن أول صوت (Round-Trip)', ms: timing.totalRoundTripToFirstAudioMs, detail: timing.success ? 'جاهز في السماعة' : 'فشل: ' + (timing.errorMessage||'خطأ') }
+  ];
+
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid #222';
+    const color = r.ms < 100 ? '#10b981' : (r.ms < 300 ? '#f59e0b' : '#ef4444');
+    tr.innerHTML = '<td style="padding:6px;font-weight:600">' + r.name + '</td>' +
+                   '<td style="padding:6px;text-align:center;color:' + color + ';font-weight:bold">' + (Number(r.ms) > 0 ? Number(r.ms).toFixed(2) + ' ms' : '--') + '</td>' +
+                   '<td style="padding:6px;font-size:11px;color:#aaa">' + r.detail + '</td>';
+    tbody.appendChild(tr);
+  });
+
+  el('benchmarkBadge').textContent = timing.success ? ('نجاح • ' + timing.totalRoundTripToFirstAudioMs + 'ms') : 'فشل الاتصال';
+  el('benchmarkBadge').className = 'chip ' + (timing.success ? 'good' : 'warn');
+}
+
+function renderStressResult(data) {
+  el('benchmarkLoading').style.display = 'none';
+  el('stressKpiCards').style.display = 'grid';
+  el('btnCopyReport').style.display = 'block';
+  lastBenchmarkData = data;
+
+  const rate = Number(data.successRatePercent || 0);
+  el('kpiSuccessRate').textContent = rate.toFixed(1) + '%';
+  el('kpiSuccessRate').style.color = rate >= 98 ? '#10b981' : (rate >= 80 ? '#f59e0b' : '#ef4444');
+
+  el('kpiMaxCap').textContent = (data.verifiedMaxConcurrent || (rate >= 98 ? data.concurrencyRequested : 0)) + ' مكالمة';
+  el('kpiAvgMs').textContent = Number(data.avgMs || 0).toFixed(1) + ' ms';
+  el('kpiP95Ms').textContent = Number(data.p50Ms || 0).toFixed(0) + ' / ' + Number(data.p95Ms || 0).toFixed(0) + ' ms';
+
+  el('benchmarkBadge').textContent = 'ضغط ' + data.concurrencyRequested + ' مكالمة · ' + rate.toFixed(1) + '%';
+  el('benchmarkBadge').className = 'chip ' + (rate >= 98 ? 'good' : 'warn');
+}
+
+window.onTrackBenchmarkResult = function(data) {
+  renderBenchmarkTable(data);
+};
+
+window.onTrackStressResult = function(data) {
+  renderStressResult(data);
+};
+
+window.onTrackRampResult = function(data) {
+  el('benchmarkLoading').style.display = 'none';
+  lastBenchmarkData = data;
+  el('btnCopyReport').style.display = 'block';
+  el('benchmarkBadge').textContent = 'أقصى سعة: ' + (data.maxVerifiedConcurrent || 0) + ' مكالمة';
+  el('benchmarkBadge').className = 'chip good';
+  if (Array.isArray(data.stages) && data.stages.length) {
+    renderStressResult(data.stages[data.stages.length - 1]);
+  }
+};
+
+el('btnRunBenchmark').onclick = () => {
+  el('benchmarkLoading').style.display = 'block';
+  el('benchmarkTableWrap').style.display = 'none';
+  el('stressKpiCards').style.display = 'none';
+  el('benchmarkBadge').textContent = 'جارٍ القياس…';
+  send('runBenchmark', { mode: 'wifi' });
+};
+
+el('btnRunMatrix').onclick = () => {
+  el('benchmarkLoading').style.display = 'block';
+  el('benchmarkTableWrap').style.display = 'none';
+  el('stressKpiCards').style.display = 'none';
+  el('benchmarkBadge').textContent = 'مقارنة الشبكات…';
+  send('runBenchmarkMatrix', {});
+};
+
+el('btnStress10').onclick = () => {
+  el('benchmarkLoading').style.display = 'block';
+  el('benchmarkBadge').textContent = 'ضغط 10 مكالمات…';
+  send('runStress', { concurrency: 10, mode: 'voice_session' });
+};
+
+el('btnStress25').onclick = () => {
+  el('benchmarkLoading').style.display = 'block';
+  el('benchmarkBadge').textContent = 'ضغط 25 مكالمة…';
+  send('runStress', { concurrency: 25, mode: 'voice_session' });
+};
+
+el('btnStress50').onclick = () => {
+  el('benchmarkLoading').style.display = 'block';
+  el('benchmarkBadge').textContent = 'ضغط 50 مكالمة متزامنة…';
+  send('runStress', { concurrency: 50, mode: 'voice_session' });
+};
+
+el('btnStressRamp').onclick = () => {
+  el('benchmarkLoading').style.display = 'block';
+  el('benchmarkBadge').textContent = 'تدرج الضغط (10➔100)…';
+  send('runRampStress', { mode: 'voice_session' });
+};
+
+el('btnCopyReport').onclick = () => {
+  if (!lastBenchmarkData) return;
+  const reportText = JSON.stringify(lastBenchmarkData, null, 2);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(reportText).then(() => {
+      alert('تم نسخ تقرير القياس الهندسي إلى الحافظة بنجاح!');
+    });
+  } else {
+    alert(reportText);
+  }
+};
+
 setView('dashboard');send('ready');
 </script></body></html>

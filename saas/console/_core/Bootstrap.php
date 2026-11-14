@@ -300,11 +300,18 @@ function seal_secret(string $plain):string{
     return base64_encode($nonce.$tag.$cipher);
 }
 function unseal_secret(?string $box):?string{
+    static $cache = [];
     if(!$box)return null;
+    if(isset($cache[$box]))return $cache[$box];
     $raw=base64_decode($box,true);
     if($raw===false||strlen($raw)<29)return null;
     $plain=openssl_decrypt(substr($raw,28),'aes-256-gcm',secret_key(),OPENSSL_RAW_DATA,substr($raw,0,12),substr($raw,12,16));
-    return $plain===false?null:$plain;
+    if($plain!==false){
+        if(count($cache)>256)$cache=[];
+        $cache[$box]=$plain;
+        return $plain;
+    }
+    return null;
 }
 function e(?string $x):string{return htmlspecialchars((string)$x,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
 function csrf():string {

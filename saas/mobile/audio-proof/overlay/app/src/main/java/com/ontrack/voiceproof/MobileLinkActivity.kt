@@ -1518,6 +1518,42 @@ class MobileLinkActivity:ComponentActivity(){
                     "rollback"->{check(!MobileLinkService.inCall){"انتظر نهاية المكالمة"};show(withContext(Dispatchers.IO){ota.rollback(false)});banner.text="تم الرجوع للواجهة السابقة"}
                     "diagnostics"->startActivity(Intent(this@MobileLinkActivity,ProofActivity::class.java))
                     "admin"->openConsole()
+                    "runBenchmark"->{
+                        val mode=msg.optString("mode","wifi")
+                        lifecycleScope.launch(Dispatchers.IO){
+                            val res=LivePipelineBenchmark.benchmarkFullPipeline(this@MobileLinkActivity, mode=="cellular")
+                            runOnUiThread{
+                                web.evaluateJavascript("window.onTrackBenchmarkResult && window.onTrackBenchmarkResult($res)",null)
+                            }
+                        }
+                    }
+                    "runBenchmarkMatrix"->{
+                        lifecycleScope.launch(Dispatchers.IO){
+                            val res=LivePipelineBenchmark.runNetworkMatrix(this@MobileLinkActivity)
+                            runOnUiThread{
+                                web.evaluateJavascript("window.onTrackBenchmarkResult && window.onTrackBenchmarkResult($res)",null)
+                            }
+                        }
+                    }
+                    "runStress"->{
+                        val concurrency=msg.optInt("concurrency",50)
+                        val endpointMode=msg.optString("mode","voice_session")
+                        lifecycleScope.launch(Dispatchers.IO){
+                            val res=LivePipelineBenchmark.runConcurrencyStressTest(this@MobileLinkActivity, concurrency, endpointMode)
+                            runOnUiThread{
+                                web.evaluateJavascript("window.onTrackStressResult && window.onTrackStressResult($res)",null)
+                            }
+                        }
+                    }
+                    "runRampStress"->{
+                        val endpointMode=msg.optString("mode","voice_session")
+                        lifecycleScope.launch(Dispatchers.IO){
+                            val res=LivePipelineBenchmark.runRampStressTest(this@MobileLinkActivity, endpointMode)
+                            runOnUiThread{
+                                web.evaluateJavascript("window.onTrackRampResult && window.onTrackRampResult($res)",null)
+                            }
+                        }
+                    }
                     else->error("أمر الواجهة غير مدعوم")
                 }
             }.onFailure{err->

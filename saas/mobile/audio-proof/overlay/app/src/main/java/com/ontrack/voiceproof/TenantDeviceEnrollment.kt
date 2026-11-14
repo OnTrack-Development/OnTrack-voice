@@ -57,6 +57,8 @@ class TenantDeviceEnrollment(private val context: Context) {
     /** Immutable identity of the original paired device/SIM. A heartbeat may refresh
      * the agent, never the device binding ID or SIM slot. Never expose the bearer. */
     fun bindingId(slot:Int):Int = local(slot).getInt("device_id")
+    internal fun bearerToken(slot:Int):String? = runCatching { local(slot).getString("token") }.getOrNull()
+    internal fun activeSlot():Int = if (paired(0)) 0 else if (paired(1)) 1 else 0
     private fun local(slot:Int):JSONObject {
         val ciphertext=prefs.getString(field(slot),null)?:error("الشريحة غير مربوطة")
         return JSONObject(unseal(ciphertext))
