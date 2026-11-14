@@ -112,6 +112,7 @@ internal class PremiumOfficialLive(
                         val generationConfig=JSONObject()
                             .put("responseModalities",JSONArray().put("AUDIO"))
                             .put("maxOutputTokens",LiveVadConfig.clampMaxOutputTokens(maxOutputTokens))
+                            .put("temperature", 0.9)
                         if(!cleanModel.contains("3.8-live",ignoreCase=true) && cleanModel.contains("2.5",ignoreCase=true))
                             generationConfig.put("thinkingConfig",JSONObject().put("thinkingBudget",0))
                         val setup=JSONObject().put("model","models/"+cleanModel)

@@ -185,10 +185,27 @@ internal class UplinkAudioFrameBuffer {
 
     companion object {
         const val FAST_FRAME_BYTES = 640 // 20ms @ 16kHz 16-bit mono
-        const val SLOW_CELLULAR_FRAME_BYTES = 1280 // 40ms @ 16kHz 16-bit mono
+        const val CELLULAR_FRAME_BYTES = 1920 // 60ms @ 16kHz 16-bit mono
+        const val SLOW_CELLULAR_FRAME_BYTES = 2560 // 80ms @ 16kHz 16-bit mono (for 3G/H)
 
-        fun targetBytes(cellular: Boolean, slowCellular: Boolean): Int =
-            if (cellular && slowCellular) SLOW_CELLULAR_FRAME_BYTES else FAST_FRAME_BYTES
+        fun targetBytes(cellular: Boolean, slowCellular: Boolean): Int = when {
+            cellular && slowCellular -> SLOW_CELLULAR_FRAME_BYTES
+            cellular -> CELLULAR_FRAME_BYTES
+            else -> FAST_FRAME_BYTES
+        }
+    }
+}
+
+internal object AudioSignalProcessing {
+    fun calculateRms(pcm16Mono: ByteArray): Double {
+        if (pcm16Mono.size < 2) return 0.0
+        var sum = 0.0
+        val sampleCount = pcm16Mono.size / 2
+        for (i in 0 until pcm16Mono.size - 1 step 2) {
+            val sample = ((pcm16Mono[i].toInt() and 0xFF) or (pcm16Mono[i + 1].toInt() shl 8)).toShort().toDouble()
+            sum += sample * sample
+        }
+        return kotlin.math.sqrt(sum / sampleCount)
     }
 }
 

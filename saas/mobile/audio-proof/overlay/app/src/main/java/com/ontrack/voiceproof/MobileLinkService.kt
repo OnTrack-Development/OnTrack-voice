@@ -497,14 +497,27 @@ class MobileLinkService:Service() {
         }
     }
     private suspend fun checkDaemonReadiness(allowRevive: Boolean): Pair<Boolean, String> {
+        var up = false
+        // Warm-up retry loop: allow daemon socket up to 3 attempts x 400ms before declaring failure
+        for (attempt in 1..3) {
+            up = runCatching { CaptureDaemon.isRunning(this) }.getOrDefault(false) ||
+                 runCatching { CaptureDaemon.isRunningConfirmed(this) }.getOrDefault(false)
+            if (up) break
+            if (attempt < 3) {
+                delay(400L)
+            }
+        }
         val onWifiNow = NetworkRevive.onWifi(this)
         val wifiFreeNow = runCatching { StartWithoutWifi.ready(this) }.getOrDefault(false)
         val setupOk = runCatching { com.ontrack.voiceproof.ui.Setup.isComplete(this) }.getOrDefault(false)
-        var up = runCatching { CaptureDaemon.isRunning(this) }.getOrDefault(false)
         if (!up && allowRevive && (onWifiNow || wifiFreeNow)) {
             up = runCatching {
                 CaptureDaemon.revive(this, request = CaptureDaemon.Request.USER)
             }.getOrDefault(false)
+            if (!up) {
+                delay(400L)
+                up = runCatching { CaptureDaemon.isRunning(this) }.getOrDefault(false)
+            }
         }
         if (up) {
             runCatching {
@@ -1158,7 +1171,8 @@ class MobileLinkService:Service() {
                         try{
                             val onWifiNow=NetworkRevive.onWifi(this@MobileLinkService)
                             val wifiFreeNow=runCatching{StartWithoutWifi.ready(this@MobileLinkService)}.getOrDefault(false)
-                            var bridgeUp=runCatching{CaptureDaemon.isRunning(this@MobileLinkService)}.getOrDefault(false)
+                            var bridgeUp=runCatching{CaptureDaemon.isRunning(this@MobileLinkService)}.getOrDefault(false) ||
+                                     runCatching{CaptureDaemon.isRunningConfirmed(this@MobileLinkService)}.getOrDefault(false)
                             if(!bridgeUp && (onWifiNow || wifiFreeNow)){
                                 bridgeUp=runCatching{CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)}.getOrDefault(false)
                             }
@@ -1298,7 +1312,8 @@ class MobileLinkService:Service() {
                         now>=nextLocalBridgeRetryAt){
                         val onWifiNow=NetworkRevive.onWifi(this@MobileLinkService)
                         val wifiFreeNow=runCatching{StartWithoutWifi.ready(this@MobileLinkService)}.getOrDefault(false)
-                        var bridgeUp=runCatching{CaptureDaemon.isRunning(this@MobileLinkService)}.getOrDefault(false)
+                        var bridgeUp=runCatching{CaptureDaemon.isRunning(this@MobileLinkService)}.getOrDefault(false) ||
+                                     runCatching{CaptureDaemon.isRunningConfirmed(this@MobileLinkService)}.getOrDefault(false)
                         if(!bridgeUp && (onWifiNow || wifiFreeNow)){
                             bridgeUp=runCatching{CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)}.getOrDefault(false)
                         }

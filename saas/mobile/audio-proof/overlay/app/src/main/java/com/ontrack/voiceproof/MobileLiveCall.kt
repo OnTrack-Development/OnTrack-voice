@@ -92,6 +92,10 @@ internal class MobileLiveCall(
     private val premiumInput=Channel<ByteArray>(32)
     private var premiumSpeaker:Job?=null
     private var premiumSender:Job?=null
+    private val greetingFinished = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val ttsDownloading = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val lastCallerSpeechAtMs = java.util.concurrent.atomic.AtomicLong(0L)
+    private val lastKeepAliveUplinkMs = java.util.concurrent.atomic.AtomicLong(0L)
     @Volatile private var socketReady=false
     @Volatile private var resumeHandle:String?=null
     // The same SIM call may continue through a NEW Google key, but the old
@@ -288,6 +292,35 @@ internal class MobileLiveCall(
                             }
                             lastSocketWasReady=true
                             val onCell=isCellularLink()
+
+                            // Uplink Gate:
+                            // 1) Do not push mic PCM before greeting completes or until caller starts speaking!
+                            if (!greetingFinished.get() && (firstTurnDispatched.get() || outgoingCall)) {
+                                if (capNow - callStartElapsedMs < 4000L) {
+                                    continue
+                                } else {
+                                    greetingFinished.set(true)
+                                }
+                            }
+
+                            // 2) On cellular links (3G / H / 4G), pause uplink PCM during active TTS chunk download
+                            if (onCell && ttsDownloading.get()) {
+                                continue
+                            }
+
+                            // 3) Local RMS Noise Gate on cellular data:
+                            val rms = AudioSignalProcessing.calculateRms(mono)
+                            if (rms >= 350.0) {
+                                lastCallerSpeechAtMs.set(capNow)
+                            }
+                            val callerSilent = onCell && (capNow - lastCallerSpeechAtMs.get() > 600L) && (rms < 350.0)
+                            if (callerSilent) {
+                                if (capNow - lastKeepAliveUplinkMs.get() < 1200L) {
+                                    continue
+                                }
+                                lastKeepAliveUplinkMs.set(capNow)
+                            }
+
                             val targetBytes=UplinkAudioFrameBuffer.targetBytes(onCell,slowCellularLink)
                             val frames=uplinkBuffer.push(mono,targetBytes)
                             val socket=ws
@@ -383,15 +416,16 @@ internal class MobileLiveCall(
                 safeNotice("تشغيل رسالة الترحيب الفورية (< 50ms) من الكاش المحلي")
                 val turnGen=playbackGen.current()
                 enqueueDownlinkPcm(turnGen,cachedPcm)
+                greetingFinished.set(true)
                 val noticePrompt="تم نطق رسالة الترحيب التالية للمتصل فور فتح الخط: «$staticGreeting». لا تكرر الترحيب أبداً. استمع لرد المتصل وأجب عليه مباشرة عند انتهاء كلامه."
                 if(premium){
-                    scope.launch(Dispatchers.IO+callCoroutineGuard){runCatching{official?.sendClientContent(noticePrompt, turnComplete=false)}}
+                    scope.launch(Dispatchers.IO+callCoroutineGuard){runCatching{official?.sendClientContent(noticePrompt, turnComplete=true)}}
                 }else{
                     runCatching {
                         ws?.send(JSONObject().put("clientContent",JSONObject()
                             .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
                                 .put("parts",org.json.JSONArray().put(JSONObject().put("text",noticePrompt)))))
-                            .put("turnComplete",false)).toString())
+                            .put("turnComplete",true)).toString())
                     }
                 }
             } else {
@@ -401,13 +435,10 @@ internal class MobileLiveCall(
                     "إن لم يكن المسؤول اعتذر دون ذكر بيانات العميل:\n" + manager
                 else if(ivrEnabled && ivrGreeting.isNotBlank())
                     "ابدأ المكالمة الآن بنطق رسالة الترحيب التفاعلي التالية بوضوح وبنبرة مهنية باسم "+agentName+": «"+ivrGreeting+"» ثم اصمت فورًا واستمع لاختيار المتصل (بالصوت أو ذكر الرقم)."
-                else if(scenarioMode=="scenario" || responseStyle!="egyptian_short")
-                    "ابدأ المكالمة بجملة ترحيب واحدة قصيرة وسؤال واحد فقط (بحد أقصى 15 إلى 20 كلمة) باللهجة والشخصية المحددة في السيناريو باسم "+agentName+
-                    "، ثم اصمت فوراً لتستمع للمتصل، ولا تعيد هذه الافتتاحية أبداً لو قاطعك المتصل."
-                else "ابدأ المكالمة بتحية مصرية قصيرة واحدة وسؤال واحد (15-20 كلمة) باسم "+agentName+
-                    " فقط، ثم اصمت فورًا واستمع للمتصل، ولا تعيد الترحيب عند المقاطعة."
+                else
+                    "ابدأ المكالمة بالترحيب والشخصية واللهجة المحددة في السيناريو باسم $agentName، وتفاعل بذكاء وبديهة اجتماعية طبيعية دون جمود آلي، ثم استمع لرد المتصل."
                 if(premium){
-                    scope.launch(Dispatchers.IO+callCoroutineGuard){runCatching{official?.sendClientContent(prompt)}}
+                    scope.launch(Dispatchers.IO+callCoroutineGuard){runCatching{official?.sendClientContent(prompt, turnComplete=true)}}
                 }else{
                     runCatching {
                         ws?.send(JSONObject().put("clientContent",JSONObject()
@@ -547,7 +578,7 @@ internal class MobileLiveCall(
         try {
             check(premiumPcm!=null){"IO Premium PCM module not configured"}
             val baseInstruction=
-                "[قاعدة الأداء والتمثيل الصوتي]: التزم حرفياً بنبرة المشاعر والتنهيدات والتعبيرات الصوتية والعفوية الموصوفة في السيناريو، واكتب التنهيدات والمدود والفواصل الشعورية (...، آه..، هاها..، اممم..، يااااه) كما هي في النص المنطوق حتى ينطقها محرك الصوت بمشاعر حقيقية، مع جعل كل دور طبيعياً وسلساً دون تكرار.\n"+
+                "[قاعدة الأداء والتمثيل الصوتي والمشاعر والذكاء الاجتماعي]: تقمّص الشخصية الموصوفة في السيناريو بذكاء اجتماعي حاد، وبديهة سريعة، وروح طبيعية جذابة 100%. التزم تماماً باللهجة المحددة في السيناريو (مثل اللهجة اللبنانية الدلوعة والعفوية إذا نص السيناريو على ذلك) وبكل تفاصيل الأداء التمثيلي والتنهيدات والدلع والضحكات الخفيفة والمشاعر المكتوبة فيه. افهم قصد المتصل بعمق حتى لو كانت عباراته غير مكتملة أو عامية، وتفاعل معه بذكاء وخفة ظل وإقناع بشري حقيقي دون جمود آلي ودون تكرار نفس الجمل. اكتب التنهيدات والمدود والفواصل الشعورية (...، آه..، هاها..، اممم..، يااااه) كما هي في النص المنطوق حتى ينطقها محرك الصوت بمشاعر حقيقية ودلع وطبيعية.\n"+
                 "[قاعدة المقاطعة]: عند مقاطعة المتصل توقف فورًا ولا تعيد الجملة الافتتاحية أو المقاطعة من بدايتها؛ أجب مباشرة على كلامه الأخير.\n"+
                 arabicLanguageLockNote()+
                 session.getString("system_instruction")+
@@ -585,10 +616,12 @@ internal class MobileLiveCall(
                                 val job=scope.launch(Dispatchers.IO+callCoroutineGuard){
                                     val resampler=PremiumPcm(24000)
                                     try{
+                                        ttsDownloading.set(true)
                                         premiumPcm?.invoke(text,{
                                             !stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)&&currentTurnEpoch.get()==epoch
                                         }){chunk->
                                             if(!stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)&&currentTurnEpoch.get()==epoch){
+                                                ttsDownloading.set(false)
                                                 val pcm=resampler.convert(chunk)
                                                 if(pcm.isNotEmpty()){
                                                     item.chunks.trySend(pcm)
@@ -598,6 +631,7 @@ internal class MobileLiveCall(
                                     }catch(t:Throwable){
                                         item.error=t
                                     }finally{
+                                        ttsDownloading.set(false)
                                         item.chunks.close()
                                     }
                                 }
@@ -639,6 +673,7 @@ internal class MobileLiveCall(
                     for(pcm in item.chunks){
                         if(!playbackGen.isCurrent(item.turn) || item.epoch != currentTurnEpoch.get() || stopped.get() || googleVoiceFallback.get())break
                         started=true
+                        greetingFinished.set(true)
                         enqueueDownlinkPcm(item.turn,pcm)
                         phraseBuffer.write(pcm)
                     }
@@ -714,7 +749,7 @@ internal class MobileLiveCall(
                     "\n\nتفاصيل الإبلاغ:\n" + manager
                 else session.getString("system_instruction")+buildIvrInstruction()+"\n\n"+style+
                     " التوصيفات بين قوسين (...) أو [...] إرشادات أداء صوتي غير منطوقة؛ لا تقرأها أبدًا."+
-                    " أقصى طول للرد جملة واحدة قصيرة وسؤال واحد فقط (15 إلى 20 كلمة بحد أقصى)، ثم اصمت فوراً واترك المتصل يتكلم."+
+                    " التزم تماماً بالشخصية والسيناريو والبديهة الذكية، ثم اصمت فوراً واترك المتصل يتكلم."+
                     " عند المقاطعة توقف فورًا، ولا تعيد الجملة الافتتاحية أو الجملة المقاطعة من البداية أبدًا؛ أجب مباشرة على كلام المتصل الأخير. " +
                     "تكيف مع جنس المتصل: ابدأ بصيغة المذكر ما لم تلاحظ أن المتصلة أنثى (من نبرتها أو كلامها أو قولها أنا بنت)، وفور أول إشارة لأنثى تحول فورًا لصيغة المؤنث واقفلها لنهاية المكالمة دون عودة للمذكر أبدًا. " +
                     "تذكر ما قاله المتصل واسمه وتقييمه عبر أدوار المكالمة ولا تكرر أسئلة مجابًا عنها. " +
@@ -732,6 +767,7 @@ internal class MobileLiveCall(
                 val generationConfig=JSONObject()
                     .put("responseModalities",org.json.JSONArray(listOf("AUDIO")))
                     .put("maxOutputTokens",maxOutTokens)
+                    .put("temperature", session.optDouble("temperature", 0.9))
                     .put("speechConfig",JSONObject().put("voiceConfig",JSONObject().put("prebuiltVoiceConfig",JSONObject().put("voiceName",settings.optString("voice","Aoede")))))
                 if(!cleanModel.contains("3.8-live",ignoreCase=true) && cleanModel.contains("2.5",ignoreCase=true))
                     generationConfig.put("thinkingConfig",JSONObject().put("thinkingBudget",0))
