@@ -20,6 +20,7 @@ internal object FishTtsFailover {
     fun label(reason:String):String = when(reason){
         "credit" -> "رصيد Fish Audio انتهى؛ تحويل صوت الإيجنت إلى Google Live داخل نفس المكالمة"
         "rate_limit" -> "Fish Audio مزدحم؛ تحويل الصوت إلى Google Live داخل نفس المكالمة"
+        "tts_timeout" -> "تأخر استجابة الصوت على الداتا؛ تحويل الصوت إلى Google Live المباشر داخل نفس المكالمة"
         else -> "صوت Fish Audio غير متاح؛ تحويل الإيجنت إلى Google Live داخل نفس المكالمة"
     }
 }

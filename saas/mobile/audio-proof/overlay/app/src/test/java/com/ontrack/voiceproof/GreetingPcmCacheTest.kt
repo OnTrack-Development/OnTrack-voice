@@ -61,4 +61,20 @@ class GreetingPcmCacheTest {
         assertNotNull(pcm)
         assertTrue(pcm!!.isNotEmpty())
     }
+
+    @Test
+    fun testSlotAndAgentFallback() {
+        val dummy = ByteArray(640) { 5 }
+        GreetingPcmCache.put(null, "agent_x", "v_y", "مرحبا بكم", dummy, slot = 0)
+        // Retrieve with exact match
+        assertNotNull(GreetingPcmCache.get(null, "agent_x", "v_y", "مرحبا بكم", 0))
+        // Retrieve with changed greeting text but same slot
+        val bySlot = GreetingPcmCache.get(null, "agent_diff", "v_diff", "", 0)
+        assertNotNull(bySlot)
+        assertArrayEquals(dummy, bySlot)
+        // Retrieve by agent alone
+        val byAgent = GreetingPcmCache.getBySlotOrAgent(null, -1, "agent_x")
+        assertNotNull(byAgent)
+        assertArrayEquals(dummy, byAgent)
+    }
 }

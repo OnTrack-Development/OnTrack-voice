@@ -76,7 +76,7 @@ class TenantDeviceEnrollment(private val context: Context) {
         // default 12s device API timeout. Other pairing/call control requests
         // remain short; only post-call analysis receives the longer timeout.
         val operation=body.optString("operation")
-        val transport=when(operation){
+        val baseTransport=when(operation){
             "workspace_call_analysis" ->
                 client.newBuilder().readTimeout(155,TimeUnit.SECONDS).build()
             // 3G/H/H+ radio switching during a live SIM call can exceed the
@@ -89,6 +89,7 @@ class TenantDeviceEnrollment(private val context: Context) {
                     .callTimeout(16,TimeUnit.SECONDS).build()
             else->client
         }
+        val transport = CellularRadioStatus.bindOkHttpClientToCellularIfNeeded(context, baseTransport)
         transport.newCall(req).execute().use { response ->
             val raw=response.body?.string().orEmpty()
             check(raw.length<=maxResponse) { "استجابة السيرفر غير صالحة" }
@@ -309,9 +310,10 @@ class TenantDeviceEnrollment(private val context: Context) {
             .post(JSONObject().put("text",phrase).toString()
                 .toRequestBody("application/json".toMediaType())).build()
         val isCellular = runCatching { CellularRadioStatus.isCellularLink(context) }.getOrDefault(false)
-        val streamClient=client.newBuilder()
-            .connectTimeout(if(isCellular) 2500L else 5000L, TimeUnit.MILLISECONDS)
-            .readTimeout(25,TimeUnit.SECONDS).build()
+        val baseStreamClient = client.newBuilder()
+            .connectTimeout(if(isCellular) 2000L else 5000L, TimeUnit.MILLISECONDS)
+            .readTimeout(20,TimeUnit.SECONDS).build()
+        val streamClient = CellularRadioStatus.bindOkHttpClientToCellularIfNeeded(context, baseStreamClient)
         try {
             val call = streamClient.newCall(req)
             call.execute().use{response->
@@ -337,7 +339,7 @@ class TenantDeviceEnrollment(private val context: Context) {
                 var total=0
                 val startTime = SystemClock.elapsedRealtime()
                 while(shouldContinue()){
-                    if (total == 0 && isCellular && SystemClock.elapsedRealtime() - startTime > 2500L) {
+                    if (total == 0 && isCellular && SystemClock.elapsedRealtime() - startTime > 2000L) {
                         call.cancel()
                         throw FishTtsFailoverException("tts_timeout")
                     }

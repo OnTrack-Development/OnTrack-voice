@@ -45,10 +45,10 @@ class CellularCallRecoveryPolicyTest {
     }
 
     @Test fun cellularRecoveryIsFiniteAndWaitsBetweenAttempts() {
-        assertEquals(6,CellularCallRecoveryPolicy.MAX_VOICE_START_ATTEMPTS)
+        assertEquals(12,CellularCallRecoveryPolicy.MAX_VOICE_START_ATTEMPTS)
         assertEquals(3,CellularCallRecoveryPolicy.MAX_AUTO_ANSWER_ATTEMPTS)
-        assertEquals(2000L,CellularCallRecoveryPolicy.retryDelayMs(1))
-        assertEquals(12000L,CellularCallRecoveryPolicy.retryDelayMs(6))
+        assertEquals(1000L,CellularCallRecoveryPolicy.retryDelayMs(1))
+        assertEquals(1000L,CellularCallRecoveryPolicy.retryDelayMs(6))
         assertEquals(900L,CellularCallRecoveryPolicy.answerRetryDelayMs(1))
         assertEquals(2700L,CellularCallRecoveryPolicy.answerRetryDelayMs(3))
     }

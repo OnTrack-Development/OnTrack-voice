@@ -38,7 +38,7 @@ internal class MobileLiveCall(
     private val stopped=AtomicBoolean(false)
     private val firstTurnDispatched=AtomicBoolean(false)
     @Volatile private var remoteSpeechConfirmed=!outgoingCall
-    private val ready=CompletableDeferred<Unit>()
+    @Volatile private var ready=CompletableDeferred<Unit>()
     private val callCoroutineGuard=CoroutineExceptionHandler { _, throwable ->
         if(throwable !is CancellationException){
             val detail=throwable.message.orEmpty().ifBlank{throwable.javaClass.simpleName}.take(110)
@@ -92,10 +92,8 @@ internal class MobileLiveCall(
     private val premiumInput=Channel<ByteArray>(32)
     private var premiumSpeaker:Job?=null
     private var premiumSender:Job?=null
-    private val greetingFinished = java.util.concurrent.atomic.AtomicBoolean(false)
-    private val ttsDownloading = java.util.concurrent.atomic.AtomicBoolean(false)
-    private val lastCallerSpeechAtMs = java.util.concurrent.atomic.AtomicLong(0L)
-    private val lastKeepAliveUplinkMs = java.util.concurrent.atomic.AtomicLong(0L)
+    private fun resolveActiveClient(): OkHttpClient =
+        CellularRadioStatus.bindOkHttpClientToCellularIfNeeded(context, client)
     @Volatile private var socketReady=false
     @Volatile private var resumeHandle:String?=null
     // The same SIM call may continue through a NEW Google key, but the old
@@ -292,37 +290,7 @@ internal class MobileLiveCall(
                             }
                             lastSocketWasReady=true
                             val onCell=isCellularLink()
-
-                            // Uplink Gate:
-                            // 1) Do not push mic PCM before greeting completes or until caller starts speaking!
-                            if (!greetingFinished.get() && (firstTurnDispatched.get() || outgoingCall)) {
-                                if (capNow - callStartElapsedMs < 4000L) {
-                                    continue
-                                } else {
-                                    greetingFinished.set(true)
-                                }
-                            }
-
-                            // 2) On cellular links (3G / H / 4G), pause uplink PCM during active TTS chunk download
-                            if (onCell && ttsDownloading.get()) {
-                                continue
-                            }
-
-                            // 3) Local RMS Noise Gate on cellular data:
-                            val rms = AudioSignalProcessing.calculateRms(mono)
-                            if (rms >= 350.0) {
-                                lastCallerSpeechAtMs.set(capNow)
-                            }
-                            val callerSilent = onCell && (capNow - lastCallerSpeechAtMs.get() > 600L) && (rms < 350.0)
-                            if (callerSilent) {
-                                if (capNow - lastKeepAliveUplinkMs.get() < 1200L) {
-                                    continue
-                                }
-                                lastKeepAliveUplinkMs.set(capNow)
-                            }
-
-                            val targetBytes=UplinkAudioFrameBuffer.targetBytes(onCell,slowCellularLink)
-                            val frames=uplinkBuffer.push(mono,targetBytes)
+                            val frames=uplinkBuffer.push(mono,UplinkAudioFrameBuffer.FAST_FRAME_BYTES)
                             val socket=ws
                             for(frame in frames) {
                                 if(premium) {
@@ -377,6 +345,37 @@ internal class MobileLiveCall(
             // acknowledgement. Frames recorded while Google is connecting
             // are discarded, never buffered and replayed as stale caller audio.
             netConnectStartMs=SystemClock.elapsedRealtime()
+
+            val agentName=session.optString("agent_name","مساعد IO Voice").trim().ifBlank{"مساعد IO Voice"}
+            val scenarioMode=settings.optString("scenario_mode","builder")
+            val responseStyle=settings.optString("response_style","egyptian_short")
+            val ivrEnabled=settings.optBoolean("ivr_enabled",session.optBoolean("ivr_enabled",false))
+            val ivrGreeting=settings.optString("ivr_greeting",session.optString("ivr_greeting","")).trim()
+            val agentGreeting=settings.optString("greeting",session.optString("greeting","")).trim()
+            val manager=settings.optString("manager_briefing","").trim()
+            val staticGreeting=if(manager.isNotBlank()) ""
+                else if(ivrEnabled && ivrGreeting.isNotBlank()) ivrGreeting
+                else if(agentGreeting.isNotBlank()) agentGreeting
+                else ""
+            val agentId=session.optString("agent_id","")
+            val voice=session.optString("voice","")
+            val simSlot=session.optInt("sim_slot",-1)
+            var prePlayedGreeting=false
+            if(OutboundFirstTurn.sendInitialGreeting(outgoingCall) && firstTurnDispatched.compareAndSet(false,true)) {
+                val cachedPcm=if(staticGreeting.isNotBlank()) {
+                    GreetingPcmCache.get(context,agentId,voice,staticGreeting,simSlot)
+                        ?: GreetingPcmCache.getBySlotOrAgent(context,simSlot,agentId)
+                } else {
+                    GreetingPcmCache.getBySlotOrAgent(context,simSlot,agentId)
+                }
+                if(cachedPcm!=null && cachedPcm.isNotEmpty()){
+                    safeNotice("تشغيل رسالة الترحيب الفورية (< 50ms) من الكاش المحلي")
+                    val turnGen=playbackGen.current()
+                    enqueueDownlinkPcm(turnGen,cachedPcm)
+                    prePlayedGreeting=true
+                }
+            }
+
             if(premium){
                 startOfficialPremium()
             }else openSocket()
@@ -397,26 +396,7 @@ internal class MobileLiveCall(
                         if(dropped>0) "؛ تم تجاوز $dropped حزمة صوت متأخرة بسبب ازدحام الشبكة" else "")
                 }
             }
-        val agentName=session.optString("agent_name","مساعد IO Voice").trim().ifBlank{"مساعد IO Voice"}
-        val scenarioMode=settings.optString("scenario_mode","builder")
-        val responseStyle=settings.optString("response_style","egyptian_short")
-        val ivrEnabled=settings.optBoolean("ivr_enabled",session.optBoolean("ivr_enabled",false))
-        val ivrGreeting=settings.optString("ivr_greeting",session.optString("ivr_greeting","")).trim()
-        val agentGreeting=settings.optString("greeting",session.optString("greeting","")).trim()
-        if(OutboundFirstTurn.sendInitialGreeting(outgoingCall) && firstTurnDispatched.compareAndSet(false,true)) {
-            val manager=settings.optString("manager_briefing","").trim()
-            val staticGreeting=if(manager.isNotBlank()) ""
-                else if(ivrEnabled && ivrGreeting.isNotBlank()) ivrGreeting
-                else if(agentGreeting.isNotBlank()) agentGreeting
-                else ""
-            val agentId=session.optString("agent_id","")
-            val voice=session.optString("voice","")
-            val cachedPcm=if(staticGreeting.isNotBlank()) GreetingPcmCache.get(context,agentId,voice,staticGreeting) else null
-            if(cachedPcm!=null && cachedPcm.isNotEmpty()){
-                safeNotice("تشغيل رسالة الترحيب الفورية (< 50ms) من الكاش المحلي")
-                val turnGen=playbackGen.current()
-                enqueueDownlinkPcm(turnGen,cachedPcm)
-                greetingFinished.set(true)
+            if(prePlayedGreeting){
                 val noticePrompt="تم نطق رسالة الترحيب التالية للمتصل فور فتح الخط: «$staticGreeting». لا تكرر الترحيب أبداً. استمع لرد المتصل وأجب عليه مباشرة عند انتهاء كلامه."
                 if(premium){
                     scope.launch(Dispatchers.IO+callCoroutineGuard){runCatching{official?.sendClientContent(noticePrompt, turnComplete=true)}}
@@ -428,7 +408,7 @@ internal class MobileLiveCall(
                             .put("turnComplete",true)).toString())
                     }
                 }
-            } else {
+            } else if(OutboundFirstTurn.sendInitialGreeting(outgoingCall) && firstTurnDispatched.compareAndSet(false,true)) {
                 val prompt=if(manager.isNotBlank())
                     "هذه مكالمة متابعة للمدير. انتظر حتى يرد الطرف الآخر واطلب تأكيد أنه المسؤول، " +
                     "وبعد التأكيد أخبره بسبب طلب الموظف وملخص المكالمة الآتي بهدوء. " +
@@ -448,7 +428,6 @@ internal class MobileLiveCall(
                     }
                 }
             }
-        }
             // The server setup must succeed before the overlay enables takeover.
             safeNotice("قناة PCM متصلة والإيجنت جاهز — اختبار صوت الطرفين على الهاتف مطلوب")
         } catch(error:Throwable) {
@@ -585,7 +564,7 @@ internal class MobileLiveCall(
                 buildIvrInstruction()+
                 "\n\nتكيف مع جنس المتصل: ابدأ بصيغة المذكر ما لم تلاحظ أن المتصلة أنثى (من نبرتها أو كلامها أو قولها أنا بنت)، وفور أول إشارة لأنثى تحول فورًا لصيغة المؤنث واقفلها لنهاية المكالمة دون عودة للمذكر أبدًا. "+
                 "تذكر ما قاله المتصل واسمه وتقييمه عبر أدوار المكالمة ولا تكرر أسئلة مجابًا عنها."
-            val sdk=PremiumOfficialLive(scope,client,session.getString("token"),
+            val sdk=PremiumOfficialLive(scope,resolveActiveClient(),session.getString("token"),
                 session.getString("model"),baseInstruction,
                 caller={spoken->
                     runCatching {
@@ -616,22 +595,21 @@ internal class MobileLiveCall(
                                 val job=scope.launch(Dispatchers.IO+callCoroutineGuard){
                                     val resampler=PremiumPcm(24000)
                                     try{
-                                        ttsDownloading.set(true)
-                                        premiumPcm?.invoke(text,{
-                                            !stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)&&currentTurnEpoch.get()==epoch
-                                        }){chunk->
-                                            if(!stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)&&currentTurnEpoch.get()==epoch){
-                                                ttsDownloading.set(false)
-                                                val pcm=resampler.convert(chunk)
-                                                if(pcm.isNotEmpty()){
-                                                    item.chunks.trySend(pcm)
+                                        withTimeout(if(isCellularLink()) 2000L else 5000L) {
+                                            premiumPcm?.invoke(text,{
+                                                !stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)&&currentTurnEpoch.get()==epoch
+                                            }){chunk->
+                                                if(!stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)&&currentTurnEpoch.get()==epoch){
+                                                    val pcm=resampler.convert(chunk)
+                                                    if(pcm.isNotEmpty()){
+                                                        item.chunks.trySend(pcm)
+                                                    }
                                                 }
                                             }
                                         }
                                     }catch(t:Throwable){
                                         item.error=t
                                     }finally{
-                                        ttsDownloading.set(false)
                                         item.chunks.close()
                                     }
                                 }
@@ -673,20 +651,20 @@ internal class MobileLiveCall(
                     for(pcm in item.chunks){
                         if(!playbackGen.isCurrent(item.turn) || item.epoch != currentTurnEpoch.get() || stopped.get() || googleVoiceFallback.get())break
                         started=true
-                        greetingFinished.set(true)
                         enqueueDownlinkPcm(item.turn,pcm)
                         phraseBuffer.write(pcm)
                     }
                     if(started && !stopped.get() && playbackGen.isCurrent(item.turn) && item.epoch == currentTurnEpoch.get()){
                         val agentId=session.optString("agent_id","")
                         val voice=session.optString("voice","")
+                        val simSlot=session.optInt("sim_slot",-1)
                         val ivrGreeting=settings.optString("ivr_greeting",session.optString("ivr_greeting","")).trim()
                         val staticGreeting=if(settings.optBoolean("ivr_enabled",false)&&ivrGreeting.isNotBlank()) ivrGreeting
                             else settings.optString("greeting",session.optString("greeting","")).trim()
-                        if(staticGreeting.isNotBlank() && item.text.trim()==staticGreeting && !GreetingPcmCache.has(context,agentId,voice,staticGreeting)){
+                        if(staticGreeting.isNotBlank() && item.text.trim()==staticGreeting && !GreetingPcmCache.has(context,agentId,voice,staticGreeting,simSlot)){
                             val fullBytes=phraseBuffer.toByteArray()
                             if(fullBytes.isNotEmpty()){
-                                GreetingPcmCache.put(context,agentId,voice,staticGreeting,fullBytes)
+                                GreetingPcmCache.put(context,agentId,voice,staticGreeting,fullBytes,simSlot)
                             }
                         }
                     }
@@ -694,7 +672,9 @@ internal class MobileLiveCall(
                         if(stopped.get() || e is CancellationException)return@let
                         if(googleVoiceFallback.compareAndSet(false,true)){
                             flushAudioGeneration()
-                            val cause = if(e is FishTtsFailoverException) e.causeCode else "provider_error"
+                            val cause = if(e is FishTtsFailoverException) e.causeCode
+                                else if(e is TimeoutCancellationException) "tts_timeout"
+                                else "provider_error"
                             val message=FishTtsFailover.label(cause)
                             safeNotice(message)
                             safeDiagnostics(message)
@@ -726,7 +706,7 @@ internal class MobileLiveCall(
         netConnectStartMs=SystemClock.elapsedRealtime()
         val handle=resumeHandle
         runCatching{ws?.close(1000,"superseded")}
-        ws=runCatching{client.newWebSocket(Request.Builder().url(liveUrl).build(),object:WebSocketListener(){
+        ws=runCatching{resolveActiveClient().newWebSocket(Request.Builder().url(liveUrl).build(),object:WebSocketListener(){
             override fun onOpen(webSocket:WebSocket,response:Response) {
                 if(stopped.get() || webSocket!==ws)return
                 try {

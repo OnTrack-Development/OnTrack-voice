@@ -397,13 +397,23 @@ class MobileLinkService:Service() {
      * Never use a Wi-Fi-only precondition for already answered SIM calls.
      */
     private fun internetAvailableForRetry():Boolean = runCatching {
-        val cm=connectivity?:getSystemService(ConnectivityManager::class.java)
-        val caps=cm?.activeNetwork?.let { cm.getNetworkCapabilities(it) }
+        val cm=connectivity?:getSystemService(ConnectivityManager::class.java) ?: return@runCatching false
+        val activeNet=cm.activeNetwork
+        val caps=if(activeNet!=null) cm.getNetworkCapabilities(activeNet) else null
+        if(caps!=null && CellularCallRecoveryPolicy.mayRetryLive(
+            defaultNetworkPresent=true,
+            internetCapability=caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+            validated=caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+            cellularTransport=caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+        )) return@runCatching true
+
+        val cellNet=CellularRadioStatus.getActiveCellularNetwork(this) ?: return@runCatching false
+        val cellCaps=cm.getNetworkCapabilities(cellNet) ?: return@runCatching false
         CellularCallRecoveryPolicy.mayRetryLive(
-            defaultNetworkPresent=caps!=null,
-            internetCapability=caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)==true,
-            validated=caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)==true,
-            cellularTransport=caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)==true
+            defaultNetworkPresent=true,
+            internetCapability=cellCaps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+            validated=cellCaps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+            cellularTransport=true
         )
     }.getOrDefault(false)
     private fun clearCallAudioStages() {

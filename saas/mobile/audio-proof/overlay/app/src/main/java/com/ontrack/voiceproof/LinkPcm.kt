@@ -16,7 +16,7 @@ import java.io.ByteArrayOutputStream
  *  absorb radio jitter without dropping whole words. Wi-Fi remains 192 KiB.
  */
 internal object LiveAudioQueuePolicy {
-    const val CELLULAR_MAX_PENDING_BYTES = 32L * 1024 // 32 KiB cap for mobile data
+    const val CELLULAR_MAX_PENDING_BYTES = 64L * 1024 // 64 KiB cap for mobile data
     const val OTHER_MAX_PENDING_BYTES = 192L * 1024
 
     fun canSend(cellular: Boolean, pendingBytes: Long): Boolean {
@@ -185,14 +185,10 @@ internal class UplinkAudioFrameBuffer {
 
     companion object {
         const val FAST_FRAME_BYTES = 640 // 20ms @ 16kHz 16-bit mono
-        const val CELLULAR_FRAME_BYTES = 1920 // 60ms @ 16kHz 16-bit mono
-        const val SLOW_CELLULAR_FRAME_BYTES = 2560 // 80ms @ 16kHz 16-bit mono (for 3G/H)
+        const val CELLULAR_FRAME_BYTES = 640 // Unified 20ms continuous streaming with Wi-Fi
+        const val SLOW_CELLULAR_FRAME_BYTES = 640 // Unified 20ms continuous streaming
 
-        fun targetBytes(cellular: Boolean, slowCellular: Boolean): Int = when {
-            cellular && slowCellular -> SLOW_CELLULAR_FRAME_BYTES
-            cellular -> CELLULAR_FRAME_BYTES
-            else -> FAST_FRAME_BYTES
-        }
+        fun targetBytes(cellular: Boolean = false, slowCellular: Boolean = false): Int = FAST_FRAME_BYTES
     }
 }
 

@@ -7,7 +7,7 @@ package com.ontrack.voiceproof
  * with no active network, or after explicit human takeover.
  */
 internal object CellularCallRecoveryPolicy {
-    const val MAX_VOICE_START_ATTEMPTS = 6
+    const val MAX_VOICE_START_ATTEMPTS = 12
     const val MAX_AUTO_ANSWER_ATTEMPTS = 3
 
     fun mayRetryLive(
@@ -27,8 +27,7 @@ internal object CellularCallRecoveryPolicy {
         pcmActive:Boolean, attempts:Int,
     ):Boolean = offhook && enabled && !humanControl && !pcmActive && attempts>0
 
-    fun retryDelayMs(attempts:Int):Long =
-        (2000L * attempts.coerceIn(1,6)).coerceAtMost(12000L)
+    fun retryDelayMs(attempts:Int):Long = 1000L
 
     fun autoAnswerRetryAllowed(
         ringing:Boolean,
