@@ -345,8 +345,7 @@ class LiveIssuesFixTest extends TestCase
         $this->actingAs($admin)
             ->get('/?tab=overview')
             ->assertOk()
-            ->assertSee('إدارة الوكلاء (Reseller)')
-            ->assertSee('إدارة المنصة (Administration)')
+            ->assertSee('الحسابات والريسيلرز')
             ->assertSee('Delta Child Clinic');
 
         $this->actingAs($admin)->get('/?tab=platform-ai')->assertOk();
@@ -372,7 +371,7 @@ class LiveIssuesFixTest extends TestCase
         $this->actingAs($resellerUser)
             ->get('/?tab=overview')
             ->assertOk()
-            ->assertSee('إدارة الوكلاء (Reseller)')
+            ->assertSee('العملاء التابعون')
             ->assertDontSee('إدارة المنصة (Administration)');
 
         $this->actingAs($resellerUser)->get('/?tab=platform-ai')->assertStatus(403);
@@ -403,7 +402,8 @@ class LiveIssuesFixTest extends TestCase
         $this->actingAs($customerUser)
             ->get('/?tab=overview')
             ->assertOk()
-            ->assertDontSee('إدارة الوكلاء (Reseller)')
+            ->assertDontSee('الحسابات والريسيلرز')
+            ->assertDontSee('عملاء الريسيلر')
             ->assertDontSee('إدارة المنصة (Administration)');
 
         $this->actingAs($customerUser)->get('/?tab=reseller-tenants')->assertStatus(403);

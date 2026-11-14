@@ -14,6 +14,8 @@ header('Cache-Control: no-store, max-age=0');
 header('X-Content-Type-Options: nosniff');
 header('X-Accel-Buffering: no');
 header('Referrer-Policy: no-referrer');
+header('Connection: keep-alive');
+header('Keep-Alive: timeout=30, max=1000');
 function io_premium_error(int $http,string $code):never {
     http_response_code($http);
     header('Content-Type: application/json; charset=utf-8');
@@ -41,11 +43,6 @@ $text=is_array($body)&&is_string($body['text']??null)?trim($body['text']):'';
 if($text===''||mb_strlen($text)>400||strlen($text)>1600)
     io_premium_error(422,'invalid_premium_text');
 try {
-    init_schema();
-    $binding=device_binding_authorize(substr($auth,7));
-    if(!$binding)io_premium_error(401,'device_not_authorized');
-    device_binding_heartbeat($binding);
-    // The heartbeat returns a public profile, not the authorization row.
     $binding=device_binding_authorize(substr($auth,7));
     if(!$binding)io_premium_error(401,'device_not_authorized');
     if(!tenant_voice_entitled($binding))io_premium_error(403,'voice_subscription_inactive');
@@ -94,11 +91,11 @@ $upstreamStatus=502;
 $started=false;
 $sent=0;
 $errorBody='';
-$maxAudioBytes=44100*2*55; // upper bound per short TTS phrase
-// Fish PCM is headerless, signed 16-bit mono; fixed 44.1kHz.
+$maxAudioBytes=48000*2*55; // upper bound per short TTS phrase
+// Fish PCM is headerless, signed 16-bit mono; direct 48kHz.
 $payload=json_encode([
     'text'=>$text,'reference_id'=>$voice,'format'=>'pcm',
-    'sample_rate'=>44100,'streaming'=>true,'latency'=>'low'
+    'sample_rate'=>48000,'streaming'=>true,'latency'=>'low'
 ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
 @ini_set('output_buffering','off');
 @ini_set('zlib.output_compression','0');
@@ -136,7 +133,7 @@ curl_setopt_array($curl,[
         if(!$started){
             http_response_code(200);
             header('Content-Type: application/octet-stream');
-            header('X-PCM-Sample-Rate: 44100');
+            header('X-PCM-Sample-Rate: 48000');
             header('X-PCM-Channels: 1');
             header('X-PCM-Format: s16le');
             $started=true;

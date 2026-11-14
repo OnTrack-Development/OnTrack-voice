@@ -286,7 +286,8 @@ class TenantDeviceEnrollment(private val context: Context) {
                     // or changed published agent never bypasses authorization.
                     error("IO Premium HTTP " + response.code + " " + code.take(64))
                 }
-                if(response.header("X-PCM-Sample-Rate")!="44100" ||
+                val rate = response.header("X-PCM-Sample-Rate")?.toIntOrNull() ?: 48000
+                if(rate !in setOf(24000, 44100, 48000) ||
                     response.header("X-PCM-Channels")!="1" ||
                     response.header("X-PCM-Format")!="s16le") {
                     throw FishTtsFailoverException("tts_failed")
@@ -299,7 +300,7 @@ class TenantDeviceEnrollment(private val context: Context) {
                     if(size<0)break
                     if(size==0)continue
                     total+=size
-                    check(total<44100*2*55){"IO Premium: الصوت أطول من الحد"}
+                    check(total<48000*2*55){"IO Premium: الصوت أطول من الحد"}
                     onChunk(chunk.copyOf(size))
                 }
                 if(shouldContinue()&&total==0)throw FishTtsFailoverException("tts_failed")

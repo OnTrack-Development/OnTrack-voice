@@ -16,7 +16,7 @@ import java.io.ByteArrayOutputStream
  *  absorb radio jitter without dropping whole words. Wi-Fi remains 192 KiB.
  */
 internal object LiveAudioQueuePolicy {
-    const val CELLULAR_MAX_PENDING_BYTES = 64L * 1024
+    const val CELLULAR_MAX_PENDING_BYTES = 32L * 1024 // 32 KiB cap for mobile data
     const val OTHER_MAX_PENDING_BYTES = 192L * 1024
 
     fun canSend(cellular: Boolean, pendingBytes: Long): Boolean {

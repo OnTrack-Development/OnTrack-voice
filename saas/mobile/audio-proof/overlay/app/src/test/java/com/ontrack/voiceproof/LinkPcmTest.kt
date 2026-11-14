@@ -16,10 +16,10 @@ class LinkPcmTest {
     }
     @Test fun cellularBacklogDropsStaleFramesWhileWifiKeepsExistingLimit() {
         assertTrue(LiveAudioQueuePolicy.canSend(true, 0))
-        assertTrue(LiveAudioQueuePolicy.canSend(true, 24L * 1024))
-        assertTrue(LiveAudioQueuePolicy.canSend(true, 64L * 1024 - 1))
+        assertTrue(LiveAudioQueuePolicy.canSend(true, 16L * 1024))
+        assertTrue(LiveAudioQueuePolicy.canSend(true, 32L * 1024 - 1))
+        assertFalse(LiveAudioQueuePolicy.canSend(true, 32L * 1024))
         assertFalse(LiveAudioQueuePolicy.canSend(true, 64L * 1024))
-        assertFalse(LiveAudioQueuePolicy.canSend(true, 96L * 1024))
         assertFalse(LiveAudioQueuePolicy.canSend(true, 192L * 1024))
         assertTrue(LiveAudioQueuePolicy.canSend(false, 48L * 1024))
         assertTrue(LiveAudioQueuePolicy.canSend(false, 192L * 1024 - 1))

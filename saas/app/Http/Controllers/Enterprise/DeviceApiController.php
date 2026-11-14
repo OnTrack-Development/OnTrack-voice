@@ -672,6 +672,8 @@ class DeviceApiController extends Controller
             'X-Content-Type-Options' => 'nosniff',
             'X-Accel-Buffering' => 'no',
             'Referrer-Policy' => 'no-referrer',
+            'Connection' => 'keep-alive',
+            'Keep-Alive' => 'timeout=30, max=1000',
         ];
 
         if ($request->method() !== 'POST') {
@@ -707,11 +709,6 @@ class DeviceApiController extends Controller
         if (! $binding) {
             return $this->deviceJson(['ok' => false, 'error' => 'device_not_authorized'], 401, $headers);
         }
-        $this->pairing->heartbeat($binding);
-        $binding = $this->pairing->authorizeBearer($auth);
-        if (! $binding) {
-            return $this->deviceJson(['ok' => false, 'error' => 'device_not_authorized'], 401, $headers);
-        }
 
         try {
             $cfg = $this->voiceSession->resolveFishTtsConfig($binding);
@@ -737,7 +734,7 @@ class DeviceApiController extends Controller
             'text' => $text,
             'reference_id' => $cfg['reference_id'],
             'format' => 'pcm',
-            'sample_rate' => 44100,
+            'sample_rate' => 48000,
             'streaming' => true,
             'latency' => 'low',
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
@@ -759,7 +756,7 @@ class DeviceApiController extends Controller
         $firstBuffer = '';
         $errorBody = '';
         $sent = 0;
-        $maxAudioBytes = 44100 * 2 * 55;
+        $maxAudioBytes = 48000 * 2 * 55;
         $firstChunkReady = false;
 
         curl_setopt_array($ch, [
@@ -883,7 +880,7 @@ class DeviceApiController extends Controller
             }
         }, 200, $headers + [
             'Content-Type' => 'application/octet-stream',
-            'X-PCM-Sample-Rate' => '44100',
+            'X-PCM-Sample-Rate' => '48000',
             'X-PCM-Channels' => '1',
             'X-PCM-Format' => 's16le',
         ]);

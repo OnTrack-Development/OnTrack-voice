@@ -311,7 +311,7 @@ class VoiceCatalogService
             'text' => 'أهلاً بيك.',
             'reference_id' => $voiceId,
             'format' => 'pcm',
-            'sample_rate' => 44100,
+            'sample_rate' => 48000,
             'streaming' => true,
             'latency' => 'low',
         ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);

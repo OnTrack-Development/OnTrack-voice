@@ -216,15 +216,20 @@ internal class PremiumOfficialLive(
     }
     // A live 3G/HSPA call may be slower than the initial 25-second LTE path.
     suspend fun awaitConnected(){withTimeout(35000){ready.await()}}
-    suspend fun pushPcm(bytes:ByteArray){
-        if(stopped.get() || !ready.isCompleted || bytes.isEmpty())return
+    val queueSize:Long get()=socket?.queueSize()?:0L
+    suspend fun pushPcm(bytes:ByteArray, cellular:Boolean=false):Boolean{
+        if(stopped.get() || !ready.isCompleted || bytes.isEmpty())return false
+        val s=socket?:return false
+        if(!LiveAudioQueuePolicy.canSend(cellular, s.queueSize()))return false
         try {
             val audio=JSONObject().put("mimeType","audio/pcm;rate=16000")
                 .put("data",Base64.encodeToString(bytes,Base64.NO_WRAP))
-            if(socket?.send(JSONObject().put("realtimeInput",JSONObject().put("audio",audio)).toString())!=true)
-                failure("premium_live_audio_send_failed")
+            if(s.send(JSONObject().put("realtimeInput",JSONObject().put("audio",audio)).toString())) return true
+            failure("premium_live_audio_send_failed")
+            return false
         } catch(t:Throwable) {
             failure("premium_live_audio_"+t.javaClass.simpleName)
+            return false
         }
     }
     suspend fun prompt(text:String){

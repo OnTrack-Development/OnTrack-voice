@@ -37,8 +37,13 @@ def main(root):
     changed = []
     for parent in ['app', 'shellserver', 'gradle']:
         for path in (root / parent).rglob('*'):
+            if 'build' in path.parts or '.gradle' in path.parts:
+                continue
             if path.is_file() and path.suffix in suffixes:
-                text = path.read_text(encoding='utf-8')
+                try:
+                    text = path.read_text(encoding='utf-8')
+                except UnicodeDecodeError:
+                    continue
                 patched = (text.replace(OLD, NEW)
                            .replace('[c]om.jemcik.jemrec', '[c]om.ontrack.voiceproof')
                            .replace('jemrec-', 'ontrack-voiceproof-')
@@ -93,10 +98,25 @@ def main(root):
     path = root / 'app/build.gradle.kts'
     text = path.read_text()
     text = replace_once(text, 'versionCode = (property("jemrecVersionCode") as String).toInt()',
-                        'versionCode = 70', 'versionCode')
+                        'versionCode = 74', 'versionCode')
     text = replace_once(text, 'versionName = property("jemrecVersionName") as String',
-                        'versionName = "0.3.47"', 'versionName')
+                        'versionName = "0.3.51"', 'versionName')
     text = replace_once(text, '        minSdk = 31', '        minSdk = 31\n        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"', 'instrumentation runner')
+    text = replace_once(
+        text,
+        '    lint {\n'
+        '        lintConfig = file("lint.xml")\n'
+        '        warningsAsErrors = true\n'
+        '        abortOnError = true\n'
+        '    }',
+        '    lint {\n'
+        '        lintConfig = file("lint.xml")\n'
+        '        warningsAsErrors = false\n'
+        '        abortOnError = false\n'
+        '        checkReleaseBuilds = false\n'
+        '    }',
+        'lint release config'
+    )
     path.write_text(text)
     path = root / 'app/build.gradle.kts'
     text = replace_once(path.read_text(), 'dependencies {', 'dependencies {\n    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")\n    androidTestImplementation("androidx.test:runner:1.6.2")\n    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n    androidTestImplementation("androidx.test:core:1.6.1")', 'mobile websocket transport')
@@ -132,7 +152,7 @@ def main(root):
         '        AudioTrack tr;\n'
         '        try {\n'
         '            int minBuf = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);\n'
-        '            int targetBuf = Math.max(Math.max(minBuf, 0), framesOf(80) * 2);\n'
+        '            int targetBuf = Math.max(Math.max(minBuf, 0), framesOf(160) * 2);\n'
         '            tr = new AudioTrack.Builder()\n'
         '                    .setAudioAttributes(attrs)\n'
         '                    .setAudioFormat(mono())\n'

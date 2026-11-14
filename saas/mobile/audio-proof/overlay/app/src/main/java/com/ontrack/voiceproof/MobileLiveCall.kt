@@ -77,7 +77,13 @@ internal class MobileLiveCall(
     private val premium=session.optString("voice_engine")=="official_google_live_fish_pcm"
     private var official:PremiumOfficialLive?=null
     private val googleVoiceFallback=AtomicBoolean(false)
-    private val premiumPhrases=Channel<Pair<Int,String>>(64)
+    private class PrefetchedPhrase(
+        val turn: Int,
+        val text: String,
+        val chunks: Channel<ByteArray> = Channel(Channel.UNLIMITED),
+        @Volatile var error: Throwable? = null
+    )
+    private val prefetchedPhrases=Channel<PrefetchedPhrase>(64)
     private val premiumInput=Channel<ByteArray>(32)
     private var premiumSpeaker:Job?=null
     private var premiumSender:Job?=null
@@ -282,12 +288,16 @@ internal class MobileLiveCall(
                             val socket=ws
                             for(frame in frames) {
                                 if(premium) {
-                                    if(socketReady && !premiumInput.trySend(frame).isSuccess){
+                                    val qSize = official?.queueSize ?: 0L
+                                    val canSend = socketReady && LiveAudioQueuePolicy.canSend(onCell, qSize)
+                                    if(canSend && premiumInput.trySend(frame).isSuccess){
+                                        if(firstUplinkSentAtMs==0L){
+                                            firstUplinkSentAtMs=capNow
+                                            if(callStartElapsedMs>0L)telemetry.recordFirstAudioInput(capNow-callStartElapsedMs)
+                                        }
+                                    }else if(socketReady){
                                         skippedUplinkPackets.incrementAndGet()
                                         telemetry.recordNetworkUplinkSkip()
-                                    }else if(firstUplinkSentAtMs==0L){
-                                        firstUplinkSentAtMs=capNow
-                                        if(callStartElapsedMs>0L)telemetry.recordFirstAudioInput(capNow-callStartElapsedMs)
                                     }
                                 }else if(socketReady && socket!=null &&
                                     LiveAudioQueuePolicy.canSend(onCell,socket.queueSize())) {
@@ -354,27 +364,52 @@ internal class MobileLiveCall(
         val responseStyle=settings.optString("response_style","egyptian_short")
         val ivrEnabled=settings.optBoolean("ivr_enabled",session.optBoolean("ivr_enabled",false))
         val ivrGreeting=settings.optString("ivr_greeting",session.optString("ivr_greeting","")).trim()
+        val agentGreeting=settings.optString("greeting",session.optString("greeting","")).trim()
         if(OutboundFirstTurn.sendInitialGreeting(outgoingCall) && firstTurnDispatched.compareAndSet(false,true)) {
             val manager=settings.optString("manager_briefing","").trim()
-            val prompt=if(manager.isNotBlank())
-                "هذه مكالمة متابعة للمدير. انتظر حتى يرد الطرف الآخر واطلب تأكيد أنه المسؤول، " +
-                "وبعد التأكيد أخبره بسبب طلب الموظف وملخص المكالمة الآتي بهدوء. " +
-                "إن لم يكن المسؤول اعتذر دون ذكر بيانات العميل:\n" + manager
-            else if(ivrEnabled && ivrGreeting.isNotBlank())
-                "ابدأ المكالمة الآن بنطق رسالة الترحيب التفاعلي التالية بوضوح وبنبرة مهنية باسم "+agentName+": «"+ivrGreeting+"» ثم اصمت فورًا واستمع لاختيار المتصل (بالصوت أو ذكر الرقم)."
-            else if(scenarioMode=="scenario" || responseStyle!="egyptian_short")
-                "ابدأ المكالمة بجملة ترحيب واحدة قصيرة وسؤال واحد فقط (بحد أقصى 15 إلى 20 كلمة) باللهجة والشخصية المحددة في السيناريو باسم "+agentName+
-                "، ثم اصمت فوراً لتستمع للمتصل، ولا تعيد هذه الافتتاحية أبداً لو قاطعك المتصل."
-            else "ابدأ المكالمة بتحية مصرية قصيرة واحدة وسؤال واحد (15-20 كلمة) باسم "+agentName+
-                " فقط، ثم اصمت فورًا واستمع للمتصل، ولا تعيد الترحيب عند المقاطعة."
-            if(premium){
-                scope.launch(Dispatchers.IO+callCoroutineGuard){runCatching{official?.sendClientContent(prompt)}}
-            }else{
-                runCatching {
-                    ws?.send(JSONObject().put("clientContent",JSONObject()
-                        .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
-                            .put("parts",org.json.JSONArray().put(JSONObject().put("text",prompt)))))
-                        .put("turnComplete",true)).toString())
+            val staticGreeting=if(manager.isNotBlank()) ""
+                else if(ivrEnabled && ivrGreeting.isNotBlank()) ivrGreeting
+                else if(agentGreeting.isNotBlank()) agentGreeting
+                else ""
+            val agentId=session.optString("agent_id","")
+            val voice=session.optString("voice","")
+            val cachedPcm=if(staticGreeting.isNotBlank()) GreetingPcmCache.get(context,agentId,voice,staticGreeting) else null
+            if(cachedPcm!=null && cachedPcm.isNotEmpty()){
+                safeNotice("تشغيل رسالة الترحيب الفورية (< 50ms) من الكاش المحلي")
+                val turnGen=playbackGen.current()
+                enqueueDownlinkPcm(turnGen,cachedPcm)
+                val noticePrompt="تم نطق رسالة الترحيب التالية للمتصل فور فتح الخط: «$staticGreeting». استمع لرد المتصل وأجب عليه مباشرة عند انتهاء كلامه."
+                if(premium){
+                    scope.launch(Dispatchers.IO+callCoroutineGuard){runCatching{official?.sendClientContent(noticePrompt)}}
+                }else{
+                    runCatching {
+                        ws?.send(JSONObject().put("clientContent",JSONObject()
+                            .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
+                                .put("parts",org.json.JSONArray().put(JSONObject().put("text",noticePrompt)))))
+                            .put("turnComplete",true)).toString())
+                    }
+                }
+            } else {
+                val prompt=if(manager.isNotBlank())
+                    "هذه مكالمة متابعة للمدير. انتظر حتى يرد الطرف الآخر واطلب تأكيد أنه المسؤول، " +
+                    "وبعد التأكيد أخبره بسبب طلب الموظف وملخص المكالمة الآتي بهدوء. " +
+                    "إن لم يكن المسؤول اعتذر دون ذكر بيانات العميل:\n" + manager
+                else if(ivrEnabled && ivrGreeting.isNotBlank())
+                    "ابدأ المكالمة الآن بنطق رسالة الترحيب التفاعلي التالية بوضوح وبنبرة مهنية باسم "+agentName+": «"+ivrGreeting+"» ثم اصمت فورًا واستمع لاختيار المتصل (بالصوت أو ذكر الرقم)."
+                else if(scenarioMode=="scenario" || responseStyle!="egyptian_short")
+                    "ابدأ المكالمة بجملة ترحيب واحدة قصيرة وسؤال واحد فقط (بحد أقصى 15 إلى 20 كلمة) باللهجة والشخصية المحددة في السيناريو باسم "+agentName+
+                    "، ثم اصمت فوراً لتستمع للمتصل، ولا تعيد هذه الافتتاحية أبداً لو قاطعك المتصل."
+                else "ابدأ المكالمة بتحية مصرية قصيرة واحدة وسؤال واحد (15-20 كلمة) باسم "+agentName+
+                    " فقط، ثم اصمت فورًا واستمع للمتصل، ولا تعيد الترحيب عند المقاطعة."
+                if(premium){
+                    scope.launch(Dispatchers.IO+callCoroutineGuard){runCatching{official?.sendClientContent(prompt)}}
+                }else{
+                    runCatching {
+                        ws?.send(JSONObject().put("clientContent",JSONObject()
+                            .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
+                                .put("parts",org.json.JSONArray().put(JSONObject().put("text",prompt)))))
+                            .put("turnComplete",true)).toString())
+                    }
                 }
             }
         }
@@ -417,7 +452,7 @@ internal class MobileLiveCall(
         lastAssistantAudioAt.set(0)
         synchronized(downlinkLock){downlinkResampler.reset()}
         while(playback.tryReceive().isSuccess){}
-        while(premiumPhrases.tryReceive().isSuccess){}
+        while(prefetchedPhrases.tryReceive().isSuccess){}
         synchronized(writeLock){runCatching{output?.writeInt(-1);output?.flush()}}
     }
     private fun handleDtmfKeyPress(digit:String) {
@@ -529,8 +564,35 @@ internal class MobileLiveCall(
                         appendLiveTranscription("الإيجنت",spoken)
                     }
                 },
-                phrase={text->runCatching{if(!stopped.get()&&!googleVoiceFallback.get())
-                    premiumPhrases.trySend(playbackGen.current() to text)}},
+                phrase={text->
+                    runCatching{
+                        if(!stopped.get()&&!googleVoiceFallback.get()){
+                            val turn=playbackGen.current()
+                            val item=PrefetchedPhrase(turn,text)
+                            if(prefetchedPhrases.trySend(item).isSuccess){
+                                scope.launch(Dispatchers.IO+callCoroutineGuard){
+                                    val resampler=PremiumPcm(48000)
+                                    try{
+                                        premiumPcm?.invoke(text,{
+                                            !stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)
+                                        }){chunk->
+                                            if(!stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)){
+                                                val pcm=resampler.convert(chunk)
+                                                if(pcm.isNotEmpty()){
+                                                    item.chunks.trySend(pcm)
+                                                }
+                                            }
+                                        }
+                                    }catch(t:Throwable){
+                                        item.error=t
+                                    }finally{
+                                        item.chunks.close()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
                 googleAudio={audio,rate->runCatching{playFallbackGooglePcm(audio,rate)}},
                 interrupted={runCatching{flushAudioGeneration()}},
                 disconnected={reason->runCatching{if(!stopped.get())fail(reason)}},
@@ -541,35 +603,45 @@ internal class MobileLiveCall(
             premiumSender=scope.launch(Dispatchers.IO+callCoroutineGuard){
                 for(pcm in premiumInput){
                     if(stopped.get())break
-                    try{sdk.pushPcm(pcm)}
+                    try{
+                        val sent=sdk.pushPcm(pcm, isCellularLink())
+                        if(!sent && !stopped.get() && socketReady){
+                            skippedUplinkPackets.incrementAndGet()
+                            telemetry.recordNetworkUplinkSkip()
+                        }
+                    }
                     catch(e:Throwable){if(e !is CancellationException)fail("IO Premium: تعذر إرسال صوت المتصل")}
                 }
             }
             premiumSpeaker=scope.launch(Dispatchers.IO+callCoroutineGuard){
-                for((turn,text) in premiumPhrases){
+                for(item in prefetchedPhrases){
                     if(stopped.get())break
-                    if(!playbackGen.isCurrent(turn) || text.isBlank() || googleVoiceFallback.get())continue
-                    val resampler=PremiumPcm()
+                    if(!playbackGen.isCurrent(item.turn) || item.text.isBlank() || googleVoiceFallback.get())continue
                     var started=false
-                    try{
-                        premiumPcm.invoke(text,{
-                            !stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)
-                        }){chunk->
-                            if(!stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)){
-                                val pcm=resampler.convert(chunk)
-                                if(pcm.isNotEmpty()){
-                                    started=true
-                                    enqueueDownlinkPcm(turn,pcm)
-                                }
+                    val phraseBuffer=java.io.ByteArrayOutputStream()
+                    for(pcm in item.chunks){
+                        if(!playbackGen.isCurrent(item.turn) || stopped.get() || googleVoiceFallback.get())break
+                        started=true
+                        enqueueDownlinkPcm(item.turn,pcm)
+                        phraseBuffer.write(pcm)
+                    }
+                    if(started && !stopped.get() && playbackGen.isCurrent(item.turn)){
+                        val agentId=session.optString("agent_id","")
+                        val voice=session.optString("voice","")
+                        val ivrGreeting=settings.optString("ivr_greeting",session.optString("ivr_greeting","")).trim()
+                        val staticGreeting=if(settings.optBoolean("ivr_enabled",false)&&ivrGreeting.isNotBlank()) ivrGreeting
+                            else settings.optString("greeting",session.optString("greeting","")).trim()
+                        if(staticGreeting.isNotBlank() && item.text.trim()==staticGreeting && !GreetingPcmCache.has(context,agentId,voice,staticGreeting)){
+                            val fullBytes=phraseBuffer.toByteArray()
+                            if(fullBytes.isNotEmpty()){
+                                GreetingPcmCache.put(context,agentId,voice,staticGreeting,fullBytes)
                             }
                         }
-                    }catch(e:Throwable){
-                        if(stopped.get() || e is CancellationException)continue
+                    }
+                    item.error?.let{e->
+                        if(stopped.get() || e is CancellationException)return@let
                         if(e is FishTtsFailoverException){
                             if(googleVoiceFallback.compareAndSet(false,true)){
-                                // This is a media-path change, NOT a new AI/chat
-                                // session. Cancel old Fish audio and queued phrases
-                                // while keeping the same Live conversation/context.
                                 flushAudioGeneration()
                                 val message=FishTtsFailover.label(e.causeCode)
                                 safeNotice(message)
@@ -577,7 +649,7 @@ internal class MobileLiveCall(
                                 if(!sdk.enableGoogleAudioFallback())
                                     fail("تعذر تشغيل صوت Google Live البديل أثناء المكالمة")
                             }
-                        }else if(playbackGen.isCurrent(turn) && !googleVoiceFallback.get()){
+                        }else if(playbackGen.isCurrent(item.turn) && !googleVoiceFallback.get()){
                             safeNotice("تعذر تشغيل IO Premium؛ استلم المكالمة لو الصوت غير مسموع")
                         }
                     }
@@ -983,7 +1055,7 @@ internal class MobileLiveCall(
             runCatching{pendingReports.close()}
             runCatching{diagnostics?.cancel()};runCatching{recovery?.cancel()}
             runCatching{pipe?.close()};runCatching{playback.close()}
-            runCatching{premiumInput.close()};runCatching{premiumPhrases.close()}
+            runCatching{premiumInput.close()};runCatching{prefetchedPhrases.close()}
             runCatching{premiumSender?.cancel()};runCatching{premiumSpeaker?.cancel()}
             runCatching{official?.stop()};official=null
             runCatching{worker?.cancel()};runCatching{ws?.close(1000,"call ended")};ws=null;output=null
