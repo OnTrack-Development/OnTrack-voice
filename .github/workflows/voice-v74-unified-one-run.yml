@@ -1,0 +1,395 @@
+name: OnTrack v74 Unified Full CI - One Runner Job
+on:
+  push:
+    branches: ['ci/v74-unified-one-run-20261114']
+    paths:
+      - '.github/workflows/voice-v74-unified-one-run.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: v74-unified-one-run
+  cancel-in-progress: true
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: 'utf-8'
+jobs:
+  unified:
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate mobile PHP endpoints and source contracts
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:CI = 'true'
+          Get-ChildItem 'saas\mobile\server' -Filter '*.php' | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP syntax error: ' + $_.FullName) }
+          }
+          foreach ($dir in @('saas\app\Support', 'saas\app\Http\Controllers\App', 'saas\app\Http\Controllers\Api', 'saas\app\Http\Controllers\Enterprise', 'saas\app\Services', 'saas\app\Console', 'saas\app\Models', 'saas\routes', 'saas\database\migrations', 'saas\config')) {
+            if (Test-Path -LiteralPath $dir) {
+              Get-ChildItem -LiteralPath $dir -Recurse -Filter '*.php' | ForEach-Object {
+                & php -l $_.FullName | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw ('PHP syntax error: ' + $_.FullName) }
+              }
+            }
+          }
+          & python -m py_compile saas/mobile/patch_live_session.py saas/mobile/ota/deploy.py saas/mobile/ota/native_deploy.py tools/prepare_mobile_ota.py tools/prepare_mobile_native.py tools/test_mobile_ota.py tools/check_mobile_manifest.py tools/verify_shell_jar_packaging.py
+          if ($LASTEXITCODE -ne 0) { throw 'Python syntax check failed' }
+          & python tools/test_mobile_ui_contract.py
+          if ($LASTEXITCODE -ne 0) { throw 'Mobile UI contract failed' }
+          & python tools/test_v1_mobile_shell.py
+          if ($LASTEXITCODE -ne 0) { throw 'V1 mobile shell contract failed' }
+          & python tools/test_android_v58_permission_contract.py
+          if ($LASTEXITCODE -ne 0) { throw 'Android minimal permission contract failed' }
+          & python tools/test_mobile_release_gate.py
+          if ($LASTEXITCODE -ne 0) { throw 'Mobile release gate failed' }
+          & python tools/verify_shell_jar_packaging.py --self-test
+          if ($LASTEXITCODE -ne 0) { throw 'Shell jar verifier self-test failed' }
+          $phpTests = @(
+            'tools/test_sim_agent_call_reports.php',
+            'tools/test_tenant_call_ai_summary.php',
+            'tools/test_tenant_voice_transcript_archive.php',
+            'tools/test_mobile_call_ledger.php',
+            'tools/test_mobile_auth_fallback.php',
+            'tools/test_pilot_workspace.php',
+            'tools/test_kashier_signature.php'
+          )
+          $idx = 0
+          foreach ($test in $phpTests) {
+            $idx++
+            $env:ONTRACK_CI_NAMESPACE = "androidproof-$env:GITHUB_RUN_ID-$idx"
+            & php $test
+            if ($LASTEXITCODE -ne 0) { throw ('PHP test failed: ' + $test) }
+          }
+          Write-Host 'MOBILE_PHP_AND_CONTRACTS_PASS'
+      - uses: actions/checkout@v4
+        with:
+          repository: jemcik/JemRec
+          ref: f011062adfb3a2154c4d5a9cc4394032fb4345f2
+          path: .build/jemrec
+          persist-credentials: false
+      - name: Check Windows JDK 21, Android SDK, keystore and apply OnTrack overlay
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sdk = @($env:ANDROID_HOME, $env:ANDROID_SDK_ROOT, (Join-Path $env:LOCALAPPDATA 'Android\Sdk')) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+          if (-not $sdk) { $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
+          $androidJar = Join-Path $sdk 'platforms\android-36\android.jar'
+          $signer = Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer = Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          $key = @((Join-Path $env:USERPROFILE '.android\debug.keystore'), 'D:\ai\actions-runner\.android\debug.keystore') | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+          if (-not $key) { $key = Join-Path $env:USERPROFILE '.android\debug.keystore' }
+          foreach ($required in @($androidJar, $signer, $analyzer, $key)) {
+            if (-not (Test-Path -LiteralPath $required)) {
+              throw ('Missing local Android prerequisite: ' + $required)
+            }
+          }
+          $javaVersion = (& java -version 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $javaVersion -notmatch '(?m)(?:version "21[.\"]|openjdk 21(?:[.\s]|$))') {
+            throw ('JDK 21 is required, detected: ' + $javaVersion)
+          }
+          $cert = Join-Path $env:RUNNER_TEMP ('ontrack-cert-' + $env:GITHUB_RUN_ID + '.der')
+          try {
+            & keytool -exportcert -alias androiddebugkey -keystore $key -storepass android -file $cert | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot export signing certificate' }
+            $actual = (Get-FileHash -LiteralPath $cert -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne 'd25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f') {
+              throw 'Original Android owner signing certificate mismatch'
+            }
+          } finally {
+            Remove-Item -LiteralPath $cert -Force -ErrorAction SilentlyContinue
+          }
+          $env:ANDROID_HOME = $sdk
+          $env:ANDROID_SDK_ROOT = $sdk
+          "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & python saas/mobile/audio-proof/prepare.py .build/jemrec
+          if ($LASTEXITCODE -ne 0) { throw 'Android overlay failed' }
+          & .\tools\build_shellserver_windows.ps1 -ShellServerDir '.build\jemrec\shellserver' -AndroidSdk $sdk
+          if (-not $?) { throw 'Carrier daemon compilation failed' }
+          $gradlePath = '.build\jemrec\app\build.gradle.kts'
+          $gradle = [IO.File]::ReadAllText((Resolve-Path $gradlePath).Path)
+          $anchor = '    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")'
+          if ($gradle.Split([string[]]@($anchor), [System.StringSplitOptions]::None).Length -ne 2) {
+            throw 'Fragment API dependency anchor missing'
+          }
+          $gradle = $gradle.Replace($anchor, '    implementation("androidx.fragment:fragment:1.6.2")' + [Environment]::NewLine + $anchor)
+          [IO.File]::WriteAllText((Resolve-Path $gradlePath).Path, $gradle, [Text.UTF8Encoding]::new($false))
+          Write-Host 'ANDROID_OVERLAY_AND_DAEMON_PASS'
+      - name: Run Android unit tests and assemble release APK
+        working-directory: .build/jemrec
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\gradlew.bat --no-daemon :app:testDebugUnitTest `
+            --tests 'com.ontrack.voiceproof.CellularCallRecoveryPolicyTest' `
+            --tests 'com.ontrack.voiceproof.CellularRadioStatusTest' `
+            --tests 'com.ontrack.voiceproof.DtmfGoertzelDetectorTest' `
+            --tests 'com.ontrack.voiceproof.FishTtsFailoverTest' `
+            --tests 'com.ontrack.voiceproof.LinkPcmTest' `
+            --tests 'com.ontrack.voiceproof.LiveInterruptionPolicyTest' `
+            --tests 'com.ontrack.voiceproof.LiveBargeInAndSessionMutexTest' `
+            --tests 'com.ontrack.voiceproof.LocalUiPageTest' `
+            --tests 'com.ontrack.voiceproof.ManagerCallbackSchedulerTest' `
+            --tests 'com.ontrack.voiceproof.NativeReleasePolicyTest' `
+            --tests 'com.ontrack.voiceproof.OnTrackPermissionChecklistTest' `
+            --tests 'com.ontrack.voiceproof.OnTrackSetupChecklistTest' `
+            --tests 'com.ontrack.voiceproof.OutboundFirstTurnTest' `
+            --tests 'com.ontrack.voiceproof.OverlayUiModelTest' `
+            --tests 'com.ontrack.voiceproof.PcmWavTest' `
+            --tests 'com.ontrack.voiceproof.PremiumPcmTest' `
+            --tests 'com.ontrack.voiceproof.ProofExportTest' `
+            --tests 'com.ontrack.voiceproof.SetupDiagnosticFormatTest' `
+            --tests 'com.ontrack.voiceproof.SignedOtaTest' `
+            --tests 'com.ontrack.voiceproof.TenantAgentIdentityTest' `
+            --tests 'com.ontrack.voiceproof.TenantCallRoutingTest' `
+            --tests 'com.ontrack.voiceproof.TenantCampaignOptInTest' `
+            --tests 'com.ontrack.voiceproof.TenantEngineRestorePolicyTest' `
+            --tests 'com.ontrack.voiceproof.TenantPairingContractTest' `
+            --tests 'com.ontrack.voiceproof.VoiceFailoverPolicyTest'
+          if ($LASTEXITCODE -ne 0) { throw 'Android OnTrack unit tests failed' }
+          & .\gradlew.bat --no-daemon :daemon-tests:test
+          if ($LASTEXITCODE -ne 0) { throw 'Android daemon tests failed' }
+          & .\gradlew.bat --no-daemon :app:assembleRelease
+          if ($LASTEXITCODE -ne 0) { throw 'Android release assembly failed' }
+      - name: Sign APK, audit permissions and generate signed UI/native OTA manifests
+        id: package
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sdk = @($env:ANDROID_HOME, $env:ANDROID_SDK_ROOT, (Join-Path $env:LOCALAPPDATA 'Android\Sdk')) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+          if (-not $sdk) { $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
+          $signer = Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+          $analyzer = Join-Path $sdk 'cmdline-tools\latest\bin\apkanalyzer.bat'
+          $key = @((Join-Path $env:USERPROFILE '.android\debug.keystore'), 'D:\ai\actions-runner\.android\debug.keystore') | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+          if (-not $key) { $key = Join-Path $env:USERPROFILE '.android\debug.keystore' }
+          $policy = Get-Content -LiteralPath 'saas/mobile/ota/native_release.json' -Raw | ConvertFrom-Json
+          $releaseUi = Get-Content -LiteralPath 'saas/mobile/ota/release.json' -Raw | ConvertFrom-Json
+          $verName = [string]$policy.version_name
+          $verCode = [int]$policy.version_code
+          $uiRev = [int]$releaseUi.revision
+          $unsigned = '.build\jemrec\app\build\outputs\apk\release\app-release-unsigned.apk'
+          $jar = '.build\jemrec\shellserver\ontrack-voiceproof-capture.jar'
+          & python tools/verify_shell_jar_packaging.py $unsigned $jar
+          if ($LASTEXITCODE -ne 0) { throw 'Unsigned APK missing shell capture jar' }
+          New-Item -Path '.build\artifact' -ItemType Directory -Force | Out-Null
+          $apk = ".build\artifact\OnTrack-Voice-$verName.apk"
+          & $signer sign --ks $key --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out $apk $unsigned
+          if ($LASTEXITCODE -ne 0) { throw 'APK signing failed' }
+          $sigOut = (& $signer verify --print-certs $apk | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $sigOut.ToLowerInvariant() -notlike '*d25378b9c6d8486749fa64cf1f85a8a2d0b24a599588611392135f54c720ba3f*') {
+            throw 'Signed APK certificate verification failed'
+          }
+          $sigOut | Out-File -LiteralPath '.build\artifact\signature.txt' -Encoding utf8
+          & $signer verify --verbose $apk
+          if ($LASTEXITCODE -ne 0) { throw 'apksigner verbose verification failed' }
+          $appId = (& $analyzer manifest application-id $apk | Out-String).Trim()
+          $actualVer = (& $analyzer manifest version-code $apk | Out-String).Trim()
+          if ($appId -ne 'com.ontrack.voiceproof' -or $actualVer -ne [string]$verCode) {
+            throw ("Package/version mismatch: $appId/$actualVer vs expected $verCode")
+          }
+          $grants = (& $analyzer manifest permissions $apk | Out-String)
+          if ($LASTEXITCODE -ne 0 -or !$grants.Contains('android.permission.READ_PHONE_STATE')) {
+            throw 'Signed APK missing READ_PHONE_STATE'
+          }
+          foreach ($redundant in @('RECORD_AUDIO','READ_MEDIA_AUDIO','READ_EXTERNAL_STORAGE','WRITE_EXTERNAL_STORAGE','READ_CALL_LOG','READ_CONTACTS','USE_FULL_SCREEN_INTENT')) {
+            if ($grants.Contains('android.permission.' + $redundant)) {
+              throw ('Forbidden runtime permission leaked into signed APK: ' + $redundant)
+            }
+          }
+          & $analyzer manifest print $apk | Out-File -LiteralPath '.build\artifact\AndroidManifest.xml' -Encoding utf8
+          & python tools/check_mobile_manifest.py '.build\artifact\AndroidManifest.xml'
+          if ($LASTEXITCODE -ne 0) { throw 'Manifest contract check failed' }
+          & python tools/verify_shell_jar_packaging.py $apk $jar
+          if ($LASTEXITCODE -ne 0) { throw 'Signed APK missing shell capture jar' }
+          $sha = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$sha  OnTrack-Voice-$verName.apk" | Out-File -LiteralPath '.build\artifact\SHA256SUMS.txt' -Encoding ascii
+          Copy-Item '.build\jemrec\ontrack-build-source.json' '.build\artifact\'
+          Copy-Item '.build\jemrec\LICENSE' '.build\artifact\'
+          Copy-Item '.build\jemrec\NOTICE.md' '.build\artifact\'
+          & python tools/prepare_mobile_ota.py '.build\artifact\ota'
+          if ($LASTEXITCODE -ne 0) { throw 'prepare_mobile_ota failed' }
+          & java tools/SignMobileOta.java $key '.build\artifact\ota'
+          if ($LASTEXITCODE -ne 0) { throw 'SignMobileOta (UI) failed' }
+          & python tools/prepare_mobile_native.py $apk '.build\artifact\native'
+          if ($LASTEXITCODE -ne 0) { throw 'prepare_mobile_native failed' }
+          & java tools/SignMobileOta.java $key '.build\artifact\native'
+          if ($LASTEXITCODE -ne 0) { throw 'SignMobileOta (Native) failed' }
+          $env:PATH = 'C:\Program Files\Git\usr\bin;' + $env:PATH
+          & python -c "import sys;sys.path.insert(0,'tools');from pathlib import Path;from queue_mobile_ota import verify as u;from queue_mobile_native import verify as n;_,_,ui=u(Path('.build/artifact/ota'));_,_,ap=n(Path('.build/artifact/native'));assert ap['version_code']==$verCode and ap['version_name']=='$verName' and ui['revision']==$uiRev and ui['min_native']<=$verCode<=ui['max_native'];print('SIGNED_APK_AND_OTA_VERIFIED')"
+          if ($LASTEXITCODE -ne 0) { throw 'Signed manifest verification failed' }
+          "version_name=$verName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+      - name: Summarize verified Android release provenance (bypass exhausted Actions artifact quota)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-Content -LiteralPath '.build\artifact\SHA256SUMS.txt'
+          Get-Content -LiteralPath '.build\artifact\signature.txt'
+      - name: Python syntax and signed release receipt regression
+        run: |
+          $ErrorActionPreference='Stop'
+          & python -m py_compile tools/queue_mobile_native.py tools/test_mobile_release_gate.py
+          if($LASTEXITCODE -ne 0){throw 'Mobile publish syntax failed'}
+          & python tools/test_mobile_release_gate.py
+          if($LASTEXITCODE -ne 0){throw 'Native release receipt gate failed'}
+          # deploy.py imports Linux-only fcntl; it cannot be executed by a
+          # Windows runner. Compile that code for syntax and check the native
+          # host receipt contract here. Full Linux deploy is separately verified
+          # by the actual host worker's signed receipt.
+          & python -m py_compile saas/mobile/ota/deploy.py tools/test_mobile_ota.py
+          if($LASTEXITCODE -ne 0){throw 'Linux OTA source syntax invalid'}
+          Write-Host 'LINUX_DEPLOY_RUNTIME_NOT_RUN_ON_WINDOWS'
+      - name: Release trigger isolation without an extra Android build
+        run: |
+          $source=[IO.File]::ReadAllText('.github/workflows/android-audio-proof.yml')
+          if($source.Contains("      - 'tools/queue_mobile_native.py'") -or
+             $source.Contains("      - 'saas/mobile/server/**'") -or
+             -not $source.Contains("      - 'saas/mobile/audio-proof/**'")) {
+            throw 'Native build trigger isolation failed'
+          }
+          Write-Host 'NATIVE_BUILD_TRIGGER_ISOLATION_PASS'
+      - name: PHP lint and isolated state-machine tests
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:CI = 'true'
+          Get-ChildItem 'saas\mobile\server' -Filter '*.php' | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP lint failed: ' + $_.FullName) }
+          }
+          foreach ($t in @('tools/test_mobile_call_ledger.php', 'tools/test_mobile_auth_fallback.php', 'tools/test_mobile_call_reports.php', 'tools/test_pilot_workspace.php')) {
+            & php $t
+            if ($LASTEXITCODE -ne 0) { throw ('Test failed: ' + $t) }
+          }
+      - name: Check Android WebView UI, JS parse and bridge contracts
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & python tools/test_mobile_ui_contract.py
+          if ($LASTEXITCODE -ne 0) { throw 'Mobile UI contract failed' }
+          & python tools/test_v1_mobile_shell.py
+          if ($LASTEXITCODE -ne 0) { throw 'V1 mobile shell contract failed' }
+      - name: Verify opt-in and no-redial safety guards
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pw = [IO.File]::ReadAllText('saas/mobile/server/pilot_workspace.php')
+          $ca = [IO.File]::ReadAllText('saas/mobile/server/campaigns_api.php')
+          if (-not $pw.Contains('pilot_campaign_verify_claim') -or -not $pw.Contains('do_not_call') -or -not $ca.Contains('pilot_campaign_claim')) {
+            throw 'Opt-in / no-redial safety guards missing'
+          }
+          Write-Host 'PILOT_OPT_IN_AND_NO_REDIAL_GUARDS_PASS'
+      - name: PHP syntax
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem 'saas\console' -Recurse -Filter '*.php' | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP lint failed: ' + $_.FullName) }
+          }
+          & php -l tools/test_voice_access.php | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'test_voice_access lint failed' }
+      - name: PIN, role downgrades, account isolation and existing SaaS compatibility
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:CI = 'true'
+          $i = 0
+          foreach ($t in @('tools/test_voice_access.php', 'tools/test_voice_saas_console.php', 'tools/test_flow_templates.php', 'tools/test_agent_flow_preview.php', 'tools/test_voice_trial_and_ui.php')) {
+            $i++
+            $env:ONTRACK_CI_NAMESPACE = "connectors-$env:GITHUB_RUN_ID-$i"
+            & php $t
+            if ($LASTEXITCODE -ne 0) { throw ('Test failed: ' + $t) }
+          }
+      - name: PHP syntax for all runtime source and test files
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem 'saas\console' -Recurse -Filter '*.php' | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP lint failed: ' + $_.FullName) }
+          }
+          foreach ($f in @('tools/test_voice_saas_console.php', 'tools/test_tenant_device_pairing.php', 'tools/test_tenant_account_bridge.php', 'tools/test_six_digit_sim_pairing.php', 'tools/test_reseller_parent_service_gate_v70.php', 'tools/test_admin_mfa.php', 'tools/test_console_kashier_webhook.php', 'tools/test_voice_sso.php', 'tools/test_fish_voice_catalog_cache.php')) {
+            & php -l $f | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP lint failed: ' + $f) }
+          }
+          Write-Host 'CONSOLE_PHP_LINT_PASS'
+      - name: Validate JavaScript, routing, floating UI and templates
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:CI = 'true'
+          foreach ($js in @('saas/console/assets/js/app.js', 'saas/console/assets/js/flow-graph.js', 'saas/console/assets/js/graph-routing.js', 'saas/console/assets/js/pairing-qr.js', 'saas/console/assets/js/mfa-qr.js')) {
+            & node --check $js
+            if ($LASTEXITCODE -ne 0) { throw ('node --check failed: ' + $js) }
+          }
+          foreach ($cjs in @('tools/test_voice_qr.cjs', 'tools/test_floating_flow_ui.cjs', 'tools/test_graph_routing.cjs', 'tools/test_console_ajax_ui.cjs', 'tools/test_voice_picker_and_persona.cjs')) {
+            & node $cjs
+            if ($LASTEXITCODE -ne 0) { throw ('JS regression failed: ' + $cjs) }
+          }
+          $i = 0
+          foreach ($t in @('tools/test_flow_templates.php', 'tools/test_answer_policy.php', 'tools/test_google_provider_config.php', 'tools/test_voice_trial_and_ui.php')) {
+            $i++
+            $env:ONTRACK_CI_NAMESPACE = "consolejs-$env:GITHUB_RUN_ID-$i"
+            & php $t
+            if ($LASTEXITCODE -ne 0) { throw ('Test failed: ' + $t) }
+          }
+      - name: Run full SaaS database, isolation, pairing, SSO, AI studio and bridge suite
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:CI = 'true'
+          $suite = @(
+            @('php', 'tools/test_voice_saas_console.php'),
+            @('php', 'tools/test_tenant_account_bridge.php'),
+            @('php', 'tools/test_six_digit_sim_pairing.php'),
+            @('php', 'tools/test_reseller_parent_service_gate_v70.php'),
+            @('php', 'tools/test_console_pricing_ui.php'),
+            @('php', 'tools/test_tenant_workspace.php'),
+            @('php', 'tools/test_tenant_voice_transcript_archive.php'),
+            @('php', 'tools/test_tenant_call_ai_summary.php'),
+            @('php', 'tools/test_flow_ai_sources.php'),
+            @('php', 'tools/test_flow_ai_chat.php'),
+            @('php', 'tools/test_voice_sso.php'),
+            @('python', 'tools/test_voice_sso_http.py'),
+            @('php', 'tools/test_dynamic_agent_studio.php'),
+            @('php', 'tools/test_ai_agent_profile.php'),
+            @('php', 'tools/test_flow_ai_stress.php'),
+            @('php', 'tools/test_whatsapp_inbox.php'),
+            @('php', 'tools/test_whatsapp_whmcs_bridge.php'),
+            @('php', 'tools/test_io_premium_shared_access.php'),
+            @('php', 'tools/test_fish_voice_catalog_cache.php')
+          )
+          $i = 0
+          foreach ($item in $suite) {
+            $i++
+            $env:ONTRACK_CI_NAMESPACE = "console-$env:GITHUB_RUN_ID-$i"
+            Write-Host ">>> [$i/$($suite.Count)] $($item[0]) $($item[1])"
+            & $item[0] $item[1]
+            if ($LASTEXITCODE -ne 0) { throw ('Console suite failed at: ' + $item[1]) }
+          }
+          Write-Host 'ALL_CONSOLE_SUITE_PASS'
+      - name: Lint PHP sources and frontend JS
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem -Recurse -Include *.php 'saas\app', 'saas\routes', 'saas\database', 'saas\config' | ForEach-Object {
+            & php -l $_.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw ('PHP syntax error: ' + $_.FullName) }
+          }
+          if (Test-Path -LiteralPath 'saas\public\assets\js\obsidian.js') {
+            & node --check 'saas\public\assets\js\obsidian.js'
+            if ($LASTEXITCODE -ne 0) { throw 'obsidian.js syntax error' }
+          }
+          Write-Host 'PHP_AND_JS_SYNTAX_PASS'
+      - name: Install Composer dependencies if needed and run PHPUnit suite
+        working-directory: saas
+        env:
+          APP_ENV: testing
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path -LiteralPath 'vendor\autoload.php')) {
+            & composer install --no-interaction --prefer-dist --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'Composer install failed' }
+          }
+          & php vendor\bin\phpunit -c phpunit.xml --testdox
+          if ($LASTEXITCODE -ne 0) { throw 'Laravel PHPUnit test suite failed' }
+          Write-Host 'IOVOICE_LARAVEL_PHPUNIT_PASS'
+      - name: All unified suites passed
+        run: |
+          $ErrorActionPreference='Stop'
+          Write-Host 'ONTRACK_V74_UNIFIED_ALL_TESTS_AND_SIGNED_APK_PASS'
