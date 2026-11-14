@@ -134,4 +134,15 @@ class ResilientDnsTest {
         assertNotNull(addresses.first())
         assertEquals("localhost", addresses.first().hostName)
     }
+
+    @Test
+    fun testPreferIpv4PlacesInet4AddressFirst() {
+        val ipv6 = InetAddress.getByAddress("example.com", ByteArray(16) { 1 })
+        val ipv4 = InetAddress.getByAddress("example.com", byteArrayOf(1, 2, 3, 4))
+        val mixed = listOf(ipv6, ipv4)
+        val sorted = ResilientDns.preferIpv4(mixed)
+        assertEquals(2, sorted.size)
+        assertTrue(sorted[0] is java.net.Inet4Address)
+        assertTrue(sorted[1] is java.net.Inet6Address)
+    }
 }

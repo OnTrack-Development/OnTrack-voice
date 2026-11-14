@@ -67,6 +67,15 @@ internal object ResilientDns : Dns {
         lastResolutionSource = "cleared"
     }
 
+    internal fun preferIpv4(addresses: List<InetAddress>): List<InetAddress> {
+        if (addresses.size <= 1) return addresses
+        return addresses.sortedWith(Comparator { a, b ->
+            val aIs4 = a is java.net.Inet4Address
+            val bIs4 = b is java.net.Inet4Address
+            if (aIs4 == bIs4) 0 else if (aIs4) -1 else 1
+        })
+    }
+
     override fun lookup(hostname: String): List<InetAddress> {
         val now = System.currentTimeMillis()
 
@@ -74,7 +83,7 @@ internal object ResilientDns : Dns {
         cache[hostname]?.let { entry ->
             if (now < entry.expiresAtMs && entry.addresses.isNotEmpty()) {
                 lastResolutionSource = "cache(${entry.source})"
-                return entry.addresses
+                return preferIpv4(entry.addresses)
             }
         }
 
@@ -82,9 +91,10 @@ internal object ResilientDns : Dns {
         try {
             val systemResult = Dns.SYSTEM.lookup(hostname)
             if (systemResult.isNotEmpty()) {
+                val prioritized = preferIpv4(systemResult)
                 lastResolutionSource = "system"
-                cache[hostname] = CacheEntry(systemResult, now, now + FRESH_TTL_MS, "system")
-                return systemResult
+                cache[hostname] = CacheEntry(prioritized, now, now + FRESH_TTL_MS, "system")
+                return prioritized
             }
         } catch (_: UnknownHostException) {
             // System DNS failed, proceed to fallback
@@ -109,9 +119,9 @@ internal object ResilientDns : Dns {
                 }
 
                 if (resolvedUdpIps.isNotEmpty()) {
-                    val addresses = resolvedUdpIps.map { ip ->
+                    val addresses = preferIpv4(resolvedUdpIps.map { ip ->
                         InetAddress.getByAddress(hostname, ip)
-                    }
+                    })
                     val src = "fallback_udp($server)"
                     lastResolutionSource = src
                     cache[hostname] = CacheEntry(addresses, now, now + FRESH_TTL_MS, src)
@@ -129,9 +139,9 @@ internal object ResilientDns : Dns {
         try {
             val dohIps = queryDoH(hostname)
             if (dohIps.isNotEmpty()) {
-                val addresses = dohIps.map { ip ->
+                val addresses = preferIpv4(dohIps.map { ip ->
                     InetAddress.getByAddress(hostname, ip)
-                }
+                })
                 val src = "fallback_doh(cloudflare)"
                 lastResolutionSource = src
                 cache[hostname] = CacheEntry(addresses, now, now + FRESH_TTL_MS, src)
@@ -148,7 +158,7 @@ internal object ResilientDns : Dns {
             val age = now - entry.createdAtMs
             if (entry.addresses.isNotEmpty() && age < MAX_STALE_TTL_MS) {
                 lastResolutionSource = "stale_cache(${entry.source},age=${age / 1000}s)"
-                return entry.addresses
+                return preferIpv4(entry.addresses)
             }
         }
 

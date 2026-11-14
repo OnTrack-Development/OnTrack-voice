@@ -132,7 +132,7 @@ class MobileLinkService:Service() {
     private val main=Handler(Looper.getMainLooper())
     private val retryWake=Channel<Unit>(Channel.CONFLATED)
     private val client=OkHttpClient.Builder().dns(ResilientDns).followRedirects(false).followSslRedirects(false)
-        .connectTimeout(16,TimeUnit.SECONDS).readTimeout(22,TimeUnit.SECONDS).pingInterval(15,TimeUnit.SECONDS).build()
+        .connectTimeout(2500,TimeUnit.MILLISECONDS).readTimeout(15,TimeUnit.SECONDS).pingInterval(15,TimeUnit.SECONDS).build()
     private lateinit var overlay:CallOverlay
     private var call:MobileLiveCall?=null
     private var loop:Job?=null
@@ -236,6 +236,28 @@ class MobileLinkService:Service() {
         runCatching{connectivity?.registerDefaultNetworkCallback(callback)}
             .onSuccess{networkListener=callback}
     }
+    private fun prewarmGreetingForSlot(slot: Int) {
+        val enrollment = TenantDeviceEnrollment(this)
+        if (slot !in 0..1 || !enrollment.paired(slot)) return
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                val flow = enrollment.cachedPublishedFlow(slot) ?: enrollment.publishedFlow(slot)
+                val pol = flow.optJSONObject("answer_policy") ?: JSONObject()
+                val ivrGreeting = pol.optString("ivr_greeting", "").trim()
+                val agentGreeting = pol.optString("greeting", "").trim()
+                val greetingText = if (pol.optBoolean("ivr_enabled", false) && ivrGreeting.isNotBlank()) ivrGreeting
+                    else if (agentGreeting.isNotBlank()) agentGreeting else ""
+                val agentId = flow.optString("agent_id", "")
+                val voice = flow.optString("voice", "")
+                if (greetingText.isNotBlank()) {
+                    GreetingPcmCache.prewarm(this@MobileLinkService, slot, agentId, voice, greetingText) { text, shouldContinue, onChunk ->
+                        enrollment.streamPremiumPcm(slot, text, shouldContinue, onChunk)
+                    }
+                }
+            }
+        }
+    }
+
     override fun onBind(intent:Intent?):IBinder?=null
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
         startForeground(701,notification(latestStatus))
@@ -353,6 +375,8 @@ class MobileLinkService:Service() {
             if(loop?.isActive!=true){
                 running=true
                 loop=scope.launch{tenantMonitor()}
+                prewarmGreetingForSlot(0)
+                prewarmGreetingForSlot(1)
             }
             // Google Live stays idle until a call; show the confirmed SIM-monitor state.
             showOverlay()
@@ -1075,11 +1099,16 @@ class MobileLinkService:Service() {
                         ringAttempted=true
                         outgoingCall=false
                         val slot=current.slot
+                        val cachedFlow=enrollment.cachedPublishedFlow(slot)
+                        if(cachedFlow!=null){
+                            tenantFlow=cachedFlow
+                            policy=enrollment.cachedPolicy(slot)
+                        }
                         // Load signed Flow/policy without pausing shell ring polling.
                         flowLoad=scope.async(Dispatchers.IO){
                             runCatching{enrollment.publishedFlow(slot)}
                         }
-                        notice("الشريحة ${slot+1}: تم رصد الرنين؛ جاري تحميل سياسة الإيجنت")
+                        notice("الشريحة ${slot+1}: تم رصد الرنين؛ سياسة الإيجنت جاهزة محلياً")
                     }
                     if(flowLoad?.isCompleted==true){
                         val result=flowLoad?.await()
@@ -1087,6 +1116,7 @@ class MobileLinkService:Service() {
                         result?.onSuccess { flow->
                             tenantFlow=flow
                             policy=flow.optJSONObject("answer_policy")?:JSONObject()
+                            prewarmGreetingForSlot(current.slot)
                             val auto=policy.optBoolean("auto_answer",false)
                             callProblem=if(auto) "" else "الرد التلقائي مغلق في إعدادات الإيجنت"
                             if(current.state==TelephonyManager.CALL_STATE_RINGING &&
@@ -1225,7 +1255,7 @@ class MobileLinkService:Service() {
                         audioAttemptCount++
                         outgoingCall=!ringAttempted
                         val slot=current.slot
-                        val preparedFlow=tenantFlow
+                        val preparedFlow=tenantFlow ?: enrollment.cachedPublishedFlow(slot)
                         // Call-state polling must not block on SaaS, Gemini tokens
                         // or a slow published Flow response after OFFHOOK.
                         if(sessionLoad==null && tenantSession==null){
@@ -1253,8 +1283,9 @@ class MobileLinkService:Service() {
                             }
                         }?.onFailure { problem ->
                             tenantSession=null
-                            nextAudioRetryAt=SystemClock.elapsedRealtime()+
-                                CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
+                            val isSlowCellular = runCatching { CellularRadioStatus.isSlowCellularLink(this@MobileLinkService) }.getOrDefault(false)
+                            val retryDelay = if (isSlowCellular) 400L else CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
+                            nextAudioRetryAt=SystemClock.elapsedRealtime()+retryDelay
                             val message=problem.message.orEmpty().take(140)
                             val hint=cellularCallNetworkHint(current.slot)
                             callProblem="تعذر تشغيل صوت الإيجنت ("+internetRoute()+"): "+message+
@@ -1422,8 +1453,9 @@ class MobileLinkService:Service() {
                         }?.onFailure{problem->
                             call?.stop();call=null;tenantSession=null
                             audioReady=false;connected=false;clearCallAudioStages()
-                            nextAudioRetryAt=SystemClock.elapsedRealtime()+
-                                CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
+                            val isSlowCellular = runCatching { CellularRadioStatus.isSlowCellularLink(this@MobileLinkService) }.getOrDefault(false)
+                            val retryDelay = if (isSlowCellular) 400L else CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
+                            nextAudioRetryAt=SystemClock.elapsedRealtime()+retryDelay
                             callProblem="فشل ربط الصوت (${internetRoute()}): "+problem.message.orEmpty().take(110)
                             notice(callProblem)
                         }

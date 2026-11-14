@@ -92,10 +92,11 @@ $started=false;
 $sent=0;
 $errorBody='';
 $maxAudioBytes=48000*2*55; // upper bound per short TTS phrase
-// Fish PCM is headerless, signed 16-bit mono; direct 48kHz.
+// Fish PCM is headerless, signed 16-bit mono; 24kHz standard streaming.
 $payload=json_encode([
     'text'=>$text,'reference_id'=>$voice,'format'=>'pcm',
-    'sample_rate'=>48000,'streaming'=>true,'latency'=>'low'
+    'sample_rate'=>24000,'temperature'=>0.8,'top_p'=>0.85,
+    'streaming'=>true,'latency'=>'low'
 ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
 @ini_set('output_buffering','off');
 @ini_set('zlib.output_compression','0');
@@ -133,7 +134,7 @@ curl_setopt_array($curl,[
         if(!$started){
             http_response_code(200);
             header('Content-Type: application/octet-stream');
-            header('X-PCM-Sample-Rate: 48000');
+            header('X-PCM-Sample-Rate: 24000');
             header('X-PCM-Channels: 1');
             header('X-PCM-Format: s16le');
             $started=true;

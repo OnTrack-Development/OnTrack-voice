@@ -46,4 +46,19 @@ class GreetingPcmCacheTest {
         GreetingPcmCache.put(null, "ag1", "v1", "", ByteArray(100))
         assertNull(GreetingPcmCache.get(null, "ag1", "v1", ""))
     }
+
+    @Test
+    fun testPrewarmPopulatesCache() {
+        assertFalse(GreetingPcmCache.has(null, "ag1", "v1", "صباح الخير"))
+        var fetched = false
+        GreetingPcmCache.prewarm(null, 0, "ag1", "v1", "صباح الخير") { text, _, onChunk ->
+            fetched = true
+            onChunk(ByteArray(480) { 10 })
+        }
+        assertTrue(fetched)
+        assertTrue(GreetingPcmCache.has(null, "ag1", "v1", "صباح الخير"))
+        val pcm = GreetingPcmCache.get(null, "ag1", "v1", "صباح الخير")
+        assertNotNull(pcm)
+        assertTrue(pcm!!.isNotEmpty())
+    }
 }

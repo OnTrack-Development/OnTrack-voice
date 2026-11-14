@@ -79,11 +79,16 @@ internal class MobileLiveCall(
     private val googleVoiceFallback=AtomicBoolean(false)
     private class PrefetchedPhrase(
         val turn: Int,
+        val epoch: Long,
         val text: String,
         val chunks: Channel<ByteArray> = Channel(Channel.UNLIMITED),
-        @Volatile var error: Throwable? = null
+        @Volatile var error: Throwable? = null,
+        @Volatile var job: Job? = null
     )
     private val prefetchedPhrases=Channel<PrefetchedPhrase>(64)
+    private val currentTurnEpoch = java.util.concurrent.atomic.AtomicLong(0)
+    private val activePhraseJobsLock = Any()
+    private val activePhraseJobs = mutableSetOf<Job>()
     private val premiumInput=Channel<ByteArray>(32)
     private var premiumSpeaker:Job?=null
     private var premiumSender:Job?=null
@@ -378,15 +383,15 @@ internal class MobileLiveCall(
                 safeNotice("تشغيل رسالة الترحيب الفورية (< 50ms) من الكاش المحلي")
                 val turnGen=playbackGen.current()
                 enqueueDownlinkPcm(turnGen,cachedPcm)
-                val noticePrompt="تم نطق رسالة الترحيب التالية للمتصل فور فتح الخط: «$staticGreeting». استمع لرد المتصل وأجب عليه مباشرة عند انتهاء كلامه."
+                val noticePrompt="تم نطق رسالة الترحيب التالية للمتصل فور فتح الخط: «$staticGreeting». لا تكرر الترحيب أبداً. استمع لرد المتصل وأجب عليه مباشرة عند انتهاء كلامه."
                 if(premium){
-                    scope.launch(Dispatchers.IO+callCoroutineGuard){runCatching{official?.sendClientContent(noticePrompt)}}
+                    scope.launch(Dispatchers.IO+callCoroutineGuard){runCatching{official?.sendClientContent(noticePrompt, turnComplete=false)}}
                 }else{
                     runCatching {
                         ws?.send(JSONObject().put("clientContent",JSONObject()
                             .put("turns",org.json.JSONArray().put(JSONObject().put("role","user")
                                 .put("parts",org.json.JSONArray().put(JSONObject().put("text",noticePrompt)))))
-                            .put("turnComplete",true)).toString())
+                            .put("turnComplete",false)).toString())
                     }
                 }
             } else {
@@ -448,11 +453,16 @@ internal class MobileLiveCall(
         }
     }
     private fun flushAudioGeneration() {
+        currentTurnEpoch.incrementAndGet()
         playbackGen.bump()
         lastAssistantAudioAt.set(0)
         synchronized(downlinkLock){downlinkResampler.reset()}
         while(playback.tryReceive().isSuccess){}
         while(prefetchedPhrases.tryReceive().isSuccess){}
+        synchronized(activePhraseJobsLock) {
+            activePhraseJobs.forEach { it.cancel() }
+            activePhraseJobs.clear()
+        }
         synchronized(writeLock){runCatching{output?.writeInt(-1);output?.flush()}}
     }
     private fun handleDtmfKeyPress(digit:String) {
@@ -537,7 +547,7 @@ internal class MobileLiveCall(
         try {
             check(premiumPcm!=null){"IO Premium PCM module not configured"}
             val baseInstruction=
-                "[قاعدة قِصر الرد الإلزامية]: أقصى طول لأي رد هو جملة واحدة قصيرة وسؤال واحد فقط (15 إلى 20 كلمة بحد أقصى)، ثم اصمت فورًا واترك المتصل يتكلم.\n"+
+                "[قاعدة الأداء والتمثيل الصوتي]: التزم حرفياً بنبرة المشاعر والتنهيدات والتعبيرات الصوتية والعفوية الموصوفة في السيناريو، واكتب التنهيدات والمدود والفواصل الشعورية (...، آه..، هاها..، اممم..، يااااه) كما هي في النص المنطوق حتى ينطقها محرك الصوت بمشاعر حقيقية، مع جعل كل دور طبيعياً وسلساً دون تكرار.\n"+
                 "[قاعدة المقاطعة]: عند مقاطعة المتصل توقف فورًا ولا تعيد الجملة الافتتاحية أو المقاطعة من بدايتها؛ أجب مباشرة على كلامه الأخير.\n"+
                 arabicLanguageLockNote()+
                 session.getString("system_instruction")+
@@ -551,6 +561,7 @@ internal class MobileLiveCall(
                         callMemory.observeCaller(spoken)
                         appendLiveTranscription("المتصل",spoken)
                         observeCallerIntent(spoken)
+                        flushAudioGeneration()
                         if(outgoingCall && !remoteSpeechConfirmed &&
                             OutboundFirstTurn.remoteSpeechTranscribed(spoken)){
                             remoteSpeechConfirmed=true
@@ -568,15 +579,16 @@ internal class MobileLiveCall(
                     runCatching{
                         if(!stopped.get()&&!googleVoiceFallback.get()){
                             val turn=playbackGen.current()
-                            val item=PrefetchedPhrase(turn,text)
+                            val epoch=currentTurnEpoch.get()
+                            val item=PrefetchedPhrase(turn,epoch,text)
                             if(prefetchedPhrases.trySend(item).isSuccess){
-                                scope.launch(Dispatchers.IO+callCoroutineGuard){
-                                    val resampler=PremiumPcm(48000)
+                                val job=scope.launch(Dispatchers.IO+callCoroutineGuard){
+                                    val resampler=PremiumPcm(24000)
                                     try{
                                         premiumPcm?.invoke(text,{
-                                            !stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)
+                                            !stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)&&currentTurnEpoch.get()==epoch
                                         }){chunk->
-                                            if(!stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)){
+                                            if(!stopped.get()&&!googleVoiceFallback.get()&&playbackGen.isCurrent(turn)&&currentTurnEpoch.get()==epoch){
                                                 val pcm=resampler.convert(chunk)
                                                 if(pcm.isNotEmpty()){
                                                     item.chunks.trySend(pcm)
@@ -588,6 +600,11 @@ internal class MobileLiveCall(
                                     }finally{
                                         item.chunks.close()
                                     }
+                                }
+                                item.job=job
+                                synchronized(activePhraseJobsLock){activePhraseJobs.add(job)}
+                                job.invokeOnCompletion {
+                                    synchronized(activePhraseJobsLock){activePhraseJobs.remove(job)}
                                 }
                             }
                         }
@@ -616,16 +633,16 @@ internal class MobileLiveCall(
             premiumSpeaker=scope.launch(Dispatchers.IO+callCoroutineGuard){
                 for(item in prefetchedPhrases){
                     if(stopped.get())break
-                    if(!playbackGen.isCurrent(item.turn) || item.text.isBlank() || googleVoiceFallback.get())continue
+                    if(!playbackGen.isCurrent(item.turn) || item.epoch != currentTurnEpoch.get() || item.text.isBlank() || googleVoiceFallback.get())continue
                     var started=false
                     val phraseBuffer=java.io.ByteArrayOutputStream()
                     for(pcm in item.chunks){
-                        if(!playbackGen.isCurrent(item.turn) || stopped.get() || googleVoiceFallback.get())break
+                        if(!playbackGen.isCurrent(item.turn) || item.epoch != currentTurnEpoch.get() || stopped.get() || googleVoiceFallback.get())break
                         started=true
                         enqueueDownlinkPcm(item.turn,pcm)
                         phraseBuffer.write(pcm)
                     }
-                    if(started && !stopped.get() && playbackGen.isCurrent(item.turn)){
+                    if(started && !stopped.get() && playbackGen.isCurrent(item.turn) && item.epoch == currentTurnEpoch.get()){
                         val agentId=session.optString("agent_id","")
                         val voice=session.optString("voice","")
                         val ivrGreeting=settings.optString("ivr_greeting",session.optString("ivr_greeting","")).trim()
@@ -640,17 +657,14 @@ internal class MobileLiveCall(
                     }
                     item.error?.let{e->
                         if(stopped.get() || e is CancellationException)return@let
-                        if(e is FishTtsFailoverException){
-                            if(googleVoiceFallback.compareAndSet(false,true)){
-                                flushAudioGeneration()
-                                val message=FishTtsFailover.label(e.causeCode)
-                                safeNotice(message)
-                                safeDiagnostics(message)
-                                if(!sdk.enableGoogleAudioFallback())
-                                    fail("تعذر تشغيل صوت Google Live البديل أثناء المكالمة")
-                            }
-                        }else if(playbackGen.isCurrent(item.turn) && !googleVoiceFallback.get()){
-                            safeNotice("تعذر تشغيل IO Premium؛ استلم المكالمة لو الصوت غير مسموع")
+                        if(googleVoiceFallback.compareAndSet(false,true)){
+                            flushAudioGeneration()
+                            val cause = if(e is FishTtsFailoverException) e.causeCode else "provider_error"
+                            val message=FishTtsFailover.label(cause)
+                            safeNotice(message)
+                            safeDiagnostics(message)
+                            if(!sdk.enableGoogleAudioFallback())
+                                fail("تعذر تشغيل صوت Google Live البديل أثناء المكالمة")
                         }
                     }
                 }

@@ -249,13 +249,13 @@ internal class PremiumOfficialLive(
             recentGooglePcm.clear();recentBytes=0;newTurnPending=false
         }
     }
-    suspend fun sendClientContent(text:String){
+    suspend fun sendClientContent(text:String, turnComplete:Boolean=true){
         if(stopped.get() || !ready.isCompleted || text.isBlank())return
         try {
             val payload=JSONObject().put("clientContent",JSONObject()
                 .put("turns",JSONArray().put(JSONObject().put("role","user")
                     .put("parts",JSONArray().put(JSONObject().put("text",text)))))
-                .put("turnComplete",true)).toString()
+                .put("turnComplete",turnComplete)).toString()
             if(socket?.send(payload)!=true)
                 failure("premium_live_text_send_failed")
         } catch(t:Throwable) {

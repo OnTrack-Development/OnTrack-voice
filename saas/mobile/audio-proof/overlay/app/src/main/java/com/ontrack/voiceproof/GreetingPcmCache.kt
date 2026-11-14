@@ -56,8 +56,35 @@ internal object GreetingPcmCache {
     fun has(context: Context?, agentId: String, voice: String, greetingText: String): Boolean =
         get(context, agentId, voice, greetingText) != null
 
+    fun prewarm(
+        context: Context?,
+        slot: Int,
+        agentId: String,
+        voice: String,
+        greetingText: String,
+        fetcher: (text: String, keepRunning: () -> Boolean, onChunk: (ByteArray) -> Unit) -> Unit
+    ) {
+        if (greetingText.isBlank()) return
+        if (has(context, agentId, voice, greetingText)) return
+        val resampler = PremiumPcm(24000)
+        val streamBuffer = java.io.ByteArrayOutputStream()
+        runCatching {
+            fetcher(greetingText, { true }) { chunk ->
+                val pcm = resampler.convert(chunk)
+                if (pcm.isNotEmpty()) {
+                    streamBuffer.write(pcm)
+                }
+            }
+            val pcmBytes = streamBuffer.toByteArray()
+            if (pcmBytes.isNotEmpty() && pcmBytes.size % 2 == 0) {
+                put(context, agentId, voice, greetingText, pcmBytes)
+            }
+        }
+    }
+
     private fun cacheFile(context: Context, cacheKey: String): File {
-        val dir = File(context.cacheDir, "greeting_pcm")
+        // Persistent internal storage so Android OS never clears it on low disk cache
+        val dir = File(context.filesDir, "greeting_pcm")
         return File(dir, "$cacheKey.pcm")
     }
 

@@ -121,7 +121,7 @@ class LiveIssuesFixTest extends TestCase
         $session = $vs->issueLiveVoiceSession($binding, fn () => 'auth_tokens/test_ephemeral_token_0123456789');
 
         $this->assertSame(1024, $session['max_output_tokens']);
-        $this->assertStringStartsWith('[قاعدة قِصر الرد الإلزامية]', $session['system_instruction']);
+        $this->assertStringStartsWith('[قاعدة الأداء والتمثيل الصوتي والمشاعر]', $session['system_instruction']);
         $this->assertStringContainsString('[قاعدة المقاطعة (Barge-In)]', $session['system_instruction']);
         $this->assertStringContainsString('[قاعدة قفل اللغة العربية]', $session['system_instruction']);
     }
@@ -536,5 +536,20 @@ class LiveIssuesFixTest extends TestCase
             'confirmed' => true,
         ])->assertOk()->json();
         $this->assertSame('running', $startRes['campaign']['status']);
+    }
+
+    public function testEmotionalProsodyInstructionRestoration(): void
+    {
+        [$user, $accountId, $siteId, $agentId, $binding, $authHeaders] = $this->seedBoundDevice();
+
+        /** @var VoiceSessionService $vs */
+        $vs = app(VoiceSessionService::class);
+        $definition = $vs->buildDefinitionForBinding($binding);
+        $instruction = $definition['instruction'];
+
+        $this->assertStringContainsString('قاعدة الأداء والتمثيل الصوتي والمشاعر', $instruction);
+        $this->assertStringContainsString('التزم حرفياً بنبرة المشاعر والتنهيدات والتعبيرات الصوتية والعفوية الموصوفة في السيناريو', $instruction);
+        $this->assertStringNotContainsString('قاعدة قِصر الرد الإلزامية', $instruction);
+        $this->assertStringNotContainsString('توصيفات الأداء بين قوسين (...) أو [...] غير منطوقة؛ ممنوع نطقها أبدًا.', $instruction);
     }
 }

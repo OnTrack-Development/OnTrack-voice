@@ -88,8 +88,8 @@ internal object PremiumPhrase {
         val clean=text.trim()
         if(clean.length<3)return ""
 
-        // Terminal punctuation (. ! ؟ \n): safe natural boundary after 3+ chars
-        val termFound=Regex("^([\\s\\S]{3,160}?[.!؟\\n])(?=\\s|$)").find(clean)
+        // Terminal punctuation: support ellipsis (...), question, exclamation, dot, newline
+        val termFound=Regex("^([\\s\\S]{3,160}?(?:\\.{2,}|[.!?؟\\n]))(?=\\s|$)").find(clean)
         if(termFound!=null) {
             val candidate=termFound.groupValues[1].trim()
             if(candidate.count{it=='('}==candidate.count{it==')'} &&

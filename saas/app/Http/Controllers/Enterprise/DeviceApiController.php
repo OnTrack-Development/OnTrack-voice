@@ -734,7 +734,9 @@ class DeviceApiController extends Controller
             'text' => $text,
             'reference_id' => $cfg['reference_id'],
             'format' => 'pcm',
-            'sample_rate' => 48000,
+            'sample_rate' => 24000,
+            'temperature' => 0.8,
+            'top_p' => 0.85,
             'streaming' => true,
             'latency' => 'low',
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
@@ -880,7 +882,7 @@ class DeviceApiController extends Controller
             }
         }, 200, $headers + [
             'Content-Type' => 'application/octet-stream',
-            'X-PCM-Sample-Rate' => '48000',
+            'X-PCM-Sample-Rate' => '24000',
             'X-PCM-Channels' => '1',
             'X-PCM-Format' => 's16le',
         ]);
