@@ -102,7 +102,17 @@
                                 @if ($acct['kind'] !== 'platform')
                                     <form method="POST" action="/console/action" style="margin:0">@csrf<input type="hidden" name="action" value="quick_switch_tenant"><input type="hidden" name="target_account_id" value="{{ $acct['id'] }}"><button class="btn btn-sm btn-primary">تبديل مباشر</button></form>
                                     <form method="POST" action="/console/action" style="margin:0">@csrf<input type="hidden" name="action" value="support_enter"><input type="hidden" name="target_account_id" value="{{ $acct['id'] }}"><button class="btn btn-sm">دخول دعم</button></form>
+                                    @if ($acct['status'] !== 'archived')
                                     <form method="POST" action="/console/action" style="margin:0">@csrf<input type="hidden" name="action" value="toggle_account_status"><input type="hidden" name="target_account_id" value="{{ $acct['id'] }}"><button class="btn btn-sm btn-danger">{{ $acct['status'] === 'active' ? 'إيقاف' : 'تفعيل' }}</button></form>
+                                    @endif
+                                    @if ($acct['status'] === 'suspended')
+                                        <form method="POST" action="/console/action" style="margin:0;display:flex;gap:5px;align-items:center;flex-wrap:wrap">@csrf
+                                            <input type="hidden" name="action" value="archive_account">
+                                            <input type="hidden" name="target_account_id" value="{{ $acct['id'] }}">
+                                            <input name="confirm_name" placeholder="اكتب اسم الحساب للتأكيد" aria-label="تأكيد اسم الحساب المراد أرشفته" required style="max-width:165px;font-size:11px">
+                                            <button class="btn btn-sm btn-danger">أرشفة / حذف من القائمة</button>
+                                        </form>
+                                    @endif
                                 @endif
                             </td>
                         </tr>
@@ -255,6 +265,29 @@
                 <form method="POST" action="/console/action" style="margin:0">@csrf<input type="hidden" name="action" value="sync_fish_catalog"><input type="hidden" name="mark_ready" value="1"><button class="btn btn-sm btn-primary">جلب ومزامنة Fish Audio</button></form>
             </div>
             <p class="card-sub">عدد الأصوات المتاحة في الكتالوج الآن: <strong class="mono">{{ count($data['global_voices'] ?? []) }}</strong></p>
+            <p class="card-sub">جملة المعاينة الثابتة لكل صوت: «{{ \App\Services\Voice\VoiceCatalogService::PREVIEW_TEXT }}». أول معاينة تُولَّد من المزود وتُخزّن لإعادة تشغيلها بدون استهلاك متكرر. عند غياب مفتاح مزود صالح ستظهر رسالة واضحة.</p>
+            <div class="table-wrap" style="max-height:510px;overflow-y:auto;margin-top:12px">
+                <table class="data-table" aria-label="التحكم في أصوات المنصة">
+                    <thead><tr><th>الصوت</th><th>المزود</th><th>النوع/اللهجة</th><th>الحالة</th><th>المعاينة والإدارة</th></tr></thead>
+                    <tbody>
+                    @forelse ($data['global_voices'] ?? [] as $v)
+                    <tr>
+                        <td><strong>{{ $v['name'] }}</strong><div class="mono" style="font-size:11px;overflow-wrap:anywhere">{{ $v['code'] }}</div></td>
+                        <td>{{ $v['provider'] }}</td>
+                        <td>{{ $v['gender'] ?? 'neutral' }} · {{ $v['dialect'] ?? '—' }}</td>
+                        <td><span class="pill {{ (int) $v['ready'] === 1 ? 'pill-green' : 'pill-crimson' }}">{{ (int) $v['ready'] === 1 ? 'مفعّل' : 'معطّل' }}</span></td>
+                        <td style="display:flex;gap:6px;flex-wrap:wrap">
+                            <button type="button" class="btn btn-sm" data-cached-url="{{ $v['sample_local_url'] ?? '' }}" onclick="playVoicePreview({{ (int) $v['id'] }},this)">▶ معاينة</button>
+                            <form method="POST" action="/console/action" style="margin:0">@csrf<input type="hidden" name="action" value="toggle_voice_ready"><input type="hidden" name="voice_id" value="{{ (int) $v['id'] }}"><button class="btn btn-sm">{{ (int) $v['ready'] === 1 ? 'تعطيل' : 'تفعيل' }}</button></form>
+                            <form method="POST" action="/console/action" style="margin:0" onsubmit="return confirm('إخفاء هذا الصوت من الكتالوج؟ لن نحذف التسجيلات أو بيانات الإيجنتات القديمة.')" >@csrf<input type="hidden" name="action" value="archive_voice"><input type="hidden" name="voice_id" value="{{ (int) $v['id'] }}"><button class="btn btn-sm btn-danger">حذف من القائمة</button></form>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr><td colspan="5">لا توجد أصوات؛ شغّل المزامنة أولًا.</td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            </div>
             <form method="POST" action="/console/action" style="margin-top:10px">
                 @csrf
                 <input type="hidden" name="action" value="save_io_premium_access">

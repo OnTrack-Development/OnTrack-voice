@@ -3,6 +3,9 @@ declare(strict_types=1);
 require_once __DIR__.'/../saas/console/_core/DevicePairing.php';
 
 function test_tenant_device_pairing():void {
+    execute("DELETE FROM device_bindings WHERE installation_id LIKE 'realistic-device-install-%'");
+    execute("DELETE FROM device_pairings WHERE account_id=4");
+    execute("DELETE FROM agent_flow_versions WHERE account_id=4 AND agent_id=1");
     $admin=one("SELECT id FROM users WHERE email='admin@ontrackegy.com'");
     $actor=(int)$admin['id'];
     $codeA=device_pairing_create(4,1,1,$actor,0);

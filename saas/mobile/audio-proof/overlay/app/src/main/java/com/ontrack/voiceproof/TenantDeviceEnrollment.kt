@@ -1,6 +1,7 @@
 package com.ontrack.voiceproof
 
 import android.content.Context
+import android.os.SystemClock
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -24,8 +25,8 @@ import javax.crypto.spec.GCMParameterSpec
  */
 class TenantDeviceEnrollment(private val context: Context) {
     private val prefs=context.getSharedPreferences("ontrack_tenant_pairing_v1",Context.MODE_PRIVATE)
-    private val client=OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
-        .connectTimeout(8,TimeUnit.SECONDS).readTimeout(12,TimeUnit.SECONDS).build()
+    private val client=OkHttpClient.Builder().dns(ResilientDns).followRedirects(false).followSslRedirects(false)
+        .connectTimeout(2500,TimeUnit.MILLISECONDS).readTimeout(12,TimeUnit.SECONDS).build()
     private val keyAlias="ontrack_tenant_sim_aes_v1"
     private fun key():SecretKey {
         val store=KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -56,6 +57,8 @@ class TenantDeviceEnrollment(private val context: Context) {
     /** Immutable identity of the original paired device/SIM. A heartbeat may refresh
      * the agent, never the device binding ID or SIM slot. Never expose the bearer. */
     fun bindingId(slot:Int):Int = local(slot).getInt("device_id")
+    internal fun bearerToken(slot:Int):String? = runCatching { local(slot).getString("token") }.getOrNull()
+    internal fun activeSlot():Int = if (paired(0)) 0 else if (paired(1)) 1 else 0
     private fun local(slot:Int):JSONObject {
         val ciphertext=prefs.getString(field(slot),null)?:error("الشريحة غير مربوطة")
         return JSONObject(unseal(ciphertext))
@@ -75,7 +78,7 @@ class TenantDeviceEnrollment(private val context: Context) {
         // default 12s device API timeout. Other pairing/call control requests
         // remain short; only post-call analysis receives the longer timeout.
         val operation=body.optString("operation")
-        val transport=when(operation){
+        val baseTransport=when(operation){
             "workspace_call_analysis" ->
                 client.newBuilder().readTimeout(155,TimeUnit.SECONDS).build()
             // 3G/H/H+ radio switching during a live SIM call can exceed the
@@ -83,11 +86,12 @@ class TenantDeviceEnrollment(private val context: Context) {
             // authentication, but allow a bounded slower mobile handshake.
             "heartbeat","published_flow","voice_session","voice_preflight","voice_failover" ->
                 client.newBuilder()
-                    .connectTimeout(16,TimeUnit.SECONDS)
-                    .readTimeout(22,TimeUnit.SECONDS)
-                    .callTimeout(36,TimeUnit.SECONDS).build()
+                    .connectTimeout(2500,TimeUnit.MILLISECONDS)
+                    .readTimeout(12,TimeUnit.SECONDS)
+                    .callTimeout(16,TimeUnit.SECONDS).build()
             else->client
         }
+        val transport = CellularRadioStatus.bindOkHttpClientToCellularIfNeeded(context, baseTransport)
         transport.newCall(req).execute().use { response ->
             val raw=response.body?.string().orEmpty()
             check(raw.length<=maxResponse) { "استجابة السيرفر غير صالحة" }
@@ -174,6 +178,29 @@ class TenantDeviceEnrollment(private val context: Context) {
         return profile
     }
 
+    fun cachedPublishedFlow(slot:Int):JSONObject? {
+        val raw=prefs.getString("cached_flow_${TenantPairingContract.slot(slot)}",null)?:return null
+        return runCatching{JSONObject(unseal(raw))}.getOrNull()
+    }
+    fun saveCachedPublishedFlow(slot:Int,flow:JSONObject){
+        runCatching{
+            prefs.edit().putString("cached_flow_${TenantPairingContract.slot(slot)}",seal(flow.toString())).commit()
+        }
+    }
+    fun cachedPolicy(slot:Int):JSONObject {
+        val flow=cachedPublishedFlow(slot)
+        return flow?.optJSONObject("answer_policy")?:JSONObject()
+    }
+    fun cachedVoiceSession(slot:Int):JSONObject? {
+        val raw=prefs.getString("cached_session_${TenantPairingContract.slot(slot)}",null)?:return null
+        return runCatching{JSONObject(unseal(raw))}.getOrNull()
+    }
+    fun saveCachedVoiceSession(slot:Int,session:JSONObject){
+        runCatching{
+            prefs.edit().putString("cached_session_${TenantPairingContract.slot(slot)}",seal(session.toString())).commit()
+        }
+    }
+
     /** Fetch only the immutable server-published Flow for this SIM/tenant.
      * This does not initiate calls or unlock the legacy pilot voice transport.
      */
@@ -196,6 +223,7 @@ class TenantDeviceEnrollment(private val context: Context) {
         val flow=reply.getJSONObject("flow")
         check(flow.getJSONArray("nodes").length() in 1..100 &&
             flow.getJSONArray("edges").length()<=250) { "Flow غير صالح" }
+        saveCachedPublishedFlow(slot, reply)
         return reply
     }
     /** New tenant voice-session authorization. Never uses a legacy pilot key.
@@ -207,23 +235,37 @@ class TenantDeviceEnrollment(private val context: Context) {
      * This only issues a short-lived token; it never answers a call itself.
      */
     fun voiceSession(slot:Int,expectedFlow:JSONObject):JSONObject {
-        val live=publishedFlow(slot) // verifies current hardware, pairing and snapshot
         val saved=local(slot) // read after flow/heartbeat synchronizes a new agent
-        check(live.getInt("revision")==expectedFlow.getInt("revision")
-            && live.getString("hash")==expectedFlow.getString("hash")) {
-            "تغيّرت نسخة السيناريو، أعد المحاولة بعد التحقق"
+        val expectedRevision = expectedFlow.getInt("revision")
+        val expectedHash = expectedFlow.getString("hash")
+        val isCellular = runCatching { CellularRadioStatus.isCellularLink(context) }.getOrDefault(false)
+        val cached = cachedVoiceSession(slot)
+
+        try {
+            val response=request(JSONObject().put("operation","voice_session"),saved.getString("token"),65536)
+            val session=response.getJSONObject("session")
+            check(session.optInt("agent_id",-1)==saved.getInt("agent_id")
+                && session.optInt("site_id",-1)==saved.getInt("site_id")
+                && session.optInt("sim_slot",-1)==slot
+                && session.optInt("revision",-1)==expectedRevision
+                && session.optString("hash","")==expectedHash
+                && session.optString("token","").startsWith("auth_tokens/")) {
+                "بيانات جلسة الصوت لا تطابق اعتماد الشريحة؛ رفض الاتصال"
+            }
+            saveCachedVoiceSession(slot, session)
+            return session
+        } catch(e: Throwable) {
+            if (isCellular && cached != null &&
+                cached.optInt("agent_id",-1)==saved.getInt("agent_id") &&
+                cached.optInt("site_id",-1)==saved.getInt("site_id") &&
+                cached.optInt("sim_slot",-1)==slot &&
+                cached.optInt("revision",-1)==expectedRevision &&
+                cached.optString("hash","")==expectedHash &&
+                cached.optString("token","").startsWith("auth_tokens/")) {
+                return cached
+            }
+            throw e
         }
-        val response=request(JSONObject().put("operation","voice_session"),saved.getString("token"),65536)
-        val session=response.getJSONObject("session")
-        check(session.optInt("agent_id",-1)==saved.getInt("agent_id")
-            && session.optInt("site_id",-1)==saved.getInt("site_id")
-            && session.optInt("sim_slot",-1)==slot
-            && session.optInt("revision",-1)==live.getInt("revision")
-            && session.optString("hash","")==live.getString("hash")
-            && session.optString("token","").startsWith("auth_tokens/")) {
-            "بيانات جلسة الصوت لا تطابق اعتماد الشريحة؛ رفض الاتصال"
-        }
-        return session
     }
     /** Request the next key from the exact original device + tenant + SIM.
      * No heartbeat or republish during an ongoing call: a human may switch the
@@ -269,12 +311,14 @@ class TenantDeviceEnrollment(private val context: Context) {
             .header("Accept","application/octet-stream")
             .post(JSONObject().put("text",phrase).toString()
                 .toRequestBody("application/json".toMediaType())).build()
-        // Fish PCM stream must tolerate a brief 3G/H+ TCP handshake without
-        // imposing a total-call timeout on ongoing audio chunks.
-        val streamClient=client.newBuilder().connectTimeout(16,TimeUnit.SECONDS)
-            .readTimeout(45,TimeUnit.SECONDS).build()
+        val isCellular = runCatching { CellularRadioStatus.isCellularLink(context) }.getOrDefault(false)
+        val baseStreamClient = client.newBuilder()
+            .connectTimeout(if(isCellular) 2000L else 5000L, TimeUnit.MILLISECONDS)
+            .readTimeout(20,TimeUnit.SECONDS).build()
+        val streamClient = CellularRadioStatus.bindOkHttpClientToCellularIfNeeded(context, baseStreamClient)
         try {
-            streamClient.newCall(req).execute().use{response->
+            val call = streamClient.newCall(req)
+            call.execute().use{response->
                 if(response.code==401)throw SecurityException("ربط الشريحة لم يعد صالحًا")
                 if(!response.isSuccessful){
                     val code=runCatching{
@@ -286,7 +330,8 @@ class TenantDeviceEnrollment(private val context: Context) {
                     // or changed published agent never bypasses authorization.
                     error("IO Premium HTTP " + response.code + " " + code.take(64))
                 }
-                if(response.header("X-PCM-Sample-Rate")!="44100" ||
+                val rate = response.header("X-PCM-Sample-Rate")?.toIntOrNull() ?: 24000
+                if(rate !in setOf(24000, 44100, 48000) ||
                     response.header("X-PCM-Channels")!="1" ||
                     response.header("X-PCM-Format")!="s16le") {
                     throw FishTtsFailoverException("tts_failed")
@@ -294,12 +339,17 @@ class TenantDeviceEnrollment(private val context: Context) {
                 val input=response.body?.byteStream()?:throw FishTtsFailoverException("tts_failed")
                 val chunk=ByteArray(4096)
                 var total=0
+                val startTime = SystemClock.elapsedRealtime()
                 while(shouldContinue()){
+                    if (total == 0 && isCellular && SystemClock.elapsedRealtime() - startTime > 2000L) {
+                        call.cancel()
+                        throw FishTtsFailoverException("tts_timeout")
+                    }
                     val size=input.read(chunk)
                     if(size<0)break
                     if(size==0)continue
                     total+=size
-                    check(total<44100*2*55){"IO Premium: الصوت أطول من الحد"}
+                    check(total<48000*2*55){"IO Premium: الصوت أطول من الحد"}
                     onChunk(chunk.copyOf(size))
                 }
                 if(shouldContinue()&&total==0)throw FishTtsFailoverException("tts_failed")

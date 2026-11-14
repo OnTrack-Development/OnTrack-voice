@@ -188,7 +188,7 @@ class V041UpgradeTest extends TestCase
 
         $session = $vs->issueLiveVoiceSession($binding, static fn () => 'auth_tokens/test-token-v041');
         $this->assertSame(1024, $session['max_output_tokens']);
-        $this->assertStringStartsWith('[قاعدة قِصر الرد الإلزامية]', $session['system_instruction']);
+        $this->assertStringStartsWith('[قاعدة الأداء والتمثيل الصوتي والمشاعر]', $session['system_instruction']);
         $this->assertStringContainsString('[بروتوكول القائمة التفاعلية (IVR) وتوجيه الأقسام]', $session['system_instruction']);
         $this->assertTrue($session['ivr_enabled']);
         $this->assertTrue($session['manager_callback_enabled']);

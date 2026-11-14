@@ -8,8 +8,8 @@ return [
     'gemini_api_key' => env('ONTRACK_GEMINI_API_KEY', ''),
     'gemini_live_model' => env('ONTRACK_GEMINI_LIVE_MODEL', 'gemini-2.5-flash-native-audio-preview-12-2025'),
     'campaign_dial_enabled' => filter_var(env('ONTRACK_TENANT_CAMPAIGN_DIAL_ENABLED', false), FILTER_VALIDATE_BOOL),
-    'apk_version_code' => 69,
-    'apk_version_name' => '0.3.46',
-    'ota_revision' => 69,
+    'apk_version_code' => 78,
+    'apk_version_name' => '0.3.55',
+    'ota_revision' => 78,
     'apk_download_path' => '/mobile/updates/native/latest.apk',
 ];

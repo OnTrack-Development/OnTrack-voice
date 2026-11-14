@@ -7,6 +7,12 @@ require_once __DIR__.'/../../_core/TenantWorkspace.php';
 require_once __DIR__.'/../../_core/TenantFileParser.php';
 require_once __DIR__.'/../../_core/VoiceAccess.php';
 require_once __DIR__.'/../../_core/HumanEscalations.php';
+
+$t0 = hrtime(true);
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -51,7 +57,10 @@ try{
         'flow_start','flow_step','flow_state'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
         if(!str_starts_with($auth,'Bearer '))device_answer(401,['ok'=>false,'error'=>'authorization_required']);
+        $tAuth0 = hrtime(true);
         $binding=device_binding_authorize(substr($auth,7));
+        $authMs = (hrtime(true) - $tAuth0) / 1e6;
+        header('X-OnTrack-Auth-Ms: ' . number_format($authMs, 2, '.', ''));
         if(!$binding)device_answer(401,['ok'=>false,'error'=>'device_not_authorized']);
         // Protected engine is not Android OTA. Module delivery is opt-in,
         // signed, encrypted at rest and requires the live SIM entitlement.
@@ -185,6 +194,7 @@ try{
         }
         if($operation==='voice_session'){
             // No global pilot policy, unpaired device, foreign SIM, or draft agent can receive a token.
+            $tVault0 = hrtime(true);
             try{$session=tenant_voice_session($binding);}
             catch(RuntimeException $problem){
                 $reason=$problem->getMessage();
@@ -194,6 +204,10 @@ try{
                     device_answer(409,['ok'=>false,'error'=>$reason]);
                 device_answer(503,['ok'=>false,'error'=>'voice_provider_unavailable']);
             }
+            $vaultMs = (hrtime(true) - $tVault0) / 1e6;
+            $totalMs = (hrtime(true) - $t0) / 1e6;
+            header('X-OnTrack-Vault-Ms: ' . number_format($vaultMs, 2, '.', ''));
+            header('X-OnTrack-Internal-Ms: ' . number_format($totalMs, 2, '.', ''));
             device_answer(200,['ok'=>true,'session'=>$session]);
         }
         if($operation==='voice_failover'){

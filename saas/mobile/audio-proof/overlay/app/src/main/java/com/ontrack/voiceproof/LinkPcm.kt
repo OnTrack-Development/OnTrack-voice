@@ -16,7 +16,7 @@ import java.io.ByteArrayOutputStream
  *  absorb radio jitter without dropping whole words. Wi-Fi remains 192 KiB.
  */
 internal object LiveAudioQueuePolicy {
-    const val CELLULAR_MAX_PENDING_BYTES = 64L * 1024
+    const val CELLULAR_MAX_PENDING_BYTES = 64L * 1024 // 64 KiB cap for mobile data
     const val OTHER_MAX_PENDING_BYTES = 192L * 1024
 
     fun canSend(cellular: Boolean, pendingBytes: Long): Boolean {
@@ -185,10 +185,23 @@ internal class UplinkAudioFrameBuffer {
 
     companion object {
         const val FAST_FRAME_BYTES = 640 // 20ms @ 16kHz 16-bit mono
-        const val SLOW_CELLULAR_FRAME_BYTES = 1280 // 40ms @ 16kHz 16-bit mono
+        const val CELLULAR_FRAME_BYTES = 640 // Unified 20ms continuous streaming with Wi-Fi
+        const val SLOW_CELLULAR_FRAME_BYTES = 640 // Unified 20ms continuous streaming
 
-        fun targetBytes(cellular: Boolean, slowCellular: Boolean): Int =
-            if (cellular && slowCellular) SLOW_CELLULAR_FRAME_BYTES else FAST_FRAME_BYTES
+        fun targetBytes(cellular: Boolean = false, slowCellular: Boolean = false): Int = FAST_FRAME_BYTES
+    }
+}
+
+internal object AudioSignalProcessing {
+    fun calculateRms(pcm16Mono: ByteArray): Double {
+        if (pcm16Mono.size < 2) return 0.0
+        var sum = 0.0
+        val sampleCount = pcm16Mono.size / 2
+        for (i in 0 until pcm16Mono.size - 1 step 2) {
+            val sample = ((pcm16Mono[i].toInt() and 0xFF) or (pcm16Mono[i + 1].toInt() shl 8)).toShort().toDouble()
+            sum += sample * sample
+        }
+        return kotlin.math.sqrt(sum / sampleCount)
     }
 }
 
@@ -201,7 +214,9 @@ internal data class AudioTelemetrySnapshot(
     val networkConnectMs: Long,
     val aiFirstAudioMs: Long,
     val networkSkippedUplinkPackets: Long,
-    val networkReconnects: Long
+    val networkReconnects: Long,
+    val firstAudioInputMs: Long = 0L,
+    val speakerPlaybackMs: Long = 0L
 )
 
 /**
@@ -213,6 +228,8 @@ internal class LiveAudioTelemetry {
     @Volatile var pcmFirstFrameMs: Long = 0L; private set
     @Volatile var networkConnectMs: Long = 0L; private set
     @Volatile var aiFirstAudioMs: Long = 0L; private set
+    @Volatile var firstAudioInputMs: Long = 0L; private set
+    @Volatile var speakerPlaybackMs: Long = 0L; private set
     private var lastCaptureAtMs: Long = 0L
     private var maxGapMs: Long = 0L
     private var gapCount: Long = 0L
@@ -235,6 +252,8 @@ internal class LiveAudioTelemetry {
     @Synchronized fun recordPcmDrop(count: Long = 1L) { pcmDropped += count.coerceAtLeast(0L) }
     @Synchronized fun recordNetworkConnect(elapsedMs: Long) { networkConnectMs = elapsedMs.coerceAtLeast(0L) }
     @Synchronized fun recordAiFirstAudio(elapsedMs: Long) { if (aiFirstAudioMs == 0L) aiFirstAudioMs = elapsedMs.coerceAtLeast(0L) }
+    @Synchronized fun recordFirstAudioInput(elapsedMs: Long) { if (firstAudioInputMs == 0L) firstAudioInputMs = elapsedMs.coerceAtLeast(0L) }
+    @Synchronized fun recordSpeakerPlayback(elapsedMs: Long) { if (speakerPlaybackMs == 0L) speakerPlaybackMs = elapsedMs.coerceAtLeast(0L) }
     @Synchronized fun recordNetworkUplinkSkip(count: Long = 1L) { netSkipped += count.coerceAtLeast(0L) }
     @Synchronized fun recordNetworkReconnect() { reconnects++ }
 
@@ -247,6 +266,8 @@ internal class LiveAudioTelemetry {
         networkConnectMs = networkConnectMs,
         aiFirstAudioMs = aiFirstAudioMs,
         networkSkippedUplinkPackets = netSkipped,
-        networkReconnects = reconnects
+        networkReconnects = reconnects,
+        firstAudioInputMs = firstAudioInputMs,
+        speakerPlaybackMs = speakerPlaybackMs
     )
 }

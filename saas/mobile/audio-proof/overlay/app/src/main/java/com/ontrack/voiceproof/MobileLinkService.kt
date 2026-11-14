@@ -131,8 +131,8 @@ class MobileLinkService:Service() {
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.IO+serviceGuard)
     private val main=Handler(Looper.getMainLooper())
     private val retryWake=Channel<Unit>(Channel.CONFLATED)
-    private val client=OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
-        .connectTimeout(16,TimeUnit.SECONDS).readTimeout(22,TimeUnit.SECONDS).pingInterval(15,TimeUnit.SECONDS).build()
+    private val client=OkHttpClient.Builder().dns(ResilientDns).followRedirects(false).followSslRedirects(false)
+        .connectTimeout(2500,TimeUnit.MILLISECONDS).readTimeout(15,TimeUnit.SECONDS).pingInterval(15,TimeUnit.SECONDS).build()
     private lateinit var overlay:CallOverlay
     private var call:MobileLiveCall?=null
     private var loop:Job?=null
@@ -216,18 +216,48 @@ class MobileLinkService:Service() {
             override fun onAvailable(network:Network){
                 dataNetworkEpoch++
                 forceDaemonCheck=true
+                ResilientDns.clearCache()
                 client.connectionPool.evictAll()
+                call?.onNetworkRouteChanged()
                 retryWake.trySend(Unit)
             }
             override fun onCapabilitiesChanged(network:Network,caps:NetworkCapabilities){
                 if(caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))forceDaemonCheck=true
                 retryWake.trySend(Unit)
             }
-            override fun onLost(network:Network){connected=false;forceDaemonCheck=true;retryWake.trySend(Unit)}
+            override fun onLost(network:Network){
+                connected=false
+                forceDaemonCheck=true
+                ResilientDns.clearCache()
+                call?.onNetworkLost()
+                retryWake.trySend(Unit)
+            }
         }
         runCatching{connectivity?.registerDefaultNetworkCallback(callback)}
             .onSuccess{networkListener=callback}
     }
+    private fun prewarmGreetingForSlot(slot: Int) {
+        val enrollment = TenantDeviceEnrollment(this)
+        if (slot !in 0..1 || !enrollment.paired(slot)) return
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                val flow = enrollment.cachedPublishedFlow(slot) ?: enrollment.publishedFlow(slot)
+                val pol = flow.optJSONObject("answer_policy") ?: JSONObject()
+                val ivrGreeting = pol.optString("ivr_greeting", "").trim()
+                val agentGreeting = pol.optString("greeting", "").trim()
+                val greetingText = if (pol.optBoolean("ivr_enabled", false) && ivrGreeting.isNotBlank()) ivrGreeting
+                    else if (agentGreeting.isNotBlank()) agentGreeting else ""
+                val agentId = flow.optString("agent_id", "")
+                val voice = flow.optString("voice", "")
+                if (greetingText.isNotBlank()) {
+                    GreetingPcmCache.prewarm(this@MobileLinkService, slot, agentId, voice, greetingText) { text, shouldContinue, onChunk ->
+                        enrollment.streamPremiumPcm(slot, text, shouldContinue, onChunk)
+                    }
+                }
+            }
+        }
+    }
+
     override fun onBind(intent:Intent?):IBinder?=null
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
         startForeground(701,notification(latestStatus))
@@ -345,6 +375,8 @@ class MobileLinkService:Service() {
             if(loop?.isActive!=true){
                 running=true
                 loop=scope.launch{tenantMonitor()}
+                prewarmGreetingForSlot(0)
+                prewarmGreetingForSlot(1)
             }
             // Google Live stays idle until a call; show the confirmed SIM-monitor state.
             showOverlay()
@@ -365,13 +397,23 @@ class MobileLinkService:Service() {
      * Never use a Wi-Fi-only precondition for already answered SIM calls.
      */
     private fun internetAvailableForRetry():Boolean = runCatching {
-        val cm=connectivity?:getSystemService(ConnectivityManager::class.java)
-        val caps=cm?.activeNetwork?.let { cm.getNetworkCapabilities(it) }
+        val cm=connectivity?:getSystemService(ConnectivityManager::class.java) ?: return@runCatching false
+        val activeNet=cm.activeNetwork
+        val caps=if(activeNet!=null) cm.getNetworkCapabilities(activeNet) else null
+        if(caps!=null && CellularCallRecoveryPolicy.mayRetryLive(
+            defaultNetworkPresent=true,
+            internetCapability=caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+            validated=caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+            cellularTransport=caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+        )) return@runCatching true
+
+        val cellNet=CellularRadioStatus.getActiveCellularNetwork(this) ?: return@runCatching false
+        val cellCaps=cm.getNetworkCapabilities(cellNet) ?: return@runCatching false
         CellularCallRecoveryPolicy.mayRetryLive(
-            defaultNetworkPresent=caps!=null,
-            internetCapability=caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)==true,
-            validated=caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)==true,
-            cellularTransport=caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)==true
+            defaultNetworkPresent=true,
+            internetCapability=cellCaps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+            validated=cellCaps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+            cellularTransport=true
         )
     }.getOrDefault(false)
     private fun clearCallAudioStages() {
@@ -465,14 +507,27 @@ class MobileLinkService:Service() {
         }
     }
     private suspend fun checkDaemonReadiness(allowRevive: Boolean): Pair<Boolean, String> {
+        var up = false
+        // Warm-up retry loop: allow daemon socket up to 3 attempts x 400ms before declaring failure
+        for (attempt in 1..3) {
+            up = runCatching { CaptureDaemon.isRunning(this) }.getOrDefault(false) ||
+                 runCatching { CaptureDaemon.isRunningConfirmed(this) }.getOrDefault(false)
+            if (up) break
+            if (attempt < 3) {
+                delay(400L)
+            }
+        }
         val onWifiNow = NetworkRevive.onWifi(this)
         val wifiFreeNow = runCatching { StartWithoutWifi.ready(this) }.getOrDefault(false)
         val setupOk = runCatching { com.ontrack.voiceproof.ui.Setup.isComplete(this) }.getOrDefault(false)
-        var up = runCatching { CaptureDaemon.isRunning(this) }.getOrDefault(false)
         if (!up && allowRevive && (onWifiNow || wifiFreeNow)) {
             up = runCatching {
                 CaptureDaemon.revive(this, request = CaptureDaemon.Request.USER)
             }.getOrDefault(false)
+            if (!up) {
+                delay(400L)
+                up = runCatching { CaptureDaemon.isRunning(this) }.getOrDefault(false)
+            }
         }
         if (up) {
             runCatching {
@@ -1067,11 +1122,16 @@ class MobileLinkService:Service() {
                         ringAttempted=true
                         outgoingCall=false
                         val slot=current.slot
+                        val cachedFlow=enrollment.cachedPublishedFlow(slot)
+                        if(cachedFlow!=null){
+                            tenantFlow=cachedFlow
+                            policy=enrollment.cachedPolicy(slot)
+                        }
                         // Load signed Flow/policy without pausing shell ring polling.
                         flowLoad=scope.async(Dispatchers.IO){
                             runCatching{enrollment.publishedFlow(slot)}
                         }
-                        notice("الشريحة ${slot+1}: تم رصد الرنين؛ جاري تحميل سياسة الإيجنت")
+                        notice("الشريحة ${slot+1}: تم رصد الرنين؛ سياسة الإيجنت جاهزة محلياً")
                     }
                     if(flowLoad?.isCompleted==true){
                         val result=flowLoad?.await()
@@ -1079,10 +1139,11 @@ class MobileLinkService:Service() {
                         result?.onSuccess { flow->
                             tenantFlow=flow
                             policy=flow.optJSONObject("answer_policy")?:JSONObject()
+                            prewarmGreetingForSlot(current.slot)
                             val auto=policy.optBoolean("auto_answer",false)
                             callProblem=if(auto) "" else "الرد التلقائي مغلق في إعدادات الإيجنت"
-                            if(auto && current.state==TelephonyManager.CALL_STATE_RINGING &&
-                                sessionLoad==null && tenantSession==null){
+                            if(current.state==TelephonyManager.CALL_STATE_RINGING &&
+                                sessionLoad==null && tenantSession==null && agentEnabled){
                                 // Warm the per-SIM authorized Gemini token during
                                 // ringing, so OFFHOOK doesn't wait on three HTTP
                                 // requests before the audio bridge can start.
@@ -1090,7 +1151,9 @@ class MobileLinkService:Service() {
                                 val snapshot=flow
                                 sessionLoad=scope.async(Dispatchers.IO){
                                     runCatching{
-                                        Triple(snapshot,policy,enrollment.voiceSession(slot,snapshot))
+                                        val triple=Triple(snapshot,policy,enrollment.voiceSession(slot,snapshot))
+                                        retryWake.trySend(Unit)
+                                        triple
                                     }
                                 }
                             }
@@ -1118,7 +1181,8 @@ class MobileLinkService:Service() {
                         try{
                             val onWifiNow=NetworkRevive.onWifi(this@MobileLinkService)
                             val wifiFreeNow=runCatching{StartWithoutWifi.ready(this@MobileLinkService)}.getOrDefault(false)
-                            var bridgeUp=runCatching{CaptureDaemon.isRunning(this@MobileLinkService)}.getOrDefault(false)
+                            var bridgeUp=runCatching{CaptureDaemon.isRunning(this@MobileLinkService)}.getOrDefault(false) ||
+                                     runCatching{CaptureDaemon.isRunningConfirmed(this@MobileLinkService)}.getOrDefault(false)
                             if(!bridgeUp && (onWifiNow || wifiFreeNow)){
                                 bridgeUp=runCatching{CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)}.getOrDefault(false)
                             }
@@ -1215,7 +1279,7 @@ class MobileLinkService:Service() {
                         audioAttemptCount++
                         outgoingCall=!ringAttempted
                         val slot=current.slot
-                        val preparedFlow=tenantFlow
+                        val preparedFlow=tenantFlow ?: enrollment.cachedPublishedFlow(slot)
                         // Call-state polling must not block on SaaS, Gemini tokens
                         // or a slow published Flow response after OFFHOOK.
                         if(sessionLoad==null && tenantSession==null){
@@ -1237,12 +1301,15 @@ class MobileLinkService:Service() {
                         result?.onSuccess { (flow,answer,session)->
                             tenantFlow=flow;tenantSession=session;policy=answer
                             callProblem=""
-                            if(current.state==TelephonyManager.CALL_STATE_OFFHOOK)
+                            if(current.state==TelephonyManager.CALL_STATE_OFFHOOK){
                                 notice("الشريحة ${current.slot+1}: جلسة الإيجنت صالحة؛ توصيل صوت المكالمة")
+                                retryWake.trySend(Unit)
+                            }
                         }?.onFailure { problem ->
                             tenantSession=null
-                            nextAudioRetryAt=SystemClock.elapsedRealtime()+
-                                CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
+                            val isSlowCellular = runCatching { CellularRadioStatus.isSlowCellularLink(this@MobileLinkService) }.getOrDefault(false)
+                            val retryDelay = if (isSlowCellular) 400L else CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
+                            nextAudioRetryAt=SystemClock.elapsedRealtime()+retryDelay
                             val message=problem.message.orEmpty().take(140)
                             val hint=cellularCallNetworkHint(current.slot)
                             callProblem="تعذر تشغيل صوت الإيجنت ("+internetRoute()+"): "+message+
@@ -1255,7 +1322,8 @@ class MobileLinkService:Service() {
                         now>=nextLocalBridgeRetryAt){
                         val onWifiNow=NetworkRevive.onWifi(this@MobileLinkService)
                         val wifiFreeNow=runCatching{StartWithoutWifi.ready(this@MobileLinkService)}.getOrDefault(false)
-                        var bridgeUp=runCatching{CaptureDaemon.isRunning(this@MobileLinkService)}.getOrDefault(false)
+                        var bridgeUp=runCatching{CaptureDaemon.isRunning(this@MobileLinkService)}.getOrDefault(false) ||
+                                     runCatching{CaptureDaemon.isRunningConfirmed(this@MobileLinkService)}.getOrDefault(false)
                         if(!bridgeUp && (onWifiNow || wifiFreeNow)){
                             bridgeUp=runCatching{CaptureDaemon.revive(this@MobileLinkService,request=CaptureDaemon.Request.USER)}.getOrDefault(false)
                         }
@@ -1377,6 +1445,7 @@ class MobileLinkService:Service() {
                         audioStart=scope.async(Dispatchers.IO){
                             try{
                                 currentCall.start()
+                                retryWake.trySend(Unit)
                                 Result.success(Unit)
                             }catch(timeout:TimeoutCancellationException){
                                 // A 25s Google setup timeout on LTE is a
@@ -1409,19 +1478,23 @@ class MobileLinkService:Service() {
                         }?.onFailure{problem->
                             call?.stop();call=null;tenantSession=null
                             audioReady=false;connected=false;clearCallAudioStages()
-                            nextAudioRetryAt=SystemClock.elapsedRealtime()+
-                                CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
+                            val isSlowCellular = runCatching { CellularRadioStatus.isSlowCellularLink(this@MobileLinkService) }.getOrDefault(false)
+                            val retryDelay = if (isSlowCellular) 400L else CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
+                            nextAudioRetryAt=SystemClock.elapsedRealtime()+retryDelay
                             callProblem="فشل ربط الصوت (${internetRoute()}): "+problem.message.orEmpty().take(110)
                             notice(callProblem)
                         }
                     }
-                    if(call!=null && !call!!.active){
+                    if(call!=null && !call!!.active && !call!!.isRecovering){
                         audioStart?.cancel();audioStart=null
                         call=null;tenantSession=null;audioReady=false;connected=false;clearCallAudioStages()
                         nextAudioRetryAt=SystemClock.elapsedRealtime()+
                             CellularCallRecoveryPolicy.retryDelayMs(audioAttemptCount)
                         callProblem="انقطعت جلسة الصوت (${internetRoute()})؛ المكالمة على الهاتف بدون AI"
                         notice(callProblem)
+                    } else if(call!=null && call!!.isRecovering){
+                        audioReady=false
+                        callProblem="انقطع اتصال خدمة الصوت؛ جاري استعادة الصوت تلقائيًا على ${internetRoute()}…"
                     }
                     if(call!=null && startedAt>0 &&
                         SystemClock.elapsedRealtime()-startedAt>policy.optInt("max_call_minutes",10).coerceIn(1,30)*60000L){

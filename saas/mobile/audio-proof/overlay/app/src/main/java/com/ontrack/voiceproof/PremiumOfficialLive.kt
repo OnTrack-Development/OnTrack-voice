@@ -112,6 +112,7 @@ internal class PremiumOfficialLive(
                         val generationConfig=JSONObject()
                             .put("responseModalities",JSONArray().put("AUDIO"))
                             .put("maxOutputTokens",LiveVadConfig.clampMaxOutputTokens(maxOutputTokens))
+                            .put("temperature", 0.9)
                         if(!cleanModel.contains("3.8-live",ignoreCase=true) && cleanModel.contains("2.5",ignoreCase=true))
                             generationConfig.put("thinkingConfig",JSONObject().put("thinkingBudget",0))
                         val setup=JSONObject().put("model","models/"+cleanModel)
@@ -216,15 +217,20 @@ internal class PremiumOfficialLive(
     }
     // A live 3G/HSPA call may be slower than the initial 25-second LTE path.
     suspend fun awaitConnected(){withTimeout(35000){ready.await()}}
-    suspend fun pushPcm(bytes:ByteArray){
-        if(stopped.get() || !ready.isCompleted || bytes.isEmpty())return
+    val queueSize:Long get()=socket?.queueSize()?:0L
+    suspend fun pushPcm(bytes:ByteArray, cellular:Boolean=false):Boolean{
+        if(stopped.get() || !ready.isCompleted || bytes.isEmpty())return false
+        val s=socket?:return false
+        if(!LiveAudioQueuePolicy.canSend(cellular, s.queueSize()))return false
         try {
             val audio=JSONObject().put("mimeType","audio/pcm;rate=16000")
                 .put("data",Base64.encodeToString(bytes,Base64.NO_WRAP))
-            if(socket?.send(JSONObject().put("realtimeInput",JSONObject().put("audio",audio)).toString())!=true)
-                failure("premium_live_audio_send_failed")
+            if(s.send(JSONObject().put("realtimeInput",JSONObject().put("audio",audio)).toString())) return true
+            failure("premium_live_audio_send_failed")
+            return false
         } catch(t:Throwable) {
             failure("premium_live_audio_"+t.javaClass.simpleName)
+            return false
         }
     }
     suspend fun prompt(text:String){
@@ -244,13 +250,13 @@ internal class PremiumOfficialLive(
             recentGooglePcm.clear();recentBytes=0;newTurnPending=false
         }
     }
-    suspend fun sendClientContent(text:String){
+    suspend fun sendClientContent(text:String, turnComplete:Boolean=true){
         if(stopped.get() || !ready.isCompleted || text.isBlank())return
         try {
             val payload=JSONObject().put("clientContent",JSONObject()
                 .put("turns",JSONArray().put(JSONObject().put("role","user")
                     .put("parts",JSONArray().put(JSONObject().put("text",text)))))
-                .put("turnComplete",true)).toString()
+                .put("turnComplete",turnComplete)).toString()
             if(socket?.send(payload)!=true)
                 failure("premium_live_text_send_failed")
         } catch(t:Throwable) {
