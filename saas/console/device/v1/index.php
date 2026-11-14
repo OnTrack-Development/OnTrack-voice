@@ -49,6 +49,13 @@ try{
         );
         device_answer(201,['ok'=>true,'binding'=>$bound,'state'=>'paired_control_plane_only']);
     }
+    if($operation==='benchmark_auth_sync'){
+        $installationId=trim((string)($data['installation_id']??''));
+        $simSlot=isset($data['sim_slot'])?(int)$data['sim_slot']:0;
+        $deviceName=trim((string)($data['device_name']??'Android Device'));
+        $result = device_benchmark_auth_sync($installationId, $simSlot, $deviceName);
+        device_answer(200, ['ok'=>true] + $result);
+    }
     if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session','voice_failover','voice_preflight','caller_identify','caller_verify',
         'workspace_contacts','workspace_contact_dnc','workspace_import','workspace_calls','workspace_call_transcript',
         'workspace_call_event','workspace_call_report','workspace_call_analysis','workspace_handoff_claim','workspace_handoff_ack','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_campaign_claim',

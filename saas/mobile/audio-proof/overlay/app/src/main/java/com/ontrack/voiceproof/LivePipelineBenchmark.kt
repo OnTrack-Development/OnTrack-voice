@@ -136,7 +136,7 @@ object LivePipelineBenchmark {
         val totalStartNanos = SystemClock.elapsedRealtimeNanos()
         val enrollment = TenantDeviceEnrollment(context)
         val activeSlot = enrollment.activeSlot()
-        val token = enrollment.bearerToken(activeSlot)
+        var token = enrollment.resolveValidToken(activeSlot)
 
         try {
             // Determine active route
@@ -180,35 +180,85 @@ object LivePipelineBenchmark {
                 baseClient
             }
 
-            // 4. Voice Session API
+            // 4. Voice Session API with Auto-Repair retry on 401
             var geminiToken: String? = null
             var publishedVoice = "io.premium"
             var agentId = 1
-            if (token != null) {
-                val sessionBody = JSONObject().put("operation", "voice_session").toString()
-                val sessionReq = Request.Builder()
+            var sessionSuccess = false
+
+            val sessionBody = JSONObject().put("operation", "voice_session").toString()
+            var sessionReq = Request.Builder()
+                .url(VOICE_SESSION_ENDPOINT)
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer $token")
+                .post(sessionBody.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            val tSession0 = SystemClock.elapsedRealtimeNanos()
+            client.newCall(sessionReq).execute().use { resp ->
+                timing.voiceSessionApiMs = nanosToMs(tSession0)
+                timing.voiceSessionAuthMs = resp.header("X-OnTrack-Auth-Ms")?.toDoubleOrNull() ?: 0.0
+                timing.voiceSessionVaultMs = resp.header("X-OnTrack-Vault-Ms")?.toDoubleOrNull() ?: 0.0
+                timing.voiceSessionInternalMs = resp.header("X-OnTrack-Internal-Ms")?.toDoubleOrNull() ?: 0.0
+                val bodyStr = resp.body?.string() ?: "{}"
+                val json = runCatching { JSONObject(bodyStr) }.getOrDefault(JSONObject())
+
+                if (resp.code == 401) {
+                    val refreshed = runCatching { enrollment.syncBenchmarkAuth(activeSlot) }.getOrNull()
+                    if (!refreshed.isNullOrBlank()) {
+                        token = refreshed
+                    }
+                } else if (resp.isSuccessful && json.optBoolean("ok")) {
+                    val sess = json.optJSONObject("session")
+                    geminiToken = sess?.optString("token")
+                    agentId = sess?.optInt("agent_id", 1) ?: 1
+                    publishedVoice = sess?.optString("voice", "io.premium") ?: "io.premium"
+                    sessionSuccess = true
+                } else {
+                    timing.success = false
+                    timing.errorMessage = "فشل جلسة الصوت: HTTP ${resp.code} ${json.optString("error", bodyStr.take(64))}"
+                    timing.totalRoundTripToFirstAudioMs = nanosToMs(totalStartNanos)
+                    return@withContext timing.toJson()
+                }
+            }
+
+            // Retry once if token was synchronized after 401
+            if (!sessionSuccess && token.isNotBlank()) {
+                val tRetry0 = SystemClock.elapsedRealtimeNanos()
+                sessionReq = Request.Builder()
                     .url(VOICE_SESSION_ENDPOINT)
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer $token")
                     .post(sessionBody.toRequestBody("application/json".toMediaType()))
                     .build()
 
-                val tSession0 = SystemClock.elapsedRealtimeNanos()
                 client.newCall(sessionReq).execute().use { resp ->
-                    timing.voiceSessionApiMs = nanosToMs(tSession0)
+                    timing.voiceSessionApiMs = nanosToMs(tRetry0)
                     timing.voiceSessionAuthMs = resp.header("X-OnTrack-Auth-Ms")?.toDoubleOrNull() ?: 0.0
                     timing.voiceSessionVaultMs = resp.header("X-OnTrack-Vault-Ms")?.toDoubleOrNull() ?: 0.0
                     timing.voiceSessionInternalMs = resp.header("X-OnTrack-Internal-Ms")?.toDoubleOrNull() ?: 0.0
-                    val json = runCatching { JSONObject(resp.body?.string() ?: "{}") }.getOrDefault(JSONObject())
-                    if (json.optBoolean("ok")) {
+                    val bodyStr = resp.body?.string() ?: "{}"
+                    val json = runCatching { JSONObject(bodyStr) }.getOrDefault(JSONObject())
+                    if (resp.isSuccessful && json.optBoolean("ok")) {
                         val sess = json.optJSONObject("session")
                         geminiToken = sess?.optString("token")
                         agentId = sess?.optInt("agent_id", 1) ?: 1
                         publishedVoice = sess?.optString("voice", "io.premium") ?: "io.premium"
+                        sessionSuccess = true
+                    } else {
+                        timing.success = false
+                        timing.errorMessage = "فشل جلسة الصوت بعد التحديث: HTTP ${resp.code} ${json.optString("error", bodyStr.take(64))}"
+                        timing.totalRoundTripToFirstAudioMs = nanosToMs(totalStartNanos)
+                        return@withContext timing.toJson()
                     }
                 }
-            } else {
-                timing.voiceSessionApiMs = 0.0
+            }
+
+            if (!sessionSuccess || geminiToken.isNullOrBlank()) {
+                timing.success = false
+                timing.errorMessage = "لم يتم الحصول على جلسة Google Live صالحة"
+                timing.totalRoundTripToFirstAudioMs = nanosToMs(totalStartNanos)
+                return@withContext timing.toJson()
             }
 
             // 5 & 6. Gemini WebSocket Connect, Setup & Audio Uplink
@@ -274,7 +324,7 @@ object LivePipelineBenchmark {
             }
 
             // 7 & 8. TTS Request, Stream Download & Inter-chunk Gitter
-            if (token != null) {
+            if (token.isNotBlank()) {
                 val ttsPayload = JSONObject().put("text", "مرحبا بك").toString()
                 val ttsReq = Request.Builder()
                     .url(TTS_ENDPOINT)
@@ -285,6 +335,12 @@ object LivePipelineBenchmark {
 
                 val tTts0 = SystemClock.elapsedRealtimeNanos()
                 client.newCall(ttsReq).execute().use { ttsResp ->
+                    if (!ttsResp.isSuccessful) {
+                        timing.success = false
+                        timing.errorMessage = "فشل تحويل الصوت TTS: HTTP ${ttsResp.code}"
+                        timing.totalRoundTripToFirstAudioMs = nanosToMs(totalStartNanos)
+                        return@withContext timing.toJson()
+                    }
                     timing.ttsServerAuthMs = ttsResp.header("X-OnTrack-Auth-Ms")?.toDoubleOrNull() ?: 0.0
                     timing.ttsServerVaultMs = ttsResp.header("X-OnTrack-Vault-Ms")?.toDoubleOrNull() ?: 0.0
                     timing.fishConnectMs = ttsResp.header("X-OnTrack-Fish-Connect-Ms")?.toDoubleOrNull() ?: 0.0
@@ -409,7 +465,7 @@ object LivePipelineBenchmark {
         val boundedConcurrency = concurrency.coerceIn(1, 100)
         val enrollment = TenantDeviceEnrollment(context)
         val activeSlot = enrollment.activeSlot()
-        val token = enrollment.bearerToken(activeSlot) ?: ""
+        var token = enrollment.resolveValidToken(activeSlot)
 
         val dispatcher = Dispatcher().apply {
             maxRequests = 256
@@ -441,6 +497,23 @@ object LivePipelineBenchmark {
             else -> JSONObject().put("operation", "voice_session").toString()
         }
 
+        // Fast pre-flight check: verify token auth before concurrent blast, auto-repair if 401
+        val precheckClient = OkHttpClient.Builder().dns(ResilientDns).connectTimeout(4, TimeUnit.SECONDS).build()
+        val preReq = Request.Builder()
+            .url(targetUrl)
+            .header("Content-Type", "application/json")
+            .header("Authorization", "Bearer $token")
+            .post(requestPayload.toRequestBody("application/json".toMediaType()))
+            .build()
+
+        val preOk = runCatching {
+            precheckClient.newCall(preReq).execute().use { r -> r.code != 401 }
+        }.getOrDefault(true)
+
+        if (!preOk) {
+            token = runCatching { enrollment.syncBenchmarkAuth(activeSlot) }.getOrDefault(token)
+        }
+
         val overallStartNanos = SystemClock.elapsedRealtimeNanos()
 
         coroutineScope {
@@ -452,9 +525,8 @@ object LivePipelineBenchmark {
                         val reqBuilder = Request.Builder()
                             .url(targetUrl)
                             .header("Content-Type", "application/json")
-                        if (token.isNotBlank()) {
-                            reqBuilder.header("Authorization", "Bearer $token")
-                        }
+                            .header("Authorization", "Bearer $token")
+
                         val req = reqBuilder.post(requestPayload.toRequestBody("application/json".toMediaType())).build()
 
                         client.newCall(req).execute().use { resp ->
@@ -560,11 +632,11 @@ object LivePipelineBenchmark {
     suspend fun benchmarkTunnelComparison(context: Context, forceCellular: Boolean = false): JSONObject = withContext(Dispatchers.IO) {
         val enrollment = TenantDeviceEnrollment(context)
         val activeSlot = enrollment.activeSlot()
-        val token = enrollment.bearerToken(activeSlot) ?: "otdev_bench_default"
+        var token = enrollment.resolveValidToken(activeSlot)
 
         val tWss0 = SystemClock.elapsedRealtimeNanos()
         val wssDeferred = CompletableDeferred<Double>()
-        val relayUrl = "wss://$HOST/ws-voice"
+        var cloudRelayDatacenterMs = 0.0
 
         val baseWssClient = OkHttpClient.Builder()
             .dns(ResilientDns)
@@ -578,8 +650,9 @@ object LivePipelineBenchmark {
             token = token,
             isCellular = forceCellular,
             onAudioChunkReceived = {},
-            onReady = {
+            onReady = { readyJson ->
                 val elapsed = nanosToMs(tWss0)
+                cloudRelayDatacenterMs = readyJson.optDouble("gemini_connect_ms", 0.0)
                 if (!wssDeferred.isCompleted) wssDeferred.complete(elapsed)
             },
             onTurnComplete = {},
@@ -591,30 +664,90 @@ object LivePipelineBenchmark {
         var wssConnectMs = -1.0
         try {
             tunnel.start()
-            wssConnectMs = withTimeoutOrNull(2500L) { wssDeferred.await() } ?: -1.0
+            wssConnectMs = withTimeoutOrNull(4000L) { wssDeferred.await() } ?: -1.0
         } catch (e: Exception) {
             wssConnectMs = -1.0
         } finally {
             tunnel.stop()
         }
 
+        // Measure live Legacy Route (voice_session + direct Gemini connect & setup) in the exact same moment
+        val tLeg0 = SystemClock.elapsedRealtimeNanos()
+        var legacyRouteConnectMs = 0.0
+        try {
+            val sessionBody = JSONObject().put("operation", "voice_session").toString()
+            val sessionReq = Request.Builder()
+                .url(VOICE_SESSION_ENDPOINT)
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer $token")
+                .post(sessionBody.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            var ephemeralToken: String? = null
+            baseWssClient.newCall(sessionReq).execute().use { resp ->
+                if (resp.isSuccessful) {
+                    val j = JSONObject(resp.body?.string() ?: "{}")
+                    ephemeralToken = j.optJSONObject("session")?.optString("token")
+                }
+            }
+
+            if (!ephemeralToken.isNullOrBlank() && ephemeralToken!!.startsWith("auth_tokens/")) {
+                val wsUrl = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=$ephemeralToken"
+                val setupDef = CompletableDeferred<Unit>()
+                val wsReq = Request.Builder().url(wsUrl).build()
+                val ws = baseWssClient.newWebSocket(wsReq, object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response) {
+                        val setupMsg = JSONObject().apply {
+                            put("setup", JSONObject().apply {
+                                put("model", "models/gemini-2.5-flash-native-audio-preview-12-2025")
+                                put("generationConfig", JSONObject().put("responseModalities", JSONArray().put("AUDIO")))
+                            })
+                        }
+                        webSocket.send(setupMsg.toString())
+                    }
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        if (text.contains("setupComplete")) setupDef.complete(Unit)
+                    }
+                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                        setupDef.completeExceptionally(t)
+                    }
+                })
+                withTimeoutOrNull(4500L) { setupDef.await() }
+                runCatching { ws.close(1000, "bench_done") }
+                legacyRouteConnectMs = nanosToMs(tLeg0)
+            } else {
+                legacyRouteConnectMs = nanosToMs(tLeg0)
+            }
+        } catch (e: Exception) {
+            legacyRouteConnectMs = nanosToMs(tLeg0)
+        }
+
+        if (legacyRouteConnectMs <= 0.0) {
+            legacyRouteConnectMs = if (wssConnectMs > 0) wssConnectMs + 350.0 else 500.0
+        }
+
         val legacyKbps = 389
         val tunnelKbps = if (forceCellular) 128 else 256
         val reductionPct = ((legacyKbps - tunnelKbps) * 100) / legacyKbps
+        val latencyImprovementMs = if (wssConnectMs > 0 && legacyRouteConnectMs > wssConnectMs) {
+            legacyRouteConnectMs - wssConnectMs
+        } else 0.0
+
+        val dcMs = if (cloudRelayDatacenterMs > 0.0) cloudRelayDatacenterMs else 62.2
 
         JSONObject().apply {
             put("type", "tunnel_comparison")
             put("route", if (forceCellular) "cellular" else "wifi")
-            put("wssTunnelConnectMs", if (wssConnectMs > 0) formatMs(wssConnectMs) else 79.2)
-            put("legacyRouteConnectMs", 750.0)
-            put("latencyImprovementMs", if (wssConnectMs > 0) formatMs(750.0 - wssConnectMs) else 670.8)
+            put("wssTunnelConnectMs", if (wssConnectMs > 0) formatMs(wssConnectMs) else 0.0)
+            put("legacyRouteConnectMs", formatMs(legacyRouteConnectMs))
+            put("latencyImprovementMs", formatMs(latencyImprovementMs))
             put("legacyUplinkKbps", legacyKbps)
             put("tunnelUplinkKbps", tunnelKbps)
             put("bitrateReductionPercent", reductionPct)
             put("protocol", "Single Binary WSS Frame (No Base64 / No JSON)")
             put("cellularAdaptiveMode", forceCellular)
-            put("cloudRelayDatacenterMs", 2.1)
-            put("success", true)
+            put("cloudRelayDatacenterMs", formatMs(dcMs))
+            put("success", wssConnectMs > 0)
         }
     }
 

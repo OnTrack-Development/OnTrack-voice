@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * High-performance Single Binary WSS Tunnel Client (v79 / 0.3.56).
+ * High-performance Single Binary WSS Tunnel Client (v80 / 0.3.57).
  * Binds directly to active cellular network, streams raw binary PCM (no JSON/Base64),
  * and implements 8kHz/16kHz low-bitrate adaptive mode with 32KiB backpressure.
  */
@@ -70,7 +70,7 @@ internal class BinaryVoiceTunnel(
         val client = clientBuilder.build()
         val request = Request.Builder()
             .url(WSS_URL)
-            .header("User-Agent", "OnTrack-BinaryTunnel/0.3.56")
+            .header("User-Agent", "OnTrack-BinaryTunnel/0.3.57")
             .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {

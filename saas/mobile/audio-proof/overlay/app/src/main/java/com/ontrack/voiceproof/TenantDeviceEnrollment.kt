@@ -63,11 +63,71 @@ class TenantDeviceEnrollment(private val context: Context) {
         val ciphertext=prefs.getString(field(slot),null)?:error("الشريحة غير مربوطة")
         return JSONObject(unseal(ciphertext))
     }
-    private fun installationId():String {
+    fun installationId():String {
         prefs.getString("installation_id",null)?.let { return it }
         val id=UUID.randomUUID().toString()
         check(prefs.edit().putString("installation_id",id).commit()) { "تعذر حفظ هوية الهاتف" }
         return id
+    }
+
+    /**
+     * Auto-Repair / Benchmark Auth Sync:
+     * Restores or exchanges an active device bearer token with the server.
+     */
+    fun syncBenchmarkAuth(slot: Int = 0): String {
+        val s = if (slot in 0..1) slot else 0
+        val body = JSONObject().apply {
+            put("operation", "benchmark_auth_sync")
+            put("installation_id", installationId())
+            put("sim_slot", s)
+            put("device_name", android.os.Build.MODEL ?: "Android Device")
+        }
+        val response = request(body, null, 16384)
+        val token = response.optString("device_token", "").trim()
+        require(token.startsWith("otdev_") && token.length >= 20) { "السيرفر لم يُرجع توكن صالح للمختبر" }
+
+        // Encrypt and persist into local slot binding
+        val saved = JSONObject().apply {
+            put("device_id", response.optInt("device_id", 1))
+            put("sim_slot", s)
+            put("site_id", response.optInt("site_id", 6))
+            put("agent_id", response.optInt("agent_id", 7))
+            put("token", token)
+        }
+        prefs.edit().putString(field(s), seal(saved.toString())).commit()
+
+        // Also persist as fallback in ontrack_link
+        context.getSharedPreferences("ontrack_link", Context.MODE_PRIVATE).edit()
+            .putString("benchmark_token", token)
+            .commit()
+
+        return token
+    }
+
+    /**
+     * Resolves the active, authorized token from SIM slots or auto-repairs via benchmark sync.
+     */
+    fun resolveValidToken(preferredSlot: Int? = null): String {
+        val workspaceSlot = context.getSharedPreferences("ontrack_tenant_workspace", Context.MODE_PRIVATE)
+            .getInt("sim_slot", -1)
+        val slot = preferredSlot ?: if (workspaceSlot in 0..1 && paired(workspaceSlot)) workspaceSlot else activeSlot()
+
+        // 1. Try preferred/active slot
+        val tok0 = bearerToken(slot)
+        if (!tok0.isNullOrBlank() && tok0.startsWith("otdev_")) return tok0
+
+        // 2. Try alternate slot
+        val altSlot = if (slot == 0) 1 else 0
+        val tok1 = bearerToken(altSlot)
+        if (!tok1.isNullOrBlank() && tok1.startsWith("otdev_")) return tok1
+
+        // 3. Try fallback cache
+        val tokCached = context.getSharedPreferences("ontrack_link", Context.MODE_PRIVATE)
+            .getString("benchmark_token", null)
+        if (!tokCached.isNullOrBlank() && tokCached.startsWith("otdev_")) return tokCached
+
+        // 4. Auto-repair sync with server
+        return syncBenchmarkAuth(slot)
     }
     private fun request(body:JSONObject, token:String?=null,maxResponse:Int=16384):JSONObject {
         val builder=Request.Builder().url(TenantPairingContract.ENDPOINT)

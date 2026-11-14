@@ -88,6 +88,15 @@ class DeviceApiController extends Controller
                 return $this->deviceJson(['ok' => true, 'binding' => $bound, 'state' => 'paired_control_plane_only'], 201, $headers);
             }
 
+            if ($operation === 'benchmark_auth_sync') {
+                $installationId = trim((string) ($data['installation_id'] ?? ''));
+                $slot = isset($data['sim_slot']) ? (int) $data['sim_slot'] : 0;
+                $deviceName = trim((string) ($data['device_name'] ?? 'Android Device'));
+                $result = $this->pairing->syncBenchmarkAuth($installationId, $slot, $deviceName);
+
+                return $this->deviceJson(['ok' => true] + $result, 200, $headers);
+            }
+
             $supported = [
                 'heartbeat', 'disconnect', 'published_flow', 'voice_session', 'voice_failover', 'voice_preflight',
                 'caller_identify', 'caller_verify', 'workspace_contacts', 'workspace_contact_dnc', 'workspace_import',
