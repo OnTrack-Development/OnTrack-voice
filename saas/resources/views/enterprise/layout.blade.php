@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" dir="ltr" data-theme="{{ $ctx['theme'] ?? 'dark' }}">
+<html lang="ar" dir="rtl" data-theme="{{ $ctx['theme'] ?? 'dark' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -9,26 +9,50 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/css/obsidian.css?v=69">
     <style>
-        /* OnTrack Dual-Contrast UI Enforcement */
+        /* OnTrack Dual-Contrast UI Enforcement (Pure Arabic RTL) */
         body {
             background: #0B0F19 !important;
             font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif !important;
-            direction: ltr !important;
+            direction: rtl !important;
         }
         #ioSidebar {
             background: #0B0F19 !important;
-            border-right: 1px solid #1E293B !important;
-            border-left: none !important;
+            border-left: 1px solid #1E293B !important;
+            border-right: none !important;
             width: 250px !important;
         }
         @media (max-width: 960px) {
             .sidebar {
-                left: 0 !important;
-                right: auto !important;
-                transform: translateX(-100%) !important;
+                right: 0 !important;
+                left: auto !important;
+                transform: translateX(100%) !important;
             }
             .sidebar.open {
                 transform: translateX(0) !important;
+            }
+        }
+        @media (max-width: 768px) {
+            .topbar {
+                height: 56px !important;
+                min-height: 56px !important;
+                max-height: 56px !important;
+                padding: 0 12px !important;
+                flex-wrap: nowrap !important;
+                overflow: hidden !important;
+                justify-content: space-between !important;
+            }
+            .topbar-desktop-only {
+                display: none !important;
+            }
+            .topbar-left, .topbar-right {
+                flex-wrap: nowrap !important;
+                gap: 8px !important;
+            }
+            .page-body {
+                padding: 12px !important;
+            }
+            .kpi-grid {
+                grid-template-columns: 1fr !important;
             }
         }
         #ioSidebar .brand-bar {
@@ -251,97 +275,97 @@
             <!-- 1. Top Core -->
             <a class="nav-item {{ $activeTab === 'overview' ? 'active' : '' }}" href="/?tab=overview">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-                <span>Dashboard</span>
+                <span>لوحة التحكم</span>
             </a>
             <a class="nav-item {{ $activeTab === 'leads' ? 'active' : '' }}" href="/?tab=leads">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <span>Leads</span>
+                <span>العملاء المحتملون</span>
             </a>
             <a class="nav-item {{ $activeTab === 'appointments' ? 'active' : '' }}" href="/?tab=appointments">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                <span>Appointments</span>
+                <span>المواعيد والتقويم</span>
             </a>
             <a class="nav-item {{ $activeTab === 'reports' ? 'active' : '' }}" href="/?tab=reports">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                <span>Reports</span>
+                <span>التقارير والإحصائيات</span>
             </a>
 
             <!-- 2. Inbox Group -->
-            <div class="nav-group">Inbox</div>
+            <div class="nav-group">صندوق الوارد</div>
             <a class="nav-item {{ $activeTab === 'calls' ? 'active' : '' }}" href="/?tab=calls">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                <span>Calls</span>
+                <span>سجل المكالمات</span>
             </a>
             <a class="nav-item {{ $activeTab === 'messages' ? 'active' : '' }}" href="/?tab=messages">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                <span>Messages</span>
+                <span>الرسائل والمحادثات</span>
             </a>
             <a class="nav-item {{ $activeTab === 'tickets' ? 'active' : '' }}" href="/?tab=tickets">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                <span>Emails & Tickets</span>
+                <span>البريد والتذاكر</span>
             </a>
 
             <!-- 3. Outreach Group -->
-            <div class="nav-group">Outreach</div>
+            <div class="nav-group">الوصول والحملات</div>
             <a class="nav-item {{ $activeTab === 'widget' ? 'active' : '' }}" href="/?tab=widget">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
-                <span>Website Widget</span>
+                <span>ودجت الموقع</span>
             </a>
             <a class="nav-item {{ $activeTab === 'campaigns' ? 'active' : '' }}" href="/?tab=campaigns">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                <span>Campaigns</span>
+                <span>الحملات الهاتفية</span>
             </a>
             <a class="nav-item {{ $activeTab === 'devices' ? 'active' : '' }}" href="/?tab=devices">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
-                <span>SIM Devices</span>
+                <span>شرائح الهاتف (SIM)</span>
                 @if (($data['online_sims'] ?? 0) > 0)
                     <span class="pill pill-green" style="margin-right:auto;padding:1px 7px;font-size:10.5px;">{{ $data['online_sims'] }}</span>
                 @endif
             </a>
 
             <!-- 4. Intelligence Group -->
-            <div class="nav-group">Intelligence</div>
+            <div class="nav-group">الذكاء الاصطناعي</div>
             <a class="nav-item {{ in_array($activeTab, ['agents', 'voices'], true) ? 'active' : '' }}" href="/?tab=agents">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
-                <span>Agents</span>
+                <span>استوديو الوكلاء</span>
             </a>
             <a class="nav-item {{ in_array($activeTab, ['api_keys', 'api-keys', 'providers'], true) ? 'active' : '' }}" href="/?tab=api_keys">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 2-2 2m-6 6 2-2m-8 8 2-2m-6 6 2-2"/><circle cx="7.5" cy="16.5" r="4.5"/><path d="m10.5 13.5 8-8a2.121 2.121 0 0 1 3 3l-8 8"/></svg>
-                <span>AI Providers & Keys</span>
+                <span>مزودي ومفاتيح AI</span>
             </a>
             <a class="nav-item {{ $activeTab === 'activity' ? 'active' : '' }}" href="/?tab=activity">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                <span>Activity & Learning</span>
+                <span>سجل النشاط والتعلم</span>
             </a>
 
             <!-- 5. Automate Group -->
-            <div class="nav-group">Automate</div>
+            <div class="nav-group">الأتمتة</div>
             <a class="nav-item {{ $activeTab === 'power_dialer' ? 'active' : '' }}" href="/?tab=power_dialer">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                <span>Power Dialer</span>
+                <span>المتصل الآلي</span>
             </a>
             <a class="nav-item {{ in_array($activeTab, ['workflows', 'automations'], true) ? 'active' : '' }}" href="/?tab=workflows">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.77 1.01 1.51 1H21a2 2 0 1 1 0 4h-.09c-.74 0-1.25.41-1.51 1z"/></svg>
-                <span>Workflows</span>
+                <span>مسارات العمل</span>
             </a>
             <a class="nav-item {{ $activeTab === 'integrations' ? 'active' : '' }}" href="/?tab=integrations">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-                <span>Integrations (WHMCS)</span>
+                <span>الربط الخارجي (WHMCS)</span>
             </a>
 
             <!-- 6. Billing & Settings -->
-            <div class="nav-group">Billing & Settings</div>
+            <div class="nav-group">الفوترة والإعدادات</div>
             <a class="nav-item {{ in_array($activeTab, ['billing', 'invoices'], true) ? 'active' : '' }}" href="/?tab=billing">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                <span>Plans & Billing</span>
+                <span>الباقات والفوترة</span>
             </a>
             <a class="nav-item {{ $activeTab === 'settings' ? 'active' : '' }}" href="/?tab=settings">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.77 1.01 1.51 1H21a2 2 0 1 1 0 4h-.09c-.74 0-1.25.41-1.51 1z"/></svg>
-                <span>Settings & 2FA</span>
+                <span>الإعدادات والأمان</span>
             </a>
 
             @if ($ctx['is_reseller'] || $ctx['is_platform'])
-                <div class="nav-group">Reseller Management</div>
+                <div class="nav-group">إدارة الموزعين (Resellers)</div>
                 <a class="nav-item {{ $activeTab === 'reseller-tenants' ? 'active' : '' }}" href="/?tab=reseller-tenants">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     <span>العملاء التابعون</span>
@@ -357,7 +381,7 @@
             @endif
 
             @if ($ctx['is_platform'])
-                <div class="nav-group">Platform Administration</div>
+                <div class="nav-group">إدارة المنصة الرئيسية</div>
                 <a class="nav-item {{ $activeTab === 'accounts' ? 'active' : '' }}" href="/?tab=accounts">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="13" y2="13"/></svg>
                     <span>الحسابات والريسيلرز</span>
@@ -387,17 +411,17 @@
                 <div style="background:#1E293B;border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
                     <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#10B981;font-weight:700;">
                         <span>⚡</span>
-                        <span>{{ ($ctx['is_platform'] ?? false) ? 'Unlimited' : ($data['credits'] ?? 0) . ' credits' }}</span>
+                        <span>{{ ($ctx['is_platform'] ?? false) ? 'رصيد غير محدود' : ($data['credits'] ?? 0) . ' رصيد' }}</span>
                     </div>
-                    <a href="/?tab=billing" style="color:#38BDF8;font-size:11.5px;font-weight:600;text-decoration:none;">Open billing</a>
+                    <a href="/?tab=billing" style="color:#38BDF8;font-size:11.5px;font-weight:600;text-decoration:none;">الباقات والفوترة</a>
                 </div>
             @else
                 <div style="background:#1E293B;border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
                     <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#F59E0B;font-weight:700;">
                         <span>⚠️</span>
-                        <span>0 credits</span>
+                        <span>0 رصيد</span>
                     </div>
-                    <a href="/?tab=billing" style="color:#38BDF8;font-size:11.5px;font-weight:600;text-decoration:none;">Open billing</a>
+                    <a href="/?tab=billing" style="color:#38BDF8;font-size:11.5px;font-weight:600;text-decoration:none;">شحن الرصيد</a>
                 </div>
             @endif
 
@@ -425,26 +449,26 @@
     <div class="main-area">
         <header class="topbar">
             <div class="topbar-left" style="display:flex;align-items:center;gap:12px;">
-                <button type="button" class="btn btn-icon mobile-toggle" onclick="toggleSidebar()" aria-label="القائمة" style="color:#FFF;background:none;border:none;font-size:18px;">☰</button>
-                <div style="position:relative;display:flex;align-items:center;">
-                    <input type="text" placeholder="Search leads, phone or email... (Ctrl + K)" style="background:#1E293B;color:#FFF;border:1px solid rgba(255,255,255,0.1);padding:6px 14px 6px 36px;border-radius:20px;font-size:12px;width:240px;outline:none;" onkeydown="if(event.key==='k' && (event.ctrlKey||event.metaKey)){event.preventDefault();this.focus();}">
+                <button type="button" class="btn btn-icon mobile-toggle" onclick="toggleSidebar()" aria-label="القائمة" style="color:#FFF;background:none;border:none;font-size:20px;cursor:pointer;">☰</button>
+                <div class="topbar-desktop-only" style="position:relative;display:flex;align-items:center;">
+                    <input type="text" placeholder="بحث برقم الهاتف، الاسم، أو البريد... (Ctrl + K)" style="background:#1E293B;color:#FFF;border:1px solid rgba(255,255,255,0.1);padding:6px 14px 6px 36px;border-radius:20px;font-size:12px;width:240px;outline:none;" onkeydown="if(event.key==='k' && (event.ctrlKey||event.metaKey)){event.preventDefault();this.focus();}">
                     <span style="position:absolute;left:12px;color:#94A3B8;font-size:13px;">🔍</span>
                 </div>
-                <div style="display:flex;align-items:center;gap:8px;margin-right:12px;">
-                    <button type="button" class="btn btn-sm btn-icon" style="background:#1E293B;color:#94A3B8;border:none;border-radius:8px;" title="الاتصال">📞</button>
-                    <button type="button" class="btn btn-sm btn-icon" style="background:#1E293B;color:#94A3B8;border:none;border-radius:8px;" title="الرسائل">💬</button>
-                    <button type="button" class="btn btn-sm btn-icon" style="background:#1E293B;color:#94A3B8;border:none;border-radius:8px;" title="البريد">✉️</button>
+                <div class="topbar-desktop-only" style="display:flex;align-items:center;gap:8px;margin-right:12px;">
+                    <button type="button" class="btn btn-sm btn-icon" style="background:#1E293B;color:#94A3B8;border:none;border-radius:8px;" title="سجل المكالمات" onclick="window.location.href='/?tab=calls'">📞</button>
+                    <button type="button" class="btn btn-sm btn-icon" style="background:#1E293B;color:#94A3B8;border:none;border-radius:8px;" title="الرسائل" onclick="window.location.href='/?tab=messages'">💬</button>
+                    <button type="button" class="btn btn-sm btn-icon" style="background:#1E293B;color:#94A3B8;border:none;border-radius:8px;" title="التذاكر" onclick="window.location.href='/?tab=tickets'">✉️</button>
                 </div>
             </div>
 
             <div class="topbar-right" style="display:flex;align-items:center;gap:10px;">
-                <button type="button" class="btn btn-sm" onclick="alert('مساعد OnTrack AI جاهز لمساعدتك في أي سؤال حول المنصة أو الإيجنت.')" style="background:linear-gradient(135deg, #8B5CF6, #06B6D4);color:#FFF;border:none;border-radius:20px;font-weight:700;display:flex;align-items:center;gap:6px;box-shadow:0 4px 15px rgba(139,92,246,0.3);padding:6px 16px;">
+                <button type="button" class="btn btn-sm" onclick="alert('مساعد OnTrack AI جاهز لمساعدتك في أي سؤال حول المنصة أو الإيجنت.')" style="background:linear-gradient(135deg, #8B5CF6, #06B6D4);color:#FFF;border:none;border-radius:20px;font-weight:700;display:flex;align-items:center;gap:6px;box-shadow:0 4px 15px rgba(139,92,246,0.3);padding:6px 14px;font-size:12px;">
                     <span>✨</span>
-                    <span>+ OnTrack AI</span>
+                    <span>+ اسأل OnTrack AI</span>
                 </button>
 
                 @if (count($ctx['switchable_accounts'] ?? []) > 1)
-                    <form method="POST" action="/console/action" class="topbar-switch-form">
+                    <form method="POST" action="/console/action" class="topbar-switch-form topbar-desktop-only">
                         @csrf
                         <input type="hidden" name="action" value="quick_switch_tenant">
                         <select name="target_account_id" aria-label="التبديل السريع لمساحة العمل" onchange="this.form.submit()" class="topbar-switch-select" style="background:#1E293B;color:#FFF;border:1px solid rgba(255,255,255,0.12);padding:5px 8px;border-radius:8px;font-size:12px;">
@@ -457,14 +481,14 @@
                     </form>
                 @endif
 
-                <a href="{{ config('ontrack.apk_download_path', '/mobile/updates/native/IOVoice-v62.apk') }}" download="OnTrack-Voice-{{ config('ontrack.apk_version_name', '0.3.58') }}.apk" class="btn btn-sm" style="background:#1E293B;color:#FFF;border:1px solid rgba(255,255,255,0.12);border-radius:8px;">APK v81</a>
+                <a href="{{ config('ontrack.apk_download_path', '/mobile/updates/native/IOVoice-v62.apk') }}" download="OnTrack-Voice-{{ config('ontrack.apk_version_name', '0.3.58') }}.apk" class="btn btn-sm topbar-desktop-only" style="background:#1E293B;color:#FFF;border:1px solid rgba(255,255,255,0.12);border-radius:8px;">APK v81</a>
 
                 <!-- User Profile Avatar -->
-                <div style="display:flex;align-items:center;gap:8px;padding-right:8px;">
-                    <div style="width:30px;height:30px;border-radius:50%;background:#3B82F6;color:#FFF;display:grid;place-items:center;font-weight:700;font-size:12px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:32px;height:32px;border-radius:50%;background:#3B82F6;color:#FFF;display:grid;place-items:center;font-weight:700;font-size:12px;">
                         {{ mb_substr($ctx['user']->name ?? 'AB', 0, 2) }}
                     </div>
-                    <span style="font-size:12.5px;color:#FFFFFF;font-weight:600;">{{ $ctx['user']->name ?? 'Ahmed Bedir' }}</span>
+                    <span class="topbar-desktop-only" style="font-size:12.5px;color:#FFFFFF;font-weight:600;">{{ $ctx['user']->name ?? 'Ahmed Bedir' }}</span>
                 </div>
             </div>
         </header>

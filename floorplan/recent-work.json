@@ -34,8 +34,8 @@
       ]
     },
     {
-      "title": "Zoie.ai Dual-Contrast UI & 12 Dedicated Tabs Overhaul",
-      "request": "Transform OnTrack into luxury Zoie.ai Dual-Contrast UI with dark navy sidebar (#0B0F19) and pure white workspace canvas (#F8FAFC), with 100% active routing for all 12 tabs.",
+      "title": "OnTrack Dual-Contrast UI & 12 Dedicated Tabs Overhaul",
+      "request": "Transform OnTrack into luxury Dual-Contrast UI with dark navy sidebar (#0B0F19) and pure white workspace canvas (#F8FAFC), with 100% active routing for all 12 tabs.",
       "summary": "Implemented dual-contrast layout in layout.blade.php, created 12 dedicated Blade views for all tabs, and connected live data feeds in WorkspaceController.",
       "items": [
         {
@@ -83,7 +83,7 @@
         {
           "ref": "saas/public/widget/ontrack-widget.js",
           "change": "new",
-          "note": "Embeddable Zoie-styled floating chat and voice widget."
+          "note": "Embeddable OnTrack floating chat and voice widget."
         }
       ]
     }

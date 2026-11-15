@@ -82,37 +82,37 @@
 </style>
 
 <div class="ontrack-messages-layout">
-    <!-- 1. LEFT PANE: Conversation List & Filters (Matching Screenshot 2) -->
+    <!-- 1. RIGHT PANE (in RTL): Conversation List & Filters (Matching Screenshot 2) -->
     <div class="ontrack-msg-pane">
         <!-- Header -->
         <div style="padding:14px 16px;border-bottom:1px solid #F1F5F9;display:flex;align-items:center;justify-content:space-between;">
             <div style="display:flex;align-items:center;gap:8px;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                <strong style="font-size:16px;color:#0F172A;">Messages</strong>
+                <strong style="font-size:16px;color:#0F172A;">الرسائل والمحادثات</strong>
             </div>
             <div style="display:flex;align-items:center;gap:6px;">
                 <button type="button" class="btn btn-sm btn-icon" style="background:#FFF;border:1px solid #E2E8F0;color:#64748B;padding:4px 8px;border-radius:6px;cursor:pointer;" title="بحث">🔍</button>
                 <button type="button" class="btn btn-sm btn-icon" style="background:#FFF;border:1px solid #E2E8F0;color:#64748B;padding:4px 8px;border-radius:6px;cursor:pointer;" title="تصفية">▼</button>
-                <button type="button" class="btn btn-sm" style="background:#0F172A;color:#FFF;border-radius:6px;font-size:12px;font-weight:600;padding:4px 10px;border:none;cursor:pointer;" onclick="alert('بدء محادثة جديدة عبر WhatsApp Cloud API')">+ New</button>
+                <button type="button" class="btn btn-sm" style="background:#0F172A;color:#FFF;border-radius:6px;font-size:12px;font-weight:600;padding:4px 10px;border:none;cursor:pointer;" onclick="alert('بدء محادثة جديدة عبر WhatsApp Cloud API أو الودجت')">+ رسالة جديدة</button>
             </div>
         </div>
 
         <!-- Filter Row 1: All / Human (0) / AI Agents (0) -->
         <div style="padding:10px 14px 6px;display:flex;gap:6px;overflow-x:auto;">
-            <a href="javascript:void(0)" onclick="filterMessagesChannel('all')" class="ontrack-filter-pill active" id="pill-all-agents">All</a>
-            <a href="javascript:void(0)" onclick="filterMessagesChannel('human')" class="ontrack-filter-pill" id="pill-human">Human ({{ collect($sessions)->where('is_muted_for_human', true)->count() }})</a>
-            <a href="javascript:void(0)" onclick="filterMessagesChannel('ai')" class="ontrack-filter-pill" id="pill-ai">AI Agents ({{ collect($sessions)->where('is_muted_for_human', false)->count() }})</a>
+            <a href="javascript:void(0)" onclick="filterMessagesChannel('all')" class="ontrack-filter-pill active" id="pill-all-agents">الكل</a>
+            <a href="javascript:void(0)" onclick="filterMessagesChannel('human')" class="ontrack-filter-pill" id="pill-human">بشري ({{ collect($sessions)->where('is_muted_for_human', true)->count() }})</a>
+            <a href="javascript:void(0)" onclick="filterMessagesChannel('ai')" class="ontrack-filter-pill" id="pill-ai">إيجنت AI ({{ collect($sessions)->where('is_muted_for_human', false)->count() }})</a>
         </div>
 
         <!-- Filter Row 2: All / Unread / WhatsApp / Widget -->
         <div style="padding:4px 14px 10px;display:flex;gap:6px;border-bottom:1px solid #F1F5F9;overflow-x:auto;">
-            <a href="javascript:void(0)" class="ontrack-filter-pill active" style="font-size:11px;padding:3px 10px;">All</a>
-            <a href="javascript:void(0)" class="ontrack-filter-pill" style="font-size:11px;padding:3px 10px;">Unread</a>
+            <a href="javascript:void(0)" class="ontrack-filter-pill active" style="font-size:11px;padding:3px 10px;">الكل</a>
+            <a href="javascript:void(0)" class="ontrack-filter-pill" style="font-size:11px;padding:3px 10px;">غير مقروءة</a>
             <a href="javascript:void(0)" class="ontrack-filter-pill" style="font-size:11px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;">
-                <span>💬</span> WhatsApp
+                <span>💬</span> واتساب (WhatsApp)
             </a>
             <a href="javascript:void(0)" class="ontrack-filter-pill" style="font-size:11px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;">
-                <span>🌐</span> Widget
+                <span>🌐</span> ودجت الموقع (Widget)
             </a>
         </div>
 
@@ -157,13 +157,13 @@
                             <circle cx="46" cy="18" r="1" fill="#94A3B8"/>
                         </svg>
                     </div>
-                    <strong style="font-size:14px;color:#64748B;font-weight:600;display:block;">No conversations yet</strong>
+                    <strong style="font-size:14px;color:#64748B;font-weight:600;display:block;">لا توجد محادثات حتى الآن</strong>
                 </div>
             @endforelse
         </div>
     </div>
 
-    <!-- 2. RIGHT PANE: Selected Conversation OR Large Empty State (Matching Screenshot 2) -->
+    <!-- 2. LEFT PANE (in RTL): Selected Conversation OR Large Empty State (Matching Screenshot 2) -->
     <div class="ontrack-msg-pane" style="display:flex;flex-direction:column;">
         @if ($activeSession)
             <!-- Active Chat Header -->
@@ -184,14 +184,14 @@
                         <input type="hidden" name="action" value="takeover_conversation">
                         <input type="hidden" name="phone" value="{{ $activeSession['phone'] ?? '' }}">
                         <button type="submit" class="btn btn-sm" style="background:#DC2626;color:#FFF;border-radius:6px;font-size:12px;font-weight:600;padding:6px 12px;border:none;cursor:pointer;">
-                            🚨 Takeover (استلام بشري)
+                            🚨 استلام بشري (Takeover)
                         </button>
                     </form>
                     <form method="POST" action="{{ route('enterprise.action') }}" style="display:inline;margin:0;">
                         @csrf
                         <input type="hidden" name="action" value="resume_ai_conversation">
                         <input type="hidden" name="phone" value="{{ $activeSession['phone'] ?? '' }}">
-                        <button type="submit" class="btn btn-sm btn-ghost" style="border:1px solid #E2E8F0;font-size:11.5px;border-radius:6px;cursor:pointer;">🤖 تشغيل AI</button>
+                        <button type="submit" class="btn btn-sm btn-ghost" style="border:1px solid #E2E8F0;font-size:11.5px;border-radius:6px;cursor:pointer;">🤖 تشغيل إيجنت AI</button>
                     </form>
                 </div>
             </div>
@@ -199,8 +199,8 @@
             <!-- Chat Messages Stream -->
             <div style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;background:#F8FAFC;">
                 @if (!empty($activeSession['last_message']))
-                    <div style="align-self:flex-end;max-width:80%;">
-                        <div style="font-size:10px;font-weight:700;color:#94A3B8;text-align:right;margin-bottom:3px;text-transform:uppercase;">CUSTOMER</div>
+                    <div style="align-self:flex-start;max-width:80%;">
+                        <div style="font-size:10px;font-weight:700;color:#94A3B8;text-align:right;margin-bottom:3px;text-transform:uppercase;">العميل</div>
                         <div class="ontrack-chat-bubble-user">
                             {{ $activeSession['last_message'] }}
                         </div>
@@ -241,9 +241,9 @@
                     </svg>
                 </div>
 
-                <strong style="font-size:18px;color:#0F172A;font-weight:700;margin-bottom:8px;">Select a conversation</strong>
+                <strong style="font-size:18px;color:#0F172A;font-weight:700;margin-bottom:8px;">اختر محادثة</strong>
                 <p style="font-size:13.5px;color:#64748B;max-width:340px;line-height:1.6;margin:0;">
-                    Choose a lead from the list on the left to view their messages and start engaging.
+                    اختر عميلاً من القائمة على اليمين لعرض الرسائل وبدء التواصل المباشر.
                 </p>
             </div>
         @endif

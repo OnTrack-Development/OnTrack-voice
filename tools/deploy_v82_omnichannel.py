@@ -14,10 +14,11 @@ def sync_floorplan():
     res_build = subprocess.run(["node", "skills/floorplan/scripts/build.mjs", str(root)], cwd=str(root), capture_output=True, text=True)
     print("Floorplan build output:\n", res_build.stdout)
 
+    index_path = root / "floorplan" / "index.html"
     storage_dir = root / "saas" / "storage" / "app" / "floorplan"
     storage_dir.mkdir(parents=True, exist_ok=True)
     dest = storage_dir / "floorplan.html"
-    shutil.copy2(root / "floorplan" / "index.html", dest)
+    shutil.copy2(index_path, dest)
     print(f"  + Floorplan securely exported to {dest} ({dest.stat().st_size} bytes)")
 
 def main():

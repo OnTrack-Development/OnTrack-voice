@@ -4,7 +4,7 @@ const fs = require('fs');
 
 (async () => {
     console.log('=== OnTrack Voice: Calls & Messages UI Verification ===');
-    const token = '89030ffb89c047ca214ad73eadc0c3f45b21e6fea3baa59c76d2a7de34f7d39c';
+    const token = process.env.ONTRACK_SESSION_TOKEN || (fs.existsSync('saas/storage/app/session_token.txt') ? fs.readFileSync('saas/storage/app/session_token.txt', 'utf8').trim() : '');
 
     console.log('Step 1: Launching Chrome...');
     const browser = await puppeteer.launch({

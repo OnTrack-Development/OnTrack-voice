@@ -30,8 +30,8 @@
             'duration_formatted' => '0:41',
             'duration_seconds' => 41,
             'created_at_cairo' => '01:49 AM',
-            'effective_summary' => "The call involved a conversation between an agent named OnTrack and a user seeking information about the services offered. OnTrack explained that they are a smart assistant capable of responding to customer inquiries via calls, messages, and chat on the website, as well as helping with appointment scheduling. No specific action items were noted, and the outcome was a clear understanding of the assistant's capabilities.",
-            'transcript' => "AI AGENT: اهلا\nAI AGENT: اهلا انا اون تراك اقدر اساعدك في الرد على استفسارات العملاء\nAI AGENT: حجز مواعيد او شرح الخدمة تحب تبدأ بايه\nCUSTOMER: احب اعرف بتعمل ايه ماضي\nAI AGENT: خليني اوضح لك ببساطة\nAI AGENT: انا مساعد ذكي من ان تراك اقدر ارد على استفسارات العملاء في المكالمات\nAI AGENT: والرسائل",
+            'effective_summary' => "تضمنت المكالمة محادثة بين المساعد الذكي وعميل يستفسر عن الخدمات المقدمة. أوضح المساعد قدرته على الرد على استفسارات العملاء عبر المكالمات الهاتفية والرسائل والدردشة على الموقع ومساعدة العملاء في حجز المواعيد وشرح الخدمات.",
+            'transcript' => "AI AGENT: أهلاً بك\nAI AGENT: أهلاً بك، أنا المساعد الذكي من OnTrack أقدر أساعدك في الرد على استفسارات العملاء\nAI AGENT: حجز مواعيد أو شرح الخدمة، تحب تبدأ بإيه؟\nCUSTOMER: أحب أعرف بتعمل إيه بالظبط\nAI AGENT: خليني أوضح لك ببساطة\nAI AGENT: أنا مساعد ذكي من OnTrack أقدر أرد فورياً وبصوت طبيعي بشري على استفسارات العملاء في المكالمات الهاتفية والرسائل",
         ];
     }
 
@@ -39,7 +39,7 @@
 @endphp
 
 <style>
-/* 3-Column Zoie-Style Responsive Dual-Contrast Layout */
+/* 3-Column OnTrack Responsive Dual-Contrast Layout */
 .ontrack-calls-layout {
     display: grid;
     grid-template-columns: 320px 1fr 310px;
@@ -210,27 +210,27 @@
 </style>
 
 <div class="ontrack-calls-layout">
-    <!-- 1. LEFT PANE: Calls List (Matching Screenshot 1) -->
+    <!-- 1. RIGHT PANE (in RTL): Calls List (Matching Screenshot 1) -->
     <div class="ontrack-pane">
         <div class="ontrack-pane-header">
             <div style="display:flex;align-items:center;gap:8px;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                <strong style="font-size:16px;color:#0F172A;">Calls</strong>
+                <strong style="font-size:16px;color:#0F172A;">سجل المكالمات</strong>
             </div>
             <div style="display:flex;align-items:center;gap:6px;">
                 <button type="button" onclick="document.getElementById('callsSearchInput').focus()" class="btn btn-sm btn-icon" style="background:#FFF;border:1px solid #E2E8F0;color:#64748B;padding:4px 8px;border-radius:6px;cursor:pointer;" title="بحث">🔍</button>
                 <button type="button" class="btn btn-sm btn-icon" style="background:#FFF;border:1px solid #E2E8F0;color:#64748B;padding:4px 8px;border-radius:6px;cursor:pointer;" title="تصفية">▼</button>
-                <button type="button" class="btn btn-sm" style="background:#0F172A;color:#FFF;border-radius:6px;font-size:12px;font-weight:600;padding:4px 10px;border:none;cursor:pointer;" onclick="alert('اتصال جديد عبر SIM / Android Gateway')">+ New</button>
+                <button type="button" class="btn btn-sm" style="background:#0F172A;color:#FFF;border-radius:6px;font-size:12px;font-weight:600;padding:4px 10px;border:none;cursor:pointer;" onclick="alert('بدء مكالمة تجريبية عبر SIM أو البوابة الذكية')">+ مكالمة جديدة</button>
             </div>
         </div>
 
         <!-- Filter tabs row: All, AI Agent, Human Agent, Missed -->
         <div style="padding:10px 14px;display:flex;gap:6px;border-bottom:1px solid #F1F5F9;overflow-x:auto;">
             @php $currSt = request('status'); @endphp
-            <a href="/?tab=calls" class="ontrack-pill-btn {{ empty($currSt) ? 'active' : '' }}">All</a>
-            <a href="/?tab=calls&status=answered" class="ontrack-pill-btn {{ $currSt === 'answered' ? 'active' : '' }}">AI Agent</a>
-            <a href="/?tab=calls&status=human" class="ontrack-pill-btn {{ $currSt === 'human' ? 'active' : '' }}">Human Agent</a>
-            <a href="/?tab=calls&status=no_answered" class="ontrack-pill-btn {{ in_array($currSt, ['no_answered', 'missed']) ? 'active' : '' }}">Missed</a>
+            <a href="/?tab=calls" class="ontrack-pill-btn {{ empty($currSt) ? 'active' : '' }}">الكل</a>
+            <a href="/?tab=calls&status=answered" class="ontrack-pill-btn {{ $currSt === 'answered' ? 'active' : '' }}">إيجنت AI</a>
+            <a href="/?tab=calls&status=human" class="ontrack-pill-btn {{ $currSt === 'human' ? 'active' : '' }}">بشري</a>
+            <a href="/?tab=calls&status=no_answered" class="ontrack-pill-btn {{ in_array($currSt, ['no_answered', 'missed']) ? 'active' : '' }}">لم يُرد</a>
         </div>
 
         <!-- Search Bar (Collapsible / Focusable) -->
@@ -248,7 +248,7 @@
                     $cArr = (array) $c;
                     $cId = $cArr['id'] ?? 0;
                     $cPhone = !empty($cArr['phone']) ? $cArr['phone'] : (!empty($cArr['caller_number']) ? $cArr['caller_number'] : '+201033990988');
-                    $cTime = $cArr['created_at_cairo'] ?? $cArr['time'] ?? '01:49 AM';
+                    $cTime = $cArr['created_at_cairo'] ?? $cArr['time'] ?? '01:49 ص';
                     $cStatus = strtolower($cArr['status'] ?? 'no_answered');
                     $isActive = ((int) ($activeArr['id'] ?? 0) === (int) $cId) || ($activeArr['phone'] === $cPhone);
                     $isNoAnswered = in_array($cStatus, ['no_answered', 'failed', 'missed']);
@@ -266,8 +266,8 @@
                         <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
                             <span style="color:#10B981;font-size:11px;">📞</span>
                             <span style="font-size:11.5px;color:#64748B;" dir="ltr">{{ $cPhone }}</span>
-                            <span class="{{ $isNoAnswered ? 'ontrack-badge-no-answered' : 'ontrack-badge-answered' }}" style="margin-left:auto;">
-                                {{ $isNoAnswered ? 'NO ANSWERED' : 'ANSWERED' }}
+                            <span class="{{ $isNoAnswered ? 'ontrack-badge-no-answered' : 'ontrack-badge-answered' }}" style="margin-right:auto;margin-left:0;">
+                                {{ $isNoAnswered ? 'لم يُرد' : 'تم الرد' }}
                             </span>
                         </div>
                     </div>
@@ -285,7 +285,7 @@
                 $activeStatus = strtolower($activeArr['status'] ?? 'no_answered');
                 $isNoAns = in_array($activeStatus, ['no_answered', 'failed', 'missed']);
                 $agentName = $activeArr['agent_name'] ?? 'OnTrack AI';
-                $activeSummary = $activeArr['effective_summary'] ?? $activeArr['summary'] ?? "The call involved a conversation between an agent named OnTrack and a user seeking information about the services offered. OnTrack explained that they are a smart assistant capable of responding to customer inquiries via calls, messages, and chat on the website, as well as helping with appointment scheduling. No specific action items were noted, and the outcome was a clear understanding of the assistant's capabilities.";
+                $activeSummary = $activeArr['effective_summary'] ?? $activeArr['summary'] ?? "تضمنت المكالمة محادثة بين المساعد الذكي وعميل يستفسر عن الخدمات المقدمة. أوضح المساعد قدرته على الرد على استفسارات العملاء عبر المكالمات الهاتفية والرسائل والدردشة على الموقع ومساعدة العملاء في حجز المواعيد وشرح الخدمات.";
             @endphp
 
             <!-- Caller Top Bar -->
@@ -298,8 +298,8 @@
                     <div>
                         <div style="font-weight:700;font-size:18px;color:#0F172A;" dir="ltr">{{ $activePhone }}</div>
                         <div style="font-size:12px;color:#64748B;display:flex;align-items:center;gap:4px;">
-                            <span>Call via</span>
-                            <span style="color:#0F172A;font-weight:600;">🤖 AI Agent</span>
+                            <span>مكالمة عبر</span>
+                            <span style="color:#0F172A;font-weight:600;">🤖 إيجنت OnTrack</span>
                         </div>
                     </div>
                 </div>
@@ -309,7 +309,7 @@
                     <div style="display:flex;align-items:center;gap:6px;background:#FFFFFF;border:1px solid #E2E8F0;padding:4px 10px;border-radius:20px;font-size:12px;cursor:pointer;">
                         <span style="width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg, #EC4899, #8B5CF6);display:inline-block;"></span>
                         <span style="color:#0F172A;font-weight:600;">{{ $agentName }}</span>
-                        <span style="color:#10B981;font-weight:700;">• Active ▾</span>
+                        <span style="color:#10B981;font-weight:700;">• نشط ▾</span>
                     </div>
 
                     <!-- Delete button -->
@@ -325,7 +325,7 @@
                 </div>
             </div>
 
-            <div style="font-size:13px;font-weight:700;color:#0F172A;margin-bottom:12px;">Latest call</div>
+            <div style="font-size:13px;font-weight:700;color:#0F172A;margin-bottom:12px;">أحدث مكالمة</div>
 
             <!-- Audio Waveform Player Card (Matching Screenshot 1) -->
             <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,0.03);">
@@ -337,7 +337,7 @@
                         </span>
                     </div>
                     <span class="{{ $isNoAns ? 'ontrack-badge-no-answered' : 'ontrack-badge-answered' }}">
-                        {{ $isNoAns ? 'NO ANSWERED' : 'ANSWERED' }}
+                        {{ $isNoAns ? 'لم يُرد' : 'تم الرد' }}
                     </span>
                 </div>
 
@@ -378,7 +378,7 @@
                         </div>
                         <button type="button" onclick="openTranscriptModal()" class="btn btn-sm" style="background:#FFF;border:1px solid #E2E8F0;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;flex-shrink:0;padding:6px 12px;color:#0F172A;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.04);">
                             <span>📄</span>
-                            <span>View transcript</span>
+                            <span>عرض نص المحادثة</span>
                         </button>
                     </div>
                 </div>
@@ -387,12 +387,12 @@
             <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;color:#64748B;padding:40px;">
                 <div style="font-size:52px;margin-bottom:14px;">🎙️</div>
                 <strong style="font-size:16px;color:#0F172A;margin-bottom:6px;">اختر مكالمة لعرض تفاصيلها</strong>
-                <p style="font-size:13px;color:#94A3B8;max-width:320px;line-height:1.6;margin:0;">اختر مكالمة من القائمة الجانبية للاستماع للتسجيل الصوتي والاطلاع على تفريغ الحوار وملخص الذكاء الاصطناعي.</p>
+                <p style="font-size:13px;color:#94A3B8;max-width:320px;line-height:1.6;margin:0;">اختر مكالمة من القائمة للاستماع للتسجيل الصوتي والاطلاع على تفريغ الحوار وملخص الذكاء الاصطناعي.</p>
             </div>
         @endif
     </div>
 
-    <!-- 3. RIGHT PANE: Lead Profile & CRM Linking (Matching Screenshot 1 & 3) -->
+    <!-- 3. LEFT PANE (in RTL): Lead Profile & CRM Linking (Matching Screenshot 1 & 3) -->
     <div class="ontrack-pane ontrack-lead-column" id="leadSidebarPane" style="padding:20px;">
         <!-- VIEW 1: Looks New Overview -->
         <div id="leadViewDefault" style="display:flex;flex-direction:column;align-items:center;text-align:center;">
@@ -402,9 +402,10 @@
                     <span class="ontrack-avatar-badge" style="width:20px;height:20px;font-size:11px;">📞</span>
                 </div>
 
-                <div style="font-weight:700;font-size:16px;color:#0F172A;" dir="ltr">{{ $activePhone }}, Looks new!</div>
+                <div style="font-weight:700;font-size:16px;color:#0F172A;" dir="ltr">{{ $activePhone }}</div>
+                <div style="font-weight:700;font-size:14px;color:#0F172A;margin-top:2px;">جهة اتصال جديدة!</div>
                 <p style="font-size:12.5px;color:#64748B;line-height:1.5;margin:6px 0 16px;">
-                    Link this conversation to an existing lead or create a new one.
+                    اربط هذه المحادثة بعميل محتمل حالي أو أنشئ عميل محتمل جديد.
                 </p>
 
                 <form method="POST" action="{{ route('enterprise.action') }}" style="width:100%;margin-bottom:8px;">
@@ -414,27 +415,27 @@
                     <input type="hidden" name="phone" value="{{ $activePhone }}">
                     <input type="hidden" name="name" value="عميل مكالمة {{ $activePhone }}">
                     <button type="submit" class="btn" style="width:100%;background:#0F172A;color:#FFFFFF;border-radius:8px;font-size:13px;font-weight:600;padding:10px;border:none;cursor:pointer;box-shadow:0 2px 4px rgba(15,23,42,0.15);">
-                        + Create New Lead
+                        + إنشاء عميل محتمل جديد
                     </button>
                 </form>
 
                 <button type="button" onclick="switchLeadView('search')" class="btn" style="width:100%;background:#FFFFFF;color:#0F172A;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-weight:600;padding:10px;margin-bottom:16px;cursor:pointer;">
-                    Link to Existing Lead
+                    ربط بعميل محتمل حالي
                 </button>
 
                 <!-- Explanatory Box with Asterisk -->
-                <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px 14px;font-size:11.5px;color:#64748B;text-align:left;line-height:1.5;margin-bottom:16px;width:100%;box-sizing:border-box;">
-                    * Linking this contact to a lead keeps all their conversations in one place, ensuring you're always talking to the same person across every channel.
+                <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px 14px;font-size:11.5px;color:#64748B;text-align:right;line-height:1.5;margin-bottom:16px;width:100%;box-sizing:border-box;">
+                    * ربط جهة الاتصال هذه بعميل محتمل يجمع كل المحادثات في مكان واحد، مما يضمن تواصلاً متناسقاً مع نفس الشخص عبر كل القنوات.
                 </div>
 
                 <!-- Dark AI Insights Card (Matching Screenshot 1) -->
-                <div style="background:#0B0F19;border-radius:12px;padding:16px;color:#FFFFFF;text-align:left;width:100%;box-sizing:border-box;">
+                <div style="background:#0B0F19;border-radius:12px;padding:16px;color:#FFFFFF;text-align:right;width:100%;box-sizing:border-box;">
                     <div style="font-size:14px;color:#38BDF8;margin-bottom:8px;">✦</div>
                     <p style="font-size:12px;color:#CBD5E1;line-height:1.6;margin:0 0 12px;">
                         {{ $activeSummary }}
                     </p>
                     <a href="javascript:void(0)" onclick="openAskAssistantModal()" style="color:#FFFFFF;font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
-                        Ask OnTrack →
+                        اسأل OnTrack AI ←
                     </a>
                 </div>
             @endif
@@ -444,14 +445,14 @@
         <div id="leadViewSearch" style="display:none;flex-direction:column;width:100%;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
                 <div style="display:flex;align-items:center;gap:8px;">
-                    <button type="button" onclick="switchLeadView('default')" style="background:none;border:none;font-size:14px;color:#64748B;cursor:pointer;">← Back</button>
-                    <strong style="font-size:14px;color:#0F172A;">👤 Leads</strong>
+                    <button type="button" onclick="switchLeadView('default')" style="background:none;border:none;font-size:14px;color:#64748B;cursor:pointer;">→ رجوع</button>
+                    <strong style="font-size:14px;color:#0F172A;">👤 العملاء المحتملون</strong>
                 </div>
             </div>
 
             <!-- Search Leads Input -->
             <div style="position:relative;margin-bottom:14px;">
-                <input type="text" id="existingLeadSearch" placeholder="Search in your leads" onkeyup="filterLeadsList(this.value)" style="width:100%;padding:8px 12px 8px 30px;font-size:12.5px;border:1px solid #CBD5E1;border-radius:8px;box-sizing:border-box;outline:none;">
+                <input type="text" id="existingLeadSearch" placeholder="ابحث بالاسم، الهاتف أو البريد..." onkeyup="filterLeadsList(this.value)" style="width:100%;padding:8px 12px 8px 30px;font-size:12.5px;border:1px solid #CBD5E1;border-radius:8px;box-sizing:border-box;outline:none;">
                 <span style="position:absolute;left:10px;top:9px;color:#94A3B8;font-size:12px;">🔍</span>
             </div>
 
@@ -475,19 +476,19 @@
                     @empty
                         <div style="text-align:center;padding:24px 10px;color:#94A3B8;">
                             <div style="font-size:28px;margin-bottom:6px;">👤</div>
-                            <div style="font-size:12px;font-weight:600;color:#64748B;">Search your leads by name, email, or phone number.</div>
-                            <div style="font-size:11px;margin-top:4px;">No leads available</div>
+                            <div style="font-size:12px;font-weight:600;color:#64748B;">ابحث في عملائك بالاسم، البريد أو رقم الهاتف.</div>
+                            <div style="font-size:11px;margin-top:4px;">لا يوجد عملاء متاحين</div>
                         </div>
                     @endforelse
                 </div>
 
                 <button type="submit" id="btnLinkLeadConfirm" class="btn" style="width:100%;background:#0F172A;color:#FFFFFF;border-radius:8px;font-size:13px;font-weight:600;padding:10px;border:none;margin-bottom:14px;cursor:pointer;">
-                    Link Lead
+                    تأكيد ربط العميل
                 </button>
             </form>
 
-            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:10px 12px;font-size:11px;color:#64748B;text-align:left;line-height:1.5;">
-                * Linking this contact to a lead keeps all their conversations in one place, ensuring you're always talking to the same person across every channel.
+            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:10px 12px;font-size:11px;color:#64748B;text-align:right;line-height:1.5;">
+                * ربط جهة الاتصال هذه بعميل محتمل يجمع كل المحادثات في مكان واحد، مما يضمن تواصلاً متناسقاً عبر كافة القنوات.
             </div>
         </div>
     </div>
@@ -498,13 +499,13 @@
     <div class="ontrack-modal-box">
         <!-- Modal Header -->
         <div style="padding:16px 20px;border-bottom:1px solid #F1F5F9;display:flex;align-items:center;justify-content:space-between;background:#FFFFFF;">
-            <strong style="font-size:16px;color:#0F172A;">Transcript</strong>
+            <strong style="font-size:16px;color:#0F172A;">نص وتفريغ المكالمة (Transcript)</strong>
             <div style="display:flex;align-items:center;gap:8px;">
                 <button type="button" class="btn btn-sm btn-ghost" style="font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;border:1px solid #E2E8F0;" onclick="window.location.reload()">
-                    🔄 Re-transcribe
+                    🔄 إعادة التفريغ
                 </button>
                 <button type="button" class="btn btn-sm btn-ghost" style="font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;border:1px solid #E2E8F0;" onclick="downloadCallTranscript()">
-                    ⭳ Download
+                    ⭳ تحميل النص
                 </button>
                 <button type="button" onclick="closeTranscriptModal()" style="background:none;border:none;font-size:18px;color:#64748B;cursor:pointer;padding:4px 8px;line-height:1;">
                     ✕
@@ -518,7 +519,7 @@
                 $txRaw = (string) ($activeArr['transcript'] ?? '');
                 if (trim($txRaw) === '') {
                     // Default authentic conversation matching Screenshot 3
-                    $txRaw = "AI AGENT: اهلا\nAI AGENT: اهلا انا اون تراك اقدر اساعدك في الرد على استفسارات العملاء\nAI AGENT: حجز مواعيد او شرح الخدمة تحب تبدأ بايه\nCUSTOMER: احب اعرف بتعمل ايه ماضي\nAI AGENT: خليني اوضح لك ببساطة\nAI AGENT: انا مساعد ذكي من ان تراك اقدر ارد على استفسارات العملاء في المكالمات\nAI AGENT: والرسائل";
+                    $txRaw = "AI AGENT: أهلاً بك\nAI AGENT: أهلاً بك، أنا المساعد الذكي من OnTrack أقدر أساعدك في الرد على استفسارات العملاء\nAI AGENT: حجز مواعيد أو شرح الخدمة، تحب تبدأ بإيه؟\nCUSTOMER: أحب أعرف بتعمل إيه بالظبط\nAI AGENT: خليني أوضح لك ببساطة\nAI AGENT: أنا مساعد ذكي من OnTrack أقدر أرد فورياً وبصوت طبيعي بشري على استفسارات العملاء في المكالمات الهاتفية والرسائل";
                 }
                 $lines = preg_split('/[\r\n]+/', $txRaw);
             @endphp
@@ -528,33 +529,33 @@
                     $trimmed = trim($line);
                     if ($trimmed === '') continue;
                     $isCustomer = str_starts_with($trimmed, 'CUSTOMER:') || str_starts_with($trimmed, 'العميل:') || str_starts_with($trimmed, 'المستخدم:');
-                    $isAi = str_starts_with($trimmed, 'AI AGENT:') || str_starts_with($trimmed, 'AGENT:') || str_starts_with($trimmed, 'الإيجنت:') || str_starts_with($trimmed, 'المساعد:');
+                    $isAi = str_starts_with($trimmed, 'AI AGENT:') || str_starts_with($trimmed, 'AGENT:') || str_starts_with($trimmed, 'الإيجنت:') || str_starts_with($trimmed, 'المساعد:') || str_starts_with($trimmed, 'إيجنت:');
                     
                     $msgText = $trimmed;
                     if ($isCustomer) {
                         $msgText = trim(preg_replace('/^(CUSTOMER:|العميل:|المستخدم:)/u', '', $trimmed));
                     } elseif ($isAi) {
-                        $msgText = trim(preg_replace('/^(AI AGENT:|AGENT:|الإيجنت:|المساعد:)/u', '', $trimmed));
+                        $msgText = trim(preg_replace('/^(AI AGENT:|AGENT:|الإيجنت:|المساعد:|إيجنت:)/u', '', $trimmed));
                     }
                 @endphp
 
                 @if ($isCustomer)
-                    <!-- CUSTOMER Bubble (Right Aligned, Light Grey) -->
-                    <div style="display:flex;flex-direction:column;align-items:flex-end;width:100%;">
-                        <div style="font-size:10px;font-weight:700;color:#94A3B8;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px;">
-                            CUSTOMER
+                    <!-- CUSTOMER Bubble (Left Aligned in RTL / User Bubble, Light Grey) -->
+                    <div style="display:flex;flex-direction:column;align-items:flex-start;width:100%;">
+                        <div style="font-size:10px;font-weight:700;color:#94A3B8;margin-bottom:3px;letter-spacing:0.5px;">
+                            العميل (CUSTOMER)
                         </div>
-                        <div style="background:#F1F5F9;color:#0F172A;padding:10px 16px;border-radius:14px 14px 4px 14px;font-size:13.5px;line-height:1.5;max-width:82%;text-align:right;">
+                        <div style="background:#F1F5F9;color:#0F172A;padding:10px 16px;border-radius:14px 14px 14px 4px;font-size:13.5px;line-height:1.5;max-width:82%;text-align:right;">
                             {{ $msgText }}
                         </div>
                     </div>
                 @else
-                    <!-- AI AGENT Bubble (Left Aligned, Dark Charcoal Slate) -->
-                    <div style="display:flex;flex-direction:column;align-items:flex-start;width:100%;">
-                        <div style="font-size:10px;font-weight:700;color:#94A3B8;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px;">
-                            AI AGENT
+                    <!-- AI AGENT Bubble (Right Aligned in RTL / Agent Bubble, Dark Charcoal Slate) -->
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;width:100%;">
+                        <div style="font-size:10px;font-weight:700;color:#94A3B8;margin-bottom:3px;letter-spacing:0.5px;">
+                            إيجنت الذكاء الاصطناعي (OnTrack AI)
                         </div>
-                        <div style="background:#262626;color:#FFFFFF;padding:10px 16px;border-radius:14px 14px 14px 4px;font-size:13.5px;line-height:1.5;max-width:82%;text-align:right;">
+                        <div style="background:#262626;color:#FFFFFF;padding:10px 16px;border-radius:14px 14px 4px 14px;font-size:13.5px;line-height:1.5;max-width:82%;text-align:right;">
                             {{ $msgText }}
                         </div>
                     </div>

@@ -4,6 +4,18 @@
     $fishKeys = collect($relayEntries)->where('driver', 'fish_audio')->values();
     $nvidiaKeys = collect($relayEntries)->where('driver', 'nvidia')->values();
     $customKeys = collect($relayEntries)->whereNotIn('driver', ['google_live', 'gemini_live', 'fish_audio', 'nvidia'])->values();
+
+    $firstGoogle = $googleKeys->first();
+    $googleActiveModel = is_array($firstGoogle) ? ($firstGoogle['model'] ?? '') : (is_object($firstGoogle) ? ($firstGoogle->model ?? '') : '');
+    if (empty($googleActiveModel)) $googleActiveModel = 'gemini-3.8-live';
+
+    $firstFish = $fishKeys->first();
+    $fishActiveModel = is_array($firstFish) ? ($firstFish['model'] ?? '') : (is_object($firstFish) ? ($firstFish->model ?? '') : '');
+    if (empty($fishActiveModel)) $fishActiveModel = 'حسب اختيارك / مخصص';
+
+    $firstNvidia = $nvidiaKeys->first();
+    $nvidiaActiveModel = is_array($firstNvidia) ? ($firstNvidia['model'] ?? '') : (is_object($firstNvidia) ? ($firstNvidia->model ?? '') : '');
+    if (empty($nvidiaActiveModel)) $nvidiaActiveModel = 'parakeet-ctc-1.1b';
 @endphp
 
 <style>
@@ -12,6 +24,14 @@
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 16px;
     margin-bottom: 24px;
+}
+@media (max-width: 768px) {
+    .ontrack-keys-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .ontrack-key-table {
+        min-width: 580px;
+    }
 }
 .ontrack-provider-card {
     background: #FFFFFF;
@@ -149,7 +169,7 @@
                 </p>
             </div>
             <div style="font-size:11.5px;color:#3B82F6;font-weight:600;">
-                الموديل: gemini-2.5-flash-native-audio
+                الموديل: {{ $googleActiveModel }}
             </div>
         </div>
 
@@ -169,7 +189,7 @@
                 </p>
             </div>
             <div style="font-size:11.5px;color:#10B981;font-weight:600;">
-                الموديل: speech-1.5
+                الموديل: {{ $fishActiveModel }}
             </div>
         </div>
 
@@ -189,7 +209,7 @@
                 </p>
             </div>
             <div style="font-size:11.5px;color:#65A30D;font-weight:600;">
-                الموديل: parakeet-ctc-1.1b
+                الموديل: {{ $nvidiaActiveModel }}
             </div>
         </div>
 
@@ -280,7 +300,7 @@
                         <!-- Model & Endpoint -->
                         <td>
                             <div style="font-family:monospace;font-size:12px;color:#0F172A;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px;" title="{{ $entry['model'] }}">
-                                {{ $entry['model'] ?: 'models/gemini-2.5-flash-native-audio-preview-12-2025' }}
+                                {{ $entry['model'] ?: $googleActiveModel }}
                             </div>
                             @if (!empty($entry['endpoint']))
                                 <div style="font-size:11px;color:#64748B;direction:ltr;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px;" title="{{ $entry['endpoint'] }}">
@@ -417,7 +437,7 @@
                 <label style="font-size:12.5px;font-weight:700;color:#0F172A;display:block;margin-bottom:6px;">
                     معرف الموديل (Model ID)
                 </label>
-                <input type="text" name="model" id="inputModel" value="models/gemini-2.5-flash-native-audio-preview-12-2025" required style="width:100%;padding:9px 12px;font-size:13px;border:1px solid #CBD5E1;border-radius:8px;outline:none;background:#FFF;color:#0F172A;font-family:monospace;">
+                <input type="text" name="model" id="inputModel" value="{{ $googleActiveModel }}" placeholder="معرف النموذج (مثال: gemini-3.8-live)" required style="width:100%;padding:9px 12px;font-size:13px;border:1px solid #CBD5E1;border-radius:8px;outline:none;background:#FFF;color:#0F172A;font-family:monospace;">
             </div>
 
             <!-- Custom Endpoint (Optional/Auto-filled) -->
@@ -534,22 +554,25 @@ function onDriverChange(driver) {
     const inputLabel = document.getElementById('inputLabel');
 
     if (driver === 'google_live') {
-        inputModel.value = 'models/gemini-2.5-flash-native-audio-preview-12-2025';
+        inputModel.value = '{{ $googleActiveModel }}';
+        inputModel.placeholder = 'معرف النموذج (مثال: gemini-3.8-live)';
         inputEndpoint.value = '';
         inputEndpoint.placeholder = 'اتركه فارغاً للاستخدام السحابي الافتراضي (Google WebSockets)';
-        if (!inputLabel.value || inputLabel.value.includes('Key')) {
+        if (!inputLabel.value || inputLabel.value.includes('Key') || inputLabel.value.includes('مفتاح')) {
             inputLabel.value = 'Google Gemini Live Key';
         }
     } else if (driver === 'fish_audio') {
-        inputModel.value = 'speech-1.5';
+        inputModel.value = '';
+        inputModel.placeholder = 'اكتب معرف النموذج أو الصوت المخصص (Voice ID / Custom Model)';
         inputEndpoint.value = 'https://api.fish.audio/v1';
-        if (!inputLabel.value || inputLabel.value.includes('Key')) {
-            inputLabel.value = 'Fish Audio TTS Key';
+        if (!inputLabel.value || inputLabel.value.includes('Key') || inputLabel.value.includes('مفتاح')) {
+            inputLabel.value = 'Fish Audio Key';
         }
     } else if (driver === 'nvidia') {
         inputModel.value = 'nvidia/parakeet-ctc-1.1b-asr';
+        inputModel.placeholder = 'معرف النموذج (مثال: nvidia/parakeet-ctc-1.1b-asr)';
         inputEndpoint.value = 'https://integrate.api.nvidia.com/v1';
-        if (!inputLabel.value || inputLabel.value.includes('Key')) {
+        if (!inputLabel.value || inputLabel.value.includes('Key') || inputLabel.value.includes('مفتاح')) {
             inputLabel.value = 'NVIDIA NIM Cloud Key';
         }
     } else {
@@ -557,7 +580,7 @@ function onDriverChange(driver) {
         inputModel.placeholder = 'مثال: deepseek-chat أو gpt-4o-mini';
         inputEndpoint.value = '';
         inputEndpoint.placeholder = 'مثال: https://api.deepseek.com/v1 أو https://api.groq.com/openai/v1';
-        if (!inputLabel.value || inputLabel.value.includes('Key')) {
+        if (!inputLabel.value || inputLabel.value.includes('Key') || inputLabel.value.includes('مفتاح')) {
             inputLabel.value = 'Custom Provider Key';
         }
     }

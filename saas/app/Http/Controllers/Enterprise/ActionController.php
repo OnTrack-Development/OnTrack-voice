@@ -680,11 +680,16 @@ class ActionController extends Controller
                 }
 
                 if ($model === '') {
+                    $existingGoogleModel = DB::table('ai_relay_entries')
+                        ->where('account_id', $accountId)
+                        ->whereIn('driver', ['google_live', 'gemini_live'])
+                        ->value('model');
+
                     $model = match ($driver) {
-                        'google_live', 'gemini_live' => 'models/gemini-2.5-flash-native-audio-preview-12-2025',
-                        'fish_audio' => 'speech-1.5',
+                        'google_live', 'gemini_live' => (!empty($existingGoogleModel) ? $existingGoogleModel : 'gemini-3.8-live'),
+                        'fish_audio' => 'custom',
                         'nvidia' => 'nvidia/parakeet-ctc-1.1b-asr',
-                        default => 'default-model',
+                        default => 'default',
                     };
                 }
 

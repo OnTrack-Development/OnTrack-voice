@@ -2,7 +2,7 @@
   "$schema": "floorplan/architecture@1",
   "project": {
     "name": "OnTrack Voice SaaS",
-    "summary": "Omnichannel AI Voice Assistant and Multi-Agent SaaS Platform with Zero-Knowledge PII Shield, Android SIM Bridge, and Zoie.ai Dual-Contrast UI.",
+    "summary": "Omnichannel AI Voice Assistant and Multi-Agent SaaS Platform with Zero-Knowledge PII Shield, Android SIM Bridge, and OnTrack Dual-Contrast UI.",
     "entrypoints": [
       "saas/public/index.php",
       "saas/routes/web.php",
@@ -28,7 +28,7 @@
       "id": "saas.portal",
       "label": "Omnichannel Control Panel UI",
       "kind": "ui",
-      "summary": "12-tab luxury control panel with Zoie.ai Dual-Contrast design (Navy #0B0F19 Topbar/Sidebar & White #F8FAFC Canvas).",
+      "summary": "13-tab luxury control panel with OnTrack Dual-Contrast design (Navy #0B0F19 Topbar/Sidebar & White #F8FAFC Canvas).",
       "paths": [
         "saas/resources/views/**",
         "saas/public/assets/**"
@@ -309,8 +309,8 @@
   "tour": [
     {
       "node": "saas.portal",
-      "title": "Omnichannel Dashboard & Zoie.ai UI",
-      "note": "لوحة التحكم المتكاملة بتصميم Dual-Contrast الفاخر وكافة التبويبات الـ 12 الموصولة."
+      "title": "لوحة التحكم المتكاملة (OnTrack Omnichannel Dashboard)",
+      "note": "لوحة التحكم الفاخرة بتصميم Dual-Contrast وكافة التبويبات الـ 13 الموصولة بقواعد البيانات."
     },
     {
       "node": "saas.core_engine",
