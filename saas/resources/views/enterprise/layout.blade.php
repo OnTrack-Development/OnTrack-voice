@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ar" dir="rtl" data-theme="{{ $ctx['theme'] ?? 'dark' }}">
+<html lang="en" dir="ltr" data-theme="{{ $ctx['theme'] ?? 'dark' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -13,11 +13,23 @@
         body {
             background: #0B0F19 !important;
             font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif !important;
+            direction: ltr !important;
         }
         #ioSidebar {
             background: #0B0F19 !important;
-            border-left: 1px solid #1E293B !important;
+            border-right: 1px solid #1E293B !important;
+            border-left: none !important;
             width: 250px !important;
+        }
+        @media (max-width: 960px) {
+            .sidebar {
+                left: 0 !important;
+                right: auto !important;
+                transform: translateX(-100%) !important;
+            }
+            .sidebar.open {
+                transform: translateX(0) !important;
+            }
         }
         #ioSidebar .brand-bar {
             border-bottom: 1px solid #1E293B !important;
@@ -208,6 +220,7 @@
     </div>
 @endif
 
+@if (($ctx['is_platform'] ?? false) === false && ($data['credits'] ?? 100) <= 0)
 <!-- Out of credits alert banner (Matching Screenshot 1 & 2) -->
 <div style="background:#FFFFFF;color:#EF4444;border-bottom:1px solid #F1F5F9;padding:6px 16px;text-align:center;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;">
     <span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1.5px solid #EF4444;font-size:9.5px;font-weight:800;">!</span>
@@ -215,6 +228,7 @@
     <span style="color:#64748B;font-weight:400;">Calls, messages, campaigns and AI are paused until you top up.</span>
     <a href="/?tab=billing" style="background:#0F172A;color:#FFFFFF;padding:2px 10px;border-radius:6px;font-size:11px;text-decoration:none;font-weight:700;">Top up</a>
 </div>
+@endif
 
 <div class="app-shell">
     <div id="ioSidebarScrim" class="sidebar-scrim" onclick="toggleSidebar(false)"></div>
@@ -291,6 +305,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
                 <span>Agents</span>
             </a>
+            <a class="nav-item {{ in_array($activeTab, ['api_keys', 'api-keys', 'providers'], true) ? 'active' : '' }}" href="/?tab=api_keys">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 2-2 2m-6 6 2-2m-8 8 2-2m-6 6 2-2"/><circle cx="7.5" cy="16.5" r="4.5"/><path d="m10.5 13.5 8-8a2.121 2.121 0 0 1 3 3l-8 8"/></svg>
+                <span>AI Providers & Keys</span>
+            </a>
             <a class="nav-item {{ $activeTab === 'activity' ? 'active' : '' }}" href="/?tab=activity">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                 <span>Activity & Learning</span>
@@ -363,15 +381,25 @@
             @endif
         </nav>
 
-        <!-- Sidebar Foot: 0 Credits / Open Billing & User -->
+        <!-- Sidebar Foot: Credits / Open Billing & User -->
         <div class="sidebar-foot">
-            <div style="background:#1E293B;border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
-                <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#F59E0B;font-weight:700;">
-                    <span>⚠️</span>
-                    <span>0 credits</span>
+            @if (($ctx['is_platform'] ?? false) || ($data['credits'] ?? 0) > 0)
+                <div style="background:#1E293B;border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#10B981;font-weight:700;">
+                        <span>⚡</span>
+                        <span>{{ ($ctx['is_platform'] ?? false) ? 'Unlimited' : ($data['credits'] ?? 0) . ' credits' }}</span>
+                    </div>
+                    <a href="/?tab=billing" style="color:#38BDF8;font-size:11.5px;font-weight:600;text-decoration:none;">Open billing</a>
                 </div>
-                <a href="/?tab=billing" style="color:#38BDF8;font-size:11.5px;font-weight:600;text-decoration:none;">Open billing</a>
-            </div>
+            @else
+                <div style="background:#1E293B;border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#F59E0B;font-weight:700;">
+                        <span>⚠️</span>
+                        <span>0 credits</span>
+                    </div>
+                    <a href="/?tab=billing" style="color:#38BDF8;font-size:11.5px;font-weight:600;text-decoration:none;">Open billing</a>
+                </div>
+            @endif
 
             @if (count($ctx['sites'] ?? []) > 1)
                 <form method="POST" action="/console/action" style="margin-bottom:8px;">
@@ -496,6 +524,9 @@
                     'platform-ai' => 'enterprise.tabs.admin',
                     'platform-plans' => 'enterprise.tabs.admin',
                     'floorplan' => 'enterprise.tabs.floorplan',
+                    'api_keys' => 'enterprise.tabs.api_keys',
+                    'api-keys' => 'enterprise.tabs.api_keys',
+                    'providers' => 'enterprise.tabs.api_keys',
                 ];
             @endphp
             @include($viewMap[$activeTab] ?? 'enterprise.tabs.overview', ['ctx' => $ctx, 'data' => $data, 'activeTab' => $activeTab])

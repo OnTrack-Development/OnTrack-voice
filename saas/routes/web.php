@@ -87,6 +87,7 @@ Route::middleware('auth')->group(function () {
         'accounts', 'plans', 'domains', 'staff', 'integrations', 'releases',
         'reseller-tenants', 'reseller-quotas', 'platform-ai', 'platform-plans',
         'messages', 'tickets', 'leads', 'appointments', 'widget',
+        'api_keys', 'api-keys', 'providers',
         'workspace', 'admin', 'reseller', 'floorplan',
     ] as $path) {
         $tab = match ($path) {

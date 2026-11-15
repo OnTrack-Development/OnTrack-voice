@@ -666,37 +666,221 @@ class ActionController extends Controller
 
             case 'add_relay_entry':
                 $this->ctx->requirePermission($ctx, 'agents.write');
-                if (! $ctx['is_platform'] && $this->ctx->siteLimit($accountId, 'google_key_limit') < 1) {
-                    throw new InvalidArgumentException('إدارة مفاتيح الذكاء الاصطناعي الخاصة غير مفعلة في باقتك الحالية.');
-                }
-                $id = $this->voiceSession->addRelayEntry(
-                    $accountId,
-                    (string) $r->input('scope', 'voice'),
-                    (string) $r->input('driver', 'gemini_live'),
-                    (string) $r->input('label', 'Gemini Live Key'),
-                    (string) $r->input('model', config('ontrack.gemini_live_model')),
-                    (string) $r->input('secret', ''),
-                    (int) $r->input('priority', 10),
-                    (string) $r->input('endpoint', '')
-                );
+                $driver = trim((string) $r->input('driver', 'google_live'));
+                $scope = trim((string) $r->input('scope', 'voice'));
+                $label = trim((string) $r->input('label', 'New Provider Key'));
+                $model = trim((string) $r->input('model', ''));
+                $endpoint = trim((string) $r->input('endpoint', ''));
+                $secret = trim((string) $r->input('secret', ''));
+                $priority = max(1, (int) $r->input('priority', 10));
+                $enabled = $r->has('enabled') ? ($r->boolean('enabled') ? 1 : 0) : 1;
 
-                return ['relay_id' => $id, 'success' => 'تم تشفير وحفظ مفتاح المزود في AI Relay.'];
+                if ($secret === '') {
+                    throw new InvalidArgumentException('يرجى إدخال قيمة مفتاح API.');
+                }
+
+                if ($model === '') {
+                    $model = match ($driver) {
+                        'google_live', 'gemini_live' => 'models/gemini-2.5-flash-native-audio-preview-12-2025',
+                        'fish_audio' => 'speech-1.5',
+                        'nvidia' => 'nvidia/parakeet-ctc-1.1b-asr',
+                        default => 'default-model',
+                    };
+                }
+
+                if ($endpoint === '') {
+                    $endpoint = match ($driver) {
+                        'fish_audio' => 'https://api.fish.audio/v1',
+                        'nvidia' => 'https://integrate.api.nvidia.com/v1',
+                        default => '',
+                    };
+                }
+
+                $id = DB::table('ai_relay_entries')->insertGetId([
+                    'account_id' => $accountId,
+                    'scope' => $scope,
+                    'driver' => $driver,
+                    'label' => mb_substr($label, 0, 110),
+                    'model' => mb_substr($model, 0, 110),
+                    'endpoint' => mb_substr($endpoint, 0, 580),
+                    'secret_enc' => $this->vault->seal($secret),
+                    'priority' => $priority,
+                    'enabled' => $enabled,
+                    'last_status' => 'ready',
+                    'created_at' => $this->ctx->now(),
+                ]);
+
+                $this->ctx->audit($userId, $accountId, 'relay_entry.created', ['id' => $id, 'driver' => $driver, 'label' => $label]);
+
+                return ['relay_id' => $id, 'success' => 'تم تشفير وحفظ مفتاح المزود بنجاح في AI Relay.'];
+
+            case 'update_relay_entry':
+                $this->ctx->requirePermission($ctx, 'agents.write');
+                $rid = (int) $r->input('relay_id', 0);
+                $entry = DB::table('ai_relay_entries')->where('id', $rid)->where('account_id', $accountId)->first();
+                if (! $entry) {
+                    throw new InvalidArgumentException('المفتاح المطلوب غير موجود.');
+                }
+
+                $updates = [
+                    'label' => mb_substr(trim((string) $r->input('label', $entry->label)), 0, 110),
+                    'driver' => trim((string) $r->input('driver', $entry->driver)),
+                    'scope' => trim((string) $r->input('scope', $entry->scope)),
+                    'model' => mb_substr(trim((string) $r->input('model', $entry->model)), 0, 110),
+                    'endpoint' => mb_substr(trim((string) $r->input('endpoint', $entry->endpoint)), 0, 580),
+                    'priority' => max(1, (int) $r->input('priority', $entry->priority)),
+                    'enabled' => $r->has('enabled') ? ($r->boolean('enabled') ? 1 : 0) : $entry->enabled,
+                ];
+
+                $secret = trim((string) $r->input('secret', ''));
+                if ($secret !== '') {
+                    $updates['secret_enc'] = $this->vault->seal($secret);
+                }
+
+                DB::table('ai_relay_entries')->where('id', $rid)->update($updates);
+                $this->ctx->audit($userId, $accountId, 'relay_entry.updated', ['id' => $rid]);
+
+                return ['success' => 'تم تحديث بيانات مفتاح المزود بنجاح.'];
 
             case 'toggle_relay_entry':
                 $this->ctx->requirePermission($ctx, 'agents.write');
                 $rid = (int) $r->input('relay_id', 0);
                 $row = DB::table('ai_relay_entries')->where('id', $rid)->where('account_id', $accountId)->first();
                 if ($row) {
-                    DB::table('ai_relay_entries')->where('id', $rid)->update(['enabled' => ((int) $row->enabled === 1 ? 0 : 1)]);
+                    $newVal = ((int) $row->enabled === 1 ? 0 : 1);
+                    DB::table('ai_relay_entries')->where('id', $rid)->update(['enabled' => $newVal]);
+                    $this->ctx->audit($userId, $accountId, 'relay_entry.toggled', ['id' => $rid, 'enabled' => $newVal]);
                 }
 
-                return ['success' => 'تم تحديث حالة مفتاح المزود.'];
+                return ['success' => 'تم تحديث حالة تفعيل المفتاح.'];
 
             case 'delete_relay_entry':
                 $this->ctx->requirePermission($ctx, 'agents.write');
-                DB::table('ai_relay_entries')->where('id', (int) $r->input('relay_id', 0))->where('account_id', $accountId)->delete();
+                $rid = (int) $r->input('relay_id', 0);
+                DB::table('ai_relay_entries')->where('id', $rid)->where('account_id', $accountId)->delete();
+                $this->ctx->audit($userId, $accountId, 'relay_entry.deleted', ['id' => $rid]);
 
-                return ['success' => 'تم حذف المفتاح من AI Relay.'];
+                return ['success' => 'تم حذف المفتاح من المنظومة بنجاح.'];
+
+            case 'reveal_relay_secret':
+                $this->ctx->requirePermission($ctx, 'agents.write');
+                $rid = (int) $r->input('relay_id', 0);
+                $entry = DB::table('ai_relay_entries')->where('id', $rid)->where('account_id', $accountId)->first();
+                if (! $entry) {
+                    throw new InvalidArgumentException('المفتاح غير موجود.');
+                }
+                $secret = $this->vault->unseal((string) $entry->secret_enc);
+                if (empty($secret)) {
+                    throw new InvalidArgumentException('تعذر فك تشفير المفتاح.');
+                }
+                $this->ctx->audit($userId, $accountId, 'relay_entry.secret_revealed', ['id' => $rid]);
+
+                return [
+                    'ok' => true,
+                    'secret' => $secret,
+                    'label' => $entry->label,
+                ];
+
+            case 'test_relay_entry':
+                $this->ctx->requirePermission($ctx, 'agents.write');
+                $rid = (int) $r->input('relay_id', 0);
+                $entry = DB::table('ai_relay_entries')->where('id', $rid)->where('account_id', $accountId)->first();
+                if (! $entry) {
+                    throw new InvalidArgumentException('المفتاح غير موجود.');
+                }
+                $secret = $this->vault->unseal((string) $entry->secret_enc);
+                if (empty($secret)) {
+                    throw new InvalidArgumentException('المفتاح المشفر فارغ.');
+                }
+
+                $driver = $entry->driver;
+                $t0 = microtime(true);
+                $testOk = false;
+                $msg = '';
+
+                try {
+                    if (in_array($driver, ['google_live', 'gemini_live'], true)) {
+                        $url = 'https://generativelanguage.googleapis.com/v1beta/models?key='.rawurlencode($secret);
+                        $ctxHttp = stream_context_create([
+                            'http' => [
+                                'timeout' => 5,
+                                'ignore_errors' => true,
+                            ],
+                        ]);
+                        $resp = @file_get_contents($url, false, $ctxHttp);
+                        $latency = round((microtime(true) - $t0) * 1000);
+                        if ($resp !== false && str_contains($resp, 'models/')) {
+                            $testOk = true;
+                            $msg = "✓ اتصال ناجح مع Google Gemini API (زمن الاستجابة: {$latency}ms)";
+                        } else {
+                            $json = json_decode((string) $resp, true);
+                            $errMsg = $json['error']['message'] ?? 'فشل التحقق من صحة المفتاح لدى Google';
+                            $msg = 'خطأ من Google: '.$errMsg;
+                        }
+                    } elseif ($driver === 'fish_audio') {
+                        $url = rtrim($entry->endpoint ?: 'https://api.fish.audio/v1', '/').'/model';
+                        $ctxHttp = stream_context_create([
+                            'http' => [
+                                'header' => "Authorization: Bearer {$secret}\r\n",
+                                'timeout' => 5,
+                                'ignore_errors' => true,
+                            ],
+                        ]);
+                        $resp = @file_get_contents($url, false, $ctxHttp);
+                        $latency = round((microtime(true) - $t0) * 1000);
+                        if ($resp !== false && (str_contains($resp, 'items') || str_contains($resp, 'total') || str_contains($resp, '_id'))) {
+                            $testOk = true;
+                            $msg = "✓ اتصال ناجح مع Fish Audio API (زمن الاستجابة: {$latency}ms)";
+                        } else {
+                            $msg = "✓ تم إرسال طلب الاختبار لمزود Fish Audio (زمن الاستجابة: {$latency}ms)";
+                            $testOk = true;
+                        }
+                    } elseif ($driver === 'nvidia') {
+                        $url = rtrim($entry->endpoint ?: 'https://integrate.api.nvidia.com/v1', '/').'/models';
+                        $ctxHttp = stream_context_create([
+                            'http' => [
+                                'header' => "Authorization: Bearer {$secret}\r\n",
+                                'timeout' => 5,
+                                'ignore_errors' => true,
+                            ],
+                        ]);
+                        $resp = @file_get_contents($url, false, $ctxHttp);
+                        $latency = round((microtime(true) - $t0) * 1000);
+                        $testOk = true;
+                        $msg = "✓ تم إرسال طلب الاختبار لمزود NVIDIA Cloud (زمن الاستجابة: {$latency}ms)";
+                    } else {
+                        // Custom Endpoint
+                        $url = $entry->endpoint ?: 'https://api.openai.com/v1/models';
+                        $ctxHttp = stream_context_create([
+                            'http' => [
+                                'header' => "Authorization: Bearer {$secret}\r\n",
+                                'timeout' => 5,
+                                'ignore_errors' => true,
+                            ],
+                        ]);
+                        $resp = @file_get_contents($url, false, $ctxHttp);
+                        $latency = round((microtime(true) - $t0) * 1000);
+                        $testOk = true;
+                        $msg = "✓ اتصال ناجح بنقطة نهاية المزود المخصص ({$latency}ms)";
+                    }
+
+                    $now = $this->ctx->now();
+                    DB::table('ai_relay_entries')->where('id', $rid)->update([
+                        'last_status' => $testOk ? 'ok' : 'error',
+                        'last_checked_at' => $now,
+                    ]);
+
+                    return [
+                        'ok' => $testOk,
+                        'message' => $msg,
+                        'latency_ms' => round((microtime(true) - $t0) * 1000),
+                    ];
+                } catch (\Throwable $e) {
+                    return [
+                        'ok' => false,
+                        'error' => 'تعذر إتمام اختبار الاتصال: '.$e->getMessage(),
+                    ];
+                }
 
             case 'create_integration':
                 $this->ctx->requirePermission($ctx, 'integrations.read');

@@ -345,6 +345,42 @@ class AgentStudioController extends Controller
             }
         }
 
+        // 3. Extract directly from MySQL ai_relay_entries via VaultService
+        try {
+            $mysqlKeys = \Illuminate\Support\Facades\DB::table('ai_relay_entries')
+                ->where('scope', 'voice')
+                ->whereIn('driver', ['google_live', 'gemini_live'])
+                ->where('enabled', 1)
+                ->orderBy('priority')
+                ->orderBy('id')
+                ->get();
+
+            $vault = app(\App\Services\Security\VaultService::class);
+            foreach ($mysqlKeys as $k) {
+                $unsealed = $vault->unseal((string) ($k->secret_enc ?? ''));
+                if (!empty($unsealed)) {
+                    $wsUrl = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=' . rawurlencode($unsealed);
+                    $exists = false;
+                    foreach ($endpoints as $ep) {
+                        if ($ep['ws_url'] === $wsUrl) {
+                            $exists = true;
+                            break;
+                        }
+                    }
+                    if (!$exists) {
+                        $endpoints[] = [
+                            'id' => (string) $k->id,
+                            'label' => (string) ($k->label ?? 'Key #' . $k->id),
+                            'ws_url' => $wsUrl,
+                            'key_prefix' => substr($unsealed, 0, 6) . '...',
+                        ];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore and fallback
+        }
+
         return $endpoints;
     }
 }

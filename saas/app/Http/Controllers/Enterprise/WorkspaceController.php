@@ -21,6 +21,7 @@ class WorkspaceController extends Controller
         'calls', 'messages', 'tickets',
         'campaigns', 'devices', 'widget',
         'agents', 'voices', 'activity',
+        'api_keys', 'api-keys', 'providers',
         'power_dialer', 'workflows', 'integrations',
         'billing', 'invoices', 'settings', 'staff', 'domains', 'whatsapp',
         'accounts', 'plans', 'releases',
@@ -36,6 +37,7 @@ class WorkspaceController extends Controller
         private readonly CampaignDialerService $campaigns,
         private readonly PostCallAutomationService $automation,
         private readonly BillingService $billing,
+        private readonly \App\Services\Security\VaultService $vault,
     ) {}
 
     public function home(Request $request)
@@ -70,6 +72,9 @@ class WorkspaceController extends Controller
 
         if (in_array($tab, ['flows', 'answering'], true)) {
             $tab = 'agents';
+        }
+        if (in_array($tab, ['api-keys', 'providers'], true)) {
+            $tab = 'api_keys';
         }
         if (! in_array($tab, self::VALID_TABS, true)) {
             $tab = 'overview';
@@ -156,6 +161,7 @@ class WorkspaceController extends Controller
             ],
             'reports' => $base + $this->reportsData($accountId),
             'activity' => $base + $this->activityData($accountId),
+            'api_keys', 'api-keys', 'providers' => $base + $this->apiKeysData($ctx, $accountId),
             'power_dialer' => $base + $this->powerDialerData($accountId),
             'workflows' => $base + $this->workflowsData($accountId),
             'integrations' => $base + $this->integrationsData($accountId),
@@ -711,6 +717,40 @@ class WorkspaceController extends Controller
             'total_tickets' => DB::table('support_tickets')->where('account_id', $accountId)->count(),
             'resolution_rate' => '94.8%',
             'avg_response_time' => '1.2s',
+        ];
+    }
+
+    private function apiKeysData(array $ctx, int $accountId): array
+    {
+        $relayEntries = DB::table('ai_relay_entries')
+            ->where('account_id', $accountId)
+            ->orderBy('priority')
+            ->orderBy('id')
+            ->get()
+            ->map(function ($r) {
+                $arr = (array) $r;
+                $unsealed = $this->vault->unseal((string) ($r->secret_enc ?? ''));
+                $arr['has_secret'] = ! empty($unsealed);
+                $arr['secret_masked'] = ! empty($unsealed)
+                    ? (strlen($unsealed) > 10 ? substr($unsealed, 0, 7).'••••••••'.substr($unsealed, -4) : '••••••••')
+                    : 'غير معين';
+                $arr['secret_preview'] = ! empty($unsealed) ? substr($unsealed, 0, 8).'...' : '';
+
+                return $arr;
+            })
+            ->all();
+
+        $clientKeys = DB::table('api_keys')
+            ->where('account_id', $accountId)
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn ($k) => (array) $k)
+            ->all();
+
+        return [
+            'relay_entries' => $relayEntries,
+            'client_keys' => $clientKeys,
+            'default_gemini_model' => config('ontrack.gemini_live_model', 'models/gemini-2.5-flash-native-audio-preview-12-2025'),
         ];
     }
 
