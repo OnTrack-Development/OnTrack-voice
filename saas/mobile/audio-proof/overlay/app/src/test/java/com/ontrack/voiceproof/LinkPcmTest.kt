@@ -16,10 +16,10 @@ class LinkPcmTest {
     }
     @Test fun cellularBacklogDropsStaleFramesWhileWifiKeepsExistingLimit() {
         assertTrue(LiveAudioQueuePolicy.canSend(true, 0))
-        assertTrue(LiveAudioQueuePolicy.canSend(true, 24L * 1024))
+        assertTrue(LiveAudioQueuePolicy.canSend(true, 16L * 1024))
         assertTrue(LiveAudioQueuePolicy.canSend(true, 64L * 1024 - 1))
         assertFalse(LiveAudioQueuePolicy.canSend(true, 64L * 1024))
-        assertFalse(LiveAudioQueuePolicy.canSend(true, 96L * 1024))
+        assertFalse(LiveAudioQueuePolicy.canSend(true, 128L * 1024))
         assertFalse(LiveAudioQueuePolicy.canSend(true, 192L * 1024))
         assertTrue(LiveAudioQueuePolicy.canSend(false, 48L * 1024))
         assertTrue(LiveAudioQueuePolicy.canSend(false, 192L * 1024 - 1))
@@ -70,7 +70,7 @@ class LinkPcmTest {
     @Test fun adaptiveUplinkFramerBatches20msFastAnd40msSlowCellularWithFlush() {
         assertEquals(640, UplinkAudioFrameBuffer.targetBytes(cellular = false, slowCellular = false))
         assertEquals(640, UplinkAudioFrameBuffer.targetBytes(cellular = true, slowCellular = false))
-        assertEquals(1280, UplinkAudioFrameBuffer.targetBytes(cellular = true, slowCellular = true))
+        assertEquals(640, UplinkAudioFrameBuffer.targetBytes(cellular = true, slowCellular = true))
 
         val buffer = UplinkAudioFrameBuffer()
         val p1 = ByteArray(320) { 1 }
@@ -83,13 +83,13 @@ class LinkPcmTest {
         assertEquals(0, buffer.pendingSize())
 
         val slowBuf = UplinkAudioFrameBuffer()
-        assertTrue(slowBuf.push(ByteArray(640) { 7 }, UplinkAudioFrameBuffer.SLOW_CELLULAR_FRAME_BYTES).isEmpty())
-        val emittedSlow = slowBuf.push(ByteArray(640) { 8 }, UplinkAudioFrameBuffer.SLOW_CELLULAR_FRAME_BYTES)
+        assertTrue(slowBuf.push(ByteArray(320) { 7 }, 640).isEmpty())
+        val emittedSlow = slowBuf.push(ByteArray(320) { 8 }, 640)
         assertEquals(1, emittedSlow.size)
-        assertEquals(1280, emittedSlow[0].size)
+        assertEquals(640, emittedSlow[0].size)
 
         // Partial tail left at end of turn must flush cleanly without getting stranded
-        assertTrue(slowBuf.push(ByteArray(320) { 9 }, UplinkAudioFrameBuffer.SLOW_CELLULAR_FRAME_BYTES).isEmpty())
+        assertTrue(slowBuf.push(ByteArray(320) { 9 }, 640).isEmpty())
         val flushed = slowBuf.flush()
         assertNotNull(flushed)
         assertEquals(320, flushed!!.size)
@@ -105,6 +105,8 @@ class LinkPcmTest {
         telemetry.recordPcmDrop()
         telemetry.recordNetworkConnect(310L)
         telemetry.recordAiFirstAudio(480L)
+        telemetry.recordFirstAudioInput(520L)
+        telemetry.recordSpeakerPlayback(750L)
         telemetry.recordNetworkUplinkSkip()
         telemetry.recordNetworkReconnect()
 
@@ -116,6 +118,8 @@ class LinkPcmTest {
         assertEquals(1L, snap.pcmDroppedPackets)
         assertEquals(310L, snap.networkConnectMs)
         assertEquals(480L, snap.aiFirstAudioMs)
+        assertEquals(520L, snap.firstAudioInputMs)
+        assertEquals(750L, snap.speakerPlaybackMs)
         assertEquals(1L, snap.networkSkippedUplinkPackets)
         assertEquals(1L, snap.networkReconnects)
     }

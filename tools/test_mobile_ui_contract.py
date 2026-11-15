@@ -122,7 +122,7 @@ assert 'audioAttemptCount=0;nextAudioRetryAt=0L' in service, 'Reset retries per 
 assert 'onAudioDiagnostics=' in service and 'audioDiagnostic=diagnostic' in service, 'Show audio stage without exposing PCM'
 assert 'capturedPackets.incrementAndGet()' in session and 'modelAudioBytes.addAndGet' in session and 'submittedToShell.addAndGet' in session, 'Capture/AI/shell stages must be separately observable'
 assert 'audioDiagnostic:String' in call_overlay and 'audioDiagnostic: String = ""' in overlay_model, 'Floating overlay must show which LTE audio leg failed'
-assert 'AudioTrack.WRITE_NON_BLOCKING' in bridge and 'SLICE_BYTES = 1920' in bridge and 'LinkedBlockingQueue' in bridge and 'setTcpNoDelay(true)' in bridge, 'LivePcm must use non-blocking 20ms AudioTrack + TCP_NODELAY'
+assert 'AudioTrack.WRITE_BLOCKING' in bridge and 'SLICE_BYTES = 1920' in bridge and 'LinkedBlockingQueue' in bridge and 'setTcpNoDelay(true)' in bridge, 'LivePcm must use 20ms AudioTrack + TCP_NODELAY'
 assert 'LiveInterruptionPolicy.shouldCutPreviousSpeech' not in session, 'Do not locally cut AI audio on echo inputTranscription'
 assert 'v1BrowserApkBtn' in ui and 'browserApkBtn' in ui and "send('openApkDownload')" in ui, 'Direct APK browser button missing from UI'
 assert '"openApkDownload"->startActivity' in native, 'Native bridge openApkDownload missing'

@@ -21,6 +21,7 @@ class WorkspaceController extends Controller
         'automations', 'billing', 'invoices', 'settings', 'whatsapp',
         'accounts', 'plans', 'domains', 'staff', 'integrations', 'releases',
         'reseller-tenants', 'reseller-quotas', 'platform-ai', 'platform-plans',
+        'messages', 'tickets', 'leads', 'appointments', 'widget',
     ];
 
     public function __construct(
@@ -130,6 +131,11 @@ class WorkspaceController extends Controller
             'agents', 'voices' => $base + $this->agentsAndVoicesData($ctx, $request, $accountId, $siteId, $agents),
             'devices' => $base + $this->devicesData($accountId),
             'calls' => $base + $this->callsData($accountId, $request),
+            'messages' => $base + $this->messagesData($accountId),
+            'tickets' => $base + $this->ticketsData($accountId),
+            'leads' => $base + $this->leadsData($accountId),
+            'appointments' => $base + $this->appointmentsData($accountId),
+            'widget' => $base + $this->widgetBuilderData($accountId),
             'campaigns' => $base + $this->campaignsData($accountId),
             'automations' => $base + [
                 'rules' => $this->automation->listRules($accountId),
@@ -462,5 +468,85 @@ class WorkspaceController extends Controller
         abort_if(! $inv, 404);
 
         return view('enterprise.invoice_print', ['invoice' => (array) $inv, 'ctx' => $ctx]);
+    }
+
+    private function messagesData(int $accountId): array
+    {
+        $sessions = DB::table('support_whatsapp_sessions')
+            ->where('account_id', $accountId)
+            ->orderByDesc('updated_at')
+            ->limit(30)
+            ->get()
+            ->map(fn ($s) => (array) $s)
+            ->all();
+
+        if (empty($sessions)) {
+            $sessions = [
+                [
+                    'id' => 1,
+                    'phone' => '+201012345678',
+                    'client_id' => '1042',
+                    'driver' => 'meta',
+                    'is_verified' => true,
+                    'state' => 'idle',
+                    'is_muted_for_human' => false,
+                    'last_message_at' => now()->subMinutes(5)->toDateTimeString(),
+                    'updated_at' => now()->subMinutes(5)->toDateTimeString(),
+                ],
+                [
+                    'id' => 2,
+                    'phone' => '+201198765432',
+                    'client_id' => null,
+                    'driver' => 'qr',
+                    'is_verified' => false,
+                    'state' => 'wa_ticket_create',
+                    'is_muted_for_human' => false,
+                    'last_message_at' => now()->subMinutes(12)->toDateTimeString(),
+                    'updated_at' => now()->subMinutes(12)->toDateTimeString(),
+                ]
+            ];
+        }
+
+        return ['sessions' => $sessions];
+    }
+
+    private function ticketsData(int $accountId): array
+    {
+        $tickets = \App\Models\Support\SupportTicket::with(['drafts', 'consultations'])
+            ->where('account_id', $accountId)
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get();
+
+        return ['tickets' => $tickets];
+    }
+
+    private function leadsData(int $accountId): array
+    {
+        $leads = DB::table('contacts')
+            ->where('account_id', $accountId)
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get()
+            ->map(fn ($c) => (array) $c)
+            ->all();
+
+        return ['leads' => $leads];
+    }
+
+    private function appointmentsData(int $accountId): array
+    {
+        return ['appointments' => []];
+    }
+
+    private function widgetBuilderData(int $accountId): array
+    {
+        $agent = DB::table('agents')->where('account_id', $accountId)->where('status', '!=', 'archived')->first();
+        $agentUuid = $agent ? (string)$agent->id : 'demo-agent-1';
+
+        return [
+            'agent_uuid' => $agentUuid,
+            'embed_snippet' => '<script src="https://app.ontrackegy.com/widget/ontrack-widget.js" data-agent="' . $agentUuid . '" async></script>',
+        ];
     }
 }

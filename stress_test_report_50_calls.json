@@ -1,0 +1,23 @@
+{
+  "concurrency": 50,
+  "total_requests": 50,
+  "success_count": 50,
+  "failure_count": 0,
+  "success_rate_percent": 100.0,
+  "overall_elapsed_sec": 7.527,
+  "requests_per_second": 6.64,
+  "latency_ms": {
+    "min": 4358.19,
+    "avg": 5990.1,
+    "p50": 6388.8,
+    "p95": 7440.57,
+    "p99": 7496.31,
+    "max": 7496.31
+  },
+  "server_telemetry_avg_ms": {
+    "auth_ms": 11.83,
+    "vault_ms": 393.18,
+    "internal_ms": 487.35
+  },
+  "failures_breakdown": {}
+}

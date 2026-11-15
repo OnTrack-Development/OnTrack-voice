@@ -8,7 +8,11 @@ wizard=(mobile/"ProofActivity.kt").read_text(encoding="utf-8")
 logic=(mobile/"OnTrackPermissionChecklist.kt").read_text(encoding="utf-8")
 setup=(mobile/"OnTrackSetupChecklist.kt").read_text(encoding="utf-8")
 ui=(root/"saas/mobile/ota/ui.html").read_text(encoding="utf-8")
-assert "versionCode = 69" in prepare and 'versionName = "0.3.46"' in prepare
+import json
+release=json.loads((root/"saas/mobile/ota/native_release.json").read_text(encoding="utf-8"))
+assert release["version_code"] == 70 and release["version_name"] == "0.3.47", "expected signed v70 release"
+assert f'versionCode = {release["version_code"]}' in prepare
+assert f'versionName = "{release["version_name"]}"' in prepare
 assert "getBoolean(KEY, true)" in prepare and "'false', 'disable all saved call-recording toggle states'" in prepare
 assert "AudioAccess.PERMISSIONS" in prepare and "val ASK_PERMISSIONS = RUNTIME_PERMISSIONS" in prepare
 assert "Keeping complete test recording for local review" not in prepare

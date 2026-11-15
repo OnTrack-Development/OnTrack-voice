@@ -2,9 +2,16 @@ package com.ontrack.voiceproof
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.OkHttpClient
 
 /** Label the actual Android data radio, not every cellular connection as 4G/5G.
  * Applies to all mobile operators and is deliberately independent of branding.
@@ -142,5 +149,113 @@ internal object CellularRadioStatus {
         simultaneousVoiceData==false ->
             "الشبكة الحالية لا تدعم الصوت والداتا معًا أثناء المكالمة؛ انتظر رجوع الإنترنت"
         else -> "اتصال البيانات متوقف أثناء مكالمة SIM؛ سيُعاد ربط الإيجنت عند عودته"
+    }
+
+    @Volatile private var standingCellularCallback: ConnectivityManager.NetworkCallback? = null
+    @Volatile private var hotCellularNetwork: Network? = null
+
+    fun ensureCellularStandby(context: Context) {
+        if (standingCellularCallback != null) return
+        val cm = context.getSystemService(ConnectivityManager::class.java) ?: return
+        runCatching {
+            val req = NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    hotCellularNetwork = network
+                }
+                override fun onLost(network: Network) {
+                    if (hotCellularNetwork == network) hotCellularNetwork = null
+                }
+                override fun onUnavailable() {
+                    hotCellularNetwork = null
+                }
+            }
+            standingCellularCallback = callback
+            cm.requestNetwork(req, callback, 3000)
+        }
+    }
+
+    suspend fun acquireCellularNetwork(context: Context, timeoutMs: Long = 2500L): Network? = withContext(Dispatchers.IO) {
+        val cm = context.getSystemService(ConnectivityManager::class.java) ?: return@withContext null
+        hotCellularNetwork?.let { net ->
+            val caps = cm.getNetworkCapabilities(net)
+            if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                return@withContext net
+            }
+        }
+        val existing = getActiveCellularNetwork(context)
+        if (existing != null) {
+            hotCellularNetwork = existing
+            return@withContext existing
+        }
+        val deferred = CompletableDeferred<Network?>()
+        val req = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                hotCellularNetwork = network
+                if (!deferred.isCompleted) deferred.complete(network)
+            }
+            override fun onUnavailable() {
+                if (!deferred.isCompleted) deferred.complete(null)
+            }
+        }
+        try {
+            cm.requestNetwork(req, callback, timeoutMs.toInt())
+            val net = withTimeoutOrNull(timeoutMs) { deferred.await() }
+            if (net != null) {
+                hotCellularNetwork = net
+            }
+            net
+        } catch (e: Throwable) {
+            getActiveCellularNetwork(context)
+        }
+    }
+
+    fun getActiveCellularNetwork(context: Context): Network? = runCatching {
+        val cm = context.getSystemService(ConnectivityManager::class.java) ?: return@runCatching null
+        hotCellularNetwork?.let { net ->
+            val caps = cm.getNetworkCapabilities(net)
+            if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                return@runCatching net
+            }
+        }
+        val active = cm.activeNetwork
+        if (active != null) {
+            val caps = cm.getNetworkCapabilities(active)
+            if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                return@runCatching active
+            }
+        }
+        for (network in cm.allNetworks) {
+            val caps = cm.getNetworkCapabilities(network) ?: continue
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                return@runCatching network
+            }
+        }
+        null
+    }.getOrNull()
+
+    fun isWifiConnected(context: Context): Boolean = runCatching {
+        val caps = activeNetworkCapabilities(context) ?: return@runCatching false
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }.getOrDefault(false)
+
+    fun bindOkHttpClientToCellularIfNeeded(context: Context, baseClient: OkHttpClient): OkHttpClient {
+        return runCatching {
+            if (isWifiConnected(context)) return@runCatching baseClient
+            val cellNet = getActiveCellularNetwork(context) ?: return@runCatching baseClient
+            baseClient.newBuilder().socketFactory(cellNet.socketFactory).build()
+        }.getOrDefault(baseClient)
     }
 }

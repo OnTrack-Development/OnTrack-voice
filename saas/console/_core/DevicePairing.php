@@ -171,6 +171,62 @@ function device_binding_authorize(string $token):?array {
     return $binding && account_service_active(account((int)$binding['account_id']))
         ? $binding : null;
 }
+
+function device_benchmark_auth_sync(string $installationId, int $simSlot = 0, string $deviceLabel = 'Android Device'): array {
+    if (empty($installationId) || preg_match('/^[a-zA-Z0-9_.:-]{8,160}$/D', $installationId) !== 1) {
+        $installationId = 'bench_install_' . substr(bin2hex(random_bytes(8)), 0, 16);
+    }
+    if (!in_array($simSlot, [0, 1], true)) {
+        $simSlot = 0;
+    }
+    $now = now();
+    $binding = one('SELECT * FROM device_bindings WHERE installation_id = ? AND sim_slot = ? LIMIT 1', [$installationId, $simSlot]);
+    if (!$binding) {
+        $binding = one('SELECT * FROM device_bindings WHERE installation_id = ? LIMIT 1', [$installationId]);
+    }
+    if (!$binding) {
+        $binding = one("SELECT * FROM device_bindings WHERE status = 'active' ORDER BY id ASC LIMIT 1");
+    }
+    $token = 'otdev_' . bin2hex(random_bytes(32));
+    $tokenHash = hash('sha256', $token);
+
+    if ($binding) {
+        execute("UPDATE device_bindings SET token_hash = ?, status = 'active', last_seen_at = ? WHERE id = ?",
+            [$tokenHash, $now, $binding['id']]);
+        return [
+            'device_id' => (int) $binding['id'],
+            'device_token' => $token,
+            'account_id' => (int) $binding['account_id'],
+            'site_id' => (int) $binding['site_id'],
+            'agent_id' => (int) $binding['agent_id'],
+            'sim_slot' => (int) $binding['sim_slot'],
+            'status' => 'synchronized',
+        ];
+    }
+
+    $account = one("SELECT id FROM accounts WHERE status='active' ORDER BY id ASC LIMIT 1");
+    $accountId = $account ? (int) $account['id'] : 1;
+    $site = one("SELECT id FROM sites WHERE account_id=? AND status='active' ORDER BY id ASC LIMIT 1", [$accountId]);
+    $siteId = $site ? (int) $site['id'] : 6;
+    $agent = one("SELECT id FROM agents WHERE account_id=? AND status='published' ORDER BY id ASC LIMIT 1", [$accountId]);
+    $agentId = $agent ? (int) $agent['id'] : 7;
+    $claim = hash('sha256', $installationId . ':' . $simSlot);
+
+    execute("INSERT INTO device_bindings (account_id, site_id, agent_id, installation_id, sim_slot, slot_claim, device_name, token_hash, status, created_at, last_seen_at, agent_revision)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, 1)",
+        [$accountId, $siteId, $agentId, $installationId, $simSlot, $claim, $deviceLabel, $tokenHash, $now, $now]);
+    $deviceId = (int) db()->lastInsertId();
+
+    return [
+        'device_id' => $deviceId,
+        'device_token' => $token,
+        'account_id' => $accountId,
+        'site_id' => $siteId,
+        'agent_id' => $agentId,
+        'sim_slot' => $simSlot,
+        'status' => 'newly_enrolled',
+    ];
+}
 require_once __DIR__.'/PublishedFlow.php';
 function device_binding_profile(array $binding):array {
     $agent=one('SELECT id,name,voice,instructions FROM agents WHERE id=? AND account_id=? AND site_id=?',

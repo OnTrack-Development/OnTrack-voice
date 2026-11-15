@@ -81,7 +81,7 @@ function io_premium_admin_verify_fish(string $key,string $voiceId,string $model)
     if(!function_exists('curl_init'))throw new RuntimeException('cURL غير متاح للتحقق من Fish Audio');
     $request=json_encode([
         'text'=>'أهلاً بيك.','reference_id'=>$voiceId,'format'=>'pcm',
-        'sample_rate'=>44100,'streaming'=>true,'latency'=>'low'
+        'sample_rate'=>48000,'streaming'=>true,'latency'=>'low'
     ],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
     $handle=curl_init('https://api.fish.audio/v1/tts');
     $bytes=0;

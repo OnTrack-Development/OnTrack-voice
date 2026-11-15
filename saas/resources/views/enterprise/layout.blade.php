@@ -36,43 +36,73 @@
         </div>
 
         <nav class="nav-scroll">
-            <div class="nav-group">التشغيل الأساسي</div>
+            <div class="nav-group">1. لوحة المتابعة وإدارة العملاء</div>
             <a class="nav-item {{ $activeTab === 'overview' ? 'active' : '' }}" href="/?tab=overview">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-                <span>لوحة التحكم</span>
+                <span>Dashboard (الرئيسية)</span>
             </a>
-            <a class="nav-item {{ in_array($activeTab, ['agents', 'voices'], true) ? 'active' : '' }}" href="/?tab=agents">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
-                <span>الإيجنت والأصوات</span>
+            <a class="nav-item {{ $activeTab === 'leads' ? 'active' : '' }}" href="/?tab=leads">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>Leads (العملاء المحتملون)</span>
+            </a>
+            <a class="nav-item {{ $activeTab === 'appointments' ? 'active' : '' }}" href="/?tab=appointments">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>Appointments (المواعيد)</span>
+            </a>
+
+            <div class="nav-group">2. صندوق الوارد الموحد (Omnichannel Inbox)</div>
+            <a class="nav-item {{ $activeTab === 'calls' ? 'active' : '' }}" href="/?tab=calls">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <span>Calls (المكالمات والتفريغ)</span>
+            </a>
+            <a class="nav-item {{ $activeTab === 'messages' ? 'active' : '' }}" href="/?tab=messages">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                <span>Messages (WhatsApp & Chat)</span>
+            </a>
+            <a class="nav-item {{ $activeTab === 'tickets' ? 'active' : '' }}" href="/?tab=tickets">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <span>Emails & Tickets (التذاكر)</span>
+            </a>
+
+            <div class="nav-group">3. الحملات والاتصال الخارجي (Outreach)</div>
+            <a class="nav-item {{ $activeTab === 'campaigns' ? 'active' : '' }}" href="/?tab=campaigns">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                <span>Campaigns (الحملات الآلية)</span>
             </a>
             <a class="nav-item {{ $activeTab === 'devices' ? 'active' : '' }}" href="/?tab=devices">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
-                <span>الشرائح والأجهزة</span>
+                <span>الأجهزة والشرائح المتصلة</span>
                 @if (($data['online_sims'] ?? 0) > 0)
                     <span class="pill pill-green" style="margin-right:auto;padding:1px 7px">{{ $data['online_sims'] }}</span>
                 @endif
             </a>
-            <a class="nav-item {{ $activeTab === 'calls' ? 'active' : '' }}" href="/?tab=calls">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                <span>سجل المكالمات</span>
+
+            <div class="nav-group">4. عقل الذكاء الاصطناعي (Intelligence)</div>
+            <a class="nav-item {{ in_array($activeTab, ['agents', 'voices'], true) ? 'active' : '' }}" href="/?tab=agents">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+                <span>Agents Studio (استوديو الوكلاء)</span>
             </a>
-            <a class="nav-item {{ $activeTab === 'campaigns' ? 'active' : '' }}" href="/?tab=campaigns">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                <span>الحملات وجهات الاتصال</span>
+            <a class="nav-item {{ $activeTab === 'widget' ? 'active' : '' }}" href="/?tab=widget">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
+                <span>Website Widget (ودجت الموقع)</span>
             </a>
 
-            <div class="nav-group">الأتمتة والنظام</div>
+            <div class="nav-group">5. الأتمتة والتكاملات والفوترة (Automate)</div>
             <a class="nav-item {{ $activeTab === 'automations' ? 'active' : '' }}" href="/?tab=automations">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                <span>الأتمتة والربط البرمجي</span>
+                <span>Workflows (التدفقات والأتمتة)</span>
+            </a>
+            <a class="nav-item {{ $activeTab === 'integrations' ? 'active' : '' }}" href="/?tab=integrations">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.77 1.01 1.51 1H21a2 2 0 1 1 0 4h-.09c-.74 0-1.25.41-1.51 1z"/></svg>
+                <span>Integrations (موديول WHMCS و API)</span>
             </a>
             <a class="nav-item {{ in_array($activeTab, ['billing', 'invoices'], true) ? 'active' : '' }}" href="/?tab=billing">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                <span>الفواتير والباقات</span>
+                <span>الفوترة والباقات</span>
             </a>
-            <a class="nav-item {{ in_array($activeTab, ['settings', 'integrations', 'staff', 'domains', 'whatsapp'], true) ? 'active' : '' }}" href="/?tab=settings">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.77 1.01 1.51 1H21a2 2 0 1 1 0 4h-.09c-.74 0-1.25.41-1.51 1z"/></svg>
-                <span>الإعدادات والفريق</span>
+            <a class="nav-item {{ $activeTab === 'settings' ? 'active' : '' }}" href="/?tab=settings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <span>إعدادات النظام والـ 2FA</span>
             </a>
 
             @if ($ctx['is_reseller'] || $ctx['is_platform'])
@@ -95,7 +125,7 @@
                 <div class="nav-group">إدارة المنصة (Administration)</div>
                 <a class="nav-item {{ $activeTab === 'accounts' ? 'active' : '' }}" href="/?tab=accounts">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="13" y2="13"/></svg>
-                    <span>الحسابات والوكلاء</span>
+                    <span>الحسابات والريسيلرز</span>
                 </a>
                 <a class="nav-item {{ $activeTab === 'platform-ai' ? 'active' : '' }}" href="/?tab=platform-ai">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
@@ -135,16 +165,28 @@
     </aside>
 
     <div class="main-area">
-        <header class="topbar">
-            <div class="topbar-left">
+        <header class="topbar" style="background:#0B0F19;border-bottom:1px solid #1E293B;">
+            <div class="topbar-left" style="display:flex;align-items:center;gap:12px;">
                 <button type="button" class="btn btn-icon mobile-toggle" onclick="toggleSidebar()" aria-label="القائمة">☰</button>
-                <span class="pill">
+                <div style="position:relative;display:flex;align-items:center;">
+                    <input type="text" placeholder="بحث شامل... (Ctrl + K)" style="background:#1E293B;color:#FFF;border:1px solid rgba(255,255,255,0.1);padding:6px 14px 6px 36px;border-radius:20px;font-size:12px;width:210px;outline:none;" onkeydown="if(event.key==='k' && (event.ctrlKey||event.metaKey)){event.preventDefault();this.focus();}">
+                    <span style="position:absolute;left:12px;color:#94A3B8;font-size:13px;">🔍</span>
+                </div>
+                <span class="pill" style="background:#1E293B;border-color:rgba(255,255,255,0.08);">
                     <span class="dot {{ ($data['online_sims'] ?? 0) > 0 ? 'online' : 'offline' }}"></span>
-                    <span>{{ ($data['online_sims'] ?? 0) > 0 ? $data['online_sims'].' شريحة متصلة الآن' : 'لا توجد شريحة متصلة حالياً' }}</span>
+                    <span>{{ ($data['online_sims'] ?? 0) > 0 ? $data['online_sims'].' شريحة متصلة' : 'لا توجد شرائح نشطة' }}</span>
+                </span>
+                <span class="pill pill-green" style="font-size:11px;font-weight:700;">
+                    💳 الرصيد: 5,000 دقيقة
                 </span>
             </div>
 
-            <div class="topbar-right">
+            <div class="topbar-right" style="display:flex;align-items:center;gap:10px;">
+                <button type="button" class="btn btn-sm" onclick="alert('مساعد OnTrack AI جاهز لمساعدتك في أي سؤال حول المنصة أو الإيجنت.')" style="background:linear-gradient(135deg, #8B5CF6, #06B6D4);color:#FFF;border:none;border-radius:20px;font-weight:700;display:flex;align-items:center;gap:6px;box-shadow:0 4px 15px rgba(139,92,246,0.3);">
+                    <span>✨</span>
+                    <span>Ask OnTrack AI</span>
+                </button>
+
                 @if (count($ctx['switchable_accounts'] ?? []) > 1)
                     <form method="POST" action="/console/action" class="topbar-switch-form">
                         @csrf

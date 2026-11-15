@@ -389,7 +389,14 @@ class ActionController extends Controller
                 return ['success' => 'تم حفظ مصدر المعرفة وربطه بالموقع.'];
 
             case 'voice_sample_play':
-                return $this->voices->ensureVoiceSample((int) $r->input('voice_id', 0));
+                $vid = (int) $r->input('voice_id', 0);
+                $available = $this->voices->listVoicesForAccount($accountId, (string) $ctx['kind']);
+                $authorized = collect($available)->contains(static fn (array $v): bool =>
+                    (int) $v['id'] === $vid && (! empty($ctx['is_platform']) || ! empty($v['selectable'])));
+                if (! $authorized) {
+                    abort(403, 'معاينة الصوت غير مصرح بها لهذا الحساب.');
+                }
+                return $this->voices->ensureVoiceSample($vid);
 
             case 'sync_google_voices':
                 if (! $ctx['is_platform']) {
@@ -459,6 +466,27 @@ class ActionController extends Controller
                 DB::table('voices')->where('id', $vid)->update(['ready' => ((int) $v->ready === 1 ? 0 : 1)]);
 
                 return ['success' => 'تم تحديث جاهزية الصوت في الكتالوج.'];
+
+            case 'archive_voice':
+                if (! $ctx['is_platform']) {
+                    abort(403);
+                }
+                $vid = (int) $r->input('voice_id', 0);
+                DB::transaction(function () use ($vid): void {
+                    $voice = DB::table('voices')->where('id', $vid)->lockForUpdate()->first();
+                    if (! $voice || $voice->status !== 'active') {
+                        throw new InvalidArgumentException('الصوت غير متاح أو محذوف بالفعل.');
+                    }
+                    if (DB::table('agents')->where('voice', $voice->code)
+                        ->where('status', '!=', 'archived')->exists()) {
+                        throw new InvalidArgumentException('الصوت مستخدم في إيجنت؛ غيّر صوته أولًا حتى لا تتوقف المكالمات.');
+                    }
+                    DB::table('voices')->where('id', $vid)
+                        ->update(['ready' => 0, 'status' => 'archived']);
+                });
+                $this->ctx->audit($userId, $accountId, 'platform.voice.archived', ['voice_id' => $vid]);
+
+                return ['success' => 'تم إخفاء الصوت من الكتالوج دون مسح الملفات أو تاريخ الاستخدام.'];
 
             case 'grant_voice':
                 if (! $ctx['is_platform']) {
@@ -802,6 +830,52 @@ class ActionController extends Controller
                 DB::table('accounts')->where('id', $targetId)->update(['status' => $next]);
 
                 return ['success' => 'تم تغيير حالة الحساب إلى: '.$next];
+
+            case 'archive_account':
+                if (! $ctx['is_platform'] && ! $ctx['is_reseller']) {
+                    abort(403);
+                }
+                $targetId = (int) $r->input('target_account_id', 0);
+                $confirmName = trim((string) $r->input('confirm_name', ''));
+                if ($targetId < 1 || $targetId === $accountId || $confirmName === '') {
+                    throw new InvalidArgumentException('يجب اختيار حساب آخر وكتابة اسمه للتأكيد.');
+                }
+                DB::transaction(function () use ($ctx, $accountId, $targetId, $confirmName): void {
+                    $target = DB::table('accounts')->where('id', $targetId)->lockForUpdate()->first();
+                    if (! $target || $target->kind === 'platform' ||
+                        ($ctx['is_reseller'] && ((int) $target->parent_id !== $accountId ||
+                          $target->kind !== 'customer'))) {
+                        throw new InvalidArgumentException('لا تملك صلاحية أرشفة هذا الحساب.');
+                    }
+                    if ($target->status !== 'suspended') {
+                        throw new InvalidArgumentException('أوقف الحساب أولًا قبل أرشفته.');
+                    }
+                    if (! hash_equals((string) $target->name, $confirmName)) {
+                        throw new InvalidArgumentException('اسم الحساب المكتوب لا يطابق الحساب المستهدف.');
+                    }
+                    if (DB::table('accounts')->where('parent_id', $targetId)
+                        ->where('status', '!=', 'archived')->exists()) {
+                        throw new InvalidArgumentException('الريسيلر عنده حسابات تابعة؛ انقلها أو أغلقها بأمان قبل الأرشفة.');
+                    }
+                    if (DB::table('subscriptions')->where('account_id', $targetId)
+                        ->where('status', 'active')->where('ends_at', '>', $this->ctx->now())->exists()) {
+                        throw new InvalidArgumentException('الحساب عليه اشتراك سارٍ؛ سوِّ الاشتراك قبل الأرشفة.');
+                    }
+                    if (DB::table('billing_invoices')->where('account_id', $targetId)
+                        ->where('status', 'pending')->exists()) {
+                        throw new InvalidArgumentException('الحساب عليه فاتورة معلقة؛ سوّها أولًا.');
+                    }
+                    DB::table('device_bindings')->where('account_id', $targetId)
+                        ->where('status', 'active')->update(['status' => 'revoked']);
+                    DB::table('tenant_campaigns')->where('account_id', $targetId)
+                        ->whereIn('status', ['ready', 'armed', 'running', 'active'])
+                        ->update(['status' => 'cancelled']);
+                    DB::table('accounts')->where('id', $targetId)
+                        ->update(['status' => 'archived']);
+                });
+                $this->ctx->audit($userId, $targetId, 'account.archived', ['actor_account_id' => $accountId]);
+
+                return ['success' => 'تمت أرشفة الحساب بأمان. احتُفظ بالفواتير والتقارير وسجلات المكالمات للمراجعة.'];
 
             case 'create_plan':
                 if (! $ctx['is_platform'] && ! $ctx['is_reseller']) {

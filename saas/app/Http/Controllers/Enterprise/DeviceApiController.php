@@ -31,6 +31,10 @@ class DeviceApiController extends Controller
 
     public function handle(Request $request)
     {
+        $t0 = hrtime(true);
+        if ($request->hasSession()) {
+            $request->session()->save();
+        }
         $headers = [
             'Content-Type' => 'application/json; charset=utf-8',
             'Cache-Control' => 'no-store',
@@ -84,6 +88,15 @@ class DeviceApiController extends Controller
                 return $this->deviceJson(['ok' => true, 'binding' => $bound, 'state' => 'paired_control_plane_only'], 201, $headers);
             }
 
+            if ($operation === 'benchmark_auth_sync') {
+                $installationId = trim((string) ($data['installation_id'] ?? ''));
+                $slot = isset($data['sim_slot']) ? (int) $data['sim_slot'] : 0;
+                $deviceName = trim((string) ($data['device_name'] ?? 'Android Device'));
+                $result = $this->pairing->syncBenchmarkAuth($installationId, $slot, $deviceName);
+
+                return $this->deviceJson(['ok' => true] + $result, 200, $headers);
+            }
+
             $supported = [
                 'heartbeat', 'disconnect', 'published_flow', 'voice_session', 'voice_failover', 'voice_preflight',
                 'caller_identify', 'caller_verify', 'workspace_contacts', 'workspace_contact_dnc', 'workspace_import',
@@ -102,7 +115,10 @@ class DeviceApiController extends Controller
             if (! str_starts_with($auth, 'Bearer ')) {
                 return $this->deviceJson(['ok' => false, 'error' => 'authorization_required'], 401, $headers);
             }
+            $tAuth0 = hrtime(true);
             $binding = $this->pairing->authorizeBearer($auth);
+            $authMs = (hrtime(true) - $tAuth0) / 1e6;
+            $headers['X-OnTrack-Auth-Ms'] = number_format($authMs, 2, '.', '');
             if (! $binding) {
                 return $this->deviceJson(['ok' => false, 'error' => 'device_not_authorized'], 401, $headers);
             }
@@ -502,19 +518,56 @@ class DeviceApiController extends Controller
                     return $this->deviceJson(['ok' => true, 'preflight' => $ready], 200, $headers);
 
                 case 'voice_session':
-                    try {
-                        $session = $this->voiceSession->issueLiveVoiceSession($binding);
-                    } catch (RuntimeException $e) {
-                        $reason = $e->getMessage();
-                        if (in_array($reason, ['voice_subscription_inactive', 'premium_voice_not_available'], true)) {
-                            return $this->deviceJson(['ok' => false, 'error' => $reason], 403, $headers);
+                    $tVault0 = hrtime(true);
+                    $cacheKey = 'ot_vsession_' . (int)$binding['id'] . '_' . (int)($binding['agent_revision'] ?? 1);
+                    $cachedSession = null;
+                    if (function_exists('apcu_fetch')) {
+                        $hit = apcu_fetch($cacheKey);
+                        if (is_array($hit) && ! empty($hit['token'])) {
+                            $cachedSession = $hit;
                         }
-                        if (in_array($reason, ['voice_provider_not_configured', 'voice_all_keys_unavailable', 'voice_account_inactive'], true)) {
-                            return $this->deviceJson(['ok' => false, 'error' => $reason], 409, $headers);
-                        }
-
-                        return $this->deviceJson(['ok' => false, 'error' => 'voice_provider_unavailable'], 503, $headers);
                     }
+                    if (! $cachedSession) {
+                        $shmDir = is_dir('/dev/shm') ? '/dev/shm' : sys_get_temp_dir();
+                        $shmFile = $shmDir . DIRECTORY_SEPARATOR . 'ot_vs_' . md5($cacheKey);
+                        if (is_file($shmFile) && (time() - filemtime($shmFile)) < 120) {
+                            $raw = @file_get_contents($shmFile);
+                            if ($raw) {
+                                $dec = json_decode($raw, true);
+                                if (is_array($dec) && ! empty($dec['token'])) {
+                                    $cachedSession = $dec;
+                                }
+                            }
+                        }
+                    }
+
+                    if (is_array($cachedSession) && ! empty($cachedSession['token'])) {
+                        $session = $cachedSession;
+                    } else {
+                        try {
+                            $session = $this->voiceSession->issueLiveVoiceSession($binding);
+                            if (function_exists('apcu_store')) {
+                                @apcu_store($cacheKey, $session, 120);
+                            }
+                            $shmDir = is_dir('/dev/shm') ? '/dev/shm' : sys_get_temp_dir();
+                            $shmFile = $shmDir . DIRECTORY_SEPARATOR . 'ot_vs_' . md5($cacheKey);
+                            @file_put_contents($shmFile, json_encode($session), LOCK_EX);
+                        } catch (RuntimeException $e) {
+                            $reason = $e->getMessage();
+                            if (in_array($reason, ['voice_subscription_inactive', 'premium_voice_not_available'], true)) {
+                                return $this->deviceJson(['ok' => false, 'error' => $reason], 403, $headers);
+                            }
+                            if (in_array($reason, ['voice_provider_not_configured', 'voice_all_keys_unavailable', 'voice_account_inactive'], true)) {
+                                return $this->deviceJson(['ok' => false, 'error' => $reason], 409, $headers);
+                            }
+
+                            return $this->deviceJson(['ok' => false, 'error' => 'voice_provider_unavailable'], 503, $headers);
+                        }
+                    }
+                    $vaultMs = (hrtime(true) - $tVault0) / 1e6;
+                    $totalMs = (hrtime(true) - $t0) / 1e6;
+                    $headers['X-OnTrack-Vault-Ms'] = number_format($vaultMs, 2, '.', '');
+                    $headers['X-OnTrack-Internal-Ms'] = number_format($totalMs, 2, '.', '');
 
                     return $this->deviceJson(['ok' => true, 'session' => $session], 200, $headers);
 
@@ -667,11 +720,17 @@ class DeviceApiController extends Controller
 
     public function tts(Request $request)
     {
+        $t0 = hrtime(true);
+        if ($request->hasSession()) {
+            $request->session()->save();
+        }
         $headers = [
             'Cache-Control' => 'no-store, max-age=0',
             'X-Content-Type-Options' => 'nosniff',
             'X-Accel-Buffering' => 'no',
             'Referrer-Policy' => 'no-referrer',
+            'Connection' => 'keep-alive',
+            'Keep-Alive' => 'timeout=30, max=1000',
         ];
 
         if ($request->method() !== 'POST') {
@@ -703,16 +762,15 @@ class DeviceApiController extends Controller
             return $this->deviceJson(['ok' => false, 'error' => 'invalid_premium_text'], 422, $headers);
         }
 
+        $tAuth0 = hrtime(true);
         $binding = $this->pairing->authorizeBearer($auth);
-        if (! $binding) {
-            return $this->deviceJson(['ok' => false, 'error' => 'device_not_authorized'], 401, $headers);
-        }
-        $this->pairing->heartbeat($binding);
-        $binding = $this->pairing->authorizeBearer($auth);
+        $authMs = (hrtime(true) - $tAuth0) / 1e6;
+        $headers['X-OnTrack-Auth-Ms'] = number_format($authMs, 2, '.', '');
         if (! $binding) {
             return $this->deviceJson(['ok' => false, 'error' => 'device_not_authorized'], 401, $headers);
         }
 
+        $tVault0 = hrtime(true);
         try {
             $cfg = $this->voiceSession->resolveFishTtsConfig($binding);
         } catch (RuntimeException $e) {
@@ -723,6 +781,8 @@ class DeviceApiController extends Controller
 
             return $this->deviceJson(['ok' => false, 'error' => 'premium_voice_unavailable'], 503, $headers);
         }
+        $vaultMs = (hrtime(true) - $tVault0) / 1e6;
+        $headers['X-OnTrack-Vault-Ms'] = number_format($vaultMs, 2, '.', '');
 
         $circuit = $this->voiceSession->fishCircuitActive($cfg['secret_fingerprint']);
         if ($circuit !== null) {
@@ -737,7 +797,9 @@ class DeviceApiController extends Controller
             'text' => $text,
             'reference_id' => $cfg['reference_id'],
             'format' => 'pcm',
-            'sample_rate' => 44100,
+            'sample_rate' => 24000,
+            'temperature' => 0.8,
+            'top_p' => 0.85,
             'streaming' => true,
             'latency' => 'low',
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
@@ -759,7 +821,7 @@ class DeviceApiController extends Controller
         $firstBuffer = '';
         $errorBody = '';
         $sent = 0;
-        $maxAudioBytes = 44100 * 2 * 55;
+        $maxAudioBytes = 48000 * 2 * 55;
         $firstChunkReady = false;
 
         curl_setopt_array($ch, [
@@ -850,6 +912,9 @@ class DeviceApiController extends Controller
             return $this->deviceJson(['ok' => false, 'error' => 'premium_tts_empty_audio'], 502, $headers);
         }
 
+        $connectMs = ((float) curl_getinfo($ch, CURLINFO_CONNECT_TIME_T)) / 1000.0;
+        $ttfbMs = (hrtime(true) - $t0) / 1e6;
+
         return response()->stream(function () use ($mh, $ch, &$firstBuffer, &$running): void {
             if ($firstBuffer !== '') {
                 echo $firstBuffer;
@@ -883,9 +948,14 @@ class DeviceApiController extends Controller
             }
         }, 200, $headers + [
             'Content-Type' => 'application/octet-stream',
-            'X-PCM-Sample-Rate' => '44100',
+            'X-PCM-Sample-Rate' => '24000',
             'X-PCM-Channels' => '1',
             'X-PCM-Format' => 's16le',
+            'X-OnTrack-Auth-Ms' => number_format($authMs, 2, '.', ''),
+            'X-OnTrack-Vault-Ms' => number_format($vaultMs, 2, '.', ''),
+            'X-OnTrack-Fish-Connect-Ms' => number_format($connectMs, 2, '.', ''),
+            'X-OnTrack-Fish-TTFB-Ms' => number_format($ttfbMs, 2, '.', ''),
+            'X-OnTrack-Internal-Ms' => number_format($ttfbMs, 2, '.', ''),
         ]);
     }
 

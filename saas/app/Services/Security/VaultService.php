@@ -76,10 +76,33 @@ class VaultService
         return base64_encode($nonce.$tag.$cipher);
     }
 
+    private array $unsealCache = [];
+    private array $jsonFileCache = [];
+
     public function unseal(?string $box): ?string
     {
         if (! is_string($box) || $box === '') {
             return null;
+        }
+        if (isset($this->unsealCache[$box])) {
+            return $this->unsealCache[$box];
+        }
+        $cacheKey = 'ot_vunseal_' . md5($box);
+        if (function_exists('apcu_fetch')) {
+            $hit = apcu_fetch($cacheKey);
+            if (is_string($hit) && $hit !== '') {
+                $this->unsealCache[$box] = $hit;
+                return $hit;
+            }
+        }
+        $shmDir = is_dir('/dev/shm') ? '/dev/shm' : sys_get_temp_dir();
+        $shmFile = $shmDir . DIRECTORY_SEPARATOR . 'ot_vu_' . md5($box);
+        if (is_file($shmFile) && (time() - filemtime($shmFile)) < 300) {
+            $hit = @file_get_contents($shmFile);
+            if (is_string($hit) && $hit !== '') {
+                $this->unsealCache[$box] = $hit;
+                return $hit;
+            }
         }
         $raw = base64_decode($box, true);
         if ($raw === false || strlen($raw) < 29) {
@@ -94,7 +117,19 @@ class VaultService
             substr($raw, 12, 16)
         );
 
-        return $plain === false ? null : $plain;
+        if ($plain !== false) {
+            if (count($this->unsealCache) > 256) {
+                $this->unsealCache = [];
+            }
+            $this->unsealCache[$box] = $plain;
+            if (function_exists('apcu_store')) {
+                @apcu_store($cacheKey, $plain, 300);
+            }
+            @file_put_contents($shmFile, $plain, LOCK_EX);
+            return $plain;
+        }
+
+        return null;
     }
 
     public function sealTranscript(string $plain): string
@@ -123,9 +158,18 @@ class VaultService
         if (! is_file($path)) {
             return $default;
         }
+        $mtime = filemtime($path);
+        if (isset($this->jsonFileCache[$path]) && $this->jsonFileCache[$path]['mtime'] === $mtime) {
+            return $this->jsonFileCache[$path]['data'];
+        }
         $decoded = json_decode((string) file_get_contents($path), true);
+        $data = is_array($decoded) ? $decoded : $default;
+        if (count($this->jsonFileCache) > 64) {
+            $this->jsonFileCache = [];
+        }
+        $this->jsonFileCache[$path] = ['mtime' => $mtime, 'data' => $data];
 
-        return is_array($decoded) ? $decoded : $default;
+        return $data;
     }
 
     public function writeJsonFileAtomic(string $relativePath, array $payload): void
