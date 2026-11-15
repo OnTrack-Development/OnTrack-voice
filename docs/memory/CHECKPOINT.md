@@ -4,6 +4,47 @@
 > **حالة OnTrack Voice المؤكدة عند تسجيل القرار:** APK موقّع 0.3.19 / code 42 وواجهة OTA 41 نُشرا مع إيصالات هوست ناجحة يوم 2026-11-04، لكن لقطة تجربة المالك أظهرت مكالمة متصلة بدون إثبات رد AI أو كتم الميكروفون، مع رسالة استلام بشري خاطئة. إصلاح 0.3.20 / native code 43 اندمج عبر PR #38 في `feat/voice-production-gap-20261103`، لكن نتائج Build وDeploy وتجربة مكالمة فعلية ما زالت بحاجة لتحقق؛ **لا تسجل له PASS قبل الأدلة**. تفاصيل الأسباب والفحص موجودة بجوار `MobileLinkService.kt` و`MobileLiveCall.kt` و`LivePcm.java` واختباراتهم. الجدولة الذاتية كل ساعة أوقفها المالك سابقًا ولا تُعاد.
 <!-- ONTRACK_AI_AGENT_EXECUTION_MEMORY_20261104_END -->
 
+## 2026-11-15 — Product milestone: Zoie.ai Omnichannel Core Engine, WHMCS ontrack_bridge with Zero-Knowledge PII Tokenization & Dual-Driver WhatsApp (PR #97 / v82)
+
+- **CODE / MERGED CANDIDATE**: branch `feat/omnichannel-zoie-core-v82`, commit `ac457de6`.
+- **Delivered Capabilities**:
+  1. **Multi-Agent Core Engine (`saas/app/Services/Support/` & `saas/app/Models/Support/`)**: Migrated `MultiAgentOrchestrator`, `UnifiedSupportKernel`, `UnifiedAdaptiveConsultation`, `ContractResolver`, `ReviewerVerdict`, `CatalogEvidenceGate`, `SalesEvidenceGuard`, `ToolPermissionGateway`, `Security`, `AttachmentVision`, `AttachmentText`, `KnowledgeLearningEngine`, `KnowledgeSanitizer`.
+  2. **Dual-Driver WhatsApp Engine (`saas/app/Services/Channels/WhatsApp/`)**: Dynamic buttons (`WhatsAppReplyActions`), ticket state machine (`WhatsAppTicketWorkflow`), 2FA verification (`WhatsAppVerification`), staff takeover (`HumanHandoff`), `MetaOfficialDriver` (Cloud API), `BaileysQrDriver` (QR bridge), `WhatsAppGatewayService`.
+  3. **WHMCS ontrack_bridge & Zero-Knowledge PII Shield**:
+     - `LocalPiiTokenizer.php`: Client-side reversible tokenization replacing customer names, emails, phones, domains with `[CLIENT_NAME_1]`, `[EMAIL_1]`, `[DOMAIN_1]` before leaving WHMCS; local detokenization of AI drafts. Zero-knowledge privacy for hosting providers.
+     - `widget_proxy.php`: 100% white-label reverse proxy on client's own domain.
+     - `AuditLog.php`: Client-side outbound audit log in WHMCS.
+     - `api_listener.php` & `hooks.php`: Safe remote tool execution and ticket event hooks.
+     - `ontrack_bridge.php`: Admin status screen with live status check (`/api/v1/bridge/status`), plan quotas, privacy toggles.
+     - Package archive: `saas/public/downloads/ontrack_bridge.zip` (12.9 KB, verified HTTP 200).
+     - Central APIs: `/api/v1/bridge/events`, `/api/v1/bridge/tools`, `/api/v1/bridge/status`, `/api/v1/bridge/widget` with `zero_retention_mode`.
+  4. **FeatureGateService (`saas/app/Services/Billing/FeatureGateService.php`)**: Per-plan limits & consumption tracking (`voice_calls_minutes`, `whatsapp_official_channels`, `whatsapp_qr_channels`, `whatsapp_dynamic_buttons`, `multi_agent_consultations`, `attachment_vision_scans`, `cpanel_deep_diagnostics`, `knowledge_auto_learning`, `connected_bridges_limit`).
+  5. **Zoie.ai UI & Embeddable Widgets**:
+     - Standalone live call page `/aivoiceagent/{id}?share={token}`: 3D Glowing Audio Orb (HTML5 Canvas Web Audio API), live state capsule, transcript drawer, connected to `wss://app.ontrackegy.com/ws-voice`.
+     - Embeddable widget `saas/public/widget/ontrack-widget.js`: Shadow DOM isolated, floating launcher, greeting bubble, voice call with audio orb + live chat with dynamic button pills & AttachmentVision upload.
+     - 5-Group Zoie.ai layout in `saas/resources/views/enterprise/layout.blade.php`: Deep night topbar (`#0B0F19`), `Ctrl+K` search, balance pill, `✨ Ask OnTrack AI`.
+     - 3-Pane views for `Calls`, `Messages` (WhatsApp & Web), `Tickets` (WHMCS & multi-agent drafts with 1-click approve), `Widget Builder`, `Integrations`.
+- **EVALS / TEST RESULTS**:
+  - `saas/tests/Feature/OmnichannelCoreArchitectureTest.php`: 9/9 PASS (51 assertions).
+  - Full PHPUnit Test Suite: 112/112 tests PASS (747 assertions, 0 failures, 0 errors, returncode 0).
+- **HOST DEPLOYMENT VERIFIED**:
+  - Deployed to `appontrack@65.21.208.232` via `tools/deploy_v82_omnichannel.py`.
+  - Migrations run: `2026_11_15_000001_create_support_multi_agent_tables` DONE.
+  - Caches cleared and view cache rebuilt.
+  - Public assets synced to `/home/appontrack/public_html/`.
+  - Live endpoints independently verified HTTP 200:
+    - `https://app.ontrackegy.com/aivoiceagent/1?share=live` (HTTP 200 OK)
+    - `https://app.ontrackegy.com/downloads/ontrack_bridge.zip` (HTTP 200 OK, 12,942 bytes)
+    - `https://app.ontrackegy.com/widget/ontrack-widget.js` (HTTP 200 OK, 16,915 bytes)
+    - `https://app.ontrackegy.com/api/v1/bridge/status` (HTTP 200 OK with authenticated key)
+    - `https://app.ontrackegy.com/?tab=overview` (HTTP 200 OK)
+  - WebSocket Relay daemon `/home/appontrack/iovoice-app/ws-relay/relay.py` verified active and running uninterrupted.
+- **RESTORE POINT RECORD**:
+  - Safe checkpoint Git Tag: `v0.3.58-v81-safe-checkpoint`
+  - Safe checkpoint branch: `backup/v81-audio-tunnel-stable`
+  - Server database dump: `/home/appontrack/backups/db-v81-dump.sql` (25MB)
+  - Server archive backup: `/home/appontrack/backups/checkpoint-v81-0.3.58.tar.gz` (13MB)
+
 ## 2026-11-01 — PR #19 continuation: active Android SIM subscription guard (CODED; NOT RELEASED)
 
 - **Product gap found:** Android previously checked only SIM_STATE_READY. Replacing a physical SIM in the same logical slot could leave an encrypted tenant token usable for heartbeat; slot readiness is not a subscription-change check.
