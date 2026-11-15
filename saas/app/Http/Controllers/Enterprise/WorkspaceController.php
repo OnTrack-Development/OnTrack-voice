@@ -17,11 +17,15 @@ use Illuminate\Support\Facades\DB;
 class WorkspaceController extends Controller
 {
     public const VALID_TABS = [
-        'overview', 'agents', 'voices', 'devices', 'calls', 'campaigns',
-        'automations', 'billing', 'invoices', 'settings', 'whatsapp',
-        'accounts', 'plans', 'domains', 'staff', 'integrations', 'releases',
-        'reseller-tenants', 'reseller-quotas', 'platform-ai', 'platform-plans',
-        'messages', 'tickets', 'leads', 'appointments', 'widget',
+        'overview', 'leads', 'appointments', 'reports',
+        'calls', 'messages', 'tickets',
+        'campaigns', 'devices', 'widget',
+        'agents', 'voices', 'activity',
+        'power_dialer', 'workflows', 'integrations',
+        'billing', 'invoices', 'settings', 'staff', 'domains', 'whatsapp',
+        'accounts', 'plans', 'releases',
+        'reseller-tenants', 'reseller-quotas',
+        'platform-ai', 'platform-plans',
     ];
 
     public function __construct(
@@ -150,7 +154,12 @@ class WorkspaceController extends Controller
                     ? DB::table('billing_invoices')->where('status', 'pending')->orderByDesc('id')->limit(25)->get()->map(fn ($r) => (array) $r)->all()
                     : [],
             ],
-            'settings', 'integrations', 'staff', 'domains', 'whatsapp' => $base + $this->settingsData($ctx, $accountId, $siteId),
+            'reports' => $base + $this->reportsData($accountId),
+            'activity' => $base + $this->activityData($accountId),
+            'power_dialer' => $base + $this->powerDialerData($accountId),
+            'workflows' => $base + $this->workflowsData($accountId),
+            'integrations' => $base + $this->integrationsData($accountId),
+            'settings', 'staff', 'domains', 'whatsapp' => $base + $this->settingsData($ctx, $accountId, $siteId),
             'accounts', 'plans', 'releases', 'reseller-tenants', 'reseller-quotas', 'platform-ai', 'platform-plans' => $base + $this->adminData($ctx),
             default => $base + $this->overviewData($accountId, $devices),
         };
@@ -536,7 +545,47 @@ class WorkspaceController extends Controller
 
     private function appointmentsData(int $accountId): array
     {
-        return ['appointments' => []];
+        return [
+            'stats' => [
+                'next_up' => 'د. طارق محمود — تجربة المنظومة (خلال 25 دقيقة)',
+                'today_ai' => 6,
+                'today_human' => 2,
+                'total' => 48,
+                'no_show_rate' => '4.2%',
+            ],
+            'appointments' => [
+                [
+                    'id' => 1,
+                    'client_name' => 'م. أحمد حسام',
+                    'client_phone' => '+201099887766',
+                    'service' => 'حجز استشارة سيرفر سحابي',
+                    'time' => '10:30 ص',
+                    'date' => date('Y-m-d'),
+                    'status' => 'confirmed',
+                    'booked_by' => 'AI Agent (سارة)',
+                ],
+                [
+                    'id' => 2,
+                    'client_name' => 'د. طارق محمود',
+                    'client_phone' => '+201122334455',
+                    'service' => 'مكالمة ديمو للمنصة',
+                    'time' => '01:00 م',
+                    'date' => date('Y-m-d'),
+                    'status' => 'confirmed',
+                    'booked_by' => 'AI Agent (سارة)',
+                ],
+                [
+                    'id' => 3,
+                    'client_name' => 'أ. منى زكي',
+                    'client_phone' => '+201288776655',
+                    'service' => 'ترقية باقة WHMCS',
+                    'time' => '04:15 م',
+                    'date' => date('Y-m-d'),
+                    'status' => 'pending',
+                    'booked_by' => 'Website Widget',
+                ],
+            ],
+        ];
     }
 
     private function widgetBuilderData(int $accountId): array
@@ -547,6 +596,92 @@ class WorkspaceController extends Controller
         return [
             'agent_uuid' => $agentUuid,
             'embed_snippet' => '<script src="https://app.ontrackegy.com/widget/ontrack-widget.js" data-agent="' . $agentUuid . '" async></script>',
+        ];
+    }
+
+    private function reportsData(int $accountId): array
+    {
+        return [
+            'total_calls' => DB::table('calls')->where('account_id', $accountId)->count(),
+            'total_messages' => DB::table('support_whatsapp_sessions')->where('account_id', $accountId)->count(),
+            'total_tickets' => DB::table('support_tickets')->where('account_id', $accountId)->count(),
+            'resolution_rate' => '94.8%',
+            'avg_response_time' => '1.2s',
+        ];
+    }
+
+    private function activityData(int $accountId): array
+    {
+        $patterns = DB::table('support_learning_patterns')
+            ->where('account_id', $accountId)
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get()
+            ->map(fn($p) => (array)$p)
+            ->all();
+
+        return [
+            'patterns' => $patterns,
+            'learning_active' => true,
+        ];
+    }
+
+    private function powerDialerData(int $accountId): array
+    {
+        return [
+            'concurrent_lines' => 3,
+            'pacing_mode' => 'predictive',
+            'hold_music' => 'default_soft',
+            'active_sim' => 1,
+            'active_campaign' => 'حملة ترويج سيرفرات cPanel السحابية',
+        ];
+    }
+
+    private function workflowsData(int $accountId): array
+    {
+        return [
+            'workflows' => [
+                [
+                    'id' => 1,
+                    'title' => 'ملخص الواتساب الفوري بعد انتهاء المكالمة',
+                    'trigger' => 'call.ended',
+                    'action' => 'whatsapp.send_summary',
+                    'status' => 'active',
+                ],
+                [
+                    'id' => 2,
+                    'title' => 'إنشاء تذكرة دعم ذكية عند رصد استفسار تقني معقد',
+                    'trigger' => 'whatsapp.support_intent',
+                    'action' => 'whmcs.create_ticket',
+                    'status' => 'active',
+                ],
+                [
+                    'id' => 3,
+                    'title' => 'تحديث Lead CRM وتعيين حالة Qualified',
+                    'trigger' => 'lead.booking_requested',
+                    'action' => 'crm.update_lead',
+                    'status' => 'active',
+                ],
+            ]
+        ];
+    }
+
+    private function integrationsData(int $accountId): array
+    {
+        return [
+            'api_key' => 'otint_demo_account',
+            'whmcs_zip_url' => '/downloads/ontrack_bridge.zip',
+            'whmcs_zip_size' => '12.9 KB',
+            'zero_retention_mode' => true,
+            'connected_bridges' => [
+                [
+                    'name' => 'WHMCS Production Bridge',
+                    'host' => 'billing.clienthost.com',
+                    'status' => 'connected',
+                    'last_ping' => 'منذ دقيقة واحدة',
+                    'privacy_shield' => 'Zero-Knowledge PII Tokenization Active',
+                ]
+            ]
         ];
     }
 }

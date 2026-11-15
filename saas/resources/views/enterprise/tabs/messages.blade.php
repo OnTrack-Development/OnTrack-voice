@@ -1,129 +1,231 @@
-@php
-    $sessions = $data['sessions'] ?? [];
-    $selectedSession = $sessions[0] ?? null;
-@endphp
+<style>
+.zoie-messages-layout {
+    display: grid;
+    grid-template-columns: 310px 1fr 300px;
+    gap: 16px;
+    height: calc(100vh - 150px);
+    min-height: 650px;
+}
+.zoie-msg-pane {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+.zoie-filter-capsule {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s;
+    border: 1px solid #E2E8F0;
+    background: #FFFFFF;
+    color: #475569;
+}
+.zoie-filter-capsule.active, .zoie-filter-capsule:hover {
+    background: #0F172A;
+    color: #FFFFFF;
+    border-color: #0F172A;
+}
+.zoie-chat-bubble-ai {
+    background: #1E293B;
+    color: #FFFFFF;
+    padding: 12px 16px;
+    border-radius: 14px 14px 14px 2px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    max-width: 82%;
+}
+.zoie-chat-bubble-user {
+    background: #F1F5F9;
+    color: #0F172A;
+    padding: 12px 16px;
+    border-radius: 14px 14px 2px 14px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    max-width: 82%;
+    margin-right: auto;
+}
+.zoie-dyn-btn {
+    background: #F8FAFC;
+    border: 1px solid #CBD5E1;
+    color: #0F172A;
+    padding: 6px 12px;
+    border-radius: 18px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.zoie-dyn-btn:hover {
+    background: #0F172A;
+    color: #FFFFFF;
+    border-color: #0F172A;
+}
+</style>
 
-<div class="card-head" style="margin-bottom:14px">
-    <div>
-        <h1 style="font-size:20px;margin:0;font-weight:700">صندوق المحادثات الموحد (Omnichannel Messages)</h1>
-        <p class="card-sub">إدارة رسائل WhatsApp الرسمي (Meta) و WhatsApp المكتب (QR) وشات الويب مع الأزرار التفاعلية</p>
-    </div>
-    <div style="display:flex;gap:8px;">
-        <span class="pill pill-green">Meta Official: متصل ✅</span>
-        <span class="pill pill-green">Baileys QR: نشط ✅</span>
-    </div>
-</div>
-
-<!-- 3-Pane Omnichannel Messages View -->
-<div style="display:grid;grid-template-columns:300px 1fr 280px;gap:16px;height:calc(100vh - 210px);min-height:550px;">
-    
-    <!-- Pane 1: Conversations List -->
-    <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column;">
-        <div style="padding:14px;border-bottom:1px solid var(--border,#E2E8F0);background:var(--bg-sub,#F8FAFC);">
-            <input type="text" placeholder="بحث في المحادثات..." style="width:100%;padding:8px 12px;border:1px solid var(--border,#CBD5E1);border-radius:8px;font-size:12px;outline:none;">
+<div class="zoie-messages-layout">
+    <!-- 1. LEFT PANE: Conversation List -->
+    <div class="zoie-msg-pane">
+        <div style="padding:14px 16px;border-bottom:1px solid #F1F5F9;display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                <strong style="font-size:16px;color:#0F172A;">Messages</strong>
+            </div>
+            <button type="button" class="btn btn-sm" style="background:#0F172A;color:#FFF;border-radius:8px;font-size:12px;padding:4px 10px;">+ New</button>
         </div>
-        <div style="flex:1;overflow-y:auto;padding:8px;">
-            @forelse ($sessions as $idx => $s)
-                <div class="msg-thread-item {{ $idx === 0 ? 'active' : '' }}" style="padding:12px;border-radius:10px;cursor:pointer;margin-bottom:6px;background:{{ $idx === 0 ? 'rgba(99,102,241,0.08)' : 'transparent' }};border:1px solid {{ $idx === 0 ? 'rgba(99,102,241,0.3)' : 'transparent' }};">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                        <strong style="font-size:13px;" dir="ltr">{{ $s['phone'] ?? 'زائر شات الويب' }}</strong>
-                        <span class="mono" style="font-size:10.5px;color:var(--muted,#94A3B8);">منذ قليل</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-                        <span class="pill" style="font-size:10px;padding:2px 6px;background:{{ ($s['driver'] ?? '') === 'meta' ? '#065F46' : '#1E3A8A' }};color:#FFF;">
-                            {{ ($s['driver'] ?? '') === 'meta' ? 'WhatsApp Meta' : 'WhatsApp QR' }}
-                        </span>
-                        @if(!empty($s['is_verified']))
-                            <span class="pill pill-green" style="font-size:10px;padding:2px 6px;">2FA موثق ✓</span>
-                        @endif
-                    </div>
-                    <div style="font-size:12px;color:var(--muted,#64748B);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                        {{ ($s['state'] ?? '') === 'wa_ticket_create' ? '📋 في انتظار مراجعة مسودة التذكرة' : 'آخر رد: شكراً لتواصلك معنا...' }}
-                    </div>
+
+        <!-- Filter Row 1: Agent vs Human -->
+        <div style="padding:8px 12px;display:flex;gap:6px;border-bottom:1px solid #F1F5F9;">
+            <a href="javascript:void(0)" class="zoie-filter-capsule active">All</a>
+            <a href="javascript:void(0)" class="zoie-filter-capsule">Human (0)</a>
+            <a href="javascript:void(0)" class="zoie-filter-capsule">AI Agents (3)</a>
+        </div>
+
+        <!-- Filter Row 2: Channel Sub-filters -->
+        <div style="padding:8px 12px;display:flex;gap:6px;border-bottom:1px solid #F1F5F9;overflow-x:auto;">
+            <a href="javascript:void(0)" class="zoie-filter-capsule active" style="font-size:11px;padding:4px 10px;">All</a>
+            <a href="javascript:void(0)" class="zoie-filter-capsule" style="font-size:11px;padding:4px 10px;">Unread</a>
+            <a href="javascript:void(0)" class="zoie-filter-capsule" style="font-size:11px;padding:4px 10px;">WhatsApp</a>
+            <a href="javascript:void(0)" class="zoie-filter-capsule" style="font-size:11px;padding:4px 10px;">Website Widget</a>
+        </div>
+
+        <!-- Conversations List -->
+        <div style="flex:1;overflow-y:auto;">
+            <div style="padding:12px 14px;border-bottom:1px solid #F1F5F9;background:#F8FAFC;cursor:pointer;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                    <strong style="font-size:13px;color:#0F172A;" dir="ltr">+201012345678</strong>
+                    <span style="font-size:11px;color:#94A3B8;">02:15 م</span>
                 </div>
-            @empty
-                <div style="padding:20px;text-align:center;color:var(--muted);">لا توجد محادثات مسجلة بعد.</div>
-            @endforelse
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="background:#DCFCE7;color:#15803D;font-size:10.5px;padding:1px 6px;border-radius:4px;font-weight:600;">WhatsApp</span>
+                    <span style="font-size:12px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">أهلاً، أحتاج ترقية سيرفر cPanel...</span>
+                </div>
+            </div>
+
+            <div style="padding:12px 14px;border-bottom:1px solid #F1F5F9;cursor:pointer;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                    <strong style="font-size:13px;color:#0F172A;">عميل الودجت #44</strong>
+                    <span style="font-size:11px;color:#94A3B8;">11:30 ص</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="background:#E0E7FF;color:#4338CA;font-size:10.5px;padding:1px 6px;border-radius:4px;font-weight:600;">Widget</span>
+                    <span style="font-size:12px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ما هي أسعار الباقات السحابية؟</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Pane 2: Message Thread & Interactive Buttons -->
-    <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column;">
-        <div style="padding:14px 20px;border-bottom:1px solid var(--border,#E2E8F0);background:var(--bg-sub,#F8FAFC);display:flex;justify-content:space-between;align-items:center;">
+    <!-- 2. CENTER PANE: Active Chat & Dynamic Buttons -->
+    <div class="zoie-msg-pane" style="display:flex;flex-direction:column;">
+        <!-- Chat Header -->
+        <div style="padding:12px 18px;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;justify-content:space-between;background:#FFFFFF;">
             <div style="display:flex;align-items:center;gap:10px;">
-                <div style="width:36px;height:36px;border-radius:50%;background:#8B5CF6;color:#FFF;display:flex;align-items:center;justify-content:center;font-weight:bold;">WA</div>
+                <div style="width:36px;height:36px;border-radius:50%;background:#10B981;color:#FFF;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">
+                    💬
+                </div>
                 <div>
-                    <strong style="font-size:14px;" dir="ltr">{{ $selectedSession['phone'] ?? '+201012345678' }}</strong>
-                    <div style="font-size:11px;color:var(--muted);">الحالة: {{ ($selectedSession['state'] ?? 'idle') === 'idle' ? 'محادثة عادية (الذكاء الاصطناعي نشط)' : 'مسار جمع واعتماد التذكرة' }}</div>
-                </div>
-            </div>
-            <button class="btn btn-sm" onclick="alert('تم تفعيل الصمت للإيجنت لمدة 60 دقيقة. يمكنك التحدث مع العميل بحرية.')" style="background:#EF4444;color:#FFF;border:none;">
-                🚨 استلام المحادثة (Mute AI)
-            </button>
-        </div>
-
-        <!-- Chat Stream -->
-        <div style="flex:1;padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;background:#F8FAFC;">
-            <div style="align-self:flex-end;background:#2563EB;color:#FFF;padding:10px 16px;border-radius:14px;max-width:75%;font-size:13px;">
-                السلام عليكم، عايز أعرف باقات الاستضافة المشتركة وسيرفرات الـ VPS المتاحة حالياً عندكم.
-            </div>
-
-            <div style="align-self:flex-start;background:#FFFFFF;border:1px solid #E2E8F0;color:#1E293B;padding:14px;border-radius:14px;max-width:85%;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
-                أهلاً بك! نوفر باقات استضافة سحابية متقدمة تبدأ من 150 جنيه/شهرياً، وباقات VPS مدعومة بلوحة cPanel. يمكنك مراجعة التفاصيل أو فتح تذكرة عبر الخيارات أدناه:
-                
-                <!-- Rendered Dynamic Interactive Buttons -->
-                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed #CBD5E1;">
-                    <button class="btn btn-sm" style="background:#F1F5F9;border:1px solid #CBD5E1;color:#1E293B;border-radius:20px;font-size:12px;">🌐 باقات الاستضافة</button>
-                    <button class="btn btn-sm" style="background:#F1F5F9;border:1px solid #CBD5E1;color:#1E293B;border-radius:20px;font-size:12px;">⚡ باقات VPS</button>
-                    <button class="btn btn-sm" style="background:#F1F5F9;border:1px solid #CBD5E1;color:#1E293B;border-radius:20px;font-size:12px;">🎫 فتح تذكرة دعم</button>
-                    <button class="btn btn-sm" style="background:#F1F5F9;border:1px solid #CBD5E1;color:#1E293B;border-radius:20px;font-size:12px;">👤 تحويل لموظف</button>
+                    <div style="font-weight:700;font-size:14px;color:#0F172A;" dir="ltr">+201012345678</div>
+                    <div style="font-size:11.5px;color:#64748B;">متصل عبر <strong style="color:#10B981;">WhatsApp Official Cloud API</strong></div>
                 </div>
             </div>
 
-            <div style="align-self:flex-end;background:#2563EB;color:#FFF;padding:10px 16px;border-radius:14px;max-width:75%;font-size:13px;">
-                ممكن مسودة تذكرة بطلب استشارة لسيرفر VPS بمواصفات 4 Core و 8GB RAM؟
-            </div>
-
-            <div style="align-self:flex-start;background:#FFFFFF;border:1px solid #E2E8F0;color:#1E293B;padding:14px;border-radius:14px;max-width:85%;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
-                📋 <strong>مسودة التذكرة (لم تُنشأ بعد):</strong><br>
-                📌 <strong>العنوان:</strong> طلب استشارة وتجهيز سيرفر VPS 4 Core 8GB RAM<br>
-                📝 <strong>الوصف:</strong> استفسار العميل عن أسعار وتوافر باقة VPS بمواصفات 4 Core و 8GB RAM مع إعداد cPanel.<br><br>
-                يرجى مراجعة التفاصيل واعتمادها:
-                
-                <!-- State Action Buttons -->
-                <div style="display:flex;gap:8px;margin-top:10px;">
-                    <button class="btn btn-sm" style="background:#10B981;color:#FFF;border:none;border-radius:20px;font-size:12px;">اعتمدها ✅</button>
-                    <button class="btn btn-sm" style="background:#E2E8F0;color:#1E293B;border:none;border-radius:20px;font-size:12px;">تعديل الوصف ✏️</button>
-                    <button class="btn btn-sm" style="background:#EF4444;color:#FFF;border:none;border-radius:20px;font-size:12px;">إلغاء الطلب ❌</button>
-                </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button type="button" class="btn btn-sm" onclick="alert('تم تجميد الـ AI واستلام المحادثة بنجاح')" style="background:#DC2626;color:#FFF;border-radius:8px;font-size:12px;font-weight:600;padding:6px 12px;">
+                    🚨 Takeover (استلام بشري)
+                </button>
+                <button type="button" class="btn btn-sm btn-ghost" onclick="alert('Meta API متصل بنجاح')" style="border:1px solid #E2E8F0;font-size:11.5px;">Meta API</button>
+                <button type="button" class="btn btn-sm btn-ghost" onclick="alert('Baileys QR متصل')" style="border:1px solid #E2E8F0;font-size:11.5px;">QR Scanner</button>
             </div>
         </div>
 
-        <div style="padding:12px 16px;border-top:1px solid var(--border,#E2E8F0);background:#FFF;display:flex;gap:10px;">
-            <input type="text" placeholder="اكتب رداً يدوي للعميل هنا..." style="flex:1;padding:10px 14px;border:1px solid #CBD5E1;border-radius:10px;outline:none;font-size:13px;">
-            <button class="btn btn-primary" style="padding:0 20px;">إرسال</button>
+        <!-- Chat Thread -->
+        <div style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;background:#F8FAFC;">
+            <!-- Customer message -->
+            <div style="align-self:flex-end;max-width:80%;">
+                <div style="font-size:11px;color:#64748B;text-align:left;margin-bottom:3px;">العميل • 02:14 م</div>
+                <div class="zoie-chat-bubble-user">
+                    السلام عليكم، عندي مشكلة في السيرفر ومحتاج أفتح تذكرة دعم فني بخصوص زيادة مساحة الرام.
+                </div>
+            </div>
+
+            <!-- AI response with Dynamic Buttons -->
+            <div style="align-self:flex-start;max-width:80%;">
+                <div style="font-size:11px;color:#64748B;margin-bottom:3px;">سارة (OnTrack AI) • 02:15 م</div>
+                <div class="zoie-chat-bubble-ai">
+                    وعليكم السلام ورحمة الله! جهزت لك مسودة التذكرة التالية:<br><br>
+                    📌 <strong>الموضوع:</strong> طلب ترقية ذاكرة RAM للسيرفر السحابي<br>
+                    🏢 <strong>القسم:</strong> الدعم الفني وإدارة السيرفرات<br>
+                    ⚡ <strong>الأولوية:</strong> متوسطة<br><br>
+                    هل تعتمد فتح التذكرة الآن أم ترغب في تعديل الوصف؟
+                </div>
+
+                <!-- Dynamic Action Buttons Pills -->
+                <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+                    <button type="button" class="zoie-dyn-btn" onclick="alert('تم اعتماد إنشاء التذكرة في WHMCS بنجاح')" style="background:#10B981;color:#FFF;border-color:#10B981;">
+                        ✅ اعتمدها
+                    </button>
+                    <button type="button" class="zoie-dyn-btn" onclick="alert('أدخل التعديل المطلوب في الشات')">
+                        ✏️ تعديل الوصف
+                    </button>
+                    <button type="button" class="zoie-dyn-btn" onclick="alert('تم إلغاء الطلب')">
+                        ❌ إلغاء الطلب
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Input Bar -->
+        <div style="padding:14px 18px;border-top:1px solid #E2E8F0;background:#FFFFFF;display:flex;align-items:center;gap:10px;">
+            <input type="text" placeholder="اكتب رداً يدوياً أو دع الذكاء الاصطناعي يستجيب..." style="flex:1;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:10px;padding:10px 14px;font-size:13px;color:#0F172A;outline:none;">
+            <button type="button" class="btn btn-sm btn-icon" style="background:#F1F5F9;border:1px solid #E2E8F0;border-radius:8px;">📎</button>
+            <button type="button" class="btn btn-sm" style="background:#0F172A;color:#FFF;border-radius:8px;padding:8px 16px;font-weight:600;">إرسال</button>
         </div>
     </div>
 
-    <!-- Pane 3: Client Facts & Actions -->
-    <div class="card" style="padding:18px;display:flex;flex-direction:column;gap:16px;">
-        <h3 style="margin:0;font-size:15px;font-weight:700;">بيانات العميل (CRM Facts)</h3>
-        
-        <div style="font-size:13px;display:flex;flex-direction:column;gap:8px;">
-            <div><span style="color:var(--muted);">الرقم:</span> <strong dir="ltr">{{ $selectedSession['phone'] ?? '+201012345678' }}</strong></div>
-            <div><span style="color:var(--muted);">معرف WHMCS:</span> <strong>#{{ $selectedSession['client_id'] ?? '1042' }}</strong></div>
-            <div><span style="color:var(--muted);">حالة التوثيق:</span> <span class="pill pill-green" style="font-size:11px;">موثق 2FA ✅</span></div>
-            <div><span style="color:var(--muted);">الخدمات النشطة:</span> <strong>2 سيرفر VPS + 1 استضافة</strong></div>
-            <div><span style="color:var(--muted);">الفواتير المستحقة:</span> <span style="color:#10B981;font-weight:bold;">0.00 جنيه (سداد كامل)</span></div>
+    <!-- 3. RIGHT PANE: Contact & Verification Context -->
+    <div class="zoie-msg-pane" style="padding:18px;">
+        <div style="text-align:center;padding-bottom:14px;border-bottom:1px solid #F1F5F9;margin-bottom:14px;">
+            <div style="width:52px;height:52px;border-radius:50%;background:#F1F5F9;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 8px;">
+                👤
+            </div>
+            <strong style="font-size:14px;color:#0F172A;" dir="ltr">+201012345678</strong>
+            <div style="font-size:12px;color:#10B981;font-weight:600;margin-top:2px;">✓ Verified 2FA Account</div>
         </div>
 
-        <div style="border-top:1px solid var(--border,#E2E8F0);padding-top:14px;">
-            <h4 style="margin:0 0 10px 0;font-size:13px;">إجراءات سريعة:</h4>
-            <div style="display:flex;flex-direction:column;gap:8px;">
-                <button class="btn btn-sm" style="width:100%;justify-content:center;">🔗 إرسال رابط تأكيد 2FA جديد</button>
-                <button class="btn btn-sm btn-primary" style="width:100%;justify-content:center;">🎫 تحويل لتذكرة رسمية</button>
+        <div style="font-size:12.5px;color:#475569;display:flex;flex-direction:column;gap:10px;">
+            <div>
+                <span style="color:#94A3B8;">رقم العميل في WHMCS:</span>
+                <strong style="float:left;color:#0F172A;">#1042</strong>
+            </div>
+            <div>
+                <span style="color:#94A3B8;">النطاق المسجل:</span>
+                <strong style="float:left;color:#0F172A;" dir="ltr">myserver.eg</strong>
+            </div>
+            <div>
+                <span style="color:#94A3B8;">الباقة الحالية:</span>
+                <strong style="float:left;color:#0F172A;">Cloud VPS 4GB</strong>
+            </div>
+            <div>
+                <span style="color:#94A3B8;">حالة الدرع:</span>
+                <span class="badge" style="background:#F0FDF4;color:#15803D;font-size:11px;float:left;padding:2px 8px;border-radius:6px;font-weight:600;">Zero-Knowledge Tokenized</span>
+            </div>
+        </div>
+
+        <div style="margin-top:20px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;">
+            <strong style="font-size:12px;color:#0F172A;">إجراءات القناة:</strong>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+                <button type="button" class="btn btn-sm btn-ghost" style="border:1px solid #E2E8F0;font-size:11.5px;justify-content:flex-start;" onclick="alert('تم إرسال كود تحقق 2FA جديد للعميل')">
+                    🔑 إعادة إرسال كود 2FA
+                </button>
+                <button type="button" class="btn btn-sm btn-ghost" style="border:1px solid #E2E8F0;font-size:11.5px;justify-content:flex-start;" onclick="alert('تم تحويل المحادثة إلى مكالمة صوتية')">
+                    📞 تحويل لمكالمة صوتية
+                </button>
             </div>
         </div>
     </div>
-
 </div>
