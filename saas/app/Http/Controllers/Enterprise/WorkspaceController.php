@@ -25,7 +25,7 @@ class WorkspaceController extends Controller
         'billing', 'invoices', 'settings', 'staff', 'domains', 'whatsapp',
         'accounts', 'plans', 'releases',
         'reseller-tenants', 'reseller-quotas',
-        'platform-ai', 'platform-plans',
+        'platform-ai', 'platform-plans', 'floorplan',
     ];
 
     public function __construct(
@@ -74,7 +74,7 @@ class WorkspaceController extends Controller
         if (! in_array($tab, self::VALID_TABS, true)) {
             $tab = 'overview';
         }
-        if (in_array($tab, ['platform-ai', 'platform-plans', 'releases'], true) && ! $ctx['is_platform']) {
+        if (in_array($tab, ['platform-ai', 'platform-plans', 'floorplan', 'releases'], true) && ! $ctx['is_platform']) {
             abort(403, 'هذا القسم مخصص لإدارة المنصة فقط.');
         }
         if (in_array($tab, ['accounts', 'plans', 'reseller-tenants', 'reseller-quotas'], true) && ! $ctx['is_platform'] && ! $ctx['is_reseller']) {

@@ -1,10 +1,28 @@
 import os
 import sys
+import shutil
 import tarfile
 import subprocess
 from pathlib import Path
 
+def sync_floorplan():
+    root = Path(r"C:\OnTrack-voice")
+    print("=== Auto-Sync Step 0: Refreshing Floorplan Codebase Map ===")
+    res_scan = subprocess.run(["node", "skills/floorplan/scripts/scan.mjs", str(root)], cwd=str(root), capture_output=True, text=True)
+    if res_scan.returncode != 0:
+        print("Floorplan scan note:", res_scan.stderr)
+    res_build = subprocess.run(["node", "skills/floorplan/scripts/build.mjs", str(root)], cwd=str(root), capture_output=True, text=True)
+    print("Floorplan build output:\n", res_build.stdout)
+
+    admin_dir = root / "saas" / "public" / "admin"
+    admin_dir.mkdir(parents=True, exist_ok=True)
+    dest = admin_dir / "floorplan.html"
+    shutil.copy2(root / "floorplan" / "index.html", dest)
+    print(f"  + Floorplan exported to {dest} ({dest.stat().st_size} bytes)")
+
 def main():
+    sync_floorplan()
+
     saas_dir = Path(r"C:\OnTrack-voice\saas")
     ssh_key = Path(os.environ["USERPROFILE"]) / ".ssh" / "ontrack_publish_ed25519"
     server_host = "appontrack@65.21.208.232"
@@ -23,7 +41,9 @@ def main():
         "app/Services/Billing/FeatureGateService.php",
         "app/Http/Controllers/Api/BridgeController.php",
         "app/Http/Controllers/App/AgentStudioController.php",
+        "app/Http/Controllers/Enterprise/ActionController.php",
         "app/Http/Controllers/Enterprise/WorkspaceController.php",
+        "app/Services/Campaigns/CampaignDialerService.php",
         "routes/web.php",
         "resources/views/app/agents/web_call.blade.php",
         "resources/views/enterprise/layout.blade.php",
@@ -31,6 +51,7 @@ def main():
         "storage/connectors/whmcs/ontrack_bridge",
         "public/downloads/ontrack_bridge.zip",
         "public/widget/ontrack-widget.js",
+        "public/admin/floorplan.html",
     ]
 
     print(f"Creating archive {archive_path}...")
@@ -69,8 +90,10 @@ tar -xzf /home/appontrack/v82_omnichannel_update.tar.gz
 echo "=== Step 2: Syncing public assets to public_html ==="
 mkdir -p /home/appontrack/public_html/downloads
 mkdir -p /home/appontrack/public_html/widget
+mkdir -p /home/appontrack/public_html/admin
 cp -f /home/appontrack/iovoice-app/public/downloads/ontrack_bridge.zip /home/appontrack/public_html/downloads/ontrack_bridge.zip
 cp -f /home/appontrack/iovoice-app/public/widget/ontrack-widget.js /home/appontrack/public_html/widget/ontrack-widget.js
+cp -f /home/appontrack/iovoice-app/public/admin/floorplan.html /home/appontrack/public_html/admin/floorplan.html
 
 echo "=== Step 3: Running migrations with EA PHP 8.2 ==="
 /opt/cpanel/ea-php82/root/usr/bin/php artisan migrate --force
@@ -82,6 +105,7 @@ echo "=== Step 4: Clearing and caching configs/views ==="
 echo "=== Step 5: Verifying permissions & files ==="
 ls -lh /home/appontrack/public_html/downloads/ontrack_bridge.zip
 ls -lh /home/appontrack/public_html/widget/ontrack-widget.js
+ls -lh /home/appontrack/public_html/admin/floorplan.html
 
 echo "=== Deployment Succeeded ==="
 """

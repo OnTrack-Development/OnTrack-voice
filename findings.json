@@ -1,0 +1,3571 @@
+[
+ {
+  "verdict": "confirmed",
+  "fingerprint": "release-verified-mobile.yml:await_signed_build:pinned-run-sha:stale-version-assert",
+  "title": "Release gate pins a fixed historical run/branch and asserts a version lineage that contradicts the repo's committed OTA metadata",
+  "description": "release-verified-mobile.yml is the canonical mobile publication path. Its await_signed_build gate hardcodes source_run=41392198086, source_sha=5f3d682a, and asserts head_branch=='fix/outbound-callee-first-v039-20261102' rather than validating current main HEAD. Its publish_ota step checks out ref 5f3d682a and asserts ui['revision']==28, apk['version_code']==31, apk['version_name']=='0.3.10-ota'. But the repo's authoritative shipping metadata says otherwise: saas/mobile/ota/release.json is revision 29 / max_native 32, saas/mobile/ota/native_release.json is version_code 32 / name 0.3.9, and prepare.py hardcodes versionCode 32 / versionName '0.3.9'. The gate therefore either fails against its own checked-out metadata or publishes an artifact lineage (0.3.10-ota/vc31/r28) that does not match what the installed app expects (r29/vc32/0.3.9). No single source of truth binds the built artifact, the repo release metadata, and the publication gate.",
+  "root_cause": "Release authorization is split across three divergent pinned refs (5f3d682a in release-verified-mobile.yml, 59007a4e in native-call-reports-release.yml, f011062a upstream in android-audio-proof.yml) and the gate's hardcoded version assertions (r28/vc31/0.3.10-ota) are not derived from the committed release.json/native_release.json (r29/vc32/0.3.9). No workflow reads those JSON files to set the expected version at publish time.",
+  "intended_behavior": "The publication gate should validate current main HEAD and derive the expected OTA revision, native version_code and version_name from the committed saas/mobile/ota/release.json and native_release.json so the built artifact, repo metadata and publish assertion cannot silently disagree.",
+  "trace": [
+   {
+    "kind": "entrypoint",
+    "file": ".github/workflows/release-verified-mobile.yml",
+    "line": 26,
+    "scope": "publish gate",
+    "description": "await_signed_build hardcodes source_run=41392198086 / source_sha=5f3d682a instead of the current main HEAD."
+   },
+   {
+    "kind": "propagation",
+    "file": ".github/workflows/release-verified-mobile.yml",
+    "line": 37,
+    "scope": "publish gate",
+    "description": "Asserts run head_branch=='fix/outbound-callee-first-v039-20261102', a non-main feature branch, so the gate validates an old historical build."
+   },
+   {
+    "kind": "sink",
+    "file": ".github/workflows/release-verified-mobile.yml",
+    "line": 78,
+    "scope": "publish assertion",
+    "description": "Asserts apk version_code==31 and version_name=='0.3.10-ota', contradicting native_release.json (vc32/0.3.9) and prepare.py (vc32/0.3.9)."
+   },
+   {
+    "kind": "propagation",
+    "file": "saas/mobile/ota/release.json",
+    "line": 1,
+    "scope": "authoritative metadata",
+    "description": "Committed OTA metadata is revision 29 / max_native 32, not the revision 28 the gate asserts."
+   }
+  ],
+  "evidence": [
+   {
+    "file": ".github/workflows/release-verified-mobile.yml",
+    "line": 77,
+    "description": "assert ui['revision']==28 and ui['max_native']>=31 conflicts with saas/mobile/ota/release.json revision 29 / max_native 32."
+   },
+   {
+    "file": "saas/mobile/ota/native_release.json",
+    "line": 1,
+    "description": "version_code 32 / version_name 0.3.9 conflicts with the gate's apk version_code==31 / version_name '0.3.10-ota' assertion."
+   },
+   {
+    "file": "saas/mobile/audio-proof/prepare.py",
+    "line": 52,
+    "description": "versionCode = 32 hardcoded in the build overlay, matching native_release.json and not the gate's expected 31."
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "A push to main touching .github/workflows/release-verified-mobile.yml triggers the workflow"
+   },
+   {
+    "kind": "data_state",
+    "description": "A manual workflow_dispatch triggers the workflow"
+   },
+   {
+    "kind": "data_state",
+    "description": "The repo's committed release.json/native_release.json describe vc32/r29/0.3.9 while the gate asserts vc31/r28/0.3.10-ota"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Derive expected revision/version_code/version_name from checked-out saas/mobile/ota/release.json and native_release.json; replace the hardcoded run-SHA/branch check with a comparison of the source run's head_sha to current main HEAD (or to the checkout ref). Consolidate the parallel release pipelines onto one pinned ref."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "high",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "high",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "high"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "voice-lebanese-feedback-live-deploy.yml:self-hosted-ssh-deploy:contents-write-proof",
+  "title": "Self-hosted owner runner performs SSH host deploy and writes a repo proof file with contents:write GITHUB_TOKEN",
+  "description": "voice-lebanese-feedback-live-deploy.yml runs on a self-hosted Windows runner labelled ontrack-signing-recovery (owner PC) with permissions: contents: write. It SSHes using deploy key $USERPROFILE/.ssh/ontrack_publish_ed25519 to appontrack@65.21.208.232:7195, copies app.js/Views.php, runs a patch script, then writes docs/ops/LIVE_LEBANESE_FEEDBACK_PROOF_20261107.json to the default branch via the GitHub Contents API using GITHUB_TOKEN. The same job therefore holds both a host deploy key and a repo-write token.",
+  "trace": [
+   {
+    "kind": "entrypoint",
+    "file": ".github/workflows/voice-lebanese-feedback-live-deploy.yml",
+    "line": 16,
+    "scope": "workflow job",
+    "description": "Job runs on the self-hosted runner label set [self-hosted, Windows, X64, ontrack-signing-recovery]."
+   },
+   {
+    "kind": "propagation",
+    "file": ".github/workflows/voice-lebanese-feedback-live-deploy.yml",
+    "line": 41,
+    "scope": "deploy step",
+    "description": "Uses deploy key $env:USERPROFILE/.ssh/ontrack_publish_ed25519 to SSH to appontrack@65.21.208.232:7195."
+   },
+   {
+    "kind": "sink",
+    "file": ".github/workflows/voice-lebanese-feedback-live-deploy.yml",
+    "line": 82,
+    "scope": "proof write",
+    "description": "Writes docs/ops/LIVE_LEBANESE_FEEDBACK_PROOF_20261107.json to the default branch via Contents API with the workflow GITHUB_TOKEN (contents: write)."
+   }
+  ],
+  "evidence": [
+   {
+    "file": ".github/workflows/voice-lebanese-feedback-live-deploy.yml",
+    "line": 9,
+    "description": "permissions: contents: write combined with a self-hosted runner that also holds a host deploy key."
+   },
+   {
+    "file": ".github/workflows/voice-local-ai-inventory.yml",
+    "line": 18,
+    "description": "A second dispatchable workflow targets a self-hosted Windows runner, showing the runner is reused across privileged and non-privileged automations."
+   }
+  ],
+  "root_cause": "Privileged automation (host SSH deploy key plus repo contents:write token) is concentrated on a self-hosted, owner-controlled runner that also runs other dispatchable workflows such as voice-local-ai-inventory.yml.",
+  "intended_behavior": "Only an authorized principal may perform this action on its own scope of resources",
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Workflow triggers only via workflow_dispatch or push touching the workflow file, so only repo writers can start it"
+   },
+   {
+    "kind": "data_state",
+    "description": "The host, SSH deploy key and self-hosted runner are owner-controlled"
+   },
+   {
+    "kind": "data_state",
+    "description": "Risk materializes only if the self-hosted runner is compromised or runs untrusted workflow code"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Scope the proof-file write to a dedicated deployment branch or a fine-grained token limited to that path; keep the SSH deploy key off any runner that also runs external or dispatchable workflows; document runner isolation."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "gemini.live_setup_demo.static_maintenance_token",
+  "title": "Static maintenance token committed in repo gates live config rewrite and outbound diagnostic proxy",
+  "description": "api/setup_demo.php and api/diag.php authenticate with a hardcoded SHA-256 hash constant (TOKEN_HASH). The plaintext value of that token is committed in UPLOAD_TO_ROOT.txt. Anyone with repository (or .txt leak) read can compute the token and call both endpoints. setup_demo.php then writes api/demo_config.local.php (under the webroot) containing an attacker-supplied gemini_api_key, which live_session.php later consumes to mint Gemini tokens. diag.php uses the same token to issue server-side outbound fetches to Google and HuggingFace and reflects the responses. The secret is static, public in source, and gates two capability-bearing sinks.",
+  "trace": [
+   {
+    "description": "Reads token from HTTP_X_MAINTENANCE_TOKEN / POST / GET",
+    "file": "api/setup_demo.php",
+    "kind": "entrypoint",
+    "line": 14,
+    "scope": "web"
+   },
+   {
+    "description": "hash_equals(TOKEN_HASH, sha256(token)) with constant at line 6",
+    "file": "api/setup_demo.php",
+    "kind": "propagation",
+    "line": 15,
+    "scope": "web"
+   },
+   {
+    "description": "On pass: writes api/demo_config.local.php with attacker-controlled gemini_api_key, chmod 0600",
+    "file": "api/setup_demo.php",
+    "kind": "sink",
+    "line": 43,
+    "scope": "web"
+   },
+   {
+    "description": "live_session.php consumes the overwritten gemini_api_key to mint tokens",
+    "file": "api/live_session.php",
+    "kind": "sink",
+    "line": 135,
+    "scope": "web"
+   },
+   {
+    "description": "Same token gate enables server-side outbound fetches",
+    "file": "api/diag.php",
+    "kind": "entrypoint",
+    "line": 37,
+    "scope": "web"
+   },
+   {
+    "description": "Outbound network fetch to Google/HuggingFace with response reflection",
+    "file": "api/diag.php",
+    "kind": "sink",
+    "line": 63,
+    "scope": "web"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "const TOKEN_HASH hardcoded",
+    "file": "api/setup_demo.php",
+    "line": 6
+   },
+   {
+    "description": "const TOKEN_HASH identical in diag",
+    "file": "api/diag.php",
+    "line": 6
+   },
+   {
+    "description": "token accepted from header/POST/GET",
+    "file": "api/setup_demo.php",
+    "line": 14
+   },
+   {
+    "description": "writes demo_config.local.php in webroot with attacker-supplied key",
+    "file": "api/setup_demo.php",
+    "line": 43
+   },
+   {
+    "description": "committed plaintext maintenance token (value not printed per secrets discipline)",
+    "file": "UPLOAD_TO_ROOT.txt",
+    "line": 8
+   },
+   {
+    "description": "FilesMatch denies web read of demo_config.local.php but only on Apache honoring .htaccess",
+    "file": ".htaccess",
+    "line": 2
+   }
+  ],
+  "root_cause": "Shared secret is a compile-time constant (api/setup_demo.php:6, api/diag.php:6) and its plaintext is committed in UPLOAD_TO_ROOT.txt:8; no rotation, no per-deployment secret, no proof-of-possession bound to the live deployment.",
+  "intended_behavior": "Only an authorized principal may perform this action on its own scope of resources",
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Exploitation requires the two PHP files to be deployed on the reachable host AND the deployment to still use the repo-committed token value."
+   },
+   {
+    "kind": "data_state",
+    "description": "The source-level defect (static, leaked secret) is confirmed from the checkout alone; live reachability/impact is deployment-gated."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Remove the plaintext token from UPLOAD_TO_ROOT.txt and rotate it immediately. Replace the static TOKEN_HASH with a deployment-scoped secret injected from outside the repo (env/secret store), never committed. Move demo_config.local.php out of the webroot or confirm web-server deny rules for all server types. Delete setup_demo.php/diag.php from production or require a separate, non-repo admin credential with audit logging."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "high",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "high",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "high"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "gemini.live_session.unauthenticated_no_ratelimit",
+  "title": "Unauthenticated, unthrottled Gemini ephemeral-token mint enables AI cost/quota abuse",
+  "description": "api/live_session.php mints a Google Gemini Live ephemeral token (uses=1, 30-min expiry, new session 2-min) on any POST request with no authentication, no session, no per-IP or per-key rate limiting, and no abuse quota anywhere on the path (bootstrap.php has no throttle). The browser Call Desk and the mobile bridge both call it, but the endpoint itself imposes no access control beyond a 32 KB body cap. Any anonymous client that can reach the host can repeatedly mint tokens and spend the owner's Gemini quota.",
+  "root_cause": "api/live_session.php:7-9 only checks REQUEST_METHOD; api/live_session.php:11-19 validates body shape and gemini_configured, then mints the token (api/live_session.php:116-138). No authentication or rate-limiting layer exists in the file or in api/bootstrap.php.",
+  "intended_behavior": "A paid-API token mint should require either an authenticated session/scope or at least a per-client rate limit and a server-side quota cap, so anonymous clients cannot exhaust the owner's Gemini budget.",
+  "trace": [
+   {
+    "description": "fetch('api/live_session.php', POST) with no auth header (Call Desk)",
+    "file": "assets/app.js",
+    "kind": "entrypoint",
+    "line": 534,
+    "scope": "browser"
+   },
+   {
+    "description": "POST-only check; no authentication gate",
+    "file": "api/live_session.php",
+    "kind": "entrypoint",
+    "line": 7,
+    "scope": "web"
+   },
+   {
+    "description": "parse_live_request validates body shape/mode only",
+    "file": "api/live_session.php",
+    "kind": "propagation",
+    "line": 11,
+    "scope": "web"
+   },
+   {
+    "description": "curl to Google auth_tokens with server key mints token",
+    "file": "api/live_session.php",
+    "kind": "sink",
+    "line": 126,
+    "scope": "web"
+   },
+   {
+    "description": "returns token + system_instruction to caller",
+    "file": "api/live_session.php",
+    "kind": "sink",
+    "line": 169,
+    "scope": "web"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "Only REQUEST_METHOD check; no auth gate",
+    "file": "api/live_session.php",
+    "line": 7
+   },
+   {
+    "description": "server-key token mint to Google auth_tokens",
+    "file": "api/live_session.php",
+    "line": 126
+   },
+   {
+    "description": "no throttle/rate-limit layer present",
+    "file": "api/bootstrap.php",
+    "line": 1
+   },
+   {
+    "description": "tokenBody uses=1, expireTime +30min, newSession +2min",
+    "file": "api/live_session.php",
+    "line": 120
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Fully established by static source: no auth and no rate-limit code exists on the path."
+   },
+   {
+    "kind": "data_state",
+    "description": "Impact magnitude (actual quota burn) depends on the endpoint being network-reachable and Gemini key being configured, which is a deployment fact."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Add an access-control gate (authenticated session or signed, scoped client token) and a per-IP/per-token rate limiter with a hard daily quota before minting. At minimum, a lightweight sliding-window throttle keyed by client IP in front of api/live_session.php. Consider moving the mint behind the console auth boundary."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "omnira.tester.public_key_proxy_deployment",
+  "title": "omnira_api_tester.php is a committed third-party API-key pass-through proxy intended for deletion",
+  "description": "omnira_api_tester.php accepts a user-supplied API key (12-500 chars) and a prompt, then proxies a request to a fixed third-party origin (ai.omnira-ai.net) using that key (Authorization: Bearer). Its own header comment states 'DELETE THIS FILE from public hosting once finished.' If the file is present on the live host it becomes a key-pass-through proxy / cost-burn surface reachable by anyone, and a place where a third-party key could be submitted to a host-controlled page.",
+  "trace": [
+   {
+    "description": "POST accepted; gate is only header X-Requested-With: OmniraTester",
+    "file": "omnira_api_tester.php",
+    "kind": "entrypoint",
+    "line": 49,
+    "scope": "web"
+   },
+   {
+    "description": "reads user-supplied api_key (12-500 chars)",
+    "file": "omnira_api_tester.php",
+    "kind": "propagation",
+    "line": 52,
+    "scope": "web"
+   },
+   {
+    "description": "url = fixed OMNIRA_ORIGIN + path",
+    "file": "omnira_api_tester.php",
+    "kind": "propagation",
+    "line": 63,
+    "scope": "web"
+   },
+   {
+    "description": "curl to third party with Authorization: Bearer user key; response reflected/redacted",
+    "file": "omnira_api_tester.php",
+    "kind": "sink",
+    "line": 80,
+    "scope": "web"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "self-comment: DELETE THIS FILE from public hosting once finished",
+    "file": "omnira_api_tester.php",
+    "line": 5
+   },
+   {
+    "description": "OMNIRA_ORIGIN fixed destination",
+    "file": "omnira_api_tester.php",
+    "line": 9
+   },
+   {
+    "description": "header-only gate (trivially set by any client)",
+    "file": "omnira_api_tester.php",
+    "line": 51
+   },
+   {
+    "description": "user key passed through as bearer",
+    "file": "omnira_api_tester.php",
+    "line": 65
+   }
+  ],
+  "root_cause": "The file is committed to the repo and self-documents that it must be removed from public hosting (omnira_api_tester.php:5), but nothing in the source prevents deployment; the destination is fixed (no SSRF), yet the key is attacker-supplied and the page is not access-controlled beyond a custom header (X-Requested-With: OmniraTester).",
+  "intended_behavior": "Only an authorized principal may perform this action on its own scope of resources",
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Impact requires the file to actually be present on the public host."
+   },
+   {
+    "kind": "data_state",
+    "description": "Source confirms it is committed and self-declared disposable, but not whether it is deployed."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Exclude omnira_api_tester.php from the deploy artifact (add to deploy ignore / remove from release). If a diagnostic is needed, run it on a non-public, authenticated, IP-allowlisted endpoint and delete afterward."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "needs_validation",
+  "fingerprint": "mobile.device_api.no_tls_enforcement",
+  "title": "Mobile device API enforces only the bearer secret, not application-layer TLS",
+  "description": "saas/mobile/server/common.php authenticates device requests by comparing sha256(key) to the stored digest and checking the Bearer prefix, but never verifies the request arrived over HTTPS. The Android client always uses https (MobileLinkService.base() enforces https), yet the server does not reject plaintext-HTTP callers, unlike the console device/v1 endpoint which requires HTTPS. If the ingress forwards HTTP, the shared device bearer (which is also the admin login key per the bridge design) could traverse plaintext and be captured.",
+  "claimed_root_cause": "saas/mobile/server/common.php:10-19 performs only bearer-hash verification; there is no $_SERVER['HTTPS'] / X-Forwarded-Proto check. Contrast with the documented HTTPS requirement on saas/console/device/v1.",
+  "trace": [
+   {
+    "description": "mobile_require_device parses Bearer from HTTP_AUTHORIZATION/REDIRECT_HTTP_AUTHORIZATION",
+    "file": "saas/mobile/server/common.php",
+    "kind": "entrypoint",
+    "line": 15,
+    "scope": "web"
+   },
+   {
+    "description": "mobile_authorized compares sha256(key) to stored digest; no TLS check",
+    "file": "saas/mobile/server/common.php",
+    "kind": "propagation",
+    "line": 10,
+    "scope": "web"
+   },
+   {
+    "description": "device bearer authorizes Gemini token minting (and control/call-ledger/admin-ticket)",
+    "file": "saas/mobile/server/session.php",
+    "kind": "sink",
+    "line": 4,
+    "scope": "web"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "no TLS check; only bearer hash verification",
+    "file": "saas/mobile/server/common.php",
+    "line": 10
+   },
+   {
+    "description": "only denies auth.sha256; no TLS redirect",
+    "file": "saas/mobile/server/.htaccess",
+    "line": 2
+   },
+   {
+    "description": "client-side https enforcement only (server does not reject http)",
+    "file": "saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkService.kt",
+    "line": 46
+   }
+  ],
+  "blockers": [
+   "needs_validation: whether the live ingress forwards or terminates plaintext HTTP to /saas/mobile/* — source confirms app-layer non-enforcement only."
+  ],
+  "validation_plan": {
+   "local": "Bounded local fixture inside an OS-enforced sandbox (not available on this host)",
+   "deployment": "Owner-observed check of the live configuration/route without sending audit traffic"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "gap-hunt-1::secrets-vault::reveal-rotate-password-bruteforce::1",
+  "title": "reveal_secret / rotate_secret run unlimited password_verify with no throttle or lockout",
+  "description": "The reveal-after-owner-password gate (Actions.php:255-267) and rotate handler (Actions.php:268-280) verify the submitter's password with password_verify on every POST but apply no attempt counter, delay, or lockout. The login flow enforces a per-session limit of 8 bad attempts per 900s plus a 250ms sleep (index.php:23-40), but that bad_logins state is session-keyed and never consulted by the reveal/rotate handlers. Both handlers sit behind require_login() + require_csrf() and role==owner/admin + !active_support(), so the brute-force precondition is an already-authenticated owner/admin session (e.g. obtained via XSS/CSRF token leak or an unattended logged-in device). Given that precondition, an attacker can submit unlimited online guesses against the account owner's password through these endpoints; each guess runs a real bcrypt password_verify, and a correct guess yields the plaintext API/webhook secret via flash('secret', $plain) (Actions.php:267) rendered escaped as one-time HTML (Views.php:114). This is defense-in-depth weakness (missing lockout parity with login), not a crypto break: AES-GCM, nonce handling, and rotation semantics were all confirmed sound. Static source fully establishes the missing control; real-world exploitation additionally requires the authenticated-session precondition, so exploitability is validated rather than asserted.",
+  "root_cause": "Reveal/rotate handlers re-verify the owner password without reusing or extending the per-session bad_logins throttle implemented for the login endpoint (index.php:23-40).",
+  "intended_behavior": "Rate-limit password re-verification for reveal/rotate the same way login is throttled (shared per-account/per-session counter, lockout after N failures, delay), and audit failed reveal attempts.",
+  "trace": [
+   {
+    "kind": "entrypoint",
+    "file": "saas/console/_core/Actions.php",
+    "line": 255,
+    "scope": "act() POST dispatcher, case 'reveal_secret'",
+    "description": "Authenticated POST action reaches reveal handler after require_login()/require_csrf() and role/support checks."
+   },
+   {
+    "kind": "propagation",
+    "file": "saas/console/_core/Actions.php",
+    "line": 261,
+    "scope": "password re-verification",
+    "description": "password_verify((string)($_POST['password']??''), ...) executed on every request with no attempt counter, delay, or lockout; login's bad_logins throttle (index.php:23-39) is not consulted."
+   },
+   {
+    "kind": "propagation",
+    "file": "saas/console/_core/Actions.php",
+    "line": 269,
+    "scope": "rotate_secret (same weakness)",
+    "description": "rotate_secret re-verifies the same password with the same absence of throttling before rotating a token."
+   },
+   {
+    "kind": "sink",
+    "file": "saas/console/_core/Actions.php",
+    "line": 267,
+    "scope": "plaintext disclosure on success",
+    "description": "On correct guess the plaintext secret is placed in flash('secret', $plain) and rendered escaped, one-time, in the next page load (Views.php:114)."
+   }
+  ],
+  "evidence": [
+   {
+    "file": "saas/console/_core/Actions.php",
+    "line": 261,
+    "description": "reveal_secret: password_verify against stored hash with no rate limiting, lockout, or audit of failed attempts on this path."
+   },
+   {
+    "file": "saas/console/_core/Actions.php",
+    "line": 269,
+    "description": "rotate_secret: same unbounded password_verify re-verification before rotating a secret."
+   },
+   {
+    "file": "saas/console/index.php",
+    "line": 23,
+    "description": "Login path defines the throttle pattern (8 bad attempts per 900s, usleep 250ms) that reveal/rotate do not reuse."
+   },
+   {
+    "file": "saas/console/_core/Views.php",
+    "line": 488,
+    "description": "Inline reveal form submits the password; driveable only with a session + CSRF, completing the precondition chain."
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Attacker holds an authenticated owner/admin console session and the CSRF token for the inline reveal/rotate forms (Views.php:488-492)."
+   },
+   {
+    "kind": "data_state",
+    "description": "Owner password is weak enough to be guessed online within the session lifetime; bcrypt cost bounds but does not prevent unlimited attempts."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "In act(), before password_verify for reveal_secret/rotate_secret, increment a session (or per-user) failure counter keyed to the same rules as $_SESSION['bad_logins'] (8 per 900s, reset window, usleep); on threshold, deny with the same 15-minute lockout message. Also audit('secret.reveal_failed',...) on wrong password and ensure no timing side-channel beyond login's existing usleep."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "low",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "low"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "gap-hunt-1::secrets-vault::vault-key-single-of-truth-envelope::1",
+  "title": "Vault master key is a single 32-byte file with no rotation, backup, or re-seal tooling",
+  "description": "secret_key() (Bootstrap.php:120-129) creates console-vault.key once via fopen($path,'x') + random_bytes(32), chmod 0600, and never rotates it; there is no code path to change the master key, re-seal secret_enc rows, or recover from key loss. If the key file is lost or corrupted, every secret_enc row becomes permanently undecryptable (unseal_secret returns null -> 'use rotate', Actions.php:265) — fail-closed and deliberate, but it means a single file under private_path() is the entire root of trust for all API/Webhook secrets, and a compromised key (host compromise as same uid, leaked backup/session copy) silently decrypts all sealed secrets with no in-app remediation beyond manual per-token rotation. Static source fully establishes that no rotation/recovery path exists.",
+  "root_cause": "Design choice: one AES-256 master key stored at rest next to the DB with no key-versioning, no rotation handler, and no backup/recovery workflow in code.",
+  "intended_behavior": "Documented host-side backup control for console-vault.key (owner-only, mode 0600) and, optionally, a versioned keyring + re-seal migration for future rotation.",
+  "trace": [
+   {
+    "kind": "entrypoint",
+    "file": "saas/console/_core/Bootstrap.php",
+    "line": 121,
+    "scope": "secret_key()",
+    "description": "Single key file path under private_path(); created exactly once with exclusive 'x' mode."
+   },
+   {
+    "kind": "propagation",
+    "file": "saas/console/_core/Bootstrap.php",
+    "line": 124,
+    "scope": "key generation",
+    "description": "random_bytes(32) written at 0600 — good entropy and mode; never rotated or versioned afterward."
+   },
+   {
+    "kind": "sink",
+    "file": "saas/console/_core/Bootstrap.php",
+    "line": 140,
+    "scope": "unseal failure semantics",
+    "description": "Lost or changed key makes every openssl_decrypt fail (returns null), surfacing as 'use rotate' instead of recovery."
+   }
+  ],
+  "evidence": [
+   {
+    "file": "saas/console/_core/Bootstrap.php",
+    "line": 122,
+    "description": "File creation guarded by file_exists + 'x' exclusive open; no rotation/re-key code path exists anywhere in saas/console (grep: only secret_key creation/read)."
+   },
+   {
+    "file": "saas/console/_core/Bootstrap.php",
+    "line": 127,
+    "description": "Any key not exactly 32 bytes throws RuntimeException — fail-closed, but also means a truncated key offers no recovery path."
+   },
+   {
+    "file": "saas/console/_core/Actions.php",
+    "line": 264,
+    "description": "unseal_secret null on rotated/legacy rows returns 'use rotate' — recovery is manual per-secret only."
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Vault key compromise requires code execution or file read as the appontrack uid (or a host backup leak) — outside the plain HTTP attacker model."
+   },
+   {
+    "kind": "data_state",
+    "description": "Key loss requires the operator to re-issue every secret manually via rotate_secret/revoke flows, which do exist."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Add a documented ops runbook entry: backup console-vault.key to an owner-controlled location (never to public_html or GitHub) and restore-only procedure. Optionally add a rotate_vault() maintenance path that re-seals all secret_enc rows under a new key with per-row transactions and atomic swap."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "low",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "low"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "UPLOAD_TO_ROOT.txt:maintenance-token:TOKEN_HASH:api/setup_demo.php:api/diag.php:root-htaccess-denylist-gap",
+  "title": "Plaintext maintenance token committed at web root and reused as the static gate for config-write and outbound diagnostic endpoints",
+  "description": "UPLOAD_TO_ROOT.txt:8 stores the maintenance token in plaintext in the repository. Its SHA-256 equals the TOKEN_HASH constant hardcoded in api/diag.php:6 and api/setup_demo.php:6, so the preimage of both gate constants is public. The root .htaccess deny-list (.htaccess:2-4) enumerates only six exact filenames and does not cover UPLOAD_TO_ROOT.txt or *.txt, so if the repository root maps to the web root the file is also directly servable. One disclosed secret therefore authorizes both a server-side config write of the Gemini key used by the live demo and an outbound request proxy driven by the host's own Gemini key.",
+  "root_cause": "A static, repo-committed maintenance secret is reused verbatim as the authorization gate for two privileged public endpoints instead of a rotated, host-only credential, and the web-root deny-list is an explicit small filename allowlist that does not cover the file holding that secret.",
+  "intended_behavior": "Privileged maintenance actions (writing the local Gemini config, running network diagnostics) should be reachable only by an operator holding a secret that never leaves the host, and no secret should be retrievable from the public web root or the repository.",
+  "trace": [
+   {
+    "description": "Plaintext maintenance token is committed in the repo and, given the repo-root deploy model, is web-servable as /UPLOAD_TO_ROOT.txt because .htaccess:2-4 denies only config.php|demo_config.php|demo_config.local.php|knowledge.json|README_AR.md|version.json.",
+    "file": "UPLOAD_TO_ROOT.txt",
+    "kind": "entrypoint",
+    "line": 8,
+    "scope": "repository/deploy artifact"
+   },
+   {
+    "description": "hash_equals(TOKEN_HASH, sha256(token)) accepts the committed token as the accepted credential; no other auth, no rate limit.",
+    "file": "api/setup_demo.php",
+    "kind": "propagation",
+    "line": 15,
+    "scope": "request auth"
+   },
+   {
+    "description": "file_put_contents writes api/demo_config.local.php (var_export of an attacker-influenced gemini_api_key and model) under the web root; the file is then loaded by api/demo_config.php:9-13 and used by live_session.",
+    "file": "api/setup_demo.php",
+    "kind": "sink",
+    "line": 44,
+    "scope": "filesystem write under web root"
+   },
+   {
+    "description": "Same TOKEN_HASH gate accepts the committed token for the diagnostic endpoint.",
+    "file": "api/diag.php",
+    "kind": "propagation",
+    "line": 38,
+    "scope": "request auth"
+   },
+   {
+    "description": "curl_req performs POSTs to generativelanguage.googleapis.com with the server's x-goog-api-key and GETs to huggingface.co/HF-Space endpoints, returning body previews (lines 96-133) — host egress proxied through a repo-known secret.",
+    "file": "api/diag.php",
+    "kind": "sink",
+    "line": 63,
+    "scope": "outbound network with server key"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "Literal maintenance token committed in plaintext.",
+    "file": "UPLOAD_TO_ROOT.txt",
+    "line": 8
+   },
+   {
+    "description": "TOKEN_HASH constant whose value equals sha256 of the committed token (verified out-of-band: sha256 of the UPLOAD_TO_ROOT token = 60a11e1f...fbb67f7, byte-identical to this constant).",
+    "file": "api/diag.php",
+    "line": 6
+   },
+   {
+    "description": "Same TOKEN_HASH constant, reused as the only gate before writing demo_config.local.php.",
+    "file": "api/setup_demo.php",
+    "line": 6
+   },
+   {
+    "description": "Attacker-controllable gemini_api_key written to demo_config.local.php under the web root.",
+    "file": "api/setup_demo.php",
+    "line": 44
+   },
+   {
+    "description": "Deny-list FilesMatch covers only six exact names; UPLOAD_TO_ROOT.txt (and *.txt generally) is not denied at the root.",
+    "file": ".htaccess",
+    "line": 2
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Exploitable by any principal that can read the repository or a copy of it (the secret is committed to version control and to deploy artifacts)."
+   },
+   {
+    "kind": "data_state",
+    "description": "Alternatively exploitable by an anonymous web client if the repo root is published as the web root and UPLOAD_TO_ROOT.txt was uploaded."
+   },
+   {
+    "kind": "data_state",
+    "description": "No rotation or revocation control is visible for the hardcoded constant; hash_equals is applied but the preimage is public."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Remove the token from UPLOAD_TO_ROOT.txt and from the repository; rotate the maintenance secret and replace the hardcoded TOKEN_HASH with a value derived from a host-only credential (private file outside the web root, or env var) that is never committed; purge the token from git history; require the diagnostics/setup endpoints to be disabled outside explicit maintenance windows; add explicit deny for *.txt/secret filenames (or move UPLOAD_TO_ROOT.txt out of the deploy tree) in the root .htaccess."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "high",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "high",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "high"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "omnira_api_tester.php:web-root:fixed-origin-proxy:x-requested-with-gate",
+  "title": "Standalone third-party API tester shipped in the public web root with only a spoofable header gate",
+  "description": "omnira_api_tester.php sits at the web root and, on POST, accepts a caller-supplied API key and prompt and proxies them to a fixed origin (ai.omnira-ai.net/api/v1/messages|models), returning headers, usage and up to 25 KB response previews (lines 49-161). The only gate is the X-Requested-With: OmniraTester header (line 51), which any HTTP client can set; there is no authentication. The file's own header says to delete it from public hosting once finished.",
+  "trace": [
+   {
+    "description": "POST branch entered for any client.",
+    "file": "omnira_api_tester.php",
+    "kind": "entrypoint",
+    "line": 49,
+    "scope": "public HTTP POST"
+   },
+   {
+    "description": "Authorization reduces to $_SERVER['HTTP_X_REQUESTED_WITH'] === 'OmniraTester', fully client-controlled.",
+    "file": "omnira_api_tester.php",
+    "kind": "propagation",
+    "line": 51,
+    "scope": "spoofable gate"
+   },
+   {
+    "description": "Builds a request to the fixed origin OMNIRA_ORIGIN with caller-supplied Authorization/x-api-key and up to 3000-char prompt, then returns headers/usage/response-body previews (lines 142-161).",
+    "file": "omnira_api_tester.php",
+    "kind": "sink",
+    "line": 63,
+    "scope": "outbound request with caller key"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "File header instructs deletion from public hosting once finished, evidencing it is a temporary diagnostic, not a product endpoint.",
+    "file": "omnira_api_tester.php",
+    "line": 5
+   },
+   {
+    "description": "Single gate is the X-Requested-With header.",
+    "file": "omnira_api_tester.php",
+    "line": 51
+   },
+   {
+    "description": "Fixed third-party destination; no SSRF to arbitrary hosts, but host is used as an egress relay with arbitrary keys.",
+    "file": "omnira_api_tester.php",
+    "line": 63
+   }
+  ],
+  "root_cause": "A developer diagnostic tool intended for temporary use is committed into the deployable web root and protected only by a client-controllable header rather than authentication or removal.",
+  "intended_behavior": "Only an authorized principal may perform this action on its own scope of resources",
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Requires the file to be present and reachable in the live public web root."
+   },
+   {
+    "kind": "data_state",
+    "description": "Destination is fixed (ai.omnira-ai.net), so no SSRF to arbitrary hosts; caller must already possess an Omnira key for meaningful output, but unauthenticated relay/reflection is still available to anyone."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Delete omnira_api_tester.php from the deploy/web root (as its own header instructs); if retention is required, move it outside public_html or place it behind real authentication and an IP allowlist."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "low",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "low"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "needs_validation",
+  "fingerprint": "saas/mobile/server/auth.sha256:committed-digest:shared-admin-and-device-key",
+  "title": "Shared admin/device key digest is committed in the repository while the deploy flow deliberately preserves the host copy",
+  "description": "saas/mobile/server/auth.sha256 is git-tracked in this checkout; it holds the SHA-256 digest against which both the mobile-server admin login and the device bearer are checked (saas/mobile/server/common.php; server/index.php login). The PHP-only deploy explicitly requires and preserves the existing host auth.sha256 and never packages or overwrites it (tools/deploy_mobile_server.py, tools/pack_mobile_server.py). A committed digest is not the key itself, but shipping it means the same value used to bind the single shared credential is under version control, and the digest also confirms equality (a weak key would be offline-testable).",
+  "claimed_root_cause": "The credential-binding artifact that gates the shared admin/device plane is stored in the repository rather than only at a private host path, so its value is not guaranteed to differ from the deployed one.",
+  "trace": [
+   {
+    "description": "Requires all denied for Files auth.sha256, so the digest is not web-servable where this rule ships (deploy asserts this rule is present).",
+    "file": "saas/mobile/server/.htaccess",
+    "kind": "entrypoint",
+    "line": 2,
+    "scope": "web access"
+   },
+   {
+    "description": "Device bearer is hashed and compared to the stored digest; the same digest also backs the admin login.",
+    "file": "saas/mobile/server/common.php",
+    "kind": "propagation",
+    "line": 10,
+    "scope": "auth compare"
+   },
+   {
+    "description": "Deploy requires auth.sha256 to exist and refuses when missing/symlinked, and never writes it, so the live value is whatever was installed on the host — not necessarily distinct from the committed one.",
+    "file": "tools/deploy_mobile_server.py",
+    "kind": "sink",
+    "line": 94,
+    "scope": "deploy preservation"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "Directory rule denying web access to auth.sha256 (control present).",
+    "file": "saas/mobile/server/.htaccess",
+    "line": 2
+   },
+   {
+    "description": "Release parser requires '.htaccess' with 'Require all denied' and 'auth.sha256', i.e. the deny rule is a deploy invariant.",
+    "file": "tools/deploy_mobile_server.py",
+    "line": 51
+   },
+   {
+    "description": "Install requires the existing auth.sha256 and preserves it (never packaged, never overwritten).",
+    "file": "tools/deploy_mobile_server.py",
+    "line": 94
+   }
+  ],
+  "blockers": [
+   "Cannot read the value (secret discipline); cannot observe whether the live host digest equals the committed one from source."
+  ],
+  "validation_plan": {
+   "local": "Bounded local fixture inside an OS-enforced sandbox (not available on this host)",
+   "deployment": "Owner-observed check of the live configuration/route without sending audit traffic"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "saas.console.support-mode-owner-escalation",
+  "title": "Support-mode session elevates the low-privilege 'support' role to 'owner' on any account (including the platform itself) and permits minting live API/webhook credentials, payment approval and account creation during support",
+  "description": "A console member whose RBAC role is 'support' (grants only read/calls.read/staff.read/devices.read/integrations.read per allowed(), Bootstrap.php:214) can POST action=support_enter with account_id equal to the platform account's own id — support_access() returns true for ANY target when kind=platform (Bootstrap.php:260-263) and the target is never required to differ from the origin. The session then maps to role 'owner' whenever support_mode() is not explicitly 'read_only' (Bootstrap.php:183-197; support_mode() defaults to 'full' when no policy row exists, Bootstrap.php:108-112, and the seed creates no support_policies rows). The blanket write-block in act() only fires for role 'support_viewer' (Actions.php:30), so the escalated session passes it. Unlike reveal_secret/rotate_secret/staff/device/pilot actions — which correctly add active_support() guards (Actions.php:256,269,282,366,374,387,402,409,414,422,427) — the following owner/admin-gated actions have NO active_support() guard and become reachable for the 'support' actor: create_key (flashes a live otv_ secret, Actions.php:146-157), new_integration (flashes a live otint_ webhook HMAC secret, Actions.php:162-168), manual_approve (approves payment orders with a format-only proof reference, Actions.php:225-240), create_account (flashes a temp owner password, Actions.php:55-77), create_plan/edit_plan/archive_plan, assign_plan, set_account_status, edit_account, toggle_voice/set_voice_ready/add_voice_grant, sync_google_voices, support_policy, brand, add_domain, plus sites/agents/campaigns/contacts CRUD. After support ends the minted otv_/otint_ credentials and created accounts remain active — a persistent backdoor, not just a session window. The documented boundary ('read-only support', secret non-disclosure during support, seen at Views.php:484 and Actions.php:256/269) is therefore bypassable.",
+  "root_cause": "The support-session role derivation in mine() maps the target using only the support_policies mode (default 'full' → 'owner') and ignores the actor's own RBAC role; support_enter allows role 'support' and permits target==origin (platform supporting itself); and the action dispatcher guards owner actions inconsistently, omitting active_support() on all credential-minting, payment, account and plan actions while including it on secret-reveal/rotation and operational actions.",
+  "intended_behavior": "Support sessions are bounded: a 'support'-role member (read-only per the RBAC matrix) must never gain owner-level mutation; the documented policy is support_mode 'read_only' vs 'full' with full mode still forbidding credential handling or pilot writes; created secrets and payments must not be issuable/approvable solely through an impersonation session; support_grants records (900s) should bound actual access.",
+  "trace": [
+   {
+    "kind": "entrypoint",
+    "file": "saas/console/index.php",
+    "line": 87,
+    "scope": "POST /saas/console/ -> act() after login+CSRF",
+    "description": "Authenticated POST with action=support_enter reaches act(); require_login+require_csrf at Actions.php:27 pass for the staffer's own session."
+   },
+   {
+    "kind": "propagation",
+    "file": "saas/console/_core/Actions.php",
+    "line": 44,
+    "scope": "support_enter authorization",
+    "description": "Role allowlist is ['owner','admin','support'] so a 'support'-role member may open support; support_access(target) at Bootstrap.php:260-263 returns true for kind=platform regardless of target, including the platform's own account id."
+   },
+   {
+    "kind": "propagation",
+    "file": "saas/console/_core/Bootstrap.php",
+    "line": 183,
+    "scope": "mine() support-resolution",
+    "description": "With $_SESSION['support'] set, mine() returns account($target) with role = support_mode(originId)==='read_only'?'support_viewer':'owner'; support_mode() defaults to 'full' (Bootstrap.php:108-112) when no support_policies row exists, so the role becomes 'owner'."
+   },
+   {
+    "kind": "propagation",
+    "file": "saas/console/_core/Actions.php",
+    "line": 30,
+    "scope": "act() blanket write-block",
+    "description": "Only role 'support_viewer' is blocked from all actions; role 'owner' (the escalated role) passes, so the subsequent per-action owner/admin checks are satisfied."
+   },
+   {
+    "kind": "sink",
+    "file": "saas/console/_core/Actions.php",
+    "line": 146,
+    "scope": "create_key / new_integration / manual_approve during support",
+    "description": "create_key (146-157) mints and flashes a live otv_ token; new_integration (162-168) mints and flashes a live otint_ HMAC secret usable against hooks/index.php; manual_approve (225-240) approves pending_manual_review orders with only a regex-valid proof string and provisions subscriptions/outbox; create_account (55-77) creates accounts and flashes temp owner passwords. None check active_support()."
+   },
+   {
+    "kind": "sink",
+    "file": "saas/console/_core/Actions.php",
+    "line": 155,
+    "scope": "persistent credential",
+    "description": "The otv_ token is stored hashed+sealed and remains active after support_leave, giving the staffer persistent API/webhook access to the platform account."
+   }
+  ],
+  "evidence": [
+   {
+    "file": "saas/console/_core/Actions.php",
+    "line": 44,
+    "description": "support_enter role allowlist includes 'support'."
+   },
+   {
+    "file": "saas/console/_core/Bootstrap.php",
+    "line": 260,
+    "description": "support_access(): kind platform returns true for any target account id."
+   },
+   {
+    "file": "saas/console/_core/Actions.php",
+    "line": 49,
+    "description": "$_SESSION['support'] set with account_id=$target, origin_id=$id, expires=time()+1800 (30 min) while support_grants row uses time()+900 (15 min, line 47) — record expiry is never re-checked by active_support()/mine()."
+   },
+   {
+    "file": "saas/console/_core/Bootstrap.php",
+    "line": 191,
+    "description": "mine() support branch: origin kind platform (or reseller parent) + unexpired session => role 'owner' under default 'full' policy."
+   },
+   {
+    "file": "saas/console/_core/Bootstrap.php",
+    "line": 108,
+    "description": "support_mode() defaults to 'full' when no policy row exists (account id and global 0)."
+   },
+   {
+    "file": "saas/console/_core/Actions.php",
+    "line": 30,
+    "description": "Blanket read-only block tests role==='support_viewer' only; escalated 'owner' passes."
+   },
+   {
+    "file": "saas/console/_core/Actions.php",
+    "line": 147,
+    "description": "create_key guard is allowed('integrations.manage')||platform — satisfied by role 'owner' during support."
+   },
+   {
+    "file": "saas/console/_core/Actions.php",
+    "line": 163,
+    "description": "new_integration guard is owner/admin role only — satisfied by role 'owner' during support, no active_support() check."
+   },
+   {
+    "file": "saas/console/_core/Actions.php",
+    "line": 226,
+    "description": "manual_approve guard is platform/reseller kind + owner/admin/finance role — satisfied during support; order lookup is status-only, scoped_customer() passes for platform."
+   },
+   {
+    "file": "saas/console/_core/Actions.php",
+    "line": 256,
+    "description": "Contrast: reveal_secret adds `|| active_support()` — the intended guard that the unflagged actions omit."
+   },
+   {
+    "file": "saas/console/database/Seed.php",
+    "line": 41,
+    "description": "Seed creates a platform 'support' role member (support@ontrack.test, membership role 'support' on platform account 1), making the exploit actor real in any seeded deployment."
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "An authenticated member exists with a membership role 'support' on a platform (or reseller) account — seeded by default (Seed.php:41) or invited via edit_staff/invitations."
+   },
+   {
+    "kind": "data_state",
+    "description": "No explicit support_policies 'read_only' row exists for that origin account (default 'full') — default state of a fresh schema since init_schema/seed create no support_policies rows."
+   },
+   {
+    "kind": "data_state",
+    "description": "Attacker issues POST action=support_enter with account_id = platform account id (or any target) using their own valid session + CSRF token, then issues the chosen action(s) within the 30-minute session window."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Derive the support-session role from the actor's own ROLE, not only the origin policy: a 'support'-role actor must resolve to 'support_viewer' regardless of policy (only owner/admin may act as 'owner' in full mode). Reject support_enter when target==origin or when the target is the platform account for non-owner/admin actors. Add active_support() guards to create_key, new_integration, revoke_key, revoke_integration, manual_approve, create_account, assign_plan, create/edit/archive_plan, set_account_status, edit_account, voice/plan/policy and account/site/agent/campaign/contact actions; or enforce one blanket rule that any support session is read-only unless the actor's membership role is owner/admin AND the origin policy is 'full'. Enforce support_grants.expires_at (900s) in active_support()/mine() instead of the 1800s session value."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "high",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "high",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "high"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "needs_validation",
+  "fingerprint": "saas.console.hooks.transport-tls-conditional",
+  "title": "hooks/index.php (and api/v1) do not enforce HTTPS in-endpoint; transport security for the otint_/otv_ bearer and HMAC secrets depends on the host-scoped .htaccess redirect matching only app.ontrackegy.com",
+  "description": "device/v1/index.php enforces TLS itself (device/v1/index.php:16-17), but hooks/index.php:13-24 and api/v1/index.php accept requests over plaintext HTTP. The only source-level HTTPS control for these surfaces is saas/console/.htaccess:3-6, whose RewriteCond requires HTTP_HOST exactly 'app.ontrackegy.com'. For any other host serving /saas/console (reseller custom domains, staging host, IP access), a network-position attacker could capture the otint_ webhook token or otv_ API key in transit and then forge signed webhook events (payment.confirmed, order.created, booking.created) or read knowledge/agents, because the HMAC key IS the transmitted bearer token (hooks/index.php:23-24).",
+  "claimed_root_cause": "Transport protection is delegated to a host-conditional .htaccess rewrite instead of being enforced at each credential-bearing endpoint; only the device pairing endpoint self-enforces TLS.",
+  "trace": [
+   {
+    "kind": "entrypoint",
+    "file": "saas/console/hooks/index.php",
+    "line": 13,
+    "scope": "POST /saas/console/hooks/",
+    "description": "Only checks REQUEST_METHOD and reads the HMAC bearer; no HTTPS check (compare device/v1/index.php:16-17)."
+   },
+   {
+    "kind": "propagation",
+    "file": "saas/console/hooks/index.php",
+    "line": 23,
+    "scope": "HMAC verification",
+    "description": "hash_hmac('sha256', timestamp+\"\\n\"+raw, $token) — the bearer token is the HMAC key, so token capture over plaintext HTTP directly enables forging every allowed event type for that integration."
+   },
+   {
+    "kind": "sink",
+    "file": "saas/console/hooks/index.php",
+    "line": 67,
+    "scope": "payment.confirmed",
+    "description": "Token holder can mark orders paid (payment_status paid, EGP, matching amount, valid reference) and enqueue payment.received_pending_claim outbox."
+   }
+  ],
+  "evidence": [
+   {
+    "file": "saas/console/device/v1/index.php",
+    "line": 16,
+    "description": "Self-enforced TLS: PHP_SAPI!=='cli' && empty(HTTPS) => 426 https_required — the pattern hooks/api do not follow."
+   },
+   {
+    "file": "saas/console/hooks/index.php",
+    "line": 13,
+    "description": "hooks POST handler has no transport check before consuming the bearer."
+   },
+   {
+    "file": "saas/console/.htaccess",
+    "line": 4,
+    "description": "RewriteCond %{HTTP_HOST} ^app\\.ontrackegy\\.com$ [NC] — the HTTP->HTTPS redirect applies only to the canonical host; other hosts have no source-visible TLS enforcement."
+   },
+   {
+    "file": "saas/console/hooks/index.php",
+    "line": 23,
+    "description": "HMAC key equals the bearer secret, making in-transit capture equivalent to full webhook authority."
+   }
+  ],
+  "blockers": [
+   "needs_validation: whether the live deployment serves /saas/console/hooks or /saas/console/api/v1 over plaintext on any host (cPanel/LiteSpeed TLS termination and per-vhost redirect behavior are deployment facts not visible in this source tree)."
+  ],
+  "validation_plan": {
+   "local": "Bounded local fixture inside an OS-enforced sandbox (not available on this host)",
+   "deployment": "Owner-observed check of the live configuration/route without sending audit traffic"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "gap-hunt-2-01-rotated-otv-format-mismatch",
+  "title": "rotate_secret mints otv_ API keys with 64 hex chars that the api/v1 format gate (60 hex) rejects — rotated keys are dead on arrival, breaking the revocation/rotation lifecycle",
+  "description": "The console rotation action (Actions.php rotate_secret) builds $token = 'otv_'.bin2hex(random_bytes(32)) = otv_ + 64 hex chars and replaces token_hash in place while keeping status='active'. The otv_ API surface (saas/console/api/v1/index.php:15) enforces /^otv_[0-9a-f]{60}$/D exactly (60 hex), matching the create_key path (random_bytes(30) → 60 hex) but NOT the rotate path. So after a rotation the old bearer is immediately dead (hash replaced, no grace window — good) while the new rotated token is rejected at the format gate with 401 key_format. The key is silently bricked until a brand-new key is created; the documented 'rotate' (used as the incident-response for a compromised key, Actions.php:268-280) does not work for API keys. otint_ integration tokens are unaffected because hooks/index.php applies no format gate.",
+  "root_cause": "Length inconsistency between the two token-generation paths: create_key uses random_bytes(30) (60 hex, matching the otv_ gate) while rotate_secret reuses the integration-token length random_bytes(32) (64 hex) for otv_ keys whose API gate mandates exactly 60 hex.",
+  "intended_behavior": "Rotation replaces the secret so the old bearer is rejected immediately and the new token is accepted by the format gate; an owner rotating a possibly-compromised key gets a working replacement, not a silent outage.",
+  "trace": [
+   {
+    "kind": "entrypoint",
+    "file": "saas/console/_core/Actions.php",
+    "line": 275,
+    "scope": "owner/admin console action, CSRF+RBAC-gated",
+    "description": "rotate_secret builds $token=('otv_'|'otint_').bin2hex(random_bytes(32)) → otv_ + 64 hex; only owner/admin role with active_support()==false may invoke (Actions.php:269)"
+   },
+   {
+    "kind": "propagation",
+    "file": "saas/console/_core/Actions.php",
+    "line": 278,
+    "scope": "api_keys row",
+    "description": "UPDATE api_keys SET token_hash=sha256(new64hex), prefix, secret_enc WHERE id=? AND account_id=? — status stays 'active'; old hash is overwritten so the old bearer cannot replay (no grace window)"
+   },
+   {
+    "kind": "sink",
+    "file": "saas/console/api/v1/index.php",
+    "line": 15,
+    "scope": "otv_ Bearer auth gate",
+    "description": "preg_match('/^otv_[0-9a-f]{60}$/D',$key) rejects the 64-hex rotated token with 401 key_format before any DB lookup — the new key is unusable"
+   }
+  ],
+  "evidence": [
+   {
+    "file": "saas/console/_core/Actions.php",
+    "line": 275,
+    "description": "rotate_secret uses random_bytes(32) → 64 hex chars after 'otv_' prefix"
+   },
+   {
+    "file": "saas/console/api/v1/index.php",
+    "line": 15,
+    "description": "format gate is exactly /^otv_[0-9a-f]{60}$/D — 60 hex required"
+   },
+   {
+    "file": "saas/console/_core/Actions.php",
+    "line": 154,
+    "description": "create_key uses random_bytes(30) → 60 hex, consistent with the gate — only the rotation path is inconsistent"
+   },
+   {
+    "file": "saas/console/_core/Actions.php",
+    "line": 278,
+    "description": "rotation overwrites token_hash in place with the new (rejected-format) token; old bearer dies immediately, new bearer never works"
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Affects only otv_ (api_keys) rotation"
+   },
+   {
+    "kind": "data_state",
+    "description": "otint_ integration tokens have no format gate in hooks/index.php and rotate correctly"
+   },
+   {
+    "kind": "data_state",
+    "description": "Rotation itself is RBAC-gated (owner/admin, no active support session) so this is not remotely exploitable — it is a lifecycle/availability defect"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Use bin2hex(random_bytes(30)) for the otv_ branch in rotate_secret (or widen the api/v1 gate to 64 hex consistently with create_key's documented prefix format), and add a regression test that a rotated otv_ token passes the endpoint format gate and authenticates."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "saas/console/hooks/index.php:13-24:missing_https_guard",
+  "title": "Webhook HMAC endpoint omits the HTTPS-enforcement that device/v1 enforces",
+  "description": "saas/console/hooks/index.php authenticates external webhooks with HMAC-SHA256 over timestamp+raw body, a 300s window, a 64-hex signature regex, and hash_equals — but it never verifies that the request arrived over TLS. The sibling device API (saas/console/device/v1/index.php:16-17) returns 426 https_required for any cleartext request. An on-path attacker who can observe a request to /saas/console/hooks over plaintext HTTP (e.g. an origin or proxy that emits http, or a misconfigured TLS-termination path) captures the raw otint_ token plus a valid signature+timestamp and can replay it within the ±300s window. Because the HMAC secret is the shared integration token, one captured token authorizes all four event types, including payment.confirmed and booking.created, for that reseller/account.",
+  "trace": [
+   {
+    "description": "POST entrypoint for external webhooks; accepts raw php://input body up to 32768 bytes.",
+    "file": "saas/console/hooks/index.php",
+    "kind": "entrypoint",
+    "line": 13,
+    "scope": "saas/console"
+   },
+   {
+    "description": "Reads Bearer otint_ token from Authorization header; no HTTPS check precedes this.",
+    "file": "saas/console/hooks/index.php",
+    "kind": "propagation",
+    "line": 16,
+    "scope": "saas/console"
+   },
+   {
+    "description": "Validates X-OnTrack-Timestamp (10-digit, ±300s) and X-OnTrack-Signature (64 hex) — integrity only, no transport binding.",
+    "file": "saas/console/hooks/index.php",
+    "kind": "propagation",
+    "line": 19,
+    "scope": "saas/console"
+   },
+   {
+    "description": "Verifies HMAC-SHA256(timestamp.\"\\n\".raw, token) with hash_equals; cryptographic verification passes without TLS enforcement.",
+    "file": "saas/console/hooks/index.php",
+    "kind": "propagation",
+    "line": 23,
+    "scope": "saas/console"
+   },
+   {
+    "description": "Sink: resolves integration by sha256(token), then provisions orders/payments/bookings (payment.confirmed, booking.created, order.created).",
+    "file": "saas/console/hooks/index.php",
+    "kind": "sink",
+    "line": 27,
+    "scope": "saas/console"
+   },
+   {
+    "description": "Contrast control: device/v1 returns 426 for cleartext requests — the equivalent guard missing in hooks.",
+    "file": "saas/console/device/v1/index.php",
+    "kind": "sink",
+    "line": 16,
+    "scope": "saas/console/device/v1"
+   }
+  ],
+  "evidence": [
+   {
+    "file": "saas/console/hooks/index.php",
+    "line": 13,
+    "description": "Method check; no HTTPS/`empty($_SERVER['HTTPS'])` guard exists anywhere in the file before signature verification."
+   },
+   {
+    "file": "saas/console/hooks/index.php",
+    "line": 24,
+    "description": "hash_hmac + hash_equals verification completes without any transport check."
+   },
+   {
+    "file": "saas/console/device/v1/index.php",
+    "line": 16,
+    "description": "Sibling device surface returns 426 https_required when PHP_SAPI!=='cli' && HTTPS empty or off — the control hooks/index.php lacks."
+   }
+  ],
+  "root_cause": "Transport assurance was applied selectively: device/v1 guards $_SERVER['HTTPS'] but hooks/index.php was written as a server-to-server signed endpoint and skipped the same guard. HMAC protects integrity/authenticity, not channel confidentiality, so it does not substitute for TLS enforcement.",
+  "intended_behavior": "Only an authorized principal may perform this action on its own scope of resources",
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "A request to /saas/console/hooks must be reachable over plaintext HTTP in the deployed host (TLS not globally forced for that path) for the replay exposure to be exploitable."
+   },
+   {
+    "kind": "data_state",
+    "description": "The HMAC construction itself remains sound; the gap is transport confidentiality only."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Add the same guard used by device/v1 to hooks/index.php (return 426 when PHP_SAPI!=='cli' && (empty($_SERVER['HTTPS'])||$_SERVER['HTTPS']==='off')), and confirm the host Apache/LiteSpeed virtualhost forces TLS redirect for /saas/console/hooks."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "campaign-lease-stale-global-block-pilot-attempts",
+  "title": "A stale campaign lease permanently blocks every future campaign claim on the pilot executor",
+  "description": "pilot_campaign_claim() aborts the whole claim call if ANY attempt in the shared attempts store still has status 'leased' (pilot_workspace.php:253). A lease is cleared only by pilot_campaign_finish(), which requires the Android device to POST action=finish with the attempt_id (campaigns_api.php:31-34; pilot_workspace.php:280-296). pilot_campaign_verify_claim() detects an aged lease (leased_epoch older than 30s) but only returns allowed=false; it never mutates or releases the attempt (pilot_workspace.php:299-327). No admin action, API operation, cron or migration clears or reaps a 'leased' attempt (ops.php and Actions.php expose only arm/pause/cancel/resume; campaigns_api.php has no release action). Consequently one orphaned lease — a device that never received the claim response, or whose local SharedPreferences were lost (app data cleared/reinstall), or that never returns to callState 0 — wedges the single-device campaign executor for all campaigns and all contacts until a human edits /home/appontrack/.ontrack-mobile/pilot/attempts.json on the host. This is a lease-lifecycle / head-of-line-blocking defect, not merely the intended 'never auto-retry the same number' policy.",
+  "root_cause": "The global 'leased' guard in pilot_campaign_claim (pilot_workspace.php:253) has no server-side expiry, reaper or operator release, and lease release depends entirely on a device-authenticated finish() call whose attempt_id may never be known to the device after a lost response or lost local state.",
+  "intended_behavior": "A single unclaimed/failed number must never be auto-redialed (preserved), but an abandoned lease must expire or be releasable so that other campaigns and other consented contacts can still be dispatched, and campaign stop/pause semantics must not leave the executor permanently unavailable.",
+  "trace": [
+   {
+    "description": "Device-authenticated claim endpoint; also action=verify (line 29) and action=finish (line 34).",
+    "file": "saas/mobile/server/campaigns_api.php",
+    "kind": "entrypoint",
+    "line": 24,
+    "scope": "POST action=claim with device Bearer key invokes pilot_campaign_claim()"
+   },
+   {
+    "description": "foreach($attempts as $attempt) if status==='leased' return null; checked before any campaign/contact is considered, so one lease blocks everything.",
+    "file": "saas/mobile/server/pilot_workspace.php",
+    "kind": "propagation",
+    "line": 253,
+    "scope": "pilot_campaign_claim global leased guard"
+   },
+   {
+    "description": "New attempt with status 'leased' is appended to attempts.json (pilot_atomic line 273) with leased_epoch=time().",
+    "file": "saas/mobile/server/pilot_workspace.php",
+    "kind": "propagation",
+    "line": 272,
+    "scope": "lease creation and persistence"
+   },
+   {
+    "description": "Lease older than 30s returns ['allowed'=>false,'reason'=>'lease_expired'] but leaves the attempt status as 'leased'.",
+    "file": "saas/mobile/server/pilot_workspace.php",
+    "kind": "propagation",
+    "line": 306,
+    "scope": "verify_claim does not release"
+   },
+   {
+    "description": "pilot_campaign_finish is the sole transition away from 'leased'; requires the device to supply the attempt_id, which an unreachable device cannot do.",
+    "file": "saas/mobile/server/pilot_workspace.php",
+    "kind": "sink",
+    "line": 280,
+    "scope": "only release path is device finish"
+   },
+   {
+    "description": "ops.php only lists attempts; no release/finish control exists for an orphaned lease.",
+    "file": "saas/mobile/server/ops.php",
+    "kind": "sink",
+    "line": 118,
+    "scope": "operator UI is read-only for attempts"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "Global block: any 'leased' attempt makes every claim return null.",
+    "file": "saas/mobile/server/pilot_workspace.php",
+    "line": 253
+   },
+   {
+    "description": "Lease-expiry is detected (30s) but never clears the attempt.",
+    "file": "saas/mobile/server/pilot_workspace.php",
+    "line": 306
+   },
+   {
+    "description": "finish() rejects anything not currently 'leased', so no alternate path can force-release.",
+    "file": "saas/mobile/server/pilot_workspace.php",
+    "line": 288
+   },
+   {
+    "description": "Full operation set (claim/verify/finish/arm/preview/pause/resume/cancel/create) contains no release or lease-expiry action.",
+    "file": "saas/mobile/server/campaigns_api.php",
+    "line": 16
+   },
+   {
+    "description": "Console campaign actions stop at update_campaign (draft/paused/archived); no attempt or lease lifecycle control.",
+    "file": "saas/console/_core/Actions.php",
+    "line": 334
+   },
+   {
+    "description": "attempt_id survives only in Android SharedPreferences; clearing app data or losing the claim response leaves the device unable to finish.",
+    "file": "saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/CampaignDialer.kt",
+    "line": 26
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "The claim response is lost after the server persisted the 'leased' attempt, so the device never learns the attempt_id and cannot call finish."
+   },
+   {
+    "kind": "data_state",
+    "description": "The device's local ontrack_link SharedPreferences are cleared or the app is reinstalled while an attempt is leased, removing pendingAttempt and leaving no local path to finish."
+   },
+   {
+    "kind": "data_state",
+    "description": "The device crashes after placeCall and never returns to callState 0 with intact prefs, so CampaignDialer's 120s unknown-finish guard never runs."
+   },
+   {
+    "kind": "data_state",
+    "description": "All three outcomes leave attempts.json holding a 'leased' record that no authenticated caller can finish; no admin/API action, cron or migration reaps it."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Add a server-side lease reaper: in pilot_campaign_claim (and on read) transition attempts whose leased_epoch is older than a defined grace window to 'unknown'/'failed' idempotently, and scope the 'leased' guard to the specific campaign/contact rather than the whole store. Expose an authenticated operator release action in ops.php/campaigns_api so a stuck lease can be cleared without editing host files, and record the release in the attempt record for audit."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "pilot-attempts-store-unbounded-growth-cliff",
+  "title": "Pilot attempts/DNC stores grow without bound and hard-fail every campaign and ops read past a 3 MB cap",
+  "description": "pilot_read() hard-throws RuntimeException('pilot_store_too_large') when the backing file exceeds 3,000,000 bytes (pilot_workspace.php:10) and also throws when JSON is not a list (line 13). The attempts store is append-only: every claim appends a record (pilot_workspace.php:272-273) and nothing ever prunes, archives or caps it. The same shape applies to dnc.json via pilot_suppression_keys (line 55-59), which is written on every suppression sync. Campaigns_api.php performs its attempts read in the GET branch OUTSIDE any try/catch (campaigns_api.php:9), and ops.php reads attempts directly in its template loop (ops.php:118), so once the file crosses the cap these reads throw uncaught RuntimeExceptions and the campaign API and operations page fail hard rather than degrading. There is no retention, rotation or size-recovery path anywhere in the pilot store.",
+  "trace": [
+   {
+    "description": "pilot_read('attempts') is called directly in the list branch; a thrown RuntimeException is not caught here.",
+    "file": "saas/mobile/server/campaigns_api.php",
+    "kind": "entrypoint",
+    "line": 9,
+    "scope": "GET reads attempts before any try/catch"
+   },
+   {
+    "description": "filesize > 3000000 throws RuntimeException('pilot_store_too_large').",
+    "file": "saas/mobile/server/pilot_workspace.php",
+    "kind": "propagation",
+    "line": 10,
+    "scope": "hard size gate"
+   },
+   {
+    "description": "Each claim appends an attempt and writes the whole array back; no cap, no TTL, no archive.",
+    "file": "saas/mobile/server/pilot_workspace.php",
+    "kind": "propagation",
+    "line": 273,
+    "scope": "unbounded append"
+   },
+   {
+    "description": "The attempts store is read inline while rendering; past the cap the operations page throws.",
+    "file": "saas/mobile/server/ops.php",
+    "kind": "sink",
+    "line": 118,
+    "scope": "operator page unguarded read"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "3 MB read cap raises RuntimeException rather than truncating.",
+    "file": "saas/mobile/server/pilot_workspace.php",
+    "line": 10
+   },
+   {
+    "description": "Attempts are appended and persisted with no bound.",
+    "file": "saas/mobile/server/pilot_workspace.php",
+    "line": 273
+   },
+   {
+    "description": "pilot_atomic rewrites the entire file each time, so cost and size grow linearly with history.",
+    "file": "saas/mobile/server/pilot_workspace.php",
+    "line": 17
+   },
+   {
+    "description": "Attempts read occurs outside the try/catch that wraps POST handling.",
+    "file": "saas/mobile/server/campaigns_api.php",
+    "line": 9
+   }
+  ],
+  "root_cause": "Append-only attempt/DNC stores with no count/size cap or pruning, combined with a read-side hard failure at a fixed 3 MB threshold instead of truncation or pagination.",
+  "intended_behavior": "Only an authorized principal may perform this action on its own scope of resources",
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Requires roughly several thousand claimed attempts accumulated in the shared single-device store (attempts are appended only on successful claims)."
+   },
+   {
+    "kind": "data_state",
+    "description": "Or an equivalent volume of DNC suppressions accumulated in dnc.json."
+   },
+   {
+    "kind": "data_state",
+    "description": "pilot_read()/pilot_suppression_keys() then throw RuntimeException at the 3 MB cap, and the campaign GET path and ops.php reads are unguarded, turning growth into an unhandled failure."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Cap or rotate the attempts store by count/age, page and truncate reads at the cap instead of throwing, wrap the GET/mobile and ops.php reads in the existing error handling so an over-size store degrades gracefully, and add a documented maintenance path to archive old attempts."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "low",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "low"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "mobile.auth.shared-secret:device+admin",
+  "title": "Single shared SHA-256 secret is the sole root of trust for both the device API plane and the admin dashboard",
+  "description": "common.php::mobile_authorized() compares hash('sha256', key) to the committed auth.sha256 and is the only verifier used by mobile_require_device() (all /saas/mobile device endpoints) AND the admin login in index.php. admin_ticket.php requires only the device bearer and mints a 35s admin sign-in ticket. One secret therefore yields: full device control, full admin dashboard, admin-ticket minting, and server-side Gemini summary spend. There is no per-device scoping, no key-rotation endpoint, and no rate limiting. The secret is stored in Android SharedPreferences ('ontrack_link') and transmitted as a Bearer on every poll (MobileLinkService.kt).",
+  "root_cause": "One shared secret backs two distinct privilege planes (device API + admin UI) with no separation, rotation, or isolation.",
+  "intended_behavior": "A single-device owner pilot where the device key and the admin key are the same value is an accepted design; the secret should be high-entropy, randomly generated per deployment, and rotatable.",
+  "trace": [
+   {
+    "kind": "entrypoint",
+    "file": "saas/mobile/server/common.php",
+    "line": 10,
+    "scope": "mobile_authorized(): verifier for both device bearer and admin login",
+    "description": "Compares hash('sha256', $key) to auth.sha256 with length and hex-format gates; single verifier for every mobile endpoint and the admin dashboard login."
+   },
+   {
+    "kind": "propagation",
+    "file": "saas/mobile/server/index.php",
+    "line": 9,
+    "scope": "admin login POST uses mobile_authorized()",
+    "description": "index.php:10 authenticates the admin session with the same mobile_authorized() check used by the device bearer."
+   },
+   {
+    "kind": "propagation",
+    "file": "saas/mobile/server/admin_ticket.php",
+    "line": 4,
+    "scope": "device bearer mints admin sign-in ticket",
+    "description": "mobile_require_device() passes on the device key, then admin_ticket.php:7-19 mints a 35s single-use admin sign-in URL."
+   },
+   {
+    "kind": "sink",
+    "file": "saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkService.kt",
+    "line": 370,
+    "scope": "device stores key in SharedPreferences and sends it as Bearer",
+    "description": "Key from 'ontrack_link' prefs is sent as Authorization: Bearer on every poll; same key unlocks the admin plane via admin_enter."
+   }
+  ],
+  "evidence": [
+   {
+    "file": "saas/mobile/server/common.php",
+    "line": 13,
+    "description": "strlen($key) >= 24 && preg_match hex64 && hash_equals($expected, hash('sha256', $key)) — the identical check gates admin login (index.php:10) and device endpoints."
+   },
+   {
+    "file": "saas/mobile/server/index.php",
+    "line": 10,
+    "description": "if (mobile_authorized((string)$_POST['key'])) { session_regenerate_id(true); $_SESSION['mobile_admin']=true; } — admin login is the same shared secret."
+   },
+   {
+    "file": "saas/mobile/server/admin_ticket.php",
+    "line": 4,
+    "description": "mobile_require_device(); then writes admin-ticket-<sha256(ticket)>.json and returns a 35s admin URL — device bearer alone escalates to admin session."
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Exploitable when the preimage key is known/leaked or low-entropy; accepted single-device pilot design means the two planes are the same owner principal, so this is wide scope rather than privilege escalation."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Separate the device bearer from the admin credential; issue per-device scoped keys with revocation; rate-limit device endpoints; ensure the deployed auth.sha256 is a fresh high-entropy random hash not derived from any committed value."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "ota.ui.deploy:no-signature-verify",
+  "title": "UI OTA host installer (deploy.py) does not verify the RSA signature; it trusts a caller-supplied SHA-256, unlike sibling native/remote installers",
+  "description": "saas/mobile/ota/deploy.py::deploy() only checks hashlib.sha256(raw)==expected and html hash==meta sha256; it never verifies envelope['signature'] against the pinned app-signing cert. Its siblings ota/native_deploy.py (verify_signed -> openssl dgst -verify) and ota/remote_deploy.py (openssl verify) DO verify. In the committed CI path, tools/queue_mobile_ota.py::verify() asserts the signature before computing expected, so the small-job install is transit-integrity-protected; the >16KB path uses remote_deploy.py which re-verifies on host. Thus no reachable unverified install exists in committed code, but deploy.py lacks the defense-in-depth signature check its siblings have (sibling-control non-equivalence).",
+  "trace": [
+   {
+    "kind": "entrypoint",
+    "file": "saas/mobile/ota/deploy.py",
+    "line": 13,
+    "scope": "deploy(encoded, expected): UI OTA host installer",
+    "description": "Decompresses bundle, checks hashlib.sha256(raw)==expected only; then validates html size/hash/name but never verifies envelope['signature']."
+   },
+   {
+    "kind": "propagation",
+    "file": "tools/queue_mobile_ota.py",
+    "line": 15,
+    "scope": "CI/producer verify() binds expected to signature-verified bundle",
+    "description": "queue_mobile_ota.verify() pins cert SHA-256 and runs openssl dgst -verify before computing expected=sha256(bundle) for the small-job path."
+   },
+   {
+    "kind": "sink",
+    "file": "saas/mobile/ota/deploy.py",
+    "line": 41,
+    "scope": "immutable HTML + manifest written to /saas/mobile/updates",
+    "description": "atomic(dest, html) and atomic(current, manifest) install the bundle whose authenticity was asserted only by the caller-supplied expected hash, not by a signature check inside deploy.py."
+   }
+  ],
+  "evidence": [
+   {
+    "file": "saas/mobile/ota/deploy.py",
+    "line": 17,
+    "description": "if hashlib.sha256(raw).hexdigest()!=expected: raise ValueError('Bundle checksum mismatch') — checksum only, no signature verification."
+   },
+   {
+    "file": "saas/mobile/ota/native_deploy.py",
+    "line": 30,
+    "description": "subprocess.run(['openssl','dgst','-sha256','-verify',...,'-signature',...,payload], check=True) — sibling installer verifies the RSA signature on host."
+   },
+   {
+    "file": "saas/mobile/ota/remote_deploy.py",
+    "line": 41,
+    "description": "openssl dgst -sha256 -verify re-verifies the payload signature against the pinned cert before deploy() is invoked — sibling path for large jobs."
+   }
+  ],
+  "root_cause": "UI OTA host install trusts a caller-supplied bundle checksum instead of re-verifying the pinned-cert RSA signature performed by native_deploy.py/remote_deploy.py.",
+  "intended_behavior": "Only an authorized principal may perform this action on its own scope of resources",
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "An actor able to enqueue a deploy job on ontrack-host-link without transiting queue_mobile_ota.verify() (e.g., another authorized workflow that writes the queue) could install unsigned UI HTML; the client still signature-verifies, so impact is bounded to a client-verify bypass/key-compromise scenario."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Have ota/deploy.py re-verify envelope['signature'] against the pinned cert (PINNED_CERT) exactly like native_deploy.py/remote_deploy.py, instead of trusting the caller-supplied expected."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "low",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "low"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "needs_validation",
+  "fingerprint": "saas.console.suspend.not-uniform-revocation",
+  "title": "Suspend is not a uniform tenant revocation: API keys and integration tokens ignore owning-account status",
+  "description": "Account lifecycle is soft-only: the only account action is set_account_status flipping status to active|suspended (Actions.php:28-35, allow-list :352). Device bearer authorization joins accounts a ON a.status='active' (DevicePairing.php:59-66), so a suspended account revokes its SIM bridge. But the API-key bearer (api/v1/index.php:18-21) and integration webhook (hooks/index.php:27) only check the key/integration's own status='active' plus a single account.status!=='active' guard at token-lookup stage — they do not re-validate account status on every operation, and the web act() path has no account-status gate at all. A suspended tenant's otv_/otint_ bearers therefore remain functional while its device bridge is dead, producing an inconsistent, partial freeze.",
+  "trace": [
+   {
+    "description": "Account status enum and update",
+    "file": "saas/console/_core/Actions.php",
+    "kind": "entrypoint",
+    "line": 352,
+    "scope": "saas/console/_core/Actions.php"
+   },
+   {
+    "description": "API-key bearer gate (key-status only)",
+    "file": "saas/console/api/v1/index.php",
+    "kind": "sink",
+    "line": 21,
+    "scope": "saas/console/api/v1/index.php"
+   },
+   {
+    "description": "Integration bearer gate (integration-status only)",
+    "file": "saas/console/hooks/index.php",
+    "kind": "sink",
+    "line": 27,
+    "scope": "saas/console/hooks/index.php"
+   },
+   {
+    "description": "Device bearer gate (account-status joined, revokes on suspend)",
+    "file": "saas/console/_core/DevicePairing.php",
+    "kind": "sink",
+    "line": 62,
+    "scope": "saas/console/_core/DevicePairing.php"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "set_account_status allow-list restricts status to active|suspended and updates accounts row only",
+    "file": "saas/console/_core/Actions.php",
+    "line": 352
+   },
+   {
+    "description": "API-key bearer lookup checks token_hash + key status; single account.status!=='active' guard at lookup; no shared tenant-active gate",
+    "file": "saas/console/api/v1/index.php",
+    "line": 21
+   },
+   {
+    "description": "Integration token lookup checks integration status='active' only; account status re-checked later per-event",
+    "file": "saas/console/hooks/index.php",
+    "line": 27
+   },
+   {
+    "description": "Device bearer authorize joins accounts.status='active', so suspend revokes device path",
+    "file": "saas/console/_core/DevicePairing.php",
+    "line": 62
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Account suspended via set_account_status"
+   },
+   {
+    "kind": "data_state",
+    "description": "Tenant holds an active otv_ API key or otint_ integration token"
+   },
+   {
+    "kind": "data_state",
+    "description": "Caller uses API/hooks rather than the device bridge"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration (no OS-enforced sandbox available on host). Boundary crossing established from repository source alone.",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read the cited source lines and confirm the lower-trust input reaches the sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Static-only likelihood from source conditions"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "claimed_root_cause": "Account status is enforced ad-hoc via per-endpoint JOIN conditions rather than a single shared authorize_tenant() gate; the 'suspended' state has no cascading revocation for API/integration bearers or owner web sessions.",
+  "blockers": [
+   "Decisive validation requires execution or a deployment observation unavailable in this source-only run"
+  ],
+  "validation_plan": {
+   "local": "Bounded local fixture inside an OS-enforced sandbox (not available on this host)",
+   "deployment": "Owner-observed check of the live configuration/route without sending audit traffic"
+  }
+ },
+ {
+  "verdict": "needs_validation",
+  "fingerprint": "saas.console.dnc-ledger.account-scoped-append-only",
+  "title": "DNC ledger is account-scoped and append-only; survives contact delete and account suspend",
+  "description": "dnc_suppressions is keyed (account_id, phone_key) and append-only via INSERT IGNORE (DncLedger.php:19-61). dnc_is_suppressed() is strictly account-scoped (:98-99). delete_contact refuses rows where dnc=1 (Actions.php:332); edit_contact refuses to change the number of a dnc=1 row (:318-321). Because accounts are never hard-deleted (only soft 'suspended'), there is no deletion path that could orphan or cross-tenant-leak opt-outs. This closes the critic's 'DNC retained vs purged' and 'cross-tenant residue after delete' sub-questions positively.",
+  "trace": [
+   {
+    "description": "Ledger create/insert",
+    "file": "saas/console/_core/DncLedger.php",
+    "kind": "entrypoint",
+    "line": 19,
+    "scope": "saas/console/_core/DncLedger.php"
+   },
+   {
+    "description": "Account-scoped lookup",
+    "file": "saas/console/_core/DncGuard.php",
+    "kind": "sink",
+    "line": 98,
+    "scope": "saas/console/_core/DncGuard.php"
+   },
+   {
+    "description": "Delete guard on dnc contact",
+    "file": "saas/console/_core/Actions.php",
+    "kind": "sink",
+    "line": 332,
+    "scope": "saas/console/_core/Actions.php"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "DNC ledger schema keyed by account + phone_key, append-only INSERT IGNORE",
+    "file": "saas/console/_core/DncLedger.php",
+    "line": 24
+   },
+   {
+    "description": "Suppression lookup is strictly same-account",
+    "file": "saas/console/_core/DncGuard.php",
+    "line": 98
+   },
+   {
+    "description": "Contact delete blocked when dnc=1 to prevent restoring dial eligibility",
+    "file": "saas/console/_core/Actions.php",
+    "line": 332
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Source-grounded static review without a local execution sandbox; decisive confirmation needs a bounded local fixture"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration (no OS-enforced sandbox available on host). Boundary crossing established from repository source alone.",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read the cited source lines and confirm the lower-trust input reaches the sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Static-only likelihood from source conditions"
+   },
+   "impact": {
+    "score": "informational",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "informational"
+  },
+  "claimed_root_cause": "n/a — design is sound for retention.",
+  "blockers": [
+   "Decisive validation requires execution or a deployment observation unavailable in this source-only run"
+  ],
+  "validation_plan": {
+   "local": "Bounded local fixture inside an OS-enforced sandbox (not available on this host)",
+   "deployment": "Owner-observed check of the live configuration/route without sending audit traffic"
+  }
+ },
+ {
+  "verdict": "needs_validation",
+  "fingerprint": "saas.console.no-hard-tenant-deletion",
+  "title": "No hard account/tenant deletion exists, so cascade-failure and orphan-residue after delete cannot occur",
+  "description": "A search of the console shows only DELETE FROM contacts (Actions.php:332) and DELETE FROM memberships (Actions.php:378), both scoped by account_id, plus status flips. There is no delete_account, no account/users row DELETE, no DROP TABLE in any path. The schema declares no FOREIGN KEY/REFERENCES/ON DELETE for any table (schema.mysql.sql:1-230). Therefore the critic's 'cascade-failure leaving partial deletes' and 'orphaned tenant data after delete' hypotheses do not manifest: tenant data is retained indefinitely via soft status and never physically removed.",
+  "trace": [
+   {
+    "description": "Schema definitions (no FK)",
+    "file": "saas/console/database/schema.mysql.sql",
+    "kind": "entrypoint",
+    "line": 1,
+    "scope": "saas/console/database/schema.mysql.sql"
+   },
+   {
+    "description": "Dispatcher without delete_account",
+    "file": "saas/console/_core/Actions.php",
+    "kind": "entrypoint",
+    "line": 26,
+    "scope": "saas/console/_core/Actions.php"
+   },
+   {
+    "description": "Account-scoped contact delete",
+    "file": "saas/console/_core/Actions.php",
+    "kind": "sink",
+    "line": 332,
+    "scope": "saas/console/_core/Actions.php"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "Schema has no foreign keys / ON DELETE clauses",
+    "file": "saas/console/database/schema.mysql.sql",
+    "line": 1
+   },
+   {
+    "description": "Only destructive deletes are contact and membership, both account-scoped",
+    "file": "saas/console/_core/Actions.php",
+    "line": 332
+   },
+   {
+    "description": "No account deletion action present in the act() dispatcher",
+    "file": "saas/console/_core/Actions.php",
+    "line": 26
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Source-grounded static review without a local execution sandbox; decisive confirmation needs a bounded local fixture"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration (no OS-enforced sandbox available on host). Boundary crossing established from repository source alone.",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read the cited source lines and confirm the lower-trust input reaches the sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Static-only likelihood from source conditions"
+   },
+   "impact": {
+    "score": "informational",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "informational"
+  },
+  "claimed_root_cause": "Lifecycle implemented as soft status only; no erasure workflow exists (OPEN per project docs).",
+  "blockers": [
+   "Decisive validation requires execution or a deployment observation unavailable in this source-only run"
+  ],
+  "validation_plan": {
+   "local": "Bounded local fixture inside an OS-enforced sandbox (not available on this host)",
+   "deployment": "Owner-observed check of the live configuration/route without sending audit traffic"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "root.authz.static-maintenance-token.setup_demo-write",
+  "title": "Static maintenance token committed in the repository authenticates a write-capable endpoint (overwrites live Gemini key)",
+  "description": "UPLOAD_TO_ROOT.txt:8 ships the plaintext maintenance token GF6_1W21Hc4khNPB53jz6n6UfX0ZUo94s0Diy_SDIEk. Its SHA-256 is 60a11e1fa3f8f0ddc9b4711cff115079450e4672b8a0f3c2c1435361f4bb67f7, which is the literal TOKEN_HASH constant hard-coded in api/setup_demo.php:6 and api/diag.php:6. Both endpoints gate only on hash_equals(TOKEN_HASH, sha256($token)); because the token and the hash are both in the repository, any reader of the repo (collaborators, CI logs, forks, or a future leak) holds the complete credential. setup_demo.php then writes api/demo_config.local.php (a config file that overrides gemini_api_key via array_replace in api/demo_config.php:11-13) using an attacker-supplied 'key' parameter, with chmod 0600. An attacker therefore can replace the live Gemini key with any string >=20 chars (breaking or hijacking the demo) and use diag.php to confirm configuration booleans and force outbound Google/HuggingFace requests. api/.demo_setup_done (2026-10-01) shows the endpoint has been run and is operational, not dead code.",
+  "root_cause": "The sole authentication factor for a state-changing maintenance endpoint is a secret that is both hard-coded in source and committed in plaintext in UPLOAD_TO_ROOT.txt; there is no per-deployment secret, no rotation, and no rate limit. The hash_equals gate is cryptographically correct but provides zero assurance once the token is public.",
+  "intended_behavior": "Maintenance/setup endpoints should be protected by a secret that is unique per deployment, stored outside the repo, and never accepted in URLs; writes to the live key store should require a rotated, out-of-band credential.",
+  "trace": [
+   {
+    "description": "Plaintext maintenance token committed to repo; sha256 verified == TOKEN_HASH constant",
+    "file": "UPLOAD_TO_ROOT.txt",
+    "kind": "entrypoint",
+    "line": 8,
+    "scope": "root-credential"
+   },
+   {
+    "description": "const TOKEN_HASH = '60a11e1f...' hard-coded",
+    "file": "api/setup_demo.php",
+    "kind": "entrypoint",
+    "line": 6,
+    "scope": "auth"
+   },
+   {
+    "description": "$token from HTTP_X_MAINTENANCE_TOKEN ?? POST['token'] ?? GET['token']",
+    "file": "api/setup_demo.php",
+    "kind": "entrypoint",
+    "line": 14,
+    "scope": "auth"
+   },
+   {
+    "description": "hash_equals(TOKEN_HASH, hash('sha256', $token)) - the only gate; passes for the committed token",
+    "file": "api/setup_demo.php",
+    "kind": "propagation",
+    "line": 15,
+    "scope": "auth"
+   },
+   {
+    "description": "Requires attacker-supplied key length >= 20, no other validation",
+    "file": "api/setup_demo.php",
+    "kind": "propagation",
+    "line": 19,
+    "scope": "input"
+   },
+   {
+    "description": "Writes api/demo_config.local.php via var_export with gemini_api_key = supplied key, chmod 0600",
+    "file": "api/setup_demo.php",
+    "kind": "sink",
+    "line": 40,
+    "scope": "filesystem-write"
+   },
+   {
+    "description": "demo_config.local.php overrides defaults['gemini_api_key'] via array_replace",
+    "file": "api/demo_config.php",
+    "kind": "propagation",
+    "line": 11,
+    "scope": "config-merge"
+   },
+   {
+    "description": "Same TOKEN_HASH constant gates diag.php",
+    "file": "api/diag.php",
+    "kind": "propagation",
+    "line": 6,
+    "scope": "auth"
+   },
+   {
+    "description": "With token, reflects gemini_key_present and performs outbound curl to Google + HuggingFace endpoints",
+    "file": "api/diag.php",
+    "kind": "sink",
+    "line": 53,
+    "scope": "outbound-request"
+   },
+   {
+    "description": "Run marker 2026-10-01T19:42:39Z shows the setup endpoint has been executed",
+    "file": "api/.demo_setup_done",
+    "kind": "propagation",
+    "line": 1,
+    "scope": "evidence"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "Computed sha256 of the plaintext token in UPLOAD_TO_ROOT.txt:8 equals the TOKEN_HASH constant; the credential is fully public in the repo",
+    "file": "UPLOAD_TO_ROOT.txt",
+    "line": 8
+   },
+   {
+    "description": "Verification: sha256('GF6_1W21Hc4khNPB53jz6n6UfX0ZUo94s0Diy_SDIEk') === '60a11e1fa3f8f0ddc9b4711cff115079450e4672b8a0f3c2c1435361f4bb67f7' === TOKEN_HASH in both files (computed locally, no target execution)",
+    "file": "api/setup_demo.php",
+    "line": 6
+   },
+   {
+    "description": "Write path: attacker-supplied key (len>=20) is written into demo_config.local.php which overrides the live gemini_api_key; no second secret is checked",
+    "file": "api/setup_demo.php",
+    "line": 40
+   },
+   {
+    "description": "Run marker shows the setup endpoint has actually been executed, so the file is operational rather than dead code",
+    "file": "api/.demo_setup_done",
+    "line": 1
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Any party able to read the repository knows the exact token value (plaintext in UPLOAD_TO_ROOT.txt:8), satisfying the only gate at setup_demo.php:15 and diag.php:38"
+   },
+   {
+    "kind": "data_state",
+    "description": "No rate limit or source-IP restriction exists on either endpoint"
+   },
+   {
+    "kind": "data_state",
+    "description": "The endpoint must be reachable on the host for remote exploitation (see blockers)"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Remove UPLOAD_TO_ROOT.txt and rotate the maintenance token; replace the static TOKEN_HASH with a deployment-time secret read from outside webroot (env or 0600 file) that is never committed. Stop accepting the token via $_GET (log leak). Add per-IP/per-token rate limiting and audit logging. Confirm setup_demo.php/diag.php are removed from the live host or gated behind a server-level allowlist."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "high",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "high",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "high"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "root.authz.live_session.no-ratelimit",
+  "title": "Unauthenticated ephemeral-token mint with no rate limit (Gemini quota abuse / availability)",
+  "description": "api/live_session.php is POST-only with no authentication, no CSRF, and no rate limiting of any kind. It consumes the server's Gemini API key to mint a single-use ephemeral token and returns the full system instruction. Because the endpoint is intentionally open for the public demo, the missing throttling means any anonymous client can mint unlimited tokens and drive owner-billed Gemini Live usage, and can repeatedly retrieve the server-built system_instruction (knowledge base + model behavior), enabling reconnaissance of the demo's prompt and KB.",
+  "root_cause": "The endpoint trusts the open internet as the principal and performs no per-IP, per-session, or global rate limiting or abuse accounting before spending the owner's Gemini quota.",
+  "intended_behavior": "An unauthenticated demo endpoint may stay open, but should enforce a sane rate limit / token-bucket and basic abuse detection so a single client cannot exhaust the Gemini quota or harvest the system instruction at scale.",
+  "trace": [
+   {
+    "description": "POST-only, no auth check, json_out 405 otherwise",
+    "file": "api/live_session.php",
+    "kind": "entrypoint",
+    "line": 7,
+    "scope": "endpoint"
+   },
+   {
+    "description": "Only gate is gemini_api_key non-empty - no throttle, quota, or client accounting",
+    "file": "api/live_session.php",
+    "kind": "propagation",
+    "line": 17,
+    "scope": "gate"
+   },
+   {
+    "description": "curl to generativelanguage.googleapis.com/v1beta/auth_tokens with $config['gemini_api_key'] using a single-use ephemeral token",
+    "file": "api/live_session.php",
+    "kind": "sink",
+    "line": 126,
+    "scope": "outbound-request"
+   },
+   {
+    "description": "Returns token + system_instruction to the unauthenticated caller",
+    "file": "api/live_session.php",
+    "kind": "sink",
+    "line": 169,
+    "scope": "response"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "No throttle, quota, token-bucket, or per-client accounting code exists in live_session.php or its includes; the only gate is 'key configured'",
+    "file": "api/live_session.php",
+    "line": 17
+   },
+   {
+    "description": "Call path: the unauthenticated browser client mints sessions via this endpoint",
+    "file": "assets/app.js",
+    "line": 534
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Endpoint must be reachable (it is the client app's call path at assets/app.js:534)"
+   },
+   {
+    "kind": "data_state",
+    "description": "Any client can POST {mode:'demo'} or {mode:'outbound',mission:...} repeatedly with no throttle"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Add IP/session rate limiting (e.g. a small token bucket) and an upper bound on tokens minted per interval; consider a lightweight proof-of-work or signed client nonce. Keep the endpoint open but accountable."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "low",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "low"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "needs_validation",
+  "fingerprint": "root.authz.omnira_tester.header-only-gate",
+  "title": "omnira_api_tester.php gated only by a spoofable X-Requested-With header; fixed-destination key relay left in root",
+  "description": "omnira_api_tester.php is a root-level PHP diagnostic that, on POST, requires only the header X-Requested-With: OmniraTester (omnira_api_tester.php:51) and then forwards a user-supplied api_key + prompt to the fixed origin ai.omnira-ai.net (OMNIRA_ORIGIN:9). The X-Requested-With header is trivially set by any browser/fetch caller (the bundled JS sets it at omnira_api_tester.php:205), so there is effectively no authentication. The file header itself says to delete it from public hosting once finished (line 5). The destination is fixed, so this is not SSRF, but it is an open relay for an attacker's (or a victim's) Omnira key and arbitrary prompts, and a residual deployment-hygiene risk if the file remains on the host.",
+  "claimed_root_cause": "Authorization depends on a client-controlled request header that any caller can emit, with no server-side secret; the file is a developer tool that should not persist on a shared public host.",
+  "trace": [
+   {
+    "description": "POST method branch",
+    "file": "omnira_api_tester.php",
+    "kind": "entrypoint",
+    "line": 49,
+    "scope": "endpoint"
+   },
+   {
+    "description": "Only gate: HTTP_X_REQUESTED_WITH !== 'OmniraTester' -> error; header is client-controlled",
+    "file": "omnira_api_tester.php",
+    "kind": "propagation",
+    "line": 51,
+    "scope": "auth"
+   },
+   {
+    "description": "Reads user-supplied api_key, prompt, model, auth from POST",
+    "file": "omnira_api_tester.php",
+    "kind": "propagation",
+    "line": 52,
+    "scope": "input"
+   },
+   {
+    "description": "curl to OMNIRA_ORIGIN /api/v1/messages|/models with the supplied key (fixed destination, no arbitrary SSRF)",
+    "file": "omnira_api_tester.php",
+    "kind": "sink",
+    "line": 80,
+    "scope": "outbound-request"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "The only access control is the client-controlled X-Requested-With header check; no server-side secret is verified",
+    "file": "omnira_api_tester.php",
+    "line": 51
+   },
+   {
+    "description": "OMNIRA_ORIGIN is a single hard-coded host (fixed destination), so no arbitrary-URL SSRF is possible, but the relay itself is unauthenticated",
+    "file": "omnira_api_tester.php",
+    "line": 9
+   }
+  ],
+  "blockers": [
+   "needs_validation: confirm whether omnira_api_tester.php is present under public_html on app.ontrackegy.com (source-only cannot assert deployment state)"
+  ],
+  "validation_plan": {
+   "local": "Bounded local fixture inside an OS-enforced sandbox (not available on this host)",
+   "deployment": "Owner-observed check of the live configuration/route without sending audit traffic"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "manifest:exported:merge:upstream-not-in-repo",
+  "title": "Final AndroidManifest.xml (exported-component closure) is not source-verifiable; it is generated by prepare.py merging upstream JemRec",
+  "description": "prepare.py programmatically edits the upstream manifest: it removes the BIND_NOTIFICATION_LISTENER_SERVICE, sets android:exported=\"false\" on MobileLinkService, ProofActivity, NativeInstallResultReceiver and the FileProvider, and adds MobileLinkActivity as the only LAUNCHER activity. It does NOT set android:exported on the upstream .MainActivity (it only strips the LAUNCHER category) and does not enumerate or constrain other upstream <activity>/<service>/<receiver>/<provider> that the pinned JemRec commit f011062a may declare. The final merged manifest that the OS uses to decide component reachability is produced by the Gradle manifest merger at build time and is absent from this checkout, so the actual exported-component attack surface cannot be confirmed from source.",
+  "trace": [
+   {
+    "description": "prepare.py opens the upstream app/src/main/AndroidManifest.xml and makes programmatic edits; no final manifest is checked into the repo.",
+    "file": "saas/mobile/audio-proof/prepare.py",
+    "kind": "entrypoint",
+    "line": 212,
+    "scope": "saas/mobile/audio-proof"
+   },
+   {
+    "description": "LAUNCHER intent-filter is removed from .MainActivity but its android:exported attribute is left to upstream defaults; upstream components are not enumerated or constrained.",
+    "file": "saas/mobile/audio-proof/prepare.py",
+    "kind": "propagation",
+    "line": 224,
+    "scope": "saas/mobile/audio-proof"
+   },
+   {
+    "description": "exported=false is only set on the newly added receiver/provider/ProofActivity/MobileLinkService; the final OS-visible merged manifest is produced at build time by the upstream Gradle merger and cannot be inspected from this checkout.",
+    "file": "saas/mobile/audio-proof/prepare.py",
+    "kind": "sink",
+    "line": 260,
+    "scope": "saas/mobile/audio-proof"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "prepare.py:224-228 removes the LAUNCHER intent-filter from .MainActivity but leaves its exported attribute unset.",
+    "file": "saas/mobile/audio-proof/prepare.py",
+    "line": 224
+   },
+   {
+    "description": "prepare.py:245-260 sets exported=false on NativeInstallResultReceiver, FileProvider, ProofActivity and MobileLinkService only.",
+    "file": "saas/mobile/audio-proof/prepare.py",
+    "line": 245
+   },
+   {
+    "description": "Pinned upstream is jemcik/JemRec commit f011062adfb3a2154c4d5a9cc4394032fb4345f2; its manifest content is outside this checkout.",
+    "file": "saas/mobile/audio-proof/UPSTREAM.lock.json",
+    "line": 1
+   }
+  ],
+  "root_cause": "The merged manifest is not in the repo; prepare.py only partially constrains exported attributes and leaves the upstream component set to the merger's defaults.",
+  "intended_behavior": "Only an authorized principal may perform this action on its own scope of resources",
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Requires the built/merged manifest from the pinned upstream commit."
+   },
+   {
+    "kind": "data_state",
+    "description": "Any upstream component left exported with an intent-filter would be invokable by other apps on the device."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Declare android:exported=\"false\" explicitly on every component in the final merged manifest (or add manifest-merger rules / a Gradle task), and fail the build in CI (apkanalyzer manifest print + tools/check_mobile_manifest.py) on any unexpected exported component."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "needs_validation",
+  "fingerprint": "adb:5555:wifi-free:local-bridge:upstream-not-in-repo",
+  "title": "Privileged local ADB/shell/PCM bridge and ADB-over-WiFi (port 5555) exposure details are unverifiable; the controlling classes live in upstream JemRec outside the checkout",
+  "description": "The SIM audio proof depends on a local authenticated shell/ADB socket (CaptureDaemon.livePcm / CaptureDaemon.linkControl 'B'/'J' protocol for answer/hangup/speaker/mute, and shell Main.java) and an opt-in \"WiFi-free\" mode (StartWithoutWifi, NetworkRevive) that opens ADB on port 5555 via wireless debugging. The Kotlin classes com.ontrack.voiceproof.capture.* (CaptureDaemon, StartWithoutWifi, NetworkRevive, AnsweringMachine, RecorderSwitch, GreetingPlayer) and the shell Main.java are NOT present in this checkout; only prepare.py's injected snippets are observable. The bind address (loopback vs all interfaces), authentication of the local socket, and whether wifiFree exposes the debug port to the mobile-data network are not source-visible.",
+  "claimed_root_cause": "Local privilege/socket helper code is upstream and absent from the checkout; prepare.py patches these classes but the full implementation and bind/auth behavior are not observable.",
+  "trace": [
+   {
+    "description": "setWifiFreeMode(enabled) calls StartWithoutWifi.setEnabled and CaptureDaemon.revive — both upstream classes absent from the checkout.",
+    "file": "saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkActivity.kt",
+    "kind": "entrypoint",
+    "line": 413,
+    "scope": "saas/mobile/audio-proof"
+   },
+   {
+    "description": "CaptureDaemon.livePcm(context, screening) opens the authenticated local socket carrying live PCM; implementation is upstream.",
+    "file": "saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLiveCall.kt",
+    "kind": "propagation",
+    "line": 48,
+    "scope": "saas/mobile/audio-proof"
+   },
+   {
+    "description": "CaptureDaemon.linkControl(this,'S')/'A' issues speaker-toggle and auto-answer commands over the local shell socket; the socket's peer-auth and bind behavior are not observable here.",
+    "file": "saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkService.kt",
+    "kind": "sink",
+    "line": 174,
+    "scope": "saas/mobile/audio-proof"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "prepare.py:64-101 injects the 'B' live-PCM and 'J' link-control handlers into upstream Main.java/Shell and CaptureDaemon; the classes themselves are not in the repo.",
+    "file": "saas/mobile/audio-proof/prepare.py",
+    "line": 64
+   },
+   {
+    "description": "LivePcm.java is the shell-side PCM loop only; the manager (CaptureDaemon/StartWithoutWifi/NetworkRevive) that binds and authenticates the socket is upstream.",
+    "file": "saas/mobile/audio-proof/overlay/shellserver/src/com/jemcik/jemrec/shell/LivePcm.java",
+    "line": 18
+   },
+   {
+    "description": "WiFi-free enable path: feature.setEnabled(true) + CaptureDaemon.revive(request=USER) with banner warning that ADB opens on 5555.",
+    "file": "saas/mobile/audio-proof/overlay/app/src/main/java/com/ontrack/voiceproof/MobileLinkActivity.kt",
+    "line": 413
+   }
+  ],
+  "blockers": [
+   "Upstream local-bridge classes not in checkout; cannot confirm bind address or auth from source."
+  ],
+  "validation_plan": {
+   "local": "Bounded local fixture inside an OS-enforced sandbox (not available on this host)",
+   "deployment": "Owner-observed check of the live configuration/route without sending audit traffic"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "hostlink.worker.tick.unhandled_job_error.persistent_control_plane_outage",
+  "title": "Unhandled job validation/processing errors crash the worker every Cron minute (deployment control-plane DoS)",
+  "description": "tick() fetches the single job file from the branch, runs validation/execution, and PUTs a result. But the only processing error handled gracefully is the 'Expired job' case (worker.py:225-236, which writes a terminal receipt and returns). Every other error path propagates uncaught: validate_job() raises ValueError for wrong target / bad schema / non-list argv / out-of-range timeout / missing created_at|expires_at (worker.py:97-130); the id-reuse check raises ValueError (worker.py:218-221); subprocess.Popen can raise OSError (argv exceeding OS ARG_MAX, since per-element size is unbounded beyond the count<=100 check at worker.py:120); json parsing/KeyError on malformed content. All of these bubble up through tick() to main()'s broad except Exception (worker.py:273-279), which prints a generic message and calls sys.exit(1). Because the worker NEVER modifies or removes the branch job file, the same poison job is re-fetched on the next Cron minute and re-raises forever. The graceful recovery pattern that exists for active/crash-resume (worker.py:199-208) and for expiry (worker.py:225-236) is NOT applied to upstream validation/processing failures, an internal inconsistency. A single malformed/oversized job on the branch (from a publisher bug, a re-run, or an actor with branch Contents write) halts the entire host-link control plane indefinitely; recovery requires manual branch intervention, which the operator guidance tells the owner not to perform.",
+  "root_cause": "Per-job error handling in tick() only special-cases the 'Expired job' ValueError; all other ValueError/KeyError/OSError from validate_job/run_exec/JSON are allowed to escape to main()'s fatal except, and the poison job file is never cleared, so the failure repeats every minute.",
+  "intended_behavior": "Any job that fails validation or raises during processing should yield a terminal rejected/failed receipt (as expiry does at worker.py:230-235) and tick() should return, keeping the worker alive for the next minute when the job may have been replaced. The crash-resume path (worker.py:199-208) and expiry path already demonstrate the correct shape.",
+  "trace": [
+   {
+    "description": "tick() fetches the single job file (contents/<target>.json) from the ontrack-host-link branch via api.get. The queue file is fetched from the shared GitHub branch every Cron minute; the worker never writes back to it, so a poison job persists.",
+    "file": "ops/host-link/worker.py",
+    "kind": "entrypoint",
+    "line": 209,
+    "scope": "tick() queue fetch"
+   },
+   {
+    "description": "job_id in state['completed'] with a different digest raises ValueError('Job id reused with different contents') unconditionally — no receipt is written.",
+    "file": "ops/host-link/worker.py",
+    "kind": "propagation",
+    "line": 218,
+    "scope": "id-reuse guard"
+   },
+   {
+    "description": "except ValueError only converts the exact string 'Expired job or incorrect clock' into a receipt; all other ValueErrors (and KeyError/OSError) re-raise to main().",
+    "file": "ops/host-link/worker.py",
+    "kind": "propagation",
+    "line": 225,
+    "scope": "validate_job try/except"
+   },
+   {
+    "description": "Raises ValueError for wrong schema/target/id, bad argv, cwd outside account home, timeout out of 1..30 range, tz-less or invalid timestamps.",
+    "file": "ops/host-link/worker.py",
+    "kind": "propagation",
+    "line": 97,
+    "scope": "validate_job()"
+   },
+   {
+    "description": "subprocess.Popen(job['argv']) can raise OSError for argv exceeding OS ARG_MAX; argv element size is not bounded by validate_job.",
+    "file": "ops/host-link/worker.py",
+    "kind": "propagation",
+    "line": 133,
+    "scope": "run_exec()"
+   },
+   {
+    "description": "except Exception prints a generic message to stderr and calls sys.exit(1); next Cron minute re-fetches the same branch job and repeats the crash.",
+    "file": "ops/host-link/worker.py",
+    "kind": "sink",
+    "line": 279,
+    "scope": "main() fatal handler"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "except ValueError as exc: if str(exc) != 'Expired job or incorrect clock': raise — only expiry is converted to a terminal receipt; all other validation failures re-raise.",
+    "file": "ops/host-link/worker.py",
+    "line": 229
+   },
+   {
+    "description": "raise ValueError('Job id reused with different contents') — unconditional raise, no receipt, no recovery.",
+    "file": "ops/host-link/worker.py",
+    "line": 218
+   },
+   {
+    "description": "print('Host Link: ' + type(exc).__name__ ...); sys.exit(1) — the fatal handler that ends the tick for every uncaught error.",
+    "file": "ops/host-link/worker.py",
+    "line": 279
+   },
+   {
+    "description": "len(content) > 16384 raise ValueError('Job too large') — also uncaught at tick level (re-raised).",
+    "file": "ops/host-link/worker.py",
+    "line": 213
+   },
+   {
+    "description": "test_invalid_jobs_rejected asserts validate_job raises for bad jobs — tests validation, not tick() recovery; no test asserts tick() survives a poison job without process exit.",
+    "file": "ops/host-link/tests/test_worker.py",
+    "line": 110
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "(a) A job on the branch whose validation fails on the worker side but was not caught by the publisher's local guards (e.g., argv element exceeding ARG_MAX, or a timestamp field missing/malformed)."
+   },
+   {
+    "kind": "data_state",
+    "description": "(b) A job id reused with different content."
+   },
+   {
+    "kind": "data_state",
+    "description": "(c) An actor with GitHub Contents write to the ontrack-host-link branch publishes a malformed job — this actor already has exec capability via the queue but gains a deployment-pipeline DoS that blocks the owner's legitimate releases."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "In tick(), wrap validate_job(), the id-reuse check and run_exec() in a single try/except that, on ANY exception, writes a terminal rejected/failed receipt (job_id, target, job_sha256, status, error string, finished_at) to the branch and returns, mirroring worker.py:225-236. Do not re-raise to main(). Optionally cap individual argv element size in validate_job (e.g., <= 128 KiB) to convert the ARG_MAX OSError into a clean validation rejection. Add a regression test asserting tick() survives a malformed job without exiting the process."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "needs_validation",
+  "fingerprint": "hostlink.worker.double_exec.two_instances.no_shared_lease",
+  "title": "No cross-instance lease: two installed workers execute the same single job twice",
+  "description": "Serialization relies on a local fcntl lock at worker.py:264-269 (home / 'worker.lock', where home is the install dir ~/ontrack-voice-link) and a local completion ledger at worker.py:197 (state.json). The job is fetched from, and the result is PUT to, a SHARED branch. If two worker instances run concurrently (e.g., during host migration, a leftover crontab from a previous install, or two homedirs), each holds its own lock file and its own state.json, so neither sees the other's completed set. Both fetch the same single job, both pass validation, both call run_exec() -> the arbitrary command runs twice. The run_exec kill/timeout and the SHA-256 result binding do not prevent the second execution because the second worker started from a clean state.json.",
+  "claimed_root_cause": "Concurrency control is per-install (local lock + local state.json) while the job queue and results are shared on a GitHub branch; there is no global lease tying a job to one executing worker.",
+  "trace": [
+   {
+    "description": "fcntl.flock on home/'worker.lock', scoped to each install directory — no cross-instance mutual exclusion.",
+    "file": "ops/host-link/worker.py",
+    "kind": "entrypoint",
+    "line": 264,
+    "scope": "main() local lock"
+   },
+   {
+    "description": "statefile = home/'state.json' — the 'completed' idempotency set is per-install, not per-branch.",
+    "file": "ops/host-link/worker.py",
+    "kind": "propagation",
+    "line": 197,
+    "scope": "local completion ledger"
+   },
+   {
+    "description": "api.get(contents/<target>.json) fetches the same single job from the shared branch for every instance.",
+    "file": "ops/host-link/worker.py",
+    "kind": "propagation",
+    "line": 209,
+    "scope": "shared fetch"
+   },
+   {
+    "description": "Both instances pass validate_job and call run_exec()/probe() on the same job; results are PUT to the shared branch last-writer-wins.",
+    "file": "ops/host-link/worker.py",
+    "kind": "sink",
+    "line": 242,
+    "scope": "double execution"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "fd = os.open(str(home / 'worker.lock'), os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600) — lock file is install-local (home = Path(__file__).resolve().parent).",
+    "file": "ops/host-link/worker.py",
+    "line": 264
+   },
+   {
+    "description": "state = json.loads(statefile.read_text()) if statefile.exists() else {'completed': {}, 'active': None} — completed set is per-install.",
+    "file": "ops/host-link/worker.py",
+    "line": 197
+   },
+   {
+    "description": "response = api.get(PREFIX + '/jobs/' + cfg['target'] + '.json') — job source is the shared branch; install.py pins the same target appontrack-server11.",
+    "file": "ops/host-link/worker.py",
+    "line": 209
+   },
+   {
+    "description": "'قفل محلي يمنع تداخل تشغيل Cron' — the README documents a local lock only and declares single-operator serialization without cross-instance enforcement.",
+    "file": "ops/host-link/README_AR.md",
+    "line": 46
+   }
+  ],
+  "blockers": [
+   "Deployment topology: confirm only ONE worker install/crontab exists on the appontrack account (single operator, single host). This is outside the repository and cannot be asserted from source."
+  ],
+  "validation_plan": {
+   "local": "Bounded local fixture inside an OS-enforced sandbox (not available on this host)",
+   "deployment": "Owner-observed check of the live configuration/route without sending audit traffic"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "upload_to_root.plaintext.maintenance.token",
+  "title": "Committed plaintext maintenance token equals static auth for diag/setup_demo",
+  "description": "UPLOAD_TO_ROOT.txt:8 commits the plaintext maintenance token. Its SHA-256 (compute locally) is 60a11e1fa3f8f0ddc9b4711cff115079450e4672b8a0f3c2c1435361f4bb67f7, which exactly matches the constant TOKEN_HASH hardcoded in api/diag.php:6 and api/setup_demo.php:6. Both endpoints accept this token via header X-Maintenance-Token or query/post and pass hash_equals(TOKEN_HASH, hash('sha256',$token)). Because the secret is committed in the repository, any reader of the repo holds the valid credential for two server-side maintenance actions; the static shared secret is a broken authentication boundary for anyone with repository access.",
+  "root_cause": "A static shared secret is hardcoded in source and additionally committed in plaintext in UPLOAD_TO_ROOT.txt, so the authentication control is meaningless against anyone with repository access.",
+  "intended_behavior": "Maintenance endpoints should be gated by a strong, non-committed secret kept outside the repository (env/secret store), rotated, and removed from source history.",
+  "trace": [
+   {
+    "description": "Plaintext maintenance token committed at repo root; captured as the shared secret for two server endpoints",
+    "file": "UPLOAD_TO_ROOT.txt",
+    "kind": "entrypoint",
+    "line": 8,
+    "scope": "repo root"
+   },
+   {
+    "description": "Token accepted via X-Maintenance-Token header or token query param, then hash_equals versus hardcoded hash",
+    "file": "api/diag.php",
+    "kind": "propagation",
+    "line": 37,
+    "scope": "api/diag.php"
+   },
+   {
+    "description": "Token accepted via header/query/post, then hash_equals versus the same hardcoded hash",
+    "file": "api/setup_demo.php",
+    "kind": "propagation",
+    "line": 14,
+    "scope": "api/setup_demo.php"
+   },
+   {
+    "description": "Authorized branch reached with a secret that is public in the repository (UPLOAD_TO_ROOT.txt:8)",
+    "file": "api/setup_demo.php",
+    "kind": "sink",
+    "line": 40,
+    "scope": "api/setup_demo.php"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "UPLOAD_TO_ROOT.txt:8 commits the plaintext maintenance token used as the shared secret",
+    "file": "UPLOAD_TO_ROOT.txt",
+    "line": 8
+   },
+   {
+    "description": "TOKEN_HASH constant hardcoded in diagnostics endpoint (SHA-256 of the committed token)",
+    "file": "api/diag.php",
+    "line": 6
+   },
+   {
+    "description": "Same TOKEN_HASH constant hardcoded in config-write endpoint",
+    "file": "api/setup_demo.php",
+    "line": 6
+   },
+   {
+    "description": "Gate: token read from header or query and compared with hash_equals",
+    "file": "api/diag.php",
+    "line": 37
+   },
+   {
+    "description": "Gate: token read from header/post/query and compared with hash_equals",
+    "file": "api/setup_demo.php",
+    "line": 14
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Repo is cloned/shared beyond the operator, or UPLOAD_TO_ROOT.txt was ever distributed"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Purge the token from UPLOAD_TO_ROOT.txt and repo history; replace TOKEN_HASH with a value sourced from an out-of-repo secret store; rotate the token; add a deploy-time check that the diagnostic endpoints require a non-committed token."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "high",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "high",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "high"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "api.setup_demo.static.token.writes.gemini.key",
+  "title": "Static-token-gated endpoint overwrites server Gemini key and model config",
+  "description": "/api/setup_demo.php is gated only by the static committed token (setup_demo.php:14-17). Once admitted it reads 'key' from the request (min 20 chars), builds a config array including gemini_api_key = $key plus model/TTL fields, and writes it to __DIR__.'/demo_config.local.php' via var_export + file_put_contents, then chmod 0600 (setup_demo.php:19-47). demo_config.local.php is loaded by api/demo_config.php:9-13 and merged into $config used by api/live_session.php:17 to mint Gemini tokens. A caller holding the committed token can therefore set the server's Gemini key and model behavior remotely.",
+  "root_cause": "The same static committed secret gates a write to server config containing the Gemini API key; the endpoint is reachable over HTTP POST with the token in header/body/query.",
+  "intended_behavior": "Writing production secrets should require an out-of-band, non-committed credential and ideally be disabled in favor of environment/secret-store configuration.",
+  "trace": [
+   {
+    "description": "POST/GET token accepted and compared against static TOKEN_HASH",
+    "file": "api/setup_demo.php",
+    "kind": "entrypoint",
+    "line": 14,
+    "scope": "api/setup_demo.php"
+   },
+   {
+    "description": "gemini_api_key taken from request and merged into config array",
+    "file": "api/setup_demo.php",
+    "kind": "propagation",
+    "line": 19,
+    "scope": "api/setup_demo.php"
+   },
+   {
+    "description": "Config serialized with var_export",
+    "file": "api/setup_demo.php",
+    "kind": "propagation",
+    "line": 40,
+    "scope": "api/setup_demo.php"
+   },
+   {
+    "description": "file_put_contents writes demo_config.local.php in the webroot; later loaded by api/demo_config.php:9-13",
+    "file": "api/setup_demo.php",
+    "kind": "sink",
+    "line": 43,
+    "scope": "api/setup_demo.php"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "Token gate via static TOKEN_HASH",
+    "file": "api/setup_demo.php",
+    "line": 14
+   },
+   {
+    "description": "Attacker-supplied key read and length-validated",
+    "file": "api/setup_demo.php",
+    "line": 19
+   },
+   {
+    "description": "Config array built with gemini_api_key and model/tts fields",
+    "file": "api/setup_demo.php",
+    "line": 24
+   },
+   {
+    "description": "Config written to demo_config.local.php inside webroot, chmod 0600",
+    "file": "api/setup_demo.php",
+    "line": 43
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Endpoint deployed and reachable"
+   },
+   {
+    "kind": "data_state",
+    "description": "Static committed token known (committed in repo)"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Remove setup_demo.php from the deployable surface or require a distinct, un-committed admin secret; prefer secret-store/env injection for gemini_api_key; add server-side IP/allowlist and audit logging."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "high",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "high",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "high"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "api.diag.static.token.proxy.fetch.reflect",
+  "title": "Static-token-gated diagnostics proxy outbound requests and reflects responses",
+  "description": "/api/diag.php is gated only by the static committed token (diag.php:37-38). Once admitted it performs outbound curl requests to Google Gemini (diag.php:53-102, using the server Gemini key) and to three HuggingFace endpoints (diag.php:104-133), and returns status codes, content types, and body previews (up to 500/250 chars) to the caller. It is effectively an authenticated-ish outbound request/reflect tool: fixed destinations (so not a general SSRF), but an egress probe and a server-key validity oracle driven entirely by a repo-committed token.",
+  "root_cause": "A static committed token gates an outbound fetch-and-reflect routine with fixed external destinations and response echoing.",
+  "intended_behavior": "Diagnostics should be operator-only, gated by a strong un-committed secret, and should not reflect third-party responses to untrusted callers.",
+  "trace": [
+   {
+    "description": "Token accepted from header or query and compared against static TOKEN_HASH",
+    "file": "api/diag.php",
+    "kind": "entrypoint",
+    "line": 37,
+    "scope": "api/diag.php"
+   },
+   {
+    "description": "Curl proxy to Gemini with server key; response text truncated and stored",
+    "file": "api/diag.php",
+    "kind": "propagation",
+    "line": 63,
+    "scope": "api/diag.php"
+   },
+   {
+    "description": "Curl GETs to HuggingFace targets with body previews",
+    "file": "api/diag.php",
+    "kind": "propagation",
+    "line": 110,
+    "scope": "api/diag.php"
+   },
+   {
+    "description": "Status, content type, and body previews reflected in the HTTP response",
+    "file": "api/diag.php",
+    "kind": "sink",
+    "line": 135,
+    "scope": "api/diag.php"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "Token gate via static TOKEN_HASH",
+    "file": "api/diag.php",
+    "line": 37
+   },
+   {
+    "description": "Gemini interaction POST carrying the server Gemini key header",
+    "file": "api/diag.php",
+    "line": 63
+   },
+   {
+    "description": "HuggingFace GETs with body previews reflected",
+    "file": "api/diag.php",
+    "line": 110
+   },
+   {
+    "description": "Response fields (http, content_type, response preview) returned to caller",
+    "file": "api/diag.php",
+    "line": 96
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Endpoint deployed and reachable"
+   },
+   {
+    "kind": "data_state",
+    "description": "Static committed token known"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Remove or rotate the token, gate by an un-committed secret, restrict to operator network, and minimize reflected content."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "omnira.api.tester.x_requested_with.proxy",
+  "title": "Leftover operator proxy file relays third-party API with weak header gate",
+  "description": "omnira_api_tester.php is an operator diagnostic utility whose own header comment (line 5) says 'DELETE THIS FILE from public hosting once finished.' It is gated only by the custom request header X-Requested-With: OmniraTester (line 51), which is a browser/ajax convention, not an authentication control and is trivially set by any client. On POST it forwards a user-supplied api_key and prompt to https://ai.omnira-ai.net/api/v1/messages (or /models) and reflects up to 300000 bytes of upstream response (lines 49-161), with partially redacted output. If deployed, this is an open-ish relay for third-party API keys (cost burn, key exposure to the host, response reflection).",
+  "trace": [
+   {
+    "description": "POST accepted with only X-Requested-With: OmniraTester gate",
+    "file": "omnira_api_tester.php",
+    "kind": "entrypoint",
+    "line": 51,
+    "scope": "omnira_api_tester.php"
+   },
+   {
+    "description": "api_key, model, and prompt taken from request and validated only for length/format",
+    "file": "omnira_api_tester.php",
+    "kind": "propagation",
+    "line": 52,
+    "scope": "omnira_api_tester.php"
+   },
+   {
+    "description": "cURL relay to https://ai.omnira-ai.net with the user key",
+    "file": "omnira_api_tester.php",
+    "kind": "propagation",
+    "line": 109,
+    "scope": "omnira_api_tester.php"
+   },
+   {
+    "description": "Upstream response reflected to the caller",
+    "file": "omnira_api_tester.php",
+    "kind": "sink",
+    "line": 143,
+    "scope": "omnira_api_tester.php"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "Header comment: DELETE THIS FILE from public hosting once finished",
+    "file": "omnira_api_tester.php",
+    "line": 5
+   },
+   {
+    "description": "Only gate is a convention header X-Requested-With",
+    "file": "omnira_api_tester.php",
+    "line": 51
+   },
+   {
+    "description": "User-supplied key sent to fixed third-party origin",
+    "file": "omnira_api_tester.php",
+    "line": 80
+   },
+   {
+    "description": "Response reflected to caller (raw preview up to 25KB)",
+    "file": "omnira_api_tester.php",
+    "line": 156
+   }
+  ],
+  "root_cause": "Leftover experimental/debug file with a non-authenticating header gate that proxies external API calls and reflects responses; protected only by a convention header.",
+  "intended_behavior": "Only an authorized principal may perform this action on its own scope of resources",
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "File must actually be present in the deployed public_html for exploitability; source-only cannot confirm deployment"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Ensure the file is excluded from deploy artifacts (it sits at repo root, not under saas/); if a diagnostic is required, gate by strong auth, restrict the destination, cap reflection, and remove after use."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "api.live_session.unauthenticated.no.ratelimit",
+  "title": "Unauthenticated Gemini ephemeral-token mint with no rate limit",
+  "description": "api/live_session.php mints a Google Gemini Live ephemeral token with NO authentication and NO rate limiting (live_session.php:7-19). It parses the POST body, checks only that gemini_api_key is configured, then calls generativelanguage.googleapis.com/v1beta/auth_tokens with the server key and returns the token plus the built system instruction (live_session.php:116-177). Anyone can spend the operator's Gemini quota/credit by repeatedly POSTing, and each mint carries an 8KB mission string plus KB into the model context.",
+  "root_cause": "Unauthenticated endpoint with no throttle before an expensive third-party credentialed call.",
+  "intended_behavior": "The call desk is a public demo; minting is intended to be open, but should be rate-limited and ideally origin/IP-throttled to prevent cost abuse.",
+  "trace": [
+   {
+    "description": "Anonymous POST body accepted; no auth check",
+    "file": "api/live_session.php",
+    "kind": "entrypoint",
+    "line": 11,
+    "scope": "api/live_session.php"
+   },
+   {
+    "description": "Mission text (brief or structured) normalized and folded into the system instruction",
+    "file": "lib/OutboundMission.php",
+    "kind": "propagation",
+    "line": 5,
+    "scope": "lib/OutboundMission.php"
+   },
+   {
+    "description": "Server Gemini key sent to Google auth_tokens",
+    "file": "api/live_session.php",
+    "kind": "propagation",
+    "line": 135,
+    "scope": "api/live_session.php"
+   },
+   {
+    "description": "Ephemeral token returned to the anonymous caller",
+    "file": "api/live_session.php",
+    "kind": "sink",
+    "line": 169,
+    "scope": "api/live_session.php"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "POST-only check; no authentication or identity layer",
+    "file": "api/live_session.php",
+    "line": 7
+   },
+   {
+    "description": "Only config gate: gemini_api_key must be non-empty",
+    "file": "api/live_session.php",
+    "line": 17
+   },
+   {
+    "description": "Server key sent to Google auth_tokens endpoint",
+    "file": "api/live_session.php",
+    "line": 135
+   },
+   {
+    "description": "Ephemeral token returned to the anonymous caller",
+    "file": "api/live_session.php",
+    "line": 169
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Endpoint reachable and Gemini key configured; holds in any deployment of the current code"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Add rate limiting (per-IP/token bucket), consider an origin check and a cap on concurrent tokens; keep the sanitizer but treat mission text as untrusted."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "api.status.test.info.disclosure",
+  "title": "Unauthenticated status and env-probe debug pages disclose configuration",
+  "description": "Two unauthenticated debug/info surfaces: api/status.php returns gemini_configured boolean, version, and a long list of feature flags (status.php:4-37); test.php renders a full environment probe page (PHP version, cURL, knowledge readability, HTTPS, endpoint existence) to any visitor (test.php:1-17). version.json is also world-readable. These disclose configuration state and internal feature/capability names to unauthenticated users.",
+  "root_cause": "Debug/probe pages left reachable without authentication.",
+  "intended_behavior": "Status can be public for health checks, but test.php is a debug page that should be removed or access-controlled; feature-flag enumeration should not be public.",
+  "trace": [
+   {
+    "description": "Probe reads config and performs environment checks",
+    "file": "test.php",
+    "kind": "entrypoint",
+    "line": 2,
+    "scope": "test.php"
+   },
+   {
+    "description": "Checks rendered into HTML for any visitor",
+    "file": "test.php",
+    "kind": "propagation",
+    "line": 11,
+    "scope": "test.php"
+   },
+   {
+    "description": "JSON output of status flags sent to anonymous caller",
+    "file": "api/status.php",
+    "kind": "sink",
+    "line": 4,
+    "scope": "api/status.php"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "Unauthenticated JSON with gemini_configured + feature flags",
+    "file": "api/status.php",
+    "line": 4
+   },
+   {
+    "description": "Unauthenticated environment probe page",
+    "file": "test.php",
+    "line": 2
+   },
+   {
+    "description": "Probe output rendered to any visitor",
+    "file": "test.php",
+    "line": 11
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Files present in the deployed webroot (they are at repo root and part of the demo deployment)"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Remove test.php from deploy; restrict api/status.php to health-only (drop feature-flag enumeration) or gate it; keep version.json minimal."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "low",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "low"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "needs_validation",
+  "fingerprint": "mobile.single.shared.key.trust.root",
+  "title": "Single shared device key is sole mobile trust root; git-tracked digest, no per-tenant isolation",
+  "description": "saas/mobile/server/common.php defines mobile_authorized() which compares SHA-256 of the supplied key to the contents of auth.sha256 (common.php:10-14). The same shared key is the sole auth for every device endpoint (mobile_require_device, common.php:15-20) and is also the admin login key (saas/mobile/server/index.php:9-13). auth.sha256 is git-tracked in this checkout; the deployment must replace it with a strong random value. A single shared secret is the entire mobile trust root with no per-device or per-tenant isolation (single-device pilot).",
+  "claimed_root_cause": "A single shared key is the only mobile authN; the git-tracked digest may be the deployed secret, collapsing the boundary.",
+  "trace": [
+   {
+    "description": "auth.sha256 digest read from repo-tracked file",
+    "file": "saas/mobile/server/common.php",
+    "kind": "entrypoint",
+    "line": 11,
+    "scope": "saas/mobile/server/common.php"
+   },
+   {
+    "description": "hash_equals gate against the single shared digest",
+    "file": "saas/mobile/server/common.php",
+    "kind": "propagation",
+    "line": 13,
+    "scope": "saas/mobile/server/common.php"
+   },
+   {
+    "description": "Same check grants admin session on the dashboard",
+    "file": "saas/mobile/server/index.php",
+    "kind": "sink",
+    "line": 10,
+    "scope": "saas/mobile/server/index.php"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "Single shared-key hash comparison is the whole device authN",
+    "file": "saas/mobile/server/common.php",
+    "line": 10
+   },
+   {
+    "description": "Bearer required for all device endpoints via this shared key",
+    "file": "saas/mobile/server/common.php",
+    "line": 15
+   },
+   {
+    "description": "Admin login uses the exact same shared key",
+    "file": "saas/mobile/server/index.php",
+    "line": 9
+   },
+   {
+    "description": "auth.sha256 file is git-tracked in this checkout (deploy must replace it)",
+    "file": "saas/mobile/server/auth.sha256",
+    "line": 1
+   }
+  ],
+  "blockers": [
+   "needs_validation: confirm the live host's /home/appontrack/public_html/saas/mobile/server/auth.sha256 is a strong random value, not the committed digest (secret-discipline: do not read the value; rotate and observe 401 on the old key)."
+  ],
+  "validation_plan": {
+   "local": "Bounded local fixture inside an OS-enforced sandbox (not available on this host)",
+   "deployment": "Owner-observed check of the live configuration/route without sending audit traffic"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "host_link.worker.exec.argv.control.plane",
+  "title": "Host-link exec action is arbitrary command execution as appontrack",
+  "description": "ops/host-link/worker.py implements a control plane where a GitHub-queued job with action='exec' runs arbitrary argv via subprocess.Popen as the account user appontrack (worker.py:116-137). Guards exist (schema/target/expiry/argv-as-string-list/cwd-under-home/timeout 1-30s) but this is fundamentally remote code execution gated only by allow_exec=true in config.json and the secrecy of the GitHub PAT in config.json. Trust bottoms out in repo write access plus host token secrecy; the cwd constraint is not a sandbox.",
+  "trace": [
+   {
+    "description": "Job JSON fetched from the GitHub queue branch",
+    "file": "ops/host-link/worker.py",
+    "kind": "entrypoint",
+    "line": 209,
+    "scope": "ops/host-link/worker.py"
+   },
+   {
+    "description": "validate_job checks schema/id/target/expiry/argv/cwd/timeout",
+    "file": "ops/host-link/worker.py",
+    "kind": "propagation",
+    "line": 97,
+    "scope": "ops/host-link/worker.py"
+   },
+   {
+    "description": "allow_exec gate decided from private config",
+    "file": "ops/host-link/worker.py",
+    "kind": "propagation",
+    "line": 117,
+    "scope": "ops/host-link/worker.py"
+   },
+   {
+    "description": "subprocess.Popen executes the queued argv as appontrack",
+    "file": "ops/host-link/worker.py",
+    "kind": "sink",
+    "line": 135,
+    "scope": "ops/host-link/worker.py"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "exec action validated only against allow_exec config flag",
+    "file": "ops/host-link/worker.py",
+    "line": 116
+   },
+   {
+    "description": "argv constrained to strings and cwd to account home, but execution itself is free-form",
+    "file": "ops/host-link/worker.py",
+    "line": 119
+   },
+   {
+    "description": "subprocess.Popen runs the job argv as appontrack",
+    "file": "ops/host-link/worker.py",
+    "line": 135
+   },
+   {
+    "description": "config.json mode 600 enforced at startup",
+    "file": "ops/host-link/worker.py",
+    "line": 261
+   }
+  ],
+  "root_cause": "Intentional exec channel whose only runtime gates are the allow_exec flag and PAT secrecy; the cwd constraint is not a sandbox.",
+  "intended_behavior": "Only an authorized principal may perform this action on its own scope of resources",
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Decisive proof of current risk requires the live config.json allow_exec state and PAT handling, which source-only cannot assert"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Keep allow_exec=false unless required; scope the exec allowlist; rotate the PAT; monitor queue-branch writes; confirm config.json is 0600 and non-symlink (already enforced by worker)."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "high",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "high",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "high"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "console.session.cookie.secure.conditional.https",
+  "title": "Session cookie Secure flag depends on request-time HTTPS header",
+  "description": "saas/console/_core/Bootstrap.php sets the session cookie Secure flag conditionally on the request-time header: 'secure'=>!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off' (Bootstrap.php:167). If TLS is terminated at a reverse proxy and the HTTPS header is not passed (or passed as 'off'), the Secure attribute is omitted, allowing the session cookie to traverse plaintext HTTP. The same conditional pattern appears in saas/mobile/server/index.php:6.",
+  "trace": [
+   {
+    "description": "startsession applies cookie params gated on $_SERVER['HTTPS']",
+    "file": "saas/console/_core/Bootstrap.php",
+    "kind": "entrypoint",
+    "line": 166,
+    "scope": "saas/console/_core/Bootstrap.php"
+   },
+   {
+    "description": "Secure flag computed from request header that proxies may not set",
+    "file": "saas/console/_core/Bootstrap.php",
+    "kind": "propagation",
+    "line": 167,
+    "scope": "saas/console/_core/Bootstrap.php"
+   },
+   {
+    "description": "Session cookie set without guaranteed Secure attribute",
+    "file": "saas/console/_core/Bootstrap.php",
+    "kind": "sink",
+    "line": 168,
+    "scope": "saas/console/_core/Bootstrap.php"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "Session cookie params with Secure conditional on $_SERVER['HTTPS']",
+    "file": "saas/console/_core/Bootstrap.php",
+    "line": 167
+   },
+   {
+    "description": "Same conditional Secure pattern in the mobile admin session",
+    "file": "saas/mobile/server/index.php",
+    "line": 6
+   }
+  ],
+  "root_cause": "Secure flag derived from a request header that may be absent when TLS is offloaded, rather than from deployment reality.",
+  "intended_behavior": "Only an authorized principal may perform this action on its own scope of resources",
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Only exploitable if the host terminates TLS at a proxy that does not set $_SERVER['HTTPS']; source-only cannot confirm host TLS topology"
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Force Secure=true (the app is HTTPS-only per recon) or detect TLS via a trusted proxy header/deployment constant; add HSTS."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "medium",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "medium"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ },
+ {
+  "verdict": "confirmed",
+  "fingerprint": "console.login.ratelimit.per.session",
+  "title": "Console login throttle tracked in session, not per-IP",
+  "description": "saas/console/index.php login throttling is stored in the session: $_SESSION['bad_logins'] and $_SESSION['bad_start'], incrementing per failed attempt and blocking at >=8 (index.php:23-26, 38-39). Because the counter lives in the session, an attacker simply starts a new session (new cookie) for each batch of attempts, making the limit trivially bypassable. There is no per-IP or per-account server-side counter.",
+  "root_cause": "Rate-limit state kept in the client-controlled session rather than server-side keyed by IP/account.",
+  "intended_behavior": "Brute-force protection should be per-IP and/or per-account server-side with a shared lockout, not per-session.",
+  "trace": [
+   {
+    "description": "Login POST reads bad_logins/bad_start from session",
+    "file": "saas/console/index.php",
+    "kind": "entrypoint",
+    "line": 23,
+    "scope": "saas/console/index.php"
+   },
+   {
+    "description": "Failed attempt increments the session counter and sleeps 250ms",
+    "file": "saas/console/index.php",
+    "kind": "propagation",
+    "line": 38,
+    "scope": "saas/console/index.php"
+   },
+   {
+    "description": "Session-scoped counter blocks only within one session",
+    "file": "saas/console/index.php",
+    "kind": "sink",
+    "line": 26,
+    "scope": "saas/console/index.php"
+   }
+  ],
+  "evidence": [
+   {
+    "description": "Throttle state read from the session",
+    "file": "saas/console/index.php",
+    "line": 23
+   },
+   {
+    "description": "Block threshold on session-scoped counter",
+    "file": "saas/console/index.php",
+    "line": 26
+   },
+   {
+    "description": "Counter incremented in the session only",
+    "file": "saas/console/index.php",
+    "line": 38
+   }
+  ],
+  "conditions": [
+   {
+    "kind": "data_state",
+    "description": "Console reachable; attacker can mint new sessions. Holds in current code."
+   }
+  ],
+  "execution": {
+   "attacker_perspective": "Source-grounded static demonstration; boundary crossing established from repository source alone (no OS-enforced sandbox on host).",
+   "payloads": [
+    "See trace/evidence file:line inputs"
+   ],
+   "instructions": [
+    "Read cited source lines; confirm lower-trust input reaches sink with no intervening source-visible control (performed in this run)"
+   ],
+   "observed_result": "Source trace establishes the boundary crossing on the cited lines."
+  },
+  "remediation": {
+   "strategy": "Track failed attempts per IP and per account in a shared store (DB/cache) with exponential backoff; add CAPTCHA after N failures."
+  },
+  "severity": {
+   "likelihood": {
+    "score": "medium",
+    "reason": "Verified likelihood from source conditions by independent verifiers"
+   },
+   "impact": {
+    "score": "low",
+    "reason": "Demonstrated impact bounded by the source trace"
+   },
+   "overall_severity": "low"
+  },
+  "confidence": {
+   "score": "high",
+   "reason": "Independently verified from source by fresh adversarial verifiers"
+  }
+ }
+]

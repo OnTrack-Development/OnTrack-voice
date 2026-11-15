@@ -1271,7 +1271,7 @@ function act():void {
                 if(!$tbl)deny();
                 $row=one('SELECT * FROM '.$tbl.' WHERE id=? AND account_id=? AND status=?',[intfield('secret_id'),$id,'active']);
                 if(!$row)deny(404);
-                $token=($kindKey==='api'?'otv_':'otint_').bin2hex(random_bytes(32));
+                $token=($kindKey==='api'?'otv_':'otint_').bin2hex(random_bytes(30));
                 $prefix=substr($token,0,12);
                 $col=$kindKey==='api'?'prefix':'token_prefix';
                 execute('UPDATE '.$tbl.' SET token_hash=?,'.$col.'=?,secret_enc=? WHERE id=? AND account_id=?',[hash('sha256',$token),$prefix,seal_secret($token),$row['id'],$id]);

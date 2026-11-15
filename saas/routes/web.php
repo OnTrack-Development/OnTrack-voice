@@ -70,7 +70,7 @@ Route::middleware('auth')->group(function () {
         'accounts', 'plans', 'domains', 'staff', 'integrations', 'releases',
         'reseller-tenants', 'reseller-quotas', 'platform-ai', 'platform-plans',
         'messages', 'tickets', 'leads', 'appointments', 'widget',
-        'workspace', 'admin', 'reseller',
+        'workspace', 'admin', 'reseller', 'floorplan',
     ] as $path) {
         $tab = match ($path) {
             'workspace', 'admin', 'reseller' => 'overview',
@@ -86,6 +86,17 @@ Route::middleware('auth')->group(function () {
     Route::get('/calls/csv', [WorkspaceController::class, 'exportCallsCsv'])->name('enterprise.calls.csv');
     Route::get('/invoices/{id}/print', [WorkspaceController::class, 'printInvoice'])->whereNumber('id')->name('enterprise.invoice.print');
     Route::post('/change-password', [AuthController::class, 'changePassword'])->name('password.change');
+    Route::get('/admin/floorplan', function () {
+        $path = public_path('admin/floorplan.html');
+        if (! file_exists($path)) {
+            abort(404, 'Floorplan not generated yet.');
+        }
+
+        return response()->file($path, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'X-Frame-Options' => 'SAMEORIGIN',
+        ]);
+    })->name('admin.floorplan');
 });
 
 // Unified Android Device Control Plane API

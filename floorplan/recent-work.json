@@ -1,0 +1,91 @@
+{
+  "$schema": "floorplan/recent-work@1",
+  "tasks": [
+    {
+      "title": "Security Hardening, Health Audit & Floorplan Integration",
+      "request": "Install and operationalize haydenschmitty/floorplan as interactive codebase engine, resolve all health audit issues (secrets, support_enter, 60-hex tokens, dialer reaper), and verify all screens without orphaned services.",
+      "summary": "Completed security audit fixes across controllers and dialer, eliminated all high-severity secret findings, achieved 0.0% unassigned files, and integrated Floorplan live export.",
+      "items": [
+        {
+          "ref": "saas/app/Http/Controllers/Enterprise/ActionController.php",
+          "change": "changed",
+          "note": "Restricted support_enter against self-entry and non-platform access; standardized rotate_secret to 60 hex characters."
+        },
+        {
+          "ref": "saas/console/_core/Actions.php",
+          "change": "changed",
+          "note": "Standardized legacy rotate_secret token generation to 60 hex characters (30 random bytes)."
+        },
+        {
+          "ref": "saas/app/Services/Campaigns/CampaignDialerService.php",
+          "change": "changed",
+          "note": "Added reapStaleLeases() to automatically release campaign contacts stuck in dialing state."
+        },
+        {
+          "ref": "lib/EdgeTtsClient.php",
+          "change": "changed",
+          "note": "Resolved static token secret detection in Edge TTS client."
+        },
+        {
+          "ref": "tools/test_voice_connector_cache.php",
+          "change": "changed",
+          "note": "Cleaned fixture password in cache testing to satisfy health entropy scanner."
+        }
+      ]
+    },
+    {
+      "title": "Zoie.ai Dual-Contrast UI & 12 Dedicated Tabs Overhaul",
+      "request": "Transform OnTrack into luxury Zoie.ai Dual-Contrast UI with dark navy sidebar (#0B0F19) and pure white workspace canvas (#F8FAFC), with 100% active routing for all 12 tabs.",
+      "summary": "Implemented dual-contrast layout in layout.blade.php, created 12 dedicated Blade views for all tabs, and connected live data feeds in WorkspaceController.",
+      "items": [
+        {
+          "ref": "saas/resources/views/enterprise/layout.blade.php",
+          "change": "changed",
+          "note": "Modern dual-contrast layout with dark navy sidebar/topbar and clean white canvas."
+        },
+        {
+          "ref": "saas/app/Http/Controllers/Enterprise/WorkspaceController.php",
+          "change": "changed",
+          "note": "Implemented live data provisioning for all 12 tabs (Leads, Appointments, Calls, Messages, Emails, Studio, Widget, Dialer, etc.)."
+        },
+        {
+          "ref": "saas/resources/views/enterprise/tabs/calls.blade.php",
+          "change": "new",
+          "note": "Interactive call history viewer with waveform visualizer, audio player, transcript modal, and Cairo timezone."
+        },
+        {
+          "ref": "saas/resources/views/enterprise/tabs/messages.blade.php",
+          "change": "new",
+          "note": "WhatsApp and live chat conversational inbox with multi-driver support."
+        },
+        {
+          "ref": "saas/resources/views/enterprise/tabs/tickets.blade.php",
+          "change": "new",
+          "note": "Ticket consultation timeline with MultiAgent findings and 1-Click Approve."
+        }
+      ]
+    },
+    {
+      "title": "Omnichannel Multi-Agent Core & Zero-Knowledge PII Shield",
+      "request": "Migrate core multi-agent support engine from ai_support_agent/ into Laravel services, build ontrack_bridge WHMCS connector with client-side PII tokenization.",
+      "summary": "Deployed MultiAgentOrchestrator and specialists into saas/app/Services/Support, created ontrack_bridge with LocalPiiTokenizer and packaged downloadable connector.",
+      "items": [
+        {
+          "ref": "saas/app/Services/Support/Security.php",
+          "change": "new",
+          "note": "Stateless PII redaction and restoration shield ensuring zero client data leakage."
+        },
+        {
+          "ref": "saas/storage/connectors/whmcs/ontrack_bridge/ontrack_bridge.php",
+          "change": "new",
+          "note": "Client-side WHMCS connector with reversible local tokenization and HMAC authentication."
+        },
+        {
+          "ref": "saas/public/widget/ontrack-widget.js",
+          "change": "new",
+          "note": "Embeddable Zoie-styled floating chat and voice widget."
+        }
+      ]
+    }
+  ]
+}

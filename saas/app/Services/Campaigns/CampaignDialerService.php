@@ -998,6 +998,23 @@ class CampaignDialerService
         return ['saved' => true, 'duplicate' => false, 'result' => $result];
     }
 
+    /**
+     * Lease Reaper: Cleans up stale or abandoned device campaign leases older than threshold.
+     */
+    public function reapStaleLeases(int $maxAgeSeconds = 600): int
+    {
+        $cutoff = time() - $maxAgeSeconds;
+
+        return DB::table('tenant_campaign_attempts')
+            ->whereIn('status', ['leased', 'verified'])
+            ->where('leased_epoch', '<', $cutoff)
+            ->update([
+                'status' => 'unknown',
+                'result' => 'lease_expired',
+                'finished_at' => $this->ctx->now(),
+            ]);
+    }
+
     private function dialEnabled(): bool
     {
         return (bool) config('ontrack.campaign_dial_enabled', false)

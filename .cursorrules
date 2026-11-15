@@ -1,0 +1,11 @@
+# OnTrack Voice SaaS - Cursor Rules & Mandatory Development Protocol
+
+## Core Mandates
+1. **Preserve Audio Tunnel & Android Parity**: Never modify binary audio tunnel `wss://app.ontrackegy.com/ws-voice`, PCM 16kHz framing, or Android APK v81 architecture.
+2. **Floorplan Architecture Auto-Sync**: The `skills/floorplan/` engine generates the official interactive map. On any structural or code modification:
+   - Run `node skills/floorplan/scripts/scan.mjs .`
+   - Run `node skills/floorplan/scripts/build.mjs .`
+   - Copy `floorplan/index.html` to `saas/public/admin/floorplan.html`
+   - Ensure 0 unassigned files (100% path coverage) and 0 high-severity security findings.
+3. **Dual-Contrast Zoie.ai UI**: Keep dark navy `#0B0F19` for sidebar/topbar and clean white `#F8FAFC` for workspace canvas. All 12 tabs must route to dedicated Blade views.
+4. **Zero-Knowledge PII Shield**: All connector data from WHMCS or external clients must be tokenized locally before sending to central AI endpoints.

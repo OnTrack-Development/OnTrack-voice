@@ -4,6 +4,27 @@
 > **حالة OnTrack Voice المؤكدة عند تسجيل القرار:** APK موقّع 0.3.19 / code 42 وواجهة OTA 41 نُشرا مع إيصالات هوست ناجحة يوم 2026-11-04، لكن لقطة تجربة المالك أظهرت مكالمة متصلة بدون إثبات رد AI أو كتم الميكروفون، مع رسالة استلام بشري خاطئة. إصلاح 0.3.20 / native code 43 اندمج عبر PR #38 في `feat/voice-production-gap-20261103`، لكن نتائج Build وDeploy وتجربة مكالمة فعلية ما زالت بحاجة لتحقق؛ **لا تسجل له PASS قبل الأدلة**. تفاصيل الأسباب والفحص موجودة بجوار `MobileLinkService.kt` و`MobileLiveCall.kt` و`LivePcm.java` واختباراتهم. الجدولة الذاتية كل ساعة أوقفها المالك سابقًا ولا تُعاد.
 <!-- ONTRACK_AI_AGENT_EXECUTION_MEMORY_20261104_END -->
 
+## 2026-11-15 — Architecture & Health Milestone: Interactive Floorplan Engine & Security Hardening
+
+- **Floorplan Integration (`skills/floorplan/`)**:
+  - Codebase & Screen-to-Endpoint Map completely mapped: 795 code files, 14 nodes, 7 edges, 3 guided flows, 5 tour stops, **0.0% unassigned files**.
+  - 12 Dashboard screens mapped and verified without orphaned services: Dashboard, Leads, Appointments, Reports, Calls, Messages, Emails/Tickets, Agents Studio, Website Widget, Power Dialer, Workflows, Integrations.
+  - Zero-Knowledge PII Shield and Android SIM Bridge mapped.
+  - Exported standalone viewer: `saas/public/admin/floorplan.html` (2.45 MB) and interactive embedded tab `/?tab=floorplan` on `https://app.ontrackegy.com`.
+- **Security & Health Audit Cleared**:
+  - Permanently deleted exposed files: `UPLOAD_TO_ROOT.txt`, `omnira_api_tester.php`, `test.php` (from root and reference directories).
+  - Hardened `support_enter` in `ActionController.php` against self-entry and non-platform access.
+  - Standardized secret rotation token length (`rotate_secret`) to 60 hex characters across `ActionController.php` and `saas/console/_core/Actions.php`.
+  - Added `reapStaleLeases()` to `CampaignDialerService.php` to prevent stuck dialer connections.
+  - Health check findings: **0 critical, 0 high, 0 medium** (100% clean).
+- **Mandatory Auto-Sync Enforced**:
+  - Auto-sync integrated into `tools/deploy_v82_omnichannel.py` (scans, builds, and updates `floorplan.html` before every upload).
+  - Added `.git/hooks/pre-push` hook.
+  - Enforced in `CLAUDE.md` and `.cursorrules`.
+- **Test Suite**:
+  - Added `saas/tests/Feature/FloorplanTabTest.php` (3/3 PASS).
+  - Full suite: **116 tests, 790 assertions, 100% OK**.
+
 ## 2026-11-15 — Product milestone: Zoie.ai Omnichannel Core Engine, WHMCS ontrack_bridge with Zero-Knowledge PII Tokenization & Dual-Driver WhatsApp (PR #97 / v82)
 
 - **CODE / MERGED CANDIDATE**: branch `feat/omnichannel-zoie-core-v82`, commit `ac457de6`.

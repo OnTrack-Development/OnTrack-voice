@@ -13,7 +13,7 @@ $conn=voice_connector_add(4,$site,'whmcs','Public hosting catalog',
 execute("UPDATE voice_data_connectors SET status='verified' WHERE id=? AND account_id=4",[$conn]);
 $fake=static fn()=>['result'=>'success','products'=>['product'=>[
     ['name'=>'Demo Hosting Plan','description'=>'100 GB monthly','price'=>'199.00',
-     'email'=>'testprivate@example.com','password'=>'not-in-cache','domain'=>'private.example'],
+     'email'=>'testprivate@example.com','password'=>'notincache','domain'=>'private.example'],
 ]]];
 $cache=voice_connector_cache_refresh(4,$site,$conn,60,$fake);
 cached_check($cache['status']==='refreshed'&&$cache['public_only'],'read-only snapshot');

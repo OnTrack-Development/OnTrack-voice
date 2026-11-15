@@ -18,6 +18,10 @@
 
 **Safety:** حافظ على أسرار الحسابات، عزل العملاء والشريحتين، وعدم استبدال هوية SIM أو تخطي التحقق؛ لا تنفذ حذفًا أو تغيير إنتاجيًا خطرًا خارج التفويض. **لا تعاود تشغيل جدولة التطوير كل ساعة التي أوقفها المالك.** لا تصنع توثيقًا مكررًا: README.md للعقد الكامل، CLAUDE.md للقاعدة التنفيذية والقرارات المعمارية المختصرة، والكود مصدر الحقيقة.
 
+### إلزامية تحديث خريطة المعمارية التفاعلية (Mandatory Floorplan Auto-Sync):
+- **محرك Floorplan (`skills/floorplan/`)** هو الخريطة المعمارية الرسمية الحية لنظام OnTrack Voice SaaS.
+- **إلزامي لكل وكيل ومطور:** مع كل تعديل أو إضافة ملفات أو نشر (`deploy_v82_omnichannel.py` أو `git push`)، يجب تلقائياً إعادة بناء وفحص الخريطة (`node skills/floorplan/scripts/scan.mjs .` و `node skills/floorplan/scripts/build.mjs .`) وتصديرها إلى `saas/public/admin/floorplan.html` لضمان عدم وجود ملفات يتيمة أو أسرار مسربة بنسبة 100% Zero-Orphans & Zero-Leak.
+
 <!-- ONTRACK_MANDATORY_AGENT_RULES_END -->
 
 <!-- VS_OWNER_ISOLATION_POLICY_2026_11_08 -->

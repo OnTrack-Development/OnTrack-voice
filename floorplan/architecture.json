@@ -1,0 +1,335 @@
+{
+  "$schema": "floorplan/architecture@1",
+  "project": {
+    "name": "OnTrack Voice SaaS",
+    "summary": "Omnichannel AI Voice Assistant and Multi-Agent SaaS Platform with Zero-Knowledge PII Shield, Android SIM Bridge, and Zoie.ai Dual-Contrast UI.",
+    "entrypoints": [
+      "saas/public/index.php",
+      "saas/routes/web.php",
+      "tools/deploy_relay_daemon.py"
+    ]
+  },
+  "audience": "everyone",
+  "include": ["code"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/vendor/**",
+    "saas/vendor/**",
+    "reference/**",
+    "skills/**",
+    "ai_support_agent/**",
+    "design/**",
+    "docs/**",
+    "saas/public/admin/**"
+  ],
+  "nodes": [
+    {
+      "id": "saas.portal",
+      "label": "Omnichannel Control Panel UI",
+      "kind": "ui",
+      "summary": "12-tab luxury control panel with Zoie.ai Dual-Contrast design (Navy #0B0F19 Topbar/Sidebar & White #F8FAFC Canvas).",
+      "paths": [
+        "saas/resources/views/**",
+        "saas/public/assets/**"
+      ]
+    },
+    {
+      "id": "saas.controllers",
+      "label": "Enterprise Request Handlers",
+      "kind": "service",
+      "summary": "Dispatches user requests for workspaces, actions, agent studio, and bridge connections.",
+      "paths": [
+        "saas/app/Http/**",
+        "saas/app/Console/**",
+        "saas/app/Providers/**",
+        "saas/bootstrap/**",
+        "saas/routes/**",
+        "saas/config/**",
+        "saas/public/index.php"
+      ]
+    },
+    {
+      "id": "saas.core_engine",
+      "label": "Multi-Agent Support & Privacy Kernel",
+      "kind": "service",
+      "summary": "Core multi-agent consultation engine with Dispatcher, Specialists, Reviewer, AttachmentVision, and Zero-Knowledge PII shield.",
+      "paths": [
+        "saas/app/Services/Support/**",
+        "saas/app/Services/Channels/**",
+        "saas/app/Services/Knowledge/**",
+        "saas/app/Services/Security/**",
+        "saas/app/Support/**"
+      ]
+    },
+    {
+      "id": "saas.voice_telephony",
+      "label": "Voice & Campaign Telephony",
+      "kind": "service",
+      "summary": "Voice session management, Gemini Live catalog, campaign dialer with Lease Reaper, and call ledger.",
+      "paths": [
+        "saas/app/Services/Voice/**",
+        "saas/app/Services/Campaigns/**",
+        "saas/app/Services/Mobile/**"
+      ]
+    },
+    {
+      "id": "saas.billing_automation",
+      "label": "Billing & Post-Call Automation",
+      "kind": "service",
+      "summary": "Subscription billing, plan feature gating, post-call workflows, and console context isolation.",
+      "paths": [
+        "saas/app/Services/Billing/**",
+        "saas/app/Services/Automation/**",
+        "saas/app/Services/Console/**"
+      ]
+    },
+    {
+      "id": "saas.models_data",
+      "label": "Database Records & Setup",
+      "kind": "data",
+      "summary": "Defines stored records and table structures for support tickets, WhatsApp sessions, calls, leads, and plans.",
+      "paths": [
+        "saas/app/Models/**",
+        "saas/database/**"
+      ]
+    },
+    {
+      "id": "voice.relay_tunnel",
+      "label": "Binary Audio Relay & Web Voice",
+      "kind": "worker",
+      "summary": "Ultra low-latency binary WebSocket tunnel streaming 16kHz PCM audio.",
+      "paths": [
+        "tools/deploy_relay_daemon.py",
+        "tools/test_public_relay_tunnel.py",
+        "saas/app/Models/AiRelayEntry.php",
+        "saas/console/_core/AiRelay.php",
+        "saas/voice/**"
+      ]
+    },
+    {
+      "id": "mobile.android",
+      "label": "Android SIM Bridge Application",
+      "kind": "ui",
+      "summary": "Native Android telephony APK capturing SIM 1 / SIM 2 calls, floating overlay bubble, and full-duplex PCM audio.",
+      "paths": [
+        "saas/mobile/audio-proof/**",
+        "saas/mobile/**"
+      ]
+    },
+    {
+      "id": "connectors.whmcs",
+      "label": "WHMCS Bridge & Website Widget",
+      "kind": "feature",
+      "summary": "Lightweight client-side ontrack_bridge WHMCS module with LocalPiiTokenizer and embeddable Web Widget JS.",
+      "paths": [
+        "saas/storage/connectors/**",
+        "saas/public/widget/**"
+      ]
+    },
+    {
+      "id": "ops.tools",
+      "label": "Publishing & Verification Tools",
+      "kind": "script",
+      "summary": "Automates publishing new versions, tab verification, health auditing, and over-the-air updates.",
+      "paths": [
+        "tools/**",
+        "ops/**",
+        "tests/**",
+        "saas/tests/**",
+        "integrations/**"
+      ]
+    },
+    {
+      "id": "saas.legacy_console",
+      "label": "Legacy Console & Runtime Adapters",
+      "kind": "service",
+      "summary": "Legacy single-device phone pilot handlers and console runtime compatibility adapters.",
+      "paths": [
+        "saas/console/**",
+        "api/**",
+        "lib/**",
+        "assets/**",
+        "index.php",
+        "config.php"
+      ]
+    },
+    {
+      "id": "external.gemini",
+      "label": "Google Gemini Live & Flash",
+      "kind": "external",
+      "summary": "Bidirectional voice speech model and fast multimodal classification for Arabic Egyptian conversation.",
+      "hosts": [
+        "generativelanguage.googleapis.com"
+      ]
+    },
+    {
+      "id": "external.meta",
+      "label": "Meta WhatsApp Cloud Service",
+      "kind": "external",
+      "summary": "Official service for sending and receiving messages and receiving delivery notifications.",
+      "hosts": [
+        "graph.facebook.com"
+      ]
+    },
+    {
+      "id": "external.kashier",
+      "label": "Kashier Payment Gateway",
+      "kind": "external",
+      "summary": "Egyptian cards, mobile wallets, and Fawry payment processing with verified callbacks.",
+      "hosts": [
+        "api.kashier.io",
+        "test-api.kashier.io",
+        "payments.kashier.io"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "saas.portal",
+      "to": "saas.controllers",
+      "kind": "http",
+      "label": "Interactive Workspace & Tab Navigation",
+      "description": "Browser triggers tab navigation (Calls, Messages, Emails, Agents, Widget, Dialer, etc.) and action endpoints."
+    },
+    {
+      "from": "saas.controllers",
+      "to": "saas.core_engine",
+      "kind": "call",
+      "label": "Multi-Agent Consultation & Tokenizer",
+      "description": "Dispatches tickets and messages through MultiAgentOrchestrator and Zero-Knowledge PII Shield."
+    },
+    {
+      "from": "saas.controllers",
+      "to": "saas.voice_telephony",
+      "kind": "call",
+      "label": "Voice Session & Campaign Control",
+      "description": "Actions trigger campaign dialer and voice session setup."
+    },
+    {
+      "from": "saas.core_engine",
+      "to": "external.gemini",
+      "kind": "http",
+      "label": "Specialist Consultation",
+      "description": "MultiAgentOrchestrator queries Gemini for diagnostics and reviewer verdict."
+    },
+    {
+      "from": "voice.relay_tunnel",
+      "to": "external.gemini",
+      "kind": "http",
+      "label": "Bidi WSS Audio",
+      "description": "Streams 16kHz PCM audio bidirectionally to Gemini Live."
+    },
+    {
+      "from": "mobile.android",
+      "to": "voice.relay_tunnel",
+      "kind": "http",
+      "label": "wss://app.ontrackegy.com/ws-voice",
+      "description": "Android app streams phone microphone and receives speaker audio."
+    },
+    {
+      "from": "connectors.whmcs",
+      "to": "saas.controllers",
+      "kind": "http",
+      "label": "POST /api/v1/bridge/*",
+      "description": "WHMCS bridge sends tokenized ticket data and queries plan status."
+    }
+  ],
+  "flows": [
+    {
+      "id": "inbound_call",
+      "title": "Inbound SIM Voice Call to AI Live",
+      "description": "A customer calls the phone SIM, Android connects to binary relay tunnel, Gemini Live answers in real time.",
+      "steps": [
+        {
+          "node": "mobile.android",
+          "note": "Android SIM captures incoming call and requests voice session"
+        },
+        {
+          "node": "voice.relay_tunnel",
+          "note": "Relay forwards 16kHz PCM audio over WSS binary tunnel"
+        },
+        {
+          "node": "external.gemini",
+          "note": "Gemini Live generates conversational Arabic Egyptian audio"
+        },
+        {
+          "node": "saas.voice_telephony",
+          "note": "CallLedgerService logs call and Gemini generates instant summary"
+        },
+        {
+          "node": "saas.portal",
+          "note": "Calls tab updates in real-time with waveform, audio player and lead link"
+        }
+      ]
+    },
+    {
+      "id": "whmcs_ticket_privacy",
+      "title": "WHMCS Support Ticket with Zero-Knowledge PII Shield",
+      "description": "Customer submits a ticket on WHMCS, ontrack_bridge tokenizes sensitive PII, central multi-agent kernel diagnoses and reviews draft.",
+      "steps": [
+        {
+          "node": "connectors.whmcs",
+          "note": "ontrack_bridge tokenizes names, emails, IPs and domains locally"
+        },
+        {
+          "node": "saas.controllers",
+          "note": "BridgeController authenticates HMAC signature and validates plan feature gating"
+        },
+        {
+          "node": "saas.core_engine",
+          "note": "MultiAgentOrchestrator consults Server Specialist and Reviewer"
+        },
+        {
+          "node": "saas.portal",
+          "note": "Emails & Tickets tab displays consultation timeline and 1-Click Approve"
+        }
+      ]
+    },
+    {
+      "id": "power_dialer_campaign",
+      "title": "Power Dialer Multi-Line Outbound Campaign",
+      "description": "Automated campaign dials customer list across connected Android SIMs with AMD and hold music.",
+      "steps": [
+        {
+          "node": "saas.portal",
+          "note": "User starts Power Dialer with progressive/predictive pacing"
+        },
+        {
+          "node": "saas.voice_telephony",
+          "note": "CampaignDialerService claims next contact and checks DNC ledger"
+        },
+        {
+          "node": "mobile.android",
+          "note": "Android device executes call with Answering Machine Detection"
+        }
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "node": "saas.portal",
+      "title": "Omnichannel Dashboard & Zoie.ai UI",
+      "note": "لوحة التحكم المتكاملة بتصميم Dual-Contrast الفاخر وكافة التبويبات الـ 12 الموصولة."
+    },
+    {
+      "node": "saas.core_engine",
+      "title": "النواة المركزية متعددة الوكلاء (Multi-Agent)",
+      "note": "محرك الدعم والتشخيص الآلي مع درع حماية الخصوصية Zero-Knowledge PII."
+    },
+    {
+      "node": "voice.relay_tunnel",
+      "title": "نفق الصوت المباشر (Binary WSS Relay)",
+      "note": "ترحيل الصوت الحي فائق السرعة عبر wss://app.ontrackegy.com/ws-voice."
+    },
+    {
+      "node": "mobile.android",
+      "title": "تطبيق شرائح أندرويد (Android SIM Bridge)",
+      "note": "تطبيق الأندرويد الحقيقي لربط شرائح الاتصال المحلية بدون خطوط خارجية باهظة."
+    },
+    {
+      "node": "connectors.whmcs",
+      "title": "موديول WHMCS المفتوح وودجت الموقع",
+      "note": "موديول الربط الخفيف مع درع تعمية البيانات محلياً قبل الإرسال."
+    }
+  ]
+}

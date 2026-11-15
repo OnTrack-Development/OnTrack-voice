@@ -195,6 +195,12 @@ class ActionController extends Controller
                 if (! $target) {
                     throw new InvalidArgumentException('الحساب غير موجود.');
                 }
+                if ($target['kind'] === 'platform' && ! $ctx['is_platform']) {
+                    abort(403, 'غير مصرح بدخول حسابات المنصة.');
+                }
+                if ($targetId === $accountId) {
+                    throw new InvalidArgumentException('أنت بالفعل في هذا الحساب.');
+                }
                 if ($ctx['is_reseller'] && ! $this->ctx->isResellerChild($accountId, $targetId)) {
                     abort(403, 'لا يمكنك الدخول إلا لحسابات عملائك.');
                 }
@@ -733,6 +739,48 @@ class ActionController extends Controller
                 DB::table('api_keys')->where('id', (int) $r->input('key_id', 0))->where('account_id', $accountId)->update(['status' => 'revoked']);
 
                 return ['success' => 'تم إلغاء مفتاح API.'];
+
+            case 'rotate_secret':
+                $secretType = (string) $r->input('secret_type', 'integration');
+                $secretId = (int) $r->input('secret_id', 0);
+                // 30 random bytes produces exactly 60 hex characters
+                $newHex = bin2hex(random_bytes(30));
+                if ($secretType === 'integration') {
+                    $token = 'otint_'.$newHex;
+                    $updated = DB::table('integrations')
+                        ->where('id', $secretId)
+                        ->where('account_id', $accountId)
+                        ->where('status', 'active')
+                        ->update([
+                            'token_hash' => hash('sha256', $token),
+                            'token_prefix' => substr($token, 0, 14),
+                            'secret_enc' => $this->vault->seal($token),
+                        ]);
+                    if (! $updated) {
+                        throw new InvalidArgumentException('التكامل غير موجود أو ملغي.');
+                    }
+                    $this->ctx->audit($userId, $accountId, 'secret.rotated', ['type' => 'integration', 'id' => $secretId]);
+
+                    return ['secret' => $token, 'success' => 'تم تدوير المفتاح وتوحيده بطول 60 hex: '.$token];
+                } elseif ($secretType === 'api') {
+                    $token = 'otk_'.$newHex;
+                    $updated = DB::table('api_keys')
+                        ->where('id', $secretId)
+                        ->where('account_id', $accountId)
+                        ->where('status', 'active')
+                        ->update([
+                            'token_hash' => hash('sha256', $token),
+                            'prefix' => substr($token, 0, 12),
+                            'secret_enc' => $this->vault->seal($token),
+                        ]);
+                    if (! $updated) {
+                        throw new InvalidArgumentException('مفتاح API غير موجود.');
+                    }
+                    $this->ctx->audit($userId, $accountId, 'secret.rotated', ['type' => 'api', 'id' => $secretId]);
+
+                    return ['secret' => $token, 'success' => 'تم تدوير مفتاح API بطول 60 hex: '.$token];
+                }
+                throw new InvalidArgumentException('نوع السر غير صالح.');
 
             case 'invite_staff':
                 $email = Str::lower(trim((string) $r->input('email', '')));

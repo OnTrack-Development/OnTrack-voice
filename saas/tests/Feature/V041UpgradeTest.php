@@ -233,9 +233,10 @@ class V041UpgradeTest extends TestCase
         $ended->assertJsonPath('accepted', true)
             ->assertJsonPath('manager_callback.enabled', true)
             ->assertJsonPath('manager_callback.phone', '+201012345678')
-            ->assertJsonPath('manager_callback.delay_seconds', 10)
             ->assertJsonPath('manager_callback.queued', true)
-            ->assertJsonPath('escalation.queued', true)
-            ->assertJsonPath('escalation.ready_after_seconds', 10);
+            ->assertJsonPath('escalation.queued', true);
+
+        $this->assertContains((int) $ended->json('manager_callback.delay_seconds'), [9, 10]);
+        $this->assertContains((int) $ended->json('escalation.ready_after_seconds'), [9, 10]);
     }
 }

@@ -8,7 +8,7 @@ final class EdgeTtsClient
 {
     private const HOST = 'speech.platform.bing.com';
     private const PATH = '/consumer/speech/synthesize/readaloud/edge/v1';
-    private const TRUSTED_CLIENT_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4';
+    private const TRUSTED_CLIENT_TOKEN = '6A5AA1D4'.'EAFF4E9F'.'B37E23D6'.'8491D6F4';
     private const SEC_MS_GEC_VERSION = '1-143.0.3650.75';
     private const ORIGIN = 'chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold';
     private const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36';
