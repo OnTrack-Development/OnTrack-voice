@@ -7,6 +7,26 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/css/obsidian.css?v=68">
+    <style>
+        input:not([type="checkbox"]):not([type="radio"]), textarea, select {
+            background-color: #FFFFFF !important;
+            color: #0F172A !important;
+            border: 1px solid #CBD5E1 !important;
+            border-radius: 8px !important;
+            padding: 10px 14px !important;
+            box-sizing: border-box !important;
+        }
+        input::placeholder, textarea::placeholder {
+            color: #64748B !important;
+            opacity: 1 !important;
+        }
+        input:not([type="checkbox"]):not([type="radio"]):focus, textarea:focus, select:focus {
+            background-color: #FFFFFF !important;
+            color: #0F172A !important;
+            border-color: #4F46E5 !important;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
+        }
+    </style>
 </head>
 <body>
 <header class="topbar portal-topbar">

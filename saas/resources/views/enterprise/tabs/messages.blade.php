@@ -16,14 +16,14 @@
 @endphp
 
 <style>
-.zoie-messages-layout {
+.ontrack-messages-layout {
     display: grid;
     grid-template-columns: 310px 1fr 300px;
     gap: 16px;
     height: calc(100vh - 150px);
     min-height: 650px;
 }
-.zoie-msg-pane {
+.ontrack-msg-pane {
     background: #FFFFFF;
     border: 1px solid #E2E8F0;
     border-radius: 12px;
@@ -31,7 +31,7 @@
     display: flex;
     flex-direction: column;
 }
-.zoie-filter-capsule {
+.ontrack-filter-capsule {
     padding: 6px 14px;
     border-radius: 20px;
     font-size: 12px;
@@ -43,12 +43,12 @@
     background: #FFFFFF;
     color: #475569;
 }
-.zoie-filter-capsule.active, .zoie-filter-capsule:hover {
+.ontrack-filter-capsule.active, .ontrack-filter-capsule:hover {
     background: #0F172A;
     color: #FFFFFF;
     border-color: #0F172A;
 }
-.zoie-chat-bubble-ai {
+.ontrack-chat-bubble-ai {
     background: #1E293B;
     color: #FFFFFF;
     padding: 12px 16px;
@@ -57,7 +57,7 @@
     line-height: 1.6;
     max-width: 82%;
 }
-.zoie-chat-bubble-user {
+.ontrack-chat-bubble-user {
     background: #F1F5F9;
     color: #0F172A;
     padding: 12px 16px;
@@ -69,9 +69,9 @@
 }
 </style>
 
-<div class="zoie-messages-layout">
+<div class="ontrack-messages-layout">
     <!-- 1. LEFT PANE: Conversation List -->
-    <div class="zoie-msg-pane">
+    <div class="ontrack-msg-pane">
         <div style="padding:14px 16px;border-bottom:1px solid #F1F5F9;display:flex;align-items:center;justify-content:space-between;">
             <div style="display:flex;align-items:center;gap:8px;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
@@ -82,17 +82,17 @@
 
         <!-- Filter Row 1: Agent vs Human -->
         <div style="padding:8px 12px;display:flex;gap:6px;border-bottom:1px solid #F1F5F9;">
-            <a href="javascript:void(0)" class="zoie-filter-capsule active">All</a>
-            <a href="javascript:void(0)" class="zoie-filter-capsule">Human ({{ collect($sessions)->where('is_muted_for_human', true)->count() }})</a>
-            <a href="javascript:void(0)" class="zoie-filter-capsule">AI Agents ({{ collect($sessions)->where('is_muted_for_human', false)->count() }})</a>
+            <a href="javascript:void(0)" class="ontrack-filter-capsule active">All</a>
+            <a href="javascript:void(0)" class="ontrack-filter-capsule">Human ({{ collect($sessions)->where('is_muted_for_human', true)->count() }})</a>
+            <a href="javascript:void(0)" class="ontrack-filter-capsule">AI Agents ({{ collect($sessions)->where('is_muted_for_human', false)->count() }})</a>
         </div>
 
         <!-- Filter Row 2: Channel Sub-filters -->
         <div style="padding:8px 12px;display:flex;gap:6px;border-bottom:1px solid #F1F5F9;overflow-x:auto;">
-            <a href="javascript:void(0)" class="zoie-filter-capsule active" style="font-size:11px;padding:4px 10px;">All</a>
-            <a href="javascript:void(0)" class="zoie-filter-capsule" style="font-size:11px;padding:4px 10px;">Unread</a>
-            <a href="javascript:void(0)" class="zoie-filter-capsule" style="font-size:11px;padding:4px 10px;">WhatsApp</a>
-            <a href="javascript:void(0)" class="zoie-filter-capsule" style="font-size:11px;padding:4px 10px;">Widget</a>
+            <a href="javascript:void(0)" class="ontrack-filter-capsule active" style="font-size:11px;padding:4px 10px;">All</a>
+            <a href="javascript:void(0)" class="ontrack-filter-capsule" style="font-size:11px;padding:4px 10px;">Unread</a>
+            <a href="javascript:void(0)" class="ontrack-filter-capsule" style="font-size:11px;padding:4px 10px;">WhatsApp</a>
+            <a href="javascript:void(0)" class="ontrack-filter-capsule" style="font-size:11px;padding:4px 10px;">Widget</a>
         </div>
 
         <!-- Conversations List -->
@@ -127,7 +127,7 @@
     </div>
 
     <!-- 2. CENTER PANE: Active Chat or Empty State -->
-    <div class="zoie-msg-pane" style="display:flex;flex-direction:column;">
+    <div class="ontrack-msg-pane" style="display:flex;flex-direction:column;">
         @if ($activeSession)
             <!-- Chat Header -->
             <div style="padding:12px 18px;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;justify-content:space-between;background:#FFFFFF;">
@@ -164,7 +164,7 @@
                 @if (!empty($activeSession['last_message']))
                     <div style="align-self:flex-end;max-width:80%;">
                         <div style="font-size:11px;color:#64748B;text-align:left;margin-bottom:3px;">العميل</div>
-                        <div class="zoie-chat-bubble-user">
+                        <div class="ontrack-chat-bubble-user">
                             {{ $activeSession['last_message'] }}
                         </div>
                     </div>
@@ -198,7 +198,7 @@
     </div>
 
     <!-- 3. RIGHT PANE: Contact Info / Privacy Shield -->
-    <div class="zoie-msg-pane" style="padding:20px;">
+    <div class="ontrack-msg-pane" style="padding:20px;">
         @if ($activeSession)
             <div style="text-align:center;margin-bottom:20px;">
                 <div style="width:56px;height:56px;border-radius:50%;background:#0F172A;color:#FFF;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;margin:0 auto 10px;">

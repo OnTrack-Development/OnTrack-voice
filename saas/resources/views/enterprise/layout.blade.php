@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/css/obsidian.css?v=69">
     <style>
-        /* Zoie.ai Dual-Contrast UI Enforcement */
+        /* OnTrack Dual-Contrast UI Enforcement */
         body {
             background: #0B0F19 !important;
             font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif !important;
@@ -147,16 +147,34 @@
         .kpi-meta {
             color: #94A3B8 !important;
         }
-        input, select, textarea {
-            background: #FFFFFF;
-            border: 1px solid #CBD5E1;
-            color: #0F172A;
-            border-radius: 8px;
+        /* Mandatory Input Styling Rules (Enforced with !important) */
+        input:not([type="checkbox"]):not([type="radio"]), textarea, select {
+            background-color: #FFFFFF !important;
+            color: #0F172A !important;
+            border: 1px solid #CBD5E1 !important;
+            border-radius: 8px !important;
+            padding: 10px 14px !important;
+            font-size: 13.5px !important;
+            box-sizing: border-box !important;
         }
-        .topbar input {
-            background: #1E293B !important;
+        input::placeholder, textarea::placeholder {
+            color: #64748B !important;
+            opacity: 1 !important;
+        }
+        input:not([type="checkbox"]):not([type="radio"]):focus, textarea:focus, select:focus {
+            background-color: #FFFFFF !important;
+            color: #0F172A !important;
+            border-color: #4F46E5 !important;
+            outline: none !important;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
+        }
+        .topbar input:not([type="checkbox"]):not([type="radio"]) {
+            background-color: #1E293B !important;
             border: 1px solid rgba(255, 255, 255, 0.12) !important;
             color: #FFFFFF !important;
+        }
+        .topbar input::placeholder {
+            color: #94A3B8 !important;
         }
         .btn-primary {
             background: #0F172A !important;
@@ -190,7 +208,7 @@
     </div>
 @endif
 
-<!-- Zoie Out of credits alert banner (Matching Screenshot 1 & 2) -->
+<!-- Out of credits alert banner (Matching Screenshot 1 & 2) -->
 <div style="background:#FFFFFF;color:#EF4444;border-bottom:1px solid #F1F5F9;padding:6px 16px;text-align:center;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;">
     <span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1.5px solid #EF4444;font-size:9.5px;font-weight:800;">!</span>
     <span>Out of credits</span>
@@ -202,14 +220,14 @@
     <div id="ioSidebarScrim" class="sidebar-scrim" onclick="toggleSidebar(false)"></div>
 
     <aside id="ioSidebar" class="sidebar">
-        <!-- Brand Mark: //zoie / OnTrack -->
+        <!-- Brand Mark: OnTrack / OnTrack -->
         <div class="brand-bar">
             <div style="display:flex;align-items:center;gap:10px;">
                 <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg, #EC4899, #8B5CF6);display:grid;place-items:center;font-weight:900;color:#FFF;font-size:18px;">
                     //
                 </div>
                 <div style="min-width:0">
-                    <div class="brand-name">{{ $ctx['brand']['name'] ?? 'zoie' }}</div>
+                    <div class="brand-name">{{ $ctx['brand']['name'] ?? 'OnTrack' }}</div>
                     <div class="brand-sub mono">OnTrack Voice · {{ $ctx['account']['name'] ?? '' }}</div>
                 </div>
             </div>
@@ -392,9 +410,9 @@
             </div>
 
             <div class="topbar-right" style="display:flex;align-items:center;gap:10px;">
-                <button type="button" class="btn btn-sm" onclick="alert('مساعد Zoie / OnTrack AI جاهز لمساعدتك في أي سؤال حول المنصة أو الإيجنت.')" style="background:linear-gradient(135deg, #8B5CF6, #06B6D4);color:#FFF;border:none;border-radius:20px;font-weight:700;display:flex;align-items:center;gap:6px;box-shadow:0 4px 15px rgba(139,92,246,0.3);padding:6px 16px;">
+                <button type="button" class="btn btn-sm" onclick="alert('مساعد OnTrack AI جاهز لمساعدتك في أي سؤال حول المنصة أو الإيجنت.')" style="background:linear-gradient(135deg, #8B5CF6, #06B6D4);color:#FFF;border:none;border-radius:20px;font-weight:700;display:flex;align-items:center;gap:6px;box-shadow:0 4px 15px rgba(139,92,246,0.3);padding:6px 16px;">
                     <span>✨</span>
-                    <span>+ Ask Zoie</span>
+                    <span>+ OnTrack AI</span>
                 </button>
 
                 @if (count($ctx['switchable_accounts'] ?? []) > 1)

@@ -6,7 +6,7 @@
 <div class="card-head" style="margin-bottom:14px">
     <div>
         <h1 style="font-size:20px;margin:0;font-weight:700">مُنشئ ومُخصص ودجت الموقع (Website Widget Builder)</h1>
-        <p class="card-sub">تخصيص ويدجت المكالمات الصوتية والشات العائمة لموقعك أو متجرك بنظام Zoie.ai Luxury Experience</p>
+        <p class="card-sub">تخصيص ويدجت المكالمات الصوتية والشات العائمة لموقعك أو متجرك بنظام OnTrack Voice Enterprise Experience</p>
     </div>
     <button class="btn btn-primary btn-sm" onclick="copyWidgetCode()">📋 نسخ كود التضمين</button>
 </div>

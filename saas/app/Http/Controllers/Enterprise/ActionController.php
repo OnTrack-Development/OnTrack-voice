@@ -1372,7 +1372,7 @@ class ActionController extends Controller
                 $company = trim((string) $r->input('company', 'OnTrack'));
                 $tone = trim((string) $r->input('tone', 'ودود واحترافي'));
                 $generated = "=== PERSONA ===\n".
-                    "الاسم: زوي (Zoie)\n".
+                    "الاسم: سارة (OnTrack Voice)\n".
                     "الدور: ".$role." في شركة ".$company."\n".
                     "اللهجة والأسلوب: مصري راقي، ".$tone."، سريع البديهة.\n".
                     "الهدف الأساسي: استقبال استفسارات العملاء بدقة، جمع البيانات الحيوية، حجز المواعيد فورا، وتحويل المشاكل المعقدة للدعم البشري بأدب.";

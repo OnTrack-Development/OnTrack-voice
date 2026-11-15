@@ -10,9 +10,49 @@
     $revisions = $data['revisions'] ?? [];
 @endphp
 
+<style>
+    .studio-pane .card {
+        background: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 14px !important;
+        padding: 22px !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+        margin-bottom: 18px !important;
+    }
+    .studio-pane input:not([type="checkbox"]):not([type="radio"]), 
+    .studio-pane textarea, 
+    .studio-pane select {
+        background-color: #FFFFFF !important;
+        color: #0F172A !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+        font-size: 13.5px !important;
+        box-sizing: border-box !important;
+    }
+    .studio-pane input::placeholder, 
+    .studio-pane textarea::placeholder {
+        color: #64748B !important;
+        opacity: 1 !important;
+    }
+    .studio-pane input:focus, 
+    .studio-pane textarea:focus, 
+    .studio-pane select:focus {
+        border-color: #4F46E5 !important;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
+    }
+    .field-hint {
+        font-size: 11.5px !important;
+        color: #64748B !important;
+        display: block !important;
+        margin-top: 5px !important;
+        line-height: 1.5 !important;
+    }
+</style>
+
 <div class="card-head" style="margin-bottom:14px">
     <div>
-        <h1 style="font-size:20px;margin:0;font-weight:700">استوديو الإيجنت والأصوات (Zoie.ai Luxury Studio)</h1>
+        <h1 style="font-size:20px;margin:0;font-weight:700">استوديو الإيجنت والأصوات (OnTrack AI Voice Studio)</h1>
         <p class="card-sub">صمّم الشخصية، اضبط السيناريو والمخطط البصري، وتحكم في المهارات مع رابط المكالمة الصوتية الحية</p>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
@@ -46,7 +86,7 @@
 @endif
 
 @if ($selected)
-<!-- Zoie.ai 6-Tab Studio Navigation -->
+<!-- OnTrack 6-Tab Studio Navigation -->
 <div style="display:flex;gap:8px;border-bottom:1px solid #E2E8F0;padding-bottom:12px;margin-bottom:18px;overflow-x:auto;">
     <button type="button" class="btn btn-sm btn-primary studio-tab-btn" onclick="switchStudioTab('persona')" id="tabBtnPersona">👤 Persona (الشخصية)</button>
     <button type="button" class="btn btn-sm btn-ghost studio-tab-btn" onclick="switchStudioTab('skills')" id="tabBtnSkills">⚡ Skills (المهارات)</button>
@@ -65,7 +105,7 @@
     <!-- ==================== PANE 1: PERSONA ==================== -->
     <div id="paneStudioPersona" class="studio-pane" style="display:block;">
         <div class="grid-2">
-            <div class="card">
+            <div class="card" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
                 <div class="card-head">
                     <div>
                         <h2 class="card-title">إعدادات الشخصية والهوية</h2>
@@ -78,6 +118,7 @@
                     <div class="field">
                         <span class="field-label">اسم الإيجنت</span>
                         <input type="text" name="name" value="{{ $selected['name'] }}" required>
+                        <span style="font-size:11.5px;color:#64748B;display:block;margin-top:4px;">الاسم التعريفي الذي يقدم به الإيجنت نفسه للمتصلين.</span>
                     </div>
                     <div class="field">
                         <span class="field-label">أسلوب اللغة واللهجة</span>
@@ -92,20 +133,23 @@
                                 <option value="{{ $val }}" {{ ($policy['response_style'] ?? '') === $val ? 'selected' : '' }}>{{ $lbl }}</option>
                             @endforeach
                         </select>
+                        <span style="font-size:11.5px;color:#64748B;display:block;margin-top:4px;">نبرة وأسلوب صياغة الردود بما يناسب هوية علامتك التجارية.</span>
                     </div>
                 </div>
 
-                <div class="field" style="margin-top:10px;">
+                <div class="field" style="margin-top:12px;">
                     <span class="field-label">الهدف الرئيسي للمكالمة (Main Goal)</span>
                     <input type="text" name="agent_goal" value="{{ $policy['goal'] ?? '' }}" placeholder="مثال: الإجابة على استفسارات الاستضافة وحجز موعد استشارة">
+                    <span style="font-size:11.5px;color:#64748B;display:block;margin-top:4px;">النتيجة المستهدفة من كل مكالمة والتي يوجه الإيجنت الحوار لإتمامها.</span>
                 </div>
-                <div class="field">
+                <div class="field" style="margin-top:12px;">
                     <span class="field-label">الضوابط والحدود (Guardrails & Negative Constraints)</span>
-                    <textarea name="agent_guardrails" style="min-height:70px" placeholder="مثال: لا تذكر أي خصومات بدون تأكيد، لا تشارك كلمات سر السيرفر...">{{ $policy['guardrails'] ?? '' }}</textarea>
+                    <textarea name="agent_guardrails" style="min-height:75px" placeholder="مثال: لا تذكر أي خصومات بدون تأكيد، لا تشارك كلمات سر السيرفر...">{{ $policy['guardrails'] ?? '' }}</textarea>
+                    <span style="font-size:11.5px;color:#64748B;display:block;margin-top:4px;">المحاذير الإلزامية التي يمتنع الإيجنت عن ذكرها قطعاً لضمان الأمان والمصداقية.</span>
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
                 <div class="card-head">
                     <div>
                         <h2 class="card-title">وضع السيناريو ومسار المحادثة</h2>
@@ -560,7 +604,7 @@
 @endif
 
 <script>
-// Zoie.ai 6-Tab Studio Switcher
+// OnTrack 6-Tab Studio Switcher
 function switchStudioTab(tab) {
     var tabs = ['persona', 'skills', 'engine', 'knowledge', 'test', 'performance'];
     tabs.forEach(function(t) {

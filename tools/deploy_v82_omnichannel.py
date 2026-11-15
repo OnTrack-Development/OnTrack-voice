@@ -48,8 +48,10 @@ def main():
         "app/Http/Controllers/Enterprise/WorkspaceController.php",
         "app/Services/Campaigns/CampaignDialerService.php",
         "routes/web.php",
+        "bootstrap/app.php",
         "resources/views/app/agents/web_call.blade.php",
         "resources/views/enterprise/layout.blade.php",
+        "resources/views/enterprise/portal.blade.php",
         "resources/views/enterprise/public_booking.blade.php",
         "resources/views/enterprise/tabs",
         "storage/connectors/whmcs/ontrack_bridge",
@@ -154,7 +156,8 @@ for name, url in urls:
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'OnTrackDeployVerifier/1.0'})
         with urllib.request.urlopen(req, timeout=10, context=ctx) as r:
-            print(f'[{name}] URL: {url} -> HTTP {r.status} OK (Content-Length: {r.headers.get(\"Content-Length\", \"chunked\")})')
+            body = r.read()
+            print(f'[{name}] URL: {url} -> HTTP {r.status} OK (bytes: {len(body)})')
     except urllib.error.HTTPError as e:
         print(f'[{name}] URL: {url} -> HTTP {e.code} (Expected for auth: {e.code in (200, 401)})')
     except Exception as e:

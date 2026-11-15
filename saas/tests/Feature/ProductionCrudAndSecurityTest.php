@@ -80,7 +80,7 @@ class ProductionCrudAndSecurityTest extends TestCase
         DB::table('agents')->insert([
             'account_id' => $this->customerAccountId,
             'site_id' => $custSiteId,
-            'name' => 'Zoie',
+            'name' => 'OnTrack Agent',
             'voice' => 'ar-EG-SalmaNeural',
             'status' => 'published',
             'flow_json' => json_encode(['nodes' => [], 'edges' => []]),

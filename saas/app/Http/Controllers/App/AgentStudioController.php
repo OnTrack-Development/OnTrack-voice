@@ -169,6 +169,10 @@ class AgentStudioController extends Controller
             ->orWhere('name', $agent)
             ->first();
 
+        if (! $agentModel && is_numeric($agent)) {
+            $agentModel = Agent::find((int) $agent);
+        }
+
         if (! $agentModel) {
             $agentModel = Agent::first();
         }
@@ -183,5 +187,149 @@ class AgentStudioController extends Controller
             'shareToken' => $shareToken,
             'wsEndpoint' => $wsEndpoint,
         ]);
+    }
+
+    public function createLiveSession(Request $request, string $agent)
+    {
+        $agentModel = Agent::where('id', $agent)
+            ->orWhere('name', $agent)
+            ->first();
+
+        if (! $agentModel && is_numeric($agent)) {
+            $agentModel = Agent::find((int) $agent);
+        }
+
+        if (! $agentModel) {
+            $agentModel = Agent::first();
+        }
+
+        if (! $agentModel) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'لم يتم العثور على الإيجنت المحدد في قاعدة البيانات.',
+            ], 404);
+        }
+
+        $apiKey = $this->resolveGeminiApiKey();
+        if (empty($apiKey)) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'مفتاح Gemini API غير مهيأ في الخزنة المشفرة.',
+            ], 500);
+        }
+
+        // Voice Mapping
+        $rawVoice = strtolower((string) ($agentModel->voice ?? 'aoede'));
+        $voiceName = 'Aoede';
+        if (str_contains($rawVoice, 'puck') || str_contains($rawVoice, 'charon') || str_contains($rawVoice, 'fenrir')) {
+            $voiceName = 'Puck';
+        } elseif (str_contains($rawVoice, 'kore')) {
+            $voiceName = 'Kore';
+        } elseif (str_contains($rawVoice, 'aoede')) {
+            $voiceName = 'Aoede';
+        }
+
+        $instructions = trim((string) ($agentModel->instructions ?? ''));
+        $persona = trim((string) ($agentModel->persona ?? ''));
+
+        $systemPrompt = "أنت المساعد الصوتي الذكي الرسمي: {$agentModel->name}.\n"
+            . (!empty($persona) ? "الشخصية: {$persona}\n" : "الشخصية: ودود، لبق، سريع البديهة، وتتحدث باللهجة المصرية الطبيعية والواضحة.\n")
+            . (!empty($instructions) ? "إرشادات العمل: {$instructions}\n" : "")
+            . "قواعد المكالمة:\n"
+            . "1. تحدث بطريقة طبيعية وانسيابية بنبرة صوت دافئة واحترافية.\n"
+            . "2. استمع للعميل جيداً وأجب باختصار ودقة دون إطالة غير ضرورية.\n"
+            . "3. التزم بالهوية الرسمية لمنصة OnTrack للحلول الصوتية والذكاء الاصطناعي.";
+
+        $modelName = env('ONTRACK_GEMINI_LIVE_MODEL', 'gemini-2.0-flash-exp');
+        if (!str_starts_with($modelName, 'models/')) {
+            $modelName = 'models/' . $modelName;
+        }
+
+        $setup = [
+            'model' => $modelName,
+            'generationConfig' => [
+                'responseModalities' => ['AUDIO'],
+                'speechConfig' => [
+                    'voiceConfig' => [
+                        'prebuiltVoiceConfig' => [
+                            'voiceName' => $voiceName,
+                        ],
+                    ],
+                ],
+            ],
+            'systemInstruction' => [
+                'parts' => [
+                    ['text' => $systemPrompt],
+                ],
+            ],
+        ];
+
+        $wsUrl = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=' . rawurlencode($apiKey);
+
+        return response()->json([
+            'ok' => true,
+            'agent_id' => $agentModel->id,
+            'agent_name' => $agentModel->name,
+            'voice_name' => $voiceName,
+            'gemini_ws_url' => $wsUrl,
+            'setup' => $setup,
+        ]);
+    }
+
+    private function resolveGeminiApiKey(): ?string
+    {
+        $key = (string) config('ontrack.gemini_api_key');
+        if (!empty($key)) {
+            return $key;
+        }
+
+        $envKey = (string) env('ONTRACK_GEMINI_API_KEY');
+        if (!empty($envKey)) {
+            return $envKey;
+        }
+
+        // Try decrypting from SQLite console vault
+        $vaultPaths = [
+            '/home/appontrack/.ontrack-saas',
+            storage_path('app/ontrack-vault'),
+            base_path('../.ontrack-saas'),
+        ];
+
+        foreach ($vaultPaths as $base) {
+            $keyFile = $base . '/console-vault.key';
+            $dbFile = $base . '/ontrack-console.sqlite';
+            if (file_exists($keyFile) && file_exists($dbFile)) {
+                $vaultKey = @file_get_contents($keyFile);
+                if (is_string($vaultKey) && strlen($vaultKey) === 32 && class_exists('SQLite3')) {
+                    try {
+                        $sqlite = new \SQLite3($dbFile, SQLITE3_OPEN_READONLY);
+                        $res = $sqlite->query("SELECT secret_enc FROM ai_relay_entries WHERE scope = 'voice' AND enabled = 1 ORDER BY priority ASC LIMIT 1");
+                        if ($res) {
+                            $row = $res->fetchArray(SQLITE3_ASSOC);
+                            if ($row && !empty($row['secret_enc'])) {
+                                $raw = base64_decode($row['secret_enc'], true);
+                                if ($raw !== false && strlen($raw) >= 28) {
+                                    $decrypted = openssl_decrypt(
+                                        substr($raw, 28),
+                                        'aes-256-gcm',
+                                        $vaultKey,
+                                        OPENSSL_RAW_DATA,
+                                        substr($raw, 0, 12),
+                                        substr($raw, 12, 16)
+                                    );
+                                    if ($decrypted !== false && !empty($decrypted)) {
+                                        return $decrypted;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        // ignore and continue
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 }

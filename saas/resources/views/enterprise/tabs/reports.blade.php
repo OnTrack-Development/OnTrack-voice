@@ -96,7 +96,7 @@
                 <div style="display:flex;align-items:center;gap:10px;">
                     <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg, #8B5CF6, #3B82F6);color:#FFF;display:flex;align-items:center;justify-content:center;font-weight:700;">Z</div>
                     <div>
-                        <strong style="font-size:13px;color:#0F172A;">Zoie (وكيل المبيعات والاستشارات)</strong>
+                        <strong style="font-size:13px;color:#0F172A;">OnTrack AI (وكيل المبيعات والاستشارات)</strong>
                         <div style="font-size:11.5px;color:#64748B;">184 مكالمة · نسبة إغلاق 24%</div>
                     </div>
                 </div>

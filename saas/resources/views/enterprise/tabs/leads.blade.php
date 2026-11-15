@@ -21,7 +21,7 @@
     </div>
 </div>
 
-<!-- Top Metrics Counter Strip (Matching Zoie.ai Leads Pipeline) -->
+<!-- Top Metrics Counter Strip (Matching OnTrack Leads Pipeline) -->
 <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;margin-bottom:20px;">
     <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
         <div style="font-size:12px;color:#64748B;font-weight:600;margin-bottom:6px;">Leads (إجمالي العملاء)</div>

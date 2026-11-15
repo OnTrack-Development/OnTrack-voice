@@ -1,6 +1,6 @@
 /**
  * OnTrack AI — 2-in-1 Embeddable Voice & Chat Widget
- * Inspired by Zoie.ai Luxury Enterprise Experience
+ * OnTrack Voice Luxury Enterprise Experience
  * Built with Shadow DOM for complete CSS isolation and zero host conflicts.
  */
 

@@ -83,14 +83,14 @@
                 <td style="padding:14px 18px;color:#94A3B8;font-size:12px;">منذ دقيقتين</td>
                 <td style="padding:14px 16px;"><span class="pill pill-green" style="font-size:11px;">مكالمة مكتملة</span></td>
                 <td style="padding:14px 16px;">SIM 1 (Android)</td>
-                <td style="padding:14px 16px;color:#8B5CF6;font-weight:600;">✨ Zoie</td>
+                <td style="padding:14px 16px;color:#8B5CF6;font-weight:600;">✨ OnTrack AI</td>
                 <td style="padding:14px 18px;color:#0F172A;">الرد على استفسار العميل بخصوص مواعيد العمل والأسعار (المدة 41 ثانية)</td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
                 <td style="padding:14px 18px;color:#94A3B8;font-size:12px;">منذ 15 دقيقة</td>
                 <td style="padding:14px 16px;"><span class="pill" style="background:#EFF6FF;color:#2563EB;font-size:11px;">موعد جديد</span></td>
                 <td style="padding:14px 16px;">WhatsApp API</td>
-                <td style="padding:14px 16px;color:#8B5CF6;font-weight:600;">✨ Zoie</td>
+                <td style="padding:14px 16px;color:#8B5CF6;font-weight:600;">✨ OnTrack AI</td>
                 <td style="padding:14px 18px;color:#0F172A;">حجز موعد استشارة سحابية مبيعات VPS مع أحمد محمود (اليوم 11:00 ص)</td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">

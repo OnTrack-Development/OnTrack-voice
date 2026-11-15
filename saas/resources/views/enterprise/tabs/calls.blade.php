@@ -20,14 +20,14 @@
 @endphp
 
 <style>
-.zoie-calls-layout {
+.ontrack-calls-layout {
     display: grid;
     grid-template-columns: 320px 1fr 310px;
     gap: 16px;
     height: calc(100vh - 160px);
     min-height: 650px;
 }
-.zoie-pane {
+.ontrack-pane {
     background: #FFFFFF;
     border: 1px solid #E2E8F0;
     border-radius: 12px;
@@ -35,14 +35,14 @@
     display: flex;
     flex-direction: column;
 }
-.zoie-pane-header {
+.ontrack-pane-header {
     padding: 14px 16px;
     border-bottom: 1px solid #F1F5F9;
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
-.zoie-pill-btn {
+.ontrack-pill-btn {
     padding: 5px 12px;
     border-radius: 20px;
     font-size: 12px;
@@ -55,12 +55,12 @@
     transition: all 0.15s;
     white-space: nowrap;
 }
-.zoie-pill-btn.active, .zoie-pill-btn:hover {
+.ontrack-pill-btn.active, .ontrack-pill-btn:hover {
     background: #0F172A;
     color: #FFFFFF;
     border-color: #0F172A;
 }
-.zoie-call-item {
+.ontrack-call-item {
     padding: 12px 16px;
     border-bottom: 1px solid #F1F5F9;
     display: flex;
@@ -69,10 +69,10 @@
     cursor: pointer;
     transition: background 0.15s;
 }
-.zoie-call-item:hover, .zoie-call-item.active {
+.ontrack-call-item:hover, .ontrack-call-item.active {
     background: #F8FAFC;
 }
-.zoie-call-avatar {
+.ontrack-call-avatar {
     width: 38px;
     height: 38px;
     border-radius: 50%;
@@ -85,7 +85,7 @@
     font-size: 13px;
     flex-shrink: 0;
 }
-.zoie-badge-danger {
+.ontrack-badge-danger {
     background: #FEF2F2;
     color: #DC2626;
     border: 1px solid #FEE2E2;
@@ -94,7 +94,7 @@
     border-radius: 6px;
     font-weight: 600;
 }
-.zoie-badge-success {
+.ontrack-badge-success {
     background: #F0FDF4;
     color: #16A34A;
     border: 1px solid #DCFCE7;
@@ -111,7 +111,7 @@
     transition: height 0.2s;
 }
 /* Modal Transcript */
-.zoie-modal-backdrop {
+.ontrack-modal-backdrop {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(15, 23, 42, 0.45);
@@ -121,7 +121,7 @@
     align-items: center;
     justify-content: center;
 }
-.zoie-modal-box {
+.ontrack-modal-box {
     background: #FFFFFF;
     border-radius: 16px;
     width: 100%;
@@ -134,10 +134,10 @@
 }
 </style>
 
-<div class="zoie-calls-layout">
+<div class="ontrack-calls-layout">
     <!-- 1. LEFT PANE: Calls List -->
-    <div class="zoie-pane">
-        <div class="zoie-pane-header">
+    <div class="ontrack-pane">
+        <div class="ontrack-pane-header">
             <div style="display:flex;align-items:center;gap:8px;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                 <strong style="font-size:16px;color:#0F172A;">المكالمات (Calls)</strong>
@@ -151,10 +151,10 @@
         <!-- Filter pills -->
         <div style="padding:10px 14px;display:flex;gap:6px;border-bottom:1px solid #F1F5F9;overflow-x:auto;">
             @php $currSt = request('status'); @endphp
-            <a href="/?tab=calls" class="zoie-pill-btn {{ empty($currSt) ? 'active' : '' }}">All</a>
-            <a href="/?tab=calls&status=answered" class="zoie-pill-btn {{ $currSt === 'answered' ? 'active' : '' }}">AI Agent</a>
-            <a href="/?tab=calls&status=ended" class="zoie-pill-btn {{ $currSt === 'ended' ? 'active' : '' }}">Ended</a>
-            <a href="/?tab=calls&status=no_answered" class="zoie-pill-btn {{ $currSt === 'no_answered' ? 'active' : '' }}">Missed</a>
+            <a href="/?tab=calls" class="ontrack-pill-btn {{ empty($currSt) ? 'active' : '' }}">All</a>
+            <a href="/?tab=calls&status=answered" class="ontrack-pill-btn {{ $currSt === 'answered' ? 'active' : '' }}">AI Agent</a>
+            <a href="/?tab=calls&status=ended" class="ontrack-pill-btn {{ $currSt === 'ended' ? 'active' : '' }}">Ended</a>
+            <a href="/?tab=calls&status=no_answered" class="ontrack-pill-btn {{ $currSt === 'no_answered' ? 'active' : '' }}">Missed</a>
         </div>
 
         <!-- Meta Header Strip for Accessibility & Tests -->
@@ -175,8 +175,8 @@
                     $cStatus = $cArr['status'] ?? 'completed';
                     $isActive = ((int) ($activeArr['id'] ?? 0) === (int) $cId);
                 @endphp
-                <a href="/?tab=calls&call_id={{ $cId }}{{ request('status') ? '&status='.request('status') : '' }}" class="zoie-call-item {{ $isActive ? 'active' : '' }}" style="text-decoration:none;color:inherit;display:flex;">
-                    <div class="zoie-call-avatar">EG</div>
+                <a href="/?tab=calls&call_id={{ $cId }}{{ request('status') ? '&status='.request('status') : '' }}" class="ontrack-call-item {{ $isActive ? 'active' : '' }}" style="text-decoration:none;color:inherit;display:flex;">
+                    <div class="ontrack-call-avatar">EG</div>
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;justify-content:space-between;">
                             <span style="font-weight:700;font-size:13px;color:#0F172A;" dir="ltr">{{ $cPhone }}</span>
@@ -184,7 +184,7 @@
                         </div>
                         <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
                             <span style="font-size:11.5px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px;">{{ $cSumm }}</span>
-                            <span class="{{ in_array($cStatus, ['no_answered', 'failed', 'missed']) ? 'zoie-badge-danger' : 'zoie-badge-success' }}" style="margin-right:auto;font-size:10px;">{{ strtoupper($cStatus) }}</span>
+                            <span class="{{ in_array($cStatus, ['no_answered', 'failed', 'missed']) ? 'ontrack-badge-danger' : 'ontrack-badge-success' }}" style="margin-right:auto;font-size:10px;">{{ strtoupper($cStatus) }}</span>
                         </div>
                     </div>
                 </a>
@@ -199,22 +199,22 @@
     </div>
 
     <!-- 2. MIDDLE PANE: Active Call Audio Player & Summary -->
-    <div class="zoie-pane" style="padding:20px;">
+    <div class="ontrack-pane" style="padding:20px;">
         @if ($activeArr)
             <!-- Caller Header Bar -->
             <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid #E2E8F0;margin-bottom:18px;">
                 <div style="display:flex;align-items:center;gap:12px;">
-                    <div class="zoie-call-avatar" style="width:42px;height:42px;font-size:14px;">EG</div>
+                    <div class="ontrack-call-avatar" style="width:42px;height:42px;font-size:14px;">EG</div>
                     <div>
                         <div style="font-weight:700;font-size:16px;color:#0F172A;" dir="ltr">{{ $activeArr['phone'] ?? $activeArr['caller_number'] ?? '' }}</div>
-                        <div style="font-size:12px;color:#64748B;">Call via <span style="color:#8B5CF6;font-weight:600;">✨ {{ $activeArr['agent_name'] ?? 'Zoie' }} (AI Agent)</span></div>
+                        <div style="font-size:12px;color:#64748B;">Call via <span style="color:#8B5CF6;font-weight:600;">✨ {{ $activeArr['agent_name'] ?? 'OnTrack AI' }} (AI Agent)</span></div>
                     </div>
                 </div>
 
                 <div style="display:flex;align-items:center;gap:10px;">
                     <div style="display:flex;align-items:center;gap:6px;background:#F8FAFC;border:1px solid #E2E8F0;padding:4px 10px;border-radius:20px;font-size:12px;">
                         <span style="width:7px;height:7px;border-radius:50%;background:#10B981;"></span>
-                        <span style="color:#0F172A;font-weight:600;">{{ $activeArr['agent_name'] ?? 'Zoie' }}</span>
+                        <span style="color:#0F172A;font-weight:600;">{{ $activeArr['agent_name'] ?? 'OnTrack AI' }}</span>
                         <span style="color:#64748B;">• Active ▾</span>
                     </div>
                     <form method="POST" action="{{ route('enterprise.action') }}" style="margin:0;">
@@ -232,11 +232,11 @@
             <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="background:#0F172A;color:#FFF;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">{{ $activeArr['agent_name'] ?? 'Zoie' }}</span>
+                        <span style="background:#0F172A;color:#FFF;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">{{ $activeArr['agent_name'] ?? 'OnTrack AI' }}</span>
                         <span style="font-size:12px;color:#64748B;">{{ $activeArr['duration_formatted'] ?? '0:00' }}</span>
                         <span style="font-size:11px;color:#94A3B8;">التاريخ (القاهرة): {{ $activeArr['created_at_cairo'] ?? '' }}</span>
                     </div>
-                    <span class="{{ in_array($activeArr['status'] ?? '', ['no_answered', 'failed', 'missed']) ? 'zoie-badge-danger' : 'zoie-badge-success' }}" style="font-size:11px;font-weight:700;letter-spacing:0.5px;">
+                    <span class="{{ in_array($activeArr['status'] ?? '', ['no_answered', 'failed', 'missed']) ? 'ontrack-badge-danger' : 'ontrack-badge-success' }}" style="font-size:11px;font-weight:700;letter-spacing:0.5px;">
                         {{ strtoupper($activeArr['status'] ?? 'COMPLETED') }}
                     </span>
                 </div>
@@ -292,9 +292,9 @@
     </div>
 
     <!-- 3. RIGHT PANE: Lead Profile & CRM Linking -->
-    <div class="zoie-pane" style="padding:20px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+    <div class="ontrack-pane" style="padding:20px;display:flex;flex-direction:column;align-items:center;text-align:center;">
         @if ($activeArr)
-            <div class="zoie-call-avatar" style="width:64px;height:64px;font-size:20px;margin-bottom:14px;position:relative;">
+            <div class="ontrack-call-avatar" style="width:64px;height:64px;font-size:20px;margin-bottom:14px;position:relative;">
                 EG
                 <span style="position:absolute;bottom:0;right:0;width:20px;height:20px;border-radius:50%;background:#FFF;border:1px solid #E2E8F0;display:flex;align-items:center;justify-content:center;font-size:11px;">📞</span>
             </div>
@@ -333,8 +333,8 @@
 </div>
 
 <!-- TRANSCRIPT MODAL (Matching Screenshot 3) -->
-<div id="zoieTranscriptModal" class="zoie-modal-backdrop" onclick="if(event.target===this)closeTranscriptModal()">
-    <div class="zoie-modal-box">
+<div id="ontrackTranscriptModal" class="ontrack-modal-backdrop" onclick="if(event.target===this)closeTranscriptModal()">
+    <div class="ontrack-modal-box">
         <div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;justify-content:space-between;">
             <strong style="font-size:16px;color:#0F172A;">Transcript</strong>
             <div style="display:flex;align-items:center;gap:8px;">
@@ -370,10 +370,10 @@
 
 <script>
 function openTranscriptModal() {
-    document.getElementById('zoieTranscriptModal').style.display = 'flex';
+    document.getElementById('ontrackTranscriptModal').style.display = 'flex';
 }
 function closeTranscriptModal() {
-    document.getElementById('zoieTranscriptModal').style.display = 'none';
+    document.getElementById('ontrackTranscriptModal').style.display = 'none';
 }
 function toggleWavePlay(btn) {
     if (btn.innerText === '▶') {
@@ -383,7 +383,7 @@ function toggleWavePlay(btn) {
     }
 }
 function downloadCallTranscript() {
-    const bubbles = document.querySelectorAll('#zoieTranscriptModal .zoie-modal-box div[style*="border-radius"]');
+    const bubbles = document.querySelectorAll('#ontrackTranscriptModal .ontrack-modal-box div[style*="border-radius"]');
     let text = "تفاصيل وتفريغ المكالمة رقم {{ $activeArr['id'] ?? 0 }}\nالرقم: {{ $activeArr['phone'] ?? ($activeArr['caller_number'] ?? '') }}\n\n";
     bubbles.forEach(b => {
         text += b.innerText.trim() + "\n\n";

@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'mobile/*',
             'saas/mobile/*',
             'sso',
+            'aivoiceagent/*/session',
         ]);
         $middleware->alias([
             'platform.admin' => EnsurePlatformAdmin::class,

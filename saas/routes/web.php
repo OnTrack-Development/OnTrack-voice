@@ -138,6 +138,7 @@ Route::get('/saas/console/{any?}', function (\Illuminate\Http\Request $request) 
 Route::get('/book/{account_slug}', [WorkspaceController::class, 'showPublicBooking'])->name('public.booking.show');
 Route::post('/book/{account_slug}', [WorkspaceController::class, 'storePublicBooking'])->name('public.booking.store');
 Route::get('/aivoiceagent/{agent}', [AgentStudioController::class, 'publicWebCall'])->name('agents.public.webcall');
+Route::post('/aivoiceagent/{agent}/session', [AgentStudioController::class, 'createLiveSession'])->name('agents.live_session');
 Route::post('/api/v1/bridge/events', [BridgeController::class, 'receiveEvent'])->name('api.bridge.events');
 Route::post('/api/v1/bridge/tools', [BridgeController::class, 'receiveEvent'])->name('api.bridge.tools');
 Route::get('/api/v1/bridge/status', [BridgeController::class, 'getStatus'])->name('api.bridge.status');
