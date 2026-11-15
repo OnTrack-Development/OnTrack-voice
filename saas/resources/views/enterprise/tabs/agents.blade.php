@@ -10,18 +10,38 @@
 
 <div class="card-head" style="margin-bottom:14px">
     <div>
-        <h1 style="font-size:20px;margin:0;font-weight:700">استوديو الإيجنت والأصوات</h1>
-        <p class="card-sub">صمّم الشخصية، اضبط السيناريو أو المخطط البصري، واختر الصوت مع المعاينة المحلية الفورية</p>
+        <h1 style="font-size:20px;margin:0;font-weight:700">استوديو الإيجنت والأصوات (Zoie.ai Luxury Studio)</h1>
+        <p class="card-sub">صمّم الشخصية، اضبط السيناريو والمخطط البصري، وتحكم في المهارات مع رابط المكالمة الصوتية الحية</p>
     </div>
-    @if (!empty($data['can_create_agent']))
-        <form method="POST" action="/console/action" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:100%">
-            @csrf
-            <input type="hidden" name="action" value="create_agent">
-            <input type="text" name="name" placeholder="اسم الإيجنت الجديد..." required style="width:190px;max-width:100%;flex:1 1 150px;padding:7px 10px">
-            <button type="submit" class="btn btn-primary btn-sm">+ إنشاء إيجنت</button>
-        </form>
-    @endif
+    <div style="display:flex;gap:8px;align-items:center;">
+        @if ($selected)
+            <a href="/aivoiceagent/{{ $selected['id'] }}?share=live" target="_blank" class="btn btn-sm" style="background:linear-gradient(135deg, #8B5CF6, #06B6D4);color:#FFF;border:none;font-weight:bold;display:flex;align-items:center;gap:6px;box-shadow:0 4px 15px rgba(139,92,246,0.35);">
+                <span>🔗</span>
+                <span>مشاركة رابط المكالمة الحية</span>
+            </a>
+        @endif
+        @if (!empty($data['can_create_agent']))
+            <form method="POST" action="/console/action" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:100%">
+                @csrf
+                <input type="hidden" name="action" value="create_agent">
+                <input type="text" name="name" placeholder="اسم الإيجنت الجديد..." required style="width:170px;max-width:100%;flex:1 1 150px;padding:7px 10px">
+                <button type="submit" class="btn btn-primary btn-sm">+ إنشاء إيجنت</button>
+            </form>
+        @endif
+    </div>
 </div>
+
+@if ($selected)
+<!-- Zoie.ai 6-Tab Studio Navigation -->
+<div style="display:flex;gap:8px;border-bottom:1px solid var(--border,#1E293B);padding-bottom:12px;margin-bottom:18px;overflow-x:auto;">
+    <button type="button" class="btn btn-sm btn-primary" onclick="switchStudioTab('persona')" id="tabBtnPersona">👤 Persona (الشخصية)</button>
+    <button type="button" class="btn btn-sm btn-ghost" onclick="switchStudioTab('skills')" id="tabBtnSkills">⚡ Skills (المهارات)</button>
+    <button type="button" class="btn btn-sm btn-ghost" onclick="switchStudioTab('engine')" id="tabBtnEngine">🧠 AI Engine (النماذج)</button>
+    <button type="button" class="btn btn-sm btn-ghost" onclick="switchStudioTab('knowledge')" id="tabBtnKnowledge">📖 Knowledge (المعرفة)</button>
+    <button type="button" class="btn btn-sm btn-ghost" onclick="switchStudioTab('test')" id="tabBtnTest">🧪 Test (المحاكاة)</button>
+    <button type="button" class="btn btn-sm btn-ghost" onclick="switchStudioTab('performance')" id="tabBtnPerformance">📊 Performance (الأداء)</button>
+</div>
+@endif
 
 @if (!empty($agents))
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">

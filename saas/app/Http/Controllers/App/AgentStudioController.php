@@ -162,4 +162,30 @@ class AgentStudioController extends Controller
 
         return [$ws, $membership];
     }
+
+    public function publicWebCall(Request $request, string $agent)
+    {
+        $agentModel = Agent::where('id', $agent)
+            ->orWhere('name', $agent)
+            ->first();
+
+        if (! $agentModel) {
+            $agentModel = new Agent([
+                'id' => 1,
+                'name' => 'سارة — خدمة العملاء والمبيعات الذكية',
+                'kind' => 'voice_inbound',
+                'persona' => 'مساعدة صوتية ودودة وسريعة البديهة تتحدث باللهجة المصرية/العربية ومجهزة بمعلومات الخدمات والأسعار.',
+                'instructions' => 'الترحيب بالعميل والإجابة عن تفاصيل باقات الاستضافة والدعم الفني وتأكيد فتح التذاكر.',
+            ]);
+        }
+
+        $shareToken = (string) $request->query('share', '');
+        $wsEndpoint = 'wss://app.ontrackegy.com/ws-voice';
+
+        return view('app.agents.web_call', [
+            'agent' => $agentModel,
+            'shareToken' => $shareToken,
+            'wsEndpoint' => $wsEndpoint,
+        ]);
+    }
 }

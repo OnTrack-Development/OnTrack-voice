@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\BridgeController;
 use App\Http\Controllers\Api\KashierWebhookController;
 use App\Http\Controllers\Api\TelegramWebhookController;
 use App\Http\Controllers\Api\WhatsappWebhookController;
@@ -68,6 +69,7 @@ Route::middleware('auth')->group(function () {
         'automations', 'billing', 'invoices', 'settings', 'whatsapp',
         'accounts', 'plans', 'domains', 'staff', 'integrations', 'releases',
         'reseller-tenants', 'reseller-quotas', 'platform-ai', 'platform-plans',
+        'messages', 'tickets', 'leads', 'appointments', 'widget',
         'workspace', 'admin', 'reseller',
     ] as $path) {
         $tab = match ($path) {
@@ -116,6 +118,12 @@ Route::get('/saas/console/{any?}', function (\Illuminate\Http\Request $request) 
 })->where('any', '(?!device/v1/).*')->name('console.legacy.redirect');
 
 // Webhooks & External Widgets
+Route::get('/aivoiceagent/{agent}', [AgentStudioController::class, 'publicWebCall'])->name('agents.public.webcall');
+Route::post('/api/v1/bridge/events', [BridgeController::class, 'receiveEvent'])->name('api.bridge.events');
+Route::post('/api/v1/bridge/tools', [BridgeController::class, 'receiveEvent'])->name('api.bridge.tools');
+Route::get('/api/v1/bridge/status', [BridgeController::class, 'getStatus'])->name('api.bridge.status');
+Route::any('/api/v1/bridge/widget', [BridgeController::class, 'handleWidget'])->name('api.bridge.widget');
+
 Route::get('/api/webhooks/meta/whatsapp/{publicId}', [WhatsappWebhookController::class, 'challenge']);
 Route::post('/api/webhooks/meta/whatsapp/{publicId}', [WhatsappWebhookController::class, 'receive']);
 Route::get('/api/widget/{publicKey}/config', [WidgetController::class, 'config']);
