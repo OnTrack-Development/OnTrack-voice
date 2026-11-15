@@ -55,6 +55,7 @@ def main():
         "storage/connectors/whmcs/ontrack_bridge",
         "public/downloads/ontrack_bridge.zip",
         "public/widget/ontrack-widget.js",
+        "public/.htaccess",
         "storage/app/floorplan/floorplan.html",
     ]
 
@@ -97,6 +98,7 @@ mkdir -p /home/appontrack/public_html/widget
 mkdir -p /home/appontrack/iovoice-app/storage/app/floorplan
 cp -f /home/appontrack/iovoice-app/public/downloads/ontrack_bridge.zip /home/appontrack/public_html/downloads/ontrack_bridge.zip
 cp -f /home/appontrack/iovoice-app/public/widget/ontrack-widget.js /home/appontrack/public_html/widget/ontrack-widget.js
+cp -f /home/appontrack/iovoice-app/public/.htaccess /home/appontrack/public_html/.htaccess
 rm -rf /home/appontrack/public_html/admin/floorplan.html /home/appontrack/public_html/admin
 
 echo "=== Step 3: Running migrations with EA PHP 8.2 ==="

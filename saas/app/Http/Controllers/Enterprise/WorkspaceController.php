@@ -595,33 +595,6 @@ class WorkspaceController extends Controller
             ->map(fn ($s) => (array) $s)
             ->all();
 
-        if (empty($sessions)) {
-            $sessions = [
-                [
-                    'id' => 1,
-                    'phone' => '+201012345678',
-                    'client_id' => '1042',
-                    'driver' => 'meta',
-                    'is_verified' => true,
-                    'state' => 'idle',
-                    'is_muted_for_human' => false,
-                    'last_message_at' => now()->subMinutes(5)->toDateTimeString(),
-                    'updated_at' => now()->subMinutes(5)->toDateTimeString(),
-                ],
-                [
-                    'id' => 2,
-                    'phone' => '+201198765432',
-                    'client_id' => null,
-                    'driver' => 'qr',
-                    'is_verified' => false,
-                    'state' => 'wa_ticket_create',
-                    'is_muted_for_human' => false,
-                    'last_message_at' => now()->subMinutes(12)->toDateTimeString(),
-                    'updated_at' => now()->subMinutes(12)->toDateTimeString(),
-                ]
-            ];
-        }
-
         return ['sessions' => $sessions];
     }
 
@@ -736,60 +709,74 @@ class WorkspaceController extends Controller
 
     private function powerDialerData(int $accountId): array
     {
+        $devices = [];
+        $campaigns = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('device_bindings')) {
+                $devices = DB::table('device_bindings')
+                    ->where('account_id', $accountId)
+                    ->get()
+                    ->map(fn($d) => (array)$d)
+                    ->all();
+            }
+            if (\Illuminate\Support\Facades\Schema::hasTable('campaigns')) {
+                $campaigns = DB::table('campaigns')
+                    ->where('account_id', $accountId)
+                    ->get()
+                    ->map(fn($c) => (array)$c)
+                    ->all();
+            }
+        } catch (\Throwable $e) {}
+
         return [
-            'concurrent_lines' => 3,
-            'pacing_mode' => 'predictive',
-            'hold_music' => 'default_soft',
-            'active_sim' => 1,
-            'active_campaign' => 'حملة ترويج سيرفرات cPanel السحابية',
+            'devices' => $devices,
+            'campaigns' => $campaigns,
+            'concurrent_lines' => count($devices),
+            'pacing_mode' => 'progressive',
+            'hold_music' => 'corporate_gentle',
+            'active_sim' => count($devices) > 0 ? 1 : 0,
+            'active_campaign' => count($campaigns) > 0 ? ($campaigns[0]['name'] ?? null) : null,
         ];
     }
 
     private function workflowsData(int $accountId): array
     {
-        return [
-            'workflows' => [
-                [
-                    'id' => 1,
-                    'title' => 'ملخص الواتساب الفوري بعد انتهاء المكالمة',
-                    'trigger' => 'call.ended',
-                    'action' => 'whatsapp.send_summary',
-                    'status' => 'active',
-                ],
-                [
-                    'id' => 2,
-                    'title' => 'إنشاء تذكرة دعم ذكية عند رصد استفسار تقني معقد',
-                    'trigger' => 'whatsapp.support_intent',
-                    'action' => 'whmcs.create_ticket',
-                    'status' => 'active',
-                ],
-                [
-                    'id' => 3,
-                    'title' => 'تحديث Lead CRM وتعيين حالة Qualified',
-                    'trigger' => 'lead.booking_requested',
-                    'action' => 'crm.update_lead',
-                    'status' => 'active',
-                ],
-            ]
-        ];
+        $workflows = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('smart_actions')) {
+                $workflows = DB::table('smart_actions')
+                    ->where('account_id', $accountId)
+                    ->get()
+                    ->map(fn($w) => (array)$w)
+                    ->all();
+            }
+        } catch (\Throwable $e) {}
+
+        return ['workflows' => $workflows];
     }
 
     private function integrationsData(int $accountId): array
     {
+        $connectedBridges = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('business_connectors')) {
+                $connectedBridges = DB::table('business_connectors')
+                    ->where('account_id', $accountId)
+                    ->get()
+                    ->map(fn($b) => (array)$b)
+                    ->all();
+            }
+        } catch (\Throwable $e) {}
+
+        $account = DB::table('accounts')->where('id', $accountId)->first();
+        $slug = $account->slug ?? 'acc_' . $accountId;
+
         return [
-            'api_key' => 'otint_demo_account',
+            'api_key' => 'otint_' . $slug,
             'whmcs_zip_url' => '/downloads/ontrack_bridge.zip',
             'whmcs_zip_size' => '12.9 KB',
             'zero_retention_mode' => true,
-            'connected_bridges' => [
-                [
-                    'name' => 'WHMCS Production Bridge',
-                    'host' => 'billing.clienthost.com',
-                    'status' => 'connected',
-                    'last_ping' => 'منذ دقيقة واحدة',
-                    'privacy_shield' => 'Zero-Knowledge PII Tokenization Active',
-                ]
-            ]
+            'connected_bridges' => $connectedBridges,
         ];
     }
 }

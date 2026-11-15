@@ -30,3 +30,5 @@ __pycache__/
 .build/
 dist/
 ai_support_agent/
+
+node_modules/

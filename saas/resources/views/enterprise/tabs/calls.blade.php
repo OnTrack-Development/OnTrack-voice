@@ -16,17 +16,7 @@
     if (!$activeCall && !empty($items)) {
         $activeCall = $items[0];
     }
-    $activeArr = $activeCall ? (array) $activeCall : [
-        'id' => 1,
-        'phone' => '+201033990988',
-        'caller_number' => '+201033990988',
-        'agent_name' => 'Zoie',
-        'status' => 'no_answered',
-        'created_at_cairo' => '01:49 AM',
-        'duration_seconds' => 41,
-        'duration_formatted' => '0:41 دقيقة',
-        'effective_summary' => 'The call involved a conversation between an agent named Zoie and a user seeking information about the services offered. Zoie explained that they are a smart assistant capable of responding to customer inquiries via calls, messages, and chat on the website, as well as helping with appointment scheduling.',
-    ];
+    $activeArr = $activeCall ? (array) $activeCall : null;
 @endphp
 
 <style>
@@ -179,7 +169,7 @@
                 @php
                     $cArr = (array) $c;
                     $cId = $cArr['id'] ?? 0;
-                    $cPhone = $cArr['phone'] ?? $cArr['caller_number'] ?? '+201033990988';
+                    $cPhone = $cArr['phone'] ?? $cArr['caller_number'] ?? 'رقم غير محدد';
                     $cTime = $cArr['created_at_cairo'] ?? $cArr['time'] ?? '01:49 AM';
                     $cSumm = $cArr['effective_summary'] ?? $cArr['summary'] ?? 'مكالمة واردة';
                     $cStatus = $cArr['status'] ?? 'completed';
@@ -199,18 +189,10 @@
                     </div>
                 </a>
             @empty
-                <div class="zoie-call-item active">
-                    <div class="zoie-call-avatar">EG</div>
-                    <div style="flex:1;min-width:0;">
-                        <div style="display:flex;align-items:center;justify-content:space-between;">
-                            <span style="font-weight:700;font-size:13px;color:#0F172A;" dir="ltr">+201033990988</span>
-                            <span style="font-size:11px;color:#94A3B8;">01:49 AM</span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
-                            <span style="font-size:11px;color:#10B981;">📞 +201033990988</span>
-                            <span class="zoie-badge-danger" style="margin-right:auto;">NO ANSWERED</span>
-                        </div>
-                    </div>
+                <div style="padding:40px 16px;text-align:center;color:#64748B;">
+                    <div style="font-size:36px;margin-bottom:10px;">📞</div>
+                    <strong style="font-size:14px;color:#0F172A;display:block;margin-bottom:4px;">لا توجد مكالمات مسجلة بعد</strong>
+                    <p style="font-size:12px;color:#94A3B8;margin:0;">عند إجراء أو استقبال أي مكالمة، ستظهر تفاصيلها وتسجيلها هنا تلقائياً.</p>
                 </div>
             @endforelse
         </div>
@@ -218,125 +200,135 @@
 
     <!-- 2. MIDDLE PANE: Active Call Audio Player & Summary -->
     <div class="zoie-pane" style="padding:20px;">
-        <!-- Caller Header Bar -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid #E2E8F0;margin-bottom:18px;">
-            <div style="display:flex;align-items:center;gap:12px;">
-                <div class="zoie-call-avatar" style="width:42px;height:42px;font-size:14px;">EG</div>
-                <div>
-                    <div style="font-weight:700;font-size:16px;color:#0F172A;" dir="ltr">{{ $activeArr['phone'] ?? $activeArr['caller_number'] ?? '+201033990988' }}</div>
-                    <div style="font-size:12px;color:#64748B;">Call via <span style="color:#8B5CF6;font-weight:600;">✨ {{ $activeArr['agent_name'] ?? 'Zoie' }} (AI Agent)</span></div>
-                </div>
-            </div>
-
-            <div style="display:flex;align-items:center;gap:10px;">
-                <div style="display:flex;align-items:center;gap:6px;background:#F8FAFC;border:1px solid #E2E8F0;padding:4px 10px;border-radius:20px;font-size:12px;">
-                    <span style="width:7px;height:7px;border-radius:50%;background:#10B981;"></span>
-                    <span style="color:#0F172A;font-weight:600;">{{ $activeArr['agent_name'] ?? 'Zoie' }}</span>
-                    <span style="color:#64748B;">• Active ▾</span>
-                </div>
-                <button type="button" class="btn btn-sm btn-icon" style="background:#FFF;border:1px solid #E2E8F0;border-radius:8px;" onclick="alert('حذف تسجيل المكالمة')">🗑️</button>
-            </div>
-        </div>
-
-        <div style="font-size:13px;font-weight:700;color:#0F172A;margin-bottom:12px;">Latest call</div>
-
-        <!-- Waveform Audio Player Card -->
-        <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="background:#0F172A;color:#FFF;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">{{ $activeArr['agent_name'] ?? 'Zoie' }}</span>
-                    <span style="font-size:12px;color:#64748B;">{{ $activeArr['duration_formatted'] ?? '0:41' }}</span>
-                    <span style="font-size:11px;color:#94A3B8;">التاريخ (القاهرة): {{ $activeArr['created_at_cairo'] ?? '01:49 AM' }}</span>
-                </div>
-                <span class="{{ in_array($activeArr['status'] ?? '', ['no_answered', 'failed', 'missed']) ? 'zoie-badge-danger' : 'zoie-badge-success' }}" style="font-size:11px;font-weight:700;letter-spacing:0.5px;">
-                    {{ strtoupper($activeArr['status'] ?? 'NO ANSWERED') }}
-                </span>
-            </div>
-
-            <!-- Waveform & Play Controls -->
-            <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
-                <button type="button" onclick="toggleWavePlay(this)" style="width:36px;height:36px;border-radius:50%;background:#0F172A;color:#FFF;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
-                    ▶
-                </button>
-                
-                <!-- Audio Waveform Graphic Bars -->
-                <div style="display:flex;align-items:center;gap:2px;flex:1;height:38px;padding:0 4px;" id="waveformBox">
-                    @php
-                        $bars = [12, 18, 25, 30, 22, 15, 28, 35, 20, 14, 30, 26, 18, 34, 22, 16, 28, 32, 24, 18, 12, 26, 32, 20, 15, 28, 30, 22, 14, 25, 30, 18, 12, 22, 28, 20, 15, 25, 18, 12];
-                    @endphp
-                    @foreach ($bars as $b)
-                        <div class="waveform-bar" style="height:{{ $b }}px;"></div>
-                    @endforeach
-                </div>
-
-                <div style="font-size:11.5px;color:#64748B;font-family:monospace;flex-shrink:0;">
-                    0:00 / {{ $activeArr['duration_formatted'] ?? '0:41' }}
-                </div>
-                <button type="button" class="btn btn-sm btn-icon" style="background:none;border:none;color:#64748B;cursor:pointer;" title="تحميل الصوت">⬇</button>
-            </div>
-
-            <!-- AI Summary Card inside call player with Sparkle Icon -->
-            <div style="border-top:1px solid #F1F5F9;padding-top:14px;margin-top:12px;">
-                <div style="display:flex;align-items:flex-start;gap:10px;">
-                    <div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg, #EC4899, #8B5CF6);color:#FFF;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;margin-top:2px;">
-                        ✨
+        @if ($activeArr)
+            <!-- Caller Header Bar -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid #E2E8F0;margin-bottom:18px;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <div class="zoie-call-avatar" style="width:42px;height:42px;font-size:14px;">EG</div>
+                    <div>
+                        <div style="font-weight:700;font-size:16px;color:#0F172A;" dir="ltr">{{ $activeArr['phone'] ?? $activeArr['caller_number'] ?? '' }}</div>
+                        <div style="font-size:12px;color:#64748B;">Call via <span style="color:#8B5CF6;font-weight:600;">✨ {{ $activeArr['agent_name'] ?? 'Zoie' }} (AI Agent)</span></div>
                     </div>
-                    <div style="flex:1;">
-                        <div style="font-size:12px;font-weight:700;color:#0F172A;margin-bottom:4px;">ملخص المكالمة</div>
-                        <p style="font-size:13px;color:#334155;line-height:1.6;margin:0;">
-                            {{ $activeArr['effective_summary'] ?? $activeArr['summary'] ?? 'لا يوجد ملخص متاح' }}
-                        </p>
+                </div>
+
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:6px;background:#F8FAFC;border:1px solid #E2E8F0;padding:4px 10px;border-radius:20px;font-size:12px;">
+                        <span style="width:7px;height:7px;border-radius:50%;background:#10B981;"></span>
+                        <span style="color:#0F172A;font-weight:600;">{{ $activeArr['agent_name'] ?? 'Zoie' }}</span>
+                        <span style="color:#64748B;">• Active ▾</span>
                     </div>
-                    <button type="button" onclick="openTranscriptModal()" class="btn btn-sm" style="background:#FFF;border:1px solid #E2E8F0;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;flex-shrink:0;padding:6px 12px;color:#0F172A;">
-                        <span>📄</span>
-                        <span>View transcript</span>
+                    <form method="POST" action="{{ route('enterprise.action') }}" style="margin:0;">
+                        @csrf
+                        <input type="hidden" name="action" value="delete_call_recording">
+                        <input type="hidden" name="call_id" value="{{ $activeArr['id'] ?? 0 }}">
+                        <button type="submit" class="btn btn-sm btn-icon" style="background:#FFF;border:1px solid #E2E8F0;border-radius:8px;cursor:pointer;">🗑️</button>
+                    </form>
+                </div>
+            </div>
+
+            <div style="font-size:13px;font-weight:700;color:#0F172A;margin-bottom:12px;">Latest call</div>
+
+            <!-- Waveform Audio Player Card -->
+            <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="background:#0F172A;color:#FFF;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">{{ $activeArr['agent_name'] ?? 'Zoie' }}</span>
+                        <span style="font-size:12px;color:#64748B;">{{ $activeArr['duration_formatted'] ?? '0:00' }}</span>
+                        <span style="font-size:11px;color:#94A3B8;">التاريخ (القاهرة): {{ $activeArr['created_at_cairo'] ?? '' }}</span>
+                    </div>
+                    <span class="{{ in_array($activeArr['status'] ?? '', ['no_answered', 'failed', 'missed']) ? 'zoie-badge-danger' : 'zoie-badge-success' }}" style="font-size:11px;font-weight:700;letter-spacing:0.5px;">
+                        {{ strtoupper($activeArr['status'] ?? 'COMPLETED') }}
+                    </span>
+                </div>
+
+                <!-- Waveform & Play Controls -->
+                <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
+                    <button type="button" onclick="toggleWavePlay(this)" style="width:36px;height:36px;border-radius:50%;background:#0F172A;color:#FFF;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
+                        ▶
                     </button>
+                    
+                    <!-- Audio Waveform Graphic Bars -->
+                    <div style="display:flex;align-items:center;gap:2px;flex:1;height:38px;padding:0 4px;" id="waveformBox">
+                        @php
+                            $bars = [12, 18, 25, 30, 22, 15, 28, 35, 20, 14, 30, 26, 18, 34, 22, 16, 28, 32, 24, 18, 12, 26, 32, 20, 15, 28, 30, 22, 14, 25, 30, 18, 12, 22, 28, 20, 15, 25, 18, 12];
+                        @endphp
+                        @foreach ($bars as $b)
+                            <div class="waveform-bar" style="height:{{ $b }}px;"></div>
+                        @endforeach
+                    </div>
+
+                    <div style="font-size:11.5px;color:#64748B;font-family:monospace;flex-shrink:0;">
+                        0:00 / {{ $activeArr['duration_formatted'] ?? '0:00' }}
+                    </div>
+                    <button type="button" class="btn btn-sm btn-icon" style="background:none;border:none;color:#64748B;cursor:pointer;" title="تحميل الصوت">⬇</button>
+                </div>
+
+                <!-- AI Summary Card inside call player with Sparkle Icon -->
+                <div style="border-top:1px solid #F1F5F9;padding-top:14px;margin-top:12px;">
+                    <div style="display:flex;align-items:flex-start;gap:10px;">
+                        <div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg, #EC4899, #8B5CF6);color:#FFF;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;margin-top:2px;">
+                            ✨
+                        </div>
+                        <div style="flex:1;">
+                            <div style="font-size:12px;font-weight:700;color:#0F172A;margin-bottom:4px;">ملخص المكالمة</div>
+                            <p style="font-size:13px;color:#334155;line-height:1.6;margin:0;">
+                                {{ $activeArr['effective_summary'] ?? $activeArr['summary'] ?? 'لا يوجد ملخص متاح' }}
+                            </p>
+                        </div>
+                        <button type="button" onclick="openTranscriptModal()" class="btn btn-sm" style="background:#FFF;border:1px solid #E2E8F0;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;flex-shrink:0;padding:6px 12px;color:#0F172A;cursor:pointer;">
+                            <span>📄</span>
+                            <span>View transcript</span>
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+        @else
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;color:#64748B;padding:40px;">
+                <div style="font-size:52px;margin-bottom:14px;">🎙️</div>
+                <strong style="font-size:16px;color:#0F172A;margin-bottom:6px;">اختر مكالمة لعرض تفاصيلها</strong>
+                <p style="font-size:13px;color:#94A3B8;max-width:320px;line-height:1.6;margin:0;">اختر مكالمة من القائمة الجانبية للاستماع للتسجيل الصوتي والاطلاع على تفريغ الحوار وملخص الذكاء الاصطناعي.</p>
+            </div>
+        @endif
     </div>
 
     <!-- 3. RIGHT PANE: Lead Profile & CRM Linking -->
     <div class="zoie-pane" style="padding:20px;display:flex;flex-direction:column;align-items:center;text-align:center;">
-        <div class="zoie-call-avatar" style="width:64px;height:64px;font-size:20px;margin-bottom:14px;position:relative;">
-            EG
-            <span style="position:absolute;bottom:0;right:0;width:20px;height:20px;border-radius:50%;background:#FFF;border:1px solid #E2E8F0;display:flex;align-items:center;justify-content:center;font-size:11px;">📞</span>
-        </div>
-
-        <div style="font-weight:700;font-size:15px;color:#0F172A;" dir="ltr">{{ $activeArr['phone'] ?? $activeArr['caller_number'] ?? '+201033990988' }}, Looks new!</div>
-        <p style="font-size:12.5px;color:#64748B;line-height:1.5;margin:6px 0 16px;">
-            Link this conversation to an existing lead or create a new one.
-        </p>
-
-        <form method="POST" action="{{ route('enterprise.action') }}" style="width:100%;">
-            @csrf
-            <input type="hidden" name="action" value="create_lead_from_call">
-            <input type="hidden" name="call_id" value="{{ $activeArr['id'] ?? 0 }}">
-            <input type="hidden" name="phone" value="{{ $activeArr['phone'] ?? ($activeArr['caller_number'] ?? '') }}">
-            <input type="hidden" name="name" value="عميل مكالمة {{ $activeArr['phone'] ?? ($activeArr['caller_number'] ?? '') }}">
-            <button type="submit" class="btn" style="width:100%;background:#0F172A;color:#FFFFFF;border-radius:10px;font-size:13px;font-weight:600;padding:10px;border:none;margin-bottom:8px;cursor:pointer;">
-                + Create New Lead
-            </button>
-        </form>
-
-        <a href="/leads" class="btn" style="width:100%;background:#FFFFFF;color:#0F172A;border:1px solid #E2E8F0;border-radius:10px;font-size:13px;font-weight:600;padding:10px;margin-bottom:18px;text-decoration:none;display:block;box-sizing:border-box;">
-            Link to Existing Lead
-        </a>
-
-        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;font-size:11.5px;color:#64748B;text-align:right;width:100%;line-height:1.5;margin-bottom:18px;">
-            💡 ربط جهة الاتصال بملف Lead يحتفظ بجميع سجلات المكالمات ومحادثات الواتساب والتذاكر في مكان موحد.
-        </div>
-
-        <div style="background:#0F172A;color:#FFFFFF;border-radius:12px;padding:14px;width:100%;text-align:right;">
-            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#38BDF8;font-weight:600;margin-bottom:6px;">
-                <span>✨</span>
-                <span>Ask Zoie / OnTrack AI</span>
+        @if ($activeArr)
+            <div class="zoie-call-avatar" style="width:64px;height:64px;font-size:20px;margin-bottom:14px;position:relative;">
+                EG
+                <span style="position:absolute;bottom:0;right:0;width:20px;height:20px;border-radius:50%;background:#FFF;border:1px solid #E2E8F0;display:flex;align-items:center;justify-content:center;font-size:11px;">📞</span>
             </div>
-            <p style="font-size:12px;color:#94A3B8;line-height:1.5;margin:0 0 10px;">
-                يمكنك سؤال المساعد الذكي عن أي استنتاج أو توصية بخصوص هذه المكالمة.
+
+            <div style="font-weight:700;font-size:15px;color:#0F172A;" dir="ltr">{{ $activeArr['phone'] ?? $activeArr['caller_number'] ?? '' }}, Looks new!</div>
+            <p style="font-size:12.5px;color:#64748B;line-height:1.5;margin:6px 0 16px;">
+                Link this conversation to an existing lead or create a new one.
             </p>
-            <a href="javascript:void(0)" onclick="alert('سؤال الذكاء الاصطناعي عن المكالمة')" style="color:#38BDF8;font-size:12px;font-weight:700;text-decoration:none;">Ask Zoie →</a>
-        </div>
+
+            <form method="POST" action="{{ route('enterprise.action') }}" style="width:100%;">
+                @csrf
+                <input type="hidden" name="action" value="create_lead_from_call">
+                <input type="hidden" name="call_id" value="{{ $activeArr['id'] ?? 0 }}">
+                <input type="hidden" name="phone" value="{{ $activeArr['phone'] ?? ($activeArr['caller_number'] ?? '') }}">
+                <input type="hidden" name="name" value="عميل مكالمة {{ $activeArr['phone'] ?? ($activeArr['caller_number'] ?? '') }}">
+                <button type="submit" class="btn" style="width:100%;background:#0F172A;color:#FFFFFF;border-radius:10px;font-size:13px;font-weight:600;padding:10px;border:none;margin-bottom:8px;cursor:pointer;">
+                    + Create New Lead
+                </button>
+            </form>
+
+            <a href="/?tab=leads" class="btn" style="width:100%;background:#FFFFFF;color:#0F172A;border:1px solid #E2E8F0;border-radius:10px;font-size:13px;font-weight:600;padding:10px;margin-bottom:18px;text-decoration:none;display:block;box-sizing:border-box;">
+                Link to Existing Lead
+            </a>
+
+            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;font-size:11.5px;color:#64748B;text-align:right;width:100%;line-height:1.5;margin-bottom:18px;">
+                💡 ربط جهة الاتصال بملف Lead يحتفظ بجميع سجلات المكالمات ومحادثات الواتساب والتذاكر في مكان موحد.
+            </div>
+        @else
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;color:#94A3B8;padding:20px;">
+                <div style="font-size:42px;margin-bottom:12px;">👤</div>
+                <strong style="color:#0F172A;font-size:14px;margin-bottom:4px;">لم يتم تحديد مكالمة</strong>
+                <p style="font-size:12px;margin:0;">اختر مكالمة من القائمة لعرض ملف جهة الاتصال والتحكم بالـ CRM.</p>
+            </div>
+        @endif
     </div>
 </div>
 
@@ -353,40 +345,25 @@
         </div>
 
         <div style="padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;max-height:500px;">
-            <div style="align-self:flex-start;max-width:80%;">
-                <div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:4px;">AI AGENT</div>
-                <div style="background:#1E293B;color:#FFFFFF;padding:12px 16px;border-radius:14px 14px 14px 2px;font-size:13.5px;line-height:1.6;">
-                    أهلاً بك، أنا زوي من أون تراك! أقدر أساعدك في الإجابة على أي استفسار بخصوص خدمات الاستضافة، أو حجز ميعاد مع فريق المبيعات، تحب تبدأ بإيه؟
+            @if ($activeArr && (!empty($activeArr['transcript']) || !empty($activeArr['effective_summary'])))
+                @php
+                    $transcriptText = (string) ($activeArr['transcript'] ?? $activeArr['effective_summary'] ?? '');
+                    $rawLines = preg_split('/[\r\n]+/', $transcriptText);
+                @endphp
+                @foreach ($rawLines as $line)
+                    @if (trim($line) !== '')
+                        <div style="background:#F8FAFC;border:1px solid #E2E8F0;padding:12px 16px;border-radius:12px;font-size:13px;line-height:1.6;color:#0F172A;">
+                            {{ $line }}
+                        </div>
+                    @endif
+                @endforeach
+            @else
+                <div style="padding:40px 20px;text-align:center;color:#64748B;">
+                    <div style="font-size:36px;margin-bottom:10px;">📝</div>
+                    <strong style="font-size:14px;color:#0F172A;display:block;margin-bottom:4px;">لا يوجد تفريغ نصي متوفر</strong>
+                    <p style="font-size:12px;color:#94A3B8;margin:0;">لم يتم حفظ تفريغ نصي لهذه المكالمة أو لم تبدأ بعد.</p>
                 </div>
-            </div>
-
-            <div style="align-self:flex-end;max-width:80%;">
-                <div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:4px;text-align:left;">CUSTOMER</div>
-                <div style="background:#F1F5F9;color:#0F172A;padding:12px 16px;border-radius:14px 14px 2px 14px;font-size:13.5px;line-height:1.6;">
-                    أحب أعرف بتعمل إيه تاني؟
-                </div>
-            </div>
-
-            <div style="align-self:flex-start;max-width:80%;">
-                <div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:4px;">AI AGENT</div>
-                <div style="background:#1E293B;color:#FFFFFF;padding:12px 16px;border-radius:14px 14px 14px 2px;font-size:13.5px;line-height:1.6;">
-                    خليني أوضح لك ببساطة، أنا وكيل ذكاء اصطناعي متصل بشرائح الهاتف والواتساب والموقع الإلكتروني، أستقبل المكالمات والرسائل وأرد على العملاء فوراً بدون انتظار وأفتح تذاكر الدعم وأحجز المواعيد على الكاليندر مباشرة.
-                </div>
-            </div>
-
-            <div style="align-self:flex-end;max-width:80%;">
-                <div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:4px;text-align:left;">CUSTOMER</div>
-                <div style="background:#F1F5F9;color:#0F172A;padding:12px 16px;border-radius:14px 14px 2px 14px;font-size:13.5px;line-height:1.6;">
-                    عظيم جداً، هل فيه ربط مع WHMCS؟
-                </div>
-            </div>
-
-            <div style="align-self:flex-start;max-width:80%;">
-                <div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:4px;">AI AGENT</div>
-                <div style="background:#1E293B;color:#FFFFFF;padding:12px 16px;border-radius:14px 14px 14px 2px;font-size:13.5px;line-height:1.6;">
-                    بالتأكيد! نوفر موديول ontrack_bridge الرسمي لـ WHMCS مع درع الخصوصية Zero-Knowledge PII لحماية بيانات عملائك وسيرفراتك بالكامل.
-                </div>
-            </div>
+            @endif
         </div>
     </div>
 </div>

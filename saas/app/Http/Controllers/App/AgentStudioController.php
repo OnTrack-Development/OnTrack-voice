@@ -170,14 +170,10 @@ class AgentStudioController extends Controller
             ->first();
 
         if (! $agentModel) {
-            $agentModel = new Agent([
-                'id' => 1,
-                'name' => 'سارة — خدمة العملاء والمبيعات الذكية',
-                'kind' => 'voice_inbound',
-                'persona' => 'مساعدة صوتية ودودة وسريعة البديهة تتحدث باللهجة المصرية/العربية ومجهزة بمعلومات الخدمات والأسعار.',
-                'instructions' => 'الترحيب بالعميل والإجابة عن تفاصيل باقات الاستضافة والدعم الفني وتأكيد فتح التذاكر.',
-            ]);
+            $agentModel = Agent::first();
         }
+
+        abort_if(! $agentModel, 404, 'لم يتم العثور على الإيجنت المطلوب في قاعدة البيانات.');
 
         $shareToken = (string) $request->query('share', '');
         $wsEndpoint = 'wss://app.ontrackegy.com/ws-voice';
