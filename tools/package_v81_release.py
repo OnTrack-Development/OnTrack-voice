@@ -57,7 +57,7 @@ def main():
     ver_name = subprocess.check_output([str(analyzer), "manifest", "version-name", str(temp_signed_apk)], text=True).strip()
 
     print(f"Verified Signed APK: package={app_id}, versionCode={ver_code}, versionName={ver_name}")
-    if app_id != "com.ontrack.voiceproof" or ver_code != "80" or ver_name != "0.3.57":
+    if app_id != "com.ontrack.voiceproof" or ver_code != "81" or ver_name != "0.3.58":
         raise ValueError(f"Unexpected metadata: {app_id} / {ver_code} / {ver_name}")
 
     # Compute SHA-256
@@ -65,18 +65,22 @@ def main():
     apk_sha256 = hashlib.sha256(apk_bytes).hexdigest().lower()
     apk_size = len(apk_bytes)
 
-    final_apk_name = f"ontrack-voice-v80-{apk_sha256}.apk"
+    # Clear old apk files from artifact_dir
+    for old_apk in artifact_dir.glob("ontrack-voice-*.apk"):
+        old_apk.unlink()
+
+    final_apk_name = f"ontrack-voice-v81-{apk_sha256}.apk"
     final_apk_path = artifact_dir / final_apk_name
     shutil.copy2(temp_signed_apk, final_apk_path)
     shutil.copy2(temp_signed_apk, artifact_dir / "latest.apk")
-    shutil.copy2(temp_signed_apk, artifact_dir / "OnTrack-Voice-0.3.57.apk")
+    shutil.copy2(temp_signed_apk, artifact_dir / "OnTrack-Voice-0.3.58.apk")
 
-    # Also copy to D:\ai\OnTrack-Voice-Builds\0.3.57
-    out_dir = Path(r"D:\ai\OnTrack-Voice-Builds\0.3.57")
+    # Also copy to D:\ai\OnTrack-Voice-Builds\0.3.58
+    out_dir = Path(r"D:\ai\OnTrack-Voice-Builds\0.3.58")
     out_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(temp_signed_apk, out_dir / "OnTrack-Voice-0.3.57.apk")
+    shutil.copy2(temp_signed_apk, out_dir / "OnTrack-Voice-0.3.58.apk")
     shutil.copy2(temp_signed_apk, out_dir / final_apk_name)
-    print(f"Copied signed APK to {out_dir / 'OnTrack-Voice-0.3.57.apk'}")
+    print(f"Copied signed APK to {out_dir / 'OnTrack-Voice-0.3.58.apk'}")
 
     temp_signed_apk.unlink()
 
@@ -91,15 +95,15 @@ def main():
         "schema": 1,
         "sha256": apk_sha256,
         "size": apk_size,
-        "version_code": 80,
-        "version_name": "0.3.57"
+        "version_code": 81,
+        "version_name": "0.3.58"
     }
     (native_dir / "payload.json").write_text(json.dumps(native_payload, separators=(',', ':'), sort_keys=True), encoding="utf-8")
     subprocess.run(["java", str(root / "tools" / "SignMobileOta.java"), str(keystore), str(native_dir)], check=True)
 
-    # Keep saas/mobile/ota manifests unwrapped with revision/version_code 80
+    # Keep saas/mobile/ota manifests unwrapped with revision/version_code 81
     (root / "saas" / "mobile" / "ota" / "native_release.json").write_text(
-        json.dumps({"schema": 1, "channel": "stable", "package": "com.ontrack.voiceproof", "version_code": 80, "version_name": "0.3.57", "min_installed_version": 12}, separators=(',', ':')) + "\n",
+        json.dumps({"schema": 1, "channel": "stable", "package": "com.ontrack.voiceproof", "version_code": 81, "version_name": "0.3.58", "min_installed_version": 12}, separators=(',', ':')) + "\n",
         encoding="utf-8"
     )
 
@@ -109,18 +113,18 @@ def main():
     shutil.copy2(root / "saas" / "mobile" / "ota" / "ui.html", ota_dir / "ui.html")
     ota_payload = {
         "channel": "stable",
-        "max_native": 80,
+        "max_native": 81,
         "min_native": 34,
-        "revision": 80,
+        "revision": 81,
         "runtime": 1,
         "schema": 1
     }
     (ota_dir / "payload.json").write_text(json.dumps(ota_payload, separators=(',', ':'), sort_keys=True), encoding="utf-8")
     subprocess.run(["java", str(root / "tools" / "SignMobileOta.java"), str(keystore), str(ota_dir)], check=True)
 
-    # Keep saas/mobile/ota/release.json unwrapped with revision 80
+    # Keep saas/mobile/ota/release.json unwrapped with revision 81
     (root / "saas" / "mobile" / "ota" / "release.json").write_text(
-        json.dumps({"schema": 1, "channel": "stable", "runtime": 1, "revision": 80, "min_native": 34, "max_native": 80}, separators=(',', ':')) + "\n",
+        json.dumps({"schema": 1, "channel": "stable", "runtime": 1, "revision": 81, "min_native": 34, "max_native": 81}, separators=(',', ':')) + "\n",
         encoding="utf-8"
     )
 
@@ -129,7 +133,7 @@ def main():
     sums_content = f"{apk_sha256}  {final_apk_name}\n"
     sums_file.write_text(sums_content, encoding="utf-8")
 
-    print("\n=== RELEASE V80 (0.3.57) PACKAGE COMPLETE ===")
+    print("\n=== RELEASE V81 (0.3.58) PACKAGE COMPLETE ===")
     print(f"APK: {final_apk_name}")
     print(f"Size: {apk_size} bytes")
     print(f"SHA-256: {apk_sha256}")

@@ -417,7 +417,8 @@ internal class MobileLiveCall(
                         }
                     )
 
-                    val ok = withTimeoutOrNull(800L) {
+                    // Allow fast WSS tunnel to complete readiness handshake (~1367ms measured)
+                    val ok = withTimeoutOrNull(2500L) {
                         tunnel.start()
                         tunnelDeferred.await()
                     } ?: false

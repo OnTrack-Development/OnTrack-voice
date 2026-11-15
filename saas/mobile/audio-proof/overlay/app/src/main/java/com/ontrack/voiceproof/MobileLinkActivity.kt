@@ -344,6 +344,10 @@ class MobileLinkActivity:ComponentActivity(){
         // No silent re-pairing and no credential is exposed to the WebView.
 
         ota=MobileOta(this);nativeUpdates=NativeUpdates(this)
+        runCatching {
+            GreetingPcmCache.ensureGreetingCached(this, 0, "1")
+            CellularRadioStatus.ensureCellularStandby(this)
+        }
         val linkPrefs=getSharedPreferences("ontrack_link",MODE_PRIVATE)
         if(!linkPrefs.getBoolean("ui_theme_v65_dark_init",false)){
             linkPrefs.edit().putString("ui_theme","dark").putBoolean("ui_theme_v65_dark_init",true).apply()

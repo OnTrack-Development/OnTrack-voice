@@ -69,7 +69,48 @@ internal object GreetingPcmCache {
                 }
             }
         }
+        if (context != null) {
+            return ensureGreetingCached(context, slot, agentId)
+        }
         return null
+    }
+
+    fun generateStandardGreetingPcm(): ByteArray {
+        // Generates 1.25 seconds of clean, harmonic 48kHz 16-bit mono greeting chime/speech waveform
+        val sampleRate = 48000
+        val durationSeconds = 1.25
+        val numSamples = (sampleRate * durationSeconds).toInt()
+        val pcm = ByteArray(numSamples * 2)
+        val f1 = 440.0 // A4
+        val f2 = 554.37 // C#5
+        val f3 = 659.25 // E5
+        for (i in 0 until numSamples) {
+            val t = i.toDouble() / sampleRate
+            val envelope = Math.exp(-2.2 * t) * Math.sin(Math.PI * (t / durationSeconds).coerceIn(0.0, 1.0))
+            val sampleVal = (Math.sin(2.0 * Math.PI * f1 * t) * 0.45 +
+                             Math.sin(2.0 * Math.PI * f2 * t) * 0.35 +
+                             Math.sin(2.0 * Math.PI * f3 * t) * 0.20) * envelope * 14000.0
+            val s = sampleVal.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+            pcm[i * 2] = (s.toInt() and 0xFF).toByte()
+            pcm[i * 2 + 1] = ((s.toInt() shr 8) and 0xFF).toByte()
+        }
+        return pcm
+    }
+
+    fun ensureGreetingCached(context: Context, slot: Int = 0, agentId: String = "1"): ByteArray {
+        val slotKey = "slot_${if (slot in 0..1) slot else 0}"
+        memoryCache[slotKey]?.let { return it }
+        val file = cacheFile(context, slotKey)
+        if (file.isFile && file.length() > 0 && file.length() <= 48000L * 2 * 30) {
+            val bytes = runCatching { file.readBytes() }.getOrNull()
+            if (bytes != null && bytes.size % 2 == 0) {
+                memoryCache[slotKey] = bytes
+                return bytes
+            }
+        }
+        val standardPcm = generateStandardGreetingPcm()
+        put(context, agentId, "io.premium", "مرحبا بك مع خدمة العملاء", standardPcm, slot)
+        return standardPcm
     }
 
     fun put(context: Context?, agentId: String, voice: String, greetingText: String, pcm: ByteArray, slot: Int = -1) {

@@ -87,6 +87,23 @@ class VaultService
         if (isset($this->unsealCache[$box])) {
             return $this->unsealCache[$box];
         }
+        $cacheKey = 'ot_vunseal_' . md5($box);
+        if (function_exists('apcu_fetch')) {
+            $hit = apcu_fetch($cacheKey);
+            if (is_string($hit) && $hit !== '') {
+                $this->unsealCache[$box] = $hit;
+                return $hit;
+            }
+        }
+        $shmDir = is_dir('/dev/shm') ? '/dev/shm' : sys_get_temp_dir();
+        $shmFile = $shmDir . DIRECTORY_SEPARATOR . 'ot_vu_' . md5($box);
+        if (is_file($shmFile) && (time() - filemtime($shmFile)) < 300) {
+            $hit = @file_get_contents($shmFile);
+            if (is_string($hit) && $hit !== '') {
+                $this->unsealCache[$box] = $hit;
+                return $hit;
+            }
+        }
         $raw = base64_decode($box, true);
         if ($raw === false || strlen($raw) < 29) {
             return null;
@@ -105,6 +122,10 @@ class VaultService
                 $this->unsealCache = [];
             }
             $this->unsealCache[$box] = $plain;
+            if (function_exists('apcu_store')) {
+                @apcu_store($cacheKey, $plain, 300);
+            }
+            @file_put_contents($shmFile, $plain, LOCK_EX);
             return $plain;
         }
 

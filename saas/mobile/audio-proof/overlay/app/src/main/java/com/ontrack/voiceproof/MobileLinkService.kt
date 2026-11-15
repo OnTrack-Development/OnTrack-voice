@@ -209,6 +209,10 @@ class MobileLinkService:Service() {
         syncCampaignOptIn()
         pendingDesired=null
         pendingSync=false
+        runCatching {
+            GreetingPcmCache.ensureGreetingCached(this, 0, "1")
+            CellularRadioStatus.ensureCellularStandby(this)
+        }
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel("ontrack_mobile_link","IO Voice",NotificationManager.IMPORTANCE_LOW))
         connectivity=getSystemService(ConnectivityManager::class.java)

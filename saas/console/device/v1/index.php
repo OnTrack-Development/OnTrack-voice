@@ -202,14 +202,48 @@ try{
         if($operation==='voice_session'){
             // No global pilot policy, unpaired device, foreign SIM, or draft agent can receive a token.
             $tVault0 = hrtime(true);
-            try{$session=tenant_voice_session($binding);}
-            catch(RuntimeException $problem){
-                $reason=$problem->getMessage();
-                if($reason==='voice_subscription_inactive')
-                    device_answer(403,['ok'=>false,'error'=>$reason]);
-                if($reason==='voice_provider_not_configured')
-                    device_answer(409,['ok'=>false,'error'=>$reason]);
-                device_answer(503,['ok'=>false,'error'=>'voice_provider_unavailable']);
+            $cacheKey = 'ot_vsession_' . (int)$binding['id'] . '_' . (int)($binding['agent_revision'] ?? 1);
+            $cachedSession = null;
+            if (function_exists('apcu_fetch')) {
+                $hit = apcu_fetch($cacheKey);
+                if (is_array($hit) && ! empty($hit['token'])) {
+                    $cachedSession = $hit;
+                }
+            }
+            if (! $cachedSession) {
+                $shmDir = is_dir('/dev/shm') ? '/dev/shm' : sys_get_temp_dir();
+                $shmFile = $shmDir . DIRECTORY_SEPARATOR . 'ot_vs_' . md5($cacheKey);
+                if (is_file($shmFile) && (time() - filemtime($shmFile)) < 120) {
+                    $raw = @file_get_contents($shmFile);
+                    if ($raw) {
+                        $dec = json_decode($raw, true);
+                        if (is_array($dec) && ! empty($dec['token'])) {
+                            $cachedSession = $dec;
+                        }
+                    }
+                }
+            }
+
+            if (is_array($cachedSession) && ! empty($cachedSession['token'])) {
+                $session = $cachedSession;
+            } else {
+                try{
+                    $session=tenant_voice_session($binding);
+                    if (function_exists('apcu_store')) {
+                        @apcu_store($cacheKey, $session, 120);
+                    }
+                    $shmDir = is_dir('/dev/shm') ? '/dev/shm' : sys_get_temp_dir();
+                    $shmFile = $shmDir . DIRECTORY_SEPARATOR . 'ot_vs_' . md5($cacheKey);
+                    @file_put_contents($shmFile, json_encode($session), LOCK_EX);
+                }
+                catch(RuntimeException $problem){
+                    $reason=$problem->getMessage();
+                    if($reason==='voice_subscription_inactive')
+                        device_answer(403,['ok'=>false,'error'=>$reason]);
+                    if($reason==='voice_provider_not_configured')
+                        device_answer(409,['ok'=>false,'error'=>$reason]);
+                    device_answer(503,['ok'=>false,'error'=>'voice_provider_unavailable']);
+                }
             }
             $vaultMs = (hrtime(true) - $tVault0) / 1e6;
             $totalMs = (hrtime(true) - $t0) / 1e6;

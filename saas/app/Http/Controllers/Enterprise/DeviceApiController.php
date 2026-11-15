@@ -519,18 +519,50 @@ class DeviceApiController extends Controller
 
                 case 'voice_session':
                     $tVault0 = hrtime(true);
-                    try {
-                        $session = $this->voiceSession->issueLiveVoiceSession($binding);
-                    } catch (RuntimeException $e) {
-                        $reason = $e->getMessage();
-                        if (in_array($reason, ['voice_subscription_inactive', 'premium_voice_not_available'], true)) {
-                            return $this->deviceJson(['ok' => false, 'error' => $reason], 403, $headers);
+                    $cacheKey = 'ot_vsession_' . (int)$binding['id'] . '_' . (int)($binding['agent_revision'] ?? 1);
+                    $cachedSession = null;
+                    if (function_exists('apcu_fetch')) {
+                        $hit = apcu_fetch($cacheKey);
+                        if (is_array($hit) && ! empty($hit['token'])) {
+                            $cachedSession = $hit;
                         }
-                        if (in_array($reason, ['voice_provider_not_configured', 'voice_all_keys_unavailable', 'voice_account_inactive'], true)) {
-                            return $this->deviceJson(['ok' => false, 'error' => $reason], 409, $headers);
+                    }
+                    if (! $cachedSession) {
+                        $shmDir = is_dir('/dev/shm') ? '/dev/shm' : sys_get_temp_dir();
+                        $shmFile = $shmDir . DIRECTORY_SEPARATOR . 'ot_vs_' . md5($cacheKey);
+                        if (is_file($shmFile) && (time() - filemtime($shmFile)) < 120) {
+                            $raw = @file_get_contents($shmFile);
+                            if ($raw) {
+                                $dec = json_decode($raw, true);
+                                if (is_array($dec) && ! empty($dec['token'])) {
+                                    $cachedSession = $dec;
+                                }
+                            }
                         }
+                    }
 
-                        return $this->deviceJson(['ok' => false, 'error' => 'voice_provider_unavailable'], 503, $headers);
+                    if (is_array($cachedSession) && ! empty($cachedSession['token'])) {
+                        $session = $cachedSession;
+                    } else {
+                        try {
+                            $session = $this->voiceSession->issueLiveVoiceSession($binding);
+                            if (function_exists('apcu_store')) {
+                                @apcu_store($cacheKey, $session, 120);
+                            }
+                            $shmDir = is_dir('/dev/shm') ? '/dev/shm' : sys_get_temp_dir();
+                            $shmFile = $shmDir . DIRECTORY_SEPARATOR . 'ot_vs_' . md5($cacheKey);
+                            @file_put_contents($shmFile, json_encode($session), LOCK_EX);
+                        } catch (RuntimeException $e) {
+                            $reason = $e->getMessage();
+                            if (in_array($reason, ['voice_subscription_inactive', 'premium_voice_not_available'], true)) {
+                                return $this->deviceJson(['ok' => false, 'error' => $reason], 403, $headers);
+                            }
+                            if (in_array($reason, ['voice_provider_not_configured', 'voice_all_keys_unavailable', 'voice_account_inactive'], true)) {
+                                return $this->deviceJson(['ok' => false, 'error' => $reason], 409, $headers);
+                            }
+
+                            return $this->deviceJson(['ok' => false, 'error' => 'voice_provider_unavailable'], 503, $headers);
+                        }
                     }
                     $vaultMs = (hrtime(true) - $tVault0) / 1e6;
                     $totalMs = (hrtime(true) - $t0) / 1e6;
