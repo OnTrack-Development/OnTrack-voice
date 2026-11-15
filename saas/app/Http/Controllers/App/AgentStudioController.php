@@ -210,11 +210,11 @@ class AgentStudioController extends Controller
             ], 404);
         }
 
-        $apiKey = $this->resolveGeminiApiKey();
-        if (empty($apiKey)) {
+        $endpoints = $this->resolveAllVoiceEndpoints();
+        if (empty($endpoints)) {
             return response()->json([
                 'ok' => false,
-                'error' => 'مفتاح Gemini API غير مهيأ في الخزنة المشفرة.',
+                'error' => 'مفاتيح Gemini API غير مهيأة في الخزنة المشفرة.',
             ], 500);
         }
 
@@ -240,7 +240,7 @@ class AgentStudioController extends Controller
             . "2. استمع للعميل جيداً وأجب باختصار ودقة دون إطالة غير ضرورية.\n"
             . "3. التزم بالهوية الرسمية لمنصة OnTrack للحلول الصوتية والذكاء الاصطناعي.";
 
-        $modelName = env('ONTRACK_GEMINI_LIVE_MODEL', 'gemini-2.0-flash-exp');
+        $modelName = env('ONTRACK_GEMINI_LIVE_MODEL', 'gemini-2.5-flash-native-audio-preview-12-2025');
         if (!str_starts_with($modelName, 'models/')) {
             $modelName = 'models/' . $modelName;
         }
@@ -257,6 +257,8 @@ class AgentStudioController extends Controller
                     ],
                 ],
             ],
+            'inputAudioTranscription' => (object) [],
+            'outputAudioTranscription' => (object) [],
             'systemInstruction' => [
                 'parts' => [
                     ['text' => $systemPrompt],
@@ -264,31 +266,33 @@ class AgentStudioController extends Controller
             ],
         ];
 
-        $wsUrl = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=' . rawurlencode($apiKey);
-
         return response()->json([
             'ok' => true,
             'agent_id' => $agentModel->id,
             'agent_name' => $agentModel->name,
             'voice_name' => $voiceName,
-            'gemini_ws_url' => $wsUrl,
+            'gemini_ws_url' => $endpoints[0]['ws_url'],
+            'failover_endpoints' => $endpoints,
             'setup' => $setup,
         ]);
     }
 
-    private function resolveGeminiApiKey(): ?string
+    private function resolveAllVoiceEndpoints(): array
     {
-        $key = (string) config('ontrack.gemini_api_key');
-        if (!empty($key)) {
-            return $key;
-        }
+        $endpoints = [];
 
-        $envKey = (string) env('ONTRACK_GEMINI_API_KEY');
+        // 1. Check environment or config
+        $envKey = trim((string) (config('ontrack.gemini_api_key') ?: env('ONTRACK_GEMINI_API_KEY')));
         if (!empty($envKey)) {
-            return $envKey;
+            $endpoints[] = [
+                'id' => 'env',
+                'label' => 'Primary Env Key',
+                'ws_url' => 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=' . rawurlencode($envKey),
+                'key_prefix' => substr($envKey, 0, 6) . '...',
+            ];
         }
 
-        // Try decrypting from SQLite console vault
+        // 2. Extract all active voice keys from SQLite console vault
         $vaultPaths = [
             '/home/appontrack/.ontrack-saas',
             storage_path('app/ontrack-vault'),
@@ -303,23 +307,31 @@ class AgentStudioController extends Controller
                 if (is_string($vaultKey) && strlen($vaultKey) === 32 && class_exists('SQLite3')) {
                     try {
                         $sqlite = new \SQLite3($dbFile, SQLITE3_OPEN_READONLY);
-                        $res = $sqlite->query("SELECT secret_enc FROM ai_relay_entries WHERE scope = 'voice' AND enabled = 1 ORDER BY priority ASC LIMIT 1");
+                        $res = $sqlite->query("SELECT id, label, secret_enc FROM ai_relay_entries WHERE scope = 'voice' AND enabled = 1 ORDER BY priority ASC, id ASC");
                         if ($res) {
-                            $row = $res->fetchArray(SQLITE3_ASSOC);
-                            if ($row && !empty($row['secret_enc'])) {
+                            while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+                                if (empty($row['secret_enc'])) {
+                                    continue;
+                                }
                                 $raw = base64_decode($row['secret_enc'], true);
-                                if ($raw !== false && strlen($raw) >= 28) {
-                                    $decrypted = openssl_decrypt(
-                                        substr($raw, 28),
-                                        'aes-256-gcm',
-                                        $vaultKey,
-                                        OPENSSL_RAW_DATA,
-                                        substr($raw, 0, 12),
-                                        substr($raw, 12, 16)
-                                    );
-                                    if ($decrypted !== false && !empty($decrypted)) {
-                                        return $decrypted;
-                                    }
+                                if ($raw === false || strlen($raw) < 28) {
+                                    continue;
+                                }
+                                $decrypted = openssl_decrypt(
+                                    substr($raw, 28),
+                                    'aes-256-gcm',
+                                    $vaultKey,
+                                    OPENSSL_RAW_DATA,
+                                    substr($raw, 0, 12),
+                                    substr($raw, 12, 16)
+                                );
+                                if (!empty($decrypted)) {
+                                    $endpoints[] = [
+                                        'id' => (string) $row['id'],
+                                        'label' => (string) ($row['label'] ?? 'Key #' . $row['id']),
+                                        'ws_url' => 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=' . rawurlencode($decrypted),
+                                        'key_prefix' => substr($decrypted, 0, 6) . '...',
+                                    ];
                                 }
                             }
                         }
@@ -327,9 +339,12 @@ class AgentStudioController extends Controller
                         // ignore and continue
                     }
                 }
+                if (!empty($endpoints)) {
+                    break;
+                }
             }
         }
 
-        return null;
+        return $endpoints;
     }
 }
