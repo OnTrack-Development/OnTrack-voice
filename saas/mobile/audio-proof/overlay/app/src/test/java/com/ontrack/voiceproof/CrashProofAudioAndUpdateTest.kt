@@ -213,8 +213,9 @@ class CrashProofAudioAndUpdateTest {
         // 1. Hardware mic preprocessors must never be injected onto VOICE_CALL SIM capture
         assertFalse(prepare.contains("AcousticEchoCanceler.create"))
         assertFalse(prepare.contains("NoiseSuppressor.create"))
-        // 2. LivePcm uses non-blocking 20ms chunks + barge-in flush
-        assertTrue(livePcm.contains("AudioTrack.WRITE_NON_BLOCKING"))
+        // 2. LivePcm uses blocking write + 160ms pre-roll + urgent audio priority + zero-drop queue
+        assertTrue(livePcm.contains("AudioTrack.WRITE_BLOCKING"))
+        assertTrue(livePcm.contains("Process.THREAD_PRIORITY_URGENT_AUDIO"))
         assertTrue(livePcm.contains("SLICE_BYTES = 1920"))
         assertTrue(livePcm.contains("PLAYBACK_STALL_TIMEOUT_MS"))
         // 3. MobileLiveCall requires real firstPcmCaptured before ready & uses smooth DownlinkResampler + flushTail

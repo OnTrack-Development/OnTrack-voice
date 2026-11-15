@@ -29,7 +29,7 @@ internal fun overlayUiModel(
         inCall && !enabled -> "المكالمة تحت تحكم الهاتف — الإيجنت متوقف"
         inCall -> "المكالمة متصلة — جارٍ تجهيز صوت الإيجنت"
         !serviceReady -> "خدمة الهاتف غير نشطة — لم يتأكد التشغيل"
-        enabled && !daemonReady -> daemonIssue.ifBlank { "محرك الصوت متوقف على الداتا — فعّل وضع 5555 على Wi-Fi" }.take(115)
+        enabled && !daemonReady -> daemonIssue.ifBlank { "محرك الصوت المحلي متوقف — اضغط لتنشيط المساعد" }.take(115)
         enabled -> "الإيجنت نشط وجاهز"
         else -> "الإيجنت متوقف"
     }

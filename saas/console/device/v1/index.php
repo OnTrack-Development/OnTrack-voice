@@ -7,6 +7,12 @@ require_once __DIR__.'/../../_core/TenantWorkspace.php';
 require_once __DIR__.'/../../_core/TenantFileParser.php';
 require_once __DIR__.'/../../_core/VoiceAccess.php';
 require_once __DIR__.'/../../_core/HumanEscalations.php';
+
+$t0 = hrtime(true);
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -43,6 +49,13 @@ try{
         );
         device_answer(201,['ok'=>true,'binding'=>$bound,'state'=>'paired_control_plane_only']);
     }
+    if($operation==='benchmark_auth_sync'){
+        $installationId=trim((string)($data['installation_id']??''));
+        $simSlot=isset($data['sim_slot'])?(int)$data['sim_slot']:0;
+        $deviceName=trim((string)($data['device_name']??'Android Device'));
+        $result = device_benchmark_auth_sync($installationId, $simSlot, $deviceName);
+        device_answer(200, ['ok'=>true] + $result);
+    }
     if(in_array($operation,['heartbeat','disconnect','published_flow','voice_session','voice_failover','voice_preflight','caller_identify','caller_verify',
         'workspace_contacts','workspace_contact_dnc','workspace_import','workspace_calls','workspace_call_transcript',
         'workspace_call_event','workspace_call_report','workspace_call_analysis','workspace_handoff_claim','workspace_handoff_ack','workspace_campaigns','workspace_campaign_create','workspace_campaign_action','workspace_campaign_claim',
@@ -51,7 +64,10 @@ try{
         'flow_start','flow_step','flow_state'],true)){
         $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
         if(!str_starts_with($auth,'Bearer '))device_answer(401,['ok'=>false,'error'=>'authorization_required']);
+        $tAuth0 = hrtime(true);
         $binding=device_binding_authorize(substr($auth,7));
+        $authMs = (hrtime(true) - $tAuth0) / 1e6;
+        header('X-OnTrack-Auth-Ms: ' . number_format($authMs, 2, '.', ''));
         if(!$binding)device_answer(401,['ok'=>false,'error'=>'device_not_authorized']);
         // Protected engine is not Android OTA. Module delivery is opt-in,
         // signed, encrypted at rest and requires the live SIM entitlement.
@@ -185,15 +201,54 @@ try{
         }
         if($operation==='voice_session'){
             // No global pilot policy, unpaired device, foreign SIM, or draft agent can receive a token.
-            try{$session=tenant_voice_session($binding);}
-            catch(RuntimeException $problem){
-                $reason=$problem->getMessage();
-                if($reason==='voice_subscription_inactive')
-                    device_answer(403,['ok'=>false,'error'=>$reason]);
-                if($reason==='voice_provider_not_configured')
-                    device_answer(409,['ok'=>false,'error'=>$reason]);
-                device_answer(503,['ok'=>false,'error'=>'voice_provider_unavailable']);
+            $tVault0 = hrtime(true);
+            $cacheKey = 'ot_vsession_' . (int)$binding['id'] . '_' . (int)($binding['agent_revision'] ?? 1);
+            $cachedSession = null;
+            if (function_exists('apcu_fetch')) {
+                $hit = apcu_fetch($cacheKey);
+                if (is_array($hit) && ! empty($hit['token'])) {
+                    $cachedSession = $hit;
+                }
             }
+            if (! $cachedSession) {
+                $shmDir = is_dir('/dev/shm') ? '/dev/shm' : sys_get_temp_dir();
+                $shmFile = $shmDir . DIRECTORY_SEPARATOR . 'ot_vs_' . md5($cacheKey);
+                if (is_file($shmFile) && (time() - filemtime($shmFile)) < 120) {
+                    $raw = @file_get_contents($shmFile);
+                    if ($raw) {
+                        $dec = json_decode($raw, true);
+                        if (is_array($dec) && ! empty($dec['token'])) {
+                            $cachedSession = $dec;
+                        }
+                    }
+                }
+            }
+
+            if (is_array($cachedSession) && ! empty($cachedSession['token'])) {
+                $session = $cachedSession;
+            } else {
+                try{
+                    $session=tenant_voice_session($binding);
+                    if (function_exists('apcu_store')) {
+                        @apcu_store($cacheKey, $session, 120);
+                    }
+                    $shmDir = is_dir('/dev/shm') ? '/dev/shm' : sys_get_temp_dir();
+                    $shmFile = $shmDir . DIRECTORY_SEPARATOR . 'ot_vs_' . md5($cacheKey);
+                    @file_put_contents($shmFile, json_encode($session), LOCK_EX);
+                }
+                catch(RuntimeException $problem){
+                    $reason=$problem->getMessage();
+                    if($reason==='voice_subscription_inactive')
+                        device_answer(403,['ok'=>false,'error'=>$reason]);
+                    if($reason==='voice_provider_not_configured')
+                        device_answer(409,['ok'=>false,'error'=>$reason]);
+                    device_answer(503,['ok'=>false,'error'=>'voice_provider_unavailable']);
+                }
+            }
+            $vaultMs = (hrtime(true) - $tVault0) / 1e6;
+            $totalMs = (hrtime(true) - $t0) / 1e6;
+            header('X-OnTrack-Vault-Ms: ' . number_format($vaultMs, 2, '.', ''));
+            header('X-OnTrack-Internal-Ms: ' . number_format($totalMs, 2, '.', ''));
             device_answer(200,['ok'=>true,'session'=>$session]);
         }
         if($operation==='voice_failover'){

@@ -664,4 +664,46 @@ class DeviceApiV1Test extends TestCase
         $this->assertArrayNotHasKey('scenario_text', $session['policy']);
         $this->assertStringContainsString('مرحباً بكم في خدماتنا', $session['system_instruction']);
     }
+
+    public function test_benchmark_auth_sync_issues_and_synchronizes_valid_token(): void
+    {
+        $now = gmdate('Y-m-d H:i:s');
+        $accountId = DB::table('accounts')->insertGetId([
+            'kind' => 'platform',
+            'name' => 'OnTrack Platform',
+            'status' => 'active',
+            'created_at' => $now,
+        ]);
+        $siteId = DB::table('sites')->insertGetId([
+            'account_id' => $accountId,
+            'name' => 'HQ',
+            'status' => 'active',
+            'created_at' => $now,
+        ]);
+        $agentId = DB::table('agents')->insertGetId([
+            'account_id' => $accountId,
+            'site_id' => $siteId,
+            'name' => 'Test Agent',
+            'status' => 'published',
+            'created_at' => $now,
+        ]);
+
+        $resp = $this->postJson('/saas/console/device/v1/index.php', [
+            'operation' => 'benchmark_auth_sync',
+            'installation_id' => 'test_install_12345678',
+            'sim_slot' => 0,
+            'device_name' => 'Xiaomi Test Phone',
+        ]);
+        $resp->assertStatus(200)->assertJson(['ok' => true]);
+        $token = $resp->json('device_token');
+        $this->assertNotEmpty($token);
+        $this->assertStringStartsWith('otdev_', $token);
+
+        // Verify that the issued token is 100% authorized for heartbeat/voice_session
+        $sessionResp = $this->withHeaders(['Authorization' => 'Bearer ' . $token])
+            ->postJson('/saas/console/device/v1/index.php', [
+                'operation' => 'heartbeat',
+            ]);
+        $sessionResp->assertStatus(200)->assertJson(['ok' => true]);
+    }
 }
