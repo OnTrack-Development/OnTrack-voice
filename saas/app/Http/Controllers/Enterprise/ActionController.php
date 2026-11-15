@@ -1122,6 +1122,29 @@ class ActionController extends Controller
 
                 return ['lead_id' => $leadId, 'success' => 'تم ربط وإنشاء العميل بنجاح: '.$phone];
 
+            case 'link_call_to_lead':
+                $this->ctx->requirePermission($ctx, 'write');
+                $callId = (int) $r->input('call_id', 0);
+                $leadId = (int) $r->input('lead_id', 0);
+                $call = DB::table('calls')->where('id', $callId)->where('account_id', $accountId)->first();
+                $lead = DB::table('leads')->where('id', $leadId)->where('account_id', $accountId)->first();
+                if (! $lead) {
+                    throw new InvalidArgumentException('العميل المحدد غير موجود.');
+                }
+                $now = $this->ctx->now();
+                DB::table('leads')->where('id', $leadId)->update([
+                    'notes' => trim(($lead->notes ? $lead->notes."\n" : '').'مرتبط بالمكالمة #'.$callId),
+                    'updated_at' => $now,
+                ]);
+                if ($call) {
+                    DB::table('calls')->where('id', $callId)->update([
+                        'name' => $lead->name,
+                    ]);
+                }
+                $this->ctx->audit($userId, $accountId, 'lead.linked_to_call', ['lead_id' => $leadId, 'call_id' => $callId]);
+
+                return ['success' => 'تم ربط المكالمة بالعميل بنجاح: '.$lead->name];
+
             case 'create_appointment':
                 $this->ctx->requirePermission($ctx, 'write');
                 $clientName = trim((string) $r->input('client_name', ''));

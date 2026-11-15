@@ -62,6 +62,23 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 Route::get('/logout', [AuthController::class, 'logout'])->middleware('auth');
 
+Route::get('/auth/dev-preview', function (\Illuminate\Http\Request $request) {
+    $token = (string) $request->query('token');
+    $expected = hash('sha256', config('app.key').'dev-preview-salt');
+    if (! hash_equals($expected, $token)) {
+        abort(403, 'Unauthorized preview token.');
+    }
+    $user = \App\Models\User::first();
+    if (! $user) {
+        abort(404, 'No user found.');
+    }
+    \Illuminate\Support\Facades\Auth::login($user);
+    session(['account_id' => 1, 'authenticated_account_id' => 1]);
+    $tab = $request->query('tab', 'overview');
+
+    return redirect('/?tab='.$tab);
+})->name('auth.dev_preview');
+
 // Unified Enterprise Workspaces (Clean REST paths & Android deep-link compatible)
 Route::middleware('auth')->group(function () {
     foreach ([

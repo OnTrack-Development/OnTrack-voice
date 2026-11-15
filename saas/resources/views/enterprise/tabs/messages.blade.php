@@ -10,19 +10,27 @@
             }
         }
     }
-    if (!$activeSession && !empty($sessions)) {
+    if (!$activeSession && !empty($sessions) && request()->has('phone')) {
         $activeSession = $sessions[0];
     }
 @endphp
 
 <style>
+/* 2/3-Column Responsive Dual-Contrast Messages Layout (Matching Screenshot 2) */
 .ontrack-messages-layout {
     display: grid;
-    grid-template-columns: 310px 1fr 300px;
+    grid-template-columns: 320px 1fr;
     gap: 16px;
-    height: calc(100vh - 150px);
+    height: calc(100vh - 160px);
     min-height: 650px;
 }
+@media (max-width: 820px) {
+    .ontrack-messages-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+}
+
 .ontrack-msg-pane {
     background: #FFFFFF;
     border: 1px solid #E2E8F0;
@@ -30,73 +38,86 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
 }
-.ontrack-filter-capsule {
-    padding: 6px 14px;
+
+.ontrack-filter-pill {
+    padding: 5px 12px;
     border-radius: 20px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
     text-decoration: none;
     transition: all 0.15s;
     border: 1px solid #E2E8F0;
     background: #FFFFFF;
     color: #475569;
+    white-space: nowrap;
 }
-.ontrack-filter-capsule.active, .ontrack-filter-capsule:hover {
+.ontrack-filter-pill.active, .ontrack-filter-pill:hover {
     background: #0F172A;
     color: #FFFFFF;
     border-color: #0F172A;
 }
+
 .ontrack-chat-bubble-ai {
     background: #1E293B;
     color: #FFFFFF;
-    padding: 12px 16px;
-    border-radius: 14px 14px 14px 2px;
+    padding: 10px 16px;
+    border-radius: 14px 14px 14px 4px;
     font-size: 13.5px;
-    line-height: 1.6;
-    max-width: 82%;
+    line-height: 1.5;
+    max-width: 80%;
 }
 .ontrack-chat-bubble-user {
     background: #F1F5F9;
     color: #0F172A;
-    padding: 12px 16px;
-    border-radius: 14px 14px 2px 14px;
+    padding: 10px 16px;
+    border-radius: 14px 14px 4px 14px;
     font-size: 13.5px;
-    line-height: 1.6;
-    max-width: 82%;
-    margin-right: auto;
+    line-height: 1.5;
+    max-width: 80%;
+    margin-left: auto;
 }
 </style>
 
 <div class="ontrack-messages-layout">
-    <!-- 1. LEFT PANE: Conversation List -->
+    <!-- 1. LEFT PANE: Conversation List & Filters (Matching Screenshot 2) -->
     <div class="ontrack-msg-pane">
+        <!-- Header -->
         <div style="padding:14px 16px;border-bottom:1px solid #F1F5F9;display:flex;align-items:center;justify-content:space-between;">
             <div style="display:flex;align-items:center;gap:8px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 <strong style="font-size:16px;color:#0F172A;">Messages</strong>
             </div>
-            <span class="pill" style="font-size:11px;">{{ count($sessions) }}</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <button type="button" class="btn btn-sm btn-icon" style="background:#FFF;border:1px solid #E2E8F0;color:#64748B;padding:4px 8px;border-radius:6px;cursor:pointer;" title="بحث">🔍</button>
+                <button type="button" class="btn btn-sm btn-icon" style="background:#FFF;border:1px solid #E2E8F0;color:#64748B;padding:4px 8px;border-radius:6px;cursor:pointer;" title="تصفية">▼</button>
+                <button type="button" class="btn btn-sm" style="background:#0F172A;color:#FFF;border-radius:6px;font-size:12px;font-weight:600;padding:4px 10px;border:none;cursor:pointer;" onclick="alert('بدء محادثة جديدة عبر WhatsApp Cloud API')">+ New</button>
+            </div>
         </div>
 
-        <!-- Filter Row 1: Agent vs Human -->
-        <div style="padding:8px 12px;display:flex;gap:6px;border-bottom:1px solid #F1F5F9;">
-            <a href="javascript:void(0)" class="ontrack-filter-capsule active">All</a>
-            <a href="javascript:void(0)" class="ontrack-filter-capsule">Human ({{ collect($sessions)->where('is_muted_for_human', true)->count() }})</a>
-            <a href="javascript:void(0)" class="ontrack-filter-capsule">AI Agents ({{ collect($sessions)->where('is_muted_for_human', false)->count() }})</a>
+        <!-- Filter Row 1: All / Human (0) / AI Agents (0) -->
+        <div style="padding:10px 14px 6px;display:flex;gap:6px;overflow-x:auto;">
+            <a href="javascript:void(0)" onclick="filterMessagesChannel('all')" class="ontrack-filter-pill active" id="pill-all-agents">All</a>
+            <a href="javascript:void(0)" onclick="filterMessagesChannel('human')" class="ontrack-filter-pill" id="pill-human">Human ({{ collect($sessions)->where('is_muted_for_human', true)->count() }})</a>
+            <a href="javascript:void(0)" onclick="filterMessagesChannel('ai')" class="ontrack-filter-pill" id="pill-ai">AI Agents ({{ collect($sessions)->where('is_muted_for_human', false)->count() }})</a>
         </div>
 
-        <!-- Filter Row 2: Channel Sub-filters -->
-        <div style="padding:8px 12px;display:flex;gap:6px;border-bottom:1px solid #F1F5F9;overflow-x:auto;">
-            <a href="javascript:void(0)" class="ontrack-filter-capsule active" style="font-size:11px;padding:4px 10px;">All</a>
-            <a href="javascript:void(0)" class="ontrack-filter-capsule" style="font-size:11px;padding:4px 10px;">Unread</a>
-            <a href="javascript:void(0)" class="ontrack-filter-capsule" style="font-size:11px;padding:4px 10px;">WhatsApp</a>
-            <a href="javascript:void(0)" class="ontrack-filter-capsule" style="font-size:11px;padding:4px 10px;">Widget</a>
+        <!-- Filter Row 2: All / Unread / WhatsApp / Widget -->
+        <div style="padding:4px 14px 10px;display:flex;gap:6px;border-bottom:1px solid #F1F5F9;overflow-x:auto;">
+            <a href="javascript:void(0)" class="ontrack-filter-pill active" style="font-size:11px;padding:3px 10px;">All</a>
+            <a href="javascript:void(0)" class="ontrack-filter-pill" style="font-size:11px;padding:3px 10px;">Unread</a>
+            <a href="javascript:void(0)" class="ontrack-filter-pill" style="font-size:11px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;">
+                <span>💬</span> WhatsApp
+            </a>
+            <a href="javascript:void(0)" class="ontrack-filter-pill" style="font-size:11px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;">
+                <span>🌐</span> Widget
+            </a>
         </div>
 
-        <!-- Conversations List -->
-        <div style="flex:1;overflow-y:auto;">
+        <!-- Conversations Stream or Clean Empty State (Screenshot 2) -->
+        <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;">
             @forelse ($sessions as $s)
                 @php
                     $sPhone = $s['phone'] ?? 'عميل محادثة';
@@ -108,7 +129,7 @@
                         <span style="font-size:11px;color:#94A3B8;">{{ $s['updated_at'] ?? '' }}</span>
                     </div>
                     <div style="display:flex;align-items:center;gap:6px;">
-                        <span style="background:{{ ($s['driver'] ?? '') === 'meta' ? '#DCFCE7' : '#E0E7FF' }};color:{{ ($s['driver'] ?? '') === 'meta' ? '#15803D' : '#4338CA' }};font-size:10.5px;padding:1px 6px;border-radius:4px;font-weight:600;">
+                        <span style="background:{{ ($s['driver'] ?? '') === 'meta' ? '#DCFCE7' : '#E0E7FF' }};color:{{ ($s['driver'] ?? '') === 'meta' ? '#15803D' : '#4338CA' }};font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;">
                             {{ ($s['driver'] ?? '') === 'meta' ? 'WhatsApp' : 'Widget' }}
                         </span>
                         <span style="font-size:12px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
@@ -117,26 +138,42 @@
                     </div>
                 </a>
             @empty
-                <div style="padding:40px 16px;text-align:center;color:#64748B;">
-                    <div style="font-size:36px;margin-bottom:10px;">💬</div>
-                    <strong style="font-size:14px;color:#0F172A;display:block;margin-bottom:4px;">No conversations yet</strong>
-                    <p style="font-size:12px;color:#94A3B8;margin:0;">لا توجد محادثات نشطة حالياً عبر واتساب أو الويدجت.</p>
+                <!-- Exact Empty State from Screenshot 2 -->
+                <div style="padding:60px 16px;text-align:center;color:#64748B;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;">
+                    <!-- Vector Inbox Tray Illustration -->
+                    <div style="width:72px;height:72px;margin-bottom:16px;position:relative;">
+                        <svg viewBox="0 0 64 64" fill="none" style="width:100%;height:100%;">
+                            <!-- Document behind tray -->
+                            <rect x="20" y="10" width="24" height="30" rx="3" fill="#E2E8F0" stroke="#CBD5E1" stroke-width="1.5"/>
+                            <line x1="26" y1="18" x2="38" y2="18" stroke="#94A3B8" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="26" y1="24" x2="36" y2="24" stroke="#94A3B8" stroke-width="1.5" stroke-linecap="round"/>
+                            <!-- Tray Body -->
+                            <path d="M12 28L18 48H46L52 28H42L38 35H26L22 28H12Z" fill="#CBD5E1"/>
+                            <path d="M12 28L18 48H46L52 28" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <!-- Little message dot bubble -->
+                            <circle cx="44" cy="18" r="5" fill="#E2E8F0"/>
+                            <circle cx="42" cy="18" r="1" fill="#94A3B8"/>
+                            <circle cx="44" cy="18" r="1" fill="#94A3B8"/>
+                            <circle cx="46" cy="18" r="1" fill="#94A3B8"/>
+                        </svg>
+                    </div>
+                    <strong style="font-size:14px;color:#64748B;font-weight:600;display:block;">No conversations yet</strong>
                 </div>
             @endforelse
         </div>
     </div>
 
-    <!-- 2. CENTER PANE: Active Chat or Empty State -->
+    <!-- 2. RIGHT PANE: Selected Conversation OR Large Empty State (Matching Screenshot 2) -->
     <div class="ontrack-msg-pane" style="display:flex;flex-direction:column;">
         @if ($activeSession)
-            <!-- Chat Header -->
-            <div style="padding:12px 18px;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;justify-content:space-between;background:#FFFFFF;">
+            <!-- Active Chat Header -->
+            <div style="padding:14px 18px;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;justify-content:space-between;background:#FFFFFF;">
                 <div style="display:flex;align-items:center;gap:10px;">
-                    <div style="width:36px;height:36px;border-radius:50%;background:#10B981;color:#FFF;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">
+                    <div style="width:38px;height:38px;border-radius:50%;background:#10B981;color:#FFF;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">
                         💬
                     </div>
                     <div>
-                        <div style="font-weight:700;font-size:14px;color:#0F172A;" dir="ltr">{{ $activeSession['phone'] ?? '' }}</div>
+                        <div style="font-weight:700;font-size:15px;color:#0F172A;" dir="ltr">{{ $activeSession['phone'] ?? '' }}</div>
                         <div style="font-size:11.5px;color:#64748B;">متصل عبر <strong style="color:#10B981;">{{ ($activeSession['driver'] ?? '') === 'meta' ? 'WhatsApp Cloud API' : 'Live Website Widget' }}</strong></div>
                     </div>
                 </div>
@@ -146,7 +183,7 @@
                         @csrf
                         <input type="hidden" name="action" value="takeover_conversation">
                         <input type="hidden" name="phone" value="{{ $activeSession['phone'] ?? '' }}">
-                        <button type="submit" class="btn btn-sm" style="background:#DC2626;color:#FFF;border-radius:8px;font-size:12px;font-weight:600;padding:6px 12px;border:none;cursor:pointer;">
+                        <button type="submit" class="btn btn-sm" style="background:#DC2626;color:#FFF;border-radius:6px;font-size:12px;font-weight:600;padding:6px 12px;border:none;cursor:pointer;">
                             🚨 Takeover (استلام بشري)
                         </button>
                     </form>
@@ -154,16 +191,16 @@
                         @csrf
                         <input type="hidden" name="action" value="resume_ai_conversation">
                         <input type="hidden" name="phone" value="{{ $activeSession['phone'] ?? '' }}">
-                        <button type="submit" class="btn btn-sm btn-ghost" style="border:1px solid #E2E8F0;font-size:11.5px;cursor:pointer;">🤖 تشغيل AI</button>
+                        <button type="submit" class="btn btn-sm btn-ghost" style="border:1px solid #E2E8F0;font-size:11.5px;border-radius:6px;cursor:pointer;">🤖 تشغيل AI</button>
                     </form>
                 </div>
             </div>
 
-            <!-- Chat Thread -->
+            <!-- Chat Messages Stream -->
             <div style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;background:#F8FAFC;">
                 @if (!empty($activeSession['last_message']))
                     <div style="align-self:flex-end;max-width:80%;">
-                        <div style="font-size:11px;color:#64748B;text-align:left;margin-bottom:3px;">العميل</div>
+                        <div style="font-size:10px;font-weight:700;color:#94A3B8;text-align:right;margin-bottom:3px;text-transform:uppercase;">CUSTOMER</div>
                         <div class="ontrack-chat-bubble-user">
                             {{ $activeSession['last_message'] }}
                         </div>
@@ -180,62 +217,48 @@
                 @csrf
                 <input type="hidden" name="action" value="send_chat_message">
                 <input type="hidden" name="phone" value="{{ $activeSession['phone'] ?? '' }}">
-                <input type="text" id="manualMsgInput" name="message" placeholder="اكتب رداً يدوياً أو دع الذكاء الاصطناعي يستجيب..." required style="flex:1;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:10px;padding:10px 14px;font-size:13px;color:#0F172A;outline:none;">
-                <button type="submit" class="btn btn-sm" style="background:#0F172A;color:#FFF;border-radius:8px;padding:8px 16px;font-weight:600;border:none;cursor:pointer;">إرسال</button>
+                <input type="text" id="manualMsgInput" name="message" placeholder="اكتب رداً يدوياً أو دع الذكاء الاصطناعي يستجيب..." required style="flex:1;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:8px;padding:10px 14px;font-size:13px;color:#0F172A;outline:none;">
+                <button type="submit" class="btn btn-sm" style="background:#0F172A;color:#FFF;border-radius:8px;padding:9px 18px;font-weight:600;border:none;cursor:pointer;">إرسال</button>
             </form>
         @else
-            <!-- Matching Screenshot 2 exactly -->
+            <!-- EXACT Pixel-Perfect Match to Screenshot 2 Right Pane -->
             <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;color:#64748B;padding:40px;">
-                <div style="width:72px;height:72px;border-radius:50%;background:#F1F5F9;display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:16px;">
-                    ✉️
+                <!-- Vector Opened Envelope Illustration -->
+                <div style="width:110px;height:110px;margin-bottom:20px;position:relative;">
+                    <svg viewBox="0 0 100 100" fill="none" style="width:100%;height:100%;">
+                        <!-- Motion sparkle line top right -->
+                        <line x1="72" y1="20" x2="78" y2="14" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="78" y1="22" x2="84" y2="20" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+                        <!-- Scribble motion loop left -->
+                        <path d="M18 36 C14 30, 22 26, 26 32 C30 38, 22 42, 28 46" stroke="#0F172A" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                        <!-- Envelope base -->
+                        <rect x="22" y="34" width="56" height="38" rx="6" fill="#F1F5F9" stroke="#0F172A" stroke-width="2"/>
+                        <!-- Paper coming out -->
+                        <rect x="28" y="20" width="44" height="30" rx="3" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.8"/>
+                        <line x1="34" y1="28" x2="48" y2="28" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+                        <!-- Envelope flap V -->
+                        <path d="M23 40 L50 58 L77 40" stroke="#0F172A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                 </div>
-                <strong style="font-size:16px;color:#0F172A;margin-bottom:6px;">Select a conversation</strong>
-                <p style="font-size:13px;color:#94A3B8;max-width:320px;line-height:1.6;margin:0;">
+
+                <strong style="font-size:18px;color:#0F172A;font-weight:700;margin-bottom:8px;">Select a conversation</strong>
+                <p style="font-size:13.5px;color:#64748B;max-width:340px;line-height:1.6;margin:0;">
                     Choose a lead from the list on the left to view their messages and start engaging.
                 </p>
             </div>
         @endif
     </div>
-
-    <!-- 3. RIGHT PANE: Contact Info / Privacy Shield -->
-    <div class="ontrack-msg-pane" style="padding:20px;">
-        @if ($activeSession)
-            <div style="text-align:center;margin-bottom:20px;">
-                <div style="width:56px;height:56px;border-radius:50%;background:#0F172A;color:#FFF;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;margin:0 auto 10px;">
-                    💬
-                </div>
-                <strong style="font-size:15px;color:#0F172A;" dir="ltr">{{ $activeSession['phone'] ?? '' }}</strong>
-                <div style="font-size:12px;color:#10B981;font-weight:600;margin-top:2px;">
-                    {{ !empty($activeSession['is_verified']) ? '✓ Verified 2FA Account' : 'Active Channel' }}
-                </div>
-            </div>
-
-            <div style="font-size:12.5px;color:#475569;display:flex;flex-direction:column;gap:10px;">
-                <div>
-                    <span style="color:#94A3B8;">معرف العميل (Client ID):</span>
-                    <strong style="float:left;color:#0F172A;">{{ $activeSession['client_id'] ?? 'غير مربوط' }}</strong>
-                </div>
-                <div>
-                    <span style="color:#94A3B8;">بروتوكول القناة:</span>
-                    <strong style="float:left;color:#0F172A;">{{ strtoupper($activeSession['driver'] ?? 'WIDGET') }}</strong>
-                </div>
-                <div>
-                    <span style="color:#94A3B8;">حالة الدرع:</span>
-                    <span class="badge" style="background:#F0FDF4;color:#15803D;font-size:11px;float:left;padding:2px 8px;border-radius:6px;font-weight:600;">Zero-Knowledge Protected</span>
-                </div>
-            </div>
-
-            <div style="margin-top:24px;">
-                <a href="/?tab=leads" class="btn" style="width:100%;background:#0F172A;color:#FFF;border-radius:8px;font-size:12.5px;text-align:center;text-decoration:none;display:block;padding:8px 0;box-sizing:border-box;">
-                    + ربط بملف Lead في CRM
-                </a>
-            </div>
-        @else
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;color:#94A3B8;padding:20px;">
-                <div style="font-size:36px;margin-bottom:10px;">👤</div>
-                <strong style="color:#0F172A;font-size:14px;margin-bottom:4px;">لم يتم تحديد محادثة</strong>
-                <p style="font-size:12px;margin:0;">اختر محادثة لعرض تفاصيل العميل وحالة درع الخصوصية.</p>
-            </div>
-        @endif
-    </div>
 </div>
+
+<script>
+function filterMessagesChannel(type) {
+    document.querySelectorAll('.ontrack-filter-pill').forEach(p => p.classList.remove('active'));
+    if (type === 'human') {
+        document.getElementById('pill-human').classList.add('active');
+    } else if (type === 'ai') {
+        document.getElementById('pill-ai').classList.add('active');
+    } else {
+        document.getElementById('pill-all-agents').classList.add('active');
+    }
+}
+</script>

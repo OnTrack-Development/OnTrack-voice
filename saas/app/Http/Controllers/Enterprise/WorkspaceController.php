@@ -321,10 +321,33 @@ class WorkspaceController extends Controller
             return $arr;
         })->all();
 
+        $selectedId = (int) $request->query('call_id', 0);
+        $activeCallId = $selectedId > 0 ? $selectedId : (!empty($rows) ? ((int) ($rows[0]['id'] ?? 0)) : 0);
+        $activeTranscript = null;
+        if ($activeCallId > 0) {
+            try {
+                $detail = $this->calls->callDetail($accountId, $activeCallId);
+                $activeTranscript = $detail['transcript'] ?? null;
+            } catch (\Throwable $e) {
+                $activeTranscript = null;
+            }
+        }
+
+        $leads = DB::table('leads')
+            ->where('account_id', $accountId)
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get()
+            ->map(fn ($l) => (array) $l)
+            ->all();
+
         return [
             'calls' => $rows,
             'paginator' => $paginator,
             'filters' => $filters,
+            'active_call_id' => $activeCallId,
+            'active_transcript' => $activeTranscript,
+            'leads' => $leads,
             'outcomes' => CallLedgerService::OUTCOMES,
             'handoff_statuses' => CallLedgerService::HANDOFF_STATUSES,
         ];
