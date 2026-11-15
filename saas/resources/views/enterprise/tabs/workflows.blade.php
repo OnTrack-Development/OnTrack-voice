@@ -23,12 +23,14 @@
     <p style="font-size:13px;color:#94A3B8;margin:0 0 14px;max-width:700px;line-height:1.5;">
         اكتب الفكرة التي تريدها بأي لغة وسيقوم المساعد بتحويلها إلى Trigger و Conditions و Actions فوراً دون أي برمجة.
     </p>
-    <div style="display:flex;gap:10px;">
-        <input type="text" placeholder="مثال: لو العميل اتكلم أكتر من دقيقة وكان مهتم بسيرفر VPS، ابعتله رسالة واتساب فيها لينك الحجز وأضفه كـ Lead مؤهل..." style="flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#FFF;padding:10px 16px;border-radius:10px;font-size:13px;outline:none;">
-        <button type="button" class="btn btn-sm" onclick="alert('تم تحليل الطلب وبناء الـ Workflow بنجاح!')" style="background:linear-gradient(135deg, #8B5CF6, #06B6D4);color:#FFF;border:none;border-radius:10px;padding:10px 20px;font-weight:700;">
+    <form method="POST" action="{{ route('enterprise.action') }}" style="display:flex;gap:10px;margin:0;">
+        @csrf
+        <input type="hidden" name="action" value="ai_build_workflow">
+        <input type="text" name="prompt" placeholder="مثال: لو العميل اتكلم أكتر من دقيقة وكان مهتم بسيرفر VPS، ابعتله رسالة واتساب فيها لينك الحجز وأضفه كـ Lead مؤهل..." required style="flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#FFF;padding:10px 16px;border-radius:10px;font-size:13px;outline:none;">
+        <button type="submit" class="btn btn-sm" style="background:linear-gradient(135deg, #8B5CF6, #06B6D4);color:#FFF;border:none;border-radius:10px;padding:10px 20px;font-weight:700;cursor:pointer;">
             توليد التدفق 🪄
         </button>
-    </div>
+    </form>
 </div>
 
 <!-- Visual Flow Mockup Preview -->

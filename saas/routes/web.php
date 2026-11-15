@@ -84,10 +84,16 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/console/calls/{id}', [WorkspaceController::class, 'callDetailJson'])->whereNumber('id')->name('enterprise.call.detail');
     Route::get('/api/console/campaigns/queue', [WorkspaceController::class, 'campaignQueueJson'])->name('enterprise.campaigns.queue');
     Route::get('/calls/csv', [WorkspaceController::class, 'exportCallsCsv'])->name('enterprise.calls.csv');
+    Route::get('/leads/csv', [WorkspaceController::class, 'exportLeadsCsv'])->name('enterprise.leads.csv');
     Route::get('/invoices/{id}/print', [WorkspaceController::class, 'printInvoice'])->whereNumber('id')->name('enterprise.invoice.print');
     Route::post('/change-password', [AuthController::class, 'changePassword'])->name('password.change');
-    Route::get('/admin/floorplan', function () {
-        $path = public_path('admin/floorplan.html');
+    Route::get('/admin/floorplan', function (\Illuminate\Http\Request $request) {
+        $ctx = app(\App\Services\Console\ConsoleContextService::class)->resolve($request->user());
+        if (! ($ctx['is_platform'] ?? false)) {
+            abort(403, 'هذا القسم مخصص لإدارة المنصة فقط.');
+        }
+
+        $path = storage_path('app/floorplan/floorplan.html');
         if (! file_exists($path)) {
             abort(404, 'Floorplan not generated yet.');
         }
@@ -128,7 +134,9 @@ Route::get('/saas/console/{any?}', function (\Illuminate\Http\Request $request) 
     return redirect($qs !== '' ? '/?'.$qs : '/?tab=overview');
 })->where('any', '(?!device/v1/).*')->name('console.legacy.redirect');
 
-// Webhooks & External Widgets
+// Webhooks, External Widgets & Public Booking
+Route::get('/book/{account_slug}', [WorkspaceController::class, 'showPublicBooking'])->name('public.booking.show');
+Route::post('/book/{account_slug}', [WorkspaceController::class, 'storePublicBooking'])->name('public.booking.store');
 Route::get('/aivoiceagent/{agent}', [AgentStudioController::class, 'publicWebCall'])->name('agents.public.webcall');
 Route::post('/api/v1/bridge/events', [BridgeController::class, 'receiveEvent'])->name('api.bridge.events');
 Route::post('/api/v1/bridge/tools', [BridgeController::class, 'receiveEvent'])->name('api.bridge.tools');

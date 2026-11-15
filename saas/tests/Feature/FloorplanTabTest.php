@@ -11,23 +11,32 @@ class FloorplanTabTest extends TestCase
 {
     use RefreshDatabase;
 
-    private User $adminUser;
+    private User $platformUser;
+    private User $regularUser;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        if (! file_exists(public_path('admin/floorplan.html'))) {
-            @mkdir(public_path('admin'), 0755, true);
-            file_put_contents(public_path('admin/floorplan.html'), '<!DOCTYPE html><html><body><h1>Floorplan Test</h1></body></html>');
+        // Ensure floorplan is in storage/app/floorplan/floorplan.html
+        $storageDir = storage_path('app/floorplan');
+        if (! file_exists($storageDir)) {
+            @mkdir($storageDir, 0755, true);
+        }
+        file_put_contents($storageDir . '/floorplan.html', '<!DOCTYPE html><html><body><h1>Floorplan Secure Test</h1></body></html>');
+
+        // Ensure public file does not exist
+        if (file_exists(public_path('admin/floorplan.html'))) {
+            @unlink(public_path('admin/floorplan.html'));
         }
 
         $now = gmdate('Y-m-d H:i:s');
-        $this->adminUser = User::factory()->create([
-            'email' => 'admin_floorplan@ontrackegy.com',
-        ]);
 
-        $accountId = DB::table('accounts')->insertGetId([
+        // Platform Admin User
+        $this->platformUser = User::factory()->create([
+            'email' => 'platform_admin@ontrackegy.com',
+        ]);
+        $platformAccountId = DB::table('accounts')->insertGetId([
             'kind' => 'platform',
             'parent_id' => 0,
             'name' => 'OnTrack Platform Admin',
@@ -35,18 +44,35 @@ class FloorplanTabTest extends TestCase
             'status' => 'active',
             'created_at' => $now,
         ]);
-
         $siteId = DB::table('sites')->insertGetId([
-            'account_id' => $accountId,
+            'account_id' => $platformAccountId,
             'name' => 'Default Site',
             'domain' => 'default.example.test',
             'status' => 'active',
             'created_at' => $now,
         ]);
-
         DB::table('memberships')->insert([
-            'account_id' => $accountId,
-            'user_id' => $this->adminUser->id,
+            'account_id' => $platformAccountId,
+            'user_id' => $this->platformUser->id,
+            'role' => 'owner',
+            'created_at' => $now,
+        ]);
+
+        // Regular Customer User
+        $this->regularUser = User::factory()->create([
+            'email' => 'customer@example.com',
+        ]);
+        $customerAccountId = DB::table('accounts')->insertGetId([
+            'kind' => 'customer',
+            'parent_id' => $platformAccountId,
+            'name' => 'Demo Customer Account',
+            'slug' => 'customer-' . uniqid(),
+            'status' => 'active',
+            'created_at' => $now,
+        ]);
+        DB::table('memberships')->insert([
+            'account_id' => $customerAccountId,
+            'user_id' => $this->regularUser->id,
             'role' => 'owner',
             'created_at' => $now,
         ]);
@@ -58,19 +84,36 @@ class FloorplanTabTest extends TestCase
         $response->assertRedirect('/login');
     }
 
-    public function test_admin_floorplan_serves_html_when_authenticated(): void
+    public function test_public_floorplan_file_is_not_exposed(): void
     {
-        $response = $this->actingAs($this->adminUser)->get('/admin/floorplan');
-        $response->assertOk();
-        $this->assertStringContainsString('text/html', (string) $response->headers->get('Content-Type'));
+        $this->assertFileDoesNotExist(public_path('admin/floorplan.html'));
     }
 
-    public function test_floorplan_tab_renders_in_workspace(): void
+    public function test_non_platform_user_is_forbidden_from_admin_floorplan(): void
     {
-        $response = $this->actingAs($this->adminUser)->get('/?tab=floorplan');
+        $response = $this->actingAs($this->regularUser)->get('/admin/floorplan');
+        $response->assertForbidden();
+    }
+
+    public function test_non_platform_user_is_forbidden_from_floorplan_tab(): void
+    {
+        $response = $this->actingAs($this->regularUser)->get('/?tab=floorplan');
+        $response->assertForbidden();
+    }
+
+    public function test_platform_owner_can_access_admin_floorplan(): void
+    {
+        $response = $this->actingAs($this->platformUser)->get('/admin/floorplan');
+        $response->assertOk();
+        $this->assertStringContainsString('text/html', (string) $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('Floorplan Secure Test', file_get_contents($response->getFile()->getPathname()));
+    }
+
+    public function test_platform_owner_can_view_floorplan_tab(): void
+    {
+        $response = $this->actingAs($this->platformUser)->get('/?tab=floorplan');
         $response->assertOk();
         $response->assertSee('Architecture Floorplan');
         $response->assertSee('floorplanIframe');
-        $response->assertSee('Zero-Orphans Codebase Map');
     }
 }

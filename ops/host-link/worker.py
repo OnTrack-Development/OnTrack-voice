@@ -219,17 +219,15 @@ def tick(home, cfg, api):
         if state["completed"][job_id] != digest:
             raise ValueError("Job id reused with different contents")
         return
-    # An expired, not-yet-started job is a terminal validation condition, not
-    # a reason to crash every Cron minute. Persist a receipt so publishers can
-    # unblock safely without ever replaying an uncertain running action.
+    # Validate job safely. Persist a terminal receipt on any failure so publishers
+    # can unblock safely without crashing Cron loops or replaying uncertain running actions.
     try:
         validate_job(job, cfg)
-    except ValueError as exc:
-        if str(exc) != "Expired job or incorrect clock":
-            raise
+    except Exception as exc:
+        status = "expired" if str(exc) == "Expired job or incorrect clock" else "rejected"
         result = {"job_id": job_id, "target": cfg["target"],
-                  "job_sha256": digest, "status": "expired",
-                  "finished_at": utcnow(), "note": "Rejected before execution"}
+                  "job_sha256": digest, "status": status,
+                  "finished_at": utcnow(), "note": f"Rejected before execution: {str(exc)}"}
         api.put(PREFIX + "/results/" + cfg["target"] + "/" + job_id + ".json", result)
         state["completed"][job_id] = digest
         atomic_json(statefile, state)

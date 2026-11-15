@@ -1,6 +1,25 @@
 """Deploy only immutable OTA HTML and its signed manifest; no credential reads."""
-import base64, datetime, fcntl, hashlib, json, lzma, os, tempfile, zlib
+import base64, datetime, fcntl, hashlib, json, lzma, os, subprocess, tempfile, zlib
 from pathlib import Path
+
+def verify_rsa_signature(envelope, cert_bytes=None):
+    if not isinstance(envelope, dict) or "payload" not in envelope or "signature" not in envelope:
+        raise ValueError("Invalid signed envelope structure")
+    private = Path('/home/appontrack/.ontrack-mobile')
+    pinned_cert = private / 'signing-cert.der'
+    if cert_bytes is None and pinned_cert.is_file():
+        cert_bytes = pinned_cert.read_bytes()
+    if cert_bytes:
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td)
+            payload_bytes = envelope["payload"].encode("utf-8") if isinstance(envelope["payload"], str) else envelope["payload"]
+            (p / "payload").write_bytes(payload_bytes)
+            (p / "cert.der").write_bytes(cert_bytes)
+            (p / "signature").write_bytes(base64.b64decode(envelope["signature"], validate=True))
+            (p / "public.pem").write_bytes(subprocess.check_output(
+                ["openssl", "x509", "-inform", "DER", "-in", str(p / "cert.der"), "-pubkey", "-noout"], timeout=4))
+            subprocess.run(["openssl", "dgst", "-sha256", "-verify", str(p / "public.pem"), "-signature", str(p / "signature"), str(p / "payload")],
+                           check=True, capture_output=True, timeout=4)
 
 def atomic(path, content):
     fd,temp=tempfile.mkstemp(dir=path.parent,prefix='.ota-')
@@ -16,6 +35,7 @@ def deploy(encoded,expected):
     except lzma.LZMAError:raw=zlib.decompress(compressed)
     if hashlib.sha256(raw).hexdigest()!=expected:raise ValueError('Bundle checksum mismatch')
     bundle=json.loads(raw);manifest=bundle['manifest'];envelope=json.loads(manifest);meta=json.loads(envelope['payload'])
+    verify_rsa_signature(envelope, bundle.get('cert'))
     html=bundle['html'].encode();name=meta['file']
     if len(html)>524288 or len(html)!=meta['size'] or hashlib.sha256(html).hexdigest()!=meta['sha256'] or name!='ui-'+meta['sha256']+'.html':raise ValueError('Invalid immutable OTA content')
     if os.getuid()!=2379:raise ValueError('Wrong account')

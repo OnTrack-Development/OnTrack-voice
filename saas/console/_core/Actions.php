@@ -1252,6 +1252,9 @@ function act():void {
                 audit('support.policy.updated',$target,['mode'=>$mode]);break;
             case 'reveal_secret':
                 if(!in_array($a['role'],['owner','admin'],true) || active_support())deny();
+                $actorIp=(string)($_SERVER['REMOTE_ADDR']??'127.0.0.1');
+                if(!check_security_rate_limit('reveal_secret',"acc_{$id}_ip_{$actorIp}",8,900))
+                    deny(429,'تجاوزت الحد الأقصى لمحاولات كشف المفاتيح (8 محاولات كل 15 دقيقة).');
                 $kindKey=field('secret_type',20);
                 if($kindKey==='api')deny(410,'مفاتيح API القديمة لا تظهر أو تتدوّر؛ استخدم ربط الشريحة بكود من 6 أرقام.');
                 $tbl=$kindKey==='api'?'api_keys':($kindKey==='integration'?'integrations':null);
@@ -1265,6 +1268,9 @@ function act():void {
                 flash('secret','المفتاح المطلوب: '.$plain);break;
             case 'rotate_secret':
                 if(!in_array($a['role'],['owner','admin'],true)||active_support())deny();
+                $actorIp=(string)($_SERVER['REMOTE_ADDR']??'127.0.0.1');
+                if(!check_security_rate_limit('rotate_secret',"acc_{$id}_ip_{$actorIp}",8,900))
+                    deny(429,'تجاوزت الحد الأقصى لمحاولات تدوير المفاتيح (8 محاولات كل 15 دقيقة).');
                 $kindKey=field('secret_type',20);
                 if($kindKey==='api')deny(410,'مفاتيح API القديمة لا تظهر أو تتدوّر؛ استخدم ربط الشريحة بكود من 6 أرقام.');
                 $tbl=$kindKey==='api'?'api_keys':($kindKey==='integration'?'integrations':null);

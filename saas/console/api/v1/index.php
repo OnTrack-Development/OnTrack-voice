@@ -1,5 +1,13 @@
 <?php
 declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') !== 'https') {
+    http_response_code(426);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok' => false, 'error' => 'https_required'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 require __DIR__.'/../../_core/Bootstrap.php';
 require __DIR__.'/../../_core/DncGuard.php';
 header('Content-Type: application/json; charset=utf-8');
@@ -18,7 +26,7 @@ try{
     $grant=one("SELECT * FROM api_keys WHERE token_hash=? AND status='active'",[hash('sha256',$key)]);
     if(!$grant)answer(401,['ok'=>false,'error'=>'invalid_api_key']);
     $a=account((int)$grant['account_id']);
-    if(!account_service_active($a))answer(403,['ok'=>false,'error'=>'account_unavailable']);
+    if(!account_service_active($a) || (($a['status'] ?? '') !== 'active'))answer(403,['ok'=>false,'error'=>'account_unavailable']);
     $scopes=array_filter(explode(',',(string)$grant['scopes']));
     $site=(int)($grant['site_id']??0);
     // An API key scoped to a retired site must not retain access to that site.

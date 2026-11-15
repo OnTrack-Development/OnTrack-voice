@@ -1,4 +1,2 @@
+# Floorplan keeps its map out of git: this ignores everything in this folder, this file included.
 *
-!.gitignore
-!architecture.json
-!recent-work.json

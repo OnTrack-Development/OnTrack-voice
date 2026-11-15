@@ -14,6 +14,14 @@ try {
     json_out(['ok' => false, 'error' => 'invalid_mission', 'detail' => $e instanceof JsonException ? 'صيغة البيانات غير صالحة' : $e->getMessage()], 400);
 }
 
+require_once __DIR__ . '/../saas/console/_core/Bootstrap.php';
+$clientIp = (string)($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
+$accIdentifier = (string)($request['account_id'] ?? $request['account'] ?? $clientIp);
+if (!check_security_rate_limit('live_session_ip', $clientIp, 8, 900) ||
+    !check_security_rate_limit('live_session_acc', (string)$accIdentifier, 8, 900)) {
+    json_out(['ok' => false, 'error' => 'rate_limited', 'detail' => 'تجاوزت حد المحاولات المسموح (8 محاولات كل 15 دقيقة)'], 429);
+}
+
 if (empty($config['gemini_api_key'])) {
     json_out(['ok' => false, 'error' => 'gemini_not_configured'], 503);
 }

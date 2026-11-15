@@ -135,11 +135,20 @@
             </div>
 
             <div style="display:flex;align-items:center;gap:8px;">
-                <button type="button" class="btn btn-sm" onclick="alert('تم تجميد الـ AI واستلام المحادثة بنجاح')" style="background:#DC2626;color:#FFF;border-radius:8px;font-size:12px;font-weight:600;padding:6px 12px;">
-                    🚨 Takeover (استلام بشري)
-                </button>
-                <button type="button" class="btn btn-sm btn-ghost" onclick="alert('Meta API متصل بنجاح')" style="border:1px solid #E2E8F0;font-size:11.5px;">Meta API</button>
-                <button type="button" class="btn btn-sm btn-ghost" onclick="alert('Baileys QR متصل')" style="border:1px solid #E2E8F0;font-size:11.5px;">QR Scanner</button>
+                <form method="POST" action="{{ route('enterprise.action') }}" style="display:inline;margin:0;">
+                    @csrf
+                    <input type="hidden" name="action" value="takeover_conversation">
+                    <input type="hidden" name="phone" value="+201012345678">
+                    <button type="submit" class="btn btn-sm" style="background:#DC2626;color:#FFF;border-radius:8px;font-size:12px;font-weight:600;padding:6px 12px;border:none;cursor:pointer;">
+                        🚨 Takeover (استلام بشري)
+                    </button>
+                </form>
+                <form method="POST" action="{{ route('enterprise.action') }}" style="display:inline;margin:0;">
+                    @csrf
+                    <input type="hidden" name="action" value="resume_ai_conversation">
+                    <input type="hidden" name="phone" value="+201012345678">
+                    <button type="submit" class="btn btn-sm btn-ghost" style="border:1px solid #E2E8F0;font-size:11.5px;cursor:pointer;">🤖 تشغيل AI</button>
+                </form>
             </div>
         </div>
 
@@ -166,25 +175,30 @@
 
                 <!-- Dynamic Action Buttons Pills -->
                 <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
-                    <button type="button" class="zoie-dyn-btn" onclick="alert('تم اعتماد إنشاء التذكرة في WHMCS بنجاح')" style="background:#10B981;color:#FFF;border-color:#10B981;">
-                        ✅ اعتمدها
-                    </button>
-                    <button type="button" class="zoie-dyn-btn" onclick="alert('أدخل التعديل المطلوب في الشات')">
+                    <form method="POST" action="{{ route('enterprise.action') }}" style="display:inline;margin:0;">
+                        @csrf
+                        <input type="hidden" name="action" value="approve_ticket_draft">
+                        <input type="hidden" name="ticket_id" value="1">
+                        <input type="hidden" name="draft_id" value="1">
+                        <button type="submit" class="zoie-dyn-btn" style="background:#10B981;color:#FFF;border-color:#10B981;cursor:pointer;">
+                            ✅ اعتمدها
+                        </button>
+                    </form>
+                    <button type="button" class="zoie-dyn-btn" onclick="document.getElementById('manualMsgInput').focus()">
                         ✏️ تعديل الوصف
-                    </button>
-                    <button type="button" class="zoie-dyn-btn" onclick="alert('تم إلغاء الطلب')">
-                        ❌ إلغاء الطلب
                     </button>
                 </div>
             </div>
         </div>
 
         <!-- Chat Input Bar -->
-        <div style="padding:14px 18px;border-top:1px solid #E2E8F0;background:#FFFFFF;display:flex;align-items:center;gap:10px;">
-            <input type="text" placeholder="اكتب رداً يدوياً أو دع الذكاء الاصطناعي يستجيب..." style="flex:1;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:10px;padding:10px 14px;font-size:13px;color:#0F172A;outline:none;">
-            <button type="button" class="btn btn-sm btn-icon" style="background:#F1F5F9;border:1px solid #E2E8F0;border-radius:8px;">📎</button>
-            <button type="button" class="btn btn-sm" style="background:#0F172A;color:#FFF;border-radius:8px;padding:8px 16px;font-weight:600;">إرسال</button>
-        </div>
+        <form method="POST" action="{{ route('enterprise.action') }}" style="padding:14px 18px;border-top:1px solid #E2E8F0;background:#FFFFFF;display:flex;align-items:center;gap:10px;margin:0;">
+            @csrf
+            <input type="hidden" name="action" value="send_chat_message">
+            <input type="hidden" name="phone" value="+201012345678">
+            <input type="text" id="manualMsgInput" name="message" placeholder="اكتب رداً يدوياً أو دع الذكاء الاصطناعي يستجيب..." required style="flex:1;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:10px;padding:10px 14px;font-size:13px;color:#0F172A;outline:none;">
+            <button type="submit" class="btn btn-sm" style="background:#0F172A;color:#FFF;border-radius:8px;padding:8px 16px;font-weight:600;border:none;cursor:pointer;">إرسال</button>
+        </form>
     </div>
 
     <!-- 3. RIGHT PANE: Contact & Verification Context -->

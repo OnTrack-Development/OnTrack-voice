@@ -31,7 +31,7 @@ class BridgeController extends Controller
     {
         $auth = $this->authenticateRequest($request);
         if (!$auth['ok']) {
-            return response()->json(['error' => $auth['error']], 401);
+            return response()->json(['error' => $auth['error']], $auth['status'] ?? 401);
         }
 
         $account = $auth['account'];
@@ -84,7 +84,7 @@ class BridgeController extends Controller
     {
         $auth = $this->authenticateRequest($request);
         if (!$auth['ok']) {
-            return response()->json(['error' => $auth['error']], 401);
+            return response()->json(['error' => $auth['error']], $auth['status'] ?? 401);
         }
 
         $account = $auth['account'];
@@ -120,7 +120,7 @@ class BridgeController extends Controller
     {
         $auth = $this->authenticateRequest($request);
         if (!$auth['ok']) {
-            return response()->json(['error' => $auth['error']], 401);
+            return response()->json(['error' => $auth['error']], $auth['status'] ?? 401);
         }
 
         $account = $auth['account'];
@@ -167,7 +167,11 @@ class BridgeController extends Controller
         }
 
         if (!$account) {
-            return ['ok' => false, 'error' => 'Account not found for integration key.'];
+            return ['ok' => false, 'error' => 'Account not found for integration key.', 'status' => 401];
+        }
+
+        if (($account->status ?? '') !== 'active') {
+            return ['ok' => false, 'error' => 'Account is suspended or inactive.', 'status' => 403];
         }
 
         // Verify timestamp within 10 minutes

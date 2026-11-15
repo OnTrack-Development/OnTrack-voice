@@ -1,5 +1,13 @@
 <?php
 declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') !== 'https') {
+    http_response_code(426);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok' => false, 'error' => 'https_required'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 const MOBILE_STORE = '/home/appontrack/.ontrack-mobile';

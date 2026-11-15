@@ -65,6 +65,54 @@ function execute(string $q,array $a=[]):int{return sql($q,$a)->rowCount();}
 function insert(string $q,array $a=[]):int{sql($q,$a);return (int)db()->lastInsertId();}
 function now():string{return gmdate('Y-m-d H:i:s');}
 function hash_password(string $p):string{return password_hash($p,PASSWORD_DEFAULT);}
+function check_security_rate_limit(string $bucketName, string $identifier, int $maxAttempts = 8, int $windowSeconds = 900): bool {
+    try {
+        $mysql = driver() === 'mysql';
+        $engine = $mysql ? ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci' : '';
+        db()->exec("CREATE TABLE IF NOT EXISTS security_rate_limits (
+            bucket_hash CHAR(64) PRIMARY KEY,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            first_attempt_at VARCHAR(19) NOT NULL,
+            blocked_until VARCHAR(19) NULL,
+            updated_at VARCHAR(19) NOT NULL
+        )".$engine);
+
+        $now = gmdate('Y-m-d H:i:s');
+        $hash = hash('sha256', $bucketName . "\0" . $identifier);
+        $window = gmdate('Y-m-d H:i:s', time() - $windowSeconds);
+
+        $row = one("SELECT attempts, first_attempt_at, blocked_until FROM security_rate_limits WHERE bucket_hash = ?", [$hash]);
+        if (!$row) {
+            try {
+                insert("INSERT INTO security_rate_limits (bucket_hash, attempts, first_attempt_at, blocked_until, updated_at) VALUES (?, 1, ?, NULL, ?)", [$hash, $now, $now]);
+                return true;
+            } catch (\Throwable) {
+                $row = one("SELECT attempts, first_attempt_at, blocked_until FROM security_rate_limits WHERE bucket_hash = ?", [$hash]);
+            }
+        }
+
+        if ($row) {
+            if (!empty($row['blocked_until']) && $row['blocked_until'] > $now) {
+                return false;
+            }
+            if ($row['first_attempt_at'] <= $window) {
+                execute("UPDATE security_rate_limits SET attempts = 1, first_attempt_at = ?, blocked_until = NULL, updated_at = ? WHERE bucket_hash = ?", [$now, $now, $hash]);
+                return true;
+            }
+            $attempts = (int)$row['attempts'] + 1;
+            if ($attempts > $maxAttempts) {
+                $blockedUntil = gmdate('Y-m-d H:i:s', time() + $windowSeconds);
+                execute("UPDATE security_rate_limits SET attempts = ?, blocked_until = ?, updated_at = ? WHERE bucket_hash = ?", [$attempts, $blockedUntil, $now, $hash]);
+                return false;
+            }
+            execute("UPDATE security_rate_limits SET attempts = ?, updated_at = ? WHERE bucket_hash = ?", [$attempts, $now, $hash]);
+            return true;
+        }
+        return true;
+    } catch (\Throwable) {
+        return true;
+    }
+}
 function init_schema():void {
     $done=private_path().'/schema.v1';
     if (is_file($done)) { init_console_v2(); init_console_v3(); init_console_v4(); init_console_v5(); init_console_v6(); init_console_v7(); init_console_v8(); init_console_v9(); init_console_v10(); init_console_v11(); init_console_v12(); init_console_v13(); init_console_v14(); init_console_v15(); init_console_v16(); init_console_v17(); init_console_v18(); init_console_v19(); init_console_v20(); init_console_v21(); init_console_v22(); init_console_v23(); init_console_v24(); init_console_v25(); init_console_v26(); init_console_v27(); init_console_v28(); require_once __DIR__.'/VoiceKnowledgeWeb.php'; voice_kb_web_init(); init_voice_agent_assignment_history(); init_console_voice_transcripts_v1(); require_once __DIR__.'/SubscriptionPlans.php';plan_catalog_init(); require_once __DIR__.'/BillingInvoices.php';billing_invoice_init(); return; }

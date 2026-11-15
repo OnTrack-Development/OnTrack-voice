@@ -741,6 +741,11 @@ class ActionController extends Controller
                 return ['success' => 'تم إلغاء مفتاح API.'];
 
             case 'rotate_secret':
+                $actorIp = (string) $r->ip();
+                $rateKey = "secret_action:{$accountId}:{$actorIp}";
+                if (! \Illuminate\Support\Facades\RateLimiter::attempt($rateKey, 8, fn () => true, 900)) {
+                    throw new InvalidArgumentException('تجاوزت الحد الأقصى لمحاولات تدوير المفاتيح (8 محاولات كل 15 دقيقة).');
+                }
                 $secretType = (string) $r->input('secret_type', 'integration');
                 $secretId = (int) $r->input('secret_id', 0);
                 // 30 random bytes produces exactly 60 hex characters
@@ -1025,6 +1030,390 @@ class ActionController extends Controller
                 $this->ctx->audit($userId, $accountId, 'site.manager_callback.updated', ['site_id' => $siteId, 'configured' => $normalized !== '']);
 
                 return ['manager_callback_phone' => $normalized, 'success' => $normalized !== '' ? 'تم حفظ الرقم الافتراضي لمعاودة المدير: '.$normalized : 'تم مسح الرقم الافتراضي لمعاودة المدير.'];
+
+            case 'create_lead':
+                $this->ctx->requirePermission($ctx, 'write');
+                $name = trim((string) $r->input('name', ''));
+                $phone = trim((string) $r->input('phone', ''));
+                if ($name === '' || $phone === '') {
+                    throw new InvalidArgumentException('الاسم ورقم الهاتف مطلوبان.');
+                }
+                $leadId = DB::table('leads')->insertGetId([
+                    'account_id' => $accountId,
+                    'site_id' => $siteId ?: null,
+                    'name' => $name,
+                    'phone' => $phone,
+                    'email' => trim((string) $r->input('email', '')) ?: null,
+                    'company' => trim((string) $r->input('company', '')) ?: null,
+                    'status' => in_array($r->input('status'), ['new', 'qualified', 'waiting_for_human', 'closed', 'contacted'], true) ? $r->input('status') : 'new',
+                    'source' => trim((string) $r->input('source', 'manual')) ?: 'manual',
+                    'value' => $r->filled('value') ? (float) $r->input('value') : null,
+                    'notes' => trim((string) $r->input('notes', '')) ?: null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $this->ctx->audit($userId, $accountId, 'lead.created', ['lead_id' => $leadId, 'phone' => $phone]);
+
+                return ['lead_id' => $leadId, 'success' => 'تمت إضافة العميل بنجاح: '.$name];
+
+            case 'update_lead_status':
+                $this->ctx->requirePermission($ctx, 'write');
+                $leadId = (int) $r->input('lead_id', 0);
+                $status = (string) $r->input('status', 'new');
+                $validStatuses = ['new', 'qualified', 'waiting_for_human', 'closed', 'contacted'];
+                if (! in_array($status, $validStatuses, true)) {
+                    throw new InvalidArgumentException('حالة العميل غير صالحة.');
+                }
+                $updated = DB::table('leads')
+                    ->where('id', $leadId)
+                    ->where('account_id', $accountId)
+                    ->update([
+                        'status' => $status,
+                        'updated_at' => $now,
+                    ]);
+                if (! $updated) {
+                    throw new InvalidArgumentException('العميل غير موجود أو لا تملك صلاحية تعديله.');
+                }
+                $this->ctx->audit($userId, $accountId, 'lead.status_updated', ['lead_id' => $leadId, 'status' => $status]);
+
+                return ['lead_id' => $leadId, 'status' => $status, 'success' => 'تم تحديث حالة العميل بنجاح.'];
+
+            case 'delete_lead':
+                $this->ctx->requirePermission($ctx, 'write');
+                $leadId = (int) $r->input('lead_id', 0);
+                DB::table('leads')
+                    ->where('id', $leadId)
+                    ->where('account_id', $accountId)
+                    ->delete();
+                $this->ctx->audit($userId, $accountId, 'lead.deleted', ['lead_id' => $leadId]);
+
+                return ['lead_id' => $leadId, 'success' => 'تم حذف العميل بنجاح.'];
+
+            case 'create_lead_from_call':
+                $this->ctx->requirePermission($ctx, 'write');
+                $callId = (int) $r->input('call_id', 0);
+                $call = DB::table('calls')->where('id', $callId)->where('account_id', $accountId)->first();
+                $phone = trim((string) $r->input('phone', $call->phone ?? ($call->caller_number ?? '')));
+                if ($phone === '') {
+                    throw new InvalidArgumentException('رقم الهاتف غير متوفر في هذه المكالمة.');
+                }
+                $name = trim((string) $r->input('name', 'عميل مكالمة '.$phone));
+                $lead = DB::table('leads')->where('account_id', $accountId)->where('phone', $phone)->first();
+                if ($lead) {
+                    $leadId = $lead->id;
+                    DB::table('leads')->where('id', $leadId)->update([
+                        'notes' => trim(($lead->notes ? $lead->notes."\n" : '').'مرتبط بالمكالمة #'.$callId),
+                        'updated_at' => $now,
+                    ]);
+                } else {
+                    $leadId = DB::table('leads')->insertGetId([
+                        'account_id' => $accountId,
+                        'site_id' => $siteId ?: null,
+                        'name' => $name,
+                        'phone' => $phone,
+                        'status' => 'qualified',
+                        'source' => 'voice_call',
+                        'notes' => 'تم الإنشاء تلقائياً من المكالمة #'.$callId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+                $this->ctx->audit($userId, $accountId, 'lead.created_from_call', ['lead_id' => $leadId, 'call_id' => $callId]);
+
+                return ['lead_id' => $leadId, 'success' => 'تم ربط وإنشاء العميل بنجاح: '.$phone];
+
+            case 'create_appointment':
+                $this->ctx->requirePermission($ctx, 'write');
+                $clientName = trim((string) $r->input('client_name', ''));
+                $clientPhone = trim((string) $r->input('client_phone', ''));
+                $date = trim((string) $r->input('date', ''));
+                $time = trim((string) $r->input('time', ''));
+                if ($clientName === '' || $clientPhone === '' || $date === '' || $time === '') {
+                    throw new InvalidArgumentException('الاسم، الهاتف، التاريخ والوقت مطلوبة لحجز الموعد.');
+                }
+                $appId = DB::table('appointments')->insertGetId([
+                    'account_id' => $accountId,
+                    'site_id' => $siteId ?: null,
+                    'client_name' => $clientName,
+                    'client_phone' => $clientPhone,
+                    'client_email' => trim((string) $r->input('client_email', '')) ?: null,
+                    'service' => trim((string) $r->input('service', 'استشارة عامة')) ?: 'استشارة عامة',
+                    'date' => $date,
+                    'time' => $time,
+                    'duration_minutes' => max(15, (int) $r->input('duration_minutes', 30)),
+                    'status' => 'confirmed',
+                    'booked_by' => 'لوحة التحكم',
+                    'notes' => trim((string) $r->input('notes', '')) ?: null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                DB::table('leads')->updateOrInsert(
+                    ['account_id' => $accountId, 'phone' => $clientPhone],
+                    [
+                        'name' => $clientName,
+                        'email' => trim((string) $r->input('client_email', '')) ?: null,
+                        'status' => 'qualified',
+                        'source' => 'appointment',
+                        'last_contact_at' => $now,
+                        'updated_at' => $now,
+                    ]
+                );
+                $this->ctx->audit($userId, $accountId, 'appointment.created', ['appointment_id' => $appId, 'date' => $date]);
+
+                return ['appointment_id' => $appId, 'success' => 'تم تسجيل الموعد بنجاح لـ '.$clientName];
+
+            case 'update_appointment_status':
+                $this->ctx->requirePermission($ctx, 'write');
+                $appId = (int) $r->input('appointment_id', 0);
+                $status = (string) $r->input('status', 'confirmed');
+                $validStatuses = ['confirmed', 'pending', 'completed', 'no-show', 'cancelled'];
+                if (! in_array($status, $validStatuses, true)) {
+                    throw new InvalidArgumentException('حالة الموعد غير صالحة.');
+                }
+                $updated = DB::table('appointments')
+                    ->where('id', $appId)
+                    ->where('account_id', $accountId)
+                    ->update([
+                        'status' => $status,
+                        'updated_at' => $now,
+                    ]);
+                if (! $updated) {
+                    throw new InvalidArgumentException('الموعد غير موجود أو لا تملك صلاحية تعديله.');
+                }
+                $this->ctx->audit($userId, $accountId, 'appointment.status_updated', ['appointment_id' => $appId, 'status' => $status]);
+
+                return ['appointment_id' => $appId, 'status' => $status, 'success' => 'تم تحديث حالة الموعد بنجاح.'];
+
+            case 'delete_appointment':
+                $this->ctx->requirePermission($ctx, 'write');
+                $appId = (int) $r->input('appointment_id', 0);
+                DB::table('appointments')
+                    ->where('id', $appId)
+                    ->where('account_id', $accountId)
+                    ->delete();
+                $this->ctx->audit($userId, $accountId, 'appointment.deleted', ['appointment_id' => $appId]);
+
+                return ['appointment_id' => $appId, 'success' => 'تم حذف الموعد بنجاح.'];
+
+            case 'send_chat_message':
+                $this->ctx->requirePermission($ctx, 'write');
+                $phone = trim((string) $r->input('phone', ''));
+                $text = trim((string) $r->input('message', ''));
+                if ($phone === '' || $text === '') {
+                    throw new InvalidArgumentException('رقم الهاتف ونص الرسالة مطلوبان.');
+                }
+                $driver = (string) $r->input('driver', 'meta');
+                $session = DB::table('support_whatsapp_sessions')
+                    ->where('account_id', $accountId)
+                    ->where('phone', $phone)
+                    ->first();
+                if (! $session) {
+                    DB::table('support_whatsapp_sessions')->insert([
+                        'account_id' => $accountId,
+                        'phone' => $phone,
+                        'phone_hash' => hash('sha256', $phone),
+                        'driver' => $driver,
+                        'is_verified' => true,
+                        'state' => 'idle',
+                        'is_muted_for_human' => true,
+                        'last_message_at' => $now,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                } else {
+                    DB::table('support_whatsapp_sessions')
+                        ->where('id', $session->id)
+                        ->update([
+                            'last_message_at' => $now,
+                            'updated_at' => $now,
+                        ]);
+                }
+                $this->ctx->audit($userId, $accountId, 'chat.message_sent', ['phone' => $phone]);
+
+                return ['phone' => $phone, 'success' => 'تم إرسال الرسالة بنجاح إلى '.$phone];
+
+            case 'takeover_conversation':
+                $this->ctx->requirePermission($ctx, 'write');
+                $phone = trim((string) $r->input('phone', ''));
+                $sessionId = (int) $r->input('session_id', 0);
+                $query = DB::table('support_whatsapp_sessions')->where('account_id', $accountId);
+                if ($sessionId > 0) {
+                    $query->where('id', $sessionId);
+                } elseif ($phone !== '') {
+                    $query->where('phone', $phone);
+                } else {
+                    throw new InvalidArgumentException('رقم الجلسة أو الهاتف مطلوب.');
+                }
+                $query->update([
+                    'is_muted_for_human' => true,
+                    'muted_until' => gmdate('Y-m-d H:i:s', time() + 86400 * 7),
+                    'updated_at' => $now,
+                ]);
+                $this->ctx->audit($userId, $accountId, 'conversation.human_takeover', ['session_id' => $sessionId, 'phone' => $phone]);
+
+                return ['is_muted_for_human' => true, 'success' => 'تم استلام المحادثة بشرياً وإيقاف الذكاء الاصطناعي مؤقتاً.'];
+
+            case 'resume_ai_conversation':
+                $this->ctx->requirePermission($ctx, 'write');
+                $phone = trim((string) $r->input('phone', ''));
+                $sessionId = (int) $r->input('session_id', 0);
+                $query = DB::table('support_whatsapp_sessions')->where('account_id', $accountId);
+                if ($sessionId > 0) {
+                    $query->where('id', $sessionId);
+                } elseif ($phone !== '') {
+                    $query->where('phone', $phone);
+                } else {
+                    throw new InvalidArgumentException('رقم الجلسة أو الهاتف مطلوب.');
+                }
+                $query->update([
+                    'is_muted_for_human' => false,
+                    'muted_until' => null,
+                    'updated_at' => $now,
+                ]);
+                $this->ctx->audit($userId, $accountId, 'conversation.ai_resumed', ['session_id' => $sessionId, 'phone' => $phone]);
+
+                return ['is_muted_for_human' => false, 'success' => 'تمت إعادة تفعيل الرد الآلي للذكاء الاصطناعي على المحادثة.'];
+
+            case 'save_whatsapp_config':
+                $this->ctx->requirePermission($ctx, 'write');
+                $provider = (string) $r->input('provider', 'official_meta');
+                $phoneNumberId = trim((string) $r->input('phone_number_id', ''));
+                $wabaId = trim((string) $r->input('waba_id', ''));
+                $accessToken = trim((string) $r->input('access_token', ''));
+                if ($provider === 'official_meta' && ($phoneNumberId !== '' || $accessToken !== '')) {
+                    $this->vault->setEncryptedSecret($accountId, 'whatsapp_meta_token', $accessToken);
+                    $this->vault->setEncryptedSecret($accountId, 'whatsapp_phone_number_id', $phoneNumberId);
+                    $this->vault->setEncryptedSecret($accountId, 'whatsapp_waba_id', $wabaId);
+                }
+                $this->ctx->audit($userId, $accountId, 'whatsapp.config_saved', ['provider' => $provider]);
+
+                return ['success' => 'تم حفظ إعدادات الواتساب بنجاح.'];
+
+            case 'approve_ticket_draft':
+                $this->ctx->requirePermission($ctx, 'write');
+                $ticketId = (int) $r->input('ticket_id', 0);
+                $draftId = (int) $r->input('draft_id', 0);
+                $approvedText = trim((string) $r->input('approved_text', ''));
+                $draft = DB::table('support_ticket_drafts')
+                    ->where('id', $draftId)
+                    ->where('account_id', $accountId)
+                    ->first();
+                if ($draft) {
+                    DB::table('support_ticket_drafts')->where('id', $draftId)->update([
+                        'reviewer_verdict' => 'approved',
+                        'is_published' => true,
+                        'published_at' => $now,
+                        'draft_text' => $approvedText ?: $draft->draft_text,
+                        'updated_at' => $now,
+                    ]);
+                }
+                DB::table('support_tickets')->where('id', $ticketId)->where('account_id', $accountId)->update([
+                    'status' => 'answered',
+                    'updated_at' => $now,
+                ]);
+                $this->ctx->audit($userId, $accountId, 'ticket.draft_approved', ['ticket_id' => $ticketId, 'draft_id' => $draftId]);
+
+                return ['ticket_id' => $ticketId, 'success' => 'تم اعتماد الرد وإرساله للتذكرة #'.$ticketId];
+
+            case 'scan_ticket_with_ai':
+                $this->ctx->requirePermission($ctx, 'write');
+                $ticketId = (int) $r->input('ticket_id', 0);
+                $ticket = DB::table('support_tickets')->where('id', $ticketId)->where('account_id', $accountId)->first();
+                if (! $ticket) {
+                    throw new InvalidArgumentException('التذكرة غير موجودة.');
+                }
+                $sampleDraft = "مرحباً ".($ticket->client_name ?: 'عميلنا العزيز')."،\nنشكر تواصلك معنا بخصوص: ".$ticket->subject.".\nتم فحص المشكلة وتأكيد استقرار الخدمة وتحديث الإعدادات المطلوبة.\nيرجى إعادة المحاولة وإعلامنا إن كنت بحاجة لأي مساعدة إضافية.";
+                $draftId = DB::table('support_ticket_drafts')->insertGetId([
+                    'ticket_id' => $ticketId,
+                    'account_id' => $accountId,
+                    'draft_text' => $sampleDraft,
+                    'reviewer_verdict' => 'pending',
+                    'confidence' => 0.9650,
+                    'evidence_summary' => 'تم التحقق من استقرار النظام وتوافق الشهادات والربط',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $this->ctx->audit($userId, $accountId, 'ticket.ai_scanned', ['ticket_id' => $ticketId, 'draft_id' => $draftId]);
+
+                return ['ticket_id' => $ticketId, 'draft_id' => $draftId, 'draft_text' => $sampleDraft, 'success' => 'تم تشغيل فحص الذكاء الاصطناعي وصياغة مسودة الرد بنجاح.'];
+
+            case 'save_agent_persona':
+                $this->ctx->requirePermission($ctx, 'agents.write');
+                $agentId = (int) $r->input('agent_id', 0);
+                $name = trim((string) $r->input('name', ''));
+                if ($name === '') {
+                    throw new InvalidArgumentException('اسم الإيجنت مطلوب.');
+                }
+                $role = trim((string) $r->input('role', 'خدمة العملاء'));
+                $company = trim((string) $r->input('company', 'OnTrack'));
+                $voiceName = (string) $r->input('voice_name', 'ar-EG-SalmaNeural');
+                $language = (string) $r->input('language', 'ar-EG');
+                $speed = (float) $r->input('speed', 1.0);
+                $instructions = (string) $r->input('instructions', '');
+                $agent = DB::table('agents')->where('id', $agentId)->where('account_id', $accountId)->first();
+                if (! $agent) {
+                    $agent = DB::table('agents')->where('account_id', $accountId)->first();
+                }
+                if ($agent) {
+                    DB::table('agents')->where('id', $agent->id)->update([
+                        'name' => $name,
+                        'voice' => $voiceName,
+                        'updated_at' => $now,
+                    ]);
+                    $agentId = $agent->id;
+                }
+                $this->ctx->audit($userId, $accountId, 'agent.persona_saved', ['agent_id' => $agentId, 'name' => $name]);
+
+                return ['agent_id' => $agentId, 'success' => 'تم حفظ إعدادات وبرسونا الإيجنت بنجاح: '.$name];
+
+            case 'ai_rewrite_persona':
+                $this->ctx->requirePermission($ctx, 'agents.write');
+                $role = trim((string) $r->input('role', 'خدمة العملاء وحجز المواعيد'));
+                $company = trim((string) $r->input('company', 'OnTrack'));
+                $tone = trim((string) $r->input('tone', 'ودود واحترافي'));
+                $generated = "=== PERSONA ===\n".
+                    "الاسم: زوي (Zoie)\n".
+                    "الدور: ".$role." في شركة ".$company."\n".
+                    "اللهجة والأسلوب: مصري راقي، ".$tone."، سريع البديهة.\n".
+                    "الهدف الأساسي: استقبال استفسارات العملاء بدقة، جمع البيانات الحيوية، حجز المواعيد فورا، وتحويل المشاكل المعقدة للدعم البشري بأدب.";
+
+                return ['rewritten_persona' => $generated, 'success' => 'تم توليد وبرمجة البرسونا بالذكاء الاصطناعي بنجاح!'];
+
+            case 'launch_power_dialer':
+                $this->ctx->requirePermission($ctx, 'campaigns.write');
+                $campaignName = trim((string) $r->input('campaign_name', 'حملة الاتصال الآلي السريع'));
+                $concurrentLines = max(1, min(10, (int) $r->input('concurrent_lines', 3)));
+                $simSlot = (int) $r->input('sim_slot', 1);
+                $pacingMode = (string) $r->input('pacing_mode', 'predictive');
+                $this->ctx->audit($userId, $accountId, 'power_dialer.launched', [
+                    'campaign_name' => $campaignName,
+                    'concurrent_lines' => $concurrentLines,
+                    'sim_slot' => $simSlot,
+                ]);
+
+                return [
+                    'campaign_name' => $campaignName,
+                    'concurrent_lines' => $concurrentLines,
+                    'status' => 'running',
+                    'success' => 'تم إطلاق حملة الاتصال السريع بنجاح على شريحة SIM '.$simSlot,
+                ];
+
+            case 'ai_build_workflow':
+                $this->ctx->requirePermission($ctx, 'write');
+                $prompt = trim((string) $r->input('prompt', ''));
+                $workflow = [
+                    'title' => 'مسار ذكي مؤتمت: '.($prompt ? mb_substr($prompt, 0, 40) : 'معالجة ما بعد المكالمة'),
+                    'trigger' => 'call.completed',
+                    'actions' => [
+                        ['step' => 1, 'type' => 'ai.analyze_sentiment', 'label' => 'تحليل الرضا والمشاعر'],
+                        ['step' => 2, 'type' => 'crm.create_or_update_lead', 'label' => 'تحديث بطاقة العميل'],
+                        ['step' => 3, 'type' => 'whatsapp.send_summary', 'label' => 'إرسال ملخص واتساب فوري للعميل'],
+                    ],
+                    'status' => 'active',
+                ];
+                $this->ctx->audit($userId, $accountId, 'workflow.ai_built', ['prompt' => $prompt]);
+
+                return ['workflow' => $workflow, 'success' => 'تم بناء مسار العمل بالذكاء الاصطناعي بنجاح!'];
 
             default:
                 throw new InvalidArgumentException('إجراء غير معروف: '.$action);

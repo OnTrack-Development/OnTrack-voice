@@ -20,7 +20,8 @@
     "ai_support_agent/**",
     "design/**",
     "docs/**",
-    "saas/public/admin/**"
+    "saas/public/admin/**",
+    "saas/storage/app/floorplan/**"
   ],
   "nodes": [
     {

@@ -308,13 +308,20 @@
             Link this conversation to an existing lead or create a new one.
         </p>
 
-        <button type="button" class="btn" onclick="alert('فتح نافذة إنشاء Lead جديد لهذا الرقم')" style="width:100%;background:#0F172A;color:#FFFFFF;border-radius:10px;font-size:13px;font-weight:600;padding:10px;border:none;margin-bottom:8px;">
-            + Create New Lead
-        </button>
+        <form method="POST" action="{{ route('enterprise.action') }}" style="width:100%;">
+            @csrf
+            <input type="hidden" name="action" value="create_lead_from_call">
+            <input type="hidden" name="call_id" value="{{ $activeArr['id'] ?? 0 }}">
+            <input type="hidden" name="phone" value="{{ $activeArr['phone'] ?? ($activeArr['caller_number'] ?? '') }}">
+            <input type="hidden" name="name" value="عميل مكالمة {{ $activeArr['phone'] ?? ($activeArr['caller_number'] ?? '') }}">
+            <button type="submit" class="btn" style="width:100%;background:#0F172A;color:#FFFFFF;border-radius:10px;font-size:13px;font-weight:600;padding:10px;border:none;margin-bottom:8px;cursor:pointer;">
+                + Create New Lead
+            </button>
+        </form>
 
-        <button type="button" class="btn" onclick="alert('فتح قائمة البحث لربط جهة اتصال سابقة')" style="width:100%;background:#FFFFFF;color:#0F172A;border:1px solid #E2E8F0;border-radius:10px;font-size:13px;font-weight:600;padding:10px;margin-bottom:18px;">
+        <a href="/leads" class="btn" style="width:100%;background:#FFFFFF;color:#0F172A;border:1px solid #E2E8F0;border-radius:10px;font-size:13px;font-weight:600;padding:10px;margin-bottom:18px;text-decoration:none;display:block;box-sizing:border-box;">
             Link to Existing Lead
-        </button>
+        </a>
 
         <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;font-size:11.5px;color:#64748B;text-align:right;width:100%;line-height:1.5;margin-bottom:18px;">
             💡 ربط جهة الاتصال بملف Lead يحتفظ بجميع سجلات المكالمات ومحادثات الواتساب والتذاكر في مكان موحد.
@@ -339,8 +346,8 @@
         <div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;justify-content:space-between;">
             <strong style="font-size:16px;color:#0F172A;">Transcript</strong>
             <div style="display:flex;align-items:center;gap:8px;">
-                <button type="button" class="btn btn-sm btn-ghost" style="font-size:12px;" onclick="alert('جاري إعادة التفريغ الصوتي...')">🔄 Re-transcribe</button>
-                <button type="button" class="btn btn-sm btn-ghost" style="font-size:12px;" onclick="alert('جاري تحميل النص...')">⬇ Download</button>
+                <button type="button" class="btn btn-sm btn-ghost" style="font-size:12px;" onclick="window.location.reload()">🔄 Re-transcribe</button>
+                <button type="button" class="btn btn-sm btn-ghost" style="font-size:12px;" onclick="downloadCallTranscript()">⬇ Download</button>
                 <button type="button" onclick="closeTranscriptModal()" style="background:none;border:none;font-size:18px;color:#64748B;cursor:pointer;padding:4px 8px;">✕</button>
             </div>
         </div>
@@ -397,5 +404,17 @@ function toggleWavePlay(btn) {
     } else {
         btn.innerText = '▶';
     }
+}
+function downloadCallTranscript() {
+    const bubbles = document.querySelectorAll('#zoieTranscriptModal .zoie-modal-box div[style*="border-radius"]');
+    let text = "تفاصيل وتفريغ المكالمة رقم {{ $activeArr['id'] ?? 0 }}\nالرقم: {{ $activeArr['phone'] ?? ($activeArr['caller_number'] ?? '') }}\n\n";
+    bubbles.forEach(b => {
+        text += b.innerText.trim() + "\n\n";
+    });
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'transcript-call-{{ $activeArr["id"] ?? 0 }}.txt';
+    a.click();
 }
 </script>

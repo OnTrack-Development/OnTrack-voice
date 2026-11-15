@@ -460,6 +460,112 @@ class WorkspaceController extends Controller
         ]);
     }
 
+    public function exportLeadsCsv(Request $request)
+    {
+        $user = Auth::user();
+        $ctx = $this->ctx->resolve($user);
+        $this->ctx->requirePermission($ctx, 'read');
+        $accountId = (int) $ctx['account_id'];
+
+        $leads = DB::table('leads')->where('account_id', $accountId)->orderByDesc('id')->get();
+        $output = fopen('php://temp', 'r+');
+        fputcsv($output, ['ID', 'الاسم', 'رقم الهاتف', 'البريد الإلكتروني', 'الشركة', 'الحالة', 'المصدر', 'تاريخ التسجيل']);
+        foreach ($leads as $l) {
+            fputcsv($output, [
+                $l->id,
+                $l->name,
+                $l->phone,
+                $l->email ?? '',
+                $l->company ?? '',
+                $l->status ?? 'new',
+                $l->source ?? 'manual',
+                $l->created_at ?? '',
+            ]);
+        }
+        rewind($output);
+        $csv = stream_get_contents($output);
+        fclose($output);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="leads-'.date('Ymd').'.csv"',
+        ]);
+    }
+
+    public function showPublicBooking(string $account_slug)
+    {
+        $account = DB::table('accounts')->where('slug', $account_slug)->first();
+        if (! $account) {
+            $account = DB::table('accounts')->first();
+        }
+        if (! $account) {
+            abort(404, 'Account not found.');
+        }
+
+        return view('enterprise.public_booking', [
+            'account' => (array) $account,
+        ]);
+    }
+
+    public function storePublicBooking(string $account_slug, Request $request)
+    {
+        $account = DB::table('accounts')->where('slug', $account_slug)->first();
+        if (! $account) {
+            $account = DB::table('accounts')->first();
+        }
+        if (! $account) {
+            abort(404, 'Account not found.');
+        }
+
+        $validated = $request->validate([
+            'client_name' => 'required|string|max:190',
+            'client_phone' => 'required|string|max:64',
+            'client_email' => 'nullable|email|max:190',
+            'service' => 'nullable|string|max:190',
+            'date' => 'required|date',
+            'time' => 'required|string|max:20',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $appId = DB::table('appointments')->insertGetId([
+            'account_id' => $account->id,
+            'client_name' => $validated['client_name'],
+            'client_phone' => $validated['client_phone'],
+            'client_email' => $validated['client_email'] ?? null,
+            'service' => $validated['service'] ?? 'استشارة عامة',
+            'date' => $validated['date'],
+            'time' => $validated['time'],
+            'duration_minutes' => 30,
+            'status' => 'confirmed',
+            'booked_by' => 'Public Booking (/book/'.$account->slug.')',
+            'notes' => $validated['notes'] ?? null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('leads')->updateOrInsert(
+            ['account_id' => $account->id, 'phone' => $validated['client_phone']],
+            [
+                'name' => $validated['client_name'],
+                'email' => $validated['client_email'] ?? null,
+                'status' => 'qualified',
+                'source' => 'website_widget',
+                'notes' => 'حجز موعد برقم #'.$appId.': '.($validated['service'] ?? 'استشارة'),
+                'updated_at' => now(),
+            ]
+        );
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'ok' => true,
+                'appointment_id' => $appId,
+                'message' => 'تم تأكيد حجز موعدك بنجاح! سيتواصل معك فريق العمل.',
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'تم تأكيد حجز موعدك بنجاح! سيتواصل معك فريق العمل.');
+    }
+
     public function printInvoice(int $id)
     {
         $user = Auth::user();
@@ -532,59 +638,61 @@ class WorkspaceController extends Controller
 
     private function leadsData(int $accountId): array
     {
-        $leads = DB::table('contacts')
+        $leads = DB::table('leads')
             ->where('account_id', $accountId)
             ->orderByDesc('id')
-            ->limit(50)
+            ->limit(100)
             ->get()
             ->map(fn ($c) => (array) $c)
             ->all();
+
+        if (empty($leads)) {
+            $contacts = DB::table('contacts')->where('account_id', $accountId)->limit(50)->get();
+            foreach ($contacts as $c) {
+                DB::table('leads')->insert([
+                    'account_id' => $accountId,
+                    'name' => $c->name ?: ($c->display_name ?: 'عميل مسجل'),
+                    'phone' => $c->phone ?: ($c->phone_e164 ?: 'بدون هاتف'),
+                    'email' => $c->email ?: null,
+                    'status' => $c->lead_status ?: 'new',
+                    'source' => 'manual',
+                    'notes' => $c->notes ?: null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+            $leads = DB::table('leads')->where('account_id', $accountId)->orderByDesc('id')->get()->map(fn ($c) => (array) $c)->all();
+        }
 
         return ['leads' => $leads];
     }
 
     private function appointmentsData(int $accountId): array
     {
+        $today = date('Y-m-d');
+        $appointments = DB::table('appointments')
+            ->where('account_id', $accountId)
+            ->orderBy('date')
+            ->orderBy('time')
+            ->limit(100)
+            ->get()
+            ->map(fn ($a) => (array) $a)
+            ->all();
+
+        $todayCount = collect($appointments)->where('date', $today)->count();
+        $totalCount = count($appointments);
+        $nextApp = collect($appointments)->where('date', '>=', $today)->first();
+        $nextText = $nextApp ? ($nextApp['client_name'] . ' — ' . $nextApp['service'] . ' (' . $nextApp['time'] . ')') : 'لا توجد مواعيد قادمة اليوم';
+
         return [
             'stats' => [
-                'next_up' => 'د. طارق محمود — تجربة المنظومة (خلال 25 دقيقة)',
-                'today_ai' => 6,
-                'today_human' => 2,
-                'total' => 48,
-                'no_show_rate' => '4.2%',
+                'next_up' => $nextText,
+                'today_ai' => $todayCount,
+                'today_human' => max(0, $totalCount - $todayCount),
+                'total' => $totalCount,
+                'no_show_rate' => '0%',
             ],
-            'appointments' => [
-                [
-                    'id' => 1,
-                    'client_name' => 'م. أحمد حسام',
-                    'client_phone' => '+201099887766',
-                    'service' => 'حجز استشارة سيرفر سحابي',
-                    'time' => '10:30 ص',
-                    'date' => date('Y-m-d'),
-                    'status' => 'confirmed',
-                    'booked_by' => 'AI Agent (سارة)',
-                ],
-                [
-                    'id' => 2,
-                    'client_name' => 'د. طارق محمود',
-                    'client_phone' => '+201122334455',
-                    'service' => 'مكالمة ديمو للمنصة',
-                    'time' => '01:00 م',
-                    'date' => date('Y-m-d'),
-                    'status' => 'confirmed',
-                    'booked_by' => 'AI Agent (سارة)',
-                ],
-                [
-                    'id' => 3,
-                    'client_name' => 'أ. منى زكي',
-                    'client_phone' => '+201288776655',
-                    'service' => 'ترقية باقة WHMCS',
-                    'time' => '04:15 م',
-                    'date' => date('Y-m-d'),
-                    'status' => 'pending',
-                    'booked_by' => 'Website Widget',
-                ],
-            ],
+            'appointments' => $appointments,
         ];
     }
 

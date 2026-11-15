@@ -8,9 +8,16 @@
         <h1 style="font-size:20px;margin:0;font-weight:700">تذاكر الدعم ومحرك الوكلاء المتعددين (Emails & Tickets)</h1>
         <p class="card-sub">معالجة تذاكر WHMCS والبريد بذكاء اصطناعي متعدد الوكلاء (Dispatcher -> Specialists -> Reviewer)</p>
     </div>
-    <div style="display:flex;gap:8px;">
+    <div style="display:flex;gap:8px;align-items:center;">
+        <form method="POST" action="{{ route('enterprise.action') }}" style="margin:0;">
+            @csrf
+            <input type="hidden" name="action" value="scan_ticket_with_ai">
+            <input type="hidden" name="ticket_id" value="{{ $selectedTicket->id ?? 1 }}">
+            <button type="submit" class="btn btn-sm" style="background:#0F172A;color:#FFF;border-radius:8px;font-size:12px;padding:6px 14px;cursor:pointer;border:none;">
+                ✨ تشغيل فحص الـ AI الآن
+            </button>
+        </form>
         <span class="pill pill-green">نواة Multi-Agent: نشطة ✅</span>
-        <span class="pill pill-green">المراجع الإلزامي: مفعل 🛡️</span>
     </div>
 </div>
 
@@ -98,7 +105,11 @@
         </div>
 
         <!-- Proposed AI Draft Response Box -->
-        <div style="background:#FFFFFF;border:2px solid #8B5CF6;border-radius:14px;padding:18px;box-shadow:0 8px 25px rgba(139,92,246,0.1);">
+        <form method="POST" action="{{ route('enterprise.action') }}" style="background:#FFFFFF;border:2px solid #8B5CF6;border-radius:14px;padding:18px;box-shadow:0 8px 25px rgba(139,92,246,0.1);margin:0;">
+            @csrf
+            <input type="hidden" name="action" value="approve_ticket_draft">
+            <input type="hidden" name="ticket_id" value="{{ $selectedTicket->id ?? 1 }}">
+            <input type="hidden" name="draft_id" value="1">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <span style="background:#8B5CF6;color:#FFF;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:bold;">مسودة الرد المقترحة</span>
@@ -107,27 +118,24 @@
                 <span class="pill pill-green" style="font-size:11px;">Reviewer: Approved ✅</span>
             </div>
 
-            <textarea style="width:100%;height:140px;padding:12px;border:1px solid #CBD5E1;border-radius:10px;font-size:13px;line-height:1.6;outline:none;" readonly>
-أهلاً بك أستاذنا العزيز،
+            <textarea name="approved_text" style="width:100%;height:140px;padding:12px;border:1px solid #CBD5E1;border-radius:10px;font-size:13px;line-height:1.6;outline:none;">أهلاً بك أستاذنا العزيز،
 
 تم فحص سجلات الخادم لخطأ 500 وتبين أن المشكلة سببها وصول استهلاك ذاكرة PHP إلى الحد الأقصى (Allowed memory size exhausted) بسبب الإضافة الحديثة.
 
 لحظر هذا العطل فوراً يمكنك زيادة حد الذاكرة عبر إضافة السطر التالي في ملف wp-config.php:
 define('WP_MEMORY_LIMIT', '512M');
 
-كما قمنا بفحص السيرفر عبر cPanel وتأكدنا من سلامة باقي الخدمات والمساحة. إذا كنت ترغب في أن نقوم بهذا التعديل نيابة عنك يسعدنا تأكيد ذلك وسنقوم به فوراً.
-            </textarea>
+كما قمنا بفحص السيرفر عبر cPanel وتأكدنا من سلامة باقي الخدمات والمساحة. إذا كنت ترغب في أن نقوم بهذا التعديل نيابة عنك يسعدنا تأكيد ذلك وسنقوم به فوراً.</textarea>
 
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
                 <span style="font-size:12px;color:#64748B;">الرد سيُنشر باسم «OnTrack Support AI» على WHMCS</span>
                 <div style="display:flex;gap:8px;">
-                    <button class="btn btn-sm btn-ghost" onclick="alert('يمكنك تعديل النص بالضغط داخل الصندوق')">تعديل النص ✏️</button>
-                    <button class="btn btn-primary" onclick="alert('تم اعتماد الرد وإرساله فوراً إلى WHMCS بنجاح!')" style="background:#10B981;border-color:#10B981;font-weight:bold;padding:8px 22px;">
+                    <button type="submit" class="btn btn-primary" style="background:#10B981;border-color:#10B981;font-weight:bold;padding:8px 22px;border:none;border-radius:8px;color:#FFF;cursor:pointer;">
                         ✓ اعتماد وإرسال الرد للعميل
                     </button>
                 </div>
             </div>
-        </div>
+        </form>
 
     </div>
 

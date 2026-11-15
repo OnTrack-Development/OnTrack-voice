@@ -14,11 +14,11 @@ def sync_floorplan():
     res_build = subprocess.run(["node", "skills/floorplan/scripts/build.mjs", str(root)], cwd=str(root), capture_output=True, text=True)
     print("Floorplan build output:\n", res_build.stdout)
 
-    admin_dir = root / "saas" / "public" / "admin"
-    admin_dir.mkdir(parents=True, exist_ok=True)
-    dest = admin_dir / "floorplan.html"
+    storage_dir = root / "saas" / "storage" / "app" / "floorplan"
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    dest = storage_dir / "floorplan.html"
     shutil.copy2(root / "floorplan" / "index.html", dest)
-    print(f"  + Floorplan exported to {dest} ({dest.stat().st_size} bytes)")
+    print(f"  + Floorplan securely exported to {dest} ({dest.stat().st_size} bytes)")
 
 def main():
     sync_floorplan()
@@ -34,7 +34,10 @@ def main():
 
     files_and_dirs = [
         "database/migrations/2026_11_15_000001_create_support_multi_agent_tables.php",
+        "database/migrations/2026_11_15_000002_create_appointments_and_leads_tables.php",
         "app/Models/Support",
+        "app/Models/Lead.php",
+        "app/Models/Appointment.php",
         "app/Services/Support",
         "app/Services/Knowledge",
         "app/Services/Channels",
@@ -47,11 +50,12 @@ def main():
         "routes/web.php",
         "resources/views/app/agents/web_call.blade.php",
         "resources/views/enterprise/layout.blade.php",
+        "resources/views/enterprise/public_booking.blade.php",
         "resources/views/enterprise/tabs",
         "storage/connectors/whmcs/ontrack_bridge",
         "public/downloads/ontrack_bridge.zip",
         "public/widget/ontrack-widget.js",
-        "public/admin/floorplan.html",
+        "storage/app/floorplan/floorplan.html",
     ]
 
     print(f"Creating archive {archive_path}...")
@@ -87,13 +91,13 @@ echo "=== Step 1: Extracting update to iovoice-app ==="
 cd /home/appontrack/iovoice-app
 tar -xzf /home/appontrack/v82_omnichannel_update.tar.gz
 
-echo "=== Step 2: Syncing public assets to public_html ==="
+echo "=== Step 2: Syncing public assets & Securing Floorplan ==="
 mkdir -p /home/appontrack/public_html/downloads
 mkdir -p /home/appontrack/public_html/widget
-mkdir -p /home/appontrack/public_html/admin
+mkdir -p /home/appontrack/iovoice-app/storage/app/floorplan
 cp -f /home/appontrack/iovoice-app/public/downloads/ontrack_bridge.zip /home/appontrack/public_html/downloads/ontrack_bridge.zip
 cp -f /home/appontrack/iovoice-app/public/widget/ontrack-widget.js /home/appontrack/public_html/widget/ontrack-widget.js
-cp -f /home/appontrack/iovoice-app/public/admin/floorplan.html /home/appontrack/public_html/admin/floorplan.html
+rm -rf /home/appontrack/public_html/admin/floorplan.html /home/appontrack/public_html/admin
 
 echo "=== Step 3: Running migrations with EA PHP 8.2 ==="
 /opt/cpanel/ea-php82/root/usr/bin/php artisan migrate --force
@@ -105,7 +109,7 @@ echo "=== Step 4: Clearing and caching configs/views ==="
 echo "=== Step 5: Verifying permissions & files ==="
 ls -lh /home/appontrack/public_html/downloads/ontrack_bridge.zip
 ls -lh /home/appontrack/public_html/widget/ontrack-widget.js
-ls -lh /home/appontrack/public_html/admin/floorplan.html
+ls -lh /home/appontrack/iovoice-app/storage/app/floorplan/floorplan.html
 
 echo "=== Deployment Succeeded ==="
 """
@@ -139,6 +143,9 @@ urls = [
     ('WHMCS Module Download', 'https://app.ontrackegy.com/downloads/ontrack_bridge.zip'),
     ('Zoie.ai Widget JS', 'https://app.ontrackegy.com/widget/ontrack-widget.js'),
     ('Bridge Status API', 'https://app.ontrackegy.com/api/v1/bridge/status'),
+    ('Public Booking Page', 'https://app.ontrackegy.com/book/demo'),
+    ('Public Floorplan 404 Check', 'https://app.ontrackegy.com/admin/floorplan.html'),
+    ('Protected Floorplan Route', 'https://app.ontrackegy.com/admin/floorplan'),
 ]
 
 for name, url in urls:

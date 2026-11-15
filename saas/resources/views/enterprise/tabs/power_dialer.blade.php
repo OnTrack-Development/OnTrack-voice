@@ -9,13 +9,17 @@
         <p style="margin:0;font-size:13px;color:#64748B;">محرك اتصال خارجي متزامن عبر شرائح Android SIM المتعددة مع تقنية كشف الرد الآلي (AMD) وموسيقى الانتظار</p>
     </div>
     <div style="display:flex;gap:10px;align-items:center;">
-        <button type="button" class="btn btn-sm" onclick="alert('بدء حملة الاتصال التلقائي الآن!')" style="background:#10B981;color:#FFFFFF;border:none;border-radius:8px;font-weight:700;display:flex;align-items:center;gap:6px;padding:8px 18px;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
-            <span>▶</span>
-            <span>بدء الاتصال (Start Dialer)</span>
-        </button>
-        <button type="button" class="btn btn-sm btn-ghost" onclick="alert('تم إيقاف المتصل مؤقتاً')" style="background:#FFF;border:1px solid #E2E8F0;color:#475569;font-weight:600;">
-            ⏸ إيقاف مؤقت
-        </button>
+        <form method="POST" action="{{ route('enterprise.action') }}" style="margin:0;">
+            @csrf
+            <input type="hidden" name="action" value="launch_power_dialer">
+            <input type="hidden" name="concurrent_lines" value="3">
+            <input type="hidden" name="pacing_mode" value="predictive">
+            <input type="hidden" name="sim_slot" value="1">
+            <button type="submit" class="btn btn-sm" style="background:#10B981;color:#FFFFFF;border:none;border-radius:8px;font-weight:700;display:flex;align-items:center;gap:6px;padding:8px 18px;box-shadow:0 4px 12px rgba(16,185,129,0.3);cursor:pointer;">
+                <span>▶</span>
+                <span>بدء الاتصال (Start Dialer)</span>
+            </button>
+        </form>
     </div>
 </div>
 

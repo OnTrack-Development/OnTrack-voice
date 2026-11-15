@@ -1,5 +1,13 @@
 <?php
 declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') !== 'https') {
+    http_response_code(426);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok' => false, 'error' => 'https_required'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 require __DIR__.'/../_core/Bootstrap.php';
 require __DIR__.'/../_core/OrderClaim.php';
 require __DIR__.'/../_core/ExternalOrderClaim.php';
@@ -46,6 +54,8 @@ try{
     $resellerAccount=account($reseller);
     if(!$resellerAccount||!in_array($resellerAccount['kind'],['platform','reseller','customer'],true))
         respond(403,['ok'=>false,'error'=>'tenant']);
+    if(($resellerAccount['status'] ?? '') !== 'active')
+        respond(403,['ok'=>false,'error'=>'account_suspended']);
     if($resellerAccount['kind']==='customer' && $kind!=='booking.created')respond(403,['ok'=>false,'error'=>'customer_scope']);
     // The first-run ledger backfill must complete before the booking transaction.
     if($kind==='booking.created')dnc_init_ledger();
