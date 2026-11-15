@@ -339,6 +339,13 @@ class WorkspaceController extends Controller
             }
         }
 
+        foreach ($rows as &$r) {
+            if ((int) ($r['id'] ?? 0) === $activeCallId) {
+                $r['transcript'] = $activeTranscript;
+            }
+        }
+        unset($r);
+
         $leads = DB::table('leads')
             ->where('account_id', $accountId)
             ->orderByDesc('id')
@@ -722,6 +729,37 @@ class WorkspaceController extends Controller
 
     private function apiKeysData(array $ctx, int $accountId): array
     {
+        // Auto-sync Fish Audio from owner vault if not yet in ai_relay_entries
+        $hasFish = DB::table('ai_relay_entries')->where('account_id', $accountId)->where('driver', 'fish_audio')->exists();
+        if (! $hasFish) {
+            $ownerFile = '/home/appontrack/.ontrack-saas/voice-lab/owner-1.json';
+            if (file_exists($ownerFile)) {
+                try {
+                    $cfg = json_decode(file_get_contents($ownerFile), true);
+                    $sealedFish = $cfg['keys']['fish'] ?? '';
+                    if (! empty($sealedFish)) {
+                        $unsealed = $this->vault->unseal($sealedFish);
+                        if (! empty($unsealed)) {
+                            DB::table('ai_relay_entries')->insert([
+                                'account_id' => $accountId,
+                                'scope' => 'account',
+                                'driver' => 'fish_audio',
+                                'label' => 'Fish Audio Primary',
+                                'model' => $cfg['settings']['fishModel'] ?? 'drama-3',
+                                'endpoint' => 'https://api.fish.audio/v1',
+                                'secret_enc' => $this->vault->seal($unsealed),
+                                'priority' => 1,
+                                'enabled' => 1,
+                                'last_status' => 'verified',
+                                'last_checked_at' => $this->ctx->now(),
+                                'created_at' => $this->ctx->now(),
+                            ]);
+                        }
+                    }
+                } catch (\Throwable) {}
+            }
+        }
+
         $relayEntries = DB::table('ai_relay_entries')
             ->where('account_id', $accountId)
             ->orderBy('priority')

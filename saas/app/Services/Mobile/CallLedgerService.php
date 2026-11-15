@@ -100,7 +100,10 @@ class CallLedgerService
             ->where('c.account_id', $accountId);
 
         if (! $isDemo) {
-            $q->where('c.is_demo', 0);
+            $q->where('c.is_demo', 0)
+                ->whereNotNull('c.phone')
+                ->where('c.phone', '!=', '')
+                ->where('c.phone', 'not like', '%DEMO%');
         }
 
         if (! empty($filters['q'])) {
@@ -178,26 +181,39 @@ class CallLedgerService
         $transcript = null;
         $timeline = [];
 
-        if (! empty($call->device_binding_id) && ! empty($call->external_call_id)) {
-            $tRow = DB::table('tenant_call_transcripts')
-                ->where('account_id', $accountId)
-                ->where('device_binding_id', $call->device_binding_id)
-                ->where('call_id', $call->external_call_id)
-                ->first();
-
-            if ($tRow && ! empty($tRow->transcript)) {
-                $transcript = $this->vault->unsealTranscript((string) $tRow->transcript);
+        if (! empty($call->external_call_id) || ! empty($call->id)) {
+            $tRow = null;
+            if (! empty($call->external_call_id)) {
+                $tRow = DB::table('tenant_call_transcripts')
+                    ->where('account_id', $accountId)
+                    ->where('call_id', $call->external_call_id)
+                    ->first();
+            }
+            if (! $tRow && ! empty($call->id)) {
+                $tRow = DB::table('tenant_call_transcripts')
+                    ->where('account_id', $accountId)
+                    ->where('call_id', (string) $call->id)
+                    ->first();
             }
 
-            $timeline = DB::table('voice_call_timeline')
-                ->where('account_id', $accountId)
-                ->where('device_binding_id', $call->device_binding_id)
-                ->where('call_id', $call->external_call_id)
-                ->orderBy('occurred_at')
-                ->orderBy('id')
-                ->get()
-                ->map(fn ($r) => (array) $r)
-                ->all();
+            if ($tRow && ! empty($tRow->transcript)) {
+                $rawTx = (string) $tRow->transcript;
+                $transcript = str_starts_with($rawTx, 'enc:v1:')
+                    ? $this->vault->unsealTranscript($rawTx)
+                    : $rawTx;
+            }
+
+            if (! empty($call->device_binding_id) && ! empty($call->external_call_id)) {
+                $timeline = DB::table('voice_call_timeline')
+                    ->where('account_id', $accountId)
+                    ->where('device_binding_id', $call->device_binding_id)
+                    ->where('call_id', $call->external_call_id)
+                    ->orderBy('occurred_at')
+                    ->orderBy('id')
+                    ->get()
+                    ->map(fn ($r) => (array) $r)
+                    ->all();
+            }
         }
 
         $callArr = (array) $call;

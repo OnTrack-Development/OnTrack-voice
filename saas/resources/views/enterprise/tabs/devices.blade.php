@@ -35,12 +35,21 @@
 
 <div class="grid-2">
     @forelse ($data['devices'] ?? [] as $dev)
+        @php
+            $rawDev = $dev['device_name'] ?? 'Android Device';
+            $friendlyDevName = $rawDev;
+            if ($rawDev === '22101316I') {
+                $friendlyDevName = 'Xiaomi Redmi Note 12 Pro 5G (22101316I)';
+            } elseif ($rawDev === 'CPH2781') {
+                $friendlyDevName = 'Oppo Reno (CPH2781)';
+            }
+        @endphp
         <div class="card">
             <div class="card-head">
                 <div>
                     <div style="display:flex;align-items:center;gap:8px">
                         <span class="dot {{ !empty($dev['online']) ? 'online' : 'offline' }}"></span>
-                        <h3 class="card-title">{{ $dev['device_name'] }}</h3>
+                        <h3 class="card-title">{{ $friendlyDevName }}</h3>
                         <span class="pill pill-crimson">SIM {{ ((int) $dev['sim_slot']) + 1 }}</span>
                     </div>
                     <p class="card-sub mono" dir="ltr">Rev #{{ $dev['agent_revision'] ?? 1 }} · آخر اتصال: {{ $dev['last_seen_at'] ?: '—' }}</p>

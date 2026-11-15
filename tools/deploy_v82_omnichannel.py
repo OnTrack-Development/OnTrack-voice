@@ -42,6 +42,7 @@ def main():
         "app/Services/Support",
         "app/Services/Knowledge",
         "app/Services/Channels",
+        "app/Services/Mobile/CallLedgerService.php",
         "app/Services/Billing/FeatureGateService.php",
         "app/Http/Controllers/Api/BridgeController.php",
         "app/Http/Controllers/App/AgentStudioController.php",

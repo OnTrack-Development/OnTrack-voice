@@ -11,7 +11,7 @@
 
     $firstFish = $fishKeys->first();
     $fishActiveModel = is_array($firstFish) ? ($firstFish['model'] ?? '') : (is_object($firstFish) ? ($firstFish->model ?? '') : '');
-    if (empty($fishActiveModel)) $fishActiveModel = 'حسب اختيارك / مخصص';
+    if (empty($fishActiveModel)) $fishActiveModel = 'drama-3';
 
     $firstNvidia = $nvidiaKeys->first();
     $nvidiaActiveModel = is_array($firstNvidia) ? ($firstNvidia['model'] ?? '') : (is_object($firstNvidia) ? ($firstNvidia->model ?? '') : '');
@@ -562,11 +562,11 @@ function onDriverChange(driver) {
             inputLabel.value = 'Google Gemini Live Key';
         }
     } else if (driver === 'fish_audio') {
-        inputModel.value = '';
-        inputModel.placeholder = 'اكتب معرف النموذج أو الصوت المخصص (Voice ID / Custom Model)';
+        inputModel.value = 'drama-3';
+        inputModel.placeholder = 'معرف النموذج أو الصوت (مثال: drama-3)';
         inputEndpoint.value = 'https://api.fish.audio/v1';
         if (!inputLabel.value || inputLabel.value.includes('Key') || inputLabel.value.includes('مفتاح')) {
-            inputLabel.value = 'Fish Audio Key';
+            inputLabel.value = 'Fish Audio Primary';
         }
     } else if (driver === 'nvidia') {
         inputModel.value = 'nvidia/parakeet-ctc-1.1b-asr';

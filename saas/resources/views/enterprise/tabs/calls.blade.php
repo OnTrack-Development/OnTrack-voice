@@ -17,22 +17,9 @@
         $activeCall = $items[0];
     }
     $activeArr = $activeCall ? (array) $activeCall : null;
-
-    // Fallback demo matching user's exact screenshot if no call exists yet
-    if (!$activeArr) {
-        $activeArr = [
-            'id' => 1,
-            'phone' => '+201033990988',
-            'caller_number' => '+201033990988',
-            'name' => 'Ahmed Bedir',
-            'agent_name' => 'OnTrack AI',
-            'status' => 'no_answered',
-            'duration_formatted' => '0:41',
-            'duration_seconds' => 41,
-            'created_at_cairo' => '01:49 AM',
-            'effective_summary' => "تضمنت المكالمة محادثة بين المساعد الذكي وعميل يستفسر عن الخدمات المقدمة. أوضح المساعد قدرته على الرد على استفسارات العملاء عبر المكالمات الهاتفية والرسائل والدردشة على الموقع ومساعدة العملاء في حجز المواعيد وشرح الخدمات.",
-            'transcript' => "AI AGENT: أهلاً بك\nAI AGENT: أهلاً بك، أنا المساعد الذكي من OnTrack أقدر أساعدك في الرد على استفسارات العملاء\nAI AGENT: حجز مواعيد أو شرح الخدمة، تحب تبدأ بإيه؟\nCUSTOMER: أحب أعرف بتعمل إيه بالظبط\nAI AGENT: خليني أوضح لك ببساطة\nAI AGENT: أنا مساعد ذكي من OnTrack أقدر أرد فورياً وبصوت طبيعي بشري على استفسارات العملاء في المكالمات الهاتفية والرسائل",
-        ];
+    $activeTranscript = $data['active_transcript'] ?? null;
+    if ($activeArr && empty($activeArr['transcript']) && !empty($activeTranscript)) {
+        $activeArr['transcript'] = $activeTranscript;
     }
 
     $existingLeads = $data['leads'] ?? [];
@@ -241,16 +228,17 @@
         <!-- Call List Stream -->
         <div style="flex:1;overflow-y:auto;" id="callsListStream">
             @php
-                $renderItems = !empty($items) ? $items : [$activeArr];
+                $renderItems = !empty($items) ? $items : ($activeArr ? [$activeArr] : []);
             @endphp
             @foreach ($renderItems as $c)
                 @php
                     $cArr = (array) $c;
                     $cId = $cArr['id'] ?? 0;
-                    $cPhone = !empty($cArr['phone']) ? $cArr['phone'] : (!empty($cArr['caller_number']) ? $cArr['caller_number'] : '+201033990988');
-                    $cTime = $cArr['created_at_cairo'] ?? $cArr['time'] ?? '01:49 ص';
+                    $cPhone = !empty($cArr['phone']) ? $cArr['phone'] : (!empty($cArr['caller_number']) ? $cArr['caller_number'] : '—');
+                    $cName = !empty($cArr['name']) ? $cArr['name'] : '';
+                    $cTime = $cArr['created_at_cairo'] ?? $cArr['time'] ?? '—';
                     $cStatus = strtolower($cArr['status'] ?? 'no_answered');
-                    $isActive = ((int) ($activeArr['id'] ?? 0) === (int) $cId) || ($activeArr['phone'] === $cPhone);
+                    $isActive = ((int) ($activeArr['id'] ?? 0) === (int) $cId);
                     $isNoAnswered = in_array($cStatus, ['no_answered', 'failed', 'missed']);
                 @endphp
                 <a href="/?tab=calls&call_id={{ $cId }}{{ request('status') ? '&status='.request('status') : '' }}" class="ontrack-call-item {{ $isActive ? 'active' : '' }}" data-phone="{{ $cPhone }}">
@@ -260,7 +248,11 @@
                     </div>
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;justify-content:space-between;">
-                            <span style="font-weight:700;font-size:13.5px;color:#0F172A;" dir="ltr">{{ $cPhone }}</span>
+                            @if (!empty($cName))
+                                <span style="font-weight:700;font-size:13.5px;color:#0F172A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">{{ $cName }}</span>
+                            @else
+                                <span style="font-weight:700;font-size:13.5px;color:#0F172A;" dir="ltr">{{ $cPhone }}</span>
+                            @endif
                             <span style="font-size:11px;color:#94A3B8;">{{ $cTime }}</span>
                         </div>
                         <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
@@ -280,12 +272,13 @@
     <div class="ontrack-pane" style="padding:20px;">
         @if ($activeArr)
             @php
-                $activePhone = !empty($activeArr['phone']) ? $activeArr['phone'] : (!empty($activeArr['caller_number']) ? $activeArr['caller_number'] : '+201033990988');
-                $activeDuration = $activeArr['duration_formatted'] ?? '0:41';
+                $activePhone = !empty($activeArr['phone']) ? $activeArr['phone'] : (!empty($activeArr['caller_number']) ? $activeArr['caller_number'] : '—');
+                $activeName = !empty($activeArr['name']) ? $activeArr['name'] : '';
+                $activeDuration = $activeArr['duration_formatted'] ?? ($activeArr['duration_seconds'] ? $activeArr['duration_seconds'].' ثانية' : '0 ثانية');
                 $activeStatus = strtolower($activeArr['status'] ?? 'no_answered');
                 $isNoAns = in_array($activeStatus, ['no_answered', 'failed', 'missed']);
-                $agentName = $activeArr['agent_name'] ?? 'OnTrack AI';
-                $activeSummary = $activeArr['effective_summary'] ?? $activeArr['summary'] ?? "تضمنت المكالمة محادثة بين المساعد الذكي وعميل يستفسر عن الخدمات المقدمة. أوضح المساعد قدرته على الرد على استفسارات العملاء عبر المكالمات الهاتفية والرسائل والدردشة على الموقع ومساعدة العملاء في حجز المواعيد وشرح الخدمات.";
+                $agentName = $activeArr['resolved_agent_name'] ?? $activeArr['agent_name'] ?? 'انجي';
+                $activeSummary = $activeArr['effective_summary'] ?? $activeArr['summary'] ?? "مكالمة مسجلة عبر شريحة الهاتف مع المساعد الذكي.";
             @endphp
 
             <!-- Caller Top Bar -->
@@ -296,10 +289,15 @@
                         <span class="ontrack-avatar-badge" style="width:16px;height:16px;font-size:9px;">📞</span>
                     </div>
                     <div>
-                        <div style="font-weight:700;font-size:18px;color:#0F172A;" dir="ltr">{{ $activePhone }}</div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-weight:700;font-size:18px;color:#0F172A;" dir="ltr">{{ $activePhone }}</span>
+                            @if (!empty($activeName))
+                                <span style="font-size:14px;font-weight:600;color:#475569;">({{ $activeName }})</span>
+                            @endif
+                        </div>
                         <div style="font-size:12px;color:#64748B;display:flex;align-items:center;gap:4px;">
                             <span>مكالمة عبر</span>
-                            <span style="color:#0F172A;font-weight:600;">🤖 إيجنت OnTrack</span>
+                            <span style="color:#0F172A;font-weight:600;">🤖 إيجنت OnTrack ({{ $agentName }})</span>
                         </div>
                     </div>
                 </div>
@@ -516,51 +514,57 @@
         <!-- Chat Conversation Stream (Matching Screenshot 3) -->
         <div style="padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;max-height:520px;background:#FFFFFF;">
             @php
-                $txRaw = (string) ($activeArr['transcript'] ?? '');
-                if (trim($txRaw) === '') {
-                    // Default authentic conversation matching Screenshot 3
-                    $txRaw = "AI AGENT: أهلاً بك\nAI AGENT: أهلاً بك، أنا المساعد الذكي من OnTrack أقدر أساعدك في الرد على استفسارات العملاء\nAI AGENT: حجز مواعيد أو شرح الخدمة، تحب تبدأ بإيه؟\nCUSTOMER: أحب أعرف بتعمل إيه بالظبط\nAI AGENT: خليني أوضح لك ببساطة\nAI AGENT: أنا مساعد ذكي من OnTrack أقدر أرد فورياً وبصوت طبيعي بشري على استفسارات العملاء في المكالمات الهاتفية والرسائل";
-                }
-                $lines = preg_split('/[\r\n]+/', $txRaw);
+                $txRaw = (string) ($active_transcript ?? $activeArr['transcript'] ?? '');
+                $lines = !empty(trim($txRaw)) ? preg_split('/[\r\n]+/', trim($txRaw)) : [];
             @endphp
 
-            @foreach ($lines as $line)
-                @php
-                    $trimmed = trim($line);
-                    if ($trimmed === '') continue;
-                    $isCustomer = str_starts_with($trimmed, 'CUSTOMER:') || str_starts_with($trimmed, 'العميل:') || str_starts_with($trimmed, 'المستخدم:');
-                    $isAi = str_starts_with($trimmed, 'AI AGENT:') || str_starts_with($trimmed, 'AGENT:') || str_starts_with($trimmed, 'الإيجنت:') || str_starts_with($trimmed, 'المساعد:') || str_starts_with($trimmed, 'إيجنت:');
-                    
-                    $msgText = $trimmed;
-                    if ($isCustomer) {
-                        $msgText = trim(preg_replace('/^(CUSTOMER:|العميل:|المستخدم:)/u', '', $trimmed));
-                    } elseif ($isAi) {
-                        $msgText = trim(preg_replace('/^(AI AGENT:|AGENT:|الإيجنت:|المساعد:|إيجنت:)/u', '', $trimmed));
-                    }
-                @endphp
+            @if (empty($lines))
+                <div style="text-align:center;padding:40px 20px;color:#64748B;">
+                    <div style="font-size:42px;margin-bottom:12px;">📄</div>
+                    <strong style="font-size:15px;color:#0F172A;display:block;margin-bottom:6px;">التفريغ النصي غير متوفر لهذه المكالمة</strong>
+                    <p style="font-size:13px;color:#64748B;line-height:1.6;margin:0 auto;max-width:380px;">
+                        {{ !empty($activeSummary) ? 'الملخص الذكي المسجل: ' . $activeSummary : 'هذه المكالمة مسجلة في سجل المكالمات ومدتها ' . $activeDuration . '، ولكن لم يتم تسجيل تفريغ حواري كامل لها.' }}
+                    </p>
+                </div>
+            @else
+                @foreach ($lines as $line)
+                    @php
+                        $trimmed = trim($line);
+                        if ($trimmed === '') continue;
+                        $isCustomer = str_starts_with($trimmed, 'CUSTOMER:') || str_starts_with($trimmed, 'العميل:') || str_starts_with($trimmed, 'المستخدم:') || str_starts_with($trimmed, 'المتصل:') || str_starts_with($trimmed, 'USER:');
+                        $isAi = str_starts_with($trimmed, 'AI AGENT:') || str_starts_with($trimmed, 'AGENT:') || str_starts_with($trimmed, 'الإيجنت:') || str_starts_with($trimmed, 'المساعد:') || str_starts_with($trimmed, 'إيجنت:') || str_starts_with($trimmed, 'اون تراك:') || str_starts_with($trimmed, 'AI:');
+                        
+                        $msgText = $trimmed;
+                        if ($isCustomer) {
+                            $msgText = trim(preg_replace('/^(CUSTOMER:|العميل:|المستخدم:|المتصل:|USER:)/u', '', $trimmed));
+                        } elseif ($isAi) {
+                            $msgText = trim(preg_replace('/^(AI AGENT:|AGENT:|الإيجنت:|المساعد:|إيجنت:|اون تراك:|AI:)/u', '', $trimmed));
+                        }
+                    @endphp
 
-                @if ($isCustomer)
-                    <!-- CUSTOMER Bubble (Left Aligned in RTL / User Bubble, Light Grey) -->
-                    <div style="display:flex;flex-direction:column;align-items:flex-start;width:100%;">
-                        <div style="font-size:10px;font-weight:700;color:#94A3B8;margin-bottom:3px;letter-spacing:0.5px;">
-                            العميل (CUSTOMER)
+                    @if ($isCustomer)
+                        <!-- CUSTOMER Bubble (Left Aligned in RTL / User Bubble, Light Grey) -->
+                        <div style="display:flex;flex-direction:column;align-items:flex-start;width:100%;">
+                            <div style="font-size:10px;font-weight:700;color:#94A3B8;margin-bottom:3px;letter-spacing:0.5px;">
+                                المتصل / العميل (Customer)
+                            </div>
+                            <div style="background:#F1F5F9;color:#0F172A;padding:10px 16px;border-radius:14px 14px 14px 4px;font-size:13.5px;line-height:1.5;max-width:82%;text-align:right;">
+                                {{ $msgText }}
+                            </div>
                         </div>
-                        <div style="background:#F1F5F9;color:#0F172A;padding:10px 16px;border-radius:14px 14px 14px 4px;font-size:13.5px;line-height:1.5;max-width:82%;text-align:right;">
-                            {{ $msgText }}
+                    @else
+                        <!-- AI AGENT Bubble (Right Aligned in RTL / Agent Bubble, Dark Charcoal Slate) -->
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;width:100%;">
+                            <div style="font-size:10px;font-weight:700;color:#94A3B8;margin-bottom:3px;letter-spacing:0.5px;">
+                                إيجنت OnTrack AI ({{ $agentName }})
+                            </div>
+                            <div style="background:#262626;color:#FFFFFF;padding:10px 16px;border-radius:14px 14px 4px 14px;font-size:13.5px;line-height:1.5;max-width:82%;text-align:right;">
+                                {{ $msgText }}
+                            </div>
                         </div>
-                    </div>
-                @else
-                    <!-- AI AGENT Bubble (Right Aligned in RTL / Agent Bubble, Dark Charcoal Slate) -->
-                    <div style="display:flex;flex-direction:column;align-items:flex-end;width:100%;">
-                        <div style="font-size:10px;font-weight:700;color:#94A3B8;margin-bottom:3px;letter-spacing:0.5px;">
-                            إيجنت الذكاء الاصطناعي (OnTrack AI)
-                        </div>
-                        <div style="background:#262626;color:#FFFFFF;padding:10px 16px;border-radius:14px 14px 4px 14px;font-size:13.5px;line-height:1.5;max-width:82%;text-align:right;">
-                            {{ $msgText }}
-                        </div>
-                    </div>
-                @endif
-            @endforeach
+                    @endif
+                @endforeach
+            @endif
         </div>
     </div>
 </div>
