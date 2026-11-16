@@ -85,3 +85,117 @@ jobs:
           }
           if ($successful -eq 0) { throw 'NO_HTTP_ENDPOINT_REACHABLE_FROM_RUNNER' }
           Write-Host 'PUBLIC_HTTP_READ_ONLY_AUDIT_PASS=True'
+      - name: Compare every tracked deployable Laravel source file with production without reading secrets
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sourceMap = @{}
+          $files = & git ls-files -- saas/app saas/routes saas/resources saas/public saas/config saas/bootstrap saas/database
+          if ($LASTEXITCODE -ne 0) { throw 'GIT_LS_FILES_FAILED' }
+          foreach ($path in $files) {
+            if (Test-Path -LiteralPath $path -PathType Leaf) {
+              $normalized = $path.Replace('\','/')
+              if ($normalized.StartsWith('saas/')) {
+                $relative = $normalized.Substring(5)
+                $sourceMap[$relative] = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+              }
+            }
+          }
+          Write-Host ('TRACKED_DEPLOYABLE_SOURCE_COUNT=' + $sourceMap.Count)
+          if ($sourceMap.Count -lt 80) { throw 'SOURCE_MANIFEST_UNEXPECTEDLY_SMALL' }
+          $json = ConvertTo-Json -InputObject $sourceMap -Compress -Depth 4
+          $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($json))
+          $script = @'
+          import base64, hashlib, json
+          from pathlib import Path
+          source = json.loads(base64.b64decode("__MANIFEST_BASE64__"))
+          root = Path("/home/appontrack/iovoice-app")
+          matches, differs, absent, errors = [], [], [], []
+          for rel, expected in sorted(source.items()):
+              p = root / rel
+              try:
+                  if not p.is_file():
+                      absent.append(rel)
+                  else:
+                      digest = hashlib.sha256(p.read_bytes()).hexdigest()
+                      (matches if digest == expected else differs).append(rel)
+              except (OSError, PermissionError):
+                  errors.append(rel)
+          print("DEPLOYABLE_SOURCE_FILE_COUNT=" + str(len(source)))
+          print("DEPLOYABLE_PROD_SHA256_MATCH_COUNT=" + str(len(matches)))
+          print("DEPLOYABLE_PROD_SHA256_DIFFER_COUNT=" + str(len(differs)))
+          print("DEPLOYABLE_PROD_MISSING_COUNT=" + str(len(absent)))
+          print("DEPLOYABLE_PROD_UNREADABLE_COUNT=" + str(len(errors)))
+          for label, values in (("DIFFERENT_PATH", differs), ("MISSING_PATH", absent), ("UNREADABLE_PATH", errors)):
+              for p in values[:100]:
+                  print(label + "|" + p)
+              if len(values) > 100:
+                  print(label + "_TRUNCATED=" + str(len(values)-100))
+          '@
+          $script = $script.Replace('__MANIFEST_BASE64__', $encoded)
+          $key = Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags = @('-i', $key, '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=10', '-o', 'NumberOfPasswordPrompts=0')
+          $script | & ssh.exe @flags -p 7195 'appontrack@65.21.208.232' '/bin/python3 -'
+          if ($LASTEXITCODE -ne 0) { throw 'SERVER_CODE_FINGERPRINT_COMPARISON_FAILED' }
+          Write-Host 'FULL_LARAVEL_SOURCE_FINGERPRINT_AUDIT_PASS=True'
+      - name: Evaluate production-only security markers and live OTA manifests without exposing credentials
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $script = @'
+          import json, re
+          from pathlib import Path
+          root = Path("/home/appontrack/iovoice-app")
+          def src(rel):
+              try:
+                  return (root/rel).read_text(encoding="utf-8", errors="replace")
+              except OSError:
+                  return ""
+          def method(s, name):
+              m = re.search(r"\bfunction\s+" + re.escape(name) + r"\s*\(", s)
+              if not m: return ""
+              rest=s[m.start():]
+              e=re.search(r"\n\s*(?:public|private|protected)\s+function\s+",rest[30:])
+              return rest[:e.start()+30] if e else rest[:12000]
+          bridge=src("app/Http/Controllers/Api/BridgeController.php")
+          auth=method(bridge,"authenticateRequest")
+          studio=src("app/Http/Controllers/App/AgentStudioController.php")
+          session=method(studio,"createLiveSession")
+          routes=src("routes/web.php")
+          workspace=src("app/Http/Controllers/Enterprise/WorkspaceController.php")
+          actions=src("app/Http/Controllers/Enterprise/ActionController.php")
+          widget=src("public/widget/ontrack-widget.js")
+          checks={
+              "BRIDGE_AUTH_METHOD_EXISTS":bool(auth),
+              "BRIDGE_AUTH_USES_HASH_HMAC":bool(re.search(r"\bhash_hmac\s*\(",auth)),
+              "BRIDGE_AUTH_USES_HASH_EQUALS":bool(re.search(r"\bhash_equals\s*\(",auth)),
+              "BRIDGE_AUTH_ACCOUNT_FIRST_FALLBACK":bool(re.search(r"\bAccount::first\s*\(",auth)),
+              "WEB_ROUTES_CONTAIN_PUBLIC_AGENT_SESSION":bool(re.search(r"aivoiceagent.+/session",routes)),
+              "AGENT_SESSION_CONTAINS_GEMINI_WS_URL":("gemini_ws_url" in session),
+              "AGENT_SESSION_MENTIONS_SHARE_TOKEN":("share" in session.lower()),
+              "WORKSPACE_CONTAINS_FIXED_TENANT_1":bool(re.search(r"where\s*\(\s*['\"]tenant_id['\"]\s*,\s*1\s*\)",workspace)),
+              "ACTIONS_HAS_SPECIALIST_TOGGLE":("toggle_specialist_agent" in actions),
+              "WIDGET_HAS_GET_USER_MEDIA":("getUserMedia" in widget),
+              "WIDGET_HAS_WEBSOCKET":("WebSocket" in widget)
+          }
+          for key,value in checks.items():
+              print("PROD_CHECK|" + key + "|" + ("YES" if value else "NO"))
+          base=Path("/home/appontrack/public_html/mobile/updates")
+          for rel in ("latest.json","native/latest.json"):
+              p=base/rel
+              try:
+                  obj=json.loads(p.read_text(encoding="utf-8"))
+                  if not isinstance(obj,dict):
+                      print("OTA_SCHEMA|" + rel + "|NON_OBJECT")
+                      continue
+                  print("OTA_KEYS|" + rel + "|" + ",".join(sorted(obj.keys())[:30]))
+                  for k in ("version","versionName","versionCode","version_name","version_code","revision","ui_revision","native_version_code","native_version"):
+                      val=obj.get(k)
+                      if isinstance(val,(str,int,float,bool)) and len(str(val)) < 100:
+                          print("OTA_PUBLIC_FIELD|" + rel + "|" + k + "|" + str(val))
+              except Exception as e:
+                  print("OTA_PARSE_ERROR|" + rel + "|" + type(e).__name__)
+          '@
+          $key = Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          $flags = @('-i', $key, '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=10', '-o', 'NumberOfPasswordPrompts=0')
+          $script | & ssh.exe @flags -p 7195 'appontrack@65.21.208.232' '/bin/python3 -'
+          if ($LASTEXITCODE -ne 0) { throw 'PRODUCTION_STATIC_CHECK_FAILED' }
+          Write-Host 'PRODUCTION_SECURITY_AND_OTA_METADATA_AUDIT_PASS=True'
