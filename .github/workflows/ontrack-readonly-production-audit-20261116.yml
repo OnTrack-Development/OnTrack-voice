@@ -1,0 +1,87 @@
+name: OnTrack read-only production SSH and OTA audit 2026-11-16
+on:
+  push:
+    branches: [audit/live-verify-20261116]
+    paths:
+      - '.github/workflows/ontrack-readonly-production-audit-20261116.yml'
+permissions:
+  contents: read
+concurrency:
+  group: ontrack-readonly-production-audit-20261116
+  cancel-in-progress: false
+jobs:
+  inspect:
+    name: SSH file fingerprints and public HTTP status only
+    runs-on: [self-hosted, Windows, X64, ontrack-signing-recovery]
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Confirm exact source revision and local code fingerprints
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Host ('REPO_SHA=' + $env:GITHUB_SHA)
+          foreach ($relative in @(
+            'saas/app/Http/Controllers/Api/BridgeController.php',
+            'saas/app/Http/Controllers/App/AgentStudioController.php',
+            'saas/routes/web.php',
+            'saas/public/widget/ontrack-widget.js',
+            'saas/mobile/ota/native_release.json'
+          )) {
+            if (Test-Path -LiteralPath $relative) {
+              $digest = (Get-FileHash -LiteralPath $relative -Algorithm SHA256).Hash.ToLowerInvariant()
+              Write-Host ('SOURCE_SHA256|' + $relative + '|' + $digest)
+            } else {
+              Write-Host ('SOURCE_MISSING|' + $relative)
+            }
+          }
+      - name: Direct authorized SSH read-only host paths and checksums
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $key = Join-Path $env:USERPROFILE '.ssh\ontrack_publish_ed25519'
+          if (-not (Test-Path -LiteralPath $key)) { throw 'RUNNER_SSH_KEY_NOT_FOUND' }
+          $flags = @('-i', $key, '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=10', '-o', 'NumberOfPasswordPrompts=0')
+          $directories = '/home/appontrack/public_html /home/appontrack/public_html/saas /home/appontrack/public_html/saas/console /home/appontrack/iovoice-app /home/appontrack/iovoice-app/public /home/appontrack/public_html/mobile/updates /home/appontrack/public_html/mobile/updates/native'
+          $files = '/home/appontrack/public_html/index.php /home/appontrack/public_html/saas/index.php /home/appontrack/public_html/saas/console/index.php /home/appontrack/iovoice-app/app/Http/Controllers/Api/BridgeController.php /home/appontrack/iovoice-app/app/Http/Controllers/App/AgentStudioController.php /home/appontrack/iovoice-app/routes/web.php /home/appontrack/iovoice-app/public/widget/ontrack-widget.js /home/appontrack/public_html/mobile/updates/latest.json /home/appontrack/public_html/mobile/updates/native/latest.json'
+          $remote = @(
+            'printf "HOST_USER="; id -un'
+            'printf "HOST_UID="; id -u'
+            'date -u +"HOST_UTC=%Y-%m-%dT%H:%M:%SZ"'
+            ('for p in ' + $directories + '; do if test -d "$p"; then stat -c "HOST_DIRECTORY|%n|%U|%a" "$p"; else printf "HOST_MISSING_DIRECTORY|%s\n" "$p"; fi; done')
+            ('for p in ' + $files + '; do if test -f "$p"; then stat -c "HOST_FILE|%n|%s|%Y" "$p"; sha256sum "$p"; else printf "HOST_MISSING_FILE|%s\n" "$p"; fi; done')
+          ) -join '; '
+          & ssh.exe @flags -p 7195 'appontrack@65.21.208.232' $remote
+          if ($LASTEXITCODE -ne 0) { throw ('READ_ONLY_SSH_AUDIT_FAILED=' + $LASTEXITCODE) }
+          Write-Host 'HOST_SSH_READ_ONLY_AUDIT_PASS=True'
+      - name: Inspect public HTTPS status and OTA version markers only
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $successful = 0
+          foreach ($url in @(
+            'https://app.ontrackegy.com/',
+            'https://app.ontrackegy.com/mobile/updates/latest.json',
+            'https://app.ontrackegy.com/mobile/updates/native/latest.json',
+            'https://app.ontrackegy.com/api/v1/bridge/status'
+          )) {
+            try {
+              $response = Invoke-WebRequest -Uri $url -Method Get -SkipHttpErrorCheck -TimeoutSec 18
+              Write-Host ('HTTP_STATUS|' + $url + '|' + [int]$response.StatusCode)
+              if ([int]$response.StatusCode -gt 0) { $successful++ }
+              if ($url.EndsWith('latest.json') -and [int]$response.StatusCode -eq 200) {
+                try {
+                  $manifest = ConvertFrom-Json -InputObject $response.Content -AsHashtable
+                  Write-Host ('OTA_VERSION|' + $url + '|code=' + $manifest['version_code'] + '|name=' + $manifest['version_name'] + '|revision=' + $manifest['revision'])
+                } catch {
+                  Write-Host ('OTA_JSON_UNPARSEABLE|' + $url)
+                }
+              }
+            } catch {
+              Write-Host ('HTTP_UNREACHABLE|' + $url + '|' + $_.Exception.GetType().Name)
+            }
+          }
+          if ($successful -eq 0) { throw 'NO_HTTP_ENDPOINT_REACHABLE_FROM_RUNNER' }
+          Write-Host 'PUBLIC_HTTP_READ_ONLY_AUDIT_PASS=True'
