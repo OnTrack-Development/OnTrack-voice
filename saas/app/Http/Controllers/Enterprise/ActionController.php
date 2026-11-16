@@ -241,6 +241,18 @@ class ActionController extends Controller
 
                 return ['success' => 'تمت إضافة الموقع الجديد.'];
 
+            case 'toggle_specialist_agent':
+                $this->ctx->requirePermission($ctx, 'agents.write');
+                $spId = (int) $r->input('specialist_id', 0);
+                $sp = DB::table('support_specialist_agents')->where('id', $spId)->first();
+                if ($sp) {
+                    $newVal = ((int) $sp->is_active === 1) ? 0 : 1;
+                    DB::table('support_specialist_agents')->where('id', $spId)->update(['is_active' => $newVal]);
+                    $this->ctx->audit($userId, $accountId, 'specialist_agent.toggled', ['id' => $spId, 'is_active' => $newVal]);
+                }
+
+                return ['success' => 'تم تحديث حالة تفعيل الوكيل المتخصص بنجاح.'];
+
             case 'create_agent':
                 $this->ctx->requirePermission($ctx, 'agents.write');
                 if (! $this->ctx->canCreate($accountId, 'agent')) {

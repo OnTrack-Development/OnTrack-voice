@@ -274,6 +274,53 @@ class WorkspaceController extends Controller
             'q' => $request->query('voice_q'),
         ]);
 
+        // Query WHMCS Support Specialist Agents & Strict Contracts
+        $specialists = [];
+        $contracts = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('support_specialist_agents')) {
+                $specialists = DB::table('support_specialist_agents')
+                    ->where(function ($q) use ($accountId) {
+                        $q->where('account_id', $accountId)->orWhere('is_system', 1);
+                    })
+                    ->orderBy('id')
+                    ->get()
+                    ->map(function ($s) {
+                        $arr = (array) $s;
+                        try {
+                            $arr['contracts'] = DB::table('support_contracts')
+                                ->join('support_agent_contracts', 'support_contracts.id', '=', 'support_agent_contracts.contract_id')
+                                ->where('support_agent_contracts.agent_id', $s->id)
+                                ->select('support_contracts.*')
+                                ->get()
+                                ->map(function ($c) {
+                                    $cArr = (array) $c;
+                                    $cArr['allowed_tools'] = json_decode((string) ($c->allowed_tools ?? '[]'), true) ?: [];
+                                    $cArr['forbidden_actions'] = json_decode((string) ($c->forbidden_actions ?? '[]'), true) ?: [];
+                                    $cArr['read_permissions'] = json_decode((string) ($c->read_permissions ?? '[]'), true) ?: [];
+                                    $cArr['escalation_rules'] = json_decode((string) ($c->escalation_rules ?? '[]'), true) ?: [];
+                                    return $cArr;
+                                })
+                                ->all();
+                        } catch (\Throwable $e) {
+                            $arr['contracts'] = [];
+                        }
+                        return $arr;
+                    })
+                    ->all();
+            }
+
+            if (\Illuminate\Support\Facades\Schema::hasTable('support_contracts')) {
+                $contracts = DB::table('support_contracts')->get()->map(function ($c) {
+                    $cArr = (array) $c;
+                    $cArr['allowed_tools'] = json_decode((string) ($c->allowed_tools ?? '[]'), true) ?: [];
+                    $cArr['forbidden_actions'] = json_decode((string) ($c->forbidden_actions ?? '[]'), true) ?: [];
+                    $cArr['read_permissions'] = json_decode((string) ($c->read_permissions ?? '[]'), true) ?: [];
+                    return $cArr;
+                })->all();
+            }
+        } catch (\Throwable $e) {}
+
         return [
             'selected_agent' => $selectedAgent,
             'policy' => $policy,
@@ -281,6 +328,8 @@ class WorkspaceController extends Controller
             'kb_sources' => $kbSources,
             'connectors' => $connectors,
             'voices' => $voices,
+            'specialist_agents' => $specialists,
+            'support_contracts' => $contracts,
             'io_state' => $this->voices->ioPremiumState(),
             'io_access' => $this->voices->ioPremiumAccessPolicy(),
             'can_create_agent' => $this->ctx->canCreate($accountId, 'agent'),
@@ -642,7 +691,52 @@ class WorkspaceController extends Controller
             ->limit(30)
             ->get();
 
-        return ['tickets' => $tickets];
+        $knowledgeSources = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('knowledge_sources')) {
+                $knowledgeSources = DB::table('knowledge_sources')
+                    ->where('tenant_id', 1)
+                    ->orderBy('id')
+                    ->get()
+                    ->map(function ($ks) {
+                        $arr = (array) $ks;
+                        $arr['chunks'] = DB::table('knowledge_chunks')
+                            ->join('knowledge_source_versions', 'knowledge_chunks.source_version_id', '=', 'knowledge_source_versions.id')
+                            ->where('knowledge_source_versions.knowledge_source_id', $ks->id)
+                            ->get(['knowledge_chunks.*'])
+                            ->map(fn($c)=>(array)$c)
+                            ->all();
+                        return $arr;
+                    })
+                    ->all();
+            }
+        } catch (\Throwable $e) {}
+
+        $patterns = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('support_learning_patterns')) {
+                $patterns = DB::table('support_learning_patterns')
+                    ->where('account_id', $accountId)
+                    ->orderByDesc('confidence')
+                    ->get()
+                    ->map(fn($p)=>(array)$p)
+                    ->all();
+            }
+        } catch (\Throwable $e) {}
+
+        $specialists = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('support_specialist_agents')) {
+                $specialists = DB::table('support_specialist_agents')->where('is_active', 1)->get()->map(fn($s)=>(array)$s)->all();
+            }
+        } catch (\Throwable $e) {}
+
+        return [
+            'tickets' => $tickets,
+            'knowledge_sources' => $knowledgeSources,
+            'learning_patterns' => $patterns,
+            'specialist_agents' => $specialists,
+        ];
     }
 
     private function leadsData(int $accountId): array
@@ -858,6 +952,39 @@ class WorkspaceController extends Controller
 
     private function integrationsData(int $accountId): array
     {
+        $account = DB::table('accounts')->where('id', $accountId)->first();
+        $slug = $account->slug ?? 'acc_' . $accountId;
+
+        $tenant = null;
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('tenants')) {
+                $tenant = DB::table('tenants')->where('id', 1)->first();
+            }
+        } catch (\Throwable $e) {}
+
+        $knowledgeCount = 0;
+        $chunksCount = 0;
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('knowledge_sources')) {
+                $knowledgeCount = DB::table('knowledge_sources')->where('tenant_id', 1)->count();
+                $chunksCount = DB::table('knowledge_chunks')->count();
+            }
+        } catch (\Throwable $e) {}
+
+        $patternsCount = 0;
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('support_learning_patterns')) {
+                $patternsCount = DB::table('support_learning_patterns')->where('account_id', $accountId)->count();
+            }
+        } catch (\Throwable $e) {}
+
+        $specialistsCount = 0;
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('support_specialist_agents')) {
+                $specialistsCount = DB::table('support_specialist_agents')->where('is_active', 1)->count();
+            }
+        } catch (\Throwable $e) {}
+
         $connectedBridges = [];
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('business_connectors')) {
@@ -869,14 +996,22 @@ class WorkspaceController extends Controller
             }
         } catch (\Throwable $e) {}
 
-        $account = DB::table('accounts')->where('id', $accountId)->first();
-        $slug = $account->slug ?? 'acc_' . $accountId;
-
         return [
+            'account' => (array) $account,
+            'tenant' => (array) $tenant,
             'api_key' => 'otint_' . $slug,
+            'secret_key' => hash('sha256', $slug . '_secret_vault_salt'),
             'whmcs_zip_url' => '/downloads/ontrack_bridge.zip',
             'whmcs_zip_size' => '12.9 KB',
             'zero_retention_mode' => true,
+            'cpanel_diagnostics_mode' => true,
+            'auto_reply_mode' => true,
+            'client_widget_mode' => true,
+            'knowledge_sources_count' => $knowledgeCount,
+            'knowledge_chunks_count' => $chunksCount,
+            'learning_patterns_count' => $patternsCount,
+            'specialists_count' => $specialistsCount,
+            'endpoint_url' => 'https://app.ontrackegy.com',
             'connected_bridges' => $connectedBridges,
         ];
     }

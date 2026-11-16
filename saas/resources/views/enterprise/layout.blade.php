@@ -44,6 +44,9 @@
             .topbar-desktop-only {
                 display: none !important;
             }
+            .mobile-only-brand {
+                display: inline-block !important;
+            }
             .topbar-left, .topbar-right {
                 flex-wrap: nowrap !important;
                 gap: 8px !important;
@@ -245,12 +248,12 @@
 @endif
 
 @if (($ctx['is_platform'] ?? false) === false && ($data['credits'] ?? 100) <= 0)
-<!-- Out of credits alert banner (Matching Screenshot 1 & 2) -->
-<div style="background:#FFFFFF;color:#EF4444;border-bottom:1px solid #F1F5F9;padding:6px 16px;text-align:center;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;">
-    <span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1.5px solid #EF4444;font-size:9.5px;font-weight:800;">!</span>
-    <span>Out of credits</span>
-    <span style="color:#64748B;font-weight:400;">Calls, messages, campaigns and AI are paused until you top up.</span>
-    <a href="/?tab=billing" style="background:#0F172A;color:#FFFFFF;padding:2px 10px;border-radius:6px;font-size:11px;text-decoration:none;font-weight:700;">Top up</a>
+<!-- Out of credits alert banner (100% Arabic RTL) -->
+<div style="background:#FFFFFF;color:#EF4444;border-bottom:1px solid #F1F5F9;padding:8px 16px;text-align:center;font-size:12.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;">
+    <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1.5px solid #EF4444;font-size:10px;font-weight:800;">!</span>
+    <span>تنبيه الرصيد:</span>
+    <span style="color:#64748B;font-weight:400;">المكالمات، الرسائل، الحملات والذكاء الاصطناعي متوقفة مؤقتاً حتى إعادة الشحن.</span>
+    <a href="/?tab=billing" style="background:#0F172A;color:#FFFFFF;padding:3px 12px;border-radius:6px;font-size:11.5px;text-decoration:none;font-weight:700;margin-right:6px;">شحن الرصيد</a>
 </div>
 @endif
 
@@ -450,6 +453,7 @@
         <header class="topbar">
             <div class="topbar-left" style="display:flex;align-items:center;gap:12px;">
                 <button type="button" class="btn btn-icon mobile-toggle" onclick="toggleSidebar()" aria-label="القائمة" style="color:#FFF;background:none;border:none;font-size:20px;cursor:pointer;">☰</button>
+                <span class="mobile-only-brand" style="display:none;font-weight:700;font-size:14px;color:#FFFFFF;letter-spacing:-0.3px;">OnTrack Voice</span>
                 <div class="topbar-desktop-only" style="position:relative;display:flex;align-items:center;">
                     <input type="text" placeholder="بحث برقم الهاتف، الاسم، أو البريد... (Ctrl + K)" style="background:#1E293B;color:#FFF;border:1px solid rgba(255,255,255,0.1);padding:6px 14px 6px 36px;border-radius:20px;font-size:12px;width:240px;outline:none;" onkeydown="if(event.key==='k' && (event.ctrlKey||event.metaKey)){event.preventDefault();this.focus();}">
                     <span style="position:absolute;left:12px;color:#94A3B8;font-size:13px;">🔍</span>
@@ -462,7 +466,7 @@
             </div>
 
             <div class="topbar-right" style="display:flex;align-items:center;gap:10px;">
-                <button type="button" class="btn btn-sm" onclick="alert('مساعد OnTrack AI جاهز لمساعدتك في أي سؤال حول المنصة أو الإيجنت.')" style="background:linear-gradient(135deg, #8B5CF6, #06B6D4);color:#FFF;border:none;border-radius:20px;font-weight:700;display:flex;align-items:center;gap:6px;box-shadow:0 4px 15px rgba(139,92,246,0.3);padding:6px 14px;font-size:12px;">
+                <button type="button" class="btn btn-sm topbar-desktop-only" onclick="alert('مساعد OnTrack AI جاهز لمساعدتك في أي سؤال حول المنصة أو الإيجنت.')" style="background:linear-gradient(135deg, #8B5CF6, #06B6D4);color:#FFF;border:none;border-radius:20px;font-weight:700;display:flex;align-items:center;gap:6px;box-shadow:0 4px 15px rgba(139,92,246,0.3);padding:6px 14px;font-size:12px;">
                     <span>✨</span>
                     <span>+ اسأل OnTrack AI</span>
                 </button>

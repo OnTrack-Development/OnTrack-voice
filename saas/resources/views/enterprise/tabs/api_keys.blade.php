@@ -169,7 +169,7 @@
                 </p>
             </div>
             <div style="font-size:11.5px;color:#3B82F6;font-weight:600;">
-                الموديل: {{ $googleActiveModel }}
+                يدعم كافة نماذج Gemini (Flash / Pro / Live) حسب اختيارك
             </div>
         </div>
 
@@ -189,7 +189,7 @@
                 </p>
             </div>
             <div style="font-size:11.5px;color:#10B981;font-weight:600;">
-                الموديل: {{ $fishActiveModel }}
+                يدعم كافة نماذج وأصوات Fish Audio المخصصة
             </div>
         </div>
 
@@ -209,7 +209,7 @@
                 </p>
             </div>
             <div style="font-size:11.5px;color:#65A30D;font-weight:600;">
-                الموديل: {{ $nvidiaActiveModel }}
+                يدعم نماذج Riva ASR ومعالجة الحوار فائقة السرعة
             </div>
         </div>
 
@@ -229,7 +229,7 @@
                 </p>
             </div>
             <div style="font-size:11.5px;color:#7C3AED;font-weight:600;">
-                نقاط نهاية مخصصة (BYOK)
+                يدعم أي نموذج خارجي أو نقطة نهاية (BYOK)
             </div>
         </div>
     </div>
@@ -432,12 +432,23 @@
                 <input type="text" name="label" id="inputLabel" placeholder="مثال: Google Live Primary Key أو Fish Audio Main" required style="width:100%;padding:9px 12px;font-size:13px;border:1px solid #CBD5E1;border-radius:8px;outline:none;background:#FFF;color:#0F172A;">
             </div>
 
-            <!-- Model Field -->
+            <!-- Model Field with Dynamic Suggestions -->
             <div>
                 <label style="font-size:12.5px;font-weight:700;color:#0F172A;display:block;margin-bottom:6px;">
                     معرف الموديل (Model ID)
                 </label>
-                <input type="text" name="model" id="inputModel" value="{{ $googleActiveModel }}" placeholder="معرف النموذج (مثال: gemini-3.8-live)" required style="width:100%;padding:9px 12px;font-size:13px;border:1px solid #CBD5E1;border-radius:8px;outline:none;background:#FFF;color:#0F172A;font-family:monospace;">
+                <input type="text" name="model" id="inputModel" list="modelSuggestionsList" value="gemini-2.0-flash" placeholder="اكتب أو اختر معرف النموذج..." required style="width:100%;padding:9px 12px;font-size:13px;border:1px solid #CBD5E1;border-radius:8px;outline:none;background:#FFF;color:#0F172A;font-family:monospace;direction:ltr;">
+                <datalist id="modelSuggestionsList">
+                    <option value="gemini-2.0-flash">Google Gemini 2.0 Flash (مستقر وسريع)</option>
+                    <option value="gemini-1.5-flash">Google Gemini 1.5 Flash</option>
+                    <option value="gemini-1.5-pro">Google Gemini 1.5 Pro</option>
+                    <option value="drama-3">Fish Audio Drama-3 (عربي فائق الفخامة)</option>
+                    <option value="speech-1.5">Fish Audio Speech-1.5</option>
+                    <option value="s2-pro">Fish Audio S2-Pro</option>
+                    <option value="nvidia/parakeet-ctc-1.1b-asr">NVIDIA Riva Parakeet ASR</option>
+                    <option value="deepseek-chat">DeepSeek Chat</option>
+                    <option value="gpt-4o-mini">OpenAI GPT-4o-mini</option>
+                </datalist>
             </div>
 
             <!-- Custom Endpoint (Optional/Auto-filled) -->
@@ -554,8 +565,8 @@ function onDriverChange(driver) {
     const inputLabel = document.getElementById('inputLabel');
 
     if (driver === 'google_live') {
-        inputModel.value = '{{ $googleActiveModel }}';
-        inputModel.placeholder = 'معرف النموذج (مثال: gemini-3.8-live)';
+        inputModel.value = 'gemini-2.0-flash';
+        inputModel.placeholder = 'معرف النموذج (مثال: gemini-2.0-flash أو gemini-1.5-flash)';
         inputEndpoint.value = '';
         inputEndpoint.placeholder = 'اتركه فارغاً للاستخدام السحابي الافتراضي (Google WebSockets)';
         if (!inputLabel.value || inputLabel.value.includes('Key') || inputLabel.value.includes('مفتاح')) {
@@ -563,7 +574,7 @@ function onDriverChange(driver) {
         }
     } else if (driver === 'fish_audio') {
         inputModel.value = 'drama-3';
-        inputModel.placeholder = 'معرف النموذج أو الصوت (مثال: drama-3)';
+        inputModel.placeholder = 'معرف النموذج أو الصوت (مثال: drama-3 أو s2-pro)';
         inputEndpoint.value = 'https://api.fish.audio/v1';
         if (!inputLabel.value || inputLabel.value.includes('Key') || inputLabel.value.includes('مفتاح')) {
             inputLabel.value = 'Fish Audio Primary';

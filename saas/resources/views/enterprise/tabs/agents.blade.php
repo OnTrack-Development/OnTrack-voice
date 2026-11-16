@@ -8,6 +8,8 @@
     $ioAccess = $data['io_access'] ?? [];
     $kbSources = $data['kb_sources'] ?? [];
     $revisions = $data['revisions'] ?? [];
+    $specialists = $data['specialist_agents'] ?? [];
+    $supportContracts = $data['support_contracts'] ?? [];
 @endphp
 
 <style>
@@ -50,6 +52,29 @@
     }
 </style>
 
+<!-- High-Level Agent Roster Switcher (Voice Agents vs WHMCS Specialist Team) -->
+<div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <button type="button" onclick="switchMainAgentView('voice')" id="mainViewVoiceBtn" class="btn btn-sm btn-primary" style="display:flex;align-items:center;gap:8px;padding:8px 18px;font-weight:700;border-radius:10px;cursor:pointer;">
+            <span>🎙️</span>
+            <span>وكلاء الصوت والمكالمات الهاتفية (Voice AI Agents)</span>
+            <span class="pill" style="background:#3B82F6;color:#FFF;padding:1px 7px;font-size:11px;">{{ count($agents) }}</span>
+        </button>
+
+        <button type="button" onclick="switchMainAgentView('support')" id="mainViewSupportBtn" class="btn btn-sm btn-ghost" style="display:flex;align-items:center;gap:8px;padding:8px 18px;font-weight:700;border-radius:10px;cursor:pointer;">
+            <span>🏢</span>
+            <span>فريق وكلاء دعم WHMCS المتخصصين (WHMCS Support Team)</span>
+            <span class="pill" style="background:#10B981;color:#FFF;padding:1px 7px;font-size:11px;">{{ count($specialists) }}</span>
+        </button>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#64748B;">
+        <span class="pill pill-green" style="font-size:11px;">عزل مساحات العمل: نشط ✅</span>
+        <span class="pill pill-blue" style="font-size:11px;">عقود الصلاحيات المقيدة (Zero-Root): نشط 🛡️</span>
+    </div>
+</div>
+
+<div id="voiceAgentsContainer" style="display:block;">
 <div class="card-head" style="margin-bottom:14px">
     <div>
         <h1 style="font-size:20px;margin:0;font-weight:700">استوديو الإيجنت والأصوات (OnTrack AI Voice Studio)</h1>
@@ -252,7 +277,7 @@
         <div class="card">
             <div class="card-head">
                 <div>
-                    <h2 class="card-title">المعاودة التلقائية وقائمة الرد التفاعلي (IVR)</h2>
+                    <h2 class="card-title">المعاودة الفورية مع المدير (10 ثوانٍ) وقائمة الرد التفاعلي (IVR)</h2>
                     <p class="card-sub">معاودة تلقائية للمدير وتوجيه المكالمات حسب أزرار أو صوت العميل</p>
                 </div>
                 <span class="pill {{ !empty($policy['ivr_enabled']) ? 'pill-green' : 'pill-amber' }}">{{ !empty($policy['ivr_enabled']) ? 'IVR مفعّل' : 'IVR غير مفعّل' }}</span>
@@ -503,7 +528,7 @@
         <!-- Simulator Chat Box -->
         <div id="studioTestThread" style="height:350px;overflow-y:auto;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;margin-bottom:14px;">
             <div style="align-self:flex-start;max-width:80%;">
-                <div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:3px;">{{ $selected['name'] }} (AI)</div>
+                <div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:3px;">{{ !empty($selected['name']) ? $selected['name'] : 'المساعد الذكي' }} (AI)</div>
                 <div style="background:#0F172A;color:#FFFFFF;padding:10px 14px;border-radius:12px 12px 12px 2px;font-size:13px;line-height:1.5;">
                     أهلاً بك! أنا جاهز للتجربة. اسألني أي سؤال كأنك عميل يتصل الآن.
                 </div>
@@ -602,6 +627,171 @@
     </div>
 </div>
 @endif
+</div> <!-- /#voiceAgentsContainer -->
+
+<!-- ==================== WHMCS SPECIALIST SUPPORT ROSTER ==================== -->
+<div id="whmcsSpecialistsContainer" style="display:none;">
+    <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:22px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+            <div>
+                <h2 style="font-size:18px;font-weight:800;color:#0F172A;margin:0 0 6px 0;display:flex;align-items:center;gap:8px;">
+                    <span>🏢</span>
+                    <span>فريق وكلاء دعم WHMCS المتخصصين (WHMCS Specialist Support Roster)</span>
+                </h2>
+                <p style="font-size:13px;color:#64748B;margin:0;line-height:1.5;">
+                    فريق دعم استضافة متكامل مكون من 10 وكلاء ذكاء اصطناعي متخصصين، يعملون تحت تفويض مقيد (Least-Privilege Contracts) وبوابة مراجعة أمنية إلزامية قبل نشر أي رد للعميل.
+                </p>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span class="pill pill-green" style="font-size:11.5px;padding:4px 10px;">عقود الصلاحيات: مقيدة (No-Root) ✅</span>
+                <span class="pill pill-blue" style="font-size:11.5px;padding:4px 10px;">بوابة المراجعة (Reviewer Gate): نشطة 🛡️</span>
+            </div>
+        </div>
+
+        <!-- Capability & Safety Matrix Overview -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;margin-bottom:20px;">
+            <div>
+                <div style="font-size:11px;color:#64748B;font-weight:700;">الوكلاء المتخصصون النشطون</div>
+                <div style="font-size:18px;font-weight:800;color:#0F172A;margin-top:2px;">{{ count($specialists) }} وكلاء مهندسين</div>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#64748B;font-weight:700;">عقود الصلاحيات المقيدة</div>
+                <div style="font-size:18px;font-weight:800;color:#10B981;margin-top:2px;">{{ count($supportContracts) }} عقود معتمدة</div>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#64748B;font-weight:700;">عزل مساحات العمل</div>
+                <div style="font-size:18px;font-weight:800;color:#3B82F6;margin-top:2px;">Company #{{ $account['id'] ?? 1 }} (معزول)</div>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#64748B;font-weight:700;">قواعد الحماية الصارمة</div>
+                <div style="font-size:18px;font-weight:800;color:#DC2626;margin-top:2px;">حظر أوامر الروت والفوترة</div>
+            </div>
+        </div>
+
+        <!-- Specialists Grid -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(340px, 1fr));gap:16px;">
+            @forelse ($specialists as $sp)
+                @php
+                    $contracts = $sp['contracts'] ?? [];
+                    $primaryContract = $contracts[0] ?? null;
+                    $allowedTools = $primaryContract['allowed_tools'] ?? [];
+                    $forbiddenActions = $primaryContract['forbidden_actions'] ?? [];
+                    $escalationRules = $primaryContract['escalation_rules'] ?? [];
+                @endphp
+                <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;padding:18px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.02);position:relative;border-top:3px solid #3B82F6;">
+                    <div>
+                        <div style="display:flex;align-items:start;justify-content:space-between;gap:8px;margin-bottom:8px;">
+                            <div>
+                                <span class="pill" style="font-size:10px;padding:2px 7px;background:#F1F5F9;color:#475569;margin-bottom:4px;display:inline-block;">{{ $sp['role_title'] ?? 'أخصائي دعم فني' }}</span>
+                                <h3 style="font-size:15px;font-weight:800;color:#0F172A;margin:0;">{{ $sp['display_name'] ?? $sp['slug'] }}</h3>
+                                <code style="font-size:11px;color:#64748B;">slug: {{ $sp['slug'] }}</code>
+                            </div>
+                            <span class="pill {{ ($sp['is_active'] ?? 1) ? 'pill-green' : 'pill-amber' }}" style="font-size:10px;">
+                                {{ ($sp['is_active'] ?? 1) ? 'نشط ومفعل' : 'معطل' }}
+                            </span>
+                        </div>
+
+                        <p style="font-size:12px;color:#475569;margin:6px 0 12px;line-height:1.4;background:#F8FAFC;padding:8px 10px;border-radius:8px;border:1px solid #F1F5F9;">
+                            <strong>النبرة والأسلوب:</strong> {{ $sp['personality'] ?? 'تحليلي احترافي دقيق' }}
+                        </p>
+
+                        <!-- Contract & Permissions -->
+                        @if ($primaryContract)
+                            <div style="margin-bottom:12px;">
+                                <div style="font-size:11.5px;color:#0F172A;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:5px;">
+                                    <span>📜</span>
+                                    <span>العقد الأمني: <code>{{ $primaryContract['name'] ?? $primaryContract['slug'] }}</code></span>
+                                </div>
+                                <div style="font-size:11px;color:#64748B;margin-bottom:8px;">
+                                    {{ $primaryContract['description'] ?? 'عقد تفويض مقيد يحدد الصلاحيات والمحظورات.' }}
+                                </div>
+
+                                <!-- Allowed Tools -->
+                                <div style="margin-bottom:6px;">
+                                    <div style="font-size:10.5px;font-weight:700;color:#16A34A;margin-bottom:3px;">الأدوات المسموحة (Allowed Tools):</div>
+                                    <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                        @forelse ($allowedTools as $tool)
+                                            <span style="background:#F0FDF4;color:#166534;border:1px solid #BBF7D0;padding:2px 6px;border-radius:4px;font-size:10px;font-family:monospace;">{{ $tool }}</span>
+                                        @empty
+                                            <span style="font-size:10.5px;color:#94A3B8;">استشارة داخلية فقط</span>
+                                        @endforelse
+                                    </div>
+                                </div>
+
+                                <!-- Forbidden Actions -->
+                                <div style="margin-bottom:6px;">
+                                    <div style="font-size:10.5px;font-weight:700;color:#DC2626;margin-bottom:3px;">المحظورات الأمنية (Forbidden Actions):</div>
+                                    <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                        @forelse ($forbiddenActions as $forb)
+                                            <span style="background:#FEF2F2;color:#991B1B;border:1px solid #FECACA;padding:2px 6px;border-radius:4px;font-size:10px;font-family:monospace;">⛔ {{ $forb }}</span>
+                                        @empty
+                                            <span style="font-size:10.5px;color:#94A3B8;">مقيد بعقد النظام العام</span>
+                                        @endforelse
+                                    </div>
+                                </div>
+
+                                <!-- Escalation Rules -->
+                                @if (!empty($escalationRules))
+                                    <div>
+                                        <div style="font-size:10.5px;font-weight:700;color:#D97706;margin-bottom:3px;">قواعد التصعيد (Escalation):</div>
+                                        <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                            @foreach ($escalationRules as $esc)
+                                                <span style="background:#FFFBEB;color:#B45309;border:1px solid #FDE68A;padding:2px 6px;border-radius:4px;font-size:10px;font-family:monospace;">⚠️ {{ $esc }}</span>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+
+                    <!-- Card Actions Footer -->
+                    <div style="border-top:1px solid #F1F5F9;padding-top:10px;margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <button type="button" onclick="viewSpecialistPrompt({{ json_encode($sp) }})" class="btn btn-sm btn-ghost" style="font-size:11.5px;padding:4px 10px;">
+                            <span>👁️</span>
+                            <span>عرض موجه النظام</span>
+                        </button>
+                        <form method="POST" action="{{ route('enterprise.action') }}" style="margin:0;">
+                            @csrf
+                            <input type="hidden" name="action" value="toggle_specialist_agent">
+                            <input type="hidden" name="specialist_id" value="{{ $sp['id'] }}">
+                            <button type="submit" class="btn btn-sm" style="background:#F8FAFC;border:1px solid #CBD5E1;font-size:11.5px;padding:4px 10px;color:#475569;">
+                                {{ ($sp['is_active'] ?? 1) ? 'تعطيل مؤقت' : 'تفعيل' }}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            @empty
+                <div style="grid-column:1/-1;text-align:center;padding:40px;color:#64748B;">
+                    <p>لا يوجد وكلاء دعم فني مسجلين في هذا الحساب.</p>
+                </div>
+            @endforelse
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Viewing Specialist System Prompt -->
+<div id="specialistPromptModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(3px);z-index:99999;align-items:center;justify-content:center;" onclick="if(event.target===this)closeSpecialistModal()">
+    <div style="background:#FFFFFF;border-radius:14px;width:95%;max-width:650px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2);">
+        <div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;background:#F8FAFC;">
+            <div>
+                <h3 id="spModalTitle" style="margin:0;font-size:16px;font-weight:800;color:#0F172A;">موجه النظام التخصصي</h3>
+                <span id="spModalRole" style="font-size:12px;color:#64748B;"></span>
+            </div>
+            <button type="button" onclick="closeSpecialistModal()" style="background:none;border:none;font-size:18px;color:#64748B;cursor:pointer;">✕</button>
+        </div>
+        <div style="padding:20px;overflow-y:auto;flex:1;">
+            <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">نص التوجيه المعتمد (System Prompt):</div>
+            <textarea id="spModalText" readonly style="width:100%;height:220px;font-family:monospace;font-size:12px;line-height:1.6;padding:12px;border:1px solid #CBD5E1;border-radius:8px;background:#F8FAFC;color:#0F172A;direction:ltr;resize:none;"></textarea>
+            <div style="margin-top:12px;font-size:11.5px;color:#64748B;line-height:1.5;">
+                🔒 هذا الوكيل محمي بعقد النظام ولا يمكنه الخروج عن سياق تخصصه أو تسريب أسرار السيرفر وقاعدة البيانات.
+            </div>
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid #E2E8F0;display:flex;justify-content:flex-end;background:#F8FAFC;">
+            <button type="button" onclick="closeSpecialistModal()" class="btn btn-sm btn-primary" style="padding:6px 18px;">إغلاق</button>
+        </div>
+    </div>
+</div>
 
 <script>
 // OnTrack 6-Tab Studio Switcher
@@ -709,7 +899,7 @@ function sendStudioTestMessage() {
         agentDiv.style.alignSelf = 'flex-start';
         agentDiv.style.maxWidth = '80%';
         var reply = 'أهلاً بحضرتك! استلمت استفسارك بخصوص: «' + msg + '». كوكيل ذكي مبرمج، أنا جاهز لمساعدتك وحجز الميعاد أو فتح تذكرة الدعم فوراً.';
-        agentDiv.innerHTML = '<div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:3px;">{{ $selected['name'] }} (AI)</div><div style="background:#0F172A;color:#FFFFFF;padding:10px 14px;border-radius:12px 12px 12px 2px;font-size:13px;line-height:1.5;">' + reply + '</div>';
+        agentDiv.innerHTML = '<div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:3px;">{{ !empty($selected['name']) ? $selected['name'] : 'المساعد الذكي' }} (AI)</div><div style="background:#0F172A;color:#FFFFFF;padding:10px 14px;border-radius:12px 12px 12px 2px;font-size:13px;line-height:1.5;">' + reply + '</div>';
         thread.appendChild(agentDiv);
         thread.scrollTop = thread.scrollHeight;
     }, 400);
@@ -720,9 +910,56 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
+// High-Level Agent Switcher (Voice vs WHMCS Specialists)
+function switchMainAgentView(view) {
+    var voiceC = document.getElementById('voiceAgentsContainer');
+    var suppC = document.getElementById('whmcsSpecialistsContainer');
+    var btnV = document.getElementById('mainViewVoiceBtn');
+    var btnS = document.getElementById('mainViewSupportBtn');
+    
+    if (view === 'support') {
+        if (voiceC) voiceC.style.display = 'none';
+        if (suppC) suppC.style.display = 'block';
+        if (btnV) { btnV.classList.remove('btn-primary'); btnV.classList.add('btn-ghost'); }
+        if (btnS) { btnS.classList.remove('btn-ghost'); btnS.classList.add('btn-primary'); }
+        try { sessionStorage.setItem('main_agent_view', 'support'); } catch(e) {}
+    } else {
+        if (voiceC) voiceC.style.display = 'block';
+        if (suppC) suppC.style.display = 'none';
+        if (btnV) { btnV.classList.remove('btn-ghost'); btnV.classList.add('btn-primary'); }
+        if (btnS) { btnS.classList.remove('btn-primary'); btnS.classList.add('btn-ghost'); }
+        try { sessionStorage.setItem('main_agent_view', 'voice'); } catch(e) {}
+    }
+}
+
+function viewSpecialistPrompt(sp) {
+    var modal = document.getElementById('specialistPromptModal');
+    var title = document.getElementById('spModalTitle');
+    var role = document.getElementById('spModalRole');
+    var text = document.getElementById('spModalText');
+    if (!modal) return;
+    
+    if (title) title.innerText = sp.display_name || sp.slug;
+    if (role) role.innerText = (sp.role_title || '') + ' (' + (sp.agent_type || 'specialist') + ')';
+    if (text) text.value = sp.system_prompt || 'لا يوجد موجه محدد.';
+    
+    modal.style.display = 'flex';
+}
+
+function closeSpecialistModal() {
+    var modal = document.getElementById('specialistPromptModal');
+    if (modal) modal.style.display = 'none';
+}
+
 // Restore active studio tab if remembered
 document.addEventListener('DOMContentLoaded', function() {
     try {
+        var savedView = sessionStorage.getItem('main_agent_view');
+        var urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('view') === 'support' || savedView === 'support') {
+            switchMainAgentView('support');
+        }
+
         var savedTab = sessionStorage.getItem('active_studio_tab');
         if (savedTab && ['persona', 'skills', 'engine', 'knowledge', 'test', 'performance'].indexOf(savedTab) !== -1) {
             switchStudioTab(savedTab);

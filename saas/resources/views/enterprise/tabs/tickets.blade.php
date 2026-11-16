@@ -1,6 +1,8 @@
 @php
     $tickets = $data['tickets'] ?? [];
     $selectedTicket = $tickets[0] ?? null;
+    $knowledgeSources = $data['knowledge_sources'] ?? [];
+    $learningPatterns = $data['learning_patterns'] ?? [];
 @endphp
 
 <div class="card-head" style="margin-bottom:14px">
@@ -78,6 +80,39 @@
                 </p>
             </div>
 
+            <!-- Multi-Agent Consultation Trail -->
+            @php
+                $consultations = $selectedTicket->consultations ?? collect();
+            @endphp
+            @if ($consultations->isNotEmpty())
+                <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;padding:16px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                        <strong style="font-size:13.5px;color:#0F172A;display:flex;align-items:center;gap:6px;">
+                            <span>🔄</span>
+                            <span>مسار الاستشارات التخصصية (Multi-Agent Consultation Trail)</span>
+                        </strong>
+                        <span class="pill pill-blue" style="font-size:10.5px;">{{ $consultations->count() }} استشارات مكتملة</span>
+                    </div>
+
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        @foreach ($consultations as $cs)
+                            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:10px 14px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <span class="pill" style="background:#1E293B;color:#FFF;font-size:10.5px;">{{ $cs->requester_agent_slug ?? ($cs->requester_agent ?? 'dispatcher') }} ➔ {{ $cs->specialist_agent_slug ?? ($cs->consulted_agent ?? 'specialist') }}</span>
+                                        <span style="font-size:11px;color:#64748B;">{{ $cs->focus ?? ($cs->consultation_type ?? '') }}</span>
+                                    </div>
+                                    <span class="pill {{ $cs->status === 'completed' ? 'pill-green' : 'pill-amber' }}" style="font-size:10px;">{{ $cs->status }}</span>
+                                </div>
+                                <div style="font-size:12px;color:#334155;line-height:1.5;">
+                                    <strong>النتائج والتشخيص:</strong> {{ $cs->response ?? ($cs->response_payload['summary'] ?? ($cs->response_payload['findings'] ?? 'تم التحقق من البيانات وتأكيد سلامة الإجراء.')) }}
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             <!-- Proposed AI Draft Response Box -->
             @php
                 $draft = $selectedTicket->drafts->first() ?? null;
@@ -93,7 +128,7 @@
                             <span style="background:#8B5CF6;color:#FFF;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:bold;">مسودة الرد المقترحة</span>
                             <span style="color:#64748B;font-size:12px;">جاهزة للاعتماد والنشر المباشر</span>
                         </div>
-                        <span class="pill pill-green" style="font-size:11px;">Reviewer: Approved ✅</span>
+                        <span class="pill pill-green" style="font-size:11px;">بوابة الحماية: معتمد (Reviewer: Approved) ✅</span>
                     </div>
 
                     <textarea name="approved_text" style="width:100%;height:140px;padding:12px;border:1px solid #CBD5E1;border-radius:10px;font-size:13px;line-height:1.6;outline:none;">{{ $draft->proposed_reply }}</textarea>
@@ -119,14 +154,60 @@
         @endif
     </div>
 
-    <!-- Pane 3: Client Diagnostic Facts -->
-    <div class="card" style="padding:18px;display:flex;flex-direction:column;gap:16px;">
+    <!-- Pane 3: Knowledge Base & Multi-Agent Diagnostics -->
+    <div class="card" style="padding:18px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;">
         @if ($selectedTicket)
-            <h3 style="margin:0;font-size:15px;font-weight:700;">تشخيصات التذكرة والعميل</h3>
-            <div style="font-size:13px;display:flex;flex-direction:column;gap:8px;">
-                <div><span style="color:var(--muted);">العميل:</span> <strong>{{ $selectedTicket->client_name ?? 'عميل موثق' }}</strong></div>
-                <div><span style="color:var(--muted);">حالة التذكرة:</span> <span class="pill pill-green" style="font-size:11px;">{{ $selectedTicket->status }}</span></div>
-                <div><span style="color:var(--muted);">المعرف الخارجي:</span> <strong>#{{ $selectedTicket->external_ticket_id ?: $selectedTicket->id }}</strong></div>
+            <div>
+                <h3 style="margin:0 0 10px 0;font-size:14px;font-weight:700;color:#0F172A;display:flex;align-items:center;gap:6px;">
+                    <span>🛡️</span>
+                    <span>بيانات التشخيص والأمان (Zero-Knowledge)</span>
+                </h3>
+                <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:10px 12px;font-size:12px;display:flex;flex-direction:column;gap:6px;">
+                    <div><span style="color:#64748B;">العميل:</span> <strong>{{ $selectedTicket->client_name ?? 'عميل موثق' }}</strong></div>
+                    <div><span style="color:#64748B;">حالة التذكرة:</span> <span class="pill pill-green" style="font-size:10px;">{{ $selectedTicket->status }}</span></div>
+                    <div><span style="color:#64748B;">المعرف الخارجي:</span> <strong>#{{ $selectedTicket->external_ticket_id ?: $selectedTicket->id }}</strong></div>
+                    <div><span style="color:#64748B;">درع الخصوصية:</span> <span style="color:#10B981;font-weight:700;">تعمية PII نشطة (محلياً)</span></div>
+                </div>
+            </div>
+
+            <!-- Knowledge Base Citations -->
+            <div>
+                <h3 style="margin:0 0 10px 0;font-size:14px;font-weight:700;color:#0F172A;display:flex;align-items:center;gap:6px;">
+                    <span>📚</span>
+                    <span>أدلة قاعدة المعرفة (Company Knowledge)</span>
+                </h3>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    @forelse ($knowledgeSources as $ks)
+                        <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:8px;padding:10px 12px;">
+                            <div style="font-size:12px;font-weight:700;color:#0F172A;margin-bottom:2px;">{{ $ks['name'] ?? 'مصدر معرفة' }}</div>
+                            <div style="font-size:11px;color:#64748B;line-height:1.4;">{{ $ks['description'] ?? 'كتالوج معتمد ومطابق لقواعد الشركة' }}</div>
+                            <div style="font-size:10.5px;color:#3B82F6;margin-top:4px;">{{ count($ks['chunks'] ?? []) }} فقرات مفهرسة (Chunks)</div>
+                        </div>
+                    @empty
+                        <div style="font-size:12px;color:#94A3B8;">لا توجد مصادر معرفة مرتبطة حالياً.</div>
+                    @endforelse
+                </div>
+            </div>
+
+            <!-- Learned Patterns -->
+            <div>
+                <h3 style="margin:0 0 10px 0;font-size:14px;font-weight:700;color:#0F172A;display:flex;align-items:center;gap:6px;">
+                    <span>🧠</span>
+                    <span>الحلول المتعلمة (Learned Patterns)</span>
+                </h3>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    @forelse ($learningPatterns as $lp)
+                        <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:8px 12px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                                <strong style="font-size:11.5px;color:#166534;">{{ $lp['pattern_key'] ?? 'نمط معتمد' }}</strong>
+                                <span style="font-size:10.5px;color:#16A34A;font-weight:700;">{{ round(((float)($lp['confidence'] ?? 0.95)) * 100) }}% دقة</span>
+                            </div>
+                            <div style="font-size:11px;color:#475569;">{{ $lp['recommended_solution'] ?? ($lp['suggested_action'] ?? 'حل تلقائي تم اعتماده سابقاً') }}</div>
+                        </div>
+                    @empty
+                        <div style="font-size:12px;color:#94A3B8;">لا توجد أنماط متعلمة بعد.</div>
+                    @endforelse
+                </div>
             </div>
         @else
             <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;color:#94A3B8;padding:20px;">

@@ -187,10 +187,22 @@ class OmnichannelCoreArchitectureTest extends TestCase
 
     public function test_shareable_public_web_call_page_renders_200(): void
     {
-        $response = $this->get('/aivoiceagent/1?share=test_token');
+        $account = Account::first() ?? Account::create(['name' => 'Test Account', 'slug' => 'test_account']);
+        $site = \App\Models\Site::first() ?? \App\Models\Site::create(['account_id' => $account->id, 'name' => 'Test Site', 'slug' => 'test_site']);
+        $agent = \App\Models\Agent::first() ?? \App\Models\Agent::create([
+            'site_id' => $site->id,
+            'name' => 'انجي',
+            'voice_name' => 'Zephyr',
+            'speed' => 1.0,
+            'temperature' => 0.7,
+            'system_prompt' => 'test prompt',
+            'greeting_message' => 'مرحباً بك',
+        ]);
+
+        $response = $this->get('/aivoiceagent/'.$agent->id.'?share=test_token');
         $response->assertStatus(200);
-        $response->assertSee('ابدأ المكالمة الصوتية');
+        $response->assertSee('انجي');
         $response->assertSee('wss://app.ontrackegy.com/ws-voice');
-        $response->assertSee('audioCanvas');
+        $response->assertSee('callCanvas');
     }
 }

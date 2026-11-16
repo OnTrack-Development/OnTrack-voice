@@ -22,6 +22,14 @@
         $activeArr['transcript'] = $activeTranscript;
     }
 
+    $activePhone = !empty($activeArr['phone']) ? $activeArr['phone'] : (!empty($activeArr['caller_number']) ? $activeArr['caller_number'] : '—');
+    $activeName = !empty($activeArr['name']) ? $activeArr['name'] : '';
+    $activeDuration = !empty($activeArr['duration_formatted']) ? $activeArr['duration_formatted'] : (!empty($activeArr['duration_seconds']) ? $activeArr['duration_seconds'].' ثانية' : '0 ثانية');
+    $activeStatus = strtolower($activeArr['status'] ?? 'no_answered');
+    $isNoAns = in_array($activeStatus, ['no_answered', 'failed', 'missed']);
+    $agentName = $activeArr['resolved_agent_name'] ?? $activeArr['agent_name'] ?? 'انجي';
+    $activeSummary = $activeArr['effective_summary'] ?? $activeArr['summary'] ?? "مكالمة مسجلة عبر شريحة الهاتف مع المساعد الذكي.";
+
     $existingLeads = $data['leads'] ?? [];
 @endphp
 
@@ -281,6 +289,12 @@
                 $activeSummary = $activeArr['effective_summary'] ?? $activeArr['summary'] ?? "مكالمة مسجلة عبر شريحة الهاتف مع المساعد الذكي.";
             @endphp
 
+            <!-- Meta Header Strip for Accessibility & Cairo Time -->
+            <div style="font-size:11px;color:#64748B;padding:6px 14px;border-bottom:1px solid #F1F5F9;display:flex;justify-content:space-between;background:#F8FAFC;border-radius:8px;margin-bottom:14px;">
+                <span>التاريخ (القاهرة): <strong style="color:#0F172A;">{{ $activeArr['created_at_cairo'] ?? 'الآن' }}</strong></span>
+                <span>ملخص المكالمة</span>
+            </div>
+
             <!-- Caller Top Bar -->
             <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid #F1F5F9;margin-bottom:18px;">
                 <div style="display:flex;align-items:center;gap:12px;">
@@ -514,8 +528,10 @@
         <!-- Chat Conversation Stream (Matching Screenshot 3) -->
         <div style="padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;max-height:520px;background:#FFFFFF;">
             @php
-                $txRaw = (string) ($active_transcript ?? $activeArr['transcript'] ?? '');
+                $txRaw = (string) ($active_transcript ?? (!empty($activeArr['transcript']) ? $activeArr['transcript'] : ''));
                 $lines = !empty(trim($txRaw)) ? preg_split('/[\r\n]+/', trim($txRaw)) : [];
+                $modalDuration = !empty($activeDuration) ? $activeDuration : (!empty($activeArr['duration_formatted']) ? $activeArr['duration_formatted'] : '0 ثانية');
+                $modalSummary = !empty($activeSummary) ? $activeSummary : (!empty($activeArr['summary']) ? $activeArr['summary'] : '');
             @endphp
 
             @if (empty($lines))
@@ -523,7 +539,7 @@
                     <div style="font-size:42px;margin-bottom:12px;">📄</div>
                     <strong style="font-size:15px;color:#0F172A;display:block;margin-bottom:6px;">التفريغ النصي غير متوفر لهذه المكالمة</strong>
                     <p style="font-size:13px;color:#64748B;line-height:1.6;margin:0 auto;max-width:380px;">
-                        {{ !empty($activeSummary) ? 'الملخص الذكي المسجل: ' . $activeSummary : 'هذه المكالمة مسجلة في سجل المكالمات ومدتها ' . $activeDuration . '، ولكن لم يتم تسجيل تفريغ حواري كامل لها.' }}
+                        {{ !empty($modalSummary) ? 'الملخص الذكي المسجل: ' . $modalSummary : 'هذه المكالمة مسجلة في سجل المكالمات ومدتها ' . $modalDuration . '، ولكن لم يتم تسجيل تفريغ حواري كامل لها.' }}
                     </p>
                 </div>
             @else

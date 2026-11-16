@@ -7,7 +7,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-class ZoieOmnichannelTabsTest extends TestCase
+class OnTrackOmnichannelTabsTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -47,14 +47,14 @@ class ZoieOmnichannelTabsTest extends TestCase
         ]);
     }
 
-    public function test_all_zoie_tabs_render_uniquely_without_fallback_to_overview(): void
+    public function test_all_ontrack_tabs_render_uniquely_without_fallback_to_overview(): void
     {
         $tabsToCheck = [
             'overview' => 'نظرة عامة على التشغيل',
             'leads' => 'العملاء المحتملون (Leads CRM)',
             'appointments' => 'المواعيد وجدولة الاتصالات',
             'reports' => 'التقارير والتحليلات الشاملة',
-            'calls' => 'المكالمات (Calls)',
+            'calls' => 'نص وتفريغ المكالمة',
             'messages' => 'Messages',
             'tickets' => 'تذاكر الدعم ومحرك الوكلاء المتعددين',
             'widget' => 'مُنشئ ومُخصص ودجت الموقع',
